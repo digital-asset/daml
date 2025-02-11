@@ -839,7 +839,7 @@ object Generators {
       workflowId <- Arbitrary.arbString.arbitrary
       effectiveAt <- instantGen
       nodeIds <- genNodeTree(maxDepth = 5, maxChildren = 5).map(assignIdsInPreOrder)
-      multipleRoots <- Gen.oneOf(Gen.const(false), Gen.const(nodeIds.size > 1))
+      multipleRoots <- Gen.oneOf(Gen.const(false), Gen.const(nodeIds.sizeIs > 1))
       nodeIdsFiltered = if (multipleRoots) nodeIds.filterNot(_.id == 0) else nodeIds
       eventsById <- Gen.sequence(nodeIdsFiltered.map { case NodeIds(start, end) =>
         treeEventGen(start, end)

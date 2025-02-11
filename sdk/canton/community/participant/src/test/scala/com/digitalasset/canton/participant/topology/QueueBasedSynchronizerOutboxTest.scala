@@ -216,7 +216,7 @@ class QueueBasedSynchronizerOutboxTest
               )
           else FutureUnlessShutdown.unit
         }
-        _ = if (buffer.length >= expect.get()) {
+        _ = if (buffer.sizeIs >= expect.get()) {
           promise.get().success(UnlessShutdown.Outcome(batches.toSeq))
         }
       } yield {

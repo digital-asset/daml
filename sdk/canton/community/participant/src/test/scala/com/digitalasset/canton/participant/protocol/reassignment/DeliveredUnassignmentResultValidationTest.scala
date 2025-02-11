@@ -11,7 +11,6 @@ import com.digitalasset.canton.data.ViewType.{AssignmentViewType, UnassignmentVi
 import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.participant.protocol.reassignment.DeliveredUnassignmentResultValidation.{
-  IncorrectInformees,
   IncorrectRequestId,
   IncorrectRootHash,
   IncorrectSignatures,
@@ -58,10 +57,6 @@ class DeliveredUnassignmentResultValidationTest
 
   private val observer: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("observer::party")
-  ).toLf
-
-  private val otherParty: LfPartyId = PartyId(
-    UniqueIdentifier.tryFromProtoPrimitive("other::party")
   ).toLf
 
   private val submittingParticipant = ParticipantId(
@@ -141,7 +136,7 @@ class DeliveredUnassignmentResultValidationTest
       unassignmentRequestTs = requestId.unwrap,
       unassignmentDecisionTime = decisionTime,
       sourceTopology = Source(cryptoSnapshot),
-      targetTopology = Target(cryptoSnapshot.ipsSnapshot),
+      targetTopologyTargetTs = Target(cryptoSnapshot.ipsSnapshot),
     )(result).validate.value.futureValueUS
 
   // Transform the ConfirmationResultMessage and apply validation
@@ -295,22 +290,6 @@ class DeliveredUnassignmentResultValidationTest
       ).left.value shouldBe IncorrectRootHash(expectedRootHash, incorrectRootHash)
     }
 
-    "detect incorrect informees" in {
-      val expectedInformees = stakeholders + submittingParticipant.adminParty.toLf
-      val missingParty = Set(signatory)
-      val tooManyParties = expectedInformees + otherParty
-
-      updateAndValidate(_.copy(informees = expectedInformees)).value shouldBe ()
-      updateAndValidate(_.copy(informees = missingParty)).left.value shouldBe IncorrectInformees(
-        expectedInformees,
-        missingParty,
-      )
-      updateAndValidate(_.copy(informees = tooManyParties)).left.value shouldBe IncorrectInformees(
-        expectedInformees,
-        tooManyParties,
-      )
-    }
-
     "detect sequencing time which is after decision time" in {
       val incorrectSequencingTime = decisionTime.plusMillis(1)
 
@@ -378,7 +357,7 @@ class DeliveredUnassignmentResultValidationTest
         unassignmentRequestTs = requestId.unwrap,
         unassignmentDecisionTime = decisionTime,
         sourceTopology = Source(cryptoSnapshot),
-        targetTopology = Target(targetTopology),
+        targetTopologyTargetTs = Target(targetTopology),
       )(unassignmentResult).validate.value.futureValueUS
 
       validate(cryptoSnapshot.ipsSnapshot).value shouldBe ()

@@ -131,6 +131,8 @@ final case class UnsupportedProtoCodec[
   )
 }
 
+// In the versioning framework, such calls are legitimate
+@SuppressWarnings(Array("com.digitalasset.canton.ProtobufToByteString"))
 object VersionedProtoCodec {
   def withDependency[
       ValueClass,

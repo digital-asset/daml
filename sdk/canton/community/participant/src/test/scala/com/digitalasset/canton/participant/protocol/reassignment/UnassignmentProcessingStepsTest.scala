@@ -834,7 +834,6 @@ final class UnassignmentProcessingStepsTest
           RequestId(CantonTimestamp.Epoch),
           rootHash,
           Verdict.Approve(testedProtocolVersion),
-          Set(),
           testedProtocolVersion,
         )
 

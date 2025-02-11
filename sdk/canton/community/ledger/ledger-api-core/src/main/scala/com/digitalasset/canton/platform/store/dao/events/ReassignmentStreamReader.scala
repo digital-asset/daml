@@ -194,7 +194,7 @@ class ReassignmentStreamReader(
           workflowId = rawUnassignEntry.workflowId.getOrElse(""),
           offset = rawUnassignEntry.offset,
           event = Reassignment.Event.UnassignedEvent(
-            TransactionsReader.toUnassignedEvent(rawUnassignEntry.event)
+            UpdateReader.toUnassignedEvent(rawUnassignEntry.event)
           ),
           recordTime = Some(TimestampConversion.fromLf(rawUnassignEntry.recordTime)),
         )
@@ -218,7 +218,7 @@ class ReassignmentStreamReader(
               workflowId = rawAssignEntry.workflowId.getOrElse(""),
               offset = rawAssignEntry.offset,
               event = Reassignment.Event.AssignedEvent(
-                TransactionsReader.toAssignedEvent(
+                UpdateReader.toAssignedEvent(
                   rawAssignEntry.event,
                   createdEvent,
                 )

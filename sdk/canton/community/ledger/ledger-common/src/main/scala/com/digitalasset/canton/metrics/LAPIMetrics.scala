@@ -23,7 +23,7 @@ class LAPIMetrics private[metrics] (
   final class ThreadpoolMetrics private[LAPIMetrics] {
     private val prefix: MetricName = LAPIMetrics.this.prefix :+ "threadpool"
 
-    val apiReadServices: MetricName = prefix :+ "api_read_services"
+    val apiQueryServices: MetricName = prefix :+ "api_query_services"
 
     // Private constructor to avoid being instantiated multiple times by accident
     final class IndexBypassMetrics private[ThreadpoolMetrics] {

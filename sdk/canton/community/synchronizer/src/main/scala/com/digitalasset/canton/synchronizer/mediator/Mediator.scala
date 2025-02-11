@@ -108,13 +108,14 @@ private[mediator] class Mediator(
 
   private val deduplicator = MediatorEventDeduplicator.create(
     state.deduplicationStore,
+    state.finalizedResponseStore,
     verdictSender,
     syncCrypto.ips,
     protocolVersion,
     loggerFactory,
   )
 
-  private val eventsProcessor = MediatorEventsProcessor(
+  private val eventsProcessor = new MediatorEventsProcessor(
     topologyTransactionProcessor.createHandler(synchronizerId),
     processor,
     deduplicator,
@@ -279,6 +280,9 @@ private[mediator] class Mediator(
           tracedEvents: Traced[Seq[BoxedEnvelope[OrdinarySequencedEvent, ClosedEnvelope]]]
       ): HandlerResult =
         tracedEvents.withTraceContext { implicit traceContext => events =>
+          // update the delay logger using the latest event we've been handed
+          events.lastOption.foreach(e => delayLogger.checkForDelay(e))
+
           val tracedOpenEventsWithRejectionsF = events.map { closedSignedEvent =>
             val closedEvent = closedSignedEvent.signedEvent.content
 
@@ -314,10 +318,6 @@ private[mediator] class Mediator(
           }
 
           val (tracedOpenEvents, rejectionsF) = tracedOpenEventsWithRejectionsF.unzip
-
-          // update the delay logger using the latest event we've been handed
-          events.lastOption.foreach(e => delayLogger.checkForDelay(e))
-
           logger.debug(s"Processing ${tracedOpenEvents.size} events for the mediator")
 
           val result = FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(

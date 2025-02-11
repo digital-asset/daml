@@ -170,18 +170,15 @@ object ParticipantAdminCommands {
         synchronizeVetting: Boolean,
         description: String,
         expectedMainPackageId: String,
+        requestHeaders: Map[String, String],
         logger: TracedLogger,
     ) extends PackageCommand[v30.UploadDarRequest, v30.UploadDarResponse, String] {
 
       override protected def createRequest(): Either[String, v30.UploadDarRequest] =
         for {
-          nonEmptyPathValue <- Either.cond(
-            darPath.nonEmpty,
-            darPath,
-            "Provided DAR path is empty",
-          )
-          filename = Paths.get(nonEmptyPathValue).getFileName.toString
-          darData <- BinaryFileUtil.readByteStringFromFile(nonEmptyPathValue)
+          _ <- Either.cond(darPath.nonEmpty, (), "Provided DAR path is empty")
+          filenameAndDarData <- loadDarData(darPath)
+          (filename, darData) = filenameAndDarData
           descriptionOrFilename =
             if (description.isEmpty) PathUtils.getFilenameWithoutExtension(Path.of(filename))
             else description
@@ -192,6 +189,22 @@ object ParticipantAdminCommands {
           synchronizeVetting = synchronizeVetting,
           expectedMainPackageId = expectedMainPackageId,
         )
+
+      private def loadDarData(darPath: String): Either[String, (String, ByteString)] = if (
+        darPath.startsWith("http")
+      ) {
+        val file = Files.createTempFile("cantonTempDar", ".dar").toFile
+        file.deleteOnExit()
+        for {
+          _ <- BinaryFileUtil.downloadFile(darPath, file.toString, requestHeaders)
+          darData <- BinaryFileUtil.readByteStringFromFile(file.toString)
+        } yield (darPath, darData)
+      } else {
+        val filename = Paths.get(darPath).getFileName.toString
+        for {
+          darData <- BinaryFileUtil.readByteStringFromFile(darPath)
+        } yield (filename, darData)
+      }
 
       override protected def submitRequest(
           service: PackageServiceStub,

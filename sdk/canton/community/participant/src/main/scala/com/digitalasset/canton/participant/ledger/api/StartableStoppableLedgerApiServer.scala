@@ -23,7 +23,6 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.http.HttpApiServer
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
 import com.digitalasset.canton.ledger.api.health.HealthChecks
@@ -40,6 +39,7 @@ import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.ledger.participant.state.metrics.TimedSyncService
 import com.digitalasset.canton.ledger.participant.state.{InternalStateService, PackageSyncService}
 import com.digitalasset.canton.lifecycle.*
+import com.digitalasset.canton.lifecycle.LifeCycle.FastCloseableChannel
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{
   ApiRequestLogger,
@@ -48,6 +48,7 @@ import com.digitalasset.canton.networking.grpc.{
 }
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
+import com.digitalasset.canton.platform.ResourceOwnerOps
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
 import com.digitalasset.canton.platform.apiserver.ratelimiting.{
@@ -132,6 +133,9 @@ class StartableStoppableLedgerApiServer(
             )
             Future.unit
           case None =>
+            logger.info(
+              "Starting ledger API server."
+            )
             val ledgerApiServerResource =
               buildLedgerApiServerOwner().acquire()(
                 ResourceContext(executionContext)
@@ -155,16 +159,17 @@ class StartableStoppableLedgerApiServer(
     execQueue.execute(
       ledgerApiResource.get match {
         case Some(ledgerApiServerToStop) =>
+          logger.info("Stopping ledger API server")
           config.syncService.unregisterInternalStateService()
           FutureUtil.logOnFailure(
             ledgerApiServerToStop.release().map { _ =>
-              logger.debug("Successfully stopped ledger API server")
+              logger.info("Successfully stopped ledger API server")
               ledgerApiResource.set(None)
             },
             "Failed to stop ledger API server",
           )
         case None =>
-          logger.debug("ledger API server already stopped")
+          logger.info("ledger API server already stopped")
           Future.unit
       },
       "stop ledger API server",
@@ -172,7 +177,7 @@ class StartableStoppableLedgerApiServer(
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
     TraceContext.withNewTraceContext { implicit traceContext =>
-      logger.debug("Shutting down ledger API server")
+      logger.info("Shutting down ledger API server")
       Seq(
         AsyncCloseable("ledger API server", stop().unwrap, timeouts.shutdownNetwork),
         SyncCloseable("ledger-api-server-queue", execQueue.close()),
@@ -207,31 +212,36 @@ class StartableStoppableLedgerApiServer(
     val dbSupport = ledgerApiStore.value.ledgerApiDbSupport
     val inMemoryState = ledgerApiIndexer.value.inMemoryState
     val timedSyncService = new TimedSyncService(config.syncService, config.metrics)
-
+    logger.debug(
+      s"Ledger API Server is initializing with ledgerApiStore=$ledgerApiStore, ledgerApiIndexer=$ledgerApiIndexer, dbSupport=$dbSupport, inMemoryState=$inMemoryState"
+    )
     for {
       contractLoader <- {
         import config.cantonParameterConfig.ledgerApiServerParameters.contractLoader.*
-        ContractLoader.create(
-          contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(
-            inMemoryState.stringInterningView
-          ),
-          dbDispatcher = dbSupport.dbDispatcher,
-          metrics = config.metrics,
-          maxQueueSize = maxQueueSize.value,
-          maxBatchSize = maxBatchSize.value,
-          parallelism = parallelism.value,
-          loggerFactory = loggerFactory,
-        )
+        ContractLoader
+          .create(
+            contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(
+              inMemoryState.stringInterningView
+            ),
+            dbDispatcher = dbSupport.dbDispatcher,
+            metrics = config.metrics,
+            maxQueueSize = maxQueueSize.value,
+            maxBatchSize = maxBatchSize.value,
+            parallelism = parallelism.value,
+            loggerFactory = loggerFactory,
+          )
+          .afterReleased(logger.info("ContractLoader released"))
       }
-      readApiServiceExecutionContext <- ResourceOwner
+      queryExecutionContext <- ResourceOwner
         .forExecutorService(() =>
           InstrumentedExecutors.newWorkStealingExecutor(
-            config.metrics.lapi.threadpool.apiReadServices.toString,
-            indexServiceConfig.apiReadServicesThreadPoolSize.getOrElse(
-              IndexServiceConfig.DefaultApiServicesThreadPoolSize(noTracingLogger)
+            config.metrics.lapi.threadpool.apiQueryServices.toString,
+            indexServiceConfig.apiQueryServicesThreadPoolSize.getOrElse(
+              IndexServiceConfig.DefaultQueryServicesThreadPoolSize(noTracingLogger)
             ),
           )
         )
+        .afterReleased(logger.info("ReadApiServiceExecutionContext released"))
       indexService <- new IndexServiceOwner(
         dbSupport = dbSupport,
         config = indexServiceConfig,
@@ -253,7 +263,8 @@ class StartableStoppableLedgerApiServer(
             timedSyncService.getLfArchive(packageId)(loggingContext.traceContext),
           loggerFactory = loggerFactory,
         ),
-        readApiServiceExecutionContext = readApiServiceExecutionContext,
+        queryExecutionContext = queryExecutionContext,
+        commandExecutionContext = executionContext,
       )
       _ = timedSyncService.registerInternalStateService(new InternalStateService {
         override def activeContracts(
@@ -331,8 +342,8 @@ class StartableStoppableLedgerApiServer(
         otherServices = Seq(apiInfoService),
         otherInterceptors = getInterceptors(dbSupport.dbDispatcher.executor),
         engine = config.engine,
-        readApiServicesExecutionContext = readApiServiceExecutionContext,
-        writeApiServicesExecutionContext = executionContext,
+        queryExecutionContext = queryExecutionContext,
+        commandExecutionContext = executionContext,
         checkOverloaded = config.syncService.checkOverloaded,
         ledgerFeatures = getLedgerFeatures,
         maxDeduplicationDuration = config.maxDeduplicationDuration,
@@ -472,7 +483,12 @@ class StartableStoppableLedgerApiServer(
               ClientChannelBuilder
                 .createChannelBuilderToTrustedServer(config.serverConfig.clientConfig)
                 .build()
-            )(channel => Future(channel.shutdown().discard))
+            )(channel =>
+              Future(
+                new FastCloseableChannel(channel, logger, "JSON-API").close()
+              )
+            )
+            .afterReleased(noTracingLogger.info("JSON-API gRPC channel is released"))
           _ <- HttpApiServer(
             jsonApiConfig,
             config.serverConfig.tls,
@@ -481,7 +497,7 @@ class StartableStoppableLedgerApiServer(
             loggerFactory,
           )(
             config.jsonApiMetrics
-          )
+          ).afterReleased(noTracingLogger.info("JSON-API HTTP Server is released"))
         } yield ()
       }
 }

@@ -5,16 +5,9 @@ package com.digitalasset.canton.console
 
 import ammonite.util.Bind
 import cats.syntax.either.*
+import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveInt}
-import com.digitalasset.canton.config.{
-  ConsoleCommandTimeout,
-  NonNegativeDuration,
-  NonNegativeFiniteDuration,
-  PositiveDurationSeconds,
-  PositiveFiniteDuration,
-  ProcessingTimeout,
-}
 import com.digitalasset.canton.console.CommandErrors.{
   CantonCommandError,
   CommandInternalError,
@@ -36,7 +29,7 @@ import com.digitalasset.canton.sequencing.{
 }
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.{ParticipantId, PartyId}
-import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
+import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.{LfPartyId, SynchronizerAlias}
 import com.typesafe.scalalogging.Logger
 import io.opentelemetry.api.trace.Tracer
@@ -87,9 +80,7 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
     consoleEnvironmentBindings.predefCode(interactive, noTty)
   protected def consoleEnvironmentBindings: ConsoleEnvironmentBinding
 
-  private val tracerProvider =
-    TracerProvider.Factory(environment.configuredOpenTelemetry, "console")
-  private[console] val tracer: Tracer = tracerProvider.tracer
+  private[console] val tracer: Tracer = environment.tracerProvider.tracer
 
   /** Definition of the startup order of local instances.
     * Nodes support starting up in any order however to avoid delays/warnings we opt to start in the most desirable order
@@ -119,7 +110,7 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
   protected def createAdminCommandRunner(
       consoleEnvironment: ConsoleEnvironment,
       apiName: String,
-  ): ConsoleGrpcAdminCommandRunner = new ConsoleGrpcAdminCommandRunner(consoleEnvironment, apiName)
+  ): GrpcAdminCommandRunner = GrpcAdminCommandRunner(consoleEnvironment, apiName)
 
   protected override val loggerFactory: NamedLoggerFactory = environment.loggerFactory
 
@@ -211,13 +202,13 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
   }
 
   // lazy to prevent publication of this before this has been fully initialized
-  lazy val grpcAdminCommandRunner: ConsoleGrpcAdminCommandRunner =
+  lazy val grpcAdminCommandRunner: GrpcAdminCommandRunner =
     createAdminCommandRunner(this, CantonGrpcUtil.ApiName.AdminApi)
 
-  lazy val grpcLedgerCommandRunner: ConsoleGrpcAdminCommandRunner =
+  lazy val grpcLedgerCommandRunner: GrpcAdminCommandRunner =
     createAdminCommandRunner(this, CantonGrpcUtil.ApiName.LedgerApi)
 
-  lazy val grpcSequencerCommandRunner: ConsoleGrpcAdminCommandRunner =
+  lazy val grpcSequencerCommandRunner: GrpcAdminCommandRunner =
     createAdminCommandRunner(this, CantonGrpcUtil.ApiName.SequencerPublicApi)
 
   def runE[E, A](result: => Either[E, A]): A =
@@ -271,6 +262,8 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
         errorHandler.handleCommandFailure()
     }
   }
+
+  def raiseError(error: String): Nothing = run(CommandErrors.GenericCommandError(error))
 
   private def findInvocationSite(): Option[(String, String)] = {
     val stack = Thread.currentThread().getStackTrace

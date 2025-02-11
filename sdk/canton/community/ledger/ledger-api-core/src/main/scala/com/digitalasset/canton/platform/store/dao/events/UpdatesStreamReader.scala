@@ -76,7 +76,7 @@ class UpdatesStreamReader(
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
-  import TransactionsReader.*
+  import UpdateReader.*
   import config.*
 
   private val dbMetrics = metrics.index.db
@@ -167,12 +167,9 @@ class UpdatesStreamReader(
     // The ids for reassignments are retrieved from 2 separate id tables: (assign, unassign)
     val numReassignmentsDecomposedFilters = reassignmentsDecomposedFilters.size * 2
     // The ids for topology updates are retrieved from 1 id table: (party_to_participant)
-    val numTopologyDecomposedFilters =
-      if (topologyTransactionsStreamReader.experimentalEnableTopologyEvents)
-        internalUpdateFormat.includeTopologyEvents
-          .flatMap(_.participantAuthorizationFormat)
-          .fold(0)(_.parties.fold(1)(_.size))
-      else 0
+    val numTopologyDecomposedFilters = internalUpdateFormat.includeTopologyEvents
+      .flatMap(_.participantAuthorizationFormat)
+      .fold(0)(_.parties.fold(1)(_.size))
 
     val idPageSizing = IdPageSizing.calculateFrom(
       maxIdPageSize = maxIdsPerIdPage,
@@ -355,7 +352,7 @@ class UpdatesStreamReader(
       )
     val allSortedPayloads =
       payloadsConsuming.mergeSorted(payloadsCreate)(orderBySequentialEventIdFlat)
-    TransactionsReader
+    UpdateReader
       .groupContiguous(allSortedPayloads)(by = _.updateId)
       .mapAsync(transactionsProcessingParallelism)(rawEvents =>
         deserializationQueriesLimiter.execute(
@@ -494,7 +491,7 @@ class UpdatesStreamReader(
     val allSortedPayloads = payloadsConsuming
       .mergeSorted(payloadsCreate)(orderBySequentialEventIdTree)
       .mergeSorted(payloadsNonConsuming)(orderBySequentialEventIdTree)
-    TransactionsReader
+    UpdateReader
       .groupContiguous(allSortedPayloads)(by = _.updateId)
       .mapAsync(transactionsProcessingParallelism)(rawEvents =>
         deserializationQueriesLimiter.execute(
@@ -608,7 +605,7 @@ class UpdatesStreamReader(
         implicit val executionContext: ExecutionContext =
           directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
         MonadUtil.sequentialTraverse(rawEvents)(
-          TransactionsReader.deserializeTreeEvent(eventProjectionProperties, lfValueTranslation)
+          UpdateReader.deserializeTreeEvent(eventProjectionProperties, lfValueTranslation)
         )
       },
       timer = dbMetrics.updatesLedgerEffectsStream.translationTimer,
@@ -623,7 +620,7 @@ class UpdatesStreamReader(
         implicit val executionContext: ExecutionContext =
           directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
         MonadUtil.sequentialTraverse(rawEvents)(
-          TransactionsReader.deserializeFlatEvent(eventProjectionProperties, lfValueTranslation)
+          UpdateReader.deserializeRawFlatEvent(eventProjectionProperties, lfValueTranslation)
         )
       },
       timer = dbMetrics.updatesAcsDeltaStream.translationTimer,

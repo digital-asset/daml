@@ -76,8 +76,15 @@ object MonadUtil {
     *
     * The effect `falseM` is only executed if `condM` evaluates to false within the effect `M`.
     */
-  def unlessM[M[_], A](condM: M[Boolean])(falseM: => M[A])(implicit monad: Monad[M]): M[Unit] =
-    monad.ifM(condM)(monad.unit, monad.void(falseM))
+  def unlessM[M[_]](condM: M[Boolean])(falseM: => M[Unit])(implicit monad: Monad[M]): M[Unit] =
+    monad.ifM(condM)(monad.unit, falseM)
+
+  /** Monadic version of cats.Applicative.whenA.
+    *
+    * The effect `trueM` is only executed if `condM` evaluates to true within the effect `M`.
+    */
+  def whenM[M[_]](condM: M[Boolean])(trueM: => M[Unit])(implicit monad: Monad[M]): M[Unit] =
+    monad.ifM(condM)(trueM, monad.unit)
 
   def sequentialTraverse[X, M[_], S](
       xs: Seq[X]

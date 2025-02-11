@@ -526,6 +526,8 @@ private[canton] object CantonNodeParameterConverter {
 
 object CantonConfig {
 
+  // the great ux of pureconfig expects you to provide this ProductHint such that the created derivedReader fails on
+  // unknown keys
   implicit def preventAllUnknownKeys[T]: ProductHint[T] = ProductHint[T](allowUnknownKeys = false)
 
   import com.daml.nonempty.NonEmptyUtil.instances.*
@@ -641,6 +643,7 @@ object CantonConfig {
 
     lazy implicit final val initBaseIdentityConfigReader: ConfigReader[InitConfigBase.Identity] =
       deriveReader[InitConfigBase.Identity]
+    lazy implicit final val stateConfigReader: ConfigReader[StateConfig] = deriveReader[StateConfig]
     lazy implicit final val initConfigReader: ConfigReader[InitConfig] =
       deriveReader[InitConfig]
         .enableNestedOpt("auto-init", _.copy(identity = None))
@@ -1162,6 +1165,7 @@ object CantonConfig {
 
     lazy implicit final val initBaseIdentityConfigWriter: ConfigWriter[InitConfigBase.Identity] =
       deriveWriter[InitConfigBase.Identity]
+    lazy implicit final val stateConfigWriter: ConfigWriter[StateConfig] = deriveWriter[StateConfig]
     lazy implicit final val initConfigWriter: ConfigWriter[InitConfig] =
       InitConfigBase.writerForSubtype(deriveWriter[InitConfig])
 

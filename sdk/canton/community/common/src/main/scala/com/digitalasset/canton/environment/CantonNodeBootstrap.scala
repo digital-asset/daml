@@ -59,7 +59,7 @@ import com.digitalasset.canton.lifecycle.{
   LifeCycle,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.DbStorageMetrics
+import com.digitalasset.canton.metrics.{DbStorageMetrics, DeclarativeApiMetrics}
 import com.digitalasset.canton.networking.grpc.{
   CantonGrpcUtil,
   CantonMutableHandlerRegistry,
@@ -107,7 +107,10 @@ import scala.concurrent.{ExecutionContext, Future}
   * If external action is required before this process can complete `start` will return successfully but `isInitialized` will still be false.
   * When the node is successfully initialized the underlying node will be available through `getNode`.
   */
-trait CantonNodeBootstrap[+T <: CantonNode] extends FlagCloseable with NamedLogging {
+trait CantonNodeBootstrap[+T <: CantonNode]
+    extends FlagCloseable
+    with HasCloseContext
+    with NamedLogging {
 
   def name: InstanceName
   def clock: Clock
@@ -120,6 +123,9 @@ trait CantonNodeBootstrap[+T <: CantonNode] extends FlagCloseable with NamedLogg
   /** Access to the private and public store to support local key inspection commands */
   def crypto: Option[Crypto]
   def isActive: Boolean
+
+  def metrics: BaseMetrics
+
 }
 
 object CantonNodeBootstrap {
@@ -134,6 +140,8 @@ trait BaseMetrics {
   def grpcMetrics: GrpcServerMetrics
   def healthMetrics: HealthMetrics
   def storageMetrics: DbStorageMetrics
+  val declarativeApiMetrics: DeclarativeApiMetrics
+
 }
 
 final case class CantonNodeBootstrapCommonArguments[
@@ -176,7 +184,6 @@ abstract class CantonNodeBootstrapImpl[
     implicit val scheduler: ScheduledExecutorService,
     implicit val actorSystem: ActorSystem,
 ) extends CantonNodeBootstrap[T]
-    with HasCloseContext
     with NoTracing {
 
   override def name: InstanceName = arguments.name
@@ -634,6 +641,17 @@ abstract class CantonNodeBootstrapImpl[
 
     override def getAdminToken: Option[String] = Some(adminToken.secret)
 
+    private val temporaryStoreRegistry =
+      new TemporaryStoreRegistry(
+        nodeId,
+        clock,
+        crypto,
+        futureSupervisor,
+        parameters.processingTimeouts,
+        bootstrapStageCallback.loggerFactory,
+      )
+    addCloseable(temporaryStoreRegistry)
+
     private val topologyManager: AuthorizedTopologyManager =
       createAuthorizedTopologyManager(nodeId, crypto, authorizedStore, storage)
     addCloseable(topologyManager)
@@ -643,7 +661,7 @@ abstract class CantonNodeBootstrapImpl[
           .bindService(
             new GrpcTopologyManagerReadService(
               member(nodeId),
-              sequencedTopologyStores :+ authorizedStore,
+              temporaryStoreRegistry.stores() ++ sequencedTopologyStores :+ authorizedStore,
               crypto,
               lookupTopologyClient,
               processingTimeout = parameters.processingTimeouts,
@@ -657,7 +675,8 @@ abstract class CantonNodeBootstrapImpl[
         adminV30.TopologyManagerWriteServiceGrpc
           .bindService(
             new GrpcTopologyManagerWriteService(
-              sequencedTopologyManagers :+ topologyManager,
+              temporaryStoreRegistry.managers() ++ sequencedTopologyManagers :+ topologyManager,
+              temporaryStoreRegistry,
               bootstrapStageCallback.loggerFactory,
             ),
             executionContext,
@@ -859,21 +878,6 @@ object CantonNodeBootstrapImpl {
       name,
     )
 
-  def getOrCreateSigningKeyByFingerprint(crypto: Crypto)(
-      fingerprint: Fingerprint,
-      @unused
-      usage: SigningKeyUsage,
-  )(implicit
-      traceContext: TraceContext,
-      ec: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, String, SigningPublicKey] =
-    getKeyByFingerprint(
-      "signing",
-      crypto.cryptoPublicStore.signingKey,
-      crypto.cryptoPrivateStore.existsSigningKey,
-      fingerprint,
-    )
-
   def getOrCreateEncryptionKey(crypto: Crypto)(
       name: String
   )(implicit
@@ -887,32 +891,6 @@ object CantonNodeBootstrapImpl {
       crypto.cryptoPrivateStore.existsDecryptionKey,
       name,
     )
-
-  private def getKeyByFingerprint[P <: PublicKey](
-      typ: String,
-      findPubKeyIdByFingerprint: Fingerprint => OptionT[FutureUnlessShutdown, P],
-      existPrivateKeyByFp: Fingerprint => EitherT[
-        FutureUnlessShutdown,
-        CryptoPrivateStoreError,
-        Boolean,
-      ],
-      fingerprint: Fingerprint,
-  )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, String, P] =
-    findPubKeyIdByFingerprint(fingerprint)
-      .toRight(s"$typ key with fingerprint $fingerprint does not exist")
-      .flatMap { keyWithFingerprint =>
-        val fingerprint = keyWithFingerprint.fingerprint
-        existPrivateKeyByFp(fingerprint)
-          .leftMap(err =>
-            s"Failure while looking for $typ key $fingerprint in private key store: $err"
-          )
-          .transform {
-            case Right(true) => Right(keyWithFingerprint)
-            case Right(false) =>
-              Left(s"Broken private key store: Could not find $typ key $fingerprint")
-            case Left(err) => Left(err)
-          }
-      }
 
   private def getOrCreateKey[P <: PublicKey](
       typ: String,

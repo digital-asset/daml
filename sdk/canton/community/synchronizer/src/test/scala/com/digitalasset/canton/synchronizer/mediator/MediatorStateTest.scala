@@ -4,7 +4,6 @@
 package com.digitalasset.canton.synchronizer.mediator
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
@@ -117,6 +116,7 @@ class MediatorStateTest
           requestId,
           informeeMessage,
           requestId.unwrap.plusSeconds(300),
+          requestId.unwrap.plusSeconds(600),
           mockTopologySnapshot,
         )(traceContext, executorService)
         .futureValueUS // without explicit ec it deadlocks on AnyTestSuite.serialExecutionContext
@@ -128,7 +128,6 @@ class MediatorStateTest
         mock[Clock],
         MediatorTestMetrics,
         testedProtocolVersion,
-        CachingConfigs.defaultFinalizedMediatorConfirmationRequestsCache,
         timeouts,
         loggerFactory,
       )
@@ -147,7 +146,7 @@ class MediatorStateTest
       }
       "have no more unfinalized after finalization" in {
         for {
-          _ <- sut.replace(currentVersion, currentVersion.timeout(currentVersion.version)).value
+          _ <- sut.replace(currentVersion, currentVersion.timeout(currentVersion.version))
         } yield {
           sut.pendingRequestIdsBefore(CantonTimestamp.MaxValue) shouldBe empty
         }
@@ -176,19 +175,19 @@ class MediatorStateTest
       "prevent updating to the same version" in {
         for {
           result <- loggerFactory.assertLogs(
-            sut.replace(newVersion, newVersion).value,
+            sut.replace(newVersion, newVersion),
             _.shouldBeCantonError(
               MediatorError.InternalError,
               _ shouldBe s"Request ${currentVersion.requestId} has an unexpected version ${currentVersion.requestId.unwrap} (expected version: ${newVersion.version}, new version: ${newVersion.version}).",
             ),
           )
-        } yield result shouldBe None
+        } yield result shouldBe false
       }
 
       "allow updating to a newer version" in {
         for {
-          result <- sut.replace(currentVersion, newVersion).value
-        } yield result shouldBe Some(())
+          result <- sut.replace(currentVersion, newVersion)
+        } yield result shouldBe true
       }
     }
   }

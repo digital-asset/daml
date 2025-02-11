@@ -5,7 +5,7 @@ syntax = "proto3";
 
 package com.digitalasset.canton.topology.admin.v30;
 
-import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
+import "com/digitalasset/canton/topology/admin/v30/common.proto";
 
 /**
  * The node identity initialization service

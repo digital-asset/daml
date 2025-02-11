@@ -3,7 +3,7 @@
 
 sdk-version: __VERSION__
 name: root
-source: language-support/java/codegen/src/it/daml/pkg-root/daml
+source: src/it/daml/pkg-root/daml
 version: 1.0.0
 module-prefixes:
   pkg-1.0.0: V1

@@ -139,6 +139,7 @@ class SequencerNodeBootstrap(
       SequencerMetrics,
     ](arguments) {
 
+  override def metrics: BaseMetrics = arguments.metrics
   override protected def member(uid: UniqueIdentifier): Member = SequencerId(uid)
 
   override protected def customNodeStages(

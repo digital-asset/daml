@@ -34,7 +34,7 @@ class ContractStreamStepTest
   behavior of "append"
 
   it should "be associative for valid streams" in forAll(validStreamGen) { csses =>
-    whenever(csses.size >= 3) {
+    whenever(csses.sizeIs >= 3) {
       forEvery(
         Table(("a", "b", "c"), csses.sliding(3).map { case Seq(a, b, c) => (a, b, c) }.toSeq*)
       ) { case (a, b, c) =>

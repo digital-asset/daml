@@ -30,7 +30,7 @@ final case class CanonicalCommitSet(private val commits: Set[SignedMessage[Commi
 
   val timestamps: Seq[CantonTimestamp] = sortedCommits.map(_.message.localTimestamp)
 
-  def toProto: v1.CanonicalCommitSet = v1.CanonicalCommitSet.of(sortedCommits.map(_.toProto))
+  def toProto: v1.CanonicalCommitSet = v1.CanonicalCommitSet.of(sortedCommits.map(_.toProtoV1))
 }
 
 object CanonicalCommitSet {

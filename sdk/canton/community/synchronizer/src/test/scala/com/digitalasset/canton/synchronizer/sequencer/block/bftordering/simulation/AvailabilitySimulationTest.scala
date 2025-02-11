@@ -469,11 +469,11 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
       history.foreach(command => logger.debug(s"$command"))
 
       simulationModels.count { simulationModel =>
-        simulationModel.availabilityStorage.keys.toSet.size >= RequestsPerPeer * availabilityQuorum
+        simulationModel.availabilityStorage.keys.toSet.sizeIs >= RequestsPerPeer * availabilityQuorum
       } should be >= minimumNumberOfCorrectNodes
 
       simulationModels.count { simulationModel =>
-        simulationModel.proposalsToConsensus.size == ProposalRequestsPerPeer
+        simulationModel.proposalsToConsensus.sizeIs == ProposalRequestsPerPeer
       } should be >= minimumNumberOfCorrectNodes
 
       simulationModels.count { simulationModel =>
@@ -484,7 +484,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
       } should be >= minimumNumberOfCorrectNodes
 
       simulationModels.count { simulationModel =>
-        simulationModel.fetchedOutputBlocks.size == ProposalRequestsPerPeer
+        simulationModel.fetchedOutputBlocks.sizeIs == ProposalRequestsPerPeer
       } should be >= minimumNumberOfCorrectNodes
 
       simulationModels.count { simulationModel =>

@@ -66,7 +66,6 @@ import scala.concurrent.{ExecutionContext, Future}
 
 import SubscriptionPool.PoolClosed
 
-@SuppressWarnings(Array("org.wartremover.warts.Null"))
 class GrpcSequencerServiceTest
     extends FixtureAsyncWordSpec
     with BaseTest

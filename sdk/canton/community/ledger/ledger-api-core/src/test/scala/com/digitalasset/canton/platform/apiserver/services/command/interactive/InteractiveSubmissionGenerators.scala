@@ -115,7 +115,7 @@ object InteractiveSubmissionGenerators {
 
   private implicit val genDeduplicationDuration: Gen[DeduplicationPeriod.DeduplicationDuration] =
     Gen
-      .choose(0, 200L)
+      .choose(1, 200L)
       .map(PositiveFiniteDuration.ofMinutes)
       .map(d => DeduplicationPeriod.DeduplicationDuration(d.asJava))
   private implicit val genDeduplicationOffset: Gen[DeduplicationPeriod.DeduplicationOffset] =

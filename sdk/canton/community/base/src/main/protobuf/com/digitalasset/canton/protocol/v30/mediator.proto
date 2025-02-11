@@ -53,5 +53,4 @@ message ConfirmationResultMessage {
   int64 request_id = 3;
   bytes root_hash = 4;
   Verdict verdict = 5;
-  repeated string informees = 6; // empty for transactions
 }

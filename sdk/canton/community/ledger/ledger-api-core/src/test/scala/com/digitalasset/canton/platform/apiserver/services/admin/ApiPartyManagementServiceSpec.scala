@@ -20,7 +20,7 @@ import com.digitalasset.canton.ledger.localstore.api.{PartyRecord, PartyRecordSt
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.{
   IndexPartyManagementService,
-  IndexTransactionsService,
+  IndexUpdateService,
   IndexerPartyDetails,
 }
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
@@ -223,13 +223,13 @@ class ApiPartyManagementServiceSpec
     )
 
   private def mockedServices(): (
-      IndexTransactionsService,
+      IndexUpdateService,
       IdentityProviderExists,
       IndexPartyManagementService,
       PartyRecordStore,
   ) = {
-    val mockIndexTransactionsService = mock[IndexTransactionsService]
-    when(mockIndexTransactionsService.currentLedgerEnd())
+    val mockIndexUpdateService = mock[IndexUpdateService]
+    when(mockIndexUpdateService.currentLedgerEnd())
       .thenReturn(Future.successful(None))
 
     val mockIdentityProviderExists = mock[IdentityProviderExists]
@@ -255,7 +255,7 @@ class ApiPartyManagementServiceSpec
     ).thenReturn(Future.successful(Right(None)))
 
     (
-      mockIndexTransactionsService,
+      mockIndexUpdateService,
       mockIdentityProviderExists,
       mockIndexPartyManagementService,
       mockPartyRecordStore,

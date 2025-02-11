@@ -4,7 +4,11 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentValidationError.StakeholderHostingErrors
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentValidationError.StakeholderHostingErrors.{
+  missingSignatoryReassigningParticipants,
+  stakeholderNotHostedOnSynchronizer,
+  stakeholdersNoReassigningParticipant,
+}
 import com.digitalasset.canton.protocol.Stakeholders
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -79,6 +83,31 @@ final class ReassigningParticipantsComputationTest
       ).compute.futureValueUS.value shouldBe Set(p1, p2)
     }
 
+    "take party into account when computing reassignments" in {
+      // Both p1 and p2 host one of the signatories of the contract on both domains but not the same
+      val source = createTestingIdentityFactory(
+        Map(
+          p1 -> Map(signatory -> ParticipantPermission.Submission),
+          p2 -> Map(charlie -> ParticipantPermission.Submission),
+        )
+      )
+
+      val target = createTestingIdentityFactory(
+        Map(
+          p1 -> Map(charlie -> ParticipantPermission.Submission),
+          p2 -> Map(signatory -> ParticipantPermission.Submission),
+        )
+      )
+
+      new ReassigningParticipantsComputation(
+        stakeholders = Stakeholders.withSignatoriesAndObservers(Set(signatory, charlie), Set()),
+        sourceTopology = Source(source),
+        targetTopology = Target(target),
+      ).compute.futureValueUS.left.value shouldBe stakeholdersNoReassigningParticipant(
+        Set(signatory, charlie)
+      )
+    }
+
     "not return participants connected to a single synchronizer" in {
       val stakeholders = Stakeholders.withSignatoriesAndObservers(Set(signatory), Set(observer))
 
@@ -137,17 +166,15 @@ final class ReassigningParticipantsComputationTest
         stakeholders = stakeholders,
         sourceTopology = Source(incomplete),
         targetTopology = Target(complete),
-      ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"The following parties are not active on the source synchronizer: Set($signatory)"
-      )
+      ).compute.value.futureValueUS.left.value shouldBe
+        stakeholderNotHostedOnSynchronizer(Set(signatory), Source(()))
 
       new ReassigningParticipantsComputation(
         stakeholders = stakeholders,
         sourceTopology = Source(complete),
         targetTopology = Target(incomplete),
-      ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"The following parties are not active on the target synchronizer: Set($signatory)"
-      )
+      ).compute.value.futureValueUS.left.value shouldBe
+        stakeholderNotHostedOnSynchronizer(Set(signatory), Target(()))
 
       new ReassigningParticipantsComputation(
         stakeholders = stakeholders,
@@ -176,17 +203,15 @@ final class ReassigningParticipantsComputationTest
         stakeholders = stakeholders,
         sourceTopology = Source(incomplete),
         targetTopology = Target(complete),
-      ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"The following parties are not active on the source synchronizer: Set($observer)"
-      )
+      ).compute.value.futureValueUS.left.value shouldBe
+        stakeholderNotHostedOnSynchronizer(Set(observer), Source(()))
 
       new ReassigningParticipantsComputation(
         stakeholders = stakeholders,
         sourceTopology = Source(complete),
         targetTopology = Target(incomplete),
-      ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"The following parties are not active on the target synchronizer: Set($observer)"
-      )
+      ).compute.value.futureValueUS.left.value shouldBe
+        stakeholderNotHostedOnSynchronizer(Set(observer), Target(()))
 
       new ReassigningParticipantsComputation(
         stakeholders = stakeholders,
@@ -298,36 +323,110 @@ final class ReassigningParticipantsComputationTest
         sourceTopology = Source(t2_c_o_c),
         targetTopology = Target(t2_c_o_c),
       ).compute.futureValueUS.value shouldBe Set(p1, p2, p3)
+
       // Errors
       new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t1_c_x_x),
         targetTopology = Target(t2_c_c_x),
-      ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"Signatory $signatory requires at least 2 signatory reassigning participants on synchronizer target, but only 1 are available"
-      )
+      ).compute.value.futureValueUS.left.value shouldBe
+        missingSignatoryReassigningParticipants(signatory, "target", PositiveInt.two, 1)
+
       new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t2_c_c_x),
         targetTopology = Target(t1_c_x_x),
-      ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"Signatory $signatory requires at least 2 signatory reassigning participants on synchronizer source, but only 1 are available"
-      )
+      ).compute.value.futureValueUS.left.value shouldBe
+        missingSignatoryReassigningParticipants(signatory, "source", PositiveInt.two, 1)
 
       new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t1_c_x_x),
         targetTopology = Target(t2_c_o_c),
-      ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"Signatory $signatory requires at least 2 signatory reassigning participants on synchronizer target, but only 1 are available"
-      )
+      ).compute.value.futureValueUS.left.value shouldBe
+        missingSignatoryReassigningParticipants(signatory, "target", PositiveInt.two, 1)
+
       new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t2_c_o_c),
         targetTopology = Target(t1_c_x_x),
-      ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"Signatory $signatory requires at least 2 signatory reassigning participants on synchronizer source, but only 1 are available"
+      ).compute.value.futureValueUS.left.value shouldBe
+        missingSignatoryReassigningParticipants(signatory, "source", PositiveInt.two, 1)
+    }
+
+    "a signatory reassigning participant needs to be a reassigning participant for the party" in {
+      /*
+                          signatory
+                P1 ───────────────────────► S1
+                │                            ▲
+                │                            │
+       signatory│                            │ charlie
+                │                            │
+                ▼         signatory          │
+               S2 ◄──────────────────────── P2
+                          charlie
+
+       For a reassignment from S1 to S2:
+       - P2 is not a reassigning participant for signatory because it does not host signatory on S1
+       - P2 is a reassigning participant for charlie
+       - P1 is a reassigning participant for signatory
+       - P2 is not a signatory assigning participant for signatory
+       */
+
+      val s1 = createTestingWithThreshold(
+        Map(
+          signatory -> (PositiveInt.one, Seq((p1, Confirmation))),
+          charlie -> (PositiveInt.one, Seq((p2, Confirmation))),
+        )
       )
+
+      val s2Threshold1 = createTestingWithThreshold(
+        Map(
+          // t=1
+          signatory -> (PositiveInt.one, Seq((p1, Confirmation), (p2, Confirmation))),
+          charlie -> (PositiveInt.one, Seq((p2, Confirmation))),
+        )
+      )
+      val s2Threshold2 = createTestingWithThreshold(
+        Map(
+          // t=2
+          signatory -> (PositiveInt.two, Seq((p1, Confirmation), (p2, Confirmation))),
+          charlie -> (PositiveInt.one, Seq((p2, Confirmation))),
+        )
+      )
+
+      // checks for unassigning signatory participants
+      new ReassigningParticipantsComputation(
+        stakeholders = Stakeholders.withSignatoriesAndObservers(Set(signatory), Set(charlie)),
+        sourceTopology = Source(s2Threshold1),
+        targetTopology = Target(s1),
+      ).compute.futureValueUS.value shouldBe Set(p1, p2)
+
+      new ReassigningParticipantsComputation(
+        stakeholders = Stakeholders.withSignatoriesAndObservers(Set(signatory), Set(charlie)),
+        sourceTopology = Source(s2Threshold2),
+        targetTopology = Target(s1),
+      ).compute.futureValueUS.left.value shouldBe
+        missingSignatoryReassigningParticipants(signatory, "source", PositiveInt.two, 1)
+
+      // checks for assigning signatory participants
+      new ReassigningParticipantsComputation(
+        stakeholders = Stakeholders.withSignatoriesAndObservers(Set(signatory), Set(charlie)),
+        sourceTopology = Source(s1),
+        targetTopology = Target(s2Threshold1),
+      ).compute.futureValueUS.value shouldBe Set(p1, p2)
+
+      new ReassigningParticipantsComputation(
+        stakeholders = Stakeholders.withSignatoriesAndObservers(Set(signatory), Set(charlie)),
+        sourceTopology = Source(s1),
+        targetTopology = Target(s2Threshold2),
+      ).compute.futureValueUS.left.value shouldBe missingSignatoryReassigningParticipants(
+        signatory,
+        "target",
+        PositiveInt.two,
+        1,
+      )
+
     }
 
     "not require confirmation on both synchronizers" in {

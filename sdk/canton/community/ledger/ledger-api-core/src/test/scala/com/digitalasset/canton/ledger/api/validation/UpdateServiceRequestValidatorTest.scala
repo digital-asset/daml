@@ -90,10 +90,11 @@ class UpdateServiceRequestValidatorTest
         inside(UpdateServiceRequestValidator.validate(txReq, ledgerEnd)) { case Right(req) =>
           req.startExclusive shouldBe None
           req.endInclusive shouldBe offset
-          val filtersByParty = req.eventFormat.filtersByParty
+          val filtersByParty =
+            req.updateFormat.includeTransactions.map(_.eventFormat.filtersByParty).value
           filtersByParty should have size 1
           hasExpectedFilters(req)
-          req.eventFormat.verbose shouldEqual verbose
+          req.updateFormat.includeTransactions.value.eventFormat.verbose shouldEqual verbose
         }
 
       }
@@ -219,10 +220,11 @@ class UpdateServiceRequestValidatorTest
         ) { case Right(req) =>
           req.startExclusive shouldEqual None
           req.endInclusive shouldEqual None
-          val filtersByParty = req.eventFormat.filtersByParty
+          val filtersByParty =
+            req.updateFormat.includeTransactions.map(_.eventFormat.filtersByParty).value
           filtersByParty should have size 1
           hasExpectedFilters(req)
-          req.eventFormat.verbose shouldEqual verbose
+          req.updateFormat.includeTransactions.value.eventFormat.verbose shouldEqual verbose
         }
       }
 
@@ -237,13 +239,14 @@ class UpdateServiceRequestValidatorTest
         ) { case Right(req) =>
           req.startExclusive shouldEqual None
           req.endInclusive shouldEqual offset
-          val filtersByParty = req.eventFormat.filtersByParty
+          val filtersByParty =
+            req.updateFormat.includeTransactions.map(_.eventFormat.filtersByParty).value
           filtersByParty should have size 1
           inside(filtersByParty.headOption.value) { case (p, filters) =>
             p shouldEqual party
             filters shouldEqual CumulativeFilter.templateWildcardFilter()
           }
-          req.eventFormat.verbose shouldEqual verbose
+          req.updateFormat.includeTransactions.value.eventFormat.verbose shouldEqual verbose
         }
       }
 
@@ -258,13 +261,14 @@ class UpdateServiceRequestValidatorTest
         ) { case Right(req) =>
           req.startExclusive shouldEqual None
           req.endInclusive shouldEqual offset
-          val filtersByParty = req.eventFormat.filtersByParty
+          val filtersByParty =
+            req.updateFormat.includeTransactions.map(_.eventFormat.filtersByParty).value
           filtersByParty should have size 1
           inside(filtersByParty.headOption.value) { case (p, filters) =>
             p shouldEqual party
             filters shouldEqual CumulativeFilter.templateWildcardFilter()
           }
-          req.eventFormat.verbose shouldEqual verbose
+          req.updateFormat.includeTransactions.value.eventFormat.verbose shouldEqual verbose
         }
       }
 
@@ -273,7 +277,7 @@ class UpdateServiceRequestValidatorTest
           req.startExclusive shouldEqual None
           req.endInclusive shouldEqual offset
           hasExpectedFilters(req)
-          req.eventFormat.verbose shouldEqual verbose
+          req.updateFormat.includeTransactions.value.eventFormat.verbose shouldEqual verbose
         }
       }
 
@@ -287,7 +291,7 @@ class UpdateServiceRequestValidatorTest
               expectedTemplates =
                 Set(Ref.TypeConRef(Ref.PackageRef.Name(packageName), templateQualifiedName)),
             )
-            req.eventFormat.verbose shouldEqual verbose
+            req.updateFormat.includeTransactions.value.eventFormat.verbose shouldEqual verbose
         }
       }
 
@@ -296,7 +300,7 @@ class UpdateServiceRequestValidatorTest
           req.startExclusive shouldEqual None
           req.endInclusive shouldEqual offset
           hasExpectedFilters(req)
-          req.eventFormat.verbose shouldEqual verbose
+          req.updateFormat.includeTransactions.value.eventFormat.verbose shouldEqual verbose
         }
       }
 
@@ -333,7 +337,9 @@ class UpdateServiceRequestValidatorTest
           ),
           ledgerEnd,
         )
-        result.map(_.eventFormat.filtersByParty) shouldBe Right(
+        result.map(
+          _.updateFormat.includeTransactions.value.eventFormat.filtersByParty
+        ) shouldBe Right(
           Map(
             party ->
               CumulativeFilter(

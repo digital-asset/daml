@@ -5,7 +5,7 @@ package com.digitalasset.canton.protocol.messages
 
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30
-import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope}
+import com.digitalasset.canton.sequencing.protocol.OpenEnvelope
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.version.{
   HasRepresentativeProtocolVersion,
@@ -45,12 +45,13 @@ object ProtocolMessage {
     * to the provided callback
     */
   def filterSynchronizerEnvelopes[M <: ProtocolMessage](
-      batch: Batch[OpenEnvelope[M]],
+      envelopes: Seq[OpenEnvelope[M]],
       synchronizerId: SynchronizerId,
-      onWrongSynchronizer: List[OpenEnvelope[M]] => Unit,
-  ): List[OpenEnvelope[M]] = {
+  )(
+      onWrongSynchronizer: Seq[OpenEnvelope[M]] => Unit
+  ): Seq[OpenEnvelope[M]] = {
     val (withCorrectSynchronizerId, withWrongSynchronizerId) =
-      batch.envelopes.partition(_.protocolMessage.synchronizerId == synchronizerId)
+      envelopes.partition(_.protocolMessage.synchronizerId == synchronizerId)
     if (withWrongSynchronizerId.nonEmpty)
       onWrongSynchronizer(withWrongSynchronizerId)
     withCorrectSynchronizerId

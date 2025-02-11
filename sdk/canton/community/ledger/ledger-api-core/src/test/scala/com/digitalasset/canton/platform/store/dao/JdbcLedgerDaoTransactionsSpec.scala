@@ -8,12 +8,18 @@ import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
 import com.daml.ledger.resources.ResourceContext
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api.TransactionShape.AcsDelta
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
-import com.digitalasset.canton.platform.TemplatePartiesFilter
 import com.digitalasset.canton.platform.store.dao.*
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import com.digitalasset.canton.platform.store.utils.EventOps.EventOps
+import com.digitalasset.canton.platform.{
+  InternalEventFormat,
+  InternalTransactionFormat,
+  InternalUpdateFormat,
+  TemplatePartiesFilter,
+}
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.Node
@@ -36,8 +42,11 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   it should "return nothing for a mismatching transaction id" in {
     for {
       (_, tx) <- store(singleCreate)
-      result <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(updateId = "WRONG", tx.actAs.toSet)
+      result <- ledgerDao.updateReader
+        .lookupTransactionById(
+          updateId = "WRONG",
+          internalTransactionFormat = transactionFormatForWildcardParties(tx.actAs.toSet),
+        )
     } yield {
       result shouldBe None
     }
@@ -46,8 +55,11 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   it should "return nothing for a mismatching offset" in {
     for {
       (_, tx) <- store(singleCreate)
-      result <- ledgerDao.transactionsReader
-        .lookupFlatTransactionByOffset(offset = Offset.tryFromLong(12345678L), tx.actAs.toSet)
+      result <- ledgerDao.updateReader
+        .lookupTransactionByOffset(
+          offset = Offset.tryFromLong(12345678L),
+          internalTransactionFormat = transactionFormatForWildcardParties(tx.actAs.toSet),
+        )
     } yield {
       result shouldBe None
     }
@@ -56,10 +68,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   it should "return nothing for a mismatching party" in {
     for {
       (offset, tx) <- store(singleCreate)
-      resultById <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(tx.updateId, Set("WRONG"))
-      resultByOffset <- ledgerDao.transactionsReader
-        .lookupFlatTransactionByOffset(offset, Set("WRONG"))
+      resultById <- ledgerDao.updateReader
+        .lookupTransactionById(tx.updateId, transactionFormatForWildcardParties(Set("WRONG")))
+      resultByOffset <- ledgerDao.updateReader
+        .lookupTransactionByOffset(offset, transactionFormatForWildcardParties(Set("WRONG")))
     } yield {
       resultById shouldBe None
       resultByOffset shouldBe resultById
@@ -69,10 +81,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   it should "return the expected flat transaction for a correct request (create)" in {
     for {
       (offset, tx) <- store(singleCreate)
-      resultById <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(tx.updateId, tx.actAs.toSet)
-      resultByOffset <- ledgerDao.transactionsReader
-        .lookupFlatTransactionByOffset(offset, tx.actAs.toSet)
+      resultById <- ledgerDao.updateReader
+        .lookupTransactionById(tx.updateId, transactionFormatForWildcardParties(tx.actAs.toSet))
+      resultByOffset <- ledgerDao.updateReader
+        .lookupTransactionByOffset(offset, transactionFormatForWildcardParties(tx.actAs.toSet))
     } yield {
       inside(resultById.value.transaction) { case Some(transaction) =>
         transaction.commandId shouldBe tx.commandId.value
@@ -106,10 +118,16 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     for {
       (_, create) <- store(singleCreate)
       (offset, exercise) <- store(singleExercise(nonTransient(create).loneElement))
-      resultById <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(exercise.updateId, exercise.actAs.toSet)
-      resultByOffset <- ledgerDao.transactionsReader
-        .lookupFlatTransactionByOffset(offset, exercise.actAs.toSet)
+      resultById <- ledgerDao.updateReader
+        .lookupTransactionById(
+          updateId = exercise.updateId,
+          internalTransactionFormat = transactionFormatForWildcardParties(exercise.actAs.toSet),
+        )
+      resultByOffset <- ledgerDao.updateReader
+        .lookupTransactionByOffset(
+          offset = offset,
+          internalTransactionFormat = transactionFormatForWildcardParties(exercise.actAs.toSet),
+        )
     } yield {
       inside(resultById.value.transaction) { case Some(transaction) =>
         transaction.commandId shouldBe exercise.commandId.value
@@ -142,14 +160,21 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     for {
       (_, tx) <- store(singleCreate(createNode(_, signatories, stakeholders), actAs))
       // Response 1: querying as all submitters
-      result1 <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(tx.updateId, Set(alice, bob, david))
+      result1 <- ledgerDao.updateReader
+        .lookupTransactionById(
+          updateId = tx.updateId,
+          internalTransactionFormat = transactionFormatForWildcardParties(Set(alice, bob, david)),
+        )
       // Response 2: querying as a proper subset of all submitters
-      result2 <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(tx.updateId, Set(alice, david))
+      result2 <- ledgerDao.updateReader
+        .lookupTransactionById(tx.updateId, transactionFormatForWildcardParties(Set(alice, david)))
       // Response 3: querying as a proper superset of all submitters
-      result3 <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(tx.updateId, Set(alice, bob, charlie, david))
+      result3 <- ledgerDao.updateReader
+        .lookupTransactionById(
+          updateId = tx.updateId,
+          internalTransactionFormat =
+            transactionFormatForWildcardParties(Set(alice, bob, charlie, david)),
+        )
     } yield {
       result1.value.transaction.value.commandId shouldBe tx.commandId.value
       result2.value.transaction.value.commandId shouldBe tx.commandId.value
@@ -164,14 +189,21 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     for {
       (offset, tx) <- store(singleCreate(createNode(_, signatories, stakeholders), actAs))
       // Response 1: querying as all submitters
-      result1 <- ledgerDao.transactionsReader
-        .lookupFlatTransactionByOffset(offset, Set(alice, bob, david))
+      result1 <- ledgerDao.updateReader
+        .lookupTransactionByOffset(
+          offset = offset,
+          internalTransactionFormat = transactionFormatForWildcardParties(Set(alice, bob, david)),
+        )
       // Response 2: querying as a proper subset of all submitters
-      result2 <- ledgerDao.transactionsReader
-        .lookupFlatTransactionByOffset(offset, Set(alice, david))
+      result2 <- ledgerDao.updateReader
+        .lookupTransactionByOffset(offset, transactionFormatForWildcardParties(Set(alice, david)))
       // Response 3: querying as a proper superset of all submitters
-      result3 <- ledgerDao.transactionsReader
-        .lookupFlatTransactionByOffset(offset, Set(alice, bob, charlie, david))
+      result3 <- ledgerDao.updateReader
+        .lookupTransactionByOffset(
+          offset = offset,
+          internalTransactionFormat =
+            transactionFormatForWildcardParties(Set(alice, bob, charlie, david)),
+        )
     } yield {
       result1.value.transaction.value.commandId shouldBe tx.commandId.value
       result2.value.transaction.value.commandId shouldBe tx.commandId.value
@@ -185,10 +217,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     val actAs = List(alice, bob, david) // David is submitter but not signatory
     for {
       (offset, tx) <- store(singleCreate(createNode(_, signatories, stakeholders), actAs))
-      resultById <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(tx.updateId, Set(charlie))
-      resultByOffset <- ledgerDao.transactionsReader
-        .lookupFlatTransactionByOffset(offset, Set(charlie))
+      resultById <- ledgerDao.updateReader
+        .lookupTransactionById(tx.updateId, transactionFormatForWildcardParties(Set(charlie)))
+      resultByOffset <- ledgerDao.updateReader
+        .lookupTransactionByOffset(offset, transactionFormatForWildcardParties(Set(charlie)))
     } yield {
       resultById.value.transaction.value.commandId shouldBe ""
       resultByOffset shouldBe resultById
@@ -198,10 +230,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   it should "hide events on transient contracts to the original submitter" in {
     for {
       (offset, tx) <- store(fullyTransient())
-      resultById <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(tx.updateId, tx.actAs.toSet)
-      resultByOffset <- ledgerDao.transactionsReader
-        .lookupFlatTransactionByOffset(offset, tx.actAs.toSet)
+      resultById <- ledgerDao.updateReader
+        .lookupTransactionById(tx.updateId, transactionFormatForWildcardParties(tx.actAs.toSet))
+      resultByOffset <- ledgerDao.updateReader
+        .lookupTransactionByOffset(offset, transactionFormatForWildcardParties(tx.actAs.toSet))
     } yield {
       inside(resultById.value.transaction) { case Some(transaction) =>
         transaction.commandId shouldBe tx.commandId.value
@@ -218,21 +250,23 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
-  behavior of "JdbcLedgerDao (getFlatTransactions)"
+  behavior of "JdbcLedgerDao (getUpdates with AcsDelta)"
 
   it should "match the results of lookupFlatTransactionById" in {
     for {
       (from, to, transactions) <- storeTestFixture()
       lookups <- lookupIndividually(transactions, Set(alice, bob, charlie))
       result <- transactionsOf(
-        ledgerDao.transactionsReader
-          .getFlatTransactions(
+        ledgerDao.updateReader
+          .getUpdates(
             startInclusive = from,
             endInclusive = to,
-            filter = TemplatePartiesFilter(Map.empty, Some(Set(alice, bob, charlie))),
-            eventProjectionProperties = EventProjectionProperties(
-              verbose = true,
-              templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
+            internalUpdateFormat = updateFormat(
+              filter = TemplatePartiesFilter(Map.empty, Some(Set(alice, bob, charlie))),
+              eventProjectionProperties = EventProjectionProperties(
+                verbose = true,
+                templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
+              ),
             ),
           )
       )
@@ -258,38 +292,44 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       individualLookupForBob <- lookupIndividually(Seq(tx), as = Set(bob))
       individualLookupForCharlie <- lookupIndividually(Seq(tx), as = Set(charlie))
       resultForAlice <- transactionsOf(
-        ledgerDao.transactionsReader
-          .getFlatTransactions(
+        ledgerDao.updateReader
+          .getUpdates(
             startInclusive = from.fold(Offset.firstOffset)(_.lastOffset.increment),
             endInclusive = to.value.lastOffset,
-            filter = TemplatePartiesFilter(Map.empty, Some(Set(alice))),
-            eventProjectionProperties = EventProjectionProperties(
-              verbose = true,
-              templateWildcardWitnesses = Some(Set(alice)),
+            internalUpdateFormat = updateFormat(
+              filter = TemplatePartiesFilter(Map.empty, Some(Set(alice))),
+              eventProjectionProperties = EventProjectionProperties(
+                verbose = true,
+                templateWildcardWitnesses = Some(Set(alice)),
+              ),
             ),
           )
       )
       resultForBob <- transactionsOf(
-        ledgerDao.transactionsReader
-          .getFlatTransactions(
+        ledgerDao.updateReader
+          .getUpdates(
             startInclusive = from.fold(Offset.firstOffset)(_.lastOffset.increment),
             endInclusive = to.value.lastOffset,
-            filter = TemplatePartiesFilter(Map.empty, Some(Set(bob))),
-            eventProjectionProperties = EventProjectionProperties(
-              verbose = true,
-              templateWildcardWitnesses = Some(Set(bob)),
+            internalUpdateFormat = updateFormat(
+              filter = TemplatePartiesFilter(Map.empty, Some(Set(bob))),
+              eventProjectionProperties = EventProjectionProperties(
+                verbose = true,
+                templateWildcardWitnesses = Some(Set(bob)),
+              ),
             ),
           )
       )
       resultForCharlie <- transactionsOf(
-        ledgerDao.transactionsReader
-          .getFlatTransactions(
+        ledgerDao.updateReader
+          .getUpdates(
             startInclusive = from.fold(Offset.firstOffset)(_.lastOffset.increment),
             endInclusive = to.value.lastOffset,
-            filter = TemplatePartiesFilter(Map.empty, Some(Set(charlie))),
-            eventProjectionProperties = EventProjectionProperties(
-              verbose = true,
-              templateWildcardWitnesses = Some(Set(charlie)),
+            internalUpdateFormat = updateFormat(
+              filter = TemplatePartiesFilter(Map.empty, Some(Set(charlie))),
+              eventProjectionProperties = EventProjectionProperties(
+                verbose = true,
+                templateWildcardWitnesses = Some(Set(charlie)),
+              ),
             ),
           )
       )
@@ -315,13 +355,15 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       )
       to <- ledgerDao.lookupLedgerEnd()
       result <- transactionsOf(
-        ledgerDao.transactionsReader
-          .getFlatTransactions(
+        ledgerDao.updateReader
+          .getUpdates(
             startInclusive = from.fold(Offset.firstOffset)(_.lastOffset.increment),
             endInclusive = to.value.lastOffset,
-            filter =
-              TemplatePartiesFilter(Map(otherTemplateId -> Some(Set(alice))), Some(Set.empty)),
-            eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+            internalUpdateFormat = updateFormat(
+              filter =
+                TemplatePartiesFilter(Map(otherTemplateId -> Some(Set(alice))), Some(Set.empty)),
+              eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+            ),
           )
       )
     } yield {
@@ -347,29 +389,33 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       )
       to <- ledgerDao.lookupLedgerEnd()
       result <- transactionsOf(
-        ledgerDao.transactionsReader
-          .getFlatTransactions(
+        ledgerDao.updateReader
+          .getUpdates(
             startInclusive = from.fold(Offset.firstOffset)(_.lastOffset.increment),
             endInclusive = to.value.lastOffset,
-            filter = TemplatePartiesFilter(
-              relation = Map(
-                otherTemplateId -> Some(Set(alice, bob))
+            internalUpdateFormat = updateFormat(
+              filter = TemplatePartiesFilter(
+                relation = Map(
+                  otherTemplateId -> Some(Set(alice, bob))
+                ),
+                templateWildcardParties = Some(Set.empty),
               ),
-              templateWildcardParties = Some(Set.empty),
+              eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
             ),
-            eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
           )
       )
       resultPartyWildcard <- transactionsOf(
-        ledgerDao.transactionsReader
-          .getFlatTransactions(
+        ledgerDao.updateReader
+          .getUpdates(
             startInclusive = from.fold(Offset.firstOffset)(_.lastOffset.increment),
             endInclusive = to.value.lastOffset,
-            filter = TemplatePartiesFilter(
-              relation = Map(otherTemplateId -> None),
-              templateWildcardParties = Some(Set.empty),
+            internalUpdateFormat = updateFormat(
+              filter = TemplatePartiesFilter(
+                relation = Map(otherTemplateId -> None),
+                templateWildcardParties = Some(Set.empty),
+              ),
+              eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
             ),
-            eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
           )
       )
 
@@ -404,33 +450,37 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       )
       to <- ledgerDao.lookupLedgerEnd()
       result <- transactionsOf(
-        ledgerDao.transactionsReader
-          .getFlatTransactions(
+        ledgerDao.updateReader
+          .getUpdates(
             startInclusive = from.fold(Offset.firstOffset)(_.lastOffset.increment),
             endInclusive = to.value.lastOffset,
-            filter = TemplatePartiesFilter(
-              relation = Map(
-                otherTemplateId -> Some(Set(bob)),
-                someTemplateId -> Some(Set(alice)),
+            internalUpdateFormat = updateFormat(
+              filter = TemplatePartiesFilter(
+                relation = Map(
+                  otherTemplateId -> Some(Set(bob)),
+                  someTemplateId -> Some(Set(alice)),
+                ),
+                templateWildcardParties = Some(Set.empty),
               ),
-              templateWildcardParties = Some(Set.empty),
+              eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
             ),
-            eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
           )
       )
       resultPartyWildcard <- transactionsOf(
-        ledgerDao.transactionsReader
-          .getFlatTransactions(
+        ledgerDao.updateReader
+          .getUpdates(
             startInclusive = from.fold(Offset.firstOffset)(_.lastOffset.increment),
             endInclusive = to.value.lastOffset,
-            filter = TemplatePartiesFilter(
-              relation = Map(
-                otherTemplateId -> None,
-                someTemplateId -> None,
+            internalUpdateFormat = updateFormat(
+              filter = TemplatePartiesFilter(
+                relation = Map(
+                  otherTemplateId -> None,
+                  someTemplateId -> None,
+                ),
+                templateWildcardParties = Some(Set.empty),
               ),
-              templateWildcardParties = Some(Set.empty),
+              eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
             ),
-            eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
           )
       )
     } yield {
@@ -464,31 +514,35 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       )
       to <- ledgerDao.lookupLedgerEnd()
       result <- transactionsOf(
-        ledgerDao.transactionsReader
-          .getFlatTransactions(
+        ledgerDao.updateReader
+          .getUpdates(
             startInclusive = from.fold(Offset.firstOffset)(_.lastOffset.increment),
             endInclusive = to.value.lastOffset,
-            filter = TemplatePartiesFilter(
-              Map(
-                otherTemplateId -> Some(Set(alice))
+            internalUpdateFormat = updateFormat(
+              filter = TemplatePartiesFilter(
+                Map(
+                  otherTemplateId -> Some(Set(alice))
+                ),
+                Some(Set(bob)),
               ),
-              Some(Set(bob)),
+              eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
             ),
-            eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
           )
       )
       resultPartyWildcard <- transactionsOf(
-        ledgerDao.transactionsReader
-          .getFlatTransactions(
+        ledgerDao.updateReader
+          .getUpdates(
             startInclusive = from.fold(Offset.firstOffset)(_.lastOffset.increment),
             endInclusive = to.value.lastOffset,
-            filter = TemplatePartiesFilter(
-              Map(
-                otherTemplateId -> None
+            internalUpdateFormat = updateFormat(
+              filter = TemplatePartiesFilter(
+                Map(
+                  otherTemplateId -> None
+                ),
+                Some(Set(bob)),
               ),
-              Some(Set(bob)),
+              eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
             ),
-            eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
           )
       )
     } yield {
@@ -513,12 +567,14 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       (_, create) <- store(singleCreate)
       firstContractId = nonTransient(create).loneElement
       (offset, exercise) <- store(exerciseWithChild(firstContractId))
-      result <- ledgerDao.transactionsReader
-        .getFlatTransactions(
+      result <- ledgerDao.updateReader
+        .getUpdates(
           startInclusive = from.fold(Offset.firstOffset)(_.lastOffset.increment),
           endInclusive = offset,
-          filter = TemplatePartiesFilter(Map.empty, Some(exercise.actAs.toSet)),
-          eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+          internalUpdateFormat = updateFormat(
+            filter = TemplatePartiesFilter(Map.empty, Some(exercise.actAs.toSet)),
+            eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+          ),
         )
         .runWith(Sink.seq)
     } yield {
@@ -545,12 +601,14 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       (_, create1) <- store(singleCreate)
       (offset1, exercise) <- store(singleExercise(nonTransient(create1).loneElement))
       (offset2, create2) <- store(singleCreate)
-      result <- ledgerDao.transactionsReader
-        .getFlatTransactions(
-          offset1.increment,
-          offset2,
-          TemplatePartiesFilter(Map.empty, Some(exercise.actAs.toSet)),
-          eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+      result <- ledgerDao.updateReader
+        .getUpdates(
+          startInclusive = offset1.increment,
+          endInclusive = offset2,
+          internalUpdateFormat = updateFormat(
+            TemplatePartiesFilter(Map.empty, Some(exercise.actAs.toSet)),
+            eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+          ),
         )
         .runWith(Sink.seq)
 
@@ -575,12 +633,14 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     for {
       _ <- storeSync(commands)
 
-      result <- ledgerDao.transactionsReader
-        .getFlatTransactions(
-          beginOffsetFromTheFuture.increment,
-          endOffsetFromTheFuture,
-          TemplatePartiesFilter(Map.empty, Some(Set(alice))),
-          eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+      result <- ledgerDao.updateReader
+        .getUpdates(
+          startInclusive = beginOffsetFromTheFuture.increment,
+          endInclusive = endOffsetFromTheFuture,
+          internalUpdateFormat = updateFormat(
+            TemplatePartiesFilter(Map.empty, Some(Set(alice))),
+            eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+          ),
         )
         .runWith(Sink.seq)
         .failed
@@ -631,12 +691,14 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         acsIdFetchingParallelism = 2,
         acsContractFetchingParallelism = 2,
       ).use(
-        _.transactionsReader
-          .getFlatTransactions(
-            beginOffset.increment,
-            endOffset,
-            TemplatePartiesFilter(Map.empty, Some(Set(alice))),
-            eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+        _.updateReader
+          .getUpdates(
+            startInclusive = beginOffset.increment,
+            endInclusive = endOffset,
+            internalUpdateFormat = updateFormat(
+              TemplatePartiesFilter(Map.empty, Some(Set(alice))),
+              eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+            ),
           )
           .runWith(Sink.seq)
       )(ResourceContext(executionContext))
@@ -680,12 +742,14 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             off.unwrap
           }
           to <- ledgerDao.lookupLedgerEnd()
-          response <- ledgerDao.transactionsReader
-            .getFlatTransactions(
-              from.fold(Offset.firstOffset)(_.lastOffset.increment),
-              to.value.lastOffset,
-              cp.filter,
-              EventProjectionProperties(verbose = true, Some(Set.empty)),
+          response <- ledgerDao.updateReader
+            .getUpdates(
+              startInclusive = from.fold(Offset.firstOffset)(_.lastOffset.increment),
+              endInclusive = to.value.lastOffset,
+              internalUpdateFormat = updateFormat(
+                cp.filter,
+                EventProjectionProperties(verbose = true, Some(Set.empty)),
+              ),
             )
             .runWith(Sink.seq)
           readOffsets = response flatMap { case (_, gtr) => Seq(gtr.getTransaction.offset) }
@@ -744,8 +808,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     Future
       .sequence(
         transactions.map(tx =>
-          ledgerDao.transactionsReader
-            .lookupFlatTransactionById(tx.updateId, as)
+          ledgerDao.updateReader
+            .lookupTransactionById(tx.updateId, transactionFormatForWildcardParties(as))
         )
       )
       .map(_.flatMap(_.toList.flatMap(_.transaction.toList)))
@@ -867,4 +931,40 @@ private[dao] object JdbcLedgerDaoTransactionsSpec {
       length,
       Gen.frequency((frequencyPct, true), (100 - frequencyPct, false)),
     )
+
+  private def updateFormat(
+      filter: TemplatePartiesFilter,
+      eventProjectionProperties: EventProjectionProperties,
+  ) = {
+    val eventFormat = InternalEventFormat(
+      templatePartiesFilter = filter,
+      eventProjectionProperties = eventProjectionProperties,
+    )
+    val txFormat = Some(
+      InternalTransactionFormat(internalEventFormat = eventFormat, transactionShape = AcsDelta)
+    )
+    InternalUpdateFormat(
+      includeTransactions = txFormat,
+      includeReassignments = None,
+      includeTopologyEvents = None,
+    )
+  }
+
+  private def transactionFormatForWildcardParties(
+      requestingParties: Set[Party]
+  ): InternalTransactionFormat =
+    InternalTransactionFormat(
+      internalEventFormat = InternalEventFormat(
+        templatePartiesFilter = TemplatePartiesFilter(
+          relation = Map.empty,
+          templateWildcardParties = Some(requestingParties),
+        ),
+        eventProjectionProperties = EventProjectionProperties(
+          verbose = true,
+          templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
+        ),
+      ),
+      transactionShape = AcsDelta,
+    )
+
 }

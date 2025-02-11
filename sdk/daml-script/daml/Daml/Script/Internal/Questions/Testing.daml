@@ -7,6 +7,8 @@ import Daml.Script.Internal.LowLevel
 import Daml.Script.Internal.Questions.Exceptions ()
 import DA.Bifunctor
 import DA.Exception
+import GHC.Types (primitive)
+import DA.Record
 
 newtype CommandName = CommandName
   with getCommandName : Text
@@ -35,12 +37,32 @@ tupleToFailedCmd (cmdName, errName, msg) =
 tryCommands : Script a -> Script (Either FailedCmd a)
 tryCommands = fmap (first tupleToFailedCmd) . lift . TryCommands . toLedgerValue
 
-exception FailedCmd with
+-- Pseudo exception that daml-script can throw/catch, but that isn't seen as an exception in the dar
+-- and as such, does not need to be serializable/cannot be thrown in Update
+data FailedCmd = FailedCmd with
     commandName : CommandName
     errorClassName : ErrorClassName
     errorMessage : ErrorMessage
-  where
-    message getErrorMessage errorMessage
+  deriving (Eq, Show)
+
+instance HasThrow FailedCmd where
+    throwPure _ = error "Tried to throw daml-script pseudo-exception"
+
+instance GetField "message" FailedCmd Text where
+    getField (FailedCmd _ _ msg) = getErrorMessage msg
+
+instance HasMessage FailedCmd where
+    message (FailedCmd _ _ msg) = getErrorMessage msg
+
+-- These primitives do not check that the type arguments are real templates
+-- they also use the same internal representation in the engine as exceptions
+-- (SBToAny, SBFromAny)
+-- So we hijack them until Daml 3.4, where either exceptions are removed, or not serializable
+instance HasToAnyException FailedCmd where
+    toAnyException = anyToAnyException . primitive @"EToAnyTemplate"
+
+instance HasFromAnyException FailedCmd where
+    fromAnyException = primitive @"EFromAnyTemplate" . anyExceptionToAny
 
 -- Runs a script and lifts FailedCmd scala exceptions into the FailedCmd daml exception, which can be caught via try-catch
 liftFailedCommandToException : Script a -> Script a

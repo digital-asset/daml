@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.mediator.store
 
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -19,7 +20,7 @@ import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.{GetResult, SetParameter}
 
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{ConcurrentNavigableMap, ConcurrentSkipListMap}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
@@ -37,7 +38,10 @@ private[mediator] trait MediatorDeduplicationStore extends NamedLogging with Fla
   private val uuidByExpiration: ConcurrentNavigableMap[CantonTimestamp, NonEmpty[Set[UUID]]] =
     new ConcurrentSkipListMap()
 
-  protected val initialized: AtomicBoolean = new AtomicBoolean()
+  private val initialized: AtomicReference[MediatorDeduplicationStore.State] =
+    new AtomicReference[MediatorDeduplicationStore.State](
+      MediatorDeduplicationStore.State.Uninitialized
+    )
 
   /** Clients must call this method before any other method.
     *
@@ -49,8 +53,17 @@ private[mediator] trait MediatorDeduplicationStore extends NamedLogging with Fla
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
   ): FutureUnlessShutdown[Unit] = {
-    require(!initialized.getAndSet(true), "The store most not be initialized more than once!")
-    doInitialize(firstEventTs)
+    require(
+      initialized.compareAndSet(
+        MediatorDeduplicationStore.State.Uninitialized,
+        MediatorDeduplicationStore.State.Initializing,
+      ),
+      "The store most not be initialized more than once!",
+    )
+    implicit val directExecutionContext: DirectExecutionContext = DirectExecutionContext(logger)
+    doInitialize(firstEventTs).map(_ =>
+      initialized.set(MediatorDeduplicationStore.State.Initialized)
+    )
   }
 
   /** Populate in-memory caches and
@@ -62,7 +75,10 @@ private[mediator] trait MediatorDeduplicationStore extends NamedLogging with Fla
   ): FutureUnlessShutdown[Unit]
 
   private def requireInitialized()(implicit traceContext: TraceContext): Unit =
-    ErrorUtil.requireState(initialized.get(), "The initialize method needs to be called first.")
+    ErrorUtil.requireState(
+      initialized.get() == MediatorDeduplicationStore.State.Initialized,
+      "The initialize method needs to be called first.",
+    )
 
   /** Yields the data stored for a given `uuid` that is not expired at `timestamp`.
     */
@@ -225,6 +241,13 @@ private[mediator] object MediatorDeduplicationStore {
     val requestTime = r.<<[CantonTimestamp]
     val expireAfter = r.<<[CantonTimestamp]
     DeduplicationData(uuid, requestTime, expireAfter)
+  }
+
+  private sealed trait State extends Product with Serializable
+  private object State {
+    case object Uninitialized extends State
+    case object Initializing extends State
+    case object Initialized extends State
   }
 }
 

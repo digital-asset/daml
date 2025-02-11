@@ -6,7 +6,7 @@ syntax = "proto3";
 package com.digitalasset.canton.sequencer.api.v30;
 
 import "com/digitalasset/canton/protocol/v30/traffic_control_parameters.proto";
-import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
+import "com/digitalasset/canton/topology/admin/v30/common.proto";
 import "com/digitalasset/canton/v30/trace_context.proto";
 import "scalapb/scalapb.proto";
 

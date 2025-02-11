@@ -79,7 +79,7 @@ private[apiserver] final class ApiPartyManagementService private (
     identityProviderExists: IdentityProviderExists,
     maxPartiesPageSize: PositiveInt,
     partyRecordStore: PartyRecordStore,
-    transactionService: IndexTransactionsService,
+    updateService: IndexUpdateService,
     syncService: state.PartySyncService,
     managementServiceTimeout: FiniteDuration,
     submissionIdGenerator: CreateSubmissionId,
@@ -255,7 +255,7 @@ private[apiserver] final class ApiPartyManagementService private (
           implicit loggingContext =>
             for {
               _ <- identityProviderExistsOrError(identityProviderId)
-              ledgerEndbeforeRequest <- transactionService.currentLedgerEnd()
+              ledgerEndbeforeRequest <- updateService.currentLedgerEnd()
               allocated <- partyAllocationTracker
                 .track(
                   trackerKey,
@@ -652,7 +652,7 @@ private[apiserver] object ApiPartyManagementService {
       identityProviderExists: IdentityProviderExists,
       maxPartiesPageSize: PositiveInt,
       partyRecordStore: PartyRecordStore,
-      transactionsService: IndexTransactionsService,
+      updateService: IndexUpdateService,
       writeBackend: state.PartySyncService,
       managementServiceTimeout: FiniteDuration,
       submissionIdGenerator: CreateSubmissionId,
@@ -668,7 +668,7 @@ private[apiserver] object ApiPartyManagementService {
       identityProviderExists,
       maxPartiesPageSize,
       partyRecordStore,
-      transactionsService,
+      updateService,
       writeBackend,
       managementServiceTimeout,
       submissionIdGenerator,

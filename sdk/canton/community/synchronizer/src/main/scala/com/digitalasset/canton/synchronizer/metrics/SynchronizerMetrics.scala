@@ -19,6 +19,7 @@ import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.metrics.{
   DbStorageHistograms,
   DbStorageMetrics,
+  DeclarativeApiMetrics,
   SequencerClientHistograms,
   SequencerClientMetrics,
   TrafficConsumptionMetrics,
@@ -53,6 +54,8 @@ class SequencerMetrics(
 ) extends BaseMetrics {
   override val prefix: MetricName = histograms.prefix
   private implicit val mc: MetricsContext = MetricsContext.Empty
+  override val declarativeApiMetrics: DeclarativeApiMetrics =
+    new DeclarativeApiMetrics(prefix, openTelemetryMetricsFactory)
 
   override val grpcMetrics: GrpcServerMetrics =
     new DamlGrpcServerMetrics(openTelemetryMetricsFactory, "sequencer")
@@ -327,6 +330,9 @@ class MediatorMetrics(
 
   override val prefix: MetricName = histograms.prefix
   private implicit val mc: MetricsContext = MetricsContext.Empty
+
+  override val declarativeApiMetrics: DeclarativeApiMetrics =
+    new DeclarativeApiMetrics(prefix, openTelemetryMetricsFactory)
 
   override def storageMetrics: DbStorageMetrics = dbStorage
 

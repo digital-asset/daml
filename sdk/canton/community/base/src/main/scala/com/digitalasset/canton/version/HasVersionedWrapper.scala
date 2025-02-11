@@ -25,6 +25,8 @@ import scala.collection.immutable
   * but we often specify the typed alias [[com.digitalasset.canton.version.VersionedMessage]]
   * instead.
   */
+// In the versioning framework, such calls are legitimate
+@SuppressWarnings(Array("com.digitalasset.canton.ProtobufToByteString"))
 trait HasVersionedWrapper[ValueClass] extends HasVersionedToByteString {
   self: ValueClass =>
 

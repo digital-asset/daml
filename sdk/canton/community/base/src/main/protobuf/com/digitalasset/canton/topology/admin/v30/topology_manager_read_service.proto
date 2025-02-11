@@ -7,7 +7,7 @@ package com.digitalasset.canton.topology.admin.v30;
 
 import "com/digitalasset/canton/protocol/v30/synchronizer_parameters.proto";
 import "com/digitalasset/canton/protocol/v30/topology.proto";
-import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
+import "com/digitalasset/canton/topology/admin/v30/common.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -41,7 +41,7 @@ service TopologyManagerReadService {
 }
 
 message BaseQuery {
-  Store filter_store = 1;
+  StoreId filter_store = 1;
 
   // whether to query only for proposals instead of approved topology mappings
   bool proposals = 2;
@@ -64,21 +64,8 @@ message BaseQuery {
   optional int32 protocol_version = 9;
 }
 
-message Store {
-  message Authorized {}
-
-  message Synchronizer {
-    string id = 1;
-  }
-
-  oneof store {
-    Authorized authorized = 1;
-    Synchronizer synchronizer = 2;
-  }
-}
-
 message BaseResult {
-  Store store = 1;
+  StoreId store = 1;
   google.protobuf.Timestamp sequenced = 2;
   google.protobuf.Timestamp valid_from = 3;
   google.protobuf.Timestamp valid_until = 4;
@@ -302,7 +289,7 @@ message ExportTopologySnapshotResponse {
 
 message GenesisStateRequest {
   // Must be specified if the genesis state is requested from a participant node.
-  Store filter_synchronizer_store = 1;
+  StoreId filter_synchronizer_store = 1;
   // Optional - the effective time used to fetch the topology transactions. If not provided the effective time of the last topology transaction is used.
   google.protobuf.Timestamp timestamp = 2;
 }

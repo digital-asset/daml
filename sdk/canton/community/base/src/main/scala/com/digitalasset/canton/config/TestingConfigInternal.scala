@@ -34,6 +34,16 @@ import com.digitalasset.canton.metrics.MetricsFactoryType.External
   * @param maxCommitmentSendDelayMillis The maximum delay for sending commitments in milliseconds. If not set,
   *                                     commitment sending is delayed by a random amount at most the default value.
   * @param sequencerTransportSeed The seed to be used for choosing threshold number of sequencer transports.
+  * @param warnOnAcsCommitmentDegradation When true, we log a warning when the participant falls behind in
+  *                                       producing ACS commitments. This is the default.
+  *                                       A false value lowers the logging level to debug, while keeping the degradation
+  *                                       of the health status. In tests, we should set it to false, because any test
+  *                                       with high load can cause a participant to lag behind in producing
+  *                                       commitments, which would produce an ACS commitment degradation warning and
+  *                                       cause a CI test to be reported as failed. Because in our testing framework any
+  *                                       test can run colocated with any other test, any test, load-intensive or not,
+  *                                       can issue the warning. Therefore, this parameter should be set to false in
+  *                                       tests, unless the test expressly checks the behavior of the degradation.
   */
 final case class TestingConfigInternal(
     testSequencerClientFor: Set[TestSequencerClientFor] = Set.empty,
@@ -46,6 +56,7 @@ final case class TestingConfigInternal(
     sequencerTransportSeed: Option[Long] = None,
     participantsWithoutLapiVerification: Set[String] = Set.empty,
     enableInMemoryTransactionStoreForParticipants: Boolean = false,
+    warnOnAcsCommitmentDegradation: Boolean = true,
 )
 
 /** @param environmentId ID used to disambiguate tests running in parallel

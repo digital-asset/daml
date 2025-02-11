@@ -190,6 +190,7 @@ class MediatorNodeBootstrap(
     ](arguments) {
 
   override protected def member(uid: UniqueIdentifier): Member = MediatorId(uid)
+  override def metrics: BaseMetrics = arguments.metrics
 
   override protected def adminTokenConfig: Option[String] = config.adminApi.adminToken
 

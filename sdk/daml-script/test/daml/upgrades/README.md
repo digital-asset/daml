@@ -59,7 +59,7 @@ name: my-package
 versions: 2
 lf-version:
   1.15 -- @V 1
-  1.16 -- @V  2
+  1.17 -- @V  2
 depends:
   my-other-package-0.0.1 -- @V 1
   my-other-package-0.0.2 -- @V  2

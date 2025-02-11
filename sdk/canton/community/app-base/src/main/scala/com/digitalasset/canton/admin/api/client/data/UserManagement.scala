@@ -94,7 +94,7 @@ object ListLedgerApiUsersResult {
 final case class User(
     id: String,
     primaryParty: Option[PartyId],
-    isActive: Boolean,
+    isDeactivated: Boolean,
     annotations: Map[String, String],
     identityProviderId: String,
 )
@@ -103,14 +103,14 @@ object User {
   def fromLapiUser(u: LedgerApiUser): User = User(
     id = u.id,
     primaryParty = u.primaryParty,
-    isActive = !u.isDeactivated,
+    isDeactivated = u.isDeactivated,
     annotations = u.metadata.annotations,
     identityProviderId = u.identityProviderId,
   )
   def toLapiUser(u: User, resourceVersion: Option[String]): LedgerApiUser = LedgerApiUser(
     id = u.id,
     primaryParty = u.primaryParty,
-    isDeactivated = !u.isActive,
+    isDeactivated = u.isDeactivated,
     metadata = LedgerApiObjectMeta(
       resourceVersion = resourceVersion.getOrElse(""),
       annotations = u.annotations,

@@ -5,7 +5,6 @@ package com.digitalasset.canton.synchronizer.mediator
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
-import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
@@ -246,7 +245,6 @@ class ConfirmationRequestAndResponseProcessorTest
       mock[Clock],
       MediatorTestMetrics,
       testedProtocolVersion,
-      CachingConfigs.defaultFinalizedMediatorConfirmationRequestsCache,
       timeouts,
       loggerFactory,
     )
@@ -356,7 +354,6 @@ class ConfirmationRequestAndResponseProcessorTest
               SequencerCounter(0),
               requestTimestamp.plusSeconds(60),
               requestTimestamp.plusSeconds(120),
-              NonNegativeFiniteDuration.tryOfHours(1),
               addRecipients(testMediatorRequest),
               rootHashMessages,
               batchAlsoContainsTopologyTransaction = false,
@@ -388,7 +385,6 @@ class ConfirmationRequestAndResponseProcessorTest
               notSignificantCounter,
               participantResponseDeadline,
               decisionTime,
-              NonNegativeFiniteDuration.tryOfHours(1),
               addRecipients(informeeMessage),
               rootHashMessages,
               batchAlsoContainsTopologyTransaction = false,
@@ -427,7 +423,6 @@ class ConfirmationRequestAndResponseProcessorTest
             notSignificantCounter,
             requestTimestamp.plusSeconds(60),
             requestTimestamp.plusSeconds(120),
-            NonNegativeFiniteDuration.tryOfHours(1),
             addRecipients(informeeMessage),
             rootHashMessages,
             batchAlsoContainsTopologyTransaction = false,
@@ -541,7 +536,6 @@ class ConfirmationRequestAndResponseProcessorTest
               notSignificantCounter,
               ts.plusSeconds(60),
               ts.plusSeconds(120),
-              NonNegativeFiniteDuration.tryOfHours(1),
               addRecipients(informeeMessage),
               rootHashMessages,
               batchAlsoContainsTopologyTransaction = false,
@@ -709,7 +703,6 @@ class ConfirmationRequestAndResponseProcessorTest
                     notSignificantCounter,
                     ts.plusSeconds(60),
                     ts.plusSeconds(120),
-                    NonNegativeFiniteDuration.tryOfHours(1),
                     addRecipients(req),
                     rootHashMessages,
                     batchAlsoContainsTopologyTransaction = false,
@@ -776,7 +769,6 @@ class ConfirmationRequestAndResponseProcessorTest
               notSignificantCounter,
               ts.plusSeconds(60),
               ts.plusSeconds(120),
-              NonNegativeFiniteDuration.tryOfHours(1),
               addRecipients(mediatorRequest),
               List(
                 OpenEnvelope(
@@ -817,7 +809,6 @@ class ConfirmationRequestAndResponseProcessorTest
               notSignificantCounter,
               participantResponseDeadline,
               decisionTime,
-              NonNegativeFiniteDuration.tryOfHours(1),
               addRecipients(
                 informeeMessage,
                 wrongRecipients,
@@ -874,7 +865,6 @@ class ConfirmationRequestAndResponseProcessorTest
             notSignificantCounter,
             requestIdTs.plusSeconds(60),
             decisionTime,
-            NonNegativeFiniteDuration.tryOfMinutes(5),
             addRecipients(informeeMessage),
             List(
               OpenEnvelope(
@@ -895,7 +885,8 @@ class ConfirmationRequestAndResponseProcessorTest
           ResponseAggregation.fromRequest(
             requestId,
             informeeMessage,
-            requestId.unwrap.plusSeconds(300L),
+            participantResponseDeadline,
+            decisionTime,
             mockTopologySnapshot,
           )
 
@@ -940,6 +931,7 @@ class ConfirmationRequestAndResponseProcessorTest
                     actualRequestId,
                     actualRequest,
                     _,
+                    _,
                     actualVersion,
                     Right(_states),
                   )
@@ -965,10 +957,10 @@ class ConfirmationRequestAndResponseProcessorTest
             `requestId`,
             `informeeMessage`,
             _,
+            _,
             `ts1`,
             Right(states),
-          ) =
-            updatedState.value
+          ) = updatedState.value
           assert(
             states === Map(
               view0Position -> completedView,
@@ -1154,7 +1146,6 @@ class ConfirmationRequestAndResponseProcessorTest
             notSignificantCounter,
             requestIdTs.plusSeconds(60),
             requestIdTs.plusSeconds(120),
-            NonNegativeFiniteDuration.tryOfHours(1),
             addRecipients(informeeMessage),
             List(
               OpenEnvelope(
@@ -1255,7 +1246,6 @@ class ConfirmationRequestAndResponseProcessorTest
             notSignificantCounter,
             requestIdTs.plus(confirmationResponseTimeout.unwrap),
             requestIdTs.plusSeconds(120),
-            NonNegativeFiniteDuration.tryOfHours(1),
             addRecipients(informeeMessage),
             List(
               OpenEnvelope(
@@ -1290,6 +1280,35 @@ class ConfirmationRequestAndResponseProcessorTest
       } yield succeed
     }
 
+    "ignore responses for future request" in {
+      val sut = new Fixture()
+      val sequencingTs = requestId.unwrap.minusSeconds(1)
+
+      for {
+        response <- signedResponse(
+          Set(submitter),
+          ViewPosition.root,
+          LocalApprove(testedProtocolVersion),
+          requestId,
+        )
+        _ <- loggerFactory.assertLogs(
+          sut.processor.handleMediatorEvent(
+            MediatorEvent.Response(
+              notSignificantCounter,
+              sequencingTs,
+              response,
+              topologyTimestamp = Some(requestId.unwrap),
+              recipients = Recipients.cc(mediatorGroupRecipient),
+            )
+          ),
+          _.shouldBeCantonError(
+            MediatorError.MalformedMessage,
+            _ should include("with earlier sequencing time"),
+          ),
+        )
+      } yield succeed
+    }
+
     "reject requests whose batch contained a topology transaction" in {
       val sut = new Fixture()
 
@@ -1314,7 +1333,6 @@ class ConfirmationRequestAndResponseProcessorTest
               notSignificantCounter,
               ts.plusSeconds(60),
               ts.plusSeconds(120),
-              NonNegativeFiniteDuration.tryOfHours(1),
               addRecipients(mediatorRequest),
               List(
                 OpenEnvelope(
@@ -1370,7 +1388,6 @@ class ConfirmationRequestAndResponseProcessorTest
               notSignificantCounter,
               requestIdTs.plusSeconds(20),
               decisionTime,
-              NonNegativeFiniteDuration.tryOfHours(1),
               addRecipients(request),
               rootHashMessages,
               batchAlsoContainsTopologyTransaction = false,
@@ -1410,7 +1427,6 @@ class ConfirmationRequestAndResponseProcessorTest
             notSignificantCounter,
             ts.plusSeconds(60),
             ts.plusSeconds(120),
-            NonNegativeFiniteDuration.tryOfHours(1),
             addRecipients(mediatorRequest),
             List(
               OpenEnvelope(

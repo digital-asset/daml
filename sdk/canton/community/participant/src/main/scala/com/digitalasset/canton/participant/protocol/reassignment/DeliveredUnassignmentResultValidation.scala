@@ -31,7 +31,7 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
     unassignmentRequestTs: CantonTimestamp,
     unassignmentDecisionTime: CantonTimestamp,
     sourceTopology: Source[SyncCryptoApi],
-    targetTopology: Target[TopologySnapshot],
+    targetTopologyTargetTs: Target[TopologySnapshot],
 )(
     deliveredUnassignmentResult: DeliveredUnassignmentResult
 )(implicit executionContext: ExecutionContext, traceContext: TraceContext) {
@@ -52,7 +52,7 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
       _ <- validateSynchronizerId(result.synchronizerId)
       _ <- validateRequestId
       _ <- validateRootHash
-      _ <- validateInformees
+      _ <- validateStakeholdersReassigningParticipants
       _ <- validateSignatures
     } yield ()
 
@@ -98,15 +98,16 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
     )
   }
 
-  private def validateInformees: EitherT[FutureUnlessShutdown, Error, Unit] = {
+  // Check that each stakeholder is hosted on at least one reassigning participant
+  private def validateStakeholdersReassigningParticipants
+      : EitherT[FutureUnlessShutdown, Error, Unit] = {
     val partyToParticipantsSourceF =
       sourceTopology.unwrap.ipsSnapshot.activeParticipantsOfPartiesWithInfo(
         stakeholders.all.toSeq
       )
     val partyToParticipantsTargetF =
-      targetTopology.unwrap.activeParticipantsOfPartiesWithInfo(stakeholders.all.toSeq)
+      targetTopologyTargetTs.unwrap.activeParticipantsOfPartiesWithInfo(stakeholders.all.toSeq)
 
-    // Check that each stakeholder is hosted on at least one reassigning participant
     val stakeholdersHostedReassigningParticipants: FutureUnlessShutdown[Either[Error, Unit]] = for {
       partyToParticipantsSource <- partyToParticipantsSourceF
       partyToParticipantsTarget <- partyToParticipantsTargetF
@@ -129,15 +130,7 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
       }
     } yield res
 
-    val expectedInformees =
-      unassignmentRequest.stakeholders.all + unassignmentRequest.submitterMetadata.submittingAdminParty
-    for {
-      _ <- EitherT(stakeholdersHostedReassigningParticipants)
-      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown][Error](
-        result.informees == expectedInformees,
-        IncorrectInformees(expectedInformees, result.informees),
-      )
-    } yield ()
+    EitherT(stakeholdersHostedReassigningParticipants)
   }
 
   private def validateSignatures: EitherT[FutureUnlessShutdown, Error, Unit] =
@@ -189,14 +182,6 @@ object DeliveredUnassignmentResultValidation {
       found: SynchronizerId,
   ) extends Error {
     override def error: String = s"Incorrect synchronizer: found $found but expected $expected"
-  }
-
-  final case class IncorrectInformees(
-      expected: Set[LfPartyId],
-      found: Set[LfPartyId],
-  ) extends Error {
-    override def error: String =
-      s"Informees should match the stakeholders. Found: $found but expected $expected"
   }
 
   final case class IncorrectSignatures(

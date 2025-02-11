@@ -131,6 +131,9 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val do_fetch: ContractId M:T -> Update M:T =
         \(cId: ContractId M:T) ->
           fetch_template @M:T cId;
+
+      val do_exercise: ContractId M:T -> Update Unit  =
+        \(cId: ContractId M:T) -> exercise @M:T NoOp cId ();
       }
     """
   }
@@ -158,6 +161,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         \(cId: ContractId M:T) ->
           fetch_template @M:T cId;
 
+      val do_exercise: ContractId M:T -> Update Unit  =
+        \(cId: ContractId M:T) -> exercise @M:T NoOp cId ();
       }
     """
   }
@@ -267,7 +272,11 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   // The given contractSValue is wrapped as a disclosedContract
-  def goDisclosed(e: Expr, contractSValue: SValue): Either[SError, Success] = {
+  def goDisclosed(
+      e: Expr,
+      templateId: Ref.TypeConName,
+      contractSValue: SValue,
+  ): Either[SError, Success] = {
 
     val se: SExpr = pkgs.compiler.unsafeCompile(e)
     val args = Array[SValue](SContractId(theCid))
@@ -283,7 +292,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         version = VDev,
         packageName = pkgName,
         packageVersion = unknownPkgVer,
-        templateId = i"'-unknown-':M:T",
+        templateId = templateId,
         value = contractSValue,
         signatories = Set.empty,
         observers = Set.empty,
@@ -355,7 +364,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       inside(
         go(
           e"'-pkg1-':M:do_fetch",
-          ContractInstance(pkgName, unknownPkgVer, i"'-unknow-':M:T", v_missingField),
+          ContractInstance(pkgName, unknownPkgVer, i"'-pkg1-':M:T", v_missingField),
         )
       ) { case Left(SError.SErrorCrash(_, reason)) =>
         reason should include(
@@ -373,7 +382,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ValueOptional(None),
         )
 
-      val expectedTyCon = i"'-pkg3-':M:T"
       val negativeTestCase = i"'-pkg2-':M:T"
       val positiveTestCases = Table("tyCon", i"'-pkg2-':M1:T", i"'-pkg2-':M2:T")
       go(
@@ -385,8 +393,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
       forEvery(positiveTestCases) { tyCon =>
         inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, unknownPkgVer, tyCon, v))) {
-          case Left(SError.SErrorDamlException(e)) =>
-            e shouldBe IE.WronglyTypedContract(theCid, expectedTyCon, tyCon)
+          case Left(e) =>
+            // TODO(https://github.com/DACH-NY/canton/issues/23879): do better than a crash once we typecheck values
+            //    on import.
+            e shouldBe a[SError.SErrorCrash]
         }
       }
     }
@@ -418,7 +428,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val res =
         go(
           e"'-pkg1-':M:do_fetch",
-          ContractInstance(pkgName, unknownPkgVer, i"'-unknown-':M:T", v1_extraText),
+          ContractInstance(pkgName, unknownPkgVer, i"'-pkg1-':M:T", v1_extraText),
         )
 
       inside(res) { case Left(SError.SErrorCrash(_, reason)) =>
@@ -426,7 +436,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           "Unexpected non-optional extra contract field encountered during downgrading"
         )
       }
-
     }
 
     "extra field (Some) - cannot be dropped" in {
@@ -461,8 +470,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
       val res =
         go(
-          e"'-pkg2-':M:do_fetch",
-          ContractInstance(pkgName, unknownPkgVer, i"'-unknow-':M:T", v1_extraNone),
+          e"'-pkg1-':M:do_fetch",
+          ContractInstance(pkgName, unknownPkgVer, i"'-pkg3-':M:T", v1_extraNone),
         )
 
       inside(res) { case Right((v, _)) =>
@@ -494,10 +503,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
-        verificationRequests shouldBe List(
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
-        )
+      inside(res) { case Right((v, List())) =>
+        v shouldBe a[ValueContractId]
       }
     }
 
@@ -510,11 +517,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
-        verificationRequests shouldBe List(
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
-        )
+      inside(res) { case Right((v, List())) =>
+        v shouldBe a[ValueContractId]
       }
     }
 
@@ -526,10 +530,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
-        verificationRequests shouldBe List(
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
-        )
+      inside(res) { case Right((v, List())) =>
+        v shouldBe a[ValueContractId]
       }
     }
 
@@ -542,16 +544,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
-        verificationRequests shouldBe List(
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
-        )
+      inside(res) { case Right((v, List())) =>
+        v shouldBe a[ValueContractId]
       }
     }
 
-    // TODO(https://github.com/digital-asset/daml/issues/20099): re-enable this test once fixed
-    "be able to exercise by interface locally created contract using different versions" ignore {
+    "be able to exercise by interface locally created contract using different versions" in {
       val res = go(
         e"""let alice : Party = '-pkg1-':M:mkParty "alice"
             in ubind
@@ -564,10 +562,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           """,
         packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> pkgId2),
       )
-      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
-        verificationRequests shouldBe List(
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
-        )
+      inside(res) { case Right((v, List())) =>
+        v shouldBe a[ValueContractId]
       }
     }
 
@@ -577,122 +573,113 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         e"""\(cid: ContractId '-pkg1-':M:T) ->
                ubind
                  x1: Unit <- '-pkg2-':M:do_fetch cid;
-                 x2: Unit <- '-pkg4-':M:do_fetch cid
+                 x2: Unit <- '-pkg3-':M:do_fetch cid
                in upure @Unit ()
           """,
         ContractInstance(pkgName, pkg1Ver, i"'-pkg1-':M:T", v1_base),
       )
-      inside(res) { case Right((_, verificationRequests)) =>
-        val v4_key = GlobalKeyWithMaintainers.assertBuild(
-          i"'-pkg1-':M:T",
+      res shouldBe a[Right[_, _]]
+    }
+
+    "Correct calls to ResultNeedUpgradeVerification" in {
+
+      implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
+
+      val v_alice_none =
+        makeRecord(
+          ValueParty(alice),
           ValueParty(bob),
-          Set(bob),
-          pkgName,
+          ValueInt64(100),
+          ValueOptional(None),
         )
-        verificationRequests shouldBe List(
-          UpgradeVerificationRequest(theCid, Set(alice), Set(bob), Some(v1_key)),
-          UpgradeVerificationRequest(theCid, Set(bob), Set(alice), Some(v4_key)),
+
+      val v_alice_some =
+        makeRecord(
+          ValueParty(alice),
+          ValueParty(bob),
+          ValueInt64(100),
+          ValueOptional(Some(ValueParty(bob))),
         )
+
+      inside(
+        go(
+          e"'-pkg3-':M:do_fetch",
+          ContractInstance(pkgName, pkg3Ver, i"'-misspelled-pkg3-':M:T", v_alice_none),
+        )
+      ) { case Right((v, List(uv))) =>
+        v shouldBe v_alice_none
+        uv.coid shouldBe theCid
+        uv.signatories.toList shouldBe List(alice)
+        uv.observers.toList shouldBe List(bob)
+        uv.keyOpt shouldBe Some(v1_key)
       }
-    }
-  }
 
-  "Correct calls to ResultNeedUpgradeVerification" in {
+      inside(
+        go(
+          e"'-pkg3-':M:do_fetch",
+          ContractInstance(pkgName, pkg3Ver, i"'-misspelled-pkg3-':M:T", v_alice_some),
+        )
+      ) { case Right((v, List(uv))) =>
+        v shouldBe v_alice_some
+        uv.coid shouldBe theCid
+        uv.signatories.toList shouldBe List(alice, bob)
+        uv.observers.toList shouldBe List(bob)
+        uv.keyOpt shouldBe Some(v1_key)
+      }
 
-    implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
-
-    val v_alice_none =
-      makeRecord(
-        ValueParty(alice),
-        ValueParty(bob),
-        ValueInt64(100),
-        ValueOptional(None),
-      )
-
-    val v_alice_some =
-      makeRecord(
-        ValueParty(alice),
-        ValueParty(bob),
-        ValueInt64(100),
-        ValueOptional(Some(ValueParty(bob))),
-      )
-
-    inside(
-      go(
-        e"'-pkg3-':M:do_fetch",
-        ContractInstance(pkgName, pkg3Ver, i"'-misspelled-pkg3-':M:T", v_alice_none),
-      )
-    ) { case Right((v, List(uv))) =>
-      v shouldBe v_alice_none
-      uv.coid shouldBe theCid
-      uv.signatories.toList shouldBe List(alice)
-      uv.observers.toList shouldBe List(bob)
-      uv.keyOpt shouldBe Some(v1_key)
     }
 
-    inside(
-      go(
-        e"'-pkg3-':M:do_fetch",
-        ContractInstance(pkgName, pkg3Ver, i"'-misspelled-pkg3-':M:T", v_alice_some),
-      )
-    ) { case Right((v, List(uv))) =>
-      v shouldBe v_alice_some
-      uv.coid shouldBe theCid
-      uv.signatories.toList shouldBe List(alice, bob)
-      uv.observers.toList shouldBe List(bob)
-      uv.keyOpt shouldBe Some(v1_key)
-    }
+    "Disclosed contracts" - {
 
-  }
+      implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
 
-  "Disclosed contracts" - {
+      "correct fields" in {
 
-    implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
+        // This is the SValue equivalent of v1_base
+        val sv1_base: SValue = {
+          def fields = ImmArray(
+            n"sig",
+            n"obs",
+            n"aNumber",
+          )
 
-    "correct fields" in {
+          def values: util.ArrayList[SValue] = ArrayList(
+            SValue.SParty(alice), // And it needs to be a party
+            SValue.SParty(bob),
+            SValue.SInt64(100),
+          )
 
-      // This is the SValue equivalent of v1_base
-      val sv1_base: SValue = {
-        def fields = ImmArray(
-          n"sig",
-          n"obs",
-          n"aNumber",
-        )
-
-        def values: util.ArrayList[SValue] = ArrayList(
-          SValue.SParty(alice), // And it needs to be a party
-          SValue.SParty(bob),
-          SValue.SInt64(100),
-        )
-
-        SValue.SRecord(i"'-pkg1-':M:T", fields, values)
+          SValue.SRecord(i"'-pkg1-':M:T", fields, values)
+        }
+        inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) {
+          case Right((v, _)) =>
+            v shouldBe v1_base
+        }
       }
-      inside(goDisclosed(e"'-pkg1-':M:do_fetch", sv1_base)) { case Right((v, _)) =>
-        v shouldBe v1_base
-      }
-    }
 
-    "requires downgrade" in {
+      "requires downgrade" in {
 
-      val sv1_base: SValue = {
-        def fields = ImmArray(
-          n"sig",
-          n"obs",
-          n"aNumber",
-          n"extraField",
-        )
+        val sv1_base: SValue = {
+          def fields = ImmArray(
+            n"sig",
+            n"obs",
+            n"aNumber",
+            n"extraField",
+          )
 
-        def values: util.ArrayList[SValue] = ArrayList(
-          SValue.SParty(alice),
-          SValue.SParty(bob),
-          SValue.SInt64(100),
-          SValue.SOptional(None),
-        )
+          def values: util.ArrayList[SValue] = ArrayList(
+            SValue.SParty(alice),
+            SValue.SParty(bob),
+            SValue.SInt64(100),
+            SValue.SOptional(None),
+          )
 
-        SValue.SRecord(i"'-unknown-':M:T", fields, values)
-      }
-      inside(goDisclosed(e"'-pkg1-':M:do_fetch", sv1_base)) { case Right((v, _)) =>
-        v shouldBe v1_base
+          SValue.SRecord(i"'-unknown-':M:T", fields, values)
+        }
+        inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) {
+          case Right((v, _)) =>
+            v shouldBe v1_base
+        }
       }
     }
   }

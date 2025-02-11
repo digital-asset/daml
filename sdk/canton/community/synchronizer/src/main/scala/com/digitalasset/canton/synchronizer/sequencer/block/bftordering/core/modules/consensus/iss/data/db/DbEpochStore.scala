@@ -5,7 +5,6 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -55,6 +54,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.ConsensusMessage as ProtoConsensusMessage
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.{ProtoDeserializationError, RichGeneratedMessage}
 import com.google.protobuf.ByteString
 import slick.dbio.DBIOAction
 import slick.jdbc.{GetResult, PositionedResult, SetParameter}
@@ -127,10 +127,8 @@ class DbEpochStore(
     )
   }
 
-  private implicit val setPbftMessagesParameter: SetParameter[SignedMessage[PbftNetworkMessage]] = {
-    (msg, pp) =>
-      pp >> msg.toProto.toByteString
-  }
+  private implicit val setPbftMessagesParameter: SetParameter[SignedMessage[PbftNetworkMessage]] =
+    (msg, pp) => pp >> msg.toProtoV1.checkedToByteString
 
   override def startEpoch(
       epoch: EpochInfo
@@ -152,7 +150,6 @@ class DbEpochStore(
                      insert (epoch_number, start_block_number, epoch_length, topology_ts, in_progress)
                      values (${epoch.number}, ${epoch.startBlockNumber}, ${epoch.length}, ${epoch.topologyActivationTime.value}, true)
                 """
-          case _ => raiseSupportedDbError
         },
         functionFullName,
       )
@@ -173,9 +170,6 @@ class DbEpochStore(
         functionFullName,
       )
     }
-
-  private def raiseSupportedDbError =
-    sys.error("only Postgres and H2 are supported")
 
   override def latestEpoch(includeInProgress: Boolean)(implicit
       traceContext: TraceContext
@@ -295,7 +289,6 @@ class DbEpochStore(
                      insert (block_number, epoch_number, view_number, message, discriminator, from_sequencer_id)
                      values ($blockNumber, $epochNumber, $viewNumber, $msg, $discriminator, $sequencerId)
                 """
-          case _ => raiseSupportedDbError
         }
       }
     }
@@ -327,7 +320,6 @@ class DbEpochStore(
                      insert (block_number, epoch_number, message, discriminator, from_sequencer_id)
                      values ($blockNumber, $epochNumber, $msg, $discriminator, $sequencerId)
                 """
-          case _ => raiseSupportedDbError
         }
       }
     }

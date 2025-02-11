@@ -34,7 +34,7 @@ class SequencerSnapshotAdditionalInfoTest extends AnyWordSpec with BftSequencerB
         )
       )
 
-      val serializedSnapshotAdditionalInfo = snapshotAdditionalInfo.toProto.toByteString
+      val serializedSnapshotAdditionalInfo = snapshotAdditionalInfo.toProto30.toByteString
 
       SequencerSnapshotAdditionalInfo.fromProto(
         serializedSnapshotAdditionalInfo

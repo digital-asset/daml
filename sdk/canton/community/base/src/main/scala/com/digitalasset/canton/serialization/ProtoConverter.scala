@@ -13,6 +13,10 @@ import com.digitalasset.canton.ProtoDeserializationError.{
   StringConversionError,
   TimestampConversionError,
 }
+import com.digitalasset.canton.config.CantonRequireTypes.{
+  LengthLimitedString,
+  LengthLimitedStringCompanion,
+}
 import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeInt,
   NonNegativeLong,
@@ -172,6 +176,11 @@ object ProtoConverter {
       to: String => Either[String, T]
   ): ParsingResult[T] =
     to(from).leftMap(StringConversionError.apply(_, field))
+
+  def parseLengthLimitedString[LLS <: LengthLimitedString](
+      companion: LengthLimitedStringCompanion[LLS],
+      s: String,
+  ): ParsingResult[LLS] = companion.create(s).leftMap(StringConversionError.apply(_, None))
 
   object InstantConverter extends ProtoConverter[Instant, Timestamp, ProtoDeserializationError] {
     override def toProtoPrimitive(value: Instant): Timestamp =

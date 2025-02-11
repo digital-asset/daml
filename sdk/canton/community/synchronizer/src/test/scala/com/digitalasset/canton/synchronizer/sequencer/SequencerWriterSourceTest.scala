@@ -480,7 +480,7 @@ class SequencerWriterSourceTest
           if (notification != WriteNotification.None) {
             val newItems = items.updateAndGet(_ :+ notification)
 
-            if (newItems.size == writeCount) {
+            if (newItems.sizeIs == writeCount) {
               val combined = NonEmptyUtil.fromUnsafe(newItems).reduceLeft(_ union _)
               promise.success(combined)
             }

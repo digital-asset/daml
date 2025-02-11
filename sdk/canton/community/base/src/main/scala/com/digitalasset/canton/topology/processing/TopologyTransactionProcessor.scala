@@ -233,7 +233,7 @@ class TopologyTransactionProcessor(
       sc: SequencerCounter,
       ts: SequencedTime,
       topologyTimestampO: Option[CantonTimestamp],
-      envelopes: Traced[List[DefaultOpenEnvelope]],
+      envelopes: Traced[Seq[DefaultOpenEnvelope]],
   ): HandlerResult =
     envelopes.withTraceContext { implicit traceContext => env =>
       val broadcasts = validateEnvelopes(sc, ts, topologyTimestampO, env)
@@ -243,7 +243,7 @@ class TopologyTransactionProcessor(
   private def internalProcessEnvelopes(
       sc: SequencerCounter,
       sequencedTime: SequencedTime,
-      updates: List[TopologyTransactionsBroadcast],
+      updates: Seq[TopologyTransactionsBroadcast],
   )(implicit traceContext: TraceContext): HandlerResult =
     for {
       _ <- ErrorUtil.requireStateAsyncShutdown(
@@ -310,22 +310,21 @@ class TopologyTransactionProcessor(
                 logger.debug(s"Processing sequenced event with counter $sc and timestamp $ts")
                 val sequencedTime = SequencedTime(ts)
                 val envelopesForRightSynchronizer = ProtocolMessage.filterSynchronizerEnvelopes(
-                  batch,
+                  batch.envelopes,
                   synchronizerId,
-                  (wrongMsgs: List[DefaultOpenEnvelope]) =>
-                    TopologyManagerError.TopologyManagerAlarm
-                      .Warn(
-                        s"received messages with wrong synchronizer ids: ${wrongMsgs.map(_.protocolMessage.synchronizerId)}"
-                      )
-                      .report(),
+                )(wrongMsgs =>
+                  TopologyManagerError.TopologyManagerAlarm
+                    .Warn(
+                      s"received messages with wrong synchronizer ids: ${wrongMsgs.map(_.protocolMessage.synchronizerId)}"
+                    )
+                    .report()
                 )
-                val broadcasts =
-                  validateEnvelopes(
-                    sc,
-                    sequencedTime,
-                    topologyTimestampO,
-                    envelopesForRightSynchronizer,
-                  )
+                val broadcasts = validateEnvelopes(
+                  sc,
+                  sequencedTime,
+                  topologyTimestampO,
+                  envelopesForRightSynchronizer,
+                )
                 internalProcessEnvelopes(sc, sequencedTime, broadcasts)
               case err: DeliverError =>
                 internalProcessEnvelopes(
@@ -356,11 +355,10 @@ class TopologyTransactionProcessor(
       sc: SequencerCounter,
       sequencedTime: SequencedTime,
       topologyTimestampO: Option[CantonTimestamp],
-      envelopes: List[DefaultOpenEnvelope],
-  )(implicit errorLoggingContext: ErrorLoggingContext): List[TopologyTransactionsBroadcast] = {
-    val (invalidRecipients, topologyBroadcasts) = extractTopologyUpdatesWithValidRecipients(
-      envelopes
-    )
+      envelopes: Seq[DefaultOpenEnvelope],
+  )(implicit errorLoggingContext: ErrorLoggingContext): Seq[TopologyTransactionsBroadcast] = {
+    val (invalidRecipients, topologyBroadcasts) =
+      extractTopologyUpdatesWithValidRecipients(envelopes)
     if (invalidRecipients.nonEmpty) {
       TopologyManagerError.TopologyManagerAlarm
         .Warn(
@@ -407,8 +405,8 @@ class TopologyTransactionProcessor(
 
   /** @return A tuple with list of envelopes with invalid recipients and a list of topology broadcasts to further process */
   private def extractTopologyUpdatesWithValidRecipients(
-      envelopes: List[DefaultOpenEnvelope]
-  ): (List[DefaultOpenEnvelope], List[TopologyTransactionsBroadcast]) =
+      envelopes: Seq[DefaultOpenEnvelope]
+  ): (Seq[DefaultOpenEnvelope], Seq[TopologyTransactionsBroadcast]) =
     envelopes
       .mapFilter(ProtocolMessage.select[TopologyTransactionsBroadcast])
       .partitionMap { env =>

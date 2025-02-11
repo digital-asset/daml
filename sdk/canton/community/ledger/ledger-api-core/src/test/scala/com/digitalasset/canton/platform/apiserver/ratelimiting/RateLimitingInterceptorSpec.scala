@@ -100,7 +100,7 @@ final class RateLimitingInterceptorSpec
     metrics.openTelemetryMetricsFactory
       .meter(
         MetricInfo(
-          metrics.lapi.threadpool.apiReadServices :+ "submitted",
+          metrics.lapi.threadpool.apiQueryServices :+ "submitted",
           "",
           MetricQualification.Debug,
         )
@@ -136,7 +136,7 @@ final class RateLimitingInterceptorSpec
     metrics.openTelemetryMetricsFactory
       .meter(
         MetricInfo(
-          metrics.lapi.threadpool.apiReadServices :+ "submitted",
+          metrics.lapi.threadpool.apiQueryServices :+ "submitted",
           "",
           MetricQualification.Debug,
         )

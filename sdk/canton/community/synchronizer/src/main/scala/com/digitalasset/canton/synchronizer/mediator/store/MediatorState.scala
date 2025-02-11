@@ -4,10 +4,10 @@
 package com.digitalasset.canton.synchronizer.mediator.store
 
 import cats.data.OptionT
+import cats.syntax.functor.*
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.{CacheConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.{
   CloseContext,
@@ -46,7 +46,6 @@ private[mediator] class MediatorState(
     val clock: Clock,
     val metrics: MediatorMetrics,
     protocolVersion: ProtocolVersion,
-    finalizedRequestCache: CacheConfig,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -57,13 +56,6 @@ private[mediator] class MediatorState(
   // a skip list is used to optimise for when we fetch all keys below a given timestamp
   private val pendingRequests =
     new ConcurrentSkipListMap[RequestId, ResponseAggregation[?]](implicitly[Ordering[RequestId]])
-
-  // once requests are finished, we keep em around for a few minutes so we can deal with any
-  // late request, avoiding a database lookup. otherwise, we'll be doing a db lookup in our
-  // main processing stage, slowing things down quite a bit
-  private val finishedRequests = finalizedRequestCache
-    .buildScaffeine()
-    .build[RequestId, FinalizedResponse]()
 
   private def updateNumRequests(num: Int): Unit =
     metrics.outstanding.updateValue(_ + num)
@@ -101,23 +93,20 @@ private[mediator] class MediatorState(
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
   ): OptionT[FutureUnlessShutdown, ResponseAggregator] =
-    Option(pendingRequests.get(requestId))
-      .orElse(finishedRequests.getIfPresent(requestId)) match {
-      case Some(cp) => OptionT.some[FutureUnlessShutdown](cp)
-      case None =>
-        finalizedResponseStore.fetch(requestId).map { result =>
-          finishedRequests.put(requestId, result)
-          result
-        }
+    Option(pendingRequests.get(requestId)) match {
+      case Some(response) => OptionT.pure[FutureUnlessShutdown](response)
+      case None => finalizedResponseStore.fetch(requestId).widen[ResponseAggregator]
     }
 
   /** Replaces a [[ResponseAggregation]] for the `requestId` if the stored version matches `currentVersion`.
     * You can only use this to update non-finalized aggregations
+    *
+    * @return Whether the replacement was successful
     */
   def replace(oldValue: ResponseAggregator, newValue: ResponseAggregation[?])(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): OptionT[FutureUnlessShutdown, Unit] = {
+  ): FutureUnlessShutdown[Boolean] = {
     ErrorUtil.requireArgument(
       oldValue.requestId == newValue.requestId,
       s"RequestId ${oldValue.requestId} cannot be replaced with ${newValue.requestId}",
@@ -128,14 +117,12 @@ private[mediator] class MediatorState(
 
     def storeFinalized(finalizedResponse: FinalizedResponse): FutureUnlessShutdown[Unit] =
       finalizedResponseStore.store(finalizedResponse) map { _ =>
-        // keep the request around for a while to avoid a database lookup under contention
-        finishedRequests.put(requestId, finalizedResponse).discard
         Option(pendingRequests.remove(requestId)) foreach { _ =>
           updateNumRequests(-1)
         }
       }
 
-    for {
+    (for {
       // I'm not really sure about these validations or errors...
       currentValue <- OptionT.fromOption[FutureUnlessShutdown](
         Option(pendingRequests.get(requestId)).orElse {
@@ -165,7 +152,7 @@ private[mediator] class MediatorState(
           case Some(finalizedResponse) => storeFinalized(finalizedResponse)
         }
       }
-    } yield ()
+    } yield true).getOrElse(false)
   }
 
   /** Fetch pending requests that have a timestamp below the provided `cutoff` */

@@ -316,10 +316,10 @@ class ParticipantPartiesAdministrationGroup(
   }
 
   @Help.Summary("Disable party on participant")
-  def disable(name: String, force: ForceFlags = ForceFlags.none): Unit =
+  def disable(party: PartyId, force: ForceFlags = ForceFlags.none): Unit =
     reference.topology.party_to_participant_mappings
       .propose_delta(
-        PartyId(reference.id.member.uid.tryChangeId(name)),
+        party,
         removes = List(this.participantId),
         force = force,
       )

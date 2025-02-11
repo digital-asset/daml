@@ -14,7 +14,12 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 }
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.Port
-import com.digitalasset.canton.config.{ClientConfig, ConsoleCommandTimeout, NonNegativeDuration}
+import com.digitalasset.canton.config.{
+  ApiLoggingConfig,
+  ClientConfig,
+  ConsoleCommandTimeout,
+  NonNegativeDuration,
+}
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.lifecycle.OnShutdownRunner
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -31,27 +36,23 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContextExecutor, Future, blocking}
 
 /** Attempt to run a grpc admin-api command against whatever is pointed at in the config
-  * @param environment the environment to run in
-  * @param commandTimeouts the timeouts to use for the commands
+  * @param commandTimeouts callback for the timeouts to use for the commands, can be changed dynamically in console env
   * @param apiName the name of the api to check against the grpc server-side
   */
 class GrpcAdminCommandRunner(
-    environment: Environment,
-    val commandTimeouts: ConsoleCommandTimeout,
+    commandTimeouts: => ConsoleCommandTimeout,
     apiName: String,
-)(implicit tracer: Tracer)
+    apiLoggingConfig: ApiLoggingConfig,
+    override val loggerFactory: NamedLoggerFactory,
+)(implicit tracer: Tracer, executionContext: ExecutionContextExecutor)
     extends NamedLogging
     with AutoCloseable
     with OnShutdownRunner
     with Spanning {
 
-  private implicit val executionContext: ExecutionContextExecutor =
-    environment.executionContext
-  override val loggerFactory: NamedLoggerFactory = environment.loggerFactory
-
   private val grpcRunner = new GrpcCtlRunner(
-    environment.config.monitoring.logging.api.maxMessageLines,
-    environment.config.monitoring.logging.api.maxStringLength,
+    apiLoggingConfig.maxMessageLines,
+    apiLoggingConfig.maxStringLength,
     loggerFactory,
   )
   private val channels = TrieMap[(String, String, Port), GrpcManagedChannel]()
@@ -116,6 +117,23 @@ class GrpcAdminCommandRunner(
     )
   }
 
+  def runCommandWithExistingTrace[Result](
+      instanceName: String,
+      command: GrpcAdminCommand[_, _, Result],
+      clientConfig: ClientConfig,
+      token: Option[String],
+  )(implicit traceContext: TraceContext): ConsoleCommandResult[Result] = {
+    val (awaitTimeout, commandET) = runCommandAsync(instanceName, command, clientConfig, token)
+    val apiResult =
+      awaitTimeout.await(
+        s"Running on $instanceName command $command against $clientConfig"
+      )(
+        commandET.value
+      )
+    // convert to a console command result
+    apiResult.toResult
+  }
+
   def runCommand[Result](
       instanceName: String,
       command: GrpcAdminCommand[_, _, Result],
@@ -124,15 +142,7 @@ class GrpcAdminCommandRunner(
   ): ConsoleCommandResult[Result] =
     withNewTrace[ConsoleCommandResult[Result]](command.fullName) { implicit traceContext => span =>
       span.setAttribute("instance_name", instanceName)
-      val (awaitTimeout, commandET) = runCommandAsync(instanceName, command, clientConfig, token)
-      val apiResult =
-        awaitTimeout.await(
-          s"Running on $instanceName command $command against $clientConfig"
-        )(
-          commandET.value
-        )
-      // convert to a console command result
-      apiResult.toResult
+      runCommandWithExistingTrace(instanceName, command, clientConfig, token)
     }
 
   private def getOrCreateChannel(
@@ -162,13 +172,24 @@ class GrpcAdminCommandRunner(
   })
 }
 
-/** A console-specific version of the GrpcAdminCommandRunner that uses the console environment
-  * @param consoleEnvironment the console environment to run in
-  * @param apiName the name of the api to check against the grpc server-side
-  */
-class ConsoleGrpcAdminCommandRunner(consoleEnvironment: ConsoleEnvironment, apiName: String)
-    extends GrpcAdminCommandRunner(
-      consoleEnvironment.environment,
+object GrpcAdminCommandRunner {
+  def apply(
+      environment: Environment,
+      apiName: String,
+  ): GrpcAdminCommandRunner =
+    new GrpcAdminCommandRunner(
+      environment.config.parameters.timeouts.console,
+      apiName,
+      environment.config.monitoring.logging.api,
+      environment.loggerFactory,
+    )(environment.tracerProvider.tracer, environment.executionContext)
+
+  def apply(consoleEnvironment: ConsoleEnvironment, apiName: String): GrpcAdminCommandRunner =
+    new GrpcAdminCommandRunner(
       consoleEnvironment.commandTimeouts,
       apiName,
-    )(consoleEnvironment.tracer)
+      consoleEnvironment.environment.config.monitoring.logging.api,
+      consoleEnvironment.environment.loggerFactory,
+    )(consoleEnvironment.tracer, consoleEnvironment.environment.executionContext)
+
+}

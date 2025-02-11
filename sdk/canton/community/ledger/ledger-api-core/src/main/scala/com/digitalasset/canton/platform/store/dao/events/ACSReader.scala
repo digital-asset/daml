@@ -32,7 +32,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
 }
 import com.digitalasset.canton.platform.store.backend.common.EventPayloadSourceForUpdatesAcsDelta
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.IdPaginationState
-import com.digitalasset.canton.platform.store.dao.events.TransactionsReader.endSpanOnTermination
+import com.digitalasset.canton.platform.store.dao.events.UpdateReader.endSpanOnTermination
 import com.digitalasset.canton.platform.store.dao.{
   DbDispatcher,
   EventProjectionProperties,
@@ -646,7 +646,7 @@ class ACSReader(
               workflowId = rawAssignEntry.workflowId.getOrElse(""),
               contractEntry = GetActiveContractsResponse.ContractEntry.IncompleteAssigned(
                 IncompleteAssigned(
-                  Some(TransactionsReader.toAssignedEvent(rawAssignEntry.event, createdEvent))
+                  Some(UpdateReader.toAssignedEvent(rawAssignEntry.event, createdEvent))
                 )
               ),
             )
@@ -670,7 +670,7 @@ class ACSReader(
             contractEntry = GetActiveContractsResponse.ContractEntry.IncompleteUnassigned(
               IncompleteUnassigned(
                 createdEvent = Some(createdEvent),
-                unassignedEvent = Some(TransactionsReader.toUnassignedEvent(rawUnassignEntry.event)),
+                unassignedEvent = Some(UpdateReader.toUnassignedEvent(rawUnassignEntry.event)),
               )
             ),
           )

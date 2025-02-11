@@ -349,7 +349,7 @@ object SequentialWriteDaoSpec {
     }
 
   private val dbDtoToStringsForInterningFixture: Iterable[DbDto] => DomainStringIterators = {
-    case iterable if iterable.size == 5 =>
+    case iterable if iterable.sizeIs == 5 =>
       new DomainStringIterators(
         Iterator.empty,
         List("1").iterator,
