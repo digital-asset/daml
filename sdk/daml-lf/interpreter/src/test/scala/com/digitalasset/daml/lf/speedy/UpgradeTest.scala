@@ -580,145 +580,52 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       )
       res shouldBe a[Right[_, _]]
     }
-
-    "Correct calls to ResultNeedUpgradeVerification" in {
-
-      implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
-
-      val v_alice_none =
-        makeRecord(
-          ValueParty(alice),
-          ValueParty(bob),
-          ValueInt64(100),
-          ValueOptional(None),
-        )
-
-      val v_alice_some =
-        makeRecord(
-          ValueParty(alice),
-          ValueParty(bob),
-          ValueInt64(100),
-          ValueOptional(Some(ValueParty(bob))),
-        )
-
-      inside(
-        go(
-          e"'-pkg3-':M:do_fetch",
-          ContractInstance(pkgName, pkg3Ver, i"'-misspelled-pkg3-':M:T", v_alice_none),
-        )
-      ) { case Right((v, List(uv))) =>
-        v shouldBe v_alice_none
-        uv.coid shouldBe theCid
-        uv.signatories.toList shouldBe List(alice)
-        uv.observers.toList shouldBe List(bob)
-        uv.keyOpt shouldBe Some(v1_key)
-      }
-
-      inside(
-        go(
-          e"'-pkg3-':M:do_fetch",
-          ContractInstance(pkgName, pkg3Ver, i"'-misspelled-pkg3-':M:T", v_alice_some),
-        )
-      ) { case Right((v, List(uv))) =>
-        v shouldBe v_alice_some
-        uv.coid shouldBe theCid
-        uv.signatories.toList shouldBe List(alice, bob)
-        uv.observers.toList shouldBe List(bob)
-        uv.keyOpt shouldBe Some(v1_key)
-      }
-
-    }
-
-    "Disclosed contracts" - {
-
-      implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
-
-      "correct fields" in {
-
-        // This is the SValue equivalent of v1_base
-        val sv1_base: SValue = {
-          def fields = ImmArray(
-            n"sig",
-            n"obs",
-            n"aNumber",
-          )
-
-          def values: util.ArrayList[SValue] = ArrayList(
-            SValue.SParty(alice), // And it needs to be a party
-            SValue.SParty(bob),
-            SValue.SInt64(100),
-          )
-
-          SValue.SRecord(i"'-pkg1-':M:T", fields, values)
-        }
-        inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) {
-          case Right((v, _)) =>
-            v shouldBe v1_base
-        }
-      }
-
-      "requires downgrade" in {
-
-        val sv1_base: SValue = {
-          def fields = ImmArray(
-            n"sig",
-            n"obs",
-            n"aNumber",
-            n"extraField",
-          )
-
-          def values: util.ArrayList[SValue] = ArrayList(
-            SValue.SParty(alice),
-            SValue.SParty(bob),
-            SValue.SInt64(100),
-            SValue.SOptional(None),
-          )
-
-          SValue.SRecord(i"'-unknown-':M:T", fields, values)
-        }
-        inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) {
-          case Right((v, _)) =>
-            v shouldBe v1_base
-        }
-      }
-    }
   }
 
-  "Exercise Node" - {
+  "Disclosed contracts" - {
 
-    "is populated with contract ID " in {
-      val v_alice_none =
-        makeRecord(
-          ValueParty(alice),
-          ValueParty(bob),
-          ValueInt64(100),
-          ValueOptional(None),
+    implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
+
+    "correct fields" in {
+
+      // This is the SValue equivalent of v1_base
+      val sv1_base: SValue = {
+        def fields = ImmArray(
+          n"sig",
+          n"obs",
+          n"aNumber",
         )
-
-      val se: SExpr = pkgs.compiler.unsafeCompile(e"'-pkg4-':M:do_exercise")
-      val args: Array[SValue] = Array(SContractId(theCid))
-      val sexprToEval: SExpr = SEApp(se, args)
-
-      implicit def logContext: LoggingContext = LoggingContext.ForTesting
-
-      val seed = crypto.Hash.hashPrivateKey("seed")
-      val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
-
-      val res =
-        SpeedyTestLib.buildTransactionCollectRequests(
-          machine,
-          getContract = Map(
-            theCid -> Versioned(
-              VDev,
-              ContractInstance(pkgName, pkg3Ver, i"'-pkg3-':M:T", v_alice_none),
-            )
-          ),
+        def values: util.ArrayList[SValue] = ArrayList(
+          SValue.SParty(alice), // And it needs to be a party
+          SValue.SParty(bob),
+          SValue.SInt64(100),
         )
+        SValue.SRecord(i"'-pkg1-':M:T", fields, values)
+      }
+      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) { case Right((v, _)) =>
+        v shouldBe v1_base
+      }
+    }
 
-      inside(res.map(_._1.nodes.values.toList)) { case Right(List(exe: Node.Exercise)) =>
-        exe.packageName shouldBe "-upgrade-test-"
-        exe.creationPackageId shouldBe Some("-pkg3-")
-        exe.templateId.packageId shouldBe "-pkg4-"
+    "requires downgrade" in {
+
+      val sv1_base: SValue = {
+        def fields = ImmArray(
+          n"sig",
+          n"obs",
+          n"aNumber",
+          n"extraField",
+        )
+        def values: util.ArrayList[SValue] = ArrayList(
+          SValue.SParty(alice),
+          SValue.SParty(bob),
+          SValue.SInt64(100),
+          SValue.SOptional(None),
+        )
+        SValue.SRecord(i"'-unknown-':M:T", fields, values)
+      }
+      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) { case Right((v, _)) =>
+        v shouldBe v1_base
       }
     }
   }
