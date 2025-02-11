@@ -14,12 +14,15 @@ module Daml.Script.Internal.LowLevel
   , fromLedgerValue
   , toLedgerValue
   , getExposedCallStack
+  , anyToAnyException
+  , anyExceptionToAny
   ) where
 
 import Daml.Script.Internal.Free (Free(..))
 import qualified Daml.Script.Internal.Free as Free
 import DA.Stack
 import DA.Text (isPrefixOf)
+import DA.Internal.LF (Any)
 
 {-
   Writing your own Questions
@@ -166,3 +169,9 @@ fromLedgerValue = dangerousCast
 
 toLedgerValue : a -> LedgerValue
 toLedgerValue = dangerousCast
+
+anyToAnyException : Any -> AnyException
+anyToAnyException = dangerousCast
+
+anyExceptionToAny : AnyException -> Any
+anyExceptionToAny = dangerousCast

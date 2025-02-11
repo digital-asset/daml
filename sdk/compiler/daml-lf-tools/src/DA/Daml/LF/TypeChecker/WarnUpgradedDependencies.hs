@@ -40,20 +40,12 @@ checkType isSerializable typ = do
         _ -> pure ()
       embed <$> sequence typeF
 
+-- Left stubbed as used to check for daml-script, which is no longer needed in 3x
 checkTypeCon :: (MonadGamma m) => Bool -> Qualified TypeConName -> m ()
-checkTypeCon isSerializable name = do
+checkTypeCon _isSerializable name = do
   case qualPackage name of
     SelfPackageId -> pure ()
-    ImportedPackageId pkgId ->
-      when isSerializable $ do
-        -- When using a datatype from a daml-script in a serializable position
-        pkg <- inWorld (lookupExternalPackage pkgId)
-        let meta = packageMetadata pkg
-            PackageMetadata { packageName } = meta
-        let isDamlScript :: Bool
-            isDamlScript = packageName `elem` map PackageName ["daml-script"]
-        when isDamlScript $ do
-          diagnosticWithContext $ WEDependsOnDatatypeFromNewDamlScript (pkgId, meta) (packageLfVersion pkg) name
+    ImportedPackageId _pkgId -> pure ()
 
 -- | Check whether a data type definition satisfies all serializability constraints.
 checkDataType :: MonadGamma m => DefDataType -> m ()

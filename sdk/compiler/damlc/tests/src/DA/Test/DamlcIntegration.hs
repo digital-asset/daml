@@ -83,7 +83,7 @@ import Outputable (ppr, showSDoc)
 import qualified Proto3.Suite.JSONPB as JSONPB
 import DA.Daml.Project.Types (unsafeResolveReleaseVersion, parseUnresolvedVersion)
 import qualified DA.Daml.LF.TypeChecker.Error.WarningFlags as WarningFlags
-import DA.Daml.LF.TypeChecker.Error (upgradeInterfacesFlag, upgradeExceptionsFlag)
+import DA.Daml.LF.TypeChecker.Error (upgradeInterfacesFlag, upgradeExceptionsFlag, templateInterfaceDependsOnScriptFlag)
 
 
 import Test.Tasty
@@ -305,6 +305,8 @@ getIntegrationTests registerTODO scriptService (packageDbPath, packageFlags) = d
                     WarningFlags.addDamlWarningFlags
                       [ WarningFlags.toLeft (upgradeInterfacesFlag WarningFlags.AsWarning)
                       , WarningFlags.toLeft (upgradeExceptionsFlag WarningFlags.AsWarning)
+                      , -- Almost every test will report this, so we disable it at root
+                        WarningFlags.toLeft (templateInterfaceDependsOnScriptFlag WarningFlags.Hidden)
                       ]
                       (optDamlWarningFlags opts0)
                 }

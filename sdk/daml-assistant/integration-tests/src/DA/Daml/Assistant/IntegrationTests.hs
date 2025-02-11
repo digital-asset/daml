@@ -321,7 +321,93 @@ packagingTests tmpDir =
               assertBool ("Error not found in\n" <> err) $
                 "Please remove the package " `isInfixOf` err
                   && "(dep-on-upgrading, 0.0.1)" `isInfixOf` err
+        , testCase "Depends on daml-script when defining template" $ do
+              createDirectoryIfMissing True (tmpDir </> "template-depend-on-script")
+              writeFileUTF8 (tmpDir </> "template-depend-on-script" </> "daml.yaml") $
+                  unlines
+                      [ "sdk-version: " <> sdkVersion
+                      , "name: template-depend-on-script"
+                      , "version: 0.0.1"
+                      , "source: ."
+                      , "dependencies: [daml-prim, daml-stdlib, daml-script]"
+                      ]
+              writeFileUTF8 (tmpDir </> "template-depend-on-script" </> "A.daml") $
+                  unlines
+                      [ "module A where"
+                      , "import Daml.Script"
+                      , "template Name with p : Party where signatory p"
+                      ]
+              (_out, err) <- callCommandIn (tmpDir </> "template-depend-on-script") "daml build"
+              assertBool ("Warning not found in\n" <> err) $
+                "This package defines templates or interfaces, and depends on daml-script." `isInfixOf` err
+                  && "(daml-script, " `isInfixOf` err
+        , disallowedUtilityTest
+              "Package with templates cannot be utility"
+              "utility-with-templates"
+              "template"
+              "template Name with p : Party where signatory p"
+        , disallowedUtilityTest
+              "Package with interfaces cannot be utility"
+              "utility-with-interfaces"
+              "interface"
+              $ unlines
+                  [ "data View = View {}"
+                  , "interface MyInterface where"
+                  , "  viewtype View"
+                  ]
+        , disallowedUtilityTest
+              "Package with exceptions cannot be utility"
+              "utility-with-exceptions"
+              "exception"
+              "exception E with m : Text where message m"
+        , testCase "Allowed definitions in forced utility package compile" $ do
+              createDirectoryIfMissing True (tmpDir </> "allowed-util-defs")
+              writeFileUTF8 (tmpDir </> "allowed-util-defs" </> "daml.yaml") $
+                  unlines
+                      [ "sdk-version: " <> sdkVersion
+                      , "name: allowed-util-defs"
+                      , "version: 0.0.1"
+                      , "source: ."
+                      , "build-options: [--force-utility-package=yes]"
+                      , "dependencies: [daml-prim, daml-stdlib, daml-script]"
+                      ]
+              writeFileUTF8 (tmpDir </> "allowed-util-defs" </> "A.daml") $
+                  unlines
+                      [ "module A where"
+                      , "import Daml.Script"
+                      , -- Regular data types are permitted, but automatically made unserializable by the flag
+                        "data MyData = MyData with a : Int"
+                      , -- top level definitions are permitted, including scripts
+                        "myVal : Int"
+                      , "myVal = 3"
+                      , "myScript : Script ()"
+                      , "myScript = pure ()"
+                      , -- non-serializable data types are permitted, naturally
+                        "data MyFunc = MyFunc with f : Int -> Int"
+                      ]
+              callCommandSilentIn (tmpDir </> "allowed-util-defs") "daml build"
+              
         ]
+    where
+        disallowedUtilityTest name dirName errName content = do
+            testCase name $ do
+                createDirectoryIfMissing True (tmpDir </> dirName)
+                writeFileUTF8 (tmpDir </> dirName </> "daml.yaml") $
+                    unlines
+                        [ "sdk-version: " <> sdkVersion
+                        , "name: " <> dirName
+                        , "version: 0.0.1"
+                        , "source: ."
+                        , "build-options: [--force-utility-package=yes, --enable-interfaces=yes]"
+                        , "dependencies: [daml-prim, daml-stdlib]"
+                        ]
+                writeFileUTF8 (tmpDir </> dirName </> "A.daml") $
+                    "module A where\n" <> content
+                (_out, err) <- callCommandFailingIn (tmpDir </> dirName) "daml build"
+                assertBool ("Error not found in\n" <> err) $
+                    ("No " <> errName <> " definitions permitted in forced utility packages (Module A)") `isInfixOf` err
+          
+
 
 -- We are trying to run as many tests with the same `daml start` process as possible to safe time.
 damlStartTests :: SdkVersioned => IO DamlStartResource -> TestTree

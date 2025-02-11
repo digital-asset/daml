@@ -22,6 +22,7 @@ module DA.Daml.Options.Types
     , PackageArg(..)
     , ErrorOrWarning
     , IgnoreDataDepVisibility(..)
+    , ForceUtilityPackage(..)
     , defaultOptions
     , damlArtifactDir
     , projectPackageDatabase
@@ -143,6 +144,7 @@ data Options = Options
   , optUpgradeInfo :: UpgradeInfo
   , optDamlWarningFlags :: WarningFlags.DamlWarningFlags ErrorOrWarning
   , optIgnoreDataDepVisibility :: IgnoreDataDepVisibility
+  , optForceUtilityPackage :: ForceUtilityPackage
   }
 
 type ErrorOrWarning = Either TypeCheckerError.ErrorOrWarning LFConversion.ErrorOrWarning
@@ -212,6 +214,9 @@ newtype StudioAutorunAllScripts = StudioAutorunAllScripts { getStudioAutorunAllS
     deriving Show
 
 newtype EnableInterfaces = EnableInterfaces { getEnableInterfaces :: Bool }
+    deriving Show
+
+newtype ForceUtilityPackage = ForceUtilityPackage { getForceUtilityPackage :: Bool }
     deriving Show
 
 damlArtifactDir :: FilePath
@@ -295,6 +300,7 @@ defaultOptions mbVersion =
         , optUpgradeInfo = defaultUpgradeInfo
         , optDamlWarningFlags = WarningFlags.mkDamlWarningFlags damlWarningFlagParser []
         , optIgnoreDataDepVisibility = IgnoreDataDepVisibility False
+        , optForceUtilityPackage = ForceUtilityPackage False
         }
 
 defaultUpgradeInfo :: UpgradeInfo

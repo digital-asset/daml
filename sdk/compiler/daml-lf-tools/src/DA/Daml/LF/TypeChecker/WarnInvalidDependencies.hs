@@ -54,3 +54,19 @@ checkPackage pkg deps version upgradeInfo flags rootDeps mbUpgradedPackage =
             forM_ (Map.lookup pkgId allPackageIdMetas) $ \meta ->
               diagnosticWithContext $ WEOwnUpgradeDependency (pkgId, meta)
           _ -> pure ()
+      -- Creating a template when depending on daml-script check
+      let definesTemplateOrInterface =
+            any (\mod ->
+              not $ null (LF.moduleTemplates mod) && null (LF.moduleInterfaces mod)
+            ) $ LF.packageModules pkg
+          damlScriptDeps = filter
+            ( flip elem ["daml-script", "daml3-script", "daml-script-lts", "daml-script-lts-stable"]
+            . LF.unPackageName
+            . LF.packageName
+            . LF.packageMetadata
+            . LF.extPackagePkg
+            ) $ LF.dalfPackagePkg <$> deps
+      when (definesTemplateOrInterface && not (null damlScriptDeps)) $ do
+        let pkgId = LF.extPackageId $ head damlScriptDeps
+            pkgMeta = LF.packageMetadata $ LF.extPackagePkg $ head damlScriptDeps
+        diagnosticWithContext $ WETemplateInterfaceDependsOnScript (pkgId, pkgMeta)

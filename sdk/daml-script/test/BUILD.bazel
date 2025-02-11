@@ -266,6 +266,7 @@ da_scala_test_suite(
         exclude = [
             "src/main/scala/**/*Dev*.scala",
             "src/main/scala/com/digitalasset/daml/lf/engine/script/test/UpgradesIT.scala",
+            "src/main/scala/com/digitalasset/daml/lf/engine/script/test/DamlScriptUtilityPackage.scala",
         ],
     ),
     data = [
@@ -349,6 +350,23 @@ da_scala_test(
     ],
 ) if not is_windows else None
 # skipping windows for now, it doesn't seem to like the filegroup `:upgrade-test-files`
+
+da_scala_test(
+    name = "utility-package-test",
+    size = "small",
+    srcs = ["src/main/scala/com/digitalasset/daml/lf/engine/script/test/DamlScriptUtilityPackage.scala"],
+    data = [
+        "//daml-script/daml:daml-script-2.1.dar",
+        "//daml-script/daml:daml-script-2.dev.dar",
+    ],
+    resources = glob(["src/main/resources/**/*"]),
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/language",
+    ],
+)
 
 da_scala_binary(
     name = "compile-upgrade-test-cases",

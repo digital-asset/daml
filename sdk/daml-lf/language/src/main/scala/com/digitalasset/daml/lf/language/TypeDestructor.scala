@@ -97,12 +97,17 @@ final class TypeDestructor(pkgInterface: PackageInterface) {
   import TypeDestructor.SerializableTypeF
   import SerializableTypeF._
 
-  def destruct(state: Ast.Type): Either[TypeDestructor.Error, SerializableTypeF[Ast.Type]] =
-    go(state, List.empty)
+  // Only set shouldCheckDataSerializable as false in daml-script, for a temporary (fixed in 3.4) workaround
+  def destruct(
+      state: Ast.Type,
+      shouldCheckDataSerializable: Boolean = true,
+  ): Either[TypeDestructor.Error, SerializableTypeF[Ast.Type]] =
+    go(state, List.empty, shouldCheckDataSerializable)
 
   private def go(
       typ0: Ast.Type,
       args: List[Ast.Type],
+      shouldCheckDataSerializable: Boolean,
   ): Either[TypeDestructor.Error, SerializableTypeF[Ast.Type]] = {
     def prettyType = args.foldLeft(typ0)(Ast.TApp).pretty
 
@@ -121,7 +126,7 @@ final class TypeDestructor(pkgInterface: PackageInterface) {
             TypeDestructor.Error.TypeError(s"wrong number of argument for type synonym $tysyn"),
           )
           typ = AstUtil.substitute(synDef.typ, subst)
-          r <- go(typ, args)
+          r <- go(typ, args, shouldCheckDataSerializable)
         } yield r
       case Ast.TTyCon(tycon) =>
         for {
@@ -131,7 +136,11 @@ final class TypeDestructor(pkgInterface: PackageInterface) {
             .map(TypeDestructor.Error.LookupError)
           pkgName = pkg.metadata.name
           dataDef <- pkgInterface.lookupDataType(tycon).left.map(TypeDestructor.Error.LookupError)
-          _ <- Either.cond(dataDef.serializable, (), unserializableType)
+          _ <- Either.cond(
+            dataDef.serializable || !shouldCheckDataSerializable,
+            (),
+            unserializableType,
+          )
           params = dataDef.params
           subst <- Either.cond(
             params.length == args.length,
@@ -227,7 +236,7 @@ final class TypeDestructor(pkgInterface: PackageInterface) {
             Left(unserializableType)
         }
       case Ast.TApp(tyfun, arg) =>
-        go(tyfun, arg :: args)
+        go(tyfun, arg :: args, shouldCheckDataSerializable)
       case _ =>
         Left(unserializableType)
     }
