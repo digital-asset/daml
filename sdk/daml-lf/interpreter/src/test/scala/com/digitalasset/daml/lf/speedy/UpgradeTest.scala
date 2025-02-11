@@ -169,7 +169,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   val pkgId4: Ref.PackageId = Ref.PackageId.assertFromString("-pkg4-")
   private lazy val pkg4 = {
-    // swap signatories and observers with respect to pkg2
     implicit def pkgId: Ref.PackageId = pkgId4
     p""" metadata ( '-upgrade-test-' : '4.0.0' )
       module M {
@@ -177,13 +176,13 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       record @serializable T = { sig: Party, obs: Party, aNumber: Int64, optSig: Option Party };
       template (this: T) = {
         precondition True;
-        signatories '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
-        observers '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
+        signatories '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
         choice NoOp (self) (u: Unit) : Unit,
           controllers '-pkg1-':M:mkList (M:T {sig} this) (None @Party),
           observers Nil @Party
           to upure @Unit ();
-        key @Party (M:T {obs} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
+        key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
       val do_fetch: ContractId M:T -> Update M:T =
@@ -626,6 +625,41 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       }
       inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) { case Right((v, _)) =>
         v shouldBe v1_base
+      }
+    }
+  }
+
+  "Exercise Node" - {
+
+    "is populated with contract ID " in {
+      val v_alice_none =
+        makeRecord(
+          ValueParty(alice),
+          ValueParty(bob),
+          ValueInt64(100),
+          ValueOptional(None),
+        )
+
+      val se: SExpr = pkgs.compiler.unsafeCompile(e"'-pkg4-':M:do_exercise")
+      val args: Array[SValue] = Array(SContractId(theCid))
+      val sexprToEval: SExpr = SEApp(se, args)
+
+      implicit def logContext: LoggingContext = LoggingContext.ForTesting
+
+      val seed = crypto.Hash.hashPrivateKey("seed")
+      val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
+
+      val res =
+        SpeedyTestLib.buildTransactionCollectRequests(
+          machine,
+          getContract =
+            Map(theCid -> Versioned(VDev, ContractInstance(pkgName, pkg3Ver, i"'-pkg3-':M:T", v_alice_none))),
+        )
+
+      inside(res.map(_._1.nodes.values.toList)) { case Right(List(exe: Node.Exercise)) =>
+        exe.packageName shouldBe "-upgrade-test-"
+        exe.creationPackageId shouldBe Some("-pkg3-")
+        exe.templateId.packageId shouldBe "-pkg4-"
       }
     }
   }
