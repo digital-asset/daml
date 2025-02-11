@@ -720,8 +720,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val res =
         SpeedyTestLib.buildTransactionCollectRequests(
           machine,
-          getContract =
-            Map(theCid -> Versioned(VDev, ContractInstance(pkgName, pkg3Ver, i"'-pkg3-':M:T", v_alice_none))),
+          getContract = Map(
+            theCid -> Versioned(
+              VDev,
+              ContractInstance(pkgName, pkg3Ver, i"'-pkg3-':M:T", v_alice_none),
+            )
+          ),
         )
 
       inside(res.map(_._1.nodes.values.toList)) { case Right(List(exe: Node.Exercise)) =>

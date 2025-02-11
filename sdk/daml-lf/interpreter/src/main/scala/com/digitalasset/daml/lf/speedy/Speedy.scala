@@ -335,7 +335,9 @@ private[lf] object Speedy {
     private[speedy] def getCreationTemplateId(coid: V.ContractId): Option[Ref.TypeConName] =
       contractsCache.get(coid) match {
         case Some(contract) =>
-          Some(contract.template) // TODO[dylant-da]: Are we right to also check the contractsCache here as well?
+          Some(
+            contract.template
+          ) // TODO[dylant-da]: Are we right to also check the contractsCache here as well?
         case None =>
           getLocalContract(coid) match {
             case Some((tmplId, _)) =>
@@ -355,20 +357,20 @@ private[lf] object Speedy {
         case Some(res) =>
           Some(res) // TODO[dylant-da]: Are we right to also check the contractsCache here as well?
         case None =>
-            disclosedContracts.get(coid) match {
-              case Some(contractInfo) =>
-                markDisclosedcontractAsUsed(coid)
-                Some(
-                  V.ContractInstance(
-                    contractInfo.packageName,
-                    contractInfo.packageVersion,
-                    contractInfo.templateId,
-                    contractInfo.value.toUnnormalizedValue,
-                  )
+          disclosedContracts.get(coid) match {
+            case Some(contractInfo) =>
+              markDisclosedcontractAsUsed(coid)
+              Some(
+                V.ContractInstance(
+                  contractInfo.packageName,
+                  contractInfo.packageVersion,
+                  contractInfo.templateId,
+                  contractInfo.value.toUnnormalizedValue,
                 )
-              case None =>
-                None
-            }
+              )
+            case None =>
+              None
+          }
       }
 
     private[speedy] def lookupGlobalContract(coid: V.ContractId)(

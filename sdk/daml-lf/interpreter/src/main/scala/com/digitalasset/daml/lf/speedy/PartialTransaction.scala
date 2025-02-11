@@ -4,7 +4,14 @@
 package com.digitalasset.daml.lf
 package speedy
 
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Location, PackageId, PackageName, Party, TypeConName}
+import com.digitalasset.daml.lf.data.Ref.{
+  ChoiceName,
+  Location,
+  PackageId,
+  PackageName,
+  Party,
+  TypeConName,
+}
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Time}
 import com.digitalasset.daml.lf.ledger.Authorize
 import com.digitalasset.daml.lf.speedy.Speedy.{ContractInfo, CachedKey}
