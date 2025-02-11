@@ -29,6 +29,10 @@ register_toolchains(
     "//:c2hs-toolchain",
 )
 
+load("@io_tweag_rules_nixpkgs//nixpkgs:repositories.bzl", "rules_nixpkgs_dependencies")
+
+rules_nixpkgs_dependencies()
+
 load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew", "dev_env_tool")
 load(
     "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
@@ -593,8 +597,6 @@ nixpkgs_java_configure(
 load("@io_tweag_rules_nixpkgs//nixpkgs:toolchains/go.bzl", "nixpkgs_go_configure")
 
 nixpkgs_go_configure(
-    nix_file = "//nix:bazel-go-toolchain.nix",
-    nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 ) if not is_windows else None
 
@@ -660,7 +662,7 @@ scalatest_repositories()
 
 scalatest_toolchain()
 
-load("//bazel_tools:scalapb.bzl", "scalapb_version")
+load("//bazel_tools:scalapb.bzl", "scalapb_sha256", "scalapb_version")
 
 http_archive(
     name = "scalapb",
@@ -675,7 +677,7 @@ proto_library(
     visibility = ["//visibility:public"],
 )
 """,
-    sha256 = "5a5aebce78256ea9f4e227d166cfe078589cd2805d87e163ce1dcaa65a43dda5",
+    sha256 = scalapb_sha256,
     strip_prefix = "ScalaPB-{}".format(scalapb_version),
     urls = ["https://github.com/scalapb/ScalaPB/archive/refs/tags/v{}.tar.gz".format(scalapb_version)],
 )
