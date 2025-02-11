@@ -127,7 +127,7 @@ elif [ "$major" = "2" ] && [ "$minor" -ge "9" ]; then
       platform=
       ;;
     linux-aarch64)
-      platform=-aarch64
+      platform=
       ;;
     linux-x86_64)
       platform=
@@ -149,7 +149,7 @@ elif [ "$major" -ge "3" ]; then
       platform=-x86_64
       ;;
     linux-aarch64)
-      platform=-aarch64
+      platform=-x86_64
       ;;
     linux-x86_64)
       platform=-x86_64
