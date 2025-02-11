@@ -58,6 +58,14 @@ let
 
     config.allowUnfree = true;
     config.allowBroken = true;
+
+    # FIXME Remove once we upgrade to rules_js and more recent nodejs
+    config.permittedInsecurePackages = [
+      "nodejs-16.20.2"
+      # Those are only requiered on CI, this is weird as CI should be using same nixpkgs as local.
+      "nodejs-14.21.3"
+      "openssl-1.1.1w"
+    ];
   };
 in
   nixpkgs
