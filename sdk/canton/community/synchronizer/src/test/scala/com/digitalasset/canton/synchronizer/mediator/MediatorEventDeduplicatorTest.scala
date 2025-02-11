@@ -123,23 +123,29 @@ class MediatorEventDeduplicatorTest
 
   private def assertNextSentVerdict(
       verdictSender: TestVerdictSender,
-      envelope: OpenEnvelope[MediatorConfirmationRequest],
       requestTime: CantonTimestamp = this.requestTime,
       expireAfter: CantonTimestamp = this.requestTime.plus(deduplicationTimeout),
-  ): Assertion = {
-    val request = envelope.protocolMessage
-    val reject = MediatorVerdict.MediatorReject(
-      MediatorError.MalformedMessage.Reject(
-        s"The request uuid (${request.requestUuid}) must not be used until $expireAfter."
+  )(envelopes: OpenEnvelope[MediatorConfirmationRequest]*): Assertion = {
+    val rejects = envelopes.map { envelope =>
+      val request = envelope.protocolMessage
+      val reject = MediatorVerdict.MediatorReject(
+        MediatorError.MalformedMessage.Reject(
+          s"The request uuid (${request.requestUuid}) must not be used until $expireAfter."
+        )
       )
-    )
+      Result(
+        RequestId(requestTime),
+        decisionTime,
+        Some(request),
+        Some(reject.toVerdict(testedProtocolVersion)),
+      )
 
-    verdictSender.sentResultsQueue.poll(0, TimeUnit.SECONDS) shouldBe Result(
-      RequestId(requestTime),
-      decisionTime,
-      Some(request),
-      Some(reject.toVerdict(testedProtocolVersion)),
-    )
+    }
+
+    val results =
+      List.fill(envelopes.size)(verdictSender.sentResultsQueue.poll(0, TimeUnit.SECONDS))
+    results should contain theSameElementsAs rejects
+
   }
 
   "The event deduplicator" should {
@@ -188,7 +194,7 @@ class MediatorEventDeduplicatorTest
       store.allData() shouldBe deduplicationData(requestTime, 0, 1)
 
       storeF.futureValueUS
-      assertNextSentVerdict(verdictSender, request(0))
+      assertNextSentVerdict(verdictSender)(request(0))
       verdictSender.sentResults shouldBe empty
     }
 
@@ -216,7 +222,7 @@ class MediatorEventDeduplicatorTest
       store.allData() shouldBe deduplicationData(requestTime, 0, 1)
 
       storeF2.futureValueUS
-      assertNextSentVerdict(verdictSender, request(0))
+      assertNextSentVerdict(verdictSender)(request(0))
       verdictSender.sentResults shouldBe empty
 
       // submit same event with increased requestTime
@@ -229,7 +235,7 @@ class MediatorEventDeduplicatorTest
       store.allData() shouldBe deduplicationData(requestTime, 0, 1)
 
       storeF3.futureValueUS
-      assertNextSentVerdict(verdictSender, request(0), requestTime2)
+      assertNextSentVerdict(verdictSender, requestTime2)(request(0))
       verdictSender.sentResults shouldBe empty
     }
 
@@ -268,9 +274,7 @@ class MediatorEventDeduplicatorTest
 
       storeF2.futureValueUS
 
-      assertNextSentVerdict(verdictSender, request(0), requestTime2)
-      assertNextSentVerdict(verdictSender, request(0), requestTime2)
-      assertNextSentVerdict(verdictSender, request(1), requestTime2)
+      assertNextSentVerdict(verdictSender, requestTime2)(request(0), request(0), request(1))
       verdictSender.sentResults shouldBe empty
     }
 
@@ -320,7 +324,7 @@ class MediatorEventDeduplicatorTest
 
         storeF1.futureValueUS
         storeF2.futureValueUS
-        assertNextSentVerdict(verdictSender, request(i), requestTime = requestTime2)
+        assertNextSentVerdict(verdictSender, requestTime = requestTime2)(request(i))
       }
     }
 
