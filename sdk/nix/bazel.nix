@@ -47,6 +47,7 @@ let shared = rec {
         perl
         haskell.compiler.ghc902
         stdenv.cc  # ghc-lib needs `gcc` or `clang`, but Bazel provides `cc`.
+        stdenv.cc.cc.lib
         xz
       ] ++ (
         if stdenv.isDarwin
