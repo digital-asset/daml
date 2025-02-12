@@ -3,6 +3,8 @@
 
 .. _module-da-action-7169:
 
+ADDITIONAL_TEST_CONTENT
+
 DA.Action
 =========
 
