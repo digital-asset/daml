@@ -4,7 +4,11 @@
 package com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
+import com.digitalasset.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  TransactionVersion,
+}
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.ValueCoder
 import com.daml.nonempty.NonEmpty
