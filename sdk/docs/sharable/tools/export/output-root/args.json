@@ -1,0 +1,10 @@
+{
+  "contracts": {
+
+  },
+  "parties": {
+    "Bank": "Bank",
+    "Alice": "Alice",
+    "Bob": "Bob"
+  }
+}

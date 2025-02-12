@@ -1,0 +1,69 @@
+module Workflow.CreateAccount where
+
+import DA.Map qualified as Map (fromList)
+import DA.Set qualified as Set (fromList, singleton)
+
+-- INTERFACE DEPENDENCIES --
+import Daml.Finance.Interface.Account.V4.Account qualified as Account (Controllers(..))
+import Daml.Finance.Interface.Account.V4.Factory qualified as AccountFactory (Create(..), I)
+import Daml.Finance.Interface.Types.Common.V3.Types (AccountKey(..), HoldingFactoryKey, Id(..))
+
+-- | Initiate / Accept template to open an account.
+-- The account is created using an `Account.Factory` template. By doing so, our workflow is generic
+-- and does not depend on the specific account implementation. For the same reason, we need to
+-- provide a `Holding.Factory` that will be used by the account to create holdings without depending
+-- on the specific implementation.
+template Request
+  with
+    custodian : Party
+      -- ^ The account's custodian.
+    owner : Party
+      -- ^ The account's owner.
+  where
+    signatory owner
+    observer custodian
+
+    choice Accept : AccountKey
+      -- ^ Accept the request.
+      with
+        label : Text
+          -- ^ A textual label.
+        description : Text
+          -- ^ An extended textual description.
+        accountFactoryCid : ContractId AccountFactory.I
+          -- ^ The account factory. This is used to create the account template.
+        holdingFactory : HoldingFactoryKey
+          -- ^ The holding factory. This is used within an account to create holdings.
+        observers : [Party]
+          -- ^ Observers of the account to be created.
+      controller custodian
+      do
+        let
+          accountKey = AccountKey with
+            custodian -- This is equivalent to writing custodian = custodian
+            owner
+            id = Id label
+          observersSet = Set.fromList observers
+
+        accountCid <- exercise accountFactoryCid AccountFactory.Create with
+          account = accountKey
+          description
+          holdingFactory
+          controllers = Account.Controllers with
+            outgoing = Set.singleton owner
+            incoming = Set.singleton owner
+          observers = Map.fromList [("AccountObservers", observersSet)]
+
+        pure accountKey
+
+    choice Decline : ()
+      -- ^ Decline the request.
+      controller custodian
+      do
+        pure ()
+
+    choice Withdraw : ()
+      -- ^ Withdraw the request.
+      controller owner
+      do
+        pure ()

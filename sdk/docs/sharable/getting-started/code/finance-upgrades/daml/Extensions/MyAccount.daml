@@ -1,0 +1,135 @@
+module Extensions.MyAccount where
+
+import DA.Assert ((===))
+import DA.Set qualified as Set (fromList, null, singleton)
+
+-- INTERFACE DEPENDENCIES --
+import Daml.Finance.Interface.Account.V4.Account qualified as Account (Controllers(..), Credit(..), Debit(..), I, R, Remove(..), View(..), accountKey, createReference, disclosureUpdateReference, exerciseInterfaceByKey)
+import Daml.Finance.Interface.Account.V4.Factory qualified as AccountFactory (Create(..), I, View(..))
+import Daml.Finance.Interface.Holding.V4.Factory qualified as HoldingFactory (Create(..), I, exerciseInterfaceByKey)
+import Daml.Finance.Interface.Types.Common.V3.Types (AccountKey(..), HoldingFactoryKey(..), Id, PartiesMap)
+import Daml.Finance.Interface.Util.V3.Disclosure qualified as Disclosure (I, View(..), flattenObservers)
+import Daml.Finance.Interface.Util.V3.InterfaceKey (fetchInterfaceByKey)
+
+-- IMPLEMENTATION DEPENDENCIES --
+import Daml.Finance.Account.V4.Account qualified as Account (T)
+import Daml.Finance.Util.V4.Disclosure (addObserversImpl, removeObserversImpl, setObserversImpl)
+
+-- | This implementation introduces a new variant of an implementation of the `Account.I` interface.
+-- Its sole distinction from the standard Daml Finance implementation lies in its non-freezable
+-- nature, as it does not implement the `Lockable` interface. It serves as a practical example of
+-- how accounts can be upgraded.
+-- MY_ACCOUNT_START
+template MyAccount
+  with
+    custodian : Party
+      -- ^ The account provider.
+    owner : Party
+      -- ^ The account owner.
+    controllers : Account.Controllers
+      -- ^ Controllers of transfers.
+    id : Id
+      -- ^ Identifier of the account.
+    description : Text
+      -- ^ Description of the account.
+    holdingFactory : HoldingFactoryKey
+      -- ^ Associated holding factory.
+    observers : PartiesMap
+      -- ^ Observers.
+  where
+    signatory custodian, owner
+    observer Disclosure.flattenObservers observers
+
+    -- Outgoing controllers must be non-empty.
+    ensure not . Set.null $ controllers.outgoing
+
+    interface instance Account.I for MyAccount where
+      view = Account.View with custodian; id; owner; description; controllers
+      getKey = Account.accountKey this
+      credit Account.Credit{quantity} = do
+        HoldingFactory.exerciseInterfaceByKey @HoldingFactory.I
+          holdingFactory
+          custodian
+          HoldingFactory.Create with
+            instrument = quantity.unit
+            account = Account.accountKey this
+            amount = quantity.amount
+            observers = mempty
+      debit Account.Debit{holdingCid} = do
+        holding <- fetch holdingCid
+        assertMsg "Accounts must match" $ (view holding).account == Account.accountKey this
+        archive holdingCid
+
+    interface instance Disclosure.I for MyAccount where
+      view = Disclosure.View with disclosureControllers = Set.fromList [custodian, owner]; observers
+      setObservers = setObserversImpl this . Some . Account.disclosureUpdateReference $
+        Account.accountKey this
+      addObservers = addObserversImpl this . Some . Account.disclosureUpdateReference $
+        Account.accountKey this
+      removeObservers = removeObserversImpl this . Some . Account.disclosureUpdateReference $
+        Account.accountKey this
+-- MY_ACCOUNT_END
+
+-- | A new implementation, named `MyAccountFactory`, of `AccountFactory.I` used to create
+-- `MyAccount` instances.
+-- MY_ACCOUNT_FACTORY_START
+template MyAccountFactory
+  with
+    provider : Party
+      -- ^ The factory's provider.
+    observers : PartiesMap
+      -- ^ The factory's observers.
+  where
+    signatory provider
+    observer Disclosure.flattenObservers observers
+
+    interface instance AccountFactory.I for MyAccountFactory where
+      view = AccountFactory.View with provider
+      create' AccountFactory.Create {account; holdingFactory; controllers; observers; description} =
+        do
+          cid <- toInterfaceContractId <$> create MyAccount with
+            custodian = account.custodian; owner = account.owner; controllers
+            id = account.id; holdingFactory; observers; description
+          Account.createReference account.custodian cid
+          pure cid
+
+    interface instance Disclosure.I for MyAccountFactory where
+      view = Disclosure.View with disclosureControllers = Set.singleton provider; observers
+      setObservers = setObserversImpl @MyAccountFactory @Disclosure.I this None
+      addObservers = addObserversImpl @MyAccountFactory @Disclosure.I this None
+      removeObservers = removeObserversImpl @MyAccountFactory @Disclosure.I this None
+-- MY_ACCOUNT_FACTORY_END
+
+-- | An upgrade rule template used to upgrade `Account.T` instances to `MyAccount` instances.
+-- MY_ACCOUNT_UPGRADE_RULE_START
+template MyAccountUpgradeRule
+  with
+    custodian : Party
+    observers : PartiesMap
+  where
+    signatory custodian
+    observer Disclosure.flattenObservers observers
+
+    nonconsuming choice UpgradeToMyAccount : ()
+      with
+        account : AccountKey
+      controller account.owner
+      do
+        custodian === account.custodian
+        Some oldAccount <- fromInterface @Account.T <$>
+          fetchInterfaceByKey @Account.R @Account.I account
+        account.custodian === oldAccount.custodian
+         -- Archive old version including reference
+        Account.exerciseInterfaceByKey @Account.I account custodian Account.Remove
+        -- Create new version including reference
+        newAccountCid <- create MyAccount with
+          custodian
+          owner = oldAccount.owner
+          controllers = oldAccount.controllers
+          id = oldAccount.id
+          description = oldAccount.description
+          holdingFactory = oldAccount.holdingFactory
+          observers = oldAccount.observers
+        Account.createReference custodian $ toInterfaceContractId newAccountCid
+        pure ()
+-- MY_ACCOUNT_UPGRADE_RULE_END

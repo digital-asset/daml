@@ -1,0 +1,43 @@
+module Workflow.Transfer where
+
+import DA.Set (Set)
+
+-- INTERFACE DEPENDENCIES --
+import Daml.Finance.Interface.Holding.V4.Transferable qualified as Transferable (Transfer(..), I)
+import Daml.Finance.Interface.Types.Common.V3.Types (AccountKey(..))
+
+-- | This propose/accept template is designed for the stepwise collection of necessary
+-- authorizations for transferring a holding to a new owner.
+-- TRANSFER_REQUEST_BEGIN
+template Request
+  with
+    instructor : Party
+      -- ^ The party who creates the transfer request, but doesn't necessarily have to authorize it.
+    receiverAccount : AccountKey
+      -- ^ The account to which the holding is sent.
+    transferableCid : ContractId Transferable.I
+      -- ^ The holding instance to be sent.
+    accepted : Set Party
+      -- ^ Current set of parties that accept the transfer.
+    observers : Set Party
+      -- ^ Observers.
+  where
+    signatory instructor, accepted
+    observer observers
+
+    choice Accept : ContractId Request
+      with
+        actors : Set Party
+      controller actors
+      do
+        create this with accepted = actors <> this.accepted
+
+    choice Effectuate : ContractId Transferable.I
+      with
+        actors : Set Party
+      controller actors
+      do
+        exercise transferableCid Transferable.Transfer with
+          actors = actors <> this.accepted
+          newOwnerAccount = receiverAccount
+-- TRANSFER_REQUEST_END

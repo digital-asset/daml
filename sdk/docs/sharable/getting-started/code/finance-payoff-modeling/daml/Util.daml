@@ -1,0 +1,51 @@
+module Util where
+
+import DA.Foldable (forA_)
+import DA.Map (Map, lookup)
+import DA.Time (time)
+import Daml.Script
+import Prelude hiding (lookup)
+
+-- INTERFACE DEPENDENCIES --
+import Daml.Finance.Interface.Claims.V4.Types (C)
+import Daml.Finance.Interface.Lifecycle.V4.Effect qualified as Effect (V)
+import Daml.Finance.Interface.Types.Common.V3.Types (Id(..), InstrumentKey)
+
+-- CONTINGENT CLAIMS DEPENDENCIES --
+import ContingentClaims.Core.V3.Claim (Claim, mapParams)
+
+-- | Convert a `Date` to `Time`.
+-- This is needed because, although it is convenient to define a payoff in terms of `Date`\s, the
+-- claim type used in the generic instrument uses `Time` as time parameter for maximum generality.
+dateToTime : Date -> Time
+dateToTime d = time d 0 0 0
+
+-- | Map the input claim into the claim type that is accepted by the generic instrument.
+-- This involves two steps:
+-- - map all `Date`\s to `Time`\s
+-- - map all instrument label (e.g. "USD") to actual Daml Finance `InstrumentKey`\s
+mapClaim : Claim Date Decimal Text Text -> Map Text InstrumentKey -> C
+mapClaim c instrumentMap =
+  let
+    timeToDate _ = error "Cannot convert from `Time` back to `Date`"
+    mapInstrumentLabel = \label -> case lookup label instrumentMap of
+      Some i -> i
+      None -> error $ "Could not find instrument matcing label " <> label
+  in
+    mapParams timeToDate dateToTime mapInstrumentLabel identity identity c
+
+-- | Pretty-print an `Effect`.
+printEffect : Effect.V -> Script ()
+printEffect effect = do
+  debug $ "--- EFFECT on " <> show effect.id <> " ---"
+  debug $ "TARGET INSTRUMENT : " <> show effect.targetInstrument.id <> " version " <>
+    effect.targetInstrument.version
+  debug "RECEIVING"
+  forA_ effect.otherProduced \otherProduced ->
+    printAmount otherProduced.amount otherProduced.unit.id
+  debug "GIVING"
+  forA_ effect.otherConsumed \otherConsumed ->
+    printAmount otherConsumed.amount otherConsumed.unit.id
+
+printAmount : Decimal -> Id -> Script ()
+printAmount amount unit = debug $ " => " <> show amount <> " " <> show unit

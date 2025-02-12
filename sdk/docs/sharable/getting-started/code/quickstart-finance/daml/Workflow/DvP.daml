@@ -1,0 +1,78 @@
+module Workflow.DvP where
+
+import DA.Set (fromList, singleton)
+
+-- INTERFACE DEPENDENCIES --
+import Daml.Finance.Interface.Settlement.V4.Batch qualified as Batch (I)
+import Daml.Finance.Interface.Settlement.V4.Factory qualified as SettlementFactory (I, Instruct(..))
+import Daml.Finance.Interface.Settlement.V4.Instruction qualified as Instruction (I)
+import Daml.Finance.Interface.Settlement.V4.RouteProvider qualified as RouteProvider (Discover(..), I)
+import Daml.Finance.Interface.Settlement.V4.Types (Step(..))
+import Daml.Finance.Interface.Types.Common.V3.Types (Id(..), InstrumentQuantity)
+
+-- | Initiate / Accept template to exchange two holdings.
+template Proposal
+  with
+    recQuantity : InstrumentQuantity
+      -- ^ The receiving leg (instrument and amount).
+    payQuantity : InstrumentQuantity
+      -- ^ The pay leg (instrument and amount).
+    proposer : Party
+      -- ^ The party proposing the trade. They receive the receiving leg in exchange for the pay
+      --   leg.
+    counterparty : Party
+      -- ^ The trade counterparty. They receive the pay leg in exchange for the receiving leg.
+    routeProviderCid : ContractId RouteProvider.I
+      -- ^ The route provider to discover settlement paths.
+    settlementFactoryCid : ContractId SettlementFactory.I
+      -- ^ The factory contract for the settlement batch.
+    id : Text
+      -- ^ A textual identifier.
+  where
+    signatory proposer
+    observer counterparty
+
+    ensure recQuantity.amount > 0.0 && payQuantity.amount > 0.0
+
+    choice Accept : (ContractId Batch.I, ContractId Instruction.I, ContractId Instruction.I)
+      controller counterparty
+      do
+        let
+          -- Settlement of REC leg
+          recStep = Step with sender = counterparty; receiver = proposer; quantity = recQuantity
+
+          -- Settlement of PAY leg
+          payStep = Step with sender = proposer; receiver = counterparty; quantity = payQuantity
+
+        -- Discover settlement routes for the steps
+        routedSteps <- exercise routeProviderCid RouteProvider.Discover with
+          discoverors = fromList [proposer, counterparty]
+          contextId = None
+          steps = [recStep, payStep]
+
+        -- INSTRUCT_BEGIN
+        (containerCid, [recInstructionCid, payInstructionCid]) <-
+          exercise settlementFactoryCid SettlementFactory.Instruct with
+            instructor = proposer
+            consenters = singleton counterparty
+            settlers = singleton proposer
+            id = Id id
+            description = "Settlement for " <> id
+            contextId = None
+            routedSteps
+            settlementTime = None -- i.e., immediate settlement
+        -- INSTRUCT_END
+
+        pure (containerCid, recInstructionCid, payInstructionCid)
+
+    choice Decline : ()
+      -- ^ Decline the request.
+      controller counterparty
+      do
+        pure ()
+
+    choice Withdraw : ()
+      -- ^ Withdraw the request.
+      controller proposer
+      do
+        pure ()
