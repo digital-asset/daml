@@ -1,1 +1,3 @@
 .envrc.private
+/.idea/
+.DS_Store

@@ -1,0 +1,66 @@
+module Scripts.Transfer where
+
+import Daml.Script
+
+-- INTERFACE DEPENDENCIES --
+import Daml.Finance.Interface.Holding.V4.Holding qualified as Holding (I)
+import Daml.Finance.Interface.Instrument.Token.V4.Factory qualified as TokenFactory (I)
+import Daml.Finance.Interface.Types.Common.V3.Types (AccountKey, InstrumentKey(..))
+
+-- IMPLEMENTATION DEPENDENCIES --
+import Workflow.Transfer qualified as Transfer (Accept(..), Request(..))
+
+import Scripts.Holding (HoldingState(..), setupHolding)
+
+-- | Test script that
+-- 1. executes the `setupHolding` script
+-- 2. transfers ownership of a cash holding from Alice to Bob
+runTransfer : Script TransferState
+runTransfer = do
+
+  -- Execute the `setupHolding` script. Alice now holds USD 1000 in her account at the Bank.
+  HoldingState
+    { alice
+    ; bank
+    ; bob
+    ; aliceAccount
+    ; bobAccount
+    ; cashInstrument
+    ; tokenFactoryCid
+    ; aliceCashHoldingCid
+    } <- setupHolding
+
+  -- Bob requests a cash transfer from Alice
+  -- TRANSFER_BEGIN
+  transferRequestCid <- submit bob do
+    createCmd Transfer.Request with
+      receiverAccount = bobAccount
+      instrument = cashInstrument
+      amount = 1000.0
+      currentOwner = alice
+
+  bobCashHoldingCid <- submit alice do
+    exerciseCmd transferRequestCid Transfer.Accept with holdingCid = aliceCashHoldingCid
+  -- TRANSFER_END
+
+  pure TransferState with
+    alice
+    bank
+    bob
+    aliceAccount
+    bobAccount
+    usdInstrument = cashInstrument
+    bobCashHoldingCid
+    tokenFactoryCid
+
+-- | Helper container used to transfer state to the next script.
+data TransferState = TransferState
+  with
+    alice : Party
+    bank : Party
+    bob : Party
+    aliceAccount : AccountKey
+    bobAccount : AccountKey
+    usdInstrument : InstrumentKey
+    bobCashHoldingCid : ContractId Holding.I
+    tokenFactoryCid : ContractId TokenFactory.I

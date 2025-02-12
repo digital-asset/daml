@@ -1,0 +1,137 @@
+module Extensions.MyTransferable where
+
+import DA.Set (fromList, singleton)
+
+-- INTERFACE DEPENDENCIES --
+import Daml.Finance.Interface.Holding.V4.Factory qualified as HoldingFactory (Create(..), I, View(..), holdingFactoryKey)
+import Daml.Finance.Interface.Holding.V4.Holding qualified as Holding (I, View(..))
+import Daml.Finance.Interface.Holding.V4.Transferable qualified as Transferable (I, View(..))
+import Daml.Finance.Interface.Types.Common.V3.Types (AccountKey(..), Id, InstrumentKey(..), PartiesMap)
+import Daml.Finance.Interface.Types.Common.V3.Types qualified as HoldingStandard (HoldingStandard(..))
+import Daml.Finance.Interface.Util.V3.Disclosure qualified as Disclosure (I, View(..), flattenObservers)
+import Daml.Finance.Interface.Util.V3.Lockable qualified as Lockable (I, Lock(..), View(..), getLockers)
+import Daml.Finance.Util.V4.Disclosure (addObserversImpl, removeObserversImpl, setObserversImpl)
+import Daml.Finance.Util.V4.Lockable (acquireImpl, isValidLock, releaseImpl)
+
+-- IMPLEMENTATION DEPENDENCIES --
+import Daml.Finance.Holding.V4.BaseHolding (BaseHolding(..))
+import Daml.Finance.Holding.V4.Fungible (Fungible(..))
+import Daml.Finance.Holding.V4.TransferableFungible (TransferableFungible(..))
+import Daml.Finance.Holding.V4.Util (transferImpl)
+
+-- | This implementation introduces a new variant of a holding that adheres to the `Transferable`
+-- holding standard. Its unique feature, distinguishing it from the standard Daml Finance
+-- implementation, is the generation of a specific event, namely a `MyTransferableTransferEvent`
+-- instance, each time a transfer takes place. It serves as a practical example of how holdings can
+-- be upgraded.
+template MyTransferable
+  with
+    instrument : InstrumentKey
+      -- ^ The instrument of which units are held.
+    account : AccountKey
+      -- ^ The account at which the holding is held. Defines the holding's owner and custodian.
+    amount : Decimal
+      -- ^ Number of units.
+    lock : Optional Lockable.Lock
+      -- ^ An optional lock for the holding.
+    observers : PartiesMap
+      -- ^ Observers.
+  where
+    signatory account.custodian, account.owner, Lockable.getLockers this
+    observer Disclosure.flattenObservers observers
+
+    ensure
+      amount > 0.0 && isValidLock lock && instrument.holdingStandard == HoldingStandard.Transferable
+
+    interface instance Disclosure.I for MyTransferable where
+      view = Disclosure.View with
+        disclosureControllers = fromList [account.owner, account.custodian]; observers
+      setObservers = setObserversImpl @_ @Disclosure.I this None
+      addObservers = addObserversImpl @_ @Disclosure.I this None
+      removeObservers = removeObserversImpl @_ @Disclosure.I this None
+
+    interface instance Lockable.I for MyTransferable where
+      view = Lockable.View with lock; controllers = singleton account.owner
+      acquire = acquireImpl this.lock (\lock -> this with lock)
+      release = releaseImpl this.lock (\lock -> this with lock)
+
+    interface instance Holding.I for MyTransferable where
+      view = Holding.View with instrument; account; amount
+
+    interface instance Transferable.I for MyTransferable where
+      view = Transferable.View {}
+      transfer cid t = do
+        -- MY_TRANSFERABLE_EVENT_START
+        time <- getTime
+        create MyTransferableTransferEvent with
+          from = account
+          to = t.newOwnerAccount
+          instrument
+          amount
+          time
+        -- MY_TRANSFERABLE_EVENT_END
+        transferImpl (toInterface this) cid t
+
+-- | This template is used to log a transfer event on the ledger whenever a transfer of a holding
+-- occurs.
+-- MY_TRANSFERABLE_TRANSFER_EVENT_START
+template MyTransferableTransferEvent
+  with
+    from : AccountKey
+      -- ^ The account the holding was transferred from.
+    to : AccountKey
+      -- ^ The account the holding was transferred to.
+    instrument : InstrumentKey
+      -- ^ The instrument that was transferred.
+    amount : Decimal
+      -- ^ The amount being transferred.
+    time : Time
+      -- ^ Time of the transfer.
+  where
+    signatory from.custodian
+    observer from.owner, to.owner
+    ensure from.custodian == to.custodian
+-- MY_TRANSFERABLE_TRANSFER_EVENT_END
+
+-- | A new implementation of the `HoldingFactory.I` which uses the `MyTransferable` implemenation.
+-- MY_TRANSFERABLE_MY_HOLDING_FACTORY_START
+template MyHoldingFactory
+  with
+    provider : Party
+      -- ^ The factory's provider.
+    id : Id
+      -- ^ Identifier for the factory.
+    observers : PartiesMap
+      -- ^ The factory's observers.
+  where
+    signatory provider
+    observer Disclosure.flattenObservers observers
+
+    interface instance HoldingFactory.I for MyHoldingFactory
+      where
+        view = HoldingFactory.View with provider; id
+        getKey = HoldingFactory.holdingFactoryKey this
+        create' HoldingFactory.Create{instrument; account; amount; observers} = do
+          assertMsg "amount must be positive" $ amount > 0.0
+          case instrument.holdingStandard of
+            HoldingStandard.TransferableFungible ->
+              toInterfaceContractId <$>
+                create TransferableFungible with instrument; account; amount; observers; lock = None
+            HoldingStandard.Transferable ->
+              toInterfaceContractId <$>
+                create MyTransferable with instrument; account; amount; observers; lock = None
+            HoldingStandard.Fungible ->
+              toInterfaceContractId <$>
+                create Fungible with
+                  instrument; account; amount; observers; lock = None
+            HoldingStandard.BaseHolding ->
+              toInterfaceContractId <$>
+                create BaseHolding with
+                  instrument; account; amount; observers; lock = None
+
+    interface instance Disclosure.I for MyHoldingFactory where
+      view = Disclosure.View with disclosureControllers = singleton provider; observers
+      setObservers = setObserversImpl @MyHoldingFactory @Disclosure.I this None
+      addObservers = addObserversImpl @MyHoldingFactory @Disclosure.I this None
+      removeObservers = removeObserversImpl @MyHoldingFactory @Disclosure.I this None
+-- MY_TRANSFERABLE_MY_HOLDING_FACTORY_END

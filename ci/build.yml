@@ -27,6 +27,17 @@ jobs:
         fi
       name: out
 
+- job: verify_docs_synchronized
+  pool:
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
+  steps:
+    - bash: |
+        set -euo pipefail
+        cd sdk
+        eval "$(./dev-env/bin/dade-assist)"
+        ./ci/verify-docs-synchronized.sh
+
 - job: Linux
   dependsOn:
     - check_for_release

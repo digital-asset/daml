@@ -1,0 +1,83 @@
+module Util.Setup where
+
+import DA.Map (Map, empty, fromList)
+import DA.Set (Set)
+import Daml.Script
+
+-- INTERFACE DEPENDENCIES --
+import Daml.Finance.Interface.Claims.V4.Types (C)
+import Daml.Finance.Interface.Instrument.Generic.V4.Factory qualified as GenericFactory (Create(..), I)
+import Daml.Finance.Interface.Instrument.Token.V4.Factory qualified as TokenFactory (Create(..), I)
+import Daml.Finance.Interface.Instrument.Token.V4.Types (Token(..))
+import Daml.Finance.Interface.Types.Common.V3.Types (HoldingStandard(..), Id(..), InstrumentKey(..))
+
+-- IMPLEMENTATION DEPENDENCIES --
+import Daml.Finance.Instrument.Generic.V4.Factory qualified as Generic (Factory(..))
+import Daml.Finance.Instrument.Token.V4.Factory qualified as Token (Factory(..))
+
+-- | Build an instrument key.
+buildInstrumentKey : Party -> Party -> Text -> Text -> InstrumentKey
+buildInstrumentKey issuer depository id version =
+  InstrumentKey with
+    issuer
+    depository
+    id = Id id
+    version
+    holdingStandard = TransferableFungible
+
+-- | Setup instruments that are to be delivered by the claim and return an instrument map.
+setupUnderlyingInstruments: Party -> Set Party -> Script (Map Text InstrumentKey)
+setupUnderlyingInstruments instrumentProvider observers = do
+
+  now <- getTime
+
+  tokenFactoryCid <- toInterfaceContractId @TokenFactory.I <$> submit instrumentProvider do
+    createCmd Token.Factory with provider = instrumentProvider; observers = empty
+
+  let
+    eurInstrument = buildInstrumentKey instrumentProvider instrumentProvider "EUR" "0"
+    usdInstrument = buildInstrumentKey instrumentProvider instrumentProvider "USD" "0"
+
+  submit instrumentProvider do
+    exerciseCmd tokenFactoryCid TokenFactory.Create with
+      token = Token with
+        instrument = usdInstrument
+        description = "USD Instrument"
+        validAsOf = now
+      observers = fromList [("Investors", observers)]
+
+  submit instrumentProvider do
+    exerciseCmd tokenFactoryCid TokenFactory.Create with
+      token = Token with
+        instrument = eurInstrument
+        description = "EUR Instrument"
+        validAsOf = now
+      observers = fromList [("Investors", observers)]
+
+  pure $ fromList
+    [ ("EUR", eurInstrument)
+    , ("USD", usdInstrument)
+    ]
+
+-- | Given a claim tree, create a generic instrument wrapping the tree.
+setupGenericInstrument : Party -> Set Party -> Text -> Text -> Text -> Time -> C ->
+  Script InstrumentKey
+setupGenericInstrument instrumentProvider observers id version description acquisitionTime claims =
+  do
+    genericInstrumentFactoryCid <- toInterfaceContractId @GenericFactory.I <$>
+      submit instrumentProvider do
+        createCmd Generic.Factory with provider = instrumentProvider; observers = empty
+
+    let
+      claimInstrument = buildInstrumentKey instrumentProvider instrumentProvider id version
+
+    submit instrumentProvider do
+      exerciseCmd genericInstrumentFactoryCid GenericFactory.Create with
+        instrument = claimInstrument
+        description
+        claims
+        acquisitionTime
+        lastEventTimestamp = acquisitionTime
+        observers = fromList [("Investors", observers)]
+
+    pure claimInstrument

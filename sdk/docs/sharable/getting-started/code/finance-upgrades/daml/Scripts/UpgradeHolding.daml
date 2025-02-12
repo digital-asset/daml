@@ -1,0 +1,89 @@
+module Scripts.UpgradeHolding where
+
+import DA.Assert ((===))
+import DA.Set (singleton)
+import Daml.Script
+
+-- INTERFACE DEPENDENCIES --
+import Daml.Finance.Interface.Holding.V4.Transferable qualified as Transferable (Transfer(..))
+import Daml.Finance.Interface.Types.Common.V3.Types (Id(..))
+
+-- IMPLEMENTATION DEPENDENCIES --
+import Daml.Finance.Holding.V4.Transferable qualified as Transferable (T)
+
+import Extensions.MyTransferable (MyHoldingFactory(..), MyTransferable(..), MyTransferableTransferEvent(..))
+
+import Scripts.Setup (SetupState(..), runSetupAccountsAndHoldings)
+import Scripts.Util (createMyHoldingFactory, removeHoldingFactory)
+
+-- This script validates the Bank's ability to upgrade its holding standard implementations.
+-- Specifically, it enables the Bank to upgrade from Daml Finance's `Transferable.T` holding
+-- implementation, which adheres to the `Transferable` holding standard, to its own implementation
+-- named `MyTransferable`. This new implementation, upon a transfer, additionally creates a
+-- `MyTransferableTransferEvent`.
+-- The upgrade is effectuated once the holdings are transferred the next time, i.e., lazily. For the
+-- upgrade to be effective, the Bank must replace its existing holding factory with a
+-- `MyHoldingFactory`, used for creating `MyTransferable` holdings.
+-- The steps to complete the upgrade on-ledger are:
+-- 1. The Bank archives its existing holding factory (to prevent undesired holdings from being
+--    created).
+-- 2. The Bank creates a `MyHoldingFactory` for creating `MyTransferable` holdings. It is critical
+--    that the holding factory has the same key (so that accounts can reference the new holding
+--    factory by key without needing to be updated themselves).
+-- 3. Once a client, Alice, transfers her holding to another client, Bob, the holding is upgraded on
+--    the fly.
+runUpgradeHolding : Script ()
+runUpgradeHolding = do
+  -- Execute the `setupAccountsAndHoldings` script. Alice now holds 1000 tokens in her account at
+  -- the Bank.
+  -- UPGRADE_HOLDING_SETUP_BEGIN
+  SetupState
+    { bank
+    ; bankHoldingFactory
+    ; alice
+    ; aliceAccount
+    ; aliceTransferableCid
+    ; bob
+    ; bobAccount
+    ; allClients
+    } <- runSetupAccountsAndHoldings
+  -- UPGRADE_HOLDING_SETUP_END
+
+  -- 1. Bank removes its "old" holding factory.
+  -- UPGRADE_HOLDING_REMOVE_OLD_HOLDING_FACTORY_BEGIN
+  removeHoldingFactory bankHoldingFactory
+  -- UPGRADE_HOLDING_REMOVE_OLD_HOLDING_FACTORY_END
+
+  -- 2. Bank creates the "new" holding factory (with the same key).
+  -- UPGRADE_HOLDING_CREATE_NEW_HOLDING_FACTORY_BEGIN
+  myHoldingFactory <- createMyHoldingFactory $
+    MyHoldingFactory with
+      provider = bank
+      id = Id "Holding Factory"
+      observers = allClients
+  -- UPGRADE_HOLDING_CREATE_NEW_HOLDING_FACTORY_END
+
+  -- 3. Alice transfers her "old" holding to Bob which gets credited as a "new" holding.
+  -- UPGRADE_HOLDING_TRANSFER_BEGIN
+  Some _ <- queryContractId alice $ fromInterfaceContractId @Transferable.T aliceTransferableCid
+  bobHoldingCid <- submit alice do
+    exerciseCmd aliceTransferableCid
+      Transferable.Transfer with
+        actors = singleton alice
+        newOwnerAccount = bobAccount
+  Some _ <- queryContractId bob $ fromInterfaceContractId @MyTransferable bobHoldingCid
+  -- UPGRADE_HOLDING_TRANSFER_END
+
+  -- Sanity check: An event is created upon a transfer.
+  -- UPGRADE_HOLDING_SANITY_CHECK_BEGIN
+  aliceHoldingCid <- submit bob do
+    exerciseCmd bobHoldingCid
+      Transferable.Transfer with
+        actors = singleton bob
+        newOwnerAccount = aliceAccount
+  [(_, event)] <- query @MyTransferableTransferEvent alice
+  event.from === bobAccount
+  event.to === aliceAccount
+  -- UPGRADE_HOLDING_SANITY_CHECK_END
+
+  pure ()

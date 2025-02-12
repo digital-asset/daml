@@ -1,0 +1,88 @@
+module PayoffBuilder where
+
+import DA.Date
+import DA.Foldable (forA_)
+import DA.Optional (fromSome)
+import Daml.Script
+import Prelude hiding (and, or)
+
+-- CONTINGENT CLAIMS DEPENDENCIES --
+import ContingentClaims.Core.V3.Claim (Claim(..), one, scale)
+import ContingentClaims.Core.V3.Observation (Observation(Const))
+
+import Util (dateToTime, mapClaim, printEffect)
+import Util.Lifecycle (createObservation, lifecycle)
+import Util.Setup (setupGenericInstrument, setupUnderlyingInstruments)
+
+--------------------------------
+-- PAYOFF DEFINITION -----------
+--------------------------------
+
+c : Claim Date Decimal Text Text
+c = scale (Const 100.0) $ one "USD"
+  -- ^ Your claim goes here
+
+acquisitionDate : Date
+acquisitionDate = date 2023 Jul 01
+  -- ^ The claim's acquisition date goes here
+
+-------------------------------------
+-- LIFECYCLING PARAMETERS -----------
+-------------------------------------
+
+lifecycleDates : [Date]
+lifecycleDates =
+  [
+  ]
+  -- ^ Dates on which the claim should be lifecycled
+
+observations : [(Text, [(Date, Decimal)])]
+observations =
+  [
+  ]
+  -- ^ Observations known at the time of lifecycling
+
+runCreateAndLifecycle : Script ()
+runCreateAndLifecycle = script do
+  createAndLifecycleInstrument c acquisitionDate lifecycleDates observations
+
+createAndLifecycleInstrument claim acquisitionDate lifecycleDates observations = do
+
+  -------------------------------
+  -- Allocate parties -----------
+  -------------------------------
+
+  p <- allocateParty "InstrumentProvider"
+
+  ----------------------------------------
+  -- Create generic instrument -----------
+  ----------------------------------------
+
+  -- Originate underlying instruments (cash, equities, ...)
+  instrumentMap <- setupUnderlyingInstruments p mempty
+
+  -- Map above claim to the format required by the generic instrument
+  let
+    acquisitionTime = dateToTime acquisitionDate
+    mappedClaim = mapClaim claim instrumentMap
+    id = "MyClaim"
+
+  -- Create generic instrument
+  genericInstrument <- setupGenericInstrument p mempty id "0" id acquisitionTime mappedClaim
+
+  ----------------------------------
+  -- Execute lifecycling -----------
+  ----------------------------------
+
+  -- Create contracts for observation
+  observationCids <- mapA (uncurry (createObservation p)) observations
+
+  -- Perform lifecycling
+  (newInstrument, effectCids) <- lifecycle genericInstrument observationCids lifecycleDates
+
+  -------------------------------------
+  -- Print pending payments -----------
+  -------------------------------------
+
+  if null effectCids then debug "No effects have been generated" else Prelude.pure ()
+  forA_ effectCids \cid -> fromSome <$> queryInterfaceContractId p cid >>= printEffect

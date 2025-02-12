@@ -205,6 +205,36 @@ genrule(
     ],
 ) if not is_windows else None
 
+genrule(
+    name = "sharable-docs",
+    srcs = [
+        ":sources",
+        "//templates:templates-tarball",
+    ],
+    outs = ["sharable-docs.tar.gz"],
+    cmd = """
+    set -eou pipefail
+    DIR=$$(mktemp -d)
+    trap "rm -rf $$DIR" EXIT
+    mkdir -p $$DIR/docs
+
+    tar xf $(location :sources) -C $$DIR/docs
+
+    # Copy templates for code snippets in getting started guide
+    CODE_DIR=$$DIR/docs/source/getting-started/code/
+    mkdir -p $$CODE_DIR
+    tar -zxf $(location //templates:templates-tarball) -C $$CODE_DIR --strip-components=1
+
+    MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
+    OUT_PATH=$$PWD/$@
+    cd $$DIR
+    $$MKTGZ $$OUT_PATH docs/source
+  """.format(sdk = sdk_version),
+    tools = [
+        "//bazel_tools/sh:mktgz",
+    ],
+) if not is_windows else None
+
 filegroup(
     name = "pdf-fonts",
     srcs = glob(["configs/pdf/fonts/**"]) + ["@freefont//:fonts"],

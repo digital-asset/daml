@@ -1,0 +1,27 @@
+{ // ExerciseByKeyCommand
+  template_id { // Identifier
+    package_id: "some-hash"
+    name: "Templates.MySimpleTemplate"
+  }
+  contract_key { // Value
+    record { // Record
+      fields { // RecordField
+        label: "party"
+        value { // Value
+          party: "Alice"
+        }
+      }
+    }
+  }
+  choice: "MyChoice"
+  choice_argument { // Value
+    record { // Record
+      fields { // RecordField
+        label: "parameter"
+        value { // Value
+          int64: 42
+        }
+      }
+    }
+  }
+}

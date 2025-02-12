@@ -1,0 +1,154 @@
+module Scripts.Lifecycling where
+
+import DA.Set (singleton)
+import Daml.Script
+
+-- INTERFACE DEPENDENCIES --
+import Daml.Finance.Interface.Instrument.Token.V4.Factory qualified as TokenFactory (Create(..))
+import Daml.Finance.Interface.Instrument.Token.V4.Types (Token(..))
+import Daml.Finance.Interface.Lifecycle.V4.Event qualified as Event (I)
+import Daml.Finance.Interface.Lifecycle.V4.Rule.Claim qualified as Claim (ClaimEffect(..), I)
+import Daml.Finance.Interface.Lifecycle.V4.Rule.Lifecycle qualified as Lifecycle (Evolve(..), I)
+import Daml.Finance.Interface.Settlement.V4.Batch qualified as Batch (Settle(..))
+import Daml.Finance.Interface.Settlement.V4.Instruction qualified as Instruction (Allocate(..), Approve(..))
+import Daml.Finance.Interface.Settlement.V4.Types (Allocation(..), Approval(..))
+import Daml.Finance.Interface.Types.Common.V3.Types (Id(..))
+import Daml.Finance.Interface.Util.V3.Common (qty)
+
+-- IMPLEMENTATION DEPENDENCIES --
+import Daml.Finance.Lifecycle.V4.Event.Distribution qualified as Distribution (Event(..))
+import Daml.Finance.Lifecycle.V4.Rule.Claim qualified as Claim (Rule(..))
+import Daml.Finance.Lifecycle.V4.Rule.Distribution qualified as Distribution (Rule(..))
+
+import Scripts.Settlement (SettlementState(..), runSettlement)
+
+-- | Test script that
+-- 1. executes the `runSettlement` script
+-- 2. creates a distribution lifecycle rule
+-- 3. creates a distribution lifecycle event
+-- 4. lifecycles the distribution event
+-- 5. processes the lifecycle effect
+-- 6. settles the corresponding entitlements
+runLifecycling : Script()
+runLifecycling = do
+
+  -- Execute the `runSettlement` script. Bob now holds 10 tokens in his account.
+  SettlementState
+    { bank
+    ; bob
+    ; bobAccount
+    ; usdInstrument
+    ; tokenInstrument
+    ; routeProviderCid
+    ; settlementFactoryCid
+    ; tokenFactoryCid
+    ; bobHoldingCid
+    } <- runSettlement
+
+  -- The bank creates a new version of the token instrument (the "ex-distribution" version). This is
+  -- the version Bob will hold after claiming the effect further down below.
+  -- NEW_VERSION_BEGIN
+  let newTokenInstrument = tokenInstrument with version = "1"
+  now <- getTime
+  submit bank do
+    exerciseCmd tokenFactoryCid TokenFactory.Create with
+      token = Token with
+        instrument = newTokenInstrument
+        description = "Instrument representing units of a generic token after a distribution event"
+        validAsOf = now
+      observers = mempty
+  -- NEW_VERSION_END
+
+  -- Create lifecycle rules
+  -- LIFECYCLE_RULES_BEGIN
+  distributionRuleCid <- toInterfaceContractId @Lifecycle.I <$> submit bank do
+    createCmd Distribution.Rule with
+      providers = singleton bank
+      lifecycler = bank
+      observers = singleton bob
+      id = Id "Lifecycle rule for distribution"
+      description = "Rule contract to lifecycle an instrument following a distribution event"
+
+  lifecycleClaimRuleCid <- toInterfaceContractId @Claim.I <$> submit bank do
+    createCmd Claim.Rule with
+      provider = bank
+      claimers = singleton bob
+      settlers = singleton bob
+      routeProviderCid
+      settlementFactoryCid
+      netInstructions = False
+  -- LIFECYCLE_RULES_END
+
+  -- Create cash distribution event
+  -- CREATE_EVENT_BEGIN
+  distributionEventCid <- toInterfaceContractId @Event.I <$> submit bank do
+    createCmd Distribution.Event with
+      providers = singleton bank
+      id = Id "DISTRIBUTION"
+      description = "Profit distribution"
+      effectiveTime = now
+      targetInstrument = tokenInstrument
+      newInstrument = newTokenInstrument
+      perUnitDistribution = [qty 0.02 usdInstrument]
+      observers = mempty
+  -- CREATE_EVENT_END
+
+  -- Lifecycle distribution event
+  -- LIFECYCLE_EVENT_BEGIN
+  (_, [effectCid]) <- submit bank do
+    exerciseCmd distributionRuleCid Lifecycle.Evolve with
+      eventCid = distributionEventCid
+      observableCids = []
+      instrument = tokenInstrument
+  -- LIFECYCLE_EVENT_END
+
+  -- Claim effect
+  -- CLAIM_EVENT_BEGIN
+  result <- submit bob do
+    exerciseCmd lifecycleClaimRuleCid Claim.ClaimEffect with
+      claimer = bob
+      holdingCids = [bobHoldingCid]
+      effectCid -- This is equivalent to writing effectCid = effectCid
+      batchId = Id "DistributionSettlement"
+  let [bobInstructionCid, bankInstructionCid, couponInstructionCid] = result.instructionCids
+  -- CLAIM_EVENT_END
+
+  -- EFFECT_SETTLEMENT_BEGIN
+  -- Allocate instruction
+  (bobInstructionCid, _) <- submit bob do
+    exerciseCmd bobInstructionCid Instruction.Allocate with
+      actors = singleton bob
+      allocation = Pledge bobHoldingCid
+
+  (bankInstructionCid, _) <- submit bank do
+    exerciseCmd bankInstructionCid Instruction.Allocate with
+      actors = singleton bank
+      allocation = CreditReceiver
+
+  (couponInstructionCid, _) <- submit bank do
+    exerciseCmd couponInstructionCid Instruction.Allocate with
+      actors = singleton bank
+      allocation = CreditReceiver
+
+  -- Approve instruction
+  bobInstructionCid <- submit bank do
+    exerciseCmd bobInstructionCid Instruction.Approve with
+      actors = singleton bank
+      approval = DebitSender
+
+  bankInstructionCid <- submit bob do
+    exerciseCmd bankInstructionCid Instruction.Approve with
+      actors = singleton bob
+      approval = TakeDelivery bobAccount
+
+  couponInstructionCid <- submit bob do
+    exerciseCmd couponInstructionCid Instruction.Approve with
+      actors = singleton bob
+      approval = TakeDelivery bobAccount
+
+  -- Settle batch
+  submit bob do
+    exerciseCmd result.batchCid Batch.Settle with actors = singleton bob
+  -- EFFECT_SETTLEMENT_END
+
+  pure ()

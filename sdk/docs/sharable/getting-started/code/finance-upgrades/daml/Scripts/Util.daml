@@ -1,0 +1,57 @@
+module Scripts.Util where
+
+import Daml.Script
+
+-- INTERFACE DEPENDENCIES --
+import Daml.Finance.Interface.Holding.V4.Factory qualified as HoldingFactory (I, GetCid(..), R, Reference(..), Remove(..))
+import Daml.Finance.Interface.Types.Common.V3.Types (HoldingFactoryKey(..))
+
+-- IMPLEMENTATION DEPENDENCIES --
+import Daml.Finance.Holding.V4.Factory qualified as Holding (Factory(..))
+
+import Extensions.MyTransferable (MyHoldingFactory(..))
+
+-- | Creates a user + party given a hint.
+createParty : Text -> Script Party
+createParty name = do
+  party <- allocatePartyWithHint name $ PartyIdHint name
+  userId <- validateUserId name
+  createUser (User userId (Some party)) [CanActAs party]
+  pure party
+
+-- | Create a holding factory as well as the companion `Reference` template, that is explained here:
+-- https://docs.daml.com/daml-finance/reference/patterns.html#reference-pattern
+createHoldingFactory : Holding.Factory -> Script HoldingFactoryKey
+createHoldingFactory holdingFactory = do
+  cid <- toInterfaceContractId @HoldingFactory.I <$> submit holdingFactory.provider do
+    createCmd holdingFactory
+  submit holdingFactory.provider do
+    createCmd HoldingFactory.Reference with
+      factoryView = view $ toInterface @HoldingFactory.I holdingFactory
+      cid
+      observers = holdingFactory.observers
+  pure $ HoldingFactoryKey with provider = holdingFactory.provider; id = holdingFactory.id
+
+-- | Create a my holding factory as well as the companion `Reference` template, that is explained
+-- here: https://docs.daml.com/daml-finance/reference/patterns.html#reference-pattern
+createMyHoldingFactory : MyHoldingFactory -> Script HoldingFactoryKey
+createMyHoldingFactory myHoldingFactory = do
+  cid <- toInterfaceContractId @HoldingFactory.I <$> submit myHoldingFactory.provider do
+    createCmd myHoldingFactory
+  submit myHoldingFactory.provider do
+    createCmd HoldingFactory.Reference with
+      factoryView = view $ toInterface @HoldingFactory.I myHoldingFactory
+      cid
+      observers = myHoldingFactory.observers
+  pure $ HoldingFactoryKey with provider = myHoldingFactory.provider; id = myHoldingFactory.id
+
+-- | Remove a holding factory as well as the companion `Reference` template, that is explained here:
+-- https://docs.daml.com/daml-finance/reference/patterns.html#reference-pattern
+removeHoldingFactory : HoldingFactoryKey -> Script ()
+removeHoldingFactory holdingFactory = do
+  let provider = holdingFactory.provider
+  cid <- submit holdingFactory.provider do
+    exerciseByKeyCmd @HoldingFactory.R holdingFactory HoldingFactory.GetCid with
+      viewer = provider
+  submit provider do
+    exerciseCmd cid HoldingFactory.Remove
