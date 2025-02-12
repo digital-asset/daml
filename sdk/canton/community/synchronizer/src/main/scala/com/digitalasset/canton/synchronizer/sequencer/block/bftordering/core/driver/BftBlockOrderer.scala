@@ -44,10 +44,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.time.BftTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2pEndpointsStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
-  OrderingTopologyProvider,
-  TopologyActivationTime,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.OrderingTopologyProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.{
   BftOrderingModuleSystemInitializer,
   CloseableActorSystem,
@@ -198,15 +195,14 @@ final class BftBlockOrderer(
     implicit val traceContext: TraceContext = TraceContext.empty
 
     // This timestamp is always known by the topology client, even when it is equal to `lastTs` from the onboarding state.
-    val thisPeerActiveAtTimestamp = for {
-      snapshotAdditionalInfo <- sequencerSnapshotAdditionalInfo
-      thisPeerActiveAt <- snapshotAdditionalInfo.peerActiveAt.get(sequencerId)
-      thisPeerActiveAtTimestamp <- thisPeerActiveAt.timestamp
-    } yield thisPeerActiveAtTimestamp
+    val thisPeerActiveAt = sequencerSnapshotAdditionalInfo.flatMap(snapshotAdditionalInfo =>
+      snapshotAdditionalInfo.peerActiveAt.get(sequencerId)
+    )
 
     // We assume that, if a sequencer snapshot has been provided, then we're onboarding; in that case, we use
     //  topology information from the sequencer snapshot, else we fetch the latest topology from the DB.
-    val initialTopologyQueryTimestamp = thisPeerActiveAtTimestamp
+    val initialTopologyQueryTimestamp = thisPeerActiveAt
+      .map(_.timestamp)
       .getOrElse {
         val latestEpoch =
           awaitFuture(epochStore.latestEpoch(includeInProgress = true), "fetch latest epoch")
@@ -224,12 +220,16 @@ final class BftBlockOrderer(
       }
 
     // Get the previous topology for validating data (e.g., canonical commit sets) from the previous epoch
-    val previousTopologyQueryTimestamp = thisPeerActiveAtTimestamp
-      // Use the timestamp from just before the onboarding
-      // TODO(#23659) set to the onboarding epoch topology activation time
-      .map(activeAtTimestamp =>
-        TopologyActivationTime(activeAtTimestamp.value.immediatePredecessor)
-      )
+    val previousTopologyQueryTimestamp = thisPeerActiveAt
+      // Use the start epoch topology query timestamp when onboarding (sequencer snapshot is provided)
+      .map { activeAt =>
+        activeAt.epochTopologyQueryTimestamp.getOrElse {
+          val msg =
+            "Start epoch topology query timestamp is required when onboarding but it's empty"
+          logger.error(msg)
+          sys.error(msg)
+        }
+      }
       // Or last completed epoch's activation timestamp
       .getOrElse {
         val latestCompletedEpoch =
@@ -252,10 +252,10 @@ final class BftBlockOrderer(
 
     OrderingTopologyInfo(
       sequencerId,
-      previousTopology,
-      previousCryptoProvider,
       initialTopology,
       initialCryptoProvider,
+      previousTopology,
+      previousCryptoProvider,
     )
   }
 
@@ -328,7 +328,7 @@ final class BftBlockOrderer(
         p2pEndpointsStore,
         availabilityStore,
         epochStore,
-        orderedBlocksReader = epochStore,
+        epochStoreReader = epochStore,
         outputStore,
       )
     BftOrderingModuleSystemInitializer(

@@ -47,10 +47,9 @@ import com.digitalasset.canton.networking.grpc.{
   ClientChannelBuilder,
 }
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
+import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.platform.ResourceOwnerOps
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
-import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
 import com.digitalasset.canton.platform.apiserver.ratelimiting.{
   RateLimitingInterceptor,
   ThreadpoolCheck,
@@ -289,12 +288,9 @@ class StartableStoppableLedgerApiServer(
         executionContext = executionContext,
         loggerFactory = loggerFactory,
       )
-      serializableContractAuthenticator = SerializableContractAuthenticator(
+      contractAuthenticator = ContractAuthenticator(
         config.syncService.pureCryptoApi
       )
-
-      authenticateContract: AuthenticateContract = c =>
-        serializableContractAuthenticator.authenticate(c)
 
       // TODO(i21582) The prepare endpoint of the interactive submission service does not suffix
       // contract IDs of the transaction yet. This means enrichment of the transaction may fail
@@ -356,7 +352,8 @@ class StartableStoppableLedgerApiServer(
         engineLoggingConfig = config.cantonParameterConfig.engine.submissionPhaseLogging,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
-        authenticateContract = authenticateContract,
+        authenticateSerializableContract = contractAuthenticator.authenticateSerializable,
+        authenticateFatContractInstance = contractAuthenticator.authenticateFat,
         dynParamGetter = config.syncService.dynamicSynchronizerParameterGetter,
         interactiveSubmissionServiceConfig = config.serverConfig.interactiveSubmissionService,
         lfValueTranslation = lfValueTranslationForInteractiveSubmission,

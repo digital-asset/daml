@@ -23,14 +23,14 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.time.Duration
 import java.util.UUID
 
-class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
-  classOf[SerializableContractAuthenticatorImpl].getSimpleName when {
+class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
+  classOf[ContractAuthenticatorImpl].getSimpleName when {
     "provided with an AuthenticatedContractIdVersionV3 authenticator" should {
       "using a AuthenticatedContractIdVersionV3 contract id" should {
         "correctly authenticate the contract" in new WithContractAuthenticator(
           AuthenticatedContractIdVersionV10
         ) {
-          contractAuthenticator.authenticate(contract) shouldBe Either.unit
+          contractAuthenticator.authenticateSerializable(contract) shouldBe Either.unit
         }
       }
 
@@ -39,7 +39,7 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
           AuthenticatedContractIdVersionV10
         ) {
           val nonAuthenticatedContractId = ExampleTransactionFactory.suffixedId(1, 2)
-          contractAuthenticator.authenticate(
+          contractAuthenticator.authenticateSerializable(
             contract.copy(contractId = nonAuthenticatedContractId)
           ) shouldBe Left(
             "Unsupported contract authentication id scheme: Suffix 0002 does not start with one of the supported prefixes: Bytes(ca10)"
@@ -59,7 +59,9 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
 
       "using a contract with a missing salt" should {
         "fail authentication" in new WithContractAuthenticator(AuthenticatedContractIdVersionV10) {
-          contractAuthenticator.authenticate(contract.copy(contractSalt = None)) shouldBe Left(
+          contractAuthenticator.authenticateSerializable(
+            contract.copy(contractSalt = None)
+          ) shouldBe Left(
             s"Contract salt missing in serializable contract with authenticating contract id ($contractId)"
           )
         }
@@ -233,7 +235,7 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
 
 class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) extends BaseTest {
   protected lazy val unicumGenerator = new UnicumGenerator(new SymbolicPureCrypto())
-  protected lazy val contractAuthenticator = new SerializableContractAuthenticatorImpl(
+  protected lazy val contractAuthenticator = new ContractAuthenticatorImpl(
     unicumGenerator
   )
 
@@ -297,7 +299,7 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
       .valueOrFail("Failed unicum computation")
     val actualSuffix = unicum.toContractIdSuffix(contractIdVersion)
     val expectedSuffix = recomputedUnicum.toContractIdSuffix(contractIdVersion)
-    contractAuthenticator.authenticate(changeContract(contract)) shouldBe Left(
+    contractAuthenticator.authenticateSerializable(changeContract(contract)) shouldBe Left(
       s"Mismatching contract id suffixes. Expected: $expectedSuffix vs actual: $actualSuffix"
     )
   }

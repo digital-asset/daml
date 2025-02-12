@@ -24,7 +24,10 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, Traced
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.*
-import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
+import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.{
+  AuthenticateFatContractInstance,
+  AuthenticateSerializableContract,
+}
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.apiserver.services.*
 import com.digitalasset.canton.platform.apiserver.services.admin.*
@@ -114,7 +117,8 @@ object ApiServices {
       partyManagementServiceConfig: PartyManagementServiceConfig,
       engineLoggingConfig: EngineLoggingConfig,
       meteringReportKey: MeteringReportKey,
-      authenticateContract: AuthenticateContract,
+      authenticateSerializableContract: AuthenticateSerializableContract,
+      authenticateFatContractInstance: AuthenticateFatContractInstance,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
       dynParamGetter: DynamicSynchronizerParameterGetter,
@@ -267,16 +271,16 @@ object ApiServices {
       val commandExecutor = new TimedCommandExecutor(
         new LedgerTimeAwareCommandExecutor(
           new StoreBackedCommandExecutor(
-            engine,
-            participantId,
-            syncService,
-            contractStore,
-            authenticateContract,
-            metrics,
-            engineLoggingConfig,
-            loggerFactory,
-            dynParamGetter,
-            timeProvider,
+            engine = engine,
+            participant = participantId,
+            packageSyncService = syncService,
+            contractStore = contractStore,
+            authenticateSerializableContract = authenticateSerializableContract,
+            metrics = metrics,
+            config = engineLoggingConfig,
+            loggerFactory = loggerFactory,
+            dynParamGetter = dynParamGetter,
+            timeProvider = timeProvider,
           ),
           new ResolveMaximumLedgerTime(maximumLedgerTimeService, loggerFactory),
           maxRetries = 3,
@@ -291,7 +295,9 @@ object ApiServices {
           getPackageMetadataSnapshot = syncService.getPackageMetadataSnapshot(_)
         )
       val commandsValidator = new CommandsValidator(
-        validateUpgradingPackageResolutions = validateUpgradingPackageResolutions
+        validateDisclosedContracts =
+          new ValidateDisclosedContracts(authenticateFatContractInstance),
+        validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
       )
       val commandSubmissionService =
         CommandSubmissionServiceImpl.createApiService(

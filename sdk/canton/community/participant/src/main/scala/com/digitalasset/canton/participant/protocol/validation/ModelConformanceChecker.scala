@@ -16,11 +16,11 @@ import com.digitalasset.canton.data.ViewParticipantData.RootAction
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.participant.protocol.EngineController.{
   EngineAbortStatus,
   GetEngineAbortStatus,
 }
-import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.participant.protocol.TransactionProcessingSteps.CommonData
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.TransactionTreeConversionError
@@ -69,7 +69,7 @@ class ModelConformanceChecker(
     val validateContract: SerializableContractValidation,
     val transactionTreeFactory: TransactionTreeFactory,
     val participantId: ParticipantId,
-    val serializableContractAuthenticator: SerializableContractAuthenticator,
+    val serializableContractAuthenticator: ContractAuthenticator,
     val packageResolver: PackageResolver,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -414,7 +414,7 @@ object ModelConformanceChecker {
   def apply(
       damlE: DAMLe,
       transactionTreeFactory: TransactionTreeFactory,
-      serializableContractAuthenticator: SerializableContractAuthenticator,
+      serializableContractAuthenticator: ContractAuthenticator,
       participantId: ParticipantId,
       packageResolver: PackageResolver,
       loggerFactory: NamedLoggerFactory,

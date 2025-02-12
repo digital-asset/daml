@@ -16,10 +16,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
   InFlightSubmissionSynchronizerTracker,
   SeedGenerator,
 }
-import com.digitalasset.canton.participant.protocol.{
-  ProtocolProcessor,
-  SerializableContractAuthenticator,
-}
+import com.digitalasset.canton.participant.protocol.{ContractAuthenticator, ProtocolProcessor}
 import com.digitalasset.canton.participant.store.SyncEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
@@ -62,7 +59,7 @@ class UnassignmentProcessor(
         reassignmentCoordination,
         seedGenerator,
         staticSynchronizerParameters,
-        SerializableContractAuthenticator(synchronizerCrypto.pureCrypto),
+        ContractAuthenticator(synchronizerCrypto.pureCrypto),
         sourceProtocolVersion,
         loggerFactory,
       ),

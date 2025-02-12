@@ -125,7 +125,7 @@ class TransactionProcessingSteps(
     staticSynchronizerParameters: StaticSynchronizerParameters,
     crypto: SynchronizerCryptoClient,
     metrics: TransactionProcessingMetrics,
-    serializableContractAuthenticator: SerializableContractAuthenticator,
+    serializableContractAuthenticator: ContractAuthenticator,
     transactionEnricher: TransactionEnricher,
     createNodeEnricher: CreateNodeEnricher,
     authorizationValidator: AuthorizationValidator,
@@ -1138,7 +1138,7 @@ class TransactionProcessingSteps(
       inputContracts.toList
         .traverse_ { case (contractId, contract) =>
           serializableContractAuthenticator
-            .authenticate(contract)
+            .authenticateSerializable(contract)
             .leftMap(message => ContractAuthenticationFailed.Error(contractId, message).reported())
         }
     )

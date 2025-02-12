@@ -172,16 +172,16 @@ class StoreBackedCommandExecutorSpec
 
   private def mkSut(tolerance: NonNegativeFiniteDuration, engine: Engine) =
     new StoreBackedCommandExecutor(
-      engine,
-      Ref.ParticipantId.assertFromString("anId"),
-      mock[SyncService],
-      mock[ContractStore],
-      authenticateContract = _ => Either.unit,
+      engine = engine,
+      participant = Ref.ParticipantId.assertFromString("anId"),
+      packageSyncService = mock[SyncService],
+      contractStore = mock[ContractStore],
+      authenticateSerializableContract = _ => Either.unit,
       metrics = LedgerApiServerMetrics.ForTesting,
-      EngineLoggingConfig(),
+      config = EngineLoggingConfig(),
       loggerFactory = loggerFactory,
       dynParamGetter = new TestDynamicSynchronizerParameterGetter(tolerance),
-      TimeProvider.UTC,
+      timeProvider = TimeProvider.UTC,
     )
 
   private def mkInterruptedResult(
@@ -376,8 +376,8 @@ class StoreBackedCommandExecutorSpec
         Ref.ParticipantId.assertFromString("anId"),
         mock[SyncService],
         store,
-        authenticateContract = _ => authenticationResult,
         metrics = LedgerApiServerMetrics.ForTesting,
+        authenticateSerializableContract = _ => authenticationResult,
         EngineLoggingConfig(),
         loggerFactory = loggerFactory,
         dynParamGetter = new TestDynamicSynchronizerParameterGetter(NonNegativeFiniteDuration.Zero),
@@ -429,7 +429,7 @@ class StoreBackedCommandExecutorSpec
 
     "disallow unauthorized disclosed contracts" in {
       val expected =
-        s"Upgrading contract ${disclosedContractId.coid} failed authentication check with error: Not authorized. The following upgrading checks failed: ['signatories mismatch: TreeSet(unexpectedSig) vs Set(signatory)', 'observers mismatch: TreeSet(unexpectedObs) vs Set(observer)', 'key maintainers mismatch: TreeSet(unexpectedSig) vs Set(signatory)', 'key value mismatch: Some(GlobalKey(p:m:n, pkg-name, ValueBool(true))) vs Some(GlobalKey(p:m:n, pkg-name, ValueRecord(None,ImmArray((None,ValueParty(signatory)),(None,ValueText(some key))))))']"
+        s"Upgrading contract with ContractId(${disclosedContractId.coid}) failed authentication check with error: Not authorized. The following upgrading checks failed: ['signatories mismatch: TreeSet(unexpectedSig) vs Set(signatory)', 'observers mismatch: TreeSet(unexpectedObs) vs Set(observer)', 'key maintainers mismatch: TreeSet(unexpectedSig) vs Set(signatory)', 'key value mismatch: Some(GlobalKey(p:m:n, pkg-name, ValueBool(true))) vs Some(GlobalKey(p:m:n, pkg-name, ValueRecord(None,ImmArray((None,ValueParty(signatory)),(None,ValueText(some key))))))']"
       doTest(
         Some(disclosedContractId),
         Some(Some(expected)),
@@ -440,7 +440,7 @@ class StoreBackedCommandExecutorSpec
     "disallow unauthorized stakeholder contracts" in {
       val errorMessage = "Not authorized"
       val expected =
-        s"Upgrading contract ${stakeholderContractId.coid} failed authentication check with error: Not authorized. The following upgrading checks failed: ['signatories mismatch: Set(unexpectedSig) vs Set(signatory)', 'observers mismatch: Set() vs Set(observer)', 'key maintainers mismatch: Set() vs Set(signatory)', 'key value mismatch: None vs Some(GlobalKey(p:m:n, pkg-name, ValueRecord(None,ImmArray((None,ValueParty(signatory)),(None,ValueText(some key))))))']"
+        s"Upgrading contract with ContractId(${stakeholderContractId.coid}) failed authentication check with error: Not authorized. The following upgrading checks failed: ['signatories mismatch: Set(unexpectedSig) vs Set(signatory)', 'observers mismatch: Set() vs Set(observer)', 'key maintainers mismatch: Set() vs Set(signatory)', 'key value mismatch: None vs Some(GlobalKey(p:m:n, pkg-name, ValueRecord(None,ImmArray((None,ValueParty(signatory)),(None,ValueText(some key))))))']"
       doTest(
         Some(stakeholderContractId),
         Some(Some(expected)),

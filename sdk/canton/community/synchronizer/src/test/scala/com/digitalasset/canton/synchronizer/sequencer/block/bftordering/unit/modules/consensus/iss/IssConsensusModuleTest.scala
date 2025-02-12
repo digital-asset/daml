@@ -656,9 +656,11 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
               SequencerSnapshotAdditionalInfo(
                 Map(
                   selfId -> PeerActiveAt(
-                    Some(TopologyActivationTime(CantonTimestamp.MinValue)),
-                    Some(aStartEpoch.number),
-                    Some(aStartEpoch.startBlockNumber),
+                    timestamp = TopologyActivationTime(CantonTimestamp.Epoch),
+                    epochNumber = Some(aStartEpoch.number),
+                    firstBlockNumberInEpoch = Some(aStartEpoch.startBlockNumber),
+                    epochTopologyQueryTimestamp =
+                      Some(TopologyActivationTime(CantonTimestamp.MinValue)),
                     epochCouldAlterOrderingTopology = None,
                     previousBftTime = None,
                   )

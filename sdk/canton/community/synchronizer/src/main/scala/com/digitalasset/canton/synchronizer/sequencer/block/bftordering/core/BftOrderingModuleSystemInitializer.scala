@@ -15,7 +15,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.{
   EpochStore,
-  OrderedBlocksReader,
+  EpochStoreReader,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.{
   PreIssConsensusModule,
@@ -204,7 +204,7 @@ object BftOrderingModuleSystemInitializer {
             outputModuleStartupState,
             orderingTopologyProvider,
             stores.outputStore,
-            stores.orderedBlocksReader,
+            stores.epochStoreReader,
             blockSubscription,
             metrics,
             protocolVersion,
@@ -222,7 +222,7 @@ object BftOrderingModuleSystemInitializer {
       p2pEndpointsStore: P2pEndpointsStore[E],
       availabilityStore: AvailabilityStore[E],
       epochStore: EpochStore[E],
-      orderedBlocksReader: OrderedBlocksReader[E],
+      epochStoreReader: EpochStoreReader[E],
       outputStore: OutputMetadataStore[E],
   )
 }

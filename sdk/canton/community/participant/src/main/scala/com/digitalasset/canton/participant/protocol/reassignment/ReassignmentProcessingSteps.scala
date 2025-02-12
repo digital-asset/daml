@@ -42,9 +42,9 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.Activeness
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.EncryptedViewMessageCreationError
 import com.digitalasset.canton.participant.protocol.{
+  ContractAuthenticator,
   ProcessingSteps,
   ProtocolProcessor,
-  SerializableContractAuthenticator,
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore.ReassignmentStoreError
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
@@ -87,7 +87,7 @@ trait ReassignmentProcessingSteps[
 
   protected def engine: DAMLe
 
-  protected def serializableContractAuthenticator: SerializableContractAuthenticator
+  protected def serializableContractAuthenticator: ContractAuthenticator
 
   protected implicit def ec: ExecutionContext
 
@@ -154,7 +154,7 @@ trait ReassignmentProcessingSteps[
   ): EitherT[Future, ReassignmentProcessorError, Unit] =
     EitherT.fromEither(
       serializableContractAuthenticator
-        .authenticate(parsedRequest.fullViewTree.contract)
+        .authenticateSerializable(parsedRequest.fullViewTree.contract)
         .leftMap[ReassignmentProcessorError](ContractError.apply)
     )
 

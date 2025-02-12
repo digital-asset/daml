@@ -15,7 +15,7 @@ import com.digitalasset.canton.synchronizer.block.LedgerBlockEvent.deserializeSi
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.HasDelayedInit
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultDatabaseReadTimeout
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.OrderedBlocksReader
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStoreReader
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore.{
   OutputBlockMetadata,
@@ -91,7 +91,7 @@ class OutputModule[E <: Env[E]](
     startupState: StartupState[E],
     orderingTopologyProvider: OrderingTopologyProvider[E],
     store: OutputMetadataStore[E],
-    orderedBlocksReader: OrderedBlocksReader[E],
+    epochStoreReader: EpochStoreReader[E],
     blockSubscription: BlockSubscription,
     metrics: BftOrderingMetrics,
     protocolVersion: ProtocolVersion,
@@ -135,7 +135,7 @@ class OutputModule[E <: Env[E]](
   private var currentEpochMetadataStored = false
 
   private val snapshotAdditionalInfoProvider =
-    new SequencerSnapshotAdditionalInfoProvider[E](store, loggerFactory)
+    new SequencerSnapshotAdditionalInfoProvider[E](store, epochStoreReader, loggerFactory)
 
   private val blocksBeingFetched = mutable.Set[BlockNumber]()
 
@@ -199,7 +199,7 @@ class OutputModule[E <: Env[E]](
         if (startupState.previousBftTimeForOnboarding.isEmpty) {
           val orderedBlocksToProcess =
             context.blockingAwait(
-              orderedBlocksReader.loadOrderedBlocks(recoverFromBlockNumber),
+              epochStoreReader.loadOrderedBlocks(recoverFromBlockNumber),
               DefaultDatabaseReadTimeout,
             )
           // Rehydrate the transient local state containing the previous stored block information (if any)
@@ -365,10 +365,7 @@ class OutputModule[E <: Env[E]](
               logger.debug(s"Storing $outputEpochMetadata")
               pipeToSelf(store.insertEpochIfMissing(outputEpochMetadata)) {
                 case Failure(exception) =>
-                  abort(
-                    s"Failed to store $outputEpochMetadata",
-                    exception,
-                  )
+                  abort(s"Failed to store $outputEpochMetadata", exception)
                 case Success(_) =>
                   MetadataStoredForNewEpoch(
                     sendTopologyToConsensus,
@@ -450,21 +447,21 @@ class OutputModule[E <: Env[E]](
       ) {
         logger.debug(
           s"Found potential changes of the sequencing topology in ordered block $orderedBlockNumber " +
-            s"in epoch ${orderedBlock.metadata.epochNumber}"
+            s"in epoch $orderedBlockEpochNumber"
         )
         currentEpochCouldAlterOrderingTopology = true
       }
 
       val outputBlockMetadata =
         OutputBlockMetadata(
-          orderedBlock.metadata.epochNumber,
+          orderedBlockEpochNumber,
           orderedBlockNumber,
           orderedBlockBftTime,
         )
 
       logger.debug(
         s"Assigned BFT time $orderedBlockBftTime to block $orderedBlockNumber " +
-          s"in epoch ${orderedBlock.metadata.epochNumber}, previous block was $previousStoredBlock"
+          s"in epoch $orderedBlockEpochNumber, previous block was $previousStoredBlock"
       )
 
       previousStoredBlock.update(orderedBlockNumber, orderedBlockBftTime)

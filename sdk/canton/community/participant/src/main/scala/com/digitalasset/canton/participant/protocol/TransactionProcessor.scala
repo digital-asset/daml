@@ -95,7 +95,7 @@ class TransactionProcessor(
         ModelConformanceChecker(
           damle,
           confirmationRequestFactory.transactionTreeFactory,
-          SerializableContractAuthenticator(crypto.pureCrypto),
+          ContractAuthenticator(crypto.pureCrypto),
           participantId,
           packageResolver,
           loggerFactory,
@@ -103,7 +103,7 @@ class TransactionProcessor(
         staticSynchronizerParameters,
         crypto,
         metrics,
-        SerializableContractAuthenticator(crypto.pureCrypto),
+        ContractAuthenticator(crypto.pureCrypto),
         damle.enrichTransaction,
         damle.enrichCreateNode,
         new AuthorizationValidator(participantId, parameters.enableExternalAuthorization),

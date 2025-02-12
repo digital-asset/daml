@@ -15,7 +15,7 @@ import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, Transact
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
+import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmissionError,
   TransactionSubmissionResult,
@@ -71,7 +71,7 @@ class SynchronizerRouter(
     ]],
     contractsReassigner: ContractsReassigner,
     snapshotProvider: SynchronizerStateProvider,
-    serializableContractAuthenticator: SerializableContractAuthenticator,
+    serializableContractAuthenticator: ContractAuthenticator,
     enableAutomaticReassignments: Boolean,
     synchronizerSelectorFactory: SynchronizerSelectorFactory,
     override protected val timeouts: ProcessingTimeout,
@@ -111,7 +111,7 @@ class SynchronizerRouter(
                 .parTraverse(SerializableContract.fromDisclosedContract)
                 .leftMap(MalformedInputErrors.InvalidDisclosedContract.Error.apply)
             _ <- inputDisclosedContracts
-              .traverse_(serializableContractAuthenticator.authenticate)
+              .traverse_(serializableContractAuthenticator.authenticateSerializable)
               .leftMap(MalformedInputErrors.DisclosedContractAuthenticationFailed.Error.apply)
           } yield inputDisclosedContracts
         )
@@ -319,7 +319,7 @@ object SynchronizerRouter {
       loggerFactory = loggerFactory,
     )
 
-    val serializableContractAuthenticator = SerializableContractAuthenticator(cryptoPureApi)
+    val serializableContractAuthenticator = ContractAuthenticator(cryptoPureApi)
 
     new SynchronizerRouter(
       submit(connectedSynchronizersLookup),

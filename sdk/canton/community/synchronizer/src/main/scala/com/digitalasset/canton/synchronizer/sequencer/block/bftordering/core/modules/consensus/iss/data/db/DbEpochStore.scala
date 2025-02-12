@@ -23,8 +23,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.{
   EpochStore,
+  EpochStoreReader,
   Genesis,
-  OrderedBlocksReader,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
@@ -70,7 +70,7 @@ class DbEpochStore(
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends EpochStore[PekkoEnv]
-    with OrderedBlocksReader[PekkoEnv]
+    with EpochStoreReader[PekkoEnv]
     with DbStore {
 
   import storage.api.*
@@ -173,7 +173,7 @@ class DbEpochStore(
 
   override def latestEpoch(includeInProgress: Boolean)(implicit
       traceContext: TraceContext
-  ): PekkoFutureUnlessShutdown[Epoch] = createFuture(latestCompletedEpochActionName) {
+  ): PekkoFutureUnlessShutdown[Epoch] = createFuture(latestEpochActionName) {
     storage
       .query(
         for {
@@ -413,6 +413,21 @@ class DbEpochStore(
           functionFullName,
         )
     }
+
+  override def loadEpochInfo(
+      epochNumber: EpochNumber
+  )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Option[EpochInfo]] =
+    createFuture(loadEpochInfoActionName(epochNumber)) {
+      storage
+        .query(
+          sql"""select epoch_number, start_block_number, epoch_length, topology_ts
+                from ord_epochs
+                where epoch_number = $epochNumber
+                limit 1
+           """.as[EpochInfo],
+          functionFullName,
+        )
+    }.map(_.headOption)
 
   override def loadOrderedBlocks(
       initialBlockNumber: BlockNumber

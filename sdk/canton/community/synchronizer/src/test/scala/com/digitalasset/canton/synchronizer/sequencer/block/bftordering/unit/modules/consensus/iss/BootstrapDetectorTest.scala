@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss
 
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.BootstrapDetector
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Epoch
@@ -10,6 +11,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   EpochStore,
   Genesis,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
@@ -103,6 +105,15 @@ object BootstrapDetectorTest {
   private val aMembershipWith2Nodes = Membership(mySequencerId, Set(otherSequencerId))
   private val aSequencerSnapshot = SequencerSnapshotAdditionalInfo(
     // Minimal data required for the test
-    Map(mySequencerId -> PeerActiveAt(None, Some(EpochNumber(1500L)), None, None, None))
+    Map(
+      mySequencerId -> PeerActiveAt(
+        TopologyActivationTime(CantonTimestamp.Epoch),
+        Some(EpochNumber(1500L)),
+        firstBlockNumberInEpoch = None,
+        epochTopologyQueryTimestamp = None,
+        epochCouldAlterOrderingTopology = None,
+        previousBftTime = None,
+      )
+    )
   )
 }
