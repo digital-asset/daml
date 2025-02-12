@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion}
+import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion}
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.ValueCoder
 import com.daml.nonempty.NonEmpty
@@ -60,6 +60,14 @@ object GrpcErrorParser {
       handler
         .lift(resourceDetails)
         .getOrElse(new SubmitError.TruncatedError(classNameOf[A], message))
+
+    def parseParties(parties: String): Set[Party] = {
+      if (parties.isBlank) {
+        Set.empty
+      } else {
+        parties.split(",").toSet.map(Party.assertFromString _)
+      }
+    }
 
     errorCode match {
       case "CONTRACT_NOT_FOUND" =>
@@ -257,8 +265,8 @@ object GrpcErrorParser {
               ContractId.assertFromString(coid),
               Identifier.assertFromString(srcTemplateId),
               Identifier.assertFromString(dstTemplateId),
-              signatories,
-              observers,
+              parseParties(signatories),
+              parseParties(observers),
               None,
               message,
             )
@@ -268,16 +276,26 @@ object GrpcErrorParser {
                 (ErrorResource.TemplateId, dstTemplateId),
                 (ErrorResource.Parties, signatories),
                 (ErrorResource.Parties, observers),
-                (ErrorResource.ContractKey, globalKey),
+                (ErrorResource.ContractKey, decodeValue.unlift(globalKey)),
+                (ErrorResource.PackageName, pn),
                 (ErrorResource.Parties, maintainers),
               ) =>
+            val dstTid = Identifier.assertFromString(dstTemplateId)
+            val packageName = PackageName.assertFromString(pn)
             SubmitError.UpgradeError.ValidationFailed(
               ContractId.assertFromString(coid),
               Identifier.assertFromString(srcTemplateId),
-              Identifier.assertFromString(dstTemplateId),
-              signatories,
-              observers,
-              Some((globalKey, maintainers)),
+              dstTid,
+              parseParties(signatories),
+              parseParties(observers),
+              Some(
+                GlobalKeyWithMaintainers.assertBuild(
+                  dstTid,
+                  globalKey,
+                  parseParties(maintainers),
+                  packageName,
+                )
+              ),
               message,
             )
         }

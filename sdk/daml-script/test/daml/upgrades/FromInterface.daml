@@ -147,5 +147,5 @@ fromInterfaceInvalidDowngrade = test $ do
   res <- a `trySubmit` createAndExerciseCmd (TestHelper a) InvalidDowngrade
   case res of
     Right _ -> fail "Expected failure but got success"
-    Left (UpgradeError DowngradeDropDefinedField msg) | "field with a value of Some may not be dropped" `isInfixOf` msg -> pure ()
+    Left (UpgradeError (DowngradeDropDefinedField _) msg) | "field with a value of Some may not be dropped" `isInfixOf` msg -> pure ()
     Left e -> fail $ "Expected Upgrade error but got " <> show e
