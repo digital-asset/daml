@@ -609,7 +609,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       )
 
       inside(
-        go(e"'-variant-v2-':M:do_fetch", ContractInstance(pkgName, pkg1Ver, i"'-variant-v1-':M:T", v1Arg))
+        go(
+          e"'-variant-v2-':M:do_fetch",
+          ContractInstance(pkgName, pkg1Ver, i"'-variant-v1-':M:T", v1Arg),
+        )
       ) { case Left(SError.SErrorDamlException(IE.Upgrade(e))) =>
         e shouldBe IE.Upgrade.DowngradeFailed(t"'-variant-v2-':M:D", tag)
       }
@@ -623,9 +626,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         black,
       )
 
-      inside(go(e"'-enum-v2-':M:do_fetch", ContractInstance(pkgName, pkg1Ver, i"'-enum-v1-':M:T", v1Arg))) {
-        case Left(SError.SErrorDamlException(IE.Upgrade(e))) =>
-          e shouldBe IE.Upgrade.DowngradeFailed(t"'-enum-v2-':M:D", black)
+      inside(
+        go(e"'-enum-v2-':M:do_fetch", ContractInstance(pkgName, pkg1Ver, i"'-enum-v1-':M:T", v1Arg))
+      ) { case Left(SError.SErrorDamlException(IE.Upgrade(e))) =>
+        e shouldBe IE.Upgrade.DowngradeFailed(t"'-enum-v2-':M:D", black)
       }
     }
   }

@@ -1218,13 +1218,15 @@ private[lf] object Speedy {
                 Destructor.destruct(ty) match {
                   case Right(enumF: EnumF) =>
                     val rank =
-                      enumF.consRank(consName).getOrElse(
-                        throw SErrorDamlException(
-                          IError.Upgrade(
-                            IError.Upgrade.DowngradeFailed(ty, value)
+                      enumF
+                        .consRank(consName)
+                        .getOrElse(
+                          throw SErrorDamlException(
+                            IError.Upgrade(
+                              IError.Upgrade.DowngradeFailed(ty, value)
+                            )
                           )
                         )
-                      )
                     SValue.SEnum(enumF.tyCon, consName, rank)
                   case _ =>
                     typeMismatch
@@ -1319,13 +1321,15 @@ private[lf] object Speedy {
             Destructor.destruct(ty) match {
               case Right(variantF: VariantF[_]) =>
                 val rank =
-                  variantF.consRank(variant).getOrElse(
-                    throw SErrorDamlException(
-                      IError.Upgrade(
-                        IError.Upgrade.DowngradeFailed(ty, value)
+                  variantF
+                    .consRank(variant)
+                    .getOrElse(
+                      throw SErrorDamlException(
+                        IError.Upgrade(
+                          IError.Upgrade.DowngradeFailed(ty, value)
+                        )
                       )
-                    ),
-                  )
+                    )
                 val a = variantF.consTypes(rank)
                 SValue.SVariant(variantF.tyCon, variant, rank, go(a, value))
               case _ =>
