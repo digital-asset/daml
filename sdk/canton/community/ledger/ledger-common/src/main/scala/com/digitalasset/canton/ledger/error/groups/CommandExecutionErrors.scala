@@ -792,7 +792,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
             ) {
           override def resources: Seq[(ErrorResource, String)] =
             Seq(
-              (ErrorResource.FieldType, err.expectedType.pretty)
+              (ErrorResource.ExpectedType, err.expectedType.pretty)
             )
         }
       }

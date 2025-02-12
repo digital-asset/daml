@@ -302,7 +302,7 @@ object GrpcErrorParser {
       case "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_DROP_DEFINED_FIELD" =>
         caseErr {
           case Seq(
-                (ErrorResource.FieldType, expectedType)
+                (ErrorResource.ExpectedType, expectedType)
               ) =>
             SubmitError.UpgradeError.DowngradeDropDefinedField(expectedType, message)
         }
