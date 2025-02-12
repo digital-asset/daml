@@ -20,7 +20,7 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFa
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.*
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceCheckerTest.HashReInterpretationCounter
 import com.digitalasset.canton.participant.protocol.{
-  SerializableContractAuthenticator,
+  ContractAuthenticator,
   TransactionProcessingSteps,
 }
 import com.digitalasset.canton.participant.store.ContractLookupAndVerification
@@ -50,6 +50,7 @@ import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.language.Ast.{Expr, GenPackage, PackageMetadata}
 import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.transaction.FatContractInstance
 import org.scalatest.wordspec.AsyncWordSpec
 import pprint.Tree
 
@@ -160,8 +161,10 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       loggerFactory,
     )
 
-  object dummyAuthenticator extends SerializableContractAuthenticator {
-    override def authenticate(contract: SerializableContract): Either[String, Unit] = Either.unit
+  object dummyAuthenticator extends ContractAuthenticator {
+    override def authenticateSerializable(contract: SerializableContract): Either[String, Unit] =
+      Either.unit
+    override def authenticateFat(contract: FatContractInstance): Either[String, Unit] = Either.unit
     override def verifyMetadata(
         contract: SerializableContract,
         metadata: ContractMetadata,

@@ -254,7 +254,7 @@ object SimulationModuleSystem {
 
   }
 
-  private[bftordering] final class SimulationEnv extends Env[SimulationEnv] {
+  final class SimulationEnv extends Env[SimulationEnv] {
     override type ActorContextT[MessageT] = SimulationModuleContext[MessageT]
     override type ModuleRefT[-MessageT] = SimulationModuleRef[MessageT]
     override type FutureUnlessShutdownT[MessageT] = SimulationFuture[MessageT]

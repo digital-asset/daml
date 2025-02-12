@@ -7,6 +7,7 @@ import cats.syntax.either.*
 import com.digitalasset.canton.crypto.{HashOps, Salt, TestSalt}
 import com.digitalasset.canton.data.ViewParticipantData.InvalidViewParticipantData
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.v30.ActionDescription.FetchActionDescription
 import com.digitalasset.canton.util.LfTransactionBuilder
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPackageId, LfVersioned}
@@ -72,6 +73,7 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
 
   "A view" when {
     val firstSubviewIndex = TransactionSubviews.indices(1).head.toString
+
     "a child view has the same view common data" must {
       val view = factory.SingleCreate(seed = ExampleTransactionFactory.lfHash(3)).view0
       val subViews = TransactionSubviews(Seq(view))(testedProtocolVersion, factory.cryptoOps)
@@ -90,31 +92,23 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
     "a child view has package preferences not in the parent" must {
 
       val unexpectedPackage = LfPackageId.assertFromString("u1")
-
       val view = factory.SingleExercise(seed = ExampleTransactionFactory.lfHash(3)).view0
 
-      val subview =
-        identity[TransactionView]
-          .andThen(
-            TransactionView.viewParticipantDataUnsafe
-              .modify { w =>
-                val d = w.tryUnwrap
-                val p = d.actionDescription.toProtoV30
-                p.getExercise.withPackagePreference(Seq(unexpectedPackage))
-                val n = p.withExercise(p.getExercise.withPackagePreference(Seq(unexpectedPackage)))
-                d.copy(actionDescription = ActionDescription.fromProtoV30(n).value)
-              }
-          )
-          .andThen(
-            // Ensure common data is different from parent
-            TransactionView.viewCommonDataUnsafe
-              .modify(_.tryUnwrap.copy(salt = TestSalt.generateSalt(23)))
-          )
-          .apply(view)
+      "reject creation if child exercise based view is different from its parent" in {
 
-      val subViews = TransactionSubviews(Seq(subview))(testedProtocolVersion, factory.cryptoOps)
+        val subview =
+          TransactionView.viewParticipantDataUnsafe
+            .modify { vpd =>
+              val actionDescription = vpd.tryUnwrap.actionDescription.toProtoV30
+              actionDescription.getExercise.withPackagePreference(Seq(unexpectedPackage))
+              val exercise = actionDescription.withExercise(
+                actionDescription.getExercise.withPackagePreference(Seq(unexpectedPackage))
+              )
+              vpd.tryUnwrap.copy(actionDescription = ActionDescription.fromProtoV30(exercise).value)
+            }(view)
 
-      "reject creation" in {
+        val subViews = TransactionSubviews(Seq(subview))(testedProtocolVersion, factory.cryptoOps)
+
         TransactionView
           .create(hashOps)(
             view.viewCommonData,
@@ -125,6 +119,39 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
           .left
           .value shouldBe s"Detected unexpected exercise package preference: $unexpectedPackage at $firstSubviewIndex"
       }
+
+      "reject creation if child fetch based view is different from its parent" in {
+
+        val subview =
+          TransactionView.viewParticipantDataUnsafe
+            .modify { vpd =>
+              val actionDescription = vpd.tryUnwrap.actionDescription.toProtoV30
+              val ex = actionDescription.getExercise
+              val fetch = actionDescription.withFetch(
+                FetchActionDescription(
+                  inputContractId = ex.inputContractId,
+                  actors = ex.actors,
+                  byKey = false,
+                  templateId = s"$unexpectedPackage:module:template",
+                  interfaceId = Some("ifPkg:module:template"),
+                )
+              )
+              vpd.tryUnwrap.copy(actionDescription = ActionDescription.fromProtoV30(fetch).value)
+            }(view)
+
+        val subViews = TransactionSubviews(Seq(subview))(testedProtocolVersion, factory.cryptoOps)
+
+        TransactionView
+          .create(hashOps)(
+            view.viewCommonData,
+            view.viewParticipantData,
+            subViews,
+            testedProtocolVersion,
+          )
+          .left
+          .value shouldBe s"Detected unexpected fetch package preference: $unexpectedPackage at $firstSubviewIndex"
+      }
+
     }
   }
 

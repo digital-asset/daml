@@ -13,10 +13,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   EpochInProgress,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpoch
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.{
-  EpochStore,
-  OrderedBlocksReader,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
@@ -53,7 +49,7 @@ trait EpochStoreTest extends AsyncWordSpec {
   import EpochStoreTest.*
 
   private[bftordering] def epochStore(
-      createStore: () => EpochStore[PekkoEnv] & OrderedBlocksReader[PekkoEnv]
+      createStore: () => EpochStore[PekkoEnv] & EpochStoreReader[PekkoEnv]
   ): Unit = {
 
     "completeEpoch" should {
@@ -96,34 +92,42 @@ trait EpochStoreTest extends AsyncWordSpec {
 
           e0 <- store.latestEpoch(includeInProgress = false)
           e1 <- store.latestEpoch(includeInProgress = true)
+          e2 <- store.loadEpochInfo(EpochNumber.First)
 
           _ <- store.completeEpoch(epochInfo0.number)
-          e2 <- store.latestEpoch(includeInProgress = false)
-          e3 <- store.latestEpoch(includeInProgress = true)
+          e3 <- store.latestEpoch(includeInProgress = false)
+          e4 <- store.latestEpoch(includeInProgress = true)
 
           // idempotent writes are supported
           _ <- store.completeEpoch(epochInfo0.number)
-          e4 <- store.latestEpoch(includeInProgress = false)
-          e5 <- store.latestEpoch(includeInProgress = true)
+          e5 <- store.latestEpoch(includeInProgress = false)
+          e6 <- store.latestEpoch(includeInProgress = true)
+          e7 <- store.loadEpochInfo(EpochNumber.First)
 
           _ <- store.startEpoch(epochInfo1)
           _ <- store.addOrderedBlock(prePrepare1, commitMessages1)
-          e6 <- store.latestEpoch(includeInProgress = false)
-          e7 <- store.latestEpoch(includeInProgress = true)
+          e8 <- store.latestEpoch(includeInProgress = false)
+          e9 <- store.latestEpoch(includeInProgress = true)
+          e10 <- store.loadEpochInfo(epochInfo1.number)
+          e11 <- store.loadEpochInfo(EpochNumber(1500L))
         } yield {
           e0 shouldBe GenesisEpoch
           e1 shouldBe epoch0
-          e2 shouldBe epoch0
+          e2 shouldBe Some(epochInfo0)
           e3 shouldBe epoch0
           e4 shouldBe epoch0
           e5 shouldBe epoch0
           e6 shouldBe epoch0
-          e7 shouldBe epoch1
+          e7 shouldBe Some(epochInfo0)
+          e8 shouldBe epoch0
+          e9 shouldBe epoch1
+          e10 shouldBe Some(epochInfo1)
+          e11 shouldBe None
         }
       }
     }
 
-    "latestCompletedEpoch" should {
+    "latestEpoch" should {
       "return the genesisEpoch initially" in {
         val store = createStore()
         for {

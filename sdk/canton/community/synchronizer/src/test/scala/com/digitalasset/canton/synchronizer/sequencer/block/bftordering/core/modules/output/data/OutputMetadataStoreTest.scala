@@ -5,11 +5,11 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore.{
   OutputBlockMetadata,
   OutputEpochMetadata,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStoreTest.createBlock
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
   EpochNumber,
@@ -18,8 +18,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
-
-import OutputMetadataStoreTest.createBlock
 
 trait OutputMetadataStoreTest extends AsyncWordSpec {
   this: AsyncWordSpec & BftSequencerBaseTest =>
@@ -46,11 +44,7 @@ trait OutputMetadataStoreTest extends AsyncWordSpec {
 
       "create and retrieve epochs" in {
         val store = createStore()
-        val epoch =
-          OutputEpochMetadata(
-            epochNumber = EpochNumber.First,
-            couldAlterOrderingTopology = true,
-          )
+        val epoch = OutputEpochMetadata(EpochNumber.First, couldAlterOrderingTopology = true)
         for {
           _ <- store.insertEpochIfMissing(epoch)
           retrievedEpoch <- store.getEpoch(EpochNumber.First)
@@ -97,11 +91,7 @@ trait OutputMetadataStoreTest extends AsyncWordSpec {
 
       "can only insert once per epoch number" in {
         val store = createStore()
-        val epoch =
-          OutputEpochMetadata(
-            epochNumber = EpochNumber.First,
-            couldAlterOrderingTopology = true,
-          )
+        val epoch = OutputEpochMetadata(EpochNumber.First, couldAlterOrderingTopology = true)
         val wrongEpoch = epoch.copy(couldAlterOrderingTopology = false)
         for {
           // Use plain futures for `suppressWarningsAndErrors` to work
@@ -280,22 +270,17 @@ trait OutputMetadataStoreTest extends AsyncWordSpec {
         for {
           _ <- storeInit
           _ <- store.insertEpochIfMissing(
-            OutputEpochMetadata(
-              epochNumber = EpochNumber.First,
-              couldAlterOrderingTopology = true,
-            )
+            OutputEpochMetadata(EpochNumber.First, couldAlterOrderingTopology = true)
           )
+          // Idempotent
           _ <- store.insertEpochIfMissing(
-            OutputEpochMetadata(
-              epochNumber = EpochNumber.First,
-              couldAlterOrderingTopology = true,
-            )
-          ) // Idempotent
+            OutputEpochMetadata(EpochNumber.First, couldAlterOrderingTopology = true)
+          )
           retrievedBlocks <- store.getBlockFromInclusive(BlockNumber.First)
         } yield {
           retrievedBlocks should contain only OutputBlockMetadata(
-            epochNumber = EpochNumber.First,
-            blockNumber = BlockNumber.First,
+            EpochNumber.First,
+            BlockNumber.First,
             blockBftTime = CantonTimestamp.Epoch,
           )
         }

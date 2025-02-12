@@ -40,8 +40,8 @@ import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable
 
 final class CommandsValidator(
+    validateDisclosedContracts: ValidateDisclosedContracts,
     validateUpgradingPackageResolutions: ValidateUpgradingPackageResolutions,
-    validateDisclosedContracts: ValidateDisclosedContracts = new ValidateDisclosedContracts,
 ) {
 
   import FieldValidator.*

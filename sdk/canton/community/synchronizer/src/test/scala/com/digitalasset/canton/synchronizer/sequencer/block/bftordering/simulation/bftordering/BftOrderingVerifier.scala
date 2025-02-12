@@ -6,9 +6,10 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulat
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.PeanoQueue
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.SimulationOutputMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.BlockNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.{
   SimulationSettings,
   SimulationVerifier,
@@ -24,9 +25,9 @@ import scala.jdk.DurationConverters.ScalaDurationOps
 
 import BftOrderingVerifier.LivenessState
 
-class BftOrderingVerifier(
+final class BftOrderingVerifier(
     queue: mutable.Queue[(SequencerId, BlockFormat.Block)],
-    stores: Map[SequencerId, SimulationOutputMetadataStore],
+    stores: Map[SequencerId, OutputMetadataStore[SimulationEnv]],
     onboardingTimes: Map[SequencerId, TopologyActivationTime],
     simSettings: SimulationSettings,
 ) extends SimulationVerifier
@@ -66,7 +67,7 @@ class BftOrderingVerifier(
   def newStage(
       simulationSettings: SimulationSettings,
       newOnboardingTimes: Map[SequencerId, TopologyActivationTime],
-      newStores: Map[SequencerId, SimulationOutputMetadataStore],
+      newStores: Map[SequencerId, OutputMetadataStore[SimulationEnv]],
   ): BftOrderingVerifier = {
     val newVerifier =
       new BftOrderingVerifier(
