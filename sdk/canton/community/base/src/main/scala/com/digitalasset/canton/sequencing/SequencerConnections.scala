@@ -232,6 +232,10 @@ object SequencerConnectionValidation {
     override val toProtoV30: v30.SequencerConnectionValidation =
       v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_ACTIVE
   }
+  object ThresholdActive extends SequencerConnectionValidation {
+    override val toProtoV30: v30.SequencerConnectionValidation =
+      v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_THRESHOLD_ACTIVE
+  }
 
   def fromProtoV30(
       proto: v30.SequencerConnectionValidation
@@ -241,6 +245,8 @@ object SequencerConnectionValidation {
         Right(Disabled)
       case v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_ALL => Right(All)
       case v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_ACTIVE => Right(Active)
+      case v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_THRESHOLD_ACTIVE =>
+        Right(ThresholdActive)
       case _ =>
         Left(
           ProtoDeserializationError.ValueConversionError(

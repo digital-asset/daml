@@ -5,10 +5,11 @@ package com.digitalasset.canton.synchronizer.sequencer
 
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
-import com.digitalasset.canton.crypto.SynchronizerCryptoClient
+import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.resource.MemoryStorage
+import com.digitalasset.canton.sequencing.client.RequestSigner
 import com.digitalasset.canton.sequencing.protocol.{Recipients, SubmissionRequest}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -27,16 +28,19 @@ final class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
   )(implicit materializer: Materializer): CantonSequencer =
     createSequencerWithSnapshot(None)
 
+  val crypto = TestingIdentityFactory(
+    TestingTopology(),
+    loggerFactory,
+    DynamicSynchronizerParameters.initialValues(clock, testedProtocolVersion),
+  ).forOwnerAndSynchronizer(owner = mediatorId, synchronizerId)
+
+  val requestSigner = RequestSigner(crypto, testedProtocolVersion, loggerFactory)
+
   def createSequencerWithSnapshot(
       initialState: Option[SequencerInitialState]
   )(implicit materializer: Materializer): DatabaseSequencer = {
     if (clock == null)
       clock = createClock()
-    val crypto = TestingIdentityFactory(
-      TestingTopology(),
-      loggerFactory,
-      DynamicSynchronizerParameters.initialValues(clock, testedProtocolVersion),
-    ).forOwnerAndSynchronizer(owner = mediatorId, synchronizerId)
     val metrics = SequencerMetrics.noop("database-sequencer-test")
 
     val dbConfig = TestDatabaseSequencerConfig()
@@ -90,6 +94,9 @@ final class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
         TestDatabaseSequencerWrapper(sequencer.asInstanceOf[DatabaseSequencer])
 
       for {
+        signedRequest <- valueOrFail(
+          requestSigner.signRequest(request, HashPurpose.SubmissionRequestSignature).failOnShutdown
+        )(s"Sign request")
         _ <- valueOrFail(
           testSequencerWrapper.registerMemberInternal(sender, CantonTimestamp.Epoch).failOnShutdown
         )(
@@ -103,7 +110,7 @@ final class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
           "Register sequencer"
         )
 
-        _ <- sequencer.sendAsync(request).valueOrFailShutdown("Sent async")
+        _ <- sequencer.sendAsyncSigned(signedRequest).valueOrFailShutdown("Sent async")
         messages <- readForMembers(List(sender), sequencer).failOnShutdown("readForMembers")
         _ = {
           val details = EventDetails(
@@ -155,11 +162,14 @@ final class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
           )(snapshot.representativeProtocolVersion))
         }
 
+        signedRequest2 <- valueOrFail(
+          requestSigner.signRequest(request2, HashPurpose.SubmissionRequestSignature)
+        )(s"Sign request")
         _ <- {
           // need to advance clock so that the new event doesn't get the same timestamp as the previous one,
           // which would then cause it to be ignored on the read path
           simClockOrFail(clock).advance(Duration.ofSeconds(1))
-          secondSequencer.sendAsync(request2).value
+          secondSequencer.sendAsyncSigned(signedRequest2).value
         }
 
         messages2 <- readForMembers(

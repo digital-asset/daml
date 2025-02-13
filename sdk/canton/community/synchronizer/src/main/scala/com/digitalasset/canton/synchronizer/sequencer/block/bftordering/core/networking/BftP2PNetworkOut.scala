@@ -204,7 +204,8 @@ final class BftP2PNetworkOut[E <: Env[E]](
       val mc1: MetricsContext =
         sendMetricsContext(metrics, serializedMessage, to, droppedAsUnauthenticated = false)
       locally {
-        logger.debug(s"Sending network message to $to: $message")
+        logger.debug(s"Sending network message to $to")
+        logger.trace(s"Message to $to is: $message")
         implicit val mc: MetricsContext = mc1
         networkSend(ref, serializedMessage)
         emitSendStats(metrics, serializedMessage)

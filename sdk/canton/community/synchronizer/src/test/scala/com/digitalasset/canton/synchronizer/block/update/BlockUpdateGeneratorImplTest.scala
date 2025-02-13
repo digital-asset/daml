@@ -55,7 +55,6 @@ class BlockUpdateGeneratorImplTest
 
         val blockUpdateGenerator =
           new BlockUpdateGeneratorImpl(
-            synchronizerId,
             testedProtocolVersion,
             syncCryptoApiFake,
             sequencerId,
@@ -97,7 +96,6 @@ class BlockUpdateGeneratorImplTest
 
         val blockUpdateGenerator =
           new BlockUpdateGeneratorImpl(
-            synchronizerId,
             testedProtocolVersion,
             syncCryptoApiFake,
             sequencerId,

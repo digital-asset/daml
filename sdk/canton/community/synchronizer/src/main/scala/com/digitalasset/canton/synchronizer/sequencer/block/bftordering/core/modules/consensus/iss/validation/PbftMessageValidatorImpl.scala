@@ -20,7 +20,6 @@ final class PbftMessageValidatorImpl(epoch: Epoch, metrics: BftOrderingMetrics)(
     mc: MetricsContext
 ) extends PbftMessageValidator {
 
-  // TODO(#17108): verify PrePrepare is sound in terms of ProofsOfAvailability
   def validatePrePrepare(prePrepare: PrePrepare, firstInSegment: Boolean): Either[String, Unit] = {
     val block = prePrepare.block
     val prePrepareEpochNumber = prePrepare.blockMetadata.epochNumber

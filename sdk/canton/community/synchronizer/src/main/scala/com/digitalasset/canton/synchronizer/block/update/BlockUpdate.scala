@@ -9,7 +9,7 @@ import com.digitalasset.canton.synchronizer.block.data.BlockInfo
 import com.digitalasset.canton.synchronizer.sequencer.{
   InFlightAggregationUpdates,
   InFlightAggregations,
-  SubmissionRequestOutcome,
+  SubmissionOutcome,
 }
 import com.digitalasset.canton.topology.Member
 
@@ -55,5 +55,5 @@ final case class ChunkUpdate(
     inFlightAggregationUpdates: InFlightAggregationUpdates = Map.empty,
     lastSequencerEventTimestamp: Option[CantonTimestamp],
     inFlightAggregations: InFlightAggregations,
-    submissionsOutcomes: Seq[SubmissionRequestOutcome] = Seq.empty,
+    submissionsOutcomes: Seq[SubmissionOutcome] = Seq.empty,
 ) extends OrderedBlockUpdate

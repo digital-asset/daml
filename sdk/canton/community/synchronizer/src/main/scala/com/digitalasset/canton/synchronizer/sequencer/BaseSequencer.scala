@@ -21,7 +21,6 @@ import com.digitalasset.canton.synchronizer.sequencer.errors.{
 }
 import com.digitalasset.canton.time.{Clock, PeriodicAction}
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.tracing.Spanning.SpanWrapper
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.ShowUtil.*
 import io.opentelemetry.api.trace.Tracer
@@ -99,21 +98,6 @@ abstract class BaseSequencer(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
-
-  override def sendAsync(
-      submission: SubmissionRequest
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] =
-    withSpan("Sequencer.sendAsync") { implicit traceContext => span =>
-      setSpanAttributes(span, submission)
-      for {
-        _ <- sendAsyncInternal(submission)
-      } yield ()
-    }
-
-  private def setSpanAttributes(span: SpanWrapper, submission: SubmissionRequest): Unit = {
-    span.setAttribute("sender", submission.sender.toString)
-    span.setAttribute("message_id", submission.messageId.unwrap)
-  }
 
   protected def localSequencerMember: Member
   protected def disableMemberInternal(member: Member)(implicit

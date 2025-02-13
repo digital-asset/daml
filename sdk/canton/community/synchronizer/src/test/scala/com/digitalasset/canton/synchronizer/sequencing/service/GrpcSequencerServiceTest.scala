@@ -79,8 +79,6 @@ class GrpcSequencerServiceTest
 
   class Environment(member: Member) extends Matchers {
     val sequencer: Sequencer = mock[Sequencer]
-    when(sequencer.sendAsync(any[SubmissionRequest])(anyTraceContext))
-      .thenReturn(EitherT.rightT[FutureUnlessShutdown, SendAsyncError](()))
     when(sequencer.sendAsyncSigned(any[SignedContent[SubmissionRequest]])(anyTraceContext))
       .thenReturn(EitherT.rightT[FutureUnlessShutdown, SendAsyncError](()))
     when(sequencer.acknowledgeSigned(any[SignedContent[AcknowledgeRequest]])(anyTraceContext))

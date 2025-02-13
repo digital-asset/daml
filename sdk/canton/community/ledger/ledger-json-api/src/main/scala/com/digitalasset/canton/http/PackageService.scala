@@ -317,7 +317,7 @@ object PackageService {
     import com.digitalasset.canton.http.ContractTypeId as C
 
     object Overload extends LowPriority {
-      /* TODO #15293 see below note about Top
+      /* TODO(#13303) Re-adapted from Daml repo #15293: see below note about Top
     implicit case object Unknown
         extends Overload[C.Unknown.RequiredPkg, C.ResolvedId[C.Definite[String]]]
        */
@@ -325,7 +325,8 @@ object PackageService {
       case object Top extends Overload[C.RequiredPkg, C.Definite]
     }
 
-    // TODO #15293 if the request model has .Unknown included, then LowPriority and Top are
+    // TODO(#13303) Re-adapted from Daml repo #15293:
+    //              if the request model has .Unknown included, then LowPriority and Top are
     // no longer needed and can be replaced with Overload.Unknown above
     sealed abstract class LowPriority { this: Overload.type =>
       // needs to be low priority so it doesn't win against Template
@@ -496,7 +497,7 @@ object PackageService {
       ctId: ContractTypeId.ResolvedPkgId,
       choice: Choice,
   ): Error \/ (Option[ContractTypeId.Interface.ResolvedPkgId], typesig.Type) = {
-    // TODO #14727 skip indirect resolution if ctId is an interface ID
+    // TODO(#13303) Re-adapted from Daml repo #14727: skip indirect resolution if ctId is an interface ID
     val resolution = for {
       choices <- choiceIdMap get ctId
       overloads <- choices get choice

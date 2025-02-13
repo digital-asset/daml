@@ -100,10 +100,6 @@ trait Sequencer
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit]
 
-  def sendAsync(submission: SubmissionRequest)(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit]
-
   def read(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource]

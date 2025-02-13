@@ -4,8 +4,8 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules
 
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.mempool.{
   MempoolModule,
@@ -19,6 +19,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SequencerNode,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleRef}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.UnitTestContext.DelayCount
 import com.digitalasset.canton.tracing.Traced
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
@@ -26,9 +27,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.FiniteDuration
 
-import UnitTestContext.DelayCount
-
-class MempoolModuleTest extends AnyWordSpec with BaseTest {
+class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
   private val AnOrderRequest = Mempool.OrderRequest(
     Traced(OrderingRequest("tag", ByteString.copyFromUtf8("b")))
@@ -66,15 +65,13 @@ class MempoolModuleTest extends AnyWordSpec with BaseTest {
       "refuse the request" in {
         val mempool =
           createMempool[UnitTestEnv](fakeModuleExpectingSilence, maxRequestPayloadBytes = 0)
-        mempool.receiveInternal(
-          Mempool.CreateLocalBatches(1)
-        )
-        mempool.receiveInternal(
-          Mempool.OrderRequest(
-            Traced(
-              OrderingRequest("tag", ByteString.copyFromUtf8("c"))
-            ),
-            requestRefusedHandler,
+        mempool.receiveInternal(Mempool.CreateLocalBatches(1))
+        suppressProblemLogs(
+          mempool.receiveInternal(
+            Mempool.OrderRequest(
+              Traced(OrderingRequest("tag", ByteString.copyFromUtf8("c"))),
+              requestRefusedHandler,
+            )
           )
         )
         succeed

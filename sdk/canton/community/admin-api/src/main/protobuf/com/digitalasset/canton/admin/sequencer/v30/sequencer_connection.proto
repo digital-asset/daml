@@ -32,6 +32,8 @@ enum SequencerConnectionValidation {
   SEQUENCER_CONNECTION_VALIDATION_ACTIVE = 2;
   // Validate all the connections
   SEQUENCER_CONNECTION_VALIDATION_ALL = 3;
+  // Validate only the ones we could reach, but at least threshold many
+  SEQUENCER_CONNECTION_VALIDATION_THRESHOLD_ACTIVE = 4;
 }
 
 message SequencerConnections {

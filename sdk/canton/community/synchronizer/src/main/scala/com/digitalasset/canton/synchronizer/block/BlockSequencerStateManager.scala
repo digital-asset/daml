@@ -24,7 +24,6 @@ import com.digitalasset.canton.synchronizer.sequencer.{
   DeliverableSubmissionOutcome,
   InFlightAggregations,
   SequencerIntegration,
-  SubmissionRequestOutcome,
 }
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficConsumedStore
 import com.digitalasset.canton.topology.{Member, SynchronizerId}
@@ -244,7 +243,7 @@ class BlockSequencerStateManager(
     )
 
     val trafficConsumedUpdates = update.submissionsOutcomes.flatMap {
-      case SubmissionRequestOutcome(_, _, outcome: DeliverableSubmissionOutcome) =>
+      case outcome: DeliverableSubmissionOutcome =>
         outcome.trafficReceiptO match {
           case Some(trafficReceipt) =>
             Some(
@@ -261,7 +260,7 @@ class BlockSequencerStateManager(
           trafficConsumedStore.store(trafficConsumedUpdates)
         )
       )
-      _ <- dbSequencerIntegration.blockSequencerWrites(update.submissionsOutcomes.map(_.outcome))
+      _ <- dbSequencerIntegration.blockSequencerWrites(update.submissionsOutcomes)
       _ <- EitherT.right[String](
         dbSequencerIntegration.blockSequencerAcknowledge(update.acknowledgements)
       )

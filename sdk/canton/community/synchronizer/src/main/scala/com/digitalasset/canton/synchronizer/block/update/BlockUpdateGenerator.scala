@@ -90,7 +90,6 @@ object BlockUpdateGenerator {
 }
 
 class BlockUpdateGeneratorImpl(
-    synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
     synchronizerSyncCryptoApi: SynchronizerCryptoClient,
     sequencerId: SequencerId,
@@ -107,7 +106,6 @@ class BlockUpdateGeneratorImpl(
 
   private val blockChunkProcessor =
     new BlockChunkProcessor(
-      synchronizerId,
       protocolVersion,
       synchronizerSyncCryptoApi,
       sequencerId,

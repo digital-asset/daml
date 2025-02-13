@@ -382,8 +382,6 @@ class GrpcSequencerIntegrationTest
     "send from the client gets a message to the sequencer" in { env =>
       val anotherParticipant = ParticipantId("another")
 
-      when(env.sequencer.sendAsync(any[SubmissionRequest])(anyTraceContext))
-        .thenReturn(EitherT.pure[FutureUnlessShutdown, SendAsyncError](()))
       when(env.sequencer.sendAsyncSigned(any[SignedContent[SubmissionRequest]])(anyTraceContext))
         .thenReturn(EitherT.pure[FutureUnlessShutdown, SendAsyncError](()))
       implicit val metricsContext: MetricsContext = MetricsContext.Empty
