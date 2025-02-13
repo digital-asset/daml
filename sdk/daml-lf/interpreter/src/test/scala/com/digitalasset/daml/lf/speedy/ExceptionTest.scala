@@ -853,7 +853,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
            |    observers $observers;
            |
            |    choice @nonConsuming SomeChoice (self) (u: Unit): Text
-           |      , controllers (Nil @Party)
+           |      , controllers (Cons @Party [Mod:${templateName} {p} this] (Nil @Party))
            |      , observers (Nil @Party)
            |      to upure @Text "SomeChoice was called";
            |
@@ -890,6 +890,10 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       override def maintainers =
         s"""throw @('$commonDefsPkgId':Mod:Key -> List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Maintainers"})"""
     }
+    case object FailingMaintainersBody extends TemplateGenerator("MaintainersBody") {
+      override def maintainers =
+        s"""\\(key: '$commonDefsPkgId':Mod:Key) -> throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "MaintainersBody"})"""
+    }
     case object FailingChoiceControllers extends TemplateGenerator("ChoiceControllers") {
       override def choiceControllers =
         s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "ChoiceControllers"})"""
@@ -914,6 +918,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
             ${ValidMetadata("Observers").templateDefinition}
             ${ValidMetadata("Key").templateDefinition}
             ${ValidMetadata("Maintainers").templateDefinition}
+            ${ValidMetadata("MaintainersBody").templateDefinition}
             ${ValidMetadata("ChoiceControllers").templateDefinition}
             ${ValidMetadata("ChoiceObservers").templateDefinition}
           }
@@ -934,6 +939,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
             ${FailingObservers.templateDefinition}
             ${FailingKey.templateDefinition}
             ${FailingMaintainers.templateDefinition}
+            ${FailingMaintainersBody.templateDefinition}
             ${FailingChoiceControllers.templateDefinition}
             ${FailingChoiceObservers.templateDefinition}
           }
@@ -962,6 +968,15 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
          |    \\(cid: ContractId $tplQualifiedName) ->
          |      try @Text
          |        exercise @$tplQualifiedName SomeChoice cid ()
+         |      catch
+         |        e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+         |
+         |  // Tries to catch the error thrown by the contract info of $templateName when exercising a choice by key on
+         |  // it, should fail to do so.
+         |  val exerciseByKeyAndCatchErrorGlobal${templateName}: '$commonDefsPkgId':Mod:Key -> Update Text =
+         |    \\(key: '$commonDefsPkgId':Mod:Key) ->
+         |      try @Text
+         |        exercise_by_key @$tplQualifiedName SomeChoice key ()
          |      catch
          |        e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
          |
@@ -1033,6 +1048,23 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
          |            @$v2TplQualifiedName
          |            SomeChoice
          |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid)
+         |            ()
+         |      catch
+         |        e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+         |
+         |  // Tries to catch the error thrown by the contract info of $templateName when exercising a choice by key on
+         |  // it, should fail to do so.
+         |  val exerciseByKeyAndCatchErrorLocal${templateName}: Unit -> Update Text =
+         |    \\(_:Unit) ->
+         |      ubind cid: ContractId $v1TplQualifiedName <-
+         |         create @$v1TplQualifiedName ($v1TplQualifiedName { p = '$commonDefsPkgId':Mod:alice })
+         |      in try @Text
+         |        exercise_by_key
+         |            @$v2TplQualifiedName
+         |            SomeChoice
+         |            ('$commonDefsPkgId':Mod:Key {
+         |                    label = "test-key",
+         |                    maintainers = (Cons @Party ['$commonDefsPkgId':Mod:alice] (Nil @Party)) })
          |            ()
          |      catch
          |        e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
@@ -1144,16 +1176,30 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
             ${globalContractTests(templateDefsV2PkgId, "Observers")}
             ${globalContractTests(templateDefsV2PkgId, "Key")}
             ${globalContractTests(templateDefsV2PkgId, "Maintainers")}
+            ${globalContractTests(templateDefsV2PkgId, "MaintainersBody")}
 
             ${localContractTests(templateDefsV1PkgId, templateDefsV2PkgId, "Precondition")}
             ${localContractTests(templateDefsV1PkgId, templateDefsV2PkgId, "Signatories")}
             ${localContractTests(templateDefsV1PkgId, templateDefsV2PkgId, "Observers")}
             ${localContractTests(templateDefsV1PkgId, templateDefsV2PkgId, "Key")}
             ${localContractTests(templateDefsV1PkgId, templateDefsV2PkgId, "Maintainers")}
+            ${localContractTests(templateDefsV1PkgId, templateDefsV2PkgId, "MaintainersBody")}
 
+            ${dynamicChoiceTestsGlobal("Precondition")}
+            ${dynamicChoiceTestsGlobal("Signatories")}
+            ${dynamicChoiceTestsGlobal("Observers")}
+            ${dynamicChoiceTestsGlobal("Key")}
+            ${dynamicChoiceTestsGlobal("Maintainers")}
+            ${dynamicChoiceTestsGlobal("MaintainersBody")}
             ${dynamicChoiceTestsGlobal("ChoiceControllers")}
             ${dynamicChoiceTestsGlobal("ChoiceObservers")}
 
+            ${dynamicChoiceTestsLocal(templateDefsV1PkgId, "Precondition")}
+            ${dynamicChoiceTestsLocal(templateDefsV1PkgId, "Signatories")}
+            ${dynamicChoiceTestsLocal(templateDefsV1PkgId, "Observers")}
+            ${dynamicChoiceTestsLocal(templateDefsV1PkgId, "Key")}
+            ${dynamicChoiceTestsLocal(templateDefsV1PkgId, "Maintainers")}
+            ${dynamicChoiceTestsLocal(templateDefsV1PkgId, "MaintainersBody")}
             ${dynamicChoiceTestsLocal(templateDefsV1PkgId, "ChoiceControllers")}
             ${dynamicChoiceTestsLocal(templateDefsV1PkgId, "ChoiceObservers")}
           }
@@ -1198,6 +1244,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       FailingObservers.templateName,
       FailingKey.templateName,
       FailingMaintainers.templateName,
+      FailingMaintainersBody.templateName,
     )
 
     val failingChoiceMetadataTemplates: List[String] = List(
@@ -1226,6 +1273,11 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
           failingTemplateMetadataTemplates,
         ),
         (
+          "exerciseByKeyAndCatchError",
+          (_, key) => key,
+          failingTemplateMetadataTemplates,
+        ),
+        (
           "fetchAndCatchError",
           (cid, _) => SContractId(cid),
           failingTemplateMetadataTemplates,
@@ -1248,7 +1300,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
         (
           "exerciseByInterfaceAndCatchError",
           (cid, _) => SContractId(cid),
-          failingChoiceMetadataTemplates,
+          failingTemplateMetadataTemplates ++ failingChoiceMetadataTemplates,
         ),
       )
 
