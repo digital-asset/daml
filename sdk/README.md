@@ -157,6 +157,21 @@ daml\daml.exe install . --install-assistant=yes
 That should tell you what to put in the path, something along the lines of `C:\Users\admin\AppData\Roaming\daml\bin`.
 Note that the Windows build is not yet fully functional.
 
+### 5. Working with docs
+
+Sharable documentation (used outside of this repository) is maintained using two folders:
+
+- `/sdk/docs/manually-written` contains everything that is not auto-generated (tutorials, user guides, etc.)
+- `/sdk/docs/sharable` contains both manual and auto-generated docs. Docs from `/sdk/docs/manually-written` are duplicated here. The entire folder is used by the [docs-website repo](https://github.com/DACH-NY/docs-website).
+
+To keep the docs in sync, run the following command in the `/sdk` folder:
+
+```
+./ci/synchronize-docs.sh
+```
+
+You should run it before pushing changes if you change the contents of `/sdk/docs/manually-written`. It can take longer the first time you run it.
+
 ### Caching: build speed and disk space considerations
 
 Bazel has a lot of nice properties, but they come at the cost of frequently rebuilding "the world".
