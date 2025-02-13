@@ -3,20 +3,22 @@
 
 package com.daml.ledger.javaapi.data.codegen.json;
 
+import com.daml.ledger.api.v1.ValueOuterClass;
+import com.daml.ledger.javaapi.data.CreatedEvent;
+import com.daml.ledger.javaapi.data.Identifier;
 import com.daml.ledger.javaapi.data.Unit;
+import com.daml.ledger.javaapi.data.codegen.ContractCompanion;
 import com.daml.ledger.javaapi.data.codegen.ContractId;
 import com.daml.ledger.javaapi.data.codegen.DamlEnum;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.ZoneOffset;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
+import java.util.function.Function;
 
 public class TestHelpers {
 
@@ -97,6 +99,7 @@ public class TestHelpers {
       public Baz(Unit x) {
         this.x = x;
       }
+
       // All units are the same, and thus so are all Baz's
       @Override
       public boolean equals(Object o) {
@@ -161,10 +164,34 @@ public class TestHelpers {
     }
   }
 
-  static class Tmpl {
+  public static class Tmpl {
     public static final class Cid extends ContractId<Tmpl> {
       public Cid(String id) {
         super(id);
+      }
+    }
+
+    public static Identifier templateId = Identifier.fromProto(ValueOuterClass.Identifier.newBuilder().setPackageId("#pkgname").setModuleName("mod").setEntityName("tmpl").build());
+    public static Identifier templateIdWithPackageId = Identifier.fromProto(ValueOuterClass.Identifier.newBuilder().setPackageId("pkg").setModuleName("mod").setEntityName("tmpl").build());
+
+    public static Identifier interfaceId = Identifier.fromProto(ValueOuterClass.Identifier.newBuilder().setPackageId("#pkgname").setModuleName("mod").setEntityName("iface").build());
+    public static Identifier interfaceIdWithPackageId = Identifier.fromProto(ValueOuterClass.Identifier.newBuilder().setPackageId("pkg").setModuleName("mod").setEntityName("iface").build());
+
+    public static final class TmplCompanion extends ContractCompanion<Tmpl, Cid, Tmpl> {
+      public TmplCompanion() {
+        super(Tmpl.class.getSimpleName(), Tmpl.templateId, Tmpl.templateIdWithPackageId, Tmpl.Cid::new, s -> new Tmpl(), js -> new Tmpl(), Collections.emptyList());
+      }
+
+      @Override
+      public Tmpl fromCreatedEvent(CreatedEvent event) throws IllegalArgumentException {
+        // Dummy
+        return new Tmpl();
+      }
+    }
+
+    public static final class IfaceCompanion extends com.daml.ledger.javaapi.data.codegen.InterfaceCompanion<String, String, String> {
+      public IfaceCompanion() {
+        super(Tmpl.class.getSimpleName(), Tmpl.interfaceId, Tmpl.interfaceIdWithPackageId, Function.identity(), v -> "dummy", js -> "dummy", Collections.emptyList());
       }
     }
   }
