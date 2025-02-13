@@ -19,7 +19,11 @@ import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.testing.parser
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, TransactionVersion, Versioned}
+import com.digitalasset.daml.lf.transaction.{
+  GlobalKeyWithMaintainers,
+  TransactionVersion,
+  Versioned,
+}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{ValueRecord, ValueText}
 import org.scalatest.Inside
