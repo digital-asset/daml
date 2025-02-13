@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulat
 
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.networking.Endpoint
@@ -411,7 +411,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
           requestInspector,
         )
       },
-      IssClient.initializer(simSettings.clientRequestInterval, thisPeer, peerLogger, timeouts),
+      IssClient.initializer(simSettings, thisPeer, peerLogger, timeouts),
       initializeImmediately,
     )
   }
@@ -607,12 +607,46 @@ class BftOrderingEmptyBlocksSimulationTest extends BftOrderingSimulationTest {
         durationOfSecondPhaseWithoutFaults,
         // This will result in empty blocks only.
         clientRequestInterval = None,
+        clientRequestApproximateByteSize = None,
         // This value is lower than the default to prevent view changes from ensuring liveness (as we want empty blocks to ensure it).
         // When the simulation becomes "healthy", we don't know when the last crash (resetting the view change timeout)
         // or view change happened. Similarly, we don't know how "advanced" the empty block creation at that moment is.
         // Since the simulation is deterministic and runs multiple times, we can base this value on the empty block creation
         // interval to get the desired test coverage.
         livenessCheckInterval = AvailabilityModuleConfig.EmptyBlockCreationInterval * 2 + 1.second,
+      )
+    )
+  )
+}
+
+// Note that simulation tests don't use a real network, so this test doesn't cover gRPC messages.
+class BftOrderingSimulationTest2NodesLargeRequests extends BftOrderingSimulationTest {
+  override val numberOfRuns: Int = 1
+  override val numberOfInitialPeers: Int = 2
+
+  private val durationOfFirstPhaseWithFaults = 1.minute
+  private val durationOfSecondPhaseWithoutFaults = 1.minute
+
+  private val randomSourceToCreateSettings: Random =
+    new Random(4) // Manually remove the seed for fully randomized local runs.
+
+  override def generateStages(): Seq[SimulationTestStage] = Seq(
+    SimulationTestStage(
+      simulationSettings = SimulationSettings(
+        LocalSettings(
+          randomSeed = randomSourceToCreateSettings.nextLong()
+        ),
+        NetworkSettings(
+          randomSeed = randomSourceToCreateSettings.nextLong()
+        ),
+        durationOfFirstPhaseWithFaults,
+        durationOfSecondPhaseWithoutFaults,
+        // The test is a bit slow with the default interval
+        clientRequestInterval = Some(10.seconds),
+        clientRequestApproximateByteSize =
+          // -100 to account for tags and payloads' prefixes
+          // Exceeding the default size results in warning logs and dropping messages in Mempool
+          Some(PositiveInt.tryCreate(BftBlockOrderer.DefaultMaxRequestPayloadBytes - 100)),
       )
     )
   )

@@ -5,13 +5,14 @@ package com.digitalasset.canton.platform.apiserver
 
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.grpc.GrpcMetricsServerInterceptor
-import com.digitalasset.canton.config.KeepAliveServerConfig
 import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.config.{InProcessGrpcName, KeepAliveServerConfig}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.error.ErrorInterceptor
 import com.google.protobuf.Message
 import io.grpc.*
+import io.grpc.inprocess.InProcessServerBuilder
 import io.grpc.netty.NettyServerBuilder
 import io.netty.handler.ssl.SslContext
 
@@ -45,6 +46,33 @@ object GrpcServer {
       keepAlive: Option[KeepAliveServerConfig],
   ): ResourceOwner[Server] = {
     val host = address.map(InetAddress.getByName).getOrElse(InetAddress.getLoopbackAddress)
+
+    def addServicesAndInterceptors[T <: ForwardingServerBuilder[T]](builder: T) = {
+      val builderWithInterceptors =
+        interceptors
+          .foldLeft(builder) { case (builder, interceptor) =>
+            builder.intercept(interceptor)
+          }
+          .intercept(new ActiveStreamMetricsInterceptor(metrics))
+          .intercept(new GrpcMetricsServerInterceptor(metrics.grpc))
+          .intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
+          .intercept(new ErrorInterceptor(loggerFactory))
+
+      val builderWithServices = services.foldLeft(builderWithInterceptors) {
+        case (builder, service) =>
+          toLegacyService(service).fold(builder.addService(service))(legacyService =>
+            builder
+              .addService(service)
+              .addService(legacyService)
+          )
+      }
+      ResourceOwner
+        .forServer(builderWithServices, shutdownTimeout = 1.second)
+        .transform(_.recoverWith {
+          case e: IOException if e.getCause != null && e.getCause.isInstanceOf[BindException] =>
+            Failure(new UnableToBind(desiredPort, e.getCause))
+        })
+    }
     val builder =
       NettyServerBuilder
         .forAddress(new InetSocketAddress(host, desiredPort.unwrap))
@@ -55,30 +83,15 @@ object GrpcServer {
 
     val builderWithKeepAlive = configureKeepAlive(keepAlive, builder)
     // NOTE: Interceptors run in the reverse order in which they were added.
-    val builderWithInterceptors =
-      interceptors
-        .foldLeft(builderWithKeepAlive) { case (builder, interceptor) =>
-          builder.intercept(interceptor)
-        }
-        .intercept(new ActiveStreamMetricsInterceptor(metrics))
-        .intercept(new GrpcMetricsServerInterceptor(metrics.grpc))
-        .intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
-        .intercept(new ErrorInterceptor(loggerFactory))
 
-    val builderWithServices = services.foldLeft(builderWithInterceptors) {
-      case (builder, service) =>
-        toLegacyService(service).fold(builder.addService(service))(legacyService =>
-          builder
-            .addService(service)
-            .addService(legacyService)
-        )
-    }
-    ResourceOwner
-      .forServer(builderWithServices, shutdownTimeout = 1.second)
-      .transform(_.recoverWith {
-        case e: IOException if e.getCause != null && e.getCause.isInstanceOf[BindException] =>
-          Failure(new UnableToBind(desiredPort, e.getCause))
-      })
+    val inProcessBuilder: InProcessServerBuilder =
+      InProcessServerBuilder
+        .forName(InProcessGrpcName.forPort(desiredPort))
+        .executor(servicesExecutor)
+    for {
+      _ <- addServicesAndInterceptors(inProcessBuilder)
+      httpServer <- addServicesAndInterceptors(builderWithKeepAlive)
+    } yield httpServer
   }
 
   def configureKeepAlive(
@@ -138,5 +151,4 @@ object GrpcServer {
       Option(digitalassetDef.build())
     } else None
   }
-
 }

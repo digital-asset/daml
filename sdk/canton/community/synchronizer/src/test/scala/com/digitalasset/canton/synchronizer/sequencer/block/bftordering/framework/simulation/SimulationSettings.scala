@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation
 
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
+
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Random
@@ -118,6 +120,9 @@ final case class SimulationSettings(
     durationOfFirstPhaseWithFaults: FiniteDuration,
     durationOfSecondPhaseWithoutFaults: FiniteDuration = 30.seconds,
     clientRequestInterval: Option[FiniteDuration] = Some(1.second),
+    clientRequestApproximateByteSize: Option[PositiveInt] = Some(
+      PositiveInt.three // fully arbitrary
+    ),
     livenessCheckInterval: FiniteDuration = 20.seconds,
     peerOnboardingDelays: Iterable[FiniteDuration] = Iterable.empty,
     becomingOnlineAfterOnboardingDelay: FiniteDuration =

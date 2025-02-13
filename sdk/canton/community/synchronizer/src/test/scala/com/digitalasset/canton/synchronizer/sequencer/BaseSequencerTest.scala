@@ -190,24 +190,18 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
       FutureUnlessShutdown.pure(existingMembers.contains(member))
   }
 
-  Seq(("sendAsync", false), ("sendAsyncSigned", true)).foreach { case (name, useSignedSend) =>
-    def send(sequencer: Sequencer)(submission: SubmissionRequest) =
-      if (useSignedSend)
-        sequencer.sendAsyncSigned(
-          SignedContent(submission, Signature.noSignature, None, testedProtocolVersion)
-        )
-      else sequencer.sendAsync(submission)
-
-    name should {
-
-      "sends should not auto register" in {
-        val sequencer = new StubSequencer(existingMembers = Set(participant1))
-        val request = submission(from = participant1, to = Set(participant1, participant2))
-
-        for {
-          _ <- send(sequencer)(request).value.failOnShutdown
-        } yield sequencer.newlyRegisteredMembers shouldBe empty
-      }
+  "sendAsyncSigned" should {
+    "sends should not auto register" in {
+      val sequencer = new StubSequencer(existingMembers = Set(participant1))
+      val request = submission(from = participant1, to = Set(participant1, participant2))
+      for {
+        _ <- sequencer
+          .sendAsyncSigned(
+            SignedContent(request, Signature.noSignature, None, testedProtocolVersion)
+          )
+          .value
+          .failOnShutdown
+      } yield sequencer.newlyRegisteredMembers shouldBe empty
     }
   }
 

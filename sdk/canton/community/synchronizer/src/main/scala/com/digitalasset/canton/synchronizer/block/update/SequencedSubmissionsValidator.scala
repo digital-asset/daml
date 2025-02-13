@@ -16,7 +16,6 @@ import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimit
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, MapsUtil, MonadUtil}
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
@@ -27,8 +26,6 @@ import SubmissionRequestValidator.SubmissionRequestValidationResult
 /** Validates a list of [[SequencedSubmission]]s corresponding to a chunk.
   */
 private[update] final class SequencedSubmissionsValidator(
-    synchronizerId: SynchronizerId,
-    protocolVersion: ProtocolVersion,
     synchronizerSyncCryptoApi: SynchronizerCryptoClient,
     sequencerId: SequencerId,
     rateLimitManager: SequencerRateLimitManager,
@@ -40,8 +37,6 @@ private[update] final class SequencedSubmissionsValidator(
 
   private val submissionRequestValidator =
     new SubmissionRequestValidator(
-      synchronizerId,
-      protocolVersion,
       synchronizerSyncCryptoApi,
       sequencerId,
       rateLimitManager,
@@ -117,35 +112,25 @@ private[update] final class SequencedSubmissionsValidator(
         )
       _ = logger.debug(
         s"At block $height, the submission request ${signedOrderingRequest.submissionRequest.messageId} " +
-          s"at $sequencingTimestamp created the following counters: \n" ++ outcome.eventsByMember
-            .map { case (member, sequencedEvent) =>
-              s"\t counter ${sequencedEvent.counter} for $member"
-            }
-            .mkString("\n")
+          s"at $sequencingTimestamp validated to: ${SubmissionOutcome.prettyString(outcome)}"
       )
     } yield result
   }
 
   private def processSubmissionOutcome(
       inFlightAggregations: InFlightAggregations,
-      outcome: SubmissionRequestOutcome,
+      outcome: SubmissionOutcome,
       resultIfNoDeliverEvents: SequencedSubmissionsValidationResult,
       inFlightAggregationUpdates: InFlightAggregationUpdates,
       sequencerEventTimestamp: Option[CantonTimestamp],
-      remainingReversedOutcomes: Seq[SubmissionRequestOutcome],
+      remainingReversedOutcomes: Seq[SubmissionOutcome],
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[SequencedSubmissionsValidationResult] = {
-    val SubmissionRequestOutcome(
-      _,
-      newAggregationO,
-      unifiedOutcome,
-    ) = outcome
-
-    unifiedOutcome match {
-      case _: DeliverableSubmissionOutcome =>
+  ): FutureUnlessShutdown[SequencedSubmissionsValidationResult] =
+    outcome match {
+      case deliverable: DeliverableSubmissionOutcome =>
         val (newInFlightAggregations, newInFlightAggregationUpdates) =
-          newAggregationO.fold(inFlightAggregations -> inFlightAggregationUpdates) {
+          deliverable.inFlightAggregation.fold(inFlightAggregations -> inFlightAggregationUpdates) {
             case (aggregationId, inFlightAggregationUpdate) =>
               InFlightAggregations.tryApplyUpdates(
                 inFlightAggregations,
@@ -168,7 +153,6 @@ private[update] final class SequencedSubmissionsValidator(
       case _ => // Discarded submission
         FutureUnlessShutdown.pure(resultIfNoDeliverEvents)
     }
-  }
 }
 
 private[update] object SequencedSubmissionsValidator {
@@ -177,6 +161,6 @@ private[update] object SequencedSubmissionsValidator {
       inFlightAggregations: InFlightAggregations,
       inFlightAggregationUpdates: InFlightAggregationUpdates = Map.empty,
       lastSequencerEventTimestamp: Option[CantonTimestamp] = None,
-      reversedOutcomes: Seq[SubmissionRequestOutcome] = Seq.empty,
+      reversedOutcomes: Seq[SubmissionOutcome] = Seq.empty,
   )
 }

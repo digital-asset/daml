@@ -127,7 +127,8 @@ final class AvailabilityModule[E <: Env[E]](
                   exception,
                 )
               case Success(Left(exception)) =>
-                logger.warn(
+                // Info because it can also happen at epoch boundaries
+                logger.info(
                   s"Skipping message since we can't verify signature for ${signedMessage.message} (signature ${signedMessage.signature}) reason=$exception"
                 )
                 emitInvalidMessage(metrics, signedMessage.from)

@@ -12,6 +12,7 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.DeclarativeApiMetrics
 import com.digitalasset.canton.participant.config.LocalParticipantConfig
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherTUtil
 
 import java.util.concurrent.ScheduledExecutorService
 import scala.concurrent.{ExecutionContext, Future}
@@ -83,7 +84,7 @@ object DeclarativeApiManager {
               )
             }
           }
-          .getOrElse(EitherT.rightT(()))
+          .getOrElse(EitherTUtil.unit)
       }
 
       override def verifyConfig(name: String, config: C)(implicit
@@ -92,7 +93,6 @@ object DeclarativeApiManager {
         config.init.state
           .map(c => DeclarativeParticipantApi.readConfig(c.file).map(_ => ()))
           .getOrElse(Right(()))
-
     }
 
 }

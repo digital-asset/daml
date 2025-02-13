@@ -222,7 +222,8 @@ class SequencerInfoLoader(
   ): EitherT[FutureUnlessShutdown, Seq[LoadSequencerEndpointInformationResult.NotValid], Unit] =
     sequencerConnectionValidation match {
       case SequencerConnectionValidation.Disabled => EitherT.rightT(())
-      case SequencerConnectionValidation.All | SequencerConnectionValidation.Active =>
+      case SequencerConnectionValidation.All | SequencerConnectionValidation.Active |
+          SequencerConnectionValidation.ThresholdActive =>
         EitherT(
           loadSequencerEndpoints(
             alias,
@@ -233,6 +234,7 @@ class SequencerInfoLoader(
               SequencerInfoLoader.validateNewSequencerConnectionResults(
                 expectedSynchronizerId,
                 sequencerConnectionValidation,
+                sequencerConnections.sequencerTrustThreshold,
                 logger,
               )(_)
             )
@@ -456,6 +458,7 @@ object SequencerInfoLoader {
   def validateNewSequencerConnectionResults(
       expectedSynchronizerId: Option[SynchronizerId],
       sequencerConnectionValidation: SequencerConnectionValidation,
+      sequencerTrustThreshold: PositiveInt,
       logger: TracedLogger,
   )(
       results: Seq[LoadSequencerEndpointInformationResult]
@@ -473,13 +476,15 @@ object SequencerInfoLoader {
       case Nil =>
         accumulated
       case (notValid: LoadSequencerEndpointInformationResult.NotValid) :: rest =>
-        if (sequencerConnectionValidation != SequencerConnectionValidation.All) {
-          logger.info(
-            s"Skipping validation, as I am unable to obtain synchronizer id and sequencer-id: ${notValid.error} for ${notValid.sequencerConnection}"
-          )
-          go(reference, sequencerIds, rest, accumulated)
-        } else
-          go(reference, sequencerIds, rest, notValid +: accumulated)
+        sequencerConnectionValidation match {
+          case SequencerConnectionValidation.All | SequencerConnectionValidation.ThresholdActive =>
+            go(reference, sequencerIds, rest, notValid +: accumulated)
+          case SequencerConnectionValidation.Active | SequencerConnectionValidation.Disabled =>
+            logger.info(
+              s"Skipping validation, as I am unable to obtain synchronizer id and sequencer-id: ${notValid.error} for ${notValid.sequencerConnection}"
+            )
+            go(reference, sequencerIds, rest, accumulated)
+        }
       case (valid: LoadSequencerEndpointInformationResult.Valid) :: rest =>
         val result = for {
           // check that synchronizer id matches the reference
@@ -560,7 +565,10 @@ object SequencerInfoLoader {
 
     }
     val collected = go(None, Map.empty, results.toList, Seq.empty)
-    Either.cond(collected.isEmpty, (), collected)
+    if (collected.isEmpty) Either.unit
+    else if (sequencerConnectionValidation == SequencerConnectionValidation.ThresholdActive)
+      Either.cond(results.size - collected.size >= sequencerTrustThreshold.unwrap, (), collected)
+    else Left(collected)
   }
 
   /** Aggregates the endpoint information into the actual connection
@@ -588,10 +596,9 @@ object SequencerInfoLoader {
     validateNewSequencerConnectionResults(
       expectedSynchronizerId,
       sequencerConnectionValidation,
+      sequencerTrustThreshold,
       logger,
-    )(
-      fullResult.toList
-    ) match {
+    )(fullResult) match {
       case Right(()) =>
         val validSequencerConnections = fullResult
           .collect { case valid: LoadSequencerEndpointInformationResult.Valid =>

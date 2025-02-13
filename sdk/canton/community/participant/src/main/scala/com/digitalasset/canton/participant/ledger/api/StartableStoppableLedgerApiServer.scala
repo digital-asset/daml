@@ -19,7 +19,7 @@ import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
 }
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{InProcessGrpcName, ProcessingTimeout}
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.data.Offset
@@ -41,11 +41,7 @@ import com.digitalasset.canton.ledger.participant.state.{InternalStateService, P
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.LifeCycle.FastCloseableChannel
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.{
-  ApiRequestLogger,
-  CantonGrpcUtil,
-  ClientChannelBuilder,
-}
+import com.digitalasset.canton.networking.grpc.{ApiRequestLogger, CantonGrpcUtil}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.platform.ResourceOwnerOps
@@ -67,6 +63,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Engine
+import io.grpc.inprocess.InProcessChannelBuilder
 import io.grpc.{BindableService, ServerInterceptor, ServerServiceDefinition}
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTelemetry
@@ -477,8 +474,9 @@ class StartableStoppableLedgerApiServer(
         for {
           channel <- ResourceOwner
             .forReleasable(() =>
-              ClientChannelBuilder
-                .createChannelBuilderToTrustedServer(config.serverConfig.clientConfig)
+              InProcessChannelBuilder
+                .forName(InProcessGrpcName.forPort(config.serverConfig.clientConfig.port))
+                .executor(executionContext.execute(_))
                 .build()
             )(channel =>
               Future(

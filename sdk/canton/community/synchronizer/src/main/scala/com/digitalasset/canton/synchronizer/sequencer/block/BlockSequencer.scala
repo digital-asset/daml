@@ -139,7 +139,6 @@ class BlockSequencer(
     noTracingLogger.info(s"Subscribing to block source from ${headState.block.height + 1}")
 
     val updateGenerator = new BlockUpdateGeneratorImpl(
-      synchronizerId,
       protocolVersion,
       cryptoApi,
       sequencerId,

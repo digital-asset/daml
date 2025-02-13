@@ -45,7 +45,6 @@ import SequencedSubmissionsValidator.SequencedSubmissionsValidationResult
 /** Processes a chunk of events in a block, yielding a [[ChunkUpdate]].
   */
 final class BlockChunkProcessor(
-    synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
     synchronizerSyncCryptoApi: SynchronizerCryptoClient,
     sequencerId: SequencerId,
@@ -59,8 +58,6 @@ final class BlockChunkProcessor(
 
   private val sequencedSubmissionsValidator =
     new SequencedSubmissionsValidator(
-      synchronizerId,
-      protocolVersion,
       synchronizerSyncCryptoApi,
       sequencerId,
       rateLimitManager,
@@ -144,7 +141,7 @@ final class BlockChunkProcessor(
       // using the lastTs computed initially pre-validation.
       lastChunkTsOfSuccessfulEvents =
         reversedOutcomes
-          .collect { case SubmissionRequestOutcome(_, _, o: DeliverableSubmissionOutcome) =>
+          .collect { case o: DeliverableSubmissionOutcome =>
             o.sequencingTime
           }
           .maxOption
@@ -220,26 +217,23 @@ final class BlockChunkProcessor(
           latestSequencerEventTimestamp = Some(tickSequencingTimestamp),
         )
       val tickSubmissionOutcome =
-        SubmissionRequestOutcome(
-          Map.empty, // Sequenced events are legacy and will be removed, so no need to generate them
-          None,
-          outcome = SubmissionOutcome.Deliver(
-            SubmissionRequest.tryCreate(
-              sender = sequencerId,
-              messageId = MessageId.tryCreate(s"topology-tick-$height"),
-              batch = Batch.empty(protocolVersion),
-              maxSequencingTime = tickSequencingTimestamp,
-              topologyTimestamp = None,
-              aggregationRule = None,
-              submissionCost = None,
-              protocolVersion = protocolVersion,
-            ),
-            sequencingTime = tickSequencingTimestamp,
-            deliverToMembers = sequencerRecipients(SequencersOfSynchronizer),
+        SubmissionOutcome.Deliver(
+          SubmissionRequest.tryCreate(
+            sender = sequencerId,
+            messageId = MessageId.tryCreate(s"topology-tick-$height"),
             batch = Batch.empty(protocolVersion),
-            submissionTraceContext = TraceContext.createNew(),
-            trafficReceiptO = None,
+            maxSequencingTime = tickSequencingTimestamp,
+            topologyTimestamp = None,
+            aggregationRule = None,
+            submissionCost = None,
+            protocolVersion = protocolVersion,
           ),
+          sequencingTime = tickSequencingTimestamp,
+          deliverToMembers = sequencerRecipients(SequencersOfSynchronizer),
+          batch = Batch.empty(protocolVersion),
+          submissionTraceContext = TraceContext.createNew(),
+          trafficReceiptO = None,
+          inFlightAggregation = None,
         )
       val chunkUpdate = ChunkUpdate(
         acknowledgements = Map.empty,

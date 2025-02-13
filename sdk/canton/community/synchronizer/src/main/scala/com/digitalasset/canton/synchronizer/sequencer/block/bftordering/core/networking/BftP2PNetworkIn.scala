@@ -47,10 +47,12 @@ class BftP2PNetworkIn[E <: Env[E]](
       context: E#ActorContextT[BftOrderingServiceReceiveRequest],
       traceContext: TraceContext,
   ): Unit = {
-    logger.debug(s"Received network message $message")
+    val sentBySequencerUid = message.sentBySequencerUid
+    logger.debug(s"Received network message from $sentBySequencerUid")
+    logger.trace(s"Message from $sentBySequencerUid is: $message")
     val start = Instant.now
     val sequencerIdOrError = UniqueIdentifier
-      .fromProtoPrimitive(message.sentBySequencerUid, "sent_by_sequencer_uid")
+      .fromProtoPrimitive(sentBySequencerUid, "sent_by_sequencer_uid")
       .map(SequencerId(_))
       .leftMap(_.toString)
     parseAndForwardBody(

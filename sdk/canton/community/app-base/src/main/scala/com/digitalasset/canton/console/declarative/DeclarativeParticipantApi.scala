@@ -15,6 +15,7 @@ import com.digitalasset.canton.admin.api.client.commands.{
 }
 import com.digitalasset.canton.admin.api.client.data.LedgerApiUser
 import com.digitalasset.canton.auth.CantonAdminToken
+import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ClientConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.GrpcAdminCommandRunner
@@ -195,7 +196,7 @@ final case class DeclarativeSequencerConnectionConfig(
   *                       observed
   */
 final case class DeclarativeConnectionConfig(
-    synchronizerAlias: String,
+    synchronizerAlias: SynchronizerAlias,
     connections: NonEmpty[Map[String, DeclarativeSequencerConnectionConfig]],
     manualConnect: Boolean = false,
     priority: Int = 0,
@@ -203,37 +204,43 @@ final case class DeclarativeConnectionConfig(
     trustThreshold: PositiveInt = PositiveInt.one,
 ) {
 
-  def isEquivalent(other: DeclarativeConnectionConfig): Boolean =
-    manualConnect == other.manualConnect &&
-      priority == other.priority &&
-      initializeFromTrustedSynchronizer == other.initializeFromTrustedSynchronizer &&
-      trustThreshold == other.trustThreshold &&
-      connections.keySet == other.connections.keySet &&
+  def isEquivalent(other: DeclarativeConnectionConfig): Boolean = {
+    val areConnectionsEquivalent = connections.keySet == other.connections.keySet &&
       connections.forall { case (name, conn) =>
         other.connections.get(name).exists(_.isEquivalent(conn))
       }
 
-  def toSynchronizerConnectionConfig: SynchronizerConnectionConfig =
-    SynchronizerConnectionConfig(
-      synchronizerAlias = SynchronizerAlias.tryCreate(synchronizerAlias),
-      sequencerConnections = SequencerConnections
-        .many(
-          connections = connections.map { case (alias, conn) =>
-            GrpcSequencerConnection(
-              endpoints = conn.endpoints,
-              transportSecurity = conn.transportSecurity,
-              sequencerAlias = SequencerAlias.tryCreate(alias),
-              customTrustCertificates = conn.customTrustCertificatesAsByteString.toOption.flatten,
-            )
-          }.toSeq,
-          sequencerTrustThreshold = trustThreshold,
-          submissionRequestAmplification = SubmissionRequestAmplification.NoAmplification,
-        )
-        .getOrElse(throw new IllegalArgumentException("Cannot create sequencer connections")),
-      manualConnect = manualConnect,
-      priority = priority,
-      initializeFromTrustedSynchronizer = initializeFromTrustedSynchronizer,
-    )
+    if (areConnectionsEquivalent)
+      this.copy(connections = other.connections) == other
+    else false
+  }
+
+  def toSynchronizerConnectionConfig: Either[String, SynchronizerConnectionConfig] = {
+    val sequencerConnectionsE = SequencerConnections
+      .many(
+        connections = connections.map { case (alias, conn) =>
+          GrpcSequencerConnection(
+            endpoints = conn.endpoints,
+            transportSecurity = conn.transportSecurity,
+            sequencerAlias = SequencerAlias.tryCreate(alias),
+            customTrustCertificates = conn.customTrustCertificatesAsByteString.toOption.flatten,
+          )
+        }.toSeq,
+        sequencerTrustThreshold = trustThreshold,
+        submissionRequestAmplification = SubmissionRequestAmplification.NoAmplification,
+      )
+
+    sequencerConnectionsE.map { sequencerConnections =>
+      SynchronizerConnectionConfig(
+        synchronizerAlias = synchronizerAlias,
+        sequencerConnections = sequencerConnections,
+        manualConnect = manualConnect,
+        priority = priority,
+        initializeFromTrustedSynchronizer = initializeFromTrustedSynchronizer,
+      )
+    }
+
+  }
 
 }
 
@@ -643,11 +650,13 @@ class DeclarativeParticipantApi(
       checkSelfConsistent: Boolean,
   )(implicit traceContext: TraceContext): Either[String, UpdateResult] = {
 
-    def toDeclarative(config: SynchronizerConnectionConfig): (String, DeclarativeConnectionConfig) =
+    def toDeclarative(
+        config: SynchronizerConnectionConfig
+    ): (SynchronizerAlias, DeclarativeConnectionConfig) =
       (
-        config.synchronizerAlias.unwrap,
+        config.synchronizerAlias,
         DeclarativeConnectionConfig(
-          synchronizerAlias = config.synchronizerAlias.unwrap,
+          synchronizerAlias = config.synchronizerAlias,
           connections = config.sequencerConnections.aliasToConnection.map {
             case (alias, connection: GrpcSequencerConnection) =>
               (
@@ -666,20 +675,21 @@ class DeclarativeParticipantApi(
         ),
       )
 
-    def fetchConnections(): Either[String, (Seq[(String, DeclarativeConnectionConfig)])] =
+    def fetchConnections(): Either[String, Seq[(SynchronizerAlias, DeclarativeConnectionConfig)]] =
       queryAdminApi(ParticipantAdminCommands.SynchronizerConnectivity.ListRegisteredSynchronizers)
-        .map(_.map(_._1).map(toDeclarative))
+        .map(_.map { case (synchronizerConnectionConfig, _) => synchronizerConnectionConfig }
+          .map(toDeclarative))
 
-    def removeSynchronizerConnection(alias: String): Either[String, Unit] = {
-      val synchronizerAlias = SynchronizerAlias.tryCreate(alias)
+    def removeSynchronizerConnection(synchronizerAlias: SynchronizerAlias): Either[String, Unit] =
       // cannot really remove connections for now, just disconnect and disable
       for {
         currentO <- queryAdminApi(
           ParticipantAdminCommands.SynchronizerConnectivity.ListRegisteredSynchronizers
-        ).map(_.find(_._1.synchronizerAlias == synchronizerAlias))
+        ).map(_.collectFirst {
+          case (config, _) if config.synchronizerAlias == synchronizerAlias => config
+        })
         current <- currentO
-          .toRight(s"Unable to find configuration for synchronizer $alias")
-          .map(_._1)
+          .toRight(s"Unable to find configuration for synchronizer $synchronizerAlias")
         _ <- queryAdminApi(
           ParticipantAdminCommands.SynchronizerConnectivity.DisconnectSynchronizer(
             synchronizerAlias
@@ -693,31 +703,39 @@ class DeclarativeParticipantApi(
         )
       } yield ()
 
-    }
+    def add(config: DeclarativeConnectionConfig): Either[String, Unit] =
+      for {
+        synchronizerConnectionConfig <- config.toSynchronizerConnectionConfig
+        _ <- queryAdminApi(
+          ParticipantAdminCommands.SynchronizerConnectivity.ConnectSynchronizer(
+            synchronizerConnectionConfig,
+            sequencerConnectionValidation = SequencerConnectionValidation.Active,
+          )
+        )
+      } yield ()
 
-    run[String, DeclarativeConnectionConfig](
+    def update(config: DeclarativeConnectionConfig) =
+      for {
+        synchronizerConnectionConfig <- config.toSynchronizerConnectionConfig
+        _ <- queryAdminApi(
+          ParticipantAdminCommands.SynchronizerConnectivity.ModifySynchronizerConnection(
+            synchronizerConnectionConfig,
+            sequencerConnectionValidation = SequencerConnectionValidation.Active,
+          )
+        )
+      } yield ()
+
+    run[SynchronizerAlias, DeclarativeConnectionConfig](
       "connections",
       removeExcess = removeConnections,
       checkSelfConsistent = checkSelfConsistent,
       want = connections.map(c => (c.synchronizerAlias, c)),
       fetch = _ => fetchConnections(),
-      add = { case (_, config) =>
-        queryAdminApi(
-          ParticipantAdminCommands.SynchronizerConnectivity.ConnectSynchronizer(
-            config.toSynchronizerConnectionConfig,
-            sequencerConnectionValidation = SequencerConnectionValidation.Active,
-          )
-        )
-      },
+      add = { case (_, config) => add(config) },
       upd = { case (_, config, existing) =>
         if (config.isEquivalent(existing)) Either.unit
         else
-          queryAdminApi(
-            ParticipantAdminCommands.SynchronizerConnectivity.ModifySynchronizerConnection(
-              config.toSynchronizerConnectionConfig,
-              sequencerConnectionValidation = SequencerConnectionValidation.Active,
-            )
-          )
+          update(config)
       },
       rm = removeSynchronizerConnection,
       compare = Some { case (x, y) => x.isEquivalent(y) },
@@ -826,6 +844,9 @@ object DeclarativeParticipantApi {
     import pureconfig.ConfigReader
     import pureconfig.generic.semiauto.*
     // import canton config to include the implicit that prevents unknown keys
+
+    implicit val synchronizerAliasReader: ConfigReader[SynchronizerAlias] =
+      ConfigReader[String255].map(SynchronizerAlias(_))
 
     implicit val declarativeParticipantConfigReader: ConfigReader[DeclarativeParticipantConfig] = {
       implicit val darConfigReader: ConfigReader[DeclarativeDarConfig] =

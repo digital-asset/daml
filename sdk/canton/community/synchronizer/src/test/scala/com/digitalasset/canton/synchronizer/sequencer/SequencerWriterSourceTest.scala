@@ -424,6 +424,7 @@ class SequencerWriterSourceTest
                 batch = batch,
                 submissionTraceContext = TraceContext.empty,
                 trafficReceiptO = None,
+                inFlightAggregation = None,
               )
             )
         )("send to unknown recipient")
@@ -611,6 +612,7 @@ class SequencerWriterSourceTest
               batch = batch,
               submissionTraceContext = TraceContext.empty,
               trafficReceiptO = None,
+              inFlightAggregation = None,
             )
           )
         )("send").failOnShutdown

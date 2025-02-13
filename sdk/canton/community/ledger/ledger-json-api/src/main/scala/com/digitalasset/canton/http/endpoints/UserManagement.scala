@@ -179,7 +179,7 @@ final class UserManagement(
 
   private def aggregateListUserPages(
       token: Option[String],
-      pageSize: Int = 1000, // TODO could be made configurable in the future
+      pageSize: Int = 1000,
   )(implicit traceContext: TraceContext): Source[Error \/ User, NotUsed] = {
     import scalaz.std.option.*
     Source.unfoldAsync(some("")) {

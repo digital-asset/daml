@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts, ProcessingTimeout}
-import com.digitalasset.canton.crypto.SynchronizerCryptoClient
+import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.TracedLogger
@@ -18,6 +18,7 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
+import com.digitalasset.canton.sequencing.client.RequestSigner
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.store.{InMemorySequencerStore, SequencerStore}
@@ -82,24 +83,33 @@ class SequencerTest
       loggerFactory = loggerFactory,
     )
     val clock = new WallClock(timeouts, loggerFactory = loggerFactory)
+    private val testingTopology = TestingTopology(
+      sequencerGroup = SequencerGroup(
+        active = Seq(SequencerId(synchronizerId.uid)),
+        passive = Seq.empty,
+        threshold = PositiveInt.one,
+      ),
+      participants = Seq(
+        alice,
+        bob,
+        carole,
+      ).map((_, ParticipantAttributes(ParticipantPermission.Confirmation))).toMap,
+    )
+      .build(loggerFactory)
+
     val crypto: SynchronizerCryptoClient = valueOrFail(
-      TestingTopology(
-        sequencerGroup = SequencerGroup(
-          active = Seq(SequencerId(synchronizerId.uid)),
-          passive = Seq.empty,
-          threshold = PositiveInt.one,
-        ),
-        participants = Seq(
-          alice,
-          bob,
-          carole,
-        ).map((_, ParticipantAttributes(ParticipantPermission.Confirmation))).toMap,
-      )
-        .build(loggerFactory)
+      testingTopology
         .forOwner(SequencerId(synchronizerId.uid))
         .forSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
         .toRight("crypto error")
     )("building crypto")
+    val aliceCrypto: SynchronizerCryptoClient = valueOrFail(
+      testingTopology
+        .forOwner(alice)
+        .forSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
+        .toRight("crypto error")
+    )("building alice crypto")
+
     val metrics: SequencerMetrics = SequencerMetrics.noop("sequencer-test")
 
     val dbConfig = CommunitySequencerConfig.Database()
@@ -231,7 +241,10 @@ class SequencerTest
         )(
           "member registration"
         )
-        _ <- sequencer.sendAsync(submission).valueOrFail("send")
+        signedSubmission <- RequestSigner(aliceCrypto, testedProtocolVersion, loggerFactory)
+          .signRequest(submission, HashPurpose.SubmissionRequestSignature)
+          .valueOrFail("sign request")
+        _ <- sequencer.sendAsyncSigned(signedSubmission).valueOrFail("send")
         aliceDeliverEvent <- readAsSeq(alice, 1)
           .map(_.loneElement.signedEvent.content)
           .map(asDeliverEvent)

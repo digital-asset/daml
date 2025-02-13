@@ -406,8 +406,7 @@ final class IssConsensusModule[E <: Env[E]](
 
       case Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(underlyingNetworkMessage) =>
         context.pipeToSelf(
-          signatureVerifier
-            .verify(underlyingNetworkMessage, activeTopologyInfo.currentCryptoProvider)
+          signatureVerifier.verify(underlyingNetworkMessage, activeTopologyInfo)
         ) {
           case Failure(error) =>
             logger.warn(
@@ -423,7 +422,8 @@ final class IssConsensusModule[E <: Env[E]](
             )
             None
           case Success(Left(errors)) =>
-            logger.warn(
+            // Info because it can also happen at epoch boundaries
+            logger.info(
               s"Message $underlyingNetworkMessage from ${underlyingNetworkMessage.from} failed validation, dropping: $errors"
             )
             emitNonCompliance(metrics)(
