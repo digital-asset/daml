@@ -535,6 +535,21 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
         ),
       )
     }
+    s"Succeeds when template upgrades its key type" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v1.dar",
+          "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v1.dar",
+            "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v2.dar",
+            None,
+          )
+        ),
+      )
+    }
     s"Fails when template removes key type" in {
       testPackages(
         Seq(
