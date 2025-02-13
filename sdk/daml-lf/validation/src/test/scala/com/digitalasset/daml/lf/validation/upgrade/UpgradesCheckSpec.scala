@@ -547,7 +547,7 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
             "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v2.dar",
             None,
           )
-        )
+        ),
       )
     }
     s"Fails when template removes key type" in {
