@@ -37,6 +37,8 @@ Data Types
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"additionalInfoCid\" :ref:`ContractNotFoundAdditionalInfo <type-daml-script-internal-questions-submit-error-contractnotfoundadditionalinfo-6199>` `AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399_>`_
 
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"coid\" :ref:`UpgradeErrorType <type-daml-script-internal-questions-submit-error-upgradeerrortype-94779>` `AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399_>`_
+
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"contractId\" :ref:`SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284>` `AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399_>`_
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"contractId\" :ref:`Created <type-daml-script-internal-questions-transactiontree-created-98301>` `AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399_>`_
@@ -50,6 +52,8 @@ Data Types
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"templateId\" `AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399_>`_ `TemplateTypeRep <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"additionalInfoCid\" :ref:`ContractNotFoundAdditionalInfo <type-daml-script-internal-questions-submit-error-contractnotfoundadditionalinfo-6199>` `AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399_>`_
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"coid\" :ref:`UpgradeErrorType <type-daml-script-internal-questions-submit-error-upgradeerrortype-94779>` `AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399_>`_
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"contractId\" :ref:`SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284>` `AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399_>`_
 
