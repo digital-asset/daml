@@ -266,7 +266,9 @@ class SequencerInfoLoader(
       sequencerInfoLoadParallelism,
       Option.when(!loadAllEndpoints)(
         // TODO(#19911): Make the threshold configurable
-        sequencerConnections.sequencerTrustThreshold * PositiveInt.two + PositiveInt.one
+        // We want to read from 2f+1 sequencers to tolerate f faulty ones and still reach consensus.
+        // This formula assumes that the threshold t is set to f+1, i.e., we read from 2t-1 sequencers.
+        PositiveInt.tryCreate(sequencerConnections.sequencerTrustThreshold.unwrap * 2 - 1)
       ),
     ) { connection =>
       getBootstrapInfoSynchronizerParameters(synchronizerAlias)(connection).value

@@ -178,7 +178,7 @@ class SequencerNodeBootstrap(
       storeId: TopologyStoreId
   ): Option[SynchronizerTopologyClient] =
     storeId match {
-      case SynchronizerStore(synchronizerId, _) =>
+      case SynchronizerStore(synchronizerId) =>
         topologyClient.get.filter(_.synchronizerId == synchronizerId)
       case _ => None
     }

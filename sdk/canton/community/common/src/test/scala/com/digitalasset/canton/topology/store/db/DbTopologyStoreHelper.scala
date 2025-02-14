@@ -4,46 +4,47 @@
 package com.digitalasset.canton.topology.store.db
 
 import com.digitalasset.canton.TestEssentials
-import com.digitalasset.canton.config.CantonRequireTypes.String68
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbTest
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.MonadUtil
 
 trait DbTopologyStoreHelper {
 
   this: DbTest & TestEssentials =>
 
-  // Using test name as discriminator to avoid db-unit-test clashes such as non-X DbTopologyStoreTest.
-  // We reuse the `topology_dispatching` table from non-X topology management.
-  private val discriminator = String68.tryCreate(getClass.getSimpleName.takeRight(40))
+  @volatile
+  private var storesToCleanup = List.empty[TopologyStore[_]]
+
   override def cleanDb(
       storage: DbStorage
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    import storage.api.*
-    storage.update(
-      DBIO.seq(
-        sqlu"delete from common_topology_transactions where store_id like $discriminator || '%'"
-      ),
-      operationName = s"${this.getClass}: Delete common_topology_transactions for $discriminator",
-    )
-  }
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    MonadUtil
+      .sequentialTraverse_[FutureUnlessShutdown, TopologyStore[_]](storesToCleanup)(
+        _.deleteAllData()
+      )
+      .map { _ =>
+        storesToCleanup = Nil
+      }
 
   protected val maxItemsInSqlQuery: PositiveInt = PositiveInt.tryCreate(20)
 
-  protected def createTopologyStore(
+  protected def mkStore(
       synchronizerId: SynchronizerId
-  ): TopologyStore[SynchronizerStore] =
-    new DbTopologyStore(
+  ): TopologyStore[TopologyStoreId.SynchronizerStore] = {
+    val store = new DbTopologyStore(
       storage,
-      TopologyStoreId.SynchronizerStore(synchronizerId, discriminator.str),
+      TopologyStoreId.SynchronizerStore(synchronizerId),
       testedProtocolVersion,
       timeouts,
       loggerFactory,
       maxItemsInSqlQuery = maxItemsInSqlQuery,
     )
+    storesToCleanup = store :: storesToCleanup
+    store
+  }
 }

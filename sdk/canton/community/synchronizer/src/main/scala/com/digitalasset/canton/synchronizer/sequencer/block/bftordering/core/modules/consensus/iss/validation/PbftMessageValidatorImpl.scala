@@ -20,12 +20,12 @@ final class PbftMessageValidatorImpl(epoch: Epoch, metrics: BftOrderingMetrics)(
     mc: MetricsContext
 ) extends PbftMessageValidator {
 
+  import PbftMessageValidatorImpl.*
+
   def validatePrePrepare(prePrepare: PrePrepare, firstInSegment: Boolean): Either[String, Unit] = {
     val block = prePrepare.block
     val prePrepareEpochNumber = prePrepare.blockMetadata.epochNumber
     val validatorEpochNumber = epoch.info.number
-    val canonicalCommitSet = prePrepare.canonicalCommitSet.sortedCommits
-    val canonicalCommitSetEpochs = canonicalCommitSet.map(_.message.blockMetadata.epochNumber)
 
     if (validatorEpochNumber != prePrepareEpochNumber) {
       // Messages/PrePrepares from wrong/different epochs are filtered out at the Consensus module level.
@@ -35,37 +35,14 @@ final class PbftMessageValidatorImpl(epoch: Epoch, metrics: BftOrderingMetrics)(
       )
     }
 
-    // A canonical commit set for a non-empty block should only be empty for the first block after state transfer,
-    //  but it's hard to fully enforce.
-    val canonicalCommitSetCanBeEmpty = block.proofs.isEmpty || firstInSegment
-
     // The first blocks proposed by each genesis leader should be empty so that actual transactions are not assigned
     //  inaccurate timestamps due to empty canonical commit sets.
     val blockCanBeNonEmpty = prePrepareEpochNumber != EpochNumber.First || !firstInSegment
 
     for {
-      _ <- Either.cond(
-        canonicalCommitSet.nonEmpty || canonicalCommitSetCanBeEmpty,
-        (), {
-          emitNonComplianceMetrics(prePrepare)
-          s"Canonical commit set is empty for block ${prePrepare.blockMetadata} with ${block.proofs.size} " +
-            "proofs of availability, but it can only be empty for empty blocks or first blocks in segments"
-        },
-      )
-
-      _ <- Either.cond(
-        canonicalCommitSet.isEmpty || canonicalCommitSetEpochs.distinct.sizeIs == 1,
-        (), {
-          emitNonComplianceMetrics(prePrepare)
-          s"Canonical commits contain different epochs $canonicalCommitSetEpochs, should contain just one"
-        },
-      )
-
-      // TODO(#23335): further validate canonical commits
-
-      _ <- validateCanonicalCommitSetQuorum(prePrepare)
-
       _ <- validateProofsOfAvailability(prePrepare)
+
+      _ <- validateCanonicalCommitSet(prePrepare, firstInSegment)
 
       _ <- Either.cond(
         blockCanBeNonEmpty || block.proofs.isEmpty,
@@ -102,6 +79,45 @@ final class PbftMessageValidatorImpl(epoch: Epoch, metrics: BftOrderingMetrics)(
         )
       } yield ()
     }
+
+  private def validateCanonicalCommitSet(prePrepare: PrePrepare, firstInSegment: Boolean) = {
+    val block = prePrepare.block
+    val canonicalCommitSet = prePrepare.canonicalCommitSet.sortedCommits
+    val canonicalCommitSetEpochs = canonicalCommitSet.map(_.message.blockMetadata.epochNumber)
+    // A canonical commit set for a non-empty block should only be empty for the first block after state transfer,
+    //  but it's hard to fully enforce.
+    val canonicalCommitSetCanBeEmpty = block.proofs.isEmpty || firstInSegment
+
+    for {
+      _ <- Either.cond(
+        canonicalCommitSet.nonEmpty || canonicalCommitSetCanBeEmpty,
+        (), {
+          emitNonComplianceMetrics(prePrepare)
+          s"Canonical commit set is empty for block ${prePrepare.blockMetadata} with ${block.proofs.size} " +
+            "proofs of availability, but it can only be empty for empty blocks or first blocks in segments"
+        },
+      )
+
+      senderIds = canonicalCommitSet.map(_.from)
+      _ <- Either.cond(
+        senderIds.distinct.sizeIs == canonicalCommitSet.size,
+        (), {
+          emitNonComplianceMetrics(prePrepare)
+          s"Canonical commits contain duplicate senders: $senderIds"
+        },
+      )
+
+      _ <- Either.cond(
+        canonicalCommitSet.isEmpty || canonicalCommitSetEpochs.distinct.sizeIs == 1,
+        (), {
+          emitNonComplianceMetrics(prePrepare)
+          s"Canonical commits contain different epochs $canonicalCommitSetEpochs, should contain just one"
+        },
+      )
+
+      _ <- validateCanonicalCommitSetQuorum(prePrepare)
+    } yield ()
+  }
 
   private def validateCanonicalCommitSetQuorum(
       prePrepare: PrePrepare
@@ -154,6 +170,9 @@ final class PbftMessageValidatorImpl(epoch: Epoch, metrics: BftOrderingMetrics)(
       metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
     )
   }
+}
+
+object PbftMessageValidatorImpl {
 
   private def forallEither[X](
       xs: Seq[X]

@@ -41,7 +41,7 @@ service TopologyManagerReadService {
 }
 
 message BaseQuery {
-  StoreId filter_store = 1;
+  StoreId store = 1;
 
   // whether to query only for proposals instead of approved topology mappings
   bool proposals = 2;
@@ -263,7 +263,7 @@ message ListPurgeTopologyTransactionResponse {
 message ListAvailableStoresRequest {}
 
 message ListAvailableStoresResponse {
-  repeated string store_ids = 1;
+  repeated StoreId store_ids = 1;
 }
 
 message ListAllRequest {
@@ -289,7 +289,7 @@ message ExportTopologySnapshotResponse {
 
 message GenesisStateRequest {
   // Must be specified if the genesis state is requested from a participant node.
-  StoreId filter_synchronizer_store = 1;
+  optional StoreId synchronizer_store = 1;
   // Optional - the effective time used to fetch the topology transactions. If not provided the effective time of the last topology transaction is used.
   google.protobuf.Timestamp timestamp = 2;
 }

@@ -6,6 +6,7 @@ package com.digitalasset.canton.topology.admin.grpc
 import cats.data.EitherT
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
+import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -42,14 +43,15 @@ class GrpcTopologyAggregationService(
       loggerFactory,
     )
 
-  private def snapshots(filterStore: String, asOf: Option[ProtoTimestamp])(implicit
+  private def snapshots(synchronizerIds: Set[SynchronizerId], asOf: Option[ProtoTimestamp])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, List[(SynchronizerId, TopologySnapshotLoader)]] =
     for {
       asOfO <- wrapErrUS(asOf.traverse(CantonTimestamp.fromProtoTimestamp))
     } yield {
       stores.collect {
-        case store if store.storeId.filterName.startsWith(filterStore) =>
+        case store
+            if synchronizerIds.contains(store.storeId.synchronizerId) || synchronizerIds.isEmpty =>
           val synchronizerId = store.storeId.synchronizerId
           // get approximate timestamp from synchronizer client to prevent race conditions (when we have written data into the stores but haven't yet updated the client)
           val asOf = asOfO.getOrElse(
@@ -113,10 +115,15 @@ class GrpcTopologyAggregationService(
       request: v30.ListPartiesRequest
   ): Future[v30.ListPartiesResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val v30.ListPartiesRequest(asOfP, limit, filterSynchronizer, filterParty, filterParticipant) =
+    val v30.ListPartiesRequest(asOfP, limit, synchronizerIdsP, filterParty, filterParticipant) =
       request
     val res: EitherT[FutureUnlessShutdown, CantonError, v30.ListPartiesResponse] = for {
-      matched <- snapshots(filterSynchronizer, asOfP)
+      synchronizerIds <- EitherT
+        .fromEither[FutureUnlessShutdown](
+          synchronizerIdsP.traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_ids"))
+        )
+        .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
+      matched <- snapshots(synchronizerIds.toSet, asOfP)
       parties <- EitherT.right(
         findMatchingParties(matched, filterParty, filterParticipant, limit)
       )
@@ -156,7 +163,13 @@ class GrpcTopologyAggregationService(
           .emptyStringAsNone(request.filterKeyOwnerType)
           .traverse(code => MemberCode.fromProtoPrimitive(code, "filterKeyOwnerType"))
       ): EitherT[FutureUnlessShutdown, CantonError, Option[MemberCode]]
-      matched <- snapshots(request.filterSynchronizerId, request.asOf)
+      synchronizerIds <- EitherT
+        .fromEither[FutureUnlessShutdown](
+          request.synchronizerIds.traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_ids"))
+        )
+        .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
+
+      matched <- snapshots(synchronizerIds.toSet, request.asOf)
       res <- EitherT.right(matched.parTraverse { case (storeId, client) =>
         client.inspectKeys(request.filterKeyOwnerUid, keyOwnerTypeO, request.limit).map { res =>
           (storeId, res)

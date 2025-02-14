@@ -201,18 +201,10 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         )
         with TopologyManagerError
 
-    final case class InvalidFilterStore(filterStore: String)(implicit
+    final case class MultipleSynchronizerStoresFound(storeId: TopologyStoreId)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"No synchronizer store found for the filter store provided: $filterStore"
-        )
-        with TopologyManagerError
-
-    final case class MultipleSynchronizerStores(filterStore: String)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause =
-            s"Multiple synchronizer stores found for the filter store provided: $filterStore. Specify the entire synchronizerId to avoid ambiguity."
+          cause = s"Multiple synchronizer stores found for the provided storeId: $storeId."
         )
         with TopologyManagerError
   }

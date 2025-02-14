@@ -5,6 +5,7 @@ package com.digitalasset.canton.admin.api.client.data
 
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.TrafficControlParameters as TrafficControlParametersInternal
 import com.digitalasset.canton.time.PositiveFiniteDuration as InternalPositiveFiniteDuration
 
@@ -15,7 +16,15 @@ final case class TrafficControlParameters(
     maxBaseTrafficAccumulationDuration: config.PositiveFiniteDuration,
     setBalanceRequestSubmissionWindowSize: config.PositiveFiniteDuration,
     enforceRateLimiting: Boolean,
-) {
+) extends PrettyPrinting {
+
+  override protected def pretty: Pretty[TrafficControlParameters] = prettyOfClass(
+    param("max base traffic amount", _.maxBaseTrafficAmount),
+    param("read vs write scaling factor", _.readVsWriteScalingFactor),
+    param("max base traffic accumulation duration", _.maxBaseTrafficAccumulationDuration),
+    param("set balance request submission window size", _.setBalanceRequestSubmissionWindowSize),
+    param("enforce rate limiting", _.enforceRateLimiting),
+  )
 
   private[canton] def toInternal: TrafficControlParametersInternal =
     TrafficControlParametersInternal(

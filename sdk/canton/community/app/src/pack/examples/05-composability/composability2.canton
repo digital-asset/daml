@@ -61,7 +61,7 @@ def addPartyToParticipant(partyId: PartyId, synchronizerId: SynchronizerId, crea
     participant.topology.party_to_participant_mappings.propose_delta(
       partyId,
       adds = List((to.id, ParticipantPermission.Submission)),
-      store = synchronizerId.filterString,
+      store = synchronizerId,
     )
   )
 }

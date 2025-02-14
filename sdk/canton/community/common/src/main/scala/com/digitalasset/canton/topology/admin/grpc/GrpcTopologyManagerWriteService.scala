@@ -314,7 +314,7 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
       )
       manager <- EitherT
         .fromOption[FutureUnlessShutdown](
-          managers.find(_.store.storeId.filterName == targetStore.filterString),
+          managers.find(_.store.storeId == targetStore.toInternal),
           TopologyManagerError.TopologyStoreUnknown.Failure(targetStore.toInternal),
         )
         .leftWiden[CantonError]

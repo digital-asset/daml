@@ -17,7 +17,6 @@ import com.digitalasset.canton.crypto.{Fingerprint, Hash}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer
 import com.digitalasset.canton.topology.admin.grpc.{BaseQuery, TopologyStoreId}
 import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.admin.v30.*
@@ -500,7 +499,7 @@ object TopologyAdminCommands {
 
     final case class ListStores()
         extends BaseCommand[v30.ListAvailableStoresRequest, v30.ListAvailableStoresResponse, Seq[
-          String
+          TopologyStoreId
         ]] {
 
       override protected def createRequest(): Either[String, v30.ListAvailableStoresRequest] =
@@ -514,8 +513,8 @@ object TopologyAdminCommands {
 
       override protected def handleResponse(
           response: v30.ListAvailableStoresResponse
-      ): Either[String, Seq[String]] =
-        Right(response.storeIds)
+      ): Either[String, Seq[TopologyStoreId]] =
+        response.storeIds.traverse(TopologyStoreId.fromProtoV30(_, "store_ids")).leftMap(_.message)
     }
 
     final case class ListAll(
@@ -589,24 +588,20 @@ object TopologyAdminCommands {
 
     final case class GenesisState(
         observer: StreamObserver[GenesisStateResponse],
-        filterSynchronizerStore: Option[String],
+        synchronizerStore: Option[TopologyStoreId.Synchronizer],
         timestamp: Option[CantonTimestamp],
     ) extends BaseCommand[
           v30.GenesisStateRequest,
           CancellableContext,
           CancellableContext,
         ] {
-      override protected def createRequest(): Either[String, v30.GenesisStateRequest] = {
-        val synchronizerStore = filterSynchronizerStore.traverse(SynchronizerId.fromString)
-        synchronizerStore.flatMap(synchronizerId =>
-          Right(
-            v30.GenesisStateRequest(
-              synchronizerId.map(Synchronizer.apply).map(_.toProtoV30),
-              timestamp.map(_.toProtoTimestamp),
-            )
+      override protected def createRequest(): Either[String, v30.GenesisStateRequest] =
+        Right(
+          v30.GenesisStateRequest(
+            synchronizerStore.map(_.toProtoV30),
+            timestamp.map(_.toProtoTimestamp),
           )
         )
-      }
 
       override protected def submitRequest(
           service: TopologyManagerReadServiceStub,
@@ -636,7 +631,7 @@ object TopologyAdminCommands {
     }
 
     final case class ListParties(
-        filterSynchronizerId: String,
+        synchronizerIds: Set[SynchronizerId],
         filterParty: String,
         filterParticipant: String,
         asOf: Option[Instant],
@@ -648,7 +643,7 @@ object TopologyAdminCommands {
       override protected def createRequest(): Either[String, v30.ListPartiesRequest] =
         Right(
           v30.ListPartiesRequest(
-            filterSynchronizerId = filterSynchronizerId,
+            synchronizerIds = synchronizerIds.map(_.toProtoPrimitive).toSeq,
             filterParty = filterParty,
             filterParticipant = filterParticipant,
             asOf = asOf.map(ts => Timestamp(ts.getEpochSecond)),
@@ -673,7 +668,7 @@ object TopologyAdminCommands {
     }
 
     final case class ListKeyOwners(
-        filterSynchronizerId: String,
+        synchronizerIds: Set[SynchronizerId],
         filterKeyOwnerType: Option[MemberCode],
         filterKeyOwnerUid: String,
         asOf: Option[Instant],
@@ -685,7 +680,7 @@ object TopologyAdminCommands {
       override protected def createRequest(): Either[String, v30.ListKeyOwnersRequest] =
         Right(
           v30.ListKeyOwnersRequest(
-            filterSynchronizerId = filterSynchronizerId,
+            synchronizerIds = synchronizerIds.toSeq.map(_.toProtoPrimitive),
             filterKeyOwnerType = filterKeyOwnerType.map(_.toProtoPrimitive).getOrElse(""),
             filterKeyOwnerUid = filterKeyOwnerUid,
             asOf = asOf.map(ts => Timestamp(ts.getEpochSecond)),
@@ -723,7 +718,7 @@ object TopologyAdminCommands {
 
     final case class AddTransactions(
         transactions: Seq[GenericSignedTopologyTransaction],
-        store: String,
+        store: TopologyStoreId,
         forceChanges: ForceFlags,
         waitToBecomeEffective: Option[NonNegativeDuration],
     ) extends BaseWriteCommand[AddTransactionsRequest, AddTransactionsResponse, Unit] {
@@ -732,7 +727,7 @@ object TopologyAdminCommands {
           AddTransactionsRequest(
             transactions.map(_.toProtoV30),
             forceChanges = forceChanges.toProtoV30,
-            Some(TopologyStoreId.tryFromString(store).toProtoV30),
+            Some(store.toProtoV30),
             waitToBecomeEffective.map(_.asNonNegativeFiniteApproximation.toProtoPrimitive),
           )
         )
@@ -747,7 +742,7 @@ object TopologyAdminCommands {
     }
     final case class ImportTopologySnapshot(
         topologySnapshot: ByteString,
-        store: String,
+        store: TopologyStoreId,
         waitToBecomeEffective: Option[NonNegativeDuration],
     ) extends BaseWriteCommand[
           ImportTopologySnapshotRequest,
@@ -758,7 +753,7 @@ object TopologyAdminCommands {
         Right(
           ImportTopologySnapshotRequest(
             topologySnapshot,
-            Some(TopologyStoreId.tryFromString(store).toProtoV30),
+            Some(store.toProtoV30),
             waitToBecomeEffective.map(_.asNonNegativeFiniteApproximation.toProtoPrimitive),
           )
         )
@@ -771,7 +766,7 @@ object TopologyAdminCommands {
           bytes =>
             ImportTopologySnapshotRequest(
               ByteString.copyFrom(bytes),
-              Some(TopologyStoreId.tryFromString(store).toProtoV30),
+              Some(store.toProtoV30),
               waitToBecomeEffective.map(_.toProtoPrimitive),
             ),
           topologySnapshot,
@@ -783,7 +778,7 @@ object TopologyAdminCommands {
 
     final case class SignTransactions(
         transactions: Seq[GenericSignedTopologyTransaction],
-        store: String,
+        store: TopologyStoreId,
         signedBy: Seq[Fingerprint],
         forceFlags: ForceFlags,
     ) extends BaseWriteCommand[SignTransactionsRequest, SignTransactionsResponse, Seq[
@@ -794,7 +789,7 @@ object TopologyAdminCommands {
           SignTransactionsRequest(
             transactions.map(_.toProtoV30),
             signedBy.map(_.toProtoPrimitive),
-            Some(TopologyStoreId.tryFromString(store).toProtoV30),
+            Some(store.toProtoV30),
             forceFlags.toProtoV30,
           )
         )
@@ -856,7 +851,7 @@ object TopologyAdminCommands {
     object GenerateTransactions {
       final case class Proposal(
           mapping: TopologyMapping,
-          store: String,
+          store: TopologyStoreId,
           change: TopologyChangeOp = TopologyChangeOp.Replace,
           serial: Option[PositiveInt] = None,
       ) {
@@ -865,7 +860,7 @@ object TopologyAdminCommands {
             change.toProto,
             serial.map(_.value).getOrElse(0),
             Some(mapping.toProtoV30),
-            Some(TopologyStoreId.tryFromString(store).toProtoV30),
+            Some(store.toProtoV30),
           )
       }
     }
@@ -877,7 +872,7 @@ object TopologyAdminCommands {
         serial: Option[PositiveInt],
         mustFullyAuthorize: Boolean,
         forceChanges: ForceFlags,
-        store: String,
+        store: TopologyStoreId,
         waitToBecomeEffective: Option[NonNegativeDuration],
     ) extends BaseWriteCommand[
           AuthorizeRequest,
@@ -897,7 +892,7 @@ object TopologyAdminCommands {
           mustFullyAuthorize = mustFullyAuthorize,
           forceChanges = forceChanges.toProtoV30,
           signedBy = signedBy.map(_.toProtoPrimitive),
-          store = Some(TopologyStoreId.tryFromString(store).toProtoV30),
+          store = Some(store.toProtoV30),
           waitToBecomeEffective =
             waitToBecomeEffective.map(_.asNonNegativeFiniteApproximation.toProtoPrimitive),
         )
@@ -927,7 +922,7 @@ object TopologyAdminCommands {
       def apply[M <: TopologyMapping: ClassTag](
           mapping: M,
           signedBy: Seq[Fingerprint],
-          store: String,
+          store: TopologyStoreId,
           serial: Option[PositiveInt] = None,
           change: TopologyChangeOp = TopologyChangeOp.Replace,
           mustFullyAuthorize: Boolean = false,
@@ -951,7 +946,7 @@ object TopologyAdminCommands {
         transactionHash: String,
         mustFullyAuthorize: Boolean,
         signedBy: Seq[Fingerprint],
-        store: String,
+        store: TopologyStoreId,
         waitToBecomeEffective: Option[NonNegativeDuration] = None,
     ) extends BaseWriteCommand[
           AuthorizeRequest,
@@ -965,7 +960,7 @@ object TopologyAdminCommands {
           mustFullyAuthorize = mustFullyAuthorize,
           forceChanges = Seq.empty,
           signedBy = signedBy.map(_.toProtoPrimitive),
-          store = Some(TopologyStoreId.tryFromString(store).toProtoV30),
+          store = Some(store.toProtoV30),
           waitToBecomeEffective.map(_.asNonNegativeFiniteApproximation.toProtoPrimitive),
         )
       )

@@ -64,9 +64,10 @@ class ConsoleEnvironmentBinding {
     val importsTopology =
       """
          |import com.digitalasset.canton.topology.store.TimeQuery
-         |import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
-         |import com.digitalasset.canton.topology._
+         |import com.digitalasset.canton.topology.{store => _, _}
          |import com.digitalasset.canton.topology.transaction._
+         |import com.digitalasset.canton.topology.admin.grpc._
+         |import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Authorized
          |""".stripMargin
 
     val importsSequencing =

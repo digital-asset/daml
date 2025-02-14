@@ -283,7 +283,7 @@ def onboard_external_party(
         ) = topology_read_client.ListPartyToParticipant(
             topology_manager_read_service_pb2.ListPartyToParticipantRequest(
                 base_query=topology_manager_read_service_pb2.BaseQuery(
-                    filter_store=common_pb2.StoreId(
+                    store=common_pb2.StoreId(
                         synchronizer=common_pb2.StoreId.Synchronizer(
                             id=synchronizer_id,
                         )

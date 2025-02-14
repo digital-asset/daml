@@ -21,21 +21,20 @@ import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology
+import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.v30.*
 import com.digitalasset.canton.topology.admin.{grpc, v30 as adminProto}
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
-import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
   StoredTopologyTransactions,
   TimeQuery,
 }
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.{store, *}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils, OptionUtil}
+import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
@@ -45,7 +44,7 @@ import java.io.OutputStream
 import scala.concurrent.{ExecutionContext, Future}
 
 final case class BaseQuery(
-    filterStore: Option[grpc.TopologyStoreId],
+    store: Option[grpc.TopologyStoreId],
     proposals: Boolean,
     timeQuery: TimeQuery,
     ops: Option[TopologyChangeOp],
@@ -54,7 +53,7 @@ final case class BaseQuery(
 ) {
   def toProtoV1: adminProto.BaseQuery =
     adminProto.BaseQuery(
-      filterStore.map(_.toProtoV30),
+      store.map(_.toProtoV30),
       proposals,
       ops.map(_.toProto).getOrElse(v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_UNSPECIFIED),
       timeQuery.toProtoV30,
@@ -65,7 +64,7 @@ final case class BaseQuery(
 
 object BaseQuery {
   def apply(
-      filterStore: String,
+      store: TopologyStoreId,
       proposals: Boolean,
       timeQuery: TimeQuery,
       ops: Option[TopologyChangeOp],
@@ -73,7 +72,7 @@ object BaseQuery {
       protocolVersion: Option[ProtocolVersion],
   ): BaseQuery =
     BaseQuery(
-      OptionUtil.emptyStringAsNone(filterStore).map(grpc.TopologyStoreId.tryFromString),
+      Some(store),
       proposals,
       timeQuery,
       ops,
@@ -89,11 +88,11 @@ object BaseQuery {
       timeQuery <- TimeQuery.fromProto(baseQuery.timeQuery, "time_query")
       operationOp <- TopologyChangeOp.fromProtoV30(baseQuery.operation)
       protocolVersion <- baseQuery.protocolVersion.traverse(ProtocolVersion.fromProtoPrimitive(_))
-      filterStore <- baseQuery.filterStore.traverse(
-        grpc.TopologyStoreId.fromProtoV30(_, "filter_store")
+      store <- baseQuery.store.traverse(
+        grpc.TopologyStoreId.fromProtoV30(_, "store")
       )
     } yield BaseQuery(
-      filterStore,
+      store,
       proposals,
       timeQuery,
       operationOp,
@@ -114,7 +113,7 @@ class GrpcTopologyManagerReadService(
     with NamedLogging {
 
   private case class TransactionSearchResult(
-      store: topology.store.TopologyStoreId,
+      store: TopologyStoreId,
       sequenced: SequencedTime,
       validFrom: EffectiveTime,
       validUntil: Option[EffectiveTime],
@@ -125,18 +124,18 @@ class GrpcTopologyManagerReadService(
   )
 
   private def collectStores(
-      filterStoreO: Option[grpc.TopologyStoreId]
+      storeO: Option[grpc.TopologyStoreId]
   ): EitherT[FutureUnlessShutdown, CantonError, Seq[
     topology.store.TopologyStore[topology.store.TopologyStoreId]
   ]] =
-    filterStoreO match {
-      case Some(filterStore) =>
-        EitherT.rightT(stores.filter(_.storeId.filterName.startsWith(filterStore.filterString)))
+    storeO match {
+      case Some(store) =>
+        EitherT.rightT(stores.filter(_.storeId == store.toInternal))
       case None => EitherT.rightT(stores)
     }
 
   private def collectSynchronizerStore(
-      filterStoreO: Option[grpc.TopologyStoreId]
+      storeO: Option[grpc.TopologyStoreId]
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, topology.store.TopologyStore[
@@ -144,22 +143,21 @@ class GrpcTopologyManagerReadService(
   ]] = {
     val synchronizerStores
         : Either[CantonError, topology.store.TopologyStore[topology.store.TopologyStoreId]] =
-      filterStoreO match {
-        case Some(filterStore) =>
+      storeO match {
+        case Some(store) =>
+          val targetStoreInternal = store.toInternal
           val synchronizerStores = stores.filter { s =>
-            s.storeId.isSynchronizerStore && s.storeId.filterName.startsWith(
-              filterStore.filterString
-            )
+            s.storeId.isSynchronizerStore && s.storeId == targetStoreInternal
           }
           synchronizerStores match {
             case Nil =>
-              TopologyManagerError.InvalidSynchronizer
-                .InvalidFilterStore(filterStore.filterString)
+              TopologyManagerError.TopologyStoreUnknown
+                .Failure(targetStoreInternal)
                 .asLeft
             case Seq(synchronizerStore) => synchronizerStore.asRight
             case _ =>
               TopologyManagerError.InvalidSynchronizer
-                .MultipleSynchronizerStores(filterStore.filterString)
+                .MultipleSynchronizerStoresFound(targetStoreInternal)
                 .asLeft
           }
 
@@ -175,26 +173,9 @@ class GrpcTopologyManagerReadService(
 
   }
 
-  private def createBaseResult(context: TransactionSearchResult): adminProto.BaseResult = {
-    val storeProto: adminProto.StoreId = context.store match {
-      case SynchronizerStore(synchronizerId, _) =>
-        adminProto.StoreId(
-          adminProto.StoreId.Store.Synchronizer(
-            adminProto.StoreId.Synchronizer(synchronizerId.toProtoPrimitive)
-          )
-        )
-      case topology.store.TopologyStoreId.AuthorizedStore =>
-        adminProto.StoreId(
-          adminProto.StoreId.Store.Authorized(adminProto.StoreId.Authorized())
-        )
-      case topology.store.TopologyStoreId.TemporaryStore(store) =>
-        adminProto.StoreId(
-          adminProto.StoreId.Store.Temporary(adminProto.StoreId.Temporary(store.unwrap))
-        )
-    }
-
+  private def createBaseResult(context: TransactionSearchResult): adminProto.BaseResult =
     new adminProto.BaseResult(
-      store = Some(storeProto),
+      store = Some(context.store.toProtoV30),
       sequenced = Some(context.sequenced.value.toProtoTimestamp),
       validFrom = Some(context.validFrom.value.toProtoTimestamp),
       validUntil = context.validUntil.map(_.value.toProtoTimestamp),
@@ -203,7 +184,6 @@ class GrpcTopologyManagerReadService(
       serial = context.serial.unwrap,
       signedByFingerprints = context.signedBy.map(_.unwrap).toSeq,
     )
-  }
 
   // to avoid race conditions, we want to use the approximateTimestamp of the topology client.
   // otherwise, we might read stuff from the database that isn't yet known to the node
@@ -282,7 +262,7 @@ class GrpcTopologyManagerReadService(
                   }
 
                 result = TransactionSearchResult(
-                  storeId,
+                  TopologyStoreId.fromInternal(storeId),
                   tx.sequenced,
                   tx.validFrom,
                   tx.validUntil,
@@ -300,7 +280,7 @@ class GrpcTopologyManagerReadService(
 
     for {
       baseQuery <- wrapErrUS(BaseQuery.fromProto(baseQueryProto))
-      stores <- collectStores(baseQuery.filterStore)
+      stores <- collectStores(baseQuery.store)
       results <- EitherT.right(stores.parTraverse { store =>
         fromStore(baseQuery, store)
       })
@@ -664,7 +644,9 @@ class GrpcTopologyManagerReadService(
   override def listAvailableStores(
       request: adminProto.ListAvailableStoresRequest
   ): Future[adminProto.ListAvailableStoresResponse] = Future.successful(
-    adminProto.ListAvailableStoresResponse(storeIds = stores.map(_.storeId.filterName))
+    adminProto.ListAvailableStoresResponse(storeIds =
+      stores.map(s => TopologyStoreId.fromInternal(s.storeId).toProtoV30)
+    )
   )
 
   override def listAll(request: adminProto.ListAllRequest): Future[adminProto.ListAllResponse] = {
@@ -729,7 +711,7 @@ class GrpcTopologyManagerReadService(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, GenericStoredTopologyTransactions] =
     for {
-      stores <- collectStores(baseQuery.filterStore)
+      stores <- collectStores(baseQuery.store)
       results <- EitherT.right(
         stores.parTraverse { store =>
           store
@@ -765,8 +747,7 @@ class GrpcTopologyManagerReadService(
       responseObserver: StreamObserver[GenesisStateResponse],
   ): Unit =
     GrpcStreamingUtils.streamToClient(
-      (out: OutputStream) =>
-        getGenesisState(request.filterSynchronizerStore, request.timestamp, out),
+      (out: OutputStream) => getGenesisState(request.synchronizerStore, request.timestamp, out),
       responseObserver,
       byteString => GenesisStateResponse(byteString),
       processingTimeout.unbounded.duration,

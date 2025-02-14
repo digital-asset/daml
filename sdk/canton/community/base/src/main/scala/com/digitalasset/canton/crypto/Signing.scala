@@ -963,6 +963,18 @@ object RequiredSigningSpecs {
 final case class SigningKeyPair(publicKey: SigningPublicKey, privateKey: SigningPrivateKey)
     extends CryptoKeyPair[SigningPublicKey, SigningPrivateKey] {
 
+  require(
+    publicKey.usage == privateKey.usage,
+    "Public and private key must have the same key usage",
+  )
+
+  @VisibleForTesting
+  def replaceUsage(usage: NonEmpty[Set[SigningKeyUsage]]): SigningKeyPair =
+    this.copy(
+      publicKey = publicKey.replaceUsage(usage),
+      privateKey = privateKey.replaceUsage(usage),
+    )
+
   protected def toProtoV30: v30.SigningKeyPair =
     v30.SigningKeyPair(Some(publicKey.toProtoV30), Some(privateKey.toProtoV30))
 
@@ -1063,7 +1075,12 @@ final case class SigningPublicKey private[crypto] (
     v30.PublicKey.Key.SigningPublicKey(toProtoV30)
 
   override protected def pretty: Pretty[SigningPublicKey] =
-    prettyOfClass(param("id", _.id), param("format", _.format), param("keySpec", _.keySpec))
+    prettyOfClass(
+      param("id", _.id),
+      param("format", _.format),
+      param("keySpec", _.keySpec),
+      param("usage", _.usage),
+    )
 
   @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
   private def migrate(): Either[KeyParseAndValidateError, Option[SigningPublicKey]] = {
@@ -1119,6 +1136,10 @@ final case class SigningPublicKey private[crypto] (
 
       case _ => None
     }
+
+  @VisibleForTesting
+  def replaceUsage(usage: NonEmpty[Set[SigningKeyUsage]]): SigningPublicKey =
+    this.copy(usage = usage)(migrated)
 }
 
 object SigningPublicKey
@@ -1333,6 +1354,10 @@ final case class SigningPrivateKey private (
 
       case _ => None
     }
+
+  @VisibleForTesting
+  def replaceUsage(usage: NonEmpty[Set[SigningKeyUsage]]): SigningPrivateKey =
+    this.copy(usage = usage)(migrated)
 }
 
 object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey] {
@@ -1355,7 +1380,16 @@ object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey]
   ): Either[ProtoDeserializationError.CryptoDeserializationError, SigningPrivateKey] =
     Either.cond(
       SigningKeyUsage.isUsageValid(usage), {
-        val keyBeforeMigration = SigningPrivateKey(id, format, key, keySpec, usage)()
+        val keyBeforeMigration = SigningPrivateKey(
+          id,
+          format,
+          key,
+          keySpec,
+          // if a key is something else than a namespace or identity delegation, then it can be used to sign itself to
+          // prove ownership for OwnerToKeyMapping and PartyToKeyMapping requests.
+          SigningKeyUsage.addProofOfOwnership(usage),
+        )()
+
         val keyAfterMigration = keyBeforeMigration.migrate().getOrElse(keyBeforeMigration)
         keyAfterMigration
       },

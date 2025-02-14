@@ -15,7 +15,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.{
   String300,
 }
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -57,7 +57,6 @@ import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
 
 sealed trait TopologyStoreId extends PrettyPrinting with Product with Serializable {
-  def filterName: String = dbString.unwrap
   def dbString: LengthLimitedString
   def isAuthorizedStore: Boolean
   def isSynchronizerStore: Boolean
@@ -68,30 +67,12 @@ object TopologyStoreId {
   /** A topology store storing sequenced topology transactions
     *
     * @param synchronizerId the synchronizer id of the store
-    * @param discriminator the discriminator of the store. used for mediator confirmation request store
-    *                      or in daml 2.x for embedded mediator topology stores
     */
-  final case class SynchronizerStore(synchronizerId: SynchronizerId, discriminator: String = "")
-      extends TopologyStoreId {
-    private val dbStringWithoutDiscriminator = synchronizerId.toLengthLimitedString
-    val dbString: LengthLimitedString =
-      if (discriminator.isEmpty) dbStringWithoutDiscriminator
-      else
-        LengthLimitedString
-          .tryCreate(
-            discriminator + "::",
-            PositiveInt.two + NonNegativeInt.tryCreate(discriminator.length),
-          )
-          .tryConcatenate(dbStringWithoutDiscriminator)
+  final case class SynchronizerStore(synchronizerId: SynchronizerId) extends TopologyStoreId {
+    override val dbString = synchronizerId.toLengthLimitedString
 
     override protected def pretty: Pretty[this.type] =
-      if (discriminator.nonEmpty) {
-        prettyOfString(storeId =>
-          show"${storeId.discriminator}${UniqueIdentifier.delimiter}${storeId.synchronizerId}"
-        )
-      } else {
-        prettyOfParam(_.synchronizerId)
-      }
+      prettyOfParam(_.synchronizerId)
 
     override def isAuthorizedStore: Boolean = false
     override def isSynchronizerStore: Boolean = true
@@ -110,8 +91,8 @@ object TopologyStoreId {
     override def isSynchronizerStore: Boolean = false
   }
 
-  final case class TemporaryStore private (name: String185) extends TopologyStoreId {
-    override def dbString: LengthLimitedString = TemporaryStore.wrapped(name)
+  final case class TemporaryStore(name: String185) extends TopologyStoreId {
+    override def dbString: LengthLimitedString = TemporaryStore.withTempMarker(name)
 
     override def isAuthorizedStore: Boolean = false
 
@@ -126,32 +107,12 @@ object TopologyStoreId {
     val marker = "temp"
     val prefix = s"$marker${UniqueIdentifier.delimiter}"
     val suffix = s"${UniqueIdentifier.delimiter}$marker"
-    def wrapped(name: String185): String185 = String185.tryCreate(s"$prefix$name$suffix")
-    val Regex = raw"$prefix(.*)$suffix".r
-
-    object RegexExtractor {
-      def unapply(s: String): Option[TemporaryStore] = s match {
-        case Regex(name) => Some(TemporaryStore(String185.tryCreate(name)))
-        case _ => None
-      }
-    }
-
-    def tryFromName(name: String): TemporaryStore = name match {
-      // try to avoid wrapping an already wrapped temporary store name with another layer of prefix and suffix
-      case RegexExtractor(storeId) => storeId
-      case _otherwise => TemporaryStore(String185.tryCreate(name))
-    }
+    private[TemporaryStore] def withTempMarker(name: String185): String185 =
+      String185.tryCreate(s"$prefix$name$suffix")
 
     def create(name: String): ParsingResult[TemporaryStore] =
       ProtoConverter.parseLengthLimitedString(String185, name).map(TemporaryStore(_))
 
-  }
-
-  def tryCreate(fName: String): TopologyStoreId = fName.toLowerCase match {
-    case "authorized" => AuthorizedStore
-    case TemporaryStore.RegexExtractor(tempStore) => tempStore
-    case synchronizer =>
-      SynchronizerStore(SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive(synchronizer)))
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))

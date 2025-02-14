@@ -16,6 +16,7 @@ import com.digitalasset.canton.admin.api.client.data.{
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.console.CommandErrors.NodeNotStarted
+import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.console.commands.*
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
@@ -56,6 +57,7 @@ import com.digitalasset.canton.synchronizer.sequencer.{
 }
 import com.digitalasset.canton.time.{DelegatingSimClock, SimClock}
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.store.TimeQuery
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ErrorUtil
@@ -576,7 +578,7 @@ abstract class ParticipantReference(
                 // ensure that vetted packages on the synchronizer match the ones in the authorized store
                 val onSynchronizer = participant.topology.vetted_packages
                   .list(
-                    filterStore = item.synchronizerId.filterString,
+                    store = item.synchronizerId,
                     filterParticipant = id.filterString,
                     timeQuery = TimeQuery.HeadState,
                   )
@@ -585,7 +587,10 @@ abstract class ParticipantReference(
 
                 // Vetted packages from the participant's authorized store
                 val onParticipantAuthorizedStore = topology.vetted_packages
-                  .list(filterStore = "Authorized", filterParticipant = id.filterString)
+                  .list(
+                    store = TopologyStoreId.Authorized,
+                    filterParticipant = id.filterString,
+                  )
                   .flatMap(_.item.packages)
                   .toSet
 
@@ -874,7 +879,7 @@ abstract class SequencerReference(
 
           topology.transactions.load(
             identityState,
-            synchronizerId.filterString,
+            TopologyStoreId.Synchronizer(synchronizerId),
             ForceFlag.AlienMember,
           )
         }
@@ -913,7 +918,7 @@ abstract class SequencerReference(
         val synchronizerId = synchronizer_id
 
         val currentMediators = topology.mediators
-          .list(filterStore = synchronizerId.filterString, group = Some(group))
+          .list(synchronizerId, group = Some(group))
           .maxByOption(_.context.serial)
           .getOrElse(throw new IllegalArgumentException(s"Unknown mediator group $group"))
 
@@ -930,7 +935,7 @@ abstract class SequencerReference(
 
           topology.transactions.load(
             identityState,
-            synchronizerId.filterString,
+            TopologyStoreId.Synchronizer(synchronizerId),
             ForceFlag.AlienMember,
           )
         }
