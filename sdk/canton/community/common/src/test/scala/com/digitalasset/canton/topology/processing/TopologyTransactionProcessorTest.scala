@@ -782,9 +782,4 @@ class TopologyTransactionProcessorTestPostgres
     extends TopologyTransactionProcessorTest
     with DbTest
     with DbTopologyStoreHelper
-    with PostgresTest {
-  override protected def mkStore(
-      synchronizerId: SynchronizerId
-  ): TopologyStore[TopologyStoreId.SynchronizerStore] =
-    createTopologyStore(synchronizerId)
-}
+    with PostgresTest

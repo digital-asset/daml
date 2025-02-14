@@ -21,7 +21,7 @@ service TopologyAggregationService {
   /**
    * Obtain information about a certain set of active parties matching a given filter criterion.
    *
-   * The request allows to filter per (synchronizer, party, asOf) where the synchronizer and party argument are
+   * The request allows to filter per (synchronizer, party, asOf) where the party argument is
    * used in order to filter the result list using the `startsWith` method on the respective resulting string.
    *
    * As such, if you just need to do a lookup, then define a precise filter. Given the uniqueness of the
@@ -55,7 +55,7 @@ service TopologyAggregationService {
 message ListPartiesRequest {
   google.protobuf.Timestamp as_of = 1;
   int32 limit = 2;
-  string filter_synchronizer_id = 3;
+  repeated string synchronizer_ids = 3;
   string filter_party = 4;
   string filter_participant = 5;
 }
@@ -89,7 +89,7 @@ message ListPartiesResponse {
 message ListKeyOwnersRequest {
   google.protobuf.Timestamp as_of = 1;
   int32 limit = 2;
-  string filter_synchronizer_id = 3;
+  repeated string synchronizer_ids = 3;
   string filter_key_owner_type = 4;
   string filter_key_owner_uid = 5;
 }

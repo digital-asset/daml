@@ -93,6 +93,6 @@ public final class DisclosedContract {
 
   @Override
   public int hashCode() {
-    return Objects.hash(templateId, contractId, createdEventBlob);
+    return Objects.hash(templateId, contractId, createdEventBlob, synchronizerId);
   }
 }

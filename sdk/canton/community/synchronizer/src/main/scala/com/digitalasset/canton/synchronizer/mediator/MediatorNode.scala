@@ -206,7 +206,7 @@ class MediatorNodeBootstrap(
       storeId: TopologyStoreId
   ): Option[SynchronizerTopologyClient] =
     storeId match {
-      case SynchronizerStore(synchronizerId, _) =>
+      case SynchronizerStore(synchronizerId) =>
         replicaManager.mediatorRuntime
           .map(_.mediator.topologyClient)
           .filter(_.synchronizerId == synchronizerId)

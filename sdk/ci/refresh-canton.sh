@@ -41,7 +41,7 @@ fi
 sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' "$DIR/../build.sh"
 
 CODE_DROP_DIR="$DIR"/../canton
-for path in community daml-common-staging README.md VERSION; do
+for path in community base README.md VERSION; do
   rm -rf "$CODE_DROP_DIR/$path"
   for f in  $(git -C "$CANTON_DIR" ls-files "$path"); do
     # we're only interested in copying files, not directories, as git-ls has

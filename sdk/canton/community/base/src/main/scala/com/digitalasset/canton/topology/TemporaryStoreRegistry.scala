@@ -37,7 +37,7 @@ class TemporaryStoreRegistry(
   ): Either[TopologyManagerError, TemporaryTopologyManager] = {
     logger.info(s"Creating temporary topology store $storeId")
 
-    val loggerFactoryWithStore = loggerFactory.append("store", storeId.filterName)
+    val loggerFactoryWithStore = loggerFactory.append("store", storeId.dbString.unwrap)
 
     lazy val store = new InMemoryTopologyStore(
       storeId,

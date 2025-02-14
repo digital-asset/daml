@@ -3,28 +3,26 @@
 
 package com.digitalasset.canton.topology.admin.grpc
 
+import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.CantonRequireTypes.String185
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.admin.v30 as adminProto
-import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier, store}
-import com.digitalasset.canton.{ProtoDeserializationError, topology}
+import com.digitalasset.canton.topology.{SynchronizerId, store}
 
 sealed trait TopologyStoreId extends Product with Serializable {
   def toProtoV30: adminProto.StoreId
 
-  def filterString: String
-
-  private[canton] def toInternal: topology.store.TopologyStoreId
+  private[canton] def toInternal: store.TopologyStoreId
 }
 
 object TopologyStoreId {
 
-  def tryFromString(store: String): TopologyStoreId = store.toLowerCase() match {
-    case "authorized" => Authorized
-    case TopologyStoreId.Temporary.MatchesPattern() =>
-      TopologyStoreId.Temporary.fromFilterString(store)
-    case otherwise => Synchronizer(SynchronizerId.tryFromString(store))
+  def fromInternal(internalStore: store.TopologyStoreId): TopologyStoreId = internalStore match {
+    case store.TopologyStoreId.SynchronizerStore(synchronizerId) =>
+      TopologyStoreId.Synchronizer(synchronizerId)
+    case store.TopologyStoreId.AuthorizedStore => TopologyStoreId.Authorized
+    case store.TopologyStoreId.TemporaryStore(name) => TopologyStoreId.Temporary(name)
   }
 
   def fromProtoV30(
@@ -50,8 +48,6 @@ object TopologyStoreId {
         adminProto.StoreId.Store.Synchronizer(adminProto.StoreId.Synchronizer(id.toProtoPrimitive))
       )
 
-    override def filterString: String = id.toProtoPrimitive
-
     override private[canton] def toInternal: store.TopologyStoreId.SynchronizerStore =
       store.TopologyStoreId.SynchronizerStore(id)
   }
@@ -62,25 +58,12 @@ object TopologyStoreId {
         adminProto.StoreId.Store.Temporary(adminProto.StoreId.Temporary(name.unwrap))
       )
 
-    override def filterString: String = s"${Temporary.prefix}${name.unwrap}${Temporary.suffix}"
-
     override private[canton] def toInternal: store.TopologyStoreId.TemporaryStore =
-      store.TopologyStoreId.TemporaryStore.tryFromName(name.unwrap)
+      store.TopologyStoreId.TemporaryStore(name)
   }
 
   object Temporary {
-    val marker = "temp"
-    val prefix = s"$marker${UniqueIdentifier.delimiter}"
-    val suffix = s"${UniqueIdentifier.delimiter}$marker"
-
-    object MatchesPattern {
-      private val Regex = raw"$prefix(.*)$suffix".r
-      def unapply(s: String): Boolean = Regex.matches(s)
-    }
-
-    def fromFilterString(s: String): Temporary = Temporary(
-      String185.tryCreate(s.stripPrefix(prefix).stripSuffix(suffix))
-    )
+    def tryCreate(name: String): Temporary = Temporary(String185.tryCreate(name))
 
     def fromProtoV30(
         storeId: adminProto.StoreId.Temporary
@@ -92,8 +75,6 @@ object TopologyStoreId {
   case object Authorized extends TopologyStoreId {
     override def toProtoV30: adminProto.StoreId =
       adminProto.StoreId(adminProto.StoreId.Store.Authorized(adminProto.StoreId.Authorized()))
-
-    override def filterString: String = "Authorized"
 
     override private[canton] def toInternal: store.TopologyStoreId.AuthorizedStore =
       store.TopologyStoreId.AuthorizedStore

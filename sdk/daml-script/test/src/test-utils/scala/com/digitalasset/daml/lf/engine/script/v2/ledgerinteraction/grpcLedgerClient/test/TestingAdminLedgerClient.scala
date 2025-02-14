@@ -55,7 +55,7 @@ class TestingAdminLedgerClient(
         admin_topology_service.ListVettedPackagesRequest(
           baseQuery = Some(
             admin_topology_service.BaseQuery(
-              filterStore = None,
+              store = None,
               proposals = false,
               operation = TopologyChangeOp.TOPOLOGY_CHANGE_OP_UNSPECIFIED,
               timeQuery = admin_topology_service.BaseQuery.TimeQuery

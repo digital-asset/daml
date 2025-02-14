@@ -34,7 +34,9 @@ trait StoreBasedTopologySnapshotTest
 
   import EffectiveTimeTestHelpers.*
 
-  def topologySnapshot(mk: () => TopologyStore[TopologyStoreId]): Unit = {
+  def topologySnapshot(
+      mk: () => TopologyStore[TopologyStoreId]
+  ): Unit = {
 
     val factory = new TestingOwnerWithKeys(
       DefaultTestIdentities.participant1,
@@ -371,7 +373,7 @@ trait DbStoreBasedTopologySnapshotTest
   this: AsyncWordSpec with BaseTest with HasExecutionContext with DbTest =>
 
   "DbStoreBasedTopologySnapshot" should {
-    behave like topologySnapshot(() => createTopologyStore(DefaultTestIdentities.synchronizerId))
+    behave like topologySnapshot(() => mkStore(DefaultTestIdentities.synchronizerId))
   }
 
 }

@@ -147,7 +147,7 @@ class ParticipantNodeBootstrap(
       storeId: TopologyStoreId
   ): Option[SynchronizerTopologyClient] =
     storeId match {
-      case SynchronizerStore(synchronizerId, _) =>
+      case SynchronizerStore(synchronizerId) =>
         cantonSyncService.get.flatMap(_.lookupTopologyClient(synchronizerId))
       case _ => None
     }

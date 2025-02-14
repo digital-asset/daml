@@ -92,7 +92,9 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
         // negative: block is not empty, and it's not the first block in the segment, so canonical commit set cannot be empty
         (
           createPrePrepare(
-            OrderingBlock(Seq(ProofOfAvailability(BatchId.createForTesting("test"), Seq.empty))),
+            OrderingBlock(
+              Seq(ProofOfAvailability(BatchId.createForTesting("test"), acksWithMeOnly))
+            ),
             CanonicalCommitSet.empty,
           ),
           false,
@@ -136,7 +138,9 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
         // negative: canonical commits contain different epochs
         (
           createPrePrepare(
-            OrderingBlock(Seq(ProofOfAvailability(BatchId.createForTesting("test"), Seq.empty))),
+            OrderingBlock(
+              Seq(ProofOfAvailability(BatchId.createForTesting("test"), acksWithMeOnly))
+            ),
             CanonicalCommitSet(
               Set(
                 createCommit(from = myId),
@@ -153,7 +157,9 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
         // negative: canonical commits (from the previous epoch) do not make a strong quorum
         (
           createPrePrepare(
-            OrderingBlock(Seq(ProofOfAvailability(BatchId.createForTesting("test"), Seq.empty))),
+            OrderingBlock(
+              Seq(ProofOfAvailability(BatchId.createForTesting("test"), acksWithMeOnly))
+            ),
             CanonicalCommitSet(
               Set(createCommit(BlockMetadata(EpochNumber.First, BlockNumber.First)))
             ),
@@ -186,7 +192,9 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
         // negative: canonical commits (from the current epoch) do not make a strong quorum
         (
           createPrePrepare(
-            OrderingBlock(Seq(ProofOfAvailability(BatchId.createForTesting("test"), Seq.empty))),
+            OrderingBlock(
+              Seq(ProofOfAvailability(BatchId.createForTesting("test"), acksWithMeOnly))
+            ),
             CanonicalCommitSet(
               Set(createCommit(BlockMetadata(EpochNumber(1L), BlockNumber(12L))))
             ),
@@ -215,6 +223,35 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           aMembership,
           Membership(myId, Set(otherId)),
           Right(()),
+        ),
+        // negative: canonical commits' senders are not distinct
+        (
+          createPrePrepare(
+            OrderingBlock(
+              Seq(ProofOfAvailability(BatchId.createForTesting("test"), acksWithMeOnly))
+            ),
+            CanonicalCommitSet(
+              Set(
+                createCommit(
+                  BlockMetadata(EpochNumber(1L), BlockNumber(12L)),
+                  otherId,
+                  CantonTimestamp.MinValue,
+                ),
+                createCommit(
+                  BlockMetadata(EpochNumber(1L), BlockNumber(12L)),
+                  otherId,
+                  CantonTimestamp.MaxValue,
+                ),
+              )
+            ),
+            BlockMetadata(EpochNumber(1L), BlockNumber(13L)),
+          ),
+          false,
+          aMembership,
+          Membership(myId, Set(otherId)),
+          Left(
+            "Canonical commits contain duplicate senders: List(SEQ::ns::fake_otherId, SEQ::ns::fake_otherId)"
+          ),
         ),
         // negative: non-empty block needs availability acks
         (
@@ -285,6 +322,7 @@ object PbftMessageValidatorImplTest {
   private def createCommit(
       blockMetadata: BlockMetadata = aBlockMetadata,
       from: SequencerId = myId,
+      localTimestamp: CantonTimestamp = CantonTimestamp.Epoch,
   ) =
     Commit
       .create(
@@ -295,7 +333,7 @@ object PbftMessageValidatorImplTest {
           ByteString.EMPTY,
           HashAlgorithm.Sha256,
         ),
-        CantonTimestamp.Epoch,
+        localTimestamp,
         from,
       )
       .fakeSign

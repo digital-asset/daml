@@ -99,6 +99,15 @@ final case class SequencerConnections private (
   ): SequencerConnections =
     this.copy(submissionRequestAmplification = submissionRequestAmplification)
 
+  def withSequencerTrustThreshold(
+      sequencerTrustThreshold: PositiveInt
+  ): Either[String, SequencerConnections] =
+    Either.cond(
+      aliasToConnection.sizeIs >= sequencerTrustThreshold.unwrap,
+      this.copy(sequencerTrustThreshold = sequencerTrustThreshold),
+      s"Sequencer trust threshold $sequencerTrustThreshold cannot be greater than number of sequencer connections ${aliasToConnection.size}",
+    )
+
   override protected def pretty: Pretty[SequencerConnections] =
     prettyOfClass(
       param("connections", _.aliasToConnection.forgetNE),
