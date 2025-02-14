@@ -6,7 +6,13 @@ package engine
 package preprocessing
 
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion, LookupError, Reference}
+import com.digitalasset.daml.lf.language.{
+  Ast,
+  LanguageMajorVersion,
+  LanguageVersion,
+  LookupError,
+  Reference,
+}
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.speedy.ArrayList
 import com.digitalasset.daml.lf.speedy.SValue._
@@ -348,7 +354,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         inside(Try(unsafeTranslateValue(typ, value))) {
           case Failure(_: Error.Preprocessing.Error) =>
             ()
-            //checkError(error)
+          // checkError(error)
         }
       )
     }
