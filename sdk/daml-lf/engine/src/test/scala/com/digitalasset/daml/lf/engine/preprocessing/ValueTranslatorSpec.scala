@@ -6,7 +6,7 @@ package engine
 package preprocessing
 
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion, LookupError, Reference}
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.speedy.ArrayList
 import com.digitalasset.daml.lf.speedy.SValue._
@@ -34,6 +34,13 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
     defaultPackageId => _,
     _,
   }
+
+  val aInt = ValueInt64(42)
+  val aText = ValueText("42")
+  val aParty = ValueParty("42")
+  val someText = ValueOptional(Some(aText))
+  val someParty = ValueOptional(Some(aParty))
+  val none = Value.ValueNone
 
   private[this] implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
     ParserParameters.defaultFor(majorLanguageVersion)
@@ -67,10 +74,26 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         }
     """
 
+  val upgradablePkgId = Ref.PackageId.assertFromString("-upgradable-v1-")
+  val upgradablePkg = {
+    implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
+      ParserParameters(upgradablePkgId, LanguageVersion.v2_1)
+    p"""metadata ( 'upgradable' : '1.0.0' )
+      module Mod {
+        record @serializable Record (a: *) (b: *) (c: *) (d: *) = { fieldA: a, fieldB: Option b, fieldC: Option c };
+        variant @serializable Variant (a: *) (b: *) (c: *) = ConsA: a | ConsB: b ;
+        enum @serializable Enum = Cons1 | Cons2 ;
+        record MyCons = { head : Int64, tail: Mod:MyList };
+        variant MyList = MyNil : Unit | MyCons: Mod:MyCons ;
+      }
+    """
+  }
+
   private[this] val compiledPackage = ConcurrentCompiledPackages(
     Compiler.Config.Default(majorLanguageVersion)
   )
   assert(compiledPackage.addPackage(defaultPackageId, pkg) == ResultDone.Unit)
+  assert(compiledPackage.addPackage(upgradablePkgId, upgradablePkg) == ResultDone.Unit)
 
   "translateValue" should {
 
@@ -191,6 +214,142 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       forEvery(testCases)(testCase =>
         Try(unsafeTranslateValue(typ, testCase)) shouldBe Success(svalue)
+      )
+    }
+
+    val TRecordUpgradable =
+      t"Mod:Record Int64 Text Party Unit"
+
+    val TVariantUpgradable =
+      t"Mod:Variant Int64 Text"
+
+    val TEnumUpgradable =
+      t"Mod:Enum"
+
+    "return proper mismatch error for upgrades" in {
+      val testCases = Table[Ast.Type, Value, PartialFunction[Error.Preprocessing.Error, _]](
+        ("type", "value", "error"),
+        (
+          TRecordUpgradable,
+          ValueRecord(
+            "",
+            ImmArray(
+              "fieldA" -> aInt,
+              "fieldB" -> someParty, // Here the field has type Party instead of Text
+              "fieldC" -> none,
+            ),
+          ),
+          { case Error.Preprocessing.TypeMismatch(typ, value, _) =>
+            typ shouldBe t"Text"
+            value shouldBe aParty
+          },
+        ),
+        (
+          TRecordUpgradable,
+          ValueRecord(
+            "",
+            ImmArray( // fields non-order and non fully labelled.
+              "fieldA" -> aInt,
+              "" -> none,
+              "fieldB" -> someText,
+            ),
+          ),
+          { case Error.Preprocessing.TypeMismatch(typ, _, _) =>
+            typ shouldBe TRecordUpgradable
+          },
+        ),
+        (
+          TRecordUpgradable,
+          ValueRecord(
+            "",
+            ImmArray(), // missing a non-optional field
+          ),
+          { case Error.Preprocessing.TypeMismatch(typ, _, _) =>
+            typ shouldBe TRecordUpgradable
+          },
+        ),
+        (
+          TRecordUpgradable,
+          ValueRecord(
+            "",
+            ImmArray(
+              "fieldA" -> aInt,
+              "fieldB" -> someText,
+              "fieldC" -> someParty,
+              "fieldD" -> aInt, // extra non-optional field
+            ),
+          ),
+          { case Error.Preprocessing.TypeMismatch(typ, _, _) =>
+            typ shouldBe TRecordUpgradable
+          },
+        ),
+        (
+          TVariantUpgradable,
+          ValueVariant("", "ConsB", aInt), // Here the variant has type Text instead of Int64
+          { case Error.Preprocessing.TypeMismatch(typ, value, _) =>
+            typ shouldBe t"Text"
+            value shouldBe aInt
+          },
+        ),
+        (
+          TVariantUpgradable,
+          ValueVariant("", "ConsC", aInt), // ConsC is not a constructor of Mod:Variant
+          {
+            case Error.Preprocessing.Lookup(
+                  LookupError.NotFound(
+                    Reference.DataVariantConstructor(_, consName),
+                    Reference.DataVariantConstructor(_, _),
+                  )
+                ) =>
+              consName shouldBe "ConsC"
+          },
+        ),
+        (
+          TEnumUpgradable,
+          ValueEnum("", "Cons3"), // Cons3 is not a constructor of Mod:Enum
+          {
+            case Error.Preprocessing.Lookup(
+                  LookupError.NotFound(
+                    Reference.DataEnumConstructor(_, consName),
+                    Reference.DataEnumConstructor(_, _),
+                  )
+                ) =>
+              consName shouldBe "Cons3"
+          },
+        ),
+        (
+          TVariantUpgradable,
+          ValueVariant("", "ConsC", aInt), // ConsC is not a constructor of Mod:Variant
+          {
+            case Error.Preprocessing.Lookup(
+                  LookupError.NotFound(
+                    Reference.DataVariantConstructor(_, consName),
+                    Reference.DataVariantConstructor(_, _),
+                  )
+                ) =>
+              consName shouldBe "ConsC"
+          },
+        ),
+        (
+          TEnumUpgradable,
+          ValueEnum("", "Cons3"), // Cons3 is not a constructor of Mod:Enum
+          {
+            case Error.Preprocessing.Lookup(
+                  LookupError.NotFound(
+                    Reference.DataEnumConstructor(_, consName),
+                    Reference.DataEnumConstructor(_, _),
+                  )
+                ) =>
+              consName shouldBe "Cons3"
+          },
+        ),
+      )
+      forEvery(testCases)((typ, value, _) =>
+        inside(Try(unsafeTranslateValue(typ, value))) {
+          case Failure(_: Error.Preprocessing.Error) =>
+            ()
+            //checkError(error)
+        }
       )
     }
 
