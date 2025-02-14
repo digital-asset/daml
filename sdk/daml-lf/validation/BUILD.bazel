@@ -217,9 +217,9 @@ da_scala_test_suite(
             "//test-common:upgrades-FailsWhenUpgradedFieldPackagesAreNotUpgradable-v2.dar",
             "//test-common:upgrades-FailsWhenDepIsInvalidPreviousVersionOfSelf-v1.dar",
             "//test-common:upgrades-FailsWhenDepIsInvalidPreviousVersionOfSelf-v2.dar",
-            "//test-common:upgrades-FailsWhenDepsAreIncompatible-v1.dar",
-            "//test-common:upgrades-FailsWhenDepsAreIncompatible-dep-v1.dar",
-            "//test-common:upgrades-FailsWhenDepsAreIncompatible-dep-v2.dar",
+            "//test-common:upgrades-FailsWhenOnePackageHasTwoIncompatibleDeps-v1.dar",
+            "//test-common:upgrades-FailsWhenOnePackageHasTwoIncompatibleDeps-dep-v1.dar",
+            "//test-common:upgrades-FailsWhenOnePackageHasTwoIncompatibleDeps-dep-v2.dar",
             "//test-common:upgrades-SucceedsWhenDepIsValidPreviousVersionOfSelf-v1.dar",
             "//test-common:upgrades-SucceedsWhenDepIsValidPreviousVersionOfSelf-v2.dar",
 

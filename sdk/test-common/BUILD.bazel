@@ -759,7 +759,8 @@ da_scala_dar_resources_library(
     ]
 ]
 
-# test cases where there's only one v1 of a package depending on both v1 and v2 of a dep
+# test cases where there's only one version of a package depending on both v1
+# and v2 of a dep, which are themselves incompatible
 [
     [
         filegroup(
@@ -809,7 +810,7 @@ da_scala_dar_resources_library(
         ),
     ]
     for identifier in [
-        "FailsWhenDepsAreIncompatible",
+        "FailsWhenOnePackageHasTwoIncompatibleDeps",
     ]
 ]
 

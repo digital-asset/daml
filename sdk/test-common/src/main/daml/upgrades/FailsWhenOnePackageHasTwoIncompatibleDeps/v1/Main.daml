@@ -6,3 +6,8 @@ module Main where
 -- We import the deps so they get included in the dar
 import qualified V1.Dep as V1
 import qualified V2.Dep as V2
+
+data D = D
+  { depV1: V1.Dep
+  , depV2: V2.Dep
+  }

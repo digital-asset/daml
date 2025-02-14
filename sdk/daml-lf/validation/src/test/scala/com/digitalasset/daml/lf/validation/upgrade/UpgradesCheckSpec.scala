@@ -142,13 +142,13 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
       )
     }
 
-    "Fails when a package embeds two versions of a package that are not in an upgrade relationship" in {
+    "Fail when only one version of a package depends on both v1 and v2 of a dep which are themselves incompatible" in {
       testPackages(
-        Seq("test-common/upgrades-FailsWhenDepsAreIncompatible-v1.dar"),
+        Seq("test-common/upgrades-FailsWhenOnePackageHasTwoIncompatibleDeps-v1.dar"),
         Seq(
           (
-            "test-common/upgrades-FailsWhenDepsAreIncompatible-dep-v1.dar",
-            "test-common/upgrades-FailsWhenDepsAreIncompatible-dep-v2.dar",
+            "test-common/upgrades-FailsWhenOnePackageHasTwoIncompatibleDeps-dep-v1.dar",
+            "test-common/upgrades-FailsWhenOnePackageHasTwoIncompatibleDeps-dep-v2.dar",
             Some(
               "The upgraded data type Dep has added new fields, but those fields are not Optional"
             ),
