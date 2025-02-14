@@ -37,11 +37,11 @@ write_scalatest_runpath(
         testonly = True,  # needed in order to depend on testonly targets
         main_class = "com.daml.test.evidence.generator.Main",
         tests = [
-            "//canton:daml-common-staging_daml-jwt-tests-lib",
+            "//canton:base_daml-jwt-tests-lib",
             "//ledger-service/utils",
         ],
         runtime_deps = [
-            "//canton:daml-common-staging_daml-jwt",
+            "//canton:base_daml-jwt",
             "//libs-scala/http-test-utils",
             "//libs-scala/scalatest-utils",
         ],

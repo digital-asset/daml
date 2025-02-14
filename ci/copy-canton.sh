@@ -13,7 +13,7 @@ else
 fi
 
 code_drop_dir=$DIR/../sdk/canton
-for path in community daml-common-staging README.md; do
+for path in community base README.md; do
   rm -rf $code_drop_dir/$path
   for f in  $(git -C "$canton_dir" ls-files $path); do
     # we're only interested in copying files, not directories, as git-ls has

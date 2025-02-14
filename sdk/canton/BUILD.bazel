@@ -67,13 +67,13 @@ scala_library(
     srcs = [":community_buildinfo_src"],
 )
 
-### daml-common-staging/daml-errors ###
+### base/daml-errors ###
 
 da_scala_library(
-    name = "daml-common-staging_daml-errors",
-    srcs = glob(["daml-common-staging/daml-errors/src/main/**/*.scala"]),
+    name = "base_daml-errors",
+    srcs = glob(["base/daml-errors/src/main/**/*.scala"]),
     override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    tags = ["maven_coordinates=com.daml:daml-common-staging-daml-errors:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:base-daml-errors:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
         "//daml-lf/validation:__subpackages__",
@@ -88,11 +88,11 @@ da_scala_library(
     ],
 )
 
-### daml-common-staging/daml-jwt ###
+### base/daml-jwt ###
 
 da_scala_library(
-    name = "daml-common-staging_daml-jwt",
-    srcs = glob(["daml-common-staging/daml-jwt/src/main/scala/**/*.scala"]),
+    name = "base_daml-jwt",
+    srcs = glob(["base/daml-jwt/src/main/scala/**/*.scala"]),
     override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
@@ -112,10 +112,10 @@ da_scala_library(
 )
 
 da_scala_library(
-    name = "daml-common-staging_daml-jwt-tests-lib",
-    srcs = glob(["daml-common-staging/daml-jwt/src/test/scala/**/*.scala"]),
+    name = "base_daml-jwt-tests-lib",
+    srcs = glob(["base/daml-jwt/src/test/scala/**/*.scala"]),
     override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    resources = glob(["daml-common-staging/daml-jwt/src/test/resources/**/*"]),
+    resources = glob(["base/daml-jwt/src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
@@ -128,7 +128,7 @@ da_scala_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        ":daml-common-staging_daml-jwt",
+        ":base_daml-jwt",
         "//libs-scala/http-test-utils",
         "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
@@ -138,11 +138,11 @@ da_scala_library(
 )
 
 da_scala_test(
-    name = "daml-common-staging_daml-jwt-tests",
+    name = "base_daml-jwt-tests",
     size = "medium",
-    srcs = glob(["daml-common-staging/daml-jwt/src/test/scala/**/*.scala"]),
+    srcs = glob(["base/daml-jwt/src/test/scala/**/*.scala"]),
     override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    resources = glob(["daml-common-staging/daml-jwt/src/test/resources/**/*"]),
+    resources = glob(["base/daml-jwt/src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
@@ -152,7 +152,7 @@ da_scala_test(
         "@maven//:com_lihaoyi_sourcecode",
     ],
     deps = [
-        ":daml-common-staging_daml-jwt",
+        ":base_daml-jwt",
         "//libs-scala/http-test-utils",
         "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
@@ -254,7 +254,7 @@ da_scala_library(
         "//test-common/canton:__subpackages__",
     ],
     deps = [
-        ":daml-common-staging_daml-errors",
+        ":base_daml-errors",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/data",
         "//libs-scala/contextualized-logging",
@@ -283,20 +283,20 @@ da_scala_library(
     ],
 )
 
-### daml-common-staging/grpc-utils ###
+### base/grpc-utils ###
 
 da_scala_library(
-    name = "daml-common-staging_grpc-utils",
+    name = "base_grpc-utils",
     srcs = glob([
-        "daml-common-staging/grpc-utils/src/main/scala/**/*.scala",
-        "daml-common-staging/grpc-utils/src/main/scala/**/*.java",
+        "base/grpc-utils/src/main/scala/**/*.scala",
+        "base/grpc-utils/src/main/scala/**/*.java",
     ]),
     scalacopts = canton_scalacopts + [
         "-language:postfixOps",
         # Disable unused variable in RequireTypes.scala, SubSource.scala, and KeyStoreConfig.scala
         "-Wconf:cat=unused-params:s,cat=unused-privates:s,cat=unused-nowarn:s",
     ],
-    tags = ["maven_coordinates=com.daml:daml-common-staging-grpc-utils:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:base-grpc-utils:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
         "//daml-lf/validation:__subpackages__",
@@ -304,7 +304,7 @@ da_scala_library(
         "//test-common/canton:__subpackages__",
     ],
     deps = [
-        ":daml-common-staging_daml-errors",
+        ":base_daml-errors",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         "@maven//:com_chuusai_shapeless_2_13",
@@ -321,20 +321,20 @@ da_scala_library(
     ],
 )
 
-### daml-common-staging/util-external ###
+### base/util-external ###
 
 da_scala_library(
-    name = "daml-common-staging_util-external",
-    srcs = glob(["daml-common-staging/util-external/src/main/scala/**/*.scala"]),
+    name = "base_util-external",
+    srcs = glob(["base/util-external/src/main/scala/**/*.scala"]),
     scalacopts = canton_scalacopts + [
         "-language:postfixOps",
         # Disable unused variable in RequireTypes.scala, SubSource.scala, and KeyStoreConfig.scala
         "-Wconf:cat=unused-params:s,cat=unused-privates:s,cat=unused-nowarn:s",
     ],
-    tags = ["maven_coordinates=com.daml:daml-common-staging-util-external:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:base-util-external:__VERSION__"],
     unused_dependency_checker_mode = "error",
     deps = [
-        ":daml-common-staging_daml-errors",
+        ":base_daml-errors",
         ":ledger_api_proto_scala",
         "@maven//:com_chuusai_shapeless_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
@@ -350,10 +350,10 @@ da_scala_library(
 )
 
 da_scala_library(
-    name = "daml-common-staging_daml-tls",
-    srcs = glob(["daml-common-staging/daml-tls/src/main/scala/**/*.scala"]),
+    name = "base_daml-tls",
+    srcs = glob(["base/daml-tls/src/main/scala/**/*.scala"]),
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    tags = ["maven_coordinates=com.daml:daml-common-staging-daml-tls:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:base-daml-tls:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
         "//daml-script:__subpackages__",
@@ -391,9 +391,9 @@ da_scala_library(
     ],
     deps = [
         ":community_util-logging",
-        ":daml-common-staging_daml-errors",
-        ":daml-common-staging_grpc-utils",
-        ":daml-common-staging_util-external",
+        ":base_daml-errors",
+        ":base_grpc-utils",
+        ":base_util-external",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -523,11 +523,11 @@ scala_library(
         ":community_lib_wartremover",
         ":community_magnolify-addon",
         ":community_util-logging",
-        ":daml-common-staging_daml-errors",
-        ":daml-common-staging_daml-jwt",
-        ":daml-common-staging_daml-tls",
-        ":daml-common-staging_grpc-utils",
-        ":daml-common-staging_util-external",
+        ":base_daml-errors",
+        ":base_daml-jwt",
+        ":base_daml-tls",
+        ":base_grpc-utils",
+        ":base_util-external",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/data",
@@ -621,9 +621,9 @@ scala_library(
         ":community_lib_wartremover",
         ":community_magnolify-addon",
         ":community_util-logging",
-        ":daml-common-staging_daml-errors",
-        ":daml-common-staging_daml-jwt",
-        ":daml-common-staging_util-external",
+        ":base_daml-errors",
+        ":base_daml-jwt",
+        ":base_util-external",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -742,10 +742,10 @@ scala_library(
         ":community_ledger_ledger-common",
         ":community_magnolify-addon",
         ":community_util-logging",
-        ":daml-common-staging_daml-errors",
-        ":daml-common-staging_daml-jwt",
-        ":daml-common-staging_daml-tls",
-        ":daml-common-staging_util-external",
+        ":base_daml-errors",
+        ":base_daml-jwt",
+        ":base_daml-tls",
+        ":base_util-external",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/archive:daml_lf_archive_proto_java",
@@ -837,9 +837,9 @@ scala_library(
         ":community_ledger_ledger-common",
         ":community_ledger_transcode",
         ":community_util-logging",
-        ":daml-common-staging_daml-errors",
-        ":daml-common-staging_daml-jwt",
-        ":daml-common-staging_util-external",
+        ":base_daml-errors",
+        ":base_daml-jwt",
+        ":base_util-external",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/api-type-signature",
@@ -983,9 +983,9 @@ scala_library(
         ":community_reference-driver",
         ":community_sequencer-driver",
         ":community_util-logging",
-        ":daml-common-staging_daml-errors",
-        ":daml-common-staging_daml-jwt",
-        ":daml-common-staging_util-external",
+        ":base_daml-errors",
+        ":base_daml-jwt",
+        ":base_util-external",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         ":pekko-stream-patch",
@@ -1115,10 +1115,10 @@ scala_library(
         ":community_magnolify-addon",
         ":community_participant_admin-workflows_java",
         ":community_util-logging",
-        ":daml-common-staging_daml-errors",
-        ":daml-common-staging_daml-jwt",
-        ":daml-common-staging_daml-tls",
-        ":daml-common-staging_util-external",
+        ":base_daml-errors",
+        ":base_daml-jwt",
+        ":base_daml-tls",
+        ":base_util-external",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/archive:daml_lf_archive_proto_java",
@@ -1209,8 +1209,8 @@ scala_library(
         ":community_magnolify-addon",
         ":community_sequencer-driver",
         ":community_util-logging",
-        ":daml-common-staging_daml-errors",
-        ":daml-common-staging_util-external",
+        ":base_daml-errors",
+        ":base_util-external",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/data",
         "//observability/metrics",
@@ -1272,7 +1272,7 @@ scala_library(
     unused_dependency_checker_mode = "error",
     deps = [
         ":community_util-logging",
-        ":daml-common-staging_util-external",
+        ":base_util-external",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/data",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
@@ -1308,10 +1308,10 @@ scala_library(
         ":community_sequencer-driver",
         ":community_synchronizer",
         ":community_util-logging",
-        ":daml-common-staging_daml-errors",
-        ":daml-common-staging_daml-jwt",
-        ":daml-common-staging_grpc-utils",
-        ":daml-common-staging_util-external",
+        ":base_daml-errors",
+        ":base_daml-jwt",
+        ":base_grpc-utils",
+        ":base_util-external",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/archive:daml_lf_archive_proto_java",
@@ -1403,9 +1403,9 @@ scala_library(
         ":community_participant",
         ":community_synchronizer",
         ":community_util-logging",
-        ":daml-common-staging_daml-errors",
-        ":daml-common-staging_daml-jwt",
-        ":daml-common-staging_util-external",
+        ":base_daml-errors",
+        ":base_daml-jwt",
+        ":base_util-external",
         "//daml-lf/data",
         "//libs-scala/nonempty",
         "//libs-scala/rs-grpc-bridge",

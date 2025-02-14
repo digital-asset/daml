@@ -57,9 +57,9 @@ da_scala_library(
     deps = [
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-logging",
-        "//canton:daml-common-staging_daml-errors",
-        "//canton:daml-common-staging_daml-tls",
-        "//canton:daml-common-staging_grpc-utils",
+        "//canton:base_daml-errors",
+        "//canton:base_daml-tls",
+        "//canton:base_grpc-utils",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_proto_java",
