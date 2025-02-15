@@ -551,9 +551,9 @@ private[routing] object SynchronizerSelectorTest {
 
       val inputContractIds: Set[LfContractId] = inputContractStakeholders.keySet
 
-      object TestSynchronizerStateProvider$ extends SynchronizerStateProvider {
-        override def getTopologySnapshotAndPVFor(synchronizerId: SynchronizerId)(implicit
-            traceContext: TraceContext
+      object TestSynchronizerState$ extends RoutingSynchronizerState {
+        override def getTopologySnapshotAndPVFor(
+            synchronizerId: SynchronizerId
         ): Either[UnableToQueryTopologySnapshot.Failed, (TopologySnapshot, ProtocolVersion)] =
           Either
             .cond(
@@ -571,12 +571,13 @@ private[routing] object SynchronizerSelectorTest {
             traceContext: TraceContext,
         ): FutureUnlessShutdown[Map[LfContractId, SynchronizerId]] =
           FutureUnlessShutdown.pure(synchronizerOfContracts(coids))
+
+        override val topologySnapshots = Map.empty
       }
 
       private val synchronizerRankComputation = new SynchronizerRankComputation(
         participantId = submitterParticipantId,
         priorityOfSynchronizer = priorityOfSynchronizer,
-        snapshotProvider = TestSynchronizerStateProvider$,
         loggerFactory = loggerFactory,
       )
 
@@ -587,7 +588,7 @@ private[routing] object SynchronizerSelectorTest {
           externallySignedSubmissionO = None,
           ledgerTime = ledgerTime,
           transaction = tx,
-          synchronizerStateProvider = TestSynchronizerStateProvider$,
+          synchronizerState = TestSynchronizerState$,
           contractsStakeholders = inputContractStakeholders,
           prescribedSynchronizerIdO = prescribedSubmitterSynchronizerId,
           disclosedContracts = Nil,
@@ -602,7 +603,7 @@ private[routing] object SynchronizerSelectorTest {
               admissibleSynchronizers = admissibleSynchronizers,
               priorityOfSynchronizer = priorityOfSynchronizer,
               synchronizerRankComputation = synchronizerRankComputation,
-              synchronizerStateProvider = TestSynchronizerStateProvider$,
+              synchronizerState = TestSynchronizerState$,
               loggerFactory = loggerFactory,
             )
           }

@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import cats.syntax.foldable.*
 import com.digitalasset.canton.RichGeneratedMessage
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -15,7 +16,6 @@ import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
-import com.digitalasset.canton.sequencer.api.v30.TrafficControlErrorReason
 import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficControlError
@@ -182,49 +182,51 @@ class BlockSequencer(
 
   private def validateMaxSequencingTime(
       submission: SubmissionRequest
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] = {
     val estimatedSequencingTimestamp = clock.now
-    submission.aggregationRule match {
-      case Some(_) =>
-        for {
-          _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
-            submission.maxSequencingTime > estimatedSequencingTimestamp,
-            SendAsyncError.RequestInvalid(
-              s"The sequencer clock timestamp $estimatedSequencingTimestamp is already past the max sequencing time ${submission.maxSequencingTime} for submission with id ${submission.messageId}"
-            ),
+    submission.aggregationRule.traverse_ { _ =>
+      for {
+        _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+          submission.maxSequencingTime > estimatedSequencingTimestamp,
+          SequencerErrors.SubmissionRequestRefused(
+            s"The sequencer clock timestamp $estimatedSequencingTimestamp is already past the max sequencing time ${submission.maxSequencingTime} for submission with id ${submission.messageId}"
+          ),
+        )
+        // We can't easily use snapshot(topologyTimestamp), because the effective last snapshot transaction
+        // visible in the BlockSequencer can be behind the topologyTimestamp and tracking that there's an
+        // intermediate topology change is impossible here (will need to communicate with the BlockUpdateGenerator).
+        // If topologyTimestamp happens to be ahead of current topology's timestamp we grab the latter
+        // to prevent a deadlock.
+        topologyTimestamp = cryptoApi.approximateTimestamp.min(
+          submission.topologyTimestamp.getOrElse(CantonTimestamp.MaxValue)
+        )
+        snapshot <- EitherT.right(cryptoApi.snapshot(topologyTimestamp))
+        synchronizerParameters <- EitherT(
+          snapshot.ipsSnapshot.findDynamicSynchronizerParameters()
+        )
+          .leftMap(error =>
+            SequencerErrors.Internal(s"Could not fetch dynamic synchronizer parameters: $error")
           )
-          // We can't easily use snapshot(topologyTimestamp), because the effective last snapshot transaction
-          // visible in the BlockSequencer can be behind the topologyTimestamp and tracking that there's an
-          // intermediate topology change is impossible here (will need to communicate with the BlockUpdateGenerator).
-          // If topologyTimestamp happens to be ahead of current topology's timestamp we grab the latter
-          // to prevent a deadlock.
-          topologyTimestamp = cryptoApi.approximateTimestamp.min(
-            submission.topologyTimestamp.getOrElse(CantonTimestamp.MaxValue)
-          )
-          snapshot <- EitherT.right(cryptoApi.snapshot(topologyTimestamp))
-          synchronizerParameters <- EitherT(
-            snapshot.ipsSnapshot.findDynamicSynchronizerParameters()
-          )
-            .leftMap(error =>
-              SendAsyncError.Internal(s"Could not fetch dynamic synchronizer parameters: $error")
-            )
-          maxSequencingTimeUpperBound = estimatedSequencingTimestamp.add(
-            synchronizerParameters.parameters.sequencerAggregateSubmissionTimeout.duration
-          )
-          _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
-            submission.maxSequencingTime < maxSequencingTimeUpperBound,
-            SendAsyncError.RequestInvalid(
-              s"Max sequencing time ${submission.maxSequencingTime} for submission with id ${submission.messageId} is too far in the future, currently bounded at $maxSequencingTimeUpperBound"
-            ): SendAsyncError,
-          )
-        } yield ()
-      case None => EitherT.right[SendAsyncError](FutureUnlessShutdown.unit)
+        maxSequencingTimeUpperBound = estimatedSequencingTimestamp.add(
+          synchronizerParameters.parameters.sequencerAggregateSubmissionTimeout.duration
+        )
+        _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+          submission.maxSequencingTime < maxSequencingTimeUpperBound,
+          SequencerErrors.SubmissionRequestRefused(
+            s"Max sequencing time ${submission.maxSequencingTime} for submission with id ${submission.messageId} is too far in the future, currently bounded at $maxSequencingTimeUpperBound"
+          ),
+        )
+      } yield ()
     }
   }
 
   override protected def sendAsyncInternal(
       submission: SubmissionRequest
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] = {
     val signedContent = SignedContent(submission, Signature.noSignature, None, protocolVersion)
     sendAsyncSignedInternal(signedContent)
   }
@@ -235,7 +237,7 @@ class BlockSequencer(
       content: SignedContent[SubmissionRequest]
   )(implicit
       tc: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncError.Internal, SignedOrderingRequest] = {
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, SignedOrderingRequest] = {
     val privateCrypto = cryptoApi.currentSnapshotApproximation
     for {
       signed <- SignedContent
@@ -247,13 +249,13 @@ class BlockSequencer(
           HashPurpose.OrderingRequestSignature,
           protocolVersion,
         )
-        .leftMap(error => SendAsyncError.Internal(s"Could not sign ordering request: $error"))
+        .leftMap(error => SequencerErrors.Internal(s"Could not sign ordering request: $error"))
     } yield signed
   }
 
   private def enforceRateLimiting(
       request: SignedContent[SubmissionRequest]
-  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] =
+  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
     blockRateLimitManager
       .validateRequestAtSubmissionTime(
         request.content,
@@ -270,35 +272,29 @@ class BlockSequencer(
           logger.debug(
             s"Rejecting submission request because not enough traffic is available: $notEnoughTraffic"
           )
-          SendAsyncError.TrafficControlError(
-            TrafficControlErrorReason.Error(
-              TrafficControlErrorReason.Error.Reason.InsufficientTraffic(
-                s"Submission was rejected because not traffic is available: $notEnoughTraffic"
-              )
-            )
-          ): SendAsyncError
+          SequencerErrors.TrafficCredit(
+            s"Submission was rejected because not traffic is available: $notEnoughTraffic"
+          )
         // If the cost is outdated, we bounce the request with a specific SendAsyncError so the
         // sender has the required information to retry the request with the correct cost
         case outdated: SequencerRateLimitError.OutdatedEventCost =>
           logger.debug(
             s"Rejecting submission request because the cost was computed using an outdated topology: $outdated"
           )
-          SendAsyncError.TrafficControlError(
-            TrafficControlErrorReason.Error(
-              TrafficControlErrorReason.Error.Reason.OutdatedTrafficCost(
-                s"Submission was refused because traffic cost was outdated. Re-submit after having observed the validation timestamp and processed its topology state: $outdated"
-              )
-            )
-          ): SendAsyncError
+          SequencerErrors.OutdatedTrafficCost(
+            s"Submission was refused because traffic cost was outdated. Re-submit after having observed the validation timestamp and processed its topology state: $outdated"
+          )
         case error =>
-          SendAsyncError.RequestRefused(
+          SequencerErrors.SubmissionRequestRefused(
             s"Submission was refused because traffic control validation failed: $error"
-          ): SendAsyncError
+          )
       }
 
   override protected def sendAsyncSignedInternal(
       signedSubmission: SignedContent[SubmissionRequest]
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] = {
     val submission = signedSubmission.content
     val SubmissionRequest(
       sender,
@@ -318,7 +314,7 @@ class BlockSequencer(
       //  aggregated submissions with signed envelopes define a topology snapshot
       _ <- validateMaxSequencingTime(submission)
       memberCheck <- EitherT
-        .right[SendAsyncError](
+        .right[SequencerDeliverError](
           // Using currentSnapshotApproximation due to members registration date
           // expected to be before submission sequencing time
           cryptoApi.currentSnapshotApproximation.ipsSnapshot
@@ -339,15 +335,11 @@ class BlockSequencer(
         )
       signedOrderingRequest <- signOrderingRequest(signedSubmission)
       _ <- enforceRateLimiting(signedSubmission)
-      _ <-
-        EitherT(
-          futureSupervisor
-            .supervised(
-              s"Sending submission request with id ${submission.messageId} from $sender to ${batch.allRecipients}"
-            )(
-              blockOrderer.send(signedOrderingRequest).value
-            )
-        ).mapK(FutureUnlessShutdown.outcomeK)
+      _ <- EitherT(
+        futureSupervisor.supervised(
+          s"Sending submission request with id ${submission.messageId} from $sender to ${batch.allRecipients}"
+        )(blockOrderer.send(signedOrderingRequest).value)
+      ).mapK(FutureUnlessShutdown.outcomeK)
     } yield ()
   }
 

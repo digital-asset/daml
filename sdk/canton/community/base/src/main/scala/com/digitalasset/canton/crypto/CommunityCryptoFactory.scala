@@ -6,12 +6,7 @@ package com.digitalasset.canton.crypto
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{
-  CommunityCryptoConfig,
-  CryptoConfig,
-  CryptoProvider,
-  ProcessingTimeout,
-}
+import com.digitalasset.canton.config.{CryptoConfig, CryptoProvider, ProcessingTimeout}
 import com.digitalasset.canton.crypto.kms.CommunityKms
 import com.digitalasset.canton.crypto.provider.jce.JceCrypto
 import com.digitalasset.canton.crypto.provider.kms.{CommunityKmsPrivateCrypto, KmsCrypto}
@@ -45,11 +40,6 @@ class CommunityCryptoFactory extends CryptoFactory {
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, String, Crypto] =
     for {
-      communityConfig <- config match {
-        case conf: CommunityCryptoConfig => EitherT.rightT[FutureUnlessShutdown, String](conf)
-        case _ =>
-          EitherT.leftT[FutureUnlessShutdown, CommunityCryptoConfig]("Invalid crypto config type")
-      }
       storesAndSchemes <- initStoresAndSelectSchemes(
         config,
         storage,
@@ -59,7 +49,7 @@ class CommunityCryptoFactory extends CryptoFactory {
         loggerFactory,
         tracerProvider,
       )
-      crypto <- communityConfig.provider match {
+      crypto <- config.provider match {
         case CryptoProvider.Jce =>
           JceCrypto
             .create(config, storesAndSchemes, timeouts, loggerFactory)
@@ -67,9 +57,7 @@ class CommunityCryptoFactory extends CryptoFactory {
         case CryptoProvider.Kms =>
           EitherT.fromEither[FutureUnlessShutdown] {
             for {
-              kmsConfig <- communityConfig.kms.toRight(
-                "Missing KMS configuration for KMS crypto provider"
-              )
+              kmsConfig <- config.kms.toRight("Missing KMS configuration for KMS crypto provider")
               kms <- CommunityKms
                 .create(
                   kmsConfig,

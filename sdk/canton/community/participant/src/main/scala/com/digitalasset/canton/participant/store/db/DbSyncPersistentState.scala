@@ -77,6 +77,7 @@ class DbSyncPersistentState(
     pureCryptoApi,
     futureSupervisor,
     exitOnFatalFailures = parameters.exitOnFatalFailures,
+    parameters.batchingConfig,
     timeouts,
     loggerFactory,
   )

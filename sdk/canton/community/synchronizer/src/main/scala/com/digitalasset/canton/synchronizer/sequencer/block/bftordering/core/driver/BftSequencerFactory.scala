@@ -8,7 +8,7 @@ import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.resource.Storage
+import com.digitalasset.canton.resource.{CommunityStorageSetup, Storage, StorageSetup}
 import com.digitalasset.canton.synchronizer.block.BlockSequencerStateManager
 import com.digitalasset.canton.synchronizer.block.data.SequencerBlockStore
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -42,6 +42,7 @@ class BftSequencerFactory(
     metrics: SequencerMetrics,
     override val loggerFactory: NamedLoggerFactory,
     testingInterceptor: Option[TestingInterceptor],
+    storageSetup: StorageSetup = CommunityStorageSetup,
 )(implicit ec: ExecutionContext)
     extends BlockSequencerFactory(
       health,
@@ -101,6 +102,8 @@ class BftSequencerFactory(
         sequencerSnapshot.flatMap(_.additional),
         metrics.bftOrdering,
         synchronizerLoggerFactory,
+        storageSetup,
+        nodeParameters.loggingConfig.queryCost,
       ),
       name,
       synchronizerId,

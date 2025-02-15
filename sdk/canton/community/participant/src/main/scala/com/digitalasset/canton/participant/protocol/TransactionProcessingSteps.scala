@@ -496,7 +496,7 @@ class TransactionProcessingSteps(
         error: SubmissionSendError
     )(implicit traceContext: TraceContext): TransactionSubmissionTrackingData = {
       val errorCode: TransactionError = error.sendError match {
-        case SendAsyncClientError.RequestRefused(SendAsyncError.Overloaded(_)) =>
+        case SendAsyncClientError.RequestRefused(error) if error.isOverload =>
           TransactionProcessor.SubmissionErrors.SequencerBackpressure.Rejection(error.toString)
         case otherSendError =>
           TransactionProcessor.SubmissionErrors.SequencerRequest.Error(otherSendError)

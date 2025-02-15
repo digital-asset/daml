@@ -8,7 +8,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
-  SendAsyncError,
+  SequencerDeliverError,
   SignedContent,
 }
 import com.digitalasset.canton.synchronizer.block.{RawLedgerBlock, SequencerDriverHealthStatus}
@@ -74,7 +74,7 @@ trait BlockOrderer extends AutoCloseable {
     */
   def send(signedOrderingRequest: SignedOrderingRequest)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SendAsyncError, Unit]
+  ): EitherT[Future, SequencerDeliverError, Unit]
 
   /** Orders an event reception acknowledgement.
     * If the sequencer node is honest, this normally results in a [[block.RawLedgerBlock.RawBlockEvent.Acknowledgment]].

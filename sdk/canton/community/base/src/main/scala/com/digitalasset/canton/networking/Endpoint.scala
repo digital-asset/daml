@@ -9,18 +9,24 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
+import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import io.grpc.Attributes
 
 import java.net.URI
 
 /** Networking endpoint where host could be a hostname or ip address. */
-final case class Endpoint(host: String, port: Port) {
+final case class Endpoint(host: String, port: Port) extends UniformCantonConfigValidation {
   override def toString: String = s"$host:$port"
 
   def toURI(useTls: Boolean) = new URI(s"${if (useTls) "https" else "http"}://$toString")
 }
 
 object Endpoint {
+  implicit val endpointCantonConfigValidator: CantonConfigValidator[Endpoint] = {
+    import com.digitalasset.canton.config.CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[Endpoint]
+  }
 
   implicit val endpointOrdering: Ordering[Endpoint] =
     Ordering.by(_.toString)

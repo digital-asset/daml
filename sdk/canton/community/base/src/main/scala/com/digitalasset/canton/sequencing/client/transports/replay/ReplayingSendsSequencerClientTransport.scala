@@ -88,7 +88,7 @@ object ReplayingSendsSequencerClientTransport {
         result: UnlessShutdown[Either[SendAsyncClientError, Unit]]
     ): SendReplayReport =
       result match {
-        case Outcome(Left(SendAsyncClientError.RequestRefused(_: SendAsyncError.Overloaded))) =>
+        case Outcome(Left(SendAsyncClientError.RequestRefused(error))) if error.isOverload =>
           copy(overloaded = overloaded + 1)
         case Outcome(Left(_)) => copy(errors = errors + 1)
         case Outcome(Right(_)) => copy(successful = successful + 1)
@@ -178,7 +178,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     ): Either[SendAsyncClientError, Unit] =
       withEmptyMetricsContext { implicit metricsContext =>
         result.tap {
-          case Left(SendAsyncClientError.RequestRefused(_: SendAsyncError.Overloaded)) =>
+          case Left(SendAsyncClientError.RequestRefused(error)) if error.isOverload =>
             logger.warn(
               s"Sequencer is overloaded and rejected our send. Please tune the sequencer to handle more concurrent requests."
             )
@@ -214,9 +214,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
             withExtendedMst,
             HashPurpose.SubmissionRequestSignature,
           )
-          .leftMap(error =>
-            SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(error))
-          )
+          .leftMap(error => SendAsyncClientError.RequestFailed(error))
         _ <- underlyingTransport
           .sendAsyncSigned(
             signedRequest,

@@ -47,7 +47,6 @@ final class PbftBlockState(
     leader: SequencerId,
     epoch: EpochNumber,
     view: ViewNumber,
-    firstInSegment: Boolean,
     abort: String => Nothing,
     metrics: BftOrderingMetrics,
     override val loggerFactory: NamedLoggerFactory,
@@ -258,7 +257,7 @@ final class PbftBlockState(
       false
     } else {
       val shouldAdvance = messageValidator
-        .validatePrePrepare(pp.message, firstInSegment)
+        .validatePrePrepare(pp.message)
         .fold(
           { error =>
             logger.warn(s"PrePrepare validation failed with: '$error', dropping...")

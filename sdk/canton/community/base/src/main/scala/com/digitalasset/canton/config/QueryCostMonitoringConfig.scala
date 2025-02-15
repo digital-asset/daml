@@ -4,6 +4,7 @@
 package com.digitalasset.canton.config
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 
 /** Configuration for monitoring the cost of db queries.
   *
@@ -19,12 +20,23 @@ final case class QueryCostMonitoringConfig(
     logOperations: Boolean = false,
     sortBy: QueryCostSortBy = QueryCostSortBy.Total,
     logLines: PositiveInt = PositiveInt.tryCreate(15),
-)
+) extends UniformCantonConfigValidation
+
+object QueryCostMonitoringConfig {
+  implicit val queryCostMonitoringConfigCanontConfigValidator
+      : CantonConfigValidator[QueryCostMonitoringConfig] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[QueryCostMonitoringConfig]
+  }
+}
 
 sealed trait QueryCostSortBy extends Product with Serializable
 object QueryCostSortBy {
-  final case object Count extends QueryCostSortBy
-  final case object Mean extends QueryCostSortBy
-  final case object Total extends QueryCostSortBy
-  final case object StdDev extends QueryCostSortBy
+  implicit val queryCostSortByCantonConfigValidator: CantonConfigValidator[QueryCostSortBy] =
+    CantonConfigValidatorDerivation[QueryCostSortBy]
+
+  final case object Count extends QueryCostSortBy with UniformCantonConfigValidation
+  final case object Mean extends QueryCostSortBy with UniformCantonConfigValidation
+  final case object Total extends QueryCostSortBy with UniformCantonConfigValidation
+  final case object StdDev extends QueryCostSortBy with UniformCantonConfigValidation
 }

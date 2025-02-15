@@ -4,11 +4,11 @@
 package com.digitalasset.canton.config
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.config.CantonRequireTypes.String255
+import com.digitalasset.canton.config.CantonRequireTypes.{String255, String3, String36}
 import org.scalatest.wordspec.AnyWordSpec
 
 class LengthLimitedStringTest extends AnyWordSpec with BaseTest {
-  "LengthLimitedString255" should {
+  "LengthLimitedString" should {
     "have a correctly working .create" in {
       val ok = String255.create("123")
       val ok2 = String255.create("")
@@ -34,12 +34,24 @@ class LengthLimitedStringTest extends AnyWordSpec with BaseTest {
     }
 
     "have symmetric equality with strings" in {
+      // TODO(#23301) This test does not really test symmetry and symmetry in fact does not hold.
       val s = "s"
       val s255 = String255.tryCreate("s")
       (s255 == s) shouldBe true
       (s255 == s255) shouldBe true
       // TODO(i23301): uncomment this line once fixed.
 //      (s255 == "bar") shouldBe ("bar" == s255)
+    }
+
+    "respect supplementary pairs upon truncation" in {
+      // String with a supplementary pair for 😂 at truncation point
+      val s = "ab\uD83D\uDE02"
+
+      val s3 = String3.createWithTruncation(s)
+      s3 shouldBe "ab" // The supplementary pair is removed in full
+
+      val s36 = String36.createWithTruncation(s)
+      s36 shouldBe s
     }
   }
 }

@@ -11,6 +11,7 @@ import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.AdminServerConfig.defaultAddress
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port}
 import com.digitalasset.canton.config.SequencerConnectionConfig.CertificateFile
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.{
   CantonCommunityServerInterceptors,
@@ -125,7 +126,8 @@ final case class AdminServerConfig(
     override val maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
     override val authServices: Seq[AuthServiceConfig] = Seq.empty,
     override val adminToken: Option[String] = None,
-) extends ServerConfig {
+) extends ServerConfig
+    with UniformCantonConfigValidation {
   def clientConfig: ClientConfig =
     ClientConfig(
       address,
@@ -140,6 +142,11 @@ final case class AdminServerConfig(
 }
 object AdminServerConfig {
   val defaultAddress: String = "127.0.0.1"
+
+  implicit val adminServerConfigCantonConfigValidator: CantonConfigValidator[AdminServerConfig] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[AdminServerConfig]
+  }
 }
 
 /** GRPC keep alive server configuration. */
@@ -178,6 +185,13 @@ final case class BasicKeepAliveServerConfig(
     permitKeepAliveTime: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(20),
     permitKeepAliveWithoutCalls: Boolean = false,
 ) extends KeepAliveServerConfig
+    with UniformCantonConfigValidation
+
+object BasicKeepAliveServerConfig {
+  implicit val basicKeepAliveServerConfigCantonConfigValidator
+      : CantonConfigValidator[BasicKeepAliveServerConfig] =
+    CantonConfigValidatorDerivation[BasicKeepAliveServerConfig]
+}
 
 final case class LedgerApiKeepAliveServerConfig(
     time: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMinutes(10),
@@ -196,7 +210,13 @@ final case class LedgerApiKeepAliveServerConfig(
 final case class KeepAliveClientConfig(
     time: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(40),
     timeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(20),
-)
+) extends UniformCantonConfigValidation
+
+object KeepAliveClientConfig {
+  implicit val keepAliveClientConfigCantonConfigValidator
+      : CantonConfigValidator[KeepAliveClientConfig] =
+    CantonConfigValidatorDerivation[KeepAliveClientConfig]
+}
 
 /** A client configuration to a corresponding server configuration */
 final case class ClientConfig(
@@ -204,8 +224,14 @@ final case class ClientConfig(
     port: Port,
     tls: Option[TlsClientConfig] = None,
     keepAliveClient: Option[KeepAliveClientConfig] = Some(KeepAliveClientConfig()),
-) {
+) extends UniformCantonConfigValidation {
   def endpointAsString: String = address + ":" + port.unwrap
+}
+object ClientConfig {
+  implicit val clientConfigCantonConfigValidator: CantonConfigValidator[ClientConfig] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[ClientConfig]
+  }
 }
 
 sealed trait BaseTlsArguments {
@@ -272,7 +298,8 @@ final case class TlsServerConfig(
     ),
     ciphers: Option[Seq[String]] = TlsServerConfig.defaultCiphers,
     enableCertRevocationChecking: Boolean = false,
-) extends BaseTlsArguments {
+) extends BaseTlsArguments
+    with UniformCantonConfigValidation {
   lazy val clientConfig: TlsClientConfig = {
     val clientCert = clientAuth match {
       case ServerAuthRequirementConfig.Require(cert) => Some(cert)
@@ -304,6 +331,11 @@ final case class TlsServerConfig(
 }
 
 object TlsServerConfig {
+  implicit val tlsServerConfigCantonConfigValidator: CantonConfigValidator[TlsServerConfig] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[TlsServerConfig]
+  }
+
   // default OWASP strong cipher set with broad compatibility (B list)
   // https://cheatsheetseries.owasp.org/cheatsheets/TLS_Cipher_String_Cheat_Sheet.html
   lazy val defaultCiphers = {
@@ -404,6 +436,14 @@ final case class TlsBaseServerConfig(
     ),
     ciphers: Option[Seq[String]] = TlsServerConfig.defaultCiphers,
 ) extends BaseTlsArguments
+    with UniformCantonConfigValidation
+object TlsBaseServerConfig {
+  implicit val tlsBaseServerConfigCantonConfigValidator
+      : CantonConfigValidator[TlsBaseServerConfig] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[TlsBaseServerConfig]
+  }
+}
 
 /** A wrapper for TLS related client configurations
   *
@@ -413,17 +453,33 @@ final case class TlsBaseServerConfig(
 final case class TlsClientConfig(
     trustCollectionFile: Option[ExistingFile],
     clientCert: Option[TlsClientCertificate],
-)
+) extends UniformCantonConfigValidation
+object TlsClientConfig {
+  implicit val tlsClientConfigCantonConfigValidator: CantonConfigValidator[TlsClientConfig] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[TlsClientConfig]
+  }
+}
 
 /**
   */
 final case class TlsClientCertificate(certChainFile: File, privateKeyFile: File)
+    extends UniformCantonConfigValidation
+object TlsClientCertificate {
+  implicit val tlsClientCertificateCantonConfigValidator
+      : CantonConfigValidator[TlsClientCertificate] =
+    CantonConfigValidatorDerivation[TlsClientCertificate]
+}
 
 /** Configuration on whether server requires auth, requests auth, or no auth */
-sealed trait ServerAuthRequirementConfig {
+sealed trait ServerAuthRequirementConfig extends UniformCantonConfigValidation {
   def clientAuth: ClientAuth
 }
 object ServerAuthRequirementConfig {
+
+  implicit val serverAuthRequirementConfigCantonConfigValidator
+      : CantonConfigValidator[ServerAuthRequirementConfig] =
+    CantonConfigValidatorDerivation[ServerAuthRequirementConfig]
 
   /** A variant of [[ServerAuthRequirementConfig]] by which the server requires auth from clients */
   final case class Require(adminClient: TlsClientCertificate) extends ServerAuthRequirementConfig {

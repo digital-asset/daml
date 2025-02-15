@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.config
 
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.PositiveDouble
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 
 /** Various parameters for non-standard sequencer settings
   *
@@ -25,3 +26,12 @@ final case class SequencerNodeParameterConfig(
     unsafeEnableOnlinePartyReplication: Boolean = false,
 ) extends ProtocolConfig
     with LocalNodeParametersConfig
+    with UniformCantonConfigValidation
+
+object SequencerNodeParameterConfig {
+  implicit val sequencerNodeParameterConfigCantonConfigValidator
+      : CantonConfigValidator[SequencerNodeParameterConfig] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[SequencerNodeParameterConfig]
+  }
+}

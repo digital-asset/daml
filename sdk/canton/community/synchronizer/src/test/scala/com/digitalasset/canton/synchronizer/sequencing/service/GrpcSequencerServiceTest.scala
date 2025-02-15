@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.synchronizer.sequencing.service
 
-import cats.data.EitherT
 import cats.syntax.option.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.Threading
@@ -23,7 +22,6 @@ import com.digitalasset.canton.protocol.{
 import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.BytestringWithCryptographicEvidence
-import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
 import com.digitalasset.canton.synchronizer.sequencer.Sequencer
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerParameters
@@ -43,7 +41,7 @@ import com.digitalasset.canton.topology.store.{
   TopologyStateForInitializationService,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.MonadUtil
+import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import com.digitalasset.canton.version.{ProtocolVersion, VersionedMessage}
 import com.digitalasset.canton.{
   BaseTest,
@@ -53,8 +51,8 @@ import com.digitalasset.canton.{
 }
 import com.google.protobuf.ByteString
 import io.grpc.Status.Code.*
-import io.grpc.StatusException
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
+import io.grpc.{StatusException, StatusRuntimeException}
 import monocle.macros.syntax.lens.*
 import org.mockito.{ArgumentMatchers, Mockito}
 import org.scalatest.matchers.should.Matchers
@@ -63,6 +61,7 @@ import org.scalatest.{Assertion, FutureOutcome}
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Success
 
 import SubscriptionPool.PoolClosed
 
@@ -80,9 +79,9 @@ class GrpcSequencerServiceTest
   class Environment(member: Member) extends Matchers {
     val sequencer: Sequencer = mock[Sequencer]
     when(sequencer.sendAsyncSigned(any[SignedContent[SubmissionRequest]])(anyTraceContext))
-      .thenReturn(EitherT.rightT[FutureUnlessShutdown, SendAsyncError](()))
+      .thenReturn(EitherTUtil.unitUS)
     when(sequencer.acknowledgeSigned(any[SignedContent[AcknowledgeRequest]])(anyTraceContext))
-      .thenReturn(EitherT.rightT(()))
+      .thenReturn(EitherTUtil.unitUS)
     val cryptoApi: SynchronizerCryptoClient =
       TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(member)
     val subscriptionPool: SubscriptionPool[Subscription] =
@@ -248,42 +247,40 @@ class GrpcSequencerServiceTest
         versionedSignedRequest: ByteString
     )(implicit
         env: Environment
-    ): Future[ParsingResult[SendAsyncVersionedResponse]] = {
+    ): Future[Unit] = {
       import env.*
 
       val requestP = v30.SendAsyncVersionedRequest(versionedSignedRequest)
       val response = service.sendAsyncVersioned(requestP)
 
-      response.map(SendAsyncVersionedResponse.fromProtoV30)
+      response.map(_ => ())
     }
 
     def send(request: SubmissionRequest)(implicit
         env: Environment
-    ): Future[ParsingResult[SendAsyncVersionedResponse]] =
+    ): Future[Unit] =
       sendProto(signedSubmissionReq(request).toByteString)
 
     def sendAndCheckSucceed(request: SubmissionRequest)(implicit
         env: Environment
     ): Future[Assertion] =
-      send(request).map { responseP =>
-        responseP.value.error shouldBe None
-      }
+      send(request).map(_ => succeed)
 
     def sendAndCheckError(
         request: SubmissionRequest
-    )(assertion: PartialFunction[SendAsyncError, Assertion])(implicit
+    )(assertion: PartialFunction[Throwable, Assertion])(implicit
         env: Environment
     ): Future[Assertion] =
-      send(request).map { responseP =>
-        assertion(responseP.value.error.value)
+      send(request).failed.map { error =>
+        assertion(error)
       }
 
     def sendProtoAndCheckError(
         versionedSignedRequest: ByteString,
-        assertion: PartialFunction[SendAsyncError, Assertion],
+        assertion: PartialFunction[Throwable, Assertion],
     )(implicit env: Environment): Future[Assertion] =
-      sendProto(versionedSignedRequest).map { responseP =>
-        assertion(responseP.value.error.value)
+      sendProto(versionedSignedRequest).failed.map { error =>
+        assertion(error)
       }
 
     "reject empty request" in { implicit env =>
@@ -304,11 +301,11 @@ class GrpcSequencerServiceTest
       loggerFactory.assertLogs(
         sendProtoAndCheckError(
           signedRequestV0.toByteString,
-          { case SendAsyncError.RequestInvalid(message) =>
-            message should startWith("ValueConversionError(sender,Invalid member ``")
+          { case ex: StatusRuntimeException =>
+            ex.getMessage should include("ValueConversionError(sender,Invalid member ``")
           },
         ),
-        _.warningMessage should startWith("ValueConversionError(sender,Invalid member ``"),
+        _.warningMessage should include("ValueConversionError(sender,Invalid member ``"),
       )
     }
 
@@ -318,12 +315,10 @@ class GrpcSequencerServiceTest
         .modify(_.map(_.focus(_.bytes).replace(ByteString.EMPTY)))
 
       loggerFactory.assertLogs(
-        sendAndCheckError(request) { case SendAsyncError.RequestInvalid(message) =>
-          message shouldBe "Batch contains envelope without content."
+        sendAndCheckError(request) { case ex: StatusRuntimeException =>
+          ex.getMessage should include("Batch contains envelope without content.")
         },
-        _.warningMessage should endWith(
-          "is invalid: Batch contains envelope without content."
-        ),
+        _.warningMessage should include("Batch contains envelope without content."),
       )
     }
 
@@ -338,13 +333,13 @@ class GrpcSequencerServiceTest
       loggerFactory.assertLogs(
         sendProtoAndCheckError(
           signedRequestV0.toByteString,
-          { case SendAsyncError.RequestInvalid(message) =>
-            message should startWith(
+          { case ex: StatusRuntimeException =>
+            ex.getMessage should include(
               "ValueConversionError(sender,Expected delimiter :: after three letter code of `THISWILLFAIL`)"
             )
           },
         ),
-        _.warningMessage should startWith(
+        _.warningMessage should include(
           "ValueConversionError(sender,Expected delimiter :: after three letter code of `THISWILLFAIL`)"
         ),
       )
@@ -362,8 +357,8 @@ class GrpcSequencerServiceTest
 
       val alarmMsg = s"Max bytes to decompress is exceeded. The limit is 1000 bytes."
       loggerFactory.assertLogs(
-        sendAndCheckError(request) { case SendAsyncError.RequestInvalid(message) =>
-          message should include(alarmMsg)
+        sendAndCheckError(request) { case ex: StatusRuntimeException =>
+          ex.getMessage should include(alarmMsg)
         },
         _.shouldBeCantonError(
           SequencerError.MaxRequestSizeExceeded,
@@ -378,8 +373,8 @@ class GrpcSequencerServiceTest
         .replace(DefaultTestIdentities.participant2)
 
       loggerFactory.assertLogs(
-        sendAndCheckError(request) { case SendAsyncError.RequestRefused(message) =>
-          message should (include("is not authorized to send:")
+        sendAndCheckError(request) { case ex: StatusRuntimeException =>
+          ex.getMessage should (include("is not authorized to send:")
             and include("just tried to use sequencer on behalf of"))
         },
         _.warningMessage should (include("is not authorized to send:")
@@ -392,20 +387,23 @@ class GrpcSequencerServiceTest
         sendAndCheckSucceed(defaultConfirmationRequest)
 
       def expectOneSuccessOneOverloaded(): Future[Assertion] = {
-        val result1F = send(defaultConfirmationRequest)
-        val result2F = send(defaultConfirmationRequest)
+        val result1F =
+          send(defaultConfirmationRequest).transform(res => Success(res.toEither.swap.toOption))
+        val result2F =
+          send(defaultConfirmationRequest).transform(res => Success(res.toEither.swap.toOption))
         for {
           result1 <- result1F
           result2 <- result2F
         } yield {
-          def assertOverloadedError(error: SendAsyncError): Assertion =
+          def assertOverloadedError(error: Throwable): Assertion =
             error match {
-              case SendAsyncError.Overloaded(message) =>
-                message should endWith("Submission rate exceeds rate limit of 5/s.")
+              case ex: StatusRuntimeException =>
+                ex.getMessage should include(SequencerErrors.Overloaded.id)
+                ex.getMessage should endWith("Submission rate exceeds rate limit of 5/s.")
               case wrongError =>
                 fail(s"Unexpected error: $wrongError, expected Overloaded error instead")
             }
-          (result1.value.error, result2.value.error) match {
+          (result1, result2) match {
             case (Some(error), None) => assertOverloadedError(error)
             case (None, Some(error)) => assertOverloadedError(error)
             case (Some(_), Some(_)) =>
@@ -482,12 +480,10 @@ class GrpcSequencerServiceTest
               // create a fresh environment for each request such that the rate limiter does not complain
               val participantEnv = new Environment(sender)
               loggerFactory.assertLogs(
-                sendAndCheckError(badRequest) { case SendAsyncError.RequestRefused(message) =>
-                  message shouldBe "Batch contains multiple mediators as recipients."
+                sendAndCheckError(badRequest) { case ex: StatusRuntimeException =>
+                  ex.getMessage should include("Batch contains multiple mediators as recipients.")
                 }(participantEnv),
-                _.warningMessage should include(
-                  "refused: Batch contains multiple mediators as recipients."
-                ),
+                _.warningMessage should include("Batch contains multiple mediators as recipients."),
               )
             }
         }
@@ -533,8 +529,8 @@ class GrpcSequencerServiceTest
           )
         )
       loggerFactory.assertLogs(
-        sendAndCheckError(request) { case SendAsyncError.RequestInvalid(message) =>
-          message should include("Threshold 2 cannot be reached")
+        sendAndCheckError(request) { case ex: StatusRuntimeException =>
+          ex.getMessage should include("Threshold 2 cannot be reached")
         },
         _.warningMessage should include("Threshold 2 cannot be reached"),
       )
@@ -555,8 +551,8 @@ class GrpcSequencerServiceTest
           )
         )
       loggerFactory.assertLogs(
-        sendAndCheckError(request) { case SendAsyncError.RequestInvalid(message) =>
-          message should include(
+        sendAndCheckError(request) { case ex: StatusRuntimeException =>
+          ex.getMessage should include(
             s"Sender [$participant] is not eligible according to the aggregation rule"
           )
         },

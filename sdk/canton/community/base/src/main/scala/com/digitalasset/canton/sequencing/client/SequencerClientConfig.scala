@@ -5,6 +5,7 @@ package com.digitalasset.canton.sequencing.client
 
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 
 /** Client configured options for how to connect to a sequencer
@@ -52,4 +53,12 @@ final case class SequencerClientConfig(
     skipSequencedEventValidation: Boolean = false,
     overrideMaxRequestSize: Option[NonNegativeInt] = None,
     maximumInFlightEventBatches: PositiveInt = PositiveInt.tryCreate(20),
-)
+) extends UniformCantonConfigValidation
+
+object SequencerClientConfig {
+  implicit val sequencerClientConfigCantonConfigValidator
+      : CantonConfigValidator[SequencerClientConfig] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[SequencerClientConfig]
+  }
+}

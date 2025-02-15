@@ -29,7 +29,7 @@ import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{HexString, ResourceUtil}
+import com.digitalasset.canton.util.{ConcurrentBufferedLogger, HexString, ResourceUtil}
 import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.daml.lf.data.ImmArray
 import monocle.macros.syntax.lens.*
@@ -37,7 +37,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 import java.util.UUID
 import scala.concurrent.blocking
-import scala.sys.process.{Process, ProcessLogger}
+import scala.sys.process.Process
 
 abstract class ExampleIntegrationTest(configPaths: File*)
     extends CommunityIntegrationTest
@@ -132,39 +132,27 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
       : Seq[CantonCommunityConfig => CantonCommunityConfig] = Seq(
     _.focus(_.parameters.portsFile).replace(Some(portsFiles.pathAsString))
   )
-  private val pythonVenv = s"${interactiveSubmissionV1Folder.pathAsString}/.venv"
-  private var pythonEnv: Seq[(String, String)] = Seq.empty
-  private val processLogger = new ProcessLogger {
-    override def out(s: => String): Unit = logger.info(s"python script: $s")
-    override def err(s: => String): Unit = logger.error(s"python script: $s")
-    override def buffer[T](f: => T): T = f
+  private val processLogger = new ConcurrentBufferedLogger {
+    override def out(s: => String): Unit = {
+      logger.info(s)
+      super.out(s)
+    }
+    override def err(s: => String): Unit = {
+      logger.error(s)
+      super.err(s)
+    }
   }
 
-  private def runAndAssertCommandSuccess(process: scala.sys.process.ProcessBuilder) = assert(
-    process.!(processLogger) == 0
-  )
+  private def runAndAssertCommandSuccess(pb: scala.sys.process.ProcessBuilder) = {
+    val exitCode = pb.!
+    if (exitCode != 0) {
+      fail(s"Command failed:\n\n ${processLogger.output()}")
+    }
+  }
 
   override def beforeAll(): Unit = {
-    // Create virtual env to make sure we run the demo with the exact package versions we want
     runAndAssertCommandSuccess(
-      Process(Seq("python", "-m", "venv", ".venv"), interactiveSubmissionV1Folder.toJava)
-    )
-    // Install dependencies
-    runAndAssertCommandSuccess(
-      Process(
-        Seq(s"$pythonVenv/bin/pip", "install", "-r", "requirements.txt"),
-        interactiveSubmissionV1Folder.toJava,
-      )
-    )
-    // This allows to be agnostic of the python version as the folder contains the python minor version (e.g: python3.10)
-    val packagesFolder = File(s"$pythonVenv/lib").children.next() / "site-packages"
-    // Create a PYTHONPATH env var pointing to the venv to use in priority those packages
-    pythonEnv = Seq(
-      "PYTHONPATH" -> s"${packagesFolder.pathAsString}${sys.env.get("PYTHONPATH").map(":" + _).getOrElse("")}"
-    )
-    // Run the setup - set the PYTHONPATH to ensure we use the packages in the venv
-    runAndAssertCommandSuccess(
-      Process(Seq("./setup.sh"), cwd = interactiveSubmissionV1Folder.toJava, extraEnv = pythonEnv*)
+      Process(Seq("./setup.sh"), cwd = interactiveSubmissionV1Folder.toJava)
     )
     super.beforeAll()
   }
@@ -175,7 +163,6 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
     List(
       File("participant_id"),
       File("synchronizer_id"),
-      File(pythonVenv),
       interactiveSubmissionV1Folder / "com",
       interactiveSubmissionV1Folder / "google",
       interactiveSubmissionV1Folder / "scalapb",
@@ -200,7 +187,6 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
           "run-demo",
         ),
         cwd = interactiveSubmissionV1Folder.toJava,
-        extraEnv = pythonEnv *,
       )
     )
   }
@@ -218,7 +204,6 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
         tempFile.pathAsString,
       ),
       cwd = interactiveSubmissionV1Folder.toJava,
-      extraEnv = pythonEnv *,
     ).!!.stripLineEnd
   }
 

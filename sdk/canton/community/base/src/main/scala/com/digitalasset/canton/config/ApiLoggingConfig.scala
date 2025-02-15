@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.config
 
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
 
 /** Control logging of the ApiRequestLogger
@@ -27,13 +28,16 @@ final case class ApiLoggingConfig(
     maxStringLength: Int = ApiLoggingConfig.defaultMaxStringLength,
     maxMetadataSize: Int = ApiLoggingConfig.defaultMaxMetadataSize,
     warnBeyondLoad: Option[Int] = ApiLoggingConfig.defaultWarnBeyondLoad,
-) {
+) extends UniformCantonConfigValidation {
 
   /** Pretty printer for logging event details */
   lazy val printer = new CantonPrettyPrinter(maxStringLength, maxMessageLines)
 }
 
 object ApiLoggingConfig {
+  implicit val apiLoggingConfigCanontConfigValidator: CantonConfigValidator[ApiLoggingConfig] =
+    CantonConfigValidatorDerivation[ApiLoggingConfig]
+
   val defaultMaxMethodLength: Int = 30
   val defaultMaxMessageLines: Int = 20
   val defaultMaxStringLength: Int = 250

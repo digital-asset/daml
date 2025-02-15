@@ -4,6 +4,7 @@
 package com.digitalasset.canton.config
 
 import cats.data.Validated
+import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
@@ -18,8 +19,16 @@ import com.digitalasset.canton.version.ProtocolVersion
 import java.net.URI
 
 private[config] trait ConfigValidations[C <: CantonConfig] {
-  final def validate(config: C): Validated[NonEmpty[Seq[String]], Unit] =
-    validations.traverse_(_(config))
+  final def validate[T >: C](config: C)(implicit
+      validator: CantonConfigValidator[T]
+  ): Validated[NonEmpty[Seq[String]], Unit] =
+    config
+      .validate[T](edition)
+      .toValidated
+      .leftMap(_.map(_.toString))
+      .combine(validations.traverse_(_(config)))
+
+  protected def edition: CantonEdition
 
   protected val validations: List[C => Validated[NonEmpty[Seq[String]], Unit]]
 
@@ -54,6 +63,8 @@ object CommunityConfigValidations
     override def toString: String =
       s"DbAccess($urlNoPassword, $user)"
   }
+
+  override protected val edition: CantonEdition = CommunityCantonEdition
 
   type Validation = CantonCommunityConfig => Validated[NonEmpty[Seq[String]], Unit]
 

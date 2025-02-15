@@ -268,7 +268,7 @@ trait Endpoints extends NamedLogging {
         )
       )
     case NonFatal(e) =>
-      // TODO(i19103)  decide if tracecontext headers on websockets are handled
+      // TODO(i19013)  decide if tracecontext headers on websockets are handled
       implicit val tc = TraceContext.empty
       val internalError =
         LedgerApiErrors.InternalError.Generic(

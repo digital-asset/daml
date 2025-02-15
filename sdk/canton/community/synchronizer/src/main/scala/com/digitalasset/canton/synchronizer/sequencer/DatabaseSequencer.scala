@@ -323,13 +323,13 @@ class DatabaseSequencer(
 
   override protected def sendAsyncInternal(submission: SubmissionRequest)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] =
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
     for {
       // TODO(#12405) Support aggregatable submissions in the DB sequencer
       _ <- EitherT.cond[FutureUnlessShutdown](
         submission.aggregationRule.isEmpty,
         (),
-        SendAsyncError.RequestRefused(
+        SequencerErrors.UnsupportedFeature(
           "Aggregatable submissions are not yet supported by this database sequencer"
         ),
       )
@@ -340,7 +340,7 @@ class DatabaseSequencer(
           case _ => true
         },
         (),
-        SendAsyncError.RequestRefused(
+        SequencerErrors.UnsupportedFeature(
           "Group addresses are not yet supported by this database sequencer"
         ),
       )
@@ -351,12 +351,14 @@ class DatabaseSequencer(
       outcome: DeliverableSubmissionOutcome
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] =
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
     writer.blockSequencerWrite(outcome)
 
   override protected def sendAsyncSignedInternal(
       signedSubmission: SignedContent[SubmissionRequest]
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
     sendAsyncInternal(signedSubmission.content)
 
   override def readInternal(member: Member, offset: SequencerCounter)(implicit

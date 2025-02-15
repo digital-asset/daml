@@ -25,14 +25,14 @@ private[routing] object ContractsSynchronizerData {
   left containing all the contracts that could not be found.
    */
   def create(
-      synchronizerStateProvider: SynchronizerStateProvider,
+      synchronizerState: RoutingSynchronizerState,
       contractsStakeholders: Map[LfContractId, Stakeholders],
       disclosedContracts: Seq[LfContractId],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, NonEmpty[Seq[LfContractId]], ContractsSynchronizerData] = {
-    val result = synchronizerStateProvider
+    val result = synchronizerState
       .getSynchronizersOfContracts(contractsStakeholders.keySet.toSeq)
       .map { contractAssignations =>
         // Collect synchronizers of input contracts, ignoring contracts that cannot be found in the ACS.

@@ -13,8 +13,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
-import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.error.{CantonError, ParentCantonError}
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
@@ -55,6 +54,7 @@ class SynchronizerMigration(
       Unit,
     ],
     sequencerInfoLoader: SequencerInfoLoader,
+    batchingConfig: BatchingConfig,
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -313,8 +313,7 @@ class SynchronizerMigration(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerMigrationError, Unit] = {
-    // TODO(i9270) parameter should be configurable
-    val batchSize = PositiveInt.tryCreate(100)
+    val batchSize = batchingConfig.maxItemsInBatch
     for {
       // load all contracts on source synchronizer
       acs <- performUnlessClosingEitherUSF(functionFullName)(

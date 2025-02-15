@@ -15,7 +15,6 @@ import com.digitalasset.canton.admin.api.client.data.crypto.{
 }
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{
-  CommunityCryptoConfig,
   CryptoConfig,
   NonNegativeFiniteDuration,
   PositiveDurationSeconds,
@@ -86,7 +85,7 @@ object StaticSynchronizerParameters {
   }
 
   def defaultsWithoutKMS(protocolVersion: ProtocolVersion): StaticSynchronizerParameters =
-    defaults(CommunityCryptoConfig(), protocolVersion)
+    defaults(CryptoConfig(), protocolVersion)
 
   // This method is unsafe. Not prefixing by `try` to have nicer docs snippets.
   def defaults(

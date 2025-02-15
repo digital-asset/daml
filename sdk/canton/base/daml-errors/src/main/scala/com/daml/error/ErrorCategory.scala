@@ -375,7 +375,7 @@ object ErrorCategory {
   @RetryStrategy("""Errors in this category are non-retryable.""")
   @Resolution(
     """This error is caused by a ledger-level misconfiguration or by an implementation bug.
-      |Resolution requires participant operator intervention."""
+      |Resolution requires node operator intervention."""
   )
   case object InternalUnsupportedOperation
       extends ErrorCategoryImpl(

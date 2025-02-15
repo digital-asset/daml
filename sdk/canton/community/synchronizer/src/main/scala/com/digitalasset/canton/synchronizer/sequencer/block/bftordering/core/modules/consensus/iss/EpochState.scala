@@ -283,6 +283,10 @@ object EpochState {
   ) {
     def relativeBlockIndex(blockNumber: BlockNumber): Int = slotNumbers.indexOf(blockNumber)
     def firstBlockNumber: BlockNumber = slotNumbers.head1
+    def isFirstInSegment(blockNumber: BlockNumber): Boolean = relativeBlockIndex(blockNumber) == 0
+    def previousBlockNumberInSegment(currentBlockNumber: BlockNumber): Option[BlockNumber] =
+      // `lift` is just like `get`
+      slotNumbers.lift(slotNumbers.indexOf(currentBlockNumber) - 1)
   }
 
   sealed trait EpochCompletionStatus {

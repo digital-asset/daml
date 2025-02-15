@@ -10,7 +10,13 @@ import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTimeout}
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
+import com.digitalasset.canton.config.{
+  CantonConfigValidator,
+  NonNegativeFiniteDuration,
+  ProcessingTimeout,
+  UniformCantonConfigValidation,
+}
 import com.digitalasset.canton.crypto.{Crypto, Fingerprint, Nonce}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
@@ -45,8 +51,13 @@ final case class AuthenticationTokenManagerConfig(
       AuthenticationTokenManagerConfig.defaultRefreshAuthTokenBeforeExpiry,
     retries: NonNegativeInt = AuthenticationTokenManagerConfig.defaultRetries,
     pauseRetries: NonNegativeFiniteDuration = AuthenticationTokenManagerConfig.defaultPauseRetries,
-)
+) extends UniformCantonConfigValidation
 object AuthenticationTokenManagerConfig {
+  implicit val authenticationTokenManagerConfigCantonConfigValidator
+      : CantonConfigValidator[AuthenticationTokenManagerConfig] = {
+    import com.digitalasset.canton.config.CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[AuthenticationTokenManagerConfig]
+  }
   val defaultRefreshAuthTokenBeforeExpiry: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.ofSeconds(20)
   val defaultRetries: NonNegativeInt = NonNegativeInt.tryCreate(20)

@@ -221,10 +221,13 @@ final class BftP2PNetworkOut[E <: Env[E]](
         if (knownPeers.isDefined(endpoint)) {
           callback(false)
         } else {
-          pipeToSelf(p2pEndpointsStore.addEndpoint(endpoint)) {
-            case Success(hasChanged) =>
-              callback(hasChanged)
-              P2PNetworkOut.Internal.Connect(endpoint)
+          context.pipeToSelf(p2pEndpointsStore.addEndpoint(endpoint)) {
+            case Success(hasBeenAdded) =>
+              callback(hasBeenAdded)
+              if (hasBeenAdded)
+                Some(P2PNetworkOut.Internal.Connect(endpoint))
+              else
+                None
             case Failure(exception) =>
               abort(s"Failed to add endpoint $endpoint", exception)
           }
@@ -232,12 +235,12 @@ final class BftP2PNetworkOut[E <: Env[E]](
       case Admin.RemoveEndpoint(endpoint, callback) =>
         if (knownPeers.isDefined(endpoint)) {
           context.pipeToSelf(p2pEndpointsStore.removeEndpoint(endpoint)) {
-            case Success(true) =>
-              callback(true)
-              Some(P2PNetworkOut.Internal.Disconnect(endpoint))
-            case Success(false) =>
-              callback(false)
-              None
+            case Success(hasBeenRemoved) =>
+              callback(hasBeenRemoved)
+              if (hasBeenRemoved)
+                Some(P2PNetworkOut.Internal.Disconnect(endpoint))
+              else
+                None
             case Failure(exception) =>
               abort(s"Failed to remove endpoint $endpoint", exception)
           }

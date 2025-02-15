@@ -25,7 +25,17 @@ import com.digitalasset.canton.sequencing.client.transports.{
   SequencerClientTransport,
   SequencerClientTransportPekko,
 }
-import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.protocol.{
+  AcknowledgeRequest,
+  GetTrafficStateForMemberRequest,
+  GetTrafficStateForMemberResponse,
+  SendAsyncError,
+  SignedContent,
+  SubmissionRequest,
+  SubscriptionRequest,
+  TopologyStateForInitRequest,
+  TopologyStateForInitResponse,
+}
 import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError.ShutdownError
 import com.digitalasset.canton.synchronizer.sequencing.service.DirectSequencerSubscriptionFactory
@@ -76,7 +86,9 @@ class DirectSequencerClientTransport(
   ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] =
     sequencer
       .sendAsyncSigned(request)
-      .leftMap(SendAsyncClientError.RequestRefused.apply)
+      .leftMap(err =>
+        SendAsyncClientError.RequestRefused(SendAsyncError.SendAsyncErrorDirect(err.cause))
+      )
 
   override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext

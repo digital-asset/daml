@@ -5,7 +5,8 @@ package com.digitalasset.canton.synchronizer.sequencer
 
 import com.digitalasset.canton.sequencing.protocol.{
   AggregationRule,
-  SendAsyncError,
+  SequencerDeliverError,
+  SequencerErrors,
   SubmissionRequest,
 }
 import com.digitalasset.canton.topology.Member
@@ -14,22 +15,18 @@ object SequencerValidations {
   def checkSenderAndRecipientsAreRegistered(
       submission: SubmissionRequest,
       isRegistered: Member => Boolean,
-  ): Either[SendAsyncError, Unit] = for {
+  ): Either[SequencerDeliverError, Unit] = for {
     _ <- Either.cond(
       isRegistered(submission.sender),
       (),
-      SendAsyncError.SenderUnknown(
-        s"Sender is unknown: ${submission.sender}"
-      ): SendAsyncError,
+      SequencerErrors.SenderUnknown(Seq(submission.sender)),
     )
     // TODO(#19476): Why we don't check group recipients here?
     unregisteredRecipients = submission.batch.allMembers.toList.filterNot(isRegistered)
     _ <- Either.cond(
       unregisteredRecipients.isEmpty,
       (),
-      SendAsyncError.UnknownRecipients(
-        s"The following recipients are invalid: ${unregisteredRecipients.mkString(",")}"
-      ): SendAsyncError,
+      SequencerErrors.UnknownRecipients(unregisteredRecipients),
     )
     unregisteredEligibleSenders = submission.aggregationRule.fold(Seq.empty[Member])(
       _.eligibleSenders.filterNot(isRegistered)
@@ -37,9 +34,7 @@ object SequencerValidations {
     _ <- Either.cond(
       unregisteredEligibleSenders.isEmpty,
       (),
-      SendAsyncError.SenderUnknown(
-        s"The following senders in the aggregation rule are unknown: $unregisteredEligibleSenders"
-      ),
+      SequencerErrors.SenderUnknown(unregisteredEligibleSenders),
     )
   } yield ()
 

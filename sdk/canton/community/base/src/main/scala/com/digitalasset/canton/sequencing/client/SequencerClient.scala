@@ -460,7 +460,7 @@ abstract class SequencerClientImpl(
             .leftMap { err =>
               val message = s"Error signing submission request $err"
               logger.error(message)
-              SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(message))
+              SendAsyncClientError.RequestFailed(message)
             }
 
           _ <- amplifiedSend(
@@ -477,7 +477,7 @@ abstract class SequencerClientImpl(
       .leftSemiflatMap { err =>
         // increment appropriate error metrics
         err match {
-          case SendAsyncClientError.RequestRefused(SendAsyncError.Overloaded(_)) =>
+          case SendAsyncClientError.RequestRefused(error) if error.isOverload =>
             metrics.submissions.overloaded.inc()
           case _ =>
         }
@@ -529,7 +529,7 @@ abstract class SequencerClientImpl(
               s"Failed to send request with message id $messageId to $sequencerId: $error"
             )
             Either.cond(
-              patienceO.isDefined,
+              patienceO.isEmpty,
               Left(error),
               nextState,
             )

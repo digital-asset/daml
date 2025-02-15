@@ -30,7 +30,6 @@ import scala.util.{Failure, Success}
 
 import RetransmissionsManager.{HowManyEpochsToKeep, RetransmissionRequestPeriod}
 
-// TODO(#18788): unit test this class
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class RetransmissionsManager[E <: Env[E]](
     myId: SequencerId,

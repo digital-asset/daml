@@ -15,6 +15,7 @@ import com.digitalasset.canton.config.RequireTypes.{
   PositiveNumeric,
 }
 import com.digitalasset.canton.config.{
+  BatchingConfig,
   DefaultProcessingTimeouts,
   NonNegativeDuration,
   TestingConfigInternal,
@@ -373,6 +374,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       TestingConfigInternal(warnOnAcsCommitmentDegradation = warnOnAcsCommitmentDegradation),
       new SimClock(loggerFactory = loggerFactory),
       exitOnFatalFailures = true,
+      BatchingConfig(),
       // do not delay sending commitments for testing, because tests often expect to see commitments after an interval
       Some(NonNegativeInt.zero),
     )

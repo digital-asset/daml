@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.config
 
+import com.digitalasset.canton.config.CantonConfigValidator
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 
 /** Configure the behaviour of the Daml Engine
@@ -19,3 +20,7 @@ final case class CantonEngineConfig(
     submissionPhaseLogging: EngineLoggingConfig = EngineLoggingConfig(enabled = true),
     validationPhaseLogging: EngineLoggingConfig = EngineLoggingConfig(enabled = false),
 )
+object CantonEngineConfig {
+  implicit val cantonEngineConfigCantonConfigValidator: CantonConfigValidator[CantonEngineConfig] =
+    CantonConfigValidator.validateAll // there are no enterprise features in here
+}
