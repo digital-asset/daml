@@ -522,7 +522,7 @@ js-dgtable 0.5.2: https://github.com/ndmitchell/js-dgtable#readme : MIT License
 js-flot 0.8.3: https://github.com/ndmitchell/js-flot#readme : MIT License
 jshttp/content-type 1.0.5: https://github.com/jshttp/content-type : MIT License
 jshttp/fresh 0.5.2: https://github.com/jshttp/fresh : MIT License
-jshttp/mime-types 2.1.35: https://github.com/expressjs/mime-types : MIT License
+jshttp/mime-types 2.1.35: https://github.com/jshttp/mime-types : MIT License
 JSHTTP's negotiator 0.6.3: https://www.npmjs.com/package/negotiator : MIT License
 js-jquery 3.3.1: https://github.com/ndmitchell/js-jquery#readme : MIT License
 jsonparse 0.0.5: https://github.com/creationix/jsonparse : MIT License
@@ -647,11 +647,11 @@ node-lru-cache 2.7.3: http://github.com/isaacs/node-lru-cache : ISC License
 node-lru-cache 6.0.0: http://github.com/isaacs/node-lru-cache : ISC License
 node-parents 1.0.1: https://github.com/substack/node-parents : MIT License
 node-process 0.11.10: https://github.com/defunctzombie/node-process : MIT License
-node-semver 7.5.4: https://github.com/isaacs/node-semver : ISC License
-node-semver 7.6.3: https://github.com/isaacs/node-semver : ISC License
+node-semver 7.5.4: https://github.com/npm/node-semver : ISC License
+node-semver 7.6.3: https://github.com/npm/node-semver : ISC License
 node-shell-quote 1.8.1: https://github.com/substack/node-shell-quote : MIT License
 node-syntax-error 1.4.0: https://github.com/substack/node-syntax-error : MIT License
-node-tmp 0.0.29: http://github.com/raszi/node-tmp : MIT License
+node-tmp 0.0.29: https://github.com/raszi/node-tmp : MIT License
 node-url 0.11.4: https://github.com/defunctzombie/node-url : MIT License
 node-xml2js 0.5.0: https://github.com/Leonidas-from-XIV/node-xml2js : MIT License
 nopt 3.0.6: https://github.com/npm/nopt : ISC License
