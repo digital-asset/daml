@@ -7,9 +7,10 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.daml.jwt.*
 import com.digitalasset.canton.auth.{AccessLevel, AuthService, AuthServiceJWT, AuthServiceWildcard}
 import com.digitalasset.canton.config.CantonRequireTypes.*
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.logging.NamedLoggerFactory
 
-sealed trait AuthServiceConfig {
+sealed trait AuthServiceConfig extends UniformCantonConfigValidation {
   def create(
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
       loggerFactory: NamedLoggerFactory,
@@ -18,8 +19,13 @@ sealed trait AuthServiceConfig {
 
 object AuthServiceConfig {
 
+  implicit val authServiceConfigCantonConfigValidator: CantonConfigValidator[AuthServiceConfig] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[AuthServiceConfig]
+  }
+
   /** [default] Allows everything */
-  object Wildcard extends AuthServiceConfig {
+  case object Wildcard extends AuthServiceConfig {
     override def create(
         jwtTimestampLeeway: Option[JwtTimestampLeeway],
         loggerFactory: NamedLoggerFactory,

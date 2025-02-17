@@ -13,8 +13,8 @@ import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.{CantonTimestamp, FullUnassignmentTree, Offset}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
@@ -64,10 +64,9 @@ class DbReassignmentStore(
     cryptoApi: CryptoPureApi,
     futureSupervisor: FutureSupervisor,
     exitOnFatalFailures: Boolean,
+    batchingConfig: BatchingConfig,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
-    // TODO(#9270) clean up how we parameterize our nodes
-    batchSize: Int = 500,
 )(implicit ec: ExecutionContext)
     extends ReassignmentStore
     with DbStore {
@@ -236,6 +235,8 @@ class DbReassignmentStore(
     logger.debug(s"Add unassignment request in the store: ${reassignmentData.reassignmentId}")
 
     def insert(dbReassignmentId: DbReassignmentId): DBIO[Int] =
+      // TODO(i23636): remove the 'contract' and 'source_synchronizer_id' columns
+      // once we remove the computation of incomplete reassignments from the reassignmentStore
       sqlu"""
         insert into par_reassignments(target_synchronizer_idx, source_synchronizer_idx, unassignment_timestamp, source_synchronizer_id,
         unassignment_request, unassignment_decision_time, unassignment_result, source_protocol_version, contract)
@@ -436,8 +437,8 @@ class DbReassignmentStore(
     if (offsets.isEmpty) EitherT.pure[FutureUnlessShutdown, ReassignmentStoreError](())
     else {
       logger.debug(s"Adding reassignment offsets: $offsets")
-      MonadUtil.sequentialTraverse_(offsets.toList.grouped(batchSize))(offsets =>
-        addReassignmentsOffsetsInternal(NonEmptyUtil.fromUnsafe(offsets))
+      MonadUtil.sequentialTraverse_(offsets.toList.grouped(batchingConfig.maxItemsInBatch.unwrap))(
+        offsets => addReassignmentsOffsetsInternal(NonEmptyUtil.fromUnsafe(offsets))
       )
     }
 

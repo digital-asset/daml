@@ -38,7 +38,7 @@ class DriverBlockOrderer(
 
   override def send(
       signedOrderingRequest: SignedOrderingRequest
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SequencerDeliverError, Unit] = {
     val submissionRequest = signedOrderingRequest.content.content.content
     // The driver API doesn't provide error reporting, so we don't attempt to translate the exception
     EitherT.right(

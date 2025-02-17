@@ -6,11 +6,7 @@ package com.digitalasset.canton.integration
 import better.files.{File, Resource}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
-import com.digitalasset.canton.config.{
-  CantonCommunityConfig,
-  CommunityCryptoConfig,
-  TestingConfigInternal,
-}
+import com.digitalasset.canton.config.{CantonCommunityConfig, CryptoConfig, TestingConfigInternal}
 import com.digitalasset.canton.console.TestConsoleOutput
 import com.digitalasset.canton.environment.{
   CommunityConsoleEnvironment,
@@ -69,7 +65,7 @@ final case class CommunityEnvironmentDefinition(
 object CommunityEnvironmentDefinition {
   lazy val defaultStaticSynchronizerParameters: StaticSynchronizerParameters =
     StaticSynchronizerParameters.defaults(
-      CommunityCryptoConfig(),
+      CryptoConfig(),
       BaseTest.testedProtocolVersion,
     )
 

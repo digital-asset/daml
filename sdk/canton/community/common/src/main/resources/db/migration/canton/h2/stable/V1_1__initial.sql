@@ -237,12 +237,10 @@ create table par_reassignments (
 
     -- reassignment data
     source_protocol_version integer not null,
-    -- TODO(i23636): remove this once we remove the computation of incomplete reassignments from the reassignmentStore
     contract binary large object not null,
 
     -- UTC timestamp in microseconds relative to EPOCH
     unassignment_timestamp bigint not null,
-    -- TODO(i23636): remove this once we remove the computation of incomplete reassignments from the reassignmentStore
     source_synchronizer_id  varchar not null,
     unassignment_request binary large object,
     unassignment_global_offset bigint,

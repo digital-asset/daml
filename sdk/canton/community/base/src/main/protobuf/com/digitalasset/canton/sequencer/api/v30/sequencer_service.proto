@@ -118,45 +118,7 @@ message TrafficControlErrorReason {
   }
 }
 
-// Changes compared to SendAsyncResponse: added `Internal` and `Generic`. Note: `Generic` is not used yet, it is introduced for upgradability purposes.
-message SendAsyncVersionedResponse {
-  Error error = 1; // Defined iff the response is an error.
-
-  message Error {
-    oneof reason {
-      // The sequencer couldn't read the request (typically indicates a serialization and/or versioning bug).
-      string request_invalid = 1;
-
-      // The sequencer could read the request but refused to handle it (the request may violate a max size constraint).
-      string request_refused = 2;
-
-      // The sequencer is overloaded and does not have capacity to handle this request.
-      string overloaded = 3;
-
-      // The specified sender is not registered so the sequencer cannot guarantee publishing a Deliver event if the request can be sequenced.
-      string sender_unknown = 4;
-
-      // The sequencer is shutting down so is declining to process new requests
-      string shutting_down = 5;
-
-      // The sequencer is unavailable and can't currently process requests
-      string unavailable = 6;
-
-      // There are one or more recipients that are not registered so the sequencer cannot guarantee publishing a Deliver event if the request can be sequenced.
-      // This message was added in Canton 2.1, therefore it must not be used by a sequencer operating on Canton 1.0.
-      string unknown_recipients = 7;
-
-      // Can be used for internal errors. For example if the sequencer is not able to get dynamic parameters from the latest snapshot.
-      string internal = 8;
-
-      // Generic error
-      string generic = 9;
-
-      // Traffic control rejected the submission
-      TrafficControlErrorReason traffic_control = 10;
-    }
-  }
-}
+message SendAsyncVersionedResponse {}
 
 message SubscriptionRequest {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";

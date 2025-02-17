@@ -20,22 +20,24 @@ import com.digitalasset.canton.version.ProtocolVersion
 import scala.concurrent.ExecutionContext
 
 /** Provides state information about a synchronizer. */
-trait SynchronizerStateProvider {
+trait RoutingSynchronizerState {
+
+  val topologySnapshots: Map[SynchronizerId, TopologySnapshot]
 
   /** Returns an either rather than an option since failure comes from disconnected
     * synchronizers and we assume the participant to be connected to all synchronizers in `connectedSynchronizers`
     */
-  def getTopologySnapshotAndPVFor(synchronizerId: SynchronizerId)(implicit
-      traceContext: TraceContext
+  def getTopologySnapshotAndPVFor(
+      synchronizerId: SynchronizerId
   ): Either[UnableToQueryTopologySnapshot.Failed, (TopologySnapshot, ProtocolVersion)]
 
-  def getTopologySnapshotFor(synchronizerId: SynchronizerId)(implicit
-      traceContext: TraceContext
+  def getTopologySnapshotFor(
+      synchronizerId: SynchronizerId
   ): Either[UnableToQueryTopologySnapshot.Failed, TopologySnapshot] =
     getTopologySnapshotAndPVFor(synchronizerId).map(_._1)
 
-  def getTopologySnapshotFor(synchronizerId: Target[SynchronizerId])(implicit
-      traceContext: TraceContext
+  def getTopologySnapshotFor(
+      synchronizerId: Target[SynchronizerId]
   ): Either[UnableToQueryTopologySnapshot.Failed, Target[TopologySnapshot]] =
     getTopologySnapshotAndPVFor(synchronizerId.unwrap).map(_._1).map(Target(_))
 
@@ -45,20 +47,35 @@ trait SynchronizerStateProvider {
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[Map[LfContractId, SynchronizerId]]
-
 }
 
-class SynchronizerStateProviderImpl(connectedSynchronizers: ConnectedSynchronizersLookup)
-    extends SynchronizerStateProvider {
-  override def getTopologySnapshotAndPVFor(synchronizerId: SynchronizerId)(implicit
+object RoutingSynchronizerState {
+  def apply(connectedSynchronizers: ConnectedSynchronizersLookup)(implicit
       traceContext: TraceContext
+  ) = new RoutingSynchronizerStateImpl(connectedSynchronizers.snapshot.toMap)
+}
+
+class RoutingSynchronizerStateImpl(
+    connectedSynchronizers: Map[SynchronizerId, ConnectedSynchronizer]
+)(implicit
+    traceContext: TraceContext
+) extends RoutingSynchronizerState {
+
+  // Ensure we have a constant snapshot for the lifetime of this object.
+  override val topologySnapshots: Map[SynchronizerId, TopologySnapshot] =
+    connectedSynchronizers.view.mapValues {
+      _.topologyClient.currentSnapshotApproximation
+    }.toMap
+
+  override def getTopologySnapshotAndPVFor(
+      synchronizerId: SynchronizerId
   ): Either[UnableToQueryTopologySnapshot.Failed, (TopologySnapshot, ProtocolVersion)] =
     connectedSynchronizers
       .get(synchronizerId)
       .toRight(UnableToQueryTopologySnapshot.Failed(synchronizerId))
       .map { connectedSynchronizer =>
         (
-          connectedSynchronizer.topologyClient.currentSnapshotApproximation,
+          topologySnapshots(synchronizerId),
           connectedSynchronizer.staticSynchronizerParameters.protocolVersion,
         )
       }
@@ -68,7 +85,7 @@ class SynchronizerStateProviderImpl(connectedSynchronizers: ConnectedSynchronize
       traceContext: TraceContext,
   ): FutureUnlessShutdown[Map[LfContractId, SynchronizerId]] = {
     type Acc = (Seq[LfContractId], Map[LfContractId, SynchronizerId])
-    connectedSynchronizers.snapshot
+    connectedSynchronizers
       .collect {
         // only look at synchronizers that are ready for submission
         case (_, connectedSynchronizer: ConnectedSynchronizer)

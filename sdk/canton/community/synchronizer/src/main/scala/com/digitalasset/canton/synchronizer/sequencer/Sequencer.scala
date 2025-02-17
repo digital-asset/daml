@@ -98,7 +98,7 @@ trait Sequencer
 
   def sendAsyncSigned(signedSubmission: SignedContent[SubmissionRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit]
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit]
 
   def read(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext

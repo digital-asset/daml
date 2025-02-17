@@ -29,7 +29,6 @@ import scala.concurrent.{ExecutionContext, Future}
 private[routing] class SynchronizerRankComputation(
     participantId: ParticipantId,
     priorityOfSynchronizer: SynchronizerId => Int,
-    snapshotProvider: SynchronizerStateProvider,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
@@ -40,6 +39,7 @@ private[routing] class SynchronizerRankComputation(
       contracts: Seq[ContractData],
       targetSynchronizer: Target[SynchronizerId],
       readers: Set[LfPartyId],
+      synchronizerState: RoutingSynchronizerState,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
@@ -48,7 +48,7 @@ private[routing] class SynchronizerRankComputation(
     type SingleReassignment = (LfContractId, (LfPartyId, SynchronizerId))
 
     val targetSnapshotET =
-      EitherT.fromEither[Future](snapshotProvider.getTopologySnapshotFor(targetSynchronizer))
+      EitherT.fromEither[Future](synchronizerState.getTopologySnapshotFor(targetSynchronizer))
 
     val reassignmentsET: EitherT[Future, TransactionRoutingError, Chain[SingleReassignment]] =
       Chain.fromSeq(contracts).parFlatTraverse { c =>
@@ -58,7 +58,7 @@ private[routing] class SynchronizerRankComputation(
         else {
           for {
             sourceSnapshot <- EitherT
-              .fromEither[Future](snapshotProvider.getTopologySnapshotFor(contractAssignation))
+              .fromEither[Future](synchronizerState.getTopologySnapshotFor(contractAssignation))
               .map(Source(_))
             targetSnapshot <- targetSnapshotET
             submitter <- findReaderThatCanReassignContract(

@@ -5,10 +5,14 @@ package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.syntax.option.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{
+  CantonConfigValidator,
+  CommunityOnlyCantonConfigValidation,
   NonNegativeFiniteDuration,
   PositiveDurationSeconds,
   StorageConfig,
+  UniformCantonConfigValidation,
 }
 import com.digitalasset.canton.synchronizer.sequencer.DatabaseSequencerConfig.{
   SequencerPruningConfig,
@@ -63,7 +67,15 @@ object DatabaseSequencerConfig {
       pruningMetricUpdateInterval: Option[PositiveDurationSeconds] =
         PositiveDurationSeconds.ofHours(1L).some,
       trafficPurchasedRetention: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofHours(1),
-  )
+  ) extends UniformCantonConfigValidation
+
+  object SequencerPruningConfig {
+    implicit val sequencerPruningConfigCantonConfigValidator
+        : CantonConfigValidator[SequencerPruningConfig] = {
+      import com.digitalasset.canton.config.CantonConfigValidatorInstances.*
+      CantonConfigValidatorDerivation[SequencerPruningConfig]
+    }
+  }
 
 }
 
@@ -71,7 +83,7 @@ final case class BlockSequencerConfig(
     writer: SequencerWriterConfig = SequencerWriterConfig.HighThroughput(),
     reader: CommunitySequencerReaderConfig = CommunitySequencerReaderConfig(),
     testingInterceptor: Option[DatabaseSequencerConfig.TestingInterceptor] = None,
-) { self =>
+) extends UniformCantonConfigValidation { self =>
   def toDatabaseSequencerConfig: DatabaseSequencerConfig = new DatabaseSequencerConfig
     with SequencerConfig {
     override val writer: SequencerWriterConfig = self.writer
@@ -84,7 +96,19 @@ final case class BlockSequencerConfig(
   }
 }
 
-sealed trait CommunitySequencerConfig extends SequencerConfig
+object BlockSequencerConfig {
+  implicit val blockSequencerConfigCantonConfigValidator
+      : CantonConfigValidator[BlockSequencerConfig] = {
+    implicit val testingInterceptorCantonConfigValidator
+        : CantonConfigValidator[TestingInterceptor] =
+      CantonConfigValidator.validateAll
+    CantonConfigValidatorDerivation[BlockSequencerConfig]
+  }
+}
+
+sealed trait CommunitySequencerConfig
+    extends SequencerConfig
+    with CommunityOnlyCantonConfigValidation
 
 final case class CommunitySequencerReaderConfig(
     override val readBatchSize: Int = SequencerReaderConfig.defaultReadBatchSize,
@@ -98,8 +122,23 @@ final case class CommunitySequencerReaderConfig(
     override val eventGenerationParallelism: Int =
       SequencerReaderConfig.defaultEventGenerationParallelism,
 ) extends SequencerReaderConfig
+    with UniformCantonConfigValidation
+
+object CommunitySequencerReaderConfig {
+  implicit val communitySequencerReaderConfigCantonConfigValidator
+      : CantonConfigValidator[CommunitySequencerReaderConfig] =
+    CantonConfigValidatorDerivation[CommunitySequencerReaderConfig]
+}
 
 object CommunitySequencerConfig {
+
+  implicit val communitySequencerConfigCantonConfigValidator
+      : CantonConfigValidator[CommunitySequencerConfig] = {
+    implicit val testingInterceptorCantonConfigValidator
+        : CantonConfigValidator[TestingInterceptor] =
+      CantonConfigValidator.validateAll
+    CantonConfigValidatorDerivation[CommunitySequencerConfig]
+  }
 
   final case class Database(
       writer: SequencerWriterConfig = SequencerWriterConfig.LowLatency(),
@@ -117,6 +156,13 @@ object CommunitySequencerConfig {
       config: ConfigCursor,
   ) extends CommunitySequencerConfig {
     override def supportsReplicas: Boolean = false
+  }
+  object External {
+    implicit val externalCantonConfigValidator: CantonConfigValidator[External] = {
+      implicit val configCursorCantonConfigValidator: CantonConfigValidator[ConfigCursor] =
+        CantonConfigValidator.validateAll // do not look into external configurations
+      CantonConfigValidatorDerivation[External]
+    }
   }
 
   final case class BftSequencer(
@@ -147,4 +193,10 @@ object CommunitySequencerConfig {
   */
 final case class SequencerHealthConfig(
     backendCheckPeriod: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(5)
-)
+) extends UniformCantonConfigValidation
+
+object SequencerHealthConfig {
+  implicit val sequencerHealthConfigCantonConfigValidator
+      : CantonConfigValidator[SequencerHealthConfig] =
+    CantonConfigValidatorDerivation[SequencerHealthConfig]
+}

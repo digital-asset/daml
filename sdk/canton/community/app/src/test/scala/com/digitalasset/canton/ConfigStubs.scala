@@ -5,7 +5,7 @@ package com.digitalasset.canton
 
 import cats.syntax.option.*
 import com.digitalasset.canton.config.RequireTypes.Port
-import com.digitalasset.canton.config.{AdminServerConfig, CommunityCryptoConfig, StorageConfig}
+import com.digitalasset.canton.config.{AdminServerConfig, CryptoConfig, StorageConfig}
 import com.digitalasset.canton.participant.config.{
   CommunityParticipantConfig,
   ParticipantInitConfig,
@@ -21,7 +21,7 @@ object ConfigStubs {
   def participant: CommunityParticipantConfig =
     CommunityParticipantConfig(
       ParticipantInitConfig(),
-      CommunityCryptoConfig(),
+      CryptoConfig(),
       null,
       None,
       adminApi,

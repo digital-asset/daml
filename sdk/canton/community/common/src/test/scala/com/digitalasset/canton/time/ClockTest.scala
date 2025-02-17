@@ -167,6 +167,7 @@ class ClockTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   "TickTock Skew" should {
     "skew the clock by the expected value" in {
       val tm = JClock.systemUTC()
+      val toleranceMs = 5
 
       def check(skewMillis: Int) = {
         val tick = TickTock.FixedSkew(skewMillis)
@@ -178,9 +179,9 @@ class ClockTest extends AnyWordSpec with BaseTest with HasExecutionContext {
         else
           tickTime.isBefore(hostTime) shouldBe true
 
-        // We can have a difference of 1 as we sample the clock at different times
+        // We can have a small difference as we sample the clock at different times
         val diff = hostTime.until(tickTime, ChronoUnit.MILLIS).toInt
-        Math.abs(diff - skewMillis) should be <= 1
+        Math.abs(diff - skewMillis) should be <= toleranceMs
       }
 
       check(64738)

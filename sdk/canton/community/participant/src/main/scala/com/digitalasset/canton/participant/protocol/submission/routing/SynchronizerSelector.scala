@@ -27,11 +27,11 @@ private[routing] class SynchronizerSelectorFactory(
     admissibleSynchronizers: AdmissibleSynchronizers,
     priorityOfSynchronizer: SynchronizerId => Int,
     synchronizerRankComputation: SynchronizerRankComputation,
-    synchronizerStateProvider: SynchronizerStateProvider,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext) {
   def create(
-      transactionData: TransactionData
+      transactionData: TransactionData,
+      synchronizerState: RoutingSynchronizerState,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerSelector] =
@@ -41,13 +41,14 @@ private[routing] class SynchronizerSelectorFactory(
           Set.empty[LfPartyId]
         )(_.signatures.keys.map(_.toLf).toSet),
         informees = transactionData.informees,
+        synchronizerState = synchronizerState,
       )
     } yield new SynchronizerSelector(
       transactionData,
       admissibleSynchronizers,
       priorityOfSynchronizer,
       synchronizerRankComputation,
-      synchronizerStateProvider,
+      synchronizerState,
       loggerFactory,
     )
 }
@@ -60,7 +61,7 @@ private[routing] class SynchronizerSelectorFactory(
   *                            It is assumed that the participant is connected to all synchronizers in `connectedSynchronizers`
   * @param priorityOfSynchronizer      Priority of each synchronizer (lowest number indicates highest priority)
   * @param synchronizerRankComputation Utility class to compute `SynchronizerRank`
-  * @param synchronizerStateProvider   Provides state information about a synchronizer.
+  * @param synchronizerState           Provides state information about a synchronizer.
   *                              Note: returns an either rather than an option since failure comes from disconnected
   *                              synchronizers and we assume the participant to be connected to all synchronizers in `connectedSynchronizers`
   */
@@ -69,7 +70,7 @@ private[routing] class SynchronizerSelector(
     admissibleSynchronizers: NonEmpty[Set[SynchronizerId]],
     priorityOfSynchronizer: SynchronizerId => Int,
     synchronizerRankComputation: SynchronizerRankComputation,
-    synchronizerStateProvider: SynchronizerStateProvider,
+    val synchronizerState: RoutingSynchronizerState,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
@@ -93,6 +94,7 @@ private[routing] class SynchronizerSelector(
               contracts,
               Target(prescribedSynchronizer),
               transactionData.readers,
+              synchronizerState,
             )
             .mapK(FutureUnlessShutdown.outcomeK)
         } yield synchronizerRank
@@ -156,7 +158,7 @@ private[routing] class SynchronizerSelector(
 
     val (unableToFetchStateSynchronizers, synchronizerStates) =
       admissibleSynchronizers.forgetNE.toList.map { synchronizerId =>
-        synchronizerStateProvider.getTopologySnapshotAndPVFor(synchronizerId).map {
+        synchronizerState.getTopologySnapshotAndPVFor(synchronizerId).map {
           case (snapshot, protocolVersion) =>
             (synchronizerId, protocolVersion, snapshot)
         }
@@ -235,7 +237,7 @@ private[routing] class SynchronizerSelector(
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Unit] =
     for {
       synchronizerState <- EitherT.fromEither[FutureUnlessShutdown](
-        synchronizerStateProvider.getTopologySnapshotAndPVFor(synchronizerId)
+        synchronizerState.getTopologySnapshotAndPVFor(synchronizerId)
       )
       (snapshot, protocolVersion) = synchronizerState
 
@@ -281,6 +283,7 @@ private[routing] class SynchronizerSelector(
                 contracts,
                 Target(targetSynchronizer),
                 transactionData.readers,
+                synchronizerState,
               )
               .toOption
               .value

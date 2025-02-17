@@ -143,31 +143,44 @@ class SequencerWriterQueues private[sequencer] (
 
   def send(
       submission: SubmissionRequest
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
     writeInternal(Left(submission))
 
   def blockSequencerWrite(
       outcome: DeliverableSubmissionOutcome
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
     writeInternal(Right(outcome))
 
   /** Accepts both submission requests (DBS flow) as `Left` and submission outcomes (BS flow) as `Right`.
     */
   private def writeInternal(
       submissionOrOutcome: Either[SubmissionRequest, DeliverableSubmissionOutcome]
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
     for {
       event <- eventGenerator.generate(submissionOrOutcome)
       enqueueResult = deliverEventQueue.offer(event)
-      _ <- EitherT.fromEither[FutureUnlessShutdown](enqueueResult match {
-        case QueueOfferResult.Enqueued => Either.unit
+      _ <- enqueueResult match {
+        case QueueOfferResult.Enqueued => EitherTUtil.unitUS[SequencerDeliverError]
         case QueueOfferResult.Dropped =>
-          Left(SendAsyncError.Overloaded("Sequencer event buffer is full"): SendAsyncError)
-        case QueueOfferResult.QueueClosed => Left(SendAsyncError.ShuttingDown())
+          EitherT.leftT[FutureUnlessShutdown, Unit](
+            SequencerErrors.Overloaded("Sequencer event buffer is full")
+          )
+        case QueueOfferResult.QueueClosed =>
+          EitherT(
+            FutureUnlessShutdown.abortedDueToShutdown: FutureUnlessShutdown[
+              Either[SequencerDeliverError, Unit]
+            ]
+          )
         case other =>
           logger.warn(s"Unexpected result from payload queue offer: $other")
-          Either.unit
-      })
+          EitherTUtil.unitUS[SequencerDeliverError]
+      }
     } yield ()
 
   def complete(): Unit = {
@@ -336,20 +349,21 @@ class SendEventGenerator(
       submissionOrOutcome: Either[SubmissionRequest, DeliverableSubmissionOutcome]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncError, Presequenced[StoreEvent[BytesPayload]]] = {
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Presequenced[
+    StoreEvent[BytesPayload]
+  ]] = {
     val submission = submissionOrOutcome.map(_.submission).merge
 
-    def lookupSender: EitherT[FutureUnlessShutdown, SendAsyncError, SequencerMemberId] = EitherT(
-      store
-        .lookupMember(submission.sender)
-        .map(
-          _.map(_.memberId)
-            .toRight(
-              SendAsyncError
-                .SenderUnknown(s"sender [${submission.sender}] is unknown"): SendAsyncError
+    def lookupSender: EitherT[FutureUnlessShutdown, SequencerDeliverError, SequencerMemberId] =
+      EitherT(
+        store
+          .lookupMember(submission.sender)
+          .map(
+            _.map(_.memberId).toRight(
+              SequencerErrors.SenderUnknown(s"sender [${submission.sender}] is unknown")
             )
-        )
-    )
+          )
+      )
 
     def validateRecipient(
         member: Member

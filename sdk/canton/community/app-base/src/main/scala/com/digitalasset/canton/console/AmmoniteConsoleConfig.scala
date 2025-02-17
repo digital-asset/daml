@@ -7,6 +7,8 @@ import ammonite.Main
 import ammonite.main.Defaults
 import ammonite.util.Colors
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
+import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.logging.TracedLogger
 import com.typesafe.scalalogging.LazyLogging
 
@@ -29,9 +31,15 @@ final case class AmmoniteConsoleConfig(
     colors: Boolean = true,
     verbose: Boolean = false,
     defaultLimit: PositiveInt = PositiveInt.tryCreate(1000),
-)
+) extends UniformCantonConfigValidation
 
 object AmmoniteConsoleConfig extends LazyLogging {
+
+  implicit val ammoniteConsoleConfigCantonConfigValidator
+      : CantonConfigValidator[AmmoniteConsoleConfig] = {
+    import com.digitalasset.canton.config.CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[AmmoniteConsoleConfig]
+  }
 
   private def defaultCacheDir: Option[java.io.File] = {
     val f = new File(System.getProperty("user.home"))

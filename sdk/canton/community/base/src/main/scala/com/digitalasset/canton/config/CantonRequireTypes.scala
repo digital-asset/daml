@@ -400,6 +400,18 @@ object CantonRequireTypes {
     def tryCreate(str: String, name: Option[String] = None): A =
       factoryMethod(str)(name)
 
+    def createWithTruncation(str: String, name: Option[String] = None): A = {
+      val truncated =
+        if (str.length <= maxLength.unwrap) str
+        else {
+          val correctedLength =
+            if (Character.isLowSurrogate(str.charAt(maxLength.unwrap))) maxLength.unwrap - 1
+            else maxLength.unwrap
+          str.take(correctedLength)
+        }
+      tryCreate(truncated, name)
+    }
+
     def fromProtoPrimitive(str: String, name: String): ParsingResult[A] =
       create(str, Some(name)).leftMap(e => ProtoInvariantViolation(field = Some(name), error = e))
 
@@ -476,6 +488,9 @@ object CantonRequireTypes {
       companion.tryCreate(str, instanceName.some)
     )
 
+    def truncate(str: String): Wrapper =
+      tryCreate(str.take(companion.maxLength.unwrap))
+
     def fromProtoPrimitive(str: String): ParsingResult[Wrapper] =
       companion.fromProtoPrimitive(str, instanceName).map(factoryMethodWrapper)
 
@@ -501,6 +516,8 @@ object CantonRequireTypes {
         .traverse(fromProtoPrimitive)
         .valueOr(err => throw new DbDeserializationException(err.toString))
     }
+
+    def empty: Wrapper = tryCreate("")
   }
 
   final case class InstanceName private (unwrap: String) extends NoCopy with PrettyPrinting {

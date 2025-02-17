@@ -51,7 +51,7 @@ class SegmentState(
   private val originalLeaderIndex = eligibleLeaders.indexOf(segment.originalLeader)
   private val epochNumber = epoch.info.number
   private val viewChangeBlockMetadata = BlockMetadata(epochNumber, segment.slotNumbers.head1)
-  private val pbftMessageValidator = new PbftMessageValidatorImpl(epoch, metrics)(abort)
+  private val pbftMessageValidator = new PbftMessageValidatorImpl(segment, epoch, metrics)(abort)
   private val commitCertValidator = new ConsensusCertificateValidator(
     membership.orderingTopology.strongQuorum
   )
@@ -70,8 +70,6 @@ class SegmentState(
 
   private val segmentBlocks: NonEmpty[Seq[SegmentBlockState]] =
     segment.slotNumbers.map { blockNumber =>
-      val firstInSegment = blockNumber == segment.firstBlockNumber
-
       new SegmentBlockState(
         viewNumber =>
           new PbftBlockState(
@@ -81,7 +79,6 @@ class SegmentState(
             currentLeader,
             epochNumber,
             viewNumber,
-            firstInSegment,
             abort,
             metrics,
             loggerFactory,

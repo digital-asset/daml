@@ -4,12 +4,7 @@
 package com.digitalasset.canton.synchronizer.config
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.{
-  CommunityCryptoConfig,
-  CryptoConfig,
-  ProtocolConfig,
-  SessionSigningKeysConfig,
-}
+import com.digitalasset.canton.config.{CryptoConfig, ProtocolConfig, SessionSigningKeysConfig}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.CryptoFactory.{
   selectAllowedEncryptionAlgorithmSpecs,
@@ -75,7 +70,7 @@ final case class SynchronizerParametersConfig(
     * Sets the required crypto schemes based on the provided crypto config if they are unset in the config.
     */
   def toStaticSynchronizerParameters(
-      cryptoConfig: CryptoConfig = CommunityCryptoConfig(),
+      cryptoConfig: CryptoConfig = CryptoConfig(),
       protocolVersion: ProtocolVersion,
   ): Either[String, StaticSynchronizerParameters] = {
 

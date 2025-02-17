@@ -234,7 +234,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         // Advance should reach threshold; block is complete
         blockState.advance() shouldBe empty
         inside(blockState.commitCertificate) { case Some(commitCertificate) =>
-          commitCertificate.prePrepare shouldBe (prePrepare)
+          commitCertificate.prePrepare shouldBe prePrepare
           commitCertificate.commits should contain theSameElementsAs
             (peerCommits.take(membership.orderingTopology.strongQuorum - 1) + myCommit)
         }
@@ -316,7 +316,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         // Advance should reach threshold; block is complete
         blockState.advance() shouldBe empty
         inside(blockState.commitCertificate) { case Some(commitCertificate) =>
-          commitCertificate.prePrepare shouldBe (pp)
+          commitCertificate.prePrepare shouldBe pp
           commitCertificate.commits should contain theSameElementsAs
             (peerCommits.take(membership.orderingTopology.strongQuorum - 1) :+ myCommit)
         }
@@ -396,7 +396,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val blockState = createBlockState(
         otherPeers.toSet,
         leader,
-        pbftMessageValidator = (_: PrePrepare, _: Boolean) => Left("validation failure"),
+        pbftMessageValidator = (_: PrePrepare) => Left("validation failure"),
       )
 
       // Receive a PrePrepare as a follower
@@ -808,7 +808,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
   private def createBlockState(
       otherPeers: Set[SequencerId] = Set.empty,
       leader: SequencerId = myId,
-      pbftMessageValidator: PbftMessageValidator = (_: PrePrepare, _: Boolean) => Right(()),
+      pbftMessageValidator: PbftMessageValidator = (_: PrePrepare) => Right(()),
   ) =
     new PbftBlockState(
       Membership(myId, otherPeers),
@@ -817,7 +817,6 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       leader,
       EpochNumber.First,
       ViewNumber.First,
-      firstInSegment = false, // does not matter in these tests
       abort = fail(_),
       SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,
       loggerFactory,

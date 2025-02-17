@@ -21,7 +21,6 @@ import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.sequencing.protocol.SendAsyncError.RequestInvalid
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.synchronizer.block.update.BlockChunkProcessor
 import com.digitalasset.canton.synchronizer.sequencer.Sequencer as CantonSequencer
@@ -212,6 +211,7 @@ abstract class SequencerApiTest
                 include("Received `Start` message") or
                 include("Completing init") or
                 include("Subscribing to block source from") or
+                include("Re-using the existing sequencer storage for BFT ordering") or
                 include("Advancing sim clock") or
                 (include("Creating ForkJoinPool with parallelism") and include(
                   "to avoid starvation"
@@ -411,19 +411,17 @@ abstract class SequencerApiTest
                 "A sendAsync of submission with maxSequencingTime in the past"
               )
           } yield {
-            inside(tooFarInTheFuture) {
-              case RequestInvalid(message)
-                  if message.contains("is too far in the future") && message.contains(
-                    "Max sequencing time"
-                  ) =>
-                succeed
-            }
-            inside(inThePast) {
-              case RequestInvalid(message)
-                  if message.contains("is already past the max sequencing time") && message
-                    .contains("The sequencer clock timestamp") =>
-                succeed
-            }
+            tooFarInTheFuture.code.id shouldBe SequencerErrors.SubmissionRequestRefused.id
+            tooFarInTheFuture.cause should (
+              include("is too far in the future") and
+                include("Max sequencing time")
+            )
+
+            inThePast.code.id shouldBe SequencerErrors.SubmissionRequestRefused.id
+            inThePast.cause should (
+              include("is already past the max sequencing time") and
+                include("The sequencer clock timestamp")
+            )
           }
       }
 
@@ -744,9 +742,9 @@ abstract class SequencerApiTest
         for {
           error <- sequencer.sendAsyncSigned(sign(request)).leftOrFailShutdown("Sent async")
         } yield {
-          error shouldBe a[SendAsyncError.SenderUnknown]
-          error.message should (
-            include("The following senders in the aggregation rule are unknown") and
+          error.code.id shouldBe SequencerErrors.SenderUnknown.id
+          error.cause should (
+            include("(Eligible) Senders are unknown") and
               include(p16.toString)
           )
         }
@@ -783,7 +781,7 @@ abstract class SequencerApiTest
                 (
                   _.shouldBeCantonError(
                     SequencerErrors.SubmissionRequestMalformed,
-                    _ shouldBe s"Send request [$messageId] is malformed. " +
+                    _ shouldBe s"Send request [$messageId] from sender [$p17] is malformed. " +
                       s"Discarding request. Threshold $faultyThreshold cannot be reached",
                   ),
                   "p17's submission generates an alarm",
@@ -827,7 +825,7 @@ abstract class SequencerApiTest
                 (
                   _.shouldBeCantonError(
                     SequencerErrors.SubmissionRequestMalformed,
-                    _ shouldBe s"Send request [$messageId] is malformed. " +
+                    _ shouldBe s"Send request [$messageId] from sender [$p18] is malformed. " +
                       s"Discarding request. Sender [$p18] is not eligible according to the aggregation rule",
                   ),
                   "p18's submission generates an alarm",
@@ -883,7 +881,7 @@ abstract class SequencerApiTest
                 (
                   _.shouldBeCantonError(
                     SequencerErrors.SubmissionRequestMalformed,
-                    _ shouldBe s"Send request [$messageId] is malformed. " +
+                    _ shouldBe s"Send request [$messageId] from sender [$p4] is malformed. " +
                       s"Discarding request. Sender [$p4] is not eligible according to the aggregation rule",
                   ),
                   "p4's submission generates an alarm",
@@ -965,8 +963,8 @@ abstract class SequencerApiTest
             .read(sender, SequencerCounter.Genesis)
             .leftOrFail("Read successful, expected error")
         } yield {
-          sendError shouldBe a[SendAsyncError.RequestRefused]
-          sendError.message should (
+          sendError.code.id shouldBe SequencerErrors.SubmissionRequestRefused.id
+          sendError.cause should (
             include("is disabled at the sequencer") and
               include(p7.toString)
           )

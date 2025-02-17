@@ -3,6 +3,8 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+set -e -o pipefail
+
 # Setup paths
 
 # If we're running from the repo, use the protobuf from the repo

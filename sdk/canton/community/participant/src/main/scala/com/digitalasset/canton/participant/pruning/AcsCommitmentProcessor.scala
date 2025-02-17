@@ -18,10 +18,9 @@ import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
 import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeInt,
   NonNegativeLong,
-  PositiveInt,
   PositiveNumeric,
 }
-import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -62,9 +61,8 @@ import com.digitalasset.canton.pruning.{
   ConfigForSynchronizerThresholds,
   PruningStatus,
 }
-import com.digitalasset.canton.sequencing.client.SendAsyncClientError.RequestRefused
 import com.digitalasset.canton.sequencing.client.{SendResult, SequencerClientSend}
-import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, Recipients, SendAsyncError}
+import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, Recipients}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.processing.EffectiveTime
@@ -204,6 +202,7 @@ class AcsCommitmentProcessor private (
     testingConfig: TestingConfigInternal,
     clock: Clock,
     exitOnFatalFailures: Boolean,
+    batchingConfig: BatchingConfig,
     maxCommitmentSendDelayMillis: Option[NonNegativeInt],
 )(implicit ec: ExecutionContext)
     extends AcsChangeListener
@@ -651,6 +650,7 @@ class AcsCommitmentProcessor private (
             contractStore,
             enableAdditionalConsistencyChecks,
             completedPeriod.toInclusive.forgetRefinement,
+            batchingConfig,
           )
 
         _ <-
@@ -1579,13 +1579,8 @@ class AcsCommitmentProcessor private (
                   case _ => // Failed to sequence the message, so no update to the metric
                 },
               )
-              .leftMap {
-                case RequestRefused(SendAsyncError.ShuttingDown(_)) =>
-                  logger.info(
-                    s"$message as the sequencer is shutting down. Once the sequencer is back, we'll recover."
-                  )
-                case other =>
-                  logger.warn(s"$message: $other")
+              .leftMap { other =>
+                logger.warn(s"$message: $other")
               }
               .value
           } yield (),
@@ -1837,6 +1832,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       testingConfig: TestingConfigInternal,
       clock: Clock,
       exitOnFatalFailures: Boolean,
+      batchingConfig: BatchingConfig,
       maxCommitmentSendDelayMillis: Option[NonNegativeInt] = None,
   )(implicit
       ec: ExecutionContext,
@@ -1896,6 +1892,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
         testingConfig,
         clock,
         exitOnFatalFailures,
+        batchingConfig,
         maxCommitmentSendDelayMillis,
       )
       // We trigger the processing of the buffered commitments, but we do not wait for it to complete here,
@@ -2300,6 +2297,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       contractStore: ContractStore,
       enableAdditionalConsistencyChecks: Boolean,
       toInclusive: CantonTimestamp, // end of interval used to snapshot the ACS
+      batchingConfig: BatchingConfig,
   )(implicit
       ec: ExecutionContext,
       namedLoggingContext: NamedLoggingContext,
@@ -2320,10 +2318,9 @@ object AcsCommitmentProcessor extends HasLoggerName {
         activations: Map[LfContractId, ReassignmentCounter]
     ): FutureUnlessShutdown[AcsChange] =
       for {
-        // TODO(i9270) extract magic numbers
         storedActivatedContracts <- MonadUtil.batchedSequentialTraverse(
-          parallelism = PositiveInt.tryCreate(20),
-          chunkSize = PositiveInt.tryCreate(500),
+          parallelism = batchingConfig.parallelism,
+          chunkSize = batchingConfig.maxItemsInBatch,
         )(activations.keySet.toSeq)(withMetadataSeq)
       } yield {
         AcsChange(

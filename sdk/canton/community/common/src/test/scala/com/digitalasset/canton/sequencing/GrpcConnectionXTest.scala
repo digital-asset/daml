@@ -95,18 +95,14 @@ class GrpcConnectionXTest
 
 class TestHealthListener(val element: HealthElement) extends HealthListener with Matchers {
   import scala.collection.mutable
-  import BaseTest.{always, eventually}
+  import BaseTest.eventuallyForever
 
   private val statesBuffer = mutable.ArrayBuffer[element.State]()
 
-  def states: Seq[element.State] = statesBuffer.toSeq
-
   def shouldStabilizeOn[T](state: T): Assertion =
     // Check that we reach the given state, and remain on it
-    eventually() {
-      always() {
-        states.last shouldBe state
-      }
+    eventuallyForever() {
+      statesBuffer.last shouldBe state
     }
 
   def clear(): Unit = statesBuffer.clear()

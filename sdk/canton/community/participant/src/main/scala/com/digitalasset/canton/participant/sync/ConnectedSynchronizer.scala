@@ -344,10 +344,9 @@ class ConnectedSynchronizer(
 
     def lookupChangeMetadata(change: ActiveContractIdsChange): FutureUnlessShutdown[AcsChange] =
       for {
-        // TODO(i9270) extract magic numbers
         storedActivatedContracts <- MonadUtil.batchedSequentialTraverse(
-          parallelism = PositiveInt.tryCreate(20),
-          chunkSize = PositiveInt.tryCreate(500),
+          parallelism = parameters.batchingConfig.parallelism,
+          chunkSize = parameters.batchingConfig.maxItemsInBatch,
         )(change.activations.keySet.toSeq)(withMetadataSeq)
         storedDeactivatedContracts <- MonadUtil
           .batchedSequentialTraverse(
@@ -1063,6 +1062,7 @@ object ConnectedSynchronizer {
           testingConfig,
           clock,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
+          parameters.batchingConfig,
         )
         topologyProcessor <- topologyProcessorFactory.create(
           acsCommitmentProcessor.scheduleTopologyTick

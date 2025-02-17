@@ -59,7 +59,7 @@ private[routing] object TransactionData {
       externallySignedSubmissionO: Option[ExternallySignedSubmission],
       transaction: LfVersionedTransaction,
       ledgerTime: CantonTimestamp,
-      synchronizerStateProvider: SynchronizerStateProvider,
+      synchronizerState: RoutingSynchronizerState,
       contractsStakeholders: Map[LfContractId, Stakeholders],
       disclosedContracts: Seq[LfContractId],
       prescribedSynchronizerIdO: Option[SynchronizerId],
@@ -71,7 +71,7 @@ private[routing] object TransactionData {
       contractsSynchronizerData <-
         ContractsSynchronizerData
           .create(
-            synchronizerStateProvider,
+            synchronizerState,
             contractsStakeholders,
             disclosedContracts = disclosedContracts,
           )
@@ -94,7 +94,7 @@ private[routing] object TransactionData {
       submitterInfo: SubmitterInfo,
       transaction: LfVersionedTransaction,
       ledgerTime: CantonTimestamp,
-      synchronizerStateProvider: SynchronizerStateProvider,
+      synchronizerState: RoutingSynchronizerState,
       inputContractStakeholders: Map[LfContractId, Stakeholders],
       disclosedContracts: Seq[LfContractId],
       prescribedSynchronizerO: Option[SynchronizerId],
@@ -120,7 +120,7 @@ private[routing] object TransactionData {
         externallySignedSubmissionO = submitterInfo.externallySignedSubmission,
         transaction,
         ledgerTime,
-        synchronizerStateProvider,
+        synchronizerState,
         inputContractStakeholders,
         disclosedContracts,
         prescribedSynchronizerO,

@@ -12,6 +12,8 @@ import com.daml.jwt.{
   StandardJWTPayload,
 }
 import com.digitalasset.canton.auth.AuthService.AUTHORIZATION_KEY
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
+import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.Metadata
@@ -20,9 +22,12 @@ import spray.json.*
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.util.Try
 
-sealed trait AccessLevel extends Product with Serializable
+sealed trait AccessLevel extends Product with Serializable with UniformCantonConfigValidation
 
 object AccessLevel {
+  implicit val accessLevelCantonConfigValidator: CantonConfigValidator[AccessLevel] =
+    CantonConfigValidatorDerivation[AccessLevel]
+
   case object Admin extends AccessLevel
   case object Wildcard extends AccessLevel
 }

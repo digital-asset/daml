@@ -6,10 +6,10 @@ package com.digitalasset.canton.synchronizer.sequencing.service
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.foldable.*
-import cats.syntax.functor.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
+import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeNumeric, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -190,12 +190,7 @@ class GrpcSequencerService(
 
   override def sendAsyncVersioned(
       requestP: v30.SendAsyncVersionedRequest
-  ): Future[v30.SendAsyncVersionedResponse] =
-    validateAndSend(requestP).map(_.toProtoV30)
-
-  private def validateAndSend(
-      proto: v30.SendAsyncVersionedRequest
-  ): Future[SendAsyncVersionedResponse] = {
+  ): Future[v30.SendAsyncVersionedResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     // This has to run at the beginning, because it reads from a thread-local.
@@ -203,9 +198,9 @@ class GrpcSequencerService(
 
     def parseAndValidate(
         maxRequestSize: MaxRequestSize
-    ): Either[SendAsyncError, SignedContent[SubmissionRequest]] = for {
+    ): Either[SequencerDeliverError, SignedContent[SubmissionRequest]] = for {
       signedContent <- SignedContent
-        .fromByteString(protocolVersion, proto.signedSubmissionRequest)
+        .fromByteString(protocolVersion, requestP.signedSubmissionRequest)
         .leftMap(requestDeserializationError(_, maxRequestSize))
       signedSubmissionRequest <- signedContent
         .deserializeContent(
@@ -217,7 +212,7 @@ class GrpcSequencerService(
         )
         .leftMap(requestDeserializationError(_, maxRequestSize))
       _ <- validateSubmissionRequest(
-        proto.serializedSize,
+        requestP.serializedSize,
         signedSubmissionRequest.content,
         senderFromMetadata,
       )
@@ -225,7 +220,7 @@ class GrpcSequencerService(
 
     lazy val sendET = for {
       synchronizerParameters <- EitherT
-        .right[SendAsyncError](
+        .right[SequencerDeliverError](
           synchronizerParamsLookup.getApproximateOrDefaultValue(
             warnOnUsingDefaults(senderFromMetadata)
           )
@@ -235,28 +230,19 @@ class GrpcSequencerService(
       )
       _ <- checkRate(request.content)
       _ <- sequencer.sendAsyncSigned(request)
-    } yield ()
+    } yield v30.SendAsyncVersionedResponse()
 
-    performUnlessClosingUSF(functionFullName)(sendET.value.map { res =>
-      res.left.foreach { err =>
-        logger.info(s"Rejecting submission request by $senderFromMetadata with $err")
-      }
-      toSendAsyncVersionedResponse(res)
+    val resET = performUnlessClosingEitherUSF(functionFullName)(sendET.leftMap { err =>
+      logger.info(s"Rejecting submission request by $senderFromMetadata with $err")
+      err
     })
-      .onShutdown(
-        SendAsyncVersionedResponse(error = Some(SendAsyncError.ShuttingDown()))
-      )
+    CantonGrpcUtil.mapErrNewEUS(resET)
   }
-
-  private def toSendAsyncVersionedResponse(
-      result: Either[SendAsyncError, Unit]
-  ): SendAsyncVersionedResponse =
-    SendAsyncVersionedResponse(result.swap.toOption)
 
   private def requestDeserializationError(
       error: ProtoDeserializationError,
       maxRequestSize: MaxRequestSize,
-  )(implicit traceContext: TraceContext): SendAsyncError = {
+  )(implicit traceContext: TraceContext): SequencerDeliverError = {
     val message = error match {
       case ProtoDeserializationError.MaxBytesToDecompressExceeded(message) =>
         val alarm =
@@ -267,24 +253,24 @@ class GrpcSequencerService(
         logger.warn(error.toString)
         error.toString
     }
-    SendAsyncError.RequestInvalid(message)
+    SequencerErrors.SubmissionRequestMalformed.Error("", "", message)
   }
 
   private def validateSubmissionRequest(
       requestSize: Int,
       request: SubmissionRequest,
       memberFromMetadata: Option[Member],
-  )(implicit traceContext: TraceContext): Either[SendAsyncError, Unit] = {
+  )(implicit traceContext: TraceContext): Either[SequencerDeliverError, Unit] = {
     val messageId = request.messageId
 
     def refuseUnless(
         sender: Member
-    )(condition: Boolean, message: => String): Either[SendAsyncError, Unit] =
+    )(condition: Boolean, message: => String): Either[SequencerDeliverError, Unit] =
       Either.cond(condition, (), refuse(messageId.toProtoPrimitive, sender)(message))
 
     def invalidUnless(
         sender: Member
-    )(condition: Boolean, message: => String): Either[SendAsyncError, Unit] =
+    )(condition: Boolean, message: => String): Either[SequencerDeliverError, Unit] =
       Either.cond(condition, (), invalid(messageId.toProtoPrimitive, sender)(message))
 
     val sender = request.sender
@@ -330,35 +316,44 @@ class GrpcSequencerService(
       sender: Member,
       messageId: MessageId,
       aggregationRule: AggregationRule,
-  )(implicit traceContext: TraceContext): Either[SendAsyncError, Unit] =
+  )(implicit traceContext: TraceContext): Either[SequencerDeliverError, Unit] =
     SequencerValidations
       .wellformedAggregationRule(sender, aggregationRule)
       .leftMap(message => invalid(messageId.toProtoPrimitive, sender)(message))
 
   private def invalid(messageIdP: String, sender: Member)(
       message: String
-  )(implicit traceContext: TraceContext): SendAsyncError = {
-    logger.warn(s"Request '$messageIdP' from '$sender' is invalid: $message")
-    SendAsyncError.RequestInvalid(message)
+  )(implicit traceContext: TraceContext): SequencerDeliverError = {
+    val truncatedMessageId = MessageId(String73.createWithTruncation(messageIdP))
+    invalid(truncatedMessageId, sender)(message)
   }
+
+  private def invalid(messageId: MessageId, sender: Member)(
+      message: String
+  )(implicit traceContext: TraceContext): SequencerDeliverError =
+    SequencerErrors.SubmissionRequestMalformed
+      .Error(sender.toProtoPrimitive, messageId.unwrap, message)
+      .reported()
 
   private def refuse(messageIdP: String, sender: Member)(
       message: String
-  )(implicit traceContext: TraceContext): SendAsyncError = {
+  )(implicit traceContext: TraceContext): SequencerDeliverError = {
     logger.warn(s"Request '$messageIdP' from '$sender' refused: $message")
-    SendAsyncError.RequestRefused(message)
+    SequencerErrors.SubmissionRequestRefused(
+      s"Request '$messageIdP' from '$sender' refused: $message"
+    )
   }
 
   private def checkRate(
       request: SubmissionRequest
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] = {
     val sender = request.sender
     def checkRate(
         participantId: ParticipantId,
         confirmationRequestsMaxRate: NonNegativeInt,
-    ): Either[SendAsyncError, Unit] = {
+    ): Either[SequencerDeliverError, Unit] = {
       val limiter = getOrUpdateRateLimiter(participantId, confirmationRequestsMaxRate)
       Either.cond(
         limiter.checkAndUpdateRate(),
@@ -367,7 +362,7 @@ class GrpcSequencerService(
           logger.info(
             f"Request '${request.messageId}' from '$sender' refused: $message"
           )
-          SendAsyncError.Overloaded(message)
+          SequencerErrors.Overloaded(message)
         },
       )
     }
@@ -384,7 +379,7 @@ class GrpcSequencerService(
           )
         } yield ()
       case _ =>
-        EitherT.rightT[FutureUnlessShutdown, SendAsyncError](())
+        EitherTUtil.unitUS
     }
   }
 

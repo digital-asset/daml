@@ -8,6 +8,7 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, Port}
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.crypto.X509CertificatePem
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnection}
@@ -18,10 +19,19 @@ sealed trait SequencerConnectionConfig {
 }
 
 object SequencerConnectionConfig {
+  implicit val sequencerConnectionConfigCantonConfigValidator
+      : CantonConfigValidator[SequencerConnectionConfig] =
+    CantonConfigValidatorDerivation[SequencerConnectionConfig]
 
   /** Throws an exception if the file does not exist or cannot be loaded. */
-  final case class CertificateFile(pemFile: ExistingFile) {
+  final case class CertificateFile(pemFile: ExistingFile) extends UniformCantonConfigValidation {
     val pem: X509CertificatePem = X509CertificatePem.tryFromFile(pemFile.unwrap.toScala)
+  }
+  object CertificateFile {
+    implicit val certificateFileCantonConfigValidator: CantonConfigValidator[CertificateFile] = {
+      import CantonConfigValidatorInstances.*
+      CantonConfigValidatorDerivation[CertificateFile]
+    }
   }
 
   /** Grpc connection using a real grpc channel.
@@ -31,7 +41,8 @@ object SequencerConnectionConfig {
       port: Port,
       transportSecurity: Boolean = false,
       customTrustCertificates: Option[CertificateFile] = None,
-  ) extends SequencerConnectionConfig {
+  ) extends SequencerConnectionConfig
+      with UniformCantonConfigValidation {
 
     def toConnection: Either[String, GrpcSequencerConnection] =
       for {
@@ -44,5 +55,12 @@ object SequencerConnectionConfig {
         pem.map(_.unwrap),
         SequencerAlias.Default,
       )
+  }
+
+  object Grpc {
+    implicit val grpcCantonConfigValidator: CantonConfigValidator[Grpc] = {
+      import CantonConfigValidatorInstances.*
+      CantonConfigValidatorDerivation[Grpc]
+    }
   }
 }

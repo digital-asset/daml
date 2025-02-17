@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.http
 
+import com.digitalasset.canton.config.CantonConfigValidator
 import com.digitalasset.canton.http.WebsocketConfig as WSC
 import org.apache.pekko.stream.ThrottleMode
 import scalaz.Show
@@ -20,6 +21,11 @@ final case class JsonApiConfig(
     damlDefinitionsServiceEnabled: Boolean = false,
     userManagementWithoutAuthorization: Boolean = false,
 ) extends StartSettings
+
+object JsonApiConfig {
+  implicit val jsonApiConfigCantonConfigValidator: CantonConfigValidator[JsonApiConfig] =
+    CantonConfigValidator.validateAll // Do not recurse as there are no enterprise features on the JSON API
+}
 
 // It is public for Daml Hub
 final case class WebsocketConfig(

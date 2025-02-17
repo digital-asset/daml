@@ -77,7 +77,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
     override val adminApi: AdminServerConfig =
       AdminServerConfig(internalPort = Some(UniquePortGenerator.next))
     override val storage: StorageConfig = StorageConfig.Memory()
-    override val crypto: CommunityCryptoConfig = CommunityCryptoConfig()
+    override val crypto: CryptoConfig = CryptoConfig()
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig()
     override val nodeTypeName: String = "test-node"
     override def clientAdminApi = adminApi.clientConfig

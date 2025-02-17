@@ -386,6 +386,7 @@ class CantonSyncService(
       repairService,
       prepareSynchronizerConnectionForMigration,
       sequencerInfoLoader,
+      parameters.batchingConfig,
       parameters.processingTimeouts,
       loggerFactory,
     )

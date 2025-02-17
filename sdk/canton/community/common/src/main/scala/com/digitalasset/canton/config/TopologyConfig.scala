@@ -5,6 +5,7 @@ package com.digitalasset.canton.config
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.TopologyConfig.*
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 
 import scala.concurrent.duration.Duration
 
@@ -23,9 +24,14 @@ final case class TopologyConfig(
       defaultTopologyTransactionRegistrationTimeout,
     broadcastBatchSize: PositiveInt = defaultBroadcastBatchSize,
     insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot: Boolean = false,
-)
+) extends UniformCantonConfigValidation
 
 object TopologyConfig {
+  implicit val topologyConfigCantonConfigValidator: CantonConfigValidator[TopologyConfig] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[TopologyConfig]
+  }
+
   private[TopologyConfig] val defaultTopologyTransactionRegistrationTimeout =
     NonNegativeDuration.ofSeconds(20)
 

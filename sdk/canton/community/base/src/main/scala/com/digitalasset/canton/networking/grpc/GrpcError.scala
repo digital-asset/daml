@@ -227,5 +227,4 @@ object GrpcError {
         ) // broken, as a call should never fail with status OK
     }
   }
-
 }

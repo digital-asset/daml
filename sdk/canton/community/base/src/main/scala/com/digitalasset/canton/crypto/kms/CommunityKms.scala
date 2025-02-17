@@ -3,9 +3,12 @@
 
 package com.digitalasset.canton.crypto.kms
 
-import cats.syntax.functor.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{CommunityKmsConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.{
+  EnterpriseOnlyCantonConfigValidation,
+  KmsConfig,
+  ProcessingTimeout,
+}
 import com.digitalasset.canton.crypto.kms.driver.v1.DriverKms
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.time.Clock
@@ -16,7 +19,7 @@ import scala.concurrent.ExecutionContext
 object CommunityKms {
 
   def create(
-      config: CommunityKmsConfig,
+      config: KmsConfig,
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
       clock: Clock,
@@ -24,17 +27,18 @@ object CommunityKms {
       executionContext: ExecutionContext,
   ): Either[KmsError, Kms] =
     config match {
-      case driverKmsConfig: CommunityKmsConfig.Driver =>
-        DriverKms
-          .create(
-            driverKmsConfig,
-            futureSupervisor,
-            clock,
-            timeouts,
-            loggerFactory,
-            executionContext,
-          )
-          .widen[Kms]
+      case driverKmsConfig: KmsConfig.Driver =>
+        DriverKms.create(
+          driverKmsConfig,
+          futureSupervisor,
+          clock,
+          timeouts,
+          loggerFactory,
+          executionContext,
+        )
+      case other: EnterpriseOnlyCantonConfigValidation =>
+        throw new IllegalArgumentException(
+          s"Unsupported KMS configuration in community edition: $other"
+        )
     }
-
 }
