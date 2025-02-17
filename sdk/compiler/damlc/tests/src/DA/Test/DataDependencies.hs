@@ -109,6 +109,9 @@ tests TestArgs{..} =
               , "    p : Party"
               , "  where"
               , "    signatory p"
+              , "    nonconsuming choice MyChoice : ()"
+              , "      controller p"
+              , "      do pure ()"
 
               , "createT = create @T"
               , "signatoryT = signatory @T"
@@ -147,6 +150,10 @@ tests TestArgs{..} =
               , "  signatoryT t === [alice]"
               , "  cid <- createT t"
               , "  archiveT cid"
+              , "  hasChoiceClass cid MyChoice"
+
+              , "hasChoiceClass : Choice t c r => ContractId t -> c -> Update ()"
+              , "hasChoiceClass _ _ = pure ()"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
