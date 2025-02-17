@@ -141,6 +141,42 @@ object Error {
     */
   final case class ValueNesting(limit: Int) extends Error
 
+  sealed case class Upgrade(error: Upgrade.Error) extends Error
+
+  object Upgrade {
+    sealed abstract class Error extends Serializable with Product
+
+    final case class ValidationFailed(
+        coid: ContractId,
+        srcTemplateId: TypeConName,
+        dstTemplateId: TypeConName,
+        signatories: Set[Party],
+        observers: Set[Party],
+        keyOpt: Option[GlobalKeyWithMaintainers],
+        msg: String,
+    ) extends Error
+
+    // TODO https://github.com/digital-asset/daml/issues/17647:
+    //  - add coid, srcTmplId (alternatively pkgId of srcTmplId), and dstTempId
+    final case class DowngradeDropDefinedField(
+        expectedType: Ast.Type,
+        fieldIndex: Long,
+        actualValue: Value,
+    ) extends Error
+
+    final case class ViewMismatch(
+        coid: ContractId,
+        iterfaceId: TypeConName,
+        srcTemplateId: TypeConName,
+        dstTemplateId: TypeConName,
+        srcView: Value,
+        dstView: Value,
+    ) extends Error
+
+    final case class DowngradeFailed(expectedType: Ast.Type, actualValue: Value) extends Error
+
+  }
+
   // Error that can be thrown by dev or PoC feature only
   final case class Dev(location: String, error: Dev.Error) extends Error
 
@@ -160,44 +196,11 @@ object Error {
       final case class MalformedSignature(signature: String, cause: String) extends Error
     }
 
-    // TODO https://github.com/digital-asset/daml/issues/17647
-    // - move as normal interpretation Error
-    sealed case class Upgrade(error: Upgrade.Error) extends Error
-
     sealed case class Conformance(
         provided: Node.Create,
         recomputed: Node.Create,
         details: String,
     ) extends Error
-
-    object Upgrade {
-
-      sealed abstract class Error extends Serializable with Product
-
-      final case class ValidationFailed(
-          coid: ContractId,
-          srcTemplateId: TypeConName,
-          dstTemplateId: TypeConName,
-          signatories: Set[Party],
-          observers: Set[Party],
-          keyOpt: Option[GlobalKeyWithMaintainers],
-          msg: String,
-      ) extends Error
-
-      // TODO https://github.com/digital-asset/daml/issues/17647:
-      //  - add coid, srcTmplId (alternatively pkgId of srcTmplId), and dstTempId
-      final case class DowngradeDropDefinedField(expectedType: Ast.Type, actualValue: Value)
-          extends Error
-
-      final case class ViewMismatch(
-          coid: ContractId,
-          iterfaceId: TypeConName,
-          srcTemplateId: TypeConName,
-          dstTemplateId: TypeConName,
-          srcView: Value,
-          dstView: Value,
-      ) extends Error
-    }
 
     /** A choice guard returned false, invalidating some expectation. */
     final case class ChoiceGuardFailed(

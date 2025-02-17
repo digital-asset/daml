@@ -4,7 +4,11 @@
 package com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion}
+import com.digitalasset.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  TransactionVersion,
+}
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.ValueCoder
 import com.daml.nonempty.NonEmpty
@@ -60,6 +64,14 @@ object GrpcErrorParser {
       handler
         .lift(resourceDetails)
         .getOrElse(new SubmitError.TruncatedError(classNameOf[A], message))
+
+    def parseParties(parties: String): Set[Party] = {
+      if (parties.isBlank) {
+        Set.empty
+      } else {
+        parties.split(",").toSet.map(Party.assertFromString _)
+      }
+    }
 
     errorCode match {
       case "CONTRACT_NOT_FOUND" =>
@@ -244,6 +256,90 @@ object GrpcErrorParser {
         caseErr { case Seq((ErrorResource.ContractId, cid)) =>
           SubmitError.ContractIdComparability(cid)
         }
+      case "INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.ContractId, coid),
+                (ErrorResource.TemplateId, srcTemplateId),
+                (ErrorResource.TemplateId, dstTemplateId),
+                (ErrorResource.Parties, signatories),
+                (ErrorResource.Parties, observers),
+              ) =>
+            SubmitError.UpgradeError.ValidationFailed(
+              ContractId.assertFromString(coid),
+              Identifier.assertFromString(srcTemplateId),
+              Identifier.assertFromString(dstTemplateId),
+              parseParties(signatories),
+              parseParties(observers),
+              None,
+              message,
+            )
+          case Seq(
+                (ErrorResource.ContractId, coid),
+                (ErrorResource.TemplateId, srcTemplateId),
+                (ErrorResource.TemplateId, dstTemplateId),
+                (ErrorResource.Parties, signatories),
+                (ErrorResource.Parties, observers),
+                (ErrorResource.ContractKey, decodeValue.unlift(globalKey)),
+                (ErrorResource.PackageName, pn),
+                (ErrorResource.Parties, maintainers),
+              ) =>
+            val dstTid = Identifier.assertFromString(dstTemplateId)
+            val packageName = PackageName.assertFromString(pn)
+            SubmitError.UpgradeError.ValidationFailed(
+              ContractId.assertFromString(coid),
+              Identifier.assertFromString(srcTemplateId),
+              dstTid,
+              parseParties(signatories),
+              parseParties(observers),
+              Some(
+                GlobalKeyWithMaintainers.assertBuild(
+                  dstTid,
+                  globalKey,
+                  parseParties(maintainers),
+                  packageName,
+                )
+              ),
+              message,
+            )
+        }
+      case "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_DROP_DEFINED_FIELD" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.ExpectedType, expectedType),
+                (ErrorResource.FieldIndex, fieldIndex),
+              ) =>
+            SubmitError.UpgradeError.DowngradeDropDefinedField(
+              expectedType,
+              fieldIndex.toLong,
+              message,
+            )
+        }
+      case "INTERPRETATION_UPGRADE_ERROR_VIEW_MISMATCH" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.ContractId, coid),
+                (ErrorResource.InterfaceId, iterfaceId),
+                (ErrorResource.TemplateId, srcTemplateId),
+                (ErrorResource.TemplateId, dstTemplateId),
+              ) =>
+            SubmitError.UpgradeError.ViewMismatch(
+              ContractId.assertFromString(coid),
+              Identifier.assertFromString(iterfaceId),
+              Identifier.assertFromString(srcTemplateId),
+              Identifier.assertFromString(dstTemplateId),
+              message,
+            )
+        }
+
+      case "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_FAILED" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.ExpectedType, expectedType)
+              ) =>
+            SubmitError.UpgradeError.DowngradeFailed(expectedType, message)
+        }
+
       case "INTERPRETATION_DEV_ERROR" =>
         caseErr { case Seq((ErrorResource.DevErrorType, errorType)) =>
           SubmitError.DevError(errorType, message)

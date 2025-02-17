@@ -164,15 +164,27 @@ exerciseCommandShouldFail = test $ do
   (alice, icid) <- setupAliceAndInterface
   res <- alice `trySubmit` exerciseCmd icid GetVersion
   case res of
-      Left (DevError Upgrade msg) | "View mismatch" `isInfixOf` msg -> pure ()
-      _ -> assertFail ("Expected fetchFromInterface to fail, got " <> show res)
+    Left (UpgradeError (ViewMismatch foundCid foundInterfaceId foundSrcTemplateTypeRep foundDstTemplateTypeRep) msg)
+     | fromAnyContractId @V1.FITemplate foundCid == Some (fromInterfaceContractId @V1.FITemplate icid) &&
+       foundInterfaceId == templateTypeRep @I &&
+       foundSrcTemplateTypeRep == templateTypeRep @V1.FITemplate &&
+       foundDstTemplateTypeRep == templateTypeRep @V2.FITemplate &&
+       "View mismatch" `isInfixOf` msg
+     -> pure ()
+    _ -> assertFail ("Expected fetchFromInterface to fail, got " <> show res)
 
 exerciseInChoiceBodyShouldFail : Test
 exerciseInChoiceBodyShouldFail = test $ do
   (alice, icid) <- setupAliceAndInterface
   res <- alice `trySubmit` createAndExerciseCmd (Caller with party = alice) (CallInterface with icid = icid)
   case res of
-    Left (DevError Upgrade msg) | "View mismatch" `isInfixOf` msg -> pure ()
+    Left (UpgradeError (ViewMismatch foundCid foundInterfaceId foundSrcTemplateTypeRep foundDstTemplateTypeRep) msg)
+     | fromAnyContractId @V1.FITemplate foundCid == Some (fromInterfaceContractId @V1.FITemplate icid) &&
+       foundInterfaceId == templateTypeRep @I &&
+       foundSrcTemplateTypeRep == templateTypeRep @V1.FITemplate &&
+       foundDstTemplateTypeRep == templateTypeRep @V2.FITemplate &&
+       "View mismatch" `isInfixOf` msg
+     -> pure ()
     _ -> assertFail ("Expected fetchFromInterface to fail, got " <> show res)
 
 fetchFromInterfaceShouldFail : Test
@@ -180,7 +192,13 @@ fetchFromInterfaceShouldFail = test $ do
   (alice, icid) <- setupAliceAndInterface
   res <- alice `trySubmit` createAndExerciseExactCmd (V2.FITemplate with party = alice) (V2.FetchFromInterface with icid = icid)
   case res of
-    Left (DevError Upgrade msg) | "View mismatch" `isInfixOf` msg -> pure ()
+    Left (UpgradeError (ViewMismatch foundCid foundInterfaceId foundSrcTemplateTypeRep foundDstTemplateTypeRep) msg)
+     | fromAnyContractId @V1.FITemplate foundCid == Some (fromInterfaceContractId @V1.FITemplate icid) &&
+       foundInterfaceId == templateTypeRep @I &&
+       foundSrcTemplateTypeRep == templateTypeRep @V1.FITemplate &&
+       foundDstTemplateTypeRep == templateTypeRep @V2.FITemplate &&
+       "View mismatch" `isInfixOf` msg
+     -> pure ()
     _ -> assertFail ("Expected fetchFromInterface to fail, got " <> show res)
 
 queryInterfaceContractIdInView : Test

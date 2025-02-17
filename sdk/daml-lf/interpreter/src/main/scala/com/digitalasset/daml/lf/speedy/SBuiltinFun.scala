@@ -1290,18 +1290,15 @@ private[lf] object SBuiltinFun {
                               executeExpression(machine, SEPreventCatch(dstView)) { dstViewValue =>
                                 if (srcViewValue != dstViewValue) {
                                   Control.Error(
-                                    IE.Dev(
-                                      NameOf.qualifiedNameOfCurrentFunc,
-                                      IE.Dev.Upgrade(
-                                        IE.Dev.Upgrade.ViewMismatch(
-                                          coid,
-                                          interfaceId,
-                                          srcTplId,
-                                          dstTplId,
-                                          srcView = srcViewValue.toUnnormalizedValue,
-                                          dstView = dstViewValue.toUnnormalizedValue,
-                                        )
-                                      ),
+                                    IE.Upgrade(
+                                      IE.Upgrade.ViewMismatch(
+                                        coid,
+                                        interfaceId,
+                                        srcTplId,
+                                        dstTplId,
+                                        srcView = srcViewValue.toUnnormalizedValue,
+                                        dstView = dstViewValue.toUnnormalizedValue,
+                                      )
                                     )
                                   )
                                 } else
@@ -2424,20 +2421,17 @@ private[lf] object SBuiltinFun {
       case Nil => k()
       case errors =>
         Control.Error(
-          IE.Dev(
-            NameOf.qualifiedNameOfCurrentFunc,
-            IE.Dev.Upgrade(
-              // TODO(https://github.com/digital-asset/daml/issues/20305): also include the original metadata
-              IE.Dev.Upgrade.ValidationFailed(
-                coid = coid,
-                srcTemplateId = original.templateId,
-                dstTemplateId = recomputed.templateId,
-                signatories = recomputed.signatories,
-                observers = recomputed.observers,
-                keyOpt = recomputed.keyOpt.map(_.globalKeyWithMaintainers),
-                msg = errors.mkString("['", "', '", "']"),
-              )
-            ),
+          IE.Upgrade(
+            // TODO(https://github.com/digital-asset/daml/issues/20305): also include the original metadata
+            IE.Upgrade.ValidationFailed(
+              coid = coid,
+              srcTemplateId = original.templateId,
+              dstTemplateId = recomputed.templateId,
+              signatories = recomputed.signatories,
+              observers = recomputed.observers,
+              keyOpt = recomputed.keyOpt.map(_.globalKeyWithMaintainers),
+              msg = errors.mkString("['", "', '", "']"),
+            )
           )
         )
     }

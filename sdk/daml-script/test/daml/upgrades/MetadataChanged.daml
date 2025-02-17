@@ -1030,11 +1030,7 @@ expectSuccess r = case r of
 expectMetadataChangedError : Either SubmitError a -> Script ()
 expectMetadataChangedError r = case r of
     Right _ -> assertFail "Expected failure but got success"
-    Left e -> pure ()
-    -- TODO(https://github.com/DACH-NY/canton/issues/23824): restore this more precise test once the SCU error improvements have been ported to 3.x
-    {-
-    Left (UpgradeError msg)
+    Left (UpgradeError (ValidationFailed _ _ _ _ _ _) msg)
       | "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed" `isInfixOf` msg
       -> pure ()
     Left e -> assertFail $ "Expected Upgrade error but got " <> show e
-    -}

@@ -6,6 +6,7 @@ module Daml.Script.Internal.Questions.Submit.Error
   , ContractNotFoundAdditionalInfo -- Don't export constructors, users should not be able to rely on the structure.
   , isNotActive
   , SubmitError (..)
+  , UpgradeErrorType (..)
   ) where
 
 import Daml.Script.Internal.Questions.Util
@@ -14,11 +15,29 @@ import DA.Text
 import DA.Foldable (foldMap)
 import DA.Exception
 
+data UpgradeErrorType
+  = ValidationFailed with
+        coid : AnyContractId
+        srcTemplateId : TemplateTypeRep
+        dstTemplateId : TemplateTypeRep
+        signatories : [Party]
+        observers : [Party]
+        keyOpt : Optional (AnyContractKey, [Party])
+  | DowngradeDropDefinedField with
+        expectedType : Text
+        fieldIndex : Int
+  | ViewMismatch with
+        coid : AnyContractId
+        iterfaceId : TemplateTypeRep
+        srcTemplateId : TemplateTypeRep
+        dstTemplateId : TemplateTypeRep
+  | DowngradeFailed with
+        expectedType : Text
+
 -- | Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
 data DevErrorType
   = ChoiceGuardFailed
   | WronglyTypedContractSoft
-  | Upgrade
   | UnknownNewFeature -- ^ This should never happen - Update Scripts when you see this!
   deriving Show
 
@@ -127,6 +146,10 @@ data SubmitError
     LocalVerdictLockedKeys with
       localVerdictLockedKeys : [AnyContractKey]
           -- ^ Locked contract keys
+  | -- | Upgrade exception
+    UpgradeError with
+      errorType : UpgradeErrorType
+      errorMessage : Text
   | -- | Development feature exceptions
     DevError with -- We just give the error's simple class name and the prettied message it generates. Scripts doesn't need anything more right now.
       devErrorType : DevErrorType
@@ -171,6 +194,18 @@ instance Show SubmitError where
     ValueNesting limit -> "Exceeded maximum nesting depth for values - limit: " <> show limit
     LocalVerdictLockedContracts cids -> "Attempted to use locked contracts: " <> show cids
     LocalVerdictLockedKeys _ -> "Attempted to use locked contract keys"
+    UpgradeError ty msg -> "UpgradeError: " <> show ty <> "\n with message \"" <> msg <> "\""
     DevError ty msg -> "DevError of type " <> show ty <> " and message \"" <> msg <> "\""
     UnknownError msg -> "Unknown error: " <> msg
     TruncatedError ty msg -> "TruncatedError of type " <> ty <> " and message \"" <> msg <> "\""
+
+instance Show UpgradeErrorType where
+  show err = case err of
+    ValidationFailed coid _srcTemplateId _dstTemplateId signatories observers _keyOpt ->
+      "Validation failed for contract " <> show coid <> " (Signatories: " <> show signatories <> ", Observers: " <> show observers <> ")"
+    DowngradeDropDefinedField expectedType rank ->
+      "Cannot drop Some field at position " <> show rank <> " in record to downgrade to " <> show expectedType
+    ViewMismatch coid _iterfaceId _srcTemplateId _dstTemplateId ->
+      "Interface view mismatch between versions for contract " <> show coid
+    DowngradeFailed expectedType ->
+      "Could not downgrade from new variant/enum constructor to " <> show expectedType

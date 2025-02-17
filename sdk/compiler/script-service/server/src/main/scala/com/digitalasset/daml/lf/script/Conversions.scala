@@ -257,15 +257,16 @@ final class Conversions(
                     proto.ScriptError.CCTPError.newBuilder.setMessage(
                       speedy.Pretty.prettyDamlException(interpretationError).render(80)
                     )
-                  case _: Dev.Upgrade =>
-                    proto.ScriptError.UpgradeError.newBuilder.setMessage(
-                      speedy.Pretty.prettyDamlException(interpretationError).render(80)
-                    )
                 }
+              case _: Upgrade =>
+                proto.ScriptError.UpgradeError.newBuilder.setMessage(
+                  speedy.Pretty.prettyDamlException(interpretationError).render(80)
+                )
               case err @ Dev(_, _) =>
                 builder.setCrash(s"Unexpected Dev error: " + err.toString)
             }
         }
+
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>
         builder.setScriptContractNotEffective(
           proto.ScriptError.ContractNotEffective.newBuilder
