@@ -6,7 +6,7 @@
 module CCTPMintToken where
 
 import DA.Assert ((===))
-import DA.CCTP
+import DA.Crypto
 import Daml.Script
 
 data BurnMessage = BurnMessage with

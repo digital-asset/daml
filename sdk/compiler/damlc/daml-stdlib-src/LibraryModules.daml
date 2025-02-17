@@ -14,7 +14,7 @@ import DA.Assert
 import DA.BigNumeric
 import DA.Bifunctor
 #ifdef DAML_CCTP
-import DA.CCTP
+import DA.Crypto
 #endif
 import DA.Date
 import DA.Either

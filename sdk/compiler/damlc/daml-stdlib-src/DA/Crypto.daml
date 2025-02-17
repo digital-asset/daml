@@ -5,8 +5,9 @@
 
 {-# LANGUAGE CPP #-}
 
--- | Functions for working with CCTP.
-module DA.CCTP
+-- | Functions for working with Crypto builtins.
+-- For example, as used to implement CCTP functionality.
+module DA.Crypto
   (keccak256
   , secp256k1
   , BytesHex
