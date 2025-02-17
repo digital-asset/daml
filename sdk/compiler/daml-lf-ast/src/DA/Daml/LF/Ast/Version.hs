@@ -162,7 +162,8 @@ featureExtendedInterfaces = Feature
 featureChoiceFuncs :: Feature
 featureChoiceFuncs = Feature
     { featureName = "choiceController and choiceObserver functions"
-    , featureVersionReq = devOnly
+    -- TODO: https://github.com/digital-asset/daml/issues/20786: complete implementing this feature
+    , featureVersionReq = VersionReq $ const noMinorVersion
     , featureCppFlag = Just "DAML_CHOICE_FUNCS"
     }
 
