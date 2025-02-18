@@ -265,6 +265,13 @@ typeOfBuiltin = \case
   BESha256Text       -> pure $ TText :-> TText
   BEKecCak256Text    -> pure $ TText :-> TText
   BESecp256k1Bool    -> pure $ TText :-> TText :-> TText :-> TBool
+  BETextToBytes      -> pure $ TText :-> TOptional TBytes
+  BEBytesToText      -> pure $ TBytes :-> TText
+  BEInt64ToBytes     -> pure $ TInt64 :-> TBytes
+  BEBytesToInt64     -> pure $ TBytes :-> TOptional TInt64
+  BEAppendBytes      -> pure $ TBytes :-> TBytes :-> TBytes
+  BESliceBytes       -> pure $ TBytes :-> TInt64 :-> TInt64 :-> TBytes
+  BESizeBytes        -> pure $ TBytes :-> TInt64
   BEFoldl -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
              (tBeta :-> tAlpha :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
   BEFoldr -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $

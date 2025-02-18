@@ -708,7 +708,9 @@ private[lf] object SBuiltinFun {
       val txt = getSText(args, 0)
 
       try {
-        SOptional(Some(SBytes(Ref.HexString.decode(txt))))
+        SOptional(
+          Some(SBytes(Ref.HexString.decode(Ref.HexString.assertFromString(txt.toLowerCase))))
+        )
       } catch {
         case _: IllegalArgumentException =>
           SOptional(None)
@@ -760,7 +762,7 @@ private[lf] object SBuiltinFun {
       val begin = getSInt64(args, 1)
       val end = getSInt64(args, 2)
 
-      SBytes(bytes.slice(begin, end))
+      SBytes(bytes.slice(begin.toInt, end.toInt))
     }
   }
 
@@ -768,7 +770,7 @@ private[lf] object SBuiltinFun {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
       val bytes = getSBytes(args, 0)
 
-      SInt64(bytes.length)
+      SInt64(bytes.length.toLong)
     }
   }
 

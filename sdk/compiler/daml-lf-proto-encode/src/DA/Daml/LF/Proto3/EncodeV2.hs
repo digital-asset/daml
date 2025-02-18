@@ -430,6 +430,14 @@ encodeBuiltinExpr = \case
     BEKecCak256Text -> builtin P.BuiltinFunctionKECCAK256_TEXT
     BESecp256k1Bool -> builtin P.BuiltinFunctionSECP256K1_BOOL
 
+    BETextToBytes -> builtin P.BuiltinFunctionTEXT_TO_BYTES
+    BEBytesToText -> builtin P.BuiltinFunctionBYTES_TO_TEXT
+    BEInt64ToBytes -> builtin P.BuiltinFunctionINT64_TO_BYTES
+    BEBytesToInt64 -> builtin P.BuiltinFunctionBYTES_TO_INT64
+    BEAppendBytes -> builtin P.BuiltinFunctionAPPEND_BYTES
+    BESliceBytes -> builtin P.BuiltinFunctionSLICE_BYTES
+    BESizeBytes -> builtin P.BuiltinFunctionSIZE_BYTES
+
     BEError -> builtin P.BuiltinFunctionERROR
     BEAnyExceptionMessage -> builtin P.BuiltinFunctionANY_EXCEPTION_MESSAGE
 

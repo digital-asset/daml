@@ -370,7 +370,7 @@ object SValue {
       SBytes(Bytes.assertFromString(value))
     }
 
-    def apply(value: Array[Bytes]): SBytes = {
+    def apply(value: Array[Byte]): SBytes = {
       SBytes(Bytes.fromByteArray(value))
     }
   }

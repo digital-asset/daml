@@ -146,6 +146,13 @@ safetyStep = \case
       BESha256Text        -> Safe 1
       BEKecCak256Text     -> Safe 1
       BESecp256k1Bool     -> Safe 3
+      BETextToBytes       -> Safe 1
+      BEBytesToText       -> Safe 1
+      BEInt64ToBytes      -> Safe 1
+      BEBytesToInt64      -> Safe 1
+      BEAppendBytes       -> Safe 2
+      BESliceBytes        -> Safe 3
+      BESizeBytes         -> Safe 1
       BEAppendText        -> Safe 2
       BETimestampToUnixMicroseconds -> Safe 1
       BEUnixMicrosecondsToTimestamp -> Safe 0 -- can fail if the int represents an out-of-bounds date

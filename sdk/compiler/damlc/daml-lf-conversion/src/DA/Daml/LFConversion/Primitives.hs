@@ -43,6 +43,22 @@ convertPrim _ "BEEqualList" ((a1 :-> a2 :-> TBool) :-> TList a3 :-> TList a4 :->
 convertPrim _ "BESecp256k1Bool" (TText :-> TText :-> TText :-> TBool) =
     pure $ EBuiltinFun BESecp256k1Bool
 
+-- Bytes operations
+convertPrim _ "BETextToBytes" (TText :-> TOptional TBytes) =
+    pure $ EBuiltinFun BETextToBytes
+convertPrim _ "BEBytesToText" (TBytes :-> TText) =
+    pure $ EBuiltinFun BEBytesToText
+convertPrim _ "BEInt64ToBytes" (TInt64 :-> TBytes) =
+    pure $ EBuiltinFun BEInt64ToBytes
+convertPrim _ "BEBytesToInt64" (TBytes :-> TOptional TInt64) =
+    pure $ EBuiltinFun BEBytesToInt64
+convertPrim _ "BEAppendBytes" (TBytes :-> TBytes :-> TBytes) =
+    pure $ EBuiltinFun BEAppendBytes
+convertPrim _ "BESliceBytes" (TBytes :-> TInt64 :-> TInt64 :-> TBytes) =
+    pure $ EBuiltinFun BESliceBytes
+convertPrim _ "BESizeBytes" (TBytes :-> TInt64) =
+    pure $ EBuiltinFun BESizeBytes
+
 -- Integer arithmetic
 convertPrim _ "BEAddInt64" (TInt64 :-> TInt64 :-> TInt64) =
     pure $ EBuiltinFun BEAddInt64
