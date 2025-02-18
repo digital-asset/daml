@@ -6,12 +6,13 @@ package com.digitalasset.canton.synchronizer.mediator
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggingContext
-import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.{
   ConfirmationResponse,
   MediatorConfirmationRequest,
   Verdict,
 }
+import com.digitalasset.canton.protocol.{RequestId, RootHash}
+import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -28,22 +29,20 @@ final case class FinalizedResponse(
   override def isFinalized: Boolean = true
 
   /** Merely validates the request and raises alarms. But there is nothing to progress any more */
-  override def validateAndProgress(
+  override protected[synchronizer] def validateAndProgressInternal(
       responseTimestamp: CantonTimestamp,
       response: ConfirmationResponse,
+      rootHash: RootHash,
+      sender: ParticipantId,
       topologySnapshot: TopologySnapshot,
   )(implicit
       loggingContext: NamedLoggingContext,
       ec: ExecutionContext,
   ): FutureUnlessShutdown[Option[ResponseAggregation[VKey]]] = {
     val ConfirmationResponse(
-      _requestId,
-      sender,
       viewPositionO,
       localVerdict,
-      rootHash,
       confirmingParties,
-      _synchronizerId,
     ) = response
 
     def go[VKEY: ViewKey](viewKeyO: Option[VKEY]): FutureUnlessShutdown[Option[Nothing]] =

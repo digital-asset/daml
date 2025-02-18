@@ -563,8 +563,10 @@ class AssignmentProcessingStepsTest
             )
         )("construction of pending data and response failed").failOnShutdown
       } yield {
-        result.confirmationResponsesF.futureValueUS.value should matchPattern {
-          case Seq((ConfirmationResponse(_, _, _, LocalApprove(), _, _, _), _)) =>
+        result.confirmationResponsesF.futureValueUS.value
+          .valueOrFail("no response")
+          ._1
+          .responses should matchPattern { case Seq(ConfirmationResponse(_, LocalApprove(), _)) =>
         }
         result.pendingData.assignmentValidationResult.isSuccessfulF.futureValueUS shouldBe true
         succeed
@@ -603,8 +605,8 @@ class AssignmentProcessingStepsTest
           confirmationResponse <- result.confirmationResponsesF.failOnShutdown
 
         } yield {
-          confirmationResponse should matchPattern {
-            case Seq((ConfirmationResponse(_, _, _, LocalReject(_, true), _, _, _), _)) =>
+          confirmationResponse.valueOrFail("no response")._1.responses should matchPattern {
+            case Seq(ConfirmationResponse(_, LocalReject(_, true), _)) =>
           }
           val assignmentValidationResult = result.pendingData.assignmentValidationResult
           val modelConformanceError =
@@ -697,15 +699,20 @@ class AssignmentProcessingStepsTest
         resF.futureValue
       }
 
-      test(contract.metadata).confirmationResponsesF.futureValueUS.value should matchPattern {
-        case Seq((ConfirmationResponse(_, _, _, LocalApprove(), _, _, _), _)) =>
+      test(contract.metadata).confirmationResponsesF.futureValueUS.value
+        .valueOrFail("no response")
+        ._1
+        .responses should matchPattern { case Seq(ConfirmationResponse(_, LocalApprove(), _)) =>
       }
 
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
         {
           val testResult = test(incorrectMetadata)
-          testResult.confirmationResponsesF.futureValueUS.value should matchPattern {
-            case Seq((ConfirmationResponse(_, _, _, LocalReject(_, true), _, _, _), _)) =>
+          testResult.confirmationResponsesF.futureValueUS.value
+            .valueOrFail("no response")
+            ._1
+            .responses should matchPattern {
+            case Seq(ConfirmationResponse(_, LocalReject(_, true), _)) =>
           }
           testResult.pendingData.assignmentValidationResult.metadataResultET.futureValueUS.left.value shouldBe ContractMetadataMismatch(
             ReassignmentRef(reassignmentId),
@@ -777,8 +784,11 @@ class AssignmentProcessingStepsTest
             result.pendingData.assignmentValidationResult.metadataResultET.futureValueUS
         } yield {
           metadataCheck.left.value shouldBe expectedError
-          result.confirmationResponsesF.futureValueUS.value should matchPattern {
-            case Seq((ConfirmationResponse(_, _, _, LocalReject(_, true), _, _, _), _)) =>
+          result.confirmationResponsesF.futureValueUS.value
+            .valueOrFail("no response")
+            ._1
+            .responses should matchPattern {
+            case Seq(ConfirmationResponse(_, LocalReject(_, true), _)) =>
           }
         }).futureValue,
         modelConformanceError,

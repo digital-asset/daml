@@ -4,147 +4,35 @@
 package com.digitalasset.canton.crypto
 
 import cats.data.EitherT
-import cats.implicits.showInterpolator
 import cats.syntax.either.*
+import cats.syntax.show.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.*
-import com.digitalasset.canton.crypto.CryptoFactory.{
-  CryptoStoresAndSchemes,
-  selectAllowedEncryptionAlgorithmSpecs,
-  selectAllowedSigningAlgorithmSpecs,
-  selectSchemes,
+import com.digitalasset.canton.config.{
+  CryptoConfig,
+  CryptoProvider,
+  CryptoProviderScheme,
+  CryptoSchemeConfig,
+  ProcessingTimeout,
 }
-import com.digitalasset.canton.crypto.provider.jce.JcePureCrypto
+import com.digitalasset.canton.crypto.kms.KmsFactory
+import com.digitalasset.canton.crypto.provider.jce.{JceCrypto, JcePureCrypto}
+import com.digitalasset.canton.crypto.provider.kms.{KmsCrypto, KmsPrivateCrypto}
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CryptoPrivateStoreFactory
-import com.digitalasset.canton.crypto.store.{CryptoPrivateStore, CryptoPublicStore}
+import com.digitalasset.canton.crypto.store.{
+  CryptoPrivateStore,
+  CryptoPublicStore,
+  KmsCryptoPrivateStore,
+}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
+import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
-
-trait CryptoFactory {
-
-  def create(
-      config: CryptoConfig,
-      storage: Storage,
-      cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
-      releaseProtocolVersion: ReleaseProtocolVersion,
-      nonStandardConfig: Boolean,
-      futureSupervisor: FutureSupervisor,
-      clock: Clock,
-      executionContext: ExecutionContext,
-      timeouts: ProcessingTimeout,
-      loggerFactory: NamedLoggerFactory,
-      tracerProvider: TracerProvider,
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, String, Crypto]
-
-  def createPureCrypto(
-      config: CryptoConfig,
-      loggerFactory: NamedLoggerFactory,
-  ): Either[String, CryptoPureApi] =
-    for {
-      symmetricKeyScheme <- selectSchemes(config.symmetric, config.provider.symmetric)
-        .map(_.default)
-      signingAlgorithmSpec <- selectSchemes(
-        config.signing.algorithms,
-        config.provider.signingAlgorithms,
-      )
-      supportedSigningAlgorithmSpecs <- selectAllowedSigningAlgorithmSpecs(config)
-      encryptionAlgorithmSpec <- selectSchemes(
-        config.encryption.algorithms,
-        config.provider.encryptionAlgorithms,
-      )
-      supportedEncryptionAlgorithmSpecs <- selectAllowedEncryptionAlgorithmSpecs(config)
-      hashAlgorithm <- selectSchemes(config.hash, config.provider.hash).map(_.default)
-      crypto <- config.provider match {
-        case CryptoProvider.Jce | CryptoProvider.Kms =>
-          for {
-            pbkdfSchemes <- config.provider.pbkdf.toRight(
-              "PBKDF schemes must be set for JCE provider"
-            )
-            pbkdfScheme <- selectSchemes(config.pbkdf, pbkdfSchemes).map(_.default)
-          } yield new JcePureCrypto(
-            symmetricKeyScheme,
-            signingAlgorithmSpec.default,
-            supportedSigningAlgorithmSpecs,
-            encryptionAlgorithmSpec.default,
-            supportedEncryptionAlgorithmSpecs,
-            hashAlgorithm,
-            pbkdfScheme,
-            loggerFactory,
-          )
-      }
-    } yield crypto
-
-  protected def initStoresAndSelectSchemes(
-      config: CryptoConfig,
-      storage: Storage,
-      cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
-      releaseProtocolVersion: ReleaseProtocolVersion,
-      timeouts: ProcessingTimeout,
-      loggerFactory: NamedLoggerFactory,
-      tracerProvider: TracerProvider,
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, String, CryptoStoresAndSchemes] =
-    for {
-      cryptoPublicStore <- CryptoPublicStore
-        .create(storage, releaseProtocolVersion, timeouts, loggerFactory)
-        .leftMap(err => show"Failed to create crypto public store: $err")
-      cryptoPrivateStore <- cryptoPrivateStoreFactory
-        .create(storage, releaseProtocolVersion, timeouts, loggerFactory, tracerProvider)
-        .leftMap(err => show"Failed to create crypto private store: $err")
-      symmetricKeyScheme <- selectSchemes(config.symmetric, config.provider.symmetric)
-        .map(_.default)
-        .toEitherT[FutureUnlessShutdown]
-      hashAlgorithm <- selectSchemes(config.hash, config.provider.hash)
-        .map(_.default)
-        .toEitherT[FutureUnlessShutdown]
-      signingCryptoAlgorithmSpec <- selectSchemes(
-        config.signing.algorithms,
-        config.provider.signingAlgorithms,
-      )
-        .map(_.default)
-        .toEitherT[FutureUnlessShutdown]
-      signingKeySpec <- selectSchemes(config.signing.keys, config.provider.signingKeys)
-        .map(_.default)
-        .toEitherT[FutureUnlessShutdown]
-      supportedSigningAlgorithmSpecs <- selectAllowedSigningAlgorithmSpecs(config)
-        .toEitherT[FutureUnlessShutdown]
-      encryptionCryptoAlgorithmSpec <- selectSchemes(
-        config.encryption.algorithms,
-        config.provider.encryptionAlgorithms,
-      )
-        .map(_.default)
-        .toEitherT[FutureUnlessShutdown]
-      encryptionKeySpec <- selectSchemes(config.encryption.keys, config.provider.encryptionKeys)
-        .map(_.default)
-        .toEitherT[FutureUnlessShutdown]
-      supportedEncryptionAlgorithmSpecs <- selectAllowedEncryptionAlgorithmSpecs(config)
-        .toEitherT[FutureUnlessShutdown]
-    } yield CryptoStoresAndSchemes(
-      cryptoPublicStore,
-      cryptoPrivateStore,
-      symmetricKeyScheme,
-      supportedSigningAlgorithmSpecs,
-      signingCryptoAlgorithmSpec,
-      signingKeySpec,
-      supportedEncryptionAlgorithmSpecs,
-      encryptionCryptoAlgorithmSpec,
-      encryptionKeySpec,
-      hashAlgorithm,
-    )
-
-}
 
 object CryptoFactory {
 
@@ -214,5 +102,174 @@ object CryptoFactory {
       config: CryptoConfig
   ): Either[String, NonEmpty[Set[EncryptionKeySpec]]] =
     selectSchemes(config.encryption.keys, config.provider.encryptionKeys).map(_.allowed)
+
+  private def initStoresAndSelectSchemes(
+      config: CryptoConfig,
+      storage: Storage,
+      cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
+      releaseProtocolVersion: ReleaseProtocolVersion,
+      timeouts: ProcessingTimeout,
+      tracerProvider: TracerProvider,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, String, CryptoStoresAndSchemes] =
+    for {
+      cryptoPublicStore <- CryptoPublicStore
+        .create(storage, releaseProtocolVersion, timeouts, loggerFactory)
+        .leftMap(err => show"Failed to create crypto public store: $err")
+      cryptoPrivateStore <- cryptoPrivateStoreFactory
+        .create(storage, releaseProtocolVersion, timeouts, loggerFactory, tracerProvider)
+        .leftMap(err => show"Failed to create crypto private store: $err")
+      symmetricKeyScheme <- selectSchemes(config.symmetric, config.provider.symmetric)
+        .map(_.default)
+        .toEitherT[FutureUnlessShutdown]
+      hashAlgorithm <- selectSchemes(config.hash, config.provider.hash)
+        .map(_.default)
+        .toEitherT[FutureUnlessShutdown]
+      signingCryptoAlgorithmSpec <- selectSchemes(
+        config.signing.algorithms,
+        config.provider.signingAlgorithms,
+      )
+        .map(_.default)
+        .toEitherT[FutureUnlessShutdown]
+      signingKeySpec <- selectSchemes(config.signing.keys, config.provider.signingKeys)
+        .map(_.default)
+        .toEitherT[FutureUnlessShutdown]
+      supportedSigningAlgorithmSpecs <- selectAllowedSigningAlgorithmSpecs(config)
+        .toEitherT[FutureUnlessShutdown]
+      encryptionCryptoAlgorithmSpec <- selectSchemes(
+        config.encryption.algorithms,
+        config.provider.encryptionAlgorithms,
+      )
+        .map(_.default)
+        .toEitherT[FutureUnlessShutdown]
+      encryptionKeySpec <- selectSchemes(config.encryption.keys, config.provider.encryptionKeys)
+        .map(_.default)
+        .toEitherT[FutureUnlessShutdown]
+      supportedEncryptionAlgorithmSpecs <- selectAllowedEncryptionAlgorithmSpecs(config)
+        .toEitherT[FutureUnlessShutdown]
+    } yield CryptoStoresAndSchemes(
+      cryptoPublicStore,
+      cryptoPrivateStore,
+      symmetricKeyScheme,
+      supportedSigningAlgorithmSpecs,
+      signingCryptoAlgorithmSpec,
+      signingKeySpec,
+      supportedEncryptionAlgorithmSpecs,
+      encryptionCryptoAlgorithmSpec,
+      encryptionKeySpec,
+      hashAlgorithm,
+    )
+
+  @VisibleForTesting
+  def createPureCrypto(
+      config: CryptoConfig,
+      loggerFactory: NamedLoggerFactory,
+  ): Either[String, CryptoPureApi] =
+    for {
+      symmetricKeyScheme <- selectSchemes(config.symmetric, config.provider.symmetric)
+        .map(_.default)
+      signingAlgorithmSpec <- selectSchemes(
+        config.signing.algorithms,
+        config.provider.signingAlgorithms,
+      )
+      supportedSigningAlgorithmSpecs <- selectAllowedSigningAlgorithmSpecs(config)
+      encryptionAlgorithmSpec <- selectSchemes(
+        config.encryption.algorithms,
+        config.provider.encryptionAlgorithms,
+      )
+      supportedEncryptionAlgorithmSpecs <- selectAllowedEncryptionAlgorithmSpecs(config)
+      hashAlgorithm <- selectSchemes(config.hash, config.provider.hash).map(_.default)
+      crypto <- config.provider match {
+        case CryptoProvider.Jce | CryptoProvider.Kms =>
+          for {
+            pbkdfSchemes <- config.provider.pbkdf.toRight(
+              "PBKDF schemes must be set for JCE provider"
+            )
+            pbkdfScheme <- selectSchemes(config.pbkdf, pbkdfSchemes).map(_.default)
+          } yield new JcePureCrypto(
+            symmetricKeyScheme,
+            signingAlgorithmSpec.default,
+            supportedSigningAlgorithmSpecs,
+            encryptionAlgorithmSpec.default,
+            supportedEncryptionAlgorithmSpecs,
+            hashAlgorithm,
+            pbkdfScheme,
+            loggerFactory,
+          )
+      }
+    } yield crypto
+
+  def create(
+      config: CryptoConfig,
+      storage: Storage,
+      cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
+      kmsFactory: KmsFactory,
+      releaseProtocolVersion: ReleaseProtocolVersion,
+      nonStandardConfig: Boolean,
+      futureSupervisor: FutureSupervisor,
+      clock: Clock,
+      executionContext: ExecutionContext,
+      timeouts: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
+      tracerProvider: TracerProvider,
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, String, Crypto] =
+    for {
+      storesAndSchemes <- initStoresAndSelectSchemes(
+        config,
+        storage,
+        cryptoPrivateStoreFactory,
+        releaseProtocolVersion,
+        timeouts,
+        tracerProvider,
+        loggerFactory,
+      )
+      crypto <- config.provider match {
+        case CryptoProvider.Jce =>
+          JceCrypto
+            .create(config, storesAndSchemes, timeouts, loggerFactory)
+            .mapK(FutureUnlessShutdown.outcomeK)
+        case CryptoProvider.Kms =>
+          EitherT.fromEither[FutureUnlessShutdown] {
+            for {
+              kmsConfig <- config.kms.toRight("Missing KMS configuration for KMS crypto provider")
+              kms <- kmsFactory
+                .create(
+                  kmsConfig,
+                  nonStandardConfig,
+                  timeouts,
+                  futureSupervisor,
+                  tracerProvider,
+                  clock,
+                  loggerFactory,
+                  executionContext,
+                )
+                .leftMap(err => s"Failed to create the KMS client: $err")
+              kmsCryptoPrivateStore <- KmsCryptoPrivateStore.fromCryptoPrivateStore(
+                storesAndSchemes.cryptoPrivateStore
+              )
+              kmsPrivateCrypto <- KmsPrivateCrypto.create(
+                kms,
+                storesAndSchemes,
+                kmsCryptoPrivateStore,
+                timeouts,
+                loggerFactory,
+              )
+              kmsCrypto <- KmsCrypto.create(
+                config,
+                storesAndSchemes,
+                kmsPrivateCrypto,
+                timeouts,
+                loggerFactory,
+              )
+            } yield kmsCrypto
+          }
+      }
+    } yield crypto
 
 }

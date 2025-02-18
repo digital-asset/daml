@@ -36,7 +36,7 @@ import com.digitalasset.canton.participant.protocol.validation.{
   AuthorizationValidator,
   InternalConsistencyChecker,
   ModelConformanceChecker,
-  TransactionConfirmationResponseFactory,
+  TransactionConfirmationResponsesFactory,
 }
 import com.digitalasset.canton.participant.store.SyncEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
@@ -86,7 +86,7 @@ class TransactionProcessor(
         synchronizerId,
         participantId,
         confirmationRequestFactory,
-        new TransactionConfirmationResponseFactory(
+        new TransactionConfirmationResponsesFactory(
           participantId,
           synchronizerId,
           staticSynchronizerParameters.protocolVersion,

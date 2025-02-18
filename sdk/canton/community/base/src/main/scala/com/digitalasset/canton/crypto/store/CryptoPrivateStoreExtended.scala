@@ -12,7 +12,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.KeyPurpose.{Encryption, Signing}
-import com.digitalasset.canton.crypto.SigningKeyUsage.nonEmptyIntersection
+import com.digitalasset.canton.crypto.SigningKeyUsage.compatibleUsage
 import com.digitalasset.canton.crypto.store.db.StoredPrivateKey
 import com.digitalasset.canton.crypto.{
   EncryptionPrivateKey,
@@ -205,7 +205,7 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Seq[Fingerprint]] =
     for {
       signingKeys <- signingKeyIds.parTraverse(signingKey(_)).map(_.flatten)
-      filteredSigningKeys = signingKeys.filter(key => nonEmptyIntersection(key.usage, filterUsage))
+      filteredSigningKeys = signingKeys.filter(key => compatibleUsage(key.usage, filterUsage))
     } yield filteredSigningKeys.map(_.id)
 
   def existsSigningKey(signingKeyId: Fingerprint)(implicit

@@ -94,13 +94,17 @@ class TestingIdentityFactoryTest
             .verifySignature(hash2, participant2, signature, SigningKeyUsage.ProtocolOnly)
         ).left.value shouldBe a[SignatureCheckError]
       }
-      // TODO(#22411) enable this invalid key usage check
-      /*"signature fails for invalid key usage" in {
+      "signature fails for invalid key usage" in {
         await(
           p1.currentSnapshotApproximation
-            .verifySignature(hash, participant1, signature, SigningKeyUsage.IdentityDelegationOnly)
-        ).left.value shouldBe a[SignatureCheckError.InvalidKeyUsage]
-      }*/
+            .verifySignature(
+              hash,
+              participant1,
+              signature,
+              SigningKeyUsage.SequencerAuthenticationOnly,
+            )
+        ).left.value shouldBe a[SignatureCheckError.SignatureWithWrongKey]
+      }
       "participant1 is active" in {
         Seq(p1, p2).foreach(
           _.currentSnapshotApproximation.ipsSnapshot
@@ -133,7 +137,7 @@ class TestingIdentityFactoryTest
       ): Unit = {
         val allMembers = sequencers ++ mediators
         val membersToKeys = p1.currentSnapshotApproximation.ipsSnapshot
-          .signingKeys(allMembers)
+          .signingKeys(allMembers, SigningKeyUsage.All)
           .futureValueUS
         allMembers
           .flatMap(membersToKeys.get(_))
@@ -149,7 +153,8 @@ class TestingIdentityFactoryTest
 
         val mediators =
           p1.currentSnapshotApproximation.ipsSnapshot.mediatorGroups().futureValueUS.flatMap(_.all)
-        checkSynchronizerKeys(sequencers, mediators, 1)
+        // We expect two different signing keys: one for protocol signing and one for sequencer authentication.
+        checkSynchronizerKeys(sequencers, mediators, 2)
       }
       "invalid synchronizer entities don't have keys" in {
         val did = participant2.uid

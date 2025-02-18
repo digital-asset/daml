@@ -145,8 +145,6 @@ object GeneratorsCrypto {
     loggerFactoryNotUsed,
   )
 
-  private lazy val sequencerKey = crypto.generateSymbolicSigningKey()
-
   // TODO(#15813): Change arbitrary encryption keys to match real keys
   implicit val encryptionPublicKeyArb: Arbitrary[EncryptionPublicKey] = Arbitrary(for {
     key <- Arbitrary.arbitrary[ByteString]
@@ -159,9 +157,18 @@ object GeneratorsCrypto {
     Gen.oneOf(Arbitrary.arbitrary[SigningPublicKey], Arbitrary.arbitrary[EncryptionPublicKey])
   )
 
-  def sign(str: String, purpose: HashPurpose, usage: NonEmpty[Set[SigningKeyUsage]]): Signature = {
-    val hash = crypto.pureCrypto.build(purpose).addWithoutLengthPrefix(str).finish()
-    crypto.sign(hash, sequencerKey.id, usage)
+  // Test key intended for signing an unassignment result message.
+  lazy val testSigningKey: SigningPublicKey =
+    crypto.generateSymbolicSigningKey(usage = SigningKeyUsage.ProtocolOnly)
+
+  def sign(
+      signingKeyId: Fingerprint,
+      strToSign: String,
+      purpose: HashPurpose,
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  ): Signature = {
+    val hash = crypto.pureCrypto.build(purpose).addWithoutLengthPrefix(strToSign).finish()
+    crypto.sign(hash, signingKeyId, usage)
   }
 
   implicit val symmetricKeyArb: Arbitrary[SymmetricKey] =

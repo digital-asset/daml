@@ -11,6 +11,7 @@ import com.digitalasset.canton.crypto.{
   Fingerprint,
   KeyName,
   PrivateKey,
+  SigningKeyUsage,
   SigningPrivateKey,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -30,13 +31,15 @@ trait CryptoPrivateStoreExtendedTest extends CryptoPrivateStoreTest {
     val sigKey1Name: String = uniqueKeyName("sigKey1_")
     val encKey1Name: String = uniqueKeyName("encKey1_")
 
-    val sigKey1: SigningPrivateKey = crypto.newSymbolicSigningKeyPair().privateKey
+    val sigKey1: SigningPrivateKey =
+      crypto.newSymbolicSigningKeyPair(SigningKeyUsage.ProtocolOnly).privateKey
     val sigKey1WithName: SigningPrivateKeyWithName =
       SigningPrivateKeyWithName(sigKey1, Some(KeyName.tryCreate(sigKey1Name)))
     val sigKey1BytesWithName =
       (sigKey1.toByteString(testedReleaseProtocolVersion.v), sigKey1WithName.name)
 
-    val sigKey2: SigningPrivateKey = crypto.newSymbolicSigningKeyPair().privateKey
+    val sigKey2: SigningPrivateKey =
+      crypto.newSymbolicSigningKeyPair(SigningKeyUsage.ProtocolOnly).privateKey
     val sigKey2WithName: SigningPrivateKeyWithName = SigningPrivateKeyWithName(sigKey2, None)
     val sigKey2BytesWithName =
       (sigKey2.toByteString(testedReleaseProtocolVersion.v), sigKey2WithName.name)

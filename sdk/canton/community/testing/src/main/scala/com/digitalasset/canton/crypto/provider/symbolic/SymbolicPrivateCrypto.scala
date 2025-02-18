@@ -58,7 +58,7 @@ class SymbolicPrivateCrypto(
 
   override protected[crypto] def generateSigningKeypair(
       keySpec: SigningKeySpec,
-      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningKeyPair] =

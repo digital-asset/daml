@@ -7,11 +7,20 @@ import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.CryptoFactory.CryptoStoresAndSchemes
+import com.digitalasset.canton.crypto.kms.driver.v1.DriverKms
 import com.digitalasset.canton.crypto.kms.{Kms, KmsKeyId}
 import com.digitalasset.canton.crypto.store.KmsMetadataStore.KmsMetadata
 import com.digitalasset.canton.crypto.store.{CryptoPublicStore, KmsCryptoPrivateStore}
+import com.digitalasset.canton.health.{
+  ComponentHealthState,
+  CompositeHealthElement,
+  HealthQuasiComponent,
+}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ByteString256, ByteString4096}
@@ -19,20 +28,33 @@ import com.google.protobuf.ByteString
 
 import scala.concurrent.ExecutionContext
 
-trait KmsPrivateCrypto extends CryptoPrivateApi with FlagCloseable {
-  type KmsType <: Kms
+class KmsPrivateCrypto(
+    kms: Kms,
+    privateStore: KmsCryptoPrivateStore,
+    publicStore: CryptoPublicStore,
+    override val defaultSigningAlgorithmSpec: SigningAlgorithmSpec,
+    override val defaultSigningKeySpec: SigningKeySpec,
+    override val defaultEncryptionKeySpec: EncryptionKeySpec,
+    override protected val timeouts: ProcessingTimeout,
+    override protected val loggerFactory: NamedLoggerFactory,
+)(implicit ec: ExecutionContext)
+    extends CryptoPrivateApi
+    with NamedLogging
+    with FlagCloseable
+    with CompositeHealthElement[String, HealthQuasiComponent] {
 
-  implicit val ec: ExecutionContext
+  override def name: String = "kms-private-crypto"
 
-  protected val kms: KmsType
-  protected def privateStore: KmsCryptoPrivateStore
-  protected def publicStore: CryptoPublicStore
+  setDependency("kms", kms)
 
-  def defaultSigningAlgorithmSpec: SigningAlgorithmSpec
-  def defaultSigningKeySpec: SigningKeySpec
-  def defaultEncryptionKeySpec: EncryptionKeySpec
+  override protected def combineDependentStates: ComponentHealthState = kms.getState
 
-  private def getPublicSigningKey(keyId: KmsKeyId)(implicit
+  override protected def initialHealthState: ComponentHealthState =
+    ComponentHealthState.NotInitializedState
+
+  private def getPublicSigningKey(
+      keyId: KmsKeyId
+  )(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningPublicKey] =
     kms
@@ -54,9 +76,9 @@ trait KmsPrivateCrypto extends CryptoPrivateApi with FlagCloseable {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningPublicKey] =
     for {
-      publicKeyNoUsage <- getPublicSigningKey(keyId)
-      publicKey = publicKeyNoUsage
-        .copy(usage = SigningKeyUsage.addProofOfOwnership(usage))(migrated = false)
+      publicKeyNoPoO <- getPublicSigningKey(keyId)
+      publicKey = publicKeyNoPoO
+        .copy(usage = SigningKeyUsage.addProofOfOwnership(usage))(publicKeyNoPoO.migrated)
       _ <- EitherT.right(publicStore.storeSigningKey(publicKey, keyName))
       _ = privateStore.storeKeyMetadata(
         KmsMetadata(publicKey.id, keyId, KeyPurpose.Signing, Some(publicKey.usage))
@@ -81,13 +103,13 @@ trait KmsPrivateCrypto extends CryptoPrivateApi with FlagCloseable {
         .leftMap[SigningKeyGenerationError](err =>
           SigningKeyGenerationError.GeneralKmsError(err.show)
         )
-      publicKeyNoUsage <- kms
+      publicKeyNoPoO <- kms
         .getPublicSigningKey(keyId)
         .leftMap[SigningKeyGenerationError](err =>
           SigningKeyGenerationError.GeneralKmsError(err.show)
         )
-      publicKey = publicKeyNoUsage
-        .copy(usage = SigningKeyUsage.addProofOfOwnership(usage))(migrated = false)
+      publicKey = publicKeyNoPoO
+        .copy(usage = SigningKeyUsage.addProofOfOwnership(usage))(publicKeyNoPoO.migrated)
       _ = privateStore.storeKeyMetadata(
         KmsMetadata(publicKey.id, keyId, KeyPurpose.Signing, Some(publicKey.usage))
       )
@@ -232,5 +254,71 @@ trait KmsPrivateCrypto extends CryptoPrivateApi with FlagCloseable {
 
   override def onClosed(): Unit =
     LifeCycle.close(kms)(logger)
+
+}
+
+object KmsPrivateCrypto {
+
+  def create(
+      kms: Kms,
+      storesAndSchemes: CryptoStoresAndSchemes,
+      kmsCryptoPrivateStore: KmsCryptoPrivateStore,
+      timeouts: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit executionContext: ExecutionContext): Either[String, KmsPrivateCrypto] = kms match {
+
+    // For a Driver KMS we explicitly check that the driver supports the required schemes
+    case driverKms: DriverKms =>
+      for {
+        _ <- Either.cond(
+          driverKms.supportedSigningKeySpecs
+            .contains(storesAndSchemes.signingKeySpec),
+          (),
+          s"Selected signing key spec ${storesAndSchemes.signingKeySpec} not supported by driver: ${driverKms.supportedSigningKeySpecs}",
+        )
+        _ <- Either.cond(
+          driverKms.supportedSigningAlgoSpecs
+            .contains(storesAndSchemes.signingAlgorithmSpec),
+          (),
+          s"Selected signing algorithm spec ${storesAndSchemes.signingAlgorithmSpec} not supported by driver: ${driverKms.supportedSigningAlgoSpecs}",
+        )
+        _ <- Either.cond(
+          driverKms.supportedEncryptionKeySpecs
+            .contains(storesAndSchemes.encryptionKeySpec),
+          (),
+          s"Selected encryption key spec ${storesAndSchemes.encryptionKeySpec} not supported by driver: ${driverKms.supportedEncryptionKeySpecs}",
+        )
+        _ <- Either.cond(
+          driverKms.supportedEncryptionAlgoSpecs
+            .contains(storesAndSchemes.encryptionAlgorithmSpec),
+          (),
+          s"Selected encryption algorithm spec ${storesAndSchemes.encryptionAlgorithmSpec} not supported by driver: ${driverKms.supportedEncryptionAlgoSpecs}",
+        )
+      } yield new KmsPrivateCrypto(
+        kms,
+        kmsCryptoPrivateStore,
+        storesAndSchemes.cryptoPublicStore,
+        storesAndSchemes.signingAlgorithmSpec,
+        storesAndSchemes.signingKeySpec,
+        storesAndSchemes.encryptionKeySpec,
+        timeouts,
+        loggerFactory,
+      )
+
+    // For all other KMSs we create the KMS-based private crypto directly as the schemes have already been checked
+    case _ =>
+      Right(
+        new KmsPrivateCrypto(
+          kms,
+          kmsCryptoPrivateStore,
+          storesAndSchemes.cryptoPublicStore,
+          storesAndSchemes.signingAlgorithmSpec,
+          storesAndSchemes.signingKeySpec,
+          storesAndSchemes.encryptionKeySpec,
+          timeouts,
+          loggerFactory,
+        )
+      )
+  }
 
 }

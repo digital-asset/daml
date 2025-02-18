@@ -11,7 +11,7 @@ import com.digitalasset.canton.console.{
   ConsoleOutput,
   StandardConsoleOutput,
 }
-import com.digitalasset.canton.crypto.CommunityCryptoFactory
+import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.ParticipantNodeBootstrap
@@ -79,8 +79,8 @@ class CommunityEnvironment(
     val bootstrapCommonArguments = nodeFactoryArguments
       .toCantonNodeBootstrapCommonArguments(
         new CommunityStorageFactory(sequencerConfig.storage),
-        new CommunityCryptoFactory(),
         new CommunityCryptoPrivateStoreFactory(),
+        CommunityKmsFactory,
       )
       .valueOr(err =>
         throw new RuntimeException(s"Failed to create sequencer node $name: $err")
@@ -98,8 +98,8 @@ class CommunityEnvironment(
     val arguments = factoryArguments
       .toCantonNodeBootstrapCommonArguments(
         new CommunityStorageFactory(mediatorConfig.storage),
-        new CommunityCryptoFactory(),
         new CommunityCryptoPrivateStoreFactory(),
+        CommunityKmsFactory,
       )
       .valueOr(err =>
         throw new RuntimeException(s"Failed to create mediator bootstrap: $err")

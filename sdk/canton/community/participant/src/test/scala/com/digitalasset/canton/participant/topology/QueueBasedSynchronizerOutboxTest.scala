@@ -60,7 +60,8 @@ class QueueBasedSynchronizerOutboxTest
   private lazy val clock = new WallClock(timeouts, loggerFactory)
   private lazy val crypto =
     SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
-  private lazy val publicKey = crypto.generateSymbolicSigningKey()
+  private lazy val publicKey =
+    crypto.generateSymbolicSigningKey(usage = SigningKeyUsage.NamespaceOnly)
   private lazy val namespace = Namespace(publicKey.id)
   private lazy val synchronizer = SynchronizerAlias.tryCreate("target")
   private lazy val transactions =

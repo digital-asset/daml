@@ -587,6 +587,7 @@ final class GeneratorsData(
           result,
           protocolVersion,
           GeneratorsCrypto.sign(
+            GeneratorsCrypto.testSigningKey.fingerprint,
             "UnassignmentResult-mediator",
             TestHash.testHashPurpose,
             SigningKeyUsage.ProtocolOnly,
@@ -604,6 +605,7 @@ final class GeneratorsData(
         SignedContent(
           deliver,
           sign(
+            GeneratorsCrypto.testSigningKey.fingerprint,
             "UnassignmentResult-sequencer",
             TestHash.testHashPurpose,
             SigningKeyUsage.ProtocolOnly,

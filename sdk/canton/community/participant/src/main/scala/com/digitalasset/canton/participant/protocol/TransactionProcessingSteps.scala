@@ -120,7 +120,7 @@ class TransactionProcessingSteps(
     synchronizerId: SynchronizerId,
     participantId: ParticipantId,
     confirmationRequestFactory: TransactionConfirmationRequestFactory,
-    confirmationResponseFactory: TransactionConfirmationResponseFactory,
+    confirmationResponsesFactory: TransactionConfirmationResponsesFactory,
     modelConformanceChecker: ModelConformanceChecker,
     staticSynchronizerParameters: StaticSynchronizerParameters,
     crypto: SynchronizerCryptoClient,
@@ -1014,7 +1014,7 @@ class TransactionProcessingSteps(
         )
         // The responses depend on the result of the model conformance check, and are therefore also delayed.
         val responsesF =
-          confirmationResponseFactory.createConfirmationResponses(
+          confirmationResponsesFactory.createConfirmationResponses(
             requestId,
             malformedPayloads,
             transactionValidationResult,
@@ -1050,13 +1050,11 @@ class TransactionProcessingSteps(
       malformedPayloads: Seq[MalformedPayload],
   )(implicit
       traceContext: TraceContext
-  ): Seq[ConfirmationResponse] =
-    Seq(
-      confirmationResponseFactory.createConfirmationResponsesForMalformedPayloads(
-        requestId,
-        rootHash,
-        malformedPayloads,
-      )
+  ): Option[ConfirmationResponses] =
+    confirmationResponsesFactory.createConfirmationResponsesForMalformedPayloads(
+      requestId,
+      rootHash,
+      malformedPayloads,
     )
 
   override def eventAndSubmissionIdForRejectedCommand(
@@ -1160,7 +1158,7 @@ class TransactionProcessingSteps(
 
   private[this] def createPendingTransaction(
       id: RequestId,
-      responsesF: FutureUnlessShutdown[Seq[ConfirmationResponse]],
+      responsesF: FutureUnlessShutdown[Option[ConfirmationResponses]],
       transactionValidationResult: TransactionValidationResult,
       rc: RequestCounter,
       sc: SequencerCounter,
@@ -1170,8 +1168,9 @@ class TransactionProcessingSteps(
   )(implicit
       traceContext: TraceContext
   ): PendingTransaction = {
-    // We consider that we rejected if at least one of the responses is not "approve'
-    val locallyRejectedF = responsesF.map(_.exists(response => !response.localVerdict.isApprove))
+    // We consider that we rejected if at least one of the responses is not "approve"
+    val locallyRejectedF =
+      responsesF.map(_.exists(_.responses.exists(response => !response.localVerdict.isApprove)))
 
     // The request was aborted if the model conformance check ended with an abort error, due to either a timeout
     // or a negative mediator verdict concurrently received in Phase 7

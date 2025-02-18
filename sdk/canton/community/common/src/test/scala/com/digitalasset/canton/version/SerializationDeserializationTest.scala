@@ -98,7 +98,7 @@ class SerializationDeserializationTest
 
         test(AcsCommitment, version)
         test(Verdict, version)
-        test(ConfirmationResponse, version)
+        test(ConfirmationResponses, version)
         testContext(TypedSignedProtocolMessageContent, version, version)
         testContext(SignedProtocolMessage, version, version)
         test(ProtocolSymmetricKey, version)

@@ -79,7 +79,7 @@ object CacheConfigWithTimeout {
 }
 
 /** Configuration settings for a cache that stores: (a) the public asymmetric encryptions of the session keys for the sender
-  * and (b) the decrypting results in the receiver. This reduces the amount of asymmetric operations that need to
+  * and (b) the decrypting results in the receiver. This reduces the amount of asymmetric operations that need
   * to be performed for each of the views that share the same participant recipient group (i.e. use the same session key).
   *
   * @param enabled enable/disable caching of the session key. Caching is enabled by default, offering
