@@ -51,6 +51,9 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       f,
     )
 
+  def encodeParties(parties: Set[Ref.Party]): Seq[(ErrorResource, String)] =
+    Seq((ErrorResource.Parties, parties.mkString(",")))
+
   @Explanation(
     """This error occurs if the participant fails to execute a transaction via the interactive submission service.
       |"""
@@ -731,6 +734,123 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       final case class Reject(override val cause: String, err: LfInterpretationError.ValueNesting)(
           implicit loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(cause = cause) {}
+    }
+
+    @Explanation("Errors that occur when trying to upgrade a contract")
+    object UpgradeError extends ErrorGroup {
+      @Explanation("Validation fails when trying to upgrade the contract")
+      @Resolution(
+        "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
+      )
+      object ValidationFailed
+          extends ErrorCode(
+            id = "INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED",
+            ErrorCategory.InvalidGivenCurrentSystemStateOther,
+          ) {
+        final case class Reject(
+            override val cause: String,
+            err: LfInterpretationError.Upgrade.ValidationFailed,
+        )(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends DamlErrorWithDefiniteAnswer(
+              cause = cause
+            ) {
+
+          override def resources: Seq[(ErrorResource, String)] = {
+            val optKeyResources = err.keyOpt.fold(Seq.empty[(ErrorResource, String)])(key =>
+              withEncodedValue(key.globalKey.key) { encodedKey =>
+                Seq((ErrorResource.ContractKey, encodedKey), (ErrorResource.PackageName, key.globalKey.packageName)) ++ encodeParties(key.maintainers)
+            })
+
+            Seq(
+              (ErrorResource.ContractId, err.coid.coid),
+              (ErrorResource.TemplateId, err.srcTemplateId.toString),
+              (ErrorResource.TemplateId, err.dstTemplateId.toString),
+            ) ++ encodeParties(err.signatories) ++ encodeParties(err.observers) ++ optKeyResources
+          }
+        }
+      }
+
+      @Explanation(
+        "An optional contract field with a value of Some may not be dropped during downgrading"
+      )
+      @Resolution(
+        "There is data that is newer than the implementation using it, and thus is not compatible. Ensure new data (i.e. those with additional fields as `Some`) is only used with new/compatible choices"
+      )
+      object DowngradeDropDefinedField
+          extends ErrorCode(
+            id = "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_DROP_DEFINED_FIELD",
+            ErrorCategory.InvalidGivenCurrentSystemStateOther,
+          ) {
+        final case class Reject(
+            override val cause: String,
+            err: LfInterpretationError.Upgrade.DowngradeDropDefinedField,
+        )(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends DamlErrorWithDefiniteAnswer(
+              cause = cause
+            ) {
+          override def resources: Seq[(ErrorResource, String)] =
+            Seq(
+              (ErrorResource.ExpectedType, err.expectedType.pretty),
+              (ErrorResource.FieldIndex, err.fieldIndex.toString),
+            )
+        }
+      }
+
+      @Explanation("View mismatch when trying to upgrade the contract")
+      @Resolution(
+        "Verify that the interface views of the contract have not changed"
+      )
+      object ViewMismatch
+          extends ErrorCode(
+            id = "INTERPRETATION_UPGRADE_ERROR_VIEW_MISMATCH",
+            ErrorCategory.InvalidGivenCurrentSystemStateOther,
+          ) {
+        final case class Reject(
+            override val cause: String,
+            err: LfInterpretationError.Upgrade.ViewMismatch,
+        )(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends DamlErrorWithDefiniteAnswer(
+              cause = cause
+            ) {
+
+          override def resources: Seq[(ErrorResource, String)] =
+            Seq(
+              (ErrorResource.ContractId, err.coid.coid),
+              (ErrorResource.InterfaceId, err.iterfaceId.toString),
+              (ErrorResource.TemplateId, err.srcTemplateId.toString),
+              (ErrorResource.TemplateId, err.dstTemplateId.toString),
+            )
+        }
+      }
+
+      @Explanation(
+        "An optional contract field with a value of Some may not be dropped during downgrading"
+      )
+      @Resolution(
+        "There is data that is newer than the implementation using it, and thus is not compatible. Ensure new data (i.e. those with additional fields as `Some`) is only used with new/compatible choices"
+      )
+      object DowngradeFailed
+        extends ErrorCode(
+          id = "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_FAILED",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+        final case class Reject(
+            override val cause: String,
+            err: LfInterpretationError.Upgrade.DowngradeFailed,
+        )(implicit
+            loggingContext: ContextualizedErrorLogger
+        ) extends DamlErrorWithDefiniteAnswer(
+              cause = cause
+            ) {
+          override def resources: Seq[(ErrorResource, String)] =
+            Seq(
+              (ErrorResource.ExpectedType, err.expectedType.pretty),
+            )
+        }
+      }
     }
 
     @Explanation(
