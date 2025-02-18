@@ -1583,6 +1583,9 @@ types are the types whose values can be persisted on the ledger. ::
     ———————————————————————————————————————————————————————————————— STyParty
       ⊢ₛ  'Party'
 
+    ———————————————————————————————————————————————————————————————— STyBytes
+      ⊢ₛ  'Bytes'
+
       ⊢ₛ  τ
     ———————————————————————————————————————————————————————————————— STyCid [Daml-LF < 1.15]
       ⊢ₛ  'ContractId' τ
@@ -4019,6 +4022,42 @@ Int64 functions
   Given a string representation of an integer returns the integer wrapped
   in ``Some``.  If the input does not match the regexp ``[+-]?\d+`` or
   if the result of the conversion overflows, returns ``None``.
+
+Bytes functions
+~~~~~~~~~~~~~~~
+
+* ``TEXT_TO_BYTES : 'Text' → 'Optional' 'Bytes'``
+
+  Given a hex string, returns the byte blob wrapped in a ``Some``. If the input
+  does not match the regexp ``[0-9a-fA-F]*``, returns ``None``.
+
+* ``BYTES_TO_TEXT : 'Bytes' → 'Text'``
+
+  Given a byte blob, returns its hex string (in lower case hexadecimal).
+
+* ``INT64_TO_BYTES : 'Int64' → 'Bytes'``
+
+  Given an integer, returns the byte blob encoding it.
+
+* ``BYTES_TO_INT64 : 'Bytes' → 'Optional' 'Int64'``
+
+  Given a byte blob that can be represented as a long valued integer, returns the
+  integer value wrapped in a ``Some``. If the byte blob can not be packed into a
+  long value, returns ``None``.
+
+* ``APPEND_BYTES : 'Bytes' → 'Bytes' → 'Bytes'``
+
+  Given a left byte blob and a right byte blob, returns the byte blob that consists
+  of the left blob concatenated or followed by the right blob.
+
+* ``SLICE_BYTES : 'Bytes' → 'Int64' → 'Int64' → 'Bytes'``
+
+  Given a byte blob, a begin index and end index, returns the bytes from the begin index
+  up to, but not including, the end index.
+
+* ``SIZE_BYTES : 'Bytes' → 'Int64'``
+
+  Given a byte blob, returns the number of bytes within the blob.
 
 Numeric functions
 ~~~~~~~~~~~~~~~~~
