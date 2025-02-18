@@ -1,0 +1,56 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SUPPORTS-LF-FEATURE DAML_CCTP
+
+{-# LANGUAGE CPP #-}
+
+-- | TODO:
+module DA.Bytes
+  (Bytes
+  , toBytes
+  , fromBytes
+  , size
+  , slice
+  ) where
+
+import GHC.Types (Bytes, primitive)
+
+instance Eq Bytes where
+  (==) = primitive @"BEEqualBytes"
+
+class HasToBytes a b where
+  toBytes : a -> b
+
+class HasFromBytes a where
+  fromBytes : Bytes -> a
+
+instance HasToBytes Text (Optional Bytes) where
+  -- | TODO:
+  toBytes = primitive @"BETextToBytes"
+
+instance HasToBytes Int Bytes where
+  -- | TODO:
+  toBytes = primitive @"BEInt64ToBytes"
+
+instance HasFromBytes Text where
+  -- | TODO:
+  fromBytes = primitive @"BEBytesToText"
+
+instance HasFromBytes (Optional Int) where
+  -- | TODO:
+  fromBytes = primitive @"BEBytesToInt64"
+
+instance Show Bytes where
+  show = fromBytes
+
+instance Semigroup Bytes where
+  (<>) = primitive @"BEAppendBytes"
+
+-- | TODO:
+slice : Bytes -> Int -> Int -> Bytes
+slice = primitive @"BESliceBytes"
+
+-- | TODO:
+size : Bytes -> Int
+size = primitive @"BESizeBytes"

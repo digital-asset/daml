@@ -774,6 +774,15 @@ private[lf] object SBuiltinFun {
     }
   }
 
+  final case object SBEqualBytes extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+      val bytes0 = getSBytes(args, 0)
+      val bytes1 = getSBytes(args, 1)
+
+      SBool(bytes0 == bytes1)
+    }
+  }
+
   final case object SBFoldl extends SBuiltinFun(3) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],

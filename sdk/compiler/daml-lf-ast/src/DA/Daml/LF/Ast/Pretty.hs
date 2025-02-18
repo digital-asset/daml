@@ -297,6 +297,7 @@ instance Pretty BuiltinExpr where
     BEAppendBytes -> "APPEND_BYTES"
     BESliceBytes -> "SLICE_BYTES"
     BESizeBytes -> "SIZE_BYTES"
+    BEEqualBytes -> "EQUAL_BYTES"
     BETrace -> "TRACE"
     BETextToParty -> "TEXT_TO_PARTY"
     BETextToInt64 -> "TEXT_TO_INT64"

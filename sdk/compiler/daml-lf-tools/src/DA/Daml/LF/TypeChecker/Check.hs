@@ -272,6 +272,7 @@ typeOfBuiltin = \case
   BEAppendBytes      -> pure $ TBytes :-> TBytes :-> TBytes
   BESliceBytes       -> pure $ TBytes :-> TInt64 :-> TInt64 :-> TBytes
   BESizeBytes        -> pure $ TBytes :-> TInt64
+  BEEqualBytes       -> pure $ TBytes :-> TBytes :-> TBool
   BEFoldl -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
              (tBeta :-> tAlpha :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
   BEFoldr -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $

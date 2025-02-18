@@ -330,6 +330,7 @@ data BuiltinExpr
   | BEAppendBytes               -- :: Bytes -> Bytes -> Bytes
   | BESliceBytes                -- :: Bytes -> Int64 -> Int64 -> Bytes
   | BESizeBytes                 -- :: Bytes -> Int64
+  | BEEqualBytes                -- :: Bytes -> Bytes -> Bool
 
   -- BigNumeric operations
   | BEScaleBigNumeric            -- :: BigNumeric -> Int64

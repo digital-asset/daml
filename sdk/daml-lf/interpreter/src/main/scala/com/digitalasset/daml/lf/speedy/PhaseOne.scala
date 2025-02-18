@@ -432,6 +432,7 @@ private[lf] final class PhaseOne(
           case BAppendBytes => SBAppendBytes
           case BSliceBytes => SBSliceBytes
           case BSizeBytes => SBSizeBytes
+          case BEqualBytes => SBEqualBytes
 
           // TextMap
           case BTextMapInsert => SBMapInsert

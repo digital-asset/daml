@@ -385,6 +385,7 @@ enum BuiltinFunction {
   APPEND_BYTES = 4006;                 // *Available in versions >= 2.dev*
   SLICE_BYTES = 4007;                  // *Available in versions >= 2.dev*
   SIZE_BYTES = 4008;                   // *Available in versions >= 2.dev*
+  EQUAL_BYTES = 4009;                  // *Available in versions >= 2.dev*
 }
 
 // Builtin literals
