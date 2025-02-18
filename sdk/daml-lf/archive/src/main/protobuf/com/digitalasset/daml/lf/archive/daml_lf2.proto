@@ -377,6 +377,14 @@ enum BuiltinFunction {
 
   KECCAK256_TEXT = 4000;               // *Available in versions >= 2.dev*
   SECP256K1_BOOL = 4001;               // *Available in versions >= 2.dev*
+
+  TEXT_TO_BYTES = 4002;                // *Available in versions >= 2.dev*
+  BYTES_TO_TEXT = 4003;                // *Available in versions >= 2.dev*
+  INT64_TO_BYTES = 4004;               // *Available in versions >= 2.dev*
+  BYTES_TO_INT64 = 4005;               // *Available in versions >= 2.dev*
+  APPEND_BYTES = 4006;                 // *Available in versions >= 2.dev*
+  SLICE_BYTES = 4007;                  // *Available in versions >= 2.dev*
+  SIZE_BYTES = 4008;                   // *Available in versions >= 2.dev*
 }
 
 // Builtin literals

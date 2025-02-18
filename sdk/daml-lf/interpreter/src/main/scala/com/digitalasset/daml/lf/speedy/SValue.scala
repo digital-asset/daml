@@ -369,6 +369,10 @@ object SValue {
     def apply(value: String): SBytes = {
       SBytes(Bytes.assertFromString(value))
     }
+
+    def apply(value: Array[Bytes]): SBytes = {
+      SBytes(Bytes.fromByteArray(value))
+    }
   }
   final case class STimestamp(value: Time.Timestamp) extends SBuiltinLit
   final case class SParty(value: Party) extends SBuiltinLit

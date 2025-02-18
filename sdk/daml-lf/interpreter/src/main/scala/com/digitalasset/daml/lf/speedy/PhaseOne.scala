@@ -424,8 +424,16 @@ private[lf] final class PhaseOne(
           case BGreaterEq => SBGreaterEq
           case BSECP256K1Bool => SBSECP256K1Bool
 
-          // TextMap
+          // Bytes
+          case BTextToBytes => SBTextToBytes
+          case BBytesToText => SBBytesToText
+          case BInt64ToBytes => SBInt64ToBytes
+          case BBytesToInt64 => SBBytesToInt64
+          case BAppendBytes => SBAppendBytes
+          case BSliceBytes => SBSliceBytes
+          case BSizeBytes => SBSizeBytes
 
+          // TextMap
           case BTextMapInsert => SBMapInsert
           case BTextMapLookup => SBMapLookup
           case BTextMapDelete => SBMapDelete
