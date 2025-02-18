@@ -637,6 +637,7 @@ Then we can define our kinds, types, and expressions::
        |  'TypeRep'                                 -- BTTypeRep [Daml-LF ≥ 1.7]
        |  'Update'                                  -- BTyUpdate
        |  'AnyException'                            -- BTyAnyException [Daml-LF ≥ 1.14]
+       |  'Bytes'                                   -- BTyBytes: dynamically sized byte blob
 
   Types (mnemonic: tau for type)
     τ, σ
@@ -1000,6 +1001,9 @@ We now formally define *well-formed types*. ::
 
    ————————————————————————————————————————————— TyParty
      Γ  ⊢  'Party' : ⋆
+
+   ————————————————————————————————————————————— TyBytes
+     Γ  ⊢  'Bytes' : ⋆
 
    ————————————————————————————————————————————— TyList
      Γ  ⊢  'List' : ⋆ → ⋆
