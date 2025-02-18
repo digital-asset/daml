@@ -323,8 +323,8 @@ data BuiltinExpr
   | BESecp256k1Bool              -- :: Text -> Text -> Text -> Bool
 
   -- Bytes operations
-  | BETextToBytes               -- :: Text -> Bytes
-  | BEBytesToText               -- :: Bytes -> Optional Text
+  | BETextToBytes               -- :: Text -> Optional Bytes
+  | BEBytesToText               -- :: Bytes -> Text
   | BEInt64ToBytes              -- :: Int64 -> Bytes
   | BEBytesToInt64              -- :: Bytes -> Optional Int64
   | BEAppendBytes               -- :: Bytes -> Bytes -> Bytes
