@@ -18,6 +18,7 @@ import com.digitalasset.canton.crypto.{
   EncryptionPublicKey,
   HashAlgorithm,
   PbkdfScheme,
+  SigningKeyUsage,
   SigningPublicKey,
   SymmetricKeyScheme,
 }
@@ -77,13 +78,16 @@ object KmsDriverTestUtils {
     )
   }
 
-  def signingPublicKey(publicKey: PublicKey): SigningPublicKey = {
+  def signingPublicKey(
+      publicKey: PublicKey,
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  ): SigningPublicKey = {
     val key = ByteString.copyFrom(publicKey.key)
     val spec = publicKey.spec match {
       case spec: SigningKeySpec => spec.transformInto[crypto.SigningKeySpec]
       case _: EncryptionKeySpec => sys.error("public key is not a signing public key")
     }
-    SigningPublicKey(CryptoKeyFormat.DerX509Spki, key, spec)()
+    SigningPublicKey(CryptoKeyFormat.DerX509Spki, key, spec, usage)()
   }
 
   def encryptionPublicKey(publicKey: PublicKey): EncryptionPublicKey = {

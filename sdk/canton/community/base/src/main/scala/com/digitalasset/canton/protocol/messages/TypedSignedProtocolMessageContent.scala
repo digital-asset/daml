@@ -99,8 +99,8 @@ object TypedSignedProtocolMessageContent
     for {
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       message <- (messageBytes match {
-        case Sm.ConfirmationResponse(confirmationResponseBytes) =>
-          ConfirmationResponse.fromByteString(expectedProtocolVersion, confirmationResponseBytes)
+        case Sm.ConfirmationResponses(confirmationResponsesBytes) =>
+          ConfirmationResponses.fromByteString(expectedProtocolVersion, confirmationResponsesBytes)
         case Sm.ConfirmationResult(confirmationResultMessageBytes) =>
           ConfirmationResultMessage.fromByteString(
             expectedProtocolVersion,

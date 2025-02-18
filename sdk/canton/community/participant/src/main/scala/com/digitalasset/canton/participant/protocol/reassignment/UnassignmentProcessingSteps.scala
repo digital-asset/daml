@@ -38,9 +38,9 @@ import com.digitalasset.canton.participant.protocol.submission.{
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.{
+  ContractAuthenticator,
   EngineController,
   ProcessingSteps,
-  SerializableContractAuthenticator,
 }
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
@@ -74,7 +74,7 @@ class UnassignmentProcessingSteps(
     reassignmentCoordination: ReassignmentCoordination,
     seedGenerator: SeedGenerator,
     staticSynchronizerParameters: Source[StaticSynchronizerParameters],
-    override protected val serializableContractAuthenticator: SerializableContractAuthenticator,
+    override protected val serializableContractAuthenticator: ContractAuthenticator,
     val sourceSynchronizerProtocolVersion: Source[ProtocolVersion],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -432,17 +432,19 @@ class UnassignmentProcessingSteps(
       }
     } yield {
       val responseF =
-        createConfirmationResponse(
+        createConfirmationResponses(
           parsedRequest.requestId,
           sourceSnapshot.unwrap,
           sourceSynchronizerProtocolVersion.unwrap,
           fullTree.confirmingParties,
           unassignmentValidationResult,
-        ).map(_.map((_, Recipients.cc(parsedRequest.mediator))).toList)
+        ).map(_.map((_, Recipients.cc(parsedRequest.mediator))))
 
-      // We consider that we rejected if at least one of the responses is not "approve'
+      // We consider that we rejected if at least one of the responses is not "approve"
       val locallyRejectedF = responseF.map(
-        _.exists { case (confirmation, _) => !confirmation.localVerdict.isApprove }
+        _.exists { case (confirmation, _) =>
+          confirmation.responses.exists(response => !response.localVerdict.isApprove)
+        }
       )
 
       val engineAbortStatusF = unassignmentValidationResult.metadataResultET.value.map {

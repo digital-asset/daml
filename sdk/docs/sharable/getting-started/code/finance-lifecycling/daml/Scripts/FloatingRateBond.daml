@@ -1,0 +1,189 @@
+module Scripts.FloatingRateBond where
+
+import DA.Date (Month(..), date)
+import DA.Map qualified as Map (fromList)
+import DA.Set qualified as Set (singleton)
+import Daml.Script
+
+-- INTERFACE DEPENDENCIES --
+import Daml.Finance.Interface.Instrument.Bond.V3.FloatingRate.Factory qualified as FloatingRateBondFactory (Create(..), I(..))
+import Daml.Finance.Interface.Instrument.Bond.V3.FloatingRate.Types (FloatingRate(..))
+import Daml.Finance.Interface.Instrument.Types.V2.FloatingRate qualified as FloatinRateTypes (DateRelativeToEnum(..), FloatingRate(..), ReferenceRateTypeEnum(..))
+import Daml.Finance.Interface.Lifecycle.V4.Rule.Claim qualified as Claim (ClaimEffect(..))
+import Daml.Finance.Interface.Lifecycle.V4.Rule.Lifecycle qualified as Lifecycle (Evolve(..))
+import Daml.Finance.Interface.Settlement.V4.Batch qualified as Batch (Settle(..))
+import Daml.Finance.Interface.Settlement.V4.Instruction qualified as Instruction (Allocate(..), Approve(..))
+import Daml.Finance.Interface.Settlement.V4.Types (Allocation(..), Approval(..))
+import Daml.Finance.Interface.Types.Common.V3.Types (Id(..), HoldingStandard(..), InstrumentKey(..))
+import Daml.Finance.Interface.Types.Date.V3.Calendar (BusinessDayConventionEnum(..))
+import Daml.Finance.Interface.Types.Date.V3.DateOffset (DateOffset(..), DayTypeEnum(..))
+import Daml.Finance.Interface.Types.Date.V3.DayCount (DayCountConventionEnum(..))
+import Daml.Finance.Interface.Types.Date.V3.RollConvention (PeriodEnum(..))
+
+-- IMPLEMENTATION DEPENDENCIES --
+import Daml.Finance.Data.V4.Numeric.Observation (Observation(..))
+import Daml.Finance.Data.V4.Time.DateClock (dateToDateClockTime)
+import Daml.Finance.Instrument.Bond.V3.FloatingRate.Factory qualified as FloatingRateBond (Factory(..))
+
+import Workflow.CreditAccount qualified as CreditAccount (Accept(..), Request(..))
+
+import Scripts.FixedRateBond (FixedRateState(..), runFixedRateBond)
+
+-- | Test script that
+-- 1. creates a floating rate bond instrument and a holding on it
+-- 2. reuses the lifecycle rule and lifecycle event from the fixed rate bond tutorial
+-- 3. lifecycles the time event
+-- 4. processes the lifecycle effect
+-- 5. settles the distribution
+runFloatingRateBond : Script()
+runFloatingRateBond = do
+
+  -- Execute the `runFixedRateBond` script to reuse variables.
+  FixedRateState
+    { bank
+    ; bob
+    ; public
+    ; bobAccount
+    ; periodicSchedule
+    ; usdInstrument
+    ; holidayCalendarIds
+    ; lifecycleRuleCid
+    ; lifecycleClaimRuleCid
+    ; firstCouponClockEventCid
+    ; initialTimestamp
+    } <- runFixedRateBond
+
+  let pp = [("Public Party", Set.singleton public)]
+
+  -- Create and distribute bond
+  -- CREATE_FLOATING_RATE_BOND_VARIABLES_BEGIN
+  let
+    notional = 1.0
+    referenceRateId = "USD/LIBOR/3M"
+    couponSpread = 0.011
+    couponPeriod = M
+    couponPeriodMultiplier = 3
+    dayCountConvention = ActActISDA
+    businessDayConvention = Following
+    floatingRate = FloatinRateTypes.FloatingRate with
+      referenceRateId
+      referenceRateType = FloatinRateTypes.SingleFixing FloatinRateTypes.CalculationPeriodStartDate
+      fixingDates = DateOffset with
+        periodMultiplier = 0
+        period = D
+        dayType = Some Business
+        businessDayConvention = NoAdjustment
+        businessCenters = ["USD"]
+  -- CREATE_FLOATING_RATE_BOND_VARIABLES_END
+
+  -- CREATE_FLOATING_RATE_BOND_INSTRUMENT_BEGIN
+  -- Create a floating rate bond factory
+  floatingRateBondFactoryCid <- toInterfaceContractId @FloatingRateBondFactory.I <$> submit bank do
+    createCmd FloatingRateBond.Factory with
+      provider = bank
+      observers = mempty
+
+  -- Define an instrument key for the bond
+  let
+    bondInstrument = InstrumentKey with
+      issuer = bank
+      depository = bank
+      id = Id "FloatingRateBond"
+      version = "0"
+      holdingStandard = TransferableFungible
+
+  -- Bank creates the bond instrument
+  floatingRateBondCid <- submit bank do
+    exerciseCmd floatingRateBondFactoryCid FloatingRateBondFactory.Create with
+      floatingRate = FloatingRate with
+        instrument = bondInstrument
+        description = "Instrument representing units of a floating rate bond"
+        floatingRate
+        couponSpread
+        periodicSchedule
+        holidayCalendarIds
+        calendarDataProvider = bank
+        dayCountConvention
+        currency = usdInstrument
+        notional
+        lastEventTimestamp = initialTimestamp
+      observers = Map.fromList pp
+  -- CREATE_FLOATING_RATE_BOND_INSTRUMENT_END
+
+  -- CREATE_FLOATING_RATE_BOND_HOLDING_BEGIN
+  -- Credit Bob's account with a bond holding
+  bobRequestCid <- submit bob do
+    createCmd CreditAccount.Request with
+      account = bobAccount
+      instrument = bondInstrument
+      amount = 100000.0
+  bobBondHoldingCid <- submit bank do exerciseCmd bobRequestCid CreditAccount.Accept
+  -- CREATE_FLOATING_RATE_BOND_HOLDING_END
+
+  -- CREATE_FLOATING_RATE_OBSERVATIONS_BEGIN
+  let observations = Map.fromList [(dateToDateClockTime $ date 2019 Jan 16, -0.00311)]
+
+  observableCid <- toInterfaceContractId <$> submit bank do
+    createCmd Observation with
+      provider = bank; id = Id referenceRateId; observations; observers = mempty
+  -- CREATE_FLOATING_RATE_OBSERVATIONS_END
+
+  -- LIFECYCLE_BOND_BEGIN
+  -- Try to lifecycle the instrument
+  (lifecycleCid, [effectCid]) <- submit bank do
+    exerciseCmd lifecycleRuleCid Lifecycle.Evolve with
+      eventCid = firstCouponClockEventCid
+      observableCids = [observableCid]
+      instrument = bondInstrument
+  -- LIFECYCLE_BOND_END
+
+  -- Claim effect
+  -- CLAIM_EFFECT_BEGIN
+  result <- submitMulti [bob] [public] do
+    exerciseCmd lifecycleClaimRuleCid Claim.ClaimEffect with
+      claimer = bob
+      holdingCids = [bobBondHoldingCid]
+      effectCid -- This is equivalent to writing effectCid = effectCid
+      batchId = Id "BondSettlement"
+  let [bobInstructionCid, bankInstructionCid, couponInstructionCid] = result.instructionCids
+  -- CLAIM_EFFECT_END
+
+  -- EFFECT_SETTLEMENT_BEGIN
+  -- Allocate instruction
+  (bobInstructionCid, _) <- submit bob do
+    exerciseCmd bobInstructionCid Instruction.Allocate with
+      actors = Set.singleton bob
+      allocation = Pledge bobBondHoldingCid
+
+  (bankInstructionCid, _) <- submit bank do
+    exerciseCmd bankInstructionCid Instruction.Allocate with
+      actors = Set.singleton bank
+      allocation = CreditReceiver
+
+  (couponInstructionCid, _) <- submit bank do
+    exerciseCmd couponInstructionCid Instruction.Allocate with
+      actors = Set.singleton bank
+      allocation = CreditReceiver
+
+  -- Approve instruction
+  bobInstructionCid <- submit bank do
+    exerciseCmd bobInstructionCid Instruction.Approve with
+      actors = Set.singleton bank
+      approval = DebitSender
+
+  bankInstructionCid <- submit bob do
+    exerciseCmd bankInstructionCid Instruction.Approve with
+      actors = Set.singleton bob
+      approval = TakeDelivery bobAccount
+
+  couponInstructionCid <- submit bob do
+    exerciseCmd couponInstructionCid Instruction.Approve with
+      actors = Set.singleton bob
+      approval = TakeDelivery bobAccount
+
+  -- Settle batch
+  submitMulti [bob] [public] do
+    exerciseCmd result.batchCid Batch.Settle with actors = Set.singleton bob
+  -- EFFECT_SETTLEMENT_END
+
+  pure ()

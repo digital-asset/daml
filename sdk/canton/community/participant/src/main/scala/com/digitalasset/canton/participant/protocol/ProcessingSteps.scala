@@ -459,18 +459,18 @@ trait ProcessingSteps[
       malformedPayloads: Seq[MalformedPayload],
   )(implicit
       traceContext: TraceContext
-  ): Seq[ConfirmationResponse]
+  ): Option[ConfirmationResponses]
 
   /** Phase 3:
     *
-    * @param pendingData   The `requestType.PendingRequestData` to be stored until Phase 7
-    * @param confirmationResponsesF     The responses to be sent to the mediator
+    * @param pendingData The `requestType.PendingRequestData` to be stored until Phase 7
+    * @param confirmationResponsesF The responses to be sent to the mediator
     * @param rejectionArgs The implementation-specific arguments needed to create a rejection event on timeout
     */
   case class StorePendingDataAndSendResponseAndCreateTimeout(
       pendingData: requestType.PendingRequestData,
-      confirmationResponsesF: EitherT[FutureUnlessShutdown, RequestError, Seq[
-        (ConfirmationResponse, Recipients)
+      confirmationResponsesF: EitherT[FutureUnlessShutdown, RequestError, Option[
+        (ConfirmationResponses, Recipients)
       ]],
       rejectionArgs: RejectionArgs,
   )

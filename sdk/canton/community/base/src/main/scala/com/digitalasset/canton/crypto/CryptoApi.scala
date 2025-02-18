@@ -50,7 +50,7 @@ class Crypto(
   /** Helper method to generate a new signing key pair and store the public key in the public store as well. */
   def generateSigningKey(
       keySpec: SigningKeySpec = privateCrypto.defaultSigningKeySpec,
-      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
+      usage: NonEmpty[Set[SigningKeyUsage]],
       name: Option[KeyName] = None,
   )(implicit
       traceContext: TraceContext

@@ -9,11 +9,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.sequencing.protocol.{
-  SequencerDeliverError,
-  SequencerErrors,
-  SubmissionRequest,
-}
+import com.digitalasset.canton.sequencing.protocol.SequencerErrors
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.Sequencer.{
@@ -27,12 +23,9 @@ import com.digitalasset.canton.synchronizer.sequencer.traffic.{
 import com.digitalasset.canton.synchronizer.sequencer.{
   DeliverableSubmissionOutcome,
   SubmissionOutcome,
-  SubmissionRequestOutcome,
 }
-import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
@@ -47,34 +40,17 @@ import SubmissionRequestValidator.{
   * Largely it applies traffic control rules, and insert a traffic receipt in the deliver receipts to the sender with the result.
   */
 private[update] class TrafficControlValidator(
-    synchronizerId: SynchronizerId,
-    protocolVersion: ProtocolVersion,
     rateLimitManager: SequencerRateLimitManager,
     override val loggerFactory: NamedLoggerFactory,
     metrics: SequencerMetrics,
 )(implicit closeContext: CloseContext)
     extends NamedLogging {
 
-  private def invalidSubmissionRequest(
-      submissionRequest: SubmissionRequest,
-      sequencingTimestamp: CantonTimestamp,
-      sequencerError: SequencerDeliverError,
-  )(implicit traceContext: TraceContext): SubmissionRequestOutcome =
-    SubmissionRequestValidator.invalidSubmissionRequest(
-      submissionRequest,
-      sequencingTimestamp,
-      sequencerError,
-      logger,
-      synchronizerId,
-      protocolVersion,
-    )
-
   def applyTrafficControl(
       submissionValidation: SequencedEventValidationF[SubmissionRequestValidationResult],
       signedOrderingRequest: SignedOrderingRequest,
       sequencingTimestamp: CantonTimestamp,
       latestSequencerEventTimestamp: Option[CantonTimestamp],
-      sender: Member,
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
@@ -107,7 +83,7 @@ private[update] class TrafficControlValidator(
           )
             .map { receipt =>
               // On successful consumption, updated the result with the receipt
-              val updated = result.updateTrafficReceipt(sender, receipt)
+              val updated = result.updateTrafficReceipt(receipt)
               // It's still possible that the result itself is not a `Deliver` (because of earlier failed validation)
               // In that case we record it as wasted traffic
               updated.wastedTrafficReason match {
@@ -126,7 +102,7 @@ private[update] class TrafficControlValidator(
             .leftMap { trafficConsumptionErrorOutcome =>
               // If the traffic consumption failed and the processing so far had produced a valid outcome
               // we replace it with the failed outcome from traffic validation
-              val updated = result.outcome.outcome match {
+              val updated = result.outcome match {
                 case _: DeliverableSubmissionOutcome =>
                   result.copy(
                     outcome = trafficConsumptionErrorOutcome,
@@ -137,7 +113,7 @@ private[update] class TrafficControlValidator(
               }
               if (result.latestSequencerEventTimestamp.isDefined) {
                 logger.debug(
-                  s"An event addressed to the sequencer (likely a topology event) was rejected due to a traffic control error. For that reason the lastSequencerEventTimestamp was not updated, as the event will not be delivered to the sequencer. ${trafficConsumptionErrorOutcome.outcome}"
+                  s"An event addressed to the sequencer (likely a topology event) was rejected due to a traffic control error. For that reason the lastSequencerEventTimestamp was not updated, as the event will not be delivered to the sequencer. $trafficConsumptionErrorOutcome"
                 )
               }
               recordSequencingWasted(
@@ -161,9 +137,8 @@ private[update] class TrafficControlValidator(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, Option[TrafficReceipt]] = {
+  ): EitherT[FutureUnlessShutdown, SubmissionOutcome, Option[TrafficReceipt]] = {
     val request = orderingRequest.signedSubmissionRequest
-    val sender = request.content.sender
     rateLimitManager
       .validateRequestAndConsumeTraffic(
         request.content,
@@ -184,17 +159,17 @@ private[update] class TrafficControlValidator(
           logger.debug(
             s"Sender does not have enough traffic at $sequencingTimestamp for event with cost ${error.trafficCost} processed by sequencer ${orderingRequest.signature.signedBy}"
           )
-          invalidSubmissionRequest(
-            request.content,
-            sequencingTimestamp,
-            SequencerErrors.TrafficCredit(error.toString),
-          )
+          SubmissionOutcome.Reject
+            .logAndCreate(
+              request.content,
+              sequencingTimestamp,
+              SequencerErrors.TrafficCredit(error.toString),
+            )
             .updateTrafficReceipt(
-              sender,
               // When above traffic limit we don't consume traffic, hence cost = 0
               Some(
                 error.trafficState.copy(lastConsumedCost = NonNegativeLong.zero).toTrafficReceipt
-              ),
+              )
             )
         // Outdated event costs are possible if the sender is too far behind and out of the tolerance window.
         // This could be the case if the processing sequencer itself is so far behind that it lets the request
@@ -206,11 +181,13 @@ private[update] class TrafficControlValidator(
             s"Event cost for event at $sequencingTimestamp from sender ${request.content.sender} sent" +
               s" to sequencer ${orderingRequest.content.sequencerId} was outdated: $error."
           )
-          invalidSubmissionRequest(
-            request.content,
-            sequencingTimestamp,
-            SequencerErrors.OutdatedTrafficCost(error.toString),
-          ).updateTrafficReceipt(sender, error.trafficReceipt)
+          SubmissionOutcome.Reject
+            .logAndCreate(
+              request.content,
+              sequencingTimestamp,
+              SequencerErrors.OutdatedTrafficCost(error.toString),
+            )
+            .updateTrafficReceipt(error.trafficReceipt)
         // An incorrect event cost means the sender calculated an incorrect submission cost even
         // according to its own supplied submission topology timestamp.
         // Additionally, the sequencer that received the submission request did not stop it.
@@ -218,7 +195,7 @@ private[update] class TrafficControlValidator(
         // So we raise an alarm and discard the request.
         case error: SequencerRateLimitError.IncorrectEventCost.Error =>
           error.report()
-          SubmissionRequestOutcome.discardSubmissionRequest
+          SubmissionOutcome.Discard
         // This indicates either that we're doing crash recovery but the traffic consumed data has been pruned already
         // Or that we somehow consumed traffic out of order. We can't really distinguish between the 2 but either way
         // this needs to be visible because it requires investigation and is very likely sign of a bug.

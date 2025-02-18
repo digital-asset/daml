@@ -7,15 +7,17 @@ import cats.syntax.either.*
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api.TransactionShape.AcsDelta
 import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
   EventFormat,
   InterfaceFilter,
   TemplateFilter,
   TemplateWildcardFilter,
+  TransactionFormat,
+  UpdateFormat,
 }
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.platform.TemplatePartiesFilter
 import com.digitalasset.canton.platform.index.IndexServiceImpl.*
 import com.digitalasset.canton.platform.index.IndexServiceImplSpec.Scope
 import com.digitalasset.canton.platform.store.cache.OffsetCheckpoint
@@ -25,6 +27,12 @@ import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   LocalPackagePreference,
   PackageResolution,
+}
+import com.digitalasset.canton.platform.{
+  InternalEventFormat,
+  InternalTransactionFormat,
+  InternalUpdateFormat,
+  TemplatePartiesFilter,
 }
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Party, QualifiedName, TypeConRef}
@@ -49,48 +57,60 @@ class IndexServiceImplSpec
     with EitherValues
     with OptionValues {
 
-  behavior of "IndexServiceImpl.memoizedTransactionFilterProjection"
+  behavior of "IndexServiceImpl.memoizedInternalUpdateFormat"
 
   it should "give an empty result if no packages" in new Scope {
     currentPackageMetadata = PackageMetadata()
     val memoFunc =
-      memoizedTransactionFilterProjection(
+      memoizedInternalUpdateFormat(
         getPackageMetadataSnapshot = getPackageMetadata,
-        eventFormat = EventFormat(
-          filtersByParty = Map.empty,
-          filtersForAnyParty = None,
-          verbose = true,
+        updateFormat = updateFormatForTransactions(
+          EventFormat(
+            filtersByParty = Map.empty,
+            filtersForAnyParty = None,
+            verbose = true,
+          )
         ),
         alwaysPopulateArguments = false,
+        enableTopologyEvents = false,
       )
     memoFunc() shouldBe None
   }
 
   it should "change the result in case of new package arrived" in new Scope {
     currentPackageMetadata = PackageMetadata()
-    // subscribing to iface1
-    val memoFunc = memoizedTransactionFilterProjection(
-      getPackageMetadataSnapshot = getPackageMetadata,
-      eventFormat = EventFormat(
-        filtersByParty = Map(
-          party -> CumulativeFilter(
-            templateFilters = Set(),
-            interfaceFilters = Set(iface1Filter),
-            templateWildcardFilter = None,
-          )
-        ),
-        filtersForAnyParty = None,
-        verbose = true,
+    val eventFormat = EventFormat(
+      filtersByParty = Map(
+        party -> CumulativeFilter(
+          templateFilters = Set(),
+          interfaceFilters = Set(iface1Filter),
+          templateWildcardFilter = None,
+        )
       ),
-      alwaysPopulateArguments = false,
+      filtersForAnyParty = None,
+      verbose = true,
     )
-    memoFunc() shouldBe None // no template implementing iface1
+    // subscribing to iface1
+    val memoFuncTransactions = memoizedInternalUpdateFormat(
+      getPackageMetadataSnapshot = getPackageMetadata,
+      updateFormat = updateFormatForTransactions(eventFormat),
+      alwaysPopulateArguments = false,
+      enableTopologyEvents = false,
+    )
+    val memoFuncReassignments = memoizedInternalUpdateFormat(
+      getPackageMetadataSnapshot = getPackageMetadata,
+      updateFormat = updateFormatForReassignments(eventFormat),
+      alwaysPopulateArguments = false,
+      enableTopologyEvents = false,
+    )
+    memoFuncTransactions() shouldBe None // no template implementing iface1
+    memoFuncReassignments() shouldBe None // no template implementing iface1
     // template1 implements iface1
     currentPackageMetadata =
       PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1)))
 
-    memoFunc() shouldBe Some(
-      (
+    val internalEventFormat0 =
+      InternalEventFormat(
         TemplatePartiesFilter(Map(template1 -> Some(Set(party))), Some(Set())),
         EventProjectionProperties(
           verbose = true,
@@ -99,66 +119,79 @@ class IndexServiceImplSpec
           witnessTemplateProjections =
             Map(Some(party.toString) -> Map(template1 -> Projection(Set(iface1), false, false))),
         ),
-      )
-    ) // filter gets complicated, filters template1 for iface1, projects iface1
+      ) // filter gets complicated, filters template1 for iface1, projects iface1
+
+    memoFuncTransactions() shouldBe Some(internalUpdateFormatForTransactions(internalEventFormat0))
+    memoFuncReassignments() shouldBe Some(
+      internalUpdateFormatForReassignments(internalEventFormat0)
+    )
 
     // template2 also implements iface1 as template1
     currentPackageMetadata =
       PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1, template2)))
 
-    memoFunc() shouldBe Some(
-      (
-        TemplatePartiesFilter(
-          relation = Map(
-            template1 -> Some(Set(party)),
-            template2 -> Some(Set(party)),
-          ),
-          templateWildcardParties = Some(Set()),
+    val internalEventFormat1 = InternalEventFormat(
+      templatePartiesFilter = TemplatePartiesFilter(
+        relation = Map(
+          template1 -> Some(Set(party)),
+          template2 -> Some(Set(party)),
         ),
-        EventProjectionProperties(
-          verbose = true,
-          templateWildcardWitnesses = Some(Set.empty),
-          witnessTemplateProjections = Map(
-            Some(party.toString) -> Map(
-              template1 -> Projection(Set(iface1), false, false),
-              template2 -> Projection(Set(iface1), false, false),
-            )
-          ),
-          templateWildcardCreatedEventBlobParties = Some(Set.empty),
+        templateWildcardParties = Some(Set()),
+      ),
+      eventProjectionProperties = EventProjectionProperties(
+        verbose = true,
+        templateWildcardWitnesses = Some(Set.empty),
+        witnessTemplateProjections = Map(
+          Some(party.toString) -> Map(
+            template1 -> Projection(Set(iface1), false, false),
+            template2 -> Projection(Set(iface1), false, false),
+          )
         ),
-      )
+        templateWildcardCreatedEventBlobParties = Some(Set.empty),
+      ),
     ) // filter gets even more complicated, filters template1 and template2 for iface1, projects iface1 for both templates
+
+    memoFuncTransactions() shouldBe Some(internalUpdateFormatForTransactions(internalEventFormat1))
+    memoFuncReassignments() shouldBe Some(
+      internalUpdateFormatForReassignments(internalEventFormat1)
+    )
   }
 
   it should "populate all contract arguments correctly" in new Scope {
     currentPackageMetadata =
       PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1)))
     // subscribing to iface1
-    val memoFunc = memoizedTransactionFilterProjection(
+    val memoFunc = memoizedInternalUpdateFormat(
       getPackageMetadataSnapshot = getPackageMetadata,
-      eventFormat = EventFormat(
-        filtersByParty = Map(
-          party -> CumulativeFilter(
-            templateFilters = Set(),
-            interfaceFilters = Set(iface1Filter),
-            templateWildcardFilter = None,
-          )
-        ),
-        filtersForAnyParty = None,
-        verbose = true,
+      updateFormat = updateFormatForTransactions(
+        EventFormat(
+          filtersByParty = Map(
+            party -> CumulativeFilter(
+              templateFilters = Set(),
+              interfaceFilters = Set(iface1Filter),
+              templateWildcardFilter = None,
+            )
+          ),
+          filtersForAnyParty = None,
+          verbose = true,
+        )
       ),
       alwaysPopulateArguments = true,
+      enableTopologyEvents = false,
     )
     memoFunc() shouldBe Some(
-      (
-        TemplatePartiesFilter(Map(template1 -> Some(Set(party))), Some(Set())),
-        EventProjectionProperties(
-          verbose = true,
-          templateWildcardWitnesses = Some(Set(party)),
-          witnessTemplateProjections =
-            Map(Some(party.toString) -> Map(template1 -> Projection(Set(iface1), false, false))),
-          templateWildcardCreatedEventBlobParties = Some(Set.empty),
-        ),
+      internalUpdateFormatForTransactions(
+        InternalEventFormat(
+          templatePartiesFilter =
+            TemplatePartiesFilter(Map(template1 -> Some(Set(party))), Some(Set())),
+          eventProjectionProperties = EventProjectionProperties(
+            verbose = true,
+            templateWildcardWitnesses = Some(Set(party)),
+            witnessTemplateProjections =
+              Map(Some(party.toString) -> Map(template1 -> Projection(Set(iface1), false, false))),
+            templateWildcardCreatedEventBlobParties = Some(Set.empty),
+          ),
+        )
       )
     )
   }
@@ -1327,6 +1360,44 @@ class IndexServiceImplSpec
         (Offset.tryFromLong(o.toLong), elem)
       }
   }
+
+  def updateFormatForTransactions(eventFormat: EventFormat): UpdateFormat =
+    UpdateFormat(
+      includeTransactions =
+        Some(TransactionFormat(eventFormat = eventFormat, transactionShape = AcsDelta)),
+      includeReassignments = None,
+      includeTopologyEvents = None,
+    )
+
+  def updateFormatForReassignments(eventFormat: EventFormat): UpdateFormat =
+    UpdateFormat(
+      includeTransactions = None,
+      includeReassignments = Some(eventFormat),
+      includeTopologyEvents = None,
+    )
+
+  def internalUpdateFormatForTransactions(
+      internalEventFormat: InternalEventFormat
+  ): InternalUpdateFormat =
+    InternalUpdateFormat(
+      includeTransactions = Some(
+        InternalTransactionFormat(
+          internalEventFormat = internalEventFormat,
+          transactionShape = AcsDelta,
+        )
+      ),
+      includeReassignments = None,
+      includeTopologyEvents = None,
+    )
+
+  def internalUpdateFormatForReassignments(
+      internalEventFormat: InternalEventFormat
+  ): InternalUpdateFormat =
+    InternalUpdateFormat(
+      includeTransactions = None,
+      includeReassignments = Some(internalEventFormat),
+      includeTopologyEvents = None,
+    )
 
 }
 

@@ -12,8 +12,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.{
   EpochStore,
+  EpochStoreReader,
   Genesis,
-  OrderedBlocksReader,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
@@ -52,7 +52,7 @@ import GenericInMemoryEpochStore.{CompletedBlock, EpochStatus, pbftEventSortData
 /** An in-memory, non-thread safe [[EpochStore]] implementation for non-concurrent tests. */
 abstract class GenericInMemoryEpochStore[E <: Env[E]]
     extends EpochStore[E]
-    with OrderedBlocksReader[E] {
+    with EpochStoreReader[E] {
 
   private val epochs: TrieMap[EpochNumber, EpochStatus] = TrieMap.empty
   private val blocks: TrieMap[BlockNumber, CompletedBlock] = TrieMap.empty
@@ -130,8 +130,8 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
 
   override def latestEpoch(includeInProgress: Boolean)(implicit
       traceContext: TraceContext
-  ): E#FutureUnlessShutdownT[EpochStore.Epoch] = createFuture(latestCompletedEpochActionName) {
-    () =>
+  ): E#FutureUnlessShutdownT[EpochStore.Epoch] =
+    createFuture(latestEpochActionName) { () =>
       Try {
         val epochInfo = epochs
           .filter { case (_, EpochStatus(_, isInProgress)) =>
@@ -146,7 +146,7 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
             .fold[Seq[SignedMessage[Commit]]](Seq.empty)(_.commits)
         Epoch(epochInfo, commits)
       }
-  }
+    }
 
   override def addPrePrepare(
       prePrepare: SignedMessage[PrePrepare]
@@ -290,6 +290,17 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
           }
           .sortWith(_.blockNumber < _.blockNumber)
         Success(completedBlocks)
+    }
+
+  override def loadEpochInfo(
+      epochNumber: EpochNumber
+  )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Option[EpochInfo]] =
+    createFuture(loadEpochInfoActionName(epochNumber)) { () =>
+      Try(
+        epochs
+          .get(epochNumber)
+          .map { case EpochStatus(epochInfo, _) => epochInfo }
+      )
     }
 
   override def loadOrderedBlocks(

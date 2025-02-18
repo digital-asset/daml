@@ -693,15 +693,16 @@ private[lf] final class Compiler(
     //   in  <retValue>
     topLevelFunction3(t.ChoiceByKeyDefRef(tmplId, choice.name)) {
       (keyPos, choiceArgPos, tokenPos, env) =>
-        let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
-          let(env, SBUFetchKey(tmplId)(env.toSEVar(keyWithMPos))) { (cidPos, env) =>
-            translateChoiceBody(env, tmplId, tmpl, choice)(
-              choiceArgPos,
-              cidPos,
-              Some(keyWithMPos),
-              tokenPos,
-            )
-          }
+        let(env, s.SEPreventCatch(translateKeyWithMaintainers(env, keyPos, tmplKey))) {
+          (keyWithMPos, env) =>
+            let(env, SBUFetchKey(tmplId)(env.toSEVar(keyWithMPos))) { (cidPos, env) =>
+              translateChoiceBody(env, tmplId, tmpl, choice)(
+                choiceArgPos,
+                cidPos,
+                Some(keyWithMPos),
+                tokenPos,
+              )
+            }
         }
     }
 

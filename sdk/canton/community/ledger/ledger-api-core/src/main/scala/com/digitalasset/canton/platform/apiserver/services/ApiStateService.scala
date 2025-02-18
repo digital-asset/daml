@@ -17,7 +17,7 @@ import com.digitalasset.canton.ledger.api.validation.{
 import com.digitalasset.canton.ledger.participant.state.SyncService
 import com.digitalasset.canton.ledger.participant.state.index.{
   IndexActiveContractsService as ACSBackend,
-  IndexTransactionsService,
+  IndexUpdateService,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
@@ -41,7 +41,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final class ApiStateService(
     acsService: ACSBackend,
     syncService: SyncService,
-    txService: IndexTransactionsService,
+    updateService: IndexUpdateService,
     metrics: LedgerApiServerMetrics,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
@@ -168,7 +168,7 @@ final class ApiStateService(
   override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] = {
     implicit val traceContext =
       TraceContext.fromDamlTelemetryContext(telemetry.contextFromGrpcThreadLocalContext())
-    txService
+    updateService
       .currentLedgerEnd()
       .map(offset =>
         GetLedgerEndResponse(
@@ -183,7 +183,7 @@ final class ApiStateService(
   ): Future[GetLatestPrunedOffsetsResponse] = {
     implicit val loggingContext = LoggingContextWithTrace(loggerFactory, telemetry)
 
-    txService
+    updateService
       .latestPrunedOffsets()
       .map { case (prunedUptoInclusive, divulgencePrunedUptoInclusive) =>
         GetLatestPrunedOffsetsResponse(

@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.mediator.store
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
@@ -182,6 +183,7 @@ trait DbFinalizedResponseStoreTest
         storage,
         new SymbolicPureCrypto,
         testedProtocolVersion,
+        CachingConfigs.defaultFinalizedMediatorConfirmationRequestsCache,
         timeouts,
         loggerFactory,
       )

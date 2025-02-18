@@ -18,7 +18,11 @@ import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
-import com.digitalasset.canton.sequencing.protocol.{SendAsyncError, SubmissionRequest}
+import com.digitalasset.canton.sequencing.protocol.{
+  SequencerDeliverError,
+  SequencerErrors,
+  SubmissionRequest,
+}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.SequencerWriter.*
 import com.digitalasset.canton.synchronizer.sequencer.WriterStartupError.FailedToInitializeFromSnapshot
@@ -293,12 +297,14 @@ class SequencerWriter(
 
   def send(
       submission: SubmissionRequest
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] = {
     lazy val sendET = sequencerQueues
       .fold(
         EitherT
-          .leftT[FutureUnlessShutdown, Unit](SendAsyncError.Unavailable("Unavailable"))
-          .leftWiden[SendAsyncError]
+          .leftT[FutureUnlessShutdown, Unit](SequencerErrors.Unavailable("Unavailable"))
+          .leftWiden[SequencerDeliverError]
       )(_.send(submission))
 
     EitherT(
@@ -308,14 +314,16 @@ class SequencerWriter(
 
   def blockSequencerWrite(
       outcome: DeliverableSubmissionOutcome
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] = {
     lazy val sendET = sequencerQueues
       .fold(
         EitherT
           .leftT[FutureUnlessShutdown, Unit](
-            SendAsyncError.Unavailable("Unavailable: sequencer is not running")
+            SequencerErrors.Unavailable("Unavailable: sequencer is not running")
           )
-          .leftWiden[SendAsyncError]
+          .leftWiden[SequencerDeliverError]
       )(_.blockSequencerWrite(outcome))
     EitherT(performUnlessClosingUSF(functionFullName)(sendET.value))
   }

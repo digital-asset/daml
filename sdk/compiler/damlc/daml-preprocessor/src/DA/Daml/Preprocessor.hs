@@ -78,6 +78,7 @@ preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
     , "DA.Exception.AssertionFailed"
     , "DA.Exception.PreconditionFailed"
 
+
     -- These modules need to have the record preprocessor disabled.
     , "DA.NonEmpty.Types"
     , "DA.Monoid.Types"
@@ -86,6 +87,22 @@ preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
     -- This module needs to use the PatternSynonyms extension.
     , "DA.Maybe"
     ]
+
+-- Following daml-script modules import Internal for creating psuedo exceptions
+-- i.e. data types that daml-script can throw and catch, but can't be used in Update
+allowedToImportInternal :: Map.Map LF.PackageName (Set.Set GHC.ModuleName)
+allowedToImportInternal = Map.fromList $ fmap (bimap LF.PackageName $ Set.fromList . map GHC.mkModuleName)
+  [ ( "daml-script"
+    , [ "Daml.Script.Internal.LowLevel"
+      , "Daml.Script.Internal.Questions.Testing"
+      , "Daml.Script.Internal.Questions.UserManagement"
+      ]
+    )
+  ]
+
+shouldAllowInternalImport :: (LF.PackageName, GHC.ModuleName) -> Bool
+shouldAllowInternalImport (pkgName, mod) =
+  Set.member mod $ fromMaybe Set.empty $ Map.lookup pkgName allowedToImportInternal
 
 isExperimental :: GHC.ModuleName -> Bool
 isExperimental (GHC.moduleNameString -> x)
@@ -112,7 +129,7 @@ damlPreprocessor majorVersion dataDependableExtensions mPkgName dflags x
             , checkCustomInternalImports x mPkgName
             ]
         , preprocErrors = concat
-            [ checkDamlInternalImports majorVersion x
+            [ if maybe False shouldAllowInternalImport mod then [] else checkDamlInternalImports majorVersion x
             , checkDataTypes x
             , checkModuleDefinition x
             , checkRecordConstructor x

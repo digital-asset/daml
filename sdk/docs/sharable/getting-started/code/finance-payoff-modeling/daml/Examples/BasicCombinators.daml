@@ -1,0 +1,173 @@
+module Examples.BasicCombinators where
+
+import DA.Date
+import Daml.Script
+import Prelude hiding (and, or, zero)
+
+-- CONTINGENT CLAIMS DEPENDENCIES --
+import ContingentClaims.Core.V3.Claim (and, at, give, one, scale, when, zero)
+import ContingentClaims.Core.V3.Observation (Observation(Const, Observe, ObserveAt))
+
+import PayoffBuilder (createAndLifecycleInstrument)
+
+zeroClaim : Script ()
+zeroClaim = do
+
+  let
+    -- ZERO_CLAIM_SETUP_START
+    c = zero
+
+    acquisitionDate = date 2023 Aug 01
+    -- ZERO_CLAIM_SETUP_END
+
+    lifecycleDates = []
+
+    observations = []
+
+  createAndLifecycleInstrument c acquisitionDate lifecycleDates observations
+
+oneClaim : Script ()
+oneClaim = do
+
+  let
+    -- ONE_CLAIM_SETUP_START
+    c = one "USD"
+
+    acquisitionDate = date 2023 Aug 01
+    -- ONE_CLAIM_SETUP_END
+
+    -- ONE_LD_START
+    lifecycleDates =
+      [
+        date 2023 Aug 01
+      , date 2023 Aug 03
+      ]
+    -- ONE_LD_END
+
+    observations = []
+
+  createAndLifecycleInstrument c acquisitionDate lifecycleDates observations
+
+scaleClaim : Script ()
+scaleClaim = do
+
+  let
+    -- SCALE_CLAIM_SETUP_START
+    c = scale (Const 100.0) $ one "USD"
+
+    acquisitionDate = date 2023 Aug 01
+    -- SCALE_CLAIM_SETUP_END
+
+    -- SCALE_LD_START
+    lifecycleDates =
+      [
+        date 2023 Aug 01
+      ]
+    -- SCALE_LD_END
+
+    observations = []
+
+  createAndLifecycleInstrument c acquisitionDate lifecycleDates observations
+
+giveAndClaim : Script ()
+giveAndClaim = do
+
+  let
+    -- GIVEAND_CLAIM_SETUP_START
+    c1 = scale (Const 90.0) $ one "EUR"
+    c2 = scale (Const 100.0) $ one "USD"
+    c = c1 `and` (give c2)
+
+    acquisitionDate = date 2023 Aug 01
+    -- GIVEAND_CLAIM_SETUP_END
+
+    -- GIVEAND_LD_START
+    lifecycleDates =
+      [
+        date 2023 Aug 01
+      ]
+    -- GIVEAND_LD_END
+
+    observations = []
+
+  createAndLifecycleInstrument c acquisitionDate lifecycleDates observations
+
+whenClaim : Script ()
+whenClaim = do
+
+  let
+    -- WHEN_CLAIM_SETUP_START
+    maturity = date 2023 Aug 31
+    c = when (at maturity) $ one "USD"
+
+    acquisitionDate = date 2023 Aug 01
+    -- WHEN_CLAIM_SETUP_END
+
+    -- WHEN_LD_START
+    lifecycleDates =
+      [
+        date 2023 Aug 01
+      , date 2023 Aug 31
+      ]
+    -- WHEN_LD_END
+
+    observations = []
+
+  createAndLifecycleInstrument c acquisitionDate lifecycleDates observations
+
+-- Observation
+equityForward : Script ()
+equityForward = do
+
+  let
+    -- FWD_CLAIM_SETUP_START
+    maturity = date 2023 Aug 31
+    c = when (at maturity) $ scale (Observe "AAPL" - Const 195.0) $ one "USD"
+
+    acquisitionDate = date 2023 Aug 01
+    -- FWD_CLAIM_SETUP_END
+
+    -- FWD_LD_START
+    lifecycleDates =
+      [
+        date 2023 Aug 31
+      ]
+    -- FWD_LD_END
+
+    -- FWD_OBS_START
+    observations =
+      [
+        ("AAPL", [(date 2023 Aug 31, 200.0)])
+      ]
+    -- FWD_OBS_END
+
+  createAndLifecycleInstrument c acquisitionDate lifecycleDates observations
+
+-- Observation at a specific time
+floatingRateNote : Script ()
+floatingRateNote = do
+
+  let
+    -- FRN_CLAIM_SETUP_START
+    maturity = date 2023 Aug 31
+    observation =  ObserveAt "USD_LIBOR_3M" (date 2023 Aug 10) * Const 1000000.0
+    c = when (at maturity) $ scale observation $ one "USD"
+
+    acquisitionDate = date 2023 Aug 01
+    -- FRN_CLAIM_SETUP_END
+
+    -- FRN_LD_START
+    lifecycleDates =
+      [
+        date 2023 Aug 31
+      ]
+    -- FRN_LD_END
+
+    -- FRN_OBS_START
+    observations =
+      [
+        ("USD_LIBOR_3M", [(date 2023 Aug 10, 0.0563)])
+      ]
+    -- FRN_OBS_END
+
+  createAndLifecycleInstrument c acquisitionDate lifecycleDates observations

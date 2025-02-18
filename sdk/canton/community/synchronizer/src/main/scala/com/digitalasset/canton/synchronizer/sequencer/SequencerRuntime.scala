@@ -149,7 +149,7 @@ class SequencerRuntime(
           .currentSnapshotApproximation(TraceContext.empty)
           .ipsSnapshot
         snapshot
-          .signingKeys(sequencerId, SigningKeyUsage.All)
+          .signingKeys(sequencerId, SigningKeyUsage.SequencerAuthenticationOnly)
           .map { keys =>
             Either.cond(keys.nonEmpty, (), s"Missing sequencer keys at ${snapshot.referenceTime}.")
           }

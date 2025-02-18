@@ -17,6 +17,7 @@ import com.digitalasset.canton.ledger.api.MockMessages.*
 import com.digitalasset.canton.ledger.api.services.CommandService
 import com.digitalasset.canton.ledger.api.validation.{
   CommandsValidator,
+  ValidateDisclosedContracts,
   ValidateUpgradingPackageResolutions,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -140,7 +141,8 @@ object ApiCommandServiceSpec {
   private val submissionIdPrefix = "submissionId-"
 
   private val commandsValidator = new CommandsValidator(
-    validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.Empty
+    validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.Empty,
+    validateDisclosedContracts = ValidateDisclosedContracts.WithContractIdVerificationDisabled,
   )
 
   def createMockCommandService: CommandService & AutoCloseable = {

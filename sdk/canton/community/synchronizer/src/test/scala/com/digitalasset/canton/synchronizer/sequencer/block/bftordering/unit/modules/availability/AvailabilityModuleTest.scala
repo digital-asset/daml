@@ -65,7 +65,7 @@ import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.Traced
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
-import org.slf4j.event.Level.WARN
+import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
@@ -580,7 +580,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           RemoteDissemination.RemoteBatch.create(WrongBatchId, ABatch, from = Node1Peer)
         ),
         log => {
-          log.level shouldBe WARN
+          log.level shouldBe Level.WARN
           log.message should include("BatchId doesn't match digest")
         },
       )
@@ -1233,7 +1233,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           RemoteOutputFetch.RemoteBatchDataFetched.create(Node1Peer, otherBatchId, ABatch)
         ),
         log => {
-          log.level shouldBe WARN
+          log.level shouldBe Level.WARN
           log.message should include("BatchId doesn't match digest")
         },
       )
@@ -2387,7 +2387,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       assertLogs(
         context.runPipedMessages() shouldBe Seq(Availability.NoOp),
         (logEntry: LogEntry) => {
-          logEntry.level shouldBe WARN
+          logEntry.level shouldBe Level.INFO
           logEntry.message should include("Skipping message since we can't verify signature")
         },
       )
@@ -2397,7 +2397,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
   private class FakeAvailabilityStore[E <: BaseIgnoringUnitTestEnv[E]](
       storage: mutable.Map[BatchId, OrderingRequestBatch] = mutable.Map.empty
   ) extends GenericInMemoryAvailabilityStore[E](storage) {
-    override def createFuture[A](action: String)(x: () => Try[A]): () => A = () => x().get
+    override def createFuture[A](action: String)(x: () => Try[A]): () => A = () => x().success.value
     override def close(): Unit = ()
   }
 

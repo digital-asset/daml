@@ -3,11 +3,12 @@
 
 package com.digitalasset.canton.crypto.provider.jce
 
-import com.digitalasset.canton.config.CommunityCryptoConfig
+import com.digitalasset.canton.config.CryptoConfig
 import com.digitalasset.canton.config.CryptoProvider.Jce
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
 import com.digitalasset.canton.crypto.SigningKeySpec.EcSecp256k1
+import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.MemoryStorage
@@ -28,11 +29,12 @@ class JceCryptoTest
   "JceCrypto" can {
 
     def jceCrypto(): FutureUnlessShutdown[Crypto] =
-      new CommunityCryptoFactory()
+      CryptoFactory
         .create(
-          CommunityCryptoConfig(provider = Jce),
+          CryptoConfig(provider = Jce),
           new MemoryStorage(loggerFactory, timeouts),
           new CommunityCryptoPrivateStoreFactory,
+          CommunityKmsFactory, // Does not matter for the test as we do not use KMS
           testedReleaseProtocolVersion,
           nonStandardConfig = false,
           futureSupervisor,

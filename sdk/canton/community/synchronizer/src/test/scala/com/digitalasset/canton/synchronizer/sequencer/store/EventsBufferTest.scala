@@ -84,7 +84,7 @@ class EventsBufferTest extends AnyWordSpec with BaseTest {
 
       // Test with increasing number of events, equivalent to
       List(1_000 /* ~600 KB*/, 10_000 /* ~6 MB */, 100_000 /* ~60 MB */, 1_000_000 /* ~600 MB */ )
-        .map { numEvents =>
+        .foreach { numEvents =>
           val initialEvents = generateEvents(numEvents, BytesUnit.zero, startIndex = 0)
           val memoryRequiredForEvents = EventsBuffer.approximateSize(initialEvents)
           val numNewEvents = 100
@@ -98,10 +98,8 @@ class EventsBufferTest extends AnyWordSpec with BaseTest {
             val newEvents =
               generateEvents(numNewEvents, BytesUnit.zero, numEvents + i * numNewEvents)
             measureAddingEvents(buf, newEvents)
-
           }
         }
-
     }
   }
 

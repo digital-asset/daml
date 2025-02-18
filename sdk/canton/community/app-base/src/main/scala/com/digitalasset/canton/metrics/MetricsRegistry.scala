@@ -10,8 +10,13 @@ import com.daml.metrics.api.opentelemetry.{
 }
 import com.daml.metrics.api.{MetricQualification, MetricsContext, MetricsInfoFilter}
 import com.daml.metrics.{HistogramDefinition, MetricsFilterConfig}
-import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
+import com.digitalasset.canton.config.{
+  CantonConfigValidator,
+  NonNegativeFiniteDuration,
+  UniformCantonConfigValidation,
+}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.MetricsConfig.JvmMetrics
@@ -51,7 +56,7 @@ final case class MetricsConfig(
       MetricQualification.Saturation,
       MetricQualification.Traffic,
     ),
-) {
+) extends UniformCantonConfigValidation {
 
   // if empty, no filter, otherwise, the union of all filters
   val globalFilters: Seq[MetricsFilterConfig] =
@@ -63,6 +68,10 @@ final case class MetricsConfig(
 }
 
 object MetricsConfig {
+  implicit val metricsConfigCantonConfigValidator: CantonConfigValidator[MetricsConfig] = {
+    import com.digitalasset.canton.config.CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[MetricsConfig]
+  }
 
   /** Control and enable jvm metrics */
   final case class JvmMetrics(
@@ -72,9 +81,12 @@ object MetricsConfig {
       memoryPools: Boolean = true,
       threads: Boolean = true,
       gc: Boolean = true,
-  )
+  ) extends UniformCantonConfigValidation
 
   object JvmMetrics {
+    implicit val jvmMetricsCanontConfigValidator: CantonConfigValidator[JvmMetrics] =
+      CantonConfigValidatorDerivation[JvmMetrics]
+
     def setup(config: JvmMetrics, openTelemetry: OpenTelemetry): Unit =
       if (config.enabled) {
         if (config.classes) Classes.registerObservers(openTelemetry).discard
@@ -94,11 +106,18 @@ sealed trait MetricsReporterConfig {
 
 object MetricsReporterConfig {
 
+  implicit val metricsReporterConfigCantonConfigValidator
+      : CantonConfigValidator[MetricsReporterConfig] = {
+    import com.digitalasset.canton.config.CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[MetricsReporterConfig]
+  }
+
   final case class Prometheus(
       address: String = "localhost",
       port: Port = Port.tryCreate(9464),
       filters: Seq[MetricsFilterConfig] = Seq.empty,
   ) extends MetricsReporterConfig
+      with UniformCantonConfigValidation
 
   /** CSV metrics reporter configuration
     *
@@ -116,6 +135,7 @@ object MetricsReporterConfig {
       contextKeys: Set[String] = Set("node", "synchronizer"),
       filters: Seq[MetricsFilterConfig] = Seq.empty,
   ) extends MetricsReporterConfig
+      with UniformCantonConfigValidation
 
   /** Log metrics reporter configuration
     *
@@ -129,6 +149,7 @@ object MetricsReporterConfig {
       filters: Seq[MetricsFilterConfig] = Seq.empty,
       logAsInfo: Boolean = true,
   ) extends MetricsReporterConfig
+      with UniformCantonConfigValidation
 
 }
 final case class MetricsRegistry(

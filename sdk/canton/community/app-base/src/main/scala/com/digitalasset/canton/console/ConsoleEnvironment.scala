@@ -28,9 +28,11 @@ import com.digitalasset.canton.sequencing.{
   SequencerConnections,
 }
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.{ParticipantId, PartyId}
+import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
+import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.{LfPartyId, SynchronizerAlias}
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.typesafe.scalalogging.Logger
 import io.opentelemetry.api.trace.Tracer
 import org.tpolecat.typename.TypeName
@@ -262,6 +264,8 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
         errorHandler.handleCommandFailure()
     }
   }
+
+  def raiseError(error: String): Nothing = run(CommandErrors.GenericCommandError(error))
 
   private def findInvocationSite(): Option[(String, String)] = {
     val stack = Thread.currentThread().getStackTrace
@@ -517,8 +521,8 @@ object ConsoleEnvironment {
     ): LocalInstancesExtensions[LocalInstanceReference] =
       new LocalInstancesExtensions.Impl(instances)
 
-    /** Implicit maps an LfPartyId to a PartyId */
-    implicit def toPartId(lfPartyId: LfPartyId): PartyId = PartyId.tryFromLfParty(lfPartyId)
+    implicit def toPartyId(lfPartyId: LfPartyId): PartyId = PartyId.tryFromLfParty(lfPartyId)
+    implicit def toPackageId(packageId: String): PackageId = PackageId.assertFromString(packageId)
 
     /** Extensions for many participant references
       */
@@ -619,6 +623,36 @@ object ConsoleEnvironment {
         duration: SDuration
     ): PositiveDurationSeconds =
       PositiveDurationSeconds.tryFromDuration(duration)
+
+    /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]] */
+    implicit def toSynchronizerTopologyStoreId(
+        synchronizerId: SynchronizerId
+    ): TopologyStoreId.Synchronizer = TopologyStoreId.Synchronizer(synchronizerId)
+
+    /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to [[scala.Option]] of [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]] */
+    implicit def synchronizerIdIsSomeTopologyStoreId(
+        synchronizerId: SynchronizerId
+    ): Option[TopologyStoreId.Synchronizer] =
+      Some(TopologyStoreId.Synchronizer(synchronizerId))
+
+    /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to [[scala.Option]] of [[com.digitalasset.canton.topology.SynchronizerId]] */
+    implicit def synchronizerIdIsSome(synchronizerId: SynchronizerId): Option[SynchronizerId] =
+      Some(synchronizerId)
+
+    /** Implicitly convert an [[scala.Option]] of [[com.digitalasset.canton.topology.SynchronizerId]] to [[scala.Option]] of [[com.digitalasset.canton.topology.SynchronizerId]] */
+    implicit def optionSynchronizerIdIsOptionTopologyStoreId(
+        synchronizerId: Option[SynchronizerId]
+    ): Option[TopologyStoreId] =
+      synchronizerId.map(TopologyStoreId.Synchronizer(_))
+
+    /** Implicitly convert a [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId]] to [[scala.Option]] of [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]] */
+    implicit def topologyStoreIdIsSome(topologyStoreId: TopologyStoreId): Option[TopologyStoreId] =
+      Some(topologyStoreId)
+
+    /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to [[scala.collection.immutable.Set]] of [[com.digitalasset.canton.topology.SynchronizerId]] */
+    implicit def synchronizerIdIsSet(synchronizerId: SynchronizerId): Set[SynchronizerId] = Set(
+      synchronizerId
+    )
   }
 
   object Implicits extends Implicits

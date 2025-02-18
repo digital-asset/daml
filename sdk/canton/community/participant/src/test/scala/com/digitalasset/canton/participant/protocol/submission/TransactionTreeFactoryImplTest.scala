@@ -66,16 +66,16 @@ final class TransactionTreeFactoryImplTest
     val submitterInfo = DefaultParticipantStateValues.submitterInfo(actAs)
     treeFactory
       .createTransactionTree(
-        transaction,
-        submitterInfo,
-        Some(WorkflowId.assertFromString("testWorkflowId")),
-        factory.mediatorGroup,
-        factory.transactionSeed,
-        factory.transactionUuid,
-        snapshot,
-        contractInstanceOfId,
-        keyResolver,
-        factory.ledgerTime.plusSeconds(100),
+        transaction = transaction,
+        submitterInfo = submitterInfo,
+        workflowId = Some(WorkflowId.assertFromString("testWorkflowId")),
+        mediator = factory.mediatorGroup,
+        transactionSeed = factory.transactionSeed,
+        transactionUuid = factory.transactionUuid,
+        topologySnapshot = snapshot,
+        contractOfId = contractInstanceOfId,
+        keyResolver = keyResolver,
+        maxSequencingTime = factory.ledgerTime.plusSeconds(100),
         validatePackageVettings = true,
       )
       .failOnShutdown

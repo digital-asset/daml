@@ -264,6 +264,14 @@ enableInterfacesOpt = EnableInterfaces <$>
             \If disabled, defining interfaces and interface instances is a compile-time error. \
             \On by default."
 
+forceUtilityPackageOpt :: Parser ForceUtilityPackage
+forceUtilityPackageOpt = ForceUtilityPackage <$>
+    flagYesNoAuto "force-utility-package" False desc internal
+    where
+        desc =
+            "Force a given package to compile as a utility package. \
+            \This will make all data types unserializable, and will reject template/exception definitions"
+
 dlintRulesFileParser :: Parser DlintRulesFile
 dlintRulesFileParser =
   lastOr DefaultDlintRulesFile $
@@ -428,6 +436,7 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
     optUpgradeInfo <- optUpgradeInfo
     optDamlWarningFlags <- optDamlWarningFlags
     optIgnoreDataDepVisibility <- optIgnoreDataDepVisibility
+    optForceUtilityPackage <- forceUtilityPackageOpt
 
     return Options{..}
   where

@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "Looking for JQ..." >&2
+if ! which jq >&2; then
+  echo "Required executable 'jq' is not installed." >&2
+  exit 1
+fi
+
+echo "Building all dars..." >&2
+daml build --all
+
+echo "Uploading test DAR..." >&2
+daml ledger upload-dar --host localhost --port 6865 test/.daml/dist/*.dar
+
+echo "Determining package id of main-1.0.0..." >&2
+daml damlc inspect-dar test/.daml/dist/*.dar --json | \
+  jq '.packages | to_entries[] | select(.value.name == "__PROJECT_NAME__-main" and .value.version == "1.0.0").key' \
+  > v1PackageId
+cat v1PackageId >&2
+
+echo "Running test script..." >&2
+daml script \
+  --ledger-host localhost --ledger-port 6865 \
+  --dar test/.daml/dist/*.dar --script-name Test:main \
+  --input-file v1PackageId \
+  --output-file test-output.json
+
+echo "Test output:" >&2
+jq . test-output.json

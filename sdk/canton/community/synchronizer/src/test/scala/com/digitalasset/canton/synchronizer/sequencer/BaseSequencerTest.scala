@@ -38,6 +38,7 @@ import com.digitalasset.canton.topology.DefaultTestIdentities.{
 }
 import com.digitalasset.canton.topology.{Member, SequencerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, SequencerCounter}
 import com.google.protobuf.ByteString
 import org.apache.pekko.Done
@@ -93,14 +94,14 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
         .Set[Member]() // we're using the scalatest serial execution context so don't need a concurrent collection
     override protected def sendAsyncInternal(submission: SubmissionRequest)(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] =
-      EitherT.pure[FutureUnlessShutdown, SendAsyncError](())
+    ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
+      EitherTUtil.unitUS
     override protected def sendAsyncSignedInternal(
         signedSubmission: SignedContent[SubmissionRequest]
     )(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, SendAsyncError, Unit] =
-      EitherT.pure[FutureUnlessShutdown, SendAsyncError](())
+    ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
+      EitherTUtil.unitUS
     override def isRegistered(member: Member)(implicit
         traceContext: TraceContext
     ): FutureUnlessShutdown[Boolean] =
@@ -190,24 +191,18 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
       FutureUnlessShutdown.pure(existingMembers.contains(member))
   }
 
-  Seq(("sendAsync", false), ("sendAsyncSigned", true)).foreach { case (name, useSignedSend) =>
-    def send(sequencer: Sequencer)(submission: SubmissionRequest) =
-      if (useSignedSend)
-        sequencer.sendAsyncSigned(
-          SignedContent(submission, Signature.noSignature, None, testedProtocolVersion)
-        )
-      else sequencer.sendAsync(submission)
-
-    name should {
-
-      "sends should not auto register" in {
-        val sequencer = new StubSequencer(existingMembers = Set(participant1))
-        val request = submission(from = participant1, to = Set(participant1, participant2))
-
-        for {
-          _ <- send(sequencer)(request).value.failOnShutdown
-        } yield sequencer.newlyRegisteredMembers shouldBe empty
-      }
+  "sendAsyncSigned" should {
+    "sends should not auto register" in {
+      val sequencer = new StubSequencer(existingMembers = Set(participant1))
+      val request = submission(from = participant1, to = Set(participant1, participant2))
+      for {
+        _ <- sequencer
+          .sendAsyncSigned(
+            SignedContent(request, Signature.noSignature, None, testedProtocolVersion)
+          )
+          .value
+          .failOnShutdown
+      } yield sequencer.newlyRegisteredMembers shouldBe empty
     }
   }
 

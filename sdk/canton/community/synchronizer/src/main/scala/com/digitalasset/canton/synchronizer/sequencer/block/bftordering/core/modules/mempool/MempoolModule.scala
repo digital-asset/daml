@@ -64,7 +64,7 @@ class MempoolModule[E <: Env[E]](
               val rejectionMessage =
                 s"mempool received client request of size $payloadSize " +
                   s"but it exceeds the maximum (${config.maxRequestPayloadBytes}), dropping it"
-              logger.info(rejectionMessage)
+              logger.warn(rejectionMessage)
               from.foreach(_.asyncSend(SequencerNode.RequestRejected(rejectionMessage)))
               metrics.ingress.labels.outcome.values.RequestTooBig
             } else {

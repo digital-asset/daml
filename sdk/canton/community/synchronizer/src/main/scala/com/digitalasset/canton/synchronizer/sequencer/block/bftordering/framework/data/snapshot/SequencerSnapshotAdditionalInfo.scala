@@ -20,13 +20,14 @@ final case class SequencerSnapshotAdditionalInfo(
     peerActiveAt: Map[SequencerId, PeerActiveAt]
 ) {
 
-  def toProto: v30.BftSequencerSnapshotAdditionalInfo = {
+  def toProto30: v30.BftSequencerSnapshotAdditionalInfo = {
     val peerActiveAtEpochNumbersProto = peerActiveAt.view.map { case (peer, activeAt) =>
       peer.toProtoPrimitive ->
         v30.BftSequencerSnapshotAdditionalInfo.PeerActiveAt.of(
-          activeAt.timestamp.map(_.value.toMicros),
+          activeAt.timestamp.value.toMicros,
           activeAt.epochNumber,
           activeAt.firstBlockNumberInEpoch,
+          activeAt.epochTopologyQueryTimestamp.map(_.value.toMicros),
           activeAt.epochCouldAlterOrderingTopology,
           activeAt.previousBftTime.map(_.toMicros),
         )
@@ -48,16 +49,16 @@ object SequencerSnapshotAdditionalInfo {
         .map { case (sequencerUidProto, firstKnownAtProto) =>
           for {
             sequencerId <- SequencerId.fromProtoPrimitive(sequencerUidProto, "sequencerUid")
-            timestamp <- firstKnownAtProto.timestamp
-              .map(timestamp =>
-                CantonTimestamp
-                  .fromProtoPrimitive(timestamp)
-                  .map(TopologyActivationTime(_))
-                  .map(Some(_))
-              )
-              .getOrElse(Right(None))
+            timestamp <- CantonTimestamp
+              .fromProtoPrimitive(firstKnownAtProto.timestamp)
+              .map(TopologyActivationTime(_))
             epochNumber = firstKnownAtProto.epochNumber.map(EpochNumber(_))
             firstBlockNumberInEpoch = firstKnownAtProto.firstBlockNumberInEpoch.map(BlockNumber(_))
+            epochTopologyQueryTimestamp <- firstKnownAtProto.epochTopologyQueryTimestamp
+              .map(time =>
+                CantonTimestamp.fromProtoPrimitive(time).map(TopologyActivationTime(_)).map(Some(_))
+              )
+              .getOrElse(Right(None))
             previousBftTime <- firstKnownAtProto.previousBftTime
               .map(time => CantonTimestamp.fromProtoPrimitive(time).map(Some(_)))
               .getOrElse(Right(None))
@@ -65,6 +66,7 @@ object SequencerSnapshotAdditionalInfo {
             timestamp,
             epochNumber,
             firstBlockNumberInEpoch,
+            epochTopologyQueryTimestamp,
             firstKnownAtProto.epochCouldAlterOrderingTopology,
             previousBftTime,
           )
@@ -75,9 +77,10 @@ object SequencerSnapshotAdditionalInfo {
 }
 
 final case class PeerActiveAt(
-    timestamp: Option[TopologyActivationTime],
+    timestamp: TopologyActivationTime,
     epochNumber: Option[EpochNumber],
     firstBlockNumberInEpoch: Option[BlockNumber],
+    epochTopologyQueryTimestamp: Option[TopologyActivationTime],
     epochCouldAlterOrderingTopology: Option[Boolean],
     previousBftTime: Option[CantonTimestamp],
 )

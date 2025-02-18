@@ -48,9 +48,9 @@ import com.digitalasset.canton.participant.protocol.validation.{
   AuthenticationValidator,
 }
 import com.digitalasset.canton.participant.protocol.{
+  ContractAuthenticator,
   EngineController,
   ProcessingStartingPoints,
-  SerializableContractAuthenticator,
 }
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
@@ -291,7 +291,7 @@ final class UnassignmentProcessingStepsTest
       reassignmentCoordination,
       seedGenerator,
       Source(defaultStaticSynchronizerParameters),
-      SerializableContractAuthenticator(crypto.pureCrypto),
+      ContractAuthenticator(crypto.pureCrypto),
       Source(testedProtocolVersion),
       loggerFactory,
     )(executorService)

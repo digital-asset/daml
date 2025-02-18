@@ -132,7 +132,7 @@ trait Endpoints extends NamedLogging {
       .out(header(wsSubprotocol))
       .serverSecurityLogicSuccess(Future.successful)
       // TODO(i19398): Handle error result
-      // TODO(i19103)  decide if tracecontext headers on websockets are handled
+      // TODO(i19013)  decide if tracecontext headers on websockets are handled
       .serverLogicSuccess { jwt => i =>
         val errorHandlingService =
           service(jwt)(TracedInput(i, TraceContext.empty))
@@ -268,7 +268,7 @@ trait Endpoints extends NamedLogging {
         )
       )
     case NonFatal(e) =>
-      // TODO(i19103)  decide if tracecontext headers on websockets are handled
+      // TODO(i19013)  decide if tracecontext headers on websockets are handled
       implicit val tc = TraceContext.empty
       val internalError =
         LedgerApiErrors.InternalError.Generic(

@@ -489,6 +489,10 @@ object ActionDescription extends VersioningCompanion[ActionDescription] {
 
     override def seedOption: Option[LfHash] = None
 
+    // Fetch nodes that have been dispatched via a interface have an implicit package preference
+    def packagePreference: Set[LfPackageId] =
+      if (interfaceId.nonEmpty) Set(templateId.packageId) else Set.empty
+
     override protected def toProtoDescriptionV30: v30.ActionDescription.Description.Fetch =
       v30.ActionDescription.Description.Fetch(
         v30.ActionDescription.FetchActionDescription(

@@ -62,7 +62,8 @@ trait CommitmentStoreBaseTest
     loggerFactory,
   )
 
-  protected lazy val testKey: SigningPublicKey = crypto.generateSymbolicSigningKey()
+  lazy val testKey: SigningPublicKey =
+    crypto.generateSymbolicSigningKey(usage = SigningKeyUsage.ProtocolOnly)
 
   protected lazy val localId: ParticipantId = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("localParticipant::synchronizer")

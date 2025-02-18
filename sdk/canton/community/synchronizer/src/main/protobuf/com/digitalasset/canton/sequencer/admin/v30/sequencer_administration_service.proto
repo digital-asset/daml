@@ -8,7 +8,7 @@ package com.digitalasset.canton.sequencer.admin.v30;
 import "com/digitalasset/canton/protocol/v30/sequencing.proto";
 import "com/digitalasset/canton/protocol/v30/traffic_control_parameters.proto";
 import "com/digitalasset/canton/sequencer/admin/v30/sequencer_initialization_snapshot.proto";
-import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
+import "com/digitalasset/canton/topology/admin/v30/common.proto";
 import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 

@@ -12,6 +12,8 @@ import com.daml.ledger.api.v2.admin.command_inspection_service.{
 import com.daml.ledger.api.v2.commands.Command
 import com.daml.ledger.api.v2.value.Identifier
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.semiauto.CantonConfigValidatorDerivation
+import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -46,9 +48,15 @@ final case class CommandProgressTrackerConfig(
     maxFailed: NonNegativeInt = defaultMaxFailed,
     maxPending: NonNegativeInt = defaultMaxPending,
     maxSucceeded: NonNegativeInt = defaultMaxSucceeded,
-)
+) extends UniformCantonConfigValidation
 
 object CommandProgressTrackerConfig {
+  implicit val commandProgressTrackerConfigCantonConfigValidator
+      : CantonConfigValidator[CommandProgressTrackerConfig] = {
+    import com.digitalasset.canton.config.CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[CommandProgressTrackerConfig]
+  }
+
   lazy val defaultMaxFailed: NonNegativeInt = NonNegativeInt.tryCreate(100)
   lazy val defaultMaxPending: NonNegativeInt = NonNegativeInt.tryCreate(1000)
   lazy val defaultMaxSucceeded: NonNegativeInt = NonNegativeInt.tryCreate(100)

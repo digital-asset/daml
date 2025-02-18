@@ -127,15 +127,20 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
         confirmingParties: Set[LfPartyId],
         rootHash: RootHash,
         sender: ParticipantId = solo,
-    ): ConfirmationResponse =
-      ConfirmationResponse.tryCreate(
+    ): ConfirmationResponses =
+      ConfirmationResponses.tryCreate(
         requestId,
-        sender,
-        Some(viewPosition),
-        verdict,
         rootHash,
-        confirmingParties,
         synchronizerId,
+        sender,
+        NonEmpty.mk(
+          Seq,
+          ConfirmationResponse.tryCreate(
+            Some(viewPosition),
+            verdict,
+            confirmingParties,
+          ),
+        ),
         testedProtocolVersion,
       )
 
@@ -198,14 +203,19 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
       }
 
       it("should reject responses with the wrong root hash") {
-        val responseWithWrongRootHash = ConfirmationResponse.tryCreate(
+        val responseWithWrongRootHash = ConfirmationResponses.tryCreate(
           requestId,
-          solo,
-          Some(view1Position),
-          LocalApprove(testedProtocolVersion),
           someOtherRootHash,
-          Set(alice),
           synchronizerId,
+          solo,
+          NonEmpty.mk(
+            Seq,
+            ConfirmationResponse.tryCreate(
+              Some(view1Position),
+              LocalApprove(testedProtocolVersion),
+              Set(alice),
+            ),
+          ),
           testedProtocolVersion,
         )
         val responseTs = requestId.unwrap.plusSeconds(1)
@@ -551,14 +561,19 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
 
       describe("for a single view") {
         it("should update the pending confirming parties set for all hosted parties") {
-          val response = ConfirmationResponse.tryCreate(
+          val response = ConfirmationResponses.tryCreate(
             requestId,
-            solo,
-            Some(view1Position),
-            testReject("malformed view"),
             informeeMessage.rootHash,
-            Set.empty,
             synchronizerId,
+            solo,
+            NonEmpty.mk(
+              Seq,
+              ConfirmationResponse.tryCreate(
+                Some(view1Position),
+                testReject("malformed view"),
+                Set.empty,
+              ),
+            ),
             testedProtocolVersion,
           )
           val result =
@@ -596,17 +611,21 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
       describe("without a view hash") {
         it("should update the pending confirming parties for all hosted parties in all views") {
           val rejectMsg = "malformed request"
-          val response =
-            ConfirmationResponse.tryCreate(
-              requestId,
-              solo,
-              None,
-              testReject(rejectMsg),
-              informeeMessage.rootHash,
-              Set.empty,
-              synchronizerId,
-              testedProtocolVersion,
-            )
+          val response = ConfirmationResponses.tryCreate(
+            requestId,
+            informeeMessage.rootHash,
+            synchronizerId,
+            solo,
+            NonEmpty.mk(
+              Seq,
+              ConfirmationResponse.tryCreate(
+                None,
+                testReject(rejectMsg),
+                Set.empty,
+              ),
+            ),
+            testedProtocolVersion,
+          )
           val result =
             valueOrFail(
               sut.validateAndProgress(changeTs, response, topologySnapshot).futureValueUS

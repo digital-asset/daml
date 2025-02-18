@@ -14,6 +14,7 @@ import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.tracing.DefaultOpenTelemetry
 import com.digitalasset.canton.ledger.api.validation.{
   CommandsValidator,
+  ValidateDisclosedContracts,
   ValidateUpgradingPackageResolutions,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -235,7 +236,8 @@ class CommandServiceImplSpec
       deadlineTicker: Deadline.Ticker = Deadline.getSystemTicker,
   ): ResourceOwner[CommandServiceGrpc.CommandServiceStub] = {
     val commandsValidator = new CommandsValidator(
-      validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.Empty
+      validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.Empty,
+      validateDisclosedContracts = ValidateDisclosedContracts.WithContractIdVerificationDisabled,
     )
     val apiService = new ApiCommandService(
       service = service,

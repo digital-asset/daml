@@ -19,7 +19,10 @@ from com.digitalasset.canton.topology.admin.v30 import (
 from com.digitalasset.canton.topology.admin.v30 import (
     topology_manager_read_service_pb2_grpc,
 )
-from com.digitalasset.canton.topology.admin.v30 import topology_manager_read_service_pb2
+from com.digitalasset.canton.topology.admin.v30 import (
+    topology_manager_read_service_pb2,
+    common_pb2,
+)
 from com.digitalasset.canton.protocol.v30 import topology_pb2
 from com.digitalasset.canton.crypto.v30 import crypto_pb2
 import hashlib
@@ -83,7 +86,9 @@ def generate_and_sign_topology_transaction(
         operation=topology_pb2.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE,
         serial=1,
         mapping=mapping,
-        store="Authorized",
+        store=common_pb2.StoreId(
+            authorized=common_pb2.StoreId.Authorized()
+        )
     )
 
     # Generate the topology transaction from the proposal
@@ -247,7 +252,9 @@ def onboard_external_party(
     sign_transaction_request = (
         topology_manager_write_service_pb2.SignTransactionsRequest(
             transactions=[party_to_participant_transaction],
-            store="Authorized",
+            store=common_pb2.StoreId(
+                authorized=common_pb2.StoreId.Authorized()
+            )
         )
     )
     fully_signed_party_to_participant_transaction: (
@@ -261,7 +268,9 @@ def onboard_external_party(
                 party_to_key_transaction,
                 fully_signed_party_to_participant_transaction,
             ],
-            store="Authorized",
+            store=common_pb2.StoreId(
+                authorized=common_pb2.StoreId.Authorized()
+            )
         )
     )
     topology_write_client.AddTransactions(add_transactions_request)
@@ -274,8 +283,8 @@ def onboard_external_party(
         ) = topology_read_client.ListPartyToParticipant(
             topology_manager_read_service_pb2.ListPartyToParticipantRequest(
                 base_query=topology_manager_read_service_pb2.BaseQuery(
-                    filter_store=topology_manager_read_service_pb2.Store(
-                        synchronizer=topology_manager_read_service_pb2.Store.Synchronizer(
+                    store=common_pb2.StoreId(
+                        synchronizer=common_pb2.StoreId.Synchronizer(
                             id=synchronizer_id,
                         )
                     ),

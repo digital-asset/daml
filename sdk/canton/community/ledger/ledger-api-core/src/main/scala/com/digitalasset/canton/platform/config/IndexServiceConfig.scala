@@ -18,7 +18,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
   * @param maxTransactionsInMemoryFanOutBufferSize maximum number of transactions to hold in the "in-memory fanout" (if enabled)
   * @param apiStreamShutdownTimeout                shutdown timeout for a graceful completion of ledger api server's streams
   * @param inMemoryStateUpdaterParallelism         the processing parallelism of the Ledger API server in-memory state updater
-  * @param apiReadServicesThreadPoolSize           size of the thread-pool backing the Ledger API read-services (fe not the command submission/interpretation).
+  * @param apiQueryServicesThreadPoolSize          size of the thread-pool backing the Ledger API query-services (fe not the command submission/interpretation).
   *                                                If not set, defaults to ((number of thread)/4 + 1)
   * @param preparePackageMetadataTimeOutWarning    timeout for package metadata preparation after which a warning will be logged
   * @param completionsPageSize                     database / pekko page size for batching of ledger api server index ledger completion queries
@@ -41,7 +41,7 @@ final case class IndexServiceConfig(
     apiStreamShutdownTimeout: Duration = IndexServiceConfig.DefaultApiStreamShutdownTimeout,
     inMemoryStateUpdaterParallelism: Int =
       IndexServiceConfig.DefaultInMemoryStateUpdaterParallelism,
-    apiReadServicesThreadPoolSize: Option[Int] = None,
+    apiQueryServicesThreadPoolSize: Option[Int] = None,
     preparePackageMetadataTimeOutWarning: NonNegativeFiniteDuration =
       IndexServiceConfig.PreparePackageMetadataTimeOutWarning,
     completionsPageSize: Int = IndexServiceConfig.DefaultCompletionsPageSize,
@@ -73,7 +73,7 @@ object IndexServiceConfig {
   val IdleStreamOffsetCheckpointTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.ofMinutes(1)
 
-  def DefaultApiServicesThreadPoolSize(logger: Logger): Int = {
+  def DefaultQueryServicesThreadPoolSize(logger: Logger): Int = {
     val numberOfThreads = Threading.detectNumberOfThreads(logger)
     numberOfThreads / 4 + 1
   }

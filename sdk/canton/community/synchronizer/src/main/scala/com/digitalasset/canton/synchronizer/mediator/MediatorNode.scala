@@ -13,6 +13,7 @@ import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.*
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.{
@@ -117,6 +118,13 @@ final case class MediatorNodeParameterConfig(
     override val watchdog: Option[WatchdogConfig] = None,
 ) extends ProtocolConfig
     with LocalNodeParametersConfig
+    with UniformCantonConfigValidation
+
+object MediatorNodeParameterConfig {
+  implicit val mediatorNodeParameterConfigCantonConfigValidator
+      : CantonConfigValidator[MediatorNodeParameterConfig] =
+    CantonConfigValidatorDerivation[MediatorNodeParameterConfig]
+}
 
 final case class MediatorNodeParameters(
     general: CantonNodeParameters.General,
@@ -128,8 +136,14 @@ final case class MediatorNodeParameters(
 final case class RemoteMediatorConfig(
     adminApi: ClientConfig,
     token: Option[String] = None,
-) extends NodeConfig {
+) extends NodeConfig
+    with UniformCantonConfigValidation {
   override def clientAdminApi: ClientConfig = adminApi
+}
+object RemoteMediatorConfig {
+  implicit val remoteMediatorConfigCantonConfigValidator
+      : CantonConfigValidator[RemoteMediatorConfig] =
+    CantonConfigValidatorDerivation[RemoteMediatorConfig]
 }
 
 /** Community Mediator Node configuration that defaults to auto-init
@@ -137,7 +151,7 @@ final case class RemoteMediatorConfig(
 final case class CommunityMediatorNodeConfig(
     override val adminApi: AdminServerConfig = AdminServerConfig(),
     override val storage: StorageConfig = StorageConfig.Memory(),
-    override val crypto: CommunityCryptoConfig = CommunityCryptoConfig(),
+    override val crypto: CryptoConfig = CryptoConfig(),
     override val init: InitConfig = InitConfig(identity = Some(InitConfigBase.Identity())),
     override val timeTracker: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
@@ -158,7 +172,8 @@ final case class CommunityMediatorNodeConfig(
       mediator,
       monitoring,
     )
-    with ConfigDefaults[DefaultPorts, CommunityMediatorNodeConfig] {
+    with ConfigDefaults[DefaultPorts, CommunityMediatorNodeConfig]
+    with CommunityOnlyCantonConfigValidation {
 
   override val nodeTypeName: String = "mediator"
 
@@ -168,6 +183,12 @@ final case class CommunityMediatorNodeConfig(
     this
       .focus(_.adminApi.internalPort)
       .modify(ports.mediatorAdminApiPort.setDefaultPort)
+}
+
+object CommunityMediatorNodeConfig {
+  implicit val communityMediatorNodeConfigCantonConfigValidator
+      : CantonConfigValidator[CommunityMediatorNodeConfig] =
+    CantonConfigValidatorDerivation[CommunityMediatorNodeConfig]
 }
 
 class MediatorNodeBootstrap(
@@ -206,7 +227,7 @@ class MediatorNodeBootstrap(
       storeId: TopologyStoreId
   ): Option[SynchronizerTopologyClient] =
     storeId match {
-      case SynchronizerStore(synchronizerId, _) =>
+      case SynchronizerStore(synchronizerId) =>
         replicaManager.mediatorRuntime
           .map(_.mediator.topologyClient)
           .filter(_.synchronizerId == synchronizerId)

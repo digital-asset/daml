@@ -22,7 +22,7 @@ import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.backend.common.MismatchException
 import com.digitalasset.canton.platform.store.cache.*
 import com.digitalasset.canton.platform.store.dao.events.{
-  BufferedTransactionsReader,
+  BufferedUpdateReader,
   ContractLoader,
   LfValueTranslation,
 }
@@ -58,7 +58,8 @@ final class IndexServiceOwner(
     contractLoader: ContractLoader,
     getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
     lfValueTranslation: LfValueTranslation,
-    readApiServiceExecutionContext: ExecutionContextExecutorService,
+    queryExecutionContext: ExecutionContextExecutorService,
+    commandExecutionContext: ExecutionContextExecutorService,
 ) extends ResourceOwner[IndexService]
     with NamedLogging {
   private val initializationRetryDelay = 100.millis
@@ -70,7 +71,8 @@ final class IndexServiceOwner(
       stringInterning = inMemoryState.stringInterningView,
       contractLoader = contractLoader,
       lfValueTranslation = lfValueTranslation,
-      servicesExecutionContext = readApiServiceExecutionContext,
+      queryExecutionContext = queryExecutionContext,
+      commandExecutionContext = commandExecutionContext,
     )
     for {
       _ <- Resource.fromFuture(verifyParticipantId(ledgerDao))
@@ -80,29 +82,29 @@ final class IndexServiceOwner(
         ledgerDao.contractsReader,
         contractStateCaches = inMemoryState.contractStateCaches,
         loggerFactory = loggerFactory,
-      )(readApiServiceExecutionContext)
+      )(commandExecutionContext)
 
-      bufferedTransactionsReader = BufferedTransactionsReader(
-        delegate = ledgerDao.transactionsReader,
+      bufferedTransactionsReader = BufferedUpdateReader(
+        delegate = ledgerDao.updateReader,
         transactionsBuffer = inMemoryState.inMemoryFanoutBuffer,
         lfValueTranslation = lfValueTranslation,
         metrics = metrics,
         eventProcessingParallelism = config.bufferedEventsProcessingParallelism,
         experimentalEnableTopologyEvents = experimentalEnableTopologyEvents,
         loggerFactory = loggerFactory,
-      )(readApiServiceExecutionContext)
+      )(queryExecutionContext)
 
       bufferedCommandCompletionsReader = BufferedCommandCompletionsReader(
         inMemoryFanoutBuffer = inMemoryState.inMemoryFanoutBuffer,
         delegate = ledgerDao.completions,
         metrics = metrics,
         loggerFactory = loggerFactory,
-      )(readApiServiceExecutionContext)
+      )(queryExecutionContext)
 
       indexService = new IndexServiceImpl(
         participantId = participantId,
         ledgerDao = ledgerDao,
-        transactionsReader = bufferedTransactionsReader,
+        updatesReader = bufferedTransactionsReader,
         commandCompletionsReader = bufferedCommandCompletionsReader,
         contractStore = contractStore,
         pruneBuffers = inMemoryState.inMemoryFanoutBuffer.prune,
@@ -112,6 +114,7 @@ final class IndexServiceOwner(
         metrics = metrics,
         loggerFactory = loggerFactory,
         idleStreamOffsetCheckpointTimeout = config.idleStreamOffsetCheckpointTimeout,
+        experimentalEnableTopologyEvents = experimentalEnableTopologyEvents,
       )
     } yield new TimedIndexService(indexService, metrics)
   }
@@ -129,6 +132,9 @@ final class IndexServiceOwner(
         )(TraceContext.empty)
         Future.failed(InMemoryStateNotInitialized)
       } else {
+        logger.info(
+          s"Participant in-memory state initialized."
+        )(TraceContext.empty)
         Future.unit
       }
     }
@@ -181,11 +187,13 @@ final class IndexServiceOwner(
       stringInterning: StringInterning,
       contractLoader: ContractLoader,
       lfValueTranslation: LfValueTranslation,
-      servicesExecutionContext: ExecutionContext,
+      queryExecutionContext: ExecutionContextExecutorService,
+      commandExecutionContext: ExecutionContextExecutorService,
   ): LedgerReadDao =
     JdbcLedgerDao.read(
       dbSupport = dbSupport,
-      servicesExecutionContext = servicesExecutionContext,
+      queryExecutionContext = queryExecutionContext,
+      commandExecutionContext = commandExecutionContext,
       metrics = metrics,
       participantId = participantId,
       ledgerEndCache = ledgerEndCache,

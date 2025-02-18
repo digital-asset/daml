@@ -3,6 +3,13 @@
 
 package com.digitalasset.canton.platform.store.dao
 
+import com.digitalasset.canton.ledger.api.TransactionShape.AcsDelta
+import com.digitalasset.canton.platform.{
+  InternalEventFormat,
+  InternalTransactionFormat,
+  TemplatePartiesFilter,
+}
+import com.digitalasset.daml.lf.data.Ref.Party
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, LoneElement, OptionValues}
@@ -18,9 +25,9 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
 
     for {
       (_, tx) <- store(singleCreate(cId => create(cId)))
-      flatTx <- ledgerDao.transactionsReader.lookupFlatTransactionById(
+      flatTx <- ledgerDao.updateReader.lookupTransactionById(
         tx.updateId,
-        tx.actAs.toSet,
+        transactionFormatForWildcardParties(tx.actAs.toSet),
       )
       result <- eventsReader.getEventsByContractId(
         nonTransient(tx).loneElement,
@@ -38,9 +45,9 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
       (_, tx1) <- store(singleCreate(cId => create(cId)))
       contractId = nonTransient(tx1).loneElement
       (_, tx2) <- store(singleExercise(contractId))
-      flatTx <- ledgerDao.transactionsReader.lookupFlatTransactionById(
+      flatTx <- ledgerDao.updateReader.lookupTransactionById(
         tx2.updateId,
-        tx2.actAs.toSet,
+        transactionFormatForWildcardParties(tx2.actAs.toSet),
       )
       expected = flatTx.value.transaction.value.events.loneElement.event.archived.value
       result <- eventsReader.getEventsByContractId(contractId, Set(alice))
@@ -56,7 +63,7 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
       (_, tx) <- store(
         singleCreate(cId => create(cId, signatories = Set(alice), observers = Set(charlie)))
       )
-      _ <- ledgerDao.transactionsReader.lookupTransactionTreeById(
+      _ <- ledgerDao.updateReader.lookupTransactionTreeById(
         tx.updateId,
         tx.actAs.toSet,
       )
@@ -70,4 +77,22 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
       emmaView.created.flatMap(_.createdEvent).isDefined shouldBe false
     }
   }
+
+  private def transactionFormatForWildcardParties(
+      requestingParties: Set[Party]
+  ): InternalTransactionFormat =
+    InternalTransactionFormat(
+      internalEventFormat = InternalEventFormat(
+        templatePartiesFilter = TemplatePartiesFilter(
+          relation = Map.empty,
+          templateWildcardParties = Some(requestingParties),
+        ),
+        eventProjectionProperties = EventProjectionProperties(
+          verbose = true,
+          templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
+        ),
+      ),
+      transactionShape = AcsDelta,
+    )
+
 }

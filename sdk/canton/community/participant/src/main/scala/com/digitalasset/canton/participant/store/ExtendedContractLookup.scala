@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.store
 import cats.data.{EitherT, OptionT}
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
+import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.protocol.{
   ContractMetadata,
   LfContractId,
@@ -25,7 +25,7 @@ import scala.concurrent.ExecutionContext
 class ExtendedContractLookup(
     private val contracts: Map[LfContractId, SerializableContract],
     private val keys: Map[LfGlobalKey, Option[LfContractId]],
-    private val authenticator: SerializableContractAuthenticator,
+    private val authenticator: ContractAuthenticator,
 )(protected implicit val ec: ExecutionContext)
     extends ContractLookupAndVerification {
 

@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.store
 
 import cats.syntax.either.*
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
+import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   asSerializable,
@@ -14,6 +14,7 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
 }
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId}
+import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.digitalasset.daml.lf.value.Value.{ValueText, ValueUnit}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -21,8 +22,10 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest with FailOn
 
   import com.digitalasset.canton.protocol.ExampleTransactionFactory.suffixedId
 
-  private object dummyAuthenticator extends SerializableContractAuthenticator {
-    override def authenticate(contract: SerializableContract): Either[String, Unit] = Either.unit
+  private object dummyAuthenticator extends ContractAuthenticator {
+    override def authenticateSerializable(contract: SerializableContract): Either[String, Unit] =
+      Either.unit
+    override def authenticateFat(contract: FatContractInstance): Either[String, Unit] = Either.unit
     override def verifyMetadata(
         contract: SerializableContract,
         metadata: ContractMetadata,

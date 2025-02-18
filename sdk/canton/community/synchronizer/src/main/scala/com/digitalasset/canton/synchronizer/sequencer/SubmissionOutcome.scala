@@ -3,14 +3,24 @@
 
 package com.digitalasset.canton.synchronizer.sequencer
 
+import cats.implicits.showInterpolator
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.sequencing.protocol.{Batch, ClosedEnvelope, SubmissionRequest}
+import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.sequencing.protocol.{
+  AggregationId,
+  Batch,
+  ClosedEnvelope,
+  SequencerDeliverError,
+  SubmissionRequest,
+}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.rpc.status.Status
 
-sealed trait SubmissionOutcome
+sealed trait SubmissionOutcome {
+  def updateTrafficReceipt(trafficReceiptO: Option[TrafficReceipt]): SubmissionOutcome
+}
 sealed trait DeliverableSubmissionOutcome extends SubmissionOutcome {
   def submission: SubmissionRequest
 
@@ -22,7 +32,11 @@ sealed trait DeliverableSubmissionOutcome extends SubmissionOutcome {
 
   def trafficReceiptO: Option[TrafficReceipt]
 
-  def updateTrafficReceipt(trafficReceiptO: Option[TrafficReceipt]): DeliverableSubmissionOutcome
+  override def updateTrafficReceipt(
+      trafficReceiptO: Option[TrafficReceipt]
+  ): DeliverableSubmissionOutcome
+
+  def inFlightAggregation: Option[(AggregationId, InFlightAggregationUpdate)]
 }
 
 object SubmissionOutcome {
@@ -42,6 +56,7 @@ object SubmissionOutcome {
       batch: Batch[ClosedEnvelope],
       override val submissionTraceContext: TraceContext,
       override val trafficReceiptO: Option[TrafficReceipt],
+      override val inFlightAggregation: Option[(AggregationId, InFlightAggregationUpdate)],
   ) extends DeliverableSubmissionOutcome {
     override def updateTrafficReceipt(
         trafficReceiptO: Option[TrafficReceipt]
@@ -61,6 +76,7 @@ object SubmissionOutcome {
       override val sequencingTime: CantonTimestamp,
       override val submissionTraceContext: TraceContext,
       override val trafficReceiptO: Option[TrafficReceipt],
+      override val inFlightAggregation: Option[(AggregationId, InFlightAggregationUpdate)],
   ) extends DeliverableSubmissionOutcome {
     override def deliverToMembers: Set[Member] = Set(submission.sender)
 
@@ -71,7 +87,10 @@ object SubmissionOutcome {
 
   /** The submission was fully discarded, no error is delivered to sender, no messages are sent to the members.
     */
-  case object Discard extends SubmissionOutcome
+  case object Discard extends SubmissionOutcome {
+    override def updateTrafficReceipt(trafficReceiptO: Option[TrafficReceipt]): SubmissionOutcome =
+      this
+  }
 
   /** The submission was rejected and an error should be delivered to the sender.
     *
@@ -94,6 +113,39 @@ object SubmissionOutcome {
     override def updateTrafficReceipt(
         trafficReceiptO: Option[TrafficReceipt]
     ): DeliverableSubmissionOutcome = copy(trafficReceiptO = trafficReceiptO)
+
+    override def inFlightAggregation: Option[(AggregationId, InFlightAggregationUpdate)] = None
+  }
+
+  object Reject {
+    def logAndCreate(
+        submission: SubmissionRequest,
+        sequencingTime: CantonTimestamp,
+        sequencerError: SequencerDeliverError,
+    )(implicit
+        traceContext: TraceContext,
+        loggingContext: ErrorLoggingContext,
+    ): Reject = {
+      loggingContext.debug(
+        show"Rejecting submission request ${submission.messageId} from ${submission.sender} with error ${sequencerError.code
+            .toMsg(sequencerError.cause, correlationId = None, limit = None)}"
+      )
+
+      new Reject(
+        submission,
+        sequencingTime,
+        sequencerError.rpcStatusWithoutLoggingContext(),
+        traceContext,
+        trafficReceiptO = None,
+      )
+    }
+  }
+
+  def prettyString(outcome: SubmissionOutcome): String = outcome match {
+    case _: Deliver => "Deliver"
+    case _: DeliverReceipt => "DeliverReceipt"
+    case Discard => "Discard"
+    case reject: Reject => s"Reject(${reject.error.message})"
   }
 
 }

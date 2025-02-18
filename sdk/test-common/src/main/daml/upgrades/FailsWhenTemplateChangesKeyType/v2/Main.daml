@@ -3,15 +3,14 @@
 
 module Main where
 
-data T = T with
-  i : Int
-  j : Optional Int
+data T = T {}
+data U = U {}
 
 template A with
     p : Party
     q : Party
   where
     signatory p
-    key (p, T 0 None) : (Party, T)
+    key (p, U) : (Party, U)
     maintainer (fst key)
 

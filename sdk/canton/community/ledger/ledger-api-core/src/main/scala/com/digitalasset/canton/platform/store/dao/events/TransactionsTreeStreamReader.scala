@@ -62,7 +62,7 @@ class TransactionsTreeStreamReader(
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
-  import TransactionsReader.*
+  import UpdateReader.*
   import config.*
 
   private val dbMetrics = metrics.index.db
@@ -298,7 +298,7 @@ class TransactionsTreeStreamReader(
     val allSortedPayloads = payloadsConsuming
       .mergeSorted(payloadsCreate)(orderBySequentialEventId)
       .mergeSorted(payloadsNonConsuming)(orderBySequentialEventId)
-    val sourceOfTreeTransactions = TransactionsReader
+    val sourceOfTreeTransactions = UpdateReader
       .groupContiguous(allSortedPayloads)(by = _.updateId)
       .mapAsync(transactionsProcessingParallelism)(rawEvents =>
         deserializationQueriesLimiter.execute(
@@ -391,7 +391,7 @@ class TransactionsTreeStreamReader(
         implicit val executionContext: ExecutionContext =
           directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
         MonadUtil.sequentialTraverse(rawEvents)(
-          TransactionsReader.deserializeTreeEvent(eventProjectionProperties, lfValueTranslation)
+          UpdateReader.deserializeTreeEvent(eventProjectionProperties, lfValueTranslation)
         )
       },
       timer = dbMetrics.updatesLedgerEffectsStream.translationTimer,

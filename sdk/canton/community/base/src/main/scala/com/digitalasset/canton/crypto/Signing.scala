@@ -118,7 +118,7 @@ trait SigningPrivateOps {
   /** Generates a new signing key pair with the given scheme and optional name, stores the private key and returns the public key. */
   def generateSigningKey(
       keySpec: SigningKeySpec = defaultSigningKeySpec,
-      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
+      usage: NonEmpty[Set[SigningKeyUsage]],
       name: Option[KeyName] = None,
   )(implicit
       traceContext: TraceContext
@@ -152,7 +152,7 @@ trait SigningPrivateStoreOps extends SigningPrivateOps {
   /** Internal method to generate and return the entire signing key pair */
   protected[crypto] def generateSigningKeypair(
       keySpec: SigningKeySpec,
-      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningKeyPair]
@@ -357,7 +357,7 @@ final case class SignatureDelegation private[crypto] (
   // set to be used for protocol messages
   require(
     sessionKey.format == CryptoKeyFormat.DerX509Spki &&
-      SigningKeyUsage.nonEmptyIntersection(sessionKey.usage, SigningKeyUsage.ProtocolOnly) &&
+      SigningKeyUsage.compatibleUsage(sessionKey.usage, SigningKeyUsage.ProtocolOnly) &&
       signature.signatureDelegation.isEmpty // we don't support recursive delegations
   )
 
@@ -679,11 +679,23 @@ object SigningKeyUsage {
         NonEmpty.from(listUsages.toSet).toRight(ProtoDeserializationError.FieldNotSet("usage"))
       )
 
-  def nonEmptyIntersection(
-      usage: NonEmpty[Set[SigningKeyUsage]],
-      filterUsage: NonEmpty[Set[SigningKeyUsage]],
-  ): Boolean =
-    usage.intersect(filterUsage).nonEmpty
+  /** Ensures that the intersection of a `key's usage` and the `allowed usages` is not empty, except when the only
+    * intersecting element is `ProofOfOwnership`.
+    *
+    * This guarantees that at least one usage is shared, as long as it's not limited to `ProofOfOwnership`,
+    * which is an internal key usage type.
+    * The only case where the intersection can consist solely of `ProofOfOwnership` is when signing or verifying
+    * topology mappings like `OwnerToKeyMappings`, where the keys must be self-signed. In this case, we allow only
+    * `ProofOfOwnership` type keys.
+    */
+  def compatibleUsage(
+      keyUsage: NonEmpty[Set[SigningKeyUsage]],
+      allowedUsages: NonEmpty[Set[SigningKeyUsage]],
+  ): Boolean = {
+    val intersect = keyUsage.intersect(allowedUsages)
+    if (allowedUsages == SigningKeyUsage.ProofOfOwnershipOnly) intersect.nonEmpty
+    else intersect.nonEmpty && intersect != Set(SigningKeyUsage.ProofOfOwnership)
+  }
 
   /** Adds the `ProofOfOwnershipOnly` usage to the list of usages, unless it forms an
     * invalid combination.
@@ -963,6 +975,18 @@ object RequiredSigningSpecs {
 final case class SigningKeyPair(publicKey: SigningPublicKey, privateKey: SigningPrivateKey)
     extends CryptoKeyPair[SigningPublicKey, SigningPrivateKey] {
 
+  require(
+    publicKey.usage == privateKey.usage,
+    "Public and private key must have the same key usage",
+  )
+
+  @VisibleForTesting
+  def replaceUsage(usage: NonEmpty[Set[SigningKeyUsage]]): SigningKeyPair =
+    this.copy(
+      publicKey = publicKey.replaceUsage(usage),
+      privateKey = privateKey.replaceUsage(usage),
+    )
+
   protected def toProtoV30: v30.SigningKeyPair =
     v30.SigningKeyPair(Some(publicKey.toProtoV30), Some(privateKey.toProtoV30))
 
@@ -1020,7 +1044,7 @@ final case class SigningPublicKey private[crypto] (
     format: CryptoKeyFormat,
     protected[crypto] val key: ByteString,
     keySpec: SigningKeySpec,
-    usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
+    usage: NonEmpty[Set[SigningKeyUsage]],
     override protected val dataForFingerprintO: Option[ByteString] = None,
 )(
     override val migrated: Boolean = false
@@ -1063,7 +1087,12 @@ final case class SigningPublicKey private[crypto] (
     v30.PublicKey.Key.SigningPublicKey(toProtoV30)
 
   override protected def pretty: Pretty[SigningPublicKey] =
-    prettyOfClass(param("id", _.id), param("format", _.format), param("keySpec", _.keySpec))
+    prettyOfClass(
+      param("id", _.id),
+      param("format", _.format),
+      param("keySpec", _.keySpec),
+      param("usage", _.usage),
+    )
 
   @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
   private def migrate(): Either[KeyParseAndValidateError, Option[SigningPublicKey]] = {
@@ -1119,6 +1148,10 @@ final case class SigningPublicKey private[crypto] (
 
       case _ => None
     }
+
+  @VisibleForTesting
+  def replaceUsage(usage: NonEmpty[Set[SigningKeyUsage]]): SigningPublicKey =
+    this.copy(usage = usage)(migrated)
 }
 
 object SigningPublicKey
@@ -1158,7 +1191,7 @@ object SigningPublicKey
       format: CryptoKeyFormat,
       key: ByteString,
       keySpec: SigningKeySpec,
-      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   ): Either[ProtoDeserializationError.CryptoDeserializationError, SigningPublicKey] =
     for {
       _ <- Either
@@ -1333,6 +1366,10 @@ final case class SigningPrivateKey private (
 
       case _ => None
     }
+
+  @VisibleForTesting
+  def replaceUsage(usage: NonEmpty[Set[SigningKeyUsage]]): SigningPrivateKey =
+    this.copy(usage = usage)(migrated)
 }
 
 object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey] {
@@ -1355,7 +1392,16 @@ object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey]
   ): Either[ProtoDeserializationError.CryptoDeserializationError, SigningPrivateKey] =
     Either.cond(
       SigningKeyUsage.isUsageValid(usage), {
-        val keyBeforeMigration = SigningPrivateKey(id, format, key, keySpec, usage)()
+        val keyBeforeMigration = SigningPrivateKey(
+          id,
+          format,
+          key,
+          keySpec,
+          // if a key is something else than a namespace or identity delegation, then it can be used to sign itself to
+          // prove ownership for OwnerToKeyMapping and PartyToKeyMapping requests.
+          SigningKeyUsage.addProofOfOwnership(usage),
+        )()
+
         val keyAfterMigration = keyBeforeMigration.migrate().getOrElse(keyBeforeMigration)
         keyAfterMigration
       },

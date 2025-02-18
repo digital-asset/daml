@@ -142,6 +142,21 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
       )
     }
 
+    "Fail when only one version of a package depends on both v1 and v2 of a dep which are themselves incompatible" in {
+      testPackages(
+        Seq("test-common/upgrades-FailsWhenOnePackageHasTwoIncompatibleDeps-v1.dar"),
+        Seq(
+          (
+            "test-common/upgrades-FailsWhenOnePackageHasTwoIncompatibleDeps-dep-v1.dar",
+            "test-common/upgrades-FailsWhenOnePackageHasTwoIncompatibleDeps-dep-v2.dar",
+            Some(
+              "The upgraded data type Dep has added new fields, but those fields are not Optional"
+            ),
+          )
+        ),
+      )
+    }
+
     "Succeeds when a package embeds a previous version of itself it is a valid upgrade of" in {
       testPackages(
         Seq("test-common/upgrades-SucceedsWhenDepIsValidPreviousVersionOfSelf-v2.dar"),
@@ -531,6 +546,21 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
             "test-common/upgrades-FailsWhenTemplateChangesKeyType-v1.dar",
             "test-common/upgrades-FailsWhenTemplateChangesKeyType-v2.dar",
             Some("The upgraded template A cannot change its key type."),
+          )
+        ),
+      )
+    }
+    s"Succeeds when template upgrades its key type" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v1.dar",
+          "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v1.dar",
+            "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v2.dar",
+            None,
           )
         ),
       )

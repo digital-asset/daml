@@ -2556,7 +2556,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
     val synchronizerPartiesAndParticipants =
       consoleEnvironment.participants.all.iterator
         .filter(x => x.health.is_running() && x.health.initialized() && x.name == name)
-        .flatMap(_.parties.list(filterSynchronizerId = txSynchronizer.filterString))
+        .flatMap(_.parties.list(synchronizerIds = Set(txSynchronizer)))
         .toSet
 
     val synchronizerParties = synchronizerPartiesAndParticipants.map(_.party)

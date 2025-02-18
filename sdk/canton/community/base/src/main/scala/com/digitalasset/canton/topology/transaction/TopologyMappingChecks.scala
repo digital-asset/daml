@@ -205,6 +205,7 @@ class ValidatingTopologyMappingChecks(
       effectiveTime: EffectiveTime,
       code: Code,
       pendingChangesLookup: PendingChangesLookup,
+      maxSerialExclusive: PositiveInt,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Seq[
@@ -229,7 +230,11 @@ class ValidatingTopologyMappingChecks(
             .filter(pendingTx =>
               !pendingTx.isProposal && pendingTx.transaction.mapping.code == code
             )
-          (storedTxs.result.map(_.transaction) ++ pending)
+          val allTransactions = (storedTxs.result.map(_.transaction) ++ pending)
+          // only look at the >history< of the mapping (up to exclusive the max serial), because
+          // otherwise it would be looking also at the future, which could lead to the wrong conclusion
+          // (eg detecting a member as "rejoining".
+          allTransactions.filter(_.serial < maxSerialExclusive)
         }
     )
 
@@ -620,6 +625,9 @@ class ValidatingTopologyMappingChecks(
         )
         mediatorsAlreadyAssignedToGroups = result
           .flatMap(_.selectMapping[MediatorSynchronizerState])
+          // only look at other groups to avoid a race between validating this proposal and
+          // having persisted the same transaction as fully authorized from other synchronizer owners.
+          .filter(_.mapping.group != toValidate.mapping.group)
           .flatMap(tx =>
             tx.mapping.allMediatorsInGroup.collect {
               case med if newMediators.contains(med) => med -> tx.mapping.group
@@ -641,8 +649,10 @@ class ValidatingTopologyMappingChecks(
         effectiveTime,
         code = Code.MediatorSynchronizerState,
         pendingChangesLookup,
+        toValidate.serial,
       )
         .flatMap { mdsHistory =>
+          logger.debug(s"gerolf: $mdsHistory")
           val allMediatorsPreviouslyOnSynchronizer = mdsHistory.view
             .flatMap(_.selectMapping[MediatorSynchronizerState])
             .flatMap(_.mapping.allMediatorsInGroup)
@@ -680,6 +690,7 @@ class ValidatingTopologyMappingChecks(
         effectiveTime,
         code = Code.SequencerSynchronizerState,
         pendingChangesLookup,
+        toValidate.serial,
       )
         .flatMap { sdsHistory =>
           val allSequencersPreviouslyOnSynchronizer = sdsHistory.view

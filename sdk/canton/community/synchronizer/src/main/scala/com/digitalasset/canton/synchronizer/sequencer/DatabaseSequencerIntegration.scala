@@ -7,9 +7,8 @@ import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.UnlessShutdown.Outcome
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
-import com.digitalasset.canton.sequencing.protocol.SendAsyncError
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.sequencing.protocol.{SequencerDeliverError, SequencerErrors}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
@@ -55,13 +54,11 @@ object SequencerIntegration {
 trait DatabaseSequencerIntegration extends SequencerIntegration {
   this: DatabaseSequencer =>
 
-  private implicit val retryConditionIfOverloaded
-      : retry.Success[UnlessShutdown[Either[SendAsyncError, Unit]]] =
+  private val retryConditionIfOverloaded: retry.Success[Either[SequencerDeliverError, Unit]] =
     new retry.Success({
       // We only retry overloaded as other possible error here:
       // * Unavailable - indicates a programming bug and should not happen during normal operation
-      // * ShuttingDown - should not be retried as the sequencer is shutting down
-      case Outcome(Left(SendAsyncError.Overloaded(_))) => false
+      case Left(err) => err.code.id != SequencerErrors.Overloaded.id
       case _ => true
     })
   private val retryWithBackoff = retry.Backoff(
@@ -96,15 +93,13 @@ trait DatabaseSequencerIntegration extends SequencerIntegration {
         case _: SubmissionOutcome.Discard.type =>
           EitherT.pure[FutureUnlessShutdown, String](())
         case outcome: DeliverableSubmissionOutcome =>
+          implicit val success = retryConditionIfOverloaded
           EitherT(
-            FutureUnlessShutdown(
-              retryWithBackoff(
-                this
-                  .blockSequencerWriteInternal(outcome)(outcome.submissionTraceContext)
-                  .value
-                  .unwrap,
-                NoExceptionRetryPolicy,
-              )
+            retryWithBackoff.unlessShutdown(
+              this
+                .blockSequencerWriteInternal(outcome)(outcome.submissionTraceContext)
+                .value,
+              NoExceptionRetryPolicy,
             )
           )
             .leftMap(_.toString)

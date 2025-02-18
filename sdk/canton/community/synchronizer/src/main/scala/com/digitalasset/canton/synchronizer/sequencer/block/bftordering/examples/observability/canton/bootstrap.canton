@@ -8,8 +8,10 @@ nodes.all.foreach { node =>
   node.health.wait_for_running()
 }
 
-val mysynchronizerId =bootstrap.synchronizer(
-  "mysynchronizer",
+val synchronizerAlias = "observabilityExample"
+
+val synchronizerId = bootstrap.synchronizer(
+  synchronizerAlias,
   sequencers = sequencers.all,
   mediators = Seq(mediator1, mediator2),
   synchronizerOwners = Seq(sequencer1, sequencer2, sequencer3, sequencer4),
@@ -18,10 +20,10 @@ val mysynchronizerId =bootstrap.synchronizer(
 )
 
 // Connect participant to synchronizer if not already done
-if (!participant1.synchronizers.list_registered().map(_._1.synchronizer.unwrap).contains("mysynchronizer")) {
+if (!participant1.synchronizers.list_registered().map(_._1.synchronizerAlias.unwrap).contains(synchronizerAlias)) {
   logger.info("Connect participants to synchronizer")
-  participant1.synchronizers.connect("mysynchronizer", "http://canton:4401")
-  participant2.synchronizers.connect("mysynchronizer", "http://canton:4411")
+  participant1.synchronizers.connect(synchronizerAlias, "http://canton:4401")
+  participant2.synchronizers.connect(synchronizerAlias, "http://canton:4411")
 }
 
 // logger.info("Pinging between participants to make sure everything is alright")
@@ -35,10 +37,9 @@ def addPartyToParticipant(partyId: PartyId, synchronizerId: SynchronizerId, crea
     participant.topology.party_to_participant_mappings.propose_delta(
       partyId,
       adds = List((to.id, ParticipantPermission.Submission)),
-      store = synchronizerId.filterString,
     )
   )
 }
-addPartyToParticipant(party, mySynchronizerId, participant1, participant2)
+addPartyToParticipant(party, synchronizerId, participant1, participant2)
 
 logger.info("Bootstrap succeeded")

@@ -17,6 +17,7 @@ import scala.annotation.tailrec
 private[lf] final class ValueTranslator(
     pkgInterface: language.PackageInterface,
     requireV1ContractIdSuffix: Boolean,
+    shouldCheckDataSerializable: Boolean = true,
 ) {
 
   import Preprocessor._
@@ -77,7 +78,7 @@ private[lf] final class ValueTranslator(
         def typeError(msg: String = s"mismatching type: ${ty0.pretty} and value: $value0") =
           throw Error.Preprocessing.TypeMismatch(ty0, value0, msg)
         def destruct(typ: Type) =
-          Destructor.destruct(typ) match {
+          Destructor.destruct(typ, shouldCheckDataSerializable) match {
             case Right(value) => value
             case Left(TypeDestructor.Error.TypeError(err)) =>
               typeError(err)

@@ -202,7 +202,7 @@ class BatchAggregatorTest
         maximumInFlight = 1,
         batchGetter = keys =>
           blocker.futureUS.flatMap { _ =>
-            if (keys.size == 1) FutureUnlessShutdown.pure(List("0"))
+            if (keys.sizeIs == 1) FutureUnlessShutdown.pure(List("0"))
             else
               FutureUnlessShutdown.pure(Iterable.empty)
           },
@@ -235,7 +235,7 @@ class BatchAggregatorTest
         maximumInFlight = 1,
         batchGetter = keys =>
           blocker.futureUS.flatMap { _ =>
-            if (keys.size == 1) FutureUnlessShutdown.pure(List("0"))
+            if (keys.sizeIs == 1) FutureUnlessShutdown.pure(List("0"))
             else
               defaultBatchGetter(keys).map(_.toList).map(_ :+ "42")
           },

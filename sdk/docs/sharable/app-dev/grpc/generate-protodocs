@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -ex
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+GRPC_DIR="${SCRIPT_DIR}/../../grpc-definitions"
+DOC_FILE="${GRPC_DIR}/target/docs/proto-docs.rst"
+
+pushd "${GRPC_DIR}"
+./gen-docs.sh
+cp "${DOC_FILE}" "${SCRIPT_DIR}/source/"
+popd

@@ -117,16 +117,16 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
           case MediatorEvent.Response(
                 counter,
                 _,
-                response,
+                responses,
                 topologyTimestamp,
                 recipients,
               ) =>
-            processResponse(
+            processResponses(
               requestTimestamp,
               counter,
               participantResponseDeadline,
               decisionTime,
-              response,
+              responses,
               topologyTimestamp,
               recipients,
             )
@@ -240,10 +240,9 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
                       verdict,
                       decisionTime,
                     )
-                  _ <-
-                    mediatorState.add(
-                      FinalizedResponse(requestId, request, requestId.unwrap, verdict)(traceContext)
-                    )
+                  _ <- mediatorState.add(
+                    FinalizedResponse(requestId, request, requestId.unwrap, verdict)(traceContext)
+                  )
                 } yield ()
 
               // Discard request
@@ -703,12 +702,12 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
         } yield ()
       }
 
-  def processResponse(
+  def processResponses(
       ts: CantonTimestamp,
       counter: SequencerCounter,
       participantResponseDeadline: CantonTimestamp,
       decisionTime: CantonTimestamp,
-      signedResponse: SignedProtocolMessage[ConfirmationResponse],
+      signedResponses: SignedProtocolMessage[ConfirmationResponses],
       topologyTimestamp: Option[CantonTimestamp],
       recipients: Recipients,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
@@ -717,30 +716,30 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
         span.setAttribute("timestamp", ts.toString)
         span.setAttribute("counter", counter.toString)
 
-        val response = signedResponse.message
+        val responses = signedResponses.message
         logger.info(
-          show"Phase 5: Received responses for request=${response.requestId.unwrap}: $response"
+          show"Phase 5: Received responses for request=${responses.requestId.unwrap}: $responses"
         )
 
         (for {
-          snapshot <- OptionT.liftF(crypto.awaitSnapshot(response.requestId.unwrap))
-          _ <- signedResponse
-            .verifySignature(snapshot, response.sender)
+          snapshot <- OptionT.liftF(crypto.awaitSnapshot(responses.requestId.unwrap))
+          _ <- signedResponses
+            .verifySignature(snapshot, responses.sender)
             .leftMap(err =>
               MediatorError.MalformedMessage
                 .Reject(
-                  s"$synchronizerId (timestamp: $ts): invalid signature from ${response.sender} with $err"
+                  s"$synchronizerId (timestamp: $ts): invalid signature from ${responses.sender} with $err"
                 )
                 .report()
             )
             .toOption
           _ <-
-            if (signedResponse.synchronizerId == synchronizerId)
+            if (signedResponses.synchronizerId == synchronizerId)
               OptionT.some[FutureUnlessShutdown](())
             else {
               MediatorError.MalformedMessage
                 .Reject(
-                  s"Request ${response.requestId}, sender ${response.sender}: Discarding confirmation response for wrong synchronizer ${signedResponse.synchronizerId}"
+                  s"Request ${responses.requestId}, sender ${responses.sender}: Discarding confirmation response for wrong synchronizer ${signedResponses.synchronizerId}"
                 )
                 .report()
               OptionT.none[FutureUnlessShutdown, Unit]
@@ -750,7 +749,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             if (ts <= participantResponseDeadline) OptionT.some[FutureUnlessShutdown](())
             else {
               logger.warn(
-                s"Response $ts is too late as request ${response.requestId} has already exceeded the participant response deadline [$participantResponseDeadline]"
+                s"Response $ts is too late as request ${responses.requestId} has already exceeded the participant response deadline [$participantResponseDeadline]"
               )
               OptionT.none[FutureUnlessShutdown, Unit]
             }
@@ -759,22 +758,22 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             // we require that the topology timestamp on the response submission request is set to the
             // request's sequencing time. The sequencer communicates this timestamp to the client
             // via the timestamp of signing key.
-            if (topologyTimestamp.contains(response.requestId.unwrap))
+            if (topologyTimestamp.contains(responses.requestId.unwrap))
               OptionT.some[FutureUnlessShutdown](())
             else {
               MediatorError.MalformedMessage
                 .Reject(
-                  s"Request ${response.requestId}, sender ${response.sender}: Discarding confirmation response because the topology timestamp is not set to the request id [$topologyTimestamp]"
+                  s"Request ${responses.requestId}, sender ${responses.sender}: Discarding confirmation response because the topology timestamp is not set to the request id [$topologyTimestamp]"
                 )
                 .report()
               OptionT.none[FutureUnlessShutdown, Unit]
             }
           }
 
-          responseAggregation <- mediatorState.fetch(response.requestId).orElse {
+          responseAggregation <- mediatorState.fetch(responses.requestId).orElse {
             // This can happen after a fail-over or as part of an attack.
             val cause =
-              s"Received a confirmation response at $ts by ${response.sender} with an unknown request id ${response.requestId}. Discarding response..."
+              s"Received a confirmation response at $ts by ${responses.sender} with an unknown request id ${responses.requestId}. Discarding response..."
             val error = MediatorError.InvalidMessage.Reject(cause)
             error.log()
 
@@ -792,14 +791,14 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             } else {
               MediatorError.MalformedMessage
                 .Reject(
-                  s"Request ${response.requestId}, sender ${response.sender}: Discarding confirmation response with wrong recipients $recipients, expected ${responseAggregation.request.mediator}"
+                  s"Request ${responses.requestId}, sender ${responses.sender}: Discarding confirmation response with wrong recipients $recipients, expected ${responseAggregation.request.mediator}"
                 )
                 .report()
               OptionT.none[FutureUnlessShutdown, Unit]
             }
           }
           nextResponseAggregation <- OptionT(
-            responseAggregation.validateAndProgress(ts, response, snapshot.ipsSnapshot)
+            responseAggregation.validateAndProgress(ts, responses, snapshot.ipsSnapshot)
           )
           _unit <- OptionT(
             mediatorState
@@ -810,7 +809,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             // we can send the result asynchronously, as there is no need to reply in
             // order and there is no need to guarantee delivery of verdicts
             doNotAwait(
-              response.requestId,
+              responses.requestId,
               sendResultIfDone(nextResponseAggregation, decisionTime),
             )
           )

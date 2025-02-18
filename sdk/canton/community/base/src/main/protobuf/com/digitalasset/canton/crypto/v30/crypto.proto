@@ -157,7 +157,7 @@ enum SigningKeyUsage {
   SIGNING_KEY_USAGE_UNSPECIFIED = 0;
   // the root namespace key that defines a node's identity and signs topology requests
   SIGNING_KEY_USAGE_NAMESPACE = 1;
-  // keys that act has delegation keys for the root namespace and that can also be used to sign topology requests
+  // keys that act as delegation keys for the root namespace and that can also be used to sign topology requests
   SIGNING_KEY_USAGE_IDENTITY_DELEGATION = 2;
   // keys that authenticate members of the network towards a sequencer
   SIGNING_KEY_USAGE_SEQUENCER_AUTHENTICATION = 3;

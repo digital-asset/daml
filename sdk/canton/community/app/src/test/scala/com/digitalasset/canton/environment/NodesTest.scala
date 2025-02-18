@@ -20,8 +20,9 @@ import com.digitalasset.canton.concurrent.{
 }
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
+import com.digitalasset.canton.crypto.Crypto
+import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
-import com.digitalasset.canton.crypto.{CommunityCryptoFactory, Crypto}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.{
   DependenciesHealthService,
@@ -77,7 +78,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
     override val adminApi: AdminServerConfig =
       AdminServerConfig(internalPort = Some(UniquePortGenerator.next))
     override val storage: StorageConfig = StorageConfig.Memory()
-    override val crypto: CommunityCryptoConfig = CommunityCryptoConfig()
+    override val crypto: CryptoConfig = CryptoConfig()
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig()
     override val nodeTypeName: String = "test-node"
     override def clientAdminApi = adminApi.clientConfig
@@ -153,8 +154,8 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
   def arguments(config: TestNodeConfig) = factoryArguments(config)
     .toCantonNodeBootstrapCommonArguments(
       storageFactory = new CommunityStorageFactory(StorageConfig.Memory()),
-      cryptoFactory = new CommunityCryptoFactory,
       cryptoPrivateStoreFactory = new CommunityCryptoPrivateStoreFactory,
+      kmsFactory = CommunityKmsFactory,
     )
     .value
 

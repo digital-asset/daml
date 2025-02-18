@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.config
 
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.duration.*
@@ -51,7 +52,12 @@ final case class ProcessingTimeout(
       DefaultProcessingTimeouts.topologyChangeWarnDelay,
     sequencedEventProcessingBound: NonNegativeDuration =
       DefaultProcessingTimeouts.sequencedEventProcessingBound,
-)
+) extends UniformCantonConfigValidation
+
+object ProcessingTimeout {
+  implicit val processingTimeoutCantonConfigValidator: CantonConfigValidator[ProcessingTimeout] =
+    CantonConfigValidatorDerivation[ProcessingTimeout]
+}
 
 /** Reasonable default timeouts */
 object DefaultProcessingTimeouts {

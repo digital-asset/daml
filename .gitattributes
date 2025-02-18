@@ -1,1 +1,2 @@
-*.daml linguist-language=Haskell
+*.daml                linguist-language=Haskell
+/sdk/docs/sharable/** linguist-generated

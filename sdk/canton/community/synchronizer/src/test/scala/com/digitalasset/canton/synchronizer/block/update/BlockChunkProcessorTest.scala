@@ -13,10 +13,10 @@ import com.digitalasset.canton.synchronizer.block.update.{
   BlockUpdateGeneratorImpl,
 }
 import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
+import com.digitalasset.canton.synchronizer.sequencer.SubmissionOutcome
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.synchronizer.sequencer.store.SequencerMemberValidator
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
-import com.digitalasset.canton.synchronizer.sequencer.{SubmissionOutcome, SubmissionRequestOutcome}
 import com.digitalasset.canton.topology.DefaultTestIdentities.{sequencerId, synchronizerId}
 import com.digitalasset.canton.topology.TestingIdentityFactory
 import org.scalatest.wordspec.AsyncWordSpec
@@ -50,7 +50,6 @@ class BlockChunkProcessorTest extends AsyncWordSpec with BaseTest {
 
         val blockChunkProcessor =
           new BlockChunkProcessor(
-            synchronizerId,
             testedProtocolVersion,
             syncCryptoApiFake,
             sequencerId,
@@ -77,25 +76,22 @@ class BlockChunkProcessorTest extends AsyncWordSpec with BaseTest {
             state.latestSequencerEventTimestamp shouldBe Some(tickSequencingTimestamp)
             update.submissionsOutcomes should matchPattern {
               case Seq(
-                    SubmissionRequestOutcome(
+                    SubmissionOutcome.Deliver(
+                      SubmissionRequest(
+                        `sequencerId`,
+                        `aMessageId`,
+                        _,
+                        `tickSequencingTimestamp`,
+                        None,
+                        None,
+                        None,
+                      ),
+                      `tickSequencingTimestamp`,
+                      deliverToMembers,
+                      batch,
+                      _,
                       _,
                       None,
-                      SubmissionOutcome.Deliver(
-                        SubmissionRequest(
-                          `sequencerId`,
-                          `aMessageId`,
-                          _,
-                          `tickSequencingTimestamp`,
-                          None,
-                          None,
-                          None,
-                        ),
-                        `tickSequencingTimestamp`,
-                        deliverToMembers,
-                        batch,
-                        _,
-                        _,
-                      ),
                     )
                   )
                   if deliverToMembers == Set(sequencerId) &&

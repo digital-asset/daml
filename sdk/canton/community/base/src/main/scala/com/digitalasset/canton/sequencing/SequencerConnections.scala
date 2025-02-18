@@ -99,6 +99,15 @@ final case class SequencerConnections private (
   ): SequencerConnections =
     this.copy(submissionRequestAmplification = submissionRequestAmplification)
 
+  def withSequencerTrustThreshold(
+      sequencerTrustThreshold: PositiveInt
+  ): Either[String, SequencerConnections] =
+    Either.cond(
+      aliasToConnection.sizeIs >= sequencerTrustThreshold.unwrap,
+      this.copy(sequencerTrustThreshold = sequencerTrustThreshold),
+      s"Sequencer trust threshold $sequencerTrustThreshold cannot be greater than number of sequencer connections ${aliasToConnection.size}",
+    )
+
   override protected def pretty: Pretty[SequencerConnections] =
     prettyOfClass(
       param("connections", _.aliasToConnection.forgetNE),
@@ -232,6 +241,10 @@ object SequencerConnectionValidation {
     override val toProtoV30: v30.SequencerConnectionValidation =
       v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_ACTIVE
   }
+  object ThresholdActive extends SequencerConnectionValidation {
+    override val toProtoV30: v30.SequencerConnectionValidation =
+      v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_THRESHOLD_ACTIVE
+  }
 
   def fromProtoV30(
       proto: v30.SequencerConnectionValidation
@@ -241,6 +254,8 @@ object SequencerConnectionValidation {
         Right(Disabled)
       case v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_ALL => Right(All)
       case v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_ACTIVE => Right(Active)
+      case v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_THRESHOLD_ACTIVE =>
+        Right(ThresholdActive)
       case _ =>
         Left(
           ProtoDeserializationError.ValueConversionError(

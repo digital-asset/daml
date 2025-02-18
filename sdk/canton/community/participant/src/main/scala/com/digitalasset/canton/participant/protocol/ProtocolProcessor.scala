@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol
 import cats.data.{EitherT, NonEmptyChain}
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
-import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
@@ -1065,7 +1065,7 @@ abstract class ProtocolProcessor[
               engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
             )
           val responses = EitherT.pure[FutureUnlessShutdown, steps.RequestError](
-            Seq.empty[(ConfirmationResponse, Recipients)]
+            Option.empty[(ConfirmationResponses, Recipients)]
           )
           val timeoutEvent = Either.right(Option.empty[SequencedUpdate])
           EitherT.pure[FutureUnlessShutdown, steps.RequestError](
@@ -1132,9 +1132,13 @@ abstract class ProtocolProcessor[
       _ = EitherTUtil.doNotAwaitUS(timeoutET, "Handling timeout failed")
 
       responsesTo <- responsesToET
-      signedResponsesTo <- EitherT.right(responsesTo.parTraverse { case (response, recipients) =>
-        signResponse(parsedRequest.snapshot, response).map(_ -> recipients)
-      })
+
+      signedResponsesTo <- EitherT.right[steps.RequestError](
+        responsesTo.traverse { case (responses, recipients) =>
+          signResponses(parsedRequest.snapshot, responses).map(_ -> recipients)
+        }
+      )
+
       engineAbortStatus <- EitherT.right(pendingData.engineAbortStatusF)
       _ <-
         if (engineAbortStatus.isAborted) {
@@ -1143,29 +1147,30 @@ abstract class ProtocolProcessor[
             s"Phase 4: Finished validation for request=${requestId.unwrap} with abort."
           )
           EitherTUtil.unitUS[steps.RequestError]
-        } else if (signedResponsesTo.nonEmpty) {
-          val messageId = sequencerClient.generateMessageId
-          logger.info(
-            s"Phase 4: Sending for request=${requestId.unwrap} with msgId=$messageId ${val (approved, rejected) =
-                signedResponsesTo
-                  .foldLeft((0, 0)) { case ((app, rej), (response, _)) =>
-                    response.message.localVerdict match {
-                      case LocalApprove() => (app + 1, rej)
-                      case _: LocalReject => (app, rej + 1)
-                    }
-                  }
-              s"approved=$approved, rejected=$rejected" }"
-          )
-          EitherT.right[steps.RequestError](
-            sendResponses(requestId, signedResponsesTo, Some(messageId))
-          )
         } else {
-          logger.info(
-            s"Phase 4: Finished validation for request=${requestId.unwrap} with nothing to approve."
-          )
-          EitherTUtil.unitUS[steps.RequestError]
+          signedResponsesTo match {
+            case Some((spm, recipients)) =>
+              val messageId = sequencerClient.generateMessageId
+              logger.info(
+                s"Phase 4: Sending for request=${requestId.unwrap} with msgId=$messageId ${val (approved, rejected) =
+                    spm.message.responses.foldLeft((0, 0)) { case ((app, rej), response) =>
+                      response.localVerdict match {
+                        case LocalApprove() => (app + 1, rej)
+                        case _: LocalReject => (app, rej + 1)
+                      }
+                    }
+                  s"approved=$approved, rejected=$rejected" }"
+              )
+              EitherT.right[steps.RequestError](
+                sendResponses(requestId, Seq(spm -> recipients), Some(messageId))
+              )
+            case _ =>
+              logger.info(
+                s"Phase 4: Finished validation for request=${requestId.unwrap} with nothing to approve."
+              )
+              EitherTUtil.unitUS[steps.RequestError]
+          }
         }
-
     } yield ()
 
   }
@@ -1198,19 +1203,20 @@ abstract class ProtocolProcessor[
 
         _ = ephemeral.requestTracker.tick(sc, ts)
 
-        responses = steps.constructResponsesForMalformedPayloads(
+        confirmationResponsesO = steps.constructResponsesForMalformedPayloads(
           requestId,
           rootHash,
           malformedPayloads,
         )
-        recipients = Recipients.cc(mediatorGroup)
-        messages <- EitherT
-          .right(responses.parTraverse { response =>
-            signResponse(snapshot, response).map(_ -> recipients)
-          })
-
-        _ <- EitherT.right(sendResponses(requestId, messages))
-
+        confirmationResponses <- confirmationResponsesO match {
+          case Some(responses) =>
+            val recipients = Recipients.cc(mediatorGroup)
+            EitherT.right(
+              signResponses(snapshot, responses)
+                .map(message => sendResponses(requestId, Seq(message -> recipients)))
+            )
+          case None => EitherTUtil.unitUS
+        }
         _ = requestDataHandle.complete(None)
 
         _ <- EitherT.right[steps.RequestError](terminateRequest(rc, sc, ts, ts, None))

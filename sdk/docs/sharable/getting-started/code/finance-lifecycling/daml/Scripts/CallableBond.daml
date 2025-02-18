@@ -1,0 +1,220 @@
+module Scripts.CallableBond where
+
+import DA.Date (Month(..), date)
+import DA.Map qualified as Map (fromList)
+import DA.Set qualified as Set (fromList, singleton)
+import Daml.Script
+
+-- INTERFACE DEPENDENCIES --
+import Daml.Finance.Interface.Instrument.Bond.V3.Callable.Factory qualified as CallableBondFactory (Create(..), I)
+import Daml.Finance.Interface.Instrument.Bond.V3.Callable.Types (Callable(..))
+import Daml.Finance.Interface.Lifecycle.V4.Election qualified as Election (Apply(..), Exercisable)
+import Daml.Finance.Interface.Lifecycle.V4.Election.Factory qualified as ElectionFactory (Create(..), I)
+import Daml.Finance.Interface.Lifecycle.V4.Rule.Claim qualified as Claim (ClaimEffect(..), I)
+import Daml.Finance.Interface.Settlement.V4.Batch qualified as Batch (Settle(..))
+import Daml.Finance.Interface.Settlement.V4.Instruction qualified as Instruction (Allocate(..), Approve(..))
+import Daml.Finance.Interface.Settlement.V4.Types (Allocation(..), Approval(..))
+import Daml.Finance.Interface.Types.Common.V3.Types (Id(..), HoldingStandard(..), InstrumentKey(..))
+import Daml.Finance.Interface.Types.Date.V3.Calendar (BusinessDayConventionEnum(..))
+import Daml.Finance.Interface.Types.Date.V3.DayCount (DayCountConventionEnum(..))
+import Daml.Finance.Interface.Types.Date.V3.RollConvention (PeriodEnum(..))
+
+-- IMPLEMENTATION DEPENDENCIES --
+import Daml.Finance.Data.V4.Time.DateClock (dateToDateClockTime)
+import Daml.Finance.Instrument.Bond.V3.Callable.Factory qualified as CallableBond (Factory(..))
+import Daml.Finance.Lifecycle.V4.Election qualified as Election (Factory(..))
+import Daml.Finance.Lifecycle.V4.Rule.Claim qualified as Claim (Rule(..))
+
+import Workflow.CreditAccount qualified as CreditAccount (Accept(..), Request(..))
+
+import Scripts.FixedRateBond (FixedRateState(..), runFixedRateBond)
+
+-- | Test script that
+-- 1. creates a callable bond instrument and a holding on it
+-- 2. reuses the lifecycle rule, settlement factory, etc from the fixed rate bond tutorial
+-- 3. creates the election not to call the bond
+-- 4. lifecycles the election event
+-- 5. processes the lifecycle effect
+-- 6. settles the distribution
+runCallableBond : Script()
+runCallableBond = do
+
+  -- Execute the `runFixedRateBond` script to reuse variables.
+  FixedRateState
+    { bank
+    ; bob
+    ; public
+    ; bobAccount
+    ; periodicSchedule
+    ; usdInstrument
+    ; holidayCalendarIds
+    ; lifecycleRuleCid
+    ; routeProviderCid
+    ; settlementFactoryCid
+    ; initialTimestamp
+    } <- runFixedRateBond
+
+  let pp = [("Public Party", Set.singleton public)]
+
+  -- Create and distribute bond
+  -- CREATE_CALLABLE_BOND_VARIABLES_BEGIN
+  let
+    notional = 1.0
+    floatingRate = None
+    couponRate = 0.011
+    capRate = None
+    floorRate = None
+    couponPeriod = M
+    couponPeriodMultiplier = 3
+    dayCountConvention = ActActISDA
+    useAdjustedDatesForDcf = True
+    businessDayConvention = Following
+    noticeDays = 0
+  -- CREATE_CALLABLE_BOND_VARIABLES_END
+
+  -- CREATE_CALLABLE_BOND_INSTRUMENT_BEGIN
+  -- Create a callable bond factory
+  callableBondFactoryCid <- toInterfaceContractId @CallableBondFactory.I <$> submit bank do
+    createCmd CallableBond.Factory with
+      provider = bank
+      observers = mempty
+
+  -- Define an instrument key for the bond
+  let
+    bondInstrument = InstrumentKey with
+      issuer = bank
+      depository = bank
+      id = Id "CallableBond"
+      version = "0"
+      holdingStandard = TransferableFungible
+
+  -- Bank creates the bond instrument
+  callableBondCid <- submit bank do
+    exerciseCmd callableBondFactoryCid CallableBondFactory.Create with
+      callable = Callable with
+        instrument = bondInstrument
+        description = "Instrument representing units of a callable bond"
+        floatingRate
+        couponRate
+        capRate
+        floorRate
+        couponSchedule = periodicSchedule
+        noticeDays
+        callSchedule = periodicSchedule
+        holidayCalendarIds
+        calendarDataProvider = bank
+        dayCountConvention
+        useAdjustedDatesForDcf
+        currency = usdInstrument
+        notional
+        lastEventTimestamp = initialTimestamp
+        prevEvents = []
+      observers = Map.fromList pp
+  -- CREATE_CALLABLE_BOND_INSTRUMENT_END
+
+  -- CREATE_CALLABLE_BOND_HOLDING_BEGIN
+  -- Credit Bob's account with a bond holding
+  bobRequestCid <- submit bob do
+    createCmd CreditAccount.Request with
+      account = bobAccount
+      instrument = bondInstrument
+      amount = 100000.0
+  bobBondHoldingCid <- submit bank do exerciseCmd bobRequestCid CreditAccount.Accept
+  -- CREATE_CALLABLE_BOND_HOLDING_END
+
+  -- CREATE_ELECTION_FACTORY_BEGIN
+  -- Create election factory to allow holders to create elections
+  electionFactoryCid <- submit bank do
+    toInterfaceContractId @ElectionFactory.I <$> createCmd Election.Factory with
+      provider = bank
+      observers = Map.fromList [("Observers", Set.fromList [bob, bank])]
+  -- CREATE_ELECTION_FACTORY_END
+
+  -- CREATE_ELECTION_BEGIN
+  -- Create an Election for the first coupon date: do not call the bond.
+  electionCid <- submit bank do
+    exerciseCmd electionFactoryCid ElectionFactory.Create with
+      actors = Set.singleton bank
+      id = Id "election id"
+      description = "election for a callable bond"
+      claim = "NOT CALLED"
+      electionTime = dateToDateClockTime $ date 2019 May 15
+      electorIsOwner = False
+      elector = bank
+      counterparty = bank
+      instrument = bondInstrument
+      amount = 100000.0
+      observers = Map.fromList [("Holders", Set.fromList [bank, bob])]
+      provider = bank
+  -- CREATE_ELECTION_END
+
+  -- LIFECYCLE_BOND_BEGIN
+  -- Apply election to generate new instrument version + effects
+  (newInstrumentKey, [effectCid]) <- submit bank do
+    exerciseCmd electionCid Election.Apply with
+      observableCids = []
+      exercisableCid = coerceInterfaceContractId @Election.Exercisable lifecycleRuleCid
+  -- LIFECYCLE_BOND_END
+
+  -- CREATE_CLAIM_RULE_BEGIN
+  -- Create a new claim rule with the bank as claimer, since it is the bank that does the election.
+  lifecycleClaimRuleCid <- toInterfaceContractId @Claim.I <$> submit bank do
+    createCmd Claim.Rule with
+      provider = bank
+      claimers = Set.singleton bank
+      settlers = Set.singleton bob
+      routeProviderCid
+      settlementFactoryCid
+      netInstructions = False
+  -- CREATE_CLAIM_RULE_END
+
+  -- CLAIM_EFFECT_BEGIN
+  -- Claim effect
+  result <- submit bank do
+    exerciseCmd lifecycleClaimRuleCid Claim.ClaimEffect with
+      claimer = bank
+      holdingCids = [bobBondHoldingCid]
+      effectCid
+      batchId = Id "BondSettlement"
+  let [bobInstructionCid, bankInstructionCid, couponInstructionCid] = result.instructionCids
+  -- CLAIM_EFFECT_END
+
+  -- EFFECT_SETTLEMENT_BEGIN
+  -- Allocate instruction
+  (bobInstructionCid, _) <- submit bob do
+    exerciseCmd bobInstructionCid Instruction.Allocate with
+      actors = Set.singleton bob
+      allocation = Pledge bobBondHoldingCid
+
+  (bankInstructionCid, _) <- submit bank do
+    exerciseCmd bankInstructionCid Instruction.Allocate with
+      actors = Set.singleton bank
+      allocation = CreditReceiver
+
+  (couponInstructionCid, _) <- submit bank do
+    exerciseCmd couponInstructionCid Instruction.Allocate with
+      actors = Set.singleton bank
+      allocation = CreditReceiver
+
+  -- Approve instruction
+  bobInstructionCid <- submit bank do
+    exerciseCmd bobInstructionCid Instruction.Approve with
+      actors = Set.singleton bank
+      approval = DebitSender
+
+  bankInstructionCid <- submit bob do
+    exerciseCmd bankInstructionCid Instruction.Approve with
+      actors = Set.singleton bob
+      approval = TakeDelivery bobAccount
+
+  couponInstructionCid <- submit bob do
+    exerciseCmd couponInstructionCid Instruction.Approve with
+      actors = Set.singleton bob
+      approval = TakeDelivery bobAccount
+
+  -- Settle batch
+  submitMulti [bob] [public] do
+    exerciseCmd result.batchCid Batch.Settle with actors = Set.singleton bob
+  -- EFFECT_SETTLEMENT_END
+
+  pure ()

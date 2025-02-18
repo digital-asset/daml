@@ -1,0 +1,64 @@
+module Scripts.UpgradeAccount where
+
+import Daml.Script
+
+-- INTERFACE DEPENDENCIES --
+import Daml.Finance.Interface.Util.V3.Lockable qualified as Lockable (I)
+
+import Extensions.MyAccount (MyAccountFactory(..), MyAccountUpgradeRule(..), UpgradeToMyAccount(..))
+
+import Scripts.Setup (SetupState(..), runSetupAccountsAndHoldings)
+
+-- This script validates the Bank's ability to upgrade its existing account implementation. More
+-- specifically, it allows the Bank to shift from the Daml Finance `Account` implementation, which
+-- can be frozen, to its own implementation called `MyAccount`, which is non-freezable. The steps to
+-- complete the upgrade on-ledger are:
+-- 1. The Bank (optionally) archives the existing account factory (to avoid creating undesired
+--    accounts).
+-- 2. The Bank creates a `MyAccountFactory` for creating `MyAccount` instances going forward.
+-- 3. The Bank creates a `MyAccountUpgradeRule` for its clients. This rule offers a mechanism for
+--    the clients to upgrade their accounts if they are willing to do so.
+-- 4. Clients, such as Alice and Bob, can then use the `MyAccountUpgradeRule` to actively upgrade
+--    their `Account` instances to `MyAccount` instances.
+runUpgradeAccount : Script ()
+runUpgradeAccount = do
+  -- Execute the `setupAccountsAndHoldings` script.
+  -- UPGRADE_ACCOUNT_SETUP_BEGIN
+  SetupState
+    { bank
+    ; bankAccountFactoryCid
+    ; alice
+    ; aliceAccount
+    ; bob
+    ; bobAccount
+    ; allClients
+    } <- runSetupAccountsAndHoldings
+  -- UPGRADE_ACCOUNT_SETUP_END
+
+  -- 1. The Bank archives its "old" account factory.
+  -- UPGRADE_ACCOUNT_ARCHIVE_OLD_ACCOUNT_FACTORY_BEGIN
+  submit bank do archiveCmd bankAccountFactoryCid
+  -- UPGRADE_ACCOUNT_ARCHIVE_OLD_ACCOUNT_FACTORY_END
+
+  -- 2. The Bank creates the "new" account factory.
+  -- UPGRADE_ACCOUNT_CREATE_NEW_ACCOUNT_FACTORY_BEGIN
+  submit bank do createCmd MyAccountFactory with provider = bank; observers = allClients
+  -- UPGRADE_ACCOUNT_CREATE_NEW_ACCOUNT_FACTORY_END
+
+  -- 3. The Bank creates an upgrade rule for its clients.
+  -- UPGRADE_ACCOUNT_CREATE_UPGRADE_RULE_BEGIN
+  cid <- submit bank do createCmd MyAccountUpgradeRule with custodian = bank; observers = allClients
+  -- UPGRADE_ACCOUNT_CREATE_UPGRADE_RULE_END
+
+  -- 4. The clients of the Bank upgrade their accounts.
+  -- UPGRADE_ACCOUNT_CLIENTS_UPGRADE_BEGIN
+  submit alice do exerciseCmd cid UpgradeToMyAccount with account = aliceAccount
+  submit bob do exerciseCmd cid UpgradeToMyAccount with account = bobAccount
+  -- UPGRADE_ACCOUNT_CLIENTS_UPGRADE_END
+
+  -- Sanity check: The new account does not implement the `Lockable` interface.
+  -- UPGRADE_ACCOUNT_SANITY_CHECK_BEGIN
+  [] <- queryInterface @Lockable.I bob
+  -- UPGRADE_ACCOUNT_SANITY_CHECK_END
+
+  pure ()

@@ -568,15 +568,38 @@ class TestingIdentityFactory(
     val keyPurposes = topology.keyPurposes
     val keyName = owner.toProtoPrimitive
 
-    val sigKey =
+    val authKeyName = s"$keyName-${SigningKeyUsage.SequencerAuthentication}"
+    val sigKeyName = s"$keyName-${SigningKeyUsage.Protocol}"
+
+    val sigKeys =
       if (keyPurposes.contains(KeyPurpose.Signing)) {
         if (topology.freshKeys) {
           crypto.setRandomKeysFlag(true)
-          val key = Seq(crypto.generateSymbolicSigningKey(Some(keyName)))
+          val keys = Seq(
+            crypto
+              .generateSymbolicSigningKey(
+                Some(authKeyName),
+                SigningKeyUsage.SequencerAuthenticationOnly,
+              ),
+            crypto.generateSymbolicSigningKey(
+              Some(sigKeyName),
+              SigningKeyUsage.ProtocolOnly,
+            ),
+          )
           crypto.setRandomKeysFlag(false)
-          key
+          keys
         } else
-          Seq(crypto.getOrGenerateSymbolicSigningKey(keyName))
+          Seq(
+            crypto
+              .getOrGenerateSymbolicSigningKey(
+                authKeyName,
+                SigningKeyUsage.SequencerAuthenticationOnly,
+              ),
+            crypto.getOrGenerateSymbolicSigningKey(
+              sigKeyName,
+              SigningKeyUsage.ProtocolOnly,
+            ),
+          )
       } else Seq()
 
     val encKey =
@@ -591,7 +614,7 @@ class TestingIdentityFactory(
       } else Seq()
 
     NonEmpty
-      .from(sigKey ++ encKey)
+      .from(sigKeys ++ encKey)
       .map { keys =>
         mkAdd(OwnerToKeyMapping(owner, keys))
       }
@@ -666,8 +689,10 @@ class TestingOwnerWithKeys(
 
     implicit val ec: ExecutionContext = initEc
 
-    val key1 = genSignKey("key1")
-    val key1_unsupportedSpec = genSignKey("key1", Some(SigningKeySpec.EcP384))
+    val key1 =
+      genSignKey("key1")
+    val key1_unsupportedSpec =
+      genSignKey("key1", SigningKeyUsage.NamespaceOnly, Some(SigningKeySpec.EcP384))
     val key2 = genSignKey("key2")
     val key3 = genSignKey("key3")
     val key4 = genSignKey("key4")
@@ -907,16 +932,25 @@ class TestingOwnerWithKeys(
       signingKeys,
       isProposal,
     )
-  private def genSignKey(name: String, keySpecO: Option[SigningKeySpec] = None): SigningPublicKey =
+  private def genSignKey(
+      name: String,
+      usage: NonEmpty[Set[SigningKeyUsage]] =
+        NonEmpty.mk(Set, SigningKeyUsage.Namespace, SigningKeyUsage.Protocol),
+      keySpecO: Option[SigningKeySpec] = None,
+  ): SigningPublicKey =
     Await
       .result(
         keySpecO.fold(
           cryptoApi.crypto
-            .generateSigningKey(name = Some(KeyName.tryCreate(name)))
+            .generateSigningKey(usage = usage, name = Some(KeyName.tryCreate(name)))
             .value
         )(keySpec =>
           cryptoApi.crypto
-            .generateSigningKey(keySpec = keySpec, name = Some(KeyName.tryCreate(name)))
+            .generateSigningKey(
+              keySpec = keySpec,
+              usage = usage,
+              name = Some(KeyName.tryCreate(name)),
+            )
             .value
         ),
         30.seconds,

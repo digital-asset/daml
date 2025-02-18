@@ -1,0 +1,182 @@
+module Scripts.Setup where
+
+import DA.Map qualified as Map (fromList)
+import DA.Set qualified as Set (fromList, singleton, fromList)
+import Daml.Script
+
+-- INTERFACE DEPENDENCIES --
+import Daml.Finance.Interface.Account.V4.Account qualified as Account (Controllers(..))
+import Daml.Finance.Interface.Account.V4.Factory qualified as AccountFactory (I)
+import Daml.Finance.Interface.Holding.V4.Transferable qualified as Transferable (I)
+import Daml.Finance.Interface.Instrument.Token.V4.Factory qualified as TokenFactory (Create(..), I)
+import Daml.Finance.Interface.Instrument.Token.V4.Types (Token(..))
+import Daml.Finance.Interface.Types.Common.V3.Types (AccountKey(..), HoldingStandard(..), Id(..), InstrumentKey(..))
+
+-- IMPLEMENTATION DEPENDENCIES --
+import Daml.Finance.Account.V4.Account qualified as Account (Factory(..))
+import Daml.Finance.Holding.V4.Factory qualified as Holding (Factory(..))
+import Daml.Finance.Instrument.Token.V4.Factory qualified as Token (Factory(..))
+
+import Workflow.CreateAccount qualified as CreateAccount (Accept(..), Request(..))
+import Workflow.CreditAccount qualified as CreditAccount (Accept(..), Request(..))
+
+import Scripts.Util (createHoldingFactory, createParty)
+
+-- | Outlines the required authorizers for an action.
+data RequiredAuthorizers
+  = Owner
+  | Custodian
+  | Both -- i.e., owner and the custodian
+  | Anyone
+  deriving (Eq, Show)
+
+-- | Describes the required authorizers for incoming and outgoing transfers.
+data AccountControllers = AccountControllers
+  with
+    incoming : RequiredAuthorizers
+    outgoing : RequiredAuthorizers
+  deriving (Eq, Show)
+
+-- | Get controlling parties.
+toControllers : AccountControllers -> Party -> Party -> Account.Controllers
+toControllers AccountControllers{incoming; outgoing} custodian owner =
+  let
+    toParties = \requiredAuthorizers -> case requiredAuthorizers of
+      Owner -> Set.singleton owner
+      Custodian -> Set.singleton custodian
+      Both -> Set.fromList [custodian, owner]
+      Anyone -> mempty
+  in
+    Account.Controllers with incoming = toParties incoming; outgoing = toParties outgoing
+
+-- | Return type of the setup script.
+data Setup = Setup
+  with
+    instrument : InstrumentKey
+      -- ^ An instrument.
+    cb : Party
+      -- ^ The central bank (and issuer of the instrument).
+    bank : Party
+      -- ^ A custodian for holdings.
+    alice : Party
+      -- ^ A client of the bank.
+    aliceAccount : AccountKey
+      -- ^ Alice's account at bank.
+    aliceHoldingCid : ContractId Transferable.I
+      -- ^ Alice's transferable cash holding.
+    bob : Party
+      -- ^ A client of the bank.
+    bobAccount : AccountKey
+      -- ^ Bob's account at bank.
+    charlie : Party
+      -- ^ A client of the bank.
+    charlieAccount : AccountKey
+      -- ^ Bob's account at bank.
+    instructor : Party
+      -- ^ The party who instructs transfers and settlements.
+  deriving (Eq, Show)
+
+-- | This setup script does several things:
+-- 1. It creates an account for Alice, Bob, and Charlie @Bank.
+-- 2. It sets up a cash instrument, issued by the central bank.
+-- 3. It credits a cash holding to Alice's bank account.
+-- The account hierarchy is illustrated in the following figure where the accounts and holdings are
+-- represented by edges and stars (*), respectively.
+--
+--             Bank
+--         */    |    \
+--     Alice  Charlie  Bob
+--
+runSetup : AccountControllers -> Script Setup
+runSetup accountControllers = do
+  -- Allocate parties.
+  [cb, bank, alice, bob, charlie, instructor] <-
+    mapA createParty ["CentralBank", "Bank", "Alice", "Bob", "Charlie", "Instructor"]
+  let clients = [alice, bob, charlie]
+
+  -- Account Factory (used to create accounts @Bank).
+  accountFactoryCid <- toInterfaceContractId @AccountFactory.I <$> submit bank do
+    createCmd Account.Factory with provider = bank; observers = mempty
+
+  -- Holding Factory (used to create holdings with the desired implementation @Bank).
+  holdingFactory <- createHoldingFactory
+    Holding.Factory with
+      provider = bank
+      id = Id "Holding Factory"
+      observers = Map.fromList
+        [ ("DiscloseToSettlers", Set.singleton instructor)
+        , ("DiscloseToClients", Set.fromList clients)
+        ]
+
+  -- Set up accounts @Bank.
+  let controllersWithOwner = toControllers accountControllers bank
+  aliceRequestCid <- submit alice do
+    createCmd CreateAccount.Request with
+      custodian = bank
+      owner = alice
+      accountControllers = controllersWithOwner alice
+  aliceAccount <- submit bank do
+    exerciseCmd aliceRequestCid CreateAccount.Accept with
+      label = "Alice@Bank"
+      description = "Account of Alice at Bank"
+      accountFactoryCid
+      holdingFactory -- This is equivalent to writing holdingFactory = holdingFactory
+      observers = clients -- disclosing to all clients of Bank
+  bobRequestCid <- submit bob do
+    createCmd CreateAccount.Request with
+      custodian = bank
+      owner = bob
+      accountControllers = controllersWithOwner bob
+  bobAccount <- submit bank do
+    exerciseCmd bobRequestCid CreateAccount.Accept with
+      label = "Bob@Bank"
+      description = "Account of Bob at Bank"
+      accountFactoryCid
+      holdingFactory
+      observers = clients -- disclosing to all clients of Bank
+  charlieRequestCid <- submit charlie do
+    createCmd CreateAccount.Request with
+      custodian = bank
+      owner = charlie
+      accountControllers = controllersWithOwner charlie
+  charlieAccount <- submit bank do
+    exerciseCmd charlieRequestCid CreateAccount.Accept with
+      label = "Charlie@Bank"
+      description = "Account of Charlie at Bank"
+      accountFactoryCid
+      holdingFactory
+      observers = clients -- disclosing to all clients of Bank
+
+  -- Central Bank creates the cash instrument using a Token factory.
+  now <- getTime
+  tokenFactoryCid <- toInterfaceContractId @TokenFactory.I <$> submit cb do
+    createCmd Token.Factory with
+      provider = cb
+      observers = mempty
+  let
+    instrument = InstrumentKey with
+      depository = cb
+      issuer = cb
+      id = Id "USD"
+      version = "0"
+      holdingStandard = TransferableFungible
+  submit cb do
+    exerciseCmd tokenFactoryCid TokenFactory.Create with
+      token = Token with
+        instrument
+        description = "Instrument representing units of USD"
+        validAsOf = now
+      observers = mempty
+
+  -- Alice deposits cash at Bank.
+  aliceRequestCid <- submit alice do
+    createCmd CreditAccount.Request with
+      account = aliceAccount
+      instrument
+      amount = 1000.0
+  aliceHoldingCid <- fromInterfaceContractId @Transferable.I <$> submit bank do
+    exerciseCmd aliceRequestCid CreditAccount.Accept
+
+  pure Setup with
+    instrument; cb; bank; alice; aliceAccount; aliceHoldingCid; bob; bobAccount; charlie
+    charlieAccount; instructor

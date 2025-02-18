@@ -17,7 +17,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.Activeness
 import com.digitalasset.canton.participant.store.SyncEphemeralState
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.{
-  ConfirmationResponse,
+  ConfirmationResponses,
   ProtocolMessage,
   SignedProtocolMessage,
 }
@@ -83,13 +83,13 @@ abstract class AbstractMessageProcessor(
   ): FutureUnlessShutdown[Unit] =
     if (isCleanReplay(requestCounter)) FutureUnlessShutdown.unit else f.void
 
-  protected def signResponse(
+  protected def signResponses(
       ips: SynchronizerSnapshotSyncCryptoApi,
-      response: ConfirmationResponse,
+      responses: ConfirmationResponses,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[SignedProtocolMessage[ConfirmationResponse]] =
-    SignedProtocolMessage.trySignAndCreate(response, ips, protocolVersion)
+  ): FutureUnlessShutdown[SignedProtocolMessage[ConfirmationResponses]] =
+    SignedProtocolMessage.trySignAndCreate(responses, ips, protocolVersion)
 
   // Assumes that we are not closing (i.e., that this is synchronized with shutdown somewhere higher up the call stack)
   protected def sendResponses(

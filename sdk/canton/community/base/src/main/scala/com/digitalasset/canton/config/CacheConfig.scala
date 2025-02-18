@@ -4,6 +4,7 @@
 package com.digitalasset.canton.config
 
 import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.util.BytesUnit
 import com.github.blemale.scaffeine.Scaffeine
 import com.google.common.annotations.VisibleForTesting
@@ -18,7 +19,7 @@ import scala.concurrent.ExecutionContext
 final case class CacheConfig(
     maximumSize: PositiveNumeric[Long],
     expireAfterAccess: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMinutes(1),
-) {
+) extends UniformCantonConfigValidation {
 
   def buildScaffeine()(implicit ec: ExecutionContext): Scaffeine[Any, Any] =
     Scaffeine()
@@ -26,17 +27,29 @@ final case class CacheConfig(
       .expireAfterAccess(expireAfterAccess.underlying)
       .executor(ec.execute(_))
 }
+object CacheConfig {
+  implicit val cacheConfigCantonConfigValidator: CantonConfigValidator[CacheConfig] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[CacheConfig]
+  }
+}
 
 final case class CacheConfigWithMemoryBounds(
     maximumMemory: PositiveNumeric[BytesUnit],
     expireAfterAccess: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMinutes(1),
-) {
+) extends UniformCantonConfigValidation {
   def buildScaffeine()(implicit ec: ExecutionContext): Scaffeine[Any, Any] =
     Scaffeine()
       .maximumWeight(maximumMemory.value.bytes)
       .expireAfterAccess(expireAfterAccess.underlying)
       .executor(ec.execute(_))
-
+}
+object CacheConfigWithMemoryBounds {
+  implicit val cacheConfigWithMemoryBoundsCantonConfigValidator
+      : CantonConfigValidator[CacheConfigWithMemoryBounds] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[CacheConfigWithMemoryBounds]
+  }
 }
 
 /** Configurations settings for a single cache where elements are evicted after a certain time as elapsed
@@ -48,7 +61,7 @@ final case class CacheConfigWithMemoryBounds(
 final case class CacheConfigWithTimeout(
     maximumSize: PositiveNumeric[Long],
     expireAfterTimeout: PositiveFiniteDuration = PositiveFiniteDuration.ofMinutes(10),
-) {
+) extends UniformCantonConfigValidation {
 
   def buildScaffeine()(implicit executionContext: ExecutionContext): Scaffeine[Any, Any] =
     Scaffeine()
@@ -57,9 +70,16 @@ final case class CacheConfigWithTimeout(
       .executor(executionContext.execute(_))
 
 }
+object CacheConfigWithTimeout {
+  implicit val cacheConfigWithTimeoutCantonConfigValidator
+      : CantonConfigValidator[CacheConfigWithTimeout] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[CacheConfigWithTimeout]
+  }
+}
 
 /** Configuration settings for a cache that stores: (a) the public asymmetric encryptions of the session keys for the sender
-  * and (b) the decrypting results in the receiver. This reduces the amount of asymmetric operations that need to
+  * and (b) the decrypting results in the receiver. This reduces the amount of asymmetric operations that need
   * to be performed for each of the views that share the same participant recipient group (i.e. use the same session key).
   *
   * @param enabled enable/disable caching of the session key. Caching is enabled by default, offering
@@ -71,7 +91,13 @@ final case class SessionEncryptionKeyCacheConfig(
     enabled: Boolean,
     senderCache: CacheConfigWithTimeout,
     receiverCache: CacheConfigWithTimeout,
-)
+) extends UniformCantonConfigValidation
+
+object SessionEncryptionKeyCacheConfig {
+  implicit val sessionEncryptionKeyCacheConfigCantonConfigValidator
+      : CantonConfigValidator[SessionEncryptionKeyCacheConfig] =
+    CantonConfigValidatorDerivation[SessionEncryptionKeyCacheConfig]
+}
 
 /** Configuration settings for various internal caches
   *
@@ -100,9 +126,12 @@ final case class CachingConfigs(
     finalizedMediatorConfirmationRequests: CacheConfig =
       CachingConfigs.defaultFinalizedMediatorConfirmationRequestsCache,
     sequencerPayloadCache: CacheConfigWithMemoryBounds = CachingConfigs.defaultSequencerPayloadCache,
-)
+) extends UniformCantonConfigValidation
 
 object CachingConfigs {
+  implicit val cachingConfigsCantonConfigValidator: CantonConfigValidator[CachingConfigs] =
+    CantonConfigValidatorDerivation[CachingConfigs]
+
   val defaultStaticStringCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
   val defaultContractStoreCache: CacheConfig =

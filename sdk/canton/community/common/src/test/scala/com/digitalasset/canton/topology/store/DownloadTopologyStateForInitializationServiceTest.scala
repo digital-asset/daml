@@ -20,7 +20,7 @@ trait DownloadTopologyStateForInitializationServiceTest
     with TopologyStoreTestBase
     with FailOnShutdown {
 
-  protected def createTopologyStore(
+  protected def mkStore(
       synchronizerId: SynchronizerId
   ): TopologyStore[SynchronizerStore]
 
@@ -72,7 +72,7 @@ trait DownloadTopologyStateForInitializationServiceTest
   private def initializeStore(
       storedTransactions: GenericStoredTopologyTransactions
   ): FutureUnlessShutdown[TopologyStore[SynchronizerStore]] = {
-    val store = createTopologyStore(synchronizer1_p1p2_synchronizerId)
+    val store = mkStore(synchronizer1_p1p2_synchronizerId)
     val groupedBySequencedTime =
       storedTransactions.result.groupBy(tx => (tx.sequenced, tx.validFrom)).toSeq.sortBy {
         case (sequenced, _) => sequenced

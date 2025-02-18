@@ -30,7 +30,10 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
-import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
+import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.{
+  AuthenticateFatContractInstance,
+  AuthenticateSerializableContract,
+}
 import com.digitalasset.canton.platform.apiserver.execution.{
   CommandProgressTracker,
   DynamicSynchronizerParameterGetter,
@@ -94,8 +97,8 @@ object ApiServiceOwner {
       otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
       otherInterceptors: List[ServerInterceptor] = List.empty,
       engine: Engine,
-      readApiServicesExecutionContext: ExecutionContextExecutor,
-      writeApiServicesExecutionContext: ExecutionContextExecutor,
+      queryExecutionContext: ExecutionContextExecutor,
+      commandExecutionContext: ExecutionContextExecutor,
       checkOverloaded: TraceContext => Option[state.SubmissionResult] =
         _ => None, // Used for Canton rate-limiting,
       authService: AuthService,
@@ -106,7 +109,8 @@ object ApiServiceOwner {
       engineLoggingConfig: EngineLoggingConfig,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
-      authenticateContract: AuthenticateContract,
+      authenticateSerializableContract: AuthenticateSerializableContract,
+      authenticateFatContractInstance: AuthenticateFatContractInstance,
       dynParamGetter: DynamicSynchronizerParameterGetter,
       interactiveSubmissionServiceConfig: InteractiveSubmissionServiceConfig,
       lfValueTranslation: LfValueTranslation,
@@ -117,6 +121,8 @@ object ApiServiceOwner {
       traceContext: TraceContext,
       tracer: Tracer,
   ): ResourceOwner[ApiService] = {
+    import com.digitalasset.canton.platform.ResourceOwnerOps
+    val logger = loggerFactory.getTracedLogger(getClass)
 
     val authorizer = new Authorizer(
       now = Clock.systemUTC.instant _,
@@ -130,7 +136,7 @@ object ApiServiceOwner {
         tokenExpiryGracePeriodForStreams =
           tokenExpiryGracePeriodForStreams.map(_.asJavaApproximation),
         loggerFactory = loggerFactory,
-      )(writeApiServicesExecutionContext, traceContext),
+      )(commandExecutionContext, traceContext),
       jwtTimestampLeeway = jwtTimestampLeeway,
       telemetry = telemetry,
       loggerFactory = loggerFactory,
@@ -143,12 +149,13 @@ object ApiServiceOwner {
       ): Future[IdentityProviderConfig] =
         identityProviderConfigStore.getActiveIdentityProviderByIssuer(issuer)(
           loggingContext,
-          writeApiServicesExecutionContext,
+          commandExecutionContext,
         )
     }
 
     for {
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
+        .afterReleased(logger.info(s"ExecutionSequencerFactory is released for LedgerApiService"))
       apiServicesOwner = ApiServices(
         participantId = participantId,
         syncService = syncService,
@@ -165,8 +172,8 @@ object ApiServiceOwner {
         commandProgressTracker = commandProgressTracker,
         commandConfig = command,
         optTimeServiceBackend = timeServiceBackend,
-        readApiServicesExecutionContext = readApiServicesExecutionContext,
-        writeApiServicesExecutionContext = writeApiServicesExecutionContext,
+        queryExecutionContext = queryExecutionContext,
+        commandExecutionContext = commandExecutionContext,
         metrics = metrics,
         healthChecks = healthChecksWithIndexService,
         seedService = SeedService(seeding),
@@ -183,7 +190,8 @@ object ApiServiceOwner {
         meteringReportKey = meteringReportKey,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
-        authenticateContract = authenticateContract,
+        authenticateSerializableContract = authenticateSerializableContract,
+        authenticateFatContractInstance = authenticateFatContractInstance,
         dynParamGetter = dynParamGetter,
         interactiveSubmissionServiceConfig = interactiveSubmissionServiceConfig,
         lfValueTranslation = lfValueTranslation,
@@ -203,23 +211,21 @@ object ApiServiceOwner {
             identityProviderConfigLoader = identityProviderConfigLoader,
             jwtVerifierLoader = jwtVerifierLoader,
             loggerFactory = loggerFactory,
-          )(writeApiServicesExecutionContext),
+          )(commandExecutionContext),
           telemetry,
           loggerFactory,
-          writeApiServicesExecutionContext,
+          commandExecutionContext,
         ) :: otherInterceptors,
-        writeApiServicesExecutionContext,
+        commandExecutionContext,
         metrics,
         keepAlive,
         loggerFactory,
-      )
+      ).afterReleased(logger.info(s"LedgerApiService is released"))
     } yield {
-      loggerFactory
-        .getTracedLogger(getClass)
-        .info(
-          s"Initialized API server listening to port = ${apiService.port} ${if (tls.isDefined) "using tls"
-            else "without tls"}."
-        )
+      logger.info(
+        s"Initialized API server listening to port = ${apiService.port} ${if (tls.isDefined) "using tls"
+          else "without tls"}."
+      )
       apiService
     }
   }

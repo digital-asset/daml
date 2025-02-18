@@ -167,7 +167,7 @@ private[digitalasset] class PackageInterface(
       dataEnumInfo.dataEnum.constructorRank.get(consName) match {
         case Some(rank) => Right(rank)
         case None =>
-          Left(LookupError.NotFound(Reference.DataVariantConstructor(tyCon, consName), context))
+          Left(LookupError.NotFound(Reference.DataEnumConstructor(tyCon, consName), context))
       }
     }
 

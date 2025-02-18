@@ -68,7 +68,8 @@ final case class StaticSynchronizerParameters(
     requiredCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]],
     requiredSignatureFormats: NonEmpty[Set[SignatureFormat]],
     protocolVersion: ProtocolVersion,
-) extends HasProtocolVersionedWrapper[StaticSynchronizerParameters] {
+) extends HasProtocolVersionedWrapper[StaticSynchronizerParameters]
+    with PrettyPrinting {
 
   override val representativeProtocolVersion: RepresentativeProtocolVersion[
     StaticSynchronizerParameters.type
@@ -87,7 +88,17 @@ final case class StaticSynchronizerParameters(
       requiredSignatureFormats = requiredSignatureFormats.toSeq.map(_.toProtoEnum),
       protocolVersion = protocolVersion.toProtoPrimitive,
     )
+
+  override protected def pretty: Pretty[StaticSynchronizerParameters] = prettyOfClass(
+    param("required signing specs", _.requiredSigningSpecs),
+    param("required encryption specs", _.requiredEncryptionSpecs),
+    param("required symmetric key schemes", _.requiredSymmetricKeySchemes),
+    param("required hash algorithms", _.requiredHashAlgorithms),
+    param("required crypto key formats", _.requiredCryptoKeyFormats),
+    param("protocol version", _.protocolVersion),
+  )
 }
+
 object StaticSynchronizerParameters
     extends VersioningCompanion[StaticSynchronizerParameters]
     with ProtocolVersionedCompanionDbHelpers[StaticSynchronizerParameters] {
@@ -520,10 +531,10 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
     NonNegativeFiniteDuration.tryOfSeconds(60)
 
   private val defaultSubmissionTimeRecordTimeTolerance: NonNegativeFiniteDuration =
-    defaultLedgerTimeRecordTimeTolerance
+    NonNegativeFiniteDuration.tryOfHours(24)
 
   private val defaultMediatorDeduplicationTimeout: NonNegativeFiniteDuration =
-    defaultLedgerTimeRecordTimeTolerance * NonNegativeInt.tryCreate(2)
+    defaultSubmissionTimeRecordTimeTolerance * NonNegativeInt.tryCreate(2)
 
   // Based on SequencerClientConfig.defaultMaxSequencingTimeOffset + 1 minute of slack for the clock drift
   private val defaultSequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration =

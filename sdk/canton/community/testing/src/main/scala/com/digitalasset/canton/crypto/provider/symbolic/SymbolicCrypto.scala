@@ -58,7 +58,7 @@ class SymbolicCrypto(
 
   def getOrGenerateSymbolicSigningKey(
       name: String,
-      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   ): SigningPublicKey =
     processO("get or generate symbolic signing key") { implicit traceContext =>
       cryptoPublicStore
@@ -74,7 +74,7 @@ class SymbolicCrypto(
   /** Generates a new symbolic signing keypair and stores the public key in the public store */
   def generateSymbolicSigningKey(
       name: Option[String] = None,
-      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   ): SigningPublicKey =
     processE("generate symbolic signing key") { implicit traceContext =>
       // We don't care about the signing key scheme in symbolic crypto
@@ -83,7 +83,7 @@ class SymbolicCrypto(
 
   /** Generates a new symbolic signing keypair but does not store it in the public store */
   def newSymbolicSigningKeyPair(
-      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All
+      usage: NonEmpty[Set[SigningKeyUsage]]
   ): SigningKeyPair =
     processE("generate symbolic signing keypair") { implicit traceContext =>
       // We don't care about the signing key scheme in symbolic crypto

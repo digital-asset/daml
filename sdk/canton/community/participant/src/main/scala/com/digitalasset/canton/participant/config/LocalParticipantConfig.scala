@@ -8,6 +8,7 @@ import com.daml.jwt.JwtTimestampLeeway
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.*
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.http.JsonApiConfig
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
@@ -88,7 +89,7 @@ final case class ParticipantProtocolConfig(
   */
 final case class CommunityParticipantConfig(
     override val init: ParticipantInitConfig = ParticipantInitConfig(),
-    override val crypto: CommunityCryptoConfig = CommunityCryptoConfig(),
+    override val crypto: CryptoConfig = CryptoConfig(),
     override val ledgerApi: LedgerApiServerConfig = LedgerApiServerConfig(),
     override val httpLedgerApi: Option[JsonApiConfig] = None,
     override val adminApi: AdminServerConfig = AdminServerConfig(),
@@ -100,7 +101,8 @@ final case class CommunityParticipantConfig(
     override val topology: TopologyConfig = TopologyConfig(),
 ) extends LocalParticipantConfig
     with LocalNodeConfig
-    with ConfigDefaults[DefaultPorts, CommunityParticipantConfig] {
+    with ConfigDefaults[DefaultPorts, CommunityParticipantConfig]
+    with CommunityOnlyCantonConfigValidation {
 
   override def clientAdminApi: ClientConfig = adminApi.clientConfig
 
@@ -117,6 +119,12 @@ final case class CommunityParticipantConfig(
       .modify(ports.participantAdminApiPort.setDefaultPort)
 }
 
+object CommunityParticipantConfig {
+  implicit val communityParticipantConfigCantonConfigValidator
+      : CantonConfigValidator[CommunityParticipantConfig] =
+    CantonConfigValidatorDerivation[CommunityParticipantConfig]
+}
+
 /** Configuration to connect the console to a participant running remotely.
   *
   * @param adminApi the configuration to connect the console to the remote admin api
@@ -127,9 +135,15 @@ final case class RemoteParticipantConfig(
     adminApi: ClientConfig,
     ledgerApi: ClientConfig,
     token: Option[String] = None,
-) extends BaseParticipantConfig {
+) extends BaseParticipantConfig
+    with UniformCantonConfigValidation {
   override def clientAdminApi: ClientConfig = adminApi
   override def clientLedgerApi: ClientConfig = ledgerApi
+}
+object RemoteParticipantConfig {
+  implicit val remoteParticipantConfigCantonConfigValidator
+      : CantonConfigValidator[RemoteParticipantConfig] =
+    CantonConfigValidatorDerivation[RemoteParticipantConfig]
 }
 
 /** Canton configuration case class to pass-through configuration options to the ledger api server
@@ -199,6 +213,11 @@ final case class LedgerApiServerConfig(
 
 object LedgerApiServerConfig {
 
+  implicit val ledgerApiServerConfigCantonConfigValidator
+      : CantonConfigValidator[LedgerApiServerConfig] =
+    // Do not recurse into the LAPI config as there are no enterprise server features in there
+    CantonConfigValidator.validateAll
+
   private val DefaultManagementServiceTimeout: config.NonNegativeFiniteDuration =
     config.NonNegativeFiniteDuration.ofMinutes(2L)
   private val DefaultDatabaseConnectionTimeout: config.NonNegativeFiniteDuration =
@@ -216,8 +235,11 @@ object LedgerApiServerConfig {
 }
 
 /** Optional ledger api time service configuration for demo and testing only */
-sealed trait TestingTimeServiceConfig
+sealed trait TestingTimeServiceConfig extends UniformCantonConfigValidation
 object TestingTimeServiceConfig {
+  implicit val testingTimeServiceConfigCanontConfigValidator
+      : CantonConfigValidator[TestingTimeServiceConfig] =
+    CantonConfigValidatorDerivation[TestingTimeServiceConfig]
 
   /** A variant of [[TestingTimeServiceConfig]] with the ability to read and monotonically advance ledger time */
   case object MonotonicTime extends TestingTimeServiceConfig
@@ -286,6 +308,15 @@ final case class ParticipantNodeParameterConfig(
     experimentalEnableTopologyEvents: Boolean = false,
     enableExternalAuthorization: Boolean = false,
 ) extends LocalNodeParametersConfig
+    with UniformCantonConfigValidation
+
+object ParticipantNodeParameterConfig {
+  implicit val participantNodeParameterConfigCantonConfigValidator
+      : CantonConfigValidator[ParticipantNodeParameterConfig] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[ParticipantNodeParameterConfig]
+  }
+}
 
 /** Parameters for the participant node's stores
   *
@@ -296,7 +327,12 @@ final case class ParticipantStoreConfig(
     pruningMetricUpdateInterval: Option[config.PositiveDurationSeconds] =
       config.PositiveDurationSeconds.ofHours(1L).some,
     journalPruning: JournalPruningConfig = JournalPruningConfig(),
-)
+) extends UniformCantonConfigValidation
+object ParticipantStoreConfig {
+  implicit val participantStoreConfigCantonConfigValidator
+      : CantonConfigValidator[ParticipantStoreConfig] =
+    CantonConfigValidatorDerivation[ParticipantStoreConfig]
+}
 
 /** Control background journal pruning
   *
@@ -315,7 +351,7 @@ final case class JournalPruningConfig(
     targetBatchSize: PositiveInt = JournalPruningConfig.DefaultTargetBatchSize,
     initialInterval: config.NonNegativeFiniteDuration = JournalPruningConfig.DefaultInitialInterval,
     maxBuckets: PositiveInt = JournalPruningConfig.DefaultMaxBuckets,
-) {
+) extends UniformCantonConfigValidation {
   def toInternal: PrunableByTimeParameters =
     PrunableByTimeParameters(
       targetBatchSize,
@@ -325,6 +361,12 @@ final case class JournalPruningConfig(
 }
 
 object JournalPruningConfig {
+  implicit val journalPruningConfigCantonConfigValidator
+      : CantonConfigValidator[JournalPruningConfig] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[JournalPruningConfig]
+  }
+
   private val DefaultTargetBatchSize = PositiveInt.tryCreate(5000)
   private val DefaultInitialInterval = config.NonNegativeFiniteDuration.ofSeconds(5)
   private val DefaultMaxBuckets = PositiveInt.tryCreate(100)
@@ -343,6 +385,12 @@ final case class LedgerApiServerParametersConfig(
     tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration] = None,
     contractLoader: ContractLoaderConfig = ContractLoaderConfig(),
 )
+
+object LedgerApiServerParametersConfig {
+  implicit val ledgerApiServerParametersConfigCanontConfigValidator
+      : CantonConfigValidator[LedgerApiServerParametersConfig] =
+    CantonConfigValidator.validateAll // There are no enterprise server features in here
+}
 
 /** Parameters to control batch loading during phase 1 / interpretation
   *
@@ -368,4 +416,9 @@ object ContractLoaderConfig {
   */
 final case class UnsafeOnlinePartyReplicationConfig(
     pauseSynchronizerIndexingDuringPartyReplication: Boolean = false
-)
+) extends UniformCantonConfigValidation
+object UnsafeOnlinePartyReplicationConfig {
+  implicit val unsafeOnlinePartyReplicationConfigCantonConfigValidator
+      : CantonConfigValidator[UnsafeOnlinePartyReplicationConfig] =
+    CantonConfigValidatorDerivation[UnsafeOnlinePartyReplicationConfig]
+}

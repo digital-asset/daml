@@ -23,6 +23,7 @@ import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
   EventFormat,
   TraceIdentifiers,
+  UpdateFormat,
   UpdateId,
 }
 import com.digitalasset.canton.ledger.error.CommonErrors
@@ -45,12 +46,19 @@ import com.digitalasset.canton.platform.store.cache.OffsetCheckpoint
 import com.digitalasset.canton.platform.store.dao.{
   EventProjectionProperties,
   LedgerDaoCommandCompletionsReader,
-  LedgerDaoTransactionsReader,
+  LedgerDaoUpdateReader,
   LedgerReadDao,
 }
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.PackageResolution
-import com.digitalasset.canton.platform.{Party, PruneBuffers, TemplatePartiesFilter}
+import com.digitalasset.canton.platform.{
+  InternalEventFormat,
+  InternalTransactionFormat,
+  InternalUpdateFormat,
+  Party,
+  PruneBuffers,
+  TemplatePartiesFilter,
+}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{ApplicationId, Identifier, PackageRef, TypeConRef}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -66,7 +74,7 @@ import scala.concurrent.Future
 private[index] class IndexServiceImpl(
     participantId: Ref.ParticipantId,
     ledgerDao: LedgerReadDao,
-    transactionsReader: LedgerDaoTransactionsReader,
+    updatesReader: LedgerDaoUpdateReader,
     commandCompletionsReader: LedgerDaoCommandCompletionsReader,
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
@@ -75,6 +83,7 @@ private[index] class IndexServiceImpl(
     getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
     metrics: LedgerApiServerMetrics,
     idleStreamOffsetCheckpointTimeout: config.NonNegativeFiniteDuration,
+    experimentalEnableTopologyEvents: Boolean,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends IndexService
     with NamedLogging {
@@ -99,15 +108,18 @@ private[index] class IndexServiceImpl(
   ): Future[Option[ContractId]] =
     contractStore.lookupContractKey(readers, key)
 
-  override def transactions(
+  override def updates(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
-      eventFormat: EventFormat,
+      updateFormat: UpdateFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed] = {
     val contextualizedErrorLogger = ErrorLoggingContext(logger, loggingContext)
     val isTailingStream = endInclusive.isEmpty
 
-    withValidatedFilter(eventFormat, getPackageMetadataSnapshot(contextualizedErrorLogger)) {
+    withValidatedUpdateFormat(
+      updateFormat,
+      getPackageMetadataSnapshot(contextualizedErrorLogger),
+    ) {
       between(startExclusive, endInclusive) { (from, to) =>
         from.foreach(offset =>
           Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toDecimalString)
@@ -119,21 +131,21 @@ private[index] class IndexServiceImpl(
           .startingAt(
             startExclusive = from,
             subSource = RangeSource {
-              val memoFilter =
-                memoizedTransactionFilterProjection(
-                  getPackageMetadataSnapshot,
-                  eventFormat,
+              val memoInternalUpdateFormat =
+                memoizedInternalUpdateFormat(
+                  getPackageMetadataSnapshot = getPackageMetadataSnapshot,
+                  updateFormat = updateFormat,
                   alwaysPopulateArguments = false,
+                  enableTopologyEvents = experimentalEnableTopologyEvents,
                 )
               (startInclusive, endInclusive) =>
-                Source(memoFilter().toList)
-                  .flatMapConcat { case (templateFilter, eventProjectionProperties) =>
-                    transactionsReader
-                      .getFlatTransactions(
+                Source(memoInternalUpdateFormat().toList)
+                  .flatMapConcat { internalUpdateFormat =>
+                    updatesReader
+                      .getUpdates(
                         startInclusive = startInclusive,
                         endInclusive = endInclusive,
-                        filter = templateFilter,
-                        eventProjectionProperties = eventProjectionProperties,
+                        internalUpdateFormat = internalUpdateFormat,
                       )
                   }
                   .via(
@@ -154,7 +166,7 @@ private[index] class IndexServiceImpl(
             )
           )
           .mapError(shutdownError)
-          .buffered(metrics.index.flatTransactionsBufferSize, LedgerApiStreamsBufferSize)
+          .buffered(metrics.index.updatesBufferSize, LedgerApiStreamsBufferSize)
       }.wireTap(
         _.update match {
           case GetUpdatesResponse.Update.Transaction(transaction) =>
@@ -227,7 +239,7 @@ private[index] class IndexServiceImpl(
               (startInclusive, endInclusive) =>
                 Source(memoFilter().toList)
                   .flatMapConcat { case (_, eventProjectionProperties) =>
-                    transactionsReader
+                    updatesReader
                       .getTransactionTrees(
                         startInclusive = startInclusive,
                         endInclusive = endInclusive,
@@ -325,13 +337,13 @@ private[index] class IndexServiceImpl(
       } yield {
         val activeContractsSource =
           Source(
-            transactionFilterProjection(
+            eventFormatProjection(
               eventFormat,
               currentPackageMetadata,
               alwaysPopulateArguments = false,
             ).toList
-          ).flatMapConcat { case (templateFilter, eventProjectionProperties) =>
-            ledgerDao.transactionsReader
+          ).flatMapConcat { case InternalEventFormat(templateFilter, eventProjectionProperties) =>
+            ledgerDao.updateReader
               .getActiveContracts(
                 activeAt = activeAt,
                 filter = templateFilter,
@@ -353,24 +365,24 @@ private[index] class IndexServiceImpl(
 
   override def getTransactionById(
       updateId: UpdateId,
-      requestingParties: Set[Ref.Party],
+      internalTransactionFormat: InternalTransactionFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
-    transactionsReader
-      .lookupFlatTransactionById(updateId.unwrap, requestingParties)
+    updatesReader
+      .lookupTransactionById(updateId.unwrap, internalTransactionFormat)
 
   override def getTransactionTreeById(
       updateId: UpdateId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]] =
-    transactionsReader
+    updatesReader
       .lookupTransactionTreeById(updateId.unwrap, requestingParties)
 
   override def getTransactionByOffset(
       offset: Offset,
-      requestingParties: Set[Ref.Party],
+      internalTransactionFormat: InternalTransactionFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
-    transactionsReader
-      .lookupFlatTransactionByOffset(offset, requestingParties)
+    updatesReader
+      .lookupTransactionByOffset(offset, internalTransactionFormat)
 
   override def getTransactionTreeByOffset(
       offset: Offset,
@@ -378,7 +390,7 @@ private[index] class IndexServiceImpl(
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[GetTransactionTreeResponse]] =
-    transactionsReader
+    updatesReader
       .lookupTransactionTreeByOffset(offset, requestingParties)
 
   override def getEventsByContractId(
@@ -606,10 +618,38 @@ object IndexServiceImpl {
     } yield ()
   }
 
+  private[index] def checkUnknownIdentifiers(
+      apiUpdateFormat: UpdateFormat,
+      metadata: PackageMetadata,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[DamlErrorWithDefiniteAnswer, Unit] = for {
+    _ <- apiUpdateFormat.includeTransactions
+      .map(transactionFormat => checkUnknownIdentifiers(transactionFormat.eventFormat, metadata))
+      .getOrElse(Right(()))
+    _ <- apiUpdateFormat.includeReassignments
+      .map(checkUnknownIdentifiers(_, metadata))
+      .getOrElse(Right(()))
+  } yield ()
+
   private[index] def foldToSource[A](
       either: Either[StatusRuntimeException, Source[A, NotUsed]]
   ): Source[A, NotUsed] = either.fold(Source.failed, identity)
 
+  private[index] def withValidatedUpdateFormat[T](
+      apiUpdateFormat: UpdateFormat,
+      metadata: PackageMetadata,
+  )(
+      source: => Source[T, NotUsed]
+  )(implicit errorLogger: ContextualizedErrorLogger): Source[T, NotUsed] =
+    foldToSource(
+      for {
+        _ <- checkUnknownIdentifiers(apiUpdateFormat, metadata)(errorLogger).left
+          .map(_.asGrpcError)
+      } yield source
+    )
+
+  // TODO(#23504) cleanup
   private[index] def withValidatedFilter[T](
       apiEventFormat: EventFormat,
       metadata: PackageMetadata,
@@ -640,6 +680,62 @@ object IndexServiceImpl {
     )
 
   @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
+  private[index] def memoizedInternalUpdateFormat(
+      getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
+      updateFormat: UpdateFormat,
+      alwaysPopulateArguments: Boolean, // TODO(#23504) remove the field since it will always be false after removing transaction trees
+      enableTopologyEvents: Boolean,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): () => Option[InternalUpdateFormat] = {
+    @volatile var metadata: PackageMetadata = null
+    @volatile var internalTransactionFormat: Option[InternalTransactionFormat] = None
+    @volatile var reassignmentsInternalEventFormat: Option[InternalEventFormat] = None
+    () =>
+      val currentMetadata = getPackageMetadataSnapshot(contextualizedErrorLogger)
+      if (metadata ne currentMetadata) {
+        metadata = currentMetadata
+        internalTransactionFormat = updateFormat.includeTransactions.flatMap(transactionFormat =>
+          eventFormatProjection(
+            eventFormat = transactionFormat.eventFormat,
+            metadata = metadata,
+            alwaysPopulateArguments = alwaysPopulateArguments,
+          ).map(internalEventFormat =>
+            InternalTransactionFormat(
+              internalEventFormat = internalEventFormat,
+              transactionShape = transactionFormat.transactionShape,
+            )
+          )
+        )
+        reassignmentsInternalEventFormat = updateFormat.includeReassignments.flatMap(eventFormat =>
+          eventFormatProjection(
+            eventFormat = eventFormat,
+            metadata = metadata,
+            alwaysPopulateArguments = alwaysPopulateArguments,
+          )
+        )
+      }
+
+      val topologyEvents = if (enableTopologyEvents) updateFormat.includeTopologyEvents else None
+
+      if (
+        internalTransactionFormat.isEmpty &&
+        reassignmentsInternalEventFormat.isEmpty &&
+        topologyEvents.isEmpty
+      )
+        None
+      else
+        Some(
+          InternalUpdateFormat(
+            includeTransactions = internalTransactionFormat,
+            includeReassignments = reassignmentsInternalEventFormat,
+            includeTopologyEvents = topologyEvents,
+          )
+        )
+  }
+
+  // TODO(#23504) cleanup
+  @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
   private[index] def memoizedTransactionFilterProjection(
       getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
       eventFormat: EventFormat,
@@ -653,20 +749,22 @@ object IndexServiceImpl {
       val currentMetadata = getPackageMetadataSnapshot(contextualizedErrorLogger)
       if (metadata ne currentMetadata) {
         metadata = currentMetadata
-        filters = transactionFilterProjection(
+        filters = eventFormatProjection(
           eventFormat,
           metadata,
           alwaysPopulateArguments,
+        ).map(internalEventFormat =>
+          (internalEventFormat.templatePartiesFilter, internalEventFormat.eventProjectionProperties)
         )
       }
       filters
   }
 
-  private def transactionFilterProjection(
+  private def eventFormatProjection(
       eventFormat: EventFormat,
       metadata: PackageMetadata,
       alwaysPopulateArguments: Boolean,
-  ): Option[(TemplatePartiesFilter, EventProjectionProperties)] = {
+  ): Option[InternalEventFormat] = {
     val templateFilter: Map[Identifier, Option[Set[Party]]] =
       IndexServiceImpl.templateFilter(metadata, eventFormat)
 
@@ -677,18 +775,19 @@ object IndexServiceImpl {
       None
     } else {
       val eventProjectionProperties = EventProjectionProperties(
-        eventFormat,
-        interfaceId => metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty),
-        metadata.resolveTypeConRef(_),
-        alwaysPopulateArguments,
+        eventFormat = eventFormat,
+        interfaceImplementedBy =
+          interfaceId => metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty),
+        resolveTypeConRef = metadata.resolveTypeConRef,
+        alwaysPopulateArguments = alwaysPopulateArguments,
       )
       Some(
-        (
-          TemplatePartiesFilter(
-            templateFilter,
-            templateWildcardFilter,
+        InternalEventFormat(
+          templatePartiesFilter = TemplatePartiesFilter(
+            relation = templateFilter,
+            templateWildcardParties = templateWildcardFilter,
           ),
-          eventProjectionProperties,
+          eventProjectionProperties = eventProjectionProperties,
         )
       )
     }

@@ -287,15 +287,6 @@
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
-        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
-        <!-- Note: this does not immediately point to an issue: when a participant falls behind, the ACS commitment
-        processor is catching up with commitments and emits a warning. Participants might fall behind in long-running tests. -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor</logger>
-            <contains>ACS_COMMITMENT_DEGRADATION</contains>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
         <!-- There is one warning that can escape the suppressing logger for failed steps.
         Fixing it properly would mean to include the ability to specify suppressing rules
         in snippets directives which is overkill for now.

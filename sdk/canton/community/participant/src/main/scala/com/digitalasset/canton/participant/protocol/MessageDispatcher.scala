@@ -97,7 +97,7 @@ trait MessageDispatcher { this: NamedLogging =>
   def handleAll(events: Traced[Seq[WithOpeningErrors[PossiblyIgnoredProtocolEvent]]]): HandlerResult
 
   private def processAcsCommitmentEnvelope(
-      envelopes: List[DefaultOpenEnvelope],
+      envelopes: Seq[DefaultOpenEnvelope],
       sc: SequencerCounter,
       ts: CantonTimestamp,
   )(implicit traceContext: TraceContext): ProcessingResult = {
@@ -229,7 +229,7 @@ trait MessageDispatcher { this: NamedLogging =>
       sc: SequencerCounter,
       ts: SequencedTime,
       topologyTimestampO: Option[CantonTimestamp],
-      envelopes: List[DefaultOpenEnvelope],
+      envelopes: Seq[DefaultOpenEnvelope],
   )(implicit traceContext: TraceContext): ProcessingResult =
     doProcess(
       TopologyTransaction(() => topologyProcessor(sc, ts, topologyTimestampO, Traced(envelopes)))
@@ -238,7 +238,7 @@ trait MessageDispatcher { this: NamedLogging =>
   protected def processTraffic(
       ts: CantonTimestamp,
       timestampOfSigningKeyO: Option[CantonTimestamp],
-      envelopes: List[DefaultOpenEnvelope],
+      envelopes: Seq[DefaultOpenEnvelope],
   )(implicit
       traceContext: TraceContext
   ): ProcessingResult =
@@ -252,7 +252,7 @@ trait MessageDispatcher { this: NamedLogging =>
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       sc: SequencerCounter,
       ts: CantonTimestamp,
-      envelopes: List[DefaultOpenEnvelope],
+      envelopes: Seq[DefaultOpenEnvelope],
   )(implicit traceContext: TraceContext): ProcessingResult = {
     def alarmIfNonEmptySigned(
         viewType: ViewType,
@@ -308,8 +308,8 @@ trait MessageDispatcher { this: NamedLogging =>
   }
 
   private def processEncryptedViewsAndRootHashMessages(
-      encryptedViews: List[OpenEnvelope[EncryptedViewMessage[ViewType]]],
-      rootHashMessages: List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
+      encryptedViews: Seq[OpenEnvelope[EncryptedViewMessage[ViewType]]],
+      rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       containsTopologyTransactions: Boolean,
       sc: SequencerCounter,
       ts: CantonTimestamp,
@@ -397,8 +397,8 @@ trait MessageDispatcher { this: NamedLogging =>
     * @return [[com.digitalasset.canton.util.Checked.Abort]] indicates a really malformed request and the appropriate reaction
     */
   private def checkRootHashMessageAndViews(
-      rootHashMessages: List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
-      encryptedViews: List[OpenEnvelope[EncryptedViewMessage[ViewType]]],
+      rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
+      encryptedViews: Seq[OpenEnvelope[EncryptedViewMessage[ViewType]]],
   )(implicit
       traceContext: TraceContext
   ): Checked[FailedRootHashMessageCheck, String, GoodRequest] = for {
@@ -432,13 +432,13 @@ trait MessageDispatcher { this: NamedLogging =>
     * @throws IllegalArgumentException if there are root hash messages that address more than one mediator group.
     */
   private def filterRootHashMessagesToMediator(
-      rootHashMessages: List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
-      encryptedViews: List[OpenEnvelope[EncryptedViewMessage[ViewType]]],
+      rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
+      encryptedViews: Seq[OpenEnvelope[EncryptedViewMessage[ViewType]]],
   )(implicit traceContext: TraceContext): Checked[
     Nothing,
     String,
     (
-        List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
+        Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
         Option[MediatorGroupRecipient],
     ),
   ] = {
@@ -487,7 +487,7 @@ trait MessageDispatcher { this: NamedLogging =>
   }
 
   def checkSingleRootHashMessage(
-      rootHashMessages: List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
+      rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       hasEncryptedViews: Boolean,
   ): Checked[FailedRootHashMessageCheck, String, OpenEnvelope[
     RootHashMessage[SerializedRootHashMessagePayload]
@@ -525,7 +525,7 @@ trait MessageDispatcher { this: NamedLogging =>
     * Also return non-aborting errors for the other received view types (if any).
     */
   private def checkEncryptedViewsForRootHashMessage(
-      encryptedViews: List[OpenEnvelope[EncryptedViewMessage[ViewType]]],
+      encryptedViews: Seq[OpenEnvelope[EncryptedViewMessage[ViewType]]],
       rootHashMessage: RootHashMessage[SerializedRootHashMessagePayload],
       mediator: MediatorGroupRecipient,
   ): Checked[SendMalformedAndExpectMediatorResult, String, GoodRequest] = {
@@ -623,19 +623,15 @@ trait MessageDispatcher { this: NamedLogging =>
       batch: Batch[DefaultOpenEnvelope],
       sc: SequencerCounter,
       ts: CantonTimestamp,
-  )(implicit traceContext: TraceContext): List[DefaultOpenEnvelope] =
-    ProtocolMessage.filterSynchronizerEnvelopes(
-      batch,
-      synchronizerId,
-      (wrongMsgs: List[DefaultOpenEnvelope]) => {
-        alarm(
-          sc,
-          ts,
-          s"Received messages with wrong synchronizer ids ${wrongMsgs.map(_.protocolMessage.synchronizerId)}. Discarding them.",
-        ).discard
-        ()
-      },
-    )
+  )(implicit traceContext: TraceContext): Seq[DefaultOpenEnvelope] =
+    ProtocolMessage.filterSynchronizerEnvelopes(batch.envelopes, synchronizerId) { wrongMsgs =>
+      alarm(
+        sc,
+        ts,
+        s"Received messages with wrong synchronizer ids ${wrongMsgs.map(_.protocolMessage.synchronizerId)}. Discarding them.",
+      ).discard
+      ()
+    }
 
   protected def alarm(sc: SequencerCounter, ts: CantonTimestamp, msg: String)(implicit
       traceContext: TraceContext
@@ -706,7 +702,7 @@ private[participant] object MessageDispatcher {
       SequencerCounter,
       SequencedTime,
       Option[CantonTimestamp],
-      Traced[List[DefaultOpenEnvelope]],
+      Traced[Seq[DefaultOpenEnvelope]],
   ) => HandlerResult
 
   trait RequestProcessors {

@@ -68,41 +68,28 @@ object EncryptionSchemeConfig {
     CantonConfigValidatorDerivation[EncryptionSchemeConfig]
 }
 
-/** Cryptography configuration. */
-trait CryptoConfig {
-
-  /** the crypto provider implementation to use */
-  def provider: CryptoProvider
-
-  /** the signing key scheme configuration */
-  def signing: SigningSchemeConfig
-
-  /** the encryption scheme configuration */
-  def encryption: EncryptionSchemeConfig
-
-  /** the symmetric key scheme configuration */
-  def symmetric: CryptoSchemeConfig[SymmetricKeyScheme]
-
-  /** the hash algorithm configuration */
-  def hash: CryptoSchemeConfig[HashAlgorithm]
-
-  /** the password-based key derivation function configuration */
-  def pbkdf: CryptoSchemeConfig[PbkdfScheme]
-
-  /** optional support for a KMS */
-  def kms: Option[KmsConfig]
-
-  /** private key store configuration to allow for encrypted key storage */
-  def privateKeyStore: PrivateKeyStoreConfig
-}
-
-final case class CommunityCryptoConfig(
+/** Cryptography configuration.
+  * @param provider the crypto provider implementation to use
+  * @param signing the signing key scheme configuration
+  * @param encryption the encryption scheme configuration
+  * @param symmetric the symmetric key scheme configuration
+  * @param hash the hash algorithm configuration
+  * @param pbkdf the password-based key derivation function configuration
+  * @param kms optional support for a KMS
+  * @param privateKeyStore private key store configuration to allow for encrypted key storage
+  */
+final case class CryptoConfig(
     provider: CryptoProvider = CryptoProvider.Jce,
     signing: SigningSchemeConfig = SigningSchemeConfig(),
     encryption: EncryptionSchemeConfig = EncryptionSchemeConfig(),
     symmetric: CryptoSchemeConfig[SymmetricKeyScheme] = CryptoSchemeConfig(),
     hash: CryptoSchemeConfig[HashAlgorithm] = CryptoSchemeConfig(),
     pbkdf: CryptoSchemeConfig[PbkdfScheme] = CryptoSchemeConfig(),
-    kms: Option[CommunityKmsConfig] = None,
+    kms: Option[KmsConfig] = None,
     privateKeyStore: PrivateKeyStoreConfig = PrivateKeyStoreConfig(),
-) extends CryptoConfig
+) extends UniformCantonConfigValidation
+
+object CryptoConfig {
+  implicit val cryptoConfigValidator: CantonConfigValidator[CryptoConfig] =
+    CantonConfigValidatorDerivation[CryptoConfig]
+}

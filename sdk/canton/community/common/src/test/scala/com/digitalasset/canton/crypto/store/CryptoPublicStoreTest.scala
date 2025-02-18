@@ -14,10 +14,12 @@ trait CryptoPublicStoreTest extends BaseTest { this: AsyncWordSpec =>
 
     val crypto = SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
 
-    val sigKey1: SigningPublicKey = crypto.generateSymbolicSigningKey(Some("sigKey1"))
+    val sigKey1: SigningPublicKey =
+      crypto.generateSymbolicSigningKey(Some("sigKey1"), SigningKeyUsage.ProtocolOnly)
     val sigKey1WithName: SigningPublicKeyWithName =
       SigningPublicKeyWithName(sigKey1, Some(KeyName.tryCreate("sigKey1")))
-    val sigKey2: SigningPublicKey = crypto.generateSymbolicSigningKey(Some("sigKey2"))
+    val sigKey2: SigningPublicKey =
+      crypto.generateSymbolicSigningKey(Some("sigKey2"), SigningKeyUsage.ProtocolOnly)
     val sigKey2WithName: SigningPublicKeyWithName = SigningPublicKeyWithName(sigKey2, None)
 
     val encKey1: EncryptionPublicKey = crypto.generateSymbolicEncryptionKey(Some("encKey1"))

@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
 import com.digitalasset.daml.lf.interpretation.{Error => IError}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{LookupError, PackageInterface, TypeDestructor}
+import com.digitalasset.daml.lf.language.{PackageInterface, TypeDestructor}
 import com.digitalasset.daml.lf.language.LanguageVersionRangeOps._
 import com.digitalasset.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.digitalasset.daml.lf.speedy.PartialTransaction.NodeSeeds
@@ -1205,12 +1205,6 @@ private[lf] object Speedy {
       import TypeDestructor.SerializableTypeF._
       val Destructor = TypeDestructor(compiledPackages.pkgInterface)
 
-      def assertRight[X](x: Either[LookupError, X]): X =
-        x match {
-          case Right(value) => value
-          case Left(error) => throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, error.pretty)
-        }
-
       def go(ty: Type, value: V): SValue = {
         def typeMismatch = throw SErrorCrash(
           NameOf.qualifiedNameOfCurrentFunc,
@@ -1220,10 +1214,20 @@ private[lf] object Speedy {
         value match {
           case leaf: V.ValueCidlessLeaf =>
             leaf match {
-              case V.ValueEnum(_, value) =>
+              case V.ValueEnum(_, consName) =>
                 Destructor.destruct(ty) match {
                   case Right(enumF: EnumF) =>
-                    SValue.SEnum(enumF.tyCon, value, assertRight(enumF.consRank(value)))
+                    val rank =
+                      enumF
+                        .consRank(consName)
+                        .getOrElse(
+                          throw SErrorDamlException(
+                            IError.Upgrade(
+                              IError.Upgrade.DowngradeFailed(ty, value)
+                            )
+                          )
+                        )
+                    SValue.SEnum(enumF.tyCon, consName, rank)
                   case _ =>
                     typeMismatch
                 }
@@ -1277,11 +1281,8 @@ private[lf] object Speedy {
                             List.empty // ok, drop
                           case V.ValueOptional(Some(_)) =>
                             throw SErrorDamlException(
-                              IError.Dev(
-                                NameOf.qualifiedNameOfCurrentFunc,
-                                IError.Dev.Upgrade(
-                                  IError.Dev.Upgrade.DowngradeDropDefinedField(ty, value)
-                                ),
+                              IError.Upgrade(
+                                IError.Upgrade.DowngradeDropDefinedField(ty, i.toLong, value)
                               )
                             )
                           case _ =>
@@ -1321,7 +1322,16 @@ private[lf] object Speedy {
           case V.ValueVariant(_, variant, value) =>
             Destructor.destruct(ty) match {
               case Right(variantF: VariantF[_]) =>
-                val rank = assertRight(variantF.consRank(variant))
+                val rank =
+                  variantF
+                    .consRank(variant)
+                    .getOrElse(
+                      throw SErrorDamlException(
+                        IError.Upgrade(
+                          IError.Upgrade.DowngradeFailed(ty, value)
+                        )
+                      )
+                    )
                 val a = variantF.consTypes(rank)
                 SValue.SVariant(variantF.tyCon, variant, rank, go(a, value))
               case _ =>

@@ -46,10 +46,12 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
   )
   private lazy val sequencerAlias1 = SequencerAlias.tryCreate("sequencer1")
   private lazy val sequencerAlias2 = SequencerAlias.tryCreate("sequencer2")
+  private lazy val sequencerAlias3 = SequencerAlias.tryCreate("sequencer3")
   private lazy val synchronizerId1 = SynchronizerId.tryFromString("first::namespace")
   private lazy val synchronizerId2 = SynchronizerId.tryFromString("second::namespace")
   private lazy val endpoint1 = Endpoint("localhost", Port.tryCreate(1001))
   private lazy val endpoint2 = Endpoint("localhost", Port.tryCreate(1002))
+  private lazy val endpoint3 = Endpoint("localhost", Port.tryCreate(1003))
   private lazy val staticSynchronizerParameters = BaseTest.defaultStaticSynchronizerParametersWith()
   private lazy val synchronizerAlias = SynchronizerAlias.tryCreate("synchronizer1")
 
@@ -94,11 +96,13 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
             Either[SequencerInfoLoaderError, SynchronizerClientBootstrapInfo],
         )
       ],
-      activeOnly: Boolean,
-  ) = SequencerInfoLoader
+      validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
+      threshold: PositiveInt = PositiveInt.one,
+  ): Either[Seq[LoadSequencerEndpointInformationResult.NotValid], Unit] = SequencerInfoLoader
     .validateNewSequencerConnectionResults(
       expectSynchronizerId,
-      if (activeOnly) SequencerConnectionValidation.Active else SequencerConnectionValidation.All,
+      validation,
+      threshold,
       logger,
     )(mapArgs(args))
 
@@ -111,9 +115,10 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
             Either[SequencerInfoLoaderError, SynchronizerClientBootstrapInfo],
         )
       ],
-      activeOnly: Boolean = false,
+      validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
+      threshold: PositiveInt = PositiveInt.one,
   )(check: String => Assertion): Assertion = {
-    val result = run(expectSynchronizerId, args, activeOnly)
+    val result = run(expectSynchronizerId, args, validation, threshold)
     result.left.value should have length (1)
     result.left.value.foreach(x => check(x.error.cause))
     succeed
@@ -215,8 +220,65 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
             Right(SynchronizerClientBootstrapInfo(synchronizerId1, sequencer2)),
           ),
         ),
-        activeOnly = false,
       ).value shouldBe (())
+    }
+    "tolerate errors if threshold can be reached" in {
+      forAll(
+        Seq(SequencerConnectionValidation.Active, SequencerConnectionValidation.ThresholdActive)
+      ) { validation =>
+        run(
+          None,
+          List(
+            (
+              sequencerAlias1,
+              endpoint1,
+              Right(SynchronizerClientBootstrapInfo(synchronizerId1, sequencer1)),
+            ),
+            (sequencerAlias2, endpoint2, Left(SequencerInfoLoaderError.InvalidState("booh"))),
+            (
+              sequencerAlias3,
+              endpoint3,
+              Right(SynchronizerClientBootstrapInfo(synchronizerId1, sequencer2)),
+            ),
+          ),
+          validation,
+          threshold = PositiveInt.tryCreate(2),
+        ).value shouldBe (())
+      }
+    }
+    "tolerate errors for Active if threshold can not be reached" in {
+      run(
+        None,
+        List(
+          (
+            sequencerAlias1,
+            endpoint1,
+            Right(SynchronizerClientBootstrapInfo(synchronizerId1, sequencer1)),
+          ),
+          (sequencerAlias2, endpoint2, Left(SequencerInfoLoaderError.InvalidState("booh2"))),
+          (sequencerAlias3, endpoint3, Left(SequencerInfoLoaderError.InvalidState("booh3"))),
+        ),
+        SequencerConnectionValidation.Active,
+        threshold = PositiveInt.tryCreate(2),
+      ).value shouldBe (())
+    }
+    "complain about errors for StrictActive if threshold can not be reached" in {
+      val result = run(
+        None,
+        List(
+          (
+            sequencerAlias1,
+            endpoint1,
+            Right(SynchronizerClientBootstrapInfo(synchronizerId1, sequencer1)),
+          ),
+          (sequencerAlias2, endpoint2, Left(SequencerInfoLoaderError.InvalidState("booh2"))),
+          (sequencerAlias3, endpoint3, Left(SequencerInfoLoaderError.InvalidState("booh3"))),
+        ),
+        SequencerConnectionValidation.ThresholdActive,
+        threshold = PositiveInt.tryCreate(2),
+      )
+      result.left.value should have length 2
+      forAll(result.left.value)(_.error.cause should (include("booh2") or include("booh3")))
     }
   }
 

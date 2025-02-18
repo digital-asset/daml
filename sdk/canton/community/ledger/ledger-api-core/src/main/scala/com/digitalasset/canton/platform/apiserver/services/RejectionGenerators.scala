@@ -144,6 +144,22 @@ object RejectionGenerators {
         case e: LfInterpretationError.ValueNesting =>
           CommandExecutionErrors.Interpreter.ValueNesting
             .Reject(renderedMessage, e)
+        case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.ValidationFailed) =>
+          CommandExecutionErrors.Interpreter.UpgradeError.ValidationFailed
+            .Reject(renderedMessage, error)
+        case LfInterpretationError.Upgrade(
+              error: LfInterpretationError.Upgrade.DowngradeDropDefinedField
+            ) =>
+          CommandExecutionErrors.Interpreter.UpgradeError.DowngradeDropDefinedField
+            .Reject(renderedMessage, error)
+        case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.ViewMismatch) =>
+          CommandExecutionErrors.Interpreter.UpgradeError.ViewMismatch
+            .Reject(renderedMessage, error)
+        case LfInterpretationError.Upgrade(
+              error: LfInterpretationError.Upgrade.DowngradeFailed
+            ) =>
+          CommandExecutionErrors.Interpreter.UpgradeError.DowngradeFailed
+            .Reject(renderedMessage, error)
         case LfInterpretationError.Dev(_, err) =>
           CommandExecutionErrors.Interpreter.InterpretationDevError
             .Reject(renderedMessage, err)

@@ -23,8 +23,8 @@ import com.digitalasset.canton.crypto.admin.grpc.PrivateKeyMetadata
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
-import com.digitalasset.canton.topology.{Member, MemberCode}
+import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
+import com.digitalasset.canton.topology.{Member, MemberCode, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.version.ProtocolVersion
@@ -87,7 +87,7 @@ class SecretKeyAdministration(
   )
   def generate_signing_key(
       name: String = "",
-      usage: Set[SigningKeyUsage] = SigningKeyUsage.All,
+      usage: Set[SigningKeyUsage],
       keySpec: Option[SigningKeySpec] = None,
   ): SigningPublicKey =
     NonEmpty.from(usage) match {
@@ -127,7 +127,7 @@ class SecretKeyAdministration(
   )
   def register_kms_signing_key(
       kmsKeyId: String,
-      usage: Set[SigningKeyUsage] = SigningKeyUsage.All,
+      usage: Set[SigningKeyUsage],
       name: String = "",
   ): SigningPublicKey =
     NonEmpty.from(usage) match {
@@ -274,7 +274,7 @@ class SecretKeyAdministration(
   ): Seq[PublicKey] =
     topologyAdmin.owner_to_key_mappings
       .list(
-        filterStore = AuthorizedStore.filterName,
+        store = Some(TopologyStoreId.Authorized),
         filterKeyOwnerUid = owner.filterString,
         filterKeyOwnerType = Some(owner.code),
       )
@@ -498,13 +498,13 @@ class PublicKeyAdministration(
   def list_owners(
       filterKeyOwnerUid: String = "",
       filterKeyOwnerType: Option[MemberCode] = None,
-      filterSynchronizerId: String = "",
+      synchronizerIds: Set[SynchronizerId] = Set.empty,
       asOf: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
   ): Seq[ListKeyOwnersResult] = consoleEnvironment.run {
     adminCommand(
       TopologyAdminCommands.Aggregation
-        .ListKeyOwners(filterSynchronizerId, filterKeyOwnerType, filterKeyOwnerUid, asOf, limit)
+        .ListKeyOwners(synchronizerIds, filterKeyOwnerType, filterKeyOwnerUid, asOf, limit)
     )
   }
 
@@ -515,14 +515,14 @@ class PublicKeyAdministration(
   )
   def list_by_owner(
       keyOwner: Member,
-      filterSynchronizerId: String = "",
+      synchronizerIds: Set[SynchronizerId] = Set.empty,
       asOf: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
   ): Seq[ListKeyOwnersResult] =
     consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Aggregation.ListKeyOwners(
-          filterSynchronizerId = filterSynchronizerId,
+          synchronizerIds = synchronizerIds,
           filterKeyOwnerType = Some(keyOwner.code),
           filterKeyOwnerUid = keyOwner.uid.toProtoPrimitive,
           asOf,

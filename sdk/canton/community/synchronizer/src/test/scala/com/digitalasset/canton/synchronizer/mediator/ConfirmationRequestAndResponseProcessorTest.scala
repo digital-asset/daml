@@ -3,9 +3,8 @@
 
 package com.digitalasset.canton.synchronizer.mediator
 
-import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.*
-import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
@@ -246,7 +245,6 @@ class ConfirmationRequestAndResponseProcessorTest
       mock[Clock],
       MediatorTestMetrics,
       testedProtocolVersion,
-      CachingConfigs.defaultFinalizedMediatorConfirmationRequestsCache,
       timeouts,
       loggerFactory,
     )
@@ -271,21 +269,49 @@ class ConfirmationRequestAndResponseProcessorTest
       viewPosition: ViewPosition,
       verdict: LocalVerdict,
       requestId: RequestId,
-  ): FutureUnlessShutdown[SignedProtocolMessage[ConfirmationResponse]] = {
-    val response: ConfirmationResponse = ConfirmationResponse.tryCreate(
+  ): FutureUnlessShutdown[SignedProtocolMessage[ConfirmationResponses]] = {
+    val responses: ConfirmationResponses = ConfirmationResponses.tryCreate(
       requestId,
-      participant,
-      Some(viewPosition),
-      verdict,
       fullInformeeTree.transactionId.toRootHash,
-      confirmers,
       factory.synchronizerId,
+      participant,
+      NonEmpty.mk(
+        Seq,
+        ConfirmationResponse.tryCreate(
+          Some(viewPosition),
+          verdict,
+          confirmers,
+        ),
+      ),
       testedProtocolVersion,
     )
     val participantCrypto = identityFactory.forOwner(participant)
     SignedProtocolMessage
       .trySignAndCreate(
-        response,
+        responses,
+        participantCrypto
+          .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
+          .currentSnapshotApproximation,
+        testedProtocolVersion,
+      )
+  }
+
+  def signedResponses(
+      requestId: RequestId,
+      responses: NonEmpty[Seq[ConfirmationResponse]],
+  ): FutureUnlessShutdown[SignedProtocolMessage[ConfirmationResponses]] = {
+    val confirmationResponses: ConfirmationResponses = ConfirmationResponses.tryCreate(
+      requestId,
+      fullInformeeTree.transactionId.toRootHash,
+      factory.synchronizerId,
+      participant,
+      responses,
+      testedProtocolVersion,
+    )
+    val participantCrypto = identityFactory.forOwner(participant)
+    SignedProtocolMessage
+      .trySignAndCreate(
+        confirmationResponses,
         participantCrypto
           .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
           .currentSnapshotApproximation,
@@ -430,14 +456,19 @@ class ConfirmationRequestAndResponseProcessorTest
             batchAlsoContainsTopologyTransaction = false,
           )
           .failOnShutdown
-        response = ConfirmationResponse.tryCreate(
+        response = ConfirmationResponses.tryCreate(
           reqId,
-          participant,
-          Some(view0Position),
-          LocalApprove(testedProtocolVersion),
           fullInformeeTree.transactionId.toRootHash,
-          Set(submitter),
           factory.synchronizerId,
+          participant,
+          NonEmpty.mk(
+            Seq,
+            ConfirmationResponse.tryCreate(
+              Some(view0Position),
+              LocalApprove(testedProtocolVersion),
+              Set(submitter),
+            ),
+          ),
           testedProtocolVersion,
         )
         signedResponse = SignedProtocolMessage(
@@ -447,7 +478,7 @@ class ConfirmationRequestAndResponseProcessorTest
         )
         _ <- loggerFactory.assertLogs(
           sut.processor
-            .processResponse(
+            .processResponses(
               CantonTimestamp.Epoch,
               notSignificantCounter,
               requestTimestamp.plusSeconds(60),
@@ -895,33 +926,30 @@ class ConfirmationRequestAndResponseProcessorTest
         _ = requestState shouldBe responseAggregation
         // receiving the confirmation response
         ts1 = CantonTimestamp.Epoch.plusMillis(1L)
-        approvals <- sequentialTraverse(
-          List(
-            view0Position -> view,
-            view1Position -> factory.MultipleRootsAndViewNestings.view1,
-            view11Position -> factory.MultipleRootsAndViewNestings.view11,
-            view110Position -> factory.MultipleRootsAndViewNestings.view110,
-          )
-        ) { case (viewPosition, _) =>
-          signedResponse(
-            Set(submitter),
-            viewPosition,
+        responses = List(
+          view0Position -> view,
+          view1Position -> factory.MultipleRootsAndViewNestings.view1,
+          view11Position -> factory.MultipleRootsAndViewNestings.view11,
+          view110Position -> factory.MultipleRootsAndViewNestings.view110,
+        ).foldLeft(Seq.empty[ConfirmationResponse]) { case (acc, (viewPosition, _)) =>
+          acc :+ ConfirmationResponse.tryCreate(
+            Some(viewPosition),
             LocalApprove(testedProtocolVersion),
-            requestId,
+            Set(submitter),
           )
         }
-        _ <- sequentialTraverse(approvals)(
-          sut.processor
-            .processResponse(
-              ts1,
-              notSignificantCounter,
-              ts1.plusSeconds(60),
-              ts1.plusSeconds(120),
-              _,
-              Some(requestId.unwrap),
-              Recipients.cc(mediatorGroupRecipient),
-            )
-        )
+        responsesNE = NonEmptyUtil.fromUnsafe(responses)
+        approval <- signedResponses(requestId, responsesNE)
+        _ <- sut.processor
+          .processResponses(
+            ts1,
+            notSignificantCounter,
+            ts1.plusSeconds(60),
+            ts1.plusSeconds(120),
+            approval,
+            Some(requestId.unwrap),
+            Recipients.cc(mediatorGroupRecipient),
+          )
         // records the request
         updatedState <- sut.mediatorState
           .fetch(requestId)
@@ -1000,32 +1028,29 @@ class ConfirmationRequestAndResponseProcessorTest
         }
         // receiving the final confirmation response
         ts2 = CantonTimestamp.Epoch.plusMillis(2L)
-        approvals <- sequentialTraverse(
-          List(
-            view1Position -> factory.MultipleRootsAndViewNestings.view1,
-            view10Position -> factory.MultipleRootsAndViewNestings.view10,
-            view11Position -> factory.MultipleRootsAndViewNestings.view11,
-          )
-        ) { case (viewPosition, view) =>
-          signedResponse(
-            Set(signatory),
-            viewPosition,
+        responses = List(
+          view1Position -> factory.MultipleRootsAndViewNestings.view1,
+          view10Position -> factory.MultipleRootsAndViewNestings.view10,
+          view11Position -> factory.MultipleRootsAndViewNestings.view11,
+        ).foldLeft(Seq.empty[ConfirmationResponse]) { case (acc, (viewPosition, _)) =>
+          acc :+ ConfirmationResponse.tryCreate(
+            Some(viewPosition),
             LocalApprove(testedProtocolVersion),
-            requestId,
+            Set(signatory),
           )
         }
-        _ <- sequentialTraverse(approvals)(
-          sut.processor
-            .processResponse(
-              ts2,
-              notSignificantCounter,
-              ts2.plusSeconds(60),
-              ts2.plusSeconds(120),
-              _,
-              Some(requestId.unwrap),
-              Recipients.cc(mediatorGroupRecipient),
-            )
-        )
+        responsesNE = NonEmptyUtil.fromUnsafe(responses)
+        approval <- signedResponses(requestId, responsesNE)
+        _ <- sut.processor
+          .processResponses(
+            ts2,
+            notSignificantCounter,
+            ts2.plusSeconds(60),
+            ts2.plusSeconds(120),
+            approval,
+            Some(requestId.unwrap),
+            Recipients.cc(mediatorGroupRecipient),
+          )
         // records the request
         finalState <- sut.mediatorState
           .fetch(requestId)
@@ -1116,17 +1141,22 @@ class ConfirmationRequestAndResponseProcessorTest
 
       def malformedResponse(
           participant: ParticipantId
-      ): Future[SignedProtocolMessage[ConfirmationResponse]] = {
-        val response = ConfirmationResponse.tryCreate(
+      ): Future[SignedProtocolMessage[ConfirmationResponses]] = {
+        val response = ConfirmationResponses.tryCreate(
           requestId,
-          participant,
-          None,
-          LocalRejectError.MalformedRejects.Payloads
-            .Reject(malformedMsg)
-            .toLocalReject(testedProtocolVersion),
           fullInformeeTree.transactionId.toRootHash,
-          Set.empty,
           factory.synchronizerId,
+          participant,
+          NonEmpty.mk(
+            Seq,
+            ConfirmationResponse.tryCreate(
+              None,
+              LocalRejectError.MalformedRejects.Payloads
+                .Reject(malformedMsg)
+                .toLocalReject(testedProtocolVersion),
+              Set.empty,
+            ),
+          ),
           testedProtocolVersion,
         )
         val participantCrypto = identityFactory2.forOwner(participant)
@@ -1183,7 +1213,7 @@ class ConfirmationRequestAndResponseProcessorTest
         // records the request
         _ <- sequentialTraverse_(malformed)(
           sut.processor
-            .processResponse(
+            .processResponses(
               ts1,
               notSignificantCounter,
               ts1.plusSeconds(60),
@@ -1268,7 +1298,7 @@ class ConfirmationRequestAndResponseProcessorTest
         )
         _ <- loggerFactory.assertLogs(
           sut.processor
-            .processResponse(
+            .processResponses(
               responseTs,
               notSignificantCounter + 1,
               participantResponseDeadline,
@@ -1452,7 +1482,7 @@ class ConfirmationRequestAndResponseProcessorTest
         )
         _ <- loggerFactory.assertLogs(
           sut.processor
-            .processResponse(
+            .processResponses(
               ts.immediateSuccessor,
               sc + 1L,
               ts.plusSeconds(60),
@@ -1497,7 +1527,7 @@ class ConfirmationRequestAndResponseProcessorTest
 
         _ <- loggerFactory.assertLogs(
           sut.processor
-            .processResponse(
+            .processResponses(
               ts1,
               notSignificantCounter,
               ts1.plusSeconds(60),
@@ -1512,7 +1542,7 @@ class ConfirmationRequestAndResponseProcessorTest
 
         _ <- loggerFactory.assertLogs(
           sut.processor
-            .processResponse(
+            .processResponses(
               ts1,
               notSignificantCounter,
               ts1.plusSeconds(60),

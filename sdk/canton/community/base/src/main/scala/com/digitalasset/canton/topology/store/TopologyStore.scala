@@ -8,15 +8,21 @@ import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String255, String300}
+import com.digitalasset.canton.config.CantonRequireTypes.{
+  LengthLimitedString,
+  String185,
+  String255,
+  String300,
+}
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
@@ -50,8 +56,7 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
 
-sealed trait TopologyStoreId extends PrettyPrinting {
-  def filterName: String = dbString.unwrap
+sealed trait TopologyStoreId extends PrettyPrinting with Product with Serializable {
   def dbString: LengthLimitedString
   def isAuthorizedStore: Boolean
   def isSynchronizerStore: Boolean
@@ -62,30 +67,12 @@ object TopologyStoreId {
   /** A topology store storing sequenced topology transactions
     *
     * @param synchronizerId the synchronizer id of the store
-    * @param discriminator the discriminator of the store. used for mediator confirmation request store
-    *                      or in daml 2.x for embedded mediator topology stores
     */
-  final case class SynchronizerStore(synchronizerId: SynchronizerId, discriminator: String = "")
-      extends TopologyStoreId {
-    private val dbStringWithoutDiscriminator = synchronizerId.toLengthLimitedString
-    val dbString: LengthLimitedString =
-      if (discriminator.isEmpty) dbStringWithoutDiscriminator
-      else
-        LengthLimitedString
-          .tryCreate(
-            discriminator + "::",
-            PositiveInt.two + NonNegativeInt.tryCreate(discriminator.length),
-          )
-          .tryConcatenate(dbStringWithoutDiscriminator)
+  final case class SynchronizerStore(synchronizerId: SynchronizerId) extends TopologyStoreId {
+    override val dbString = synchronizerId.toLengthLimitedString
 
     override protected def pretty: Pretty[this.type] =
-      if (discriminator.nonEmpty) {
-        prettyOfString(storeId =>
-          show"${storeId.discriminator}${UniqueIdentifier.delimiter}${storeId.synchronizerId}"
-        )
-      } else {
-        prettyOfParam(_.synchronizerId)
-      }
+      prettyOfParam(_.synchronizerId)
 
     override def isAuthorizedStore: Boolean = false
     override def isSynchronizerStore: Boolean = true
@@ -93,7 +80,7 @@ object TopologyStoreId {
 
   // authorized transactions (the topology managers store)
   type AuthorizedStore = AuthorizedStore.type
-  object AuthorizedStore extends TopologyStoreId {
+  case object AuthorizedStore extends TopologyStoreId {
     val dbString: String255 = String255.tryCreate("Authorized")
 
     override protected def pretty: Pretty[AuthorizedStore.this.type] = prettyOfString(
@@ -104,10 +91,28 @@ object TopologyStoreId {
     override def isSynchronizerStore: Boolean = false
   }
 
-  def apply(fName: String): TopologyStoreId = fName.toLowerCase match {
-    case "authorized" => AuthorizedStore
-    case synchronizer =>
-      SynchronizerStore(SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive(synchronizer)))
+  final case class TemporaryStore(name: String185) extends TopologyStoreId {
+    override def dbString: LengthLimitedString = TemporaryStore.withTempMarker(name)
+
+    override def isAuthorizedStore: Boolean = false
+
+    override def isSynchronizerStore: Boolean = false
+
+    override protected def pretty: Pretty[TemporaryStore.this.type] =
+      prettyOfString(_.dbString.unwrap)
+  }
+
+  object TemporaryStore {
+    // add a prefix and suffix to not accidentally interpret a synchronizer store with the name 'temp' as temporary store
+    val marker = "temp"
+    val prefix = s"$marker${UniqueIdentifier.delimiter}"
+    val suffix = s"${UniqueIdentifier.delimiter}$marker"
+    private[TemporaryStore] def withTempMarker(name: String185): String185 =
+      String185.tryCreate(s"$prefix$name$suffix")
+
+    def create(name: String): ParsingResult[TemporaryStore] =
+      ProtoConverter.parseLengthLimitedString(String185, name).map(TemporaryStore(_))
+
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))

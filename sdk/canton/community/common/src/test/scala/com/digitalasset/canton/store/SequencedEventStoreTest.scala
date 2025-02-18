@@ -31,7 +31,8 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
       loggerFactory,
     )
 
-  private lazy val sequencerKey: SigningPublicKey = crypto.generateSymbolicSigningKey()
+  private lazy val sequencerKey: SigningPublicKey =
+    crypto.generateSymbolicSigningKey(usage = SigningKeyUsage.ProtocolOnly)
 
   def sign(str: String): Signature =
     crypto.sign(TestHash.digest(str), sequencerKey.id, SigningKeyUsage.ProtocolOnly)

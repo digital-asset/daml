@@ -56,7 +56,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{SynchronizerTopologyClient, TopologySnapshot}
 import com.digitalasset.canton.topology.store.TopologyStateForInitializationService
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
-import com.digitalasset.canton.util.PekkoUtil
+import com.digitalasset.canton.util.{EitherTUtil, PekkoUtil}
 import com.digitalasset.canton.version.{
   ProtocolVersion,
   ProtocolVersionCompatibility,
@@ -382,10 +382,8 @@ class GrpcSequencerIntegrationTest
     "send from the client gets a message to the sequencer" in { env =>
       val anotherParticipant = ParticipantId("another")
 
-      when(env.sequencer.sendAsync(any[SubmissionRequest])(anyTraceContext))
-        .thenReturn(EitherT.pure[FutureUnlessShutdown, SendAsyncError](()))
       when(env.sequencer.sendAsyncSigned(any[SignedContent[SubmissionRequest]])(anyTraceContext))
-        .thenReturn(EitherT.pure[FutureUnlessShutdown, SendAsyncError](()))
+        .thenReturn(EitherTUtil.unitUS[SequencerDeliverError])
       implicit val metricsContext: MetricsContext = MetricsContext.Empty
       val result = for {
         response <- env.client

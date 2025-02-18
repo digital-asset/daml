@@ -82,7 +82,7 @@ class SyncCryptoSignerDefault(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[Member, Map[Fingerprint, SigningPublicKey]]] =
-    // we fetch ALL signing keys for all members
+    // we fetch signing keys for all members
     topologySnapshot
       .signingKeys(members, usage)
       .map(membersToKeys =>
@@ -106,7 +106,7 @@ class SyncCryptoSignerDefault(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature] =
     for {
-      fingerprint <- findSigningKey(topologySnapshot, SigningKeyUsage.All)
+      fingerprint <- findSigningKey(topologySnapshot, usage)
       signature <- signPrivateApi
         .sign(hash, fingerprint, usage)
         .leftMap[SyncCryptoError](SyncCryptoError.SyncCryptoSigningError.apply)

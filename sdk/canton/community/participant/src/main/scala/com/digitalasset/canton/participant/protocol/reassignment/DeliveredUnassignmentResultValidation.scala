@@ -31,7 +31,7 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
     unassignmentRequestTs: CantonTimestamp,
     unassignmentDecisionTime: CantonTimestamp,
     sourceTopology: Source[SyncCryptoApi],
-    targetTopology: Target[TopologySnapshot],
+    targetTopologyTargetTs: Target[TopologySnapshot],
 )(
     deliveredUnassignmentResult: DeliveredUnassignmentResult
 )(implicit executionContext: ExecutionContext, traceContext: TraceContext) {
@@ -106,7 +106,7 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
         stakeholders.all.toSeq
       )
     val partyToParticipantsTargetF =
-      targetTopology.unwrap.activeParticipantsOfPartiesWithInfo(stakeholders.all.toSeq)
+      targetTopologyTargetTs.unwrap.activeParticipantsOfPartiesWithInfo(stakeholders.all.toSeq)
 
     val stakeholdersHostedReassigningParticipants: FutureUnlessShutdown[Either[Error, Unit]] = for {
       partyToParticipantsSource <- partyToParticipantsSourceF

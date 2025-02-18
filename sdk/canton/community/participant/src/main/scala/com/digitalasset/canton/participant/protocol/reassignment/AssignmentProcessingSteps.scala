@@ -21,10 +21,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
 }
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.*
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
-  ReassignmentProcessorError,
-  *,
-}
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.{
   ViewHashAndRecipients,
   ViewKeyData,
@@ -34,9 +31,9 @@ import com.digitalasset.canton.participant.protocol.submission.{
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.{
+  ContractAuthenticator,
   EngineController,
   ProcessingSteps,
-  SerializableContractAuthenticator,
 }
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.util.DAMLe
@@ -68,7 +65,7 @@ private[reassignment] class AssignmentProcessingSteps(
     val engine: DAMLe,
     reassignmentCoordination: ReassignmentCoordination,
     seedGenerator: SeedGenerator,
-    override protected val serializableContractAuthenticator: SerializableContractAuthenticator,
+    override protected val serializableContractAuthenticator: ContractAuthenticator,
     staticSynchronizerParameters: Target[StaticSynchronizerParameters],
     targetProtocolVersion: Target[ProtocolVersion],
     protected val loggerFactory: NamedLoggerFactory,
@@ -369,20 +366,22 @@ private[reassignment] class AssignmentProcessingSteps(
       val responseF =
         if (
           assignmentValidationResult.isReassigningParticipant && !assignmentValidationResult.validationResult.isUnassignmentDataNotFound
-        )
-          createConfirmationResponse(
+        ) {
+          createConfirmationResponses(
             parsedRequest.requestId,
             parsedRequest.snapshot.ipsSnapshot,
             targetProtocolVersion.unwrap,
             parsedRequest.fullViewTree.confirmingParties,
             assignmentValidationResult,
-          ).map(_.map((_, Recipients.cc(parsedRequest.mediator))).toList)
-        else // TODO(i22993): Not sending a confirmation response is a workaround to make possible to process the assignment before unassignment
-          FutureUnlessShutdown.pure(Nil)
+          ).map(_.map((_, Recipients.cc(parsedRequest.mediator))))
+        } else // TODO(i22993): Not sending a confirmation response is a workaround to make possible to process the assignment before unassignment
+          FutureUnlessShutdown.pure(None)
 
-      // We consider that we rejected if we fail to process or if at least one of the responses is not "approve'
+      // We consider that we rejected if we fail to process or if at least one of the responses is not "approve"
       val locallyRejectedF = responseF.map(
-        _.exists { case (confirmation, _) => !confirmation.localVerdict.isApprove }
+        _.exists { case (confirmation, _) =>
+          confirmation.responses.exists(response => !response.localVerdict.isApprove)
+        }
       )
 
       val engineAbortStatusF = assignmentValidationResult.metadataResultET.value.map {

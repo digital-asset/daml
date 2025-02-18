@@ -41,7 +41,7 @@ private[lf] object Pretty {
     char('\'') + text(p) + char('\'')
 
   def prettyParties(p: Set[Party]): Doc =
-    char('{') & intercalate(char(','), p.map(prettyParty)) & char('{')
+    char('{') & intercalate(char(','), p.map(prettyParty)) & char('}')
 
   def prettyDamlException(error: interpretation.Error): Doc = {
     import interpretation.Error._
@@ -120,6 +120,65 @@ private[lf] object Pretty {
           prettyContractId(key.cids.head)
       case ValueNesting(limit) =>
         text(s"Value exceeds maximum nesting value of $limit")
+      case Upgrade(error) =>
+        error match {
+          case Upgrade.ValidationFailed(
+                coid,
+                srcTemplateId,
+                dstTemplateId,
+                signatories,
+                observers,
+                keyOpt,
+                _,
+              ) =>
+            text("Validation fails when trying to upgrade the contract") & prettyContractId(
+              coid
+            ) & text("from") & prettyTypeConName(srcTemplateId) & text(
+              "to"
+            ) & prettyTypeConName(
+              dstTemplateId
+            ) /
+              text(
+                "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
+              ) /
+              text("recomputed signatories are") & prettyParties(signatories) /
+              text("recomputed observers are") & prettyParties(observers) /
+              (keyOpt match {
+                case None => Doc.empty
+                case Some(key) =>
+                  text("recomputed maintainers are") & prettyParties(key.maintainers) /
+                    text("recomputed key is") & prettyValue(verbose = false)(key.value)
+              })
+          case Upgrade.DowngradeDropDefinedField(_, fieldIndex, _) =>
+            text(s"An optional contract field (field offset $fieldIndex)") /
+              text("with a value of Some may not be dropped during downgrading")
+          case Upgrade.ViewMismatch(
+                coid,
+                iterfaceId,
+                srcTemplateId,
+                dstTemplateId,
+                srcViewValue,
+                dstViewValue,
+              ) => {
+            text("View mismatch when trying to upgrade the contract") & prettyContractId(
+              coid
+            ) & text("from") & prettyTypeConName(srcTemplateId) & text(
+              "to"
+            ) & prettyTypeConName(
+              dstTemplateId
+            ) & text("during a fetch or exercise by interface") /
+              text("Verify that the views of the contract have not changed") /
+              text("computed view for") & prettyTypeConName(iterfaceId) & text(
+                "in the source contract is"
+              ) & prettyValue(false)(srcViewValue) /
+              text("computed view for") & prettyTypeConName(iterfaceId) & text(
+                "in the destination contract is"
+              ) & prettyValue(false)(dstViewValue)
+          }
+          case Upgrade.DowngradeFailed(expectedType, actualValue) =>
+            text("Attempt to downgrade ") & prettyValue(false)(actualValue) /
+              text(s" to the variant or enum constructor type ${expectedType.pretty}")
+        }
       case Dev(_, error) =>
         error match {
           case Dev.Conformance(provided, recomputed, details) =>
@@ -213,65 +272,6 @@ private[lf] object Pretty {
               case CCTP.MalformedKey(key, cause) =>
                 text("Malformed public key for") & text(key) & text(":") /
                   text(cause)
-            }
-          case Dev.Upgrade(error) =>
-            error match {
-              case Dev.Upgrade.ValidationFailed(
-                    coid,
-                    srcTemplateId,
-                    dstTemplateId,
-                    signatories,
-                    observers,
-                    keyOpt,
-                    _,
-                  ) =>
-                text("Validation fails when trying to upgrade the contract") & prettyContractId(
-                  coid
-                ) & text("from") & prettyTypeConName(srcTemplateId) & text(
-                  "to"
-                ) & prettyTypeConName(
-                  dstTemplateId
-                ) /
-                  text(
-                    "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
-                  ) /
-                  text("recomputed signatories are") & prettyParties(signatories) /
-                  text("recomputed observers are") & prettyParties(observers) /
-                  (keyOpt match {
-                    case None => Doc.empty
-                    case Some(key) =>
-                      text("recomputed maintainers are") & prettyParties(key.maintainers) /
-                        text("recomputed key is") & prettyValue(false)(key.value)
-                  })
-
-              case Dev.Upgrade.DowngradeDropDefinedField(_, _) =>
-                text(
-                  "An optional contract field with a value of Some may not be dropped during downgrading"
-                )
-
-              case Dev.Upgrade.ViewMismatch(
-                    coid,
-                    iterfaceId,
-                    srcTemplateId,
-                    dstTemplateId,
-                    srcViewValue,
-                    dstViewValue,
-                  ) => {
-                text("View mismatch when trying to upgrade the contract") & prettyContractId(
-                  coid
-                ) & text("from") & prettyTypeConName(srcTemplateId) & text(
-                  "to"
-                ) & prettyTypeConName(
-                  dstTemplateId
-                ) & text("during a fetch or exercise by interface") /
-                  text("Verify that the views of the contract have not changed") /
-                  text("computed view for") & prettyTypeConName(iterfaceId) & text(
-                    "in the source contract is"
-                  ) & prettyValue(false)(srcViewValue) /
-                  text("computed view for") & prettyTypeConName(iterfaceId) & text(
-                    "in the destination contract is"
-                  ) & prettyValue(false)(dstViewValue)
-              }
             }
         }
     }

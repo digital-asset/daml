@@ -1,0 +1,131 @@
+module Scripts.Setup where
+
+import DA.Map qualified as Map (fromList)
+import DA.Set qualified as Set (fromList)
+import Daml.Script
+
+-- INTERFACE DEPENDENCIES --
+import Daml.Finance.Interface.Account.V4.Factory qualified as AccountFactory (I)
+import Daml.Finance.Interface.Holding.V4.Transferable qualified as Transferable (I)
+import Daml.Finance.Interface.Instrument.Token.V4.Factory qualified as TokenFactory (Create(..), I)
+import Daml.Finance.Interface.Instrument.Token.V4.Types (Token(..))
+import Daml.Finance.Interface.Types.Common.V3.Types (AccountKey, HoldingFactoryKey, HoldingStandard(..), Id(..), InstrumentKey(..), PartiesMap)
+
+-- IMPLEMENTATION DEPENDENCIES --
+import Daml.Finance.Account.V4.Account qualified as AccountV1 (Factory(..))
+import Daml.Finance.Holding.V4.Factory qualified as Holding (Factory(..))
+import Daml.Finance.Instrument.Token.V4.Factory qualified as Token (Factory(..))
+
+import Workflow.CreateAccount qualified as CreateAccount (Accept(..), Request(..))
+import Workflow.CreditAccount qualified as CreditAccount (Accept(..), Request(..))
+
+import Scripts.Util (createHoldingFactory, createParty)
+
+-- | Test script that
+-- 1. creates accounts for Alice and Bob at the Bank
+-- 2. issues a token instrument adhering to the transferable token standard
+-- 3. credits a holding (of the token) to Alice in her bank account
+runSetupAccountsAndHoldings : Script SetupState
+runSetupAccountsAndHoldings = do
+
+  -- Allocate parties.
+  [bank, alice, bob] <- mapA createParty ["Bank", "Alice", "Bob"]
+  let clients = [alice, bob]
+
+  -- Account Factory (it is used by the bank to create accounts).
+  bankAccountFactoryCid <- toInterfaceContractId @AccountFactory.I <$> submit bank do
+    createCmd AccountV1.Factory with
+      provider = bank
+      observers = mempty
+
+  -- Holding Factory (it is used by the bank to create holdings with the desired implementation).
+  bankHoldingFactory <- createHoldingFactory
+    Holding.Factory with
+      provider = bank
+      id = Id "Holding Factory"
+      observers = Map.fromList [("Settlers", Set.fromList [alice, bob])]
+
+  -- Instrument Factory (it is used by the bank to create instruments with the desired
+  -- implementation).
+  tokenInstrumentFactoryCid <- toInterfaceContractId @TokenFactory.I <$> submit bank do
+    createCmd Token.Factory with
+      provider = bank
+      observers = mempty
+
+  -- Alice sets up an account at the Bank.
+  aliceRequestCid <- submit alice do
+    createCmd CreateAccount.Request with
+      owner = alice
+      custodian = bank
+  aliceAccount <- submit bank do
+    exerciseCmd aliceRequestCid CreateAccount.Accept with
+      label = "Alice@Bank"
+      description = "Account of Alice at Bank"
+      accountFactoryCid = bankAccountFactoryCid
+      holdingFactory = bankHoldingFactory
+      observers = clients
+
+  -- Bob sets up an account at the Bank.
+  bobRequestCid <- submit bob do
+    createCmd CreateAccount.Request with owner = bob; custodian = bank
+  bobAccount <- submit bank do
+    exerciseCmd bobRequestCid CreateAccount.Accept with
+      label = "Bob@Bank"
+      description = "Account of Bob at Bank"
+      accountFactoryCid = bankAccountFactoryCid
+      holdingFactory = bankHoldingFactory
+      observers = clients
+
+  -- Bank creates a Transferable instrument.
+  let
+    tokenInstrument = InstrumentKey with
+      issuer = bank
+      depository = bank
+      id = Id "Transferable Token ABC"
+      version = "0"
+      holdingStandard = Transferable
+  now <- getTime
+  submit bank do
+    exerciseCmd tokenInstrumentFactoryCid TokenFactory.Create with
+      token = Token with
+        instrument = tokenInstrument
+        description = "Instrument representing units of a generic token"
+        validAsOf = now
+      observers = mempty
+
+  -- Alice gets holdings credited at the bank.
+  aliceRequestCid <- submit alice do
+    createCmd CreditAccount.Request with
+      account = aliceAccount
+      instrument = tokenInstrument
+      amount = 1000.0
+  aliceTransferableCid <- coerceInterfaceContractId @Transferable.I <$> submit bank do
+    exerciseCmd aliceRequestCid CreditAccount.Accept
+
+  pure SetupState with
+    tokenInstrument
+    tokenInstrumentFactoryCid
+    bank
+    bankAccountFactoryCid
+    bankHoldingFactory
+    alice
+    aliceAccount
+    aliceTransferableCid
+    bob
+    bobAccount
+    allClients = Map.fromList [("Clients", Set.fromList [alice, bob])]
+
+-- | Helper container used to transfer state to the next script.
+data SetupState = SetupState
+  with
+    tokenInstrument : InstrumentKey
+    tokenInstrumentFactoryCid : ContractId TokenFactory.I
+    bank : Party
+    bankAccountFactoryCid : ContractId AccountFactory.I
+    bankHoldingFactory : HoldingFactoryKey
+    alice : Party
+    aliceAccount : AccountKey
+    aliceTransferableCid : ContractId Transferable.I
+    bob: Party
+    bobAccount : AccountKey
+    allClients : PartiesMap

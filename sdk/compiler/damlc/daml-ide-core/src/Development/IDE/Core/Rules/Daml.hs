@@ -275,7 +275,7 @@ generateRawDalfRule opts =
                             pkgs <- getExternalPackages file
                             let world = LF.initWorldSelf pkgs pkg
                                 simplified = LF.simplifyModule world lfVersion v
-                            pure $! case Serializability.inferModule world simplified of
+                            pure $! case Serializability.inferModule world (getForceUtilityPackage $ optForceUtilityPackage opts) simplified of
                               Left err -> ([ideErrorPretty file err], Nothing)
                               Right dalf -> (conversionWarnings, Just dalf)
 
@@ -442,7 +442,7 @@ generateSerializedDalfRule options =
                                         -- use ABI changes to determine whether to rebuild the module, so if an implementaion
                                         -- changes without a corresponding ABI change, we would end up with an outdated
                                         -- implementation.
-                                    case Serializability.inferModule world simplified of
+                                    case Serializability.inferModule world (getForceUtilityPackage $ optForceUtilityPackage options) simplified of
                                         Left err -> pure (conversionWarnings ++ [ideErrorPretty file err], Nothing)
                                         Right dalf -> do
                                             let (diags, checkResult) = diagsToIdeResult file $ LF.checkModule world lfVersion dalf

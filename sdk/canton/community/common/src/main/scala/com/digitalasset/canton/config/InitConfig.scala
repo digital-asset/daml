@@ -5,6 +5,7 @@ package com.digitalasset.canton.config
 
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.InitConfigBase.Identity
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.typesafe.config.ConfigValueFactory
 import pureconfig.ConfigWriter
 
@@ -33,23 +34,28 @@ object InitConfigBase {
     def identifierName: Option[String]
   }
   object NodeIdentifierConfig {
+    implicit val nodeIdentifierConfigCantonConfigValidator
+        : CantonConfigValidator[NodeIdentifierConfig] =
+      CantonConfigValidatorDerivation[NodeIdentifierConfig]
 
     /** Generates a random UUID as a name for the node identifier
       */
-    case object Random extends NodeIdentifierConfig {
+    case object Random extends NodeIdentifierConfig with UniformCantonConfigValidation {
       lazy val identifierName: Option[String] = Some(UUID.randomUUID().toString)
     }
 
     /** Sets an explicit name for the node identifier
       * @param name name to use as identifier
       */
-    final case class Explicit(name: String) extends NodeIdentifierConfig {
+    final case class Explicit(name: String)
+        extends NodeIdentifierConfig
+        with UniformCantonConfigValidation {
       override val identifierName: Option[String] = Some(name)
     }
 
     /** Uses the node name from the configuration as identifier (default)
       */
-    case object Config extends NodeIdentifierConfig {
+    case object Config extends NodeIdentifierConfig with UniformCantonConfigValidation {
       override val identifierName: Option[String] = None
     }
   }
@@ -64,7 +70,12 @@ object InitConfigBase {
   final case class Identity(
       generateLegalIdentityCertificate: Boolean = false,
       nodeIdentifier: NodeIdentifierConfig = NodeIdentifierConfig.Config,
-  )
+  ) extends UniformCantonConfigValidation
+
+  object Identity {
+    implicit val identityCantonConfigValidator: CantonConfigValidator[Identity] =
+      CantonConfigValidatorDerivation[Identity]
+  }
 }
 
 /** Control the dynamic state of the node through a state configuration file
@@ -78,7 +89,12 @@ final case class StateConfig(
     refreshInterval: config.NonNegativeFiniteDuration =
       config.NonNegativeFiniteDuration.ofSeconds(5),
     consistencyTimeout: config.NonNegativeDuration = config.NonNegativeDuration.ofMinutes(1),
-)
+) extends UniformCantonConfigValidation
+
+object StateConfig {
+  implicit val stateConfigCantonConfigValidator: CantonConfigValidator[StateConfig] =
+    CantonConfigValidatorDerivation[StateConfig]
+}
 
 trait InitConfigBase {
   def identity: Option[Identity]
@@ -93,3 +109,9 @@ final case class InitConfig(
     identity: Option[Identity] = Some(Identity()),
     state: Option[StateConfig] = None,
 ) extends InitConfigBase
+    with UniformCantonConfigValidation
+
+object InitConfig {
+  implicit val initConfigCantonConfigValidator: CantonConfigValidator[InitConfig] =
+    CantonConfigValidatorDerivation[InitConfig]
+}

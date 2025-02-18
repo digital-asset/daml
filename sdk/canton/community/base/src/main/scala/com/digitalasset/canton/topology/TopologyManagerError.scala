@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology
 
 import com.daml.error.*
+import com.daml.error.ErrorCategory.InvalidGivenCurrentSystemStateResourceExists
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
@@ -15,6 +16,7 @@ import com.digitalasset.canton.protocol.OnboardingRestriction
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
+import com.digitalasset.canton.topology.store.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.ReferencedAuthorizations
@@ -90,9 +92,10 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         id = "TOPOLOGY_STORE_NOT_FOUND",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       ) {
-    final case class Failure(storeName: String)(implicit val loggingContext: ErrorLoggingContext)
-        extends CantonError.Impl(
-          cause = s"Topology store '$storeName' is not known."
+    final case class Failure(storeId: TopologyStoreId)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Topology store '$storeId' is not known."
         )
         with TopologyManagerError
 
@@ -198,18 +201,10 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         )
         with TopologyManagerError
 
-    final case class InvalidFilterStore(filterStore: String)(implicit
+    final case class MultipleSynchronizerStoresFound(storeId: TopologyStoreId)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"No synchronizer store found for the filter store provided: $filterStore"
-        )
-        with TopologyManagerError
-
-    final case class MultipleSynchronizerStores(filterStore: String)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause =
-            s"Multiple synchronizer stores found for the filter store provided: $filterStore. Specify the entire synchronizerId to avoid ambiguity."
+          cause = s"Multiple synchronizer stores found for the provided storeId: $storeId."
         )
         with TopologyManagerError
   }
@@ -722,6 +717,25 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = s"The topology transactions weren't processed in the allotted time."
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
+    "This error indicates that there already exists a temporary topology store with the desired identifier."
+  )
+  @Resolution(
+    "Either first the existing temporary topology store before resubmitting the request or use the store as it is."
+  )
+  object TemporaryTopologyStoreAlreadyExists
+      extends ErrorCode(
+        id = "TOPOLOGY_TEMPORARY_STORE_ALREADY_EXISTS",
+        InvalidGivenCurrentSystemStateResourceExists,
+      ) {
+    final case class Reject(storeId: TopologyStoreId.TemporaryStore)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Cannot create topology store with id $storeId, because it already exists."
         )
         with TopologyManagerError
   }

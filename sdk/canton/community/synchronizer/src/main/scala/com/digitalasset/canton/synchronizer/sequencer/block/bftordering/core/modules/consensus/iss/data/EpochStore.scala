@@ -49,7 +49,7 @@ trait EpochStore[E <: Env[E]] extends AutoCloseable {
   def latestEpoch(includeInProgress: Boolean)(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Epoch]
-  protected def latestCompletedEpochActionName: String = "fetch latest completed epoch"
+  protected def latestEpochActionName: String = "fetch latest epoch"
 
   def addPrePrepare(prePrepare: SignedMessage[PrePrepare])(implicit
       traceContext: TraceContext
@@ -138,7 +138,7 @@ object EpochStore {
       storage: Storage,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): EpochStore[PekkoEnv] & OrderedBlocksReader[PekkoEnv] =
+  )(implicit ec: ExecutionContext): EpochStore[PekkoEnv] & EpochStoreReader[PekkoEnv] =
     storage match {
       case _: MemoryStorage =>
         new InMemoryEpochStore()

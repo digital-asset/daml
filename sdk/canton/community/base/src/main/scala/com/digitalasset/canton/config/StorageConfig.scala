@@ -5,6 +5,7 @@ package com.digitalasset.canton.config
 
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
 import com.digitalasset.canton.tracing.TraceContext
@@ -46,7 +47,8 @@ final case class DbParametersConfig(
     unsafeCleanOnValidationError: Boolean = false,
     unsafeBaselineOnMigrate: Boolean = false,
     migrateAndStart: Boolean = false,
-) extends PrettyPrinting {
+) extends PrettyPrinting
+    with UniformCantonConfigValidation {
   override protected def pretty: Pretty[DbParametersConfig] =
     prettyOfClass(
       paramIfDefined(
@@ -83,9 +85,14 @@ final case class BatchingConfig(
     maxAcsImportBatchSize: PositiveNumeric[Int] = BatchingConfig.defaultMaxAcsImportBatchSize,
     parallelism: PositiveNumeric[Int] = BatchingConfig.defaultBatchingParallelism,
     aggregator: BatchAggregatorConfig = BatchingConfig.defaultAggregator,
-)
+) extends UniformCantonConfigValidation
 
 object BatchingConfig {
+  implicit val batchingConfigCantonConfigValidator: CantonConfigValidator[BatchingConfig] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[BatchingConfig]
+  }
+
   private val defaultMaxItemsBatch: PositiveInt = PositiveNumeric.tryCreate(100)
   private val defaultBatchingParallelism: PositiveInt = PositiveNumeric.tryCreate(8)
   private val defaultMaxPruningBatchSize: PositiveInt = PositiveNumeric.tryCreate(1000)
@@ -98,7 +105,8 @@ final case class ConnectionAllocation(
     numReads: Option[PositiveInt] = None,
     numWrites: Option[PositiveInt] = None,
     numLedgerApi: Option[PositiveInt] = None,
-) extends PrettyPrinting {
+) extends PrettyPrinting
+    with UniformCantonConfigValidation {
   override protected def pretty: Pretty[ConnectionAllocation] =
     prettyOfClass(
       paramIfDefined("numReads", _.numReads),
@@ -107,14 +115,25 @@ final case class ConnectionAllocation(
     )
 }
 
+object ConnectionAllocation {
+  implicit val connectionAllocationCantonConfigValidator
+      : CantonConfigValidator[ConnectionAllocation] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[ConnectionAllocation]
+  }
+}
+
 object DbParametersConfig {
+  implicit val dbParametersConfigCantonConfigValidator: CantonConfigValidator[DbParametersConfig] =
+    CantonConfigValidatorDerivation[DbParametersConfig]
+
   private val defaultWarnOnSlowQueryInterval: PositiveFiniteDuration =
     PositiveFiniteDuration.ofSeconds(5)
 }
 
 /** Determines how a node stores persistent data.
   */
-sealed trait StorageConfig {
+sealed trait StorageConfig extends UniformCantonConfigValidation {
   type Self <: StorageConfig
 
   /** Database specific configuration parameters used by Slick.
@@ -220,6 +239,9 @@ sealed trait StorageConfig {
 
 object StorageConfig {
 
+  implicit val storageConfigCantonConfigValidator: CantonConfigValidator[StorageConfig] =
+    CantonConfigValidatorDerivation[StorageConfig]
+
   /** Dictates that persistent data is stored in memory.
     * So in fact, the data is not persistent. It is deleted whenever the node is stopped.
     *
@@ -231,6 +253,14 @@ object StorageConfig {
   ) extends StorageConfig {
     override type Self = Memory
 
+  }
+
+  object Memory {
+    implicit val memoryCantonConfigValidator: CantonConfigValidator[Memory] = {
+      implicit val configCantonConfigValidator: CantonConfigValidator[Config] =
+        CantonConfigValidator.validateAll
+      CantonConfigValidatorDerivation[Memory]
+    }
   }
 }
 
@@ -287,6 +317,12 @@ object DbConfig {
   }
 
   object H2 {
+    implicit val h2CantonConfigValidator: CantonConfigValidator[H2] = {
+      implicit val configCantonConfigValidator: CantonConfigValidator[Config] =
+        CantonConfigValidator.validateAll
+      CantonConfigValidatorDerivation[H2]
+    }
+
     private val defaultDriver: String = "org.h2.Driver"
     val defaultConfig: Config = DbConfig.toConfig(Map("driver" -> defaultDriver))
   }
@@ -303,6 +339,14 @@ object DbConfig {
         parameters: DbParametersConfig = this.parameters,
     ): Postgres =
       Postgres(config, parameters)
+  }
+
+  object Postgres {
+    implicit val postgresCantonConfigValidator: CantonConfigValidator[Postgres] = {
+      implicit val configCantonConfigValidator: CantonConfigValidator[Config] =
+        CantonConfigValidator.validateAll
+      CantonConfigValidatorDerivation[Postgres]
+    }
   }
 
   val defaultConnectionTimeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(5)

@@ -8,14 +8,22 @@ import cats.syntax.either.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config.{AdminServerConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
+import com.digitalasset.canton.config.{
+  AdminServerConfig,
+  CantonConfigValidator,
+  ProcessingTimeout,
+  QueryCostMonitoringConfig,
+  StorageConfig,
+  UniformCantonConfigValidation,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
-import com.digitalasset.canton.resource.Storage
+import com.digitalasset.canton.resource.{Storage, StorageSetup}
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.block.BlockFormat.{AcknowledgeTag, SendTag}
@@ -34,6 +42,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.BftOrderingSequencerAdminService
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.Config
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.AvailabilityModuleConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule
@@ -44,10 +53,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.time.BftTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2pEndpointsStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
-  OrderingTopologyProvider,
-  TopologyActivationTime,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.OrderingTopologyProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.{
   BftOrderingModuleSystemInitializer,
   CloseableActorSystem,
@@ -97,11 +103,9 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Random
 
-import BftBlockOrderer.Config
-
 final class BftBlockOrderer(
     config: Config,
-    localStorage: Storage,
+    sharedLocalStorage: Storage,
     sequencerId: SequencerId,
     protocolVersion: ProtocolVersion,
     clock: Clock,
@@ -112,6 +116,8 @@ final class BftBlockOrderer(
     sequencerSnapshotInfo: Option[SequencerSnapshot.ImplementationSpecificInfo],
     metrics: BftOrderingMetrics,
     namedLoggerFactory: NamedLoggerFactory,
+    dedicatedStorageSetup: StorageSetup,
+    queryCostMonitoring: Option[QueryCostMonitoringConfig] = None,
 )(implicit executionContext: ExecutionContext, materializer: Materializer)
     extends BlockOrderer
     with NamedLogging
@@ -156,6 +162,9 @@ final class BftBlockOrderer(
         config.initialBftNetwork.map(_.selfEndpoint.toString).getOrElse("unknown"),
       )
 
+  private val closeable = FlagCloseable(loggerFactory.getTracedLogger(getClass), timeouts)
+  implicit private val closeContext: CloseContext = CloseContext(closeable)
+
   private val p2pServerGrpcExecutor =
     Threading.newExecutionContext(
       loggerFactory.threadName + "-dp2p-server-grpc-executor-context",
@@ -172,7 +181,25 @@ final class BftBlockOrderer(
       loggerFactory,
     )
 
-  private val p2pEndpointsStore = setupP2pEndpointsStore()
+  private val localStorage = {
+    implicit val traceContext: TraceContext = TraceContext.empty
+    config.storage match {
+      case Some(storageConfig) =>
+        logger.info("Using a dedicated storage configuration for BFT ordering tables")
+        dedicatedStorageSetup.tryCreateAndMigrateStorage(
+          storageConfig,
+          queryCostMonitoring,
+          clock,
+          timeouts,
+          loggerFactory,
+        )
+      case _ =>
+        logger.info("Re-using the existing sequencer storage for BFT ordering tables as well")
+        sharedLocalStorage
+    }
+  }
+
+  private val p2pEndpointsStore = setupP2pEndpointsStore(localStorage)
   private val availabilityStore = AvailabilityStore(localStorage, timeouts, loggerFactory)
   private val epochStore = EpochStore(localStorage, timeouts, loggerFactory)
   private val outputStore = OutputMetadataStore(localStorage, timeouts, loggerFactory)
@@ -198,15 +225,14 @@ final class BftBlockOrderer(
     implicit val traceContext: TraceContext = TraceContext.empty
 
     // This timestamp is always known by the topology client, even when it is equal to `lastTs` from the onboarding state.
-    val thisPeerActiveAtTimestamp = for {
-      snapshotAdditionalInfo <- sequencerSnapshotAdditionalInfo
-      thisPeerActiveAt <- snapshotAdditionalInfo.peerActiveAt.get(sequencerId)
-      thisPeerActiveAtTimestamp <- thisPeerActiveAt.timestamp
-    } yield thisPeerActiveAtTimestamp
+    val thisPeerActiveAt = sequencerSnapshotAdditionalInfo.flatMap(snapshotAdditionalInfo =>
+      snapshotAdditionalInfo.peerActiveAt.get(sequencerId)
+    )
 
     // We assume that, if a sequencer snapshot has been provided, then we're onboarding; in that case, we use
     //  topology information from the sequencer snapshot, else we fetch the latest topology from the DB.
-    val initialTopologyQueryTimestamp = thisPeerActiveAtTimestamp
+    val initialTopologyQueryTimestamp = thisPeerActiveAt
+      .map(_.timestamp)
       .getOrElse {
         val latestEpoch =
           awaitFuture(epochStore.latestEpoch(includeInProgress = true), "fetch latest epoch")
@@ -224,12 +250,16 @@ final class BftBlockOrderer(
       }
 
     // Get the previous topology for validating data (e.g., canonical commit sets) from the previous epoch
-    val previousTopologyQueryTimestamp = thisPeerActiveAtTimestamp
-      // Use the timestamp from just before the onboarding
-      // TODO(#23659) set to the onboarding epoch topology activation time
-      .map(activeAtTimestamp =>
-        TopologyActivationTime(activeAtTimestamp.value.immediatePredecessor)
-      )
+    val previousTopologyQueryTimestamp = thisPeerActiveAt
+      // Use the start epoch topology query timestamp when onboarding (sequencer snapshot is provided)
+      .map { activeAt =>
+        activeAt.epochTopologyQueryTimestamp.getOrElse {
+          val msg =
+            "Start epoch topology query timestamp is required when onboarding but it's empty"
+          logger.error(msg)
+          sys.error(msg)
+        }
+      }
       // Or last completed epoch's activation timestamp
       .getOrElse {
         val latestCompletedEpoch =
@@ -252,10 +282,10 @@ final class BftBlockOrderer(
 
     OrderingTopologyInfo(
       sequencerId,
-      previousTopology,
-      previousCryptoProvider,
       initialTopology,
       initialCryptoProvider,
+      previousTopology,
+      previousCryptoProvider,
     )
   }
 
@@ -288,8 +318,8 @@ final class BftBlockOrderer(
       abort = sys.error
     )
 
-  private def setupP2pEndpointsStore(): P2pEndpointsStore[PekkoEnv] = {
-    val store = P2pEndpointsStore(localStorage, timeouts, loggerFactory)
+  private def setupP2pEndpointsStore(storage: Storage): P2pEndpointsStore[PekkoEnv] = {
+    val store = P2pEndpointsStore(storage, timeouts, loggerFactory)
     config.initialBftNetwork.foreach { network =>
       implicit val traceContext: TraceContext = TraceContext.empty
       val overwrite = network.overwriteStoredEndpoints
@@ -328,7 +358,7 @@ final class BftBlockOrderer(
         p2pEndpointsStore,
         availabilityStore,
         epochStore,
-        orderedBlocksReader = epochStore,
+        epochStoreReader = epochStore,
         outputStore,
       )
     BftOrderingModuleSystemInitializer(
@@ -407,7 +437,7 @@ final class BftBlockOrderer(
 
   override def send(
       signedOrderingRequest: SignedOrderingRequest
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SequencerDeliverError, Unit] = {
     logger.debug(s"sending submission")
     sendToMempool(
       SendTag,
@@ -429,7 +459,7 @@ final class BftBlockOrderer(
   }
 
   override def health(implicit traceContext: TraceContext): Future[SequencerDriverHealthStatus] = {
-    val isStorageActive = localStorage.isActive
+    val isStorageActive = sharedLocalStorage.isActive
     val description = if (isStorageActive) None else Some("BFT orderer can't connect to database")
     Future.successful(
       SequencerDriverHealthStatus(
@@ -453,7 +483,15 @@ final class BftBlockOrderer(
       SyncCloseable("availabilityStore.close()", availabilityStore.close()),
       SyncCloseable("p2pEndpointsStore.close()", p2pEndpointsStore.close()),
       SyncCloseable("shutdownPekkoActorSystem()", shutdownPekkoActorSystem()),
-    )
+    ) ++
+      Seq[Option[AsyncOrSyncCloseable]](
+        Option.when(localStorage != sharedLocalStorage)(
+          SyncCloseable("dedicatedLocalStorage.close()", localStorage.close())
+        )
+      ).flatten ++
+      Seq[AsyncOrSyncCloseable](
+        SyncCloseable("closeable.close()", closeable.close())
+      )
 
   override def adminServices: Seq[ServerServiceDefinition] =
     Seq(
@@ -503,7 +541,7 @@ final class BftBlockOrderer(
       tag: String,
       sender: Member,
       payload: ByteString,
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, SequencerDeliverError, Unit] = {
     val replyPromise = Promise[SequencerNode.Message]()
     val replyRef = new ModuleRef[SequencerNode.Message] {
       override def asyncSend(msg: SequencerNode.Message): Unit =
@@ -525,8 +563,8 @@ final class BftBlockOrderer(
     EitherT(replyPromise.future.map {
       case SequencerNode.RequestAccepted => Either.unit
       case SequencerNode.RequestRejected(reason) =>
-        Left(SendAsyncError.Overloaded(reason)) // Currently the only case
-      case _ => Left(SendAsyncError.Internal("wrong response"))
+        Left(SequencerErrors.Overloaded(reason)) // Currently the only case
+      case _ => Left(SequencerErrors.Internal("wrong response"))
     })
   }
 
@@ -555,7 +593,11 @@ object BftBlockOrderer {
       selfEndpoint: Endpoint,
       otherEndpoints: Seq[Endpoint],
       overwriteStoredEndpoints: Boolean = false,
-  )
+  ) extends UniformCantonConfigValidation
+  object BftNetwork {
+    implicit val bftNetworkCanonConfigValidator: CantonConfigValidator[BftNetwork] =
+      CantonConfigValidatorDerivation[BftNetwork]
+  }
 
   final case class Config(
       maxRequestPayloadBytes: Int = DefaultMaxRequestPayloadBytes,
@@ -566,7 +608,8 @@ object BftBlockOrderer {
       maxBatchesPerBlockProposal: Short = DefaultMaxBatchesPerProposal,
       outputFetchTimeout: FiniteDuration = DefaultOutputFetchTimeout,
       initialBftNetwork: Option[BftNetwork] = None,
-  ) {
+      storage: Option[StorageConfig] = None,
+  ) extends UniformCantonConfigValidation {
     // The below parameters are not yet dynamically configurable.
     private val EmptyBlockCreationIntervalMultiplayer = 3L
     require(
@@ -583,5 +626,10 @@ object BftBlockOrderer {
         s"$maxRequestsPerBlock maximum requests per block, " +
         s"but the maximum number allowed of requests per block is ${BftTime.MaxRequestsPerBlock}",
     )
+  }
+
+  object Config {
+    implicit val configCantonConfigValidator: CantonConfigValidator[Config] =
+      CantonConfigValidatorDerivation[Config]
   }
 }

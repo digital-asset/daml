@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.config
 import com.daml.jwt.JwtTimestampLeeway
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port}
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import io.netty.handler.ssl.SslContext
 
@@ -42,7 +43,8 @@ final case class PublicServerConfig(
     maxTokenExpirationInterval: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofHours(1),
     useExponentialRandomTokenExpiration: Boolean = false,
     overrideMaxRequestSize: Option[NonNegativeInt] = None,
-) extends ServerConfig {
+) extends ServerConfig
+    with UniformCantonConfigValidation {
 
   override def authServices: Seq[AuthServiceConfig] = Seq.empty
 
@@ -63,5 +65,13 @@ final case class PublicServerConfig(
   def connection: String = {
     val scheme = tls.fold("http")(_ => "https")
     s"$scheme://$address:$port"
+  }
+}
+
+object PublicServerConfig {
+  implicit val publicServerConfigCantonConfigValidator
+      : CantonConfigValidator[PublicServerConfig] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[PublicServerConfig]
   }
 }

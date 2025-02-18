@@ -12,7 +12,7 @@ import com.digitalasset.canton.resource.{MemoryStorage, Storage}
 import com.digitalasset.canton.sequencing.protocol.{
   Batch,
   MessageId,
-  SendAsyncError,
+  SequencerErrors,
   SubmissionRequest,
 }
 import com.digitalasset.canton.synchronizer.sequencer.SequencerWriter.RunningSequencerWriterFlow
@@ -172,7 +172,7 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
         sendError <- leftOrFail(writer.send(mockSubmissionRequest))(
           "send when unavailable"
         ).failOnShutdown
-        _ = sendError shouldBe SendAsyncError.Unavailable("Unavailable")
+        _ = sendError.code.id shouldBe SequencerErrors.Unavailable.id
         // there may be a number of future hops to work its way through completing the second flow which we currently
         // can't capture via flushes, so just check it eventually happens
         _ <- MonadUtil.sequentialTraverse(0 until 10)(_ => allowScheduledFuturesToComplete)

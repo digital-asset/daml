@@ -20,7 +20,7 @@ import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
-  SendAsyncError,
+  SequencerDeliverError,
   SignedContent,
 }
 import com.digitalasset.canton.synchronizer.block.*
@@ -235,7 +235,7 @@ class BlockSequencerTest
     // No need to implement these methods for the test
     override def send(signedOrderingRequest: SignedOrderingRequest)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, SendAsyncError, Unit] = ???
+    ): EitherT[Future, SequencerDeliverError, Unit] = ???
     override def health(implicit traceContext: TraceContext): Future[SequencerDriverHealthStatus] =
       ???
     override def acknowledge(signedAcknowledgeRequest: SignedContent[AcknowledgeRequest])(implicit

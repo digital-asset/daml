@@ -145,9 +145,13 @@ object DbDispatcher {
       metrics: LedgerApiServerMetrics,
       loggerFactory: NamedLoggerFactory,
   ): ResourceOwner[DbDispatcher with ReportsHealth] = {
-    val logger = loggerFactory.getTracedLogger(getClass)
-    def log(s: String): Unit =
-      logger.debug(s"[${serverRole.threadPoolSuffix}] $s")(TraceContext.empty)
+    val logger = loggerFactory.getLogger(getClass)
+    def log(s: String, info: Boolean = false): Unit = {
+      val logMessage = s"[${serverRole.threadPoolSuffix}] $s"
+      if (info) logger.info(logMessage)
+      else logger.debug(logMessage)
+    }
+
     for {
       hikariDataSource <- HikariDataSourceOwner(
         dataSource = dataSource,
@@ -155,7 +159,9 @@ object DbDispatcher {
         minimumIdle = connectionPoolSize,
         maxPoolSize = connectionPoolSize,
         connectionTimeout = connectionTimeout,
-      ).afterReleased(log("HikariDataSource released"))
+      )
+        .afterReleased(log("HikariDataSource released"))
+        .afterReleased(log("DbDispatcher released", info = true))
       connectionProvider <- DataSourceConnectionProvider
         .owner(
           hikariDataSource,

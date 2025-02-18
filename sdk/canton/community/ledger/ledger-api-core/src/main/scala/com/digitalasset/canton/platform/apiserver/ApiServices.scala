@@ -20,11 +20,14 @@ import com.digitalasset.canton.ledger.localstore.api.{
 }
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.*
-import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.*
-import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
+import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.{
+  AuthenticateFatContractInstance,
+  AuthenticateSerializableContract,
+}
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.apiserver.services.*
 import com.digitalasset.canton.platform.apiserver.services.admin.*
@@ -61,17 +64,27 @@ trait ApiServices extends AutoCloseable {
   def withServices(otherServices: immutable.Seq[BindableService]): ApiServices
 }
 
-private final case class ApiServicesBundle(services: immutable.Seq[BindableService])
-    extends ApiServices {
+private final case class ApiServicesBundle(
+    services: immutable.Seq[BindableService],
+    loggerFactory: NamedLoggerFactory,
+) extends ApiServices
+    with NamedLogging {
 
   override def withServices(otherServices: immutable.Seq[BindableService]): ApiServices =
     copy(services = services ++ otherServices)
 
-  override def close(): Unit =
+  override def close(): Unit = {
     services.foreach {
-      case closeable: AutoCloseable => closeable.close()
-      case _ => ()
+      case closeable: AutoCloseable =>
+        noTracingLogger.debug(s"Closing $closeable")
+        closeable.close()
+        noTracingLogger.debug(s"Successfully closed $closeable")
+      case nonCloseable =>
+        noTracingLogger.debug(s"Omit closing $nonCloseable, as it is not closeable")
     }
+    noTracingLogger.info(s"Successfully closed all API services")
+  }
+
 }
 
 object ApiServices {
@@ -91,8 +104,8 @@ object ApiServices {
       commandProgressTracker: CommandProgressTracker,
       commandConfig: CommandServiceConfig,
       optTimeServiceBackend: Option[TimeServiceBackend],
-      readApiServicesExecutionContext: ExecutionContext,
-      writeApiServicesExecutionContext: ExecutionContext,
+      queryExecutionContext: ExecutionContext,
+      commandExecutionContext: ExecutionContext,
       metrics: LedgerApiServerMetrics,
       healthChecks: HealthChecks,
       seedService: SeedService,
@@ -104,7 +117,8 @@ object ApiServices {
       partyManagementServiceConfig: PartyManagementServiceConfig,
       engineLoggingConfig: EngineLoggingConfig,
       meteringReportKey: MeteringReportKey,
-      authenticateContract: AuthenticateContract,
+      authenticateSerializableContract: AuthenticateSerializableContract,
+      authenticateFatContractInstance: AuthenticateFatContractInstance,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
       dynParamGetter: DynamicSynchronizerParameterGetter,
@@ -119,7 +133,7 @@ object ApiServices {
     implicit val traceContext: TraceContext = TraceContext.empty
 
     val activeContractsService: IndexActiveContractsService = indexService
-    val transactionsService: IndexTransactionsService = indexService
+    val updateService: IndexUpdateService = indexService
     val eventQueryService: IndexEventQueryService = indexService
     val contractStore: ContractStore = indexService
     val maximumLedgerTimeService: MaximumLedgerTimeService = indexService
@@ -128,7 +142,7 @@ object ApiServices {
     val meteringStore: MeteringStore = indexService
 
     val (readServices, ledgerApiUpdateService) = {
-      implicit val ec: ExecutionContext = readApiServicesExecutionContext
+      implicit val ec: ExecutionContext = queryExecutionContext
 
       val apiInspectionServiceOpt =
         Option
@@ -162,7 +176,7 @@ object ApiServices {
         val apiPackageService = new ApiPackageService(syncService, telemetry, loggerFactory)
         val apiUpdateService =
           new ApiUpdateService(
-            transactionsService,
+            updateService,
             metrics,
             telemetry,
             loggerFactory,
@@ -171,7 +185,7 @@ object ApiServices {
           new ApiStateService(
             acsService = activeContractsService,
             syncService = syncService,
-            txService = transactionsService,
+            updateService = updateService,
             metrics = metrics,
             telemetry = telemetry,
             loggerFactory = loggerFactory,
@@ -253,20 +267,20 @@ object ApiServices {
     }
 
     val writeServices = {
-      implicit val ec: ExecutionContext = writeApiServicesExecutionContext
+      implicit val ec: ExecutionContext = commandExecutionContext
       val commandExecutor = new TimedCommandExecutor(
         new LedgerTimeAwareCommandExecutor(
           new StoreBackedCommandExecutor(
-            engine,
-            participantId,
-            syncService,
-            contractStore,
-            authenticateContract,
-            metrics,
-            engineLoggingConfig,
-            loggerFactory,
-            dynParamGetter,
-            timeProvider,
+            engine = engine,
+            participant = participantId,
+            packageSyncService = syncService,
+            contractStore = contractStore,
+            authenticateSerializableContract = authenticateSerializableContract,
+            metrics = metrics,
+            config = engineLoggingConfig,
+            loggerFactory = loggerFactory,
+            dynParamGetter = dynParamGetter,
+            timeProvider = timeProvider,
           ),
           new ResolveMaximumLedgerTime(maximumLedgerTimeService, loggerFactory),
           maxRetries = 3,
@@ -281,7 +295,9 @@ object ApiServices {
           getPackageMetadataSnapshot = syncService.getPackageMetadataSnapshot(_)
         )
       val commandsValidator = new CommandsValidator(
-        validateUpgradingPackageResolutions = validateUpgradingPackageResolutions
+        validateDisclosedContracts =
+          new ValidateDisclosedContracts(authenticateFatContractInstance),
+        validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
       )
       val commandSubmissionService =
         CommandSubmissionServiceImpl.createApiService(
@@ -300,7 +316,7 @@ object ApiServices {
         new IdentityProviderExists(identityProviderConfigStore),
         partyManagementServiceConfig.maxPartiesPageSize,
         partyRecordStore,
-        transactionsService,
+        updateService,
         syncService,
         managementServiceTimeout,
         telemetry = telemetry,
@@ -395,6 +411,6 @@ object ApiServices {
     }
 
     logger.info(engine.info.toString)
-    ApiServicesBundle(readServices ::: writeServices)
+    ApiServicesBundle(readServices ::: writeServices, loggerFactory)
   }
 }

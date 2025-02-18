@@ -1055,7 +1055,7 @@ package http {
 
     object Interface extends Like[Interface]
 
-    // TODO #14727 make an opaque subtype, produced by PackageService on
+    // TODO(#13303) Re-adapted from Daml repo #14727: make an opaque subtype, produced by PackageService on
     // confirmed-present IDs only.  Can probably start by adding
     // `with Definite[Any]` here and seeing what happens
     /** A resolved [[ContractTypeId]], typed `CtTyId`. */

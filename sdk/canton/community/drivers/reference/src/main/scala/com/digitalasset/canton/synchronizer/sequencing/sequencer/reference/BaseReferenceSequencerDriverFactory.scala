@@ -3,12 +3,10 @@
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.reference
 
-import com.daml.metrics.api.noop.NoOpMetricsFactory
-import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.{DbConfig, ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.{DbStorageHistograms, DbStorageMetrics}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.synchronizer.block.BlockFormat.DefaultFirstBlockHeight
 import com.digitalasset.canton.synchronizer.block.{SequencerDriver, SequencerDriverFactory}
@@ -117,14 +115,6 @@ private[reference] abstract class BaseReferenceSequencerDriverFactory
 }
 
 private[reference] object BaseReferenceSequencerDriverFactory {
-
-  final def createDbStorageMetrics()(implicit
-      metricsContext: MetricsContext
-  ): DbStorageMetrics =
-    new DbStorageMetrics(
-      new DbStorageHistograms(MetricName("none"))(new HistogramInventory),
-      NoOpMetricsFactory,
-    )
 
   final def createClock(timeProvider: TimeProvider, loggerFactory: NamedLoggerFactory) =
     new TimeProviderClock(timeProvider, loggerFactory)

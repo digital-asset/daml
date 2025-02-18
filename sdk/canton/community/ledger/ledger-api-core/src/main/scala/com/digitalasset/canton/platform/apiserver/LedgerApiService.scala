@@ -29,6 +29,7 @@ object LedgerApiService {
       keepAlive: Option[KeepAliveServerConfig],
       loggerFactory: NamedLoggerFactory,
   ): ResourceOwner[ApiService] = {
+    import com.digitalasset.canton.platform.ResourceOwnerOps
     val logger = loggerFactory.getTracedLogger(this.getClass)
     implicit val traceContext = TraceContext.empty
     val _ = tlsConfiguration.map(_.setJvmTlsProperties())
@@ -51,6 +52,7 @@ object LedgerApiService {
             loggerFactory,
             keepAlive = keepAlive,
           )
+          .afterReleased(logger.info("GrpcServer released"))
       )
       .map { server =>
         val host = address.getOrElse("localhost")

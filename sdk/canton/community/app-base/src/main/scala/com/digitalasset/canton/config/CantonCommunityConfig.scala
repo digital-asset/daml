@@ -8,6 +8,7 @@ import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.ConfigErrors.CantonConfigError
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.participant.config.{
   CommunityParticipantConfig,
@@ -23,7 +24,7 @@ import com.digitalasset.canton.synchronizer.sequencer.config.{
   RemoteSequencerConfig,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.typesafe.config.{Config, ConfigValue}
+import com.typesafe.config.Config
 import monocle.macros.syntax.lens.*
 import org.slf4j.{Logger, LoggerFactory}
 import pureconfig.{ConfigReader, ConfigWriter}
@@ -42,7 +43,8 @@ final case class CantonCommunityConfig(
     parameters: CantonParameters = CantonParameters(),
     features: CantonFeatures = CantonFeatures(),
 ) extends CantonConfig
-    with ConfigDefaults[DefaultPorts, CantonCommunityConfig] {
+    with ConfigDefaults[DefaultPorts, CantonCommunityConfig]
+    with CommunityOnlyCantonConfigValidation {
 
   override type ParticipantConfigType = CommunityParticipantConfig
   override type MediatorNodeConfigType = CommunityMediatorNodeConfig
@@ -66,6 +68,10 @@ final case class CantonCommunityConfig(
 
 object CantonCommunityConfig {
 
+  implicit val cantonCommunityConfigCantonConfigValidator
+      : CantonConfigValidator[CantonCommunityConfig] =
+    CantonConfigValidatorDerivation[CantonCommunityConfig]
+
   private val logger: Logger = LoggerFactory.getLogger(classOf[CantonCommunityConfig])
   private val elc = ErrorLoggingContext(
     TracedLogger(logger),
@@ -81,22 +87,7 @@ object CantonCommunityConfig {
     import DeprecatedConfigUtils.*
     import CantonConfig.ConfigReaders.Crypto.*
     import BaseCantonConfig.Readers.*
-    implicit val driverKmsConfigReader: ConfigReader[CommunityKmsConfig.Driver] =
-      deriveReader[CommunityKmsConfig.Driver]
-    implicit val kmsConfigReader: ConfigReader[CommunityKmsConfig] =
-      deriveReader[CommunityKmsConfig]
-    implicit val communityCryptoReader: ConfigReader[CommunityCryptoConfig] =
-      deriveReader[CommunityCryptoConfig]
-    implicit val memoryReader: ConfigReader[StorageConfig.Memory] =
-      deriveReader[StorageConfig.Memory]
-    implicit val h2Reader: ConfigReader[DbConfig.H2] =
-      deriveReader[DbConfig.H2]
-    implicit val postgresReader: ConfigReader[DbConfig.Postgres] =
-      deriveReader[DbConfig.Postgres]
-    implicit val dbConfigReader: ConfigReader[DbConfig] =
-      deriveReader[DbConfig]
-    implicit val communityStorageConfigReader: ConfigReader[StorageConfig] =
-      deriveReader[StorageConfig]
+
     implicit val communityParticipantConfigReader: ConfigReader[CommunityParticipantConfig] =
       deriveReader[CommunityParticipantConfig]
 
@@ -114,28 +105,7 @@ object CantonCommunityConfig {
     val writers = new CantonConfig.ConfigWriters(confidential = true)
     import writers.*
     import writers.Crypto.*
-    import BaseCantonConfig.Writers.*
-    implicit val driverKmsConfigWriter: ConfigWriter[CommunityKmsConfig.Driver] =
-      ConfigWriter.fromFunction { driverConfig =>
-        implicit val driverConfigWriter: ConfigWriter[ConfigValue] =
-          Crypto.driverConfigWriter(driverConfig)
-        deriveWriter[CommunityKmsConfig.Driver].to(driverConfig)
-      }
-    implicit val kmsConfigWriter: ConfigWriter[CommunityKmsConfig] =
-      deriveWriter[CommunityKmsConfig]
-    implicit val communityCryptoWriter: ConfigWriter[CommunityCryptoConfig] =
-      deriveWriter[CommunityCryptoConfig]
-    implicit val memoryWriter: ConfigWriter[StorageConfig.Memory] =
-      deriveWriter[StorageConfig.Memory]
-    implicit val h2Writer: ConfigWriter[DbConfig.H2] =
-      confidentialWriter[DbConfig.H2](x => x.copy(config = DbConfig.hideConfidential(x.config)))
-    implicit val postgresWriter: ConfigWriter[DbConfig.Postgres] =
-      confidentialWriter[DbConfig.Postgres](x =>
-        x.copy(config = DbConfig.hideConfidential(x.config))
-      )
 
-    implicit val communityStorageConfigWriter: ConfigWriter[StorageConfig] =
-      deriveWriter[StorageConfig]
     implicit val communityParticipantConfigWriter: ConfigWriter[CommunityParticipantConfig] =
       deriveWriter[CommunityParticipantConfig]
     implicit val communitySequencerNodeConfigWriter: ConfigWriter[CommunitySequencerNodeConfig] = {

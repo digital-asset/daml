@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology
 
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -48,7 +49,7 @@ object SimulationTopologyHelpers {
     val crypto =
       SymbolicCrypto.create(ReleaseProtocolVersion.latest, ProcessingTimeout(), loggerFactory)
     peerEndpointsToOnboardingTimes.view.mapValues { timestamp =>
-      val keys = crypto.newSymbolicSigningKeyPair()
+      val keys = crypto.newSymbolicSigningKeyPair(SigningKeyUsage.ProtocolOnly)
       SimulationTopologyData(timestamp, keys.publicKey, keys.privateKey)
     }.toMap
   }

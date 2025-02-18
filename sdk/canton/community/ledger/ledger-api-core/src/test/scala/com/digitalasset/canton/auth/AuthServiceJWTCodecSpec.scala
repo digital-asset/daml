@@ -10,6 +10,7 @@ import com.daml.jwt.{
   StandardJWTTokenFormat,
 }
 import org.scalacheck.{Arbitrary, Gen}
+import org.scalatest.TryValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
@@ -22,6 +23,7 @@ import scala.util.{Success, Try}
 class AuthServiceJWTCodecSpec
     extends AnyWordSpec
     with Matchers
+    with TryValues
     with ScalaCheckDrivenPropertyChecks {
 
   /** Serializes a [[AuthServiceJWTPayload]] to JSON, then parses it back to a AuthServiceJWTPayload */
@@ -298,7 +300,7 @@ class AuthServiceJWTCodecSpec
             |  "scope": "resource_server/${AuthServiceJWTCodec.scopeLedgerApiFull}"
             |}
           """.stripMargin
-        parse(serialized).failed.get.getMessage should include(
+        parse(serialized).failure.exception.getMessage should include(
           "Access token with unknown scope"
         )
       }
@@ -521,7 +523,7 @@ class AuthServiceJWTCodecSpec
             |  "exp": 100
             |}
           """.stripMargin
-        parse(serialized).failed.get.getMessage should include(
+        parse(serialized).failure.exception.getMessage should include(
           "must include a single participantId value prefixed by"
         )
       }
@@ -536,7 +538,7 @@ class AuthServiceJWTCodecSpec
             |  "scope": "${AuthServiceJWTCodec.scopeLedgerApiFull}"
             |}
           """.stripMargin
-        parse(serialized).failed.get.getMessage should include(
+        parse(serialized).failure.exception.getMessage should include(
           "`aud` must be empty or a single participantId."
         )
       }
@@ -549,7 +551,7 @@ class AuthServiceJWTCodecSpec
             |  "exp": 100
             |}
           """.stripMargin
-        parse(serialized).failed.get.getMessage
+        parse(serialized).failure.exception.getMessage
           .contains("must include participantId value prefixed by") shouldBe true
       }
 
@@ -563,7 +565,7 @@ class AuthServiceJWTCodecSpec
             |  "scope": "resource-server/daml-ledger-api"
             |}
           """.stripMargin
-        parse(serialized).failed.get.getMessage should include(
+        parse(serialized).failure.exception.getMessage should include(
           "Access token with unknown scope"
         )
       }

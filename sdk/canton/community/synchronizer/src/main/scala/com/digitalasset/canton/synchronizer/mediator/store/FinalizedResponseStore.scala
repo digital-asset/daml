@@ -7,7 +7,7 @@ import cats.data.OptionT
 import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{CacheConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -83,6 +83,7 @@ private[mediator] object FinalizedResponseStore {
       storage: Storage,
       cryptoApi: CryptoPureApi,
       protocolVersion: ProtocolVersion,
+      finalizedRequestCache: CacheConfig,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -95,6 +96,7 @@ private[mediator] object FinalizedResponseStore {
         jdbc,
         cryptoApi,
         protocolVersion,
+        finalizedRequestCache,
         timeouts,
         loggerFactory,
       )
@@ -167,6 +169,7 @@ private[mediator] class DbFinalizedResponseStore(
     override protected val storage: DbStorage,
     cryptoApi: CryptoPureApi,
     protocolVersion: ProtocolVersion,
+    finalizedRequestCache: CacheConfig,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext, implicit val traceContext: TraceContext)
@@ -176,9 +179,17 @@ private[mediator] class DbFinalizedResponseStore(
   import storage.api.*
   import storage.converters.*
 
-  implicit val getResultRequestId: GetResult[RequestId] =
+  /** once requests are finished, we keep em around for a few minutes so we can deal with any
+    * late request, avoiding a database lookup. otherwise, we'll be doing a db lookup in our
+    * main processing stage, slowing things down quite a bit
+    */
+  private val finishedRequests = finalizedRequestCache
+    .buildScaffeine()
+    .build[RequestId, FinalizedResponse]()
+
+  private implicit val getResultRequestId: GetResult[RequestId] =
     GetResult[CantonTimestamp].andThen(ts => RequestId(ts))
-  implicit val setParameterRequestId: SetParameter[RequestId] =
+  private implicit val setParameterRequestId: SetParameter[RequestId] =
     (r: RequestId, pp: PositionedParameters) => SetParameter[CantonTimestamp].apply(r.unwrap, pp)
 
   private implicit val setParameterVerdict: SetParameter[Verdict] =
@@ -215,16 +226,34 @@ private[mediator] class DbFinalizedResponseStore(
                ${SerializableTraceContext(finalizedResponse.requestTraceContext)}
              ) on conflict do nothing"""
 
-    CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
-      closeContext =>
+    CloseContext
+      .withCombinedContext(callerCloseContext, closeContext, timeouts, logger) { closeContext =>
         storage.update_(
           insert,
           operationName = s"${this.getClass}: store request ${finalizedResponse.requestId}",
         )(traceContext, closeContext)
-    }
+      }
+      .map { _ =>
+        // keep the request around for a while to avoid a database lookup under contention
+        finishedRequests.put(finalizedResponse.requestId, finalizedResponse).discard
+      }
   }
 
   override def fetch(requestId: RequestId)(implicit
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): OptionT[FutureUnlessShutdown, FinalizedResponse] =
+    finishedRequests.getIfPresent(requestId) match {
+      case Some(response) =>
+        OptionT.pure[FutureUnlessShutdown](response)
+      case None =>
+        fetchFromDb(requestId)(traceContext, callerCloseContext).map { response =>
+          finishedRequests.put(requestId, response)
+          response
+        }
+    }
+
+  private def fetchFromDb(requestId: RequestId)(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
   ): OptionT[FutureUnlessShutdown, FinalizedResponse] =
@@ -243,8 +272,9 @@ private[mediator] class DbFinalizedResponseStore(
                   SerializableTraceContext,
               )
             ]
+            .headOption
             .map {
-              _.headOption.map {
+              _.map {
                 case (reqId, mediatorConfirmationRequest, version, verdict, requestTraceContext) =>
                   FinalizedResponse(reqId, mediatorConfirmationRequest, version, verdict)(
                     requestTraceContext.unwrap
@@ -268,7 +298,10 @@ private[mediator] class DbFinalizedResponseStore(
             sqlu"delete from med_response_aggregations where request_id <= $timestamp",
             functionFullName,
           )(traceContext, closeContext)
-        } yield logger.debug(s"Removed $removedCount finalized responses")
+        } yield {
+          finishedRequests.invalidateAll()
+          logger.debug(s"Removed at least $removedCount finalized responses")
+        }
     }
 
   override def count()(implicit

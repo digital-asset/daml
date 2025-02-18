@@ -12,7 +12,7 @@ import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.admin.grpc.TopologyStore
+import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.transaction.*
 import com.google.protobuf.ByteString
@@ -20,7 +20,7 @@ import com.google.protobuf.ByteString
 import java.time.Instant
 
 final case class BaseResult(
-    store: TopologyStore,
+    storeId: TopologyStoreId,
     validFrom: Instant,
     validUntil: Option[Instant],
     sequenced: Instant,
@@ -54,7 +54,7 @@ object BaseResult {
         )
 
       store <- ProtoConverter.parseRequired(
-        TopologyStore.fromProto(_, "store"),
+        TopologyStoreId.fromProtoV30(_, "store"),
         "store",
         value.store,
       )
