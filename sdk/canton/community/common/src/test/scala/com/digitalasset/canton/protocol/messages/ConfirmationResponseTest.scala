@@ -4,6 +4,7 @@
 package com.digitalasset.canton.protocol.messages
 
 import cats.syntax.either.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
 import com.digitalasset.canton.protocol.{LocalRejectError, RequestId, RootHash}
@@ -15,35 +16,47 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class ConfirmationResponseTest extends AnyWordSpec with BaseTest with HasCryptographicEvidenceTest {
 
-  private lazy val response1: ConfirmationResponse = ConfirmationResponse.tryCreate(
-    RequestId(CantonTimestamp.now()),
-    topology.ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("da::p1")),
-    Some(ViewPosition.root),
-    LocalApprove(testedProtocolVersion),
-    RootHash(TestHash.digest("txid1")),
-    Set(LfPartyId.assertFromString("p1"), LfPartyId.assertFromString("p2")),
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),
-    testedProtocolVersion,
-  )
-  private lazy val response2: ConfirmationResponse = ConfirmationResponse.tryCreate(
-    RequestId(CantonTimestamp.now()),
-    topology.ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("da::p1")),
-    None,
-    LocalRejectError.MalformedRejects.Payloads
-      .Reject("test message")
-      .toLocalReject(testedProtocolVersion),
-    RootHash(TestHash.digest("txid3")),
-    Set.empty,
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),
-    testedProtocolVersion,
-  )
+  private lazy val response1: ConfirmationResponses =
+    ConfirmationResponses.tryCreate(
+      RequestId(CantonTimestamp.now()),
+      RootHash(TestHash.digest("txid1")),
+      SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),
+      topology.ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("da::p1")),
+      NonEmpty.mk(
+        Seq,
+        ConfirmationResponse.tryCreate(
+          Some(ViewPosition.root),
+          LocalApprove(testedProtocolVersion),
+          Set(LfPartyId.assertFromString("p1"), LfPartyId.assertFromString("p2")),
+        ),
+      ),
+      testedProtocolVersion,
+    )
+  private lazy val response2: ConfirmationResponses =
+    ConfirmationResponses.tryCreate(
+      RequestId(CantonTimestamp.now()),
+      RootHash(TestHash.digest("txid3")),
+      SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),
+      topology.ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("da::p1")),
+      NonEmpty.mk(
+        Seq,
+        ConfirmationResponse.tryCreate(
+          None,
+          LocalRejectError.MalformedRejects.Payloads
+            .Reject("test message")
+            .toLocalReject(testedProtocolVersion),
+          Set.empty,
+        ),
+      ),
+      testedProtocolVersion,
+    )
 
-  private def fromByteString(bytes: ByteString): ConfirmationResponse =
-    ConfirmationResponse
+  def fromByteString(bytes: ByteString): ConfirmationResponses =
+    ConfirmationResponses
       .fromByteString(testedProtocolVersion, bytes)
       .valueOr(err => fail(err.toString))
 
-  "ConfirmationResponse" should {
+  "ConfirmationResponses" should {
     behave like hasCryptographicEvidenceSerialization(response1, response2)
     behave like hasCryptographicEvidenceDeserialization(
       response1,

@@ -21,14 +21,6 @@ import com.google.protobuf.ByteString
 
 /** Information concerning every '''member''' involved in processing the underlying view.
   */
-// This class is a reference example of serialization best practices, demonstrating:
-// - memoized serialization, which is required if we need to compute a signature or cryptographic hash of a class
-// - use of an UntypedVersionedMessage wrapper when serializing to an anonymous binary format
-// Please consult the team if you intend to change the design of serialization.
-//
-// The constructor and `fromProto...` methods are private to ensure that clients cannot create instances with an incorrect `deserializedFrom` field.
-//
-// Optional parameters are strongly discouraged, as each parameter needs to be consciously set in a production context.
 final case class ViewCommonData private (
     viewConfirmationParameters: ViewConfirmationParameters,
     salt: Salt,

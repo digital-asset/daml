@@ -133,7 +133,7 @@ trait KmsDriver extends api.KmsDriver with AutoCloseable {
     *
     * @param keyId The identifier of the key to be checked.
     *
-    * @return A future that completes successfully if the key exists and is active. Otherwise the future must have been failed.
+    * @return A future that completes successfully if the key exists and is active. Otherwise, the future must have been failed.
     */
   def keyExistsAndIsActive(keyId: String)(traceContext: Context): Future[Unit]
 

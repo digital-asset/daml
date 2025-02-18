@@ -31,6 +31,7 @@ import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService
 import com.digitalasset.canton.crypto.admin.v30.VaultServiceGrpc
+import com.digitalasset.canton.crypto.kms.KmsFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
 import com.digitalasset.canton.data.CantonTimestamp
@@ -156,8 +157,8 @@ final case class CantonNodeBootstrapCommonArguments[
     clock: Clock,
     metrics: M,
     storageFactory: StorageFactory,
-    cryptoFactory: CryptoFactory,
     cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
+    kmsFactory: KmsFactory,
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
     writeHealthDumpToFile: HealthDumpFunction,
@@ -449,11 +450,12 @@ abstract class CantonNodeBootstrapImpl[
       // crypto factory doesn't write to the db during startup, hence,
       // we won't have "isPassive" issues here
       performUnlessClosingEitherUSF("create-crypto")(
-        arguments.cryptoFactory
+        CryptoFactory
           .create(
             cryptoConfig,
             storage,
             arguments.cryptoPrivateStoreFactory,
+            arguments.kmsFactory,
             ReleaseProtocolVersion.latest,
             arguments.parameterConfig.nonStandardConfig,
             arguments.futureSupervisor,
@@ -590,7 +592,8 @@ abstract class CantonNodeBootstrapImpl[
       for {
         // create namespace key
         namespaceKey <- CantonNodeBootstrapImpl.getOrCreateSigningKey(crypto)(
-          s"$name-${SigningKeyUsage.Namespace.identifier}"
+          s"$name-${SigningKeyUsage.Namespace.identifier}",
+          SigningKeyUsage.NamespaceOnly,
         )
         // create id
         identifierName =
@@ -795,10 +798,16 @@ abstract class CantonNodeBootstrapImpl[
           nsd,
           ProtocolVersion.latest,
         )
-        // all nodes need a signing key
+        // all nodes need two signing keys: (1) for sequencer authentication and (2) for protocol signing
+        sequencerAuthKey <- CantonNodeBootstrapImpl
+          .getOrCreateSigningKey(crypto)(
+            s"$name-${SigningKeyUsage.SequencerAuthentication.identifier}",
+            SigningKeyUsage.SequencerAuthenticationOnly,
+          )
         signingKey <- CantonNodeBootstrapImpl
           .getOrCreateSigningKey(crypto)(
-            s"$name-${SigningKeyUsage.Protocol.identifier}"
+            s"$name-${SigningKeyUsage.Protocol.identifier}",
+            SigningKeyUsage.ProtocolOnly,
           )
         // key owner id depends on the type of node
         ownerId = member(nodeId)
@@ -810,16 +819,17 @@ abstract class CantonNodeBootstrapImpl[
                 .getOrCreateEncryptionKey(crypto)(
                   s"$name-encryption"
                 )
-            } yield NonEmpty.mk(Seq, signingKey, encryptionKey)
+            } yield NonEmpty.mk(Seq, sequencerAuthKey, signingKey, encryptionKey)
           } else {
             EitherT.rightT[FutureUnlessShutdown, String](
-              NonEmpty.mk(Seq, signingKey)
+              NonEmpty.mk(Seq, sequencerAuthKey, signingKey)
             )
           }
         // register the keys
         _ <- authorizeStateUpdate(
           Seq(
             namespaceKey.fingerprint,
+            sequencerAuthKey.fingerprint,
             signingKey.fingerprint,
           ),
           OwnerToKeyMapping(ownerId, keys),
@@ -862,7 +872,7 @@ object CantonNodeBootstrapImpl {
 
   def getOrCreateSigningKey(crypto: Crypto)(
       name: String,
-      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,

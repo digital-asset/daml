@@ -25,15 +25,18 @@ message LocalVerdict {
 }
 
 message ConfirmationResponse {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  LocalVerdict local_verdict = 1;
+  repeated string confirming_parties = 2; // Empty iff the verdict is malformed.
+  ViewPosition view_position = 3;
+}
 
+message ConfirmationResponses {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   int64 request_id = 1; // in microseconds of UTC time since Unix epoch
-  string sender = 2;
-  LocalVerdict local_verdict = 3;
-  bytes root_hash = 4; // required since DAML 3.0
-  repeated string confirming_parties = 5; // Empty iff the verdict is malformed.
-  string synchronizer_id = 6;
-  ViewPosition view_position = 7;
+  bytes root_hash = 2; // required since DAML 3.0
+  string synchronizer_id = 3;
+  string sender = 4;
+  repeated ConfirmationResponse responses = 5;
 }
 
 message ViewPosition {

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol
 
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
@@ -11,7 +12,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.SyncEphemeralState
-import com.digitalasset.canton.protocol.messages.ConfirmationResponse
+import com.digitalasset.canton.protocol.messages.{ConfirmationResponse, ConfirmationResponses}
 import com.digitalasset.canton.protocol.{LocalRejectError, RequestId, RootHash}
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, Recipients}
@@ -55,17 +56,22 @@ class BadRootHashMessagesRequestProcessor(
         _ = reject.log()
         rejection = checked(
           ConfirmationResponse.tryCreate(
-            requestId = requestId,
-            sender = participantId,
             viewPositionO = None,
             localVerdict = reject.toLocalReject(protocolVersion),
-            rootHash = rootHash,
             confirmingParties = Set.empty,
-            synchronizerId = synchronizerId,
-            protocolVersion = protocolVersion,
           )
         )
-        signedRejection <- signResponse(snapshot, rejection)
+        signedRejection <- signResponses(
+          snapshot,
+          ConfirmationResponses.tryCreate(
+            requestId,
+            rootHash,
+            synchronizerId,
+            participantId,
+            NonEmpty.mk(Seq, rejection),
+            protocolVersion,
+          ),
+        )
         _ <- sendResponses(
           requestId,
           Seq(signedRejection -> Recipients.cc(mediator)),

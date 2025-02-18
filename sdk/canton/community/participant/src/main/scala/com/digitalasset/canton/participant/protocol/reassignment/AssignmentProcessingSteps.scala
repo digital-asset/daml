@@ -366,20 +366,22 @@ private[reassignment] class AssignmentProcessingSteps(
       val responseF =
         if (
           assignmentValidationResult.isReassigningParticipant && !assignmentValidationResult.validationResult.isUnassignmentDataNotFound
-        )
-          createConfirmationResponse(
+        ) {
+          createConfirmationResponses(
             parsedRequest.requestId,
             parsedRequest.snapshot.ipsSnapshot,
             targetProtocolVersion.unwrap,
             parsedRequest.fullViewTree.confirmingParties,
             assignmentValidationResult,
-          ).map(_.map((_, Recipients.cc(parsedRequest.mediator))).toList)
-        else // TODO(i22993): Not sending a confirmation response is a workaround to make possible to process the assignment before unassignment
-          FutureUnlessShutdown.pure(Nil)
+          ).map(_.map((_, Recipients.cc(parsedRequest.mediator))))
+        } else // TODO(i22993): Not sending a confirmation response is a workaround to make possible to process the assignment before unassignment
+          FutureUnlessShutdown.pure(None)
 
-      // We consider that we rejected if we fail to process or if at least one of the responses is not "approve'
+      // We consider that we rejected if we fail to process or if at least one of the responses is not "approve"
       val locallyRejectedF = responseF.map(
-        _.exists { case (confirmation, _) => !confirmation.localVerdict.isApprove }
+        _.exists { case (confirmation, _) =>
+          confirmation.responses.exists(response => !response.localVerdict.isApprove)
+        }
       )
 
       val engineAbortStatusF = assignmentValidationResult.metadataResultET.value.map {

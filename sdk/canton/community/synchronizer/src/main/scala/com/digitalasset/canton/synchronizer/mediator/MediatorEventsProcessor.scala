@@ -107,7 +107,7 @@ private[mediator] class MediatorEventsProcessor(
   )(implicit traceContext: TraceContext): Seq[MediatorEvent] = {
     val requests = envelopes.mapFilter(ProtocolMessage.select[MediatorConfirmationRequest])
     val responses =
-      envelopes.mapFilter(ProtocolMessage.select[SignedProtocolMessage[ConfirmationResponse]])
+      envelopes.mapFilter(ProtocolMessage.select[SignedProtocolMessage[ConfirmationResponses]])
 
     val containsTopologyTransactions = DefaultOpenEnvelopesFilter.containsTopology(
       envelopes = envelopes,

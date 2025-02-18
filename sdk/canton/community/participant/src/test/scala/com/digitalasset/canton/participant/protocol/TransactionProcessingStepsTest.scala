@@ -33,7 +33,7 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
     synchronizerId = synchronizerId,
     participantId = participantId,
     confirmationRequestFactory = mock[TransactionConfirmationRequestFactory],
-    confirmationResponseFactory = mock[TransactionConfirmationResponseFactory],
+    confirmationResponsesFactory = mock[TransactionConfirmationResponsesFactory],
     modelConformanceChecker = mock[ModelConformanceChecker],
     staticSynchronizerParameters = defaultStaticSynchronizerParameters,
     crypto = mock[SynchronizerCryptoClient],

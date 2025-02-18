@@ -118,7 +118,7 @@ trait SigningPrivateOps {
   /** Generates a new signing key pair with the given scheme and optional name, stores the private key and returns the public key. */
   def generateSigningKey(
       keySpec: SigningKeySpec = defaultSigningKeySpec,
-      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
+      usage: NonEmpty[Set[SigningKeyUsage]],
       name: Option[KeyName] = None,
   )(implicit
       traceContext: TraceContext
@@ -152,7 +152,7 @@ trait SigningPrivateStoreOps extends SigningPrivateOps {
   /** Internal method to generate and return the entire signing key pair */
   protected[crypto] def generateSigningKeypair(
       keySpec: SigningKeySpec,
-      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningKeyPair]
@@ -357,7 +357,7 @@ final case class SignatureDelegation private[crypto] (
   // set to be used for protocol messages
   require(
     sessionKey.format == CryptoKeyFormat.DerX509Spki &&
-      SigningKeyUsage.nonEmptyIntersection(sessionKey.usage, SigningKeyUsage.ProtocolOnly) &&
+      SigningKeyUsage.compatibleUsage(sessionKey.usage, SigningKeyUsage.ProtocolOnly) &&
       signature.signatureDelegation.isEmpty // we don't support recursive delegations
   )
 
@@ -679,11 +679,23 @@ object SigningKeyUsage {
         NonEmpty.from(listUsages.toSet).toRight(ProtoDeserializationError.FieldNotSet("usage"))
       )
 
-  def nonEmptyIntersection(
-      usage: NonEmpty[Set[SigningKeyUsage]],
-      filterUsage: NonEmpty[Set[SigningKeyUsage]],
-  ): Boolean =
-    usage.intersect(filterUsage).nonEmpty
+  /** Ensures that the intersection of a `key's usage` and the `allowed usages` is not empty, except when the only
+    * intersecting element is `ProofOfOwnership`.
+    *
+    * This guarantees that at least one usage is shared, as long as it's not limited to `ProofOfOwnership`,
+    * which is an internal key usage type.
+    * The only case where the intersection can consist solely of `ProofOfOwnership` is when signing or verifying
+    * topology mappings like `OwnerToKeyMappings`, where the keys must be self-signed. In this case, we allow only
+    * `ProofOfOwnership` type keys.
+    */
+  def compatibleUsage(
+      keyUsage: NonEmpty[Set[SigningKeyUsage]],
+      allowedUsages: NonEmpty[Set[SigningKeyUsage]],
+  ): Boolean = {
+    val intersect = keyUsage.intersect(allowedUsages)
+    if (allowedUsages == SigningKeyUsage.ProofOfOwnershipOnly) intersect.nonEmpty
+    else intersect.nonEmpty && intersect != Set(SigningKeyUsage.ProofOfOwnership)
+  }
 
   /** Adds the `ProofOfOwnershipOnly` usage to the list of usages, unless it forms an
     * invalid combination.
@@ -1032,7 +1044,7 @@ final case class SigningPublicKey private[crypto] (
     format: CryptoKeyFormat,
     protected[crypto] val key: ByteString,
     keySpec: SigningKeySpec,
-    usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
+    usage: NonEmpty[Set[SigningKeyUsage]],
     override protected val dataForFingerprintO: Option[ByteString] = None,
 )(
     override val migrated: Boolean = false
@@ -1179,7 +1191,7 @@ object SigningPublicKey
       format: CryptoKeyFormat,
       key: ByteString,
       keySpec: SigningKeySpec,
-      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   ): Either[ProtoDeserializationError.CryptoDeserializationError, SigningPublicKey] =
     for {
       _ <- Either

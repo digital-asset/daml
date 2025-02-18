@@ -20,8 +20,8 @@ import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.synchronizer.mediator.MediatorVerdict.MediatorApprove
 import com.digitalasset.canton.synchronizer.mediator.ResponseAggregation.ViewState
 import com.digitalasset.canton.topology.ParticipantId
@@ -81,22 +81,20 @@ final case class ResponseAggregation[VKEY](
     )
 
   /** Record the additional confirmation response received. */
-  override def validateAndProgress(
+  override protected[synchronizer] def validateAndProgressInternal(
       responseTimestamp: CantonTimestamp,
       response: ConfirmationResponse,
+      rootHash: RootHash,
+      sender: ParticipantId,
       topologySnapshot: TopologySnapshot,
   )(implicit
       loggingContext: NamedLoggingContext,
       ec: ExecutionContext,
   ): FutureUnlessShutdown[Option[ResponseAggregation[VKEY]]] = {
     val ConfirmationResponse(
-      requestId,
-      sender,
       _viewPositionO,
       localVerdict,
-      rootHash,
       confirmingParties,
-      _synchronizerId,
     ) = response
     val viewKeyO = ViewKey[VKEY].keyOfResponse(response)
 
@@ -127,7 +125,7 @@ final case class ResponseAggregation[VKEY](
     }).value
   }
 
-  protected def progressView(
+  private def progressView(
       statesOfViews: Map[VKEY, ViewState],
       viewKeyAndParties: (VKEY, Set[LfPartyId]),
       sender: ParticipantId,
@@ -183,7 +181,7 @@ final case class ResponseAggregation[VKEY](
             )
           }
 
-          def updateQuorumsStateWithThresholdUpdate: Seq[Quorum] =
+          def updateQuorumsStateWithThresholdUpdate(): Seq[Quorum] =
             quorumsState.map { quorum =>
               val contribution = quorum.confirmers
                 .filter { case (pId, _) => newlyRespondedFullVotes.contains(pId) }
@@ -200,7 +198,7 @@ final case class ResponseAggregation[VKEY](
 
           val nextViewState = ViewState(
             consortiumVotingUpdated,
-            updateQuorumsStateWithThresholdUpdate,
+            updateQuorumsStateWithThresholdUpdate(),
             rejections,
           )
           val nextStatesOfViews = statesOfViews + (viewKey -> nextViewState)

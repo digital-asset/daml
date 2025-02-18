@@ -16,8 +16,8 @@ import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import pprint.Tree
 
 import scala.concurrent.ExecutionContext
@@ -44,7 +44,43 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
     */
   def validateAndProgress(
       responseTimestamp: CantonTimestamp,
-      response: ConfirmationResponse,
+      confirmationResponses: ConfirmationResponses,
+      topologySnapshot: TopologySnapshot,
+  )(implicit
+      loggingContext: NamedLoggingContext,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Option[ResponseAggregation[VKey]]] =
+    MonadUtil.foldLeftM(
+      Option.empty[ResponseAggregation[VKey]],
+      confirmationResponses.responses,
+    ) { case (acc, response) =>
+      acc match {
+        case None =>
+          validateAndProgressInternal(
+            responseTimestamp,
+            response,
+            confirmationResponses.rootHash,
+            confirmationResponses.sender,
+            topologySnapshot,
+          )
+        case Some(aggregation) =>
+          aggregation
+            .validateAndProgressInternal(
+              responseTimestamp,
+              response,
+              confirmationResponses.rootHash,
+              confirmationResponses.sender,
+              topologySnapshot,
+            )
+            .map(_.orElse(Some(aggregation)))
+      }
+    }
+
+  protected[synchronizer] def validateAndProgressInternal(
+      responseTimestamp: CantonTimestamp,
+      confirmationResponse: ConfirmationResponse,
+      rootHash: RootHash,
+      sender: ParticipantId,
       topologySnapshot: TopologySnapshot,
   )(implicit
       loggingContext: NamedLoggingContext,

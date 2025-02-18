@@ -87,7 +87,7 @@ class SecretKeyAdministration(
   )
   def generate_signing_key(
       name: String = "",
-      usage: Set[SigningKeyUsage] = SigningKeyUsage.All,
+      usage: Set[SigningKeyUsage],
       keySpec: Option[SigningKeySpec] = None,
   ): SigningPublicKey =
     NonEmpty.from(usage) match {
@@ -127,7 +127,7 @@ class SecretKeyAdministration(
   )
   def register_kms_signing_key(
       kmsKeyId: String,
-      usage: Set[SigningKeyUsage] = SigningKeyUsage.All,
+      usage: Set[SigningKeyUsage],
       name: String = "",
   ): SigningPublicKey =
     NonEmpty.from(usage) match {

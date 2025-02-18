@@ -172,7 +172,9 @@ class DriverKms(
         .toEitherT[FutureUnlessShutdown]
     } yield kmsKeyId
 
-  override protected def getPublicSigningKeyInternal(keyId: KmsKeyId)(implicit
+  override protected def getPublicSigningKeyInternal(
+      keyId: KmsKeyId
+  )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, crypto.SigningPublicKey] =
@@ -198,8 +200,10 @@ class DriverKms(
             .leftWiden[KmsError]
       }
       pubKeyRaw = ByteString.copyFrom(publicKey.key)
+      // key usage is initially set to `All` and then, before the key is stored, the correct usage is selected
+      // TODO(#23935): Separate signing public key class without usage to be used by the KMS
       key <- crypto.SigningPublicKey
-        .create(crypto.CryptoKeyFormat.DerX509Spki, pubKeyRaw, spec)
+        .create(crypto.CryptoKeyFormat.DerX509Spki, pubKeyRaw, spec, SigningKeyUsage.All)
         .toEitherT[FutureUnlessShutdown]
         .leftMap[KmsError](err => KmsError.KmsGetPublicKeyError(keyId, err.toString))
     } yield key

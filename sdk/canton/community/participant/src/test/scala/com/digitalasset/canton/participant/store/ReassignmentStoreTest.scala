@@ -1533,7 +1533,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
     DefaultProcessingTimeouts.testing,
     loggerFactoryNotUsed,
   )
-  val sequencerKey = crypto.generateSymbolicSigningKey()
+  val sequencerKey = crypto.generateSymbolicSigningKey(usage = SigningKeyUsage.ProtocolOnly)
 
   def sign(str: String): Signature = {
     val hash =

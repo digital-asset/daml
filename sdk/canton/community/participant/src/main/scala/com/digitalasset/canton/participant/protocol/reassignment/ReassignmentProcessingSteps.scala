@@ -263,7 +263,7 @@ trait ReassignmentProcessingSteps[
       requestId: RequestId,
       rootHash: RootHash,
       malformedPayloads: Seq[MalformedPayload],
-  )(implicit traceContext: TraceContext): Seq[ConfirmationResponse] =
+  )(implicit traceContext: TraceContext): Option[ConfirmationResponses] =
     // TODO(i12926) This will crash the ConnectedSynchronizer
     ErrorUtil.internalError(
       new UnsupportedOperationException(
@@ -366,7 +366,7 @@ trait ReassignmentProcessingSteps[
   ): ReassignmentProcessorError =
     GenericStepsError(err)
 
-  protected def createConfirmationResponse(
+  protected def createConfirmationResponses(
       requestId: RequestId,
       topologySnapshot: TopologySnapshot,
       protocolVersion: ProtocolVersion,
@@ -374,7 +374,7 @@ trait ReassignmentProcessingSteps[
       validationResult: ReassignmentValidationResult,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[ConfirmationResponse]] =
+  ): FutureUnlessShutdown[Option[ConfirmationResponses]] =
     for {
       hostedConfirmingParties <-
         if (validationResult.isReassigningParticipant)
@@ -429,20 +429,25 @@ trait ReassignmentProcessingSteps[
             LocalApprove(protocolVersion) -> hostedConfirmingParties
           )
 
-        val confirmationResponse = checked(
-          ConfirmationResponse
-            .tryCreate(
-              requestId,
-              participantId,
-              Some(ViewPosition.root),
-              localVerdict,
-              validationResult.rootHash,
-              parties,
-              synchronizerId.unwrap,
-              protocolVersion,
-            )
+        val confirmationResponses = checked(
+          ConfirmationResponses.tryCreate(
+            requestId,
+            validationResult.rootHash,
+            synchronizerId.unwrap,
+            participantId,
+            NonEmpty.mk(
+              Seq,
+              ConfirmationResponse
+                .tryCreate(
+                  Some(ViewPosition.root),
+                  localVerdict,
+                  parties,
+                ),
+            ),
+            protocolVersion,
+          )
         )
-        Some(confirmationResponse)
+        Some(confirmationResponses)
       }
     }
 

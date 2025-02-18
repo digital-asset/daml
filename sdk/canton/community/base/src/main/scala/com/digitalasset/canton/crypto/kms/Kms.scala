@@ -10,6 +10,7 @@ import cats.syntax.functor.*
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.{CantonConfigValidator, KmsConfig}
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.health.CloseableAtomicHealthComponent
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.TracedLogger
@@ -56,7 +57,7 @@ final case class KmsKeyId(str: String300) extends PrettyPrinting {
 }
 
 /** Represents a KMS interface and allows symmetric encryption/decryption with keys stored in the KMS. */
-trait Kms extends FlagCloseable {
+trait Kms extends FlagCloseable with CloseableAtomicHealthComponent {
   type Config <: KmsConfig
 
   def config: Config
@@ -149,7 +150,9 @@ trait Kms extends FlagCloseable {
     * @param keyId key identifier (e.g. AWS key ARN)
     * @return the public signing key for that keyId
     */
-  def getPublicSigningKey(keyId: KmsKeyId)(implicit
+  def getPublicSigningKey(
+      keyId: KmsKeyId
+  )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, SigningPublicKey] =
@@ -157,7 +160,9 @@ trait Kms extends FlagCloseable {
       getPublicSigningKeyInternal(keyId)
     )
 
-  protected def getPublicSigningKeyInternal(keyId: KmsKeyId)(implicit
+  protected def getPublicSigningKeyInternal(
+      keyId: KmsKeyId
+  )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, SigningPublicKey]
@@ -403,11 +408,6 @@ object KmsError {
   // todo i10029: create error codes for these exceptions
   final case class KmsCreateClientError(reason: String) extends KmsError {
     override protected def pretty: Pretty[KmsCreateClientError] =
-      prettyOfClass(param("reason", _.reason.unquoted))
-  }
-
-  final case class KmsNoConfigError(reason: String) extends KmsError {
-    override protected def pretty: Pretty[KmsNoConfigError] =
       prettyOfClass(param("reason", _.reason.unquoted))
   }
 

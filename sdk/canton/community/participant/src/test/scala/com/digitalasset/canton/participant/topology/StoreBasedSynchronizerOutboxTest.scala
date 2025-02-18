@@ -8,6 +8,7 @@ import com.digitalasset.canton.common.sequencer.RegisterTopologyTransactionHandl
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
+import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
@@ -58,7 +59,8 @@ class StoreBasedSynchronizerOutboxTest
   private lazy val clock = new WallClock(timeouts, loggerFactory)
   private lazy val crypto =
     SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
-  private lazy val publicKey = crypto.generateSymbolicSigningKey()
+  private lazy val publicKey =
+    crypto.generateSymbolicSigningKey(usage = SigningKeyUsage.NamespaceOnly)
   private lazy val namespace = Namespace(publicKey.id)
   private lazy val synchronizer = SynchronizerAlias.tryCreate("target")
   private lazy val transactions =

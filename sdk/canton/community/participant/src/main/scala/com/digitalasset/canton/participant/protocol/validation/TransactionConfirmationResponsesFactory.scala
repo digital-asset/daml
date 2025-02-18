@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.validation
 
 import cats.syntax.parallel.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -22,7 +23,7 @@ import com.digitalasset.canton.{LfPartyId, checked}
 
 import scala.concurrent.ExecutionContext
 
-class TransactionConfirmationResponseFactory(
+class TransactionConfirmationResponsesFactory(
     participantId: ParticipantId,
     synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
@@ -31,7 +32,7 @@ class TransactionConfirmationResponseFactory(
 
   import com.digitalasset.canton.util.ShowUtil.*
 
-  /** Takes a `transactionValidationResult` and computes the [[protocol.messages.ConfirmationResponse]], to be sent to the mediator.
+  /** Takes a `transactionValidationResult` and computes the [[protocol.messages.ConfirmationResponses]], to be sent to the mediator.
     */
   def createConfirmationResponses(
       requestId: RequestId,
@@ -41,7 +42,7 @@ class TransactionConfirmationResponseFactory(
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): FutureUnlessShutdown[Seq[ConfirmationResponse]] = {
+  ): FutureUnlessShutdown[Option[ConfirmationResponses]] = {
 
     def hostedConfirmingPartiesOfView(
         viewValidationResult: ViewValidationResult
@@ -133,9 +134,9 @@ class TransactionConfirmationResponseFactory(
 
     def responsesForWellformedPayloads(
         transactionValidationResult: TransactionValidationResult
-    ): FutureUnlessShutdown[Seq[ConfirmationResponse]] =
-      transactionValidationResult.viewValidationResults.toSeq.parTraverseFilter {
-        case (viewPosition, viewValidationResult) =>
+    ): FutureUnlessShutdown[Option[ConfirmationResponses]] =
+      transactionValidationResult.viewValidationResults.toSeq
+        .parTraverseFilter { case (viewPosition, viewValidationResult) =>
           for {
             hostedConfirmingParties <-
               hostedConfirmingPartiesOfView(viewValidationResult)
@@ -256,28 +257,36 @@ class TransactionConfirmationResponseFactory(
               checked(
                 ConfirmationResponse
                   .tryCreate(
-                    requestId,
-                    participantId,
                     Some(viewPosition),
                     localVerdict,
-                    transactionValidationResult.transactionId.toRootHash,
                     parties,
-                    synchronizerId,
-                    protocolVersion,
                   )
               )
             }
           }
-      }
+        }
+        .map(responses =>
+          NonEmpty
+            .from(responses)
+            .map(
+              ConfirmationResponses
+                .tryCreate(
+                  requestId,
+                  transactionValidationResult.transactionId.toRootHash,
+                  synchronizerId,
+                  participantId,
+                  _,
+                  protocolVersion,
+                )
+            )
+        )
 
     if (malformedPayloads.nonEmpty) {
       FutureUnlessShutdown.pure(
-        Seq(
-          createConfirmationResponsesForMalformedPayloads(
-            requestId,
-            transactionValidationResult.transactionId.toRootHash,
-            malformedPayloads,
-          )
+        createConfirmationResponsesForMalformedPayloads(
+          requestId,
+          transactionValidationResult.transactionId.toRootHash,
+          malformedPayloads,
         )
       )
     } else {
@@ -296,7 +305,7 @@ class TransactionConfirmationResponseFactory(
       requestId: RequestId,
       rootHash: RootHash,
       malformedPayloads: Seq[MalformedPayload],
-  )(implicit traceContext: TraceContext): ConfirmationResponse = {
+  )(implicit traceContext: TraceContext): Option[ConfirmationResponses] = {
     val rejectError = LocalRejectError.MalformedRejects.Payloads.Reject(malformedPayloads.toString)
 
     val dueToTopologyChange = malformedPayloads.forall {
@@ -306,20 +315,27 @@ class TransactionConfirmationResponseFactory(
     if (!dueToTopologyChange) logged(requestId, rejectError).discard
 
     checked(
-      ConfirmationResponse
-        .tryCreate(
-          requestId,
-          participantId,
-          // We don't have to specify a viewPosition.
-          // The mediator will interpret this as a rejection
-          // for all views and on behalf of all declared confirming parties hosted by the participant.
-          None,
-          rejectError.toLocalReject(protocolVersion),
-          rootHash,
-          Set.empty,
-          synchronizerId,
-          protocolVersion,
-        )
+      Some(
+        ConfirmationResponses
+          .tryCreate(
+            requestId,
+            rootHash,
+            synchronizerId,
+            participantId,
+            NonEmpty.mk(
+              Seq,
+              ConfirmationResponse.tryCreate(
+                // We don't have to specify a viewPosition.
+                // The mediator will interpret this as a rejection
+                // for all views and on behalf of all declared confirming parties hosted by the participant.
+                None,
+                rejectError.toLocalReject(protocolVersion),
+                Set.empty,
+              ),
+            ),
+            protocolVersion,
+          )
+      )
     )
   }
 }

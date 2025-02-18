@@ -41,20 +41,20 @@ private[mediator] object MediatorEvent {
   }
 
   /** A response to a mediator confirmation request.
-    * Currently each response is processed independently even if they arrive within the same batch.
+    * Currently, each response is processed independently even if they arrive within the same batch.
     */
   final case class Response(
       counter: SequencerCounter,
       sequencingTimestamp: CantonTimestamp,
-      response: SignedProtocolMessage[ConfirmationResponse],
+      responses: SignedProtocolMessage[ConfirmationResponses],
       topologyTimestamp: Option[CantonTimestamp],
       recipients: Recipients,
   ) extends MediatorEvent {
-    override val requestId: RequestId = response.message.requestId
+    override val requestId: RequestId = responses.message.requestId
 
     override protected def pretty: Pretty[Response] = prettyOfClass(
       param("sequencing timestamp", _.sequencingTimestamp),
-      param("response", _.response),
+      param("responses", _.responses),
       param("recipient", _.recipients),
     )
   }

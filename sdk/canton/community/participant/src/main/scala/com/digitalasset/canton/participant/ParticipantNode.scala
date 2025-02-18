@@ -16,13 +16,9 @@ import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorServic
 import com.digitalasset.canton.config.SessionSigningKeysConfig
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
+import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
-import com.digitalasset.canton.crypto.{
-  CommunityCryptoFactory,
-  Crypto,
-  CryptoPureApi,
-  SyncCryptoApiParticipantProvider,
-}
+import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi, SyncCryptoApiParticipantProvider}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.*
@@ -1025,8 +1021,8 @@ object ParticipantNodeBootstrap {
       arguments
         .toCantonNodeBootstrapCommonArguments(
           new CommunityStorageFactory(arguments.config.storage),
-          new CommunityCryptoFactory,
           new CommunityCryptoPrivateStoreFactory,
+          CommunityKmsFactory,
         )
         .map { arguments =>
           val engine = createEngine(arguments)

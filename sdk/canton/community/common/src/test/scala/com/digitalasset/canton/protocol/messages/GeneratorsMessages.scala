@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.protocol.messages
 
+import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.crypto.{
   AsymmetricEncrypted,
   Encrypted,
@@ -95,41 +96,46 @@ final class GeneratorsMessages(
 
   implicit val confirmationResponseArb: Arbitrary[ConfirmationResponse] = Arbitrary(
     for {
-      requestId <- Arbitrary.arbitrary[RequestId]
-      sender <- Arbitrary.arbitrary[ParticipantId]
       localVerdict <- localVerdictArb.arbitrary
-
-      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
-
       confirmingParties <-
         if (localVerdict.isMalformed) Gen.const(Set.empty[LfPartyId])
         else nonEmptySet(implicitly[Arbitrary[LfPartyId]]).arbitrary.map(_.forgetNE)
-
-      rootHash <- Arbitrary.arbitrary[RootHash]
-
       viewPositionO <- localVerdict match {
         case _: LocalApprove | _: LocalReject =>
           Gen.some(Arbitrary.arbitrary[ViewPosition])
         case _ => Gen.option(Arbitrary.arbitrary[ViewPosition])
       }
-
     } yield ConfirmationResponse.tryCreate(
-      requestId,
-      sender,
       viewPositionO,
       localVerdict,
-      rootHash,
       confirmingParties,
-      synchronizerId,
-      protocolVersion,
     )
+  )
+
+  implicit val confirmationResponsesArb: Arbitrary[ConfirmationResponses] = Arbitrary(
+    for {
+      requestId <- Arbitrary.arbitrary[RequestId]
+      rootHash <- Arbitrary.arbitrary[RootHash]
+      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
+      sender <- Arbitrary.arbitrary[ParticipantId]
+      responses <- Gen.nonEmptyListOf(confirmationResponseArb.arbitrary)
+      responsesNE = NonEmptyUtil.fromUnsafe(responses)
+      confirmationResponses = ConfirmationResponses.tryCreate(
+        requestId,
+        rootHash,
+        synchronizerId,
+        sender,
+        responsesNE,
+        protocolVersion,
+      )
+    } yield confirmationResponses
   )
 
   // TODO(#14515) Check that the generator is exhaustive
   implicit val signedProtocolMessageContentArb: Arbitrary[SignedProtocolMessageContent] = Arbitrary(
     Gen.oneOf[SignedProtocolMessageContent](
       Arbitrary.arbitrary[AcsCommitment],
-      Arbitrary.arbitrary[ConfirmationResponse],
+      Arbitrary.arbitrary[ConfirmationResponses],
       Arbitrary.arbitrary[ConfirmationResultMessage],
     )
   )

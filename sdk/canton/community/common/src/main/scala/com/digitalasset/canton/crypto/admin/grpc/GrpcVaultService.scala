@@ -70,7 +70,7 @@ class GrpcVaultService(
       filter.usage.fold(true)(filterUsage =>
         key match {
           case SigningPublicKeyWithName(publicSigningKey, _) =>
-            SigningKeyUsage.nonEmptyIntersection(publicSigningKey.usage, filterUsage)
+            SigningKeyUsage.compatibleUsage(publicSigningKey.usage, filterUsage)
           case _ => true
         }
       )
