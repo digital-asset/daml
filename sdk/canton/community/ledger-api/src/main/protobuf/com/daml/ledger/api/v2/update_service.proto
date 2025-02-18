@@ -15,7 +15,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "UpdateServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2";
 
-// Allows clients to read updates (transactions and reassignments) from the ledger.
+// Allows clients to read updates (transactions, (un)assignments, topology events) from the ledger.
 //
 // ``GetUpdates`` and ``GetUpdateTrees`` provide a comprehensive stream of updates/changes
 // which happened on the virtual shared ledger. These streams are indexed with ledger
@@ -28,28 +28,39 @@ option java_package = "com.daml.ledger.api.v2";
 // synchronizer: updates which have greater offsets are happened after than updates with smaller
 // offsets for the same synchronizer. Across different synchronizers this is not guaranteed.
 service UpdateService {
-  // Read the ledger's filtered transaction stream and related reassignments for a set of parties.
-  // For transactions it lists only creates and archives, but no other events.
-  // Omits all events on transient contracts, i.e., contracts that were both created and archived in the same transaction.
+  // Read the ledger's filtered update stream for the specified contents and filters.
+  // It returns the event types in accordance with the stream contents selected. Also the selection criteria
+  // for individual events depends on the transaction shape chosen.
+  // - ACS delta: a requesting party must be a stakeholder of an event for it to be included.
+  // - ledger effects: a requesting party must be a witness of an en event for it to be included.
   rpc GetUpdates(GetUpdatesRequest) returns (stream GetUpdatesResponse);
 
-  // Read the ledger's complete transaction tree stream and related reassignments for a set of parties.
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+  // Read the ledger's complete transaction tree stream and related (un)assignments for a set of parties.
   // The stream will be filtered only by the parties as wildcard parties.
   // The template/interface filters describe the respective fields in the ``CreatedEvent`` results.
   rpc GetUpdateTrees(GetUpdatesRequest) returns (stream GetUpdateTreesResponse);
 
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
   // Lookup a transaction tree by its offset.
-  // For looking up a transaction instead of a transaction tree, please see GetTransactionByOffset.
+  // For looking up a transaction instead of a transaction tree, please see GetTransactionByEventId
+  // If the transaction cannot be found for the request, or all the events are filtered, a TRANSACTION_NOT_FOUND error will be raised.
   rpc GetTransactionTreeByOffset(GetTransactionByOffsetRequest) returns (GetTransactionTreeResponse);
 
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
   // Lookup a transaction tree by its ID.
-  // For looking up a transaction instead of a transaction tree, please see GetTransactionById.
+  // For looking up a transaction instead of a transaction tree, please see GetTransactionById
+  // If the transaction cannot be found for the request, or all the events are filtered, a TRANSACTION_NOT_FOUND error will be raised.
   rpc GetTransactionTreeById(GetTransactionByIdRequest) returns (GetTransactionTreeResponse);
 
   // Lookup a transaction by its offset.
+  // If there is no transaction with this offset, or all the events are filtered, a TRANSACTION_NOT_FOUND error will be raised.
+  // Use a wildcard template filter if you want to retrieve any transaction visible to the parties you can read as.
   rpc GetTransactionByOffset(GetTransactionByOffsetRequest) returns (GetTransactionResponse);
 
   // Lookup a transaction by its ID.
+  // If there is no transaction with this id, or all the events are filtered, a TRANSACTION_NOT_FOUND error will be raised.
+  // Use a wildcard template filter if you want to retrieve any transaction visible to the parties you can read as.
   rpc GetTransactionById(GetTransactionByIdRequest) returns (GetTransactionResponse);
 }
 
@@ -67,16 +78,28 @@ message GetUpdatesRequest {
   // If specified, the stream will terminate after this absolute offset (positive integer) is reached.
   optional int64 end_inclusive = 2;
 
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
   // Requesting parties with template filters.
   // Template filters must be empty for GetUpdateTrees requests.
-  // Required
+  // Optional for backwards compatibility, if defined update_format must be unset
   TransactionFilter filter = 3;
 
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
   // If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
   // In particular, setting the verbose flag to true triggers the ledger to include labels, record and variant type ids
   // for record fields.
-  // Optional
+  // Optional for backwards compatibility, if defined update_format must be unset
   bool verbose = 4;
+
+  // Must be unset for GetUpdateTrees request.
+  // Optional for backwards compatibility for GetUpdates request: defaults to an UpdateFormat where:
+  //   - include_transactions.event_format.filter = the same filter specified on the request
+  //   - include_transactions.event_format.verbose = the same flag specified on the request
+  //   - include_transactions.transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
+  //   - include_reassignments.filter = the same filter specified on the request
+  //   - include_reassignments.verbose = the same flag specified on the request
+  //   - include_topology_events.include_participant_authorization_events.parties = all the parties specified in filter
+  UpdateFormat update_format = 5;
 }
 
 message GetUpdatesResponse {
@@ -90,6 +113,7 @@ message GetUpdatesResponse {
   }
 }
 
+// TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
 message GetUpdateTreesResponse {
   // The update that matches the filter in the request.
   oneof update {
@@ -107,11 +131,21 @@ message GetTransactionByOffsetRequest {
   // Required
   int64 offset = 1;
 
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
   // The parties whose events the client expects to see.
   // Events that are not visible for the parties in this collection will not be present in the response.
   // Each element must be a valid PartyIdString (as described in ``value.proto``).
-  // Required
+  // Must be set for GetTransactionTreeByOffset request.
+  // Optional for backwards compatibility for GetTransactionByOffset request: if defined transaction_format must be
+  // unset (falling back to defaults).
   repeated string requesting_parties = 2;
+
+  // Must be unset for GetTransactionTreeByOffset request.
+  // Optional for GetTransactionByOffset request for backwards compatibility: defaults to a TransactionFormat, where:
+  //   - event_format.filter will have wildcard filters for all the requesting_parties
+  //   - event_format.verbose = true
+  //   - transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
+  TransactionFormat transaction_format = 3;
 }
 
 message GetTransactionByIdRequest {
@@ -120,13 +154,24 @@ message GetTransactionByIdRequest {
   // Required
   string update_id = 1;
 
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
   // The parties whose events the client expects to see.
   // Events that are not visible for the parties in this collection will not be present in the response.
-  // Each element be a valid PartyIdString (as describe in ``value.proto``).
-  // Required
+  // Each element must be a valid PartyIdString (as described in ``value.proto``).
+  // Must be set for GetTransactionTreeById request.
+  // Optional for backwards compatibility for GetTransactionById request: if defined transaction_format must be
+  // unset (falling back to defaults).
   repeated string requesting_parties = 2;
+
+  // Must be unset for GetTransactionTreeById request.
+  // Optional for GetTransactionById request for backwards compatibility: defaults to a transaction_format, where:
+  //   - event_format.filter will have wildcard filters for all the requesting_parties
+  //   - event_format.verbose = true
+  //   - transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
+  TransactionFormat transaction_format = 3;
 }
 
+// TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
 message GetTransactionTreeResponse {
   // Required
   TransactionTree transaction = 1;

@@ -5,7 +5,12 @@ package com.digitalasset.canton.auth
 
 import cats.syntax.either.*
 import com.daml.jwt.JwtTimestampLeeway
-import com.daml.ledger.api.v2.transaction_filter.Filters
+import com.daml.ledger.api.v2.transaction_filter.{
+  EventFormat,
+  Filters,
+  ParticipantAuthorizationTopologyFormat,
+  UpdateFormat,
+}
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.LfLedgerString
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -239,6 +244,28 @@ final class Authorizer(
       readAsAnyParty,
       call,
     )
+
+  /** Checks whether the current Claims authorize to read data for all parties mentioned in the given update format */
+  def requireReadClaimsForUpdateFormatOnStream[Req, Res](
+      updateFormat: Option[UpdateFormat],
+      call: (Req, StreamObserver[Res]) => Unit,
+  ): (Req, StreamObserver[Res]) => Unit = {
+    val txEventFormat: Option[EventFormat] =
+      updateFormat.flatMap(_.includeTransactions).flatMap(_.eventFormat)
+    val reassignmentsEventFormat: Option[EventFormat] = updateFormat.flatMap(_.includeReassignments)
+    val topologyEvents: Option[ParticipantAuthorizationTopologyFormat] =
+      updateFormat.flatMap(_.includeTopologyEvents).flatMap(_.includeParticipantAuthorizationEvents)
+
+    requireReadClaimsForAllPartiesOnStream(
+      parties = txEventFormat.toList.flatMap(_.filtersByParty.keys) ++
+        reassignmentsEventFormat.toList.flatMap(_.filtersByParty.keys) ++
+        topologyEvents.toList.flatMap(_.parties.toList),
+      readAsAnyParty = txEventFormat.flatMap(_.filtersForAnyParty).nonEmpty ||
+        reassignmentsEventFormat.flatMap(_.filtersForAnyParty).nonEmpty ||
+        topologyEvents.fold(false)(_.parties.isEmpty),
+      call = call,
+    )
+  }
 
   def identityProviderIdFromClaims: Option[LfLedgerString] =
     authenticatedClaimsFromContext().toOption.flatMap(_.identityProviderId)
