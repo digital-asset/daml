@@ -361,7 +361,7 @@ object SValue {
     val Zero: SBigNumeric = new SBigNumeric(java.math.BigDecimal.ZERO)
 
     def checkScale(s: Long): Either[String, Int] =
-      Either.cond(test = s.abs <= MaxScale, right = s.toInt, left = "invalide scale")
+      Either.cond(test = s.abs <= MaxScale, right = s.toInt, left = "invalid scale")
   }
   final case class SText(value: String) extends SBuiltinLit
   final case class SBytes(value: Bytes) extends SBuiltinLit
