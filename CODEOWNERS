@@ -47,11 +47,11 @@ sdk/release.sh         @digital-asset/daml-language
 /sdk/canton/
 
 # Technical writers should review the docs
-/sdk/docs/manually-written @DACH-NY/docs-team
+/sdk/docs/manually-written @digital-asset/daml-docs
 
 # Even though some docs in this folder are auto-generated, it wouldn't hurt to review them too
 # And it's not obvious to separate them
-/sdk/docs/sharable        @DACH-NY/docs-team
+/sdk/docs/sharable         @digital-asset/daml-docs
 
 # Misc
 /sdk/docs/ 
