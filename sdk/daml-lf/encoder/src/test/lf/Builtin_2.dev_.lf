@@ -109,6 +109,8 @@ module BuiltinMod {
     SIZE_BYTES;
   val equalBytes: Bytes -> Bytes -> Bool =
     EQUAL_BYTES;
+  val packBytes: Int64 -> Bytes -> Bytes =
+    PACK_BYTES;
   val dateToUnixDays: Date -> Int64 =
     DATE_TO_UNIX_DAYS;
   val explodeText: Text -> List Text =
