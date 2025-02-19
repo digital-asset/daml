@@ -1,9 +1,14 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SUPPORTS-LF-FEATURE DAML_CCTP
-
 {-# LANGUAGE CPP #-}
+
+#ifndef DAML_CCTP
+
+-- | HIDE
+module DA.Crypto where
+
+#else
 
 -- | Functions for working with Crypto builtins.
 -- For example, as used to implement CCTP functionality.
@@ -18,8 +23,6 @@ import DA.Bytes
 import DA.Text qualified as Text
 import GHC.Types (primitive)
 
--- TODO: https://github.com/DACH-NY/canton-network-utilities/issues/2943: Introduce ByteString opaque data types
-
 -- | A DER formatted public key to be used for ECDSA signature verification
 type PublicKey = Bytes
 
@@ -30,15 +33,16 @@ type Signature = Bytes
 isDEREncoded : Bytes -> Bool
 isDEREncoded msg = Some(slice msg 0 1) == toBytes "30" && size msg == 1 + (fromBytes (slice msg 1 1)) -- FIXME: manage Optional type!!
 
--- | Computes the KECCAK256 hash of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
--- form. The hex encoding uses lowercase letters.
+-- | Computes the KECCAK256 hash of the given blob, and returns it as a bytes blob..
 keccak256 : Bytes -> Bytes
-keccak256 = primitive @"BEKecCak256Text"
+keccak256 = primitive @"BEKecCak256Bytes"
 
 -- FIXME: add in test that keccak256 returned bytes always has size 5?
 
 -- | Validate the SECP256K1 DER formatted signature blob, given a message blob and a DER formatted public key blob.
 secp256k1 : Signature -> Bytes -> PublicKey -> Bool
 secp256k1 sig msg pk | isDEREncoded sig && isDEREncoded pk = primitive @"BESecp256k1Bool" sig msg pk
-secp256k1 sig _ _ | not (isDEREncoded sig) = error $ "Signature argument is not a DER encoded blob: " <> show sig
-secp256k1 _ _ pk = error $ "Public key argument is not a DER encoded blob: " <> show pk
+secp256k1 sig _ _ | not (isDEREncoded sig) = error $ "Signature argument is not DER encoded: " <> show sig
+secp256k1 _ _ pk = error $ "Public key argument is not DER encoded: " <> show pk
+
+#endif

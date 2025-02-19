@@ -7,10 +7,10 @@ package cctp
 import com.daml.crypto.MessageDigestPrototype
 
 object MessageDigest {
-  def digest(message: Ref.HexString): Ref.HexString = {
+  def digest(message: Bytes): Bytes = {
     val digest = MessageDigestPrototype.KecCak256.newDigest
-    digest.update(Ref.HexString.decode(message).toByteBuffer)
+    digest.update(message.toByteBuffer)
 
-    Ref.HexString.encode(Bytes.fromByteArray(digest.digest()))
+    Bytes.fromByteArray(digest.digest())
   }
 }

@@ -1768,7 +1768,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
   "CCTP" - {
 
-    "KECCAK256_TEXT" - {
+    "KECCAK256_BYTES" - {
       "correctly digest hex strings" in {
         val testCases = Table(
           "" ->
@@ -1780,7 +1780,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             "a332df1e58a99d8dcb0767dab2d23985ef337d59fadbe040f56e1c642b314973",
         )
         forEvery(testCases) { (input, output) =>
-          eval(e"""KECCAK256_TEXT "$input"""") shouldBe Right(SText(output))
+          eval(e"""KECCAK256_BYTES "$input"""") shouldBe Right(SText(output))
         }
       }
 
@@ -1804,7 +1804,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           "a¶‱😂",
         )
         forEvery(testCases) { input =>
-          inside(eval(e"""KECCAK256_TEXT "$input"""")) {
+          inside(eval(e"""KECCAK256_BYTES "$input"""")) {
             case Left(
                   SError.SErrorDamlException(
                     interpretation.Error.Dev(

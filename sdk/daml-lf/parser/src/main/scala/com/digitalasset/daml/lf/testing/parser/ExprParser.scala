@@ -366,7 +366,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "IMPLODE_TEXT" -> BImplodeText,
     "APPEND_TEXT" -> BAppendText,
     "SHA256_TEXT" -> BSHA256Text,
-    "KECCAK256_TEXT" -> BKECCAK256Text,
+    "KECCAK256_BYTES" -> BKECCAK256Bytes,
     "INT64_TO_TEXT" -> BInt64ToText,
     "NUMERIC_TO_TEXT" -> BNumericToText,
     "TIMESTAMP_TO_TEXT" -> BTimestampToText,

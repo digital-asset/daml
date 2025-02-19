@@ -405,7 +405,7 @@ private[lf] final class PhaseOne(
           case BTextToInt64 => SBTextToInt64
           case BTextToCodePoints => SBTextToCodePoints
           case BSHA256Text => SBSHA256Text
-          case BKECCAK256Text => SBKECCAK256Text
+          case BKECCAK256Bytes => SBKECCAK256Bytes
 
           // List functions
           case BFoldl => SBFoldl
