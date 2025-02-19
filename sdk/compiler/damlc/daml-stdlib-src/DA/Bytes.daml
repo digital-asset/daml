@@ -14,7 +14,7 @@ module DA.Bytes
   , slice
   ) where
 
-import GHC.Types (Bytes, primitive)
+import GHC.Types (primitive)
 
 instance Eq Bytes where
   (==) = primitive @"BEEqualBytes"
