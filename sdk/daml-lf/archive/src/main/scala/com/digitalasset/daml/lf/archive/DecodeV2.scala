@@ -1607,6 +1607,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(SLICE_BYTES, BSliceBytes, minVersion = LV.Features.cctp),
       BuiltinFunctionInfo(SIZE_BYTES, BSizeBytes, minVersion = LV.Features.cctp),
       BuiltinFunctionInfo(EQUAL_BYTES, BEqualBytes, minVersion = LV.Features.cctp),
+      BuiltinFunctionInfo(PACK_BYTES, BPackBytes, minVersion = LV.Features.cctp),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
       BuiltinFunctionInfo(EXPLODE_TEXT, BExplodeText),
       BuiltinFunctionInfo(IMPLODE_TEXT, BImplodeText),

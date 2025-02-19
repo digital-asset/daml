@@ -401,6 +401,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "SLICE_BYTES" -> BSliceBytes,
     "SIZE_BYTES" -> BSizeBytes,
     "EQUAL_BYTES" -> BEqualBytes,
+    "PACK_BYTES" -> BPackBytes,
     "COERCE_CONTRACT_ID" -> BCoerceContractId,
     "ANY_EXCEPTION_MESSAGE" -> BAnyExceptionMessage,
     "SCALE_BIGNUMERIC" -> BScaleBigNumeric,

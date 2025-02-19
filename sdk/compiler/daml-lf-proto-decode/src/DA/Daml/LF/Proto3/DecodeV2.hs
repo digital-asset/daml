@@ -385,6 +385,7 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionSLICE_BYTES -> pure BESliceBytes
   LF2.BuiltinFunctionSIZE_BYTES -> pure BESizeBytes
   LF2.BuiltinFunctionEQUAL_BYTES -> pure BEEqualBytes
+  LF2.BuiltinFunctionPACK_BYTES -> pure BEPackBytes
 
   LF2.BuiltinFunctionDATE_TO_UNIX_DAYS -> pure BEDateToUnixDays
   LF2.BuiltinFunctionUNIX_DAYS_TO_DATE -> pure BEUnixDaysToDate
