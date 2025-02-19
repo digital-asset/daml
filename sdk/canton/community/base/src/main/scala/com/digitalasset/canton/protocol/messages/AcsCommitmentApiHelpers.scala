@@ -7,7 +7,7 @@ import com.digitalasset.canton.ProtoDeserializationError.UnrecognizedEnum
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.messages.AcsCommitment.CommitmentType
+import com.digitalasset.canton.protocol.messages.AcsCommitment.HashedCommitmentType
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
@@ -118,8 +118,8 @@ final case class SentAcsCommitment(
     synchronizerId: SynchronizerId,
     interval: CommitmentPeriod,
     counterParticipant: ParticipantId,
-    sentCommitment: Option[CommitmentType],
-    counterCommitment: Option[CommitmentType],
+    sentCommitment: Option[HashedCommitmentType],
+    counterCommitment: Option[HashedCommitmentType],
     state: ValidSentPeriodState,
 )
 
@@ -127,7 +127,7 @@ object SentAcsCommitment {
 
   def compare(
       synchronizerId: SynchronizerId,
-      computed: Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)],
+      computed: Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.HashedCommitmentType)],
       received: Iterable[AcsCommitment],
       outstanding: Iterable[(CommitmentPeriod, ParticipantId, ValidSentPeriodState)],
       verbose: Boolean,
@@ -174,8 +174,8 @@ object SentAcsCommitment {
               )
             ),
             comm.counterParticipant.toProtoPrimitive,
-            comm.sentCommitment,
-            comm.counterCommitment,
+            comm.sentCommitment.map(AcsCommitment.hashedCommitmentTypeToProto),
+            comm.counterCommitment.map(AcsCommitment.hashedCommitmentTypeToProto),
             comm.state.toSentCommitmentStateProtoV30,
           )
         }.toSeq,
@@ -188,8 +188,8 @@ final case class ReceivedAcsCommitment(
     synchronizerId: SynchronizerId,
     interval: CommitmentPeriod,
     originCounterParticipant: ParticipantId,
-    receivedCommitment: Option[CommitmentType],
-    ownCommitment: Option[CommitmentType],
+    receivedCommitment: Option[HashedCommitmentType],
+    ownCommitment: Option[HashedCommitmentType],
     state: CommitmentPeriodState,
 )
 
@@ -198,7 +198,7 @@ object ReceivedAcsCommitment {
   def compare(
       synchronizerId: SynchronizerId,
       received: Iterable[AcsCommitment],
-      computed: Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)],
+      computed: Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.HashedCommitmentType)],
       buffering: Iterable[AcsCommitment],
       outstanding: Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)],
       verbose: Boolean,
@@ -266,8 +266,8 @@ object ReceivedAcsCommitment {
               )
             ),
             cmt.originCounterParticipant.toProtoPrimitive,
-            cmt.receivedCommitment,
-            cmt.ownCommitment,
+            cmt.receivedCommitment.map(AcsCommitment.hashedCommitmentTypeToProto),
+            cmt.ownCommitment.map(AcsCommitment.hashedCommitmentTypeToProto),
             cmt.state.toReceivedCommitmentStateProtoV30,
           )
         }.toSeq,

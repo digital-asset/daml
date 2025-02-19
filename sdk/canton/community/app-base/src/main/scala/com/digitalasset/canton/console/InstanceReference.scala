@@ -14,7 +14,7 @@ import com.digitalasset.canton.admin.api.client.data.{
   StaticSynchronizerParameters as ConsoleStaticSynchronizerParameters,
 }
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.console.CommandErrors.NodeNotStarted
 import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.console.commands.*
@@ -416,7 +416,7 @@ class ExternalLedgerApiClient(
       command: GrpcAdminCommand[?, ?, Result]
   ): ConsoleCommandResult[Result] =
     consoleEnvironment.grpcLedgerCommandRunner
-      .runCommand("sourceLedger", command, ClientConfig(hostname, port, tls), token)
+      .runCommand("sourceLedger", command, FullClientConfig(hostname, port, tls), token)
 
   override protected def optionallyAwait[Tx](
       tx: Tx,
@@ -428,37 +428,26 @@ class ExternalLedgerApiClient(
 }
 
 /** Allows to query the public api of a sequencer (e.g., sequencer connect service).
-  *
-  * @param trustCollectionFile a file containing certificates of all nodes the client trusts. If none is specified, defaults to the JVM trust store
   */
 class SequencerPublicApiClient(
-    sequencerConnection: GrpcSequencerConnection,
-    trustCollectionFile: Option[ExistingFile],
+    instanceName: String,
+    sequencerApiClientConfig: SequencerApiClientConfig,
 )(implicit val consoleEnvironment: ConsoleEnvironment)
     extends PublicApiCommandRunner
     with NamedLogging {
 
-  private val endpoint = sequencerConnection.endpoints.head1
-
-  private val name: String = endpoint.toString
-
   override val loggerFactory: NamedLoggerFactory =
-    consoleEnvironment.environment.loggerFactory.append("sequencer-public-api", name)
+    consoleEnvironment.environment.loggerFactory
+      .append("sequencer-public-api", sequencerApiClientConfig.endpointAsString)
 
   protected[console] def publicApiCommand[Result](
       command: GrpcAdminCommand[?, ?, Result]
   ): ConsoleCommandResult[Result] =
     consoleEnvironment.grpcSequencerCommandRunner
       .runCommand(
-        sequencerConnection.sequencerAlias.unwrap,
+        instanceName,
         command,
-        ClientConfig(
-          endpoint.host,
-          endpoint.port,
-          tls = trustCollectionFile.map(f =>
-            TlsClientConfig(trustCollectionFile = Some(f), clientCert = None)
-          ),
-        ),
+        sequencerApiClientConfig,
         token = None,
       )
 }
@@ -1234,8 +1223,7 @@ class LocalSequencerReference(
     consoleEnvironment.environment.config.sequencersByString(name)
 
   override lazy val sequencerConnection: GrpcSequencerConnection =
-    config.publicApi.toSequencerConnectionConfig.toConnection
-      .fold(err => sys.error(s"Sequencer $name has invalid connection config: $err"), identity)
+    config.publicApi.clientConfig.asSequencerConnection()
 
   private[console] val nodes: SequencerNodes[?] =
     consoleEnvironment.environment.sequencers
@@ -1247,8 +1235,8 @@ class LocalSequencerReference(
     nodes.getStarting(name)
 
   protected lazy val publicApiClient: SequencerPublicApiClient = new SequencerPublicApiClient(
-    sequencerConnection = sequencerConnection,
-    trustCollectionFile = config.publicApi.tls.map(_.certChainFile),
+    name,
+    config.publicApi.clientConfig,
   )(consoleEnvironment)
 }
 
@@ -1266,12 +1254,11 @@ class RemoteSequencerReference(val environment: ConsoleEnvironment, val name: St
     environment.environment.config.remoteSequencersByString(name)
 
   override def sequencerConnection: GrpcSequencerConnection =
-    config.publicApi.toConnection
-      .fold(err => sys.error(s"Sequencer $name has invalid connection config: $err"), identity)
+    config.publicApi.asSequencerConnection()
 
   protected lazy val publicApiClient: SequencerPublicApiClient = new SequencerPublicApiClient(
-    sequencerConnection = sequencerConnection,
-    trustCollectionFile = config.publicApi.customTrustCertificates.map(_.pemFile),
+    name,
+    config.publicApi,
   )(consoleEnvironment)
 }
 
@@ -1377,7 +1364,8 @@ class LocalMediatorReference(consoleEnvironment: ConsoleEnvironment, val name: S
 
 class RemoteMediatorReference(val environment: ConsoleEnvironment, val name: String)
     extends MediatorReference(environment, name)
-    with RemoteInstanceReference {
+    with RemoteInstanceReference
+    with SequencerConnectionAdministration {
 
   def adminToken: Option[String] = config.token
 

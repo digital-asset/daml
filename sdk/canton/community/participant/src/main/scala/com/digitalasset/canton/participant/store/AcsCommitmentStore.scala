@@ -36,7 +36,7 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
     * The implementation is guaranteed to be idempotent: calling it twice with the same argument
     * doesn't change the system's behavior compared to calling it only once.
     */
-  def storeComputed(items: NonEmpty[Seq[AcsCommitmentStore.CommitmentData]])(implicit
+  def storeComputed(items: NonEmpty[Seq[AcsCommitmentStore.ParticipantCommitmentData]])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
@@ -161,7 +161,7 @@ trait AcsCommitmentLookup {
     */
   def getComputed(period: CommitmentPeriod, counterParticipant: ParticipantId)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, AcsCommitment.CommitmentType)]]
+  ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, AcsCommitment.HashedCommitmentType)]]
 
   /** Last locally processed timestamp.
     *
@@ -204,7 +204,9 @@ trait AcsCommitmentLookup {
       counterParticipants: Seq[ParticipantId] = Seq.empty,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)]]
+  ): FutureUnlessShutdown[
+    Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.HashedCommitmentType)]
+  ]
 
   /** Inspection: search received commitments applicable to the specified period (start is exclusive, end is inclusive) */
   def searchReceivedBetween(
@@ -348,9 +350,9 @@ object AcsCommitmentStore {
     startingClean
   }
 
-  final case class CommitmentData(
+  final case class ParticipantCommitmentData(
       counterParticipant: ParticipantId,
       period: CommitmentPeriod,
-      commitment: AcsCommitment.CommitmentType,
+      commitment: AcsCommitment.HashedCommitmentType,
   )
 }

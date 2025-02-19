@@ -16,7 +16,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.event.RecordTime
-import com.digitalasset.canton.participant.store.AcsCommitmentStore.CommitmentData
+import com.digitalasset.canton.participant.store.AcsCommitmentStore.ParticipantCommitmentData
 import com.digitalasset.canton.participant.store.{
   AcsCommitmentStore,
   AcsCounterParticipantConfigStore,
@@ -62,7 +62,6 @@ class DbAcsCommitmentStore(
     extends AcsCommitmentStore
     with DbPrunableByTimeSynchronizer
     with DbStore {
-  import DbStorage.Implicits.*
   import storage.api.*
   import storage.converters.*
 
@@ -90,7 +89,7 @@ class DbAcsCommitmentStore(
 
   override def getComputed(period: CommitmentPeriod, counterParticipant: ParticipantId)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, AcsCommitment.CommitmentType)]] = {
+  ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, AcsCommitment.HashedCommitmentType)]] = {
     val query = sql"""
         select from_exclusive, to_inclusive, commitment from par_computed_acs_commitments
           where synchronizer_idx = $indexedSynchronizer
@@ -98,13 +97,13 @@ class DbAcsCommitmentStore(
             and from_exclusive < ${period.toInclusive}
             and to_inclusive > ${period.fromExclusive}
           order by from_exclusive asc"""
-      .as[(CommitmentPeriod, AcsCommitment.CommitmentType)]
+      .as[(CommitmentPeriod, AcsCommitment.HashedCommitmentType)]
 
     storage.query(query, operationName = "commitments: get computed")
   }
 
   override def storeComputed(
-      items: NonEmpty[Seq[AcsCommitmentStore.CommitmentData]]
+      items: NonEmpty[Seq[AcsCommitmentStore.ParticipantCommitmentData]]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
 
     // We want to detect if we try to overwrite an existing commitment with a different value, as this signals an error.
@@ -112,8 +111,8 @@ class DbAcsCommitmentStore(
     // We reconcile the two by an upsert that inserts only on a "conflict" where the values are equal, and
     // requiring that at least one value is written.
 
-    def setData(pp: PositionedParameters)(item: CommitmentData): Unit = {
-      val CommitmentData(counterParticipant, period, commitment) = item
+    def setData(pp: PositionedParameters)(item: ParticipantCommitmentData): Unit = {
+      val ParticipantCommitmentData(counterParticipant, period, commitment) = item
       pp >> indexedSynchronizer
       pp >> counterParticipant
       pp >> period.fromExclusive
@@ -148,7 +147,7 @@ class DbAcsCommitmentStore(
 
     storage.queryAndUpdate(bulkUpsert, "commitments: insert computed").map { rowCounts =>
       rowCounts.zip(items.toList).foreach { case (rowCount, item) =>
-        val CommitmentData(counterParticipant, period, commitment) = item
+        val ParticipantCommitmentData(counterParticipant, period, commitment) = item
         // Underreporting of the affected rows should not matter here as the query is idempotent and updates the row even if the same values had been there before
         ErrorUtil.requireState(
           rowCount != 0,
@@ -399,7 +398,7 @@ class DbAcsCommitmentStore(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[
-    Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)]
+    Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.HashedCommitmentType)]
   ] = {
 
     val participantFilter: SQLActionBuilderChain = counterParticipants match {
@@ -417,7 +416,7 @@ class DbAcsCommitmentStore(
             where synchronizer_idx = $indexedSynchronizer and to_inclusive >= $start and from_exclusive < $end""" ++ participantFilter
 
     storage.query(
-      query.as[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)],
+      query.as[(CommitmentPeriod, ParticipantId, AcsCommitment.HashedCommitmentType)],
       functionFullName,
     )
   }
@@ -618,7 +617,6 @@ class DbCommitmentQueue(
     extends CommitmentQueue
     with DbStore {
 
-  import DbStorage.Implicits.*
   import storage.api.*
 
   private implicit val acsCommitmentReader: GetResult[AcsCommitment] =
@@ -627,12 +625,10 @@ class DbCommitmentQueue(
   override def enqueue(
       commitment: AcsCommitment
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    val commitmentDbHash =
-      Hash.digest(HashPurpose.AcsCommitmentDb, commitment.commitment, HashAlgorithm.Sha256)
     val insertAction =
       sqlu"""insert
-             into par_commitment_queue(synchronizer_idx, sender, counter_participant, from_exclusive, to_inclusive, commitment, commitment_hash)
-             values($indexedSynchronizer, ${commitment.sender}, ${commitment.counterParticipant}, ${commitment.period.fromExclusive}, ${commitment.period.toInclusive}, ${commitment.commitment}, $commitmentDbHash)
+             into par_commitment_queue(synchronizer_idx, sender, counter_participant, from_exclusive, to_inclusive, commitment, commitment_hex)
+             values($indexedSynchronizer, ${commitment.sender}, ${commitment.counterParticipant}, ${commitment.period.fromExclusive}, ${commitment.period.toInclusive}, ${commitment.commitment}, ${commitment.commitment.toLengthLimitedHexString})
              on conflict do nothing"""
 
     storage.update_(insertAction, operationName = "enqueue commitment")
@@ -647,7 +643,7 @@ class DbCommitmentQueue(
   ): FutureUnlessShutdown[List[AcsCommitment]] =
     storage
       .query(
-        sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
+        sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment_hex
              from par_commitment_queue
              where synchronizer_idx = $indexedSynchronizer and to_inclusive <= $timestamp"""
           .as[AcsCommitment],
@@ -664,7 +660,7 @@ class DbCommitmentQueue(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[AcsCommitment]] =
     storage
       .query(
-        sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
+        sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment_hex
                                             from par_commitment_queue
                                             where synchronizer_idx = $indexedSynchronizer and to_inclusive >= $timestamp"""
           .as[AcsCommitment],
@@ -679,7 +675,7 @@ class DbCommitmentQueue(
   ): FutureUnlessShutdown[Seq[AcsCommitment]] =
     storage
       .query(
-        sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
+        sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment_hex
                  from par_commitment_queue
                  where synchronizer_idx = $indexedSynchronizer and sender = $counterParticipant
                  and to_inclusive > ${period.fromExclusive}

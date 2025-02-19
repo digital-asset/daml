@@ -180,7 +180,7 @@ object CantonServerBuilder {
   private def baseSslBuilder(config: BaseTlsArguments): SslContextBuilder = {
     import scala.jdk.CollectionConverters.*
     val s1 =
-      GrpcSslContexts.forServer(config.certChainFile.unwrap, config.privateKeyFile.unwrap)
+      GrpcSslContexts.forServer(config.certChainFile.pemStream, config.privateKeyFile.pemStream)
     val s2 = config.protocols.fold(s1)(protocols => s1.protocols(protocols*))
     config.ciphers.fold(s2)(ciphers => s2.ciphers(ciphers.asJava))
   }
@@ -193,7 +193,7 @@ object CantonServerBuilder {
   ): SslContext = {
     val s1 = baseSslBuilder(config)
     val s2 = config.trustCollectionFile.fold(s1)(trustCollection =>
-      s1.trustManager(trustCollection.unwrap)
+      s1.trustManager(trustCollection.pemStream)
     )
     val s3 = s2.clientAuth(config.clientAuth.clientAuth)
     val sslContext = s3.build()

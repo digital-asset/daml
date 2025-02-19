@@ -5,11 +5,14 @@ package com.digitalasset.canton.protocol.messages
 
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.ProtoDeserializationError.CryptoDeserializationError
+import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.resource.DbStorage
+import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.time.PositiveSeconds
@@ -112,7 +115,7 @@ abstract sealed case class AcsCommitment private (
     sender: ParticipantId,
     counterParticipant: ParticipantId,
     period: CommitmentPeriod,
-    commitment: AcsCommitment.CommitmentType,
+    commitment: AcsCommitment.HashedCommitmentType,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[AcsCommitment.type],
     override val deserializedFrom: Option[ByteString],
@@ -131,7 +134,7 @@ abstract sealed case class AcsCommitment private (
       counterParticipantUid = counterParticipant.uid.toProtoPrimitive,
       fromExclusive = period.fromExclusive.toProtoPrimitive,
       toInclusive = period.toInclusive.toProtoPrimitive,
-      commitment = AcsCommitment.commitmentTypeToProto(commitment),
+      commitment = AcsCommitment.hashedCommitmentTypeToProto(commitment),
     )
 
   override protected[this] def toByteStringUnmemoized: ByteString =
@@ -169,8 +172,15 @@ object AcsCommitment extends VersioningCompanionMemoization[AcsCommitment] {
   implicit val setCommitmentType: SetParameter[CommitmentType] =
     DbStorage.Implicits.setParameterByteString
 
-  def commitmentTypeToProto(commitment: CommitmentType): ByteString = commitment
-  def commitmentTypeFromByteString(bytes: ByteString): CommitmentType = bytes
+  type HashedCommitmentType = Hash
+
+  def hashedCommitmentTypeToProto(commitment: HashedCommitmentType): ByteString =
+    commitment.getCryptographicEvidence
+  def hashedCommitmentTypeFromByteString(
+      bytes: ByteString
+  ): Either[DeserializationError, HashedCommitmentType] = Hash.fromByteString(bytes)
+  def hashCommitment(commitment: CommitmentType): HashedCommitmentType =
+    Hash.digest(HashPurpose.HashedAcsCommitment, commitment, HashAlgorithm.Sha256)
 
   def create(
       synchronizerId: SynchronizerId,
@@ -180,7 +190,13 @@ object AcsCommitment extends VersioningCompanionMemoization[AcsCommitment] {
       commitment: CommitmentType,
       protocolVersion: ProtocolVersion,
   ): AcsCommitment =
-    new AcsCommitment(synchronizerId, sender, counterParticipant, period, commitment)(
+    new AcsCommitment(
+      synchronizerId,
+      sender,
+      counterParticipant,
+      period,
+      hashCommitment(commitment),
+    )(
       protocolVersionRepresentativeFor(protocolVersion),
       None,
     ) {}
@@ -222,7 +238,9 @@ object AcsCommitment extends VersioningCompanionMemoization[AcsCommitment] {
 
       period = CommitmentPeriod(fromExclusive, periodLength)
       cmt = protoMsg.commitment
-      commitment = commitmentTypeFromByteString(cmt)
+      commitment <- hashedCommitmentTypeFromByteString(cmt).leftMap(
+        CryptoDeserializationError.apply
+      )
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield new AcsCommitment(synchronizerId, sender, counterParticipant, period, commitment)(
       rpv,
@@ -239,11 +257,11 @@ object AcsCommitment extends VersioningCompanionMemoization[AcsCommitment] {
       synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
   ): GetResult[AcsCommitment] =
-    new GetTupleResult[(ParticipantId, ParticipantId, CommitmentPeriod, CommitmentType)](
+    new GetTupleResult[(ParticipantId, ParticipantId, CommitmentPeriod, HashedCommitmentType)](
       GetResult[ParticipantId],
       GetResult[ParticipantId],
       GetResult[CommitmentPeriod],
-      GetResult[CommitmentType],
+      Hash.getResultHashFromHexString,
     ).andThen { case (sender, counterParticipant, period, commitment) =>
       new AcsCommitment(synchronizerId, sender, counterParticipant, period, commitment)(
         protocolVersionRepresentativeFor(protocolVersion),

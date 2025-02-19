@@ -514,7 +514,7 @@ final class SyncStateInspection(
       counterParticipant: Option[ParticipantId] = None,
   )(implicit
       traceContext: TraceContext
-  ): Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)] =
+  ): Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.HashedCommitmentType)] =
     timeouts.inspection
       .awaitUS(s"$functionFullName from $start to $end on $synchronizerAlias")(
         getOrFail(getPersistentState(synchronizerAlias), synchronizerAlias).acsCommitmentStore

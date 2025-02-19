@@ -13,6 +13,7 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
 }
 import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.ProxyCloseable
+import com.digitalasset.canton.ledger.api.auth.RequiredClaims
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator
 import io.grpc.ServerServiceDefinition
@@ -34,11 +35,12 @@ final class InteractiveSubmissionServiceAuthorization(
       request: PrepareSubmissionRequest
   ): Future[PrepareSubmissionResponse] = {
     val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request)
-    authorizer.requireActAndReadClaimsForParties(
-      actAs = Set.empty, // At preparation time the actAs parties are only reading
-      readAs = effectiveSubmitters.readAs ++ effectiveSubmitters.actAs,
-      applicationIdL = Lens.unit[PrepareSubmissionRequest].applicationId,
-      call = service.prepareSubmission,
+    authorizer.rpc(service.prepareSubmission)(
+      RequiredClaims.submissionClaims(
+        actAs = Set.empty, // At preparation time the actAs parties are only reading
+        readAs = effectiveSubmitters.readAs ++ effectiveSubmitters.actAs,
+        applicationIdL = Lens.unit[PrepareSubmissionRequest].applicationId,
+      )*
     )(request)
   }
 
@@ -53,11 +55,12 @@ final class InteractiveSubmissionServiceAuthorization(
 
     val actAs = actAsO.getOrElse(Seq.empty)
 
-    authorizer.requireActAndReadClaimsForParties(
-      actAs = actAs.toSet[String],
-      readAs = Set.empty[String],
-      applicationIdL = Lens.unit[ExecuteSubmissionRequest].applicationId,
-      call = service.executeSubmission,
+    authorizer.rpc(service.executeSubmission)(
+      RequiredClaims.submissionClaims(
+        actAs = actAs.toSet[String],
+        readAs = Set.empty[String],
+        applicationIdL = Lens.unit[ExecuteSubmissionRequest].applicationId,
+      )*
     )(request)
   }
 

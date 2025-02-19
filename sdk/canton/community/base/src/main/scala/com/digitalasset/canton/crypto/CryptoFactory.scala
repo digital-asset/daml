@@ -18,9 +18,9 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.crypto.kms.KmsFactory
 import com.digitalasset.canton.crypto.provider.jce.{JceCrypto, JcePureCrypto}
 import com.digitalasset.canton.crypto.provider.kms.{KmsCrypto, KmsPrivateCrypto}
-import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.store.{
   CryptoPrivateStore,
+  CryptoPrivateStoreFactory,
   CryptoPublicStore,
   KmsCryptoPrivateStore,
 }

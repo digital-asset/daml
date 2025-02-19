@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.api.auth.services
 
 import com.daml.ledger.api.v2.admin.identity_provider_config_service.*
-import com.digitalasset.canton.auth.Authorizer
+import com.digitalasset.canton.auth.{Authorizer, RequiredClaim}
 import com.digitalasset.canton.ledger.api.ProxyCloseable
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import io.grpc.ServerServiceDefinition
@@ -23,27 +23,27 @@ class IdentityProviderConfigServiceAuthorization(
   override def createIdentityProviderConfig(
       request: CreateIdentityProviderConfigRequest
   ): Future[CreateIdentityProviderConfigResponse] =
-    authorizer.requireAdminClaims(service.createIdentityProviderConfig)(request)
+    authorizer.rpc(service.createIdentityProviderConfig)(RequiredClaim.Admin())(request)
 
   override def getIdentityProviderConfig(
       request: GetIdentityProviderConfigRequest
   ): Future[GetIdentityProviderConfigResponse] =
-    authorizer.requireAdminClaims(service.getIdentityProviderConfig)(request)
+    authorizer.rpc(service.getIdentityProviderConfig)(RequiredClaim.Admin())(request)
 
   override def updateIdentityProviderConfig(
       request: UpdateIdentityProviderConfigRequest
   ): Future[UpdateIdentityProviderConfigResponse] =
-    authorizer.requireAdminClaims(service.updateIdentityProviderConfig)(request)
+    authorizer.rpc(service.updateIdentityProviderConfig)(RequiredClaim.Admin())(request)
 
   override def listIdentityProviderConfigs(
       request: ListIdentityProviderConfigsRequest
   ): Future[ListIdentityProviderConfigsResponse] =
-    authorizer.requireAdminClaims(service.listIdentityProviderConfigs)(request)
+    authorizer.rpc(service.listIdentityProviderConfigs)(RequiredClaim.Admin())(request)
 
   override def deleteIdentityProviderConfig(
       request: DeleteIdentityProviderConfigRequest
   ): Future[DeleteIdentityProviderConfigResponse] =
-    authorizer.requireAdminClaims(service.deleteIdentityProviderConfig)(request)
+    authorizer.rpc(service.deleteIdentityProviderConfig)(RequiredClaim.Admin())(request)
 
   override def bindService(): ServerServiceDefinition =
     IdentityProviderConfigServiceGrpc.bindService(this, executionContext)

@@ -282,9 +282,18 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
       setupAdminCommandResponse("new", Right(Seq()))
       setupAdminCommandResponse("p-4", Right(Seq()))
 
+      when(
+        adminCommandRunner.runCommand(
+          anyString(),
+          any[ParticipantAdminCommands.Package.UploadDar],
+          any[ClientConfig],
+          isEq(Some(adminToken)),
+        )
+      ).thenReturn(CommandSuccessful(Seq("package")))
+
       runOrFail(s"""participants.all.dars.upload("$CantonExamplesPath", vetAllPackages=false)""")
 
-      def verifyUploadDar(p: String): ConsoleCommandResult[String] =
+      def verifyUploadDar(p: String): ConsoleCommandResult[Seq[String]] =
         verify(adminCommandRunner).runCommand(
           isEq(p),
           any[ParticipantAdminCommands.Package.UploadDar],

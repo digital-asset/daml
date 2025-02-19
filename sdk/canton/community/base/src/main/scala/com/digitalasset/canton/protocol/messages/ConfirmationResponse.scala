@@ -5,7 +5,9 @@ package com.digitalasset.canton.protocol.messages
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.daml.nonempty.NonEmptyUtil.instances.*
+import com.daml.nonempty.catsinstances.*
+import com.daml.nonempty.{NonEmpty, NonEmptyF}
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
@@ -251,11 +253,9 @@ object ConfirmationResponses extends VersioningCompanionMemoization[Confirmation
       responses,
     )(protocolVersionRepresentativeFor(protocolVersion), None)
 
-  private val responsesUnsafe =
-    Lens[ConfirmationResponses, Seq[ConfirmationResponse]](_.responses)(responses =>
-      confirmationResponses =>
-        confirmationResponses.copy(responses = NonEmptyUtil.fromUnsafe(responses))
-    ).andThen(Traversal.fromTraverse[Seq, ConfirmationResponse])
+  private val responsesUnsafe: Traversal[ConfirmationResponses, ConfirmationResponse] =
+    GenLens[ConfirmationResponses](_.responses).toNEF
+      .andThen(Traversal.fromTraverse[NonEmptyF[Seq, *], ConfirmationResponse])
 
   /** DO NOT USE IN PRODUCTION, as this does not necessarily check object invariants. */
   @VisibleForTesting

@@ -7,12 +7,12 @@ import com.daml.error.{BaseError, ErrorCategory, ErrorClass, ErrorCode}
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.command_service.SubmitAndWaitResponse
 import com.daml.ledger.api.v2.commands.Commands
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.ledger.client.services.commands.CommandServiceClient
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.util.SingleUseCell
+import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status
 import org.scalatest.*
@@ -26,7 +26,8 @@ import scala.jdk.DurationConverters.ScalaDurationOps
 class CommandSubmitterWithRetryTest
     extends FixtureAsyncWordSpec
     with BaseTest
-    with PekkoBeforeAndAfterAll {
+    with PekkoBeforeAndAfterAll
+    with HasExecutionContext {
 
   private val timeout = 5.seconds
   private val commands = Commands(
@@ -139,14 +140,14 @@ class CommandSubmitterWithRetryTest
       }
     }
 
-    "Gracefully reject commands submitted after closing" in { f =>
+    "gracefully reject commands submitted after closing" in { f =>
       f.runTest(commands, Future.never) { (sut, _, _) =>
         sut.close()
         sut.submitCommands(commands, timeout).map(_ shouldBe CommandResult.AbortedDueToShutdown)
       }
     }
 
-    "Gracefully reject pending commands when closing" in { f =>
+    "gracefully reject pending commands when closing" in { f =>
       f.runTest(commands, Future.never) { (sut, _, _) =>
         val result =
           sut.submitCommands(commands, timeout).map(_ shouldBe CommandResult.AbortedDueToShutdown)

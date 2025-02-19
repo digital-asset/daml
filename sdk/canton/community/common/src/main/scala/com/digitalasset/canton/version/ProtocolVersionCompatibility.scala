@@ -128,7 +128,8 @@ final case class MinProtocolError(
     s"The version required by the synchronizer (${server.toString}) is lower than the minimum version configured by the participant (${clientMinimumProtocolVersion
         .map(_.toString)
         .getOrElse("")}). " +
-      s"${if (clientSupportsRequiredVersion) "The participant supports the version required by the synchronizer and would be able to connect to the synchronizer if the minimum required version is configured to be lower."} "
+      s"${if (clientSupportsRequiredVersion) "The participant supports the version required by the synchronizer and would be able to connect to the synchronizer if the minimum required version is configured to be lower."
+        else ""} "
 }
 
 final case class VersionNotSupportedError(

@@ -134,7 +134,7 @@ final case class MediatorNodeParameters(
     with HasProtocolCantonNodeParameters
 
 final case class RemoteMediatorConfig(
-    adminApi: ClientConfig,
+    adminApi: FullClientConfig,
     token: Option[String] = None,
 ) extends NodeConfig
     with UniformCantonConfigValidation {

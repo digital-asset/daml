@@ -32,8 +32,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService
 import com.digitalasset.canton.crypto.admin.v30.VaultServiceGrpc
 import com.digitalasset.canton.crypto.kms.KmsFactory
-import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CryptoPrivateStoreFactory
-import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
+import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPrivateStoreFactory}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction

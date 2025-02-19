@@ -17,6 +17,8 @@ object AuthorizationError {
       s"Claims were valid until $authorizedUntil, current time is $currentTime"
   }
 
+  final case class MissingUserId(reason: String) extends AuthorizationError
+
   final case class InvalidParticipant(authorized: String, actual: String)
       extends AuthorizationError {
     override val reason =
@@ -57,4 +59,7 @@ object AuthorizationError {
   }
 
   final case class InvalidField(fieldName: String, reason: String) extends AuthorizationError
+
+  final case class InternalAuthorizationError(reason: String, throwable: Throwable)
+      extends AuthorizationError
 }

@@ -81,7 +81,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
     )
 
   override def uploadDar(
-      dar: ByteString,
+      dar: Seq[ByteString],
       submissionId: Ref.SubmissionId,
   )(implicit
       traceContext: TraceContext

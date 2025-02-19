@@ -27,7 +27,7 @@ trait PackageSyncService {
     * @return an async result of a [[com.digitalasset.canton.ledger.participant.state.SubmissionResult]]
     */
   def uploadDar(
-      dar: ByteString,
+      dars: Seq[ByteString],
       submissionId: Ref.SubmissionId,
   )(implicit
       traceContext: TraceContext

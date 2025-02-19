@@ -80,7 +80,7 @@ object HashPurpose {
   val _MediatorLeadershipEvent = HashPurpose(31, "MediatorLeadershipEvent")
   val _LegalIdentityClaim = HashPurpose(32, "LegalIdentityClaim")
   val DbLockId = HashPurpose(33, "DbLockId")
-  val AcsCommitmentDb = HashPurpose(34, "AcsCommitmentDb")
+  val HashedAcsCommitment = HashPurpose(34, "HashedAcsCommitment")
   val SubmissionRequestSignature = HashPurpose(35, "SubmissionRequestSignature")
   val AcknowledgementSignature = HashPurpose(36, "AcknowledgementSignature")
   val DecentralizedNamespaceNamespace = HashPurpose(37, "DecentralizedNamespace")

@@ -7,7 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.console.commands.ParticipantCommands
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias}
@@ -49,6 +49,34 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
             requestHeaders = requestHeaders,
             logger,
           )
+      )
+      if (synchronizeVetting && vetAllPackages) {
+        participants.foreach(_.packages.synchronize_vetting())
+      }
+      res
+    }
+
+    @Help.Summary("Upload DARs to participants")
+    @Help.Description(
+      """If vetAllPackages is true, the participants will vet the packages on all synchronizers they are registered.
+        If synchronizeVetting is true, the command will block until the package vetting transaction has been registered with all connected synchronizers."""
+    )
+    def upload_many(
+        paths: Seq[String],
+        vetAllPackages: Boolean,
+        synchronizeVetting: Boolean,
+        requestHeaders: Map[String, String],
+        logger: TracedLogger,
+    ): Map[ParticipantReference, Seq[String]] = {
+      val res = ConsoleCommandResult.runAll(participants)(
+        ParticipantCommands.dars.upload_many(
+          _,
+          paths = paths,
+          vetAllPackages = vetAllPackages,
+          synchronizeVetting = synchronizeVetting,
+          requestHeaders = requestHeaders,
+          logger,
+        )
       )
       if (synchronizeVetting && vetAllPackages) {
         participants.foreach(_.packages.synchronize_vetting())

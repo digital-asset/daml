@@ -7,19 +7,11 @@ import cats.data.EitherT
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.store.db.DbCryptoPrivateStore
-import com.digitalasset.canton.crypto.store.memory.InMemoryCryptoPrivateStore
 import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
-import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
-import com.digitalasset.canton.version.ReleaseProtocolVersion
-
-import scala.concurrent.ExecutionContext
+import com.digitalasset.canton.tracing.TraceContext
 
 sealed trait PrivateKeyWithName extends Product with Serializable {
   type K <: PrivateKey
@@ -98,45 +90,6 @@ trait CryptoPrivateStore extends AutoCloseable {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[String300]]
 
-}
-
-object CryptoPrivateStore {
-
-  trait CryptoPrivateStoreFactory {
-    def create(
-        storage: Storage,
-        releaseProtocolVersion: ReleaseProtocolVersion,
-        timeouts: ProcessingTimeout,
-        loggerFactory: NamedLoggerFactory,
-        tracerProvider: TracerProvider,
-    )(implicit
-        ec: ExecutionContext,
-        traceContext: TraceContext,
-    ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, CryptoPrivateStore]
-  }
-
-  class CommunityCryptoPrivateStoreFactory extends CryptoPrivateStoreFactory {
-    override def create(
-        storage: Storage,
-        releaseProtocolVersion: ReleaseProtocolVersion,
-        timeouts: ProcessingTimeout,
-        loggerFactory: NamedLoggerFactory,
-        tracerProvider: TracerProvider,
-    )(implicit
-        ec: ExecutionContext,
-        traceContext: TraceContext,
-    ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, CryptoPrivateStore] =
-      storage match {
-        case _: MemoryStorage =>
-          EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](
-            new InMemoryCryptoPrivateStore(releaseProtocolVersion, loggerFactory)
-          )
-        case jdbc: DbStorage =>
-          EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](
-            new DbCryptoPrivateStore(jdbc, releaseProtocolVersion, timeouts, loggerFactory)
-          )
-      }
-  }
 }
 
 sealed trait CryptoPrivateStoreError extends Product with Serializable with PrettyPrinting

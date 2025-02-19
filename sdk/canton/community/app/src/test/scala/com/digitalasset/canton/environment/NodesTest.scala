@@ -22,7 +22,7 @@ import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
-import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.{
   DependenciesHealthService,
@@ -154,7 +154,8 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
   def arguments(config: TestNodeConfig) = factoryArguments(config)
     .toCantonNodeBootstrapCommonArguments(
       storageFactory = new CommunityStorageFactory(StorageConfig.Memory()),
-      cryptoPrivateStoreFactory = new CommunityCryptoPrivateStoreFactory,
+      cryptoPrivateStoreFactory =
+        CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
       kmsFactory = CommunityKmsFactory,
     )
     .value

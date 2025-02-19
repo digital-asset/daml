@@ -103,7 +103,8 @@ import com.typesafe.config.{
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.pekko.stream.ThrottleMode
 import pureconfig.*
-import pureconfig.error.CannotConvert
+import pureconfig.ConfigReader.Result
+import pureconfig.error.{CannotConvert, ConfigReaderFailures, ConvertFailure}
 import pureconfig.generic.{FieldCoproductHint, ProductHint}
 
 import java.io.File
@@ -232,7 +233,7 @@ object ClockConfig {
     * For such cases we can use a remote clock. However, no user should ever require this.
     * @param remoteApi admin-port of the node to read the time from
     */
-  final case class RemoteClock(remoteApi: ClientConfig)
+  final case class RemoteClock(remoteApi: FullClientConfig)
       extends ClockConfig
       with UniformCantonConfigValidation
 
@@ -721,13 +722,43 @@ object CantonConfig {
         .enableNestedOpt("auto-init", _.copy(identity = None))
     }
 
-    lazy implicit final val clientConfigReader: ConfigReader[ClientConfig] = {
+    lazy implicit final val pemFileReader: ConfigReader[PemFile] = new ConfigReader[PemFile] {
+      override def from(cur: ConfigCursor): Result[PemFile] = cur.asString.flatMap { s =>
+        ExistingFile.create(new File(s)) match {
+          case Right(file) => Right(PemFile(file))
+          case Left(error) =>
+            val failureReason = CannotConvert(s, PemFile.getClass.getName, error.message)
+            Left(ConfigReaderFailures(ConvertFailure(failureReason, cur)))
+        }
+      }
+    }
+
+    lazy implicit final val pemFileOrStringReader: ConfigReader[PemFileOrString] =
+      new ConfigReader[PemFileOrString] {
+        override def from(cur: ConfigCursor): Result[PemFileOrString] = cur.asString.flatMap { s =>
+          if (s.contains("-----BEGIN")) {
+            // assume it's a PEM string
+            Right(PemString(s))
+          } else {
+            // assume it's a file path
+            pemFileReader.from(cur)
+          }
+        }
+      }
+
+    lazy implicit final val fullClientConfigReader: ConfigReader[FullClientConfig] = {
       implicit val tlsClientConfigReader: ConfigReader[TlsClientConfig] =
         deriveReader[TlsClientConfig]
-      deriveReader[ClientConfig]
+      deriveReader[FullClientConfig]
     }
     lazy implicit final val remoteParticipantConfigReader: ConfigReader[RemoteParticipantConfig] =
       deriveReader[RemoteParticipantConfig]
+    lazy implicit final val sequencerApiclientConfigReader
+        : ConfigReader[SequencerApiClientConfig] = {
+      implicit val tlsClientConfigOnlyTrustFileReader: ConfigReader[TlsClientConfigOnlyTrustFile] =
+        deriveReader[TlsClientConfigOnlyTrustFile]
+      deriveReader[SequencerApiClientConfig]
+    }
 
     lazy implicit final val nodeMonitoringConfigReader: ConfigReader[NodeMonitoringConfig] = {
       implicit val httpHealthServerConfigReader: ConfigReader[HttpHealthServerConfig] =
@@ -809,17 +840,6 @@ object CantonConfig {
 
     lazy implicit final val topologyConfigReader: ConfigReader[TopologyConfig] =
       deriveReader[TopologyConfig]
-    private lazy implicit final val sequencerConnectionConfigCertificateFileReader
-        : ConfigReader[SequencerConnectionConfig.CertificateFile] =
-      deriveReader[SequencerConnectionConfig.CertificateFile]
-    lazy implicit final val sequencerConnectionConfigGrpcReader
-        : ConfigReader[SequencerConnectionConfig.Grpc] =
-      deriveReader[SequencerConnectionConfig.Grpc]
-    lazy implicit final val sequencerConnectionConfigReader
-        : ConfigReader[SequencerConnectionConfig] =
-      deriveReader[SequencerConnectionConfig]
-        // since the big majority of users will use GRPC, default to it so that they don't need to specify `type = grpc`
-        .orElse(ConfigReader[SequencerConnectionConfig.Grpc])
 
     // NOTE: the below readers should move to community / enterprise
     lazy implicit final val communitySequencerConfigDatabaseReader
@@ -1222,6 +1242,19 @@ object CantonConfig {
         : ConfigWriter[DatabaseSequencerConfig.TestingInterceptor] =
       ConfigWriter.toString(_ => "None")
 
+    lazy implicit final val pemFileOrStringWriter: ConfigWriter[PemFileOrString] =
+      new ConfigWriter[PemFileOrString] {
+        override def to(value: PemFileOrString): ConfigValue = value match {
+          case PemFile(file) => ConfigValueFactory.fromAnyRef(file.unwrap.toString)
+          case pemString: PemString => ConfigValueFactory.fromAnyRef(pemString.pemString)
+        }
+      }
+
+    lazy implicit final val pemFileWriter: ConfigWriter[PemFile] = new ConfigWriter[PemFile] {
+      override def to(value: PemFile): ConfigValue =
+        ConfigValueFactory.fromAnyRef(value.pemFile.unwrap.toString)
+    }
+
     lazy implicit final val tlsClientCertificateWriter: ConfigWriter[TlsClientCertificate] =
       deriveWriter[TlsClientCertificate]
 
@@ -1268,10 +1301,16 @@ object CantonConfig {
       InitConfigBase.writerForSubtype(deriveWriter[ParticipantInitConfig])
     }
 
-    lazy implicit final val clientConfigWriter: ConfigWriter[ClientConfig] = {
+    lazy implicit final val fullClientConfigWriter: ConfigWriter[FullClientConfig] = {
       implicit val tlsClientConfigWriter: ConfigWriter[TlsClientConfig] =
         deriveWriter[TlsClientConfig]
-      deriveWriter[ClientConfig]
+      deriveWriter[FullClientConfig]
+    }
+    lazy implicit final val sequencerApiClientConfigWriter
+        : ConfigWriter[SequencerApiClientConfig] = {
+      implicit val tlsClientConfigOnlyTrustFileWriter: ConfigWriter[TlsClientConfigOnlyTrustFile] =
+        deriveWriter[TlsClientConfigOnlyTrustFile]
+      deriveWriter[SequencerApiClientConfig]
     }
     lazy implicit final val remoteParticipantConfigWriter: ConfigWriter[RemoteParticipantConfig] =
       deriveWriter[RemoteParticipantConfig]
@@ -1356,15 +1395,6 @@ object CantonConfig {
 
     lazy implicit final val topologyConfigWriter: ConfigWriter[TopologyConfig] =
       deriveWriter[TopologyConfig]
-    lazy implicit final val sequencerConnectionConfigCertificateFileWriter
-        : ConfigWriter[SequencerConnectionConfig.CertificateFile] =
-      deriveWriter[SequencerConnectionConfig.CertificateFile]
-    lazy implicit final val sequencerConnectionConfigGrpcWriter
-        : ConfigWriter[SequencerConnectionConfig.Grpc] =
-      deriveWriter[SequencerConnectionConfig.Grpc]
-    lazy implicit final val sequencerConnectionConfigWriter
-        : ConfigWriter[SequencerConnectionConfig] =
-      deriveWriter[SequencerConnectionConfig]
 
     // NOTE: the below writers should move to community / enterprise
     lazy implicit final val communitySequencerConfigDatabaseWriter

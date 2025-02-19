@@ -25,13 +25,14 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.admin.PackageService.{DarDescription, DarId}
+import com.digitalasset.canton.participant.admin.data.UploadDarData
 import com.digitalasset.canton.participant.admin.{
   CantonPackageServiceError,
   PackageService,
   PackageVettingSynchronization,
 }
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.{EitherTUtil, OptionUtil}
+import com.digitalasset.canton.util.{EitherTUtil, MonadUtil, OptionUtil}
 import com.digitalasset.daml.lf.data.Ref.ModuleName
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast.{DDataType, GenModule}
@@ -86,32 +87,33 @@ class GrpcPackageService(
   override def uploadDar(request: v30.UploadDarRequest): Future[v30.UploadDarResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val v30.UploadDarRequest(
-      data,
-      description,
+      uploadDarDataP,
       vetAllPackages,
       synchronizeVettingP,
-      expectedMainPackageIdP,
     ) = request
 
     val ret =
       for {
-        expectedMainPackageId <- Option
-          .when(expectedMainPackageIdP.nonEmpty)(expectedMainPackageIdP)
-          .traverse(parsePackageId)
+        uploadDarData <- MonadUtil
+          .sequentialTraverse(uploadDarDataP)(data =>
+            data.expectedMainPackageId
+              .traverse(parsePackageId)
+              .map(
+                UploadDarData(data.bytes, data.description, _)
+              )
+          )
           .leftMap(_.asGrpcError)
-        darId <- service
+        darIds <- service
           .upload(
-            darBytes = data,
-            description = Option.when(description.nonEmpty)(description),
+            uploadDarData,
             submissionIdO = None,
             vetAllPackages = vetAllPackages,
             synchronizeVetting =
               if (synchronizeVettingP) synchronizeVetting
               else PackageVettingSynchronization.NoSync,
-            expectedMainPackageId,
           )
           .leftMap(_.asGrpcError)
-      } yield v30.UploadDarResponse(darId = darId.unwrap)
+      } yield v30.UploadDarResponse(darIds = darIds.map(_.unwrap))
 
     EitherTUtil.toFuture(
       ret

@@ -38,6 +38,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.participant.Pruning.*
 import com.digitalasset.canton.participant.admin.*
+import com.digitalasset.canton.participant.admin.data.UploadDarData
 import com.digitalasset.canton.participant.admin.grpc.PruningServiceError
 import com.digitalasset.canton.participant.admin.inspection.{
   JournalGarbageCollectorControl,
@@ -636,7 +637,7 @@ class CantonSyncService(
   ): CompletionStage[SubmissionResult] =
     partyAllocation.allocate(hint, rawSubmissionId)
 
-  override def uploadDar(dar: ByteString, submissionId: Ref.SubmissionId)(implicit
+  override def uploadDar(dars: Seq[ByteString], submissionId: Ref.SubmissionId)(implicit
       traceContext: TraceContext
   ): Future[SubmissionResult] =
     withSpan("CantonSyncService.uploadPackages") { implicit traceContext => span =>
@@ -647,12 +648,10 @@ class CantonSyncService(
         span.setAttribute("submission_id", submissionId)
         packageService.value
           .upload(
-            darBytes = dar,
-            description = Some("uploaded-via-ledger-api"),
+            dars = dars.map(UploadDarData(_, Some("uploaded-via-ledger-api"), None)),
             submissionIdO = Some(submissionId),
             vetAllPackages = true,
             synchronizeVetting = synchronizeVettingOnConnectedSynchronizers,
-            expectedMainPackageId = None,
           )
           .map(_ => SubmissionResult.Acknowledged)
           .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
