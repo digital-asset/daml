@@ -12,6 +12,7 @@ module DA.Bytes
   , fromBytes
   , size
   , slice
+  , pack
   ) where
 
 import GHC.Types (Bytes, primitive)
@@ -54,3 +55,7 @@ slice = primitive @"BESliceBytes"
 -- | TODO:
 size : Bytes -> Int
 size = primitive @"BESizeBytes"
+
+-- | TODO:
+pack : Int -> Bytes -> Bytes
+pack = primitive @"BEPackBytes"
