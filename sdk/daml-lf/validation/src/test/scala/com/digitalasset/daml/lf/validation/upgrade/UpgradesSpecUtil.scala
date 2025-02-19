@@ -42,11 +42,15 @@ private[validation] final class AdminLedgerClient(
     packageServiceStub
       .uploadDar(
         admin_package_service.UploadDarRequest(
-          bytes,
-          filename,
+          Seq(
+            admin_package_service.UploadDarRequest.UploadDarData(
+              bytes,
+              Some(filename),
+              None, // empty string is the default expected_main_package_id
+            )
+          ),
           false,
           false,
-          "", // empty string is the default expected_main_package_id
         )
       )
       .map(_ => ())

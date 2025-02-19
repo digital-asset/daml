@@ -34,17 +34,21 @@ class TestingAdminLedgerClient(
     packageServiceStub
       .uploadDar(
         admin_package_service.UploadDarRequest(
-          data = ByteString.readFrom(new FileInputStream(file)),
-          description = file.getName,
+          dars = Seq(
+            admin_package_service.UploadDarRequest.UploadDarData(
+              ByteString.readFrom(new FileInputStream(file)),
+              description = Some(file.getName),
+              expectedMainPackageId = None, // empty string is the default expected_main_package_id
+            )
+          ),
           vetAllPackages = true,
           synchronizeVetting = true,
-          expectedMainPackageId = "", // empty string is the default expected_main_package_id
         )
       )
       .map { response =>
         import admin_package_service.UploadDarResponse
         response match {
-          case UploadDarResponse(hash) => Right(hash)
+          case UploadDarResponse(hash) => Right(hash.head)
         }
       }
 
