@@ -1,16 +1,23 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SUPPORTS-LF-FEATURE DAML_CCTP
-
 {-# LANGUAGE CPP #-}
+
+#ifndef DAML_CCTP
+
+-- | HIDE
+module DA.Bytes where
+
+#else
 
 -- | TODO:
 module DA.Bytes
-  (toBytes
-  , fromBytes
+  (Bytes
+  , HasToBytes(..)
+  , HasFromBytes(..)
   , size
   , slice
+  , pack
   ) where
 
 import GHC.Types (primitive)
@@ -57,3 +64,5 @@ size = primitive @"BESizeBytes"
 -- | TODO:
 pack : Int -> Bytes -> Bytes
 pack = primitive @"BEPackBytes"
+
+#endif
