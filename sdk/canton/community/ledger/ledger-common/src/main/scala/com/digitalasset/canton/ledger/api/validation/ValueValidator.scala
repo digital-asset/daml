@@ -81,6 +81,7 @@ abstract class ValueValidator {
         .map(Lf.ValueDate.apply)
     case Sum.Text(text) => Right(Lf.ValueText(text))
     case Sum.Int64(value) => Right(Lf.ValueInt64(value))
+    case Sum.Bytes(bytes) => Right(Lf.ValueBytes(Bytes.fromByteString(bytes)))
     case Sum.Record(rec) =>
       validateRecord(rec)
     case Sum.Variant(api.Variant(variantId, constructor, value)) =>

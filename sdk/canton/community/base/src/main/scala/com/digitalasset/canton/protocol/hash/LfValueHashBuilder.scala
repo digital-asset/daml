@@ -34,6 +34,7 @@ object LfValueHashBuilder {
     case object VariantTag extends TypeTag(13, "Variant")
     case object EnumTag extends TypeTag(14, "Enum")
     case object GenMapTag extends TypeTag(15, "GenMap")
+    case object BytesTag extends TypeTag(16, "Bytes")
   }
 
   // For testing only
@@ -82,6 +83,8 @@ private[hash] class LfValueBuilder(purpose: HashPurpose, hashTracer: HashTracer)
         addTypeTag(PartyTag).add(v)
       case Value.ValueText(v) =>
         addTypeTag(TextTag).add(v)
+      case Value.ValueBytes(v) =>
+        addTypeTag(BytesTag).add(v.toByteString)
       case Value.ValueContractId(cid) =>
         addTypeTag(ContractIdTag).add(cid.toBytes.toByteString, s"${cid.coid} (contractId)")
       case Value.ValueOptional(opt) =>

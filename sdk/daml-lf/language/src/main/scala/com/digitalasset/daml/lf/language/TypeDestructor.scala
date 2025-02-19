@@ -31,6 +31,8 @@ object TypeDestructor {
 
     case object TextF extends SerializableTypeF[Nothing]
 
+    case object BytesF extends SerializableTypeF[Nothing]
+
     final case class ContractIdF[Type](a: Type) extends SerializableTypeF[Type]
 
     final case class OptionalF[Type](a: Type) extends SerializableTypeF[Type]
@@ -232,6 +234,8 @@ final class TypeDestructor(pkgInterface: PackageInterface) {
               case typ :: Nil => Right(OptionalF(typ))
               case _ => Left(wrongType)
             }
+          case Ast.BTBytes =>
+            Either.cond(args.isEmpty, BytesF, wrongType)
           case _ =>
             Left(unserializableType)
         }

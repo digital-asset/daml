@@ -32,6 +32,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/transaction",
         "//ledger-service/lf-value-json",
+        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 

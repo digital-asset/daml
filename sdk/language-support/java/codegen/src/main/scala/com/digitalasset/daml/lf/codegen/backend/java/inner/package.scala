@@ -125,6 +125,7 @@ package object inner {
         ClassName.get(classOf[DamlList])
       case TypePrim(PrimTypeOptional, _) =>
         ClassName.get(classOf[DamlOptional])
+      case TypePrim(PrimTypeBytes, _) => ClassName.get(classOf[javaapi.data.Bytes])
       case TypePrim(PrimTypeTextMap, _) =>
         ClassName.get(classOf[DamlTextMap])
       case TypePrim(PrimTypeGenMap, _) =>

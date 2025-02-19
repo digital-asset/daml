@@ -462,6 +462,7 @@ private[lf] object SBuiltinFun {
       case SParty(p) => p
       case SUnit => s"<unit>"
       case SDate(date) => date.toString
+      case SBytes(bs) => bs.toHexString
       case SBigNumeric(x) => Numeric.toUnscaledString(x)
       case SNumeric(x) => Numeric.toUnscaledString(x)
       case _: SContractId | SToken | _: SAny | _: SEnum | _: SList | _: SMap | _: SOptional |

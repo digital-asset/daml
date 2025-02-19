@@ -57,6 +57,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
     case V.ValueNumeric(v) =>
       if (encodeDecimalAsString) JsString(LfNumeric.toUnscaledString(v)) else JsNumber(v)
     case V.ValueBool(v) => JsBoolean(v)
+    case V.ValueBytes(v) => JsString(v.toHexString)
     case V.ValueContractId(v) => apiContractIdToJsValue(v)
     case t: V.ValueTimestamp => JsString(t.toIso8601)
     case d: V.ValueDate => JsString(d.toIso8601)
@@ -158,6 +159,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
         }
       }
       case Model.DamlLfPrimType.Bool => { case JsBoolean(v) => V.ValueBool(v) }
+      case Model.DamlLfPrimType.Bytes => { case JsString(v) => V.ValueBytes(v) }
       case Model.DamlLfPrimType.List => { case JsArray(v) =>
         V.ValueList(
           v.iterator.map(e => jsValueToApiValue(e, prim.typArgs.head, defs)).to(FrontStack)

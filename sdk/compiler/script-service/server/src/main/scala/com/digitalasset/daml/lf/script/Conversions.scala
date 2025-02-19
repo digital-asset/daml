@@ -855,6 +855,7 @@ final class Conversions(
       case V.ValueDate(d) => builder.setDate(d.days)
       case V.ValueParty(p) => builder.setParty(p)
       case V.ValueBool(b) => builder.setBool(b)
+      case V.ValueBytes(bs) => builder.setBytes(bs.toByteString)
       case V.ValueUnit => builder.setUnit(empty)
       case V.ValueOptional(mbV) =>
         val optionalBuilder = proto.Optional.newBuilder
