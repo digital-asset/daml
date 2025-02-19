@@ -427,6 +427,7 @@ message Value {
     Variant variant = 15;
     Enum enum = 16;
     string unserializable = 17;
+    bytes bytes = 18;
   }
 }
 

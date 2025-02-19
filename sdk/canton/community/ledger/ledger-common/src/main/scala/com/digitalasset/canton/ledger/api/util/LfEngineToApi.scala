@@ -84,6 +84,7 @@ object LfEngineToApi {
       case Lf.ValueContractId(c) => Right(api.Value(api.Value.Sum.ContractId(c.coid)))
       case Lf.ValueBool(b) => Right(api.Value(api.Value.Sum.Bool(b)))
       case Lf.ValueDate(d) => Right(api.Value(api.Value.Sum.Date(d.days)))
+      case Lf.ValueBytes(bytes) => Right(api.Value(api.Value.Sum.Bytes(bytes.toByteString)))
       case Lf.ValueTimestamp(t) => Right(api.Value(api.Value.Sum.Timestamp(t.micros)))
       case Lf.ValueInt64(i) => Right(api.Value(api.Value.Sum.Int64(i)))
       case Lf.ValueParty(p) => Right(api.Value(api.Value.Sum.Party(p)))

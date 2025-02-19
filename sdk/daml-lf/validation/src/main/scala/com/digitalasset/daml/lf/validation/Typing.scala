@@ -69,7 +69,7 @@ private[validation] object Typing {
 
   private def kindOfBuiltin(bType: BuiltinType): Kind = bType match {
     case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAny | BTTypeRep |
-        BTAnyException | BTRoundingMode | BTBigNumeric =>
+        BTAnyException | BTRoundingMode | BTBigNumeric | BTBytes =>
       KStar
     case BTNumeric => KArrow(KNat, KStar)
     case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTTextMap =>
@@ -276,6 +276,15 @@ private[validation] object Typing {
       BGreater -> tComparison,
       BGreaterEq -> tComparison,
       BSECP256K1Bool -> (TText ->: TText ->: TText ->: TBool),
+      BTextToBytes -> (TText ->: TOptional(TBytes)),
+      BBytesToText -> (TBytes ->: TText),
+      BInt64ToBytes -> (TInt64 ->: TBytes),
+      BBytesToInt64 -> (TBytes ->: TOptional(TInt64)),
+      BAppendBytes -> (TBytes ->: TBytes ->: TBytes),
+      BSliceBytes -> (TBytes ->: TInt64 ->: TInt64 ->: TBytes),
+      BSizeBytes -> (TBytes ->: TInt64),
+      BEqualBytes -> (TBytes ->: TBytes ->: TBool),
+      BPackBytes -> (TInt64 ->: TBytes ->: TBytes),
       BCoerceContractId ->
         TForall(
           alpha.name -> KStar,

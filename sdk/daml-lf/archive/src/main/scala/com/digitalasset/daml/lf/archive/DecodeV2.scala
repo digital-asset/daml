@@ -1531,6 +1531,7 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = LV.Features.bigNumeric),
       BuiltinTypeInfo(ROUNDING_MODE, BTRoundingMode, minVersion = LV.Features.bigNumeric),
       BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException, minVersion = LV.Features.exceptions),
+      BuiltinTypeInfo(BYTES, BTBytes, minVersion = LV.Features.cctp),
     )
   }
 
@@ -1598,6 +1599,15 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
       BuiltinFunctionInfo(KECCAK256_TEXT, BKECCAK256Text, minVersion = LV.Features.cctp),
       BuiltinFunctionInfo(SECP256K1_BOOL, BSECP256K1Bool, minVersion = LV.Features.cctp),
+      BuiltinFunctionInfo(TEXT_TO_BYTES, BTextToBytes, minVersion = LV.Features.cctp),
+      BuiltinFunctionInfo(BYTES_TO_TEXT, BBytesToText, minVersion = LV.Features.cctp),
+      BuiltinFunctionInfo(INT64_TO_BYTES, BInt64ToBytes, minVersion = LV.Features.cctp),
+      BuiltinFunctionInfo(BYTES_TO_INT64, BBytesToInt64, minVersion = LV.Features.cctp),
+      BuiltinFunctionInfo(APPEND_BYTES, BAppendBytes, minVersion = LV.Features.cctp),
+      BuiltinFunctionInfo(SLICE_BYTES, BSliceBytes, minVersion = LV.Features.cctp),
+      BuiltinFunctionInfo(SIZE_BYTES, BSizeBytes, minVersion = LV.Features.cctp),
+      BuiltinFunctionInfo(EQUAL_BYTES, BEqualBytes, minVersion = LV.Features.cctp),
+      BuiltinFunctionInfo(PACK_BYTES, BPackBytes, minVersion = LV.Features.cctp),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
       BuiltinFunctionInfo(EXPLODE_TEXT, BExplodeText),
       BuiltinFunctionInfo(IMPLODE_TEXT, BImplodeText),

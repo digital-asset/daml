@@ -157,6 +157,12 @@ private[lf] object SBuiltinFun {
       case otherwise => unexpectedType(i, "SText", otherwise)
     }
 
+  final protected def getSBytes(args: util.ArrayList[SValue], i: Int): Bytes =
+    args.get(i) match {
+      case SBytes(value) => value
+      case otherwise => unexpectedType(i, "SBytes", otherwise)
+    }
+
   final protected def getSNumeric(args: util.ArrayList[SValue], i: Int): Numeric =
     args.get(i) match {
       case SNumeric(value) => value
@@ -462,6 +468,7 @@ private[lf] object SBuiltinFun {
       case SParty(p) => p
       case SUnit => s"<unit>"
       case SDate(date) => date.toString
+      case SBytes(bs) => bs.toHexString
       case SBigNumeric(x) => Numeric.toUnscaledString(x)
       case SNumeric(x) => Numeric.toUnscaledString(x)
       case _: SContractId | SToken | _: SAny | _: SEnum | _: SList | _: SMap | _: SOptional |
@@ -693,6 +700,99 @@ private[lf] object SBuiltinFun {
       val byteEncodedPublicKey = Ref.HexString.decode(hexEncodedPublicKey).toByteArray
 
       KeyFactory.getInstance("EC").generatePublic(new X509EncodedKeySpec(byteEncodedPublicKey))
+    }
+  }
+
+  final case object SBTextToBytes extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+      val txt = getSText(args, 0)
+
+      try {
+        SOptional(
+          Some(SBytes(Ref.HexString.decode(Ref.HexString.assertFromString(txt.toLowerCase))))
+        )
+      } catch {
+        case _: IllegalArgumentException =>
+          SOptional(None)
+      }
+    }
+  }
+
+  final case object SBBytesToText extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+      val bytes = getSBytes(args, 0)
+
+      SText(Ref.HexString.encode(bytes))
+    }
+  }
+
+  final case object SBInt64ToBytes extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+      val value = getSInt64(args, 0)
+
+      SBytes(BigInt(value).toByteArray)
+    }
+  }
+
+  final case object SBBytesToInt64 extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+      val bytes = getSBytes(args, 0)
+      val value = BigInt(bytes.toByteArray)
+
+      if (value.isValidLong) {
+        SOptional(Some(SInt64(value.longValue)))
+      } else {
+        SOptional(None)
+      }
+    }
+  }
+
+  final case object SBAppendBytes extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+      val leftBytes = getSBytes(args, 0)
+      val rightBytes = getSBytes(args, 1)
+
+      SBytes(leftBytes ++ rightBytes)
+    }
+  }
+
+  final case object SBSliceBytes extends SBuiltinPure(3) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+      val bytes = getSBytes(args, 0)
+      val begin = getSInt64(args, 1)
+      val end = getSInt64(args, 2)
+
+      SBytes(bytes.slice(begin.toInt, end.toInt))
+    }
+  }
+
+  final case object SBSizeBytes extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+      val bytes = getSBytes(args, 0)
+
+      SInt64(bytes.length.toLong)
+    }
+  }
+
+  final case object SBEqualBytes extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+      val bytes0 = getSBytes(args, 0)
+      val bytes1 = getSBytes(args, 1)
+
+      SBool(bytes0 == bytes1)
+    }
+  }
+
+  final case object SBPackBytes extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+      val size = getSInt64(args, 0).toInt
+      val bytes = getSBytes(args, 1)
+
+      if (bytes.length <= size) {
+        SBytes(bytes.toByteArray.padTo[Byte](size, 0))
+      } else {
+        SBytes(bytes.toByteArray.drop(bytes.length - size))
+      }
     }
   }
 

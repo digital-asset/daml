@@ -388,6 +388,7 @@ object Ast {
   case object BTAnyException extends BuiltinType
   case object BTRoundingMode extends BuiltinType
   case object BTBigNumeric extends BuiltinType
+  case object BTBytes extends BuiltinType
 
   //
   // Builtin literals
@@ -524,6 +525,16 @@ object Ast {
   final case object BGreaterEq extends BuiltinFunction // ∀a. a -> a -> Bool
 
   final case object BSECP256K1Bool extends BuiltinFunction // : Text -> Text -> Text -> Bool
+
+  final case object BTextToBytes extends BuiltinFunction // : Text -> Option Bytes
+  final case object BBytesToText extends BuiltinFunction // : Bytes -> Text
+  final case object BInt64ToBytes extends BuiltinFunction // : Int64 -> Bytes
+  final case object BBytesToInt64 extends BuiltinFunction // : Bytes -> Option Int64
+  final case object BAppendBytes extends BuiltinFunction // : Bytes -> Bytes -> Bytes
+  final case object BSliceBytes extends BuiltinFunction // : Bytes -> Int64 -> Int64 -> Bytes
+  final case object BSizeBytes extends BuiltinFunction // : Bytes -> Int64
+  final case object BEqualBytes extends BuiltinFunction // : Bytes -> Bytes -> Bool
+  final case object BPackBytes extends BuiltinFunction // : Int64 -> Bytes -> Bytes
 
   final case object BCoerceContractId
       extends BuiltinFunction // : ∀a b. ContractId a -> ContractId b

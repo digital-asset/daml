@@ -132,6 +132,7 @@ object ValueConversion {
     case LfValue.ValueParty(value) => new JData.Party(value)
     case LfValue.ValueBool(value) => JData.Bool.of(value)
     case LfValue.ValueUnit => JData.Unit.getInstance
+    case LfValue.ValueBytes(value) => new JData.Bytes(value.toByteString)
   }
 
   private def toRefId(jid: JData.Identifier): Ref.Identifier = Ref.Identifier(

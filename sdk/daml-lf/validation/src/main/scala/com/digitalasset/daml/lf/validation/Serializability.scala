@@ -60,7 +60,7 @@ private[validation] object Serializability {
       case TBuiltin(builtinType) =>
         builtinType match {
           case BTInt64 | BTText | BTTimestamp | BTDate | BTParty | BTBool | BTUnit |
-              BTAnyException =>
+              BTAnyException | BTBytes =>
             ()
           case BTNumeric =>
             unserializable(URNumeric)

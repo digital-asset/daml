@@ -4,6 +4,7 @@
 package com.digitalasset.canton.daml.lf.value.json
 
 import com.digitalasset.canton.daml.lf.value.json.NavigatorModelAliases as Model
+import com.digitalasset.daml.lf.data.Bytes
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.ScalazEqual.*
 import com.digitalasset.daml.lf.data.{
@@ -64,6 +65,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
     case d: V.ValueDate => JsString(d.toIso8601)
     case V.ValueParty(v) => JsString(v)
     case V.ValueUnit => JsObject.empty
+    case V.ValueBytes(v) => JsString(v.toHexString)
     case V.ValueOptional(None) => JsNull
     case V.ValueOptional(Some(v)) =>
       v match {
@@ -161,6 +163,9 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
         }
       }
       case Model.DamlLfPrimType.Bool => { case JsBoolean(v) => V.ValueBool(v) }
+      case Model.DamlLfPrimType.Bytes => {
+        case JsString(v) => V.ValueBytes(Bytes.assertFromString(v))
+      }
       case Model.DamlLfPrimType.List => { case JsArray(v) =>
         V.ValueList(
           v.iterator.map(e => jsValueToApiValue(e, prim.typArgs.head, defs)).to(FrontStack)

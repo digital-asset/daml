@@ -143,6 +143,7 @@ sealed abstract class PrimType extends TypeConNameOrPrimType {
       case Optional => optional
       case TextMap => map
       case GenMap => genMap
+      case Bytes => bytes
     }
   }
 }
@@ -160,6 +161,7 @@ object PrimType {
   final val Optional = PrimTypeOptional
   final val TextMap = PrimTypeTextMap
   final val GenMap = PrimTypeGenMap
+  final val Bytes = PrimTypeBytes
 }
 
 case object PrimTypeBool extends PrimType
@@ -174,6 +176,7 @@ case object PrimTypeUnit extends PrimType
 case object PrimTypeOptional extends PrimType
 case object PrimTypeTextMap extends PrimType
 case object PrimTypeGenMap extends PrimType
+case object PrimTypeBytes extends PrimType
 
 trait PrimTypeVisitor[+Z] {
   def bool: Z
@@ -188,4 +191,5 @@ trait PrimTypeVisitor[+Z] {
   def optional: Z
   def map: Z
   def genMap: Z
+  def bytes: Z
 }

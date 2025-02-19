@@ -171,6 +171,7 @@ data BuiltinType
   | BTUnit
   | BTBool
   | BTList
+  | BTBytes
   | BTUpdate
   | BTContractId
   | BTOptional
@@ -320,6 +321,17 @@ data BuiltinExpr
   | BECodePointsToText           -- :: List Int64 -> Text
 
   | BESecp256k1Bool              -- :: Text -> Text -> Text -> Bool
+
+  -- Bytes operations
+  | BETextToBytes               -- :: Text -> Optional Bytes
+  | BEBytesToText               -- :: Bytes -> Text
+  | BEInt64ToBytes              -- :: Int64 -> Bytes
+  | BEBytesToInt64              -- :: Bytes -> Optional Int64
+  | BEAppendBytes               -- :: Bytes -> Bytes -> Bytes
+  | BESliceBytes                -- :: Bytes -> Int64 -> Int64 -> Bytes
+  | BESizeBytes                 -- :: Bytes -> Int64
+  | BEEqualBytes                -- :: Bytes -> Bytes -> Bool
+  | BEPackBytes                 -- :: Int64 -> Bytes -> Bytes
 
   -- BigNumeric operations
   | BEScaleBigNumeric            -- :: BigNumeric -> Int64
