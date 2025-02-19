@@ -45,6 +45,10 @@ module DA.Internal.LF
   , AnyException
   #endif
 
+  #ifdef DAML_CCTP
+  , Bytes
+  #endif
+
   ) where
 
 import GHC.Stack.Types (HasCallStack)
@@ -218,4 +222,11 @@ instance Ord TypeRep where
 -- | A wrapper for all exception types.
 data AnyException = AnyException Opaque
 
+#endif
+
+#ifdef DAML_CCTP
+-- | The `Bytes` type represents a blob of bytes
+data Bytes =
+  -- | HIDE
+  Bytes Opaque
 #endif
