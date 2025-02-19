@@ -60,6 +60,8 @@ convertPrim _ "BESizeBytes" (TBytes :-> TInt64) =
     pure $ EBuiltinFun BESizeBytes
 convertPrim _ "BEEqualBytes" (TBytes :-> TBytes :-> TBool) =
     pure $ EBuiltinFun BEEqualBytes
+convertPrim _ "BEPackBytes" (TInt64 :-> TBytes :-> TBytes) =
+    pure $ EBuiltinFun BEPackBytes
 
 -- Integer arithmetic
 convertPrim _ "BEAddInt64" (TInt64 :-> TInt64 :-> TInt64) =

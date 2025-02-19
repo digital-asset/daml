@@ -534,6 +534,7 @@ object Ast {
   final case object BSliceBytes extends BuiltinFunction // : Bytes -> Int64 -> Int64 -> Bytes
   final case object BSizeBytes extends BuiltinFunction // : Bytes -> Int64
   final case object BEqualBytes extends BuiltinFunction // : Bytes -> Bytes -> Bool
+  final case object BPackBytes extends BuiltinFunction // : Int64 -> Bytes -> Bytes
 
   final case object BCoerceContractId
       extends BuiltinFunction // : ∀a b. ContractId a -> ContractId b

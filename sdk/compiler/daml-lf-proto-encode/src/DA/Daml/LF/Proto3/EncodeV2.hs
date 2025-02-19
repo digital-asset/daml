@@ -438,6 +438,7 @@ encodeBuiltinExpr = \case
     BESliceBytes -> builtin P.BuiltinFunctionSLICE_BYTES
     BESizeBytes -> builtin P.BuiltinFunctionSIZE_BYTES
     BEEqualBytes -> builtin P.BuiltinFunctionEQUAL_BYTES
+    BEPackBytes -> builtin P.BuiltinFunctionPACK_BYTES
 
     BEError -> builtin P.BuiltinFunctionERROR
     BEAnyExceptionMessage -> builtin P.BuiltinFunctionANY_EXCEPTION_MESSAGE

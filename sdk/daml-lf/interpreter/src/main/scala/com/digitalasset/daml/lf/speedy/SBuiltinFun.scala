@@ -783,6 +783,19 @@ private[lf] object SBuiltinFun {
     }
   }
 
+  final case object SBPackBytes extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+      val size = getSInt64(args, 0).toInt
+      val bytes = getSBytes(args, 1)
+
+      if (bytes.length <= size) {
+        SBytes(bytes.toByteArray.padTo[Byte](size, 0))
+      } else {
+        SBytes(bytes.toByteArray.drop(bytes.length - size))
+      }
+    }
+  }
+
   final case object SBFoldl extends SBuiltinFun(3) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],

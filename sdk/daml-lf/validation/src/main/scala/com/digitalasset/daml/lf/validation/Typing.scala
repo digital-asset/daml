@@ -284,6 +284,7 @@ private[validation] object Typing {
       BSliceBytes -> (TBytes ->: TInt64 ->: TInt64 ->: TBytes),
       BSizeBytes -> (TBytes ->: TInt64),
       BEqualBytes -> (TBytes ->: TBytes ->: TBool),
+      BPackBytes -> (TInt64 ->: TBytes ->: TBytes),
       BCoerceContractId ->
         TForall(
           alpha.name -> KStar,
