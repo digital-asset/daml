@@ -2489,6 +2489,7 @@ convertTyCon env t
             "Any" -> pure TAny
             "TypeRep" -> pure TTypeRep
             "AnyException" -> pure (TBuiltin BTAnyException)
+            "Bytes" -> pure (TBuiltin BTBytes)
             _ -> defaultTyCon
     | NameIn DA_Internal_Prelude "Optional" <- t = pure (TBuiltin BTOptional)
     | otherwise = defaultTyCon

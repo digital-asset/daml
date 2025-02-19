@@ -14,6 +14,7 @@ module DA.Bytes
   , slice
   ) where
 
+import DA.Internal.Bytes
 import GHC.Types (primitive)
 
 instance Eq Bytes where
