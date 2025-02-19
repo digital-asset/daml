@@ -7,14 +7,12 @@
 
 -- | TODO:
 module DA.Bytes
-  (Bytes
-  , toBytes
+  (toBytes
   , fromBytes
   , size
   , slice
   ) where
 
-import DA.Internal.Bytes
 import GHC.Types (primitive)
 
 instance Eq Bytes where
