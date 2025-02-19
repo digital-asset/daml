@@ -24,6 +24,7 @@ import com.digitalasset.canton.participant.pruning.{
 }
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.protocol.messages.{
+  AcsCommitment,
   CommitmentPeriodState,
   ReceivedAcsCommitment,
   SentAcsCommitment,
@@ -518,9 +519,18 @@ class GrpcInspectionService(
             )
         )
 
+        requestCommitment <- EitherT.fromEither[FutureUnlessShutdown](
+          AcsCommitment
+            .hashedCommitmentTypeFromByteString(request.commitment)
+            .leftMap[CantonError](err =>
+              InspectionServiceError.IllegalArgumentError
+                .Error(s"Failed to parse commitment hash: $err")
+            )
+        )
+
         _ <- EitherT.cond[FutureUnlessShutdown](
           computedCmts.exists { case (period, participant, cmt) =>
-            period.fromExclusive < cantonTickTs && period.toInclusive >= cantonTickTs && participant == counterParticipant && cmt == request.commitment
+            period.fromExclusive < cantonTickTs && period.toInclusive >= cantonTickTs && participant == counterParticipant && cmt == requestCommitment
           },
           (),
           InspectionServiceError.IllegalArgumentError.Error(

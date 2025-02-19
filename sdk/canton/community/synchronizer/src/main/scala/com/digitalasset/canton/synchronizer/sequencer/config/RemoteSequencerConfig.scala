@@ -7,15 +7,16 @@ import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{
   CantonConfigValidator,
   ClientConfig,
+  FullClientConfig,
   NodeConfig,
-  SequencerConnectionConfig,
+  SequencerApiClientConfig,
   UniformCantonConfigValidation,
 }
 
 final case class RemoteSequencerConfig(
-    adminApi: ClientConfig,
-    publicApi: SequencerConnectionConfig.Grpc,
-    grpcHealth: Option[ClientConfig] = None,
+    adminApi: FullClientConfig,
+    publicApi: SequencerApiClientConfig,
+    grpcHealth: Option[FullClientConfig] = None,
     token: Option[String] = None,
 ) extends NodeConfig
     with UniformCantonConfigValidation {

@@ -58,6 +58,7 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
   commitmentsFromStkhdCmts,
   computeCommitmentsPerParticipant,
   emptyCommitment,
+  hashedEmptyCommitment,
   initRunningCommitments,
 }
 import com.digitalasset.canton.participant.store.*
@@ -3497,7 +3498,7 @@ class AcsCommitmentProcessorTest
           sequencerClient.requests.size shouldBe 4
           // compute commitments for interval ends (10, 20, 30 and 35) x 2, and 3 empty ones for 5,15,25 as catch-up
           assert(computed.size === 11)
-          assert(computedCatchUp.forall(_._3 == emptyCommitment) && computedCatchUp.size == 3)
+          assert(computedCatchUp.forall(_._3 == hashedEmptyCommitment) && computedCatchUp.size == 3)
           assert(received.size === 8)
           // cannot prune past the mismatch
           assert(outstanding.contains(toc(25).timestamp))
@@ -3674,7 +3675,9 @@ class AcsCommitmentProcessorTest
             sequencerClient.requests.size shouldBe 5
             // compute commitments for interval ends (10, 15, 20, 30 and 35) x 2, and 3 empty ones for 5,15,25 as catch-up
             assert(computed.size === 13)
-            assert(computedCatchUp.forall(_._3 == emptyCommitment) && computedCatchUp.size == 3)
+            assert(
+              computedCatchUp.forall(_._3 == hashedEmptyCommitment) && computedCatchUp.size == 3
+            )
             assert(received.size === 9)
             // cannot prune past the mismatch
             assert(outstanding.contains(toc(25).timestamp))

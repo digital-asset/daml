@@ -6,6 +6,7 @@ package com.daml.nonempty
 import com.digitalasset.canton.logging.pretty.Pretty
 import io.scalaland.chimney.Transformer
 import io.scalaland.chimney.dsl.TransformerOps
+import monocle.Lens
 import pureconfig.{ConfigReader, ConfigWriter}
 
 import scala.collection.immutable
@@ -23,6 +24,9 @@ object NonEmptyUtil {
 
   def fromUnsafe[A](xs: A with immutable.Iterable[_]): NonEmpty[A] =
     NonEmpty.from(xs).getOrElse(throw new NoSuchElementException)
+
+  def lensToNEF[A, F[_], B](lens: Lens[A, NonEmpty[F[B]]]): Lens[A, NonEmptyF[F, B]] =
+    NonEmpty.equiv[F, B].subst(lens)
 
   object instances {
 
@@ -52,6 +56,10 @@ object NonEmptyUtil {
     implicit def nonEmptySetAutoTransformer[From, To](implicit
         transformer: Transformer.AutoDerived[From, To]
     ): Transformer[NonEmpty[Set[From]], NonEmpty[Set[To]]] = _.map(_.transformInto[To])
+
+    implicit class NonEmptyLensOps[A, F[_], B](val lens: Lens[A, NonEmpty[F[B]]]) extends AnyVal {
+      def toNEF: Lens[A, NonEmptyF[F, B]] = lensToNEF(lens)
+    }
   }
 
   /** A failure representing an unexpected empty collection

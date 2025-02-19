@@ -126,7 +126,7 @@ object ApiPackageManagementServiceSpec {
 
   private final case class TestSyncService(tracer: Tracer) extends state.SyncService {
     override def uploadDar(
-        dar: ByteString,
+        dar: Seq[ByteString],
         submissionId: Ref.SubmissionId,
     )(implicit
         traceContext: TraceContext

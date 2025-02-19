@@ -5,8 +5,10 @@ package com.digitalasset.canton.ledger.api.auth.services
 
 import com.daml.ledger.api.v2.state_service.*
 import com.daml.ledger.api.v2.state_service.StateServiceGrpc.StateService
-import com.digitalasset.canton.auth.Authorizer
+import com.digitalasset.canton.auth.{Authorizer, RequiredClaim}
 import com.digitalasset.canton.ledger.api.ProxyCloseable
+import com.digitalasset.canton.ledger.api.auth.RequiredClaims
+import com.digitalasset.canton.ledger.api.auth.services.StateServiceAuthorization.getActiveContractsClaims
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
@@ -25,33 +27,36 @@ final class StateServiceAuthorization(
       request: GetActiveContractsRequest,
       responseObserver: StreamObserver[GetActiveContractsResponse],
   ): Unit =
-    authorizer.requireReadClaimsForTransactionFilterOnStream(
-      request.filter
-        .map(_.filtersByParty)
-        .orElse(request.eventFormat.map(_.filtersByParty)),
-      request.filter
-        .flatMap(_.filtersForAnyParty)
-        .orElse(request.eventFormat.flatMap(_.filtersForAnyParty))
-        .nonEmpty,
-      service.getActiveContracts,
+    authorizer.stream(service.getActiveContracts)(
+      getActiveContractsClaims(request)*
     )(request, responseObserver)
 
   override def getConnectedSynchronizers(
       request: GetConnectedSynchronizersRequest
   ): Future[GetConnectedSynchronizersResponse] =
-    authorizer.requireReadClaimsForAllParties(
-      List(request.party),
-      service.getConnectedSynchronizers,
+    authorizer.rpc(service.getConnectedSynchronizers)(
+      RequiredClaim.ReadAs(request.party)
     )(request)
 
   override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] =
-    authorizer.requirePublicClaims(service.getLedgerEnd)(request)
+    authorizer.rpc(service.getLedgerEnd)(RequiredClaim.Public())(request)
 
   override def getLatestPrunedOffsets(
       request: GetLatestPrunedOffsetsRequest
   ): Future[GetLatestPrunedOffsetsResponse] =
-    authorizer.requirePublicClaims(service.getLatestPrunedOffsets)(request)
+    authorizer.rpc(service.getLatestPrunedOffsets)(RequiredClaim.Public())(request)
 
   override def bindService(): ServerServiceDefinition =
     StateServiceGrpc.bindService(this, executionContext)
+}
+
+object StateServiceAuthorization {
+  def getActiveContractsClaims(
+      request: GetActiveContractsRequest
+  ): List[RequiredClaim[GetActiveContractsRequest]] =
+    request.eventFormat.toList.flatMap(
+      RequiredClaims.eventFormatClaims[GetActiveContractsRequest]
+    ) ::: request.filter.toList.flatMap(
+      RequiredClaims.transactionFilterClaims[GetActiveContractsRequest]
+    )
 }

@@ -591,9 +591,14 @@ abstract class SequencerClientImpl(
         }
 
       performUnlessClosingEitherUSF(s"sending message $messageId to sequencer $sequencerId") {
-        logger.debug(
-          s"Sending message ID ${signedRequest.content.messageId} to sequencer $sequencerId"
-        )
+        NonEmpty.from(previousSequencers) match {
+          case None =>
+            logger.debug(s"Sending message ID $messageId to sequencer $sequencerId")
+          case Some(previousNE) =>
+            logger.info(
+              s"Amplifying submission request with message ID $messageId (attempt ${previousSequencers.size + 1}). Sending now to sequencer $sequencerId. Previous attempted sequencer ${previousNE.head1}."
+            )
+        }
         val submissionCostOrZero =
           signedRequest.content.submissionCost.map(_.cost.value).getOrElse(0L)
         metrics.trafficConsumption.trafficCostOfSubmittedEvent.mark(submissionCostOrZero)(

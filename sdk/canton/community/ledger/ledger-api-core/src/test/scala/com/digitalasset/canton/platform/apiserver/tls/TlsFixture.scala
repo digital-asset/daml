@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.apiserver.tls
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, Port}
 import com.digitalasset.canton.config.{
+  PemFile,
   ServerAuthRequirementConfig,
   TlsClientCertificate,
   TlsClientConfig,
@@ -19,6 +20,7 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
 import com.digitalasset.canton.platform.apiserver.{ApiService, ApiServices, LedgerApiService}
 import com.digitalasset.canton.protobuf
+import com.digitalasset.canton.util.JarResourceUtils
 import io.grpc.{BindableService, ManagedChannel}
 import io.netty.handler.ssl.ClientAuth
 
@@ -60,17 +62,21 @@ final case class TlsFixture(
 
   private val serverTlsConfiguration = Option.when(tlsEnabled)(
     TlsServerConfig(
-      certChainFile = ExistingFile.tryCreate(serverCrt),
-      privateKeyFile = ExistingFile.tryCreate(serverKey),
-      trustCollectionFile = Some(ExistingFile.tryCreate(caCrt)),
+      certChainFile = PemFile(ExistingFile.tryCreate(serverCrt)),
+      privateKeyFile = PemFile(ExistingFile.tryCreate(serverKey)),
+      trustCollectionFile = Some(PemFile(ExistingFile.tryCreate(caCrt))),
       clientAuth = clientAuth match {
         case ClientAuth.NONE => ServerAuthRequirementConfig.None
         case ClientAuth.OPTIONAL => ServerAuthRequirementConfig.Optional
         case ClientAuth.REQUIRE =>
           ServerAuthRequirementConfig.Require(
             TlsClientCertificate(
-              certChainFile = clientCrt.getOrElse(new File("unused.txt")),
-              privateKeyFile = clientKey.getOrElse(new File("unused.txt")),
+              certChainFile = PemFile(
+                ExistingFile.tryCreate(clientCrt.getOrElse(TlsFixture.resource("index.txt")))
+              ), // NB: the file is not used
+              privateKeyFile = PemFile(
+                ExistingFile.tryCreate(clientKey.getOrElse(TlsFixture.resource("index.txt")))
+              ), // NB: the file is not used
             )
           )
       },
@@ -101,10 +107,15 @@ final case class TlsFixture(
   private val clientTlsConfiguration =
     Option.when(tlsEnabled)(
       TlsClientConfig(
-        trustCollectionFile = Some(ExistingFile.tryCreate(caCrt)),
+        trustCollectionFile = Some(PemFile(ExistingFile.tryCreate(caCrt))),
         clientCert = (clientCrt, clientKey) match {
           case (Some(crt), Some(key)) =>
-            Some(TlsClientCertificate(certChainFile = crt, privateKeyFile = key))
+            Some(
+              TlsClientCertificate(
+                certChainFile = PemFile(ExistingFile.tryCreate(crt)),
+                privateKeyFile = PemFile(ExistingFile.tryCreate(key)),
+              )
+            )
           case _ => None
         },
       )
@@ -120,4 +131,9 @@ final case class TlsFixture(
       channel <- new GrpcChannel.Owner(apiServer.port.unwrap, ledgerClientChannelConfiguration)
     } yield channel
 
+}
+
+object TlsFixture {
+  protected def resource(src: String) =
+    JarResourceUtils.resourceFile("test-certificates/" + src)
 }

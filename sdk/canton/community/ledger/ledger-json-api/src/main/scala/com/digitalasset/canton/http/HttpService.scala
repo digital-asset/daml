@@ -50,6 +50,7 @@ import org.apache.pekko.stream.Materializer
 import scalaz.*
 import scalaz.Scalaz.*
 
+import java.io.InputStream
 import java.nio.file.{Files, Path}
 import java.security.{Key, KeyStore}
 import javax.net.ssl.SSLContext
@@ -402,28 +403,32 @@ object HttpService extends NoTracing {
   // TODO(i22574): Remove OptionPartial and Null warts in HttpService
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
   private def buildKeyStore(config: TlsServerConfig): KeyStore = buildKeyStore(
-    config.certChainFile.unwrap.toPath,
-    config.privateKeyFile.unwrap.toPath,
-    config.trustCollectionFile.get.unwrap.toPath,
+    config.certChainFile.pemStream,
+    config.privateKeyFile.pemFile.unwrap.toPath,
+    config.trustCollectionFile.get.pemStream,
   )
 
   // TODO(i22574): Remove OptionPartial and Null warts in HttpService
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
   private def buildKeyStore(config: TlsClientConfig): KeyStore = buildKeyStore(
-    config.clientCert.get.certChainFile.toPath,
-    config.clientCert.get.privateKeyFile.toPath,
-    config.trustCollectionFile.get.unwrap.toPath,
+    config.clientCert.get.certChainFile.pemStream,
+    config.clientCert.get.privateKeyFile.pemFile.unwrap.toPath,
+    config.trustCollectionFile.get.pemStream,
   )
 
   // TODO(i22574): Remove OptionPartial and Null warts in HttpService
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
-  private def buildKeyStore(certFile: Path, privateKeyFile: Path, caCertFile: Path): KeyStore = {
+  private def buildKeyStore(
+      certFile: InputStream,
+      privateKeyFile: Path,
+      caCertFile: InputStream,
+  ): KeyStore = {
     import java.security.cert.CertificateFactory
     val alias = "key" // This can be anything as long as it's consistent.
 
     val cf = CertificateFactory.getInstance("X.509")
-    val cert = Using.resource(Files.newInputStream(certFile))(cf.generateCertificate(_))
-    val caCert = Using.resource(Files.newInputStream(caCertFile))(cf.generateCertificate(_))
+    val cert = Using.resource(certFile)(cf.generateCertificate(_))
+    val caCert = Using.resource(caCertFile)(cf.generateCertificate(_))
     val privateKey = loadPrivateKey(privateKeyFile)
 
     val keyStore = KeyStore.getInstance("PKCS12")

@@ -1208,7 +1208,7 @@ abstract class ProtocolProcessor[
           rootHash,
           malformedPayloads,
         )
-        confirmationResponses <- confirmationResponsesO match {
+        _ <- confirmationResponsesO match {
           case Some(responses) =>
             val recipients = Recipients.cc(mediatorGroup)
             EitherT.right(

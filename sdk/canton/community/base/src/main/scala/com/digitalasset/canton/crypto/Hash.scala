@@ -18,6 +18,7 @@ import com.digitalasset.canton.serialization.{
   DeterministicEncoding,
   HasCryptographicEvidence,
 }
+import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.util.HexString
 import com.google.protobuf.ByteString
 import slick.jdbc.{GetResult, SetParameter}
@@ -138,7 +139,13 @@ object Hash {
   implicit val getResultOptionHash: GetResult[Option[Hash]] = GetResult { r =>
     import com.digitalasset.canton.resource.DbStorage.Implicits.getResultByteStringOption
     (r.<<[Option[ByteString]]).map(bytes => tryFromByteString(bytes))
+  }
 
+  val getResultHashFromHexString = GetResult[Hash] { r =>
+    val hexString = r.<<[String]
+    Hash.fromHexString(hexString).valueOr { err =>
+      throw new DbDeserializationException(s"Failed to parse Hash from hex string: $err")
+    }
   }
 
   private[crypto] def tryCreate(hash: ByteString, algorithm: HashAlgorithm): Hash =

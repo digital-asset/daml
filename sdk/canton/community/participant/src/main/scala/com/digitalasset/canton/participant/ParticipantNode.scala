@@ -17,7 +17,7 @@ import com.digitalasset.canton.config.SessionSigningKeysConfig
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
-import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
+import com.digitalasset.canton.crypto.store.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi, SyncCryptoApiParticipantProvider}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -1021,7 +1021,17 @@ object ParticipantNodeBootstrap {
       arguments
         .toCantonNodeBootstrapCommonArguments(
           new CommunityStorageFactory(arguments.config.storage),
-          new CommunityCryptoPrivateStoreFactory,
+          new CommunityCryptoPrivateStoreFactory(
+            arguments.config.crypto.provider,
+            arguments.config.crypto.kms,
+            CommunityKmsFactory,
+            arguments.config.parameters.caching.kmsMetadataCache,
+            arguments.config.crypto.privateKeyStore,
+            arguments.parameters.nonStandardConfig,
+            arguments.futureSupervisor,
+            arguments.clock,
+            arguments.executionContext,
+          ),
           CommunityKmsFactory,
         )
         .map { arguments =>

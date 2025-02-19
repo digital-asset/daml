@@ -7,6 +7,7 @@ import com.daml.ledger.api.v2.command_service.*
 import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandService
 import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.ProxyCloseable
+import com.digitalasset.canton.ledger.api.auth.RequiredClaims
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator
 import io.grpc.ServerServiceDefinition
@@ -29,11 +30,12 @@ final class CommandServiceAuthorization(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionResponse] = {
     val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
-    authorizer.requireActAndReadClaimsForParties(
-      actAs = effectiveSubmitters.actAs,
-      readAs = effectiveSubmitters.readAs,
-      applicationIdL = Lens.unit[SubmitAndWaitRequest].commands.applicationId,
-      call = service.submitAndWaitForTransaction,
+    authorizer.rpc(service.submitAndWaitForTransaction)(
+      RequiredClaims.submissionClaims(
+        actAs = effectiveSubmitters.actAs,
+        readAs = effectiveSubmitters.readAs,
+        applicationIdL = Lens.unit[SubmitAndWaitRequest].commands.applicationId,
+      )*
     )(request)
   }
 
@@ -41,11 +43,12 @@ final class CommandServiceAuthorization(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitResponse] = {
     val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
-    authorizer.requireActAndReadClaimsForParties(
-      actAs = effectiveSubmitters.actAs,
-      readAs = effectiveSubmitters.readAs,
-      applicationIdL = Lens.unit[SubmitAndWaitRequest].commands.applicationId,
-      call = service.submitAndWait,
+    authorizer.rpc(service.submitAndWait)(
+      RequiredClaims.submissionClaims(
+        actAs = effectiveSubmitters.actAs,
+        readAs = effectiveSubmitters.readAs,
+        applicationIdL = Lens.unit[SubmitAndWaitRequest].commands.applicationId,
+      )*
     )(request)
   }
 
@@ -53,11 +56,12 @@ final class CommandServiceAuthorization(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionTreeResponse] = {
     val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
-    authorizer.requireActAndReadClaimsForParties(
-      actAs = effectiveSubmitters.actAs,
-      readAs = effectiveSubmitters.readAs,
-      applicationIdL = Lens.unit[SubmitAndWaitRequest].commands.applicationId,
-      call = service.submitAndWaitForTransactionTree,
+    authorizer.rpc(service.submitAndWaitForTransactionTree)(
+      RequiredClaims.submissionClaims(
+        actAs = effectiveSubmitters.actAs,
+        readAs = effectiveSubmitters.readAs,
+        applicationIdL = Lens.unit[SubmitAndWaitRequest].commands.applicationId,
+      )*
     )(request)
   }
 

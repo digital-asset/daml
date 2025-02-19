@@ -5,8 +5,10 @@ package com.digitalasset.canton.ledger.api.auth.services
 
 import com.daml.ledger.api.v2.admin.party_management_service.*
 import com.daml.ledger.api.v2.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
-import com.digitalasset.canton.auth.Authorizer
+import com.digitalasset.canton.auth.{Authorizer, RequiredClaim}
 import com.digitalasset.canton.ledger.api.ProxyCloseable
+import com.digitalasset.canton.ledger.api.auth.RequiredClaims
+import com.digitalasset.canton.ledger.api.auth.services.PartyManagementServiceAuthorization.updatePartyDetailsClaims
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import io.grpc.ServerServiceDefinition
 import scalapb.lenses.Lens
@@ -24,57 +26,59 @@ final class PartyManagementServiceAuthorization(
   override def getParticipantId(
       request: GetParticipantIdRequest
   ): Future[GetParticipantIdResponse] =
-    authorizer.requireAdminClaims(service.getParticipantId)(request)
+    authorizer.rpc(service.getParticipantId)(RequiredClaim.Admin())(request)
 
   override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
-    authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
-      Lens.unit[GetPartiesRequest].identityProviderId,
-      service.getParties,
+    authorizer.rpc(service.getParties)(
+      RequiredClaims.idpAdminClaimsAndMatchingRequestIdpId(
+        Lens.unit[GetPartiesRequest].identityProviderId
+      )*
     )(request)
 
   override def listKnownParties(
       request: ListKnownPartiesRequest
   ): Future[ListKnownPartiesResponse] =
-    authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
-      Lens.unit[ListKnownPartiesRequest].identityProviderId,
-      service.listKnownParties,
-    )(
-      request
-    )
+    authorizer.rpc(service.listKnownParties)(
+      RequiredClaims.idpAdminClaimsAndMatchingRequestIdpId(
+        Lens.unit[ListKnownPartiesRequest].identityProviderId
+      )*
+    )(request)
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] =
-    authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
-      Lens.unit[AllocatePartyRequest].identityProviderId,
-      service.allocateParty,
-    )(
-      request
-    )
+    authorizer.rpc(service.allocateParty)(
+      RequiredClaims.idpAdminClaimsAndMatchingRequestIdpId(
+        Lens.unit[AllocatePartyRequest].identityProviderId
+      )*
+    )(request)
 
   override def updatePartyDetails(
       request: UpdatePartyDetailsRequest
-  ): Future[UpdatePartyDetailsResponse] = request.partyDetails match {
-    case Some(partyDetails) =>
-      authorizer.requireIdpAdminClaimsAndMatchingRequestIdpId(
-        Lens.unit[UpdatePartyDetailsRequest].partyDetails.identityProviderId,
-        service.updatePartyDetails,
-      )(
-        request
-      )
-    case None =>
-      authorizer.requireIdpAdminClaims(service.updatePartyDetails)(request)
-  }
+  ): Future[UpdatePartyDetailsResponse] =
+    authorizer.rpc(service.updatePartyDetails)(
+      updatePartyDetailsClaims(request)*
+    )(request)
 
   override def updatePartyIdentityProviderId(
       request: UpdatePartyIdentityProviderIdRequest
   ): Future[UpdatePartyIdentityProviderIdResponse] =
-    authorizer.requireAdminClaims(
-      call = service.updatePartyIdentityProviderId
-    )(
-      request
-    )
+    authorizer.rpc(service.updatePartyIdentityProviderId)(RequiredClaim.Admin())(request)
 
   override def bindService(): ServerServiceDefinition =
     PartyManagementServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
+}
+
+object PartyManagementServiceAuthorization {
+  def updatePartyDetailsClaims(
+      request: UpdatePartyDetailsRequest
+  ): List[RequiredClaim[UpdatePartyDetailsRequest]] =
+    request.partyDetails match {
+      case Some(_) =>
+        RequiredClaims.idpAdminClaimsAndMatchingRequestIdpId(
+          Lens.unit[UpdatePartyDetailsRequest].partyDetails.identityProviderId
+        )
+      case None =>
+        RequiredClaim.AdminOrIdpAdmin[UpdatePartyDetailsRequest]() :: Nil
+    }
 }

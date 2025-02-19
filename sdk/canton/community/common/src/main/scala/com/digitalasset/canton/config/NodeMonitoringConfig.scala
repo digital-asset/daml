@@ -24,11 +24,11 @@ final case class GrpcHealthServerConfig(
   override def authServices: Seq[AuthServiceConfig] = Seq.empty
   override def adminToken: Option[String] = None
   override val sslContext: Option[SslContext] = None
-  override val serverCertChainFile: Option[RequireTypes.ExistingFile] = None
+  override val serverCertChainFile: Option[PemFileOrString] = None
   override def maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize
 
-  def toRemoteConfig: ClientConfig =
-    ClientConfig(address, port, keepAliveClient = keepAliveServer.map(_.clientConfigFor))
+  def toRemoteConfig: FullClientConfig =
+    FullClientConfig(address, port, keepAliveClient = keepAliveServer.map(_.clientConfigFor))
 }
 object GrpcHealthServerConfig {
   implicit val grpcHealthServerConfigCanontConfigValidator

@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.config
 
 import com.daml.jwt.JwtTimestampLeeway
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import io.netty.handler.ssl.SslContext
@@ -52,12 +52,15 @@ final case class PublicServerConfig(
 
   override def adminToken: Option[String] = None
 
-  lazy val clientConfig: ClientConfig =
-    ClientConfig(address, port, tls.map(c => TlsClientConfig(Some(c.certChainFile), None)))
+  lazy val clientConfig: SequencerApiClientConfig = SequencerApiClientConfig(
+    address,
+    port,
+    tls.map(c => TlsClientConfigOnlyTrustFile(Some(c.certChainFile))),
+  )
 
   override def sslContext: Option[SslContext] = tls.map(CantonServerBuilder.baseSslContext)
 
-  override def serverCertChainFile: Option[ExistingFile] = tls.map(_.certChainFile)
+  override def serverCertChainFile: Option[PemFileOrString] = tls.map(_.certChainFile)
 
   /** This setting has no effect. Therfore hardcoding it to 0.
     */

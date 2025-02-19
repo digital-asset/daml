@@ -18,7 +18,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsHelpers
-import com.digitalasset.canton.participant.store.AcsCommitmentStore.CommitmentData
+import com.digitalasset.canton.participant.store.AcsCommitmentStore.ParticipantCommitmentData
 import com.digitalasset.canton.participant.store.db.DbAcsCommitmentStore
 import com.digitalasset.canton.participant.store.{
   AcsCommitmentStore,
@@ -196,6 +196,12 @@ sealed trait SyncStateInspectionTest
   ): (ReceivedAcsCommitment, SignedProtocolMessage[AcsCommitment]) = {
 
     val dummyCommitment = createDummyHash(hashingState.isOwnDefault)
+    val hashedDummyCommitment: AcsCommitment.HashedCommitmentType =
+      AcsCommitment.hashCommitment(dummyCommitment)
+    val dummyCounterCommitment = createDummyHash(hashingState.isCounterDefault)
+    val hashedDummyCounterCommitment: AcsCommitment.HashedCommitmentType =
+      AcsCommitment.hashCommitment(dummyCounterCommitment)
+
     val dummySignature: Signature =
       symbolicCrypto.sign(
         symbolicCrypto.pureCrypto.digest(TestHash.testHashPurpose, dummyCommitment),
@@ -217,8 +223,8 @@ sealed trait SyncStateInspectionTest
       synchronizerId,
       commitmentPeriod,
       remoteParticipant,
-      Option.when(hashingState.isVerbose)(dummyCommitment),
-      Option.when(hashingState.isVerbose)(createDummyHash(hashingState.isCounterDefault)),
+      Option.when(hashingState.isVerbose)(hashedDummyCommitment),
+      Option.when(hashingState.isVerbose)(hashedDummyCounterCommitment),
       state,
     )
     (received, signed)
@@ -234,16 +240,20 @@ sealed trait SyncStateInspectionTest
       period: CommitmentPeriod,
       hashingState: HashingState = new HashingState(),
       state: ValidSentPeriodState = CommitmentPeriodState.Outstanding,
-  ): (SentAcsCommitment, AcsCommitmentStore.CommitmentData) = {
+  ): (SentAcsCommitment, AcsCommitmentStore.ParticipantCommitmentData) = {
 
     val dummyCommitment = createDummyHash(hashingState.isOwnDefault)
-    val commitmentData = CommitmentData(counterParticipant, period, dummyCommitment)
+    val hashedDummyCommitment = AcsCommitment.hashCommitment(dummyCommitment)
+    val dummyCounterCommitment = createDummyHash(hashingState.isCounterDefault)
+    val hashedDummyCounterCommitment = AcsCommitment.hashCommitment(dummyCounterCommitment)
+    val commitmentData =
+      ParticipantCommitmentData(counterParticipant, period, hashedDummyCommitment)
     val sent = SentAcsCommitment(
       synchronizerId,
       period,
       counterParticipant,
-      Option.when(hashingState.isVerbose)(dummyCommitment),
-      Option.when(hashingState.isVerbose)(createDummyHash(hashingState.isCounterDefault)),
+      Option.when(hashingState.isVerbose)(hashedDummyCommitment),
+      Option.when(hashingState.isVerbose)(hashedDummyCounterCommitment),
       state,
     )
     (sent, commitmentData)

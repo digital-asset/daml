@@ -117,10 +117,12 @@ object ClientChannelBuilder {
     val builder = GrpcSslContexts
       .forClient()
     val trustBuilder = tls.trustCollectionFile.fold(builder)(trustCollection =>
-      builder.trustManager(trustCollection.unwrap)
+      builder.trustManager(trustCollection.pemStream)
     )
     tls.clientCert
-      .fold(trustBuilder)(cc => trustBuilder.keyManager(cc.certChainFile, cc.privateKeyFile))
+      .fold(trustBuilder)(cc =>
+        trustBuilder.keyManager(cc.certChainFile.pemStream, cc.privateKeyFile.pemStream)
+      )
   }
 
   def sslContext(
@@ -168,7 +170,7 @@ object ClientChannelBuilder {
     val builder = configureKeepAlive(
       clientConfig.keepAliveClient,
       // if tls isn't configured assume that it's a plaintext channel
-      clientConfig.tls
+      clientConfig.tlsConfig
         .fold(baseBuilder.usePlaintext()) { tls =>
           baseBuilder
             .useTransportSecurity()

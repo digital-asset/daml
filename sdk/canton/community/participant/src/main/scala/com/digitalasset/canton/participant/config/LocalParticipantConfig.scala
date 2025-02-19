@@ -109,7 +109,7 @@ final case class CommunityParticipantConfig(
   override def clientLedgerApi: ClientConfig = ledgerApi.clientConfig
 
   def toRemoteConfig: RemoteParticipantConfig =
-    RemoteParticipantConfig(clientAdminApi, clientLedgerApi)
+    RemoteParticipantConfig(adminApi.clientConfig, ledgerApi.clientConfig)
 
   override def withDefaults(ports: DefaultPorts): CommunityParticipantConfig =
     this
@@ -132,8 +132,8 @@ object CommunityParticipantConfig {
   * @param token optional bearer token to use on the ledger-api if jwt authorization is enabled
   */
 final case class RemoteParticipantConfig(
-    adminApi: ClientConfig,
-    ledgerApi: ClientConfig,
+    adminApi: FullClientConfig,
+    ledgerApi: FullClientConfig,
     token: Option[String] = None,
 ) extends BaseParticipantConfig
     with UniformCantonConfigValidation {
@@ -200,13 +200,13 @@ final case class LedgerApiServerConfig(
 ) extends ServerConfig // We can't currently expose enterprise server features at the ledger api anyway
     {
 
-  lazy val clientConfig: ClientConfig =
-    ClientConfig(address, port, tls.map(_.clientConfig))
+  lazy val clientConfig: FullClientConfig =
+    FullClientConfig(address, port, tls.map(_.clientConfig))
 
   override def sslContext: Option[SslContext] =
     tls.map(CantonServerBuilder.sslContext(_))
 
-  override def serverCertChainFile: Option[ExistingFile] =
+  override def serverCertChainFile: Option[PemFileOrString] =
     tls.map(_.certChainFile)
 
 }

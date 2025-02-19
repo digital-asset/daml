@@ -9,8 +9,9 @@ import com.daml.ledger.api.v2.command_completion_service.{
   CompletionStreamRequest,
   CompletionStreamResponse,
 }
-import com.digitalasset.canton.auth.Authorizer
+import com.digitalasset.canton.auth.{Authorizer, RequiredClaim}
 import com.digitalasset.canton.ledger.api.ProxyCloseable
+import com.digitalasset.canton.ledger.api.auth.services.CommandCompletionServiceAuthorization.completionStreamClaims
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
@@ -30,12 +31,21 @@ final class CommandCompletionServiceAuthorization(
       request: CompletionStreamRequest,
       responseObserver: StreamObserver[CompletionStreamResponse],
   ): Unit =
-    authorizer.requireReadClaimsForAllPartiesOnStreamWithApplicationId(
-      parties = request.parties,
-      applicationIdL = Lens.unit[CompletionStreamRequest].applicationId,
-      call = service.completionStream,
-    )(request, responseObserver)
+    authorizer.stream(service.completionStream)(completionStreamClaims(request)*)(
+      request,
+      responseObserver,
+    )
 
   override def bindService(): ServerServiceDefinition =
     CommandCompletionServiceGrpc.bindService(this, executionContext)
+}
+
+object CommandCompletionServiceAuthorization {
+  def completionStreamClaims(
+      request: CompletionStreamRequest
+  ): List[RequiredClaim[CompletionStreamRequest]] =
+    RequiredClaim.MatchApplicationId(
+      requestStringL = Lens.unit[CompletionStreamRequest].applicationId,
+      skipApplicationIdValidationForAnyPartyReaders = true,
+    ) :: request.parties.view.map(RequiredClaim.ReadAs[CompletionStreamRequest]).toList
 }
