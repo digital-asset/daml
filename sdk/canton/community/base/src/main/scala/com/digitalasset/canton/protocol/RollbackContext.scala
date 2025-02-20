@@ -14,15 +14,17 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import scala.Ordering.Implicits.*
 import scala.math.Ordered.orderingToOrdered
 
-/** RollbackContext tracks the location of lf transaction nodes or canton participant views within a hierarchy of
-  * LfNodeRollback suitable for maintaining the local position within the hierarchy of rollback nodes when iterating
-  * over a transaction.
-  * @param rbScope   scope or path of sibling ordinals ordered "from the outside-in", e.g. [2, 1, 3] points via the
-  *                  second rollback node to its first rollback node descendant to the latter's third rollback node
-  *                  descendant where rollback node "levels" may be separated from the root and each other only by
-  *                  non-rollback nodes.
-  * @param nextChild the next sibling ordinal to assign to a newly encountered rollback node. This is needed on top of
-  *                  rbScope in use cases in which the overall transaction structure is not known a priori.
+/** RollbackContext tracks the location of lf transaction nodes or canton participant views within a
+  * hierarchy of LfNodeRollback suitable for maintaining the local position within the hierarchy of
+  * rollback nodes when iterating over a transaction.
+  * @param rbScope
+  *   scope or path of sibling ordinals ordered "from the outside-in", e.g. [2, 1, 3] points via the
+  *   second rollback node to its first rollback node descendant to the latter's third rollback node
+  *   descendant where rollback node "levels" may be separated from the root and each other only by
+  *   non-rollback nodes.
+  * @param nextChild
+  *   the next sibling ordinal to assign to a newly encountered rollback node. This is needed on top
+  *   of rbScope in use cases in which the overall transaction structure is not known a priori.
   */
 final case class RollbackContext private (
     private val rbScope: Vector[RollbackSibling],

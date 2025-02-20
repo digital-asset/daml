@@ -5,12 +5,18 @@ package com.digitalasset.canton.platform.config
 
 /** Ledger api user management service specific configurations
   *
-  * @param enabled                        whether to enable participant user management
-  * @param maxCacheSize                   maximum in-memory cache size for user management state
-  * @param cacheExpiryAfterWriteInSeconds determines the maximum delay for propagating user management state changes
-  * @param maxUsersPageSize               maximum number of users returned
-  * @param maxRightsPerUser               maximum number of rights per user
-  * @param additionalAdminUserId          adds an extra admin
+  * @param enabled
+  *   whether to enable participant user management
+  * @param maxCacheSize
+  *   maximum in-memory cache size for user management state
+  * @param cacheExpiryAfterWriteInSeconds
+  *   determines the maximum delay for propagating user management state changes
+  * @param maxUsersPageSize
+  *   maximum number of users returned
+  * @param maxRightsPerUser
+  *   maximum number of rights per user
+  * @param additionalAdminUserId
+  *   adds an extra admin
   */
 final case class UserManagementServiceConfig(
     enabled: Boolean = true,

@@ -10,11 +10,12 @@ import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.{OpenEnvelope, Recipients}
 
-/** The [[MediatorEventsProcessor]] looks through all sequencer events provided by the sequencer client in a batch
-  * to pick out events for the Mediator with the same request-id while also scheduling timeouts and running
-  * topology transactions at appropriate times. We map all the mediator events we generate into this simplified
-  * structure so the [[ConfirmationRequestAndResponseProcessor]] processes these events without having to perform the same extraction
-  * and error handling of the original SequencerEvent.
+/** The [[MediatorEventsProcessor]] looks through all sequencer events provided by the sequencer
+  * client in a batch to pick out events for the Mediator with the same request-id while also
+  * scheduling timeouts and running topology transactions at appropriate times. We map all the
+  * mediator events we generate into this simplified structure so the
+  * [[ConfirmationRequestAndResponseProcessor]] processes these events without having to perform the
+  * same extraction and error handling of the original SequencerEvent.
   */
 private[mediator] sealed trait MediatorEvent extends PrettyPrinting {
   val requestId: RequestId
@@ -40,8 +41,8 @@ private[mediator] object MediatorEvent {
     )
   }
 
-  /** A response to a mediator confirmation request.
-    * Currently, each response is processed independently even if they arrive within the same batch.
+  /** A response to a mediator confirmation request. Currently, each response is processed
+    * independently even if they arrive within the same batch.
     */
   final case class Response(
       counter: SequencerCounter,

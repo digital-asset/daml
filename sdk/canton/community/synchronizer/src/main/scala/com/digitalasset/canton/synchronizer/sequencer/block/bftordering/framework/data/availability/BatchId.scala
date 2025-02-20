@@ -27,10 +27,7 @@ object BatchId {
   def from(orderingRequestBatch: OrderingRequestBatch): BatchId = {
     val builder = Hash
       .build(hashPurpose, HashAlgorithm.Sha256)
-      .add(
-        orderingRequestBatch.toProto.toProtoString
-      )
-
+    orderingRequestBatch.addToHashBuilder(builder)
     BatchId(builder.finish())
   }
 

@@ -91,7 +91,9 @@ class PackageUploader(
 
   /** Uploads dar into dar store
     *
-    * @return the package id of the main package (also used to refer to the dar) and the package ids of the dependencies
+    * @return
+    *   the package id of the main package (also used to refer to the dar) and the package ids of
+    *   the dependencies
     */
   def upload(
       darPayload: ByteString,

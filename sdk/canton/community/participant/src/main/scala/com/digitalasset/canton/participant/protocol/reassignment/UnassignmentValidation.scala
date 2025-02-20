@@ -25,7 +25,8 @@ private[reassignment] class UnassignmentValidation(
     engine: DAMLe,
 ) {
 
-  /** @param targetTopology Defined if and only if the participant is reassigning
+  /** @param targetTopology
+    *   Defined if and only if the participant is reassigning
     */
   def perform(
       sourceTopology: Source[TopologySnapshot],

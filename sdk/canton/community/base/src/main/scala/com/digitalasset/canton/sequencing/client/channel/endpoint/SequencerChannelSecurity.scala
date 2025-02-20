@@ -20,24 +20,29 @@ import com.google.protobuf.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Encapsulates the sequencer channel security concern, in particular in stores the session key in-memory.
+/** Encapsulates the sequencer channel security concern, in particular in stores the session key
+  * in-memory.
   *
   * Instances of this class are expected to be used by
-  * [[com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint]], and destroyed when
-  * such endpoint is no longer needed.
+  * [[com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint]],
+  * and destroyed when such endpoint is no longer needed.
   *
   * Using the [[com.digitalasset.canton.crypto.SynchronizerCryptoClient]] as opposed to using
-  * [[com.digitalasset.canton.crypto.SyncCryptoClient]] (`SyncCryptoClient[SyncCryptoApi]`) ensures that the crypto
-  * schemes that the synchronizer prescribes are actually used. Doing so prevents downgrading attacks where a weaker scheme
-  * is used.
+  * [[com.digitalasset.canton.crypto.SyncCryptoClient]] (`SyncCryptoClient[SyncCryptoApi]`) ensures
+  * that the crypto schemes that the synchronizer prescribes are actually used. Doing so prevents
+  * downgrading attacks where a weaker scheme is used.
   *
-  * The [[com.digitalasset.canton.data.CantonTimestamp]] deterministically determines the public key that a member
-  * uses to encrypt / decrypt the symmetric session key. That timestamp is expected to originate from a recent topology
-  * transaction that has already taken effect; meaning it's not a future timestamp.
+  * The [[com.digitalasset.canton.data.CantonTimestamp]] deterministically determines the public key
+  * that a member uses to encrypt / decrypt the symmetric session key. That timestamp is expected to
+  * originate from a recent topology transaction that has already taken effect; meaning it's not a
+  * future timestamp.
   *
-  * @param synchronizerCryptoApi Provides the crypto API for symmetric and asymmetric encryption operations.
-  * @param protocolVersion Used for the proto messages versioning.
-  * @param timestamp   Determines the public key for asymmetric encryption.
+  * @param synchronizerCryptoApi
+  *   Provides the crypto API for symmetric and asymmetric encryption operations.
+  * @param protocolVersion
+  *   Used for the proto messages versioning.
+  * @param timestamp
+  *   Determines the public key for asymmetric encryption.
   */
 private[endpoint] final class SequencerChannelSecurity(
     synchronizerCryptoApi: SynchronizerCryptoClient,

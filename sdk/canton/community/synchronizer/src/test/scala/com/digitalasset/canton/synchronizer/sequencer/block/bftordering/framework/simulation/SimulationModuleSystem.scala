@@ -8,7 +8,11 @@ import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
+  P2PEndpoint,
+  PlainTextP2PEndpoint,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
   ModuleControl,
   SystemInitializer,
@@ -74,18 +78,23 @@ object SimulationModuleSystem {
 
     override def createNetworkRef[ActorContextT](
         _context: SimulationModuleContext[ActorContextT],
-        endpoint: Endpoint,
+        endpoint: P2PEndpoint,
     )(
-        onSequencerId: (Endpoint, SequencerId) => Unit
+        onSequencerId: (P2PEndpoint.Id, SequencerId) => Unit
     ): P2PNetworkRef[P2PMessageT] = {
       val sequencerId = fakeSequencerId(endpoint)
-      collector.addOpenConnection(sequencerId, endpoint, onSequencerId)
-      SimulationP2PNetworkRef(sequencerId, collector, timeouts, loggerFactory)
+      endpoint match {
+        case plaintextEndpoint: PlainTextP2PEndpoint =>
+          collector.addOpenConnection(sequencerId, plaintextEndpoint, onSequencerId)
+          SimulationP2PNetworkRef(sequencerId, collector, timeouts, loggerFactory)
+        case _: GrpcNetworking.TlsP2PEndpoint =>
+          throw new UnsupportedOperationException("TLS is not supported in simulation")
+      }
     }
   }
 
   object SimulationP2PNetworkManager {
-    def fakeSequencerId(peer: Endpoint): SequencerId =
+    def fakeSequencerId(peer: P2PEndpoint): SequencerId =
       SequencerId(UniqueIdentifier.tryCreate("ns", s"fake_$peer"))
   }
 
@@ -365,7 +374,7 @@ object SimulationModuleSystem {
 
   def apply[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, ClientMessageT](
       endpointsToInitializers: Map[
-        Endpoint,
+        PlainTextP2PEndpoint,
         SimulationInitializer[
           OnboardingDataT,
           SystemNetworkMessageT,

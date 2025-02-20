@@ -35,7 +35,8 @@ import com.google.common.annotations.VisibleForTesting
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
-/** The in-memory store does not provide any persistence and keys during runtime are stored in the generic caching layer.
+/** The in-memory store does not provide any persistence and keys during runtime are stored in the
+  * generic caching layer.
   */
 class InMemoryCryptoPrivateStore(
     override protected val releaseProtocolVersion: ReleaseProtocolVersion,

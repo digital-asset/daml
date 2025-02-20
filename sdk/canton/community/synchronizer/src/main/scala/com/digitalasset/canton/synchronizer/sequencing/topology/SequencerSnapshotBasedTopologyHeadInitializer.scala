@@ -17,9 +17,10 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.concurrent.ExecutionContext
 
 /** For a provided sequencer snapshot, updates the topology client's head state up to
-  * [[sequencer.SequencerSnapshot.lastTs]], because this is up to where
-  * the topology store is queried for the onboarding state.
-  * See [[com.digitalasset.canton.synchronizer.sequencing.service.GrpcSequencerAdministrationService.onboardingState]] for details.
+  * [[sequencer.SequencerSnapshot.lastTs]], because this is up to where the topology store is
+  * queried for the onboarding state. See
+  * [[com.digitalasset.canton.synchronizer.sequencing.service.GrpcSequencerAdministrationService.onboardingState]]
+  * for details.
   */
 final class SequencerSnapshotBasedTopologyHeadInitializer(
     snapshot: SequencerSnapshot,

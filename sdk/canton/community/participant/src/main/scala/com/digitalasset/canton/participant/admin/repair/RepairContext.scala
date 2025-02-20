@@ -13,10 +13,11 @@ import com.digitalasset.canton.tracing.TraceContext
 
 /** Make tracecontext mandatory throughout repair operations.
   *
-  * @param str the w3c serialized tracing information of the trace parent
-  *            The W3C standard specifies that the traceparent is length-limited -> thus it is safe to limit it to 255 characters
-  *            However, Tracestates aren't limited, so the repair context should be saved as a blob (like [[com.digitalasset.canton.tracing.TraceContext]])
-  *            if we want to use it for repair contexts
+  * @param str
+  *   the w3c serialized tracing information of the trace parent The W3C standard specifies that the
+  *   traceparent is length-limited -> thus it is safe to limit it to 255 characters However,
+  *   Tracestates aren't limited, so the repair context should be saved as a blob (like
+  *   [[com.digitalasset.canton.tracing.TraceContext]]) if we want to use it for repair contexts
   */
 final case class RepairContext(override protected val str: String255)
     extends LengthLimitedStringWrapper

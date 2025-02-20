@@ -75,8 +75,8 @@ trait ClientChannelBuilder {
 
 trait ClientChannelBuilderFactory extends (NamedLoggerFactory => ClientChannelBuilder)
 
-/** Supports creating GRPC channels but only supports a single host.
-  * If multiple endpoints are provided a warning will be logged and the first supplied will be used.
+/** Supports creating GRPC channels but only supports a single host. If multiple endpoints are
+  * provided a warning will be logged and the first supplied will be used.
   */
 class CommunityClientChannelBuilder(protected val loggerFactory: NamedLoggerFactory)
     extends ClientChannelBuilder
@@ -155,28 +155,41 @@ object ClientChannelBuilder {
         .keepAliveTimeout(timeout.toMillis, TimeUnit.MILLISECONDS)
     }
 
-  /** Simple channel construction for test and console clients.
-    * `maxInboundMessageSize` is 2GB; so don't use this to connect to an untrusted server.
+  /** Simple channel construction for test and console clients. `maxInboundMessageSize` is 2GB; so
+    * don't use this to connect to an untrusted server.
     */
   def createChannelBuilderToTrustedServer(
       clientConfig: ClientConfig
+  )(implicit executor: Executor): ManagedChannelBuilderProxy =
+    createChannelBuilder(clientConfig, maxInboundMessageSize = Some(Int.MaxValue))
+
+  def createChannelBuilder(
+      clientConfig: ClientConfig,
+      maxInboundMessageSize: Option[Int] = None,
   )(implicit executor: Executor): ManagedChannelBuilderProxy = {
-    val baseBuilder: NettyChannelBuilder = NettyChannelBuilder
-      .forAddress(clientConfig.address, clientConfig.port.unwrap)
-      .executor(executor)
-      .maxInboundMessageSize(Int.MaxValue)
+    val nettyChannelBuilder =
+      NettyChannelBuilder
+        .forAddress(clientConfig.address, clientConfig.port.unwrap)
+        .executor(executor)
+
+    val baseBuilder =
+      maxInboundMessageSize
+        .map(nettyChannelBuilder.maxInboundMessageSize)
+        .getOrElse(nettyChannelBuilder)
 
     // apply keep alive settings
-    val builder = configureKeepAlive(
-      clientConfig.keepAliveClient,
-      // if tls isn't configured assume that it's a plaintext channel
+    val builder =
       clientConfig.tlsConfig
+        // if tls isn't configured assume that it's a plaintext channel
         .fold(baseBuilder.usePlaintext()) { tls =>
-          baseBuilder
-            .useTransportSecurity()
-            .sslContext(sslContext(tls))
-        },
-    )
-    ManagedChannelBuilderProxy(builder)
+          if (tls.enabled)
+            baseBuilder
+              .useTransportSecurity()
+              .sslContext(sslContext(tls))
+          else
+            baseBuilder.usePlaintext()
+        }
+
+    ManagedChannelBuilderProxy(configureKeepAlive(clientConfig.keepAliveClient, builder))
   }
 }

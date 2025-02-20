@@ -5,8 +5,10 @@ package com.daml.error
 
 /** A component of [[ErrorClass]]
   *
-  * @param docName The name that will appear in the generated documentation for the grouping.
-  * @param fullClassName Full class name of the corresponding [[ErrorGroup]].
+  * @param docName
+  *   The name that will appear in the generated documentation for the grouping.
+  * @param fullClassName
+  *   Full class name of the corresponding [[ErrorGroup]].
   */
 final case class Grouping(
     docName: String,

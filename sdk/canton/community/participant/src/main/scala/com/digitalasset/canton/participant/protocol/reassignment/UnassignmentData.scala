@@ -13,7 +13,9 @@ import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
 
-/** Stores the data of an unassignment that needs to be passed from the source synchronizer to the target synchronizer. */
+/** Stores the data of an unassignment that needs to be passed from the source synchronizer to the
+  * target synchronizer.
+  */
 final case class UnassignmentData(
     unassignmentTs: CantonTimestamp,
     unassignmentRequest: FullUnassignmentTree,

@@ -28,8 +28,10 @@ import scala.concurrent.ExecutionContext
 
 /** Represents a sequencer channel client endpoint stage.
   *
-  * @param data Parameter object containing configuration and APIs.
-  * @param name The stage name.
+  * @param data
+  *   Parameter object containing configuration and APIs.
+  * @param name
+  *   The stage name.
   */
 private[endpoint] sealed abstract class ChannelStage(
     data: InternalData,

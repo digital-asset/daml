@@ -31,13 +31,15 @@ object Help {
     override def toString: String = s
   }
 
-  /** Indicates that a command is only available for synchronizer running at least the specified protocolVersion. */
+  /** Indicates that a command is only available for synchronizer running at least the specified
+    * protocolVersion.
+    */
   final case class AvailableFrom(protocolVersion: ProtocolVersion) extends StaticAnnotation {
     override def toString: String = protocolVersion.toString
   }
 
-  /** A sequence of strings classifying the method breadcrumb style (e.g. Seq("Participant", "Diagnostics")).
-    * Used as headings in the displayed help.
+  /** A sequence of strings classifying the method breadcrumb style (e.g. Seq("Participant",
+    * "Diagnostics")). Used as headings in the displayed help.
     */
   final case class Topic(t: Seq[String]) extends StaticAnnotation {
     override def toString(): String = t.mkString(": ")
@@ -66,17 +68,18 @@ object Help {
       subItems: Seq[Item] = Seq.empty,
   )
 
-  /** Generate help messages from an object instance using reflection, using only the given summaries.
+  /** Generate help messages from an object instance using reflection, using only the given
+    * summaries.
     *
-    * ARGUMENTS OF THE ANNOTATIONS MUST BE LITERALS (CONSTANTS) (e.g., Topic(topicVariable) does not work).
+    * ARGUMENTS OF THE ANNOTATIONS MUST BE LITERALS (CONSTANTS) (e.g., Topic(topicVariable) does not
+    * work).
     *
-    * All methods with a [[Summary]] annotation will be included. [[Description]] or [[Topic]]
-    * are also included if present, and are set to the empty string otherwise.
-    * We attempt to make as friendly as possible:
-    *  - Unit types are not displayed
-    *  - Empty argument lists are dropped
-    *  - Implicits are hidden
-    *  See corresponding tests for examples.
+    * All methods with a [[Summary]] annotation will be included. [[Description]] or [[Topic]] are
+    * also included if present, and are set to the empty string otherwise. We attempt to make as
+    * friendly as possible:
+    *   - Unit types are not displayed
+    *   - Empty argument lists are dropped
+    *   - Implicits are hidden See corresponding tests for examples.
     */
   def forInstance[T: ClassTag](
       instance: T,
@@ -217,7 +220,8 @@ object Help {
     getItems(instance)
 
   /** Format help for named items and their descriptions
-    * @param items Tuple of name and description
+    * @param items
+    *   Tuple of name and description
     */
   def format(items: Item*): String = {
     def underline(s: String) = s + System.lineSeparator + "-" * s.length + System.lineSeparator()
@@ -279,10 +283,10 @@ object Help {
         )
     }
 
-  /** The following definitions (fromAnnotation and Xparser) are quite nasty.
-    * They hackily reconstruct the Scala values from annotations, which contain ASTs.
-    * It's possible to use a reflection Toolbox to eval the annotations, but this is very slow (as it entails compiling the ASTs
-    * from the annotations) and results in large latencies for the help command.
+  /** The following definitions (fromAnnotation and Xparser) are quite nasty. They hackily
+    * reconstruct the Scala values from annotations, which contain ASTs. It's possible to use a
+    * reflection Toolbox to eval the annotations, but this is very slow (as it entails compiling the
+    * ASTs from the annotations) and results in large latencies for the help command.
     */
   private def fromAnnotation[T: ru.TypeTag](
       annotation: ru.Annotation,

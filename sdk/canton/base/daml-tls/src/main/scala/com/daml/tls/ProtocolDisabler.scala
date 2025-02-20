@@ -5,8 +5,8 @@ package com.daml.tls
 
 import java.security.Security
 
-/** Disables the unwanted legacy SSLv2Hello protocol at the JSSE level.
-  * See: https://www.java.com/en/configure_crypto.html#DisableTLS:~:text=Disable%20TLS%201.0%20and%20TLS%201.1
+/** Disables the unwanted legacy SSLv2Hello protocol at the JSSE level. See:
+  * https://www.java.com/en/configure_crypto.html#DisableTLS:~:text=Disable%20TLS%201.0%20and%20TLS%201.1
   */
 object ProtocolDisabler {
   val disabledAlgorithmsProperty: String = "jdk.tls.disabledAlgorithms"

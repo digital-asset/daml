@@ -14,10 +14,14 @@ import slick.jdbc.{GetResult, SetParameter}
 
 /** Total traffic purchased for a member valid at a specific timestamp
   *
-  * @param member              Member to which the balance belongs
-  * @param serial              Serial number of the balance
-  * @param extraTrafficPurchased             Traffic purchased value
-  * @param sequencingTimestamp Timestamp at which the purchase event was sequenced
+  * @param member
+  *   Member to which the balance belongs
+  * @param serial
+  *   Serial number of the balance
+  * @param extraTrafficPurchased
+  *   Traffic purchased value
+  * @param sequencingTimestamp
+  *   Timestamp at which the purchase event was sequenced
   */
 final case class TrafficPurchased(
     member: Member,

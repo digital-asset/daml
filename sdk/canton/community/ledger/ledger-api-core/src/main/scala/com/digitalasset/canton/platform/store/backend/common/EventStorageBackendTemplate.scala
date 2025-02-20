@@ -907,17 +907,21 @@ abstract class EventStorageBackendTemplate(
     new EventReaderQueries(stringInterning)
 
   // Improvement idea: Implement pruning queries in terms of event sequential id in order to be able to drop offset based indices.
-  /** Deletes a subset of the indexed data (up to the pruning offset) in the following order and in the manner specified:
-    * 1. entries from filter for create stakeholders for there is an archive for the corresponding create event,
-    * 2. entries from filter for create non-stakeholder informees for there is an archive for the corresponding create event,
-    * 3. all entries from filter for consuming stakeholders,
-    * 4. all entries from filter for consuming non-stakeholders informees,
-    * 5. all entries from filter for non-consuming informees,
-    * 6. create events table for which there is an archive event,
-    * 7. if pruning-all-divulged-contracts is enabled: create contracts which did not have a locally hosted party before their creation offset (immediate divulgence),
-    * 8. all consuming events,
-    * 9. all non-consuming events,
-    * 10. transaction meta entries for which there exists at least one create event.
+  /** Deletes a subset of the indexed data (up to the pruning offset) in the following order and in
+    * the manner specified:
+    *   1. entries from filter for create stakeholders for there is an archive for the corresponding
+    *      create event,
+    *   1. entries from filter for create non-stakeholder informees for there is an archive for the
+    *      corresponding create event,
+    *   1. all entries from filter for consuming stakeholders,
+    *   1. all entries from filter for consuming non-stakeholders informees,
+    *   1. all entries from filter for non-consuming informees,
+    *   1. create events table for which there is an archive event,
+    *   1. if pruning-all-divulged-contracts is enabled: create contracts which did not have a
+    *      locally hosted party before their creation offset (immediate divulgence),
+    *   1. all consuming events,
+    *   1. all non-consuming events,
+    *   1. transaction meta entries for which there exists at least one create event.
     */
   override def pruneEvents(
       pruneUpToInclusive: Offset,

@@ -7,14 +7,16 @@ package com.digitalasset.canton.console
   */
 trait ConsoleOutput {
 
-  /** By default, commands should not output anything to the user. So use this only if it absolutely has to be.
+  /** By default, commands should not output anything to the user. So use this only if it absolutely
+    * has to be.
     *
     * In particular:
-    * - If there is an error, then report this to the log file. The log file will also be displayed to the user.
-    * - If a command completes successfully, do not output anything.
-    * - If a command returns some `value`, then make the command return the value (instead of printing the value to the console).
-    *   This allows the user to access the value programmatically.
-    *   (Make sure that `value.toString` creates a readable representation.)
+    *   - If there is an error, then report this to the log file. The log file will also be
+    *     displayed to the user.
+    *   - If a command completes successfully, do not output anything.
+    *   - If a command returns some `value`, then make the command return the value (instead of
+    *     printing the value to the console). This allows the user to access the value
+    *     programmatically. (Make sure that `value.toString` creates a readable representation.)
     */
   def info(message: String): Unit
 }

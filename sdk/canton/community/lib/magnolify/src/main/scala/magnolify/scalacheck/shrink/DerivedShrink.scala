@@ -9,10 +9,11 @@ import org.scalacheck.util.Buildable
 import scala.annotation.nowarn
 import scala.concurrent.duration.{Duration, FiniteDuration}
 
-/** A copy of [[org.scalacheck.Shrink]] so that we can get rid of the [[org.scalacheck.Shrink.shrinkAny]]
-  * implicit that would be picked up by the derivation macro. Unfortunately, there does not seem
-  * to be any way to prevent the compiler from picking up this implicit from the companion object.
-  * Even introducing a another copy that causes an ambiguity does not seem to work.
+/** A copy of [[org.scalacheck.Shrink]] so that we can get rid of the
+  * [[org.scalacheck.Shrink.shrinkAny]] implicit that would be picked up by the derivation macro.
+  * Unfortunately, there does not seem to be any way to prevent the compiler from picking up this
+  * implicit from the companion object. Even introducing a another copy that causes an ambiguity
+  * does not seem to work.
   */
 trait DerivedShrink[A] {
   def shrink: Shrink[A]

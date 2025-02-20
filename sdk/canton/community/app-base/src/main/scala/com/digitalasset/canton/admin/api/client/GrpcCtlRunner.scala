@@ -25,7 +25,8 @@ class GrpcCtlRunner(
 ) extends NamedLogging {
 
   /** Runs a command
-    * @return Either a printable error as a String or a Unit indicating all was successful
+    * @return
+    *   Either a printable error as a String or a Unit indicating all was successful
     */
   def run[Req, Res, Result](
       instanceName: String,

@@ -20,17 +20,18 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.util.Try
 
-/** A [[HealthElement]] maintains a health state and notifies [[HealthListener]]s whenever the state has changed.
+/** A [[HealthElement]] maintains a health state and notifies [[HealthListener]]s whenever the state
+  * has changed.
   *
   * [[HealthElement]]s are refined in three dimensions
-  * - They can be atomic maintaining their own state ([[AtomicHealthElement]]) or
-  *   composite ([[CompositeHealthElement]]) aggregating the states of their dependencies
-  * - The state can be refined to [[ToComponentHealthState]] with [[HealthQuasiComponent]]
-  *   and further to [[ComponentHealthState]] with [[HealthComponent]].
-  * - Whether they need to be closed on their own ([[CloseableHealthElement]]).
+  *   - They can be atomic maintaining their own state ([[AtomicHealthElement]]) or composite
+  *     ([[CompositeHealthElement]]) aggregating the states of their dependencies
+  *   - The state can be refined to [[ToComponentHealthState]] with [[HealthQuasiComponent]] and
+  *     further to [[ComponentHealthState]] with [[HealthComponent]].
+  *   - Whether they need to be closed on their own ([[CloseableHealthElement]]).
   *
-  * The traits from each dimension can be mixed together to create the appropriate combination.
-  * Do not mix several traits from the same dimension!
+  * The traits from each dimension can be mixed together to create the appropriate combination. Do
+  * not mix several traits from the same dimension!
   */
 trait HealthElement {
   import HealthElement.*
@@ -47,9 +48,10 @@ trait HealthElement {
   private val highPriorityListeners: concurrent.Map[HealthListener, Unit] =
     TrieMap.empty[HealthListener, Unit]
 
-  /** Registers a high priority listener that gets poked upon each change of this element's health state.
-    *  This listener will be run before listeners registered via [[registerOnHealthChange]]
-    * @return Whether the listener was not registered before
+  /** Registers a high priority listener that gets poked upon each change of this element's health
+    * state. This listener will be run before listeners registered via [[registerOnHealthChange]]
+    * @return
+    *   Whether the listener was not registered before
     */
   def registerHighPriorityOnHealthChange(listener: HealthListener): Boolean = {
     ErrorUtil.requireState(
@@ -63,7 +65,8 @@ trait HealthElement {
 
   /** Registers a listener that gets poked upon each change of this element's health state.
     *
-    * @return Whether the listener was not registered before
+    * @return
+    *   Whether the listener was not registered before
     */
   def registerOnHealthChange(listener: HealthListener): Boolean = {
     ErrorUtil.requireState(
@@ -77,7 +80,8 @@ trait HealthElement {
 
   /** Unregisters a listener.
     *
-    * @return Whether the listener was registered before.
+    * @return
+    *   Whether the listener was registered before.
     */
   def unregisterOnHealthChange(listener: HealthListener): Boolean =
     listeners.remove(listener).isDefined || highPriorityListeners.remove(listener).isDefined
@@ -100,8 +104,8 @@ trait HealthElement {
 
   /** The [[com.digitalasset.canton.lifecycle.OnShutdownRunner]] associated with this object.
     *
-    * When this [[com.digitalasset.canton.lifecycle.OnShutdownRunner]] closes, the health state permanently becomes [[closingState]]
-    * and all listeners are notified about this.
+    * When this [[com.digitalasset.canton.lifecycle.OnShutdownRunner]] closes, the health state
+    * permanently becomes [[closingState]] and all listeners are notified about this.
     */
   protected def associatedOnShutdownRunner: OnShutdownRunner
 
@@ -116,13 +120,12 @@ trait HealthElement {
 
   protected def logger: TracedLogger
 
-  /** Triggers a refresh of the component's state, using `newState` to determine the new state.
-    * May return before the `newState` has been evaluated and the listeners have been poked.
+  /** Triggers a refresh of the component's state, using `newState` to determine the new state. May
+    * return before the `newState` has been evaluated and the listeners have been poked.
     *
-    * Note that listeners need not be poked about every state change;
-    * it suffices that they are poked eventually after each state change.
-    * So if there are frequent updates to the state, possibly from concurrent calls,
-    * then the listeners may never see some intermediate states.
+    * Note that listeners need not be poked about every state change; it suffices that they are
+    * poked eventually after each state change. So if there are frequent updates to the state,
+    * possibly from concurrent calls, then the listeners may never see some intermediate states.
     */
   protected def refreshState(
       newState: Eval[State]
@@ -217,35 +220,33 @@ trait HealthElement {
 
 object HealthElement {
 
-  /** The internal state of a [[HealthElement]] consists of the current health state `state` and state of the refreshing state machine */
+  /** The internal state of a [[HealthElement]] consists of the current health state `state` and
+    * state of the refreshing state machine
+    */
   private final case class InternalState[+S](state: S, refreshing: RefreshingState[S])
 
-  /** The states of the refreshing state machine implemented by [[HealthElement.refreshState]]
-    * and [[HealthElement.doRefresh]].
-    * - In [[RefreshingState.Idle]], nothing is happening.
-    * - In [[RefreshingState.Refreshing]], the one thread that caused the transition
-    *   from [[RefreshingState.Idle]] to [[RefreshingState.Refreshing]] is updating the state
-    *   using the given `newState` method to obtain the new state.
-    * - If another call to [[HealthElement.refreshState]] happens concurrently,
-    *   the update is queued in state [[RefreshingState.Poked]] with the given `newState` method.
-    * - Further calls to [[HealthElement.refreshState]] in state [[RefreshingState.Poked]]
-    *   replace the previous [[RefreshingState.Poked]] state.
-    * - When the thread performing the state update has finished and finds
-    *   that there are queued updates ([[RefreshingState.Poked]]),
-    *   it runs another update with the queued `newState` method.
-    *   Otherwise, the state returns back to [[RefreshingState.Idle]].
+  /** The states of the refreshing state machine implemented by [[HealthElement.refreshState]] and
+    * [[HealthElement.doRefresh]].
+    *   - In [[RefreshingState.Idle]], nothing is happening.
+    *   - In [[RefreshingState.Refreshing]], the one thread that caused the transition from
+    *     [[RefreshingState.Idle]] to [[RefreshingState.Refreshing]] is updating the state using the
+    *     given `newState` method to obtain the new state.
+    *   - If another call to [[HealthElement.refreshState]] happens concurrently, the update is
+    *     queued in state [[RefreshingState.Poked]] with the given `newState` method.
+    *   - Further calls to [[HealthElement.refreshState]] in state [[RefreshingState.Poked]] replace
+    *     the previous [[RefreshingState.Poked]] state.
+    *   - When the thread performing the state update has finished and finds that there are queued
+    *     updates ([[RefreshingState.Poked]]), it runs another update with the queued `newState`
+    *     method. Otherwise, the state returns back to [[RefreshingState.Idle]].
     *
-    * <pre>
-    * ┌──────┐    refreshState       ┌────────────┐     refreshState   ┌──────────┐
-    * │      ├───────────────────────►            ├────────────────────►          ├───────┐
-    * │ Idle │                       │ Refreshing │                    │  Poked   │       │refresh
-    * │      │                       │            │                    │ newState │       │State
-    * │      ◄───────────────────────┤            ◄────────────────────┤          ◄───────┘
-    * └──────┘    done refreshing    └────────────┘  done refreshing   └──────────┘
-    * </pre>
+    * <pre> ┌──────┐ refreshState ┌────────────┐ refreshState ┌──────────┐ │
+    * ├───────────────────────► ├────────────────────► ├───────┐ │ Idle │ │ Refreshing │ │ Poked │
+    * │refresh │ │ │ │ │ newState │ │State │ ◄───────────────────────┤ ◄────────────────────┤
+    * ◄───────┘ └──────┘ done refreshing └────────────┘ done refreshing └──────────┘ </pre>
     *
-    * Listeners are notified after each state update that does change the state, even if further state updates are queued.
-    * This ensures that continuous state changes propagate to the listeners timely.
+    * Listeners are notified after each state update that does change the state, even if further
+    * state updates are queued. This ensures that continuous state changes propagate to the
+    * listeners timely.
     */
   private[HealthElement] sealed trait RefreshingState[+S] extends Product with Serializable
   private[HealthElement] object RefreshingState {

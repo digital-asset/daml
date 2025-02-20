@@ -116,8 +116,8 @@ class GrpcSequencerConnectionX private (
   override def attributes: Option[ConnectionAttributes] = attributesCell.get
 
   /** Atomically update the local state using the provided function, and return the previous state.
-    * Automatically enforces that we cannot recover from the  `Fatal` state.
-    * This function also triggers a health refresh.
+    * Automatically enforces that we cannot recover from the `Fatal` state. This function also
+    * triggers a health refresh.
     */
   private def updateLocalState(
       update: NonFatalLocalState => LocalState
@@ -302,7 +302,7 @@ object GrpcSequencerConnectionX {
   private sealed trait LocalState extends Product with Serializable with PrettyPrinting
   private sealed trait NonFatalLocalState extends LocalState
 
-  /** <pre>
+  /** {{{
     *                              fail()
     *      ┌────────────────────────────────────────────────┐
     *      │                                                │
@@ -332,7 +332,7 @@ object GrpcSequencerConnectionX {
     *                │         │           │         │
     *                │         │           │         │
     *                └─────────┘           └─────────┘
-    * </pre>
+    * }}}
     */
   private object LocalState {
     case object Fatal extends LocalState {

@@ -279,16 +279,20 @@ object PekkoModuleSystem {
     override type FutureUnlessShutdownT[MessageT] = PekkoFutureUnlessShutdown[MessageT]
   }
 
-  /** The result of initializing an Pekko module system. Since Pekko actors initialization happens in
-    * a delayed fashion when actors are actually started by Pekko, any initialization results can
+  /** The result of initializing an Pekko module system. Since Pekko actors initialization happens
+    * in a delayed fashion when actors are actually started by Pekko, any initialization results can
     * only be provided asynchronously; however, since Pekko initialization is expected to run
-    * quickly and system construction time is not performance-critical, we wait until Pekko
-    * is started and return the initialization results synchronously.
+    * quickly and system construction time is not performance-critical, we wait until Pekko is
+    * started and return the initialization results synchronously.
     *
-    * @param actorSystem The Pekko typed actor system used
-    * @param initResult  The initialization result
-    * @tparam P2PMessageT   The type of P2P messages
-    * @tparam InputMessageT The type of input messages, i.e., messages sent by client to the input module
+    * @param actorSystem
+    *   The Pekko typed actor system used
+    * @param initResult
+    *   The initialization result
+    * @tparam P2PMessageT
+    *   The type of P2P messages
+    * @tparam InputMessageT
+    *   The type of input messages, i.e., messages sent by client to the input module
     */
   final case class PekkoModuleSystemInitResult[P2PMessageT, InputMessageT](
       actorSystem: ActorSystem[ModuleControl[PekkoEnv, Unit]],

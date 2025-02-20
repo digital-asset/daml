@@ -48,7 +48,8 @@ object ErrorUtil {
     throw t
   }
 
-  /** Wraps a throwable in [[scala.util.Failure]] and logs it at ERROR level with proper formatting */
+  /** Wraps a throwable in [[scala.util.Failure]] and logs it at ERROR level with proper formatting
+    */
   def internalErrorTry(
       t: Throwable
   )(implicit loggingContext: ErrorLoggingContext): Failure[Nothing] = {
@@ -86,8 +87,10 @@ object ErrorUtil {
   ): Nothing =
     internalError(new IllegalArgumentException(message))
 
-  /** Indicate an illegal state by logging an ERROR and return a IllegalStateException in a failed future.
-    * @return The throwable in a failed future.
+  /** Indicate an illegal state by logging an ERROR and return a IllegalStateException in a failed
+    * future.
+    * @return
+    *   The throwable in a failed future.
     */
   def invalidStateAsync(
       message: => String
@@ -95,7 +98,8 @@ object ErrorUtil {
     internalErrorAsync(new IllegalStateException(message))
 
   /** Log a throwable at ERROR level with proper formatting.
-    * @return The throwable in a failed future.
+    * @return
+    *   The throwable in a failed future.
     */
   def internalErrorAsync(
       t: Throwable
@@ -105,7 +109,8 @@ object ErrorUtil {
   }
 
   /** Log a throwable at ERROR level with proper formatting.
-    * @return The throwable in a failed [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]].
+    * @return
+    *   The throwable in a failed [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]].
     */
   def internalErrorAsyncShutdown(
       t: Throwable
@@ -114,7 +119,8 @@ object ErrorUtil {
     FutureUnlessShutdown.failed(t)
   }
 
-  /** If `condition` is not satisfied, log an ERROR and return a failed future with an [[java.lang.IllegalArgumentException]]
+  /** If `condition` is not satisfied, log an ERROR and return a failed future with an
+    * [[java.lang.IllegalArgumentException]]
     */
   def requireArgumentAsync(condition: Boolean, message: => String)(implicit
       loggingContext: ErrorLoggingContext
@@ -127,14 +133,16 @@ object ErrorUtil {
     if (condition) FutureUnlessShutdown.unit
     else internalErrorAsyncShutdown(new IllegalArgumentException(message))
 
-  /** If `condition` is not satisfied, log an ERROR and return a failed future with an [[java.lang.IllegalStateException]]
+  /** If `condition` is not satisfied, log an ERROR and return a failed future with an
+    * [[java.lang.IllegalStateException]]
     */
   def requireStateAsync(condition: Boolean, message: => String)(implicit
       loggingContext: ErrorLoggingContext
   ): Future[Unit] =
     if (condition) Future.unit else internalErrorAsync(new IllegalStateException(message))
 
-  /** If `condition` is not satisfied, log an ERROR and return a failed FutureUnlessShutdown with an [[java.lang.IllegalStateException]]
+  /** If `condition` is not satisfied, log an ERROR and return a failed FutureUnlessShutdown with an
+    * [[java.lang.IllegalStateException]]
     */
   def requireStateAsyncShutdown(condition: Boolean, message: => String)(implicit
       loggingContext: ErrorLoggingContext

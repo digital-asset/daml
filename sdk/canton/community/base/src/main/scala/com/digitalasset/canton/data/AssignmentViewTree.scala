@@ -126,15 +126,23 @@ object AssignmentViewTree
   }
 }
 
-/** Aggregates the data of an assignment request that is sent to the mediator and the involved participants.
+/** Aggregates the data of an assignment request that is sent to the mediator and the involved
+  * participants.
   *
-  * @param salt Salt for blinding the Merkle hash
-  * @param targetSynchronizerId The synchronizer on which the contract is assigned
-  * @param targetMediatorGroup The mediator that coordinates the assignment request on the target synchronizer
-  * @param stakeholders The stakeholders of the reassigned contract
-  * @param uuid The uuid of the assignment request
-  * @param submitterMetadata information about the submission
-  * @param reassigningParticipants The list of reassigning participants
+  * @param salt
+  *   Salt for blinding the Merkle hash
+  * @param targetSynchronizerId
+  *   The synchronizer on which the contract is assigned
+  * @param targetMediatorGroup
+  *   The mediator that coordinates the assignment request on the target synchronizer
+  * @param stakeholders
+  *   The stakeholders of the reassigned contract
+  * @param uuid
+  *   The uuid of the assignment request
+  * @param submitterMetadata
+  *   information about the submission
+  * @param reassigningParticipants
+  *   The list of reassigning participants
   */
 final case class AssignmentCommonData private (
     override val salt: Salt,
@@ -274,11 +282,16 @@ object AssignmentCommonData
 
 /** Aggregates the data of an assignment request that is only sent to the involved participants
   *
-  * @param salt                    The salt to blind the Merkle hash
-  * @param contract                The contract to be reassigned including the instance
-  * @param unassignmentResultEvent The signed deliver event of the unassignment result message
-  * @param sourceProtocolVersion   Protocol version of the source synchronizer.
-  * @param reassignmentCounter     The [[com.digitalasset.canton.ReassignmentCounter]] of the contract.
+  * @param salt
+  *   The salt to blind the Merkle hash
+  * @param contract
+  *   The contract to be reassigned including the instance
+  * @param unassignmentResultEvent
+  *   The signed deliver event of the unassignment result message
+  * @param sourceProtocolVersion
+  *   Protocol version of the source synchronizer.
+  * @param reassignmentCounter
+  *   The [[com.digitalasset.canton.ReassignmentCounter]] of the contract.
   */
 final case class AssignmentView private (
     override val salt: Salt,
@@ -420,7 +433,8 @@ object AssignmentView extends VersioningCompanionContextMemoization[AssignmentVi
 
 /** A fully unblinded [[AssignmentViewTree]]
   *
-  * @throws java.lang.IllegalArgumentException if the [[tree]] is not fully unblinded
+  * @throws java.lang.IllegalArgumentException
+  *   if the [[tree]] is not fully unblinded
   */
 final case class FullAssignmentTree(tree: AssignmentViewTree)
     extends FullReassignmentViewTree

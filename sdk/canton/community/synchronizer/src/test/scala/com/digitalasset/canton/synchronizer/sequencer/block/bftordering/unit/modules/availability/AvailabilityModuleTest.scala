@@ -85,7 +85,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
   private val Node1To3Peers = (1 to 3).map(peer).toSet
   private val Node1To6Peers = (1 to 6).map(peer).toSet
   private val AnotherBatchId = BatchId.createForTesting("AnotherBatchId")
-  private val ABatch = OrderingRequestBatch(
+  private val ABatch = OrderingRequestBatch.create(
     Seq(Traced(OrderingRequest("tag", ByteString.EMPTY)))
   )
   private val ABatchId = BatchId.from(ABatch)

@@ -27,8 +27,8 @@ trait ProtocolMessage
   /** The ID of the synchronizer over which this message is supposed to be sent. */
   def synchronizerId: SynchronizerId
 
-  /** By default prints only the object name as a trade-off for shorter long lines and not leaking confidential data.
-    * Sub-classes may override the pretty instance to print more information.
+  /** By default prints only the object name as a trade-off for shorter long lines and not leaking
+    * confidential data. Sub-classes may override the pretty instance to print more information.
     */
   @VisibleForTesting
   override def pretty: Pretty[this.type] = prettyOfObject[ProtocolMessage]
@@ -41,8 +41,8 @@ trait UnsignedProtocolMessage extends ProtocolMessage {
 
 object ProtocolMessage {
 
-  /** Returns the envelopes from the batch that match the given synchronizer id. If any other messages exist, it gives them
-    * to the provided callback
+  /** Returns the envelopes from the batch that match the given synchronizer id. If any other
+    * messages exist, it gives them to the provided callback
     */
   def filterSynchronizerEnvelopes[M <: ProtocolMessage](
       envelopes: Seq[OpenEnvelope[M]],

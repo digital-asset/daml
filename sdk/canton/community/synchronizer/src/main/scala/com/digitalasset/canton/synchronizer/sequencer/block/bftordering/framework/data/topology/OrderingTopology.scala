@@ -18,8 +18,9 @@ import OrderingTopology.{
 
 /** The current sequencer topology.
   *
-  * Being unsorted, sequencer IDs must not be iterated over without sorting first, as the iteration order is not
-  * deterministic and could introduce nondeterminism in the protocol and/or simulation testing.
+  * Being unsorted, sequencer IDs must not be iterated over without sorting first, as the iteration
+  * order is not deterministic and could introduce nondeterminism in the protocol and/or simulation
+  * testing.
   */
 final case class OrderingTopology(
     peersActiveAt: Map[SequencerId, TopologyActivationTime],
@@ -214,14 +215,14 @@ object OrderingTopology {
 
   /** A strong quorum is strictly greater than `(numberOfNodes + numberOfFaults) / 2`.
     *
-    * The idea is that faulty nodes could vote twice (once for A and once for !A),
-    * by sending different votes to different peers.
-    * Under that assumption, the total number of votes is `numberOfNodes + numberOfFaults`.
-    * A peer locally decides on an outcome only after receiving more than half of the total number of votes and
-    * only if all these votes have the same outcome.
+    * The idea is that faulty nodes could vote twice (once for A and once for !A), by sending
+    * different votes to different peers. Under that assumption, the total number of votes is
+    * `numberOfNodes + numberOfFaults`. A peer locally decides on an outcome only after receiving
+    * more than half of the total number of votes and only if all these votes have the same outcome.
     * That way, two honest peers will never decide for different outcomes.
     *
-    * If `numberOfNodes = 3*numberOfFaults + 1`, then the size of a strong quorum is `2*numberOfFaults + 1`.
+    * If `numberOfNodes = 3*numberOfFaults + 1`, then the size of a strong quorum is
+    * `2*numberOfFaults + 1`.
     */
   def strongQuorumSize(numberOfNodes: Int): Int =
     if (numberOfNodes <= 3) numberOfNodes

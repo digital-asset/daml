@@ -38,12 +38,12 @@ private[protocol] class ReassigningParticipantsComputation(
   /** Compute the list of reassigning participant.
     *
     * Returns an error if:
-    * - one stakeholder is not hosted on some reassigning participant
-    * - one signatory does not have enough signatory reassigning participants to meet
-    *   the thresholds defined on both source and target synchronizer
+    *   - one stakeholder is not hosted on some reassigning participant
+    *   - one signatory does not have enough signatory reassigning participants to meet the
+    *     thresholds defined on both source and target synchronizer
     *
-    * This is invoked only during the processing of the unassignment request.
-    * The data is then persisted by the reassigning participants and added to the assignment request.
+    * This is invoked only during the processing of the unassignment request. The data is then
+    * persisted by the reassigning participants and added to the assignment request.
     */
   def compute: EitherT[FutureUnlessShutdown, ReassignmentValidationError, Set[ParticipantId]] =
     for {
@@ -98,8 +98,8 @@ private[protocol] class ReassigningParticipantsComputation(
       } yield ()
     }
 
-  /** Compute the reassigning participants
-    * Fails if one stakeholder is not hosted on any reassigning participant
+  /** Compute the reassigning participants Fails if one stakeholder is not hosted on any reassigning
+    * participant
     */
   private def computeReassigningParticipants(
       permissionsSource: Source[Map[LfPartyId, PartyInfo]],

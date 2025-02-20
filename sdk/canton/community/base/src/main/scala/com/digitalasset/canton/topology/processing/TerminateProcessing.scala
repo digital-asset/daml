@@ -10,8 +10,8 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.concurrent.ExecutionContext
 
 /** An implementation of this trait allows to schedule code to be executed at the end of the
-  * processing of a batch of topology transactions.
-  * On the participant, this *must* tick the record order publisher before returning.
+  * processing of a batch of topology transactions. On the participant, this *must* tick the record
+  * order publisher before returning.
   */
 trait TerminateProcessing {
 
@@ -29,8 +29,9 @@ trait TerminateProcessing {
 
 object TerminateProcessing {
 
-  /** On the participant, [[TerminateProcessing.terminate]] should tick the record order publisher when processing
-    * is finished. Hence, this no-op terminate processing should be used only in synchronizer nodes.
+  /** On the participant, [[TerminateProcessing.terminate]] should tick the record order publisher
+    * when processing is finished. Hence, this no-op terminate processing should be used only in
+    * synchronizer nodes.
     */
 
   private[canton] object NoOpTerminateTopologyProcessing extends TerminateProcessing {

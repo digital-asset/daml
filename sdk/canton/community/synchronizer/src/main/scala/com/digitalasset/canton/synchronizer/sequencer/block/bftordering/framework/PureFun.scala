@@ -3,13 +3,15 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework
 
-/** A subset of functions that are pure, this is used by [[ModuleContext.mapFuture]] to guarantee we don't mutate state
-  * when we shouldn't.
+/** A subset of functions that are pure, this is used by [[ModuleContext.mapFuture]] to guarantee we
+  * don't mutate state when we shouldn't.
   *
   * This trait is sealed so that we *can't* use lambda abstraction to construct values of this type
   *
-  * @tparam A input type
-  * @tparam B output type
+  * @tparam A
+  *   input type
+  * @tparam B
+  *   output type
   */
 sealed trait PureFun[A, B] extends (A => B) {
   final def andThen[C](g: PureFun[B, C]): PureFun[A, C] = PureFun.Compose(this, g)

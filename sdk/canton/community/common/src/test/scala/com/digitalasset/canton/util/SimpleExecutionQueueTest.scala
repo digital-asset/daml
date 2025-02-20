@@ -53,8 +53,10 @@ class SimpleExecutionQueueTest
   private def shutdownTask(task: MockTask, notRunTasks: Seq[String]): Unit =
     terminateTask(task, shutdown = true, notRunTasks)
 
-  /** @param shutdown True if shutdown, false if failure
-    * @param notRunTasks Task which is not run because of the shutdown/failure
+  /** @param shutdown
+    *   True if shutdown, false if failure
+    * @param notRunTasks
+    *   Task which is not run because of the shutdown/failure
     */
   private def terminateTask(task: MockTask, shutdown: Boolean, notRunTasks: Seq[String]): Unit =
     if (shutdown) {

@@ -71,7 +71,8 @@ object CommunityEnvironmentDefinition {
 
   /** Read configuration from files
     *
-    * Use this method if your configuration files contain nested includes (which silently fail to include with fromResource)
+    * Use this method if your configuration files contain nested includes (which silently fail to
+    * include with fromResource)
     */
   def fromFiles(files: File*): CommunityEnvironmentDefinition = {
     val config = CantonCommunityConfig.parseAndLoadOrExit(files.map(_.toJava))

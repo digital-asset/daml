@@ -36,8 +36,9 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Transport implementation for replaying messages from a file.
-  * @param replayPath points to a file containing events to be replayed.
-  *                   The events must be serialized versions of `TracedSignedSerializedSequencedEvent`.
+  * @param replayPath
+  *   points to a file containing events to be replayed. The events must be serialized versions of
+  *   `TracedSignedSerializedSequencedEvent`.
   */
 class ReplayingEventsSequencerClientTransport(
     protocolVersion: ProtocolVersion,
@@ -148,14 +149,14 @@ object ReplayingEventsSequencerClientTransport {
   /** Hook for informing tests about replay statistics.
     *
     * If a [[SequencerClient]] is used with
-    * [[transports.replay.ReplayingEventsSequencerClientTransport]], the transport
-    * will add a statistics to this queue whenever a replay attempt has completed successfully.
+    * [[transports.replay.ReplayingEventsSequencerClientTransport]], the transport will add a
+    * statistics to this queue whenever a replay attempt has completed successfully.
     *
-    * A test can poll this statistics from the queue to determine whether the replay has completed and to
-    * get statistics on the replay.
+    * A test can poll this statistics from the queue to determine whether the replay has completed
+    * and to get statistics on the replay.
     *
-    * LIMITATION: This is only suitable for manual / sequential test setups, as the statistics are shared through
-    * a global queue.
+    * LIMITATION: This is only suitable for manual / sequential test setups, as the statistics are
+    * shared through a global queue.
     */
   @VisibleForTesting
   lazy val replayStatistics: BlockingQueue[ReplayStatistics] = new LinkedBlockingQueue()

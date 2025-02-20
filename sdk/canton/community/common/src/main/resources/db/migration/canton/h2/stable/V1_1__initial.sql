@@ -880,9 +880,13 @@ create table ord_metadata_output_epochs (
 
 -- Stores P2P endpoints from the configuration or admin command
 create table ord_p2p_endpoints (
-  host varchar not null,
+  address varchar not null,
   port smallint not null,
-  primary key (host, port)
+  transport_security bool not null,
+  custom_server_trust_certificates binary large object null, -- PEM string
+  client_certificate_chain binary large object null, -- PEM string
+  client_private_key_file varchar null, -- path to a file containing the client private key
+  primary key (address, port, transport_security)
 );
 
 -- Stores participants we should not wait for before pruning when handling ACS commitment

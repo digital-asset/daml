@@ -304,7 +304,8 @@ package http {
       }
   }
 
-  /** @tparam TmplId disclosed contracts' template ID
+  /** @tparam TmplId
+    *   disclosed contracts' template ID
     */
   final case class CommandMeta[+TmplId](
       commandId: Option[CommandId],
@@ -849,18 +850,16 @@ package http {
 
   import scala.collection.IterableOps
 
-  /** A contract type ID that may be either a template or an interface ID.
-    * A [[ContractTypeId.ResolvedPkg]] ID will always be either [[ContractTypeId.Template]]
-    * or [[ContractTypeId.Interface]]; an
-    * unresolved ID may be one of those, which indicates an expectation of what
-    * the resolved ID will be, or neither, which indicates that resolving what
+  /** A contract type ID that may be either a template or an interface ID. A
+    * [[ContractTypeId.ResolvedPkg]] ID will always be either [[ContractTypeId.Template]] or
+    * [[ContractTypeId.Interface]]; an unresolved ID may be one of those, which indicates an
+    * expectation of what the resolved ID will be, or neither, which indicates that resolving what
     * kind of ID this is will be part of the resolution.
     *
-    * Built-in equality is solely determined by the triple of package ID, module
-    * name, entity name.  This is because there are likely insidious expectations
-    * that this be true dating to before contract type IDs were distinguished at
-    * all, and we are only interested in distinguishing them statically, which
-    * these types do, and by pattern-matching, which does work.
+    * Built-in equality is solely determined by the triple of package ID, module name, entity name.
+    * This is because there are likely insidious expectations that this be true dating to before
+    * contract type IDs were distinguished at all, and we are only interested in distinguishing them
+    * statically, which these types do, and by pattern-matching, which does work.
     *
     * {{{
     *   val selector: ContractTypeId[Unit] = Template((), "M", "E")
@@ -994,10 +993,10 @@ package http {
 
     sealed abstract class Definite[+PkgId] extends ContractTypeId[PkgId] with Ops[Definite, PkgId]
 
-    /** A contract type ID known to be a template, not an interface.  When resolved,
-      * it indicates that the LF environment associates this ID with a template.
-      * When unresolved, it indicates that the intent is to search only template
-      * IDs for resolution, and that resolving to an interface ID should be an error.
+    /** A contract type ID known to be a template, not an interface. When resolved, it indicates
+      * that the LF environment associates this ID with a template. When unresolved, it indicates
+      * that the intent is to search only template IDs for resolution, and that resolving to an
+      * interface ID should be an error.
       */
     final case class Template[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
         extends Definite[PkgId]
@@ -1011,10 +1010,10 @@ package http {
       ) = Template(packageId, moduleName, entityName)
     }
 
-    /** A contract type ID known to be an interface, not a template.  When resolved,
-      * it indicates that the LF environment associates this ID with an interface.
-      * When unresolved, it indicates that the intent is to search only interface
-      * IDs for resolution, and that resolving to a template ID should be an error.
+    /** A contract type ID known to be an interface, not a template. When resolved, it indicates
+      * that the LF environment associates this ID with an interface. When unresolved, it indicates
+      * that the intent is to search only interface IDs for resolution, and that resolving to a
+      * template ID should be an error.
       */
     final case class Interface[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
         extends Definite[PkgId]

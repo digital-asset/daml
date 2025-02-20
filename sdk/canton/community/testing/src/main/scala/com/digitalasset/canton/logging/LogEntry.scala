@@ -61,10 +61,13 @@ final case class LogEntry(
 
   /** test if a log message corresponds to a particular canton error
     *
-    * @param errorCode         the error code that should be checked
-    * @param messageAssertion  a check on the log entry's message text; this function receives the log entry's message
-    *                          text only, stripped of the error code
-    * @param contextAssertion  a check on the log entry's context map; the default is to not check anything
+    * @param errorCode
+    *   the error code that should be checked
+    * @param messageAssertion
+    *   a check on the log entry's message text; this function receives the log entry's message text
+    *   only, stripped of the error code
+    * @param contextAssertion
+    *   a check on the log entry's context map; the default is to not check anything
     */
   def shouldBeCantonError(
       errorCode: ErrorCode,
@@ -173,10 +176,13 @@ object LogEntry {
 
   /** Verifies a sequence of log entries.
     *
-    * @param mustContainWithClue describes entries that must occur inside of `entries`;
-    *                            the string component is a clue that will be output in case of failure
-    * @param mayContain describes entries that may optionally occur inside of `entries`
-    * @param entries the log entries to be checked
+    * @param mustContainWithClue
+    *   describes entries that must occur inside of `entries`; the string component is a clue that
+    *   will be output in case of failure
+    * @param mayContain
+    *   describes entries that may optionally occur inside of `entries`
+    * @param entries
+    *   the log entries to be checked
     * @return
     */
   def assertLogSeq(
@@ -198,8 +204,8 @@ object LogEntry {
     }
   } withClue s"\n\nAll log entries:${LogEntry.format(entries)}"
 
-  /** Helper to pprint logs to help with debugging
-    * Usage is to LogEntry.pprintLogs andThen LogEntry.assertLogSeq(...
+  /** Helper to pprint logs to help with debugging Usage is to LogEntry.pprintLogs andThen
+    * LogEntry.assertLogSeq(...
     */
   @unused def pprintLogSeq(entries: Iterable[LogEntry]): Iterable[LogEntry] = {
     println("=== Log Entries ===")

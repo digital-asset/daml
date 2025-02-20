@@ -19,8 +19,8 @@ import scala.collection.mutable
 import scala.concurrent.{Future, Promise, blocking}
 import scala.util.Success
 
-/** SequencerChannelClientState holds the set of (static) channel transports and
-  * dynamically changing per-sequencer channel state.
+/** SequencerChannelClientState holds the set of (static) channel transports and dynamically
+  * changing per-sequencer channel state.
   */
 private[channel] final class SequencerChannelClientState(
     transportsMap: NonEmpty[Map[SequencerId, SequencerChannelClientTransport]],
@@ -97,8 +97,8 @@ private[channel] final class SequencerChannelClientState(
     closeChannelsAndTransports()
 }
 
-/** SequencerChannelState holds the sequencer-specific channel transport
-  * and manages the set of dynamically changing channel endpoints.
+/** SequencerChannelState holds the sequencer-specific channel transport and manages the set of
+  * dynamically changing channel endpoints.
   */
 private final class SequencerChannelState(
     val transport: SequencerChannelClientTransport,

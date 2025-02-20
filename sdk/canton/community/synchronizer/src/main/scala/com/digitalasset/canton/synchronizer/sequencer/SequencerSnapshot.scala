@@ -77,8 +77,8 @@ final case class SequencerSnapshot(
     )
   }
 
-  /** Indicates how to pretty print this instance.
-    * See `PrettyPrintingTest` for examples on how to implement this method.
+  /** Indicates how to pretty print this instance. See `PrettyPrintingTest` for examples on how to
+    * implement this method.
     */
   override protected def pretty: Pretty[SequencerSnapshot.this.type] = prettyOfClass(
     param("lastTs", _.lastTs),

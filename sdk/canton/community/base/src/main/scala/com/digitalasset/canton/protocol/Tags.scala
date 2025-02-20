@@ -20,21 +20,24 @@ import slick.jdbc.{GetResult, SetParameter}
 
 /** The root hash of a Merkle tree used as an identifier for requests.
   *
-  * Extends [[com.digitalasset.canton.serialization.HasCryptographicEvidence]] so that [[RootHash]]'s serialization
-  * can be used to compute the hash of an inner Merkle node from its children using [[RootHash.getCryptographicEvidence]].
-  * Serialization to Protobuf fields can be done with [[RootHash.toProtoPrimitive]]
+  * Extends [[com.digitalasset.canton.serialization.HasCryptographicEvidence]] so that
+  * [[RootHash]]'s serialization can be used to compute the hash of an inner Merkle node from its
+  * children using [[RootHash.getCryptographicEvidence]]. Serialization to Protobuf fields can be
+  * done with [[RootHash.toProtoPrimitive]]
   *
   * Here is how we use it:
-  * (1) Every participant gets a “partially blinded” Merkle tree, defining the locations of the views they are privy to.
-  * (2) That Merkle tree has a root. That root has a hash. That’s the root hash.
-  * (3) The mediator receives a fully blinded Merkle tree, with the same hash.
-  * (4) The submitting participant will send for each receiving participant an additional “root hash message” in the
-  *     same batch. That message will contain the same hash, with recipients (participant, mediator).
-  * (5) The mediator will check that all participants mentioned in the tree received a root hash message and that all
-  *     hashes are equal.
-  * (6) Once the mediator sends out the verdict, the verdict will include the tree structure and thus the root hash.
-  *     Hence, the participant will now have certainty about the mediator having checked all root hash messages
-  *     and having observed the same tree structure.
+  *   1. Every participant gets a “partially blinded” Merkle tree, defining the locations of the
+  *      views they are privy to.
+  *   1. That Merkle tree has a root. That root has a hash. That’s the root hash.
+  *   1. The mediator receives a fully blinded Merkle tree, with the same hash.
+  *   1. The submitting participant will send for each receiving participant an additional “root
+  *      hash message” in the same batch. That message will contain the same hash, with recipients
+  *      (participant, mediator).
+  *   1. The mediator will check that all participants mentioned in the tree received a root hash
+  *      message and that all hashes are equal.
+  *   1. Once the mediator sends out the verdict, the verdict will include the tree structure and
+  *      thus the root hash. Hence, the participant will now have certainty about the mediator
+  *      having checked all root hash messages and having observed the same tree structure.
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
 case class RootHash(private val hash: Hash) extends PrettyPrinting with HasCryptographicEvidence {
@@ -181,7 +184,9 @@ object RequestId {
     CantonTimestamp.fromProtoPrimitive(requestIdP).map(RequestId(_))
 }
 
-/** A reassignment is identified by the source synchronizer and the sequencer timestamp on the unassignment request. */
+/** A reassignment is identified by the source synchronizer and the sequencer timestamp on the
+  * unassignment request.
+  */
 final case class ReassignmentId(
     sourceSynchronizer: Source[SynchronizerId],
     unassignmentTs: CantonTimestamp,

@@ -13,18 +13,18 @@ trait CantonConfigValidation {
     NonEmpty.from(validator.validate(edition, this).toVector).toLeft(())
 }
 
-/** Trait for Canton configuration classes that validate subconfigurations
-  * recursively via Magnolia's derivation of the [[CantonConfigValidator]] type class.
+/** Trait for Canton configuration classes that validate subconfigurations recursively via
+  * Magnolia's derivation of the [[CantonConfigValidator]] type class.
   *
   * Validations specific to the given class should be done in `doValidate`.
   */
 trait CustomCantonConfigValidation extends CantonConfigValidation {
 
-  /** Returns all validation errors that are specific to this Canton configuration class.
-    * Successful validation should return an empty sequence.
+  /** Returns all validation errors that are specific to this Canton configuration class. Successful
+    * validation should return an empty sequence.
     *
-    * Validation errors of subconfigurations should not be reported by this method,
-    * but via the type class derivation.
+    * Validation errors of subconfigurations should not be reported by this method, but via the type
+    * class derivation.
     */
   protected def doValidate(edition: CantonEdition): Seq[CantonConfigValidationError]
 
@@ -42,8 +42,8 @@ trait UniformCantonConfigValidation extends CustomCantonConfigValidation {
   ): Seq[CantonConfigValidationError] = Seq.empty
 }
 
-/** Trait for Canton config classes that may only be used with the [[EnterpriseCantonEdition]].
-  * Does not perform additional validation except for the subconfigurations' own validations.
+/** Trait for Canton config classes that may only be used with the [[EnterpriseCantonEdition]]. Does
+  * not perform additional validation except for the subconfigurations' own validations.
   */
 trait EnterpriseOnlyCantonConfigValidation extends CustomCantonConfigValidation {
   override protected final def doValidate(
@@ -58,8 +58,8 @@ trait EnterpriseOnlyCantonConfigValidation extends CustomCantonConfigValidation 
       .toList
 }
 
-/** Trait for Canton config classes that may only be used with the [[CommunityCantonEdition]].
-  * Does not perform additional validation except for the subconfigurations' own validations.
+/** Trait for Canton config classes that may only be used with the [[CommunityCantonEdition]]. Does
+  * not perform additional validation except for the subconfigurations' own validations.
   */
 trait CommunityOnlyCantonConfigValidation extends CustomCantonConfigValidation {
   override protected final def doValidate(

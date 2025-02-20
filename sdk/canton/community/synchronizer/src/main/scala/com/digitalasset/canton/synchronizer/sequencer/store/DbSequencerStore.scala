@@ -61,8 +61,8 @@ import scala.collection.immutable.SortedSet
 import scala.concurrent.{ExecutionContext, TimeoutException}
 import scala.util.{Failure, Success}
 
-/** Database backed sequencer store.
-  * Supports many concurrent instances reading and writing to the same backing database.
+/** Database backed sequencer store. Supports many concurrent instances reading and writing to the
+  * same backing database.
   */
 class DbSequencerStore(
     @VisibleForTesting private[canton] val storage: DbStorage,
@@ -145,9 +145,10 @@ class DbSequencerStore(
         BytesPayload(id, content)
       }
 
-  /** @param trafficReceiptO If traffic management is enabled, there should always be traffic information for the sender.
-    *                        The information might be discarded later though, in case the event is being processed as part
-    *                        of a subscription for any of the recipients that isn't the sender.
+  /** @param trafficReceiptO
+    *   If traffic management is enabled, there should always be traffic information for the sender.
+    *   The information might be discarded later though, in case the event is being processed as
+    *   part of a subscription for any of the recipients that isn't the sender.
     */
   case class DeliverStoreEventRow[P](
       timestamp: CantonTimestamp,
@@ -431,9 +432,9 @@ class DbSequencerStore(
       functionFullName,
     )
 
-  /** In unified sequencer payload ids are deterministic (these are sequencing times from the block sequencer),
-    * so we can somewhat safely ignore conflicts arising from sequencer restarts, crash recovery, ha lock loses,
-    * unlike the complicate `savePayloads` method below
+  /** In unified sequencer payload ids are deterministic (these are sequencing times from the block
+    * sequencer), so we can somewhat safely ignore conflicts arising from sequencer restarts, crash
+    * recovery, ha lock loses, unlike the complicate `savePayloads` method below
     */
   private def savePayloadsWithDiscriminator(
       payloads: NonEmpty[Seq[BytesPayload]],
@@ -460,35 +461,37 @@ class DbSequencerStore(
 
   /** Save the provided payloads to the store.
     *
-    * For DB implementations we suspect that this will be a hot spot for performance primarily due to size of the payload
-    * content values being inserted. To help with this we use `storage.queryAndUpdateUnsafe` to do these inserts using
-    * the full connection pool of the node instead of the single connection that is protected with an exclusive lock in
-    * the HA sequencer setup.
+    * For DB implementations we suspect that this will be a hot spot for performance primarily due
+    * to size of the payload content values being inserted. To help with this we use
+    * `storage.queryAndUpdateUnsafe` to do these inserts using the full connection pool of the node
+    * instead of the single connection that is protected with an exclusive lock in the HA sequencer
+    * setup.
     *
-    * The downside of this optimization is that if a HA writer was to lose its lock, writes for payloads will continue
-    * regardless for a period until it shuts down. During this time another writer with the same instance index
-    * could come online.
-    * As we generate the payload id using a value generated for a partition based on the instance
-    * index this could worse case mean that two sequencer writers attempt to insert different payloads with the same
-    * id. If we use a simple idempotency method of just ignoring conflicts this could result in the active sequencer
-    * writing an event with a different payload resulting in a horrid corruption problem. This will admittedly be difficult
-    * to hit, but possible all the same.
+    * The downside of this optimization is that if a HA writer was to lose its lock, writes for
+    * payloads will continue regardless for a period until it shuts down. During this time another
+    * writer with the same instance index could come online. As we generate the payload id using a
+    * value generated for a partition based on the instance index this could worse case mean that
+    * two sequencer writers attempt to insert different payloads with the same id. If we use a
+    * simple idempotency method of just ignoring conflicts this could result in the active sequencer
+    * writing an event with a different payload resulting in a horrid corruption problem. This will
+    * admittedly be difficult to hit, but possible all the same.
     *
-    * The approach we use here is to generate an ephemeral instance discriminator for each writer instance.
-    *  - We insert the payloads using a simple insert (intentionally not ignoring conflicts unlike our other idempotent inserts).
-    *    If this was successful we end here.
-    *  - If this insert hits a payload with the same id the query will blow up with a unique constraint violation exception.
-    *    Now there's a couple of reasons this may have happened:
-    *      1. Another instance is running and has inserted a conflicting payload (bad!)
-    *      2. There was some connection issue when running this query and our storage layer didn't see a successful result
-    *         so it retried our query unaware that it did actually succeed so now we conflicting with our own insert.
-    *         (a bit of a shame but not really a problem).
-    *  - We now query filtered on the payload ids we're attempting to insert to select out which payloads exist and their
-    *    respective discriminators.
-    *    For any payloads that exist we check that the discriminators indicate that we inserted this payload, if not a
-    *    [[SavePayloadsError.ConflictingPayloadId]] error will be returned.
-    *  - Finally we filter to payloads that haven't yet been successfully inserted and go back to the first step attempting
-    *    to reinsert just this subset.
+    * The approach we use here is to generate an ephemeral instance discriminator for each writer
+    * instance.
+    *   - We insert the payloads using a simple insert (intentionally not ignoring conflicts unlike
+    *     our other idempotent inserts). If this was successful we end here.
+    *   - If this insert hits a payload with the same id the query will blow up with a unique
+    *     constraint violation exception. Now there's a couple of reasons this may have happened:
+    *     1. Another instance is running and has inserted a conflicting payload (bad!) 2. There was
+    *        some connection issue when running this query and our storage layer didn't see a
+    *        successful result so it retried our query unaware that it did actually succeed so now
+    *        we conflicting with our own insert. (a bit of a shame but not really a problem).
+    *   - We now query filtered on the payload ids we're attempting to insert to select out which
+    *     payloads exist and their respective discriminators. For any payloads that exist we check
+    *     that the discriminators indicate that we inserted this payload, if not a
+    *     [[SavePayloadsError.ConflictingPayloadId]] error will be returned.
+    *   - Finally we filter to payloads that haven't yet been successfully inserted and go back to
+    *     the first step attempting to reinsert just this subset.
     */
   private def savePayloadsResolvingConflicts(
       payloads: NonEmpty[Seq[BytesPayload]],

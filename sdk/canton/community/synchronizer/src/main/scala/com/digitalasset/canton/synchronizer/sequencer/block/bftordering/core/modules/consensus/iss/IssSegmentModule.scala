@@ -71,7 +71,8 @@ import PbftBlockState.{
   ViewChangeStartNestedTimer,
 }
 
-/** Handles the PBFT consensus process for one segment of an epoch, either as a leader or as a follower.
+/** Handles the PBFT consensus process for one segment of an epoch, either as a leader or as a
+  * follower.
   */
 class IssSegmentModule[E <: Env[E]](
     epoch: Epoch,

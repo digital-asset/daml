@@ -8,33 +8,34 @@ import org.wartremover.{WartTraverser, WartUniverse}
 import scala.annotation.{StaticAnnotation, tailrec}
 import scala.collection.IterableOnceOps
 
-/** Flags statements that return a [[scala.concurrent.Future]]. Typically, we should not
-  * discard [[scala.concurrent.Future]] because exceptions inside the future may not get logged.
-  * Use `FutureUtil.doNotAwait` to log exceptions and discard the future where necessary.
+/** Flags statements that return a [[scala.concurrent.Future]]. Typically, we should not discard
+  * [[scala.concurrent.Future]] because exceptions inside the future may not get logged. Use
+  * `FutureUtil.doNotAwait` to log exceptions and discard the future where necessary.
   *
-  * Also detects discarded [[cats.data.EitherT]]`[`[[scala.concurrent.Future]]`, ..., ...]`
-  * and [[cats.data.OptionT]]`[`[[scala.concurrent.Future]]`, ...]` and arbitrary nestings of those.
+  * Also detects discarded [[cats.data.EitherT]]`[`[[scala.concurrent.Future]]`, ..., ...]` and
+  * [[cats.data.OptionT]]`[`[[scala.concurrent.Future]]`, ...]` and arbitrary nestings of those.
   * Custom type constructors can be registered to take the same role as [[scala.concurrent.Future]]
   * by annotating the type definition with [[DoNotDiscardLikeFuture]].
   *
-  * Also flags usages of [[scala.collection.IterableOnceOps.foreach]] and [[scala.collection.IterableOnceOps.tapEach]]
-  * where the function returns a future-like type.
+  * Also flags usages of [[scala.collection.IterableOnceOps.foreach]] and
+  * [[scala.collection.IterableOnceOps.tapEach]] where the function returns a future-like type.
   *
-  * This wart is a special case of the warts `NonUnitStatements` and [[NonUnitForEach]]
-  * and scalac's `-Wnonunit-statement` flag,
-  * in that it warns only if the return type is future-like.
-  * Additionally, this wart uses a different set of exceptions when no warning is issued.
-  * We keep this specialized wart for two reasons:
-  * 1. It is not practically feasible to use `-Wnonunit-statement` and [[NonUnitForEach]] in scalatest
-  *    because it would flag many of the assertions of the form `x should be >= y` in statement positions.
-  *    Yet, it is important to check for discarded futures in tests because a discarded future may hide an exception.
-  * 2. In some production code, it is convenient to suppress the warnings coming from `-Wnonunit-statement` and [[NonUnitForEach]],
-  *    just due to how the code is written. In such places, we still want to benefit from the explicit checks
-  *    against discarded futures.
+  * This wart is a special case of the warts `NonUnitStatements` and [[NonUnitForEach]] and scalac's
+  * `-Wnonunit-statement` flag, in that it warns only if the return type is future-like.
+  * Additionally, this wart uses a different set of exceptions when no warning is issued. We keep
+  * this specialized wart for two reasons:
+  *   1. It is not practically feasible to use `-Wnonunit-statement` and [[NonUnitForEach]] in
+  *      scalatest because it would flag many of the assertions of the form `x should be >= y` in
+  *      statement positions. Yet, it is important to check for discarded futures in tests because a
+  *      discarded future may hide an exception.
+  *   1. In some production code, it is convenient to suppress the warnings coming from
+  *      `-Wnonunit-statement` and [[NonUnitForEach]], just due to how the code is written. In such
+  *      places, we still want to benefit from the explicit checks against discarded futures.
   *
   * This wart does not look at futures that are discarded at the end of a unit-type expression.
-  * These cases are caught by `-Ywarn-value-discard`. We do not implement a specialized version
-  * for future-like values because we do not expect to suppress the warnings coming from `-Ywarn-value-discard`.
+  * These cases are caught by `-Ywarn-value-discard`. We do not implement a specialized version for
+  * future-like values because we do not expect to suppress the warnings coming from
+  * `-Ywarn-value-discard`.
   */
 object DiscardedFuture extends WartTraverser {
   val message = "Statements must not discard a Future"
@@ -118,7 +119,7 @@ object DiscardedFuture extends WartTraverser {
   }
 }
 
-/** Annotated type constructors will be treated like a [[scala.concurrent.Future]]
-  * when looking for discarded futures.
+/** Annotated type constructors will be treated like a [[scala.concurrent.Future]] when looking for
+  * discarded futures.
   */
 final class DoNotDiscardLikeFuture extends StaticAnnotation

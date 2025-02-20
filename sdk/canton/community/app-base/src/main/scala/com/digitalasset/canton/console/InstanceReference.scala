@@ -25,7 +25,6 @@ import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.MetricValue
-import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.participant.config.{
   BaseParticipantConfig,
   LocalParticipantConfig,
@@ -45,6 +44,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.Se
   OrderingTopology,
   PeerNetworkStatus,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.{
+  EndpointId,
+  P2PEndpointConfig,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.config.{
   RemoteSequencerConfig,
   SequencerNodeConfigCommon,
@@ -142,8 +146,8 @@ object InstanceReference {
   }
 }
 
-/** Pointer for a potentially running instance by instance type (sequencer/mediator/participant) and its id.
-  * These methods define the REPL interface for these instances (e.g. participant1 start)
+/** Pointer for a potentially running instance by instance type (sequencer/mediator/participant) and
+  * its id. These methods define the REPL interface for these instances (e.g. participant1 start)
   */
 trait LocalInstanceReference extends InstanceReference with NoTracing {
 
@@ -387,14 +391,18 @@ trait RemoteInstanceReference extends InstanceReference {
 
 /** Bare, Canton agnostic parts of the ledger-api client
   *
-  * This implementation allows to access any kind of ledger-api client, which does not need to be Canton based.
-  * However, this comes at some cost, as some of the synchronization between nodes during transaction submission
-  * is not supported
+  * This implementation allows to access any kind of ledger-api client, which does not need to be
+  * Canton based. However, this comes at some cost, as some of the synchronization between nodes
+  * during transaction submission is not supported
   *
-  * @param hostname the hostname of the ledger api server
-  * @param port the port of the ledger api server
-  * @param tls the tls config to use on the client
-  * @param token the jwt token to use on the client
+  * @param hostname
+  *   the hostname of the ledger api server
+  * @param port
+  *   the port of the ledger api server
+  * @param tls
+  *   the tls config to use on the client
+  * @param token
+  *   the jwt token to use on the client
   */
 class ExternalLedgerApiClient(
     hostname: String,
@@ -549,9 +557,10 @@ abstract class ParticipantReference(
   @Help.Group("Repair")
   def repair: ParticipantRepairAdministration = repair_
 
-  /** Waits until for every participant p (drawn from consoleEnvironment.participants.all) that is running and initialized
-    * and for each synchronizer to which both this participant and p are connected
-    * the vetted_package transactions in the authorized store are the same as in the synchronizer store.
+  /** Waits until for every participant p (drawn from consoleEnvironment.participants.all) that is
+    * running and initialized and for each synchronizer to which both this participant and p are
+    * connected the vetted_package transactions in the authorized store are the same as in the
+    * synchronizer store.
     */
   override protected def waitPackagesVetted(timeout: NonNegativeDuration): Unit = {
     val connected = synchronizers.list_connected().map(_.synchronizerId).toSet
@@ -1161,8 +1170,8 @@ abstract class SequencerReference(
   @Help.Summary("Methods used for repairing the node")
   object repair {
 
-    /** Disable the provided member at the sequencer preventing them from reading and writing, and allowing their
-      * data to be pruned.
+    /** Disable the provided member at the sequencer preventing them from reading and writing, and
+      * allowing their data to be pruned.
       */
     @Help.Summary(
       "Disable the provided member at the Sequencer that will allow any unread data for them to be removed"
@@ -1183,19 +1192,33 @@ abstract class SequencerReference(
   object bft {
 
     @Help.Summary("Add a new peer endpoint")
-    def add_peer_endpoint(endpoint: Endpoint): Unit = consoleEnvironment.run {
-      runner.adminCommand(SequencerBftAdminCommands.AddPeerEndpoint(endpoint))
-    }
+    def add_peer_endpoint(
+        endpointConfig: P2PEndpointConfig
+    ): Unit =
+      consoleEnvironment.run {
+        runner.adminCommand(
+          SequencerBftAdminCommands.AddPeerEndpoint(
+            P2PEndpoint.fromEndpointConfig(endpointConfig)
+          )
+        )
+      }
 
     @Help.Summary("Remove a peer endpoint")
-    def remove_peer_endpoint(endpoint: Endpoint): Unit = consoleEnvironment.run {
-      runner.adminCommand(SequencerBftAdminCommands.RemovePeerEndpoint(endpoint))
-    }
+    def remove_peer_endpoint(peerEndpointId: EndpointId): Unit =
+      consoleEnvironment.run {
+        runner.adminCommand(
+          SequencerBftAdminCommands.RemovePeerEndpoint(
+            toInternal(peerEndpointId)
+          )
+        )
+      }
 
     @Help.Summary("Get peer network status")
-    def get_peer_network_status(endpoints: Option[Iterable[Endpoint]]): PeerNetworkStatus =
+    def get_peer_network_status(endpoints: Option[Iterable[EndpointId]]): PeerNetworkStatus =
       consoleEnvironment.run {
-        runner.adminCommand(SequencerBftAdminCommands.GetPeerNetworkStatus(endpoints))
+        runner.adminCommand(
+          SequencerBftAdminCommands.GetPeerNetworkStatus(endpoints.map(_.map(toInternal)))
+        )
       }
 
     @Help.Summary("Get the currently active ordering topology")
@@ -1203,6 +1226,9 @@ abstract class SequencerReference(
       consoleEnvironment.run {
         runner.adminCommand(SequencerBftAdminCommands.GetOrderingTopology())
       }
+
+    private def toInternal(endpoint: EndpointId): P2PEndpoint.Id =
+      P2PEndpoint.Id(endpoint.address, endpoint.port, endpoint.tls)
   }
 }
 

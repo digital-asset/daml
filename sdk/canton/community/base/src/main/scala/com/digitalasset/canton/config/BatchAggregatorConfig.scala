@@ -38,8 +38,10 @@ object BatchAggregatorConfig {
       maximumBatchSize = maximumBatchSize,
     )
 
-  /** @param maximumInFlight Maximum number of in-flight get queries.
-    * @param maximumBatchSize Maximum number of queries in a batch.
+  /** @param maximumInFlight
+    *   Maximum number of in-flight get queries.
+    * @param maximumBatchSize
+    *   Maximum number of queries in a batch.
     */
   final case class Batching(
       maximumInFlight: PositiveNumeric[Int] = BatchAggregatorConfig.defaultMaximumInFlight,

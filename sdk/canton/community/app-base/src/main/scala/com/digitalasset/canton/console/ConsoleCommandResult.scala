@@ -68,11 +68,13 @@ object ConsoleCommandResult {
       forAll(instances)(action)
     }
 
-  /** Call a console command on all instances.
-    * Will run all in sequence and will merge all failures.
+  /** Call a console command on all instances. Will run all in sequence and will merge all failures.
     * If nothing fails, the final CommandSuccessful result will be returned.
-    * @param action Action to perform on instances
-    * @return Successful if the action was successful for all instances, otherwise all the errors encountered merged into one.
+    * @param action
+    *   Action to perform on instances
+    * @return
+    *   Successful if the action was successful for all instances, otherwise all the errors
+    *   encountered merged into one.
     */
   private[console] def forAll[Instance <: InstanceReference, Result](
       instances: Seq[Instance]
@@ -103,7 +105,8 @@ object ConsoleCommandResult {
 }
 
 /** Successful command result
-  * @param value The value returned from the command
+  * @param value
+  *   The value returned from the command
   */
 final case class CommandSuccessful[+A](value: A) extends ConsoleCommandResult[A] {
   override lazy val toEither: Either[String, A] = Right(value)

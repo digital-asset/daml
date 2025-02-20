@@ -29,112 +29,116 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable
 import scala.concurrent.{Future, Promise}
 
-/** A custom Pekko [[org.apache.pekko.stream.stage.GraphStage]] that merges several ordered source streams into one
-  * based on those sources reaching a threshold for equivalent elements.
+/** A custom Pekko [[org.apache.pekko.stream.stage.GraphStage]] that merges several ordered source
+  * streams into one based on those sources reaching a threshold for equivalent elements.
   *
-  * The ordered sources produce elements with totally ordered offsets.
-  * For a given threshold `t`, whenever `t` different sources have produced equivalent elements for an offset
-  * that is higher than the previous offset, the [[OrderedBucketMergeHub]] emits the map of all these equivalent elements
-  * as the next [[com.digitalasset.canton.util.OrderedBucketMergeHub.OutputElement]] to downstream.
-  * Elements from the other ordered sources with lower or equal offset that have not yet reached the threshold are dropped.
+  * The ordered sources produce elements with totally ordered offsets. For a given threshold `t`,
+  * whenever `t` different sources have produced equivalent elements for an offset that is higher
+  * than the previous offset, the [[OrderedBucketMergeHub]] emits the map of all these equivalent
+  * elements as the next [[com.digitalasset.canton.util.OrderedBucketMergeHub.OutputElement]] to
+  * downstream. Elements from the other ordered sources with lower or equal offset that have not yet
+  * reached the threshold are dropped.
   *
-  * Every correct ordered source should produce the same sequence of offsets.
-  * Faulty sources can produce any sequence of elements as they like.
-  * The threshold should be set to `F+1` where at most `F` sources are assumed to be faulty,
-  * and at least `2F+1` ordered sources should be configured.
-  * This ensures that the `F` faulty ordered sources cannot corrupt the stream nor block it.
+  * Every correct ordered source should produce the same sequence of offsets. Faulty sources can
+  * produce any sequence of elements as they like. The threshold should be set to `F+1` where at
+  * most `F` sources are assumed to be faulty, and at least `2F+1` ordered sources should be
+  * configured. This ensures that the `F` faulty ordered sources cannot corrupt the stream nor block
+  * it.
   *
-  * If this assumption is violated, the [[OrderedBucketMergeHub]] may deadlock,
-  * as it only looks at the next element of each ordered source
-  * (this avoids unbounded buffering and therefore ensures that downstream backpressure reaches the ordered sources).
-  * For example, given a threshold of 2 with three ordered sources, two of which are faulty,
-  * the first elements of the sources have offsets 1, 2, 3.
-  * Suppose that the first ordered source's second element had offset 3 and is equivalent to the third ordered source's first element.
-  * Then, by the above definition of merging, the stage could emit the elements with offset 3 and discard those with 1 and 2.
-  * However, this is not yet implemented; the stream just does not emit anything.
-  * Neither are such deadlocks detected right now.
-  * This is because in an asynchronous system, there typically are ordered sources that have not yet delivered their next element,
-  * and possibly may never will within useful time, say because they have crashed (which is not considered a fault).
-  * In the above example, suppose that the second ordered source had not emitted the element with offset 2.
-  * Then it is unknown whether the element with offset 1 should be emitted or not,
-  * because we do not know which ordered sources are correct.
-  * Suppose we had decided that we drop the elements with offset 1 from a correct ordered source
-  * and emit the ones with offset 3 instead,
-  * Then the second (delayed, but correct) ordered source can still send an equivalent element with 1,
-  * and so the decision of dropping 1 was wrong in hindsight.
+  * If this assumption is violated, the [[OrderedBucketMergeHub]] may deadlock, as it only looks at
+  * the next element of each ordered source (this avoids unbounded buffering and therefore ensures
+  * that downstream backpressure reaches the ordered sources). For example, given a threshold of 2
+  * with three ordered sources, two of which are faulty, the first elements of the sources have
+  * offsets 1, 2, 3. Suppose that the first ordered source's second element had offset 3 and is
+  * equivalent to the third ordered source's first element. Then, by the above definition of
+  * merging, the stage could emit the elements with offset 3 and discard those with 1 and 2.
+  * However, this is not yet implemented; the stream just does not emit anything. Neither are such
+  * deadlocks detected right now. This is because in an asynchronous system, there typically are
+  * ordered sources that have not yet delivered their next element, and possibly may never will
+  * within useful time, say because they have crashed (which is not considered a fault). In the
+  * above example, suppose that the second ordered source had not emitted the element with offset 2.
+  * Then it is unknown whether the element with offset 1 should be emitted or not, because we do not
+  * know which ordered sources are correct. Suppose we had decided that we drop the elements with
+  * offset 1 from a correct ordered source and emit the ones with offset 3 instead, Then the second
+  * (delayed, but correct) ordered source can still send an equivalent element with 1, and so the
+  * decision of dropping 1 was wrong in hindsight.
   *
-  * The [[OrderedBucketMergeHub]] manages the ordered sources.
-  * Their configurations and the threshold are coming through the [[OrderedBucketMergeHub]]'s input stream as a [[OrderedBucketMergeConfig]].
-  * As soon as a new [[OrderedBucketMergeConfig]] is available,
-  * the [[OrderedBucketMergeHub]] changes the ordered sources as necessary:
+  * The [[OrderedBucketMergeHub]] manages the ordered sources. Their configurations and the
+  * threshold are coming through the [[OrderedBucketMergeHub]]'s input stream as a
+  * [[OrderedBucketMergeConfig]]. As soon as a new [[OrderedBucketMergeConfig]] is available, the
+  * [[OrderedBucketMergeHub]] changes the ordered sources as necessary:
   *
-  * - Ordered sources are identified by their `Name`.
-  * - Existing ordered sources whose name does not appear in the new configuration are stopped.
-  * - If a new configuration contains a new name for an ordered source, a new ordered source is created using `ops`.
-  * - If the configuration of an ordered source changes, the previous source is stopped and a new one with the new configuration is created.
+  *   - Ordered sources are identified by their `Name`.
+  *   - Existing ordered sources whose name does not appear in the new configuration are stopped.
+  *   - If a new configuration contains a new name for an ordered source, a new ordered source is
+  *     created using `ops`.
+  *   - If the configuration of an ordered source changes, the previous source is stopped and a new
+  *     one with the new configuration is created.
   *
-  * The [[OrderedBucketMergeHub]] emits [[com.digitalasset.canton.util.OrderedBucketMergeHub.ControlOutput]] events to downstream:
+  * The [[OrderedBucketMergeHub]] emits
+  * [[com.digitalasset.canton.util.OrderedBucketMergeHub.ControlOutput]] events to downstream:
   *
-  * - [[com.digitalasset.canton.util.OrderedBucketMergeHub.NewConfiguration]] signals the new configuration in place.
-  * - [[com.digitalasset.canton.util.OrderedBucketMergeHub.ActiveSourceTerminated]] signals
-  *   that an ordered source has completed or aborted with an error before it was stopped.
+  *   - [[com.digitalasset.canton.util.OrderedBucketMergeHub.NewConfiguration]] signals the new
+  *     configuration in place.
+  *   - [[com.digitalasset.canton.util.OrderedBucketMergeHub.ActiveSourceTerminated]] signals that
+  *     an ordered source has completed or aborted with an error before it was stopped.
   *
-  * Since configuration changes are consumed eagerly, the [[OrderedBucketMergeHub]] buffers
-  * these [[com.digitalasset.canton.util.OrderedBucketMergeHub.ControlOutput]] events
-  * if downstream is not consuming them fast enough.
-  * The stream of configuration changes should therefore be slower than downstream;
-  * otherwise, the buffer will grow unboundedly and lead to [[java.lang.OutOfMemoryError]]s eventually.
+  * Since configuration changes are consumed eagerly, the [[OrderedBucketMergeHub]] buffers these
+  * [[com.digitalasset.canton.util.OrderedBucketMergeHub.ControlOutput]] events if downstream is not
+  * consuming them fast enough. The stream of configuration changes should therefore be slower than
+  * downstream; otherwise, the buffer will grow unboundedly and lead to
+  * [[java.lang.OutOfMemoryError]]s eventually.
   *
-  * When the configuration stream completes or aborts, all ordered sources are stopped
-  * and the output stream completes.
+  * When the configuration stream completes or aborts, all ordered sources are stopped and the
+  * output stream completes.
   *
-  * An ordered source is stopped by pulling its [[org.apache.pekko.stream.KillSwitch]]
-  * and dropping all elements until the source completes or aborts.
-  * In particular, the ordered source is not just simply cancelled upon a configuration change
-  * or when the configuration stream completes.
-  * This allows for properly synchronizing the completion of the [[OrderedBucketMergeHub]] with
-  * the internal computations happening in the ordered sources.
-  * To that end, the [[OrderedBucketMergeHub]] materializes to a [[scala.concurrent.Future]]
-  * that completes when the corresponding futures from all created ordered sources have completed
-  * as well as the ordered sources themselves.
+  * An ordered source is stopped by pulling its [[org.apache.pekko.stream.KillSwitch]] and dropping
+  * all elements until the source completes or aborts. In particular, the ordered source is not just
+  * simply cancelled upon a configuration change or when the configuration stream completes. This
+  * allows for properly synchronizing the completion of the [[OrderedBucketMergeHub]] with the
+  * internal computations happening in the ordered sources. To that end, the
+  * [[OrderedBucketMergeHub]] materializes to a [[scala.concurrent.Future]] that completes when the
+  * corresponding futures from all created ordered sources have completed as well as the ordered
+  * sources themselves.
   *
   * If downstream cancels, the [[OrderedBucketMergeHub]] cancels all sources and the input port,
-  * without draining them. Therefore, the materialized [[scala.concurrent.Future]] may or may not complete,
-  * depending on the shape of the ordered sources. For example, if the ordered sources' futures are
-  * created with a plain [[org.apache.pekko.stream.scaladsl.FlowOpsMat.watchTermination]], it will complete because
-  * [[org.apache.pekko.stream.scaladsl.FlowOpsMat.watchTermination]] completes immediately when it sees a cancellation.
-  * Therefore, it is better to avoid downstream cancellations altogether.
+  * without draining them. Therefore, the materialized [[scala.concurrent.Future]] may or may not
+  * complete, depending on the shape of the ordered sources. For example, if the ordered sources'
+  * futures are created with a plain
+  * [[org.apache.pekko.stream.scaladsl.FlowOpsMat.watchTermination]], it will complete because
+  * [[org.apache.pekko.stream.scaladsl.FlowOpsMat.watchTermination]] completes immediately when it
+  * sees a cancellation. Therefore, it is better to avoid downstream cancellations altogether.
   *
   * Rationale for the merging logic:
   *
-  * This graph stage is meant to merge the streams of sequenced events from several sequencers on a client node.
-  * The operator configures `N` sequencer connections and specifies a threshold `T`.
-  * Suppose the operator assumes that at most `F` nodes out of `N` are faulty.
-  * So we need `F < T` for safety.
-  * For liveness, the operator wants to tolerate as many crashes of correct sequencer nodes as feasible.
-  * Let `C` be the number of tolerated crashes.
-  * Then `T <= N - C - F` because faulty sequencers may not deliver any messages.
-  * For a fixed `F`, `T = F + 1` is optimal as we can then tolerate `C = N - 2F - 1` crashed sequencer nodes.
+  * This graph stage is meant to merge the streams of sequenced events from several sequencers on a
+  * client node. The operator configures `N` sequencer connections and specifies a threshold `T`.
+  * Suppose the operator assumes that at most `F` nodes out of `N` are faulty. So we need `F < T`
+  * for safety. For liveness, the operator wants to tolerate as many crashes of correct sequencer
+  * nodes as feasible. Let `C` be the number of tolerated crashes. Then `T <= N - C - F` because
+  * faulty sequencers may not deliver any messages. For a fixed `F`, `T = F + 1` is optimal as we
+  * can then tolerate `C = N - 2F - 1` crashed sequencer nodes.
   *
-  * In other words, if the operator wants to tolerate up to `F` faults and up to `C` crashes,
-  * then it should set `T = F + 1` and configure `N = 2F + C + 1` different sequencer connections.
+  * In other words, if the operator wants to tolerate up to `F` faults and up to `C` crashes, then
+  * it should set `T = F + 1` and configure `N = 2F + C + 1` different sequencer connections.
   *
-  * If more than `C` sequencers have crashed, then the faulty sequencers can make the client deadlock.
-  * The client cannot detect this under the asynchrony assumption.
+  * If more than `C` sequencers have crashed, then the faulty sequencers can make the client
+  * deadlock. The client cannot detect this under the asynchrony assumption.
   *
-  * Moreover, the client cannot distinguish either between
-  * whether a sequencer node is actively malicious or just accidentally faulty.
-  * In particular, if several sequencer nodes deliver inequivalent events,
-  * we currently silently drop them.
-  * TODO(#14365) Design and implement an alert mechanism
+  * Moreover, the client cannot distinguish either between whether a sequencer node is actively
+  * malicious or just accidentally faulty. In particular, if several sequencer nodes deliver
+  * inequivalent events, we currently silently drop them. TODO(#14365) Design and implement an alert
+  * mechanism
   *
-  * @param ops The operations for the abstracted-away parameters.
-  *            In particular, the equivalence relation between elements is expressed as the pre-image of
-  *            the `equals` relation under the [[OrderedBucketMergeHubOps.bucketOf]] function, i.e.,
-  *            two elements are equivalent if they end up in the same bucket.
-  * @param enableInvariantCheck If true, invariants of the [[OrderedBucketMergeHub]] implementation are checked at run-time.
-  *                             Invariant violation are then logged as [[java.lang.IllegalStateException]] and abort the stage with an error.
-  *                             Do not enable these checks in production.
+  * @param ops
+  *   The operations for the abstracted-away parameters. In particular, the equivalence relation
+  *   between elements is expressed as the pre-image of the `equals` relation under the
+  *   [[OrderedBucketMergeHubOps.bucketOf]] function, i.e., two elements are equivalent if they end
+  *   up in the same bucket.
+  * @param enableInvariantCheck
+  *   If true, invariants of the [[OrderedBucketMergeHub]] implementation are checked at run-time.
+  *   Invariant violation are then logged as [[java.lang.IllegalStateException]] and abort the stage
+  *   with an error. Do not enable these checks in production.
   */
 class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
     private val ops: OrderedBucketMergeHubOps[Name, A, Config, Offset, M],
@@ -169,9 +173,9 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
     // We do not need to worry about inter-thread synchronization
     // provided that all accesses are only from within the handlers.
 
-    /** The [[OrderedSource]]s that have been created and not yet fully stopped
-      * An [[OrderedSource]] gets added to this map when it is created in [[createActiveSource]].
-      * It gets removed when it has completed and all its elements have been emitted or evicted.
+    /** The [[OrderedSource]]s that have been created and not yet fully stopped An [[OrderedSource]]
+      * gets added to this map when it is created in [[createActiveSource]]. It gets removed when it
+      * has completed and all its elements have been emitted or evicted.
       */
     private[this] val orderedSources: mutable.Map[OrderedSourceId, OrderedSource] =
       mutable.Map.empty[OrderedSourceId, OrderedSource]
@@ -181,57 +185,33 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
 
     /** The data associated with an ordered source and its state.
       *
-      * The state evolves according to the following diagram where each box represents one or multiple states.
-      * The letters `A`, `B`, and `C` stand for [[OrderedSource.isActive]], [[OrderedSource.isInBucket]],
-      * and [[OrderedSource.hasCompleted]], respectively. If they are present in a box,
-      * the states represented by the box have the corresponding predicate evaluate to true.
-      * If the box prefixes them with `!`, the predicate must evaluate to false in this state.
-      * The letter `P` represents whether the [[OrderedSource.inlet]] has been pulled.
+      * The state evolves according to the following diagram where each box represents one or
+      * multiple states. The letters `A`, `B`, and `C` stand for [[OrderedSource.isActive]],
+      * [[OrderedSource.isInBucket]], and [[OrderedSource.hasCompleted]], respectively. If they are
+      * present in a box, the states represented by the box have the corresponding predicate
+      * evaluate to true. If the box prefixes them with `!`, the predicate must evaluate to false in
+      * this state. The letter `P` represents whether the [[OrderedSource.inlet]] has been pulled.
       * It is omitted when the pulling state is irrelevant.
       *
-      * The `remove` arrows going nowhere indicate that the ordered source ends its lifecycle
-      * by being removed from [[orderedSources]].
+      * The `remove` arrows going nowhere indicate that the ordered source ends its lifecycle by
+      * being removed from [[orderedSources]].
       *
-      * <pre>
-      *                                              │start
-      *            ┌─────┐         stop           ┌──▼──┐                 ┌─────┐
-      *        ┌───┤     ◄────────────────────────┤     │                 │     │
-      *        │   │ !A  │                        │  A  │    complete     │  A  │ emit ActiveSourceTermination
-      *    next│   │ !B  │                        │ !B  ├─────────────────► !B  ├─────────────────────────────►
-      * element│   │ !C  │                        │ !C  │                 │  C  │ remove
-      *        │   │  P  │                        │  P  │                 │     │
-      *        └───►     ◄────────┐          ┌────►     ◄────────┐        │     │
-      *            └──┬──┘        │      emit│    └──┬─┬┘        │        └──▲──┘
-      *               │           │    bucket│       │ │         │           │
-      *               │           │    if not│       │ └─────────┘           │
-      *               │           │  rejected│       │   next element        │
-      *               │           │          │       │   with smaller        │
-      *               │           │          │       │   offset              │
-      *               │           │       ┌──┴──┐    │                       │
-      *               │           │       │     │    │                       │
-      *               │           │       │  A  │    │next                   │emit bucket
-      *               │complete   │       │ !B  │    │element                │if not rejected
-      *               │           │       │ !C  │    │with                   │
-      *               │           │       │ !P  │    │higher                 │
-      *               │           │       │     │    │offset                 │
-      *               │           │       └──▲──┘    │                       │
-      *               │           │          │       │                       │
-      *               │           │          │       │                       │
-      *               │           │    remove│       │                       │
-      *               │           │    bucket│       │                       │
-      *            ┌──▼──┐        │          │    ┌──▼──┐                 ┌──┴──┐        ┌─────┐
-      *            │     │        │          └────┤     │                 │     │        │     │
-      *            │ !A  │        │               │  A  │                 │  A  │        │ !A  │
-      *            │ !B  │        │    stop       │  B  │    complete     │  B  │  stop  │ !B  │
-      *    ◄───────┤  C  │        └───────────────┤ !C  ├─────────────────►  C  ├────────►  C  ├───────►
-      *     remove │     │                        │ !P  │                 │ !P  │        │ !P  │ remove
-      *            │     │                        │     │                 │     │        │     │
-      *            └─────┘                        └─────┘                 └─────┘        └─────┘
-      * </pre>
+      * <pre> │start ┌─────┐ stop ┌──▼──┐ ┌─────┐ ┌───┤ ◄────────────────────────┤ │ │ │ │ │ !A │ │
+      * A │ complete │ A │ emit ActiveSourceTermination next│ │ !B │ │ !B ├─────────────────► !B
+      * ├─────────────────────────────► element│ │ !C │ │ !C │ │ C │ remove │ │ P │ │ P │ │ │ └───►
+      * ◄────────┐ ┌────► ◄────────┐ │ │ └──┬──┘ │ emit│ └──┬─┬┘ │ └──▲──┘ │ │ bucket│ │ │ │ │ │ │
+      * if not│ │ └─────────┘ │ │ │ rejected│ │ next element │ │ │ │ │ with smaller │ │ │ │ │ offset
+      * │ │ │ ┌──┴──┐ │ │ │ │ │ │ │ │ │ │ │ A │ │next │emit bucket │complete │ │ !B │ │element │if
+      * not rejected │ │ │ !C │ │with │ │ │ │ !P │ │higher │ │ │ │ │ │offset │ │ │ └──▲──┘ │ │ │ │ │
+      * │ │ │ │ │ │ │ │ │ remove│ │ │ │ │ bucket│ │ │ ┌──▼──┐ │ │ ┌──▼──┐ ┌──┴──┐ ┌─────┐ │ │ │
+      * └────┤ │ │ │ │ │ │ !A │ │ │ A │ │ A │ │ !A │ │ !B │ │ stop │ B │ complete │ B │ stop │ !B │
+      * ◄───────┤ C │ └───────────────┤ !C ├─────────────────► C ├────────► C ├───────► remove │ │ │
+      * !P │ │ !P │ │ !P │ remove │ │ │ │ │ │ │ │ └─────┘ └─────┘ └─────┘ └─────┘ </pre>
       *
-      * @param inlet The inlet through which the source's elements are passed.
-      *              We pull the inlet immediately upon creation and then whenever the source's last element
-      *              is emitted downstream or its bucket is rejected.
+      * @param inlet
+      *   The inlet through which the source's elements are passed. We pull the inlet immediately
+      *   upon creation and then whenever the source's last element is emitted downstream or its
+      *   bucket is rejected.
       */
     private final class OrderedSource(
         val name: Name,
@@ -241,8 +221,8 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
     ) {
       import TraceContext.Implicits.Empty.*
 
-      /** Whether the [[OrderedSource]] is active, i.e., it has not yet been stopped
-        * due to a configuration change or completion of the configuration stream.
+      /** Whether the [[OrderedSource]] is active, i.e., it has not yet been stopped due to a
+        * configuration change or completion of the configuration stream.
         */
       private var active: Boolean = true
       def isActive: Boolean = active
@@ -253,7 +233,9 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
         active = false
       }
 
-      /** The bucket, if any, that contains the last element that was pulled from this ordered source. */
+      /** The bucket, if any, that contains the last element that was pulled from this ordered
+        * source.
+        */
       private var lastBucket: Option[ops.Bucket] = None
       def isInBucket: Boolean = lastBucket.nonEmpty
       def addToBucket(bucket: ops.Bucket): Unit = {
@@ -269,10 +251,11 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
       def removeFromBucket(): Unit = lastBucket = None
       def getBucket: Option[ops.Bucket] = lastBucket
 
-      /** [[scala.None$]] as long as the [[com.digitalasset.canton.util.OrderedBucketMergeHub.OrderedSourceSignal.Completed]]
-        * signal from the ordered source has not yet been processed.
-        * When the [[com.digitalasset.canton.util.OrderedBucketMergeHub.OrderedSourceSignal.Completed]] signal is processed
-        * then this is set to contain the completion reason.
+      /** [[scala.None$]] as long as the
+        * [[com.digitalasset.canton.util.OrderedBucketMergeHub.OrderedSourceSignal.Completed]]
+        * signal from the ordered source has not yet been processed. When the
+        * [[com.digitalasset.canton.util.OrderedBucketMergeHub.OrderedSourceSignal.Completed]]
+        * signal is processed then this is set to contain the completion reason.
         */
       private var completedWith: Option[Option[Throwable]] = None
       def getCompletion: Option[Option[Throwable]] = completedWith
@@ -296,9 +279,10 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
       }
     }
 
-    /** We use our own internal IDs [[com.digitalasset.canton.util.OrderedBucketMergeHub.OrderedSourceId]].
-      * `Name`s are not good enough: a reconfiguration may stop the previous ordered source
-      * and create a new one with the same name; so we would not be able to distinguish between the old and the new one.
+    /** We use our own internal IDs
+      * [[com.digitalasset.canton.util.OrderedBucketMergeHub.OrderedSourceId]]. `Name`s are not good
+      * enough: a reconfiguration may stop the previous ordered source and create a new one with the
+      * same name; so we would not be able to distinguish between the old and the new one.
       */
     private[this] val orderedSourceIdGenerator = new AtomicInteger()
     private[this] def nextOrderedSourceId: OrderedSourceId =
@@ -310,34 +294,35 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
     /** Exclusive lower bound for the next offset to emit. */
     private[this] var lowerBoundNextOffsetExclusive: Offset = ops.exclusiveLowerBoundForBegin
 
-    /** Caches the last value that was queued for emission, if any.
-      * If so, its offset is at most [[lowerBoundNextOffsetExclusive]].
+    /** Caches the last value that was queued for emission, if any. If so, its offset is at most
+      * [[lowerBoundNextOffsetExclusive]].
       */
     private[this] var lastBucketQueuedForEmission: Option[OutputElement[Name, A]] = None
 
     /** Contains the equivalence classes of the inspected elements from the ordered sources so far.
       *
-      * This is somewhat inefficient: whenever we emit an element,
-      * we need to clean up the outdated buckets with lower or equal offset,
-      * which looks at all buckets. We could avoid this by keeping the buckets in a map
-      * ordered by offset, but this seemed overkill so far given that the expected number of buckets is small
-      * (<< 100).
+      * This is somewhat inefficient: whenever we emit an element, we need to clean up the outdated
+      * buckets with lower or equal offset, which looks at all buckets. We could avoid this by
+      * keeping the buckets in a map ordered by offset, but this seemed overkill so far given that
+      * the expected number of buckets is small (<< 100).
       */
     private[this] val buckets
         : mutable.Map[ops.Bucket, NonEmpty[Seq[BucketElement[OrderedSource, A]]]] =
       mutable.Map.empty[ops.Bucket, NonEmpty[Seq[BucketElement[OrderedSource, A]]]]
 
-    /** Whether upstream has completed and we're now just winding down by stopping all the remaining ordered sources */
+    /** Whether upstream has completed and we're now just winding down by stopping all the remaining
+      * ordered sources
+      */
     private[this] var upstreamCompleted: Option[Option[Throwable]] = None
 
-    /** A promise for the materialized future.
-      * To be completed when the stage has completed and all ordered sources have finished.
+    /** A promise for the materialized future. To be completed when the stage has completed and all
+      * ordered sources have finished.
       */
     private[this] val completionPromise = Promise[Done]()
     def completionFuture: Future[Done] = completionPromise.future
 
-    /** Collects the completion futures from all ordered sources
-      * so that they can be passed into the [[completionFuture]].
+    /** Collects the completion futures from all ordered sources so that they can be passed into the
+      * [[completionFuture]].
       */
     private[this] val flushFutureForOrderedSources =
       new FlushFuture("OrderedBucketMergeHub", loggerFactory)
@@ -465,8 +450,8 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
       completeCompletionFuture()
     }
 
-    /** Callback used to receive signals from the ordered sources.
-      * Avoids that we have to access the mutable states from the ordered source's handlers.
+    /** Callback used to receive signals from the ordered sources. Avoids that we have to access the
+      * mutable states from the ordered source's handlers.
       */
     private[this] val orderedSourceCallback =
       getAsyncCallback[OrderedSourceSignal[Name, A]](
@@ -599,7 +584,9 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
       )
     }
 
-    /** Removes all buckets up to and including `offset` and pulls from the sources whose elements were rejected */
+    /** Removes all buckets up to and including `offset` and pulls from the sources whose elements
+      * were rejected
+      */
     private[this] def evictBucketsUpToIncluding(offset: Offset): Unit =
       buckets.filterInPlace { (bucket, elems) =>
         val bucketOffset = ops.offsetOfBucket(bucket)
@@ -611,8 +598,8 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
         retain
       }
 
-    /** Emit (and pull thereafter) or evict (and pull immediately) the given bucket,
-      * depending on whether its offset is above the [[lowerBoundNextOffsetExclusive]].
+    /** Emit (and pull thereafter) or evict (and pull immediately) the given bucket, depending on
+      * whether its offset is above the [[lowerBoundNextOffsetExclusive]].
       */
     private[this] def emitOrEvictBucket(
         bucket: ops.Bucket,
@@ -628,7 +615,9 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
       }
     }
 
-    /** Updates the ordered sources after their elements have been rejected from the bucket and pulls them */
+    /** Updates the ordered sources after their elements have been rejected from the bucket and
+      * pulls them
+      */
     private[this] def removeBucketElements(
         bucket: ops.Bucket,
         offset: Offset,
@@ -647,12 +636,13 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
       pullMultipleIfNotCompleted(elems)
     }
 
-    /** Emit [[DeadlockDetected]] if the number of active unbucketed sources has dropped
-      * below the number of remaining sources that could fill up the biggest bucket to reach the threshold.
+    /** Emit [[DeadlockDetected]] if the number of active unbucketed sources has dropped below the
+      * number of remaining sources that could fill up the biggest bucket to reach the threshold.
       *
-      * @param deadlockReportOption Imposes additional conditions on whether to really emit a [[DeadlockDetected]].
-      *                             This is used to make sure that a [[DeadlockDetected]] is emitted only once for each deadlock situation,
-      *                             even if the graph stage logic processes further events.
+      * @param deadlockReportOption
+      *   Imposes additional conditions on whether to really emit a [[DeadlockDetected]]. This is
+      *   used to make sure that a [[DeadlockDetected]] is emitted only once for each deadlock
+      *   situation, even if the graph stage logic processes further events.
       */
     private[this] def checkForDeadlock(
         deadlockReportOption: DeadlockReportOption[ops.Bucket],
@@ -685,9 +675,9 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
       }
     }
 
-    /** Process the signal that an ordered source has completed.
-      * If the ordered source still has a last element in a bucket,
-      * we wait until its fate is decided before we output the termination signal.
+    /** Process the signal that an ordered source has completed. If the ordered source still has a
+      * last element in a bucket, we wait until its fate is decided before we output the termination
+      * signal.
       */
     private[this] def processCompletion(
         id: OrderedSourceId,
@@ -1004,12 +994,11 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
     }
   }
 
-  /** This handler receives the elements from an ordered source.
-    * It belongs to a different materialized graph than the [[BucketingLogic]],
-    * so it must not access its mutable state. To enforce this,
-    * this class is lexicographically outside of the [[BucketingLogic]].
-    * Instead, we go through the provided [[org.apache.pekko.stream.stage.AsyncCallback]]
-    * to signal the arrival and completion thread-safely.
+  /** This handler receives the elements from an ordered source. It belongs to a different
+    * materialized graph than the [[BucketingLogic]], so it must not access its mutable state. To
+    * enforce this, this class is lexicographically outside of the [[BucketingLogic]]. Instead, we
+    * go through the provided [[org.apache.pekko.stream.stage.AsyncCallback]] to signal the arrival
+    * and completion thread-safely.
     */
   private[this] class ActiveSourceInHandler(
       id: OrderedSourceId,
@@ -1086,10 +1075,11 @@ object OrderedBucketMergeHub {
     ): ControlOutput[Name, Config2, A2, Offset2]
   }
 
-  /** Signals the new configuration that is active for all subsequent elements until the next [[NewConfiguration]]
-    * and the materialized values for the newly created sources.
+  /** Signals the new configuration that is active for all subsequent elements until the next
+    * [[NewConfiguration]] and the materialized values for the newly created sources.
     *
-    * @param startingOffset The exclusive offset where the subscription starts
+    * @param startingOffset
+    *   The exclusive offset where the subscription starts
     */
   final case class NewConfiguration[Name, +ConfigAndMat, +Offset](
       newConfig: OrderedBucketMergeConfig[Name, ConfigAndMat],
@@ -1105,9 +1095,8 @@ object OrderedBucketMergeHub {
     )
   }
 
-  /** Signals that the source has terminated with the given cause.
-    * Downstream is responsible for reacting to the termination signal
-    * and changing the configuration if necessary.
+  /** Signals that the source has terminated with the given cause. Downstream is responsible for
+    * reacting to the termination signal and changing the configuration if necessary.
     */
   final case class ActiveSourceTerminated[Name](name: Name, cause: Option[Throwable])
       extends ControlOutput[Name, Nothing, Nothing, Nothing] {
@@ -1119,8 +1108,8 @@ object OrderedBucketMergeHub {
   }
 
   /** Signals that the received elements from active sources have spread out over so many buckets
-    * that the remaining active sources with outstanding elements cannot reach the configured threshold.
-    * Reconfiguration is necessary to make progress.
+    * that the remaining active sources with outstanding elements cannot reach the configured
+    * threshold. Reconfiguration is necessary to make progress.
     */
   final case class DeadlockDetected[Name, +A](elems: Seq[(Name, A)], trigger: DeadlockTrigger)
       extends ControlOutput[Name, Nothing, A, Nothing] {
@@ -1145,7 +1134,9 @@ object OrderedBucketMergeHub {
   /** The internal type of IDs for ordered sources */
   private type OrderedSourceId = Int
 
-  /** Internal signal between the ordered sources and the graph stage logic of the [[OrderedBucketMergeHub]] */
+  /** Internal signal between the ordered sources and the graph stage logic of the
+    * [[OrderedBucketMergeHub]]
+    */
   private sealed trait OrderedSourceSignal[Name, +A] extends Product with Serializable {
     def id: OrderedSourceId
 
@@ -1177,16 +1168,21 @@ object OrderedBucketMergeHub {
   private object DeadlockReportOption {
     case object Always extends DeadlockReportOption[Nothing]
 
-    /** Emit the [[DeadlockDetected]] only if there is exactly one active unbucketed source missing for being able to reach the threshold.
-      * @param maximalBucketConstraint If set, then further constrain the emission on the given bucket not being the single maximal bucket.
+    /** Emit the [[DeadlockDetected]] only if there is exactly one active unbucketed source missing
+      * for being able to reach the threshold.
+      * @param maximalBucketConstraint
+      *   If set, then further constrain the emission on the given bucket not being the single
+      *   maximal bucket.
       */
     final case class WhenDroppedBelow[+Bucket](maximalBucketConstraint: Option[Bucket])
         extends DeadlockReportOption[Bucket]
   }
 }
 
-/** @param threshold The threshold of equivalent elements to reach before it can be emitted.
-  * @param sources The configurations to be used with [[OrderedBucketMergeHubOps.makeSource]] to create a source.
+/** @param threshold
+  *   The threshold of equivalent elements to reach before it can be emitted.
+  * @param sources
+  *   The configurations to be used with [[OrderedBucketMergeHubOps.makeSource]] to create a source.
   */
 final case class OrderedBucketMergeConfig[Name, +Config](
     threshold: PositiveInt,
@@ -1208,8 +1204,7 @@ trait OrderedBucketMergeHubOps[Name, A, Config, Offset, +M] {
   /** Defines an equivalence relation on `A` */
   def bucketOf(x: A): Bucket
 
-  /** The ordering for the offsets.
-    * This defines a total preorder (AKA total quasi-order) on buckets
+  /** The ordering for the offsets. This defines a total preorder (AKA total quasi-order) on buckets
     * and elements via the projections [[offsetOfBucket]] and [[bucketOf]]
     */
   def orderingOffset: Ordering[Offset]
@@ -1222,8 +1217,8 @@ trait OrderedBucketMergeHubOps[Name, A, Config, Offset, +M] {
   /** The initial offset to start from */
   def exclusiveLowerBoundForBegin: Offset
 
-  /** The type of prior elements that is passed to [[makeSource]].
-    * [[toPriorElement]] defines an abstraction function from
+  /** The type of prior elements that is passed to [[makeSource]]. [[toPriorElement]] defines an
+    * abstraction function from
     * [[com.digitalasset.canton.util.OrderedBucketMergeHub.OutputElement]]s.
     */
   type PriorElement
@@ -1231,21 +1226,22 @@ trait OrderedBucketMergeHubOps[Name, A, Config, Offset, +M] {
   /** The prior element to be passed to [[makeSource]] at the start */
   def priorElement: Option[PriorElement]
 
-  /** An abstraction function from [[com.digitalasset.canton.util.OrderedBucketMergeHub.OutputElement]] to [[PriorElement]]
+  /** An abstraction function from
+    * [[com.digitalasset.canton.util.OrderedBucketMergeHub.OutputElement]] to [[PriorElement]]
     */
   def toPriorElement(output: OutputElement[Name, A]): PriorElement
 
   def traceContextOf(x: A): TraceContext
 
-  /** Creates a new source upon a config change.
-    * The returned source is materialized at most once.
-    * To close the source, the materialized [[org.apache.pekko.stream.KillSwitch]] is pulled
-    * and the source is drained until it completes.
-    * The materialized [[scala.concurrent.Future]] should complete when all internal computations have stopped.
-    * The [[OrderedBucketMergeHub]]'s materialized [[scala.concurrent.Future]] completes only after
-    * these materialized futures of all created ordered sources have completed.
+  /** Creates a new source upon a config change. The returned source is materialized at most once.
+    * To close the source, the materialized [[org.apache.pekko.stream.KillSwitch]] is pulled and the
+    * source is drained until it completes. The materialized [[scala.concurrent.Future]] should
+    * complete when all internal computations have stopped. The [[OrderedBucketMergeHub]]'s
+    * materialized [[scala.concurrent.Future]] completes only after these materialized futures of
+    * all created ordered sources have completed.
     *
-    * @param priorElement The prior element that last reached the threshold or [[priorElement]] if there was none.
+    * @param priorElement
+    *   The prior element that last reached the threshold or [[priorElement]] if there was none.
     */
   def makeSource(
       name: Name,

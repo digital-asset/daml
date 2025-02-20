@@ -29,13 +29,19 @@ import scala.concurrent.ExecutionContext
 
 /** Bundle together some data needed to route the transaction.
   *
-  * @param requiredPackagesPerParty Required packages per informee of the transaction
-  * @param actAs Act as of the submitted command
-  * @param readAs Read as of the submitted command
-  * @param inputContractsSynchronizerData Information about the input contracts
-  * @param prescribedSynchronizerIdO If non-empty, thInvalidWorkflowIde prescribed synchronizer will be chosen for routing.
-  *                          In case this synchronizer is not admissible, submission will fail.
-  * @param externallySignedSubmissionO Data for externally signed transactions. Can be empty.
+  * @param requiredPackagesPerParty
+  *   Required packages per informee of the transaction
+  * @param actAs
+  *   Act as of the submitted command
+  * @param readAs
+  *   Read as of the submitted command
+  * @param inputContractsSynchronizerData
+  *   Information about the input contracts
+  * @param prescribedSynchronizerIdO
+  *   If non-empty, thInvalidWorkflowIde prescribed synchronizer will be chosen for routing. In case
+  *   this synchronizer is not admissible, submission will fail.
+  * @param externallySignedSubmissionO
+  *   Data for externally signed transactions. Can be empty.
   */
 private[routing] final case class TransactionData private (
     transaction: LfVersionedTransaction,

@@ -43,9 +43,12 @@ import scala.concurrent.ExecutionContextExecutor
 
 /** synchronizer registry used to connect to synchronizers over GRPC
   *
-  * @param participantId The participant id from which we connect to synchronizers.
-  * @param participantNodeParameters General set of parameters that control Canton
-  * @param ec ExecutionContext used by the sequencer client
+  * @param participantId
+  *   The participant id from which we connect to synchronizers.
+  * @param participantNodeParameters
+  *   General set of parameters that control Canton
+  * @param ec
+  *   ExecutionContext used by the sequencer client
   */
 class GrpcSynchronizerRegistry(
     val participantId: ParticipantId,

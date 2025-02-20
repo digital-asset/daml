@@ -15,16 +15,19 @@ import scala.util.control.{NoStackTrace, NonFatal}
 
 /** Error Code Definition
   *
-  * We want to support our users and our developers with good error codes. Therefore, every error that an API
-  * returns should refer to a documented error code and provide some context information.
+  * We want to support our users and our developers with good error codes. Therefore, every error
+  * that an API returns should refer to a documented error code and provide some context
+  * information.
   *
-  * Every error code is uniquely identified using an error-id of max 63 CAPITALIZED_WITH_UNDERSCORES characters
+  * Every error code is uniquely identified using an error-id of max 63 CAPITALIZED_WITH_UNDERSCORES
+  * characters
   *
-  * Errors are organised according to ErrorGroups. And we separate the error code definition (using a singleton
-  * by virtue of using objects to express the nested hierarchy) and the actual error.
+  * Errors are organised according to ErrorGroups. And we separate the error code definition (using
+  * a singleton by virtue of using objects to express the nested hierarchy) and the actual error.
   *
   * Please note that there is some implicit argument passing involved in the example below:
   *
+  * {{{
   * object SyncServiceErrors extends ParticipantErrorGroup {
   *   object ConnectionErrors extends ErrorGroup {
   *     object SynchronizerUnavailable extends ErrorCode(id="SYNCHRONIZER_UNAVAILABLE", ..) {
@@ -37,6 +40,7 @@ import scala.util.control.{NoStackTrace, NonFatal}
   *     ...
   *   }
   * }
+  * }}}
   */
 abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     val parent: ErrorClass
@@ -48,13 +52,14 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
 
   implicit val code: ErrorCode = this
 
-  /** The machine readable error code string, uniquely identifiable by the error id, error category and correlation id.
-    * e.g. NOT_CONNECTED_TO_ANY_SYNCHRONIZER(2,ABC234)
+  /** The machine readable error code string, uniquely identifiable by the error id, error category
+    * and correlation id. e.g. NOT_CONNECTED_TO_ANY_SYNCHRONIZER(2,ABC234)
     */
   def codeStr(correlationId: Option[String]): String =
     ErrorCodeMsg.codeStr(code.id, category.asInt, correlationId)
 
-  /** @return message including error category id, error code id, correlation id and cause
+  /** @return
+    *   message including error category id, error code id, correlation id and cause
     */
   def toMsg(cause: => String, correlationId: Option[String], limit: Option[Int]): String = {
     val truncatedCause = limit match {
@@ -66,15 +71,17 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
 
   /** Log level of the error code
     *
-    * Generally, the log level is defined by the error category.
-    * In rare cases, it might be overridden by the error code.
+    * Generally, the log level is defined by the error category. In rare cases, it might be
+    * overridden by the error code.
     */
   def logLevel: Level = category.logLevel
 
   /** True if this error may appear on the API */
   protected def exposedViaApi: Boolean = category.grpcCode.nonEmpty
 
-  /** The error conveyance doc string provides a statement about the form this error will be returned to the user */
+  /** The error conveyance doc string provides a statement about the form this error will be
+    * returned to the user
+    */
   def errorConveyanceDocString: Option[String] = {
     val loggedAs = s"This error is logged with log-level $logLevel on the server side"
     val apiLevel = (category.grpcCode, exposedViaApi) match {
@@ -116,20 +123,24 @@ object ErrorCodeMsg {
 
 object ErrorCode {
 
-  /**  Maximum size (in bytes) of the [[com.google.rpc.Status]] proto that a self-service error code can be serialized into.
+  /** Maximum size (in bytes) of the [[com.google.rpc.Status]] proto that a self-service error code
+    * can be serialized into.
     *
-    *  We choose this value with the following considerations:
-    *  -  The serialized error Status proto is packed into a [[io.grpc.Metadata]] together with the error description,
-    *  which is then enriched with additional gRPC-internal entries and converted into HTTP2 headers for transmission.
-    *  - The default maximum gRPC metadata size is 8KB (for both clients and servers). We MUST ensure that we don't
-    *  exceed this value for error-returning gRPC metadata, otherwise INTERNAL errors may be reported on both the client and server.
-    *  - The error description is packed twice in the serialized metadata
-    *  (see [[ErrorCode.asGrpcError]] and how it creates a [[io.grpc.StatusRuntimeException]]).
+    * We choose this value with the following considerations:
+    *   - The serialized error Status proto is packed into a [[io.grpc.Metadata]] together with the
+    *     error description, which is then enriched with additional gRPC-internal entries and
+    *     converted into HTTP2 headers for transmission.
+    *   - The default maximum gRPC metadata size is 8KB (for both clients and servers). We MUST
+    *     ensure that we don't exceed this value for error-returning gRPC metadata, otherwise
+    *     INTERNAL errors may be reported on both the client and server.
+    *   - The error description is packed twice in the serialized metadata (see
+    *     [[ErrorCode.asGrpcError]] and how it creates a [[io.grpc.StatusRuntimeException]]).
     *
-    *  Conservatively we allow a buffer of > 3KB for gRPC and gRPC->HTTP2 internals overhead.
-    *  (considering a [[MaxErrorContentBytes]] maximum Status proto size and limit the cause description size).
+    * Conservatively we allow a buffer of > 3KB for gRPC and gRPC->HTTP2 internals overhead.
+    * (considering a [[MaxErrorContentBytes]] maximum Status proto size and limit the cause
+    * description size).
     *
-    *  Note: instead of increasing this value, consider limiting better the error contents.
+    * Note: instead of increasing this value, consider limiting better the error contents.
     */
   val MaxErrorContentBytes = 4096
 

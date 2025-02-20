@@ -73,7 +73,9 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
   ): FutureUnlessShutdown[Map[LfContractId, ContractState]] =
     FutureUnlessShutdown.failed(mk(s"fetchContractStates for $contractIds"))
 
-  /** Always returns [[scala.Map$.empty]] so that the failure does not happen while checking the invariant. */
+  /** Always returns [[scala.Map$.empty]] so that the failure does not happen while checking the
+    * invariant.
+    */
   override def fetchStatesForInvariantChecking(ids: Iterable[LfContractId])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[LfContractId, StateChange[ActiveContractStore.Status]]] =
@@ -125,7 +127,9 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.failed(mk(s"advancePruningTimestamp"))
 
-  /** Always returns [[scala.None$]] so that the failure does not happen while checking the invariant. */
+  /** Always returns [[scala.None$]] so that the failure does not happen while checking the
+    * invariant.
+    */
   override def pruningStatus(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[PruningStatus]] =

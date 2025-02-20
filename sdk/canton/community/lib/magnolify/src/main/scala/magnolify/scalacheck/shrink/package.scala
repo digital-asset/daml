@@ -13,7 +13,8 @@ import scala.reflect.macros.whitebox
 package object shrink {
   object semiauto {
 
-    /** Semi-automatic derivation of [[DerivedShrink]] instances for case classes and sealed traits thereof.
+    /** Semi-automatic derivation of [[DerivedShrink]] instances for case classes and sealed traits
+      * thereof.
       */
     @nowarn("cat=deprecation")
     object DerivedShrinkDerivation {
@@ -41,11 +42,11 @@ package object shrink {
       implicit def apply[T]: Typeclass[T] = macro Magnolia.gen[T]
     }
 
-    /** Semi-automatic derivation of [[org.scalacheck.Shrink]] instances for case classes and sealed traits thereof.
-      * Derivation goes via [[magnolify.scalacheck.shrink.DerivedShrink]] so that derivation does not fall
-      * back to the unshrinkable [[org.scalacheck.Shrink.shrinkAny]] default. This means that implicits
-      * for [[DerivedShrink]] must be in scope for all non-derived data types, even if the derivation is for
-      * [[org.scalacheck.Shrink]].
+    /** Semi-automatic derivation of [[org.scalacheck.Shrink]] instances for case classes and sealed
+      * traits thereof. Derivation goes via [[magnolify.scalacheck.shrink.DerivedShrink]] so that
+      * derivation does not fall back to the unshrinkable [[org.scalacheck.Shrink.shrinkAny]]
+      * default. This means that implicits for [[DerivedShrink]] must be in scope for all
+      * non-derived data types, even if the derivation is for [[org.scalacheck.Shrink]].
       */
     object ShrinkDerivation {
       def genShrinkMacro[T: c.WeakTypeTag](c: whitebox.Context): c.Tree = {
@@ -58,8 +59,8 @@ package object shrink {
     }
   }
 
-  /** Automatic derivation of [[DerivedShrink]] and [[org.scalacheck.Shrink]] instances for case classes and
-    * sealed traits thereof.
+  /** Automatic derivation of [[DerivedShrink]] and [[org.scalacheck.Shrink]] instances for case
+    * classes and sealed traits thereof.
     */
   object auto {
 
@@ -71,8 +72,8 @@ package object shrink {
       q"""_root_.magnolify.scalacheck.shrink.semiauto.DerivedShrinkDerivation.apply[$wtt]"""
     }
 
-    /** This implicit must be in scope for fully automatic derivation so that the compiler picks it up
-      * when asked to derive instances for argument types.
+    /** This implicit must be in scope for fully automatic derivation so that the compiler picks it
+      * up when asked to derive instances for argument types.
       */
     implicit def genDerivedShrink[T]: DerivedShrink[T] = macro genDeriveShrinkMacro[T]
   }

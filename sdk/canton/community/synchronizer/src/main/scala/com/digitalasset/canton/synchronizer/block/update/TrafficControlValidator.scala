@@ -35,9 +35,10 @@ import SubmissionRequestValidator.{
   TrafficConsumption,
 }
 
-/** This class contains utility methods to validate, enforce and record metrics over traffic control logic applied
-  * after events have been ordered and are read by the sequencer.
-  * Largely it applies traffic control rules, and insert a traffic receipt in the deliver receipts to the sender with the result.
+/** This class contains utility methods to validate, enforce and record metrics over traffic control
+  * logic applied after events have been ordered and are read by the sequencer. Largely it applies
+  * traffic control rules, and insert a traffic receipt in the deliver receipts to the sender with
+  * the result.
   */
 private[update] class TrafficControlValidator(
     rateLimitManager: SequencerRateLimitManager,

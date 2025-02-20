@@ -13,28 +13,27 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
-/** Type class for disguising the effect of `F` in the effect of `G` temporarily
-  * so that `F`'s effect can tunnel through an API that supports only `G`.
+/** Type class for disguising the effect of `F` in the effect of `G` temporarily so that `F`'s
+  * effect can tunnel through an API that supports only `G`.
   *
-  * For example, let `F` be [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]],
-  * and `G` be [[scala.concurrent.Future]] (see
-  * [[caching.EffectTunnel.effectTunnelFutureUnlessShutdown]]).
+  * For example, let `F` be [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]], and `G` be
+  * [[scala.concurrent.Future]] (see [[caching.EffectTunnel.effectTunnelFutureUnlessShutdown]]).
   * Then we can enter the tunnel `G` by converting
-  * [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]]s
-  * into a dedicated exception in a failed [[scala.concurrent.Future]] and exit the tunnel
-  * again by converting the exception back into [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]].
-  * This obviously assumes that the API that supports only [[scala.concurrent.Future]]
-  * does not interact with the dedicated exception.
+  * [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]]s into a dedicated
+  * exception in a failed [[scala.concurrent.Future]] and exit the tunnel again by converting the
+  * exception back into [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]].
+  * This obviously assumes that the API that supports only [[scala.concurrent.Future]] does not
+  * interact with the dedicated exception.
   */
 trait EffectTunnel[F[_], G[_]] {
 
-  /** Converts the effect `F` into the effect `G`.
-    * Must be the right-inverse of [[exit]], i.e., `exit(enter(fa)) == fa`.
+  /** Converts the effect `F` into the effect `G`. Must be the right-inverse of [[exit]], i.e.,
+    * `exit(enter(fa)) == fa`.
     */
   def enter[A](fa: F[A], context: String): G[A]
 
-  /** Converts the effect `G` into the effect `F`.
-    * Must be the left-inverse of [[enter]], i.e., `exit(enter(fa)) == fa`.
+  /** Converts the effect `G` into the effect `F`. Must be the left-inverse of [[enter]], i.e.,
+    * `exit(enter(fa)) == fa`.
     */
   def exit[A](fa: G[A]): F[A]
 

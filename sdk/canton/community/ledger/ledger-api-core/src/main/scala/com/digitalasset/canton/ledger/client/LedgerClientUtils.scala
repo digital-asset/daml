@@ -11,7 +11,9 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 object LedgerClientUtils {
 
-  /** Default retry rules which will retry on retryable known errors and if the ledger api is unavailable */
+  /** Default retry rules which will retry on retryable known errors and if the ledger api is
+    * unavailable
+    */
   def defaultRetryRules: Status => Option[FiniteDuration] = status =>
     DecodedCantonError
       .fromGrpcStatus(status)

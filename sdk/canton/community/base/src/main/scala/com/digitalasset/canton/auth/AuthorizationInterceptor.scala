@@ -17,8 +17,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters.CompletionStageOps
 import scala.util.{Failure, Success, Try}
 
-/** This interceptor uses the given [[AuthService]] to get [[ClaimSet.Claims]] for the current request,
-  * and then stores them in the current [[io.grpc.Context]].
+/** This interceptor uses the given [[AuthService]] to get [[ClaimSet.Claims]] for the current
+  * request, and then stores them in the current [[io.grpc.Context]].
   */
 class AuthorizationInterceptor(
     authService: AuthService,

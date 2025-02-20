@@ -34,7 +34,8 @@ import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 
-/** Manages a single state transfer instance in a client role and multiple state transfer instances in a server role.
+/** Manages a single state transfer instance in a client role and multiple state transfer instances
+  * in a server role.
   *
   * It is meant to be used by Consensus behaviors only and is not thread-safe.
   *

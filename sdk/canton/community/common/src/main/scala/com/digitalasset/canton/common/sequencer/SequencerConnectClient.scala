@@ -30,13 +30,15 @@ trait SequencerConnectClient extends NamedLogging with AutoCloseable {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, SynchronizerClientBootstrapInfo]
 
-  /** @param synchronizerIdentifier Used for logging purpose
+  /** @param synchronizerIdentifier
+    *   Used for logging purpose
     */
   def getSynchronizerParameters(synchronizerIdentifier: String)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, StaticSynchronizerParameters]
 
-  /** @param synchronizerIdentifier Used for logging purpose
+  /** @param synchronizerIdentifier
+    *   Used for logging purpose
     */
   def getSynchronizerId(synchronizerIdentifier: String)(implicit
       traceContext: TraceContext

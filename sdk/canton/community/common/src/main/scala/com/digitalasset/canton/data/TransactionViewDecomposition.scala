@@ -11,7 +11,8 @@ import scala.annotation.tailrec
 
 /** Wrapper type for elements of a view decomposition
   *
-  * It contains an `lfNode` as well as all descendant nodes, categorized either as `NewView` or `SameView`.
+  * It contains an `lfNode` as well as all descendant nodes, categorized either as `NewView` or
+  * `SameView`.
   */
 sealed trait TransactionViewDecomposition extends Product with Serializable with PrettyPrinting {
   def lfNode: LfActionNode
@@ -21,16 +22,21 @@ sealed trait TransactionViewDecomposition extends Product with Serializable with
 
 object TransactionViewDecomposition {
 
-  /** Encapsulates a new view.
-    * A `rootNode` is categorized as `NewView` if it will be sent explicitly to all informee participants.
-    * This is the case for all root nodes of the underlying transaction or if the parent node has fewer informee participants.
+  /** Encapsulates a new view. A `rootNode` is categorized as `NewView` if it will be sent
+    * explicitly to all informee participants. This is the case for all root nodes of the underlying
+    * transaction or if the parent node has fewer informee participants.
     *
-    * @param rootNode the node constituting the view
-    * @param viewConfirmationParameters contains both the informees of rootNode and quorums
-    * @param rootSeed the seed of the rootNode
-    * @param tailNodes all core nodes except `rootNode` and all child views, sorted in pre-order traversal order
+    * @param rootNode
+    *   the node constituting the view
+    * @param viewConfirmationParameters
+    *   contains both the informees of rootNode and quorums
+    * @param rootSeed
+    *   the seed of the rootNode
+    * @param tailNodes
+    *   all core nodes except `rootNode` and all child views, sorted in pre-order traversal order
     *
-    * @throws java.lang.IllegalArgumentException if a subview has the same `informees` and `threshold`
+    * @throws java.lang.IllegalArgumentException
+    *   if a subview has the same `informees` and `threshold`
     */
   final case class NewView(
       rootNode: LfActionNode,
@@ -58,8 +64,8 @@ object TransactionViewDecomposition {
     )
   }
 
-  /** An `lfNode` is categorized as `SameView`, if it is descendant of a node categorized as `NewView` and
-    * it will not be sent around explicitly.
+  /** An `lfNode` is categorized as `SameView`, if it is descendant of a node categorized as
+    * `NewView` and it will not be sent around explicitly.
     */
   final case class SameView(
       lfNode: LfActionNode,

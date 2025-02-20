@@ -69,8 +69,8 @@ object WebSocketService extends NoTracing {
       fn: (ActiveContract.ResolvedCtTyId[LfV], Option[Offset]) => Option[Positive],
   )
 
-  /** If an element satisfies `prefix`, consume it and emit the result alongside
-    * the next element (which is not similarly tested); otherwise, emit it.
+  /** If an element satisfies `prefix`, consume it and emit the result alongside the next element
+    * (which is not similarly tested); otherwise, emit it.
     *
     * {{{
     *   withOptPrefix(_ => None)

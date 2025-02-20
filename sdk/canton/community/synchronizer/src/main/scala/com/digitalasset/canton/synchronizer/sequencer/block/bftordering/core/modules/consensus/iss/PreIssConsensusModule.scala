@@ -161,8 +161,9 @@ final class PreIssConsensusModule[E <: Env[E]](
 
 object PreIssConsensusModule {
 
-  /** @return map from epoch number to a list of commit certificates sorted by block number,
-    *            for the last how many epochs from the latest completed epoch (inclusive).
+  /** @return
+    *   map from epoch number to a list of commit certificates sorted by block number, for the last
+    *   how many epochs from the latest completed epoch (inclusive).
     */
   @VisibleForTesting
   def loadPreviousEpochCommitCertificates[E <: Env[E]](epochStore: EpochStore[E])(

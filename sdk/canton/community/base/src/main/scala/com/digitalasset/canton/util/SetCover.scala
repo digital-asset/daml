@@ -14,18 +14,19 @@ object SetCover {
     cover == universe
   }
 
-  /** Let `universe` be the union of all elements in all the sets in `sets`.
-    * Selects a subset of `sets` so that their union equals `universe`, i.e. a cover as specified by [[covered]].
-    * The returned cover is in general neither minimal nor unique.
+  /** Let `universe` be the union of all elements in all the sets in `sets`. Selects a subset of
+    * `sets` so that their union equals `universe`, i.e. a cover as specified by [[covered]]. The
+    * returned cover is in general neither minimal nor unique.
     *
-    * Implements the standard greedy algorithm for set cover
-    * with the following optimization:
-    * - Do not re-insert empty sets into the priority queue
-    * - Do not update the priority queue immediately when a newly covered element is removed from the other sets.
-    *   Instead, update the priority queue only when it would have been the updated set's turn without the updates.
-    *   This saves unnecessary priority queue operations as a set may be updated multiple times before it would be its turn.
-    *   This is normally not done in the greedy algorithms that use a bucket priority queue because bucket operations are constant-time.
-    *   We however use a heap priority queue from the standard library, whose operations are logarithmic.
+    * Implements the standard greedy algorithm for set cover with the following optimization:
+    *   - Do not re-insert empty sets into the priority queue
+    *   - Do not update the priority queue immediately when a newly covered element is removed from
+    *     the other sets. Instead, update the priority queue only when it would have been the
+    *     updated set's turn without the updates. This saves unnecessary priority queue operations
+    *     as a set may be updated multiple times before it would be its turn. This is normally not
+    *     done in the greedy algorithms that use a bucket priority queue because bucket operations
+    *     are constant-time. We however use a heap priority queue from the standard library, whose
+    *     operations are logarithmic.
     */
   @SuppressWarnings(Array("org.wartremover.warts.While", "org.wartremover.warts.Var"))
   def greedy[A, Id](sets: immutable.Iterable[(Id, Set[A])]): Seq[Id] = {
@@ -74,16 +75,18 @@ object SetCover {
   }
 
   /** Entry for the priority queue of the greedy set cover algorithm
-    * @param id The identifier for a set
-    * @param uncovered The set of elements in the identified sets that are not in an already chosen set
+    * @param id
+    *   The identifier for a set
+    * @param uncovered
+    *   The set of elements in the identified sets that are not in an already chosen set
     */
   private class PrioQueueEntry[A, Id](
       val id: Id,
       val uncovered: mutable.Set[A],
   ) {
 
-    /** Used to determine the order in the priority queue.
-      * Must not be modified while the entry is in the priority queue
+    /** Used to determine the order in the priority queue. Must not be modified while the entry is
+      * in the priority queue
       */
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     private[this] var sizeOnLastPrioQueueInsertVar: Int = uncovered.size

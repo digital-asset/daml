@@ -11,11 +11,13 @@ object TrieMapUtil {
 
   /** Idempotent insertion into TrieMap.
     *
-    * - Inserts the key-value pair if the key is absent.
-    * - Idempotency: Ignores the insertion if the key already exists and the existing value is equal to the new value.
-    * - Fails if the key already exists and the existing value differs to the new value.
+    *   - Inserts the key-value pair if the key is absent.
+    *   - Idempotency: Ignores the insertion if the key already exists and the existing value is
+    *     equal to the new value.
+    *   - Fails if the key already exists and the existing value differs to the new value.
     *
-    * @param errorFn: Takes the key, oldValue, newValue and returns an appropriate error.
+    * @param errorFn:
+    *   Takes the key, oldValue, newValue and returns an appropriate error.
     */
   def insertIfAbsent[K, V, E](
       map: TrieMap[K, V],

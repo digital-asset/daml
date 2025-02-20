@@ -87,8 +87,7 @@ private[store] object StorageBackendTestValues {
       is_local = Some(isLocal),
     )
 
-  /** A simple create event.
-    * Corresponds to a transaction with a single create node.
+  /** A simple create event. Corresponds to a transaction with a single create node.
     */
   def dtoCreate(
       offset: Offset,
@@ -141,11 +140,12 @@ private[store] object StorageBackendTestValues {
     )
   }
 
-  /** A simple exercise event.
-    * Corresponds to a transaction with a single exercise node.
+  /** A simple exercise event. Corresponds to a transaction with a single exercise node.
     *
-    * @param signatory The signatory of the contract (see corresponding create node)
-    * @param actor The choice actor, who is also the submitter
+    * @param signatory
+    *   The signatory of the contract (see corresponding create node)
+    * @param actor
+    *   The choice actor, who is also the submitter
     */
   def dtoExercise(
       offset: Offset,

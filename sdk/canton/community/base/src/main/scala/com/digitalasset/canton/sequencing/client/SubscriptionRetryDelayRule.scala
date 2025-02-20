@@ -5,7 +5,9 @@ package com.digitalasset.canton.sequencing.client
 
 import scala.concurrent.duration.FiniteDuration
 
-/** Calculator for how to select the next retry duration and specifies what duration is enough to log a warning. */
+/** Calculator for how to select the next retry duration and specifies what duration is enough to
+  * log a warning.
+  */
 trait SubscriptionRetryDelayRule {
 
   /** What should the first delay be */
@@ -14,7 +16,9 @@ trait SubscriptionRetryDelayRule {
   /** If we retry for a duration greater than this value then a warning will be logged */
   val warnDelayDuration: FiniteDuration
 
-  /** Calculate the next retry delay given the prior and knowing whether an event has been received on the last subscription (suggesting that it did successfully connect and read). */
+  /** Calculate the next retry delay given the prior and knowing whether an event has been received
+    * on the last subscription (suggesting that it did successfully connect and read).
+    */
   def nextDelay(previousDelay: FiniteDuration, hasReceivedEvent: Boolean): FiniteDuration
 }
 

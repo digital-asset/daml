@@ -301,7 +301,8 @@ class RefinedNonNegativeDurationTest extends AnyWordSpec with BaseTest {
     Failure(new TimeoutException)
   }
 
-  /** @param counter A counter that is **externally** incremented for every iteration of the retry loop
+  /** @param counter
+    *   A counter that is **externally** incremented for every iteration of the retry loop
     */
   def nanoTime(expectedAwaits: List[Duration], counter: AtomicInteger)(): Long = {
     val soFar = expectedAwaits.take(counter.get).foldLeft(0.seconds: Duration) { case (acc, next) =>

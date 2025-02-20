@@ -19,7 +19,8 @@ import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.ExecutionContext
 
-/** Factory for creating resilient subscriptions directly to an in-process [[sequencer.Sequencer]] */
+/** Factory for creating resilient subscriptions directly to an in-process [[sequencer.Sequencer]]
+  */
 class DirectSequencerSubscriptionFactory(
     sequencer: Sequencer,
     timeouts: ProcessingTimeout,
@@ -27,16 +28,23 @@ class DirectSequencerSubscriptionFactory(
 )(implicit materializer: Materializer, executionContext: ExecutionContext)
     extends NamedLogging {
 
-  /** Create a subscription for an event handler to observe sequencer events for this member.
-    * By connecting from `startingAt` it is assumed that all prior events have been successfully read by the member (and may be removed by a separate administrative process).
-    * Closing the returned subscription should disconnect the handler.
-    * If member is unknown by the sequencer a [[sequencer.errors.CreateSubscriptionError.UnknownMember]] error will be returned.
-    * If the counter is invalid (currently will only happen if counter <0) a [[sequencer.errors.CreateSubscriptionError.InvalidCounter]] error will be returned.
+  /** Create a subscription for an event handler to observe sequencer events for this member. By
+    * connecting from `startingAt` it is assumed that all prior events have been successfully read
+    * by the member (and may be removed by a separate administrative process). Closing the returned
+    * subscription should disconnect the handler. If member is unknown by the sequencer a
+    * [[sequencer.errors.CreateSubscriptionError.UnknownMember]] error will be returned. If the
+    * counter is invalid (currently will only happen if counter <0) a
+    * [[sequencer.errors.CreateSubscriptionError.InvalidCounter]] error will be returned.
     *
-    * @param startingAt Counter of the next event to observe. (e.g. 0 will return the first event when it is available)
-    * @param member Member to subscribe on behalf of.
-    * @param handler The handler to invoke with sequencer events
-    * @return A running subscription
+    * @param startingAt
+    *   Counter of the next event to observe. (e.g. 0 will return the first event when it is
+    *   available)
+    * @param member
+    *   Member to subscribe on behalf of.
+    * @param handler
+    *   The handler to invoke with sequencer events
+    * @return
+    *   A running subscription
     */
   def create[E](
       startingAt: SequencerCounter,

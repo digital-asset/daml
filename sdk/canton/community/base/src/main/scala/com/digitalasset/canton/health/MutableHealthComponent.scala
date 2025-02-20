@@ -8,13 +8,16 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 
-/** A [[CloseableHealthQuasiComponent]] that derives its state from an optional mutable [[HealthQuasiComponent]].
-  * Use when the health component is not instantiated at bootstrap time and/or changes during the lifetime.
+/** A [[CloseableHealthQuasiComponent]] that derives its state from an optional mutable
+  * [[HealthQuasiComponent]]. Use when the health component is not instantiated at bootstrap time
+  * and/or changes during the lifetime.
   *
   * Must be closed separately.
   *
-  * @param uninitializedName  name used to identify this component while it has not yet been initialized
-  * @param initialHealthState state the component will return while it has not yet been initialized
+  * @param uninitializedName
+  *   name used to identify this component while it has not yet been initialized
+  * @param initialHealthState
+  *   state the component will return while it has not yet been initialized
   */
 class MutableHealthQuasiComponent[H <: HealthQuasiComponent](
     override protected val loggerFactory: NamedLoggerFactory,
@@ -70,11 +73,12 @@ object MutableHealthComponent {
     new MutableHealthComponent(loggerFactory, uninitializedName, timeouts, shutdownState)
 }
 
-/** A health component that aggregates the health state of multiple mutable dependencies using `reduceState`
-  * into a single health state.
+/** A health component that aggregates the health state of multiple mutable dependencies using
+  * `reduceState` into a single health state.
   *
-  * @param reduceState Computes the aggregate health state of the component given the health states of all dependencies.
-  *                    When given the empty map, produces the initial state.
+  * @param reduceState
+  *   Computes the aggregate health state of the component given the health states of all
+  *   dependencies. When given the empty map, produces the initial state.
   */
 abstract class DelegatingMutableHealthQuasiComponent[Id, H <: HealthQuasiComponent](
     override protected val loggerFactory: NamedLoggerFactory,

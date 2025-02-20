@@ -36,12 +36,13 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 
-/** Extends a CryptoPrivateStore with the necessary store write/read operations and is intended to be used by canton
-  * internal private crypto stores (e.g. [[com.digitalasset.canton.crypto.store.memory.InMemoryCryptoPrivateStore]],
+/** Extends a CryptoPrivateStore with the necessary store write/read operations and is intended to
+  * be used by canton internal private crypto stores (e.g.
+  * [[com.digitalasset.canton.crypto.store.memory.InMemoryCryptoPrivateStore]],
   * [[com.digitalasset.canton.crypto.store.db.DbCryptoPrivateStore]]).
   *
-  * The cache provides a write-through cache such that `get` operations can be served without reading from the async store.
-  * Async population of the cache is done at creation time.
+  * The cache provides a write-through cache such that `get` operations can be served without
+  * reading from the async store. Async population of the cache is done at creation time.
   */
 trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging =>
 
@@ -60,10 +61,11 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit]
 
-  /** Replaces a set of keys transactionally to avoid an inconsistent state of the store.
-    * Key ids will remain the same while replacing these keys.
+  /** Replaces a set of keys transactionally to avoid an inconsistent state of the store. Key ids
+    * will remain the same while replacing these keys.
     *
-    * @param newKeys sequence of keys to replace
+    * @param newKeys
+    *   sequence of keys to replace
     */
   private[crypto] def replaceStoredPrivateKeys(newKeys: Seq[StoredPrivateKey])(implicit
       traceContext: TraceContext
@@ -265,11 +267,13 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
         }
     }
 
-  /** Returns the wrapper key used to encrypt the private key
-    * or None if private key is not encrypted.
+  /** Returns the wrapper key used to encrypt the private key or None if private key is not
+    * encrypted.
     *
-    * @param keyId the private key fingerprint
-    * @return the wrapper key used for encryption or None if key is not encrypted
+    * @param keyId
+    *   the private key fingerprint
+    * @return
+    *   the wrapper key used for encryption or None if key is not encrypted
     */
   private[crypto] def encrypted(keyId: Fingerprint)(implicit
       traceContext: TraceContext

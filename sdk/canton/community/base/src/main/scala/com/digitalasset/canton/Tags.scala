@@ -14,9 +14,11 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import slick.jdbc.{GetResult, SetParameter}
 
-/** Participant local identifier used to refer to a synchronizer without the need to fetch identifying information from a synchronizer.
-  * This does not need to be globally unique. Only unique for the participant using it.
-  * @param str String with given alias
+/** Participant local identifier used to refer to a synchronizer without the need to fetch
+  * identifying information from a synchronizer. This does not need to be globally unique. Only
+  * unique for the participant using it.
+  * @param str
+  *   String with given alias
   */
 final case class SynchronizerAlias(protected val str: String255)
     extends LengthLimitedStringWrapper
@@ -33,16 +35,16 @@ object SynchronizerAlias extends LengthLimitedStringWrapperCompanion[String255, 
 
 /** Class representing a SequencerAlias.
   *
-  * A SequencerAlias serves as a shorthand, or 'nickname', for a particular sequencer or
-  * group of Highly Available (HA) replicas of a sequencer within a specific node.
+  * A SequencerAlias serves as a shorthand, or 'nickname', for a particular sequencer or group of
+  * Highly Available (HA) replicas of a sequencer within a specific node.
   *
   * Note:
-  * - SequencerAlias is a node-local concept. This means that two different participants
-  *   may assign different aliases to the same sequencer or group of HA sequencer replicas.
+  *   - SequencerAlias is a node-local concept. This means that two different participants may
+  *     assign different aliases to the same sequencer or group of HA sequencer replicas.
   *
-  * - The uniqueness of a SequencerAlias is only enforced within a given synchronizer id. This
-  *   means a node can use the same sequencer alias for different sequencers as long as
-  *   these sequencers belong to different synchronizers.
+  *   - The uniqueness of a SequencerAlias is only enforced within a given synchronizer id. This
+  *     means a node can use the same sequencer alias for different sequencers as long as these
+  *     sequencers belong to different synchronizers.
   */
 final case class SequencerAlias private (protected val str: String255)
     extends LengthLimitedStringWrapper
@@ -72,7 +74,8 @@ object SequencerAlias extends LengthLimitedStringWrapperCompanion[String255, Seq
 }
 
 /** Command identifier for tracking ledger commands
-  * @param id ledger string representing command
+  * @param id
+  *   ledger string representing command
   */
 final case class CommandId(private val id: LfLedgerString) extends PrettyPrinting {
   def unwrap: LfLedgerString = id
@@ -98,7 +101,8 @@ object CommandId {
 }
 
 /** Application identifier for identifying customer applications in the ledger api
-  * @param id ledger string representing application
+  * @param id
+  *   ledger string representing application
   */
 final case class ApplicationId(private val id: LedgerApplicationId) extends PrettyPrinting {
   def unwrap: LedgerApplicationId = id
@@ -124,8 +128,10 @@ object ApplicationId {
     pp >> v.toLengthLimitedString
 }
 
-/** Workflow identifier for identifying customer workflows, i.e. individual requests, in the ledger api
-  * @param id ledger string representing workflow
+/** Workflow identifier for identifying customer workflows, i.e. individual requests, in the ledger
+  * api
+  * @param id
+  *   ledger string representing workflow
   */
 final case class WorkflowId(private val id: LfWorkflowId) extends PrettyPrinting {
   def unwrap: LfWorkflowId = id

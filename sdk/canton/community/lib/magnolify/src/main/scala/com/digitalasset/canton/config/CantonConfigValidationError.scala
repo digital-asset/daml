@@ -5,8 +5,10 @@ package com.digitalasset.canton.config
 
 /** A validation error for a canton configuration.
   *
-  * @param error The error message
-  * @param context The path in the configuration where the error occurred
+  * @param error
+  *   The error message
+  * @param context
+  *   The path in the configuration where the error occurred
   */
 final case class CantonConfigValidationError(error: String, context: Seq[String] = Seq.empty) {
   def augmentContext(elem: String): CantonConfigValidationError = copy(context = elem +: context)

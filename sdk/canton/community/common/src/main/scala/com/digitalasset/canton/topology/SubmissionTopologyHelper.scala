@@ -15,17 +15,19 @@ import scala.concurrent.ExecutionContext
 
 object SubmissionTopologyHelper {
 
-  /** Retrieve the topology snapshot used during submission by the submitter of a confirmation request.
-    * This can be used to determine the impact of a topology change between submission and sequencing.
-    * An example usage is during validation of a request: if some validation fails due to such a change,
-    * the severity of the logs can sometimes be lowered from warning to info.
+  /** Retrieve the topology snapshot used during submission by the submitter of a confirmation
+    * request. This can be used to determine the impact of a topology change between submission and
+    * sequencing. An example usage is during validation of a request: if some validation fails due
+    * to such a change, the severity of the logs can sometimes be lowered from warning to info.
     *
-    * Return `None` if the timestamp of the topology snapshot used at submission is too far in the past
-    * compared to sequencing time (as determined by
+    * Return `None` if the timestamp of the topology snapshot used at submission is too far in the
+    * past compared to sequencing time (as determined by
     * [[com.digitalasset.canton.config.ProcessingTimeout.topologyChangeWarnDelay]]).
     *
-    * @param sequencingTimestamp the timestamp at which the request was sequenced
-    * @param submissionTopologyTimestamp the timestamp of the topology used at submission
+    * @param sequencingTimestamp
+    *   the timestamp at which the request was sequenced
+    * @param submissionTopologyTimestamp
+    *   the timestamp of the topology used at submission
     */
   def getSubmissionTopologySnapshot(
       timeouts: ProcessingTimeout,

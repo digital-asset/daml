@@ -37,7 +37,8 @@ trait UserManagementStorageBackend extends ResourceVersionOps {
       connection: Connection
   ): Unit
 
-  /** @return true if the right existed and we have just deleted it.
+  /** @return
+    *   true if the right existed and we have just deleted it.
     */
   def deleteUserRight(internalId: Int, right: UserRight)(connection: Connection): Boolean
 

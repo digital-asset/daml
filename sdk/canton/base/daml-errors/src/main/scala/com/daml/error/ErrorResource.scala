@@ -5,9 +5,9 @@ package com.daml.error
 
 /** Type of error resource
   *
-  * Some errors are linked to a specific resource such as a contract id or a package id.
-  * In such cases, we include the resource identifier as part of the error message.
-  * This enum allows an error to provide identifiers of a resource
+  * Some errors are linked to a specific resource such as a contract id or a package id. In such
+  * cases, we include the resource identifier as part of the error message. This enum allows an
+  * error to provide identifiers of a resource
   */
 final case class ErrorResource(asString: String)
 

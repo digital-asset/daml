@@ -41,21 +41,28 @@ import java.time.{DateTimeException, Duration, Instant}
 import java.util.UUID
 
 /** Can convert messages to and from proto objects
-  * @tparam A type of the message to be serialized
-  * @tparam Proto type of the proto message
-  * @tparam Err type of deserialization errors
+  * @tparam A
+  *   type of the message to be serialized
+  * @tparam Proto
+  *   type of the proto message
+  * @tparam Err
+  *   type of deserialization errors
   */
 trait ProtoConverter[A, Proto, Err] {
 
   /** Convert an instance to a protobuf structure
-    * @param value to be serialized
-    * @return serialized proto
+    * @param value
+    *   to be serialized
+    * @return
+    *   serialized proto
     */
   def toProtoPrimitive(value: A): Proto
 
   /** Convert proto value to its native type
-    * @param value to be deserialized
-    * @return deserialized value
+    * @param value
+    *   to be deserialized
+    * @return
+    *   deserialized value
     */
   def fromProtoPrimitive(value: Proto): Either[Err, A]
 }
@@ -80,10 +87,13 @@ object ProtoConverter {
         .leftMap(BufferException.apply)
 
   /** Helper for extracting an optional field where the value is required
-    * @param field the field name
-    * @param optValue the optional value
-    * @return a [[scala.Right$]] of the value if set or
-    *         a [[scala.Left$]] of [[com.digitalasset.canton.ProtoDeserializationError.FieldNotSet]] error
+    * @param field
+    *   the field name
+    * @param optValue
+    *   the optional value
+    * @return
+    *   a [[scala.Right$]] of the value if set or a [[scala.Left$]] of
+    *   [[com.digitalasset.canton.ProtoDeserializationError.FieldNotSet]] error
     */
   def required[B](field: String, optValue: Option[B]): Either[FieldNotSet, B] =
     optValue.toRight(FieldNotSet(field))

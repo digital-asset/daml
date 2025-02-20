@@ -15,13 +15,14 @@ trait HealthService
   override type State = ServingStatus
 }
 
-/** A [[DependenciesHealthService]] aggregates [[CloseableHealthComponent]]s under critical and soft dependencies.
-  * Services are queryable through their name in the gRPC Health Check service.
-  * Both critical and soft dependencies are reported under their names too.
+/** A [[DependenciesHealthService]] aggregates [[CloseableHealthComponent]]s under critical and soft
+  * dependencies. Services are queryable through their name in the gRPC Health Check service. Both
+  * critical and soft dependencies are reported under their names too.
   *
-  * The state of the [[DependenciesHealthService]] is [[io.grpc.health.v1.HealthCheckResponse.ServingStatus.SERVING]]
-  * if and only if none of the critical dependencies have failed. Soft dependencies are merely reported
-  * as dependencies, but do not influence the status of the [[DependenciesHealthService]] itself.
+  * The state of the [[DependenciesHealthService]] is
+  * [[io.grpc.health.v1.HealthCheckResponse.ServingStatus.SERVING]] if and only if none of the
+  * critical dependencies have failed. Soft dependencies are merely reported as dependencies, but do
+  * not influence the status of the [[DependenciesHealthService]] itself.
   */
 final class DependenciesHealthService(
     override val name: String,

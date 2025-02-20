@@ -12,16 +12,17 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 /** Detects whether a node is onboarded or should start as usual. */
 object BootstrapDetector {
 
-  /** Onboarding is currently assumed if a sequencer snapshot with additional info is provided, the node
-    * hasn't completed any epoch, and the node is not the only peer in the ordering topology. The latter is queried
-    * based on a topology activation timestamp from the sequencer snapshot additional info when a snapshot is provided.
+  /** Onboarding is currently assumed if a sequencer snapshot with additional info is provided, the
+    * node hasn't completed any epoch, and the node is not the only peer in the ordering topology.
+    * The latter is queried based on a topology activation timestamp from the sequencer snapshot
+    * additional info when a snapshot is provided.
     *
-    * A sequencer snapshot can effectively be used for initialization only once. Subsequent initialization calls
-    * are ignored (see the implementation in [[SequencerNode]]).
-    * Therefore, if a sequencer becomes initialized before state transfer for onboarding is finished, it will
-    * most likely become stuck. In such a case, at the very least, clearing the database would be required before
-    * starting the node again. However, synchronizer recovery is currently unsupported in case of onboarding failures
-    * or crashes.
+    * A sequencer snapshot can effectively be used for initialization only once. Subsequent
+    * initialization calls are ignored (see the implementation in [[SequencerNode]]). Therefore, if
+    * a sequencer becomes initialized before state transfer for onboarding is finished, it will most
+    * likely become stuck. In such a case, at the very least, clearing the database would be
+    * required before starting the node again. However, synchronizer recovery is currently
+    * unsupported in case of onboarding failures or crashes.
     */
   def detect(
       snapshotAdditionalInfo: Option[SequencerSnapshotAdditionalInfo],

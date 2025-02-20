@@ -106,7 +106,9 @@ class AcsCommitmentMultiHostedPartyTrackerTest
     }
   }
 
-  /** same as checkIfMapContains, however this one succeeds if the party is missing. It still fails if the period is missing */
+  /** same as checkIfMapContains, however this one succeeds if the party is missing. It still fails
+    * if the period is missing
+    */
   private def checkIfMapDoesNotContains(
       tracker: AcsCommitmentMultiHostedPartyTracker,
       period: CommitmentPeriod,

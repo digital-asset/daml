@@ -7,7 +7,6 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.{
   PeerEndpointHealth,
@@ -17,23 +16,22 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.Se
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.BftP2PNetworkOut
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2pEndpointsStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.memory.GenericInMemoryP2pEndpointsStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.P2PNetworkOutModuleDependencies
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
-  Availability,
-  Consensus,
-  Mempool,
-  Output,
-  P2PNetworkOut,
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
+  P2PEndpoint,
+  PlainTextP2PEndpoint,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2PEndpointsStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.memory.GenericInMemoryP2PEndpointsStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.*
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.P2PNetworkOutModuleDependencies
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   ClientP2PNetworkManager,
   ModuleRef,
   P2PNetworkRef,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.BftP2PNetworkOutTest.InMemoryUnitTestP2PEndpointsStore
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.{
   BftOrderingMessageBody,
   BftOrderingServiceReceiveRequest,
 }
@@ -47,8 +45,6 @@ import shapeless.syntax.std.traversable.*
 
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
-
-import BftP2PNetworkOutTest.InMemoryUnitTestP2pEndpointsStore
 
 class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
 
@@ -83,7 +79,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
           authenticate(clientP2PNetworkManager, otherInitialEndpointsTupled._1)
           context.selfMessages should contain only P2PNetworkOut.Network
             .Authenticated(
-              otherInitialEndpointsTupled._1,
+              otherInitialEndpointsTupled._1.id,
               fakeSequencerId(otherInitialEndpointsTupled._1.toString),
             )
           context.extractSelfMessages().foreach(module.receive)
@@ -98,7 +94,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
           // One more nodes authenticated -> strong quorum reached
           authenticate(clientP2PNetworkManager, otherInitialEndpointsTupled._2)
           context.selfMessages should contain only P2PNetworkOut.Network.Authenticated(
-            otherInitialEndpointsTupled._2,
+            otherInitialEndpointsTupled._2.id,
             fakeSequencerId(otherInitialEndpointsTupled._2.toString),
           )
           context.extractSelfMessages().foreach(module.receive)
@@ -178,7 +174,8 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
     "is requested to multicast a network message and " +
       "all peers are authenticated" should {
         "send the message to all peers" in {
-          val sendActionSpy = spyLambda((_: Endpoint, _: BftOrderingServiceReceiveRequest) => ())
+          val sendActionSpy =
+            spyLambda((_: P2PEndpoint, _: BftOrderingServiceReceiveRequest) => ())
           val clientP2PNetworkManager = new FakeClientP2PNetworkManager(sendActionSpy)
           val (context, _, module) = setup(clientP2PNetworkManager)
 
@@ -216,7 +213,8 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
     "is requested to multicast a network message and " +
       "only some peers are authenticated" should {
         "send the message only to authenticated peers" in {
-          val sendActionSpy = spyLambda((_: Endpoint, _: BftOrderingServiceReceiveRequest) => ())
+          val sendActionSpy =
+            spyLambda((_: P2PEndpoint, _: BftOrderingServiceReceiveRequest) => ())
           val clientP2PNetworkManager = new FakeClientP2PNetworkManager(sendActionSpy)
           val (context, _, module) = setup(clientP2PNetworkManager)
 
@@ -247,7 +245,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
             networkSend,
           )
           verify(sendActionSpy, times(1)).apply(
-            any[Endpoint],
+            any[P2PEndpoint],
             any[BftOrderingServiceReceiveRequest],
           )
         }
@@ -255,7 +253,8 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
 
     "is requested to multicast a network message to self" should {
       "forward it directly to the P2P network in module" in {
-        val sendActionSpy = spyLambda((_: Endpoint, _: BftOrderingServiceReceiveRequest) => ())
+        val sendActionSpy =
+          spyLambda((_: P2PEndpoint, _: BftOrderingServiceReceiveRequest) => ())
         val clientP2PNetworkManager = new FakeClientP2PNetworkManager(sendActionSpy)
         val p2pNetworkInSpy = spy(fakeIgnoringModule[BftOrderingServiceReceiveRequest])
         val (context, _, module) = setup(clientP2PNetworkManager, p2pNetworkInSpy)
@@ -270,7 +269,10 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
           )
         )
 
-        verify(sendActionSpy, never).apply(any[Endpoint], any[BftOrderingServiceReceiveRequest])
+        verify(sendActionSpy, never).apply(
+          any[P2PEndpoint],
+          any[BftOrderingServiceReceiveRequest],
+        )
         verify(p2pNetworkInSpy, times(1)).asyncSend(
           BftOrderingServiceReceiveRequest(
             traceContext = "",
@@ -333,7 +335,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
           val availabilitySpy =
             spy(fakeIgnoringModule[Availability.Message[ProgrammableUnitTestEnv]])
           val p2pEndpointsStore =
-            new InMemoryUnitTestP2pEndpointsStore(otherInitialEndpoints.toSet)
+            new InMemoryUnitTestP2PEndpointsStore(otherInitialEndpoints.toSet)
           val (context, state, module) =
             setup(
               clientP2PNetworkManager,
@@ -408,7 +410,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
           var endpointRemoved = false
           module.receive(
             P2PNetworkOut.Admin.RemoveEndpoint(
-              otherInitialEndpointsTupled._1,
+              otherInitialEndpointsTupled._1.id,
               removed => endpointRemoved = removed,
             )
           )
@@ -431,7 +433,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
           val clientP2PNetworkManager = new FakeClientP2PNetworkManager()
           val availabilitySpy =
             spy(fakeIgnoringModule[Availability.Message[ProgrammableUnitTestEnv]])
-          val p2pEndpointsStore = new InMemoryUnitTestP2pEndpointsStore(otherInitialEndpoints.toSet)
+          val p2pEndpointsStore = new InMemoryUnitTestP2PEndpointsStore(otherInitialEndpoints.toSet)
           val (context, state, module) =
             setup(
               clientP2PNetworkManager,
@@ -442,13 +444,13 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
           implicit val ctx: ProgrammableUnitTestContext[P2PNetworkOut.Message] = context
 
           p2pEndpointsStore
-            .removeEndpoint(otherInitialEndpointsTupled._1)
+            .removeEndpoint(otherInitialEndpointsTupled._1.id)
             .apply() // Simulate a racing removal
 
           var endpointRemoved = false
           module.receive(
             P2PNetworkOut.Admin.RemoveEndpoint(
-              otherInitialEndpointsTupled._1,
+              otherInitialEndpointsTupled._1.id,
               removed => endpointRemoved = removed,
             )
           )
@@ -472,7 +474,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
         var endpointRemoved = false
         module.receive(
           P2PNetworkOut.Admin.RemoveEndpoint(
-            anotherEndpoint,
+            anotherEndpoint.id,
             removed => endpointRemoved = removed,
           )
         )
@@ -499,25 +501,25 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
         context.extractSelfMessages().foreach(module.receive) // Authenticate
 
         Table(
-          "queried endpoints" -> "expected status",
+          "queried endpoint IDs" -> "expected status",
           Some(
             Seq(
-              otherInitialEndpointsTupled._1,
-              otherInitialEndpointsTupled._2,
-              anotherEndpoint,
+              otherInitialEndpointsTupled._1.id,
+              otherInitialEndpointsTupled._2.id,
+              anotherEndpoint.id,
             )
           ) -> PeerNetworkStatus(
             Seq(
               PeerEndpointStatus(
-                otherInitialEndpointsTupled._1,
+                otherInitialEndpointsTupled._1.id,
                 PeerEndpointHealth(PeerEndpointHealthStatus.Authenticated, None),
               ),
               PeerEndpointStatus(
-                otherInitialEndpointsTupled._2,
+                otherInitialEndpointsTupled._2.id,
                 PeerEndpointHealth(PeerEndpointHealthStatus.Unauthenticated, None),
               ),
               PeerEndpointStatus(
-                anotherEndpoint,
+                anotherEndpoint.id,
                 PeerEndpointHealth(PeerEndpointHealthStatus.Unknown, None),
               ),
             )
@@ -525,15 +527,15 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
           None -> PeerNetworkStatus(
             Seq(
               PeerEndpointStatus(
-                otherInitialEndpointsTupled._1,
+                otherInitialEndpointsTupled._1.id,
                 PeerEndpointHealth(PeerEndpointHealthStatus.Authenticated, None),
               ),
               PeerEndpointStatus(
-                otherInitialEndpointsTupled._2,
+                otherInitialEndpointsTupled._2.id,
                 PeerEndpointHealth(PeerEndpointHealthStatus.Unauthenticated, None),
               ),
               PeerEndpointStatus(
-                otherInitialEndpointsTupled._3,
+                otherInitialEndpointsTupled._3.id,
                 PeerEndpointHealth(PeerEndpointHealthStatus.Unauthenticated, None),
               ),
             )
@@ -555,8 +557,8 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
       availability: ModuleRef[Availability.Message[ProgrammableUnitTestEnv]] = fakeIgnoringModule,
       consensus: ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]] = fakeIgnoringModule,
       output: ModuleRef[Output.Message[ProgrammableUnitTestEnv]] = fakeIgnoringModule,
-      p2pEndpointsStore: P2pEndpointsStore[ProgrammableUnitTestEnv] =
-        new InMemoryUnitTestP2pEndpointsStore(
+      p2pEndpointsStore: P2PEndpointsStore[ProgrammableUnitTestEnv] =
+        new InMemoryUnitTestP2PEndpointsStore(
           otherInitialEndpoints.toSet
         ),
   ): (
@@ -594,7 +596,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
       consensus: ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]],
       output: ModuleRef[Output.Message[ProgrammableUnitTestEnv]],
       state: BftP2PNetworkOut.State,
-      p2pEndpointsStore: P2pEndpointsStore[ProgrammableUnitTestEnv],
+      p2pEndpointsStore: P2PEndpointsStore[ProgrammableUnitTestEnv],
   ): BftP2PNetworkOut[ProgrammableUnitTestEnv] = {
     val dependencies = P2PNetworkOutModuleDependencies(
       clientP2PNetworkManager,
@@ -617,26 +619,26 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
 
   private def authenticate(
       fakeClientP2PNetworkManager: FakeClientP2PNetworkManager,
-      endpoint: Endpoint,
+      endpoint: P2PEndpoint,
       customSequencerId: Option[SequencerId] = None,
   ): Unit =
     fakeClientP2PNetworkManager.onSequencerIdActions(endpoint)(
-      endpoint,
+      endpoint.id,
       customSequencerId.getOrElse(fakeSequencerId(endpoint.toString)),
     )
 
   private class FakeClientP2PNetworkManager(
-      asyncP2PSendAction: (Endpoint, BftOrderingServiceReceiveRequest) => Unit = (_, _) => ()
+      asyncP2PSendAction: (P2PEndpoint, BftOrderingServiceReceiveRequest) => Unit = (_, _) => ()
   ) extends ClientP2PNetworkManager[ProgrammableUnitTestEnv, BftOrderingServiceReceiveRequest] {
 
-    val onSequencerIdActions: mutable.Map[Endpoint, (Endpoint, SequencerId) => Unit] =
+    val onSequencerIdActions: mutable.Map[P2PEndpoint, (P2PEndpoint.Id, SequencerId) => Unit] =
       mutable.Map.empty
 
     override def createNetworkRef[ActorContextT](
         context: ProgrammableUnitTestContext[ActorContextT],
-        peer: Endpoint,
+        peer: P2PEndpoint,
     )(
-        onSequencerId: (Endpoint, SequencerId) => Unit
+        onSequencerId: (P2PEndpoint.Id, SequencerId) => Unit
     ): P2PNetworkRef[BftOrderingServiceReceiveRequest] = {
       onSequencerIdActions.put(peer, onSequencerId)
 
@@ -662,20 +664,24 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
 
   private lazy val otherInitialEndpoints =
     List(1, 2, 3)
-      .map(i => new Endpoint(s"host$i", Port.tryCreate(5000 + i)))
+      .map(i => PlainTextP2PEndpoint(s"host$i", Port.tryCreate(5000 + i)))
 
-  private lazy val anotherEndpoint = new Endpoint("host4", Port.tryCreate(5004))
+  private lazy val anotherEndpoint =
+    PlainTextP2PEndpoint("host4", Port.tryCreate(5004))
 
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
   private lazy val otherInitialEndpointsTupled =
-    otherInitialEndpoints.toHList[Endpoint :: Endpoint :: Endpoint :: HNil].get.tupled
+    otherInitialEndpoints
+      .toHList[P2PEndpoint :: P2PEndpoint :: P2PEndpoint :: HNil]
+      .get
+      .tupled
 }
 
 object BftP2PNetworkOutTest {
 
-  final class InMemoryUnitTestP2pEndpointsStore(
-      initialEndpoints: Set[Endpoint]
-  ) extends GenericInMemoryP2pEndpointsStore[ProgrammableUnitTestEnv](initialEndpoints) {
+  final class InMemoryUnitTestP2PEndpointsStore(
+      initialEndpoints: Set[P2PEndpoint]
+  ) extends GenericInMemoryP2PEndpointsStore[ProgrammableUnitTestEnv](initialEndpoints) {
     override protected def createFuture[T](action: String)(
         value: () => Try[T]
     ): ProgrammableUnitTestEnv#FutureUnlessShutdownT[T] = () =>

@@ -408,7 +408,8 @@ object OnboardingRestriction {
 
   /** Only participants on the allowlist can join
     *
-    * Requires the synchronizer owners to issue a valid ParticipantSynchronizerPermission transaction
+    * Requires the synchronizer owners to issue a valid ParticipantSynchronizerPermission
+    * transaction
     */
   final case object RestrictedOpen extends OnboardingRestriction {
     override def toProtoV30: v30.OnboardingRestriction =
@@ -421,7 +422,9 @@ object OnboardingRestriction {
 
   }
 
-  /** Only participants on the allowlist can join in theory, except now, the registration procedure is closed */
+  /** Only participants on the allowlist can join in theory, except now, the registration procedure
+    * is closed
+    */
   final case object RestrictedLocked extends OnboardingRestriction {
     override def toProtoV30: v30.OnboardingRestriction =
       v30.OnboardingRestriction.ONBOARDING_RESTRICTION_RESTRICTED_LOCKED

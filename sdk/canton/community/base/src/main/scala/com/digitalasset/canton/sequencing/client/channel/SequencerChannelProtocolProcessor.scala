@@ -19,8 +19,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
-/** Interface for purpose-specific channel-users to interact with the sequencer channel client.
-  * The SequencerChannelProtocolProcessor provides implementations with methods to send and receive
+/** Interface for purpose-specific channel-users to interact with the sequencer channel client. The
+  * SequencerChannelProtocolProcessor provides implementations with methods to send and receive
   * messages via a sequencer channel and requires implementations to handle incoming messages.
   */
 trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging {
@@ -64,8 +64,8 @@ trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging 
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit]
 
-  /** Notification that the processor has been disconnected, either cleanly by the remote processor completing or
-    * with the specified error if status is a left.
+  /** Notification that the processor has been disconnected, either cleanly by the remote processor
+    * completing or with the specified error if status is a left.
     */
   def onDisconnected(status: Either[String, Unit])(implicit traceContext: TraceContext): Unit
 

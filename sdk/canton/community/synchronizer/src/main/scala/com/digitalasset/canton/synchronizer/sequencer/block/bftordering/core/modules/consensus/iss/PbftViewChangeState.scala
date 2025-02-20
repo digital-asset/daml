@@ -56,7 +56,8 @@ class PbftViewChangeState(
   def viewChangeMessageReceivedStatus: Seq[Boolean] =
     membership.sortedPeers.map(viewChangeMap.contains)
 
-  /** Compute which view change messages we must retransmit based on which view change messages the remote node already has
+  /** Compute which view change messages we must retransmit based on which view change messages the
+    * remote node already has
     */
   def viewChangeMessagesToRetransmit(
       remoteNodeViewChangeMessages: Seq[Boolean]

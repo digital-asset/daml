@@ -14,8 +14,8 @@ import com.google.protobuf.ByteString
 
 /** A generic connection. This trait attempts to be independent of the underlying transport.
   *
-  * NOTE: We currently make only a minimal effort to keep transport independence, and there are obvious leaks.
-  * This will be extended when we need it.
+  * NOTE: We currently make only a minimal effort to keep transport independence, and there are
+  * obvious leaks. This will be extended when we need it.
   */
 trait ConnectionX extends FlagCloseable with NamedLogging {
   import ConnectionX.*
@@ -24,16 +24,17 @@ trait ConnectionX extends FlagCloseable with NamedLogging {
 
   def health: ConnectionXHealth
 
-  /** Prepare the underlying transport so that it can be used to make calls. This must be called before sending any
-    * command over the connection.
+  /** Prepare the underlying transport so that it can be used to make calls. This must be called
+    * before sending any command over the connection.
     *
     * The connection to the endpoint is not necessarily established immediately: for example, for
-    * gRPC, this call opens a channel, but the connection is only established the first time it is used.
+    * gRPC, this call opens a channel, but the connection is only established the first time it is
+    * used.
     */
   def start()(implicit traceContext: TraceContext): Unit
 
-  /** Stop the connection by closing the underlying transport's means of communication. Commands cannot
-    * be sent after this call until the connection is [[start]]'ed again.
+  /** Stop the connection by closing the underlying transport's means of communication. Commands
+    * cannot be sent after this call until the connection is [[start]]'ed again.
     *
     * For example, for gRPC, this closes the channel.
     */
@@ -42,15 +43,20 @@ trait ConnectionX extends FlagCloseable with NamedLogging {
 
 object ConnectionX {
 
-  /** A connection represents just a single endpoint.
-    * To provide HA on a logical sequencer, the operator can define multiple connections with the different endpoints.
-    * These connections will then be handled in a round-robin load balancing way.
+  /** A connection represents just a single endpoint. To provide HA on a logical sequencer, the
+    * operator can define multiple connections with the different endpoints. These connections will
+    * then be handled in a round-robin load balancing way.
     *
-    * @param name an identifier for this connection
-    * @param endpoint connection endpoint (host and port)
-    * @param transportSecurity whether the connection uses TLS
-    * @param customTrustCertificates custom X.509 certificates in PEM format, defined if using TLS
-    * @param tracePropagation trace propagation mode used for this connection
+    * @param name
+    *   an identifier for this connection
+    * @param endpoint
+    *   connection endpoint (host and port)
+    * @param transportSecurity
+    *   whether the connection uses TLS
+    * @param customTrustCertificates
+    *   custom X.509 certificates in PEM format, defined if using TLS
+    * @param tracePropagation
+    *   trace propagation mode used for this connection
     */
   final case class ConnectionXConfig(
       name: String,

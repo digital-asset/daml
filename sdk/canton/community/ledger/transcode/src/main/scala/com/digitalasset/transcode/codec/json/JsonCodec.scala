@@ -15,11 +15,12 @@ import scala.collection.mutable.ArrayBuffer
 /** Json Codec.
   *
   * @param encodeNumericAsString
-  *   encode numeric as string (true) or as a json number (false). The latter might be useful for querying and
-  *   mathematical operations, but can loose precision due to float point errors.
+  *   encode numeric as string (true) or as a json number (false). The latter might be useful for
+  *   querying and mathematical operations, but can loose precision due to float point errors.
   * @param encodeInt64AsString
-  *   encode int64 as a string (true) or as a json number (false). The latter might be useful for querying and
-  *   mathematical operations, but can loose precision, as numbers in some json implementations are backed by Double
+  *   encode int64 as a string (true) or as a json number (false). The latter might be useful for
+  *   querying and mathematical operations, but can loose precision, as numbers in some json
+  *   implementations are backed by Double
   */
 
 //TODO (i20144) remove or convert to scala2

@@ -16,10 +16,11 @@ import scala.collection.mutable
 import scala.reflect.{ClassTag, classTag}
 
 /** * Trait which acts as a wrapper around
-  *  1. `lightbend ConfigException`s which are caught when attempting to read or parse a configuration file
-  *  2. `pureconfig ConfigReaderFailures` which are returned when attempting to convert a given
-  *  [[com.typesafe.config.Config]] instance (basically a valid HOCON-file)
-  *    to one of the Canton configs
+  *   1. `lightbend ConfigException`s which are caught when attempting to read or parse a
+  *      configuration file
+  *   1. `pureconfig ConfigReaderFailures` which are returned when attempting to convert a given
+  *      [[com.typesafe.config.Config]] instance (basically a valid HOCON-file) to one of the Canton
+  *      configs
   */
 object ConfigErrors extends ConfigErrorGroup {
 

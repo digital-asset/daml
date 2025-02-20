@@ -10,8 +10,8 @@ import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions
 import java.sql.Connection
 
 /** Provides primitive backend operations for managing:
-  * - annotations of a resource,
-  * - resource versioning and concurrent change control.
+  *   - annotations of a resource,
+  *   - resource versioning and concurrent change control.
   */
 object ParticipantMetadataBackend {
 
@@ -67,12 +67,14 @@ object ParticipantMetadataBackend {
         throw new RuntimeException(e)
     }
 
-  /** Invokes a query to increase the version number of a resource if the currently stored version matches the expected value.
-    * If there are multiple transactions executing this query then the first transaction will proceed and all the others
-    * will wait until the first transaction commits or aborts. This behavior should be obtainable by using Read Committed isolation level.
+  /** Invokes a query to increase the version number of a resource if the currently stored version
+    * matches the expected value. If there are multiple transactions executing this query then the
+    * first transaction will proceed and all the others will wait until the first transaction
+    * commits or aborts. This behavior should be obtainable by using Read Committed isolation level.
     *
-    * @return True on a successful update.
-    *         False when no rows were updated (indicating a wrong internal_id or a wrong expected version number).
+    * @return
+    *   True on a successful update. False when no rows were updated (indicating a wrong internal_id
+    *   or a wrong expected version number).
     */
   def compareAndIncreaseResourceVersion(tableName: String)(
       internalId: Int,
@@ -89,12 +91,14 @@ object ParticipantMetadataBackend {
     rowsUpdated == 1
   }
 
-  /** Invokes a query to increase the version number of a resource.
-    * If there are multiple transactions executing this query then the first transaction will proceed and all the others
-    * will wait until the first transaction commits or aborts. This behavior should be obtainable by using Read Committed isolation level.
+  /** Invokes a query to increase the version number of a resource. If there are multiple
+    * transactions executing this query then the first transaction will proceed and all the others
+    * will wait until the first transaction commits or aborts. This behavior should be obtainable by
+    * using Read Committed isolation level.
     *
-    * @return True on a successful update.
-    *         False when no rows were updated (indicating a wrong internal_id).
+    * @return
+    *   True on a successful update. False when no rows were updated (indicating a wrong
+    *   internal_id).
     */
   def increaseResourceVersion(tableName: String)(internalId: Int)(
       connection: Connection

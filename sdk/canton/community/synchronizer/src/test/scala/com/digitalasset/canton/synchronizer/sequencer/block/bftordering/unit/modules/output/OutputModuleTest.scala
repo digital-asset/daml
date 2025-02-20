@@ -476,7 +476,7 @@ class OutputModuleTest
         CompleteBlockData(
           initialBlock,
           batches = Seq(
-            OrderingRequestBatch(
+            OrderingRequestBatch.create(
               Seq(Traced(OrderingRequest(aTag, ByteString.EMPTY)))
             )
           ).map(x => BatchId.from(x) -> x),
@@ -1044,7 +1044,7 @@ class OutputModuleTest
         mode,
       ),
       batches = Seq(
-        OrderingRequestBatch(
+        OrderingRequestBatch.create(
           Seq(Traced(OrderingRequest(aTag, ByteString.EMPTY)))
         )
       ).map(x => BatchId.from(x) -> x),

@@ -50,8 +50,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PekkoEnv,
   PekkoFutureUnlessShutdown,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.ConsensusMessage as ProtoConsensusMessage
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.ConsensusMessage as ProtoConsensusMessage
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{ProtoDeserializationError, RichGeneratedMessage}
@@ -114,9 +114,9 @@ class DbEpochStore(
     val messageBytes = r.nextBytes()
 
     val messageOrError = for {
-      signedMessageProto <- Try(v1.SignedMessage.parseFrom(messageBytes)).toEither
+      signedMessageProto <- Try(v30.SignedMessage.parseFrom(messageBytes)).toEither
         .leftMap(x => ProtoDeserializationError.OtherError(x.toString))
-      message <- SignedMessage.fromProtoWithSequencerId(v1.ConsensusMessage)(parse)(
+      message <- SignedMessage.fromProtoWithSequencerId(v30.ConsensusMessage)(parse)(
         signedMessageProto
       )
     } yield message

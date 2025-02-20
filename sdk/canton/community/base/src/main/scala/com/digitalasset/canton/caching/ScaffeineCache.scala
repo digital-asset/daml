@@ -124,7 +124,8 @@ object ScaffeineCache {
   ) {
     implicit private[this] val ec: ExecutionContext = DirectExecutionContext(tracedLogger)
 
-    /** @see com.github.blemale.scaffeine.AsyncLoadingCache.get
+    /** @see
+      *   com.github.blemale.scaffeine.AsyncLoadingCache.get
       */
     def get(key: K): F[V] = tunnel.exit(
       // The Caffeine cache's get method wraps exceptions from the loader in a `CompletionException`.
@@ -132,7 +133,8 @@ object ScaffeineCache {
       FutureUtil.unwrapCompletionException(underlying.get(key))
     )
 
-    /** @see com.github.blemale.scaffeine.AsyncLoadingCache.getAll
+    /** @see
+      *   com.github.blemale.scaffeine.AsyncLoadingCache.getAll
       */
     def getAll(keys: Iterable[K]): F[Map[K, V]] =
       tunnel.exit(
@@ -141,7 +143,8 @@ object ScaffeineCache {
         FutureUtil.unwrapCompletionException(underlying.getAll(keys))
       )
 
-    /** @see com.github.blemale.scaffeine.AsyncLoadingCache.put
+    /** @see
+      *   com.github.blemale.scaffeine.AsyncLoadingCache.put
       */
     def put(key: K, value: V): Unit =
       underlying.put(key, Future.successful(value))
@@ -190,12 +193,14 @@ object ScaffeineCache {
       underlying: ScaffeineCache.TunnelledAsyncLoadingCache[F, Traced[K], V]
   )(implicit F: Functor[F]) {
 
-    /** @see com.github.blemale.scaffeine.AsyncLoadingCache.get
+    /** @see
+      *   com.github.blemale.scaffeine.AsyncLoadingCache.get
       */
     def get(key: K)(implicit traceContext: TraceContext): F[V] =
       underlying.get(Traced(key))
 
-    /** @see com.github.blemale.scaffeine.AsyncLoadingCache.getAll
+    /** @see
+      *   com.github.blemale.scaffeine.AsyncLoadingCache.getAll
       */
     def getAll(
         keys: Iterable[K]
@@ -204,7 +209,8 @@ object ScaffeineCache {
         tracedKey.unwrap -> value
       })
 
-    /** @see com.github.blemale.scaffeine.AsyncLoadingCache.put
+    /** @see
+      *   com.github.blemale.scaffeine.AsyncLoadingCache.put
       */
     def put(key: K, value: V)(implicit traceContext: TraceContext): Unit =
       underlying.put(Traced(key), value)

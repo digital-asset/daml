@@ -4,7 +4,6 @@
 package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.either.*
-import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencer.admin.v30.SequencerBftAdministrationServiceGrpc.SequencerBftAdministrationServiceStub
 import com.digitalasset.canton.sequencer.admin.v30.{
   AddPeerEndpointRequest,
@@ -20,8 +19,10 @@ import com.digitalasset.canton.sequencer.admin.v30.{
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.{
   OrderingTopology,
   PeerNetworkStatus,
+  endpointIdToProto,
   endpointToProto,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
 import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
@@ -30,15 +31,17 @@ object SequencerBftAdminCommands {
 
   abstract class BaseSequencerBftAdministrationCommand[Req, Rep, Res]
       extends GrpcAdminCommand[Req, Rep, Res] {
+
     override type Svc =
       SequencerBftAdministrationServiceStub
+
     override def createService(
         channel: ManagedChannel
     ): SequencerBftAdministrationServiceStub =
       SequencerBftAdministrationServiceGrpc.stub(channel)
   }
 
-  final case class AddPeerEndpoint(endpoint: Endpoint)
+  final case class AddPeerEndpoint(endpoint: P2PEndpoint)
       extends BaseSequencerBftAdministrationCommand[
         AddPeerEndpointRequest,
         AddPeerEndpointResponse,
@@ -61,7 +64,7 @@ object SequencerBftAdminCommands {
       Either.unit
   }
 
-  final case class RemovePeerEndpoint(endpoint: Endpoint)
+  final case class RemovePeerEndpoint(endpointId: P2PEndpoint.Id)
       extends BaseSequencerBftAdministrationCommand[
         RemovePeerEndpointRequest,
         RemovePeerEndpointResponse,
@@ -69,7 +72,7 @@ object SequencerBftAdminCommands {
       ] {
 
     override protected def createRequest(): Either[String, RemovePeerEndpointRequest] = Right(
-      RemovePeerEndpointRequest.of(Some(endpointToProto(endpoint)))
+      RemovePeerEndpointRequest(Some(endpointIdToProto(endpointId)))
     )
 
     override protected def submitRequest(
@@ -84,7 +87,7 @@ object SequencerBftAdminCommands {
       Either.unit
   }
 
-  final case class GetPeerNetworkStatus(endpoints: Option[Iterable[Endpoint]])
+  final case class GetPeerNetworkStatus(endpoints: Option[Iterable[P2PEndpoint.Id]])
       extends BaseSequencerBftAdministrationCommand[
         GetPeerNetworkStatusRequest,
         GetPeerNetworkStatusResponse,
@@ -92,7 +95,9 @@ object SequencerBftAdminCommands {
       ] {
 
     override protected def createRequest(): Either[String, GetPeerNetworkStatusRequest] = Right(
-      GetPeerNetworkStatusRequest.of(endpoints.getOrElse(Iterable.empty).map(endpointToProto).toSeq)
+      GetPeerNetworkStatusRequest.of(
+        endpoints.getOrElse(Iterable.empty).map(endpointIdToProto).toSeq
+      )
     )
 
     override protected def submitRequest(

@@ -53,9 +53,9 @@ import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.ExecutionContext
 
-/** Responsible for events processing.
-  * Reads mediator confirmation requests and confirmation responses from a sequencer and produces ConfirmationResultMessages.
-  * For scaling / high-availability, several instances need to be created.
+/** Responsible for events processing. Reads mediator confirmation requests and confirmation
+  * responses from a sequencer and produces ConfirmationResultMessages. For scaling /
+  * high-availability, several instances need to be created.
   */
 private[mediator] class Mediator(
     val synchronizerId: SynchronizerId,
@@ -156,9 +156,9 @@ private[mediator] class Mediator(
     )
   }
 
-  /** Prune all unnecessary data from the mediator state and sequenced events store.
-    * Will validate the provided timestamp is before the prehead position of the sequenced events store,
-    * meaning that all events up until this point have completed processing and can be safely removed.
+  /** Prune all unnecessary data from the mediator state and sequenced events store. Will validate
+    * the provided timestamp is before the prehead position of the sequenced events store, meaning
+    * that all events up until this point have completed processing and can be safely removed.
     */
   def prune(
       timestamp: CantonTimestamp
@@ -366,7 +366,8 @@ private[mediator] object Mediator {
         show"Dynamic synchronizer parameters to compute earliest available pruning timestamp not found for ts [$ts]"
     }
 
-    /** The mediator can prune some data but data for the requested timestamp cannot yet be removed */
+    /** The mediator can prune some data but data for the requested timestamp cannot yet be removed
+      */
     final case class CannotPruneAtTimestamp(
         requestedTimestamp: CantonTimestamp,
         earliestPruningTimestamp: CantonTimestamp,

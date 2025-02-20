@@ -106,9 +106,9 @@ trait TestEssentials
     SLF4JBridgeHandler.install()
   }
 
-  /** Execution context for running "quick" computations.
-    * As there are many implementations of DirectExecutionContext, this is provided as a convenience field,
-    * so that tests don't have to deal with imports.
+  /** Execution context for running "quick" computations. As there are many implementations of
+    * DirectExecutionContext, this is provided as a convenience field, so that tests don't have to
+    * deal with imports.
     */
   lazy val directExecutionContext: ExecutionContext = DirectExecutionContext(noTracingLogger)
 }
@@ -129,8 +129,8 @@ trait BaseTest
 
   import scala.language.implicitConversions
 
-  /** A metrics factory constructed from an OpenTelemetryOnDemandMetricsReader which allows to make assertion
-    * on the content of the metrics registry.
+  /** A metrics factory constructed from an OpenTelemetryOnDemandMetricsReader which allows to make
+    * assertion on the content of the metrics registry.
     */
   def testableMetricsFactory(
       testName: String,
@@ -205,15 +205,16 @@ trait BaseTest
     }
   }
 
-  /** Allows for returning an `EitherT[Future, _, Assertion]` instead of `Future[Assertion]` in asynchronous
-    * test suites.
+  /** Allows for returning an `EitherT[Future, _, Assertion]` instead of `Future[Assertion]` in
+    * asynchronous test suites.
     */
   implicit def futureAssertionOfEitherTAssertion[A](
       eitherTAssertion: EitherT[Future, A, Assertion]
   )(implicit ec: ExecutionContext, pos: source.Position): Future[Assertion] =
     eitherTAssertion.valueOr(left => fail(s"Unexpected left value $left"))
 
-  /** Allows for returning an `OptionT[Future, Assertion]` instead of `Future[Assertion]` in asynchronous test suites.
+  /** Allows for returning an `OptionT[Future, Assertion]` instead of `Future[Assertion]` in
+    * asynchronous test suites.
     */
   implicit def futureAssertionOfOptionTAssertion(
       optionTAssertion: OptionT[Future, Assertion]
@@ -232,9 +233,12 @@ trait BaseTest
     )(testCode)
 
   /** Keeps evaluating `testCode` until it fails or a timeout occurs.
-    * @return the result the last evaluation of `testCode`
-    * @throws java.lang.Throwable if `testCode` terminates with a throwable
-    * @throws java.lang.IllegalArgumentException if `timeout` or `pollIntervalMs` is negative
+    * @return
+    *   the result the last evaluation of `testCode`
+    * @throws java.lang.Throwable
+    *   if `testCode` terminates with a throwable
+    * @throws java.lang.IllegalArgumentException
+    *   if `timeout` or `pollIntervalMs` is negative
     */
   @SuppressWarnings(Array("org.wartremover.warts.While"))
   def always[T](durationOfSuccess: FiniteDuration = 2.seconds, pollIntervalMs: Long = 10)(
@@ -405,9 +409,12 @@ trait BaseTest
 object BaseTest {
 
   /** Keeps evaluating `testCode` until it fails or a timeout occurs.
-    * @return the result the last evaluation of `testCode`
-    * @throws java.lang.Throwable if `testCode` terminates with a throwable
-    * @throws java.lang.IllegalArgumentException if `timeout` or `pollIntervalMs` is negative
+    * @return
+    *   the result the last evaluation of `testCode`
+    * @throws java.lang.Throwable
+    *   if `testCode` terminates with a throwable
+    * @throws java.lang.IllegalArgumentException
+    *   if `timeout` or `pollIntervalMs` is negative
     */
   @SuppressWarnings(Array("org.wartremover.warts.While"))
   def always[T](durationOfSuccess: FiniteDuration = 2.seconds, pollIntervalMs: Long = 10)(
@@ -436,9 +443,12 @@ object BaseTest {
   }
 
   /** Keeps evaluating `testCode` until it succeeds or a timeout occurs.
-    * @throws org.scalatest.exceptions.TestFailedException if `testCode` keeps throwing such an exception even after `timeout`
-    * @throws java.lang.Throwable if `testCode` throws any other throwable
-    * @throws java.lang.IllegalArgumentException if `timeUntilSuccess` is negative
+    * @throws org.scalatest.exceptions.TestFailedException
+    *   if `testCode` keeps throwing such an exception even after `timeout`
+    * @throws java.lang.Throwable
+    *   if `testCode` throws any other throwable
+    * @throws java.lang.IllegalArgumentException
+    *   if `timeUntilSuccess` is negative
     */
   @SuppressWarnings(
     Array(
@@ -520,8 +530,10 @@ object BaseTest {
       .map(_.getPath)
       .getOrElse(throw new IllegalArgumentException(s"Cannot find resource $name"))
 
-  /** @return Parsed protocol version if found in environment variable `CANTON_PROTOCOL_VERSION`
-    * @throws java.lang.RuntimeException if the given parameter cannot be parsed to a protocol version
+  /** @return
+    *   Parsed protocol version if found in environment variable `CANTON_PROTOCOL_VERSION`
+    * @throws java.lang.RuntimeException
+    *   if the given parameter cannot be parsed to a protocol version
     */
   protected def tryGetProtocolVersionFromEnv: Option[ProtocolVersion] = sys.env
     .get("CANTON_PROTOCOL_VERSION")

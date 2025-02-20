@@ -18,8 +18,8 @@ import com.digitalasset.canton.integration.{
   CommunityEnvironmentDefinition,
 }
 
-/** The objective of this test is to verify that pruning is accessible in the community edition
-  * and no longer fails with a NotSupportedInCommunityEdition error.
+/** The objective of this test is to verify that pruning is accessible in the community edition and
+  * no longer fails with a NotSupportedInCommunityEdition error.
   */
 sealed trait CommunityPruningSmokeIntegrationTest
     extends CommunityIntegrationTest

@@ -105,7 +105,9 @@ abstract class MediatorNodeConfigCommon(
 
 /** Various parameters for non-standard mediator settings
   *
-  * @param dontWarnOnDeprecatedPV if true, then this mediator will not emit a warning when connecting to a sequencer using a deprecated protocol version.
+  * @param dontWarnOnDeprecatedPV
+  *   if true, then this mediator will not emit a warning when connecting to a sequencer using a
+  *   deprecated protocol version.
   */
 final case class MediatorNodeParameterConfig(
     override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
@@ -781,18 +783,17 @@ class MediatorNodeBootstrap(
 object MediatorNodeBootstrap {
   val LoggerFactoryKeyName: String = "mediator"
 
-  /** If the function maps `member` to `recordConfig`,
-    * the sequencer client for `member` will record all sends requested and events received to the directory specified
-    * by the recording config.
-    * A new recording starts whenever the synchronizer is restarted.
+  /** If the function maps `member` to `recordConfig`, the sequencer client for `member` will record
+    * all sends requested and events received to the directory specified by the recording config. A
+    * new recording starts whenever the synchronizer is restarted.
     */
   @VisibleForTesting
   val recordSequencerInteractions: AtomicReference[PartialFunction[Member, RecordingConfig]] =
     new AtomicReference(PartialFunction.empty)
 
-  /** If the function maps `member` to `path`,
-    * the sequencer client for `member` will replay events from `path` instead of pulling them from the sequencer.
-    * A new replay starts whenever the synchronizer is restarted.
+  /** If the function maps `member` to `path`, the sequencer client for `member` will replay events
+    * from `path` instead of pulling them from the sequencer. A new replay starts whenever the
+    * synchronizer is restarted.
     */
   @VisibleForTesting
   val replaySequencerConfig: AtomicReference[PartialFunction[Member, ReplayConfig]] =

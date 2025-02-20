@@ -55,15 +55,19 @@ private[routing] class SynchronizerSelectorFactory(
 
 /** Selects the best synchronizer for routing.
   *
-  * @param admissibleSynchronizers     Synchronizers that host both submitters and informees of the transaction:
-  *                          - submitters have to be hosted on the local participant
-  *                          - informees have to be hosted on some participant
-  *                            It is assumed that the participant is connected to all synchronizers in `connectedSynchronizers`
-  * @param priorityOfSynchronizer      Priority of each synchronizer (lowest number indicates highest priority)
-  * @param synchronizerRankComputation Utility class to compute `SynchronizerRank`
-  * @param synchronizerState           Provides state information about a synchronizer.
-  *                              Note: returns an either rather than an option since failure comes from disconnected
-  *                              synchronizers and we assume the participant to be connected to all synchronizers in `connectedSynchronizers`
+  * @param admissibleSynchronizers
+  *   Synchronizers that host both submitters and informees of the transaction:
+  *   - submitters have to be hosted on the local participant
+  *   - informees have to be hosted on some participant It is assumed that the participant is
+  *     connected to all synchronizers in `connectedSynchronizers`
+  * @param priorityOfSynchronizer
+  *   Priority of each synchronizer (lowest number indicates highest priority)
+  * @param synchronizerRankComputation
+  *   Utility class to compute `SynchronizerRank`
+  * @param synchronizerState
+  *   Provides state information about a synchronizer. Note: returns an either rather than an option
+  *   since failure comes from disconnected synchronizers and we assume the participant to be
+  *   connected to all synchronizers in `connectedSynchronizers`
   */
 private[routing] class SynchronizerSelector(
     val transactionData: TransactionData,
@@ -75,10 +79,10 @@ private[routing] class SynchronizerSelector(
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
 
-  /** Choose the appropriate synchronizer for a transaction.
-    * The synchronizer is chosen as follows:
-    * 1. synchronizer whose id equals `transactionData.prescribedSynchronizerO` (if non-empty)
-    * 2. The synchronizer with the smaller number of reassignments on which all informees have active participants
+  /** Choose the appropriate synchronizer for a transaction. The synchronizer is chosen as follows:
+    *   1. synchronizer whose id equals `transactionData.prescribedSynchronizerO` (if non-empty)
+    *   1. The synchronizer with the smaller number of reassignments on which all informees have
+    *      active participants
     */
   def forMultiSynchronizer(implicit
       traceContext: TraceContext
@@ -110,11 +114,11 @@ private[routing] class SynchronizerSelector(
     }
   }
 
-  /** Choose the appropriate synchronizer for a transaction.
-    * The synchronizer is chosen as follows:
-    * 1. synchronizer whose alias equals the workflow id
-    * 2. synchronizer of all input contracts (fail if there is more than one)
-    * 3. An arbitrary synchronizer to which the submitter can submit and on which all informees have active participants
+  /** Choose the appropriate synchronizer for a transaction. The synchronizer is chosen as follows:
+    *   1. synchronizer whose alias equals the workflow id
+    *   1. synchronizer of all input contracts (fail if there is more than one)
+    *   1. An arbitrary synchronizer to which the submitter can submit and on which all informees
+    *      have active participants
     */
   def forSingleSynchronizer(implicit
       traceContext: TraceContext
@@ -228,9 +232,9 @@ private[routing] class SynchronizerSelector(
 
   /** Validation that are shared between single- and multi- synchronizer submission:
     *
-    * - Participant is connected to `synchronizerId`
+    *   - Participant is connected to `synchronizerId`
     *
-    * - List `synchronizersOfSubmittersAndInformees` contains `synchronizerId`
+    *   - List `synchronizersOfSubmittersAndInformees` contains `synchronizerId`
     */
   private def validatePrescribedSynchronizer(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext

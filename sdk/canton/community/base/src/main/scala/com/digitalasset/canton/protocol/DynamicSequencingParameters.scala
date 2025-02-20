@@ -12,12 +12,12 @@ import com.google.protobuf.ByteString
 
 /** Synchronizer-wide dynamic sequencing parameters.
   *
-  * @param payload The opaque payload of the synchronizer-wide dynamic sequencing parameters;
-  *                its content is sequencer-dependent and synchronizer owners are responsible
-  *                for ensuring that it can be correctly interpreted by the sequencers in use.
-  *                If no payload is provided, sequencer-specific default values are used.
-  *                If the payload cannot be correctly interpreted or the parameters cannot
-  *                be set due to dynamic conditions, their value will not change.
+  * @param payload
+  *   The opaque payload of the synchronizer-wide dynamic sequencing parameters; its content is
+  *   sequencer-dependent and synchronizer owners are responsible for ensuring that it can be
+  *   correctly interpreted by the sequencers in use. If no payload is provided, sequencer-specific
+  *   default values are used. If the payload cannot be correctly interpreted or the parameters
+  *   cannot be set due to dynamic conditions, their value will not change.
   */
 final case class DynamicSequencingParameters(payload: Option[ByteString])(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -72,8 +72,10 @@ object DynamicSequencingParameters extends VersioningCompanion[DynamicSequencing
 
 /** Dynamic sequencing parameters and their validity interval.
   *
-  * @param validFrom Start point of the validity interval (exclusive)
-  * @param validUntil End point of the validity interval (inclusive)
+  * @param validFrom
+  *   Start point of the validity interval (exclusive)
+  * @param validUntil
+  *   End point of the validity interval (inclusive)
   */
 final case class DynamicSequencingParametersWithValidity(
     parameters: DynamicSequencingParameters,

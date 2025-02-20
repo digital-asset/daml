@@ -43,8 +43,8 @@ final class DispatcherImpl[Index <: Ordered[Index] & Incrementable[Index]](
   /** returns the head index where this Dispatcher is at */
   override def getHead(): Option[Index] = state.get.getLastIndex
 
-  /** Signal to this Dispatcher that there's a new head `Index`.
-    * The Dispatcher will emit values on all streams until the new head is reached.
+  /** Signal to this Dispatcher that there's a new head `Index`. The Dispatcher will emit values on
+    * all streams until the new head is reached.
     */
   override def signalNewHead(head: Index): Unit =
     state

@@ -24,10 +24,14 @@ import java.time.Instant
 
 /** Represents a serializable contract.
   *
-  * @param contractId The ID of the contract.
-  * @param rawContractInstance The raw instance of the contract.
-  * @param metadata The metadata with stakeholders and signatories; can be computed from contract instance
-  * @param ledgerCreateTime The ledger time of the transaction '''creating''' the contract
+  * @param contractId
+  *   The ID of the contract.
+  * @param rawContractInstance
+  *   The raw instance of the contract.
+  * @param metadata
+  *   The metadata with stakeholders and signatories; can be computed from contract instance
+  * @param ledgerCreateTime
+  *   The ledger time of the transaction '''creating''' the contract
   */
 // This class is a reference example of serialization best practices, demonstrating:
 // - use of an UntypedVersionedMessage wrapper when serializing to an anonymous binary format. For a more extensive example of this,

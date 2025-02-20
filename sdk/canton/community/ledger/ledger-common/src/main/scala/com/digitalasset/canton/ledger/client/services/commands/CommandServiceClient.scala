@@ -34,8 +34,8 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
 
   /** Submits and waits, optionally with a custom timeout
     *
-    * Note that the [[com.daml.ledger.api.v2.commands.Commands]] argument is scala protobuf. If you use java codegen,
-    * you need to convert the List[Command] using the codegenToScalaProto method
+    * Note that the [[com.daml.ledger.api.v2.commands.Commands]] argument is scala protobuf. If you
+    * use java codegen, you need to convert the List[Command] using the codegenToScalaProto method
     */
 
   def deprecatedSubmitAndWaitForTransactionForJsonApi(

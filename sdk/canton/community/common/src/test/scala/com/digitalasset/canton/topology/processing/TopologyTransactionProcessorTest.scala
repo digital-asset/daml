@@ -605,16 +605,17 @@ abstract class TopologyTransactionProcessorTest
           .value shouldBe ts(3)
       }
 
-      /** this test checks that only fully authorized synchronizer parameter changes are used
-        * to update the topology change delay for adjusting the effective time
+      /** this test checks that only fully authorized synchronizer parameter changes are used to
+        * update the topology change delay for adjusting the effective time
         *
-        * 0. initialize the topology store with a decentralized namespace with 2 owners
-        * and default synchronizer parameters (topologyChangeDelay=250ms)
-        * 1. process a proposal to update the topology change delay
-        * 2. process the fully authorized update to the topology change delay
-        * 3. process some other topology change delay
+        *   1. initialize the topology store with a decentralized namespace with 2 owners and
+        *      default synchronizer parameters (topologyChangeDelay=250ms)
+        *   1. process a proposal to update the topology change delay
+        *   1. process the fully authorized update to the topology change delay
+        *   1. process some other topology change delay
         *
-        * only in step 3. should the updated topology change delay be used to compute the effective time
+        * only in step 4. should the updated topology change delay be used to compute the effective
+        * time
         */
       "only track fully authorized synchronizer parameter state changes" in {
         import SigningKeys.{ec as _, *}

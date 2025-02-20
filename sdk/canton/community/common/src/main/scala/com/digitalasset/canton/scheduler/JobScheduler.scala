@@ -25,8 +25,8 @@ import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 /** Reusable scheduler base class for scheduling automated admin jobs.:
-  * - Based on a single-threaded scheduled executor.
-  * - Also manages schedule persistence reacting to schedule changes.
+  *   - Based on a single-threaded scheduled executor.
+  *   - Also manages schedule persistence reacting to schedule changes.
   *
   * Encapsulates generic scheduling logic reusable by specific schedulers.
   */
@@ -39,27 +39,27 @@ abstract class JobScheduler(
 ) extends Scheduler
     with NamedLogging {
 
-  /** Implements the code that is to be executed when the scheduled time has arrived
-    * for the duration of the "maxDuration". Within a single such "window" schedulerJob
-    * will be called until "Done" is returned as a result the first time.
+  /** Implements the code that is to be executed when the scheduled time has arrived for the
+    * duration of the "maxDuration". Within a single such "window" schedulerJob will be called until
+    * "Done" is returned as a result the first time.
     *
-    * As guidance long running logic should be broken up into "chunks" expected to run
-    * at most for 1 minute although in the face of unpredictable database performance
-    * this is a "best effort". Tasks may exceed the "maxDuration" window by however long
-    * they take to execute.
+    * As guidance long running logic should be broken up into "chunks" expected to run at most for 1
+    * minute although in the face of unpredictable database performance this is a "best effort".
+    * Tasks may exceed the "maxDuration" window by however long they take to execute.
     *
-    * @param schedule the specific schedule among the potentially multiple schedulers
-    *                 that triggered this particular job run. Useful for callees to
-    *                 extract additional information (such as retention for pruning)
-    *                 or to determine the type of work scheduled (e.g. pruning versus
-    *                 pruning metric update).
+    * @param schedule
+    *   the specific schedule among the potentially multiple schedulers that triggered this
+    *   particular job run. Useful for callees to extract additional information (such as retention
+    *   for pruning) or to determine the type of work scheduled (e.g. pruning versus pruning metric
+    *   update).
     */
   def schedulerJob(schedule: IndividualSchedule)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[ScheduledRunResult]
 
   /** Hook to create and initialize the schedule when scheduler becomes active
-    * @return if override returns Some[A] go ahead and schedule; if None don't
+    * @return
+    *   if override returns Some[A] go ahead and schedule; if None don't
     */
   def initializeSchedule()(implicit
       traceContext: TraceContext

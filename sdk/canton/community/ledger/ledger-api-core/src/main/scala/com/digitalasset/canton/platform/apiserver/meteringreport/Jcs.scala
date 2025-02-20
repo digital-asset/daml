@@ -8,11 +8,11 @@ import spray.json.{CompactPrinter, JsArray, JsNumber, JsObject, JsString, JsValu
 /** A limited implementation of JCS https://datatracker.ietf.org/doc/html/rfc8785
   *
   * The limitations of this implementation are that:
-  * - only whole numbers are supported
-  * - only numbers with an absolute value less than pow(2,52) are supported
+  *   - only whole numbers are supported
+  *   - only numbers with an absolute value less than pow(2,52) are supported
   *
-  * The primary reason for the above is that this is suitable for our needs and avoids
-  * getting into difficult areas regarding the JCS spec
+  * The primary reason for the above is that this is suitable for our needs and avoids getting into
+  * difficult areas regarding the JCS spec
   *
   * For details see JCS.md
   */

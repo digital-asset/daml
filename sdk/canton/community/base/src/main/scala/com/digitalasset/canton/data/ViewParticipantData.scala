@@ -43,41 +43,47 @@ import com.google.protobuf.ByteString
 
 /** Information concerning every '''participant''' involved in processing the underlying view.
   *
-  * @param coreInputs  [[LfContractId]] used by the core of the view and not assigned by a Create node in the view or its subviews,
-  *                    independently of whether the creation is rolled back.
-  *                    Every contract id is mapped to its contract instances and their meta-information.
-  *                    Contracts are marked as being [[InputContract.consumed]] iff
-  *                    they are consumed in the core of the view.
-  * @param createdCore associates contract ids of Create nodes in the core of the view to the corresponding contract
-  *                instance. The elements are ordered in execution order.
+  * @param coreInputs
+  *   [[LfContractId]] used by the core of the view and not assigned by a Create node in the view or
+  *   its subviews, independently of whether the creation is rolled back. Every contract id is
+  *   mapped to its contract instances and their meta-information. Contracts are marked as being
+  *   [[InputContract.consumed]] iff they are consumed in the core of the view.
+  * @param createdCore
+  *   associates contract ids of Create nodes in the core of the view to the corresponding contract
+  *   instance. The elements are ordered in execution order.
   * @param createdInSubviewArchivedInCore
-  *   The contracts that are created in subviews and archived in the core.
-  *   The archival has the same rollback scope as the view.
-  *   For [[com.digitalasset.canton.protocol.WellFormedTransaction]]s, the creation therefore is not rolled
-  *   back either as the archival can only refer to non-rolled back creates.
+  *   The contracts that are created in subviews and archived in the core. The archival has the same
+  *   rollback scope as the view. For [[com.digitalasset.canton.protocol.WellFormedTransaction]]s,
+  *   the creation therefore is not rolled back either as the archival can only refer to non-rolled
+  *   back creates.
   * @param resolvedKeys
-  * Specifies how to resolve [[com.digitalasset.daml.lf.engine.ResultNeedKey]] requests from DAMLe (resulting from e.g., fetchByKey,
-  * lookupByKey) when interpreting the view. The resolved contract IDs must be in the [[coreInputs]].
-  * Stores only the resolution difference between this view's global key inputs
-  * [[com.digitalasset.canton.data.TransactionView.globalKeyInputs]]
-  * and the aggregated global key inputs from the subviews
-  * (see [[com.digitalasset.canton.data.TransactionView.globalKeyInputs]] for the aggregation algorithm).
-  * In [[com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode.Strict]],
-  * the [[com.digitalasset.canton.data.FreeKey]] resolutions must be checked during conflict detection.
-  * @param actionDescription The description of the root action of the view
-  * @param rollbackContext The rollback context of the root action of the view.
+  *   Specifies how to resolve [[com.digitalasset.daml.lf.engine.ResultNeedKey]] requests from DAMLe
+  *   (resulting from e.g., fetchByKey, lookupByKey) when interpreting the view. The resolved
+  *   contract IDs must be in the [[coreInputs]]. Stores only the resolution difference between this
+  *   view's global key inputs [[com.digitalasset.canton.data.TransactionView.globalKeyInputs]] and
+  *   the aggregated global key inputs from the subviews (see
+  *   [[com.digitalasset.canton.data.TransactionView.globalKeyInputs]] for the aggregation
+  *   algorithm). In [[com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode.Strict]], the
+  *   [[com.digitalasset.canton.data.FreeKey]] resolutions must be checked during conflict
+  *   detection.
+  * @param actionDescription
+  *   The description of the root action of the view
+  * @param rollbackContext
+  *   The rollback context of the root action of the view.
   * @throws ViewParticipantData$.InvalidViewParticipantData
-  * if [[createdCore]] contains two elements with the same contract id,
-  * if [[coreInputs]]`(id).contractId != id`
-  * if [[createdInSubviewArchivedInCore]] overlaps with [[createdCore]]'s ids or [[coreInputs]]
-  * if [[coreInputs]] does not contain the resolved contract ids of [[resolvedKeys]]
-  * if the [[actionDescription]] is a [[com.digitalasset.canton.data.ActionDescription.CreateActionDescription]]
-  * and the created id is not the first contract ID in [[createdCore]]
-  * if the [[actionDescription]] is a [[com.digitalasset.canton.data.ActionDescription.ExerciseActionDescription]]
-  * or [[com.digitalasset.canton.data.ActionDescription.FetchActionDescription]] and the input contract is not in [[coreInputs]]
-  * if the [[actionDescription]] is a [[com.digitalasset.canton.data.ActionDescription.LookupByKeyActionDescription]]
-  * and the key is not in [[resolvedKeys]].
-  * @throws com.digitalasset.canton.serialization.SerializationCheckFailed if this instance cannot be serialized
+  *   if [[createdCore]] contains two elements with the same contract id, if
+  *   [[coreInputs]]`(id).contractId != id` if [[createdInSubviewArchivedInCore]] overlaps with
+  *   [[createdCore]]'s ids or [[coreInputs]] if [[coreInputs]] does not contain the resolved
+  *   contract ids of [[resolvedKeys]] if the [[actionDescription]] is a
+  *   [[com.digitalasset.canton.data.ActionDescription.CreateActionDescription]] and the created id
+  *   is not the first contract ID in [[createdCore]] if the [[actionDescription]] is a
+  *   [[com.digitalasset.canton.data.ActionDescription.ExerciseActionDescription]] or
+  *   [[com.digitalasset.canton.data.ActionDescription.FetchActionDescription]] and the input
+  *   contract is not in [[coreInputs]] if the [[actionDescription]] is a
+  *   [[com.digitalasset.canton.data.ActionDescription.LookupByKeyActionDescription]] and the key is
+  *   not in [[resolvedKeys]].
+  * @throws com.digitalasset.canton.serialization.SerializationCheckFailed
+  *   if this instance cannot be serialized
   */
 final case class ViewParticipantData private (
     coreInputs: Map[LfContractId, InputContract],
@@ -348,18 +354,25 @@ object ViewParticipantData
   /** Creates a view participant data.
     *
     * @throws InvalidViewParticipantData
-    * if [[ViewParticipantData.createdCore]] contains two elements with the same contract id,
-    * if [[ViewParticipantData.coreInputs]]`(id).contractId != id`
-    * if [[ViewParticipantData.createdInSubviewArchivedInCore]] overlaps with [[ViewParticipantData.createdCore]]'s ids or [[ViewParticipantData.coreInputs]]
-    * if [[ViewParticipantData.coreInputs]] does not contain the resolved contract ids in [[ViewParticipantData.resolvedKeys]]
-    * if [[ViewParticipantData.createdCore]] creates a contract with a key that is not in [[ViewParticipantData.resolvedKeys]]
-    * if the [[ViewParticipantData.actionDescription]] is a [[com.digitalasset.canton.data.ActionDescription.CreateActionDescription]]
-    * and the created id is not the first contract ID in [[ViewParticipantData.createdCore]]
-    * if the [[ViewParticipantData.actionDescription]] is a [[com.digitalasset.canton.data.ActionDescription.ExerciseActionDescription]]
-    * or [[com.digitalasset.canton.data.ActionDescription.FetchActionDescription]] and the input contract is not in [[ViewParticipantData.coreInputs]]
-    * if the [[ViewParticipantData.actionDescription]] is a [[com.digitalasset.canton.data.ActionDescription.LookupByKeyActionDescription]]
-    * and the key is not in [[ViewParticipantData.resolvedKeys]].
-    * @throws com.digitalasset.canton.serialization.SerializationCheckFailed if this instance cannot be serialized
+    *   if [[ViewParticipantData.createdCore]] contains two elements with the same contract id, if
+    *   [[ViewParticipantData.coreInputs]]`(id).contractId != id` if
+    *   [[ViewParticipantData.createdInSubviewArchivedInCore]] overlaps with
+    *   [[ViewParticipantData.createdCore]]'s ids or [[ViewParticipantData.coreInputs]] if
+    *   [[ViewParticipantData.coreInputs]] does not contain the resolved contract ids in
+    *   [[ViewParticipantData.resolvedKeys]] if [[ViewParticipantData.createdCore]] creates a
+    *   contract with a key that is not in [[ViewParticipantData.resolvedKeys]] if the
+    *   [[ViewParticipantData.actionDescription]] is a
+    *   [[com.digitalasset.canton.data.ActionDescription.CreateActionDescription]] and the created
+    *   id is not the first contract ID in [[ViewParticipantData.createdCore]] if the
+    *   [[ViewParticipantData.actionDescription]] is a
+    *   [[com.digitalasset.canton.data.ActionDescription.ExerciseActionDescription]] or
+    *   [[com.digitalasset.canton.data.ActionDescription.FetchActionDescription]] and the input
+    *   contract is not in [[ViewParticipantData.coreInputs]] if the
+    *   [[ViewParticipantData.actionDescription]] is a
+    *   [[com.digitalasset.canton.data.ActionDescription.LookupByKeyActionDescription]] and the key
+    *   is not in [[ViewParticipantData.resolvedKeys]].
+    * @throws com.digitalasset.canton.serialization.SerializationCheckFailed
+    *   if this instance cannot be serialized
     */
   @throws[SerializationCheckFailed[com.digitalasset.daml.lf.value.ValueCoder.EncodeError]]
   def tryCreate(hashOps: HashOps)(
@@ -384,19 +397,23 @@ object ViewParticipantData
 
   /** Creates a view participant data.
     *
-    * Yields `Left(...)`
-    * if [[ViewParticipantData.createdCore]] contains two elements with the same contract id,
-    * if [[ViewParticipantData.coreInputs]]`(id).contractId != id`
-    * if [[ViewParticipantData.createdInSubviewArchivedInCore]] overlaps with [[ViewParticipantData.createdCore]]'s ids or [[ViewParticipantData.coreInputs]]
-    * if [[ViewParticipantData.coreInputs]] does not contain the resolved contract ids in [[ViewParticipantData.resolvedKeys]]
-    * if [[ViewParticipantData.createdCore]] creates a contract with a key that is not in [[ViewParticipantData.resolvedKeys]]
-    * if the [[ViewParticipantData.actionDescription]] is a [[com.digitalasset.canton.data.ActionDescription.CreateActionDescription]]
-    *   and the created id is not the first contract ID in [[ViewParticipantData.createdCore]]
-    * if the [[ViewParticipantData.actionDescription]] is a [[com.digitalasset.canton.data.ActionDescription.ExerciseActionDescription]]
-    *   or [[com.digitalasset.canton.data.ActionDescription.FetchActionDescription]] and the input contract is not in [[ViewParticipantData.coreInputs]]
-    * if the [[ViewParticipantData.actionDescription]] is a [[com.digitalasset.canton.data.ActionDescription.LookupByKeyActionDescription]]
-    *   and the key is not in [[ViewParticipantData.resolvedKeys]].
-    * if this instance cannot be serialized.
+    * Yields `Left(...)` if [[ViewParticipantData.createdCore]] contains two elements with the same
+    * contract id, if [[ViewParticipantData.coreInputs]]`(id).contractId != id` if
+    * [[ViewParticipantData.createdInSubviewArchivedInCore]] overlaps with
+    * [[ViewParticipantData.createdCore]]'s ids or [[ViewParticipantData.coreInputs]] if
+    * [[ViewParticipantData.coreInputs]] does not contain the resolved contract ids in
+    * [[ViewParticipantData.resolvedKeys]] if [[ViewParticipantData.createdCore]] creates a contract
+    * with a key that is not in [[ViewParticipantData.resolvedKeys]] if the
+    * [[ViewParticipantData.actionDescription]] is a
+    * [[com.digitalasset.canton.data.ActionDescription.CreateActionDescription]] and the created id
+    * is not the first contract ID in [[ViewParticipantData.createdCore]] if the
+    * [[ViewParticipantData.actionDescription]] is a
+    * [[com.digitalasset.canton.data.ActionDescription.ExerciseActionDescription]] or
+    * [[com.digitalasset.canton.data.ActionDescription.FetchActionDescription]] and the input
+    * contract is not in [[ViewParticipantData.coreInputs]] if the
+    * [[ViewParticipantData.actionDescription]] is a
+    * [[com.digitalasset.canton.data.ActionDescription.LookupByKeyActionDescription]] and the key is
+    * not in [[ViewParticipantData.resolvedKeys]]. if this instance cannot be serialized.
     */
   def create(hashOps: HashOps)(
       coreInputs: Map[LfContractId, InputContract],

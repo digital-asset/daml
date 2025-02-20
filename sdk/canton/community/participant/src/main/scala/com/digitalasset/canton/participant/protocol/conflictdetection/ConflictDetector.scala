@@ -41,17 +41,18 @@ import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-/** The [[ConflictDetector]] stores the state of contracts activated or deactivated by in-flight requests in memory.
-  * Such states take precedence over the states stored in the ACS, which are only updated when a request is finalized.
-  * A request is in-flight from the call to [[ConflictDetector.registerActivenessSet]] until the corresponding call to
+/** The [[ConflictDetector]] stores the state of contracts activated or deactivated by in-flight
+  * requests in memory. Such states take precedence over the states stored in the ACS, which are
+  * only updated when a request is finalized. A request is in-flight from the call to
+  * [[ConflictDetector.registerActivenessSet]] until the corresponding call to
   * [[ConflictDetector.finalizeRequest]] has written the updates to the ACS.
   *
-  * The [[ConflictDetector]] also checks that assignments refer to active reassignments and atomically completes them
-  * during finalization.
+  * The [[ConflictDetector]] also checks that assignments refer to active reassignments and
+  * atomically completes them during finalization.
   *
-  * @param checkedInvariant Defines whether all methods should check the class invariant when they are called.
-  *                         Invariant checking is slow.
-  *                         It should only be enabled for testing and debugging.
+  * @param checkedInvariant
+  *   Defines whether all methods should check the class invariant when they are called. Invariant
+  *   checking is slow. It should only be enabled for testing and debugging.
   */
 // We do not make the execution context implicit
 // so that we are always aware of when a context switch may happen.
@@ -88,27 +89,25 @@ private[participant] class ConflictDetector(
       executionContext = executionContext,
     )
 
-  /** Contains the [[com.digitalasset.canton.RequestCounter]]s of all requests
-    * that have registered their activeness check using [[registerActivenessSet]]
-    * and not yet completed it using [[checkActivenessAndLock]].
-    * The [[ConflictDetector.PendingActivenessCheck]] stores what needs to be done
-    * during the activeness check.
+  /** Contains the [[com.digitalasset.canton.RequestCounter]]s of all requests that have registered
+    * their activeness check using [[registerActivenessSet]] and not yet completed it using
+    * [[checkActivenessAndLock]]. The [[ConflictDetector.PendingActivenessCheck]] stores what needs
+    * to be done during the activeness check.
     */
   private[this] val pendingActivenessChecks: mutable.Map[RequestCounter, PendingActivenessCheck] =
     new mutable.HashMap()
 
-  /** Contains the [[com.digitalasset.canton.RequestCounter]]s of all requests
-    * that have completed their activeness check using [[checkActivenessAndLock]]
-    * and have not yet been finalized using [[finalizeRequest]].
-    * The [[LockedStates]] contains the locked contracts, keys, and the checked reassignments.
+  /** Contains the [[com.digitalasset.canton.RequestCounter]]s of all requests that have completed
+    * their activeness check using [[checkActivenessAndLock]] and have not yet been finalized using
+    * [[finalizeRequest]]. The [[LockedStates]] contains the locked contracts, keys, and the checked
+    * reassignments.
     */
   private[this] val reassignmentsAndLockedStates: mutable.Map[RequestCounter, LockedStates] =
     new mutable.HashMap()
 
-  /** Contains the [[PendingEvictions]] for each request that has been finalized in-memory
-    * and whose changes are being persisted to the stores.
-    * The values are only needed for invariant checking and debugging
-    * whereas the key set is needed for precondition checking.
+  /** Contains the [[PendingEvictions]] for each request that has been finalized in-memory and whose
+    * changes are being persisted to the stores. The values are only needed for invariant checking
+    * and debugging whereas the key set is needed for precondition checking.
     *
     * The eviction strategy is defined via [[LockableStatus.shouldEvict]].
     */
@@ -119,16 +118,17 @@ private[participant] class ConflictDetector(
 
   private[this] val initialReassignmentCounter = ReassignmentCounter.Genesis
 
-  /** Registers a pending activeness set.
-    * This marks all contracts and keys in the `activenessSet` with a pending activeness check.
-    * If necessary, it creates in-memory states for them and fetches their latest state from the stores.
+  /** Registers a pending activeness set. This marks all contracts and keys in the `activenessSet`
+    * with a pending activeness check. If necessary, it creates in-memory states for them and
+    * fetches their latest state from the stores.
     *
-    * May be called concurrently with any other method.
-    * Must be called before [[checkActivenessAndLock]] is called for the request.
+    * May be called concurrently with any other method. Must be called before
+    * [[checkActivenessAndLock]] is called for the request.
     *
-    * @return The future completes once all states for contracts and keys in `activenessSet` have been fetched from the stores
-    *         and added to the in-memory conflict detection state.
-    *         Errors from the stores fail the future as a [[LockableStates.ConflictDetectionStoreAccessError]].
+    * @return
+    *   The future completes once all states for contracts and keys in `activenessSet` have been
+    *   fetched from the stores and added to the in-memory conflict detection state. Errors from the
+    *   stores fail the future as a [[LockableStates.ConflictDetectionStoreAccessError]].
     */
   def registerActivenessSet(rc: RequestCounter, activenessSet: ActivenessSet)(implicit
       traceContext: TraceContext
@@ -155,12 +155,13 @@ private[participant] class ConflictDetector(
     ).map(_.valueOr(err => ErrorUtil.internalError(err)))
   }
 
-  /** Ensures that every contract and key in `activenessSet` has an in-memory state
-    * and marks these states with a pending activeness check.
-    * The returned [[ConflictDetector.PrefetchHandle]] contains the contracts and keys
-    * that must be retrieved from the stores, and a future that completes whan all other states are available.
+  /** Ensures that every contract and key in `activenessSet` has an in-memory state and marks these
+    * states with a pending activeness check. The returned [[ConflictDetector.PrefetchHandle]]
+    * contains the contracts and keys that must be retrieved from the stores, and a future that
+    * completes whan all other states are available.
     *
-    * This method may be called only from a guarded context to ensure sequential access to the in-memory state.
+    * This method may be called only from a guarded context to ensure sequential access to the
+    * in-memory state.
     */
   private[this] def pendingActivenessCheckUnguarded(
       rc: RequestCounter,
@@ -199,7 +200,8 @@ private[participant] class ConflictDetector(
     )
 
   /** Fetch the states for the contracts and keys in the handle from the stores and return them.
-    * Errors from the stores fail the returned future as a [[LockableStates.ConflictDetectionStoreAccessError]].
+    * Errors from the stores fail the returned future as a
+    * [[LockableStates.ConflictDetectionStoreAccessError]].
     */
   private[this] def prefetch(rc: RequestCounter, handle: PrefetchHandle)(implicit
       traceContext: TraceContext
@@ -214,7 +216,8 @@ private[participant] class ConflictDetector(
     * States that were to be fetched and are not contained in [[ConflictDetector.PrefetchedStates]]
     * are considered fresh.
     *
-    * This method may be called only from a guarded context to ensure sequential access to the in-memory state.
+    * This method may be called only from a guarded context to ensure sequential access to the
+    * in-memory state.
     */
   private[this] def providePrefetchedStatesUnguarded(
       rc: RequestCounter,
@@ -231,23 +234,19 @@ private[participant] class ConflictDetector(
     checkInvariant()
   }
 
-  /** Performs the pre-registered activeness check consisting of the following:
-    * <ul>
-    *   <li>Perform the [[ActivenessCheck]]s for contracts and keys in the [[ActivenessSet]].</li>
-    *   <li>Lock the contracts and keys according to the [[ActivenessSet]]</li>
-    *   <li>Check that the assignments from the [[ActivenessSet]] are active</li>
-    * </ul>
+  /** Performs the pre-registered activeness check consisting of the following: <ul> <li>Perform the
+    * [[ActivenessCheck]]s for contracts and keys in the [[ActivenessSet]].</li> <li>Lock the
+    * contracts and keys according to the [[ActivenessSet]]</li> <li>Check that the assignments from
+    * the [[ActivenessSet]] are active</li> </ul>
     *
     * Must not be called concurrently with itself or [[finalizeRequest]].
     *
-    * @return The activeness result of the activeness check
-    *         The future fails with [[IllegalConflictDetectionStateException]] in the following cases:
-    *         <ul>
-    *           <li>The request has not registered the activeness check using [[registerActivenessSet]]
-    *               or the future returned by registration has not yet completed.</li>
-    *           <li>The request has already performed its activeness check.</li>
-    *           <li>Invariant checks fail</li>
-    *         </ul>
+    * @return
+    *   The activeness result of the activeness check The future fails with
+    *   [[IllegalConflictDetectionStateException]] in the following cases: <ul> <li>The request has
+    *   not registered the activeness check using [[registerActivenessSet]] or the future returned
+    *   by registration has not yet completed.</li> <li>The request has already performed its
+    *   activeness check.</li> <li>Invariant checks fail</li> </ul>
     */
   def checkActivenessAndLock(
       rc: RequestCounter
@@ -316,41 +315,41 @@ private[participant] class ConflictDetector(
     }
   }
 
-  /** Updates the states for the in-flight request `toc.`[[com.digitalasset.canton.participant.util.TimeOfChange.rc rc]] according to the `commitSet`.
-    * All states in the [[CommitSet]] must have been declared as [[ActivenessCheck.lock]] in the [[ActivenessSet]].
+  /** Updates the states for the in-flight request
+    * `toc.`[[com.digitalasset.canton.participant.util.TimeOfChange.rc rc]] according to the
+    * `commitSet`. All states in the [[CommitSet]] must have been declared as
+    * [[ActivenessCheck.lock]] in the [[ActivenessSet]].
     *
-    * <ul>
-    *   <li>Contracts in `commitSet.`[[CommitSet.archivals archivals]] are archived.</li>
-    *   <li>Contracts in `commitSet.`[[CommitSet.creations creations]] are created.</li>
-    *   <li>Contracts in `commitSet.`[[CommitSet.unassignments unassignments]] are reassigned away to the given target synchronizer.</li>
-    *   <li>Contracts in `commitSet.`[[CommitSet.assignments assignments]] become active with the given source synchronizer</li>
-    *   <li>All contracts and keys locked by the [[ActivenessSet]] are unlocked.</li>
-    *   <li>Reassignments in [[ActivenessSet.reassignmentIds]] are completed if they are in `commitSet.`[[CommitSet.assignments assignments]].</li>
-    * </ul>
-    * and writes the updates from `commitSet` to the [[com.digitalasset.canton.participant.store.ActiveContractStore]].
-    * If no exception is thrown, the request is no longer in-flight.
+    * <ul> <li>Contracts in `commitSet.`[[CommitSet.archivals archivals]] are archived.</li>
+    * <li>Contracts in `commitSet.`[[CommitSet.creations creations]] are created.</li> <li>Contracts
+    * in `commitSet.`[[CommitSet.unassignments unassignments]] are reassigned away to the given
+    * target synchronizer.</li> <li>Contracts in `commitSet.`[[CommitSet.assignments assignments]]
+    * become active with the given source synchronizer</li> <li>All contracts and keys locked by the
+    * [[ActivenessSet]] are unlocked.</li> <li>Reassignments in [[ActivenessSet.reassignmentIds]]
+    * are completed if they are in `commitSet.`[[CommitSet.assignments assignments]].</li> </ul> and
+    * writes the updates from `commitSet` to the
+    * [[com.digitalasset.canton.participant.store.ActiveContractStore]]. If no exception is thrown,
+    * the request is no longer in-flight.
     *
     * All changes are carried out even if the [[ActivenessResult]] was not successful.
     *
     * Must not be called concurrently with [[checkActivenessAndLock]].
     *
-    * @param commitSet The contracts and keys to be modified
-    *                  The commit set may only contain contracts and keys that have been locked in
-    *                  the corresponding activeness check.
-    *                  The reassignment IDs in [[CommitSet.assignments]] need not have been checked for activeness though.
-    * @return The outer future completes when the conflict detector's internal state has been updated.
-    *         The inner future completes when the updates have been persisted.
-    *         [[com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker.RequestTrackerStoreError]]s
-    *         are signalled as [[scala.Left$]].
-    *         The futures may also fail with the following exceptions:
-    *         <ul>
-    *         <li>[[IllegalConflictDetectionStateException]] if an internal error is detected.
-    *         In particular if invariant checking is enabled and the invariant is violated.
-    *         This exception is not recoverable.</li>
-    *         <li>[[RequestTracker$.InvalidCommitSet]] if the `commitSet` violates its precondition.
-    *         For the contract, key, and reassignment state management, this case is treated like passing [[CommitSet.empty]].</li>
-    *         <li>[[java.lang.IllegalArgumentException]] if the request is not in-flight.</li>
-    *         </ul>
+    * @param commitSet
+    *   The contracts and keys to be modified The commit set may only contain contracts and keys
+    *   that have been locked in the corresponding activeness check. The reassignment IDs in
+    *   [[CommitSet.assignments]] need not have been checked for activeness though.
+    * @return
+    *   The outer future completes when the conflict detector's internal state has been updated. The
+    *   inner future completes when the updates have been persisted.
+    *   [[com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker.RequestTrackerStoreError]]s
+    *   are signalled as [[scala.Left$]]. The futures may also fail with the following exceptions:
+    *   <ul> <li>[[IllegalConflictDetectionStateException]] if an internal error is detected. In
+    *   particular if invariant checking is enabled and the invariant is violated. This exception is
+    *   not recoverable.</li> <li>[[RequestTracker$.InvalidCommitSet]] if the `commitSet` violates
+    *   its precondition. For the contract, key, and reassignment state management, this case is
+    *   treated like passing [[CommitSet.empty]].</li> <li>[[java.lang.IllegalArgumentException]] if
+    *   the request is not in-flight.</li> </ul>
     */
   def finalizeRequest(commitSet: CommitSet, toc: TimeOfChange)(implicit
       traceContext: TraceContext
@@ -553,13 +552,12 @@ private[participant] class ConflictDetector(
       }
     }
 
-  /** Returns the internal state of the contract:
-    * <ul>
-    *   <li>`Some(cs)` if the contract is in memory with state `cs`.</li>
-    *   <li>`None` signifies that the contract state is not held in memory (it may be stored in the ACS, though).</li>
-    * </ul>
+  /** Returns the internal state of the contract: <ul> <li>`Some(cs)` if the contract is in memory
+    * with state `cs`.</li> <li>`None` signifies that the contract state is not held in memory (it
+    * may be stored in the ACS, though).</li> </ul>
     *
-    * @see LockableStates.getInternalState
+    * @see
+    *   LockableStates.getInternalState
     */
   @VisibleForTesting
   private[conflictdetection] def getInternalContractState(
@@ -567,8 +565,9 @@ private[participant] class ConflictDetector(
   ): Option[ImmutableContractState] =
     contractStates.getInternalState(coid)
 
-  /** Returns the state of a contract, fetching it from the [[com.digitalasset.canton.participant.store.ActiveContractStore]] if it is not in memory.
-    * If called concurrently, the state may only be outdated.
+  /** Returns the state of a contract, fetching it from the
+    * [[com.digitalasset.canton.participant.store.ActiveContractStore]] if it is not in memory. If
+    * called concurrently, the state may only be outdated.
     */
   def getApproximateStates(coids: Seq[LfContractId])(implicit
       traceContext: TraceContext
@@ -578,7 +577,8 @@ private[participant] class ConflictDetector(
   /** Ensures that the thunk `x` executes in the `executionQueue`,
     * i.e., is sequentialized w.r.t. all other calls to `runSequentially`.
     *
-    * @return The future completes after `x` has been executed and with `x`'s result.
+    * @return
+    *   The future completes after `x` has been executed and with `x`'s result.
     */
   private[this] def runSequentially[A](
       description: String
@@ -591,14 +591,16 @@ private[participant] class ConflictDetector(
     *
     * Must only be called from a Future that's guarded by the execution queue.
     *
-    * @throws IllegalConflictDetectionStateException if the invariant is violated and invariant checking is enabled.
+    * @throws IllegalConflictDetectionStateException
+    *   if the invariant is violated and invariant checking is enabled.
     */
   private[this] def checkInvariant()(implicit traceContext: TraceContext): Unit =
     if (checkedInvariant) invariant() else ()
 
   /** Checks the class invariant if invariant checking is enabled.
     *
-    * @throws IllegalConflictDetectionStateException if the invariant is violated and invariant checking is enabled.
+    * @throws IllegalConflictDetectionStateException
+    *   if the invariant is violated and invariant checking is enabled.
     */
   private[this] def sequentiallyCheckInvariant()(implicit
       traceContext: TraceContext
@@ -609,7 +611,8 @@ private[participant] class ConflictDetector(
 
   /** Checks the class invariant.
     *
-    * @throws IllegalConflictDetectionStateException if the invariant does not hold.
+    * @throws IllegalConflictDetectionStateException
+    *   if the invariant does not hold.
     */
   private[this] def invariant()(implicit traceContext: TraceContext): Unit = {
     def assertDisjoint[A](
@@ -660,8 +663,8 @@ private[conflictdetection] object ConflictDetector {
   type ImmutableContractState = ImmutableLockableState[ActiveContractStore.Status]
   val ImmutableContractState: ImmutableLockableState.type = ImmutableLockableState
 
-  /** Contains the contracts and keys to fetch for the activeness check
-    * and a future that completes when all other contracts' states are available in memory.
+  /** Contains the contracts and keys to fetch for the activeness check and a future that completes
+    * when all other contracts' states are available in memory.
     */
   private class PrefetchHandle(
       val contractsToFetch: Iterable[LfContractId],
@@ -673,11 +676,15 @@ private[conflictdetection] object ConflictDetector {
       contracts: Map[LfContractId, ContractState]
   )
 
-  /** Stores the handles from the registration of the activeness check until it actually is carried out.
+  /** Stores the handles from the registration of the activeness check until it actually is carried
+    * out.
     *
-    * @param reassignmentIds The reassignment ids from the activeness set
-    * @param contracts The handle for contracts
-    * @param statesReady The future that completes when all from [[PrefetchHandle.statesReady]]
+    * @param reassignmentIds
+    *   The reassignment ids from the activeness set
+    * @param contracts
+    *   The handle for contracts
+    * @param statesReady
+    *   The future that completes when all from [[PrefetchHandle.statesReady]]
     */
   private final class PendingActivenessCheck private[ConflictDetector] (
       val reassignmentIds: Set[ReassignmentId],
@@ -687,8 +694,10 @@ private[conflictdetection] object ConflictDetector {
 
   /** Stores the state that must be passed from the activeness check to the finalization.
     *
-    * @param reassignments The reassignments whose activeness was checked
-    * @param contracts The contracts that have been locked
+    * @param reassignments
+    *   The reassignments whose activeness was checked
+    * @param contracts
+    *   The contracts that have been locked
     */
   final case class LockedStates(
       reassignments: Set[ReassignmentId],

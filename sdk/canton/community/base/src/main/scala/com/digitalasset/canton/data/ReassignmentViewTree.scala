@@ -11,8 +11,8 @@ import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 
 import java.util.UUID
 
-/** A reassignment (unassignment or assignment) request embedded in a Merkle tree.
-  * The view may or may not be blinded.
+/** A reassignment (unassignment or assignment) request embedded in a Merkle tree. The view may or
+  * may not be blinded.
   */
 trait ReassignmentViewTree {
   def commonData: MerkleTreeLeaf[ReassignmentCommonData]
@@ -25,7 +25,8 @@ trait ReassignmentViewTree {
     commonData.tryUnwrap.submitterMetadata.submittingParticipant
 }
 
-/** Aggregates the data of an assignment request that is sent to the mediator and the involved participants.
+/** Aggregates the data of an assignment request that is sent to the mediator and the involved
+  * participants.
   */
 trait ReassignmentCommonData extends ProtocolVersionedMemoizedEvidence {
   def salt: Salt

@@ -22,12 +22,13 @@ import com.digitalasset.canton.store.SequencedEventStore.{
 import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.tracing.TraceContext
 
-/** Forwards only [[com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent]]s
-  * to the given [[com.digitalasset.canton.sequencing.ApplicationHandler]].
+/** Forwards only [[com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent]]s to
+  * the given [[com.digitalasset.canton.sequencing.ApplicationHandler]].
   *
-  * This must only be used on code paths where there cannot be other types of events by construction.
-  * Otherwise, the application handler will not be informed about ignored event and cannot tick any of the trackers,
-  * including the [[com.digitalasset.canton.topology.processing.TopologyTransactionProcessor]].
+  * This must only be used on code paths where there cannot be other types of events by
+  * construction. Otherwise, the application handler will not be informed about ignored event and
+  * cannot tick any of the trackers, including the
+  * [[com.digitalasset.canton.topology.processing.TopologyTransactionProcessor]].
   */
 class DiscardIgnoredEvents[Env <: Envelope[_]](
     handler: OrdinaryApplicationHandler[Env],

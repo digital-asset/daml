@@ -30,9 +30,12 @@ import scala.reflect.ClassTag
 
 /** Topology snapshot loader
   *
-  * @param timestamp the asOf timestamp to use
-  * @param store the db store to use
-  * @param packageDependencyResolver provides a way determine the direct and indirect package dependencies
+  * @param timestamp
+  *   the asOf timestamp to use
+  * @param store
+  *   the db store to use
+  * @param packageDependencyResolver
+  *   provides a way determine the direct and indirect package dependencies
   */
 class StoreBasedTopologySnapshot(
     val timestamp: CantonTimestamp,

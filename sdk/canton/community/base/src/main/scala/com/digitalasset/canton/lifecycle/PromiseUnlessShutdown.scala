@@ -27,8 +27,8 @@ object PromiseUnlessShutdown {
   def unsupervised[A](): PromiseUnlessShutdown[A] =
     wrap(Promise[UnlessShutdown[A]]())
 
-  /** Creates a supervised promise. Supervision starts when the
-    * promises future [[scala.concurrent.Promise.future]] is accessed for the first time.
+  /** Creates a supervised promise. Supervision starts when the promises future
+    * [[scala.concurrent.Promise.future]] is accessed for the first time.
     */
   def supervised[A](
       description: String,
@@ -41,8 +41,9 @@ object PromiseUnlessShutdown {
     wrap(supervisedPromise)
   }
 
-  /** Creates a supervised promise that will be completed with [[UnlessShutdown.AbortedDueToShutdown]]
-    * when the `onShutdownRunner` is closed, unless the promise had been completed before.
+  /** Creates a supervised promise that will be completed with
+    * [[UnlessShutdown.AbortedDueToShutdown]] when the `onShutdownRunner` is closed, unless the
+    * promise had been completed before.
     */
   def abortOnShutdown[A](
       description: String,
@@ -60,13 +61,16 @@ object PromiseUnlessShutdown {
   }
 
   /** Completes the given promise with [[UnlessShutdown.AbortedDueToShutdown]].
-    * @param promiseRef A weak reference to the promise to complete. We use a weak reference for two reasons here:
-    *                   1. We do not want to prevent the completed promise (and the possibly large value it contains)
-    *                      from being garbage collected as long as this object is still registered for being run on shutdown.
-    *                   2. If the promise is created, but never completed and no longer referenced anywhere by the user code,
-    *                      then there is no longer any point to complete the promise. The weak reference allows the GC
-    *                      to collect such promises. This runner will then mark itself as `done` and be eventually removed
-    *                      from the onShutdownRunner, avoiding a memory leak due to never-completed promises.
+    * @param promiseRef
+    *   A weak reference to the promise to complete. We use a weak reference for two reasons here:
+    *   1. We do not want to prevent the completed promise (and the possibly large value it
+    *      contains) from being garbage collected as long as this object is still registered for
+    *      being run on shutdown.
+    *   1. If the promise is created, but never completed and no longer referenced anywhere by the
+    *      user code, then there is no longer any point to complete the promise. The weak reference
+    *      allows the GC to collect such promises. This runner will then mark itself as `done` and
+    *      be eventually removed from the onShutdownRunner, avoiding a memory leak due to
+    *      never-completed promises.
     */
   @VisibleForTesting
   private[lifecycle] final class AbortPromiseOnShutdown(
@@ -88,13 +92,14 @@ object PromiseUnlessShutdown {
   */
 sealed abstract class PromiseUnlessShutdownImpl {
 
-  /** The abstract type of a [[scala.concurrent.Promise]] containing a [[UnlessShutdown]].
-    * The canonical name for this type would be `T`, but `PromiseUnlessShutdown` gives better error messages.
+  /** The abstract type of a [[scala.concurrent.Promise]] containing a [[UnlessShutdown]]. The
+    * canonical name for this type would be `T`, but `PromiseUnlessShutdown` gives better error
+    * messages.
     */
   type PromiseUnlessShutdown[A] <: Promise[UnlessShutdown[A]]
 
-  /** Methods to evidence that [[PromiseUnlessShutdown]] and [[scala.concurrent.Promise]]`[`[[UnlessShutdown]]`]`
-    * can be replaced in any type context `K`.
+  /** Methods to evidence that [[PromiseUnlessShutdown]] and
+    * [[scala.concurrent.Promise]]`[`[[UnlessShutdown]]`]` can be replaced in any type context `K`.
     */
   private[lifecycle] def subst[K[_[_]]](
       ff: K[Lambda[a => Promise[UnlessShutdown[a]]]]
@@ -119,8 +124,9 @@ object PromiseUnlessShutdownImpl {
   }
 
   /** Extension methods for [[PromiseUnlessShutdown]]
-    * @tparam X Type parameter to make the type of `self` visible to the Scala compiler when
-    *           it is more specific than [[PromiseUnlessShutdown]]`[A]`, e.g., for methods returning `self.type`.
+    * @tparam X
+    *   Type parameter to make the type of `self` visible to the Scala compiler when it is more
+    *   specific than [[PromiseUnlessShutdown]]`[A]`, e.g., for methods returning `self.type`.
     */
   final class Ops[A, X <: PromiseUnlessShutdown[A]](val self: X) extends AnyVal {
 
@@ -139,14 +145,14 @@ object PromiseUnlessShutdownImpl {
     /** Analog to [[scala.concurrent.Promise.future]] */
     def futureUS: FutureUnlessShutdown[A] = FutureUnlessShutdown(self.future)
 
-    /** Tries to complete the promise with `value` as a [[UnlessShutdown.Outcome]].
-      * Does nothing if the promise has already been completed.
+    /** Tries to complete the promise with `value` as a [[UnlessShutdown.Outcome]]. Does nothing if
+      * the promise has already been completed.
       */
     def outcome(value: A): Unit =
       self.trySuccess(UnlessShutdown.Outcome(value)).discard[Boolean]
 
-    /** Tries to complete the promise with [[UnlessShutdown.AbortedDueToShutdown]].
-      * Does nothing if the promise has already been completed.
+    /** Tries to complete the promise with [[UnlessShutdown.AbortedDueToShutdown]]. Does nothing if
+      * the promise has already been completed.
       */
     def shutdown(): Unit =
       self.trySuccess(UnlessShutdown.AbortedDueToShutdown).discard[Boolean]
@@ -156,7 +162,9 @@ object PromiseUnlessShutdownImpl {
   implicit def ops[A](self: PromiseUnlessShutdown[A]): Ops[A, self.type] =
     new Ops[A, self.type](self)
 
-  /** Helper trait to define the type context for `subst` to be used to lift [[scala.concurrent.Promise.completeWith]]. */
+  /** Helper trait to define the type context for `subst` to be used to lift
+    * [[scala.concurrent.Promise.completeWith]].
+    */
   private sealed trait FreeCompleteWith[F[_]] {
     def completeWith[A, X <: F[A]](
         self: X,

@@ -102,8 +102,7 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       )
       .map(_.newlyRevokedRights.view.collect(fromProtoRight.unlift).toSeq)
 
-  /** List the rights of the given user.
-    * Unknown rights are ignored.
+  /** List the rights of the given user. Unknown rights are ignored.
     */
   def listUserRights(userId: UserId, token: Option[String] = None, identityProviderId: String = "")(
       implicit traceContext: TraceContext
@@ -113,8 +112,8 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       .listUserRights(proto.ListUserRightsRequest(userId, identityProviderId))
       .map(_.rights.view.collect(fromProtoRight.unlift).toSeq)
 
-  /** Retrieve the rights of the user authenticated by the token(s) on the call .
-    * Unknown rights are ignored.
+  /** Retrieve the rights of the user authenticated by the token(s) on the call . Unknown rights are
+    * ignored.
     */
   def listAuthenticatedUserRights(
       token: Option[String] = None

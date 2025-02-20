@@ -17,25 +17,33 @@ import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import v30.ConnectToSequencerChannelRequest.Request as v30_ChannelRequest
 import v30.ConnectToSequencerChannelResponse.Response as v30_ChannelResponse
 
-/** The member message handler represents one side/member of a sequencer channel on the sequencer channel service
-  * and forwards messages from the member to another "recipient" member message handler.
+/** The member message handler represents one side/member of a sequencer channel on the sequencer
+  * channel service and forwards messages from the member to another "recipient" member message
+  * handler.
   *
-  * To prevent log noise arising from GRPC StreamObserver exceptions, the handler tracks the lifetime of its
-  * bidirectional GRPC request according to GRPC semantics:
-  * - an inbound onError call on the member observer stops the ability to send messages via the response observer
-  * - an outbound onComplete call on the member observer (forwarded to the recipient member message handler) limits the time
-  *   for the recipient member message handler to complete the opposite direction. (Even when the recipient's channel client
-  *   completes the opposite side of the channel immediately in response to an inbound onComplete, the recipient's
-  *   onComplete reaction is not forwarded to the sequencer channel service "about half the time".) This in part
-  *   motivates the decision to complete the overall sequencer channel the moment either side of the channel calls
-  *   onComplete.
+  * To prevent log noise arising from GRPC StreamObserver exceptions, the handler tracks the
+  * lifetime of its bidirectional GRPC request according to GRPC semantics:
+  *   - an inbound onError call on the member observer stops the ability to send messages via the
+  *     response observer
+  *   - an outbound onComplete call on the member observer (forwarded to the recipient member
+  *     message handler) limits the time for the recipient member message handler to complete the
+  *     opposite direction. (Even when the recipient's channel client completes the opposite side of
+  *     the channel immediately in response to an inbound onComplete, the recipient's onComplete
+  *     reaction is not forwarded to the sequencer channel service "about half the time".) This in
+  *     part motivates the decision to complete the overall sequencer channel the moment either side
+  *     of the channel calls onComplete.
   *
-  * Lifetime tracking also notifies the GrpcSequencerChannel when the handler has completed its work.
+  * Lifetime tracking also notifies the GrpcSequencerChannel when the handler has completed its
+  * work.
   *
-  * @param member                         The member associated with this member message handler.
-  * @param responseObserver               The GRPC response observer sending responses to this member message handler's client.
-  * @param recipientMemberMessageHandler  The "recipient" member message handler to whom this handler forwards requests.
-  * @param onHandlerCompleted             Callback to notify the sequencer channel when this handler has completed.
+  * @param member
+  *   The member associated with this member message handler.
+  * @param responseObserver
+  *   The GRPC response observer sending responses to this member message handler's client.
+  * @param recipientMemberMessageHandler
+  *   The "recipient" member message handler to whom this handler forwards requests.
+  * @param onHandlerCompleted
+  *   Callback to notify the sequencer channel when this handler has completed.
   */
 private[channel] final class GrpcSequencerChannelMemberMessageHandler(
     val member: Member,

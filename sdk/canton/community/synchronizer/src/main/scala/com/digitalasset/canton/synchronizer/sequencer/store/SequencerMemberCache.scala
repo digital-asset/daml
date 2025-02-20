@@ -10,8 +10,8 @@ import com.github.blemale.scaffeine.{Cache, Scaffeine}
 
 import scala.concurrent.ExecutionContext
 
-/** Read through async cache with no eviction (as members should be immutable).
-  * Members will only be cached if entries are found.
+/** Read through async cache with no eviction (as members should be immutable). Members will only be
+  * cached if entries are found.
   */
 class SequencerMemberCache(
     populate: Traced[Member] => FutureUnlessShutdown[Option[RegisteredMember]]
@@ -24,9 +24,8 @@ class SequencerMemberCache(
     .recordStats()
     .build()
 
-  /** Lookup an existing member id for the given member.
-    * Tries local cache before querying data store.
-    * Return [[scala.None]] if no id exists.
+  /** Lookup an existing member id for the given member. Tries local cache before querying data
+    * store. Return [[scala.None]] if no id exists.
     */
   def apply(
       member: Member

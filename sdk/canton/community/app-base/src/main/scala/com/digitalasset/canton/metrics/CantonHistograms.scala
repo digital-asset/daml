@@ -10,7 +10,8 @@ import com.digitalasset.canton.synchronizer.metrics.{MediatorHistograms, Sequenc
 /** Pre-register histogram metrics
   *
   * Open telemetry requires us to define the histogram buckets before defining the actual metric.
-  * Therefore, we define the name here and ensure that the same name is known wherever the metric is used.
+  * Therefore, we define the name here and ensure that the same name is known wherever the metric is
+  * used.
   */
 class CantonHistograms()(implicit val inventory: HistogramInventory) {
 

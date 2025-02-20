@@ -10,22 +10,21 @@ import scala.collection.IterableOnceOps
 import scala.reflect.internal.Precedence
 
 /** This wart warns when methods [[scala.collection.IterableOnceOps.foreach]] and
-  * [[scala.collection.IterableOnceOps.tapEach]] are used with non-unit valued functions.
-  * This is needed because these methods' signature accepts any-valued functions.
-  * So `-Ywarn-value-discard` does not warn about such discarded values.
+  * [[scala.collection.IterableOnceOps.tapEach]] are used with non-unit valued functions. This is
+  * needed because these methods' signature accepts any-valued functions. So `-Ywarn-value-discard`
+  * does not warn about such discarded values.
   *
-  * [[scala.collection.IterableOnceOps.foreach]] is also used in `for` loops without yield
-  * and therefore also covers cases such as `for { x <- 1 to 10 } { x + 5 }`.
+  * [[scala.collection.IterableOnceOps.foreach]] is also used in `for` loops without yield and
+  * therefore also covers cases such as `for { x <- 1 to 10 } { x + 5 }`.
   *
-  * Builder operations such as `b += ...` are identified by their return type `this.type`
-  * and ignored when checking for non-unit return values. This allows common usages such
-  * as `for { x <- 1 to 10 } { b += x }` and
-  * `for { x <- 1 to 10 } { if (x % 2 == 0) b += x }`.
-  * This does not work for all usages though; you can force a `Unit` type by
-  * specifying the type argument of [[scala.collection.IterableOnceOps.foreach]] and
-  * [[scala.collection.IterableOnceOps.tapEach]] as in `(1 to 10).foreach[Unit] { ... }`,
-  * or by ascribing `Unit` as in `(1 to 10).foreach { x => f(x): Unit }`,
-  * or by explicitly discarding the result: `(1 to 10).foreach { x => f(x).discard }`.
+  * Builder operations such as `b += ...` are identified by their return type `this.type` and
+  * ignored when checking for non-unit return values. This allows common usages such as `for { x <-
+  * 1 to 10 } { b += x }` and `for { x <- 1 to 10 } { if (x % 2 == 0) b += x }`. This does not work
+  * for all usages though; you can force a `Unit` type by specifying the type argument of
+  * [[scala.collection.IterableOnceOps.foreach]] and [[scala.collection.IterableOnceOps.tapEach]] as
+  * in `(1 to 10).foreach[Unit] { ... }`, or by ascribing `Unit` as in `(1 to 10).foreach { x =>
+  * f(x): Unit }`, or by explicitly discarding the result: `(1 to 10).foreach { x => f(x).discard
+  * }`.
   */
 object NonUnitForEach extends WartTraverser {
   val messageUnappliedForeach = " used with non-unit-valued function of type "

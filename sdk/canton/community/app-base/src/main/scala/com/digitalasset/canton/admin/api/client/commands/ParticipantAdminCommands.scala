@@ -198,10 +198,12 @@ object ParticipantAdminCommands {
           )
 
       /** Reads the dar data from a path:
-        * - If the path is a URL (`darPath` starts with http), it downloads the file to a temporary file and reads the data from there.
-        * - Otherwise, it reads the data from the file at the given path.
+        *   - If the path is a URL (`darPath` starts with http), it downloads the file to a
+        *     temporary file and reads the data from there.
+        *   - Otherwise, it reads the data from the file at the given path.
         *
-        * @return Name of the local file and the dar data.
+        * @return
+        *   Name of the local file and the dar data.
         */
       private def loadDarData(darPath: String): Either[String, (String, ByteString)] = if (
         darPath.startsWith("http")

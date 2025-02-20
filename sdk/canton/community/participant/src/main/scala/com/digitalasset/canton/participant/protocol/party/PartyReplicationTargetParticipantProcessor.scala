@@ -46,16 +46,18 @@ trait PersistsContracts {
   ): EitherT[FutureUnlessShutdown, String, Unit]
 }
 
-/** The target participant processor ingests a party's active contracts on a specific synchronizer and timestamp
-  * from a source participant as part of Online Party Replication.
+/** The target participant processor ingests a party's active contracts on a specific synchronizer
+  * and timestamp from a source participant as part of Online Party Replication.
   *
-  * The interaction happens via the [[com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor]]
-  * API and the target participant processor enforces the protocol guarantees made by a [[PartyReplicationSourceParticipantProcessor]].
-  * The following guarantees made by the target participant processor are verifiable at the party replication protocol:
-  * The target participant
-  * - only sends messages after receiving [[PartyReplicationSourceMessage.SourceParticipantIsReady]],
-  * - requests contracts in a strictly increasing chunk id order,
-  * - and sends only deserializable payloads.
+  * The interaction happens via the
+  * [[com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor]] API and
+  * the target participant processor enforces the protocol guarantees made by a
+  * [[PartyReplicationSourceParticipantProcessor]]. The following guarantees made by the target
+  * participant processor are verifiable at the party replication protocol: The target participant
+  *   - only sends messages after receiving
+  *     [[PartyReplicationSourceMessage.SourceParticipantIsReady]],
+  *   - requests contracts in a strictly increasing chunk id order,
+  *   - and sends only deserializable payloads.
   */
 class PartyReplicationTargetParticipantProcessor(
     synchronizerId: SynchronizerId,

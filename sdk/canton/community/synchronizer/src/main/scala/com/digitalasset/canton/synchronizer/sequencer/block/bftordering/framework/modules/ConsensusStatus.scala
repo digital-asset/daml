@@ -10,12 +10,12 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   EpochNumber,
   ViewNumber,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.topology.SequencerId
 
-/** Status messages that describe how far into the consensus process a node is.
-  * This is used as part of retransmissions such that receiving nodes can tell if there are messages
-  * they can retransmit in order to help the originating node make progress.
+/** Status messages that describe how far into the consensus process a node is. This is used as part
+  * of retransmissions such that receiving nodes can tell if there are messages they can retransmit
+  * in order to help the originating node make progress.
   */
 object ConsensusStatus {
 
@@ -24,11 +24,14 @@ object ConsensusStatus {
       epochNumber: EpochNumber,
       segments: Seq[SegmentStatus],
   ) {
-    def toProto: v1.EpochStatus = v1.EpochStatus(epochNumber, segments.map(_.toProto))
+    def toProto: v30.EpochStatus = v30.EpochStatus(epochNumber, segments.map(_.toProto))
   }
 
   object EpochStatus {
-    def fromProto(from: SequencerId, protoEpochStatus: v1.EpochStatus): ParsingResult[EpochStatus] =
+    def fromProto(
+        from: SequencerId,
+        protoEpochStatus: v30.EpochStatus,
+    ): ParsingResult[EpochStatus] =
       for {
         segments <- protoEpochStatus.segments.traverse(SegmentStatus.fromProto)
       } yield EpochStatus(
@@ -39,13 +42,13 @@ object ConsensusStatus {
   }
 
   sealed trait SegmentStatus {
-    def toProto: v1.SegmentStatus
+    def toProto: v30.SegmentStatus
   }
 
   object SegmentStatus {
     final object Complete extends SegmentStatus {
-      override val toProto: v1.SegmentStatus =
-        v1.SegmentStatus(v1.SegmentStatus.Status.Complete(com.google.protobuf.empty.Empty()))
+      override val toProto: v30.SegmentStatus =
+        v30.SegmentStatus(v30.SegmentStatus.Status.Complete(com.google.protobuf.empty.Empty()))
     }
     sealed trait Incomplete extends SegmentStatus {
       def viewNumber: ViewNumber
@@ -55,10 +58,10 @@ object ConsensusStatus {
     final case class InProgress(viewNumber: ViewNumber, blockStatuses: Seq[BlockStatus])
         extends Incomplete {
       override def areBlocksComplete: Seq[Boolean] = blockStatuses.map(_.isComplete)
-      override def toProto: v1.SegmentStatus =
-        v1.SegmentStatus(
-          v1.SegmentStatus.Status.InProgress(
-            v1.SegmentInProgress(viewNumber, blockStatuses.map(_.toProto))
+      override def toProto: v30.SegmentStatus =
+        v30.SegmentStatus(
+          v30.SegmentStatus.Status.InProgress(
+            v30.SegmentInProgress(viewNumber, blockStatuses.map(_.toProto))
           )
         )
     }
@@ -67,32 +70,32 @@ object ConsensusStatus {
         viewChangeMessagesPresent: Seq[Boolean],
         areBlocksComplete: Seq[Boolean],
     ) extends Incomplete {
-      override def toProto: v1.SegmentStatus = v1.SegmentStatus(
-        v1.SegmentStatus.Status.InViewChange(
-          v1.SegmentInViewChange(viewNumber, viewChangeMessagesPresent, areBlocksComplete)
+      override def toProto: v30.SegmentStatus = v30.SegmentStatus(
+        v30.SegmentStatus.Status.InViewChange(
+          v30.SegmentInViewChange(viewNumber, viewChangeMessagesPresent, areBlocksComplete)
         )
       )
     }
 
-    private[modules] def fromProto(proto: v1.SegmentStatus): ParsingResult[SegmentStatus] =
+    private[modules] def fromProto(proto: v30.SegmentStatus): ParsingResult[SegmentStatus] =
       proto.status match {
-        case v1.SegmentStatus.Status.InViewChange(
-              v1.SegmentInViewChange(viewChange, viewChangeMessagesPresent, areBlocksComplete)
+        case v30.SegmentStatus.Status.InViewChange(
+              v30.SegmentInViewChange(viewChange, viewChangeMessagesPresent, areBlocksComplete)
             ) =>
           Right(
             SegmentStatus
               .InViewChange(ViewNumber(viewChange), viewChangeMessagesPresent, areBlocksComplete)
           )
-        case v1.SegmentStatus.Status
-              .InProgress(v1.SegmentInProgress(viewNumber, blockStatuses)) =>
+        case v30.SegmentStatus.Status
+              .InProgress(v30.SegmentInProgress(viewNumber, blockStatuses)) =>
           for {
             blocks <- blockStatuses.traverse(BlockStatus.fromProto)
           } yield SegmentStatus.InProgress(
             ViewNumber(viewNumber),
             blocks,
           )
-        case v1.SegmentStatus.Status.Complete(_) => Right(SegmentStatus.Complete)
-        case v1.SegmentStatus.Status.Empty =>
+        case v30.SegmentStatus.Status.Complete(_) => Right(SegmentStatus.Complete)
+        case v30.SegmentStatus.Status.Empty =>
           Left(ProtoDeserializationError.OtherError("Empty Received"))
       }
 
@@ -100,14 +103,14 @@ object ConsensusStatus {
 
   sealed trait BlockStatus {
     def isComplete: Boolean
-    def toProto: v1.BlockStatus
+    def toProto: v30.BlockStatus
   }
 
   object BlockStatus {
     final object Complete extends BlockStatus {
       override val isComplete: Boolean = true
-      override val toProto: v1.BlockStatus =
-        v1.BlockStatus(v1.BlockStatus.Status.Complete(com.google.protobuf.empty.Empty()))
+      override val toProto: v30.BlockStatus =
+        v30.BlockStatus(v30.BlockStatus.Status.Complete(com.google.protobuf.empty.Empty()))
     }
     final case class InProgress(
         prePrepared: Boolean,
@@ -115,21 +118,21 @@ object ConsensusStatus {
         commitsPresent: Seq[Boolean],
     ) extends BlockStatus {
       override def isComplete: Boolean = false
-      override def toProto: v1.BlockStatus = v1.BlockStatus(
-        v1.BlockStatus.Status.InProgress(
-          v1.BlockInProgress(prePrepared, preparesPresent, commitsPresent)
+      override def toProto: v30.BlockStatus = v30.BlockStatus(
+        v30.BlockStatus.Status.InProgress(
+          v30.BlockInProgress(prePrepared, preparesPresent, commitsPresent)
         )
       )
     }
 
-    private[modules] def fromProto(proto: v1.BlockStatus): ParsingResult[BlockStatus] =
+    private[modules] def fromProto(proto: v30.BlockStatus): ParsingResult[BlockStatus] =
       proto.status match {
-        case v1.BlockStatus.Status.InProgress(
-              v1.BlockInProgress(prePrepared, preparesPresent, commitsPresent)
+        case v30.BlockStatus.Status.InProgress(
+              v30.BlockInProgress(prePrepared, preparesPresent, commitsPresent)
             ) =>
           Right(BlockStatus.InProgress(prePrepared, preparesPresent, commitsPresent))
-        case v1.BlockStatus.Status.Complete(_) => Right(BlockStatus.Complete)
-        case v1.BlockStatus.Status.Empty =>
+        case v30.BlockStatus.Status.Complete(_) => Right(BlockStatus.Complete)
+        case v30.BlockStatus.Status.Empty =>
           Left(ProtoDeserializationError.OtherError("Empty Received"))
       }
   }

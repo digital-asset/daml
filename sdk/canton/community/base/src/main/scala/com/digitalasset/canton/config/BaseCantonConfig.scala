@@ -7,9 +7,9 @@ import pureconfig.{ConfigReader, ConfigWriter}
 
 /** Base config readers and writers used in different places
   *
-  * The main bulk of config readers and writers is in CantonConfig. However, some
-  * are shared with the sequencer driver. In order to avoid duplication, we
-  * create them here so they can be imported from both places.
+  * The main bulk of config readers and writers is in CantonConfig. However, some are shared with
+  * the sequencer driver. In order to avoid duplication, we create them here so they can be imported
+  * from both places.
   */
 object BaseCantonConfig {
 

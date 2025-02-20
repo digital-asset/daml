@@ -27,12 +27,13 @@ import io.grpc.Context.CancellableContext
 import scala.concurrent.ExecutionContext
 import scala.util.Try
 
-/** Sequencer channel client for interacting with GRPC-based sequencer channels that exchange data with other nodes
-  * bypassing the regular canton protocol and ordering-based sequencer service. In addition, the
-  * [[SequencerChannelClient]] tracks channels allowing the client to close channels when the client is closed.
+/** Sequencer channel client for interacting with GRPC-based sequencer channels that exchange data
+  * with other nodes bypassing the regular canton protocol and ordering-based sequencer service. In
+  * addition, the [[SequencerChannelClient]] tracks channels allowing the client to close channels
+  * when the client is closed.
   *
-  * For now at least the sequencer channel client uses the canton-protocol version although technically the channel
-  * protocol is a different protocol.
+  * For now at least the sequencer channel client uses the canton-protocol version although
+  * technically the channel protocol is a different protocol.
   */
 final class SequencerChannelClient(
     member: Member,
@@ -45,27 +46,36 @@ final class SequencerChannelClient(
     extends FlagCloseable
     with NamedLogging {
 
-  /** Connect to a sequencer channel. If the channel does not yet exist on the service side,
-    * this call creates the sequencer channel.
+  /** Connect to a sequencer channel. If the channel does not yet exist on the service side, this
+    * call creates the sequencer channel.
     *
-    * This method creates the channel asynchronously and relies on the provided [[SequencerChannelProtocolProcessor]]
-    * to perform the bidirectional interaction with the channel.
+    * This method creates the channel asynchronously and relies on the provided
+    * [[SequencerChannelProtocolProcessor]] to perform the bidirectional interaction with the
+    * channel.
     *
-    * One of the connecting members is responsible for generating a session key to secure the communication between
-    * them, that member "owns" the session key. The decision which member owns the session key is taken by the client
-    * of the sequencer channel.
+    * One of the connecting members is responsible for generating a session key to secure the
+    * communication between them, that member "owns" the session key. The decision which member owns
+    * the session key is taken by the client of the sequencer channel.
     *
-    * The session key is transferred to another member through public key encryption. The public key is determined by
-    * a timestamp that been agreed upon by the connecting members beforehand.
-    * This timestamp is expected to originate from a recent topology transaction that has already taken effect.
+    * The session key is transferred to another member through public key encryption. The public key
+    * is determined by a timestamp that been agreed upon by the connecting members beforehand. This
+    * timestamp is expected to originate from a recent topology transaction that has already taken
+    * effect.
     *
-    * @param sequencerId [[com.digitalasset.canton.topology.SequencerId]] of the sequencer to create the channel on
-    * @param channelId   Unique channel identifier known to both channel endpoints
-    * @param connectTo   Member id of the other member to communicate with via the channel
-    * @param processor   Sequencer channel protocol processor for handling incoming messages and sending messages
-    * @param isSessionKeyOwner Whether this member owns the session key
-    * @param topologyTs Timestamp that determines the public key encryption of the session key
-    * @param onSentMessage Message notification for testing only! None for production.
+    * @param sequencerId
+    *   [[com.digitalasset.canton.topology.SequencerId]] of the sequencer to create the channel on
+    * @param channelId
+    *   Unique channel identifier known to both channel endpoints
+    * @param connectTo
+    *   Member id of the other member to communicate with via the channel
+    * @param processor
+    *   Sequencer channel protocol processor for handling incoming messages and sending messages
+    * @param isSessionKeyOwner
+    *   Whether this member owns the session key
+    * @param topologyTs
+    *   Timestamp that determines the public key encryption of the session key
+    * @param onSentMessage
+    *   Message notification for testing only! None for production.
     */
   def connectToSequencerChannel(
       sequencerId: SequencerId,
@@ -114,7 +124,8 @@ final class SequencerChannelClient(
     })
   }
 
-  /** Ping the sequencer to check if the sequencer with the provided SequencerId supports sequencer channels.
+  /** Ping the sequencer to check if the sequencer with the provided SequencerId supports sequencer
+    * channels.
     */
   def ping(sequencerId: SequencerId)(implicit
       traceContext: TraceContext

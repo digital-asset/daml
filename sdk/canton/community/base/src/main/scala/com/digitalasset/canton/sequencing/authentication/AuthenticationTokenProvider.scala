@@ -44,7 +44,8 @@ import scala.concurrent.ExecutionContext
 
 /** Configures authentication token fetching
   *
-  * @param refreshAuthTokenBeforeExpiry how much time before the auth token expires should we fetch a new one?
+  * @param refreshAuthTokenBeforeExpiry
+  *   how much time before the auth token expires should we fetch a new one?
   */
 final case class AuthenticationTokenManagerConfig(
     refreshAuthTokenBeforeExpiry: NonNegativeFiniteDuration =
@@ -64,7 +65,8 @@ object AuthenticationTokenManagerConfig {
   val defaultPauseRetries: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMillis(500)
 }
 
-/** Fetch an authentication token from the sequencer by using the sequencer authentication service */
+/** Fetch an authentication token from the sequencer by using the sequencer authentication service
+  */
 class AuthenticationTokenProvider(
     synchronizerId: SynchronizerId,
     member: Member,

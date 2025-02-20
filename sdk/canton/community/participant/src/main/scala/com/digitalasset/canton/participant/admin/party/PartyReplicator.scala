@@ -20,10 +20,13 @@ import scala.concurrent.ExecutionContext
 import scala.util.chaining.scalaUtilChainingOps
 
 /** The party replicator acts on behalf of the participant's online party replication requests:
-  * - In response to an operator request to initiate online party replication, triggers admin workflow proposal.
-  * - Exposes callbacks to the admin workflow to validate and process channel proposals and agreements.
+  *   - In response to an operator request to initiate online party replication, triggers admin
+  *     workflow proposal.
+  *   - Exposes callbacks to the admin workflow to validate and process channel proposals and
+  *     agreements.
   *
-  * Unlike the [[PartyReplicationAdminWorkflow]], the [[PartyReplicator]] survives HA-activeness transitions.
+  * Unlike the [[PartyReplicationAdminWorkflow]], the [[PartyReplicator]] survives HA-activeness
+  * transitions.
   */
 final class PartyReplicator(
     participantId: ParticipantId,
@@ -36,8 +39,8 @@ final class PartyReplicator(
 ) extends FlagCloseable
     with NamedLogging {
 
-  /** Validates online party replication arguments and propose party replication
-    * via the provided admin workflow service.
+  /** Validates online party replication arguments and propose party replication via the provided
+    * admin workflow service.
     */
   private[admin] def startPartyReplication(
       args: PartyReplicationArguments,
@@ -167,8 +170,8 @@ final class PartyReplicator(
     } yield sequencerId
   }
 
-  /** Agreement notification for the local participant to act as the source participant to replicate the specified
-    * party using the provided parameters.
+  /** Agreement notification for the local participant to act as the source participant to replicate
+    * the specified party using the provided parameters.
     */
   private[admin] def processChannelAgreementAtSourceParticipant(
       agreement: ChannelAgreementParams
@@ -178,8 +181,8 @@ final class PartyReplicator(
         s"target participant ${agreement.targetParticipantId} via sequencer ${agreement.sequencerId}."
     )
 
-  /** Agreement notification for the local participant to act as the target participant to replicate the specified
-    * party using the provided parameters.
+  /** Agreement notification for the local participant to act as the target participant to replicate
+    * the specified party using the provided parameters.
     */
   private[admin] def processChannelAgreementAtTargetParticipant(
       agreement: ChannelAgreementParams

@@ -100,9 +100,10 @@ object TopologyTransactionsBroadcast
     } yield TopologyTransactionsBroadcast(synchronizerId, signedTopologyTransactions)(rpv)
   }
 
-  /** The state of the submission of a topology transaction broadcast. In combination with the sequencer client
-    * send tracker capability, State reflects that either the sequencer Accepted the submission or that the submission
-    * was Rejected due to an error or a timeout. See SynchronizerTopologyService.
+  /** The state of the submission of a topology transaction broadcast. In combination with the
+    * sequencer client send tracker capability, State reflects that either the sequencer Accepted
+    * the submission or that the submission was Rejected due to an error or a timeout. See
+    * SynchronizerTopologyService.
     */
   sealed trait State extends Product with Serializable
 

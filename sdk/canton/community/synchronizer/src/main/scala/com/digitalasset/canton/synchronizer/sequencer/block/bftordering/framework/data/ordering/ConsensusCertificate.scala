@@ -14,8 +14,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PrePrepare,
   Prepare,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.{
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.{
   CommitCertificate as ProtoCommitCertificate,
   ConsensusCertificate as ProtoConsensusCertificate,
   PrepareCertificate as ProtoPrepareCertificate,
@@ -62,17 +62,17 @@ object ConsensusCertificate {
 
 object PrepareCertificate {
   def fromProto(
-      prepareCertificate: v1.PrepareCertificate
+      prepareCertificate: v30.PrepareCertificate
   ): ParsingResult[PrepareCertificate] =
     for {
       prePrepare <- ProtoConverter
         .parseRequired(
-          SignedMessage.fromProto(v1.ConsensusMessage)(PrePrepare.fromProtoConsensusMessage),
+          SignedMessage.fromProto(v30.ConsensusMessage)(PrePrepare.fromProtoConsensusMessage),
           "prePrepare",
           prepareCertificate.prePrepare,
         )
       prepares <- prepareCertificate.prepares.traverse(
-        SignedMessage.fromProto(v1.ConsensusMessage)(Prepare.fromProtoConsensusMessage)
+        SignedMessage.fromProto(v30.ConsensusMessage)(Prepare.fromProtoConsensusMessage)
       )
     } yield PrepareCertificate(prePrepare, prepares)
 }
@@ -82,17 +82,17 @@ object CommitCertificate {
     Ordering.by(commit => (commit.from, commit.localTimestamp))
 
   def fromProto(
-      commitCertificate: v1.CommitCertificate
+      commitCertificate: v30.CommitCertificate
   ): ParsingResult[CommitCertificate] =
     for {
       prePrepare <- ProtoConverter
         .parseRequired(
-          SignedMessage.fromProto(v1.ConsensusMessage)(PrePrepare.fromProtoConsensusMessage),
+          SignedMessage.fromProto(v30.ConsensusMessage)(PrePrepare.fromProtoConsensusMessage),
           "prePrepare",
           commitCertificate.prePrepare,
         )
       commits <- commitCertificate.commits.traverse(
-        SignedMessage.fromProto(v1.ConsensusMessage)(Commit.fromProtoConsensusMessage)
+        SignedMessage.fromProto(v30.ConsensusMessage)(Commit.fromProtoConsensusMessage)
       )
     } yield CommitCertificate(prePrepare, commits)
 }

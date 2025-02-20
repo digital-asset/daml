@@ -19,29 +19,31 @@ import monocle.Lens
 
 import scala.collection.mutable
 
-/** Encapsulate a Merkle tree.
-  * Every node has an arbitrary number of children.
-  * Every node has a `rootHash`.
+/** Encapsulate a Merkle tree. Every node has an arbitrary number of children. Every node has a
+  * `rootHash`.
   *
-  * Every node may be blinded, i.e., the `rootHash` remains, but the children are removed. The `rootHash` does not
-  * change if some children are blinded.
+  * Every node may be blinded, i.e., the `rootHash` remains, but the children are removed. The
+  * `rootHash` does not change if some children are blinded.
   *
-  * @tparam A the runtime type of the class that actually implements this instance of `MerkleTree`.
-  *           I.e., a proper implementation of this trait must be declared like
-  *           `class MyMerkleTree extends MerkleTree[MyMerkleTree]`.
+  * @tparam A
+  *   the runtime type of the class that actually implements this instance of `MerkleTree`.
+  * I.e., a proper implementation of this trait must be declared like `class MyMerkleTree extends
+  * MerkleTree[MyMerkleTree]`.
   */
 trait MerkleTree[+A] extends Product with Serializable with PrettyPrinting {
   def subtrees: Seq[MerkleTree[_]]
 
   def rootHash: RootHash
 
-  /** @return `Left(hash)`, if this is a blinded tree and `Right(tree)` otherwise.
+  /** @return
+    *   `Left(hash)`, if this is a blinded tree and `Right(tree)` otherwise.
     */
   def unwrap: Either[RootHash, A]
 
   /** Yields this instance with type `A`
     *
-    * @throws java.lang.UnsupportedOperationException if this is blinded
+    * @throws java.lang.UnsupportedOperationException
+    *   if this is blinded
     */
   def tryUnwrap: A = unwrap match {
     case Right(r) => r
@@ -53,12 +55,14 @@ trait MerkleTree[+A] extends Product with Serializable with PrettyPrinting {
 
   lazy val blindFully: MerkleTree[A] = BlindedNode[A](rootHash)
 
-  /** Blinds this Merkle tree according to the commands given by `blindingStatus`.
-    * Traverses this tree in pre-order.
+  /** Blinds this Merkle tree according to the commands given by `blindingStatus`. Traverses this
+    * tree in pre-order.
     *
-    * @param blindingPolicy assigns blinding commands to subtrees
-    * @throws java.lang.IllegalArgumentException if `blindingPolicy` does not assign a blinding command to some subtree
-    *                                            and all ancestors of subtree have the blinding command `RevealIfNeedBe`
+    * @param blindingPolicy
+    *   assigns blinding commands to subtrees
+    * @throws java.lang.IllegalArgumentException
+    *   if `blindingPolicy` does not assign a blinding command to some subtree and all ancestors of
+    *   subtree have the blinding command `RevealIfNeedBe`
     */
   final def blind(
       blindingPolicy: PartialFunction[MerkleTree[_], BlindingCommand]
@@ -120,7 +124,9 @@ trait MerkleTree[+A] extends Product with Serializable with PrettyPrinting {
       case RevealIfNeedBe => withBlindedSubtrees(optimizedBlindingPolicy)
     }
 
-  /** Yields a copy of this that results from applying `doBlind(optimizedBlindingPolicy)` to all children. */
+  /** Yields a copy of this that results from applying `doBlind(optimizedBlindingPolicy)` to all
+    * children.
+    */
   private[data] def withBlindedSubtrees(
       optimizedBlindingPolicy: PartialFunction[RootHash, BlindingCommand]
   ): MerkleTree[A]
@@ -134,9 +140,8 @@ trait MerkleTree[+A] extends Product with Serializable with PrettyPrinting {
   }.isEmpty
 }
 
-/** An inner node of a Merkle tree.
-  * Has no data, no salt, and an arbitrary number of subtrees.
-  * An inner node is considered unblinded.
+/** An inner node of a Merkle tree. Has no data, no salt, and an arbitrary number of subtrees. An
+  * inner node is considered unblinded.
   */
 abstract class MerkleTreeInnerNode[+A](val hashOps: HashOps) extends MerkleTree[A] {
   this: A =>
@@ -154,19 +159,17 @@ abstract class MerkleTreeInnerNode[+A](val hashOps: HashOps) extends MerkleTree[
   override def unwrap: Either[RootHash, A] = Right(this)
 }
 
-/** A leaf of a Merkle tree.
-  * Has data, a salt, and no children.
-  * A leaf is considered unblinded.
+/** A leaf of a Merkle tree. Has data, a salt, and no children. A leaf is considered unblinded.
   */
 abstract class MerkleTreeLeaf[+A <: HasCryptographicEvidence](val hashOps: HashOps)
     extends MerkleTree[A] {
   this: A =>
 
-  /** The `HashPurpose` to be used for computing the root hash.
-    * Must uniquely identify the type of this instance.
-    * Must be different from `HashPurpose.MerkleTreeInnerNode`.
+  /** The `HashPurpose` to be used for computing the root hash. Must uniquely identify the type of
+    * this instance. Must be different from `HashPurpose.MerkleTreeInnerNode`.
     *
-    * @see [[com.digitalasset.canton.crypto.HashBuilder]]
+    * @see
+    *   [[com.digitalasset.canton.crypto.HashBuilder]]
     */
   def hashPurpose: HashPurpose
 
@@ -195,8 +198,7 @@ abstract class MerkleTreeLeaf[+A <: HasCryptographicEvidence](val hashOps: HashO
   ): A with MerkleTree[A] = this
 }
 
-/** A blinded node of a Merkle tree.
-  * Has no subtrees, as they are all blinded.
+/** A blinded node of a Merkle tree. Has no subtrees, as they are all blinded.
   */
 final case class BlindedNode[+A](rootHash: RootHash) extends MerkleTree[A] {
   override def subtrees: Seq[MerkleTree[_]] = Seq.empty

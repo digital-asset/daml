@@ -12,10 +12,11 @@ import com.digitalasset.canton.sequencing.SequencerConnectionXClient.SequencerCo
 import com.digitalasset.canton.topology.{SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 
-/** A generic connection to a sequencer. This trait attempts to be independent of the underlying transport.
+/** A generic connection to a sequencer. This trait attempts to be independent of the underlying
+  * transport.
   *
-  * NOTE: We currently make only a minimal effort to keep transport independence, and there are obvious leaks.
-  * This will be extended when we need it.
+  * NOTE: We currently make only a minimal effort to keep transport independence, and there are
+  * obvious leaks. This will be extended when we need it.
   */
 trait SequencerConnectionX extends FlagCloseable with NamedLogging {
   import SequencerConnectionX.*
@@ -25,7 +26,8 @@ trait SequencerConnectionX extends FlagCloseable with NamedLogging {
   def health: SequencerConnectionXHealth
 
   /** Return the attributes of this sequencer connection.
-    * @return `None` if the sequencer connection has not yet been validated.
+    * @return
+    *   `None` if the sequencer connection has not yet been validated.
     */
   def attributes: Option[ConnectionAttributes]
 
@@ -78,7 +80,7 @@ object SequencerConnectionX {
     final case class InvalidStateError(message: String) extends SequencerConnectionXError
   }
 
-  /** <pre>
+  /** {{{
     *     ┌─────────┐        ┌─────────┐         ┌─────────┐
     *     │STARTING │        │ STARTED │         │VALIDATED│
     *     ├─────────┤        ├─────────┤         ├─────────┤
@@ -99,7 +101,7 @@ object SequencerConnectionX {
     *     │         ◄────────┤         │
     *     │         │        │         │
     *     └─────────┘        └─────────┘
-    * </pre>
+    * }}}
     */
   sealed trait SequencerConnectionXState extends Product with Serializable with PrettyPrinting
   object SequencerConnectionXState {
@@ -124,8 +126,8 @@ object SequencerConnectionX {
       override protected def pretty: Pretty[Stopping.type] = prettyOfObject[Stopping.type]
     }
 
-    /** The sequencer connection has either not been started yet, or has stopped for a non-fatal reason.
-      * (Re)starting it will possibly bring it back up.
+    /** The sequencer connection has either not been started yet, or has stopped for a non-fatal
+      * reason. (Re)starting it will possibly bring it back up.
       */
     case object Stopped extends SequencerConnectionXState {
       override protected def pretty: Pretty[Stopped.type] = prettyOfObject[Stopped.type]

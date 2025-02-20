@@ -31,11 +31,13 @@ import com.google.protobuf.ByteString
 import java.util.UUID
 
 /** Wrapper for a sequenced event that has the correct properties to act as a time proof:
-  *  - a deliver event with no envelopes
-  *  - has a message id that suggests it was requested as a time proof (this is practically unnecessary but will act
-  *     as a safeguard against future sequenced event changes)
-  * @param event the signed content wrapper containing the event
-  * @param deliver the time proof event itself. this must be the event content signedEvent wrapper.
+  *   - a deliver event with no envelopes
+  *   - has a message id that suggests it was requested as a time proof (this is practically
+  *     unnecessary but will act as a safeguard against future sequenced event changes)
+  * @param event
+  *   the signed content wrapper containing the event
+  * @param deliver
+  *   the time proof event itself. this must be the event content signedEvent wrapper.
   */
 final case class TimeProof private (
     private val event: OrdinarySequencedEvent[Envelope[?]],
@@ -118,7 +120,9 @@ object TimeProof {
   def isTimeProofSubmission(submission: SubmissionRequest): Boolean =
     isTimeEventMessageId(submission.messageId) && isTimeEventBatch(submission.batch)
 
-  /** Send placed alongside the validation logic for a time proof to help ensure it remains consistent */
+  /** Send placed alongside the validation logic for a time proof to help ensure it remains
+    * consistent
+    */
   def sendRequest(
       client: SequencerClient,
       protocolVersion: ProtocolVersion,
@@ -142,8 +146,8 @@ object TimeProof {
     )
   }
 
-  /** Use a constant prefix for a message which would permit the sequencer to track how many
-    * time request events it is receiving.
+  /** Use a constant prefix for a message which would permit the sequencer to track how many time
+    * request events it is receiving.
     */
   val timeEventMessageIdPrefix = "tick-"
   private def isTimeEventMessageId(messageId: MessageId): Boolean =
@@ -151,8 +155,8 @@ object TimeProof {
   private def isTimeEventBatch(batch: Batch[?]): Boolean =
     batch.envelopes.isEmpty // should be entirely empty
 
-  /** Make a unique message id for a time event submission request.
-    * Currently adding a short prefix for debugging at the sequencer so floods of time requests will be observable.
+  /** Make a unique message id for a time event submission request. Currently adding a short prefix
+    * for debugging at the sequencer so floods of time requests will be observable.
     */
   @VisibleForTesting
   def mkTimeProofRequestMessageId: MessageId =

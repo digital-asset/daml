@@ -40,17 +40,20 @@ import scala.language.implicitConversions
 import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.util.control.NonFatal
 
-/** The task scheduler manages tasks with associated timestamps and sequencer counters.
-  * Tasks may be inserted in any order; they will be executed nevertheless in the correct order
-  * given by the timestamps.
+/** The task scheduler manages tasks with associated timestamps and sequencer counters. Tasks may be
+  * inserted in any order; they will be executed nevertheless in the correct order given by the
+  * timestamps.
   *
   * The tasks execute sequentially in [[scala.concurrent.Future]].
   *
-  * @param initSc The first sequencer counter to be processed
-  * @param initTimestamp Only timestamps after this timestamp can be used for scheduling tasks and for adding ticks.
-  *                      This timestamp will be the timestamp for immediate tasks initially.
-  * @param equalTimestampTaskOrdering The ordering for tasks with the same timestamps;
-  *                                   tasks that are smaller w.r.t this order are processed earlier.
+  * @param initSc
+  *   The first sequencer counter to be processed
+  * @param initTimestamp
+  *   Only timestamps after this timestamp can be used for scheduling tasks and for adding ticks.
+  *   This timestamp will be the timestamp for immediate tasks initially.
+  * @param equalTimestampTaskOrdering
+  *   The ordering for tasks with the same timestamps; tasks that are smaller w.r.t this order are
+  *   processed earlier.
   */
 class TaskScheduler[Task <: TimedTask](
     initSc: SequencerCounter,
@@ -69,8 +72,8 @@ class TaskScheduler[Task <: TimedTask](
     with FlagCloseable
     with HasCloseContext {
 
-  /** Stores the timestamp up to which all tasks are known and can be performed,
-    * unless they cannot be completed right now.
+  /** Stores the timestamp up to which all tasks are known and can be performed, unless they cannot
+    * be completed right now.
     */
   private[this] val latestPolledTimestamp: AtomicReference[CantonTimestamp] = new AtomicReference(
     initTimestamp
@@ -84,21 +87,22 @@ class TaskScheduler[Task <: TimedTask](
     Ordering
       .by[BarrierOrTask, (CantonTimestamp, Option[Task])](task => task.timestamp -> task.toOption)
 
-  /** Contains all the scheduled tasks (activeness check/timeout/finalization) in the order
-    * in which they must be performed.
+  /** Contains all the scheduled tasks (activeness check/timeout/finalization) in the order in which
+    * they must be performed.
     *
-    * Since [[scala.collection.mutable.PriorityQueue]] is a max priority queue,
-    * but we conceptually need a min priority queue, we reverse the order
+    * Since [[scala.collection.mutable.PriorityQueue]] is a max priority queue, but we conceptually
+    * need a min priority queue, we reverse the order
     *
-    * Invariant: contains only timestamps equal to or higher than [[latestPolledTimestamp]],
-    * except if the first entry is a task that could not be completed.
+    * Invariant: contains only timestamps equal to or higher than [[latestPolledTimestamp]], except
+    * if the first entry is a task that could not be completed.
     */
   private[this] val taskQueue: mutable.PriorityQueue[BarrierOrTask] =
     mutable.PriorityQueue()(Ordering[BarrierOrTask].reverse)
 
   /** Keeps track of all sequencer counters and their associated timestamps.
     *
-    * Invariant for public methods: The head is always the front. Timestamps strictly increase with sequencer counters.
+    * Invariant for public methods: The head is always the front. Timestamps strictly increase with
+    * sequencer counters.
     */
   private[this] val sequencerCounterQueue: PeanoQueue[SequencerCounter, CantonTimestamp] =
     new PeanoTreeQueue[SequencerCounterDiscriminator, CantonTimestamp](initSc)
@@ -120,8 +124,8 @@ class TaskScheduler[Task <: TimedTask](
   // init metrics
   private val queueSizeGauge: CloseableGauge = metrics.taskQueue(() => taskQueue.size)
 
-  /** The sequencer counter that has last been ticked *and* thereby advanced sequencerCounterQueue.front.
-    * The timestamp corresponds to `clock.now` at the time of the tick.
+  /** The sequencer counter that has last been ticked *and* thereby advanced
+    * sequencerCounterQueue.front. The timestamp corresponds to `clock.now` at the time of the tick.
     */
   private val lastProgress: AtomicReference[(SequencerCounter, CantonTimestamp)] =
     new AtomicReference((initSc - 1) -> clock.now)
@@ -180,14 +184,15 @@ class TaskScheduler[Task <: TimedTask](
   def readSequencerCounterQueue: SequencerCounter => PeanoQueue.AssociatedValue[CantonTimestamp] =
     sequencerCounterQueue.get
 
-  /** Adds a new task to be executed at the given timestamp and with the associated sequencer counter.
-    * This method does not register the timestamp as being observed.
-    * So [[addTick]] must be called separately if desired.
+  /** Adds a new task to be executed at the given timestamp and with the associated sequencer
+    * counter. This method does not register the timestamp as being observed. So [[addTick]] must be
+    * called separately if desired.
     *
-    * @param task The task to execute.
+    * @param task
+    *   The task to execute.
     * @throws java.lang.IllegalArgumentException
-    *         if the `timestamp` or `sequencer counter` of the task is earlier
-    *         than to where the task scheduler has already progressed
+    *   if the `timestamp` or `sequencer counter` of the task is earlier than to where the task
+    *   scheduler has already progressed
     */
   def scheduleTask(task: Task): Unit = blocking {
     lock.synchronized {
@@ -215,9 +220,12 @@ class TaskScheduler[Task <: TimedTask](
 
   /** Schedule task only, if the desired timestamp is after the current latest polled timestamp.
     *
-    * @param taskFactory The function creating a task from the desired timestamp.
-    *                    This function will immediately execute, and the resulting task will be scheduled to the queue
-    * @return A Left with the latest timestamp, if it is after the desired timestamp, or a Right with the created Task itself.
+    * @param taskFactory
+    *   The function creating a task from the desired timestamp. This function will immediately
+    *   execute, and the resulting task will be scheduled to the queue
+    * @return
+    *   A Left with the latest timestamp, if it is after the desired timestamp, or a Right with the
+    *   created Task itself.
     */
   def scheduleTaskIfLater[T <: Task](
       desiredTimestamp: CantonTimestamp,
@@ -235,12 +243,14 @@ class TaskScheduler[Task <: TimedTask](
     }
   }
 
-  /** Scheduling a task immediately.
-    * This does not mean it will be executed immediately: all preceding tasks will finish executing first.
+  /** Scheduling a task immediately. This does not mean it will be executed immediately: all
+    * preceding tasks will finish executing first.
     *
-    * @param taskFactory The function which will return the async result at execution. The input will be the realized
-    *                    timestamp.
-    * @return The realized timestamp.
+    * @param taskFactory
+    *   The function which will return the async result at execution. The input will be the realized
+    *   timestamp.
+    * @return
+    *   The realized timestamp.
     */
   def scheduleTaskImmediately(
       taskFactory: CantonTimestamp => FutureUnlessShutdown[Unit],
@@ -263,8 +273,10 @@ class TaskScheduler[Task <: TimedTask](
 
   /** Schedules a new barrier at the given timestamp.
     *
-    * @return A future that completes when all sequencer counters up to the given timestamp have been signalled.
-    *         [[scala.None$]] if all sequencer counters up to the given timestamp have already been signalled.
+    * @return
+    *   A future that completes when all sequencer counters up to the given timestamp have been
+    *   signalled. [[scala.None$]] if all sequencer counters up to the given timestamp have already
+    *   been signalled.
     */
   def scheduleBarrierUS(
       timestamp: CantonTimestamp
@@ -293,27 +305,25 @@ class TaskScheduler[Task <: TimedTask](
 
   /** Signals that the sequencer counter with the given timestamp has been observed.
     *
-    * Eventually, all sequencer counters above and equal to `initSc` must be added with their timestamp using this method.
-    * Every sequencer counter must be added once and timestamps must strictly increase with
-    * sequencer counters.
+    * Eventually, all sequencer counters above and equal to `initSc` must be added with their
+    * timestamp using this method. Every sequencer counter must be added once and timestamps must
+    * strictly increase with sequencer counters.
     *
-    * If all sequencer counters between `initSc` and `sequencerCounter` have been added,
-    * then the tasks up to `timestamp` will be performed, unless there is a task that could not complete.
-    * In that case, task processing stops with the unfinished task.
+    * If all sequencer counters between `initSc` and `sequencerCounter` have been added, then the
+    * tasks up to `timestamp` will be performed, unless there is a task that could not complete. In
+    * that case, task processing stops with the unfinished task.
     *
-    * @see TaskScheduler.runTasks()
+    * @see
+    *   TaskScheduler.runTasks()
     *
     * @throws java.lang.IllegalArgumentException
-    *         <ul>
-    *           <li>If the `sequencerCounter` has not been inserted,
-    *               but all sequencer counters up to `timestamp` have been inserted.</li>
-    *           <li>If the `sequencerCounter` is the first sequencer counter to be processed
-    *               and the `timestamp` is not after the timestamp given to the constructor.</li>
-    *           <li>If the `sequencerCounter` has been inserted with a different timestamp.</li>
-    *           <li>If the `timestamp` is at most the timestamp of a smaller sequencer counter,
-    *               or if the `timestamp` is at least the timestamp of a larger sequencer counter.</li>
-    *           <li>If the `sequencerCounter` is `Long.MaxValue`.</li>
-    *         </ul>
+    *   <ul> <li>If the `sequencerCounter` has not been inserted, but all sequencer counters up to
+    *   `timestamp` have been inserted.</li> <li>If the `sequencerCounter` is the first sequencer
+    *   counter to be processed and the `timestamp` is not after the timestamp given to the
+    *   constructor.</li> <li>If the `sequencerCounter` has been inserted with a different
+    *   timestamp.</li> <li>If the `timestamp` is at most the timestamp of a smaller sequencer
+    *   counter, or if the `timestamp` is at least the timestamp of a larger sequencer counter.</li>
+    *   <li>If the `sequencerCounter` is `Long.MaxValue`.</li> </ul>
     */
   def addTick(sequencerCounter: SequencerCounter, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -389,7 +399,9 @@ class TaskScheduler[Task <: TimedTask](
     }
   }
 
-  /** The returned future completes after all tasks that can be currently performed have completed. Never fails. */
+  /** The returned future completes after all tasks that can be currently performed have completed.
+    * Never fails.
+    */
   def flush(): Future[Unit] = queue.flush()
 
   override def onClosed(): Unit =
@@ -397,7 +409,8 @@ class TaskScheduler[Task <: TimedTask](
 
   /** Chains the futures of all actions whose timestamps the request tracker can progress to.
     *
-    * @throws java.lang.IllegalStateException if non-monotonic timestamps for sequencer counters are found
+    * @throws java.lang.IllegalStateException
+    *   if non-monotonic timestamps for sequencer counters are found
     */
   private[this] def performActionsAndCompleteBarriers()(implicit
       traceContext: TraceContext
@@ -427,8 +440,8 @@ class TaskScheduler[Task <: TimedTask](
     }
   }
 
-  /** Takes actions out of the `taskQueue` and processes them immediately until the next task has a timestamp
-    * larger than `observedTime`.
+  /** Takes actions out of the `taskQueue` and processes them immediately until the next task has a
+    * timestamp larger than `observedTime`.
     */
   private[this] def performActionsUpto(observedTime: CantonTimestamp): Unit = {
     @tailrec def go(): Unit = taskQueue.headOption match {

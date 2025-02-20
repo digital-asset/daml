@@ -49,8 +49,8 @@ import scala.collection.immutable.SortedSet
 import scala.concurrent.ExecutionContext
 import scala.math.Numeric.Implicits.*
 
-/** In the sequencer database we use integers to represent members.
-  * Wrap this in the APIs to not confuse with other numeric types.
+/** In the sequencer database we use integers to represent members. Wrap this in the APIs to not
+  * confuse with other numeric types.
   */
 final case class SequencerMemberId(private val id: Int) extends PrettyPrinting {
   def unwrap: Int = id
@@ -79,8 +79,8 @@ object SequencerMemberId {
 
 sealed trait IdOrPayload
 
-/** Identifier for a payload. Should ideally be unique however this will be validated in [[SequencerStore.savePayloads]].
-  * Is expected id is a timestamp in microseconds.
+/** Identifier for a payload. Should ideally be unique however this will be validated in
+  * [[SequencerStore.savePayloads]]. Is expected id is a timestamp in microseconds.
   */
 final case class PayloadId(private val id: CantonTimestamp)
     extends IdOrPayload
@@ -129,8 +129,8 @@ final case class BytesPayload(id: PayloadId, content: ByteString) extends Payloa
 
 final case class FilteredBatch(id: PayloadId, batch: Batch[ClosedEnvelope]) extends Payload
 
-/** Sequencer events in a structure suitable for persisting in our events store.
-  * The payload type is parameterized to allow specifying either a full payload or just a id referencing a payload.
+/** Sequencer events in a structure suitable for persisting in our events store. The payload type is
+  * parameterized to allow specifying either a full payload or just a id referencing a payload.
   */
 sealed trait StoreEvent[+PayloadReference] extends HasTraceContext {
 
@@ -151,14 +151,15 @@ sealed trait StoreEvent[+PayloadReference] extends HasTraceContext {
 
   def payloadO: Option[PayloadReference]
 
-  /** The timestamp of the snapshot to be used for determining the signing key of this event, resolving group addresses,
-    * and for checking signatures on envelopes, if absent, sequencing time will be used instead. Absent on errors.
+  /** The timestamp of the snapshot to be used for determining the signing key of this event,
+    * resolving group addresses, and for checking signatures on envelopes, if absent, sequencing
+    * time will be used instead. Absent on errors.
     */
   def topologyTimestampO: Option[CantonTimestamp]
 
-  /** If traffic management is enabled, there should always be traffic information.
-    * The information might be discarded later though, in case the event is being processed as part
-    * of a subscription for any of the recipients that isn't the sender.
+  /** If traffic management is enabled, there should always be traffic information. The information
+    * might be discarded later though, in case the event is being processed as part of a
+    * subscription for any of the recipients that isn't the sender.
     */
   def trafficReceiptO: Option[TrafficReceipt]
 }
@@ -182,9 +183,12 @@ final case class ReceiptStoreEvent(
 }
 
 /** Structure for storing a deliver events.
-  * @param members should include the sender and event recipients as they all will read the event
-  * @param topologyTimestampO The timestamp of the snapshot to be used for determining the signing key of this event, resolving group addresses, and for checking signatures on envelopes
-  *                          [[scala.None]] means that the sequencing timestamp should be used.
+  * @param members
+  *   should include the sender and event recipients as they all will read the event
+  * @param topologyTimestampO
+  *   The timestamp of the snapshot to be used for determining the signing key of this event,
+  *   resolving group addresses, and for checking signatures on envelopes [[scala.None]] means that
+  *   the sequencing timestamp should be used.
   */
 final case class DeliverStoreEvent[P](
     override val sender: SequencerMemberId,
@@ -207,10 +211,11 @@ final case class DeliverStoreEvent[P](
 
 object DeliverStoreEvent {
 
-  /** Typically in deliver events the recipients are just the recipients of the batch.
-    * However in our store we want all members that will read the event to be queryable in a single collection
-    * to efficiently implement as a filter at the database. So ensure that the sender is also included in this collection
-    * as they will receive a deliver event as a receipt even if they aren't receiving anything from the batch.
+  /** Typically in deliver events the recipients are just the recipients of the batch. However in
+    * our store we want all members that will read the event to be queryable in a single collection
+    * to efficiently implement as a filter at the database. So ensure that the sender is also
+    * included in this collection as they will receive a deliver event as a receipt even if they
+    * aren't receiving anything from the batch.
     */
   def ensureSenderReceivesEvent(
       sender: SequencerMemberId,
@@ -325,9 +330,9 @@ object Presequenced {
   ): Presequenced[E] = Presequenced(event, None, blockSequencerTimestamp)
 }
 
-/** Wrapper to assign a timestamp to a event. Useful to structure this way as events are only timestamped
-  * right before they are persisted (this is effectively the "sequencing" step). Before this point the sequencer
-  * component is free to reorder incoming events.
+/** Wrapper to assign a timestamp to a event. Useful to structure this way as events are only
+  * timestamped right before they are persisted (this is effectively the "sequencing" step). Before
+  * this point the sequencer component is free to reorder incoming events.
   */
 final case class Sequenced[+P](timestamp: CantonTimestamp, event: StoreEvent[P])
     extends HasTraceContext {
@@ -338,11 +343,13 @@ final case class Sequenced[+P](timestamp: CantonTimestamp, event: StoreEvent[P])
 
 /** Checkpoint a sequencer subscription can be reinitialized from.
   *
-  * @param counter The sequencer counter associated to the event with the given timestamp.
-  * @param timestamp The timestamp of the event with the given sequencer counter.
-  * @param latestTopologyClientTimestamp The latest timestamp before or at `timestamp`
-  *                                 at which an event was created from a batch
-  *                                 that contains an envelope addressed to the topology client used by the SequencerReader.
+  * @param counter
+  *   The sequencer counter associated to the event with the given timestamp.
+  * @param timestamp
+  *   The timestamp of the event with the given sequencer counter.
+  * @param latestTopologyClientTimestamp
+  *   The latest timestamp before or at `timestamp` at which an event was created from a batch that
+  *   contains an envelope addressed to the topology client used by the SequencerReader.
   */
 final case class CounterCheckpoint(
     counter: SequencerCounter,
@@ -378,18 +385,20 @@ sealed trait SavePayloadsError
 object SavePayloadsError {
 
   /** We found an existing payload with the same key
-    * @param payloadId the payload insert that failed
-    * @param conflictingInstanceDiscriminator The discriminator of the instance that successfully inserted a payload with
-    *                                         this id. The discriminator is logged at debug upon sequencer writer startup
-    *                                         so is possible to discover which instance did the write.
+    * @param payloadId
+    *   the payload insert that failed
+    * @param conflictingInstanceDiscriminator
+    *   The discriminator of the instance that successfully inserted a payload with this id. The
+    *   discriminator is logged at debug upon sequencer writer startup so is possible to discover
+    *   which instance did the write.
     */
   final case class ConflictingPayloadId(
       payloadId: PayloadId,
       conflictingInstanceDiscriminator: UUID,
   ) extends SavePayloadsError
 
-  /** We should have already inserted the payload but it wasn't there when reading.
-    * Likely can only be caused by the payload being removed unexpectedly.
+  /** We should have already inserted the payload but it wasn't there when reading. Likely can only
+    * be caused by the payload being removed unexpectedly.
     */
   final case class PayloadMissing(payloadId: PayloadId) extends SavePayloadsError
 }
@@ -397,8 +406,9 @@ object SavePayloadsError {
 sealed trait SaveCounterCheckpointError
 object SaveCounterCheckpointError {
 
-  /** We've attempted to write a counter checkpoint but found an existing checkpoint for this counter with a different timestamp.
-    * This is very bad and suggests that we are serving inconsistent streams to the member.
+  /** We've attempted to write a counter checkpoint but found an existing checkpoint for this
+    * counter with a different timestamp. This is very bad and suggests that we are serving
+    * inconsistent streams to the member.
     */
   final case class CounterCheckpointInconsistent(
       existingTimestamp: CantonTimestamp,
@@ -416,8 +426,8 @@ object SaveLowerBoundError {
   ) extends SaveLowerBoundError
 }
 
-/** Time that the sequencer commits to not writing events before, and therefore it is safe to read events less or equal
-  * to this timestamp.
+/** Time that the sequencer commits to not writing events before, and therefore it is safe to read
+  * events less or equal to this timestamp.
   */
 final case class Watermark(timestamp: CantonTimestamp, online: Boolean)
 
@@ -427,9 +437,10 @@ object SaveWatermarkError {
 
   case object WatermarkFlaggedOnline extends SaveWatermarkError
 
-  /** We expect that there is only a single writer for a given watermark that is not written concurrently.
-    * If when checking the value we find it is not what we expect, it likely indicates a configuration error
-    * causing multiple sequencer processes to be written as the same sequencer node index.
+  /** We expect that there is only a single writer for a given watermark that is not written
+    * concurrently. If when checking the value we find it is not what we expect, it likely indicates
+    * a configuration error causing multiple sequencer processes to be written as the same sequencer
+    * node index.
     */
   final case class WatermarkUnexpectedlyChanged(message: String) extends SaveWatermarkError
 }
@@ -463,12 +474,15 @@ final case class ReadEventPayloads(events: Seq[Sequenced[IdOrPayload]]) extends 
   def nextTimestamp: Option[CantonTimestamp] = events.lastOption.map(_.timestamp)
 }
 
-/** No events found but may return the safe watermark across online sequencers to read from the next time */
+/** No events found but may return the safe watermark across online sequencers to read from the next
+  * time
+  */
 final case class SafeWatermark(nextTimestamp: Option[CantonTimestamp]) extends ReadEvents {
   def events: Seq[Sequenced[IdOrPayload]] = Seq.empty
 }
 
-/** An interface for validating members of a sequencer, i.e. that member is registered at a certain time.
+/** An interface for validating members of a sequencer, i.e. that member is registered at a certain
+  * time.
   */
 trait SequencerMemberValidator {
   def isMemberRegisteredAt(member: Member, time: CantonTimestamp)(implicit
@@ -476,9 +490,8 @@ trait SequencerMemberValidator {
   ): FutureUnlessShutdown[Boolean]
 }
 
-/** Persistence for the Sequencer.
-  * Writers are expected to create a [[SequencerWriterStore]] which may delegate to this underlying store
-  * through an appropriately managed storage instance.
+/** Persistence for the Sequencer. Writers are expected to create a [[SequencerWriterStore]] which
+  * may delegate to this underlying store through an appropriately managed storage instance.
   */
 trait SequencerStore extends SequencerMemberValidator with NamedLogging with AutoCloseable {
 
@@ -486,7 +499,8 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
 
   private val memberCache = new SequencerMemberCache(Traced.lift(lookupMemberInternal(_)(_)))
 
-  /** Whether the sequencer store operates is used for a block sequencer or a standalone database sequencer.
+  /** Whether the sequencer store operates is used for a block sequencer or a standalone database
+    * sequencer.
     */
   def blockSequencerMode: Boolean
 
@@ -497,15 +511,14 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit]
 
-  /** Register the provided member.
-    * Should be idempotent if member is already registered and return the existing id.
+  /** Register the provided member. Should be idempotent if member is already registered and return
+    * the existing id.
     */
   def registerMember(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[SequencerMemberId]
 
-  /** Lookup an existing member id for the given member.
-    * Will return a cached value if available.
+  /** Lookup an existing member id for the given member. Will return a cached value if available.
     * Return [[scala.None]] if no id exists.
     */
   final def lookupMember(member: Member)(implicit
@@ -528,27 +541,29 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
         registered
       }
 
-  /** Save a series of payloads to the store.
-    * Is up to the caller to determine a reasonable batch size and no batching is done within the store.
-    * @param payloads the payloads to save
-    * @param instanceDiscriminator a unique ephemeral value to ensure that no other sequencer instances are writing
-    *                              conflicting payloads without having to check the payload body
+  /** Save a series of payloads to the store. Is up to the caller to determine a reasonable batch
+    * size and no batching is done within the store.
+    * @param payloads
+    *   the payloads to save
+    * @param instanceDiscriminator
+    *   a unique ephemeral value to ensure that no other sequencer instances are writing conflicting
+    *   payloads without having to check the payload body
     */
   def savePayloads(payloads: NonEmpty[Seq[BytesPayload]], instanceDiscriminator: UUID)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SavePayloadsError, Unit]
 
-  /** Save a series of events to the store.
-    * Callers should determine batch size. No batching is done within the store.
-    * Callers MUST ensure that event-ids are unique as no errors will be returned if a duplicate is present (for
-    * the sequencer writer see [[sequencer.PartitionedTimestampGenerator]] for use with their instance index).
+  /** Save a series of events to the store. Callers should determine batch size. No batching is done
+    * within the store. Callers MUST ensure that event-ids are unique as no errors will be returned
+    * if a duplicate is present (for the sequencer writer see
+    * [[sequencer.PartitionedTimestampGenerator]] for use with their instance index).
     */
   def saveEvents(instanceIndex: Int, events: NonEmpty[Seq[Sequenced[PayloadId]]])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
-  /** Maximum memory usage by the events in the buffer before it starts dropping events.
-    * If set to 0, caching is disabled and all requests go to the underlying store (e.g. database).
+  /** Maximum memory usage by the events in the buffer before it starts dropping events. If set to
+    * 0, caching is disabled and all requests go to the underlying store (e.g. database).
     */
   def bufferedEventsMaxMemory: BytesUnit
 
@@ -580,29 +595,32 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
-  /** Flag any sequencers that have a last updated watermark on or before the given `cutoffTime` as offline. */
+  /** Flag any sequencers that have a last updated watermark on or before the given `cutoffTime` as
+    * offline.
+    */
   def markLaggingSequencersOffline(cutoffTime: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
   /** Reset the watermark to an earlier value, i.e. in case of working as a part of block sequencer.
-    * Also sets the sequencer as offline. If current watermark value is before `ts`, it will be left unchanged.
+    * Also sets the sequencer as offline. If current watermark value is before `ts`, it will be left
+    * unchanged.
     */
   def resetWatermark(instanceIndex: Int, ts: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SaveWatermarkError, Unit]
 
-  /** Write the watermark that we promise not to write anything earlier than.
-    * Does not indicate that there is an event written by this sequencer for this timestamp as there may be no activity
-    * at the sequencer, but updating the timestamp allows the sequencer to indicate that it's still alive.
-    * Return an error if we find our sequencer is offline.
+  /** Write the watermark that we promise not to write anything earlier than. Does not indicate that
+    * there is an event written by this sequencer for this timestamp as there may be no activity at
+    * the sequencer, but updating the timestamp allows the sequencer to indicate that it's still
+    * alive. Return an error if we find our sequencer is offline.
     */
   def saveWatermark(instanceIndex: Int, ts: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SaveWatermarkError, Unit]
 
-  /** Read the watermark for this sequencer and its online/offline status.
-    * Currently only used for testing.
+  /** Read the watermark for this sequencer and its online/offline status. Currently only used for
+    * testing.
     */
   def fetchWatermark(instanceIndex: Int, maxRetries: Int = retry.Forever)(implicit
       traceContext: TraceContext
@@ -620,9 +638,11 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       callerCloseContext: CloseContext,
   ): FutureUnlessShutdown[Unit]
 
-  /** Mark the sequencer as online and return a timestamp for when this sequencer can start safely producing events.
-    * @param now Now according to this sequencer's clock which will be used if it is ahead of the lowest available
-    *            timestamp from other sequencers.
+  /** Mark the sequencer as online and return a timestamp for when this sequencer can start safely
+    * producing events.
+    * @param now
+    *   Now according to this sequencer's clock which will be used if it is ahead of the lowest
+    *   available timestamp from other sequencers.
     */
   def goOnline(instanceIndex: Int, now: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -650,8 +670,9 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[PayloadId, Batch[ClosedEnvelope]]]
 
-  /** Read all events of which a member is a recipient from the provided timestamp but no greater than the earliest watermark.
-    * Passing both `member` and `memberId` to avoid a database query for the lookup.
+  /** Read all events of which a member is a recipient from the provided timestamp but no greater
+    * than the earliest watermark. Passing both `member` and `memberId` to avoid a database query
+    * for the lookup.
     */
   def readEvents(
       memberId: SequencerMemberId,
@@ -716,17 +737,18 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
     }
   }
 
-  /** Delete all events that are ahead of the watermark of this sequencer.
-    * These events will not have been read and should be removed before returning the sequencer online.
-    * Should not be called alongside updating the watermark for this sequencer and only while the sequencer is offline.
-    * Returns the watermark that was used for the deletion.
+  /** Delete all events that are ahead of the watermark of this sequencer. These events will not
+    * have been read and should be removed before returning the sequencer online. Should not be
+    * called alongside updating the watermark for this sequencer and only while the sequencer is
+    * offline. Returns the watermark that was used for the deletion.
     */
   def deleteEventsPastWatermark(instanceIndex: Int)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]]
 
-  /** Save a checkpoint that as of a certain timestamp the member has this counter value.
-    * Any future subscriptions can then use this as a starting point for serving their event stream rather than starting from 0.
+  /** Save a checkpoint that as of a certain timestamp the member has this counter value. Any future
+    * subscriptions can then use this as a starting point for serving their event stream rather than
+    * starting from 0.
     */
   def saveCounterCheckpoint(
       memberId: SequencerMemberId,
@@ -756,9 +778,9 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CounterCheckpoint]]
 
-  /** Write an acknowledgement that member has processed earlier timestamps.
-    * Only the latest timestamp needs to be stored. Earlier timestamps can be overwritten.
-    * Acknowledgements of earlier timestamps should be ignored.
+  /** Write an acknowledgement that member has processed earlier timestamps. Only the latest
+    * timestamp needs to be stored. Earlier timestamps can be overwritten. Acknowledgements of
+    * earlier timestamps should be ignored.
     */
   def acknowledge(
       member: SequencerMemberId,
@@ -787,16 +809,17 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]]
 
-  /** Save an updated lower bound of events that can be read.
-    * Must be equal or greater than any prior set lower bound.
-    * @throws java.lang.IllegalArgumentException if timestamp is lower than existing lower bound
+  /** Save an updated lower bound of events that can be read. Must be equal or greater than any
+    * prior set lower bound.
+    * @throws java.lang.IllegalArgumentException
+    *   if timestamp is lower than existing lower bound
     */
   def saveLowerBound(ts: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SaveLowerBoundError, Unit]
 
-  /** Prevents member from sending and reading from the sequencer, and allows unread data for this member to be pruned.
-    * It however won't stop any sends addressed to this member.
+  /** Prevents member from sending and reading from the sequencer, and allows unread data for this
+    * member to be pruned. It however won't stop any sends addressed to this member.
     */
   def disableMember(
       member: Member
@@ -817,13 +840,19 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   ): FutureUnlessShutdown[Unit]
 
   /** Prune as much data as safely possible from before the given timestamp.
-    * @param requestedTimestamp the timestamp that we would like to prune up to (see docs on using the pruning status and disabling members for picking this value)
-    * @param status the pruning status that should be used for determining a safe to prune time for validation
-    * @param payloadToEventMargin the maximum time margin between payloads and events.
-    *                            once we have a safe to prune timestamp we simply prune all payloads at `safeTimestamp - margin`
-    *                            to ensure no payloads are removed where events will remain.
-    *                            typically sourced from [[SequencerWriterConfig.payloadToEventMargin]].
-    * @return the timestamp up to which the database sequencer has been pruned (lower than requestedTimestamp) and a human readable report on what has been removed.
+    * @param requestedTimestamp
+    *   the timestamp that we would like to prune up to (see docs on using the pruning status and
+    *   disabling members for picking this value)
+    * @param status
+    *   the pruning status that should be used for determining a safe to prune time for validation
+    * @param payloadToEventMargin
+    *   the maximum time margin between payloads and events. once we have a safe to prune timestamp
+    *   we simply prune all payloads at `safeTimestamp - margin` to ensure no payloads are removed
+    *   where events will remain. typically sourced from
+    *   [[SequencerWriterConfig.payloadToEventMargin]].
+    * @return
+    *   the timestamp up to which the database sequencer has been pruned (lower than
+    *   requestedTimestamp) and a human readable report on what has been removed.
     */
   def prune(
       requestedTimestamp: CantonTimestamp,
@@ -897,45 +926,51 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   }
 
   /** Prune events before the given timestamp
-    * @return a best efforts count of how many events were removed.
-    *         this value can be less than the number of events actually removed if technical issues prevent
-    *         a full count from being returned (e.g. with a database we may retry a delete after a connectivity issue
-    *         and find that all events were successfully removed and have 0 rows removed returned).
+    * @return
+    *   a best efforts count of how many events were removed. this value can be less than the number
+    *   of events actually removed if technical issues prevent a full count from being returned
+    *   (e.g. with a database we may retry a delete after a connectivity issue and find that all
+    *   events were successfully removed and have 0 rows removed returned).
     */
   protected[store] def pruneEvents(beforeExclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Int]
 
   /** Prune payloads before the given timestamp
-    * @return a best efforts count of how many events were removed.
-    *         this value can be less than the number of payloads actually removed if technical issues prevent
-    *         a full count from being returned.
+    * @return
+    *   a best efforts count of how many events were removed. this value can be less than the number
+    *   of payloads actually removed if technical issues prevent a full count from being returned.
     */
   protected[store] def prunePayloads(beforeExclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Int]
 
   /** Prune counter checkpoints for the given member before the given timestamp.
-    * @return A lower bound on the number of checkpoints removed.
+    * @return
+    *   A lower bound on the number of checkpoints removed.
     */
   protected[store] def pruneCheckpoints(beforeExclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Int]
 
-  /** Locate a timestamp relative to the earliest available event based on a skip index starting at 0.
-    * Useful to monitor the progress of pruning and for pruning in batches.
-    * @return The timestamp of the (skip+1)'th event if it exists, None otherwise.
+  /** Locate a timestamp relative to the earliest available event based on a skip index starting at
+    * 0. Useful to monitor the progress of pruning and for pruning in batches.
+    * @return
+    *   The timestamp of the (skip+1)'th event if it exists, None otherwise.
     */
   def locatePruningTimestamp(skip: NonNegativeInt)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]]
 
-  /** The state returned here is used to initialize a separate database sequencer (that does not share the same database as this one)
-    * using [[initializeFromSnapshot]] such that this new sequencer has enough information (registered members, checkpoints, etc)
-    * to be able to process new events from the same point as this sequencer to the same clients.
-    * This is typically used by block sequencers that use the database sequencer as local storage such that they will process the same
-    * events in the same order and they need to be able to spin up new block sequencers from a specific point in time.
-    * @return state at the given time
+  /** The state returned here is used to initialize a separate database sequencer (that does not
+    * share the same database as this one) using [[initializeFromSnapshot]] such that this new
+    * sequencer has enough information (registered members, checkpoints, etc) to be able to process
+    * new events from the same point as this sequencer to the same clients. This is typically used
+    * by block sequencers that use the database sequencer as local storage such that they will
+    * process the same events in the same order and they need to be able to spin up new block
+    * sequencers from a specific point in time.
+    * @return
+    *   state at the given time
     */
   def readStateAtTimestamp(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -945,7 +980,8 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[Member, CounterCheckpoint]]
 
-  /** Compute a counter checkpoint for every member at the requested `timestamp` and save it to the store.
+  /** Compute a counter checkpoint for every member at the requested `timestamp` and save it to the
+    * store.
     */
   def recordCounterCheckpointsAtTimestamp(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext,
@@ -1024,17 +1060,19 @@ object SequencerStore {
     }
 
   /** Sequencer pruning result
-    * @param actuallyPrunedToUp timestamp actually pruned up to, often lower than requested timestamp;
-    *                           empty when no events remaining after pruning
-    * @param report             human readable report also used for logging
+    * @param actuallyPrunedToUp
+    *   timestamp actually pruned up to, often lower than requested timestamp; empty when no events
+    *   remaining after pruning
+    * @param report
+    *   human readable report also used for logging
     */
   final case class SequencerPruningResult(
       actuallyPrunedToUp: Option[CantonTimestamp],
       report: String,
   )
 
-  /** This implementation always returns the insertion point of the needle in the haystack.
-    * In case of element existing it will return the index to insert needle after all the existing elements.
+  /** This implementation always returns the insertion point of the needle in the haystack. In case
+    * of element existing it will return the index to insert needle after all the existing elements.
     */
   @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
   private[store] def binarySearch[A, B](

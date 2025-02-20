@@ -29,9 +29,7 @@ class InMemoryContractStore(
   override protected[store] def logger: TracedLogger = super.logger
 
   /** Invariants:
-    * <ol>
-    *   <li>Every [[SerializableContract]] is stored under [[SerializableContract.contractId]].</li>
-    * </ol>
+    *   - Every [[SerializableContract]] is stored under [[SerializableContract.contractId]].
     */
   private[this] val contracts = TrieMap.empty[LfContractId, SerializableContract]
 

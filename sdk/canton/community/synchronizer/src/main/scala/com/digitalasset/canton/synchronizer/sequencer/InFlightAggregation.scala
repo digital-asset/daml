@@ -23,15 +23,18 @@ import scala.collection.immutable.SortedMap
   *
   * Since the [[com.digitalasset.canton.sequencing.protocol.AggregationId]] computationally
   * identifies the envelope contents, their recipients, and the
-  * [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest.topologyTimestamp]],
-  * we do not need to maintain these data as part of the in-flight tracking.
-  * Instead, we can derive them from the submission request that makes the aggregation reach its threshold.
+  * [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest.topologyTimestamp]], we do not
+  * need to maintain these data as part of the in-flight tracking. Instead, we can derive them from
+  * the submission request that makes the aggregation reach its threshold.
   *
-  * @param aggregatedSenders The senders whose submission request have already been aggregated
-  *                          with the timestamp of their aggregated submission request and the signatures on the envelopes.
-  * @param maxSequencingTimestamp The max sequencing timestamp of the aggregatable submission requests.
-  *                               The aggregation will stop being in-flight when this timestamp has elapsed
-  * @param rule The aggregation rule describing the eligible members and the threshold to reach
+  * @param aggregatedSenders
+  *   The senders whose submission request have already been aggregated with the timestamp of their
+  *   aggregated submission request and the signatures on the envelopes.
+  * @param maxSequencingTimestamp
+  *   The max sequencing timestamp of the aggregatable submission requests. The aggregation will
+  *   stop being in-flight when this timestamp has elapsed
+  * @param rule
+  *   The aggregation rule describing the eligible members and the threshold to reach
   */
 final case class InFlightAggregation private (
     aggregatedSenders: SortedMap[Member, AggregationBySender],
@@ -49,13 +52,13 @@ final case class InFlightAggregation private (
       )
       .flatten
 
-  /** The aggregated signatures on the closed envelopes in the aggregatable submission request,
-    * in the same order as the envelopes are in the batch.
+  /** The aggregated signatures on the closed envelopes in the aggregatable submission request, in
+    * the same order as the envelopes are in the batch.
     *
-    * The signatures for each envelope are ordered by the sender who produced them,
-    * rather than the order in which the senders' submission requests were sequenced.
-    * This avoids leaking the order of internal sequencing, as the signatures themselves anyway leak the sender
-    * through the signing key's fingerprint.
+    * The signatures for each envelope are ordered by the sender who produced them, rather than the
+    * order in which the senders' submission requests were sequenced. This avoids leaking the order
+    * of internal sequencing, as the signatures themselves anyway leak the sender through the
+    * signing key's fingerprint.
     */
   def aggregatedSignatures: Seq[Seq[Signature]] =
     aggregatedSenders.values.map(_.signatures).transpose.map(_.flatten.toSeq).toSeq
@@ -93,15 +96,17 @@ final case class InFlightAggregation private (
     ),
   )
 
-  /** Returns whether the in-flight aggregation has expired before or at the given timestamp.
-    * An expired in-flight aggregation is no longer needed and can be removed.
+  /** Returns whether the in-flight aggregation has expired before or at the given timestamp. An
+    * expired in-flight aggregation is no longer needed and can be removed.
     */
   def expired(timestamp: CantonTimestamp): Boolean = timestamp >= maxSequencingTimestamp
 
   /** Undoes all changes to the in-flight aggregation state that happened after the given timestamp.
     *
-    * @return [[scala.None$]] if the aggregation is not in-flight at the given timestamp.
-    *         An aggregation in in-flight from the first [[aggregatedSenders]]' timestamp to the [[maxSequencingTimestamp]].
+    * @return
+    *   [[scala.None$]] if the aggregation is not in-flight at the given timestamp. An aggregation
+    *   in in-flight from the first [[aggregatedSenders]]' timestamp to the
+    *   [[maxSequencingTimestamp]].
     */
   def project(timestamp: CantonTimestamp): Option[InFlightAggregation] =
     for {
@@ -208,7 +213,9 @@ object InFlightAggregation {
   /** The aggregatable submission was already delivered at the given timestamp. */
   final case class AlreadyDelivered(deliveredAt: CantonTimestamp) extends InFlightAggregationError
 
-  /** The given sender has already contributed its aggregatable submission request, which was sequenced at the given timestamp */
+  /** The given sender has already contributed its aggregatable submission request, which was
+    * sequenced at the given timestamp
+    */
   final case class AggregationStuffing(sender: Member, sequencingTimestamp: CantonTimestamp)
       extends InFlightAggregationError
 

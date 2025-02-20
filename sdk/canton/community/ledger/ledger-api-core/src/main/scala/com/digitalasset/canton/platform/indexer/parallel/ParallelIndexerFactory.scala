@@ -232,11 +232,16 @@ object ParallelIndexerFactory {
     }
   }
 
-  /** Helper function to combine a ResourceOwner and an initialization function to initialize a Handle.
+  /** Helper function to combine a ResourceOwner and an initialization function to initialize a
+    * Handle.
     *
-    * @param owner A ResourceOwner which needs to be used to spawn a resource needed by initHandle
-    * @param initHandle Asynchronous initialization function to create a Handle
-    * @return A Future of a Handle where Future encapsulates initialization (as completed initialization completed)
+    * @param owner
+    *   A ResourceOwner which needs to be used to spawn a resource needed by initHandle
+    * @param initHandle
+    *   Asynchronous initialization function to create a Handle
+    * @return
+    *   A Future of a Handle where Future encapsulates initialization (as completed initialization
+    *   completed)
     */
   def initializeHandle[T](
       owner: ResourceOwner[T]

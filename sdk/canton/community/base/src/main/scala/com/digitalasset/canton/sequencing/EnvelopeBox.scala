@@ -12,8 +12,8 @@ import com.digitalasset.canton.store.SequencedEventStore.{
 }
 import com.digitalasset.canton.tracing.Traced
 
-/** Type class to manipulate envelopes inside their box.
-  * Specializes [[cats.Traverse]] to [[protocol.Envelope]] arguments.
+/** Type class to manipulate envelopes inside their box. Specializes [[cats.Traverse]] to
+  * [[protocol.Envelope]] arguments.
   */
 trait EnvelopeBox[Box[+_ <: Envelope[_]]] {
 
@@ -25,8 +25,8 @@ trait EnvelopeBox[Box[+_ <: Envelope[_]]] {
       f: A => G[B]
   )(implicit G: Applicative[G]): G[Box[B]]
 
-  /** We can compose a [[cats.Traverse]] with an [[EnvelopeBox]], but not several [[EnvelopeBox]]es due to the
-    * restriction to [[protocol.Envelope]]s in the type arguments.
+  /** We can compose a [[cats.Traverse]] with an [[EnvelopeBox]], but not several [[EnvelopeBox]]es
+    * due to the restriction to [[protocol.Envelope]]s in the type arguments.
     */
   type ComposedBox[Outer[+_], +A <: Envelope[_]] = Outer[Box[A]]
 

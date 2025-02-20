@@ -416,8 +416,8 @@ class ContractsService(
           .concat(Source.single(LiveBegin(AbsoluteBookmark(Offset(offset)))))
       }
 
-  /** An ACS ++ transaction stream of `templateIds`, starting at `startOffset`
-    * and ending at `terminates`.
+  /** An ACS ++ transaction stream of `templateIds`, starting at `startOffset` and ending at
+    * `terminates`.
     */
   def insertDeleteStepSource(
       jwt: Jwt,

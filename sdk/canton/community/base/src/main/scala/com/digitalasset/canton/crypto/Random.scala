@@ -40,8 +40,8 @@ final case class SecureRandomness private[crypto] (unwrap: ByteString)
 /** Cryptographically-secure randomness */
 object SecureRandomness {
 
-  /** Recover secure randomness from a byte string. Use for deserialization only. Fails if the provided byte string
-    * is not of the expected length.
+  /** Recover secure randomness from a byte string. Use for deserialization only. Fails if the
+    * provided byte string is not of the expected length.
     */
   def fromByteString(
       expectedLength: Int

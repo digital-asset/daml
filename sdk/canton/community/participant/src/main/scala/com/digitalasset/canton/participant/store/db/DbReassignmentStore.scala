@@ -288,9 +288,9 @@ class DbReassignmentStore(
     } yield ()
   }
 
-  /** Inserts fake `unassignmentRequestCounter` and `unassignmentDecisionTime`
-    * into the database. These will be overwritten once the unassignment is completed.
-    * If the reassignment data has already been inserted, this method will do nothing.
+  /** Inserts fake `unassignmentRequestCounter` and `unassignmentDecisionTime` into the database.
+    * These will be overwritten once the unassignment is completed. If the reassignment data has
+    * already been inserted, this method will do nothing.
     */
   def addAssignmentDataIfAbsent(assignmentData: AssignmentData)(implicit
       traceContext: TraceContext

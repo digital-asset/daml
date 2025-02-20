@@ -11,7 +11,8 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 /** An [[OpenEnvelope]] contains a not serialized protocol message
   *
-  * @tparam M The type of the protocol message
+  * @tparam M
+  *   The type of the protocol message
   */
 final case class OpenEnvelope[+M <: ProtocolMessage](
     protocolMessage: M,

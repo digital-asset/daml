@@ -22,9 +22,12 @@ object KmsConfig {
 
   /** Exponential backoff configuration for retries of network failures
     *
-    * @param initialDelay initial delay before the first retry
-    * @param maxDelay     max delay between retries
-    * @param maxRetries   max number of retries
+    * @param initialDelay
+    *   initial delay before the first retry
+    * @param maxDelay
+    *   max delay between retries
+    * @param maxRetries
+    *   max number of retries
     */
   final case class ExponentialBackoffConfig(
       initialDelay: config.NonNegativeFiniteDuration,
@@ -40,8 +43,11 @@ object KmsConfig {
 
   /** Retry configuration for KMS operations
     *
-    * @param failures       exponential backoff retry configuration for retryable failures
-    * @param createKeyCheck exponential backoff retry configuration when waiting for a newly created key to exist in the KMS
+    * @param failures
+    *   exponential backoff retry configuration for retryable failures
+    * @param createKeyCheck
+    *   exponential backoff retry configuration when waiting for a newly created key to exist in the
+    *   KMS
     */
   final case class RetryConfig(
       failures: ExponentialBackoffConfig = ExponentialBackoffConfig(
@@ -63,10 +69,14 @@ object KmsConfig {
 
   /** A KMS configuration for an external KMS driver.
     *
-    * @param name The name of the external KMS driver
-    * @param config The driver specific raw config section
-    * @param healthCheckPeriod How long to wait between health checks of the KMS driver
-    * @param retries retry configuration for KMS operations
+    * @param name
+    *   The name of the external KMS driver
+    * @param config
+    *   The driver specific raw config section
+    * @param healthCheckPeriod
+    *   How long to wait between health checks of the KMS driver
+    * @param retries
+    *   retry configuration for KMS operations
     */
   final case class Driver(
       name: String,
@@ -84,15 +94,22 @@ object KmsConfig {
       CantonConfigValidatorDerivation[Driver]
   }
 
-  /** Stores the configuration for AWS KMS. This configuration is mandatory if we want
-    * to protect Canton's private keys using an AWS KMS.
+  /** Stores the configuration for AWS KMS. This configuration is mandatory if we want to protect
+    * Canton's private keys using an AWS KMS.
     *
-    * @param region defines the AWS region to be use (e.g. us-east-1)
-    * @param multiRegionKey flag to enable multiRegion keys (Canton will generate single region keys by default)
-    * @param auditLogging when enabled, all calls to KMS will be logged. Defaults to false.
-    * @param retries retry configuration
-    * @param disableSslVerification When set to true, SSL verification is disabled. Mostly for testing purposes. Can only be used if non-standard-config is enabled.
-    * @param endpointOverride the [optional] endpoint for a proxy to be used by the KMS client.
+    * @param region
+    *   defines the AWS region to be use (e.g. us-east-1)
+    * @param multiRegionKey
+    *   flag to enable multiRegion keys (Canton will generate single region keys by default)
+    * @param auditLogging
+    *   when enabled, all calls to KMS will be logged. Defaults to false.
+    * @param retries
+    *   retry configuration
+    * @param disableSslVerification
+    *   When set to true, SSL verification is disabled. Mostly for testing purposes. Can only be
+    *   used if non-standard-config is enabled.
+    * @param endpointOverride
+    *   the [optional] endpoint for a proxy to be used by the KMS client.
     */
   final case class Aws(
       region: String,
@@ -109,16 +126,22 @@ object KmsConfig {
     val multiRegionTestConfig: Aws = defaultTestConfig.copy(multiRegionKey = true)
   }
 
-  /** Stores the configuration for GCP KMS. This configuration is mandatory if we want
-    * to protect Canton's private keys using a GCP KMS.
+  /** Stores the configuration for GCP KMS. This configuration is mandatory if we want to protect
+    * Canton's private keys using a GCP KMS.
     *
-    * @param locationId defines the GCP region to use (e.g. us-east1)
-    * @param projectId  defines a GCP project to use (e.g. gcp-kms-testing)
-    * @param keyRingId  defines a key-ring to where keys will be added. This can be created as a
-    *                   multi-region key-ring, which enables multi-region keys
-    * @param auditLogging when enabled, all calls to KMS will be logged. Defaults to false.
-    * @param retries retry configuration
-    * @param endpointOverride the [optional] endpoint for a proxy to be used by the KMS client.
+    * @param locationId
+    *   defines the GCP region to use (e.g. us-east1)
+    * @param projectId
+    *   defines a GCP project to use (e.g. gcp-kms-testing)
+    * @param keyRingId
+    *   defines a key-ring to where keys will be added. This can be created as a multi-region
+    *   key-ring, which enables multi-region keys
+    * @param auditLogging
+    *   when enabled, all calls to KMS will be logged. Defaults to false.
+    * @param retries
+    *   retry configuration
+    * @param endpointOverride
+    *   the [optional] endpoint for a proxy to be used by the KMS client.
     */
   final case class Gcp(
       locationId: String,

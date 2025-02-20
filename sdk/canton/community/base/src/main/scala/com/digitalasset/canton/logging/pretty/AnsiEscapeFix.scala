@@ -6,10 +6,11 @@ package com.digitalasset.canton.logging.pretty
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import pprint.Tree
 
-/** This object contains helper methods to fix ansi-escape sequences in a pretty-printed string to help debug the issue:
-  * https://github.com/DACH-NY/canton/issues/17834
-  * This allows to print a `Tree` containing invalid 0x1B or 0x9B char, so that we can identify where and how it appears,
-  * so that we can do a proper fix (pretty-printing unsafe strings in a canton's class `PrettyPrinting` implementation).
+/** This object contains helper methods to fix ansi-escape sequences in a pretty-printed string to
+  * help debug the issue: https://github.com/DACH-NY/canton/issues/17834 This allows to print a
+  * `Tree` containing invalid 0x1B or 0x9B char, so that we can identify where and how it appears,
+  * so that we can do a proper fix (pretty-printing unsafe strings in a canton's class
+  * `PrettyPrinting` implementation).
   */
 private[pretty] object AnsiEscapeFix {
   private def fansiStrAnsiEscapeFallbackToStar(s: String): String =

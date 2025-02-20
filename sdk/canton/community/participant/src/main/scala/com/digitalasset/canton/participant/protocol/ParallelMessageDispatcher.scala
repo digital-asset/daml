@@ -41,10 +41,11 @@ import io.opentelemetry.api.trace.Tracer
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
-/** Dispatches the incoming messages of the [[com.digitalasset.canton.sequencing.client.SequencerClient]]
-  * to the different processors.
-  * It also informs the [[com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker]]
-  * about the passing of time for messages that are not processed by the
+/** Dispatches the incoming messages of the
+  * [[com.digitalasset.canton.sequencing.client.SequencerClient]] to the different processors. It
+  * also informs the
+  * [[com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker]] about the
+  * passing of time for messages that are not processed by the
   * [[com.digitalasset.canton.participant.protocol.ProtocolProcessor]].
   */
 class ParallelMessageDispatcher(

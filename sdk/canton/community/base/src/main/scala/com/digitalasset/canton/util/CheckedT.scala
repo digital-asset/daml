@@ -8,8 +8,8 @@ import cats.syntax.either.*
 import cats.{Applicative, FlatMap, Functor, Monad, MonadError, Parallel, ~>}
 import com.digitalasset.canton.FutureTransformer
 
-/** Monad Transformer for [[Checked]], allowing the effect of a monad `F` to be combined with the aborting and
-  * non-aborting failure effect of [[Checked]]. Similar to [[cats.data.EitherT]].
+/** Monad Transformer for [[Checked]], allowing the effect of a monad `F` to be combined with the
+  * aborting and non-aborting failure effect of [[Checked]]. Similar to [[cats.data.EitherT]].
   */
 @FutureTransformer(0)
 final case class CheckedT[F[_], A, N, R](value: F[Checked[A, N, R]]) {
@@ -63,8 +63,8 @@ final case class CheckedT[F[_], A, N, R](value: F[Checked[A, N, R]]) {
   ): CheckedT[F, AA, NN, (R, RR)] =
     CheckedT(F.map(F.product(this.value, other.value)) { case (x, y) => x.product(y) })
 
-  /** Applicative operation. Consistent with [[flatMap]] according to Cats' laws.
-    * Errors from the function take precedence over the function argument (=this).
+  /** Applicative operation. Consistent with [[flatMap]] according to Cats' laws. Errors from the
+    * function take precedence over the function argument (=this).
     */
   def ap[AA >: A, NN >: N, RR](ff: CheckedT[F, AA, NN, R => RR])(implicit
       F: Applicative[F]
@@ -151,7 +151,8 @@ object CheckedT extends CheckedTInstances {
 
   def abort[N, R]: AbortPartiallyApplied[N, R] = new AbortPartiallyApplied[N, R]
 
-  /** Uses the [[http://typelevel.org/cats/guidelines.html#partially-applied-type-params Partially Applied Type Params technique]]
+  /** Uses the
+    * [[http://typelevel.org/cats/guidelines.html#partially-applied-type-params Partially Applied Type Params technique]]
     * for ergonomics.
     */
   final private[util] class AbortPartiallyApplied[N, R](private val dummy: Boolean = true)

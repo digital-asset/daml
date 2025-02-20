@@ -30,20 +30,24 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import java.time.Duration
 import scala.concurrent.ExecutionContext
 
-/** The authentication service issues tokens to members after they have successfully completed the following challenge
-  * response protocol and after they have accepted the service agreement of the synchronizer. The tokens are required for
-  * connecting to the sequencer.
+/** The authentication service issues tokens to members after they have successfully completed the
+  * following challenge response protocol and after they have accepted the service agreement of the
+  * synchronizer. The tokens are required for connecting to the sequencer.
   *
-  * In order for a member to subscribe to the sequencer, it must follow a few steps for it to authenticate.
-  * Assuming the synchronizer already has knowledge of the member's public keys, the following steps are to be taken:
+  * In order for a member to subscribe to the sequencer, it must follow a few steps for it to
+  * authenticate. Assuming the synchronizer already has knowledge of the member's public keys, the
+  * following steps are to be taken:
   *   1. member sends request to the synchronizer for authenticating
-  *   2. synchronizer returns a nonce (a challenge random number)
-  *   3. member takes the nonce, concatenates it with the identity of the synchronizer, signs it and sends it back
-  *   4. synchronizer checks the signature against the key of the member. if it matches, create a token and return it
-  *   5. member will use the token when subscribing to the sequencer
+  *   1. synchronizer returns a nonce (a challenge random number)
+  *   1. member takes the nonce, concatenates it with the identity of the synchronizer, signs it and
+  *      sends it back
+  *   1. synchronizer checks the signature against the key of the member. if it matches, create a
+  *      token and return it
+  *   1. member will use the token when subscribing to the sequencer
   *
-  * @param invalidateMemberCallback Called when a member is explicitly deactivated on the synchronizer so all active subscriptions
-  *                                 for this member should be terminated.
+  * @param invalidateMemberCallback
+  *   Called when a member is explicitly deactivated on the synchronizer so all active subscriptions
+  *   for this member should be terminated.
   */
 class MemberAuthenticationService(
     synchronizerId: SynchronizerId,
@@ -61,9 +65,9 @@ class MemberAuthenticationService(
     extends NamedLogging
     with FlagCloseable {
 
-  /** synchronizer generates nonce that he expects the participant to use to concatenate with the synchronizer's id and sign
-    * to proceed with the authentication (step 2). We expect to find a key with usage 'SequencerAuthentication' to
-    * sign these messages.
+  /** synchronizer generates nonce that he expects the participant to use to concatenate with the
+    * synchronizer's id and sign to proceed with the authentication (step 2). We expect to find a
+    * key with usage 'SequencerAuthentication' to sign these messages.
     */
   def generateNonce(member: Member)(implicit
       traceContext: TraceContext
@@ -105,7 +109,8 @@ class MemberAuthenticationService(
       }
     }
 
-  /** synchronizer checks that the signature given by the member matches and returns a token if it does (step 4)
+  /** synchronizer checks that the signature given by the member matches and returns a token if it
+    * does (step 4)
     */
   def validateSignature(member: Member, signature: Signature, providedNonce: Nonce)(implicit
       traceContext: TraceContext
@@ -157,10 +162,11 @@ class MemberAuthenticationService(
       AuthenticationTokenWithExpiry(token, tokenExpiry)
     }
 
-  /** synchronizer checks if the token given by the participant is the one previously assigned to it for authentication.
-    * The participant also provides the synchronizer id for which they think they are connecting to. If this id does not match
-    * this synchronizer's id, it means the participant was previously connected to a different synchronizer on the same address and
-    * now should be informed that this address now hosts a different synchronizer.
+  /** synchronizer checks if the token given by the participant is the one previously assigned to it
+    * for authentication. The participant also provides the synchronizer id for which they think
+    * they are connecting to. If this id does not match this synchronizer's id, it means the
+    * participant was previously connected to a different synchronizer on the same address and now
+    * should be informed that this address now hosts a different synchronizer.
     */
   def validateToken(
       intendedSynchronizerId: SynchronizerId,
@@ -268,9 +274,10 @@ class MemberAuthenticationService(
 
 object MemberAuthenticationService {
 
-  /** Generates a random delay between min and max, following an exponential distribution with the given scale.
-    * The delay is truncated to the range [min, max]. The interval should be sufficiently large around the scale,
-    *  to avoid long sampling times or even running indefinitely.
+  /** Generates a random delay between min and max, following an exponential distribution with the
+    * given scale. The delay is truncated to the range [min, max]. The interval should be
+    * sufficiently large around the scale, to avoid long sampling times or even running
+    * indefinitely.
     */
   private[authentication] def truncatedExponentialRandomDelay(
       scale: Double,

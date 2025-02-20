@@ -20,8 +20,8 @@ import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Hosts the initialization service for the mediator.
-  * Upon receiving an initialize request it will the provided `initialize` function.
+/** Hosts the initialization service for the mediator. Upon receiving an initialize request it will
+  * the provided `initialize` function.
   */
 class GrpcMediatorInitializationService(
     handler: GrpcMediatorInitializationService.Callback,

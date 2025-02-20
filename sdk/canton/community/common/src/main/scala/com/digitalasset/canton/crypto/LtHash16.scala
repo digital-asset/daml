@@ -13,11 +13,12 @@ import scala.jdk.CollectionConverters.*
 
 /** A running digest of a set of bytes, where elements can be added and removed.
   *
-  * Note that it's the caller's responsibility to ensure that the collection defined by the sequence of
-  * additions/removals is really a set. In particular:
-  * 1. the digest accepts a call to [[remove]] before the corresponding call to [[add]]
-  * 2. the digest will change if the same element is added twice. Note, however, that the digest rolls over if you
-  *    add an element 2^16 times; i.e., taking a digest d, then adding the same element 2^16 times results in d again.
+  * Note that it's the caller's responsibility to ensure that the collection defined by the sequence
+  * of additions/removals is really a set. In particular:
+  *   1. the digest accepts a call to [[remove]] before the corresponding call to [[add]]
+  *   1. the digest will change if the same element is added twice. Note, however, that the digest
+  *      rolls over if you add an element 2^16 times; i.e., taking a digest d, then adding the same
+  *      element 2^16 times results in d again.
   */
 class LtHash16 private (private val buffer: Array[Byte]) {
   import LtHash16.*
@@ -75,15 +76,21 @@ object LtHash16 {
     new Array[Byte](BYTE_LENGTH)
   ) // Initialized to all 0s by default
 
-  /** Try to create a hash from the bytes produced by [[com.digitalasset.canton.crypto.LtHash16.get]]
-    * @param bytes Serialized byte array of an LtHash16
-    * @throws java.lang.IllegalArgumentException if the given bytes cannot be interpreted as a legal LtHash16
+  /** Try to create a hash from the bytes produced by
+    * [[com.digitalasset.canton.crypto.LtHash16.get]]
+    * @param bytes
+    *   Serialized byte array of an LtHash16
+    * @throws java.lang.IllegalArgumentException
+    *   if the given bytes cannot be interpreted as a legal LtHash16
     */
   def tryCreate(bytes: Array[Byte]) = new LtHash16(bytes)
 
-  /** Try to create a hash from the bytes produced by [[com.digitalasset.canton.crypto.LtHash16.get]]
-    * @param bytes Serialized ByteString of an LtHash16
-    * @throws java.lang.IllegalArgumentException if the given bytes cannot be interpreted as a legal LtHash16
+  /** Try to create a hash from the bytes produced by
+    * [[com.digitalasset.canton.crypto.LtHash16.get]]
+    * @param bytes
+    *   Serialized ByteString of an LtHash16
+    * @throws java.lang.IllegalArgumentException
+    *   if the given bytes cannot be interpreted as a legal LtHash16
     */
   def tryCreate(bytes: ByteString) = new LtHash16(bytes.toByteArray)
 

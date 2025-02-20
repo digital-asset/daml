@@ -482,9 +482,9 @@ class ValidatingTopologyMappingChecks(
   private val requiredKeyPurposes = Set(KeyPurpose.Encryption, KeyPurpose.Signing)
 
   /** Checks the following:
-    * - threshold is less than or equal to the number of confirming participants
-    * - new participants have a valid DTC
-    * - new participants have an OTK with at least 1 signing key and 1 encryption key
+    *   - threshold is less than or equal to the number of confirming participants
+    *   - new participants have a valid DTC
+    *   - new participants have an OTK with at least 1 signing key and 1 encryption key
     */
   private def checkPartyToParticipant(
       effective: EffectiveTime,
@@ -815,16 +815,12 @@ class ValidatingTopologyMappingChecks(
     checkNoClashWithDecentralizedNamespaces()
   }
 
-  /** Checks whether the given PTP is considered an explicit admin party allocation. This is true if all following conditions are met:
-    * <ul>
-    *   <li>threshold == 1</li>
-    *   <li>there is only a single hosting participant<li>
-    *     <ul>
-    *       <li>with Submission permission</li>
-    *       <li>participantId.adminParty == partyId</li>
-    *     </ul>
-    *   </li>
-    * </ul
+  /** Checks whether the given PTP is considered an explicit admin party allocation. This is true if
+    * all following conditions are met:
+    *   - threshold == 1
+    *   - there is only a single hosting participant
+    *     - with Submission permission
+    *     - participantId.adminParty == partyId
     */
   private def isExplicitAdminPartyAllocation(
       ptp: PartyToParticipant,

@@ -11,6 +11,10 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.{
+  Block,
+  EpochInProgress,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.{
   GenesisEpoch,
   GenesisEpochInfo,
@@ -229,38 +233,95 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         }
       }
 
-      "start segment modules only once when state transfer is completed" in {
+      "start segment modules only once after restart with delayed Start signal" in {
         val segmentModuleMock = mock[ModuleRef[ConsensusSegment.Message]]
         val stateTransferManagerMock = mock[StateTransferManager[ProgrammableUnitTestEnv]]
         when(stateTransferManagerMock.inStateTransfer).thenReturn(true)
+        val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
+        val cryptoProvider = fakeCryptoProvider[ProgrammableUnitTestEnv]
 
-        val membership = Membership(selfId, otherPeers.toSet)
         val aTopologyActivationTime = Genesis.GenesisTopologyActivationTime
         val aStartEpoch = GenesisEpoch.info.next(epochLength, aTopologyActivationTime)
         val newEpochInfo = aStartEpoch.next(epochLength, aTopologyActivationTime)
-        val newMembership = Membership(selfId)
-        def segmentModuleFactoryFunction(epoch: EpochState.Epoch) = {
-          epoch.info shouldBe newEpochInfo
-          epoch.currentMembership shouldBe newMembership
-          epoch.previousMembership shouldBe membership
-          segmentModuleMock
-        }
+        val membership =
+          Membership(selfId, anOrderingTopology.copy(activationTime = aTopologyActivationTime))
+        val latestCompletedEpochFromStore = EpochStore.Epoch(
+          EpochInfo(
+            aStartEpoch.number,
+            aStartEpoch.startBlockNumber,
+            aStartEpoch.length,
+            aTopologyActivationTime,
+          ),
+          Seq.empty,
+        )
+        val completedBlocks: Seq[Block] =
+          (aStartEpoch.startBlockNumber until aStartEpoch.startBlockNumber + epochLength).map {
+            idx =>
+              val blockNum = BlockNumber(idx)
+              val pp = PrePrepare
+                .create(
+                  BlockMetadata(aStartEpoch.number, blockNum),
+                  ViewNumber.First,
+                  aTopologyActivationTime.value,
+                  OrderingBlock.empty,
+                  CanonicalCommitSet.empty,
+                  selfId,
+                )
+                .fakeSign
+              Block(
+                aStartEpoch.number,
+                blockNum,
+                CommitCertificate(pp, Seq.empty),
+              )
+          }
+
+        when(epochStore.latestEpoch(includeInProgress = false)).thenReturn(() =>
+          latestCompletedEpochFromStore
+        )
+        when(epochStore.latestEpoch(includeInProgress = true)).thenReturn(() =>
+          latestCompletedEpochFromStore
+        )
+        when(epochStore.loadEpochProgress(latestCompletedEpochFromStore.info)).thenReturn(() =>
+          EpochInProgress(
+            completedBlocks = completedBlocks,
+            pbftMessagesForIncompleteBlocks = Seq.empty,
+          )
+        )
+        when(epochStore.completeEpoch(aStartEpoch.number)).thenReturn(() => ())
+        when(epochStore.startEpoch(any[EpochInfo])(any[TraceContext])).thenReturn(() => ())
 
         val (context, consensus) =
           createIssConsensusModule(
             p2pNetworkOutModuleRef = fakeIgnoringModule,
-            segmentModuleFactoryFunction = segmentModuleFactoryFunction,
+            segmentModuleFactoryFunction = _ => segmentModuleMock,
+            epochStore = epochStore,
+            completedBlocks = completedBlocks,
             maybeOnboardingStateTransferManager = Some(stateTransferManagerMock),
+            resolveAwaits = true,
           )
         implicit val ctx: ContextType = context
 
         consensus.receive(
-          Consensus.NewEpochStored(newEpochInfo, newMembership.orderingTopology, fakeCryptoProvider)
+          Consensus.NewEpochTopology(
+            newEpochInfo.number,
+            membership.orderingTopology,
+            cryptoProvider,
+          )
         )
+        context.runPipedMessages() shouldBe empty
+
+        consensus.receive(Consensus.Start)
+        context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { msg =>
+          msg shouldBe Consensus.NewEpochStored(
+            newEpochInfo,
+            membership.orderingTopology,
+            cryptoProvider,
+          )
+        }
 
         val order = Mockito.inOrder(stateTransferManagerMock, segmentModuleMock)
         order
-          .verify(segmentModuleMock, times(newMembership.orderingTopology.peers.size))
+          .verify(segmentModuleMock, times(membership.orderingTopology.peers.size))
           .asyncSend(ConsensusSegment.Start)
         succeed
       }

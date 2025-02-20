@@ -422,8 +422,8 @@ class PersistentUserManagementStore(
 
 object PersistentUserManagementStore {
 
-  /** Intended to be thrown within a DB transaction to abort it.
-    * The resulting failed future will get mapped to a successful future containing scala.util.Left
+  /** Intended to be thrown within a DB transaction to abort it. The resulting failed future will
+    * get mapped to a successful future containing scala.util.Left
     */
   final case class TooManyUserRightsRuntimeException(userId: Ref.UserId) extends RuntimeException
 

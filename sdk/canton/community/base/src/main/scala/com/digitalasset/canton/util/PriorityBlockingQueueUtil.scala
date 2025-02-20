@@ -5,6 +5,8 @@ package com.digitalasset.canton.util
 
 object PriorityBlockingQueueUtil {
 
-  /** Default initial capacity of [[java.util.concurrent.PriorityBlockingQueue]] as defined in its `DEFAULT_INITIAL_CAPACITY` */
+  /** Default initial capacity of [[java.util.concurrent.PriorityBlockingQueue]] as defined in its
+    * `DEFAULT_INITIAL_CAPACITY`
+    */
   val DefaultInitialCapacity: Int = 11
 }

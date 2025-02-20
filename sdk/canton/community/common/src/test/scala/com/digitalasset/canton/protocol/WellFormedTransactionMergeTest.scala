@@ -24,7 +24,8 @@ import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateKey
 import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
 import org.scalatest.wordspec.AnyWordSpec
 
-/** Tests WellFormedTransaction.merge particularly with respect to handling of top-level rollback nodes.
+/** Tests WellFormedTransaction.merge particularly with respect to handling of top-level rollback
+  * nodes.
   */
 class WellFormedTransactionMergeTest
     extends AnyWordSpec

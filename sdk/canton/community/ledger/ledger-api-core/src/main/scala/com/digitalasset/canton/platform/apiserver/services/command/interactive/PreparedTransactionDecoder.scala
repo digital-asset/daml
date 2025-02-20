@@ -58,8 +58,8 @@ object PreparedTransactionDecoder {
   )
 }
 
-/** Class to decode a PreparedTransaction to an LF Transaction and its metadata.
-  * Uses chimney to define Transformers and PartialTransformer for all conversions.
+/** Class to decode a PreparedTransaction to an LF Transaction and its metadata. Uses chimney to
+  * define Transformers and PartialTransformer for all conversions.
   */
 final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFactory)
     extends NamedLogging {

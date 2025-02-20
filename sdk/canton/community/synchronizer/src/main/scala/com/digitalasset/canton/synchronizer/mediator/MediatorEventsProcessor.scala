@@ -17,9 +17,10 @@ import com.digitalasset.canton.util.MonadUtil
 
 import scala.concurrent.ExecutionContext
 
-/** We process a sequence of sequential events from the sequencer for the mediator in an optimal manner.
-  * Crashes can occur at any point during this processing (or even afterwards as it's the persistence in the sequencer
-  * client that would move us to following events). Processing should be effectively idempotent to handle this.
+/** We process a sequence of sequential events from the sequencer for the mediator in an optimal
+  * manner. Crashes can occur at any point during this processing (or even afterwards as it's the
+  * persistence in the sequencer client that would move us to following events). Processing should
+  * be effectively idempotent to handle this.
   */
 private[mediator] class MediatorEventsProcessor(
     identityClientEventHandler: UnsignedProtocolEventHandler,

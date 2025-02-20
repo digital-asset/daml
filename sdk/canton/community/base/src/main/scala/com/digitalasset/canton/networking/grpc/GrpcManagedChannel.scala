@@ -8,7 +8,9 @@ import com.digitalasset.canton.lifecycle.{LifeCycle, OnShutdownRunner, RunOnShut
 import com.digitalasset.canton.logging.TracedLogger
 import io.grpc.ManagedChannel
 
-/** Bundles a gRPC managed channel together with the shutdown runner of the component the channel belongs to */
+/** Bundles a gRPC managed channel together with the shutdown runner of the component the channel
+  * belongs to
+  */
 final case class GrpcManagedChannel(
     name: String,
     channel: ManagedChannel,

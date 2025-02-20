@@ -29,8 +29,8 @@ trait SequencerRateLimitManager extends AutoCloseable {
 
   def trafficConsumedStore: TrafficConsumedStore
 
-  /** Create a traffic state for a new member at the given timestamp.
-    * Its base traffic remainder will be equal to the max burst window configured at that point in time.
+  /** Create a traffic state for a new member at the given timestamp. Its base traffic remainder
+    * will be equal to the max burst window configured at that point in time.
     */
   def registerNewMemberAt(
       member: Member,
@@ -46,7 +46,8 @@ trait SequencerRateLimitManager extends AutoCloseable {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[TrafficPurchased]]
 
-  /** Optional subscriber to the traffic control processor, only used for the new top up implementation
+  /** Optional subscriber to the traffic control processor, only used for the new top up
+    * implementation
     */
   def balanceUpdateSubscriber: SequencerTrafficControlSubscriber
 
@@ -60,11 +61,13 @@ trait SequencerRateLimitManager extends AutoCloseable {
     */
   def balanceKnownUntil: Option[CantonTimestamp]
 
-  /** Validate signed submission requests received by the sequencer.
-    * Requests with a an invalid cost or a cost that exceeds the traffic credit will be rejected.
-    * @param submissionTimestamp The timestamp the sender of the submission request claims to have used to compute
-    *                            the submission cost.
-    * @param lastSequencerEventTimestamp timestamp of the last event addressed to the sequencer.
+  /** Validate signed submission requests received by the sequencer. Requests with a an invalid cost
+    * or a cost that exceeds the traffic credit will be rejected.
+    * @param submissionTimestamp
+    *   The timestamp the sender of the submission request claims to have used to compute the
+    *   submission cost.
+    * @param lastSequencerEventTimestamp
+    *   timestamp of the last event addressed to the sequencer.
     */
   def validateRequestAtSubmissionTime(
       request: SubmissionRequest,
@@ -80,15 +83,16 @@ trait SequencerRateLimitManager extends AutoCloseable {
     Unit,
   ]
 
-  /** Validate submission requests after they've been sequenced.
-    * The same validation as performed at submission is run again, to ensure that the submitting sequencer was not malicious.
-    * If the request is valid, the cost is consumed.
-    * This method MUST be called sequentially for a given sender, meaning concurrent updates are not supported.
-    * This method MUST be called in order of sequencing times, meaning 2 events sequenced at T1 and T2 such that T2 > T1 must be
-    * processed by this method in the order T1 -> T2.
-    * However, if T1 and T2 have been processed in the correct order, it is then ok to call the method with T1 again,
-    * which will result in the same output as when it was first called.
-    * @param lastSequencerEventTimestamp timestamp of the last event addressed to the sequencer.
+  /** Validate submission requests after they've been sequenced. The same validation as performed at
+    * submission is run again, to ensure that the submitting sequencer was not malicious. If the
+    * request is valid, the cost is consumed. This method MUST be called sequentially for a given
+    * sender, meaning concurrent updates are not supported. This method MUST be called in order of
+    * sequencing times, meaning 2 events sequenced at T1 and T2 such that T2 > T1 must be processed
+    * by this method in the order T1 -> T2. However, if T1 and T2 have been processed in the correct
+    * order, it is then ok to call the method with T1 again, which will result in the same output as
+    * when it was first called.
+    * @param lastSequencerEventTimestamp
+    *   timestamp of the last event addressed to the sequencer.
     */
   def validateRequestAndConsumeTraffic(
       request: SubmissionRequest,
@@ -106,14 +110,19 @@ trait SequencerRateLimitManager extends AutoCloseable {
     Option[TrafficReceipt],
   ]
 
-  /** Return the latest known traffic states for the requested members, or all currently cached members if requestedMembers is empty.
-    * @param minTimestamp The minimum timestamp at which to get the traffic states.
-    *                      If the current known state is more recent than minTimestamp, it will be returned.
-    *                      If minTimestamp is more recent than the current known state, an APPROXIMATION of the state at minTimestamp will be used.
-    *                      Specifically, the base traffic remainder will be extrapolated to minTimestamp. There is no guarantee
-    *                      that the state returned will be the same as the correct one, when the synchronizer time actually reaches minTimestamp.
-    * @param lastSequencerEventTimestamp timestamp of the last event addressed to the sequencer.
-    * @return A Map of member and their traffic state.
+  /** Return the latest known traffic states for the requested members, or all currently cached
+    * members if requestedMembers is empty.
+    * @param minTimestamp
+    *   The minimum timestamp at which to get the traffic states. If the current known state is more
+    *   recent than minTimestamp, it will be returned. If minTimestamp is more recent than the
+    *   current known state, an APPROXIMATION of the state at minTimestamp will be used.
+    *   Specifically, the base traffic remainder will be extrapolated to minTimestamp. There is no
+    *   guarantee that the state returned will be the same as the correct one, when the synchronizer
+    *   time actually reaches minTimestamp.
+    * @param lastSequencerEventTimestamp
+    *   timestamp of the last event addressed to the sequencer.
+    * @return
+    *   A Map of member and their traffic state.
     */
   def getStates(
       requestedMembers: Set[Member],
@@ -138,18 +147,20 @@ sealed trait SequencerRateLimitError
 
 object SequencerRateLimitError extends SequencerErrorGroup {
 
-  /** Errors specifically coming from failed validation of the submission cost.
-    * They contain the actual cost that was consumed so it can be communicated to the sender in the deliver error.
+  /** Errors specifically coming from failed validation of the submission cost. They contain the
+    * actual cost that was consumed so it can be communicated to the sender in the deliver error.
     */
   sealed trait SequencingCostValidationError extends SequencerRateLimitError {
     def correctEventCost: NonNegativeLong
   }
 
-  /** This will be raised in the case where an event's traffic is being re-processed by the SequencerRateLimitManager
-    * (for instance in case of crash-recovery), but the TrafficConsumed object corresponding to the event cannot be found.
-    * This could indicate that events are being processed out of order (the first time), which is not supported.
-    * Or the traffic consumed store may have been pruned and the information is not available anymore.
-    * @param member member for which traffic was requested
+  /** This will be raised in the case where an event's traffic is being re-processed by the
+    * SequencerRateLimitManager (for instance in case of crash-recovery), but the TrafficConsumed
+    * object corresponding to the event cannot be found. This could indicate that events are being
+    * processed out of order (the first time), which is not supported. Or the traffic consumed store
+    * may have been pruned and the information is not available anymore.
+    * @param member
+    *   member for which traffic was requested
     */
   final case class TrafficNotFound(
       member: Member
@@ -160,10 +171,14 @@ object SequencerRateLimitError extends SequencerErrorGroup {
     )
   }
 
-  /** The event cost exceeds the available traffic. Only returned during validation at submission time.
-    * @param member sender of the event
-    * @param trafficCost cost of the event
-    * @param trafficState current traffic state estimated by the sequencer when processing the submission
+  /** The event cost exceeds the available traffic. Only returned during validation at submission
+    * time.
+    * @param member
+    *   sender of the event
+    * @param trafficCost
+    *   cost of the event
+    * @param trafficState
+    *   current traffic state estimated by the sequencer when processing the submission
     */
   final case class AboveTrafficLimit(
       member: Member,

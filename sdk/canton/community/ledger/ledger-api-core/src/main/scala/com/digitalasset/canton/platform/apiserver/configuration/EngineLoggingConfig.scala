@@ -12,11 +12,14 @@ import org.slf4j.event.Level
 
 /** Control logging of Daml `debug` statements
   *
-  * @param enabled set to true to enable
-  * @param logLevel the log level to use
-  * @param matching if non-empty, then only output lines that match one of the given string.
-  *                    If the supporting * and ? wildcard characters are used, then the string must match,
-  *                    otherwise, the string must be included in the log message.
+  * @param enabled
+  *   set to true to enable
+  * @param logLevel
+  *   the log level to use
+  * @param matching
+  *   if non-empty, then only output lines that match one of the given string. If the supporting *
+  *   and ? wildcard characters are used, then the string must match, otherwise, the string must be
+  *   included in the log message.
   */
 final case class EngineLoggingConfig(
     enabled: Boolean = true,

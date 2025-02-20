@@ -303,18 +303,27 @@ class PackageService(
     *   1. Validates the resulting Daml packages
     *   1. Persists the DAR and decoded archives in the DARs and package stores
     *   1. Dispatches the package upload event for inclusion in the ledger sync event stream
-    *   1. Updates the [[com.digitalasset.canton.participant.store.memory.MutablePackageMetadataView]]
-    *      which is used for subsequent DAR upload validations and incoming Ledger API queries
-    *   1. Issues a package vetting topology transaction for all uploaded packages (if `vetAllPackages` is enabled) and waits for
-    *      for its completion (if `synchronizeVetting` is enabled).
+    *   1. Updates the
+    *      [[com.digitalasset.canton.participant.store.memory.MutablePackageMetadataView]] which is
+    *      used for subsequent DAR upload validations and incoming Ledger API queries
+    *   1. Issues a package vetting topology transaction for all uploaded packages (if
+    *      `vetAllPackages` is enabled) and waits for for its completion (if `synchronizeVetting` is
+    *      enabled).
     *
-    * @param darBytes The DAR payload to store.
-    * @param description A description of the DAR.
-    * @param submissionIdO upstream submissionId for ledger api server to recognize previous package upload requests
-    * @param vetAllPackages if true, then the packages will be vetted automatically
-    * @param synchronizeVetting a value of PackageVettingSynchronization, that checks that the packages have been vetted on all connected synchronizers.
-    *                            The Future returned by the check will complete once all synchronizers have observed the vetting for the new packages.
-    *                            The caller may also pass be a no-op implementation that immediately returns, depending no the caller's needs for synchronization.
+    * @param darBytes
+    *   The DAR payload to store.
+    * @param description
+    *   A description of the DAR.
+    * @param submissionIdO
+    *   upstream submissionId for ledger api server to recognize previous package upload requests
+    * @param vetAllPackages
+    *   if true, then the packages will be vetted automatically
+    * @param synchronizeVetting
+    *   a value of PackageVettingSynchronization, that checks that the packages have been vetted on
+    *   all connected synchronizers. The Future returned by the check will complete once all
+    *   synchronizers have observed the vetting for the new packages. The caller may also pass be a
+    *   no-op implementation that immediately returns, depending no the caller's needs for
+    *   synchronization.
     */
   final def upload(
       darBytes: ByteString,
@@ -350,17 +359,25 @@ class PackageService(
     *   1. Validates the resulting Daml packages
     *   1. Persists the DARs and decoded archives in the DARs and package stores
     *   1. Dispatches the package upload event for inclusion in the ledger sync event stream
-    *   1. Updates the [[com.digitalasset.canton.participant.store.memory.MutablePackageMetadataView]]
-    *      which is used for subsequent DAR upload validations and incoming Ledger API queries
-    *   1. Issues a package vetting topology transaction for all uploaded packages (if `vetAllPackages` is enabled) and waits for
-    *      for its completion (if `synchronizeVetting` is enabled).
+    *   1. Updates the
+    *      [[com.digitalasset.canton.participant.store.memory.MutablePackageMetadataView]] which is
+    *      used for subsequent DAR upload validations and incoming Ledger API queries
+    *   1. Issues a package vetting topology transaction for all uploaded packages (if
+    *      `vetAllPackages` is enabled) and waits for for its completion (if `synchronizeVetting` is
+    *      enabled).
     *
-    * @param dars The DARs (bytes, description, expected main package) to upload.
-    * @param submissionIdO upstream submissionId for ledger api server to recognize previous package upload requests
-    * @param vetAllPackages if true, then the packages will be vetted automatically
-    * @param synchronizeVetting a value of PackageVettingSynchronization, that checks that the packages have been vetted on all connected synchronizers.
-    *                            The Future returned by the check will complete once all synchronizers have observed the vetting to be effective for the new packages.
-    *                            The caller may also pass be a no-op implementation that immediately returns, depending no the caller's needs for synchronization.
+    * @param dars
+    *   The DARs (bytes, description, expected main package) to upload.
+    * @param submissionIdO
+    *   upstream submissionId for ledger api server to recognize previous package upload requests
+    * @param vetAllPackages
+    *   if true, then the packages will be vetted automatically
+    * @param synchronizeVetting
+    *   a value of PackageVettingSynchronization, that checks that the packages have been vetted on
+    *   all connected synchronizers. The Future returned by the check will complete once all
+    *   synchronizers have observed the vetting to be effective for the new packages. The caller may
+    *   also pass be a no-op implementation that immediately returns, depending no the caller's
+    *   needs for synchronization.
     */
   def upload(
       dars: Seq[UploadDarData],

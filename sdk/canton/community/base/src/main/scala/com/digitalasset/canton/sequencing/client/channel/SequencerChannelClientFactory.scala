@@ -27,7 +27,8 @@ import io.grpc.ManagedChannel
 
 import scala.concurrent.ExecutionContextExecutor
 
-/** The SequencerChannelClientFactory creates a SequencerChannelClient and its embedded GRPC channel transports
+/** The SequencerChannelClientFactory creates a SequencerChannelClient and its embedded GRPC channel
+  * transports
   */
 final class SequencerChannelClientFactory(
     synchronizerId: SynchronizerId,

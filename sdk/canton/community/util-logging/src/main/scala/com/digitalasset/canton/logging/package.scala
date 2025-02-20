@@ -8,7 +8,9 @@ import com.typesafe.scalalogging.LoggerTakingImplicit
 
 package object logging {
 
-  /** Alias the complex logger type we use which expects a implicit TraceContext to something more memorable */
+  /** Alias the complex logger type we use which expects a implicit TraceContext to something more
+    * memorable
+    */
   type TracedLogger = LoggerTakingImplicit[TraceContext]
 
 }

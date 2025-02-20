@@ -62,7 +62,8 @@ object UpdatePathsTrie {
       var exists: Boolean = false,
   ) {
 
-    /** @param updatePath unique path to be inserted
+    /** @param updatePath
+      *   unique path to be inserted
       */
     def insertUniquePath(updatePath: UpdatePath): Result[Unit] =
       Either.cond(
@@ -71,7 +72,9 @@ object UpdatePathsTrie {
         UpdatePathError.DuplicatedFieldPath(updatePath.toRawString),
       )
 
-    /** @return true if successfully inserted the field path, false if the field path was already present in this trie
+    /** @return
+      *   true if successfully inserted the field path, false if the field path was already present
+      *   in this trie
       */
     @tailrec
     private def doInsertUniquePath(
@@ -99,8 +102,8 @@ object UpdatePathsTrie {
 /** Data structure for storing and querying update paths.
   *
   * Each update path specifies:
-  * - a field path corresponding to a field of an update request proto message,
-  * - an update modifier.
+  *   - a field path corresponding to a field of an update request proto message,
+  *   - an update modifier.
   *
   * See also [[com.google.protobuf.field_mask.FieldMask]]).
   */
@@ -110,7 +113,8 @@ private[update] final case class UpdatePathsTrie(
 ) {
   import UpdatePathsTrie.*
 
-  /** @return true if 'path' matches some prefix of some field path
+  /** @return
+    *   true if 'path' matches some prefix of some field path
     */
   @tailrec
   final def containsPrefix(path: List[String]): Boolean =
@@ -121,7 +125,8 @@ private[update] final case class UpdatePathsTrie(
     }
 
   /** There is a match if this trie contains 'path' or if it contains a prefix of 'path'.
-    * @return the match corresponding to the longest matched field path, none otherwise.
+    * @return
+    *   the match corresponding to the longest matched field path, none otherwise.
     */
   def findMatch(path: List[String]): Option[MatchResult] =
     if (pathExists(path)) {
@@ -136,7 +141,8 @@ private[update] final case class UpdatePathsTrie(
         }
     }
 
-  /** @return an update modifier of a matching field path, none if there is no matching field path
+  /** @return
+    *   an update modifier of a matching field path, none if there is no matching field path
     */
   @tailrec
   final private[update] def pathExists(path: List[String]): Boolean =

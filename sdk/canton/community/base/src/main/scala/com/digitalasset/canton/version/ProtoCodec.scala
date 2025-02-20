@@ -12,16 +12,18 @@ import slick.jdbc.{PositionedParameters, SetParameter}
 
 import scala.reflect.ClassTag
 
-/** See [[com.digitalasset.canton.version.HasProtocolVersionedWrapper.representativeProtocolVersion]] for more context */
+/** See
+  * [[com.digitalasset.canton.version.HasProtocolVersionedWrapper.representativeProtocolVersion]]
+  * for more context
+  */
 sealed abstract case class RepresentativeProtocolVersion[ValueCompanion](
     private val v: ProtocolVersion
 ) extends PrettyPrinting {
 
   /** When using this method, keep in mind that for a given companion object `C` that implements
     * `HasProtocolVersionedWrapperCompanion` and for a protocol version `pv`, then
-    * `C.protocolVersionRepresentativeFor(pv).representative` is different than `pv`.
-    * In particular, do not use a representative for a given class to construct a representative
-    * for another class.
+    * `C.protocolVersionRepresentativeFor(pv).representative` is different than `pv`. In particular,
+    * do not use a representative for a given class to construct a representative for another class.
     */
   def representative: ProtocolVersion = v
 
@@ -68,10 +70,14 @@ sealed trait ProtoCodec[ValueClass, Context, DeserializedValueClass, Comp, Depen
 }
 
 /** Supported Proto version
-  * @param fromInclusive The protocol version when this Proto version was introduced
-  * @param deserializer Deserialization method
-  * @param serializer Serialization method
-  * @param dependencySerializer Serialization method for the dependency
+  * @param fromInclusive
+  *   The protocol version when this Proto version was introduced
+  * @param deserializer
+  *   Deserialization method
+  * @param serializer
+  *   Serialization method
+  * @param dependencySerializer
+  *   Serialization method for the dependency
   */
 class VersionedProtoCodec[
     ValueClass,

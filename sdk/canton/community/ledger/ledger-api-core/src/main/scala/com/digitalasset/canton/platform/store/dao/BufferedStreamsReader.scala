@@ -18,17 +18,26 @@ import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Generic class that helps serving Ledger API streams (e.g. transactions, completions)
-  *  from either the in-memory fan-out buffer or from persistence depending on the requested offset range.
+/** Generic class that helps serving Ledger API streams (e.g. transactions, completions) from either
+  * the in-memory fan-out buffer or from persistence depending on the requested offset range.
   *
-  * @param inMemoryFanoutBuffer The in-memory fan-out buffer.
-  * @param fetchFromPersistence Fetch stream events from persistence.
-  * @param bufferedStreamEventsProcessingParallelism The processing parallelism for buffered elements payloads to API responses.
-  * @param metrics Daml metrics.
-  * @param streamName The name of a Ledger API stream. Used as a discriminator in metric registry names construction.
-  * @param executionContext The execution context
-  * @tparam PERSISTENCE_FETCH_ARGS The Ledger API streams filter type of fetches from persistence.
-  * @tparam API_RESPONSE The API stream response type.
+  * @param inMemoryFanoutBuffer
+  *   The in-memory fan-out buffer.
+  * @param fetchFromPersistence
+  *   Fetch stream events from persistence.
+  * @param bufferedStreamEventsProcessingParallelism
+  *   The processing parallelism for buffered elements payloads to API responses.
+  * @param metrics
+  *   Daml metrics.
+  * @param streamName
+  *   The name of a Ledger API stream. Used as a discriminator in metric registry names
+  *   construction.
+  * @param executionContext
+  *   The execution context
+  * @tparam PERSISTENCE_FETCH_ARGS
+  *   The Ledger API streams filter type of fetches from persistence.
+  * @tparam API_RESPONSE
+  *   The API stream response type.
   */
 class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
     inMemoryFanoutBuffer: InMemoryFanoutBuffer,
@@ -44,17 +53,25 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
 
   private val bufferReaderMetrics = metrics.services.index.BufferedReader(streamName)
 
-  /** Serves processed and filtered events from the buffer, with fallback to persistence fetches
-    * if the bounds are not within the buffer range bounds.
+  /** Serves processed and filtered events from the buffer, with fallback to persistence fetches if
+    * the bounds are not within the buffer range bounds.
     *
-    * @param startInclusive The start inclusive offset of the search range.
-    * @param endInclusive The end inclusive offset of the search range.
-    * @param persistenceFetchArgs The filter used for fetching the Ledger API stream responses from persistence.
-    * @param bufferFilter The filter used for filtering when searching within the buffer.
-    * @param toApiResponse To Ledger API stream response converter.
-    * @param loggingContext The logging context.
-    * @tparam BUFFER_OUT The output type of elements retrieved from the buffer.
-    * @return The Ledger API stream source.
+    * @param startInclusive
+    *   The start inclusive offset of the search range.
+    * @param endInclusive
+    *   The end inclusive offset of the search range.
+    * @param persistenceFetchArgs
+    *   The filter used for fetching the Ledger API stream responses from persistence.
+    * @param bufferFilter
+    *   The filter used for filtering when searching within the buffer.
+    * @param toApiResponse
+    *   To Ledger API stream response converter.
+    * @param loggingContext
+    *   The logging context.
+    * @tparam BUFFER_OUT
+    *   The output type of elements retrieved from the buffer.
+    * @return
+    *   The Ledger API stream source.
     */
   def stream[BUFFER_OUT](
       startInclusive: Offset,

@@ -13,10 +13,9 @@ import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.Member
 
-/** A tree representation of the recipients for a batch.
-  * Each member receiving the batch should see only subtrees of recipients from a node containing
-  * the member. If a member is present in a subtree A and a sub-subtree of A then it should only see
-  * the top-level subtree A.
+/** A tree representation of the recipients for a batch. Each member receiving the batch should see
+  * only subtrees of recipients from a node containing the member. If a member is present in a
+  * subtree A and a sub-subtree of A then it should only see the top-level subtree A.
   */
 final case class RecipientsTree(
     recipientGroup: NonEmpty[Set[Recipient]],

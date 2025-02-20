@@ -40,8 +40,7 @@ class BadRootHashMessagesRequestProcessor(
       synchronizerId,
     ) {
 
-  /** Sends `reject` for the given `rootHash`.
-    * Also ticks the record order publisher.
+  /** Sends `reject` for the given `rootHash`. Also ticks the record order publisher.
     */
   def sendRejectionAndTerminate(
       timestamp: CantonTimestamp,

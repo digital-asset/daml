@@ -7,7 +7,9 @@ import io.grpc.StatusRuntimeException
 
 import scala.util.control.NoStackTrace
 
-/** The sole purpose of this class is to give StatusRuntimeException with NoStacktrace a nice name in logs. */
+/** The sole purpose of this class is to give StatusRuntimeException with NoStacktrace a nice name
+  * in logs.
+  */
 class ApiException(exception: StatusRuntimeException)
     extends StatusRuntimeException(exception.getStatus, exception.getTrailers)
     with NoStackTrace

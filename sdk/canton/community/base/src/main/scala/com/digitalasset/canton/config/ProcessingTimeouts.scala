@@ -10,27 +10,43 @@ import scala.concurrent.duration.*
 
 /** Configuration for internal await timeouts
   *
-  * @param unbounded timeout on how long "unbounded" operations can run. should be infinite in theory.
-  * @param io timeout for disk based operations
-  * @param default default finite processing timeout
-  * @param network timeout for things related to networking
-  * @param shutdownProcessing timeout used for shutdown of some processing where we'd like to keep the result (long)
-  * @param shutdownNetwork timeout used for shutdown where we interact with some remote system
-  * @param shutdownShort everything else shutdown releated (default)
-  * @param closing our closing time (which should be strictly larger than any of the shutdown values)
-  * @param verifyActive how long should we wait for the synchronizer to tell us whether we are active or not
-  * @param inspection timeout for the storage inspection commands (can run a long long time)
-  * @param storageMaxRetryInterval max retry interval for storage
-  * @param activeInit how long a passive replica should wait for the initialization by the active replica
-  * @param slowFutureWarn when using future supervision, when should we start to warn about a slow future
-  * @param activeInitRetryDelay delay between attempts while waiting for initialization of the active replica
-  * @param sequencerInfo how long are we going to try to get the sequencer connection information. setting this high means that
-  *                      connect calls will take quite a while if one of the sequencers is offline.
-  * @param topologyChangeWarnDelay maximum delay between the timestamp of the topology snapshot used during
-  *                                submission and the sequencing timestamp, after which we log inconsistency
-  *                                errors as warnings
-  * @param sequencedEventProcessingBound Maximum time we allow for locally processing a sequenced event.
-  *                                      If local processing takes longer, the node will emit an error or crash.
+  * @param unbounded
+  *   timeout on how long "unbounded" operations can run. should be infinite in theory.
+  * @param io
+  *   timeout for disk based operations
+  * @param default
+  *   default finite processing timeout
+  * @param network
+  *   timeout for things related to networking
+  * @param shutdownProcessing
+  *   timeout used for shutdown of some processing where we'd like to keep the result (long)
+  * @param shutdownNetwork
+  *   timeout used for shutdown where we interact with some remote system
+  * @param shutdownShort
+  *   everything else shutdown releated (default)
+  * @param closing
+  *   our closing time (which should be strictly larger than any of the shutdown values)
+  * @param verifyActive
+  *   how long should we wait for the synchronizer to tell us whether we are active or not
+  * @param inspection
+  *   timeout for the storage inspection commands (can run a long long time)
+  * @param storageMaxRetryInterval
+  *   max retry interval for storage
+  * @param activeInit
+  *   how long a passive replica should wait for the initialization by the active replica
+  * @param slowFutureWarn
+  *   when using future supervision, when should we start to warn about a slow future
+  * @param activeInitRetryDelay
+  *   delay between attempts while waiting for initialization of the active replica
+  * @param sequencerInfo
+  *   how long are we going to try to get the sequencer connection information. setting this high
+  *   means that connect calls will take quite a while if one of the sequencers is offline.
+  * @param topologyChangeWarnDelay
+  *   maximum delay between the timestamp of the topology snapshot used during submission and the
+  *   sequencing timestamp, after which we log inconsistency errors as warnings
+  * @param sequencedEventProcessingBound
+  *   Maximum time we allow for locally processing a sequenced event. If local processing takes
+  *   longer, the node will emit an error or crash.
   */
 final case class ProcessingTimeout(
     unbounded: NonNegativeDuration = DefaultProcessingTimeouts.unbounded,
@@ -63,7 +79,8 @@ object ProcessingTimeout {
 object DefaultProcessingTimeouts {
   val unbounded: NonNegativeDuration = NonNegativeDuration.tryFromDuration(Duration.Inf)
 
-  /** Allow unbounded processing for io operations. This is because we retry forever upon db outages.
+  /** Allow unbounded processing for io operations. This is because we retry forever upon db
+    * outages.
     */
   val io: NonNegativeDuration = unbounded
 

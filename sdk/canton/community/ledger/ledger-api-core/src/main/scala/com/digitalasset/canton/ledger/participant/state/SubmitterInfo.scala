@@ -19,27 +19,35 @@ import java.util.UUID
   * Note that this is used for party-originating changes only. They are usually issued via the
   * Ledger API.
   *
-  * @param actAs                the non-empty set of parties that submitted the change.
-  * @param readAs               the parties on whose behalf (in addition to all parties listed in [[actAs]]) contracts can be retrieved.
-  * @param applicationId        an identifier for the Daml application that
-  *                             submitted the command. This is used for monitoring, command
-  *                             deduplication, and to allow Daml applications subscribe to their own
-  *                             submissions only.
-  * @param commandId            a submitter-provided identifier to identify an intended ledger change
-  *                             within all the submissions by the same parties and application.
-  * @param deduplicationPeriod  The deduplication period for the command submission.
-  *                             Used for the deduplication guarantee described in the
-  *                             [[Update]].
-  * @param submissionId         An identifier for the submission that allows an application to
-  *                             correlate completions to its submissions.
-  * @param transactionUUID      Optionally explicitly chosen TransactionUUID. This is set in externally signed transactions
-  *                             where the external party has included the transactionUUID in the signature.
-  *                             It acts as a replay protection mechanism by allowing the mediator to deduplicate requests.
-  * @param mediatorGroup        Optionally explicitly chosen mediator group. This is set in externally signed transactions
-  *                             where the external party has included the mediator group in the signature.
+  * @param actAs
+  *   the non-empty set of parties that submitted the change.
+  * @param readAs
+  *   the parties on whose behalf (in addition to all parties listed in [[actAs]]) contracts can be
+  *   retrieved.
+  * @param applicationId
+  *   an identifier for the Daml application that submitted the command. This is used for
+  *   monitoring, command deduplication, and to allow Daml applications subscribe to their own
+  *   submissions only.
+  * @param commandId
+  *   a submitter-provided identifier to identify an intended ledger change within all the
+  *   submissions by the same parties and application.
+  * @param deduplicationPeriod
+  *   The deduplication period for the command submission. Used for the deduplication guarantee
+  *   described in the [[Update]].
+  * @param submissionId
+  *   An identifier for the submission that allows an application to correlate completions to its
+  *   submissions.
+  * @param transactionUUID
+  *   Optionally explicitly chosen TransactionUUID. This is set in externally signed transactions
+  *   where the external party has included the transactionUUID in the signature. It acts as a
+  *   replay protection mechanism by allowing the mediator to deduplicate requests.
+  * @param mediatorGroup
+  *   Optionally explicitly chosen mediator group. This is set in externally signed transactions
+  *   where the external party has included the mediator group in the signature.
   *
-  * @param externallySignedSubmission If this is provided then the authorization for all acting parties
-  *                                   will be provided by the enclosed signatures.
+  * @param externallySignedSubmission
+  *   If this is provided then the authorization for all acting parties will be provided by the
+  *   enclosed signatures.
   */
 final case class SubmitterInfo(
     actAs: List[Ref.Party],

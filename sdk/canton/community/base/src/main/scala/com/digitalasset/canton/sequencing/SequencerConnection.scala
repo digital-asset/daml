@@ -18,10 +18,11 @@ import com.google.protobuf.ByteString
 import java.net.URI
 import java.util.concurrent.Executor
 
-/** Our [[com.digitalasset.canton.config.ClientConfig]] provides the static configuration of API connections between
-  * console and nodes, and between synchronizer members via the config files. Participants however can connect to
-  * multiple synchronizers and sequencers, and the configuration of these connections is more dynamic. The structures
-  * below are used to represent the dynamic configuration of how a participant connects to a sequencer.
+/** Our [[com.digitalasset.canton.config.ClientConfig]] provides the static configuration of API
+  * connections between console and nodes, and between synchronizer members via the config files.
+  * Participants however can connect to multiple synchronizers and sequencers, and the configuration
+  * of these connections is more dynamic. The structures below are used to represent the dynamic
+  * configuration of how a participant connects to a sequencer.
   */
 sealed trait SequencerConnection extends PrettyPrinting {
   def withAlias(alias: SequencerAlias): SequencerConnection

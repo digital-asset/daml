@@ -29,14 +29,13 @@ import com.google.common.annotations.VisibleForTesting
 import scala.concurrent.{ExecutionContext, blocking}
 import scala.util.{Failure, Success}
 
-/** Synchronizes the request processing of phases 3 and 7.
-  * At the end of phase 3, every request must signal that it has been confirmed via the handle
-  * returned by [[registerRequest]].
-  * At the beginning of phase 7, requests can wait on the completion of phase 3 via [[awaitConfirmed]].
+/** Synchronizes the request processing of phases 3 and 7. At the end of phase 3, every request must
+  * signal that it has been confirmed via the handle returned by [[registerRequest]]. At the
+  * beginning of phase 7, requests can wait on the completion of phase 3 via [[awaitConfirmed]].
   *
-  * Eventually, all requests should either return a None or the corresponding data
-  * if it is the first valid request.
-  * After this point the request is cleaned from memory, otherwise, the synchronizer becomes a memory leak.
+  * Eventually, all requests should either return a None or the corresponding data if it is the
+  * first valid request. After this point the request is cleaned from memory, otherwise, the
+  * synchronizer becomes a memory leak.
   */
 class Phase37Synchronizer(
     override val loggerFactory: NamedLoggerFactory,
@@ -46,25 +45,25 @@ class Phase37Synchronizer(
     with FlagCloseable
     with HasCloseContext {
 
-  /** Maps request timestamps to a promise and a future, which is used to chain each request's evaluation (i.e. filter).
-    * The future completes with either the pending request data, if it's the first valid call,
-    * or None otherwise.
+  /** Maps request timestamps to a promise and a future, which is used to chain each request's
+    * evaluation (i.e. filter). The future completes with either the pending request data, if it's
+    * the first valid call, or None otherwise.
     *
-    * The key is the underlying timestamp of the request id.
-    * A value of None encodes a request that has timed out.
+    * The key is the underlying timestamp of the request id. A value of None encodes a request that
+    * has timed out.
     */
   private[this] val pendingRequests = ConcurrentHMap.empty[HMapRequestRelation]
 
   /** Register a request in 'pendingRequests' and returns an handle that can be used to complete the
-    * underlying request promise with its corresponding data or None if it's a timeout. It initializes the
-    * future, to chain the evaluations, to handle.future.
+    * underlying request promise with its corresponding data or None if it's a timeout. It
+    * initializes the future, to chain the evaluations, to handle.future.
     *
-    * @param requestId The request id (timestamp) of the request to register.
-    * @return The promise handle.
+    * @param requestId
+    *   The request id (timestamp) of the request to register.
+    * @return
+    *   The promise handle.
     * @throws java.lang.IllegalArgumentException
-    * <ul>
-    * <li>If the request has already been registered</li>
-    * </ul>
+    *   <ul> <li>If the request has already been registered</li> </ul>
     */
   def registerRequest(requestType: RequestType)(
       requestId: RequestId
@@ -109,16 +108,17 @@ class Phase37Synchronizer(
     })
   }
 
-  /** The returned future completes with either the pending request data,
-    * if it's the first valid call after the request has been registered and not marked as timed-out,
-    * or None otherwise. Please note that for each request only the first
-    * awaitConfirmed, where filter == true, completes with the pending request data even if the
-    * filters are different.
+  /** The returned future completes with either the pending request data, if it's the first valid
+    * call after the request has been registered and not marked as timed-out, or None otherwise.
+    * Please note that for each request only the first awaitConfirmed, where filter == true,
+    * completes with the pending request data even if the filters are different.
     *
-    * @param requestId The request id (timestamp) of the request to synchronize.
-    * @param filter    A function that returns if a request is either valid or not (e.g. contains a valid signature).
-    *                  This filter can be different for each call of awaitConfirmed, but only the first valid filter
-    *                  will complete with the pending request data.
+    * @param requestId
+    *   The request id (timestamp) of the request to synchronize.
+    * @param filter
+    *   A function that returns if a request is either valid or not (e.g. contains a valid
+    *   signature). This filter can be different for each call of awaitConfirmed, but only the first
+    *   valid filter will complete with the pending request data.
     */
   @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
   def awaitConfirmed(requestType: RequestType)(
@@ -226,10 +226,11 @@ object Phase37Synchronizer {
 
   /** Contains a promise to fulfill with the request data and a future to use to chain evaluations.
     *
-    * @param pendingRequestDataFuture we use it to chain futures stemming from calls to awaitConfirmed.
-    *                                 This is first set by the first call to [[registerRequest]]
-    *                                 that will create a chain of futures based on the current handle's future.
-    *                                 Subsequently, future calls to awaitConfirmed will 'flatMap'/chain on this future.
+    * @param pendingRequestDataFuture
+    *   we use it to chain futures stemming from calls to awaitConfirmed. This is first set by the
+    *   first call to [[registerRequest]] that will create a chain of futures based on the current
+    *   handle's future. Subsequently, future calls to awaitConfirmed will 'flatMap'/chain on this
+    *   future.
     */
   private final case class RequestRelation[+T <: PendingRequestData](
       pendingRequestDataFuture: FutureUnlessShutdown[Option[ReplayDataOr[T]]]

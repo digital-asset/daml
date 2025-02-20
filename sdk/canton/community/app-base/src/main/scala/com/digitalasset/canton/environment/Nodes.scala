@@ -45,9 +45,9 @@ trait Nodes[+Node <: CantonNode, +NodeBootstrap <: CantonNodeBootstrap[Node]]
 
   /** Returns the startup group (nodes in the same group will start together)
     *
-    * Mediators automatically connect to a synchronizer. Participants
-    * require an external call to reconnectSynchronizers. Therefore, we can start participant and sequencer
-    * nodes together, but we have to wait for the sequencers to be up before we can kick off mediators.
+    * Mediators automatically connect to a synchronizer. Participants require an external call to
+    * reconnectSynchronizers. Therefore, we can start participant and sequencer nodes together, but
+    * we have to wait for the sequencers to be up before we can kick off mediators.
     */
   def startUpGroup: Int
 
@@ -69,8 +69,8 @@ trait Nodes[+Node <: CantonNode, +NodeBootstrap <: CantonNodeBootstrap[Node]]
   /** Get the single running node */
   def getRunning(name: InstanceName): Option[NodeBootstrap]
 
-  /** Get the node while it is still being started. This is mostly useful during testing to access the node in earlier
-    * stages of its initialization phase.
+  /** Get the node while it is still being started. This is mostly useful during testing to access
+    * the node in earlier stages of its initialization phase.
     */
   def getStarting(name: InstanceName): Option[NodeBootstrap]
 
@@ -89,7 +89,9 @@ trait Nodes[+Node <: CantonNode, +NodeBootstrap <: CantonNodeBootstrap[Node]]
   /** Independently run any pending database migrations for the named node */
   def migrateDatabase(name: InstanceName): Either[StartupError, Unit]
 
-  /** Independently repair the Flyway schema history table for the named node to reset Flyway migration checksums etc */
+  /** Independently repair the Flyway schema history table for the named node to reset Flyway
+    * migration checksums etc
+    */
   def repairDatabaseMigration(name: InstanceName): Either[StartupError, Unit]
 }
 

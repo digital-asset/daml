@@ -7,8 +7,8 @@ package com.digitalasset.canton.scheduler
   */
 trait Schedulers extends StartStoppable with AutoCloseable {
 
-  /** Accessor for individual scheduler by name
-    * Throws an IllegalStateException if a scheduler is looked up that does not exist
+  /** Accessor for individual scheduler by name Throws an IllegalStateException if a scheduler is
+    * looked up that does not exist
     */
   def get(name: String): Option[Scheduler]
 }

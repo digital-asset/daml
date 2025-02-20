@@ -80,11 +80,12 @@ import scala.util.{Failure, Success}
 import OutputModule.{DefaultRequestInspector, PreviousStoredBlock, RequestInspector, StartupState}
 import OutputModuleMetrics.emitRequestsOrderingStats
 
-/** A module responsible for calculating the [[time.BftTime]], querying the topology at epoch ends (if needed),
-  * and sending blocks to the sequencer runtime (via the block subscription).
-  * It leverages topology ticks that are needed for epochs that could change the topology to make sure we can then query
-  * the topology client at the end of an epoch. An epoch potentially changes a topology if sequencer-addressed
-  * submissions have been ordered during the epoch, or if the previous epoch had pending topology changes.
+/** A module responsible for calculating the [[time.BftTime]], querying the topology at epoch ends
+  * (if needed), and sending blocks to the sequencer runtime (via the block subscription). It
+  * leverages topology ticks that are needed for epochs that could change the topology to make sure
+  * we can then query the topology client at the end of an epoch. An epoch potentially changes a
+  * topology if sequencer-addressed submissions have been ordered during the epoch, or if the
+  * previous epoch had pending topology changes.
   */
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class OutputModule[E <: Env[E]](

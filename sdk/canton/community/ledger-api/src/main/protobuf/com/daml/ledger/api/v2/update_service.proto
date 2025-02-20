@@ -15,7 +15,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "UpdateServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2";
 
-// Allows clients to read updates (transactions and reassignments) from the ledger.
+// Allows clients to read updates (transactions, (un)assignments, topology events) from the ledger.
 //
 // ``GetUpdates`` and ``GetUpdateTrees`` provide a comprehensive stream of updates/changes
 // which happened on the virtual shared ledger. These streams are indexed with ledger
@@ -28,12 +28,15 @@ option java_package = "com.daml.ledger.api.v2";
 // synchronizer: updates which have greater offsets are happened after than updates with smaller
 // offsets for the same synchronizer. Across different synchronizers this is not guaranteed.
 service UpdateService {
-  // Read the ledger's filtered transaction stream and related reassignments for a set of parties.
-  // For transactions it lists only creates and archives, but no other events.
-  // Omits all events on transient contracts, i.e., contracts that were both created and archived in the same transaction.
+  // Read the ledger's filtered update stream for the specified contents and filters.
+  // It returns the event types in accordance with the stream contents selected. Also the selection criteria
+  // for individual events depends on the transaction shape chosen.
+  // - ACS delta: a requesting party must be a stakeholder of an event for it to be included.
+  // - ledger effects: a requesting party must be a witness of an en event for it to be included.
   rpc GetUpdates(GetUpdatesRequest) returns (stream GetUpdatesResponse);
 
-  // Read the ledger's complete transaction tree stream and related reassignments for a set of parties.
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+  // Read the ledger's complete transaction tree stream and related (un)assignments for a set of parties.
   // The stream will be filtered only by the parties as wildcard parties.
   // The template/interface filters describe the respective fields in the ``CreatedEvent`` results.
   rpc GetUpdateTrees(GetUpdatesRequest) returns (stream GetUpdateTreesResponse);
@@ -67,16 +70,29 @@ message GetUpdatesRequest {
   // If specified, the stream will terminate after this absolute offset (positive integer) is reached.
   optional int64 end_inclusive = 2;
 
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
   // Requesting parties with template filters.
   // Template filters must be empty for GetUpdateTrees requests.
-  // Required
+  // Optional for backwards compatibility, if defined update_format must be unset
   TransactionFilter filter = 3;
 
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
   // If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
   // In particular, setting the verbose flag to true triggers the ledger to include labels, record and variant type ids
   // for record fields.
-  // Optional
+  // Optional for backwards compatibility, if defined update_format must be unset
   bool verbose = 4;
+
+  // Must be unset for GetUpdateTrees request.
+  // Optional for backwards compatibility for GetUpdates request: defaults to an UpdateFormat where:
+  //
+  //   - include_transactions.event_format.filter = the same filter specified on the request
+  //   - include_transactions.event_format.verbose = the same flag specified on the request
+  //   - include_transactions.transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
+  //   - include_reassignments.filter = the same filter specified on the request
+  //   - include_reassignments.verbose = the same flag specified on the request
+  //   - include_topology_events.include_participant_authorization_events.parties = all the parties specified in filter
+  UpdateFormat update_format = 5;
 }
 
 message GetUpdatesResponse {
@@ -90,6 +106,7 @@ message GetUpdatesResponse {
   }
 }
 
+// TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
 message GetUpdateTreesResponse {
   // The update that matches the filter in the request.
   oneof update {

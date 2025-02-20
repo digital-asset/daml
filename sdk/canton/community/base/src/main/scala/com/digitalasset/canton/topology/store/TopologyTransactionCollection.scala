@@ -183,8 +183,8 @@ object StoredTopologyTransactions
 
 object TopologyTransactions {
 
-  /** Returns a list that only contains the latest serial per unique key without duplicates.
-    * The input transactions might be returned in a different order.
+  /** Returns a list that only contains the latest serial per unique key without duplicates. The
+    * input transactions might be returned in a different order.
     */
   def collectLatestByUniqueKey[
       T <: TopologyTransactionLike[TopologyChangeOp, TopologyMapping]

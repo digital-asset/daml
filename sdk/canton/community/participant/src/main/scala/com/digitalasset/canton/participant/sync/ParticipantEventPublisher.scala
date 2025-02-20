@@ -20,13 +20,17 @@ import org.slf4j.event.Level
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-/** Helper to publish participant events in a thread-safe way. For "regular" synchronizer related events
-  * thread safety is taken care of by the [[com.digitalasset.canton.participant.event.RecordOrderPublisher]].
+/** Helper to publish participant events in a thread-safe way. For "regular" synchronizer related
+  * events thread safety is taken care of by the
+  * [[com.digitalasset.canton.participant.event.RecordOrderPublisher]].
   *
-  * ParticipantEventPublisher also encapsulates the participant clock generating unique participant recordTime.
+  * ParticipantEventPublisher also encapsulates the participant clock generating unique participant
+  * recordTime.
   *
-  * @param participantClock     clock for the current time to stamp published events with
-  * @param loggerFactory        named logger factory
+  * @param participantClock
+  *   clock for the current time to stamp published events with
+  * @param loggerFactory
+  *   named logger factory
   */
 class ParticipantEventPublisher(
     ledgerApiIndexer: Eval[LedgerApiIndexer],
@@ -119,12 +123,13 @@ class ParticipantEventPublisher(
         FutureUnlessShutdown.failed(t)
     }
 
-  /** Events published this way will be delayed by ongoing repair-operations, meaning:
-    * the publication of this event will be postponed until the repair-operation is finished.
-    * Repair operations take precedence: after 10 times waiting for the ongoing
-    * repair to finish, a warning will be emitted for each subsequent retry.
+  /** Events published this way will be delayed by ongoing repair-operations, meaning: the
+    * publication of this event will be postponed until the repair-operation is finished. Repair
+    * operations take precedence: after 10 times waiting for the ongoing repair to finish, a warning
+    * will be emitted for each subsequent retry.
     *
-    * @return A Future which will be only successful if the event is successfully persisted by the indexer
+    * @return
+    *   A Future which will be only successful if the event is successfully persisted by the indexer
     */
   def publishEventsDelayableByRepairOperation(
       events: Seq[ParticipantUpdate]

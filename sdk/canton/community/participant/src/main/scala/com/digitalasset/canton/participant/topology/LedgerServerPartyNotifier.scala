@@ -37,8 +37,8 @@ import scala.concurrent.ExecutionContext
 
 /** Listens to changes of the topology stores and notifies the Ledger API server
   *
-  * We need to send `PartyAddedToParticipant` messages to Ledger API server for every
-  * successful addition with a known participant ID.
+  * We need to send `PartyAddedToParticipant` messages to Ledger API server for every successful
+  * addition with a known participant ID.
   */
 class LedgerServerPartyNotifier(
     participantId: ParticipantId,

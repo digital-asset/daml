@@ -5,9 +5,9 @@ package com.digitalasset.canton.util
 
 import cats.data.Chain
 
-/** Provides utility functions for the `cats` implementation of a `Chain`. This is a data-structure similar to a List,
-  * with constant time prepend and append. Note that the `Chain` has a performance hit when pattern matching as there is
-  * no constant-time uncons operation.
+/** Provides utility functions for the `cats` implementation of a `Chain`. This is a data-structure
+  * similar to a List, with constant time prepend and append. Note that the `Chain` has a
+  * performance hit when pattern matching as there is no constant-time uncons operation.
   *
   * Documentation on the `cats` `Chain`: https://typelevel.org/cats/datatypes/chain.html.
   */

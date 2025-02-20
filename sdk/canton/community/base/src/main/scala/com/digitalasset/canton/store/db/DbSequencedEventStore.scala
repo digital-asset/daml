@@ -41,9 +41,9 @@ class DbSequencedEventStore(
 
   override protected[this] def pruning_status_table: String = "common_sequenced_event_store_pruning"
 
-  /** Semaphore to prevent concurrent writes to the db.
-    * Concurrent calls can be problematic because they may introduce gaps in the stored sequencer counters.
-    * The methods [[ignoreEvents]] and [[unignoreEvents]] are not meant to be executed concurrently.
+  /** Semaphore to prevent concurrent writes to the db. Concurrent calls can be problematic because
+    * they may introduce gaps in the stored sequencer counters. The methods [[ignoreEvents]] and
+    * [[unignoreEvents]] are not meant to be executed concurrently.
     */
   private val semaphore: Semaphore = new Semaphore(1)
 

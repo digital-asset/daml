@@ -60,9 +60,8 @@ import scala.util.{Failure, Success}
 /** Authenticate the current user can perform an operation on behalf of the given member */
 private[synchronizer] trait AuthenticationCheck {
 
-  /** Can the authenticated member perform an action on behalf of the provided member.
-    * Return a left with a user presentable error message if not.
-    * Right if the operation can continue.
+  /** Can the authenticated member perform an action on behalf of the provided member. Return a left
+    * with a user presentable error message if not. Right if the operation can continue.
     */
   def authenticate(member: Member, authenticatedMember: Option[Member]): Either[String, Unit]
   def lookupCurrentMember(): Option[Member]
@@ -158,7 +157,8 @@ object GrpcSequencerService {
 
 /** Service providing a GRPC connection to the [[sequencer.Sequencer]] instance.
   *
-  * @param sequencer The underlying sequencer implementation
+  * @param sequencer
+  *   The underlying sequencer implementation
   */
 class GrpcSequencerService(
     sequencer: Sequencer,
@@ -539,8 +539,10 @@ class GrpcSequencerService(
 
   /** Ensure observer is a ServerCalLStreamObserver
     *
-    * @param observer underlying observer
-    * @param handler  handler requiring a ServerCallStreamObserver
+    * @param observer
+    *   underlying observer
+    * @param handler
+    *   handler requiring a ServerCallStreamObserver
     */
   private def withServerCallStreamObserver[R](
       observer: StreamObserver[R]
@@ -622,7 +624,8 @@ class GrpcSequencerService(
   override def onClosed(): Unit =
     subscriptionPool.close()
 
-  /** Return the currently known traffic state for a member. Callers must be authorized to request the traffic state.
+  /** Return the currently known traffic state for a member. Callers must be authorized to request
+    * the traffic state.
     */
   override def getTrafficStateForMember(
       request: v30.GetTrafficStateForMemberRequest

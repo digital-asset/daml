@@ -86,7 +86,8 @@ final case class IndexedSynchronizer private (synchronizerId: SynchronizerId, in
 
 object IndexedSynchronizer extends IndexedStringFromDb[IndexedSynchronizer, SynchronizerId] {
 
-  /** @throws java.lang.IllegalArgumentException if `index <= 0`.
+  /** @throws java.lang.IllegalArgumentException
+    *   if `index <= 0`.
     */
   @VisibleForTesting
   def tryCreate(synchronizerId: SynchronizerId, index: Int): IndexedSynchronizer =

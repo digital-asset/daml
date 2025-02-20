@@ -36,42 +36,47 @@ class RecipientsValidator[I](
 
   import RecipientsValidator.*
 
-  /** Checks the recipients of all inputs and discards inputs corresponding to views with invalid recipients.
-    * Also reports a security alert on invalid recipients.
+  /** Checks the recipients of all inputs and discards inputs corresponding to views with invalid
+    * recipients. Also reports a security alert on invalid recipients.
     *
-    * Effectively, the method tries to establish consensus on whether the recipients of an input are valid, and
-    * if consensus cannot be established, then the input is discarded.
-    * So an input may even be discarded, if its recipients are valid (but not every recipient knows about this).
+    * Effectively, the method tries to establish consensus on whether the recipients of an input are
+    * valid, and if consensus cannot be established, then the input is discarded. So an input may
+    * even be discarded, if its recipients are valid (but not every recipient knows about this).
     *
-    * A view v will be kept iff there is a path rp through the recipients tree (ordered leaf to root)
-    * such that the following conditions hold:
-    * 1. Every informee of the view is hosted by an active participant.
-    * 2. Every informee participant of the view v is declared as a recipient of v in the first element of rp.
-    * 3. For every descendant v2 of v and every informee participant p of v, the participant p is declared as recipient of v2.
-    *    Thereby, if v2 and v have distance d, then participant p needs to be declared at element d+1 in rp.
-    * 4. Every descendant of v also meets Conditions 1-3 with the same path rp.
+    * A view v will be kept iff there is a path rp through the recipients tree (ordered leaf to
+    * root) such that the following conditions hold:
+    *   1. Every informee of the view is hosted by an active participant.
+    *   1. Every informee participant of the view v is declared as a recipient of v in the first
+    *      element of rp.
+    *   1. For every descendant v2 of v and every informee participant p of v, the participant p is
+    *      declared as recipient of v2. Thereby, if v2 and v have distance d, then participant p
+    *      needs to be declared at element d+1 in rp.
+    *   1. Every descendant of v also meets Conditions 1-3 with the same path rp.
     *
-    * Why does this give us transparency?
-    * If an informee participant p1 keeps a view v, then:
-    * - Every informee of the view v is hosted by an active participant.
-    * - Every informee participant of v has received v.
-    * - Every informee participant of v has received every descendant of v.
-    * - Every informee participant of v can evaluate the above conditions 1-4 for v and will conclude that v should be kept.
+    * Why does this give us transparency? If an informee participant p1 keeps a view v, then:
+    *   - Every informee of the view v is hosted by an active participant.
+    *   - Every informee participant of v has received v.
+    *   - Every informee participant of v has received every descendant of v.
+    *   - Every informee participant of v can evaluate the above conditions 1-4 for v and will
+    *     conclude that v should be kept.
     *
-    * As for all other validations, the recipients validation is performed using the topology effective at the sequencing time
-    * of the request. The submitter, however, creates the request using the latest topology available locally. Therefore, it is
-    * possible that a change in topology between submission and sequencing time results in errors detected by the
-    * recipients validator: for example, a party can be newly or no longer hosted on a participant, thereby affecting
-    * the recipients.
-    * These situations are quite common on a busy network with concurrent changes, and logging them at a high severity
-    * is overkill and possibly confusing. Therefore, if the errors detected can possibly be attributed to a change in the
-    * topology, we perform the check again using the topology at submission time. If no error occurs then, the original
-    * errors are logged at a lower severity.
-    * Note that the *outcome* of the validation is itself not affected: in other words, the request will still be rejected.
-    * The only change is the severity of the logs.
+    * As for all other validations, the recipients validation is performed using the topology
+    * effective at the sequencing time of the request. The submitter, however, creates the request
+    * using the latest topology available locally. Therefore, it is possible that a change in
+    * topology between submission and sequencing time results in errors detected by the recipients
+    * validator: for example, a party can be newly or no longer hosted on a participant, thereby
+    * affecting the recipients. These situations are quite common on a busy network with concurrent
+    * changes, and logging them at a high severity is overkill and possibly confusing. Therefore, if
+    * the errors detected can possibly be attributed to a change in the topology, we perform the
+    * check again using the topology at submission time. If no error occurs then, the original
+    * errors are logged at a lower severity. Note that the *outcome* of the validation is itself not
+    * affected: in other words, the request will still be rejected. The only change is the severity
+    * of the logs.
     *
-    * @return errors for the incorrect recipients and inputs with valid recipients
-    * @throws java.lang.IllegalArgumentException if the views corresponding to inputs have different root hashes
+    * @return
+    *   errors for the incorrect recipients and inputs with valid recipients
+    * @throws java.lang.IllegalArgumentException
+    *   if the views corresponding to inputs have different root hashes
     */
   def retainInputsWithValidRecipients(
       requestId: RequestId,
@@ -236,8 +241,9 @@ class RecipientsValidator[I](
     }
   }
 
-  /** Yields the informeeParticipants of views, grouped by view position and party.
-    * Filters out (with a security alert) any view that has an informee that is not hosted by an active participant.
+  /** Yields the informeeParticipants of views, grouped by view position and party. Filters out
+    * (with a security alert) any view that has an informee that is not hosted by an active
+    * participant.
     */
   private def computeInformeeParticipantsOfPositionAndParty(
       inputs: Seq[I],
@@ -283,17 +289,22 @@ class RecipientsValidator[I](
     }
   }
 
-  /** Yields the closest (i.e. bottom-most) ancestor of a view (if any)
-    * that needs to be discarded due to incorrect recipients in `recipients`.
-    * Also reports a security alert on any detected violation of transparency or privacy.
+  /** Yields the closest (i.e. bottom-most) ancestor of a view (if any) that needs to be discarded
+    * due to incorrect recipients in `recipients`. Also reports a security alert on any detected
+    * violation of transparency or privacy.
     *
-    * A view needs to be discarded if and only if it needs to be discarded due to incorrect recipients on all paths in `recipients`.
-    * Conversely, if a view has correct recipients on a single path in `recipients`, it should be kept.
+    * A view needs to be discarded if and only if it needs to be discarded due to incorrect
+    * recipients on all paths in `recipients`. Conversely, if a view has correct recipients on a
+    * single path in `recipients`, it should be kept.
     *
-    * @param context precomputed information
-    * @param mainViewPosition the method will validate this view position as well as all ancestor positions
-    * @param recipients the declared recipients for the view at mainViewPosition
-    * @return the position of the view to be discarded (if any)
+    * @param context
+    *   precomputed information
+    * @param mainViewPosition
+    *   the method will validate this view position as well as all ancestor positions
+    * @param recipients
+    *   the declared recipients for the view at mainViewPosition
+    * @return
+    *   the position of the view to be discarded (if any)
     */
   private def checkRecipientsTree(
       context: Context,
@@ -326,16 +337,22 @@ class RecipientsValidator[I](
     res
   }
 
-  /** Yields the closest (i.e. bottom-most) ancestor of a view (if any)
-    * that needs to be discarded due to incorrect recipients in `recipientsPathViewToRoot`.
-    * Also reports a security alert on any detected violation of privacy.
+  /** Yields the closest (i.e. bottom-most) ancestor of a view (if any) that needs to be discarded
+    * due to incorrect recipients in `recipientsPathViewToRoot`. Also reports a security alert on
+    * any detected violation of privacy.
     *
-    * @param context precomputed information
-    * @param mainRecipients used for error messages only
-    * @param mainViewPosition the method will validate this view position as well as all ancestor positions
-    * @param recipientsPathViewToRoot the declared recipients of the view at `mainViewPosition` ordered view to root;
-    *                                 so the order is the same as in the elements of `mainViewPosition`.
-    * @return the position of the view to be discarded (if any) together with the corresponding reason (as security alert)
+    * @param context
+    *   precomputed information
+    * @param mainRecipients
+    *   used for error messages only
+    * @param mainViewPosition
+    *   the method will validate this view position as well as all ancestor positions
+    * @param recipientsPathViewToRoot
+    *   the declared recipients of the view at `mainViewPosition` ordered view to root; so the order
+    *   is the same as in the elements of `mainViewPosition`.
+    * @return
+    *   the position of the view to be discarded (if any) together with the corresponding reason (as
+    *   security alert)
     */
   private def checkRecipientsPath(
       context: Context,

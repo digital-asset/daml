@@ -128,9 +128,10 @@ class PekkoStreamParallelBatchedLoader[KEY, VALUE](
 
 /** Efficient cross-request batching contract loader
   *
-  * Note that both loaders operate on an identifier -> offset basis. The given offset of a request serves as a lower
-  * bound for the states. The states can be newer, but not older. We still need to have an upper bound of the
-  * requests as we don't want to read dirty states (due to parallel insertion).
+  * Note that both loaders operate on an identifier -> offset basis. The given offset of a request
+  * serves as a lower bound for the states. The states can be newer, but not older. We still need to
+  * have an upper bound of the requests as we don't want to read dirty states (due to parallel
+  * insertion).
   */
 trait ContractLoader {
   def contracts: Loader[(ContractId, Offset), RawContractState]

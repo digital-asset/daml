@@ -26,16 +26,22 @@ import slick.sql.SqlAction
 
 import scala.concurrent.ExecutionContext
 
-/** Represents the data to be stored in the crypto_private_keys table.
-  * If wrapperKeyId is set (Some(wrapperKeyId)) then the data field is encrypted
-  * otherwise (None), then the data field is in plaintext.
-  * @param id canton identifier for a private key
-  * @param data a ByteString that stores either: (1) the serialized private key case class, which contains the private
-  *             key plus metadata, or (2) the above proto serialization but encrypted with the wrapper key if present.
-  * @param purpose to identify if the key is for signing or encryption
-  * @param name an alias name for the private key
-  * @param wrapperKeyId identifies what is the key being used to encrypt the data field. If empty, data is
-  *                     unencrypted.
+/** Represents the data to be stored in the crypto_private_keys table. If wrapperKeyId is set
+  * (Some(wrapperKeyId)) then the data field is encrypted otherwise (None), then the data field is
+  * in plaintext.
+  * @param id
+  *   canton identifier for a private key
+  * @param data
+  *   a ByteString that stores either: (1) the serialized private key case class, which contains the
+  *   private key plus metadata, or (2) the above proto serialization but encrypted with the wrapper
+  *   key if present.
+  * @param purpose
+  *   to identify if the key is for signing or encryption
+  * @param name
+  *   an alias name for the private key
+  * @param wrapperKeyId
+  *   identifies what is the key being used to encrypt the data field. If empty, data is
+  *   unencrypted.
   */
 final case class StoredPrivateKey(
     id: Fingerprint,

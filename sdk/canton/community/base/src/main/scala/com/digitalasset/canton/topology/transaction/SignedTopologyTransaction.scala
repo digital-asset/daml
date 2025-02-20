@@ -33,8 +33,9 @@ import scala.reflect.ClassTag
 
 /** A signed topology transaction
   *
-  * Every topology transaction needs to be authorized by an appropriate key. This object represents such
-  * an authorization, where there is a signature of a given key of the given topology transaction.
+  * Every topology transaction needs to be authorized by an appropriate key. This object represents
+  * such an authorization, where there is a signature of a given key of the given topology
+  * transaction.
   *
   * Whether the key is eligible to authorize the topology transaction depends on the topology state
   */
@@ -334,8 +335,8 @@ object SignedTopologyTransactions
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield SignedTopologyTransactions(transactions)(rpv)
 
-  /** Merges the signatures of transactions with the same transaction hash,
-    * while maintaining the order of the first occurrence of each hash.
+  /** Merges the signatures of transactions with the same transaction hash, while maintaining the
+    * order of the first occurrence of each hash.
     *
     * For example:
     * {{{

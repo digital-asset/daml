@@ -8,11 +8,12 @@ import com.digitalasset.canton.topology.SequencerId
 
 import EpochState.Segment
 
-/** Tells whether the ordering node's local segment should sequence _some_ block, even if that block is empty,
-  * because it is potentially blocking progress within the epoch (including across other nodes' segments)
-  * or when it comes to BFT time.
+/** Tells whether the ordering node's local segment should sequence _some_ block, even if that block
+  * is empty, because it is potentially blocking progress within the epoch (including across other
+  * nodes' segments) or when it comes to BFT time.
   *
-  * Created once per epoch; the state is transient to detect lack of progress and doesn't need to be preserved across crashes.
+  * Created once per epoch; the state is transient to detect lack of progress and doesn't need to be
+  * preserved across crashes.
   */
 class BlockedProgressDetector(
     epochStartBlockNumber: BlockNumber,

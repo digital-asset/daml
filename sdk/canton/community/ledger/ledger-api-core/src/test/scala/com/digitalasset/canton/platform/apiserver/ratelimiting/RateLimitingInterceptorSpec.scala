@@ -423,9 +423,9 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
     } yield channel
   }
 
-  /** By default [[HelloServiceReferenceImplementation]] will return all elements and complete the stream on
-    * the server side on every request.  For stream based rate limiting we want to explicitly hold open
-    * the stream such that we know for sure how many streams are open.
+  /** By default [[HelloServiceReferenceImplementation]] will return all elements and complete the
+    * stream on the server side on every request. For stream based rate limiting we want to
+    * explicitly hold open the stream such that we know for sure how many streams are open.
     */
   class WaitService(implicit ec: ExecutionContext) extends HelloServiceReferenceImplementation {
 

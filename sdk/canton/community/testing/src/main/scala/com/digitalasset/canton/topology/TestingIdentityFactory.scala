@@ -56,49 +56,52 @@ import TestingTopology.*
 
 /** Utility functions to setup identity & crypto apis for testing purposes
   *
-  * You are trying to figure out how to setup identity topologies and crypto apis to drive your unit tests?
-  * Then YOU FOUND IT! The present file contains everything that you should need.
+  * You are trying to figure out how to setup identity topologies and crypto apis to drive your unit
+  * tests? Then YOU FOUND IT! The present file contains everything that you should need.
   *
-  * First, let's re-call that we are abstracting the identity and crypto aspects from the transaction protocol.
+  * First, let's re-call that we are abstracting the identity and crypto aspects from the
+  * transaction protocol.
   *
-  * Therefore, all the key crypto operations hide behind the so-called crypto-api which splits into the
-  * pure part [[CryptoPureApi]] and the more complicated part, the [[SyncCryptoApi]] such that from the transaction
-  * protocol perspective, we can conveniently use methods like [[SyncCryptoApi.sign]] or [[SyncCryptoApi.encryptFor]]
+  * Therefore, all the key crypto operations hide behind the so-called crypto-api which splits into
+  * the pure part [[CryptoPureApi]] and the more complicated part, the [[SyncCryptoApi]] such that
+  * from the transaction protocol perspective, we can conveniently use methods like
+  * [[SyncCryptoApi.sign]] or [[SyncCryptoApi.encryptFor]]
   *
-  * The abstraction creates the following hierarchy of classes to resolve the state for a given [[Member]]
-  * on a per (synchronizerId, timestamp)
+  * The abstraction creates the following hierarchy of classes to resolve the state for a given
+  * [[Member]] on a per (synchronizerId, timestamp)
   *
-  * SyncCryptoApiProvider - root object that makes the synchronisation topology state known to a node accessible
-  *   .forSynchronizer          - method to get the specific view on a per synchronizer basis
-  * = SynchronizerSyncCryptoApi
-  *   .snapshot(timestamp) | recentState - method to get the view for a specific time
-  * = SynchronizerSnapshotSyncCryptoApi (extends SyncCryptoApi)
+  * SyncCryptoApiProvider - root object that makes the synchronisation topology state known to a
+  * node accessible .forSynchronizer - method to get the specific view on a per synchronizer basis
+  * \= SynchronizerSyncCryptoApi .snapshot(timestamp) | recentState - method to get the view for a
+  * specific time \= SynchronizerSnapshotSyncCryptoApi (extends SyncCryptoApi)
   *
-  * All these object carry the necessary objects ([[CryptoPureApi]], [[TopologySnapshot]], [[KeyVaultApi]])
-  * as arguments with them.
+  * All these object carry the necessary objects ([[CryptoPureApi]], [[TopologySnapshot]],
+  * [[KeyVaultApi]]) as arguments with them.
   *
-  * Now, in order to conveniently create a static topology for testing, we provide a
-  * <ul>
-  *   <li>[[TestingTopology]] which allows us to define a certain static topology</li>
-  *   <li>[[TestingIdentityFactory]] which consumes a static topology and delivers all necessary components and
-  *       objects that a unit test might need.</li>
-  *   <li>[[DefaultTestIdentities]] which provides a predefined set of identities that can be used for unit tests.</li>
-  * </ul>
+  * Now, in order to conveniently create a static topology for testing, we provide a <ul>
+  * <li>[[TestingTopology]] which allows us to define a certain static topology</li>
+  * <li>[[TestingIdentityFactory]] which consumes a static topology and delivers all necessary
+  * components and objects that a unit test might need.</li> <li>[[DefaultTestIdentities]] which
+  * provides a predefined set of identities that can be used for unit tests.</li> </ul>
   *
-  * Common usage patterns are:
-  * <ul>
-  *   <li>Get a [[SynchronizerCryptoClient]] with an empty topology: `TestingIdentityFactory().forOwnerAndSynchronizer(participant1)`</li>
-  *   <li>To get a [[SynchronizerSnapshotSyncCryptoApi]]: same as above, just add `.recentState`.</li>
-  *   <li>Define a specific topology and get the [[SyncCryptoApiProvider]]: `TestingTopology().withTopology(Map(party1 -> participant1)).build()`.</li>
-  * </ul>
+  * Common usage patterns are: <ul> <li>Get a [[SynchronizerCryptoClient]] with an empty topology:
+  * `TestingIdentityFactory().forOwnerAndSynchronizer(participant1)`</li> <li>To get a
+  * [[SynchronizerSnapshotSyncCryptoApi]]: same as above, just add `.recentState`.</li> <li>Define a
+  * specific topology and get the [[SyncCryptoApiProvider]]:
+  * `TestingTopology().withTopology(Map(party1 -> participant1)).build()`.</li> </ul>
   *
-  * @param synchronizers Set of synchronizers for which the topology is valid
-  * @param topology Static association of parties to participants in the most complete way it can be defined in this testing class.
-  * @param participants participants for which keys should be added.
-  *                     A participant mentioned in `topology` will be included automatically in the topology state,
-  *                     so such a participant does not need to be declared again.
-  *                     If a participant occurs both in `topology` and `participants`, the attributes of `participants` have higher precedence.
-  * @param keyPurposes The purposes of the keys that will be generated.
+  * @param synchronizers
+  *   Set of synchronizers for which the topology is valid
+  * @param topology
+  *   Static association of parties to participants in the most complete way it can be defined in
+  *   this testing class.
+  * @param participants
+  *   participants for which keys should be added. A participant mentioned in `topology` will be
+  *   included automatically in the topology state, so such a participant does not need to be
+  *   declared again. If a participant occurs both in `topology` and `participants`, the attributes
+  *   of `participants` have higher precedence.
+  * @param keyPurposes
+  *   The purposes of the keys that will be generated.
   */
 final case class TestingTopology(
     synchronizers: Set[SynchronizerId] = defaultSynchronizers,

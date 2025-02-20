@@ -48,8 +48,8 @@ import org.apache.pekko.stream.scaladsl.Flow
 import java.io.InputStream
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
-/** Manages our admin workflow applications (ping, party management).
-  * Currently, each is an individual application with their own ledger connection and acting independently.
+/** Manages our admin workflow applications (ping, party management). Currently, each is an
+  * individual application with their own ledger connection and acting independently.
   */
 class AdminWorkflowServices(
     config: LocalParticipantConfig,
@@ -182,9 +182,10 @@ class AdminWorkflowServices(
           Left(new IllegalStateException(CantonError.stringFromContext(err)))
       }
 
-  /** Parses dar and checks if all contained packages are already loaded and recorded in the indexer. If not,
-    * loads the dar.
-    * @throws java.lang.IllegalStateException if the daml archive cannot be found on the classpath
+  /** Parses dar and checks if all contained packages are already loaded and recorded in the
+    * indexer. If not, loads the dar.
+    * @throws java.lang.IllegalStateException
+    *   if the daml archive cannot be found on the classpath
     */
   private def loadDamlArchiveUnlessRegistered()(implicit traceContext: TraceContext): Unit =
     withResource(createLedgerClient("admin-checkStatus")) { conn =>
@@ -223,11 +224,13 @@ class AdminWorkflowServices(
       }
     }
 
-  /** For the admin workflows to run inside the participant we require their daml packages to be loaded.
-    * This assumes that the daml archive has been included on the classpath and is loaded
-    * or can be loaded as a resource.
-    * @return Future that contains an IllegalStateException or a Unit
-    * @throws RuntimeException if the daml archive cannot be found on the classpath
+  /** For the admin workflows to run inside the participant we require their daml packages to be
+    * loaded. This assumes that the daml archive has been included on the classpath and is loaded or
+    * can be loaded as a resource.
+    * @return
+    *   Future that contains an IllegalStateException or a Unit
+    * @throws RuntimeException
+    *   if the daml archive cannot be found on the classpath
     */
   private def loadDamlArchiveResource(darName: String)(implicit
       traceContext: TraceContext

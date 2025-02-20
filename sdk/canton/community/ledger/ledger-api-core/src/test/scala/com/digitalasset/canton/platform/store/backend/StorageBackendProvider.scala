@@ -21,8 +21,8 @@ import org.scalatest.Suite
 
 import java.sql.Connection
 
-/** Creates a database and a [[TestBackend]].
-  * Used by [[StorageBackendSpec]] to run all StorageBackend tests on different databases.
+/** Creates a database and a [[TestBackend]]. Used by [[StorageBackendSpec]] to run all
+  * StorageBackend tests on different databases.
   */
 trait StorageBackendProvider {
   protected def jdbcUrl: String

@@ -32,7 +32,8 @@ class TransactionConfirmationResponsesFactory(
 
   import com.digitalasset.canton.util.ShowUtil.*
 
-  /** Takes a `transactionValidationResult` and computes the [[protocol.messages.ConfirmationResponses]], to be sent to the mediator.
+  /** Takes a `transactionValidationResult` and computes the
+    * [[protocol.messages.ConfirmationResponses]], to be sent to the mediator.
     */
   def createConfirmationResponses(
       requestId: RequestId,

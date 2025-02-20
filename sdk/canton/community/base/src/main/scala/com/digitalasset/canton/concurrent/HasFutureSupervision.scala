@@ -10,7 +10,9 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Mixin-trait for classes that want to run some futures with supervision using a [[FutureSupervisor]] strategy */
+/** Mixin-trait for classes that want to run some futures with supervision using a
+  * [[FutureSupervisor]] strategy
+  */
 trait HasFutureSupervision { this: NamedLogging =>
 
   protected def futureSupervisor: FutureSupervisor

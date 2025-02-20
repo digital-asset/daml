@@ -42,11 +42,11 @@ class ApplicationHandlerPekko[F[+_], Context](
     extends NamedLogging {
   import ApplicationHandlerPekko.*
 
-  /** Calls the `handler` sequentially for each sequenced event,
-    * and stops if synchronous processing throws an exception.
-    * `Control` elements are passed through.
+  /** Calls the `handler` sequentially for each sequenced event, and stops if synchronous processing
+    * throws an exception. `Control` elements are passed through.
     *
-    * @param asyncParallelism How many asynchronous processing steps are run concurrently.
+    * @param asyncParallelism
+    *   How many asynchronous processing steps are run concurrently.
     */
   def asFlow(
       asyncParallelism: PositiveInt

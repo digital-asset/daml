@@ -21,12 +21,17 @@ class DomainStringIterators(
 
 trait InternizingStringInterningView {
 
-  /** Internize strings of different domains. The new entries are returend as prefixed entries for persistent storage.
+  /** Internize strings of different domains. The new entries are returend as prefixed entries for
+    * persistent storage.
     *
-    * @param domainStringIterators iterators of the new entires
-    * @return If some of the entries were not part of the view: they will be added, and these will be returned as a interned-id and raw, prefixed string pairs.
+    * @param domainStringIterators
+    *   iterators of the new entires
+    * @return
+    *   If some of the entries were not part of the view: they will be added, and these will be
+    *   returned as a interned-id and raw, prefixed string pairs.
     *
-    * @note This method is thread-safe.
+    * @note
+    *   This method is thread-safe.
     */
   def internize(domainStringIterators: DomainStringIterators): Iterable[(Int, String)]
 }
@@ -35,14 +40,21 @@ trait UpdatingStringInterningView {
 
   /** Update the StringInterningView from persistence
     *
-    * @param lastStringInterningId this is the "version" of the persistent view, which from the StringInterningView can see if it is behind
-    * @return a completion Future:
+    * @param lastStringInterningId
+    *   this is the "version" of the persistent view, which from the StringInterningView can see if
+    *   it is behind
+    * @return
+    *   a completion Future:
     *
-    * * if the view is behind, it will load the missing entries from persistence, and update the view state.
+    * * if the view is behind, it will load the missing entries from persistence, and update the
+    * view state.
     *
-    * * if the view is ahead, it will remove all entries with ids greater than the `lastStringInterningId`
+    * * if the view is ahead, it will remove all entries with ids greater than the
+    * `lastStringInterningId`
     *
-    * @note This method is NOT thread-safe and should not be called concurrently with itself or [[InternizingStringInterningView.internize]].
+    * @note
+    *   This method is NOT thread-safe and should not be called concurrently with itself or
+    *   [[InternizingStringInterningView.internize]].
     */
   def update(lastStringInterningId: Option[Int])(
       loadPrefixedEntries: LoadStringInterningEntries
@@ -60,8 +72,10 @@ trait LoadStringInterningEntries {
 
 /** This uses the prefixed raw representation internally similar to the persistence layer.
   * Concurrent view usage is optimized for reading:
-  * - The single, volatile reference enables non-synchronized access from all threads, accessing persistent-immutable datastructure
-  * - On the writing side it synchronizes (this usage is anyway expected) and maintains the immutable internal datastructure
+  *   - The single, volatile reference enables non-synchronized access from all threads, accessing
+  *     persistent-immutable datastructure
+  *   - On the writing side it synchronizes (this usage is anyway expected) and maintains the
+  *     immutable internal datastructure
   */
 class StringInterningView(override protected val loggerFactory: NamedLoggerFactory)
     extends StringInterning

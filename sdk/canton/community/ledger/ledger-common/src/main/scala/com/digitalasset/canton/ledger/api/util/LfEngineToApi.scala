@@ -19,10 +19,12 @@ import java.time.Instant
   * All conversion functions are pure and total.
   *
   * Most conversion functions have a verbose flag:
-  * - If verbose mode is disabled, then all resulting Api values have missing type identifiers and record field names.
-  * - If verbose mode is enabled, then type identifiers and record field names are copied from the input Daml-LF values.
-  *   The caller is responsible for filling in missing type information using [[com.digitalasset.daml.lf.engine.ValueEnricher]],
-  *   which may involve loading Daml-LF packages.
+  *   - If verbose mode is disabled, then all resulting Api values have missing type identifiers and
+  *     record field names.
+  *   - If verbose mode is enabled, then type identifiers and record field names are copied from the
+  *     input Daml-LF values. The caller is responsible for filling in missing type information
+  *     using [[com.digitalasset.daml.lf.engine.ValueEnricher]], which may involve loading Daml-LF
+  *     packages.
   */
 object LfEngineToApi {
 

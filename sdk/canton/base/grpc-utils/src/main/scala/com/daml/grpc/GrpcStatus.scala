@@ -32,8 +32,9 @@ object GrpcStatus {
       .build()
   }
 
-  /** As [[io.grpc.Status]] and [[com.google.rpc.status.Status]] aren't isomorphic i.e. the former one
-    * doesn't contain details, this function takes an additional `metadata` argument to restore them.
+  /** As [[io.grpc.Status]] and [[com.google.rpc.status.Status]] aren't isomorphic i.e. the former
+    * one doesn't contain details, this function takes an additional `metadata` argument to restore
+    * them.
     */
   def toProto(status: Status, metadata: Metadata): StatusProto = {
     val code = status.getCode.value

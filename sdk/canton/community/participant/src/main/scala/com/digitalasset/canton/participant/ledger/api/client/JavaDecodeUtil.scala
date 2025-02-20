@@ -26,8 +26,8 @@ import scala.jdk.CollectionConverters.*
 /** Java event decoders
   *
   * If you use scalapb GRPC bindings, then you need to map the events to Java Proto using:
-  *   JavaCreatedEvent.fromProto(ScalaCreatedEvent.toJavaProto(scalaProtoEvent))
-  *   javaapi.data.Transaction.fromProto(Transaction.toJavaProto(scalaTx))
+  * JavaCreatedEvent.fromProto(ScalaCreatedEvent.toJavaProto(scalaProtoEvent))
+  * javaapi.data.Transaction.fromProto(Transaction.toJavaProto(scalaTx))
   */
 object JavaDecodeUtil {
 

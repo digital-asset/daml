@@ -10,21 +10,19 @@ import java.util.UUID
 
 object Logging {
 
-  /**  The [[InstanceUUID]] is just a tag for [[com.daml.logging.LoggingContextOf]]
-    *  to signal, that we request to include an UUID/ID
-    *  so we can correlate related logs within a specific application run.
-    *  A preferred instance of a [[com.daml.logging.LoggingContextOf]] containing a correlation id
-    *  can be created via [[instanceUUIDLogCtx]].
-    *  TL:DR, Tag to request an Unique ID for an application run within logs.
+  /** The [[InstanceUUID]] is just a tag for [[com.daml.logging.LoggingContextOf]] to signal, that
+    * we request to include an UUID/ID so we can correlate related logs within a specific
+    * application run. A preferred instance of a [[com.daml.logging.LoggingContextOf]] containing a
+    * correlation id can be created via [[instanceUUIDLogCtx]]. TL:DR, Tag to request an Unique ID
+    * for an application run within logs.
     */
   sealed abstract class InstanceUUID
 
-  /**   The [[RequestID]] is just a tag for [[com.daml.logging.LoggingContextOf]]
-    *   to signal, that we request to include an UUID/ID
-    *   so we can correlate logs of a specific http request (for now).
-    *   A preferred [[com.daml.logging.LoggingContextOf]] can be created via [[extendWithRequestIdLogCtx]]
-    *   which is based on a prior call to [[instanceUUIDLogCtx]].
-    *   TL:DR, Tag to request an Unique ID for a http request within logs.
+  /** The [[RequestID]] is just a tag for [[com.daml.logging.LoggingContextOf]] to signal, that we
+    * request to include an UUID/ID so we can correlate logs of a specific http request (for now). A
+    * preferred [[com.daml.logging.LoggingContextOf]] can be created via
+    * [[extendWithRequestIdLogCtx]] which is based on a prior call to [[instanceUUIDLogCtx]]. TL:DR,
+    * Tag to request an Unique ID for a http request within logs.
     */
   sealed abstract class RequestID
 

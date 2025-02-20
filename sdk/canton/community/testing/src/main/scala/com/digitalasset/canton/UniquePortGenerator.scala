@@ -15,8 +15,8 @@ import scala.concurrent.blocking
 import scala.util.{Failure, Success, Try}
 
 /** Generates host-wide unique ports for canton tests that we guarantee won't be used in our tests.
-  * Syncs with other processes' UniquePortGenerators via a file + exclusive file lock.
-  * Doesn't check that the port hasn't been bound by other processes on the host.
+  * Syncs with other processes' UniquePortGenerators via a file + exclusive file lock. Doesn't check
+  * that the port hasn't been bound by other processes on the host.
   */
 object UniquePortGenerator {
   val PortRangeStart: Int = 30000

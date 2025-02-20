@@ -76,31 +76,29 @@ final class CachingSynchronizerTopologyClient(
   )(logger, "maxTimestampCache")
 
   /** An entry with a given `timestamp` refers to the topology snapshot at the same `timestamp`.
-    *  This is the snapshot that covers all committed topology transactions with `validFrom < timestamp` and
-    *  `validUntil.forall(timestamp <= _)`, following the topology snapshot and effective time semantics.
+    * This is the snapshot that covers all committed topology transactions with `validFrom <
+    * timestamp` and `validUntil.forall(timestamp <= _)`, following the topology snapshot and
+    * effective time semantics.
     */
   protected class SnapshotEntry(val timestamp: CantonTimestamp) {
     def get(): CachingTopologySnapshot = pointwise.get(timestamp)
   }
 
-  /** List of snapshot timestamps for which snapshots are cached.
-    * Invariants:
-    * - Entries are sorted descending by timestamp.
-    * - For every entry, a snapshot at `entry.timestamp` must be available.
-    * - If it contains entries with timestamps `ts1` and `ts3`,
-    *   if there is a valid topology transaction at timestamp `ts2`,
-    *   if `ts1 < ts2 < ts3`,
-    *   then there must be an entry with `ts2` as well.
+  /** List of snapshot timestamps for which snapshots are cached. Invariants:
+    *   - Entries are sorted descending by timestamp.
+    *   - For every entry, a snapshot at `entry.timestamp` must be available.
+    *   - If it contains entries with timestamps `ts1` and `ts3`, if there is a valid topology
+    *     transaction at timestamp `ts2`, if `ts1 < ts2 < ts3`, then there must be an entry with
+    *     `ts2` as well.
     */
   protected val snapshots = new AtomicReference[List[SnapshotEntry]](List.empty)
 
-  /** Cache of snapshots.
-    * We want to avoid loading redundant data from the database.
-    * Now, we know that if there was no topology transaction between tx and ty, then snapshot(ty) == snapshot(tx).
-    * Therefore, we remember the list of timestamps when updates happened (in `snapshots`) and
-    * use that list in order to figure out which snapshot we can use instead of loading the same data again and again.
-    * So we use `snapshots` to figure out the update timestamp and then we use the `pointwise` cache
-    * to load the corresponding snapshot.
+  /** Cache of snapshots. We want to avoid loading redundant data from the database. Now, we know
+    * that if there was no topology transaction between tx and ty, then snapshot(ty) ==
+    * snapshot(tx). Therefore, we remember the list of timestamps when updates happened (in
+    * `snapshots`) and use that list in order to figure out which snapshot we can use instead of
+    * loading the same data again and again. So we use `snapshots` to figure out the update
+    * timestamp and then we use the `pointwise` cache to load the corresponding snapshot.
     */
   private val pointwise = cachingConfigs.topologySnapshot
     .buildScaffeine()
@@ -274,7 +272,8 @@ object CachingSynchronizerTopologyClient {
   }
 }
 
-/** A simple wrapper class in order to "override" the timestamp we are returning here when caching. */
+/** A simple wrapper class in order to "override" the timestamp we are returning here when caching.
+  */
 private class ForwardingTopologySnapshotClient(
     override val timestamp: CantonTimestamp,
     parent: TopologySnapshotLoader,
@@ -613,8 +612,8 @@ class CachingTopologySnapshot(
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
     parent.memberFirstKnownAt(member)
 
-  /** Returns the value if it is present in the cache. Otherwise, use the
-    * `getter` to fetch it and cache the result.
+  /** Returns the value if it is present in the cache. Otherwise, use the `getter` to fetch it and
+    * cache the result.
     */
   private def getAndCache[T](
       cache: AtomicReference[Option[FutureUnlessShutdown[T]]],

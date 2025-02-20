@@ -21,11 +21,14 @@ object CreateSubscriptionError {
   /** The member has been disabled and can no longer read. */
   final case class MemberDisabled(member: Member) extends CreateSubscriptionError
 
-  /** The provided sequencer counter cannot be used for a subscription (currently will only occur if counter <0) */
+  /** The provided sequencer counter cannot be used for a subscription (currently will only occur if
+    * counter <0)
+    */
   final case class InvalidCounter(counter: SequencerCounter) extends CreateSubscriptionError
 
-  /** Returned if the counter is valid but this sequencer instance does not hold sufficient data to fulfill the request
-    * from this point. Potentially because this data has been pruned or the sequencer was initialized at a later point.
+  /** Returned if the counter is valid but this sequencer instance does not hold sufficient data to
+    * fulfill the request from this point. Potentially because this data has been pruned or the
+    * sequencer was initialized at a later point.
     */
   final case class EventsUnavailable(counter: SequencerCounter, message: String)
       extends CreateSubscriptionError

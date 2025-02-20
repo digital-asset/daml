@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-package com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1;
+package com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30;
 
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "google/protobuf/empty.proto";
@@ -76,6 +76,7 @@ message StoreRequest {
 }
 
 message Batch {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   repeated OrderingRequest ordering_requests = 1;
 }
 

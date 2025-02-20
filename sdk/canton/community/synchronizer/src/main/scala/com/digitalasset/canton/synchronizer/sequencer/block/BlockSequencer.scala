@@ -430,9 +430,9 @@ class BlockSequencer(
   private def resolveSequencerPruning(timestamp: CantonTimestamp): Unit =
     sequencerPruningPromises.remove(timestamp) foreach { promise => promise.success(()) }
 
-  /** Important: currently both the disable member and the prune functionality on the block sequencer are
-    * purely local operations that do not affect other block sequencers that share the same source of
-    * events.
+  /** Important: currently both the disable member and the prune functionality on the block
+    * sequencer are purely local operations that do not affect other block sequencers that share the
+    * same source of events.
     */
   override def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -534,8 +534,10 @@ class BlockSequencer(
   }
 
   /** Compute traffic states for the specified members at the provided timestamp.
-    * @param requestedMembers members for which to compute traffic states
-    * @param selector timestamp selector determining at what time the traffic states will be computed
+    * @param requestedMembers
+    *   members for which to compute traffic states
+    * @param selector
+    *   timestamp selector determining at what time the traffic states will be computed
     */
   private def trafficStatesForMembers(
       requestedMembers: Set[Member],

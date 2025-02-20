@@ -21,9 +21,12 @@ import com.digitalasset.canton.{LfPartyId, LfVersioned, checked}
 
 /** Metadata for a contract.
   *
-  * @param signatories Must include the maintainers of the key if any
-  * @param stakeholders Must include the signatories
-  * @throws ContractMetadata.InvalidContractMetadata if some maintainers are not signatories or some signatories are not stakeholders.
+  * @param signatories
+  *   Must include the maintainers of the key if any
+  * @param stakeholders
+  *   Must include the signatories
+  * @throws ContractMetadata.InvalidContractMetadata
+  *   if some maintainers are not signatories or some signatories are not stakeholders.
   */
 final case class ContractMetadata private (
     signatories: Set[LfPartyId],

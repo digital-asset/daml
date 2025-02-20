@@ -878,7 +878,8 @@ class ParticipantNodeBootstrap(
 
   override def config: LocalParticipantConfig = arguments.config
 
-  /** If set to `Some(path)`, every sequencer client will record all received events to the directory `path`.
+  /** If set to `Some(path)`, every sequencer client will record all received events to the
+    * directory `path`.
     */
   protected val recordSequencerInteractions: AtomicReference[Option[RecordingConfig]] =
     new AtomicReference(None)
@@ -1122,8 +1123,10 @@ class ParticipantNode(
 
   override def isActive: Boolean = storage.isActive
 
-  /** @param isTriggeredManually True if the call of this method is triggered by an explicit call to the connectivity service,
-    *                            false if the call of this method is triggered by a node restart or transition to active
+  /** @param isTriggeredManually
+    *   True if the call of this method is triggered by an explicit call to the connectivity
+    *   service, false if the call of this method is triggered by a node restart or transition to
+    *   active
     */
   def reconnectSynchronizersIgnoreFailures(isTriggeredManually: Boolean)(implicit
       traceContext: TraceContext,

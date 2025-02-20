@@ -46,13 +46,14 @@ trait DbMigrations { this: NamedLogging =>
 
   /** Whether we want to add the schema files found in the dev folder to the migration
     *
-    * A user that does that, won't be able to upgrade to new Canton versions, as we reserve our right to just
-    * modify the dev version files in any way we like.
+    * A user that does that, won't be able to upgrade to new Canton versions, as we reserve our
+    * right to just modify the dev version files in any way we like.
     */
   protected def alphaVersionSupport: Boolean
 
   /** Database is migrated using Flyway, which looks at the migration files at
-    * src/main/resources/db/migration/canton as explained at https://flywaydb.org/documentation/getstarted/firststeps/api
+    * src/main/resources/db/migration/canton as explained at
+    * https://flywaydb.org/documentation/getstarted/firststeps/api
     */
   protected def createFlyway(dataSource: DataSource): Flyway =
     Flyway.configure
@@ -122,8 +123,8 @@ trait DbMigrations { this: NamedLogging =>
       }
     }
 
-  /** Repair the database in case the migrations files changed (e.g. due to comment changes).
-    * To quote the Flyway documentation:
+  /** Repair the database in case the migrations files changed (e.g. due to comment changes). To
+    * quote the Flyway documentation:
     * {{{
     * Repair is your tool to fix issues with the schema history table. It has a few main uses:
     *

@@ -13,15 +13,16 @@ import com.digitalasset.canton.tracing.TraceContext
 trait ConflictDetectionStore[K, A <: PrettyPrinting] extends PrunableByTime with Purgeable {
 
   /** Fetches the latest states for the given identifiers from the store.
-    * @return The map from identifiers in `ids` in the store to their latest state.
-    *         Nonexistent identifiers are excluded from the map.
+    * @return
+    *   The map from identifiers in `ids` in the store to their latest state. Nonexistent
+    *   identifiers are excluded from the map.
     */
   def fetchStates(ids: Iterable[K])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[K, StateChange[A]]]
 
-  /** Separate method for fetching states for invariant checking
-    * so that we can distinguish them from regular calls to [[fetchStates]] in tests.
+  /** Separate method for fetching states for invariant checking so that we can distinguish them
+    * from regular calls to [[fetchStates]] in tests.
     */
   private[participant] def fetchStatesForInvariantChecking(ids: Iterable[K])(implicit
       traceContext: TraceContext

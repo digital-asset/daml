@@ -11,10 +11,11 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.HasToByteString
 import com.google.protobuf.ByteString
 
-/** Wraps the CryptoPureApi to include static synchronizer parameters, ensuring that during signature verification and
-  * decryption (both asymmetric and symmetric), the static synchronizer parameters are explicitly checked. This is crucial
-  * because a malicious counter participant could potentially use a downgraded scheme. For other methods, such as key
-  * generation, signing, or encryption by this (honest) participant, we rely on the synchronizer handshake to ensure that
+/** Wraps the CryptoPureApi to include static synchronizer parameters, ensuring that during
+  * signature verification and decryption (both asymmetric and symmetric), the static synchronizer
+  * parameters are explicitly checked. This is crucial because a malicious counter participant could
+  * potentially use a downgraded scheme. For other methods, such as key generation, signing, or
+  * encryption by this (honest) participant, we rely on the synchronizer handshake to ensure that
   * only supported schemes within the synchronizer are used.
   *
   * TODO(#20714): decryption checks come in a separate PR

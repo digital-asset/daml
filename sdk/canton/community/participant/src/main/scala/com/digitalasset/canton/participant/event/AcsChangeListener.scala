@@ -17,11 +17,13 @@ import com.digitalasset.canton.{LfPartyId, ReassignmentCounter, RequestCounter}
   */
 trait AcsChangeListener {
 
-  /** ACS change notification. Any response logic needs to happen in the background. The ACS change set may be empty,
-    * (e.g., in case of time proofs).
+  /** ACS change notification. Any response logic needs to happen in the background. The ACS change
+    * set may be empty, (e.g., in case of time proofs).
     *
-    * @param toc time of the change
-    * @param acsChange active contract set change descriptor
+    * @param toc
+    *   time of the change
+    * @param acsChange
+    *   active contract set change descriptor
     */
   def publish(toc: RecordTime, acsChange: AcsChange)(implicit
       traceContext: TraceContext
@@ -38,8 +40,8 @@ trait AcsChangeListener {
 
 /** Represents a change to the ACS. The deactivated contracts are accompanied by their stakeholders.
   *
-  * Note that we include the LfContractId (for uniqueness), but we do not include the contract hash because
-  * it already authenticates the contract contents.
+  * Note that we include the LfContractId (for uniqueness), but we do not include the contract hash
+  * because it already authenticates the contract contents.
   */
 final case class AcsChange(
     activations: Map[LfContractId, ContractStakeholdersAndReassignmentCounter],
@@ -78,15 +80,20 @@ object AcsChange extends HasLoggerName {
 
   /** Returns an AcsChange based on a given CommitSet.
     *
-    * @param commitSet The commit set from which to build the AcsChange.
-    * @param reassignmentCounterOfNonTransientArchivals A map containing reassignment counters for every non-transient
-    *                                               archived contracts in the commitSet, i.e., `commitSet.archivals`.
-    * @param reassignmentCounterOfTransientArchivals A map containing reassignment counters for every transient
-    *                                                archived contracts in the commitSet, i.e., `commitSet.archivals`.
-    * @throws java.lang.IllegalStateException if the contract ids in `reassignmentCounterOfTransientArchivals`;
-    *         if the contract ids in `reassignmentCounterOfNonTransientArchivals` are not a subset of `commitSet.archivals` ;
-    *         if the union of contracts ids in `reassignmentCounterOfTransientArchivals` and
-    *         `reassignmentCounterOfNonTransientArchivals` does not equal the contract ids in `commitSet.archivals`;
+    * @param commitSet
+    *   The commit set from which to build the AcsChange.
+    * @param reassignmentCounterOfNonTransientArchivals
+    *   A map containing reassignment counters for every non-transient archived contracts in the
+    *   commitSet, i.e., `commitSet.archivals`.
+    * @param reassignmentCounterOfTransientArchivals
+    *   A map containing reassignment counters for every transient archived contracts in the
+    *   commitSet, i.e., `commitSet.archivals`.
+    * @throws java.lang.IllegalStateException
+    *   if the contract ids in `reassignmentCounterOfTransientArchivals`; if the contract ids in
+    *   `reassignmentCounterOfNonTransientArchivals` are not a subset of `commitSet.archivals` ; if
+    *   the union of contracts ids in `reassignmentCounterOfTransientArchivals` and
+    *   `reassignmentCounterOfNonTransientArchivals` does not equal the contract ids in
+    *   `commitSet.archivals`;
     */
   def tryFromCommitSet(
       commitSet: CommitSet,

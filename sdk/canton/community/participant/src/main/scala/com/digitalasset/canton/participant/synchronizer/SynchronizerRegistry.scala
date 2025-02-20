@@ -24,7 +24,7 @@ import org.slf4j.event.Level
 /** A registry of synchronizers. */
 trait SynchronizerRegistry extends AutoCloseable {
 
-  /**  Returns a synchronizer handle that is used to setup a connection to a new synchronizer
+  /** Returns a synchronizer handle that is used to setup a connection to a new synchronizer
     */
   def connect(
       config: SynchronizerConnectionConfig
@@ -365,8 +365,8 @@ object SynchronizerRegistryError extends SynchronizerRegistryErrorGroup {
 
 }
 
-/** A context handle serving all necessary information / connectivity utilities for the node to setup a connection to a
-  * new synchronizer
+/** A context handle serving all necessary information / connectivity utilities for the node to
+  * setup a connection to a new synchronizer
   */
 trait SynchronizerHandle extends AutoCloseable {
 

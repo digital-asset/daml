@@ -150,10 +150,11 @@ object SequencedEventValidationError {
 /** Validate whether a received event is valid for processing. */
 trait SequencedEventValidator extends AutoCloseable {
 
-  /** Validates that the supplied event is suitable for processing from the prior event.
-    * If the event is successfully validated it becomes the event that the event
-    * in a following call will be validated against. We currently assume this is safe to do as if the event fails to be
-    * handled by the application then the sequencer client will halt and will need recreating to restart event processing.
+  /** Validates that the supplied event is suitable for processing from the prior event. If the
+    * event is successfully validated it becomes the event that the event in a following call will
+    * be validated against. We currently assume this is safe to do as if the event fails to be
+    * handled by the application then the sequencer client will halt and will need recreating to
+    * restart event processing.
     */
   def validate(
       priorEvent: Option[PossiblyIgnoredSerializedEvent],
@@ -163,7 +164,9 @@ trait SequencedEventValidator extends AutoCloseable {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit]
 
-  /** Validates a sequenced event when we reconnect against the prior event supplied to [[SequencedEventValidatorFactory.create]] */
+  /** Validates a sequenced event when we reconnect against the prior event supplied to
+    * [[SequencedEventValidatorFactory.create]]
+    */
   def validateOnReconnect(
       priorEvent: Option[PossiblyIgnoredSerializedEvent],
       reconnectEvent: OrdinarySerializedEvent,
@@ -172,14 +175,17 @@ trait SequencedEventValidator extends AutoCloseable {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit]
 
-  /** Add event validation to the given [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]].
-    * Stuttering is interpreted as reconnection and validated accordingly.
+  /** Add event validation to the given
+    * [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]]. Stuttering is
+    * interpreted as reconnection and validated accordingly.
     *
-    * The returned [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]] completes after the first
-    * event validation failure or the first subscription error. It does not stutter any more.
+    * The returned [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]]
+    * completes after the first event validation failure or the first subscription error. It does
+    * not stutter any more.
     *
-    * @param priorReconnectEvent The sequenced event at which the reconnection happens.
-    *                            If [[scala.Some$]], the first received event must be the same
+    * @param priorReconnectEvent
+    *   The sequenced event at which the reconnection happens. If [[scala.Some$]], the first
+    *   received event must be the same
     */
   def validatePekko[E: Pretty](
       subscription: SequencerSubscriptionPekko[E],
@@ -226,11 +232,11 @@ object SequencedEventValidator extends HasLoggerName {
     override def close(): Unit = ()
   }
 
-  /** Do not validate sequenced events.
-    * Only use it in case of a programming error and the need to unblock a deployment or
-    * if you blindly trust the sequencer.
+  /** Do not validate sequenced events. Only use it in case of a programming error and the need to
+    * unblock a deployment or if you blindly trust the sequencer.
     *
-    * @param warn whether to log a warning when used
+    * @param warn
+    *   whether to log a warning when used
     */
   def noValidation(
       synchronizerId: SynchronizerId,
@@ -250,15 +256,17 @@ object SequencedEventValidator extends HasLoggerName {
     * [[com.digitalasset.canton.protocol.DynamicSynchronizerParameters.sequencerTopologyTimestampTolerance]]
     * of the synchronizer parameters valid at the requested topology timestamp.
     *
-    * @param latestTopologyClientTimestamp The timestamp of an earlier event sent to the topology client
-    *                                      such that no topology update has happened
-    *                                      between this timestamp (exclusive) and the sequencing timestamp (exclusive).
-    * @param warnIfApproximate             Whether to emit a warning if an approximate topology snapshot is used
-    * @return [[scala.Left$]] if the topology timestamp is after the sequencing timestamp or the sequencing timestamp
-    *         is after the topology timestamp by more than the
-    *         [[com.digitalasset.canton.protocol.DynamicSynchronizerParameters.sequencerTopologyTimestampTolerance]] valid at the topology timestamp.
-    *         [[scala.Right$]] the topology snapshot that can be used for signing the event
-    *         and verifying the signature on the event;
+    * @param latestTopologyClientTimestamp
+    *   The timestamp of an earlier event sent to the topology client such that no topology update
+    *   has happened between this timestamp (exclusive) and the sequencing timestamp (exclusive).
+    * @param warnIfApproximate
+    *   Whether to emit a warning if an approximate topology snapshot is used
+    * @return
+    *   [[scala.Left$]] if the topology timestamp is after the sequencing timestamp or the
+    *   sequencing timestamp is after the topology timestamp by more than the
+    *   [[com.digitalasset.canton.protocol.DynamicSynchronizerParameters.sequencerTopologyTimestampTolerance]]
+    *   valid at the topology timestamp. [[scala.Right$]] the topology snapshot that can be used for
+    *   signing the event and verifying the signature on the event;
     */
   def validateTopologyTimestamp(
       syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
@@ -409,7 +417,8 @@ object SequencedEventValidator extends HasLoggerName {
 
 trait SequencedEventValidatorFactory {
 
-  /** Creates a new [[SequencedEventValidator]] to be used for a subscription with the given parameters.
+  /** Creates a new [[SequencedEventValidator]] to be used for a subscription with the given
+    * parameters.
     */
   def create(loggerFactory: NamedLoggerFactory)(implicit
       traceContext: TraceContext
@@ -418,11 +427,11 @@ trait SequencedEventValidatorFactory {
 
 object SequencedEventValidatorFactory {
 
-  /** Do not validate sequenced events.
-    * Only use it in case of a programming error and the need to unblock a deployment or
-    * if you blindly trust the sequencer.
+  /** Do not validate sequenced events. Only use it in case of a programming error and the need to
+    * unblock a deployment or if you blindly trust the sequencer.
     *
-    * @param warn whether to log a warning
+    * @param warn
+    *   whether to log a warning
     */
   def noValidation(
       synchronizerId: SynchronizerId,
@@ -453,13 +462,14 @@ class SequencedEventValidatorImpl(
   import SequencedEventValidationError.*
   import SequencedEventValidatorImpl.*
 
-  /** Validates that the supplied event is suitable for processing from the prior event.
-    * Currently the signature not being valid is not considered an error but its validity is returned to the caller
-    * to allow them to choose what to do with the event.
-    * If the event is successfully validated (regardless of the signature check) it becomes the event that the event
-    * in a following call will be validated against. We currently assume this is safe to do as if the event fails to be
-    * handled by the application then the sequencer client will halt and will need recreating to restart event processing.
-    * This method must not be called concurrently as it will corrupt the prior event state.
+  /** Validates that the supplied event is suitable for processing from the prior event. Currently
+    * the signature not being valid is not considered an error but its validity is returned to the
+    * caller to allow them to choose what to do with the event. If the event is successfully
+    * validated (regardless of the signature check) it becomes the event that the event in a
+    * following call will be validated against. We currently assume this is safe to do as if the
+    * event fails to be handled by the application then the sequencer client will halt and will need
+    * recreating to restart event processing. This method must not be called concurrently as it will
+    * corrupt the prior event state.
     */
   override def validate(
       priorEventO: Option[PossiblyIgnoredSerializedEvent],
@@ -623,8 +633,9 @@ class SequencedEventValidatorImpl(
     }
   }
 
-  /** The timestamp of signing key is always derived from the timestamps in the [[com.digitalasset.canton.sequencing.protocol.SequencedEvent]],
-    * so it must never be set as [[com.digitalasset.canton.sequencing.protocol.SignedContent.timestampOfSigningKey]]
+  /** The timestamp of signing key is always derived from the timestamps in the
+    * [[com.digitalasset.canton.sequencing.protocol.SequencedEvent]], so it must never be set as
+    * [[com.digitalasset.canton.sequencing.protocol.SignedContent.timestampOfSigningKey]]
     */
   private def checkNoTimestampOfSigningKey(event: OrdinarySerializedEvent): ValidationResult =
     event.signedEvent.timestampOfSigningKey
@@ -704,9 +715,10 @@ object SequencedEventValidatorImpl {
     Either[SequencedEventValidationError[Nothing], Unit]
 
   /** The sequencer client assumes that the topology processor is ticked for every event proecessed,
-    * even if the event is a [[com.digitalasset.canton.store.SequencedEventStore.IgnoredSequencedEvent]].
-    * This is why [[com.digitalasset.canton.sequencing.handlers.DiscardIgnoredEvents]]
-    * must not be used in application handlers on nodes that support ignoring events.
+    * even if the event is a
+    * [[com.digitalasset.canton.store.SequencedEventStore.IgnoredSequencedEvent]]. This is why
+    * [[com.digitalasset.canton.sequencing.handlers.DiscardIgnoredEvents]] must not be used in
+    * application handlers on nodes that support ignoring events.
     */
   private[SequencedEventValidatorImpl] def lastTopologyClientTimestamp(
       priorEvent: Option[PossiblyIgnoredSerializedEvent]

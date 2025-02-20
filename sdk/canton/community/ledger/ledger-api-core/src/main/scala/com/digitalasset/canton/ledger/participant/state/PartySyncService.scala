@@ -13,22 +13,26 @@ trait PartySyncService {
 
   /** Adds a new party to the set managed by the ledger.
     *
-    * Caller specifies a party identifier suggestion, the actual identifier
-    * allocated might be different and is implementation specific.
+    * Caller specifies a party identifier suggestion, the actual identifier allocated might be
+    * different and is implementation specific.
     *
     * In particular, a ledger may:
-    * - Disregard the given hint and choose a completely new party identifier
-    * - Construct a new unique identifier from the given hint, e.g., by appending a UUID
-    * - Use the given hint as is, and reject the call if such a party already exists
+    *   - Disregard the given hint and choose a completely new party identifier
+    *   - Construct a new unique identifier from the given hint, e.g., by appending a UUID
+    *   - Use the given hint as is, and reject the call if such a party already exists
     *
-    * Successful party allocations will result in a [[com.digitalasset.canton.ledger.participant.state.Update.PartyAddedToParticipant]]
-    * message. See the comments on [[com.digitalasset.canton.ledger.participant.state.Update]] for
-    * further details.
+    * Successful party allocations will result in a
+    * [[com.digitalasset.canton.ledger.participant.state.Update.PartyAddedToParticipant]] message.
+    * See the comments on [[com.digitalasset.canton.ledger.participant.state.Update]] for further
+    * details.
     *
-    * @param hint             A party identifier suggestion
-    * @param submissionId     Client picked submission identifier for matching the responses with the request.
+    * @param hint
+    *   A party identifier suggestion
+    * @param submissionId
+    *   Client picked submission identifier for matching the responses with the request.
     *
-    * @return an async result of a SubmissionResult
+    * @return
+    *   an async result of a SubmissionResult
     */
   def allocateParty(
       hint: Ref.Party,

@@ -10,14 +10,16 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
-/** Configures the submission request amplification.
-  * Amplification makes sequencer clients send eligible submission requests to multiple sequencers
-  * to overcome message loss in faulty sequencers.
+/** Configures the submission request amplification. Amplification makes sequencer clients send
+  * eligible submission requests to multiple sequencers to overcome message loss in faulty
+  * sequencers.
   *
-  * @param factor The maximum number of times the submission request shall be sent.
-  * @param patience How long the sequencer client should wait after an acknowledged submission to a sequencer
-  *                 to observe the receipt or error before it attempts to send the submission request again
-  *                 (possibly to a different sequencer).
+  * @param factor
+  *   The maximum number of times the submission request shall be sent.
+  * @param patience
+  *   How long the sequencer client should wait after an acknowledged submission to a sequencer to
+  *   observe the receipt or error before it attempts to send the submission request again (possibly
+  *   to a different sequencer).
   */
 final case class SubmissionRequestAmplification(
     factor: PositiveInt,

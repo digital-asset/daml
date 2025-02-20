@@ -105,8 +105,10 @@ message Transaction {
 
   // The collection of events.
   // Contains:
+  //
   //   - ``CreatedEvent`` or ``ArchivedEvent`` in case of ACS_DELTA transaction shape
   //   - ``CreatedEvent`` or ``ExercisedEvent`` in case of LEDGER_EFFECTS transaction shape
+  //
   // Required
   repeated Event events = 5;
 

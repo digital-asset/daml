@@ -97,9 +97,9 @@ trait GzipCompressionTests extends AnyWordSpec with BaseTest {
   }
 }
 
-/** Ignores the 'os id' value, the 10th byte in the gzip file format header because it changed
-  * from 0x00 to 0xFF in Java 16 and later (https://bugs.openjdk.org/browse/JDK-8244706);
-  * enables seamless test execution on Java 11 and 17.
+/** Ignores the 'os id' value, the 10th byte in the gzip file format header because it changed from
+  * 0x00 to 0xFF in Java 16 and later (https://bugs.openjdk.org/browse/JDK-8244706); enables
+  * seamless test execution on Java 11 and 17.
   */
 private object OsHeaderFieldIgnored extends Uniformity[ByteString] {
 

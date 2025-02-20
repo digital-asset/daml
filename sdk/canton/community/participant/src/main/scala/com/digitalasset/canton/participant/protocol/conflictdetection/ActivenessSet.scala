@@ -7,8 +7,8 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.util.SetsUtil.requireDisjoint
 
-/** Defines the contracts and reassignments for conflict detection.
-  * Reassignments are not locked because the reassigned contracts are already being locked.
+/** Defines the contracts and reassignments for conflict detection. Reassignments are not locked
+  * because the reassigned contracts are already being locked.
   */
 final case class ActivenessSet(
     contracts: ActivenessCheck[LfContractId],
@@ -31,16 +31,19 @@ object ActivenessSet {
 
 /** Defines the activeness checks and locking for one kind of states (contracts, keys, ...).
   *
-  * [[ActivenessCheck.checkFresh]], [[ActivenessCheck.checkFree]], and [[ActivenessCheck.checkActive]]
-  * must be pairwise disjoint.
+  * [[ActivenessCheck.checkFresh]], [[ActivenessCheck.checkFree]], and
+  * [[ActivenessCheck.checkActive]] must be pairwise disjoint.
   *
-  * @param needPriorState The set of `Key`s whose prior state should be returned in [[ActivenessCheckResult.priorStates]].
-  * @tparam Key The identifier of the items to check (contract IDs or contract keys)
-  * @throws java.lang.IllegalArgumentException if [[ActivenessCheck.checkFresh]], [[ActivenessCheck.checkFree]],
-  *                                            and [[ActivenessCheck.checkActive]] are not pairwise disjoint;
-  *                                            or if [[ActivenessCheck.needPriorState]] is not covered jointly by
-  *                                            [[ActivenessCheck.checkFresh]], [[ActivenessCheck.checkFree]],
-  *                                            [[ActivenessCheck.checkActive]], and [[ActivenessCheck.lock]]
+  * @param needPriorState
+  *   The set of `Key`s whose prior state should be returned in
+  *   [[ActivenessCheckResult.priorStates]].
+  * @tparam Key
+  *   The identifier of the items to check (contract IDs or contract keys)
+  * @throws java.lang.IllegalArgumentException
+  *   if [[ActivenessCheck.checkFresh]], [[ActivenessCheck.checkFree]], and
+  *   [[ActivenessCheck.checkActive]] are not pairwise disjoint; or if
+  *   [[ActivenessCheck.needPriorState]] is not covered jointly by [[ActivenessCheck.checkFresh]],
+  *   [[ActivenessCheck.checkFree]], [[ActivenessCheck.checkActive]], and [[ActivenessCheck.lock]]
   */
 private[participant] final case class ActivenessCheck[Key] private (
     checkFresh: Set[Key],

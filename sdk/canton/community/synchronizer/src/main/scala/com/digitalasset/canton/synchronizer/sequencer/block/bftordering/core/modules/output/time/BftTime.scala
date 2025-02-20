@@ -24,10 +24,10 @@ object BftTime {
   @VisibleForTesting
   private[bftordering] val MinimumBlockTimeGranularity: FiniteDuration = 1.millisecond
 
-  /** The maximum number of requests per block.
-    *  With a block time granularity of 1 millisecond, at most 1000 requests could be fit into a block but
-    *  we leave one slot for a topology time tick which is injected after the last block if the epoch
-    *  contains requests that may alter the sequencing topology.
+  /** The maximum number of requests per block. With a block time granularity of 1 millisecond, at
+    * most 1000 requests could be fit into a block but we leave one slot for a topology time tick
+    * which is injected after the last block if the epoch contains requests that may alter the
+    * sequencing topology.
     */
   val MaxRequestsPerBlock: Int =
     Math.floor(MinimumBlockTimeGranularity / RequestTimeGranularity - 1).toInt

@@ -13,8 +13,8 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-/** Keeps track of [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest]]s
-  * that have been sent to the sequencer but not yet witnessed.
+/** Keeps track of [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest]]s that have been
+  * sent to the sequencer but not yet witnessed.
   */
 trait SendTrackerStore extends AutoCloseable {
 
@@ -23,15 +23,15 @@ trait SendTrackerStore extends AutoCloseable {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[MessageId, CantonTimestamp]]
 
-  /** Saves that a send will be submitted with this message-id and that if sequenced we expect to see a deliver or
-    * deliver error by the provided max sequencing time.
+  /** Saves that a send will be submitted with this message-id and that if sequenced we expect to
+    * see a deliver or deliver error by the provided max sequencing time.
     */
   def savePendingSend(messageId: MessageId, maxSequencingTime: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SavePendingSendError, Unit]
 
-  /** Removes a pending send from the set we are tracking.
-    * Implementations should be idempotent and not error if the message-id is not tracked.
+  /** Removes a pending send from the set we are tracking. Implementations should be idempotent and
+    * not error if the message-id is not tracked.
     */
   def removePendingSend(messageId: MessageId)(implicit
       traceContext: TraceContext

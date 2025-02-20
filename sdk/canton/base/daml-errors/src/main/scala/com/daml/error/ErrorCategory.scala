@@ -10,9 +10,9 @@ import scala.concurrent.duration.*
 
 /** Standard error categories
   *
-  * Ideally, all products will return errors with appropriate error codes. Every such
-  * error code is associated with an error category that defines how the error will appear
-  * in the log file and on the api level.
+  * Ideally, all products will return errors with appropriate error codes. Every such error code is
+  * associated with an error category that defines how the error will appear in the log file and on
+  * the api level.
   */
 sealed trait ErrorCategory extends Product with Serializable {
 
@@ -25,8 +25,9 @@ sealed trait ErrorCategory extends Product with Serializable {
   /** Default retryability information for this error category */
   def retryable: Option[ErrorCategoryRetry]
 
-  /** If true, error details should not be emitted on the api, typically for security reasons.
-    * Must be true for authentication errors, permission errors and internal errors by OWASP recommendations.
+  /** If true, error details should not be emitted on the api, typically for security reasons. Must
+    * be true for authentication errors, permission errors and internal errors by OWASP
+    * recommendations.
     */
   def redactDetails: Boolean
 
@@ -390,11 +391,11 @@ object ErrorCategory {
 
   implicit val orderingErrorType: Ordering[ErrorCategory] = Ordering.by[ErrorCategory, Int](_.rank)
 
-  /** Generic error category class meant to be used as a data container for
-    * information deserialized from gRPC statuses (see [[com.daml.error.utils.DecodedCantonError]]).
+  /** Generic error category class meant to be used as a data container for information deserialized
+    * from gRPC statuses (see [[com.daml.error.utils.DecodedCantonError]]).
     *
-    * Note: Do NOT use this class for adding error category information to error code instances
-    * but instead re-use existing ones or define new ones (see [[ErrorCategory.all]])
+    * Note: Do NOT use this class for adding error category information to error code instances but
+    * instead re-use existing ones or define new ones (see [[ErrorCategory.all]])
     */
   final case class GenericErrorCategory(
       override val grpcCode: Option[Code],
@@ -416,7 +417,7 @@ object ErrorCategory {
 
 /** Default retryability information
   *
-  * Every error category has a default retryability classification.
-  * An error code may adjust the retry duration.
+  * Every error category has a default retryability classification. An error code may adjust the
+  * retry duration.
   */
 final case class ErrorCategoryRetry(duration: FiniteDuration)

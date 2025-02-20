@@ -21,7 +21,9 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.collection.immutable.SortedSet
 import scala.util.control.Breaks.*
 
-/** Read and write interface for ACS commitments. Apart from pruning, should only be used by the ACS commitment processor */
+/** Read and write interface for ACS commitments. Apart from pruning, should only be used by the ACS
+  * commitment processor
+  */
 trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with AutoCloseable {
 
   override protected def kind: String = "acs commitments"
@@ -66,22 +68,23 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
     * The implementation is guaranteed to be idempotent: calling it twice with the same argument
     * doesn't change the store's behavior compared to calling it only once.
     *
-    * The callers are free to insert multiple different commitments for the same commitment period; all of them
-    * will be stored (but will be deduplicated). This can be used in case the commitment sender is malicious or buggy,
-    * and sends both a correct and an incorrect commitment for the same time period. The caller can still store both
-    * commitments, for example, such that it can later prove to a third party that the sender sent an incorrect
-    * commitment.
+    * The callers are free to insert multiple different commitments for the same commitment period;
+    * all of them will be stored (but will be deduplicated). This can be used in case the commitment
+    * sender is malicious or buggy, and sends both a correct and an incorrect commitment for the
+    * same time period. The caller can still store both commitments, for example, such that it can
+    * later prove to a third party that the sender sent an incorrect commitment.
     */
   def storeReceived(commitment: SignedProtocolMessage[AcsCommitment])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
-  /** Mark a period as safe for a counterparticipant. To be called by the ACS commitment processor only.
+  /** Mark a period as safe for a counterparticipant. To be called by the ACS commitment processor
+    * only.
     *
     * Caller needs to ensure the periods are valid.
     *
-    * "Safe" here means that the received commitment matches the locally computed commitment.
-    * The `toInclusive` field of the period must not be higher than that of the last period passed to
+    * "Safe" here means that the received commitment matches the locally computed commitment. The
+    * `toInclusive` field of the period must not be higher than that of the last period passed to
     * [[markComputedAndSent]].
     *
     * May be called with the same parameters again, after a restart or a synchronizer reconnect.
@@ -98,13 +101,14 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
       CommitmentPeriodState.Matched,
     )
 
-  /** Mark a period as unsafe for a counterparticipant. To be called by the ACS commitment processor only.
+  /** Mark a period as unsafe for a counterparticipant. To be called by the ACS commitment processor
+    * only.
     *
     * Caller needs to ensure the periods are valid.
     *
-    * "Unsafe" here means that the received commitment does not match the locally computed commitment.
-    * The `toInclusive` field of the period must not be higher than that of the last period passed to
-    * [[markComputedAndSent]].
+    * "Unsafe" here means that the received commitment does not match the locally computed
+    * commitment. The `toInclusive` field of the period must not be higher than that of the last
+    * period passed to [[markComputedAndSent]].
     *
     * May be called with the same parameters again, after a restart or a synchronizer reconnect.
     *
@@ -120,14 +124,16 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
       CommitmentPeriodState.Mismatched,
     )
 
-  /** Mark a period with the given commitment match state for a counter participant. To be called by the ACS commitment processor only.
+  /** Mark a period with the given commitment match state for a counter participant. To be called by
+    * the ACS commitment processor only.
     *
     * Caller needs to ensure the periods are valid.
     *
     * May be called with the same parameters again, after a restart or a synchronizer reconnect.
     * Marking a period may change return value of [[outstanding]].
     *
-    * Any state (i.e., Match, Mismatch, Outstanding) overwrites Outstanding, and only state Matched overwrites state Mismatch.
+    * Any state (i.e., Match, Mismatch, Outstanding) overwrites Outstanding, and only state Matched
+    * overwrites state Mismatch.
     */
   protected def markPeriod(
       counterParticipant: ParticipantId,
@@ -137,11 +143,12 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
 
   /** Marks a period for all counter participant as cleared by multi-hosted party tracking.
     *
-    *  Caller needs to ensure the periods are valid.
+    * Caller needs to ensure the periods are valid.
     *
-    *  Idempotent behavior.
+    * Idempotent behavior.
     *
-    *  Any period marked by this will be considered fine to prune for the [[noOutstandingCommitments]].
+    * Any period marked by this will be considered fine to prune for the
+    * [[noOutstandingCommitments]].
     */
   def markMultiHostedCleared(period: CommitmentPeriod)(implicit
       traceContext: TraceContext
@@ -155,9 +162,10 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
 /** Read interface for ACS commitments, with no usage restrictions. */
 trait AcsCommitmentLookup {
 
-  /** Finds for a counter participant all stored computed commitments whose period overlaps with the given period.
+  /** Finds for a counter participant all stored computed commitments whose period overlaps with the
+    * given period.
     *
-    *      No guarantees on the order of the returned commitments.
+    * No guarantees on the order of the returned commitments.
     */
   def getComputed(period: CommitmentPeriod, counterParticipant: ParticipantId)(implicit
       traceContext: TraceContext
@@ -165,16 +173,19 @@ trait AcsCommitmentLookup {
 
   /** Last locally processed timestamp.
     *
-    *      Upon crash-recovery, it is safe to resubscribe to the sequencer starting after the returned timestamp.
+    * Upon crash-recovery, it is safe to resubscribe to the sequencer starting after the returned
+    * timestamp.
     */
   def lastComputedAndSent(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestampSecond]]
 
-  /** The latest timestamp before or at the given timestamp for which no commitments are outstanding.
-    * A list of [[com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants]] can be given for counter participants that should not be considered.
-    * It is safe to prune the synchronizer at the returned timestamp as long as it is not before the last timestamp needed
-    * for crash recovery (see com.digitalasset.canton.participant.pruning.PruningProcessor.latestSafeToPruneTick)
+  /** The latest timestamp before or at the given timestamp for which no commitments are
+    * outstanding. A list of [[com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants]]
+    * can be given for counter participants that should not be considered. It is safe to prune the
+    * synchronizer at the returned timestamp as long as it is not before the last timestamp needed
+    * for crash recovery (see
+    * com.digitalasset.canton.participant.pruning.PruningProcessor.latestSafeToPruneTick)
     *
     * Returns None if no such tick is known.
     */
@@ -186,7 +197,7 @@ trait AcsCommitmentLookup {
 
   /** Inspection: find periods for which commitments are still outstanding, and from whom.
     *
-    *    The returned periods may overlap.
+    * The returned periods may overlap.
     */
   def outstanding(
       start: CantonTimestamp,
@@ -197,7 +208,9 @@ trait AcsCommitmentLookup {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)]]
 
-  /** Inspection: search computed commitments applicable to the specified period (start is exclusive, end is inclusive) */
+  /** Inspection: search computed commitments applicable to the specified period (start is
+    * exclusive, end is inclusive)
+    */
   def searchComputedBetween(
       start: CantonTimestamp,
       end: CantonTimestamp,
@@ -208,7 +221,9 @@ trait AcsCommitmentLookup {
     Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.HashedCommitmentType)]
   ]
 
-  /** Inspection: search received commitments applicable to the specified period (start is exclusive, end is inclusive) */
+  /** Inspection: search received commitments applicable to the specified period (start is
+    * exclusive, end is inclusive)
+    */
   def searchReceivedBetween(
       start: CantonTimestamp,
       end: CantonTimestamp,
@@ -219,27 +234,28 @@ trait AcsCommitmentLookup {
 
 }
 
-/** A key-value store with sets of parties as keys, and with LtHash16 values. Keeps a watermark of the record time
-  * (a timestamp accompanied by a tie-breaker, to account for multiple changes with the same timestamp) of the last update.
+/** A key-value store with sets of parties as keys, and with LtHash16 values. Keeps a watermark of
+  * the record time (a timestamp accompanied by a tie-breaker, to account for multiple changes with
+  * the same timestamp) of the last update.
   *
-  * While the store is agnostic to its use, we use is as follows. For each set S of parties such that:
-  * <ol>
-  *  <li>the parties are stakeholders on some contract C and</li>
-  *  <li>the participant stores C in its ACS</li>
-  * </ol>
-  * the participant uses the store to store an LtHash16 commitment to all the contracts whose stakeholders are exactly S.
+  * While the store is agnostic to its use, we use is as follows. For each set S of parties such
+  * that: <ol> <li>the parties are stakeholders on some contract C and</li> <li>the participant
+  * stores C in its ACS</li> </ol> the participant uses the store to store an LtHash16 commitment to
+  * all the contracts whose stakeholders are exactly S.
   *
-  * To ensure that the commitments correspond to the ACSs, the caller(s) must jointly ensure that all ACS changes
-  * are delivered to this store exactly once. In particular, upon crashes, the caller(s) must send ALL ACS changes
-  * that are later - in the lexicographic order of (timestamp, request) - than the watermark returned by the store,
-  * but must not replay any changes lower or equal to the watermark.
+  * To ensure that the commitments correspond to the ACSs, the caller(s) must jointly ensure that
+  * all ACS changes are delivered to this store exactly once. In particular, upon crashes, the
+  * caller(s) must send ALL ACS changes that are later - in the lexicographic order of (timestamp,
+  * request) - than the watermark returned by the store, but must not replay any changes lower or
+  * equal to the watermark.
   */
 trait IncrementalCommitmentStore {
 
   /** Retrieve the current store.
     *
     * Defaults to an empty map with a record time of
-    * [[com.digitalasset.canton.participant.event.RecordTime.MinValue]], if no changes have been added yet.
+    * [[com.digitalasset.canton.participant.event.RecordTime.MinValue]], if no changes have been
+    * added yet.
     */
   def get()(implicit
       traceContext: TraceContext
@@ -247,16 +263,20 @@ trait IncrementalCommitmentStore {
 
   /** Return the record time of the latest update.
     *
-    * Defaults to [[com.digitalasset.canton.participant.event.RecordTime.MinValue]]
-    * if no changes have been added yet.
+    * Defaults to [[com.digitalasset.canton.participant.event.RecordTime.MinValue]] if no changes
+    * have been added yet.
     */
   def watermark(implicit traceContext: TraceContext): FutureUnlessShutdown[RecordTime]
 
   /** Update the commitments.
     *
-    * @param rt         Record time of the update
-    * @param updates    The key-value updates to be written. The key set must be disjoint from `deletes` (not checked)
-    * @param deletes    Keys to be deleted to the store.
+    * @param rt
+    *   Record time of the update
+    * @param updates
+    *   The key-value updates to be written. The key set must be disjoint from `deletes` (not
+    *   checked)
+    * @param deletes
+    *   Keys to be deleted to the store.
     */
   def update(
       rt: RecordTime,
@@ -268,8 +288,8 @@ trait IncrementalCommitmentStore {
 
 /** Manages the buffer (priority queue) for incoming commitments.
   *
-  * The priority is based on the timestamp of the end of the commitment's commitment period.
-  * Lower timestamps have higher priority.
+  * The priority is based on the timestamp of the end of the commitment's commitment period. Lower
+  * timestamps have higher priority.
   */
 trait CommitmentQueue {
 
@@ -294,22 +314,22 @@ trait CommitmentQueue {
   ): FutureUnlessShutdown[Seq[AcsCommitment]]
 
   /** Returns, if exists, a list containing all commitments originating from the given participant
-    * that overlap the given period.
-    * Does not delete them from the queue.
+    * that overlap the given period. Does not delete them from the queue.
     *
-    * When the period covers a single reconciliation interval, there should be only one such commitment
-    * if the counter participant is correct; otherwise, the counter participant is malicious.
-    * The method is unaware of reconciliation intervals, however, thus cannot distinguish malicious behavior,
-    * and leaves this up to the caller.
-    * The caller (who has access to the reconciliation interval duration) should signal malicious behavior by emitting
-    * an AcsCommitmentAlarm if the list contains more than one element.
-    * Even with possible malicious behavior, the list of commitments might still be useful to the caller, for example
-    * if the list contains the expected commitment among all unexpected ones.
+    * When the period covers a single reconciliation interval, there should be only one such
+    * commitment if the counter participant is correct; otherwise, the counter participant is
+    * malicious. The method is unaware of reconciliation intervals, however, thus cannot distinguish
+    * malicious behavior, and leaves this up to the caller. The caller (who has access to the
+    * reconciliation interval duration) should signal malicious behavior by emitting an
+    * AcsCommitmentAlarm if the list contains more than one element. Even with possible malicious
+    * behavior, the list of commitments might still be useful to the caller, for example if the list
+    * contains the expected commitment among all unexpected ones.
     *
-    * However, the period passed to the method can cover several reconciliation intervals (e.g., when the caller
-    * participant hasn't heard from the sequencer in a while, and thus did not observe intermediate ticks).
-    * But the counter participant might have sent commitments for several reconciliation intervals in the period.
-    * Thus, in this case, the method returns a list and there is no malicious behavior.
+    * However, the period passed to the method can cover several reconciliation intervals (e.g.,
+    * when the caller participant hasn't heard from the sequencer in a while, and thus did not
+    * observe intermediate ticks). But the counter participant might have sent commitments for
+    * several reconciliation intervals in the period. Thus, in this case, the method returns a list
+    * and there is no malicious behavior.
     */
   def peekOverlapsForCounterParticipant(
       period: CommitmentPeriod,
@@ -326,10 +346,11 @@ trait CommitmentQueue {
 
 object AcsCommitmentStore {
 
-  /** Given a timestamp and a list of "unclean" periods, return the latest "clean" timestamp before or at the given one.
+  /** Given a timestamp and a list of "unclean" periods, return the latest "clean" timestamp before
+    * or at the given one.
     *
-    * A clean timestamp is one that is not covered by the unclean periods. The periods are given as pairs of
-    * `(startExclusive, endInclusive)` timestamps.
+    * A clean timestamp is one that is not covered by the unclean periods. The periods are given as
+    * pairs of `(startExclusive, endInclusive)` timestamps.
     */
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   def latestCleanPeriod(

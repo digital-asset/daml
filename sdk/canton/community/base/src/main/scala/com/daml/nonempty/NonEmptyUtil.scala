@@ -14,8 +14,8 @@ import scala.reflect.ClassTag
 
 /** Additional methods for [[com.daml.nonempty.NonEmpty]].
   *
-  * Cats instances for [[com.daml.nonempty.NonEmpty]] must be imported explicitly as
-  * `import `[[com.daml.nonempty.catsinstances]]`._` when necessary.
+  * Cats instances for [[com.daml.nonempty.NonEmpty]] must be imported explicitly as `import
+  * `[[com.daml.nonempty.catsinstances]]`._` when necessary.
   */
 object NonEmptyUtil {
 
@@ -30,8 +30,9 @@ object NonEmptyUtil {
 
   object instances {
 
-    /** This instance is exposed as [[com.digitalasset.canton.logging.pretty.PrettyInstances.prettyNonempty]].
-      * It lives only here because `NonEmptyColl.Instance.subst` is private to the `nonempty` package
+    /** This instance is exposed as
+      * [[com.digitalasset.canton.logging.pretty.PrettyInstances.prettyNonempty]]. It lives only
+      * here because `NonEmptyColl.Instance.subst` is private to the `nonempty` package
       */
     def prettyNonEmpty[A](implicit F: Pretty[A]): Pretty[NonEmpty[A]] = {
       type K[T[_]] = Pretty[T[A]]

@@ -102,9 +102,8 @@ object RSA256Verifier extends Leeway {
       new JwtVerifier(verifier)
     }(e => Error(Symbol("RSA256"), e.getMessage))
 
-  /** Create a RSA256 validator with the key loaded from the given file.
-    * The file is assumed to be a X509 encoded certificate.
-    * These typically have the .crt file extension.
+  /** Create a RSA256 validator with the key loaded from the given file. The file is assumed to be a
+    * X509 encoded certificate. These typically have the .crt file extension.
     */
   def fromCrtFile(
       path: String,

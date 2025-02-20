@@ -17,12 +17,12 @@ import com.digitalasset.daml.lf.value.Value.ContractId
 
 import scala.concurrent.ExecutionContext
 
-/** Computes the maximum ledger time of all used contracts in a submission by:
-  * * Using the client-provided disclosed contracts `createdAt` timestamp
-  * * Falling back to contractStore lookups for contracts that have not been provided
-  * as part of submissions' `disclosed_contracts`
+/** Computes the maximum ledger time of all used contracts in a submission by: * Using the
+  * client-provided disclosed contracts `createdAt` timestamp * Falling back to contractStore
+  * lookups for contracts that have not been provided as part of submissions' `disclosed_contracts`
   *
-  * @param maximumLedgerTimeService The MaximumLedgerTimeService.
+  * @param maximumLedgerTimeService
+  *   The MaximumLedgerTimeService.
   */
 class ResolveMaximumLedgerTime(
     maximumLedgerTimeService: MaximumLedgerTimeService,

@@ -27,10 +27,8 @@ import com.digitalasset.canton.{ProtoDeserializationError, checkedToByteString}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
-/** A '''batch''' is a a list of `n` tuples `(m`,,i,,` , recipients`,,i,,),
-  * where `m`,,i,, is a message, and
-  *  `recipients`,,i,, is the list of recipients of m,,i,,,
-  *  for `0 <= i < n`.
+/** A '''batch''' is a a list of `n` tuples `(m`,,i,,` , recipients`,,i,,), where `m`,,i,, is a
+  * message, and `recipients`,,i,, is the list of recipients of m,,i,,, for `0 <= i < n`.
   */
 final case class Batch[+Env <: Envelope[?]] private (envelopes: List[Env])(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[Batch.type]

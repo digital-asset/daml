@@ -26,7 +26,8 @@ trait MediatorConfirmationRequest extends UnsignedProtocolMessage {
         informees
     }.toSet
 
-  /** Returns the hash that all [[com.digitalasset.canton.protocol.messages.RootHashMessage]]s of the request batch should contain.
+  /** Returns the hash that all [[com.digitalasset.canton.protocol.messages.RootHashMessage]]s of
+    * the request batch should contain.
     */
   def rootHash: RootHash
 

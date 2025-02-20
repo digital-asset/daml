@@ -16,8 +16,8 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-/** Store for the participant pruning scheduler parameters such as the cron schedule,
-  * pruning retention period, and whether to only prune "internal" canton stores.
+/** Store for the participant pruning scheduler parameters such as the cron schedule, pruning
+  * retention period, and whether to only prune "internal" canton stores.
   */
 trait ParticipantPruningSchedulerStore extends PruningSchedulerStore {
 

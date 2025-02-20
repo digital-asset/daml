@@ -7,8 +7,8 @@ import org.wartremover.{WartTraverser, WartUniverse}
 
 import scala.annotation.tailrec
 
-/** Wart such that we avoid using vals, defs, objects, classes, etc...
-  * that are marked with [[com.google.common.annotations.VisibleForTesting]] in production code.
+/** Wart such that we avoid using vals, defs, objects, classes, etc... that are marked with
+  * [[com.google.common.annotations.VisibleForTesting]] in production code.
   *
   * Notice that usage of such definitions is allowed in the private or protected scope.
   */

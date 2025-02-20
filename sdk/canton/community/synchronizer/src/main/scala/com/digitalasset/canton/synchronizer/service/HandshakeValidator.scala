@@ -9,9 +9,9 @@ import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionCompatib
 
 object HandshakeValidator {
 
-  /** Verify that a generic server and a generic client support the same protocol version.
-    * In practice, this class is used for all handshakes (e.g. the participant-synchronizer one) except the
-    * sequencer client-sequencer handshake.
+  /** Verify that a generic server and a generic client support the same protocol version. In
+    * practice, this class is used for all handshakes (e.g. the participant-synchronizer one) except
+    * the sequencer client-sequencer handshake.
     */
   def clientIsCompatible(
       serverVersion: ProtocolVersion,

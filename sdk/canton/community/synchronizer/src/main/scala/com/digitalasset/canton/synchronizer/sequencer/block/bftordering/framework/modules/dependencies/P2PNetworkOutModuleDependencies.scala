@@ -14,7 +14,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Env,
   ModuleRef,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.BftOrderingServiceReceiveRequest
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
 
 final case class P2PNetworkOutModuleDependencies[E <: Env[E]](
     p2pNetworkManager: ClientP2PNetworkManager[E, BftOrderingServiceReceiveRequest],

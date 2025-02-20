@@ -35,8 +35,8 @@ object TrafficConsumedStore {
   */
 trait TrafficConsumedStore extends AutoCloseable {
 
-  /** Stores the traffic consumed.
-    * Updates for which there is already a traffic consumed for that member with the same sequencing timestamp are ignored.
+  /** Stores the traffic consumed. Updates for which there is already a traffic consumed for that
+    * member with the same sequencing timestamp are ignored.
     */
   def store(
       trafficUpdates: Seq[TrafficConsumed]
@@ -60,15 +60,15 @@ trait TrafficConsumedStore extends AutoCloseable {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[TrafficConsumed]]
 
-  /** Looks up the latest traffic consumed for all members, that were sequenced before
-    * the given timestamp (inclusive).
+  /** Looks up the latest traffic consumed for all members, that were sequenced before the given
+    * timestamp (inclusive).
     */
   def lookupLatestBeforeInclusive(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[TrafficConsumed]]
 
-  /** Looks up the latest traffic consumed for a specific member, that was sequenced before
-    * the given timestamp (inclusive).
+  /** Looks up the latest traffic consumed for a specific member, that was sequenced before the
+    * given timestamp (inclusive).
     */
   def lookupLatestBeforeInclusiveForMember(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -80,13 +80,15 @@ trait TrafficConsumedStore extends AutoCloseable {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[TrafficConsumed]]
 
-  /** Deletes all traffic consumed entries, if their timestamp is strictly lower than the maximum existing timestamp
-    * that is lower or equal to the provided timestamp.
-    * In practice this means that we will keep enough to provide the correct traffic consumed for any timestamp above or equal the
-    * provided timestamp, even if that means not pruning the first timestamp below the provided one.
-    * Keeps at least the latest traffic consumed if it exists, even if it's in the pruning window.
+  /** Deletes all traffic consumed entries, if their timestamp is strictly lower than the maximum
+    * existing timestamp that is lower or equal to the provided timestamp. In practice this means
+    * that we will keep enough to provide the correct traffic consumed for any timestamp above or
+    * equal the provided timestamp, even if that means not pruning the first timestamp below the
+    * provided one. Keeps at least the latest traffic consumed if it exists, even if it's in the
+    * pruning window.
     *
-    *  @return text information about the data that was pruned
+    * @return
+    *   text information about the data that was pruned
     */
   def pruneBelowExclusive(
       upToExclusive: CantonTimestamp

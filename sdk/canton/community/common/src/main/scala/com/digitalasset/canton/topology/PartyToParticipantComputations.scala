@@ -11,8 +11,8 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission
 class PartyToParticipantComputations(override protected val loggerFactory: NamedLoggerFactory)
     extends NamedLogging {
 
-  /** Compute the new list of permissions from existing permissions and permissions
-    * that need to be added and removed.
+  /** Compute the new list of permissions from existing permissions and permissions that need to be
+    * added and removed.
     *
     * If a participant in `adds` is already permissioned, the permissions are updated.
     */

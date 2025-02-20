@@ -18,28 +18,33 @@ object MapsUtil {
 
   /** Merges two maps where the values are sets of V
     *
-    * @param big the likely larger of the two maps (so we can merge the small into the big,
-    *            rather than the other way around)
-    * @param small the likely smaller of the maps.
+    * @param big
+    *   the likely larger of the two maps (so we can merge the small into the big, rather than the
+    *   other way around)
+    * @param small
+    *   the likely smaller of the maps.
     */
   def mergeMapsOfSets[K, V](big: Map[K, Set[V]], small: Map[K, Set[V]]): Map[K, Set[V]] =
     small.foldLeft(big) { case (acc, (k, v)) =>
       acc.updated(k, acc.getOrElse(k, Set()).union(v))
     }
 
-  /** Atomically modifies the given map at the given key.
-    * `notFound` may be evaluated even if the key is present at the atomic update;
-    * in this case, its monadic effect propagates to the result.
-    * `f` may be evaluated several times on several of the previous values associated to the key,
-    * even if no value is associated with the key immediately before the atomic update happens.
+  /** Atomically modifies the given map at the given key. `notFound` may be evaluated even if the
+    * key is present at the atomic update; in this case, its monadic effect propagates to the
+    * result. `f` may be evaluated several times on several of the previous values associated to the
+    * key, even if no value is associated with the key immediately before the atomic update happens.
     * The monadic effect of all these evaluations propagates to the result.
     *
-    * @param map      The map that is updated
-    * @param notFound The value to be used if the key was not present in the map.
-    *                 [[scala.None$]] denotes that the map should not be modified.
-    * @param f        The function used to transform the value found in the map.
-    *                 If the returned value is [[scala.None$]], the key is removed from the map.
-    * @return The value associated with the key before the update.
+    * @param map
+    *   The map that is updated
+    * @param notFound
+    *   The value to be used if the key was not present in the map. [[scala.None$]] denotes that the
+    *   map should not be modified.
+    * @param f
+    *   The function used to transform the value found in the map. If the returned value is
+    *   [[scala.None$]], the key is removed from the map.
+    * @return
+    *   The value associated with the key before the update.
     */
   def modifyWithConcurrentlyM[F[_], K, V](
       map: concurrent.Map[K, V],
@@ -70,9 +75,10 @@ object MapsUtil {
     monad.tailRecM(())((_: Unit) => step())
   }
 
-  /** Atomically updates the given map at the given key. In comparison to [[modifyWithConcurrentlyM]],
-    * this method supports only inserting and updating elements. It does not support removing elements or preventing the
-    * insertion of elements when they are not originally in the map.
+  /** Atomically updates the given map at the given key. In comparison to
+    * [[modifyWithConcurrentlyM]], this method supports only inserting and updating elements. It
+    * does not support removing elements or preventing the insertion of elements when they are not
+    * originally in the map.
     */
   def updateWithConcurrentlyM[F[_], K, V](
       map: concurrent.Map[K, V],
@@ -103,9 +109,9 @@ object MapsUtil {
   )(implicit monad: FlatMap[F]): F[Unit] =
     monad.void(updateWithConcurrentlyM(map, key, notFound, f))
 
-  /** Specializes [[updateWithConcurrentlyM_]] to the [[Checked]] monad,
-    * where the non-aborts are only kept from the invocation of `notFound` or `f`
-    * that causes the first [[Checked.Abort]] or updates the map.
+  /** Specializes [[updateWithConcurrentlyM_]] to the [[Checked]] monad, where the non-aborts are
+    * only kept from the invocation of `notFound` or `f` that causes the first [[Checked.Abort]] or
+    * updates the map.
     */
   def modifyWithConcurrentlyChecked_[A, N, K, V](
       map: concurrent.Map[K, V],
@@ -141,11 +147,13 @@ object MapsUtil {
   ): Checked[A, N, Unit] =
     modifyWithConcurrentlyChecked_(map, key, notFound.map(Some(_)), (v: V) => f(v).map(Some.apply))
 
-  /** @param m An input map
-    * @param f A function to map each of the input keys to a new set of keys ks
+  /** @param m
+    *   An input map
+    * @param f
+    *   A function to map each of the input keys to a new set of keys ks
     *
-    * Generates a new map m' with the following property:
-    * If { (k,v) in m and k' in f(k) } then v is in the set m'[k']
+    * Generates a new map m' with the following property: If { (k,v) in m and k' in f(k) } then v is
+    * in the set m'[k']
     *
     * See `MapsUtilTest` for an example.
     */
@@ -161,11 +169,12 @@ object MapsUtil {
       }
     }
 
-  /** Updates the key of the current map if present.
-    * The update function `f` may be evaluated multiple times.
-    * if `f` throws an exception, the exception propagates and the map is not updated.
+  /** Updates the key of the current map if present. The update function `f` may be evaluated
+    * multiple times. if `f` throws an exception, the exception propagates and the map is not
+    * updated.
     *
-    * @return Whether the map changed due to this update
+    * @return
+    *   Whether the map changed due to this update
     */
   def updateWithConcurrently[K, V <: AnyRef](map: concurrent.Map[K, V], key: K)(
       f: V => V
@@ -182,9 +191,10 @@ object MapsUtil {
     go()
   }
 
-  /** Insert the pair (key, value) to `map` if not already present.
-    * Assert that any existing element for `key` is equal to `value`.
-    * @throws java.lang.IllegalStateException if the assertion fails
+  /** Insert the pair (key, value) to `map` if not already present. Assert that any existing element
+    * for `key` is equal to `value`.
+    * @throws java.lang.IllegalStateException
+    *   if the assertion fails
     */
   def tryPutIdempotent[K, V](map: concurrent.Map[K, V], key: K, value: V)(implicit
       loggingContext: ErrorLoggingContext
@@ -226,7 +236,8 @@ object MapsUtil {
 
   /** Return all key-value pairs in minuend that are different / missing in subtrahend
     *
-    * @throws java.lang.IllegalArgumentException if the minuend is not defined for all keys of the subtrahend.
+    * @throws java.lang.IllegalArgumentException
+    *   if the minuend is not defined for all keys of the subtrahend.
     */
   def mapDiff[K, V](minuend: Map[K, V], subtrahend: collection.Map[K, V])(implicit
       loggingContext: ErrorLoggingContext
@@ -238,8 +249,9 @@ object MapsUtil {
     minuend.filter { case (k, v) => !subtrahend.get(k).contains(v) }
   }
 
-  /** @return a map if there are no conflicting key binding
-    *         or a map of key to the set of conflicting bindings
+  /** @return
+    *   a map if there are no conflicting key binding or a map of key to the set of conflicting
+    *   bindings
     */
   def toNonConflictingMap[K, V](it: Iterable[(K, V)]): Either[Map[K, Set[V]], Map[K, V]] = {
     val set = it.toSet
@@ -251,12 +263,13 @@ object MapsUtil {
     }
   }
 
-  /** Intersect the values of two maps
-    * The result map is defined at key `k` if the following two conditions are met:
-    * - Both input maps are defined at key `k`
-    * - The intersection of the values at key `k` is non-empty
+  /** Intersect the values of two maps The result map is defined at key `k` if the following two
+    * conditions are met:
+    *   - Both input maps are defined at key `k`
+    *   - The intersection of the values at key `k` is non-empty
     *
-    * In that case, the value at key `k` is the intersection of the values at key `k` in the input maps.
+    * In that case, the value at key `k` is the intersection of the values at key `k` in the input
+    * maps.
     */
   def intersectValues[K, V](m1: Map[K, Set[V]], m2: Map[K, Set[V]]): Map[K, Set[V]] =
     m1.map { case (k, values) =>

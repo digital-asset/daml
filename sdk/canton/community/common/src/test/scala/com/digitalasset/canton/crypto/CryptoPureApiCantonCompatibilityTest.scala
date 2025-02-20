@@ -12,8 +12,8 @@ import com.digitalasset.canton.protocol.{
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 
-/** Daml lf and daml-on-x impose a maximum limit on contractIds for which Canton uses hashes.
-  * Test that (hex) string versions of all hash variants are below the limit.
+/** Daml lf and daml-on-x impose a maximum limit on contractIds for which Canton uses hashes. Test
+  * that (hex) string versions of all hash variants are below the limit.
   */
 class CryptoPureApiCantonCompatibilityTest extends AnyWordSpec with BaseTest {
 

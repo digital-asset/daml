@@ -140,9 +140,8 @@ object InteractiveConsole extends NoTracing {
     }
   }
 
-  /** Turns the given String into a string literal suitable for including in scala code.
-    * Includes adding surrounding quotes.
-    * e.g. `some\\path` will return `"some\\\\path"`
+  /** Turns the given String into a string literal suitable for including in scala code. Includes
+    * adding surrounding quotes. e.g. `some\\path` will return `"some\\\\path"`
     */
   private def toStringLiteral(raw: String): String = {
     // uses the scala reflection primitives but doesn't actually do any reflection

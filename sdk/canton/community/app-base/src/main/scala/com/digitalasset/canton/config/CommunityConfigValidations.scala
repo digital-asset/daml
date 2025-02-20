@@ -83,8 +83,8 @@ object CommunityConfigValidations
       sessionSigningKeysOnlyWithKms,
     )
 
-  /** Group node configs by db access to find matching db storage configs.
-    * Overcomplicated types used are to work around that at this point nodes could have conflicting names so we can't just
+  /** Group node configs by db access to find matching db storage configs. Overcomplicated types
+    * used are to work around that at this point nodes could have conflicting names so we can't just
     * throw them all in a single map.
     */
   private[config] def extractNormalizedDbAccess[C <: CantonConfig](

@@ -28,7 +28,9 @@ final case class TlsConfiguration(
 
   private val logger = LoggerFactory.getLogger(getClass)
 
-  /** If enabled and all required fields are present, it returns an SslContext suitable for client usage */
+  /** If enabled and all required fields are present, it returns an SslContext suitable for client
+    * usage
+    */
   def client(enabledProtocols: Seq[TlsVersion] = Seq.empty): Option[SslContext] =
     if (enabled) {
       val enabledProtocolsNames =
@@ -50,14 +52,16 @@ final case class TlsConfiguration(
       Some(sslContext)
     } else None
 
-  /** If enabled and all required fields are present, it returns an SslContext suitable for server usage
+  /** If enabled and all required fields are present, it returns an SslContext suitable for server
+    * usage
     *
-    *  Details:
-    *  We create two instances of sslContext:
-    *  1) The first one with default protocols: in order to query it for a set of supported protocols.
-    *  2) The second one with a custom set of protocols to enable.
-    *     We have used previously obtained set of supported protocols to make sure every protocol we want to enable is supported.
-    *     @see [[javax.net.ssl.SSLEngine#setEnabledProtocols]]
+    * Details: We create two instances of sslContext:
+    *   1. The first one with default protocols: in order to query it for a set of supported
+    *      protocols.
+    *   1. The second one with a custom set of protocols to enable. We have used previously obtained
+    *      set of supported protocols to make sure every protocol we want to enable is supported.
+    * @see
+    *   [[javax.net.ssl.SSLEngine#setEnabledProtocols]]
     */
   def server: Option[SslContext] =
     if (enabled) {
@@ -130,16 +134,19 @@ final case class TlsConfiguration(
     logger.info(s"$who TLS - enabled cipher suites: ${tlsInfo.enabledCipherSuites.mkString(", ")}.")
   }
 
-  /** This is a side-effecting method. It modifies JVM TLS properties according to the TLS configuration. */
+  /** This is a side-effecting method. It modifies JVM TLS properties according to the TLS
+    * configuration.
+    */
   def setJvmTlsProperties(): Unit =
     if (enabled) {
       if (enableCertRevocationChecking) OcspProperties.enableOcsp()
       ProtocolDisabler.disableSSLv2Hello()
     }
 
-  /** Netty incorrectly hardcodes the report that the SSLv2Hello protocol is enabled. There is no way
-    * to stop it from doing it, so we just filter the netty's erroneous claim. We also make sure that
-    * the SSLv2Hello protocol is knocked out completely at the JSSE level through the ProtocolDisabler
+  /** Netty incorrectly hardcodes the report that the SSLv2Hello protocol is enabled. There is no
+    * way to stop it from doing it, so we just filter the netty's erroneous claim. We also make sure
+    * that the SSLv2Hello protocol is knocked out completely at the JSSE level through the
+    * ProtocolDisabler
     */
   private def filterSSLv2Hello(protocols: Seq[String]): Seq[String] =
     protocols.filter(_ != ProtocolDisabler.sslV2Protocol)

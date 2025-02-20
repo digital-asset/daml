@@ -19,13 +19,13 @@ import scala.concurrent.duration.FiniteDuration
 import scala.jdk.DurationConverters.*
 import scala.util.Try
 
-/** Generic error class used for creating error instances from deserialized gRPC statuses
-  * that resulted from serialization of self-service error codes (children of [[BaseError]]).
-  * Its aim is to be used in client applications and components for simplifying programmatic
-  * inspection and/or enrichment of Canton errors received over-the-wire or from persistence.
+/** Generic error class used for creating error instances from deserialized gRPC statuses that
+  * resulted from serialization of self-service error codes (children of [[BaseError]]). Its aim is
+  * to be used in client applications and components for simplifying programmatic inspection and/or
+  * enrichment of Canton errors received over-the-wire or from persistence.
   *
-  * Note: Do NOT use this class for explicitly instantiating errors.
-  *       Instead, use or create a fully-typed error instance.
+  * Note: Do NOT use this class for explicitly instantiating errors. Instead, use or create a
+  * fully-typed error instance.
   */
 final case class DecodedCantonError(
     code: ErrorCode,
@@ -47,9 +47,9 @@ final case class DecodedCantonError(
 
 object DecodedCantonError {
 
-  /** Deserializes a [[com.google.rpc.status.Status]] to [[DecodedCantonError]].
-    * With the exception of throwables, all serialized error information is extracted,
-    * making this method an inverse of [[BaseError.rpcStatus]].
+  /** Deserializes a [[com.google.rpc.status.Status]] to [[DecodedCantonError]]. With the exception
+    * of throwables, all serialized error information is extracted, making this method an inverse of
+    * [[BaseError.rpcStatus]].
     */
   def fromGrpcStatus(status: RpcStatus): Either[String, DecodedCantonError] = {
     val rawDetails = status.details
@@ -203,9 +203,8 @@ object DecodedCantonError {
       s"Could not extract error detail. Expected $times ${expectedTypeCompanion.scalaDescriptor.fullName} in status details, but got ${seq.size}"
   }
 
-  /** Dummy error class for the purpose of creating the [[GenericErrorCode]].
-    * It has no effect on documentation as its intended user ([[DecodedCantonError]])
-    * does not appear in documentation.
+  /** Dummy error class for the purpose of creating the [[GenericErrorCode]]. It has no effect on
+    * documentation as its intended user ([[DecodedCantonError]]) does not appear in documentation.
     */
   private implicit val genericErrorClass: ErrorClass = ErrorClass(
     List(Grouping("generic", "ErrorClass"))

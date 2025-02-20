@@ -5,11 +5,12 @@ package com.digitalasset.canton
 
 import org.wartremover.{WartTraverser, WartUniverse}
 
-/** All blocking method calls should be wrapped in [[scala.concurrent.blocking]]
-  * so that the execution context knows that it may have to spawn a new process.
+/** All blocking method calls should be wrapped in [[scala.concurrent.blocking]] so that the
+  * execution context knows that it may have to spawn a new process.
   *
-  * This wart checks that all @{code synchronized} calls are surrounded immediately by a [[scala.concurrent.blocking]] call.
-  * It also complains about calls to [[java.lang.Thread]]`.sleep` as `Threading.sleep` should be used instead.
+  * This wart checks that all @{code synchronized} calls are surrounded immediately by a
+  * [[scala.concurrent.blocking]] call. It also complains about calls to
+  * [[java.lang.Thread]]`.sleep` as `Threading.sleep` should be used instead.
   *
   * The logic can currently be fooled by renaming `synchronized` and `sleep`.
   */

@@ -113,7 +113,8 @@ import scala.util.{Failure, Success}
 
 /** The transaction processor that coordinates the Canton transaction protocol.
   *
-  * @param participantId    The participant id hosting the transaction processor.
+  * @param participantId
+  *   The participant id hosting the transaction processor.
   */
 @nowarn("msg=dead code following this construct")
 class TransactionProcessingSteps(
@@ -1583,7 +1584,8 @@ object TransactionProcessingSteps {
   )(implicit loggingContext: NamedLoggingContext): LfKeyResolver =
     rootView.globalKeyInputs.fmap(_.unversioned.resolution)
 
-  /** @throws java.lang.IllegalArgumentException if `receivedViewTrees` contains views with different transaction root hashes
+  /** @throws java.lang.IllegalArgumentException
+    *   if `receivedViewTrees` contains views with different transaction root hashes
     */
   def tryCommonData(receivedViewTrees: NonEmpty[Seq[FullTransactionViewTree]]): CommonData = {
     val distinctCommonData = receivedViewTrees

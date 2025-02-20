@@ -32,11 +32,13 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Try}
 
-/** A retry [[com.digitalasset.canton.util.retry.Policy]] defines an interface for retrying a future-based task with
-  * retry semantics specific to implementations. If the task throws a non-fatal exceptions synchronously, the exception is
-  * converted into an asynchronous one, i.e., it is returned as a failed future or retried.
+/** A retry [[com.digitalasset.canton.util.retry.Policy]] defines an interface for retrying a
+  * future-based task with retry semantics specific to implementations. If the task throws a
+  * non-fatal exceptions synchronously, the exception is converted into an asynchronous one, i.e.,
+  * it is returned as a failed future or retried.
   *
-  * If unsure about what retry policy to pick, [[com.digitalasset.canton.util.retry.Backoff]] is a good default.
+  * If unsure about what retry policy to pick, [[com.digitalasset.canton.util.retry.Backoff]] is a
+  * good default.
   */
 
 sealed trait PolicyEffect[F[_]] {
@@ -97,7 +99,9 @@ abstract class Policy(logger: TracedLogger) {
 
 object Policy {
 
-  /** Repeatedly execute the task until it doesn't throw an exception or the `flagCloseable` is closing. */
+  /** Repeatedly execute the task until it doesn't throw an exception or the `flagCloseable` is
+    * closing.
+    */
   def noisyInfiniteRetry[A](
       task: => Future[A],
       performUnlessClosing: PerformUnlessClosing,
@@ -116,7 +120,9 @@ object Policy {
       actionable,
     )
 
-  /** Repeatedly execute the task until it returns an abort due to shutdown, doesn't throw an exception, or the `flagCloseable` is closing. */
+  /** Repeatedly execute the task until it returns an abort due to shutdown, doesn't throw an
+    * exception, or the `flagCloseable` is closing.
+    */
   def noisyInfiniteRetryUS[A](
       task: => FutureUnlessShutdown[A],
       performUnlessClosing: PerformUnlessClosing,
@@ -159,10 +165,11 @@ abstract class RetryWithDelay(
 
   protected def nextDelay(nextCount: Int, delay: FiniteDuration): FiniteDuration
 
-  /** A [[com.digitalasset.canton.util.retry.Success]] criteria is supplied
-    * to determine whether the future-based task has succeeded, or if it should perhaps be retried. Retries are not
-    * performed after the [[com.digitalasset.canton.lifecycle.FlagCloseable]] has been closed. In that case, the
-    * Future is completed with the last result (even if it is an outcome that doesn't satisfy the `success` predicate).
+  /** A [[com.digitalasset.canton.util.retry.Success]] criteria is supplied to determine whether the
+    * future-based task has succeeded, or if it should perhaps be retried. Retries are not performed
+    * after the [[com.digitalasset.canton.lifecycle.FlagCloseable]] has been closed. In that case,
+    * the Future is completed with the last result (even if it is an outcome that doesn't satisfy
+    * the `success` predicate).
     */
   override def applyFut[T](
       task: => Future[T],
@@ -180,14 +187,14 @@ abstract class RetryWithDelay(
         Failure(failure)
     }(directExecutionContext)
 
-  /** In contrast to [[com.digitalasset.canton.util.retry.RetryWithDelay.apply]], this Policy completes the returned
-    * future with `AbortedDueToShutdown` if the retry is aborted due to the corresponding
-    * [[com.digitalasset.canton.lifecycle.FlagCloseable]] being closed or if the task itself reports a shutdown (and
-    * not with the last result).
+  /** In contrast to [[com.digitalasset.canton.util.retry.RetryWithDelay.apply]], this Policy
+    * completes the returned future with `AbortedDueToShutdown` if the retry is aborted due to the
+    * corresponding [[com.digitalasset.canton.lifecycle.FlagCloseable]] being closed or if the task
+    * itself reports a shutdown (and not with the last result).
     *
     * Unless your task does already naturally return a `FutureUnlessShutdown[T]`, using
-    * [[com.digitalasset.canton.util.retry.RetryWithDelay.apply]] is likely sufficient to make it robust against
-    * shutdowns.
+    * [[com.digitalasset.canton.util.retry.RetryWithDelay.apply]] is likely sufficient to make it
+    * robust against shutdowns.
     */
   override def unlessShutdown[T](
       task: => FutureUnlessShutdown[T],
@@ -409,12 +416,13 @@ object RetryWithDelay {
   @VisibleForTesting
   private[retry] val complainAfterRetries: Int = 10
 
-  /** The outcome of the last run of the task,
-    * along with the condition that stopped the retry.
+  /** The outcome of the last run of the task, along with the condition that stopped the retry.
     */
   private final case class RetryOutcome[A](outcome: Try[A], termination: RetryTermination) {
 
-    /** @throws java.lang.Throwable Rethrows the exception if [[outcome]] is a [[scala.util.Failure]] */
+    /** @throws java.lang.Throwable
+      *   Rethrows the exception if [[outcome]] is a [[scala.util.Failure]]
+      */
     @SuppressWarnings(Array("org.wartremover.warts.TryPartial"))
     def toUnlessShutdown: UnlessShutdown[A] =
       if (termination == RetryTermination.Shutdown) AbortedDueToShutdown
@@ -484,38 +492,37 @@ final case class Pause(
   override def nextDelay(nextCount: Int, delay: FiniteDuration): FiniteDuration = delay
 }
 
-/** A retry policy which will back off using a configurable policy which
-  *  incorporates random jitter. This has the advantage of reducing contention
-  *  if you have threaded clients using the same service.
+/** A retry policy which will back off using a configurable policy which incorporates random jitter.
+  * This has the advantage of reducing contention if you have threaded clients using the same
+  * service.
   *
-  *  {{{
+  * {{{
   *  val policy = retry.Backoff()
   *  val future = policy(issueRequest)
-  *  }}}
+  * }}}
   *
-  *  The following pre-made jitter algorithms are available for you to use:
+  * The following pre-made jitter algorithms are available for you to use:
   *
-  *  - [[Jitter.none]]
-  *  - [[Jitter.full]]
-  *  - [[Jitter.equal]]
-  *  - [[Jitter.decorrelated]]
+  *   - [[Jitter.none]]
+  *   - [[Jitter.full]]
+  *   - [[Jitter.equal]]
+  *   - [[Jitter.decorrelated]]
   *
-  *  You can choose one like this:
-  *  {{{
+  * You can choose one like this:
+  * {{{
   *  implicit val jitter = retry.Jitter.full(cap = 5.minutes)
   *  val policy = retry.Backoff(1 second)
   *  val future = policy(issueRequest)
-  *  }}}
+  * }}}
   *
-  *  If a jitter policy isn't in scope, it will use [[Jitter.full]] by
-  *  default which tends to cause clients slightly less work at the cost of
-  *  slightly more time.
+  * If a jitter policy isn't in scope, it will use [[Jitter.full]] by default which tends to cause
+  * clients slightly less work at the cost of slightly more time.
   *
-  *  For more information about the algorithms, see the following article:
+  * For more information about the algorithms, see the following article:
   *
-  *  [[https://www.awsarchitectureblog.com/2015/03/backoff.html]]
+  * [[https://www.awsarchitectureblog.com/2015/03/backoff.html]]
   *
-  *  If the retry is not successful after `maxRetries`, the future is completed with its last result.
+  * If the retry is not successful after `maxRetries`, the future is completed with its last result.
   */
 final case class Backoff(
     logger: TracedLogger,
@@ -545,19 +552,18 @@ final case class Backoff(
     jitter(initialDelay, delay, nextCount)
 }
 
-/** A retry policy in which the failure determines the way a future should be retried.
-  *  The partial function `depends` provided may define the synchronizer of both the success OR exceptional
-  *  failure of a future fails explicitly.
+/** A retry policy in which the failure determines the way a future should be retried. The partial
+  * function `depends` provided may define the synchronizer of both the success OR exceptional
+  * failure of a future fails explicitly.
   *
-  *  {{{
+  * {{{
   *  val policy = retry.When {
   *    case RetryAfter(retryAt) => retry.Pause(delay = retryAt)
   *  }
   *  val future = policy(issueRequest)
-  *  }}}
+  * }}}
   *
-  *  If the result is not defined for the depends block, the future will not
-  *  be retried.
+  * If the result is not defined for the depends block, the future will not be retried.
   */
 final case class When(
     logger: TracedLogger,

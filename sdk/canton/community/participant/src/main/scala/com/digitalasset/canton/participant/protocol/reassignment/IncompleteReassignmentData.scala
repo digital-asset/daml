@@ -11,13 +11,14 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.Source
 
-/** Stores the data for a reassignment that is incomplete, i.e., for which only the assignment or the unassignment was
-  * emitted to the indexer.
+/** Stores the data for a reassignment that is incomplete, i.e., for which only the assignment or
+  * the unassignment was emitted to the indexer.
   *
-  * If [[IncompleteReassignmentData.ReassignmentEventGlobalOffset]] is a [[IncompleteReassignmentData.UnassignmentEventGlobalOffset]],
-  * it means that the unassignment event was emitted before or at `queryOffset` and that assigned event was not yet
-  * emitted or at an offset greater than `queryOffset`.
-  * The same holds symmetrically for a [[IncompleteReassignmentData.AssignmentEventGlobalOffset]].
+  * If [[IncompleteReassignmentData.ReassignmentEventGlobalOffset]] is a
+  * [[IncompleteReassignmentData.UnassignmentEventGlobalOffset]], it means that the unassignment
+  * event was emitted before or at `queryOffset` and that assigned event was not yet emitted or at
+  * an offset greater than `queryOffset`. The same holds symmetrically for a
+  * [[IncompleteReassignmentData.AssignmentEventGlobalOffset]].
   */
 final case class IncompleteReassignmentData(
     reassignmentId: ReassignmentId,

@@ -9,13 +9,16 @@ import java.lang
 import java.sql.PreparedStatement
 import scala.reflect.ClassTag
 
-/** @tparam FROM is an arbitrary type from which we can extract the data of interest for the particular column
-  * @tparam TO is the intermediary type of the result of the extraction.
-  *            FROM => TO functionality is intended to be injected at Schema definition time.
-  *            TO is not nullable, should express a clean Scala type
-  * @tparam CONVERTED is the (possibly primitive) type needed by the JDBC API
-  *                   TO => CONVERTED is intended to be injected at PGField definition time.
-  *                   CONVERTED might be nullable, primitive, boxed-type, whatever the JDBC API requires
+/** @tparam FROM
+  *   is an arbitrary type from which we can extract the data of interest for the particular column
+  * @tparam TO
+  *   is the intermediary type of the result of the extraction. FROM => TO functionality is intended
+  *   to be injected at Schema definition time. TO is not nullable, should express a clean Scala
+  *   type
+  * @tparam CONVERTED
+  *   is the (possibly primitive) type needed by the JDBC API TO => CONVERTED is intended to be
+  *   injected at PGField definition time. CONVERTED might be nullable, primitive, boxed-type,
+  *   whatever the JDBC API requires
   */
 private[backend] abstract class Field[FROM, TO, CONVERTED](implicit
     classTag: ClassTag[CONVERTED]

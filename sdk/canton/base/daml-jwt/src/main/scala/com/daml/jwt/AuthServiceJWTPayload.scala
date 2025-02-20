@@ -12,19 +12,20 @@ import scala.util.Try
 /** All the JWT payloads that can be used with the JWT auth service. */
 sealed abstract class AuthServiceJWTPayload extends Product with Serializable
 
-/** There are two JWT token formats which are currently supported by `StandardJWTPayload`.
-  * The format is identified by `aud` claim.
+/** There are two JWT token formats which are currently supported by `StandardJWTPayload`. The
+  * format is identified by `aud` claim.
   */
 sealed trait StandardJWTTokenFormat
 object StandardJWTTokenFormat {
 
-  /** `Scope` format is for the tokens where scope field contains `daml_ledger_api`
-    * or if it contains a bespoke string configured through a target-scope parameter.
+  /** `Scope` format is for the tokens where scope field contains `daml_ledger_api` or if it
+    * contains a bespoke string configured through a target-scope parameter.
     */
   final case object Scope extends StandardJWTTokenFormat
 
-  /** `Audience` format is for the tokens where `aud` claim starts with `https://daml.com/jwt/aud/participant/`
-    * or if it contains a bespoke string configured through a target-audience parameter.
+  /** `Audience` format is for the tokens where `aud` claim starts with
+    * `https://daml.com/jwt/aud/participant/` or if it contains a bespoke string configured through
+    * a target-audience parameter.
     */
   final case object Audience extends StandardJWTTokenFormat
 }
@@ -32,17 +33,22 @@ object StandardJWTTokenFormat {
 /** Payload parsed from the standard "sub", "aud", "exp", "iss" claims as specified in
   * https://datatracker.ietf.org/doc/html/rfc7519#section-4.1
   *
-  * @param issuer  The issuer of the JWT.
+  * @param issuer
+  *   The issuer of the JWT.
   *
-  * @param userId  The user that is authenticated by this payload.
+  * @param userId
+  *   The user that is authenticated by this payload.
   *
-  * @param participantId  If not set, then the user is authenticated for any participant node that accepts
-  *                       the JWT issuer. We expect this to be used for development only.
-  *                       If set then the user is authenticated for the given participantId.
+  * @param participantId
+  *   If not set, then the user is authenticated for any participant node that accepts the JWT
+  *   issuer. We expect this to be used for development only. If set then the user is authenticated
+  *   for the given participantId.
   *
-  * @param exp            If set, the token is only valid before the given instant.
-  * @param audiences      If non-empty and it is an audience-based token,
-  *                       the token is only valid for the intended recipients.
+  * @param exp
+  *   If set, the token is only valid before the given instant.
+  * @param audiences
+  *   If non-empty and it is an audience-based token, the token is only valid for the intended
+  *   recipients.
   */
 final case class StandardJWTPayload(
     issuer: Option[String],
@@ -57,12 +63,13 @@ final case class StandardJWTPayload(
 /** Codec for writing and reading [[AuthServiceJWTPayload]] to and from JSON.
   *
   * In general:
-  * - All custom claims are placed in a namespace field according to the OpenID Connect standard.
-  * - Access tokens use a Daml-specific scope to distinguish them from other access tokens
-  *   issued by the same issuer for different systems or APIs.
-  * - All fields are optional in JSON for forward/backward compatibility reasons, where appropriate.
-  * - Extra JSON fields are ignored when reading.
-  * - Null values and missing JSON fields map to None or a safe default value (if there is one).
+  *   - All custom claims are placed in a namespace field according to the OpenID Connect standard.
+  *   - Access tokens use a Daml-specific scope to distinguish them from other access tokens issued
+  *     by the same issuer for different systems or APIs.
+  *   - All fields are optional in JSON for forward/backward compatibility reasons, where
+  *     appropriate.
+  *   - Extra JSON fields are ignored when reading.
+  *   - Null values and missing JSON fields map to None or a safe default value (if there is one).
   */
 object AuthServiceJWTCodec {
 

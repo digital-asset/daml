@@ -9,16 +9,17 @@ import com.digitalasset.canton.util.ShowUtil
   */
 trait PrettyPrinting extends ShowUtil with PrettyUtil {
 
-  /** Indicates how to pretty print this instance.
-    * See `PrettyPrintingTest` for examples on how to implement this method.
+  /** Indicates how to pretty print this instance. See `PrettyPrintingTest` for examples on how to
+    * implement this method.
     */
   protected def pretty: Pretty[this.type]
 
   @inline
   private[pretty] final def prettyInternal: Pretty[this.type] = pretty
 
-  /** Yields a readable string representation based on [[com.digitalasset.canton.logging.pretty.Pretty.DefaultPprinter]].
-    * `Final` to avoid accidental overwriting.
+  /** Yields a readable string representation based on
+    * [[com.digitalasset.canton.logging.pretty.Pretty.DefaultPprinter]]. `Final` to avoid accidental
+    * overwriting.
     */
   // Do not cache the toString representation because it could be outdated in classes with mutable state
   override final def toString: String =

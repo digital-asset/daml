@@ -40,22 +40,25 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 
 /** Provides a variety of methods for tracking time on the synchronizer.
-  *  - fetchTime and fetchTimeProof allows for proactively asking for a recent time or time proof.
-  *  - requestTick asks the tracker to ensure that an event is witnessed for the given time or greater (useful for timeouts).
-  *  - awaitTick will return a future to wait for the given time being reached on the target synchronizer.
+  *   - fetchTime and fetchTimeProof allows for proactively asking for a recent time or time proof.
+  *   - requestTick asks the tracker to ensure that an event is witnessed for the given time or
+  *     greater (useful for timeouts).
+  *   - awaitTick will return a future to wait for the given time being reached on the target
+  *     synchronizer.
   *
-  * We currently assume that the synchronizer and our host are roughly synchronized
-  * and typically won't expect to see a time on a synchronizer until we have passed that point on our local clock.
-  * We then wait for `observationLatency` past the timestamp we are expecting to elapse on our local clock
-  * as transmission of an event with that timestamp will still take some time to arrive at our host.
-  * This avoids frequently asking for times before we've reached the timestamps we're looking for locally.
+  * We currently assume that the synchronizer and our host are roughly synchronized and typically
+  * won't expect to see a time on a synchronizer until we have passed that point on our local clock.
+  * We then wait for `observationLatency` past the timestamp we are expecting to elapse on our local
+  * clock as transmission of an event with that timestamp will still take some time to arrive at our
+  * host. This avoids frequently asking for times before we've reached the timestamps we're looking
+  * for locally.
   *
-  * We also take into account a `patienceDuration` that will cause us to defer asking for a time if we
-  * have recently seen events for the synchronizer. This is particularly useful if we are significantly behind and
-  * reading many old events from the synchronizer.
+  * We also take into account a `patienceDuration` that will cause us to defer asking for a time if
+  * we have recently seen events for the synchronizer. This is particularly useful if we are
+  * significantly behind and reading many old events from the synchronizer.
   *
-  * If no activity is happening on the synchronizer we will try to ensure that we have observed an event at least once
-  * during the `minObservationDuration`.
+  * If no activity is happening on the synchronizer we will try to ensure that we have observed an
+  * event at least once during the `minObservationDuration`.
   */
 class SynchronizerTimeTracker(
     config: SynchronizerTimeTrackerConfig,
@@ -96,21 +99,21 @@ class SynchronizerTimeTracker(
   // kick off the scheduling to ensure we see timestamps at least occasionally
   ensureMinObservationDuration()
 
-  /** Fetch the latest timestamp we have observed from the synchronizer.
-    * Note this isn't restored on startup so will be empty until the first event after starting is seen.
+  /** Fetch the latest timestamp we have observed from the synchronizer. Note this isn't restored on
+    * startup so will be empty until the first event after starting is seen.
     */
   def latestTime: Option[CantonTimestamp] = timestampRef.get().latest.map(_.value)
 
-  /** Fetches a recent synchronizer timestamp.
-    * If the latest received event has been received within the given `freshnessBound` (measured on the participant clock) this synchronizer timestamp
-    * will be immediately returned.
-    * If a sufficiently fresh timestamp is unavailable then a request for a time proof will be made, however
-    * the returned future will be resolved by the first event after this call (which may not necessarily be
-    * the response to our time proof request).
+  /** Fetches a recent synchronizer timestamp. If the latest received event has been received within
+    * the given `freshnessBound` (measured on the participant clock) this synchronizer timestamp
+    * will be immediately returned. If a sufficiently fresh timestamp is unavailable then a request
+    * for a time proof will be made, however the returned future will be resolved by the first event
+    * after this call (which may not necessarily be the response to our time proof request).
     *
-    * @return The future completes with the synchronizer's timestamp of the event.
-    *         So if the participant's local clock is ahead of the synchronizer clock,
-    *         the timestamp may be earlier than now minus the freshness bound.
+    * @return
+    *   The future completes with the synchronizer's timestamp of the event. So if the participant's
+    *   local clock is ahead of the synchronizer clock, the timestamp may be earlier than now minus
+    *   the freshness bound.
     */
   def fetchTime(freshnessBound: NonNegativeFiniteDuration = NonNegativeFiniteDuration.Zero)(implicit
       traceContext: TraceContext
@@ -123,26 +126,26 @@ class SynchronizerTimeTracker(
   ): FutureUnlessShutdown[TimeProof] =
     fetch(freshnessBound, timeProofRef, requiresTimeProof = true)
 
-  /** Register that we want to observe a synchronizer time.
-    * The tracker will attempt to make sure that we observe a sequenced event with this timestamp or greater.
-    * If "immediately" is configured and the clock is a SimClock, a new time proof will be fetched.
+  /** Register that we want to observe a synchronizer time. The tracker will attempt to make sure
+    * that we observe a sequenced event with this timestamp or greater. If "immediately" is
+    * configured and the clock is a SimClock, a new time proof will be fetched.
     *
-    * The maximum timestamp that we support waiting for is [[data.CantonTimestamp.MaxValue]] minus the configured
-    * observation latency. If a greater value is provided a warning will be logged but no error will be
-    * thrown or returned.
+    * The maximum timestamp that we support waiting for is [[data.CantonTimestamp.MaxValue]] minus
+    * the configured observation latency. If a greater value is provided a warning will be logged
+    * but no error will be thrown or returned.
     */
   def requestTick(ts: CantonTimestamp, immediately: Boolean = false)(implicit
       traceContext: TraceContext
   ): Unit =
     requestTicks(Seq(ts), immediately)
 
-  /** Register that we want to observe synchronizer times.
-    * The tracker will attempt to make sure that we observe a sequenced event with the given timestamps or greater.
-    * If "immediately" is configured and the clock is a SimClock, a new time proof will be fetched.
+  /** Register that we want to observe synchronizer times. The tracker will attempt to make sure
+    * that we observe a sequenced event with the given timestamps or greater. If "immediately" is
+    * configured and the clock is a SimClock, a new time proof will be fetched.
     *
-    * The maximum timestamp that we support waiting for is [[data.CantonTimestamp.MaxValue]] minus the configured
-    * observation latency. If a greater value is provided a warning will be logged but no error will be
-    * thrown or returned.
+    * The maximum timestamp that we support waiting for is [[data.CantonTimestamp.MaxValue]] minus
+    * the configured observation latency. If a greater value is provided a warning will be logged
+    * but no error will be thrown or returned.
     */
   def requestTicks(timestamps: Seq[CantonTimestamp], immediately: Boolean = false)(implicit
       traceContext: TraceContext
@@ -167,9 +170,9 @@ class SynchronizerTimeTracker(
     }
   }
 
-  /** Waits for an event with a timestamp greater or equal to `ts` to be observed from the synchronizer.
-    * If we have already witnessed an event with a timestamp equal or exceeding the given `ts` then `None`
-    * will be returned.
+  /** Waits for an event with a timestamp greater or equal to `ts` to be observed from the
+    * synchronizer. If we have already witnessed an event with a timestamp equal or exceeding the
+    * given `ts` then `None` will be returned.
     */
   def awaitTick(
       ts: CantonTimestamp
@@ -213,8 +216,8 @@ class SynchronizerTimeTracker(
     }
   }
 
-  /** Inform the synchronizer time tracker about the first message the sequencer client resubscribes to from the sequencer.
-    * This is never considered a time proof event.
+  /** Inform the synchronizer time tracker about the first message the sequencer client resubscribes
+    * to from the sequencer. This is never considered a time proof event.
     */
   def subscriptionResumesAfter(
       timestamp: CantonTimestamp
@@ -313,18 +316,19 @@ class SynchronizerTimeTracker(
   private[time] def earliestExpectedObservationTime(): Option[CantonTimestamp] =
     Option(withLock(pendingTicks.peek())).map(_.ts.add(config.observationLatency.asJava))
 
-  /** Local time of when we'd like to see the next event produced.
-    * If we are waiting to observe a timestamp, this value will be the greater (see note below) of:
-    *  - the local time of when we'd like to see the earliest tick
-    *  - the time we last received an event offset plus the configured patience duration
+  /** Local time of when we'd like to see the next event produced. If we are waiting to observe a
+    * timestamp, this value will be the greater (see note below) of:
+    *   - the local time of when we'd like to see the earliest tick
+    *   - the time we last received an event offset plus the configured patience duration
     *
-    * This allows doing nothing for a long period if the timestamp we're looking at is far in the future.
-    * However if the synchronizer is far behind but regularly producing events we will wait until we haven't
-    * witnessed an event for the patience duration.
+    * This allows doing nothing for a long period if the timestamp we're looking at is far in the
+    * future. However if the synchronizer is far behind but regularly producing events we will wait
+    * until we haven't witnessed an event for the patience duration.
     *
-    * Note: for sim clock, we always take the earliestExpectedObservationTime. The reason is that progressing the
-    * clock may lead to sudden big differences between local clock and timestamps on sequencer messages
-    * which lead to some check that decides whether a time proof should be requested not being done.
+    * Note: for sim clock, we always take the earliestExpectedObservationTime. The reason is that
+    * progressing the clock may lead to sudden big differences between local clock and timestamps on
+    * sequencer messages which lead to some check that decides whether a time proof should be
+    * requested not being done.
     *
     * The issue arise in the following case:
     *   - Check is scheduled at t1
@@ -352,15 +356,17 @@ class SynchronizerTimeTracker(
       }
     }
 
-  /** we're unable to cancel an update once scheduled, so if we decide to schedule an earlier update than an update already
-    * scheduled we update this to the earlier value and then check this value when the scheduled task is run
+  /** we're unable to cancel an update once scheduled, so if we decide to schedule an earlier update
+    * than an update already scheduled we update this to the earlier value and then check this value
+    * when the scheduled task is run
     */
   private val nextScheduledUpdate: AtomicReference[Option[CantonTimestamp]] =
     new AtomicReference[Option[CantonTimestamp]](None)
 
-  /** After [[pendingTicks]] or [[timestampRef]] have been updated, call this to determine whether a scheduled update is required.
-    * It will be scheduled if there isn't an existing or earlier update pending and
-    * the time tracker has observed at least some timestamp or if "immediately" is true and the clock is a SimClock.
+  /** After [[pendingTicks]] or [[timestampRef]] have been updated, call this to determine whether a
+    * scheduled update is required. It will be scheduled if there isn't an existing or earlier
+    * update pending and the time tracker has observed at least some timestamp or if "immediately"
+    * is true and the clock is a SimClock.
     */
   private def maybeScheduleUpdate(
       immediately: Boolean = false
@@ -408,8 +414,9 @@ class SynchronizerTimeTracker(
   }
 
   /** In the absence of any real activity on the synchronizer we will infrequently request a time.
-    * Short of being aware of a relatively recent synchronizer time, it will allow features like sequencer pruning
-    * to keep a relatively recent acknowledgment point for the member even if they're not doing anything.
+    * Short of being aware of a relatively recent synchronizer time, it will allow features like
+    * sequencer pruning to keep a relatively recent acknowledgment point for the member even if
+    * they're not doing anything.
     */
   private def ensureMinObservationDuration(): Unit = withNewTraceContext { implicit traceContext =>
     val minObservationDuration = config.minObservationDuration.asJava
@@ -465,8 +472,9 @@ object SynchronizerTimeTracker {
   /** Keep track of a value, and when we received said value, measured on the participant's clock */
   final case class Received[+A](value: A, receivedAt: CantonTimestamp)
 
-  /** Keep track of the latest value received and a promise to complete when the next one arrives
-    * It is not a case class so that equality is object identity (equality on promises is anyway object identity).
+  /** Keep track of the latest value received and a promise to complete when the next one arrives It
+    * is not a case class so that equality is object identity (equality on promises is anyway object
+    * identity).
     */
   class LatestAndNext[A](
       val latest: Option[Received[A]],

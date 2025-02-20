@@ -893,9 +893,13 @@ create table ord_metadata_output_epochs (
 
 -- Stores P2P endpoints from the configuration or admin command
 create table ord_p2p_endpoints (
-  host varchar collate "C" not null,
+  address varchar collate "C" not null,
   port smallint not null,
-  primary key (host, port)
+  transport_security bool not null,
+  custom_server_trust_certificates bytea null, -- PEM string
+  client_certificate_chain bytea null, -- PEM string
+  client_private_key_file varchar collate "C" null, -- path to a file containing the client private key
+  primary key (address, port, transport_security)
 );
 
 -- Auto-vacuum settings for large sequencer tables: these are defaults set based on testing of CN CILR test deployment

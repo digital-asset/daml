@@ -18,8 +18,10 @@ import com.digitalasset.canton.version.{
 
 /** A request to receive events from a given counter from a sequencer.
   *
-  * @param member the member subscribing to the sequencer
-  * @param counter the counter of the first event to receive.
+  * @param member
+  *   the member subscribing to the sequencer
+  * @param counter
+  *   the counter of the first event to receive.
   */
 final case class SubscriptionRequest(member: Member, counter: SequencerCounter)(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[

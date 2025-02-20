@@ -10,9 +10,9 @@ package object repair {
 
   /** Cooks up a random dummy transaction id.
     *
-    * With single-participant repair commands, we have little hope of coming up with a transactionId that matches up with
-    * other participants. We can get away with differing transaction ids across participants because the
-    * AcsCommitmentProcessor does not compare transaction ids.
+    * With single-participant repair commands, we have little hope of coming up with a transactionId
+    * that matches up with other participants. We can get away with differing transaction ids across
+    * participants because the AcsCommitmentProcessor does not compare transaction ids.
     */
   private[repair] def randomTransactionId(syncCrypto: SyncCryptoApiParticipantProvider) = {
     // We take as much entropy as for a random UUID.

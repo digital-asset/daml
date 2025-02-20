@@ -25,8 +25,7 @@ object KeyUtils {
 
   private val mimeCharSet = StandardCharsets.ISO_8859_1
 
-  /** Reads an RSA public key from a X509 encoded file.
-    * These usually have the .crt file extension.
+  /** Reads an RSA public key from a X509 encoded file. These usually have the .crt file extension.
     */
   def readRSAPublicKeyFromCrt(file: File): Try[RSAPublicKey] =
     Using(new FileInputStream(file))(
@@ -37,8 +36,7 @@ object KeyUtils {
         .asInstanceOf[RSAPublicKey]
     )
 
-  /** Reads an EC public key from a X509 encoded file.
-    * These usually have the .crt file extension.
+  /** Reads an EC public key from a X509 encoded file. These usually have the .crt file extension.
     */
   def readECPublicKeyFromCrt(file: File): Try[ECPublicKey] =
     Using(new FileInputStream(file))(
@@ -49,8 +47,7 @@ object KeyUtils {
         .asInstanceOf[ECPublicKey]
     )
 
-  /** Reads a RSA private key from a PEM/PKCS#8 file.
-    * These usually have the .pem file extension.
+  /** Reads a RSA private key from a PEM/PKCS#8 file. These usually have the .pem file extension.
     */
   def readRSAPrivateKeyFromPem(file: File): Try[RSAPrivateKey] =
     for {
@@ -80,9 +77,9 @@ object KeyUtils {
       }
     } yield key
 
-  /** Reads a RSA private key from a binary file (PKCS#8, DER).
-    * To generate this file from a .pem file, use the following command:
-    * openssl pkcs8 -topk8 -inform PEM -outform DER -in private-key.pem -nocrypt > private-key.der
+  /** Reads a RSA private key from a binary file (PKCS#8, DER). To generate this file from a .pem
+    * file, use the following command: openssl pkcs8 -topk8 -inform PEM -outform DER -in
+    * private-key.pem -nocrypt > private-key.der
     */
   def readRSAPrivateKeyFromDer(file: File): Try[RSAPrivateKey] =
     for {
@@ -98,7 +95,8 @@ object KeyUtils {
 
   /** Generates a JWKS JSON object for the given map of KeyID->Key for RSA
     *
-    * Note: this uses the same format as Google OAuth, see https://www.googleapis.com/oauth2/v3/certs
+    * Note: this uses the same format as Google OAuth, see
+    * https://www.googleapis.com/oauth2/v3/certs
     */
   def generateJwks(keys: Map[String, RSAPublicKey]): String = {
     def generateKeyEntry(keyId: String, key: RSAPublicKey): String =
@@ -123,7 +121,8 @@ object KeyUtils {
 
   /** Generates a JWKS JSON object for the given map of KeyID->Key for EC
     *
-    * Note: this uses the same format as Google OAuth, see https://www.gstatic.com/iap/verify/public_key-jwk
+    * Note: this uses the same format as Google OAuth, see
+    * https://www.gstatic.com/iap/verify/public_key-jwk
     */
   def generateECJwks(keys: Map[String, ECPublicKey]): String = {
     def generateKeyEntry(keyId: String, key: ECPublicKey): String =

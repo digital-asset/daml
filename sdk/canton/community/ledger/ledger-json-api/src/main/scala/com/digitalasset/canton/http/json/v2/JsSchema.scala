@@ -105,6 +105,22 @@ object JsSchema {
         witnessParties: Seq[String],
         packageName: String,
     ) extends Event
+
+    final case class ExercisedEvent(
+        offset: Long,
+        nodeId: Int,
+        contractId: String,
+        templateId: com.daml.ledger.api.v2.value.Identifier,
+        interfaceId: Option[com.daml.ledger.api.v2.value.Identifier],
+        choice: String,
+        choiceArgument: Json,
+        actingParties: Seq[String],
+        consuming: Boolean,
+        witnessParties: Seq[String],
+        lastDescendantNodeId: Int,
+        exerciseResult: Json,
+        packageName: String,
+    ) extends Event
   }
 
   object JsTopologyEvent {
@@ -300,6 +316,7 @@ object JsSchema {
     implicit val jsEvent: Codec[JsEvent.Event] = deriveCodec
     implicit val jsCreatedEvent: Codec[JsEvent.CreatedEvent] = deriveCodec
     implicit val jsArchivedEvent: Codec[JsEvent.ArchivedEvent] = deriveCodec
+    implicit val jsExercisedEvent: Codec[JsEvent.ExercisedEvent] = deriveCodec
 
     implicit val any: Codec[com.google.protobuf.any.Any] = deriveCodec
     implicit val jsStatus: Codec[JsStatus] = deriveCodec
@@ -327,6 +344,8 @@ object JsSchema {
     ] = deriveCodec
 
     // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+    implicit val identifierSchema: Schema[com.daml.ledger.api.v2.value.Identifier] = Schema.string
+
     @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
     implicit val jsEventSchema: Schema[JsEvent.Event] =
       Schema.oneOfWrapped
@@ -334,8 +353,6 @@ object JsSchema {
     @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
     implicit val jsTreeEventSchema: Schema[JsTreeEvent.TreeEvent] =
       Schema.oneOfWrapped
-
-    implicit val identifierSchema: Schema[com.daml.ledger.api.v2.value.Identifier] = Schema.string
 
     implicit val valueSchema: Schema[com.google.protobuf.struct.Value] = Schema.any
   }

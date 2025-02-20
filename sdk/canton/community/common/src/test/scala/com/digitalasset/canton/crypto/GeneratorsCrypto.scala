@@ -77,9 +77,10 @@ object GeneratorsCrypto {
       signingKeySpec <- Arbitrary
         .arbitrary[SigningKeySpec]
 
-      /** The session signing keys inside the signature delegation are a special type of signing key where
-        * the format is fixed (i.e. DerX509Spki) and their scheme is identified by the 'sessionKeySpec' protobuf field.
-        * Therefore, we cannot use the usual Arbitrary.arbitrary[SigningKey] because it produces keys in a Symbolic format.
+      /** The session signing keys inside the signature delegation are a special type of signing key
+        * where the format is fixed (i.e. DerX509Spki) and their scheme is identified by the
+        * 'sessionKeySpec' protobuf field. Therefore, we cannot use the usual
+        * Arbitrary.arbitrary[SigningKey] because it produces keys in a Symbolic format.
         */
       sessionKey = JcePrivateCrypto
         .generateSigningKeypair(

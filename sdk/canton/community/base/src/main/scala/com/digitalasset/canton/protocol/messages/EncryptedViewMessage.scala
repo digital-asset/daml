@@ -33,9 +33,10 @@ import com.google.protobuf.ByteString
 
 import scala.concurrent.ExecutionContext
 
-/** An encrypted [[com.digitalasset.canton.data.ViewTree]] together with its [[com.digitalasset.canton.data.ViewType]].
-  * The correspondence is encoded via a path-dependent type.
-  * The type parameter `VT` exposes a upper bound on the type of view types that may be contained.
+/** An encrypted [[com.digitalasset.canton.data.ViewTree]] together with its
+  * [[com.digitalasset.canton.data.ViewType]]. The correspondence is encoded via a path-dependent
+  * type. The type parameter `VT` exposes a upper bound on the type of view types that may be
+  * contained.
   *
   * The view tree is compressed before encryption.
   */
@@ -71,7 +72,8 @@ sealed trait EncryptedView[+VT <: ViewType] extends Product with Serializable {
 
   /** Cast the type parameter to the given argument's [[com.digitalasset.canton.data.ViewType]]
     * provided that the argument is the same as [[viewType]]
-    * @return [[scala.None$]] if `desiredViewType` does not equal [[viewType]].
+    * @return
+    *   [[scala.None$]] if `desiredViewType` does not equal [[viewType]].
     */
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def select(desiredViewType: ViewType): Option[EncryptedView[desiredViewType.type]] =
@@ -117,10 +119,10 @@ object EncryptedView {
 
   /** Wrapper class to compress the view before encrypting it.
     *
-    * This class's methods are essentially private to [[EncryptedView]]
-    * because compression is in theory non-deterministic (the gzip format can store a timestamp that is ignored by decryption)
-    * and we want to avoid that this is applied to [[com.digitalasset.canton.serialization.HasCryptographicEvidence]]
-    * instances.
+    * This class's methods are essentially private to [[EncryptedView]] because compression is in
+    * theory non-deterministic (the gzip format can store a timestamp that is ignored by decryption)
+    * and we want to avoid that this is applied to
+    * [[com.digitalasset.canton.serialization.HasCryptographicEvidence]] instances.
     */
   final case class CompressedView[+V <: HasToByteString] private (value: V)
       extends HasToByteString {
@@ -191,16 +193,19 @@ object EncryptedView {
 
 /** An encrypted view message.
   *
-  * See [[https://engineering.da-int.net/docs/platform-architecture-handbook/arch/canton/tx-data-structures.html#transaction-hashes-and-views]]
+  * See
+  * [[https://engineering.da-int.net/docs/platform-architecture-handbook/arch/canton/tx-data-structures.html#transaction-hashes-and-views]]
   * The view message encrypted with symmetric key that is derived from the view's randomness.
   *
-  * @param viewHash   Transaction view hash in plain text - included such that the recipient can prove to a 3rd party
-  *                   that it has correctly decrypted the `viewTree`
-  * @param sessionKeys a sequence of encrypted random values to each recipient of the view.
-  *                   These values are encrypted and are used to derive the symmetric session key for the view.
-  *                   Instead of sending a <SymmetricKey>, which could cause formatting issues
-  *                   (e.g. different participants with different providers and, therefore, different key formats),
-  *                   we send an encrypted <SecureRandomness>.
+  * @param viewHash
+  *   Transaction view hash in plain text - included such that the recipient can prove to a 3rd
+  *   party that it has correctly decrypted the `viewTree`
+  * @param sessionKeys
+  *   a sequence of encrypted random values to each recipient of the view. These values are
+  *   encrypted and are used to derive the symmetric session key for the view. Instead of sending a
+  *   <SymmetricKey>, which could cause formatting issues (e.g. different participants with
+  *   different providers and, therefore, different key formats), we send an encrypted
+  *   <SecureRandomness>.
   */
 final case class EncryptedViewMessage[+VT <: ViewType](
     submittingParticipantSignature: Option[Signature],

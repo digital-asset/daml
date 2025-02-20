@@ -3,8 +3,8 @@
 
 package com.digitalasset.transcode
 
-/** Note:
-  * code in this package is a translation to scala2 of code from https://github.com/DACH-NY/transcode
+/** Note: code in this package is a translation to scala2 of code from
+  * https://github.com/DACH-NY/transcode
   */
 package schema {
   final case class Identifier(packageId: String, moduleName: String, entityName: String) {

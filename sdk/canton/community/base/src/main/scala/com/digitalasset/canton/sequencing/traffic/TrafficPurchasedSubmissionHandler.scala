@@ -32,8 +32,8 @@ import com.digitalasset.canton.version.ProtocolVersion
 import scala.concurrent.ExecutionContext
 import scala.math.Ordered.orderingToOrdered
 
-/** Utility class to send traffic purchased entry requests protocol messages to be sequenced.
-  * This is abstracted out so that it can be re-used in any node's Admin API.
+/** Utility class to send traffic purchased entry requests protocol messages to be sequenced. This
+  * is abstracted out so that it can be re-used in any node's Admin API.
   */
 class TrafficPurchasedSubmissionHandler(
     clock: Clock,
@@ -41,13 +41,20 @@ class TrafficPurchasedSubmissionHandler(
 ) extends NamedLogging {
 
   /** Send a signed traffic purchased entry request.
-    * @param member recipient of the new balance
-    * @param synchronizerId synchronizerId of the synchronizer where the top up is being sent to
-    * @param protocolVersion protocol version used
-    * @param serial monotonically increasing serial number for the request
-    * @param totalTrafficPurchased new total traffic purchased entry
-    * @param sequencerClient sequencer client to use to send the balance request
-    * @param cryptoApi crypto api used to access topology
+    * @param member
+    *   recipient of the new balance
+    * @param synchronizerId
+    *   synchronizerId of the synchronizer where the top up is being sent to
+    * @param protocolVersion
+    *   protocol version used
+    * @param serial
+    *   monotonically increasing serial number for the request
+    * @param totalTrafficPurchased
+    *   new total traffic purchased entry
+    * @param sequencerClient
+    *   sequencer client to use to send the balance request
+    * @param cryptoApi
+    *   crypto api used to access topology
     */
   def sendTrafficPurchasedRequest(
       member: Member,

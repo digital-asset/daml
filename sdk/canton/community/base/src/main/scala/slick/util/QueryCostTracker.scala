@@ -21,19 +21,20 @@ import scala.collection.concurrent.TrieMap
   *
   * We inject the query cost tracker into our copy of the async executor of slick.
   *
-  * The executor has "execute", "beforeExecute", "afterExecute".
-  * The public API is "execute". But if you register a runnable there, it just gets put into a queue.
-  * Just before the threadpool actually starts the tasks, it will invoke "beforeExecute". So the time between beforeExecute and execute is the time the db tasks has been waiting in the queue.
+  * The executor has "execute", "beforeExecute", "afterExecute". The public API is "execute". But if
+  * you register a runnable there, it just gets put into a queue. Just before the threadpool
+  * actually starts the tasks, it will invoke "beforeExecute". So the time between beforeExecute and
+  * execute is the time the db tasks has been waiting in the queue.
   *
-  * So if the executor has been closed, then execute will throw an exception when you attempt to schedule a task, but never ever invoke beforeExecute.
-  * That's why we need failed to unregister a runnable. This can e.g. happen if the threadpool is closed before the task is started.
+  * So if the executor has been closed, then execute will throw an exception when you attempt to
+  * schedule a task, but never ever invoke beforeExecute. That's why we need failed to unregister a
+  * runnable. This can e.g. happen if the threadpool is closed before the task is started.
   *
-  * So the flow is:
-  * execute: increase queued
-  * scheduled: decrease queued, increase running
-  * completed: decrease running
+  * So the flow is: execute: increase queued scheduled: decrease queued, increase running completed:
+  * decrease running
   *
-  * Maybe "scheduled" is misleading. It really means: the runnable is now starting to run on a thread.
+  * Maybe "scheduled" is misleading. It really means: the runnable is now starting to run on a
+  * thread.
   */
 sealed trait QueryCostTracker {
 

@@ -243,10 +243,11 @@ object RollbackDecomposition {
 
   final case class RbSameTree(rb: RollbackScope) extends RollbackDecomposition
 
-  /** The purpose of this method is to map a tree [[TransactionViewDecomposition]] onto a [[RollbackDecomposition]]
-    * hierarchy aid comparison. The [[RollbackContext.nextChild]] value is significant but is not available
-    * for inspection or construction. For this reason we use trick of entering a rollback context and then converting
-    * to a rollback scope that has as its last sibling the nextChild value.
+  /** The purpose of this method is to map a tree [[TransactionViewDecomposition]] onto a
+    * [[RollbackDecomposition]] hierarchy aid comparison. The [[RollbackContext.nextChild]] value is
+    * significant but is not available for inspection or construction. For this reason we use trick
+    * of entering a rollback context and then converting to a rollback scope that has as its last
+    * sibling the nextChild value.
     */
   def rollbackDecomposition(
       decompositions: Seq[TransactionViewDecomposition]

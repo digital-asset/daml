@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology
 
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
   CryptoProvider,
   OrderingTopologyProvider,
@@ -26,7 +26,7 @@ import scala.util.Success
 
 class SimulationOrderingTopologyProvider(
     thisPeer: SequencerId,
-    getPeerEndpointsToTopologyData: () => Map[Endpoint, SimulationTopologyData],
+    getPeerEndpointsToTopologyData: () => Map[P2PEndpoint, SimulationTopologyData],
     loggerFactory: NamedLoggerFactory,
 ) extends OrderingTopologyProvider[SimulationEnv] {
 

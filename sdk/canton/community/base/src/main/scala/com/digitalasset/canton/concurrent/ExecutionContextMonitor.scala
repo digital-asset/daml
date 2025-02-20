@@ -17,7 +17,8 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Debugging utility used to write at regular intervals the executor service queue size into the logfile
+/** Debugging utility used to write at regular intervals the executor service queue size into the
+  * logfile
   *
   * Useful to debug starvation issues.
   */

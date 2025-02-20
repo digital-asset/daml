@@ -40,11 +40,11 @@ import scala.math.Ordering.Implicits.*
 
 /** Main incoming topology transaction validation and processing
   *
-  * The topology transaction processor is subscribed to the event stream and processes
-  * the synchronizer topology transactions sent via the sequencer.
+  * The topology transaction processor is subscribed to the event stream and processes the
+  * synchronizer topology transactions sent via the sequencer.
   *
-  * It validates and then computes the updates to the data store in order to be able
-  * to represent the topology state at any point in time.
+  * It validates and then computes the updates to the data store in order to be able to represent
+  * the topology state at any point in time.
   *
   * The processor works together with the StoreBasedSynchronizerTopologyClient
   */
@@ -216,7 +216,9 @@ class TopologyTransactionProcessor(
       .foreach(_.updateHead(sequenced, effective, approximate, potentialChanges))
   }
 
-  /** Inform the topology manager where the subscription starts when using [[processEnvelopes]] rather than [[createHandler]] */
+  /** Inform the topology manager where the subscription starts when using [[processEnvelopes]]
+    * rather than [[createHandler]]
+    */
   def subscriptionStartsAt(
       start: SubscriptionStart,
       synchronizerTimeTracker: SynchronizerTimeTracker,
@@ -344,12 +346,13 @@ class TopologyTransactionProcessor(
     }
 
   /** Checks that topology broadcast envelopes satisfy the following conditions:
-    * <ol>
-    *   <li>the only recipient is AllMembersOfSynchronizer</li>
-    *   <li>the topology timestamp is not specified</li>
-    * </ol>
-    *  If any of the conditions are violated, a topology manager warning is logged and the corresponding envelope is skipped.
-    *  @return the topology broadcasts that satisfy the validation conditions
+    *   - the only recipient is AllMembersOfSynchronizer
+    *   - the topology timestamp is not specified
+    *
+    * If any of the conditions are violated, a topology manager warning is logged and the
+    * corresponding envelope is skipped.
+    * @return
+    *   the topology broadcasts that satisfy the validation conditions
     */
   private def validateEnvelopes(
       sc: SequencerCounter,
@@ -403,7 +406,10 @@ class TopologyTransactionProcessor(
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
     store.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
 
-  /** @return A tuple with list of envelopes with invalid recipients and a list of topology broadcasts to further process */
+  /** @return
+    *   A tuple with list of envelopes with invalid recipients and a list of topology broadcasts to
+    *   further process
+    */
   private def extractTopologyUpdatesWithValidRecipients(
       envelopes: Seq[DefaultOpenEnvelope]
   ): (Seq[DefaultOpenEnvelope], Seq[TopologyTransactionsBroadcast]) =

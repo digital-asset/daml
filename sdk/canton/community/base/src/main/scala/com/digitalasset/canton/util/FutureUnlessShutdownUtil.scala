@@ -9,8 +9,10 @@ import org.slf4j.event.Level
 
 object FutureUnlessShutdownUtil {
 
-  /** If the future fails, log the associated error and re-throw. The returned future completes after logging.
-    * @param logPassiveInstanceAtInfo: If true, log [[PassiveInstanceException]] at INFO instead of ERROR level. Default is false.
+  /** If the future fails, log the associated error and re-throw. The returned future completes
+    * after logging.
+    * @param logPassiveInstanceAtInfo:
+    *   If true, log [[PassiveInstanceException]] at INFO instead of ERROR level. Default is false.
     */
   def logOnFailureUnlessShutdown[T](
       future: FutureUnlessShutdown[T],

@@ -16,12 +16,9 @@ object IterableUtil {
 
   implicit class Ops[+A](private val self: immutable.Iterable[A]) {
 
-    /** Calculates a cross product of two iterables.
-      * Seq(1,2,3)
-      * Seq(a,b,c)
+    /** Calculates a cross product of two iterables. Seq(1,2,3) Seq(a,b,c)
       *
-      * would produce
-      * Seq((1,a),(1,b),(1,c),(2,a),(2,b),(2,c),(3,a),(3,b),(3,c))
+      * would produce Seq((1,a),(1,b),(1,c),(2,a),(2,b),(2,c),(3,a),(3,b),(3,c))
       */
     def crossProductBy[B](ys: immutable.Iterable[B]): Iterable[(A, B)] =
       for {
@@ -30,7 +27,8 @@ object IterableUtil {
       } yield (x, y)
   }
 
-  /** Split an iterable into a lazy Stream of consecutive elements with the same value of `f(element)`.
+  /** Split an iterable into a lazy Stream of consecutive elements with the same value of
+    * `f(element)`.
     */
   def spansBy[A, CC[X] <: immutable.Iterable[X], C, B](
       iterable: IterableOps[A, CC, C & immutable.Iterable[A]]
@@ -68,7 +66,9 @@ object IterableUtil {
     generateBlocks(peek())
   }
 
-  /** Splits the sequence `xs` after each element that satisfies `p` and returns the sequence of chunks */
+  /** Splits the sequence `xs` after each element that satisfies `p` and returns the sequence of
+    * chunks
+    */
   def splitAfter[A, CC[X] <: immutable.Iterable[X], C, B](
       xs: IterableOps[A, CC, C & immutable.Iterable[A]]
   )(p: A => Boolean): LazyList[NonEmpty[CC[A]]] = {
@@ -93,8 +93,9 @@ object IterableUtil {
     go()
   }
 
-  /** Returns the zipping of `elems` with `seq` where members `y` of `seq` are skipped if `!by(x, y)`
-    * for the current member `x` from `elems`. Zipping stops when there are no more elements in `elems` or `seq`
+  /** Returns the zipping of `elems` with `seq` where members `y` of `seq` are skipped if `!by(x,
+    * y)` for the current member `x` from `elems`. Zipping stops when there are no more elements in
+    * `elems` or `seq`
     */
   def subzipBy[A, B, C](elems: Iterator[A], seq: Iterator[B])(by: (A, B) => Option[C]): Seq[C] = {
     val zipped = Seq.newBuilder[C]
@@ -113,7 +114,9 @@ object IterableUtil {
     zipped.result()
   }
 
-  /** @throws java.lang.IllegalArgumentException If `objects` contains more than one distinct element */
+  /** @throws java.lang.IllegalArgumentException
+    *   If `objects` contains more than one distinct element
+    */
   def assertAtMostOne[T](objects: Seq[T], objName: String)(implicit
       loggingContext: ErrorLoggingContext
   ): Option[T] =
@@ -126,19 +129,24 @@ object IterableUtil {
         )
     }
 
-  /** Map the function `f` over a sequence and reduce the result with function `g`,
-    * mapping and reducing is done in parallel given the desired `parallelism`.
+  /** Map the function `f` over a sequence and reduce the result with function `g`, mapping and
+    * reducing is done in parallel given the desired `parallelism`.
     *
-    * This method works best if the amount of work for computing `f` and `g` is roughly constant-time,
-    * i.e., independent of the data that is being processed, because then each chunk to process takes about
-    * the same time.
+    * This method works best if the amount of work for computing `f` and `g` is roughly
+    * constant-time,
+    * i.e., independent of the data that is being processed, because then each chunk to process
+    * takes about the same time.
     *
-    * @param parallelism Determines the number of chunks that are created for parallel processing.
-    * @param f The mapping function.
-    * @param g The reducing function. Must be associative.
-    * @return The result of `xs.map(f).reduceOption(g)`. If `f` or `g` throw exceptions,
-    *         the returned future contains such an exception, but it is not guaranteed
-    *         that the returned exception is the "first" such exception in a fixed sequential execution order.
+    * @param parallelism
+    *   Determines the number of chunks that are created for parallel processing.
+    * @param f
+    *   The mapping function.
+    * @param g
+    *   The reducing function. Must be associative.
+    * @return
+    *   The result of `xs.map(f).reduceOption(g)`. If `f` or `g` throw exceptions, the returned
+    *   future contains such an exception, but it is not guaranteed that the returned exception is
+    *   the "first" such exception in a fixed sequential execution order.
     */
   @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
   def mapReducePar[A, B](parallelism: PositiveNumeric[Int], xs: Seq[A])(
@@ -162,8 +170,8 @@ object IterableUtil {
         }
     }
 
-  /** Calculates the largest possible list ys of elements in an input iterable xs such that:
-    * For all y in ys. y >= x for all x in xs.
+  /** Calculates the largest possible list ys of elements in an input iterable xs such that: For all
+    * y in ys. y >= x for all x in xs.
     *
     * Informally, this gives the list of all highest elements of `xs`.
     *
@@ -180,8 +188,8 @@ object IterableUtil {
         else accs
     }
 
-  /** Calculates the largest possible list ys of elements in an input iterable xs such that:
-    * For all y in ys. y <= x for all x in xs.
+  /** Calculates the largest possible list ys of elements in an input iterable xs such that: For all
+    * y in ys. y <= x for all x in xs.
     *
     * Informally, this gives the list of all lowest elements of `xs`.
     */

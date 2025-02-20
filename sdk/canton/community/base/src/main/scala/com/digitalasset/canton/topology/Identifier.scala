@@ -59,11 +59,11 @@ trait HasNamespace extends HasFingerprint {
   @inline final override def fingerprint: Fingerprint = namespace.fingerprint
 }
 
-/** a unique identifier within a namespace
-  * Based on the Ledger API PartyIds/LedgerStrings being limited to 255 characters, we allocate
-  * - 64 + 4 characters to the namespace/fingerprint (essentially SHA256 with extra bytes),
-  * - 2 characters as delimiters, and
-  * - the last 185 characters for the Identifier.
+/** a unique identifier within a namespace Based on the Ledger API PartyIds/LedgerStrings being
+  * limited to 255 characters, we allocate
+  *   - 64 + 4 characters to the namespace/fingerprint (essentially SHA256 with extra bytes),
+  *   - 2 characters as delimiters, and
+  *   - the last 185 characters for the Identifier.
   */
 final case class UniqueIdentifier private (identifier: String185, namespace: Namespace)
     extends HasNamespace
@@ -122,8 +122,12 @@ object UniqueIdentifier {
 
   /** Create a unique identifier
     *
-    * @param id the identifier (prefix) that can be chosen freely but must conform to the LF standard, not exceed 185 chars and must not use two consecutive columns.
-    * @param fingerprint the fingerprint of the namespace, which is normally a hash of the public key, but in some tests might be chosen freely.
+    * @param id
+    *   the identifier (prefix) that can be chosen freely but must conform to the LF standard, not
+    *   exceed 185 chars and must not use two consecutive columns.
+    * @param fingerprint
+    *   the fingerprint of the namespace, which is normally a hash of the public key, but in some
+    *   tests might be chosen freely.
     */
   def create(id: String, fingerprint: String): Either[String, UniqueIdentifier] =
     for {
@@ -179,7 +183,9 @@ object UniqueIdentifier {
   implicit val setParameterUid: SetParameter[UniqueIdentifier] = (v, pp) =>
     pp >> v.toLengthLimitedString
 
-  /** @throws com.digitalasset.canton.store.db.DbDeserializationException if the string is not a valid unqiue identifier */
+  /** @throws com.digitalasset.canton.store.db.DbDeserializationException
+    *   if the string is not a valid unqiue identifier
+    */
   def deserializeFromDb(uid: String): UniqueIdentifier =
     fromProtoPrimitive_(uid).valueOr(err =>
       throw new DbDeserializationException(s"Failed to parse a unique ID $uid: $err")

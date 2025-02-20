@@ -74,11 +74,14 @@ import org.apache.pekko.stream.scaladsl.Source
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.Future
 
-/** The StartableStoppableLedgerApi enables a canton participant node to start and stop the ledger API server
-  * depending on whether the participant node is a High Availability active or passive replica.
+/** The StartableStoppableLedgerApi enables a canton participant node to start and stop the ledger
+  * API server depending on whether the participant node is a High Availability active or passive
+  * replica.
   *
-  * @param config ledger api server configuration
-  * @param executionContext the execution context
+  * @param config
+  *   ledger api server configuration
+  * @param executionContext
+  *   the execution context
   */
 class StartableStoppableLedgerApiServer(
     config: CantonLedgerApiServerWrapper.Config,
@@ -112,10 +115,11 @@ class StartableStoppableLedgerApiServer(
 
   /** Start the ledger API server and remember the resource.
     *
-    * Assumes that ledger api is currently stopped erroring otherwise. If asked to start during shutdown ignores start.
+    * Assumes that ledger api is currently stopped erroring otherwise. If asked to start during
+    * shutdown ignores start.
     *
-    * A possible improvement to consider in the future is to abort start upon subsequent call to stop. As is the stop
-    * will wait until an inflight start completes.
+    * A possible improvement to consider in the future is to abort start upon subsequent call to
+    * stop. As is the stop will wait until an inflight start completes.
     */
   def start()(implicit
       traceContext: TraceContext

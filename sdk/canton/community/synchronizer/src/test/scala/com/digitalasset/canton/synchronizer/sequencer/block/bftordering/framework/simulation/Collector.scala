@@ -3,17 +3,19 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation
 
-import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
+  P2PEndpoint,
+  PlainTextP2PEndpoint,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleName
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
 import com.digitalasset.canton.topology.SequencerId
 
 import scala.concurrent.blocking
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
-
-import SimulationModuleSystem.SimulationEnv
 
 abstract class Collector[E] {
 
@@ -67,8 +69,8 @@ class NodeCollector extends Collector[NodeCollector.Event] {
 
   def addOpenConnection(
       to: SequencerId,
-      endpoint: Endpoint,
-      continuation: (Endpoint, SequencerId) => Unit,
+      endpoint: PlainTextP2PEndpoint,
+      continuation: (P2PEndpoint.Id, SequencerId) => Unit,
   ): Unit =
     add(NodeCollector.OpenConnection(to, endpoint, continuation))
 
@@ -93,8 +95,8 @@ object NodeCollector {
   ) extends Event
   final case class OpenConnection(
       to: SequencerId,
-      endpoint: Endpoint,
-      continuation: (Endpoint, SequencerId) => Unit,
+      endpoint: PlainTextP2PEndpoint,
+      continuation: (P2PEndpoint.Id, SequencerId) => Unit,
   ) extends Event
   final case class CancelTick(tickId: Int) extends Event
 }

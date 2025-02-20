@@ -29,20 +29,21 @@ import scala.concurrent.ExecutionContext
 
 private[mediator] trait MediatorEventDeduplicator {
 
-  /** Reads the request uuids of envelopes and checks for duplicates:
-    * If the uuid of an envelope has been used previously and the previous usage has not expired by the
-    * sequencer timestamp of the corresponding event, then the event is rejected through the sequencer client.
-    * If the uuid of an envelope is fresh, it will be stored as being "in use".
+  /** Reads the request uuids of envelopes and checks for duplicates: If the uuid of an envelope has
+    * been used previously and the previous usage has not expired by the sequencer timestamp of the
+    * corresponding event, then the event is rejected through the sequencer client. If the uuid of
+    * an envelope is fresh, it will be stored as being "in use".
     *
-    * The method should not be called concurrently.
-    * The method may be invoked again, as soon as the future returned by the previous invocation has completed, i.e.,
+    * The method should not be called concurrently. The method may be invoked again, as soon as the
+    * future returned by the previous invocation has completed, i.e.,
     * `rejectDuplicates(...).isComplete`.
     *
-    * @return `(uniqueEnvelopesByEvent, storeF)`:
-    *   `uniqueEnvelopesByEvent` contains those elements of `envelopesByEvent` that have no UUID or a unique UUID.
-    *   `storeF` completes when the persistent state has been updated and all rejections have been sent.
-    *   The method `rejectDuplicates` may be invoked again while `storeF` is still running;
-    *   The event should be considered clean only when `storeF` is completed.
+    * @return
+    *   `(uniqueEnvelopesByEvent, storeF)`: `uniqueEnvelopesByEvent` contains those elements of
+    *   `envelopesByEvent` that have no UUID or a unique UUID. `storeF` completes when the
+    *   persistent state has been updated and all rejections have been sent. The method
+    *   `rejectDuplicates` may be invoked again while `storeF` is still running; The event should be
+    *   considered clean only when `storeF` is completed.
     */
   def rejectDuplicates(
       eventsWithEnvelopes: Seq[(TracedProtocolEvent, Seq[DefaultOpenEnvelope])]
@@ -66,9 +67,10 @@ private[mediator] trait MediatorEventDeduplicator {
       .map { case (results, storeFs) => results -> storeFs.sequence_ }
 
   /** See the comment of the other `rejectDuplicates` method.
-    * @return `(uniqueEnvelopes, storeF)`, where `uniqueEnvelopes` contains those elements
-    *   of `envelopes` that have no UUID or a unique UUID and
-    *   `storeF` completes when the persistent state has been updated and all rejections have been sent.
+    * @return
+    *   `(uniqueEnvelopes, storeF)`, where `uniqueEnvelopes` contains those elements of `envelopes`
+    *   that have no UUID or a unique UUID and `storeF` completes when the persistent state has been
+    *   updated and all rejections have been sent.
     */
   def rejectDuplicates(
       requestTimestamp: CantonTimestamp,

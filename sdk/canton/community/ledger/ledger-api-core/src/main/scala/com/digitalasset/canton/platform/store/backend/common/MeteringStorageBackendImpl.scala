@@ -59,7 +59,7 @@ private[backend] object MeteringStorageBackendImpl {
         )
     }
 
-  /**  Evaluate to the passed condition if the option is non-empty or return true otherwise
+  /** Evaluate to the passed condition if the option is non-empty or return true otherwise
     */
   def ifSet[A](o: Option[A], expr: A => CompositeSql): CompositeSql =
     o.fold(cSQL"1=1")(expr)
@@ -107,9 +107,12 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
 
   }
 
-  /** @param from - Include rows at or after this offset
-    * @param to - If specified include rows before this timestamp
-    * @param appId - If specified only return rows for this application
+  /** @param from
+    *   Include rows at or after this offset
+    * @param to
+    *   If specified include rows before this timestamp
+    * @param appId
+    *   If specified only return rows for this application
     */
   private def transactionMetering(
       from: Offset,
@@ -130,9 +133,12 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
       .asVectorOf(applicationCountParser)(connection)
       .toMap
 
-  /** @param from - Include rows whose aggregation period starts on or after this date
-    * @param to - If specified include rows whose aggregation period ends on or before this date
-    * @param appId - If specified only return rows for this application
+  /** @param from
+    *   Include rows whose aggregation period starts on or after this date
+    * @param to
+    *   If specified include rows whose aggregation period ends on or before this date
+    * @param appId
+    *   If specified only return rows for this application
     */
   private def participantMetering(
       from: Time.Timestamp,

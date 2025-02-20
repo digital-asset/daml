@@ -28,14 +28,16 @@ import scala.collection.concurrent
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
 
-/** In-memory implementation of [[com.digitalasset.canton.participant.store.InFlightSubmissionStore]] */
+/** In-memory implementation of
+  * [[com.digitalasset.canton.participant.store.InFlightSubmissionStore]]
+  */
 class InMemoryInFlightSubmissionStore(override protected val loggerFactory: NamedLoggerFactory)(
     implicit executionContext: ExecutionContext
 ) extends InFlightSubmissionStore
     with NamedLogging {
 
-  /** Invariant: The [[com.digitalasset.canton.participant.protocol.submission.ChangeId]] of
-    * a value is the key.
+  /** Invariant: The [[com.digitalasset.canton.participant.protocol.submission.ChangeId]] of a value
+    * is the key.
     */
   private val inFlights
       : concurrent.Map[ChangeIdHash, InFlightSubmission[SubmissionSequencingInfo]] =

@@ -11,7 +11,8 @@ object BlockFormat {
 
   val DefaultFirstBlockHeight: Long = 0
 
-  /** @param tickTopologyAtMicrosFromEpoch See [[RawLedgerBlock.tickTopologyAtMicrosFromEpoch]].
+  /** @param tickTopologyAtMicrosFromEpoch
+    *   See [[RawLedgerBlock.tickTopologyAtMicrosFromEpoch]].
     */
   final case class Block(
       blockHeight: Long,

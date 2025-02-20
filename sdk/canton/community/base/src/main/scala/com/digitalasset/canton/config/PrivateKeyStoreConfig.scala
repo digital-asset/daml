@@ -7,8 +7,9 @@ import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 
 /** Stores the configuration for a private store
   *
-  * @param encryption flags that the store is encrypted with a specific encryption approach. The default value
-  *                   is None which means unencrypted.
+  * @param encryption
+  *   flags that the store is encrypted with a specific encryption approach. The default value is
+  *   None which means unencrypted.
   */
 final case class PrivateKeyStoreConfig(
     encryption: Option[EncryptedPrivateStoreConfig] = None

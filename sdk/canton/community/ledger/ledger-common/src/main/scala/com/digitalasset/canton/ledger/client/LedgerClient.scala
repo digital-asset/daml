@@ -42,8 +42,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** GRPC client for the Canton Ledger API.
   *
-  * Tracing support:
-  *  we use CallOptions, see [[com.digitalasset.canton.tracing.TraceContextGrpc]]
+  * Tracing support: we use CallOptions, see [[com.digitalasset.canton.tracing.TraceContextGrpc]]
   */
 final class LedgerClient private (
     val channel: Channel,
@@ -150,8 +149,8 @@ object LedgerClient {
       .withInterceptors(TraceContextGrpc.clientInterceptor)
       .withOption(TraceContextGrpc.TraceContextOptionsKey, traceContext)
 
-  /** A convenient shortcut to build a [[LedgerClient]], use [[fromBuilder]] for a more
-    * flexible alternative.
+  /** A convenient shortcut to build a [[LedgerClient]], use [[fromBuilder]] for a more flexible
+    * alternative.
     */
   def singleHost(
       hostIp: String,
@@ -182,11 +181,12 @@ object LedgerClient {
       loggerFactory,
     )
 
-  /** Takes a [[io.grpc.netty.NettyChannelBuilder]], possibly set up with some relevant extra options
-    * that cannot be specified though the [[com.digitalasset.canton.ledger.client.configuration.LedgerClientConfiguration]] (e.g. a set of
-    * default [[io.grpc.CallCredentials]] to be used with all calls unless explicitly
-    * set on a per-call basis), sets the relevant options specified by the configuration
-    * (possibly overriding the existing builder settings), and returns a [[LedgerClient]].
+  /** Takes a [[io.grpc.netty.NettyChannelBuilder]], possibly set up with some relevant extra
+    * options that cannot be specified though the
+    * [[com.digitalasset.canton.ledger.client.configuration.LedgerClientConfiguration]] (e.g. a set
+    * of default [[io.grpc.CallCredentials]] to be used with all calls unless explicitly set on a
+    * per-call basis), sets the relevant options specified by the configuration (possibly overriding
+    * the existing builder settings), and returns a [[LedgerClient]].
     *
     * A shutdown hook is also added to close the channel when the JVM stops.
     */

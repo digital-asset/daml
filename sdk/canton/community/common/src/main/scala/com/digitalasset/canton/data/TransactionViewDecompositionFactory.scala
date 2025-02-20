@@ -24,10 +24,13 @@ case object TransactionViewDecompositionFactory {
 
   /** Keeps track of the state of the transaction view tree.
     *
-    * @param views chains `NewView` and `SameView` as they get created to construct a transaction view tree
-    * @param informees is used to aggregate the informees' partyId until a NewView is created
-    * @param quorums is used to aggregate the different quorums (originated from the different ActionNodes) until a
-    *                NewView is created
+    * @param views
+    *   chains `NewView` and `SameView` as they get created to construct a transaction view tree
+    * @param informees
+    *   is used to aggregate the informees' partyId until a NewView is created
+    * @param quorums
+    *   is used to aggregate the different quorums (originated from the different ActionNodes) until
+    *   a NewView is created
     */
   final private case class BuildState[V](
       views: Chain[V] = Chain.empty,
@@ -251,8 +254,8 @@ case object TransactionViewDecompositionFactory {
     }
   }
 
-  /** Returns informees, participants hosting those informees,
-    * and corresponding threshold for a given action node.
+  /** Returns informees, participants hosting those informees, and corresponding threshold for a
+    * given action node.
     */
   def informeesParticipantsAndThreshold(
       node: LfActionNode,

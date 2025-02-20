@@ -56,17 +56,17 @@ private[update] final class SubmissionRequestValidator(
     metrics,
   )
 
-  /** Returns the snapshot for signing the events (if the submission request specifies a signing timestamp)
-    * and the sequenced events by member.
+  /** Returns the snapshot for signing the events (if the submission request specifies a signing
+    * timestamp) and the sequenced events by member.
     *
-    * Drops the submission request if the sender is not registered or
-    * the [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest.maxSequencingTime]]
-    * is before the `sequencingTimestamp`.
+    * Drops the submission request if the sender is not registered or the
+    * [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest.maxSequencingTime]] is before
+    * the `sequencingTimestamp`.
     *
-    * Produces a [[com.digitalasset.canton.sequencing.protocol.DeliverError]]
-    * if some recipients are unknown or the requested
-    * [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest.topologyTimestamp]]
-    * is too old or after the `sequencingTime`.
+    * Produces a [[com.digitalasset.canton.sequencing.protocol.DeliverError]] if some recipients are
+    * unknown or the requested
+    * [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest.topologyTimestamp]] is too old
+    * or after the `sequencingTime`.
     */
   def validateAndGenerateSequencedEvents(
       inFlightAggregations: InFlightAggregations,
@@ -811,8 +811,8 @@ private[update] object SubmissionRequestValidator {
   }
 
   /** Encodes whether or not traffic should be consumed for the sender for a sequenced event.
-    * Currently this is just a boolean but can be expended later to cover more granular cost accumulation depending
-    * on delivery, validation etc...
+    * Currently this is just a boolean but can be expended later to cover more granular cost
+    * accumulation depending on delivery, validation etc...
     */
   final case class TrafficConsumption(consume: Boolean)
 

@@ -57,9 +57,9 @@ object Write {
   case object KeepAlive extends Write
 }
 
-/** A write that we've assigned a timestamp to.
-  * We drag these over the same clock so we can ensure earlier items have lower timestamps and later items have higher timestamps.
-  * This is very helpful, essential you may say, for correctly setting the watermark while ensuring an event with
+/** A write that we've assigned a timestamp to. We drag these over the same clock so we can ensure
+  * earlier items have lower timestamps and later items have higher timestamps. This is very
+  * helpful, essential you may say, for correctly setting the watermark while ensuring an event with
   * an earlier timestamp will not be written.
   */
 sealed trait SequencedWrite extends HasTraceContext {
@@ -97,26 +97,28 @@ object BatchWritten {
 /** Base class for exceptions intentionally thrown during Pekko stream to flag errors */
 sealed abstract class SequencerWriterException(message: String) extends RuntimeException(message)
 
-/** Throw as an error in the pekko stream when we discover that our currently running sequencer writer has been
-  * marked as offline.
+/** Throw as an error in the pekko stream when we discover that our currently running sequencer
+  * writer has been marked as offline.
   */
 final class SequencerOfflineException(instanceIndex: Int)
     extends SequencerWriterException(
       s"This sequencer (instance:$instanceIndex) has been marked as offline"
     )
 
-/** We intentionally use an unsafe storage method for writing payloads to take advantage of a full connection pool
-  * for performance. However this means if a HA Sequencer Writer has lost its instance lock it may still attempt to
-  * write payloads while another Sequencer Writer is active with the same instance index. As we use this instance
-  * index to generate an (almost) conflict free payload id, in this circumstance there is a slim chance that we
-  * may attempt to write conflicting payloads with the same id. If we were using a simple idempotent write approach
-  * this could result in the active sequencer writing an event with a payload from the offline writer process (and
-  * not the payload it is expecting). This would be a terrible and difficult to diagnose corruption issue.
+/** We intentionally use an unsafe storage method for writing payloads to take advantage of a full
+  * connection pool for performance. However this means if a HA Sequencer Writer has lost its
+  * instance lock it may still attempt to write payloads while another Sequencer Writer is active
+  * with the same instance index. As we use this instance index to generate an (almost) conflict
+  * free payload id, in this circumstance there is a slim chance that we may attempt to write
+  * conflicting payloads with the same id. If we were using a simple idempotent write approach this
+  * could result in the active sequencer writing an event with a payload from the offline writer
+  * process (and not the payload it is expecting). This would be a terrible and difficult to
+  * diagnose corruption issue.
   *
-  * If this exception is raised we currently just halt the writer and run crash recovery. This is slightly suboptimal
-  * as in the above scenario we may crash the active writer (if they were second to write a conflicting payload id).
-  * However this will be safe. We could optimise this by checking the active lock status and only halting
-  * if this is found to be false.
+  * If this exception is raised we currently just halt the writer and run crash recovery. This is
+  * slightly suboptimal as in the above scenario we may crash the active writer (if they were second
+  * to write a conflicting payload id). However this will be safe. We could optimise this by
+  * checking the active lock status and only halting if this is found to be false.
   */
 final class ConflictingPayloadIdException(
     payloadId: PayloadId,
@@ -155,7 +157,8 @@ class SequencerWriterQueues private[sequencer] (
   ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
     writeInternal(Right(outcome))
 
-  /** Accepts both submission requests (DBS flow) as `Left` and submission outcomes (BS flow) as `Right`.
+  /** Accepts both submission requests (DBS flow) as `Left` and submission outcomes (BS flow) as
+    * `Right`.
     */
   private def writeInternal(
       submissionOrOutcome: Either[SubmissionRequest, DeliverableSubmissionOutcome]
@@ -731,10 +734,10 @@ object SequenceWritesFlow {
   }
 }
 
-/** Extract the payloads of events and write them in batches to the payloads table.
-  * As order does not matter at this point allow writing batches concurrently up to
-  * the concurrency specified by [[SequencerWriterConfig.payloadWriteMaxConcurrency]].
-  * Pass on the events with the payloads dropped and replaced by their payload ids.
+/** Extract the payloads of events and write them in batches to the payloads table. As order does
+  * not matter at this point allow writing batches concurrently up to the concurrency specified by
+  * [[SequencerWriterConfig.payloadWriteMaxConcurrency]]. Pass on the events with the payloads
+  * dropped and replaced by their payload ids.
   */
 object WritePayloadsFlow {
   def apply(
@@ -873,10 +876,10 @@ object RecordWatermarkDelayMetricFlow {
 
 object PeriodicCheckpointsForAllMembers {
 
-  /** A Pekko flow that passes the `Traced[BatchWritten]` untouched from input to output,
-    * but asynchronously triggers `store.checkpointCountersAt` every checkpoint interval.
-    * The materialized future completes when all checkpoints have been recorded
-    * after the kill switch has been activated.
+  /** A Pekko flow that passes the `Traced[BatchWritten]` untouched from input to output, but
+    * asynchronously triggers `store.checkpointCountersAt` every checkpoint interval. The
+    * materialized future completes when all checkpoints have been recorded after the kill switch
+    * has been activated.
     */
   def apply(
       checkpointInterval: FiniteDuration,

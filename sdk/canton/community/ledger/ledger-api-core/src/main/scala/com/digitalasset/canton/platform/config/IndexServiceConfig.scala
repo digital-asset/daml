@@ -11,24 +11,42 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 
 /** Ledger api index service specific configurations
   *
-  * @param bufferedEventsProcessingParallelism     parallelism for loading and decoding ledger events for populating ledger api server's internal buffers
-  * @param bufferedStreamsPageSize                 the page size for streams created from ledger api server's in-memory buffers
-  * @param maxContractStateCacheSize               maximum caffeine cache size of mutable state cache of contracts
-  * @param maxContractKeyStateCacheSize            maximum caffeine cache size of mutable state cache of contract keys
-  * @param maxTransactionsInMemoryFanOutBufferSize maximum number of transactions to hold in the "in-memory fanout" (if enabled)
-  * @param apiStreamShutdownTimeout                shutdown timeout for a graceful completion of ledger api server's streams
-  * @param inMemoryStateUpdaterParallelism         the processing parallelism of the Ledger API server in-memory state updater
-  * @param apiQueryServicesThreadPoolSize          size of the thread-pool backing the Ledger API query-services (fe not the command submission/interpretation).
-  *                                                If not set, defaults to ((number of thread)/4 + 1)
-  * @param preparePackageMetadataTimeOutWarning    timeout for package metadata preparation after which a warning will be logged
-  * @param completionsPageSize                     database / pekko page size for batching of ledger api server index ledger completion queries
-  * @param activeContractsServiceStreams           configurations pertaining to the ledger api server's "active contracts service"
-  * @param updatesStreams                          configurations pertaining to the ledger api server's streams of updates
-  * @param transactionTreeStreams                  configurations pertaining to the ledger api server's streams of transaction trees
-  * @param globalMaxEventIdQueries                 maximum number of concurrent event id queries across all stream types
-  * @param globalMaxEventPayloadQueries            maximum number of concurrent event payload queries across all stream types
-  * @param offsetCheckpointCacheUpdateInterval     the interval duration for OffsetCheckpoint cache updates
-  * @param idleStreamOffsetCheckpointTimeout       the timeout duration for checking if a new OffsetCheckpoint is created
+  * @param bufferedEventsProcessingParallelism
+  *   parallelism for loading and decoding ledger events for populating ledger api server's internal
+  *   buffers
+  * @param bufferedStreamsPageSize
+  *   the page size for streams created from ledger api server's in-memory buffers
+  * @param maxContractStateCacheSize
+  *   maximum caffeine cache size of mutable state cache of contracts
+  * @param maxContractKeyStateCacheSize
+  *   maximum caffeine cache size of mutable state cache of contract keys
+  * @param maxTransactionsInMemoryFanOutBufferSize
+  *   maximum number of transactions to hold in the "in-memory fanout" (if enabled)
+  * @param apiStreamShutdownTimeout
+  *   shutdown timeout for a graceful completion of ledger api server's streams
+  * @param inMemoryStateUpdaterParallelism
+  *   the processing parallelism of the Ledger API server in-memory state updater
+  * @param apiQueryServicesThreadPoolSize
+  *   size of the thread-pool backing the Ledger API query-services (fe not the command
+  *   submission/interpretation). If not set, defaults to ((number of thread)/4 + 1)
+  * @param preparePackageMetadataTimeOutWarning
+  *   timeout for package metadata preparation after which a warning will be logged
+  * @param completionsPageSize
+  *   database / pekko page size for batching of ledger api server index ledger completion queries
+  * @param activeContractsServiceStreams
+  *   configurations pertaining to the ledger api server's "active contracts service"
+  * @param updatesStreams
+  *   configurations pertaining to the ledger api server's streams of updates
+  * @param transactionTreeStreams
+  *   configurations pertaining to the ledger api server's streams of transaction trees
+  * @param globalMaxEventIdQueries
+  *   maximum number of concurrent event id queries across all stream types
+  * @param globalMaxEventPayloadQueries
+  *   maximum number of concurrent event payload queries across all stream types
+  * @param offsetCheckpointCacheUpdateInterval
+  *   the interval duration for OffsetCheckpoint cache updates
+  * @param idleStreamOffsetCheckpointTimeout
+  *   the timeout duration for checking if a new OffsetCheckpoint is created
   */
 final case class IndexServiceConfig(
     bufferedEventsProcessingParallelism: Int =
@@ -81,14 +99,23 @@ object IndexServiceConfig {
 
 /** Ledger api active contracts service specific configurations
   *
-  * @param maxIdsPerIdPage                   Number of event ids to retrieve in a single query (a page of event ids).
-  * @param maxPagesPerIdPagesBuffer          Number of id pages to store in a buffer. There is a buffer for each decomposed filtering constraint.
-  * @param maxWorkingMemoryInBytesForIdPages Memory for storing id pages across all id pages buffers. Per single stream.
-  * @param maxPayloadsPerPayloadsPage        Number of parallel queries that fetch payloads of create events. Per single stream.
-  * @param maxParallelIdCreateQueries        Number of parallel queries that fetch ids of create events. Per single stream.
-  * @param maxParallelPayloadCreateQueries   Number of event payloads to retrieve in a single query (a page of event payloads).
-  * @param contractProcessingParallelism     The parallelism for contract processing.
-  * @param maxIncompletePageSize             The maximum size of an incomplete page. Stream is chunked up this into groups of this size.
+  * @param maxIdsPerIdPage
+  *   Number of event ids to retrieve in a single query (a page of event ids).
+  * @param maxPagesPerIdPagesBuffer
+  *   Number of id pages to store in a buffer. There is a buffer for each decomposed filtering
+  *   constraint.
+  * @param maxWorkingMemoryInBytesForIdPages
+  *   Memory for storing id pages across all id pages buffers. Per single stream.
+  * @param maxPayloadsPerPayloadsPage
+  *   Number of parallel queries that fetch payloads of create events. Per single stream.
+  * @param maxParallelIdCreateQueries
+  *   Number of parallel queries that fetch ids of create events. Per single stream.
+  * @param maxParallelPayloadCreateQueries
+  *   Number of event payloads to retrieve in a single query (a page of event payloads).
+  * @param contractProcessingParallelism
+  *   The parallelism for contract processing.
+  * @param maxIncompletePageSize
+  *   The maximum size of an incomplete page. Stream is chunked up this into groups of this size.
   */
 final case class ActiveContractsServiceStreamsConfig(
     maxIdsPerIdPage: Int = ActiveContractsServiceStreamsConfig.DefaultAcsIdPageSize,
@@ -123,24 +150,43 @@ object ActiveContractsServiceStreamsConfig {
 
 /** Updates stream configuration.
   *
-  * @param maxIdsPerIdPage                    Number of event ids to retrieve in a single query (a page of event ids).
-  * @param maxPagesPerIdPagesBuffer           Number of id pages to store in a buffer. There is a buffer for each decomposed filtering constraint.
-  * @param maxWorkingMemoryInBytesForIdPages  Memory for storing id pages across all id pages buffers. Per single stream.
-  * @param maxPayloadsPerPayloadsPage         Number of event payloads to retrieve in a single query (a page of event payloads).
-  * @param maxParallelIdCreateQueries         Number of parallel queries that fetch ids of create events. Per single stream.
-  * @param maxParallelIdConsumingQueries      Number of parallel queries that fetch ids of consuming events. Per single stream.
-  * @param maxParallelIdNonConsumingQueries   Number of parallel queries that fetch payloads of non-consuming events. Per single stream.
-  * @param maxParallelIdAssignQueries         Number of parallel queries that fetch ids of assign events. Per single stream.
-  * @param maxParallelIdUnassignQueries       Number of parallel queries that fetch ids of unassign events. Per single stream.
-  * @param maxParallelIdTopologyEventsQueries Number of parallel queries that fetch payloads of topology events. Per single stream.
-  * @param maxParallelPayloadCreateQueries    Number of parallel queries that fetch payloads of create events. Per single stream.
-  * @param maxParallelPayloadConsumingQueries Number of parallel queries that fetch payloads of consuming events. Per single stream.
-  * @param maxParallelPayloadNonConsumingQueries  Number of parallel queries that fetch ids of non-consuming events. Per single stream.
-  * @param maxParallelPayloadAssignQueries    Number of parallel queries that fetch payloads of assign events. Per single stream.
-  * @param maxParallelPayloadUnassignQueries  Number of parallel queries that fetch payloads of unassign events. Per single stream.
-  * @param maxParallelPayloadTopologyEventsQueries Number of parallel queries that fetch ids of topology events. Per single stream.
-  * @param maxParallelPayloadQueries          Upper bound on the number of parallel queries that fetch payloads. Per single stream.
-  * @param transactionsProcessingParallelism  Number of transactions to process in parallel. Per single stream.
+  * @param maxIdsPerIdPage
+  *   Number of event ids to retrieve in a single query (a page of event ids).
+  * @param maxPagesPerIdPagesBuffer
+  *   Number of id pages to store in a buffer. There is a buffer for each decomposed filtering
+  *   constraint.
+  * @param maxWorkingMemoryInBytesForIdPages
+  *   Memory for storing id pages across all id pages buffers. Per single stream.
+  * @param maxPayloadsPerPayloadsPage
+  *   Number of event payloads to retrieve in a single query (a page of event payloads).
+  * @param maxParallelIdCreateQueries
+  *   Number of parallel queries that fetch ids of create events. Per single stream.
+  * @param maxParallelIdConsumingQueries
+  *   Number of parallel queries that fetch ids of consuming events. Per single stream.
+  * @param maxParallelIdNonConsumingQueries
+  *   Number of parallel queries that fetch payloads of non-consuming events. Per single stream.
+  * @param maxParallelIdAssignQueries
+  *   Number of parallel queries that fetch ids of assign events. Per single stream.
+  * @param maxParallelIdUnassignQueries
+  *   Number of parallel queries that fetch ids of unassign events. Per single stream.
+  * @param maxParallelIdTopologyEventsQueries
+  *   Number of parallel queries that fetch payloads of topology events. Per single stream.
+  * @param maxParallelPayloadCreateQueries
+  *   Number of parallel queries that fetch payloads of create events. Per single stream.
+  * @param maxParallelPayloadConsumingQueries
+  *   Number of parallel queries that fetch payloads of consuming events. Per single stream.
+  * @param maxParallelPayloadNonConsumingQueries
+  *   Number of parallel queries that fetch ids of non-consuming events. Per single stream.
+  * @param maxParallelPayloadAssignQueries
+  *   Number of parallel queries that fetch payloads of assign events. Per single stream.
+  * @param maxParallelPayloadUnassignQueries
+  *   Number of parallel queries that fetch payloads of unassign events. Per single stream.
+  * @param maxParallelPayloadTopologyEventsQueries
+  *   Number of parallel queries that fetch ids of topology events. Per single stream.
+  * @param maxParallelPayloadQueries
+  *   Upper bound on the number of parallel queries that fetch payloads. Per single stream.
+  * @param transactionsProcessingParallelism
+  *   Number of transactions to process in parallel. Per single stream.
   */
 final case class UpdatesStreamsConfig(
     maxIdsPerIdPage: Int = 20000,
@@ -169,24 +215,43 @@ object UpdatesStreamsConfig {
 // TODO(#23504) Cleanup
 /** Transaction tree streams configuration.
   *
-  * @param maxIdsPerIdPage                        Number of event ids to retrieve in a single query (a page of event ids).
-  * @param maxPagesPerIdPagesBuffer               Number of id pages to store in a buffer. There is a buffer for each decomposed filtering constraint.
-  * @param maxWorkingMemoryInBytesForIdPages      Memory for storing id pages across all id pages buffers. Per single stream.
-  * @param maxPayloadsPerPayloadsPage             Number of event payloads to retrieve in a single query (a page of event payloads).
-  * @param maxParallelIdCreateQueries             Number of parallel queries that fetch ids of create events. Per single stream.
-  * @param maxParallelIdConsumingQueries          Number of parallel queries that fetch ids of consuming events. Per single stream.
-  * @param maxParallelIdNonConsumingQueries       Number of parallel queries that fetch payloads of non-consuming events. Per single stream.
-  * @param maxParallelIdAssignQueries             Number of parallel queries that fetch payloads of assign events. Per single stream.
-  * @param maxParallelIdUnassignQueries           Number of parallel queries that fetch payloads of unassign events. Per single stream.
-  * @param maxParallelIdTopologyEventsQueries     Number of parallel queries that fetch payloads of topology events. Per single stream.
-  * @param maxParallelPayloadCreateQueries        Number of parallel queries that fetch payloads of create events. Per single stream.
-  * @param maxParallelPayloadConsumingQueries     Number of parallel queries that fetch payloads of consuming events. Per single stream.
-  * @param maxParallelPayloadNonConsumingQueries  Number of parallel queries that fetch ids of non-consuming events. Per single stream.
-  * @param maxParallelPayloadAssignQueries        Number of parallel queries that fetch ids of assign events. Per single stream.
-  * @param maxParallelPayloadUnassignQueries      Number of parallel queries that fetch ids of unassign events. Per single stream.
-  * @param maxParallelPayloadTopologyEventsQueries Number of parallel queries that fetch ids of topology events. Per single stream.
-  * @param maxParallelPayloadQueries              Upper bound on the number of parallel queries that fetch payloads. Per single stream.
-  * @param transactionsProcessingParallelism      Number of transactions to process in parallel. Per single stream.
+  * @param maxIdsPerIdPage
+  *   Number of event ids to retrieve in a single query (a page of event ids).
+  * @param maxPagesPerIdPagesBuffer
+  *   Number of id pages to store in a buffer. There is a buffer for each decomposed filtering
+  *   constraint.
+  * @param maxWorkingMemoryInBytesForIdPages
+  *   Memory for storing id pages across all id pages buffers. Per single stream.
+  * @param maxPayloadsPerPayloadsPage
+  *   Number of event payloads to retrieve in a single query (a page of event payloads).
+  * @param maxParallelIdCreateQueries
+  *   Number of parallel queries that fetch ids of create events. Per single stream.
+  * @param maxParallelIdConsumingQueries
+  *   Number of parallel queries that fetch ids of consuming events. Per single stream.
+  * @param maxParallelIdNonConsumingQueries
+  *   Number of parallel queries that fetch payloads of non-consuming events. Per single stream.
+  * @param maxParallelIdAssignQueries
+  *   Number of parallel queries that fetch payloads of assign events. Per single stream.
+  * @param maxParallelIdUnassignQueries
+  *   Number of parallel queries that fetch payloads of unassign events. Per single stream.
+  * @param maxParallelIdTopologyEventsQueries
+  *   Number of parallel queries that fetch payloads of topology events. Per single stream.
+  * @param maxParallelPayloadCreateQueries
+  *   Number of parallel queries that fetch payloads of create events. Per single stream.
+  * @param maxParallelPayloadConsumingQueries
+  *   Number of parallel queries that fetch payloads of consuming events. Per single stream.
+  * @param maxParallelPayloadNonConsumingQueries
+  *   Number of parallel queries that fetch ids of non-consuming events. Per single stream.
+  * @param maxParallelPayloadAssignQueries
+  *   Number of parallel queries that fetch ids of assign events. Per single stream.
+  * @param maxParallelPayloadUnassignQueries
+  *   Number of parallel queries that fetch ids of unassign events. Per single stream.
+  * @param maxParallelPayloadTopologyEventsQueries
+  *   Number of parallel queries that fetch ids of topology events. Per single stream.
+  * @param maxParallelPayloadQueries
+  *   Upper bound on the number of parallel queries that fetch payloads. Per single stream.
+  * @param transactionsProcessingParallelism
+  *   Number of transactions to process in parallel. Per single stream.
   */
 final case class TransactionTreeStreamsConfig(
     maxIdsPerIdPage: Int = 20000,

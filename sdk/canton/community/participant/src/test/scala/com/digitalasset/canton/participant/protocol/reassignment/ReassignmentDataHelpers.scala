@@ -215,7 +215,8 @@ object ReassignmentDataHelpers {
     )
   }
 
-  /**  From the result, constructs the DeliveredUnassignmentResult (mostly add mediator and sequencer signatures)
+  /** From the result, constructs the DeliveredUnassignmentResult (mostly add mediator and sequencer
+    * signatures)
     */
   def unassignmentResult(
       result: ConfirmationResultMessage,

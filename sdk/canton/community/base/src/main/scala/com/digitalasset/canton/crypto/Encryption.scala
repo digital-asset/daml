@@ -32,7 +32,9 @@ import slick.jdbc.GetResult
 import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 
-/** Encryption operations that do not require access to a private key store but operates with provided keys. */
+/** Encryption operations that do not require access to a private key store but operates with
+  * provided keys.
+  */
 trait EncryptionOps {
 
   protected[crypto] def decryptWithInternal[M](
@@ -65,8 +67,8 @@ trait EncryptionOps {
       encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
   ): Either[EncryptionError, AsymmetricEncrypted[M]]
 
-  /** Deterministically encrypts the given bytes using the given public key.
-    * This is unsafe for general use and it's only used to encrypt the decryption key of each view
+  /** Deterministically encrypts the given bytes using the given public key. This is unsafe for
+    * general use and it's only used to encrypt the decryption key of each view
     */
   def encryptDeterministicWith[M <: HasToByteString](
       message: M,
@@ -88,8 +90,8 @@ trait EncryptionOps {
     message <- decryptWithInternal(encrypted, privateKey)(deserialize)
   } yield message
 
-  /** Encrypts the bytes of the serialized message using the given symmetric key.
-    * Where the message embedded protocol version determines the message serialization.
+  /** Encrypts the bytes of the serialized message using the given symmetric key. Where the message
+    * embedded protocol version determines the message serialization.
     */
   def encryptSymmetricWith[M <: HasToByteString](
       message: M,
@@ -123,7 +125,9 @@ trait EncryptionPrivateOps {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, DecryptionError, M]
 
-  /** Generates a new encryption key pair with the given scheme and optional name, stores the private key and returns the public key. */
+  /** Generates a new encryption key pair with the given scheme and optional name, stores the
+    * private key and returns the public key.
+    */
   def generateEncryptionKey(
       keySpec: EncryptionKeySpec = defaultEncryptionKeySpec,
       name: Option[KeyName] = None,
@@ -186,9 +190,12 @@ object Encrypted {
 
 /** Represents an asymmetric encrypted message.
   *
-  * @param ciphertext the encrypted message
-  * @param encryptionAlgorithmSpec the encryption algorithm specification (e.g. RSA OAEP)
-  * @param encryptedFor the public key of the recipient
+  * @param ciphertext
+  *   the encrypted message
+  * @param encryptionAlgorithmSpec
+  *   the encryption algorithm specification (e.g. RSA OAEP)
+  * @param encryptedFor
+  *   the public key of the recipient
   */
 final case class AsymmetricEncrypted[+M](
     ciphertext: ByteString,
@@ -250,8 +257,8 @@ object EncryptionKeySpec {
   implicit val encryptionKeySpecCantonConfigValidator: CantonConfigValidator[EncryptionKeySpec] =
     CantonConfigValidatorDerivation[EncryptionKeySpec]
 
-  /** Elliptic Curve Key from the P-256 curve (aka Secp256r1)
-    * as defined in https://doi.org/10.6028/NIST.FIPS.186-4
+  /** Elliptic Curve Key from the P-256 curve (aka Secp256r1) as defined in
+    * https://doi.org/10.6028/NIST.FIPS.186-4
     */
   case object EcP256 extends EncryptionKeySpec {
     override val name: String = "EC-P256"
@@ -296,8 +303,8 @@ object EncryptionKeySpec {
         case err => Left(err)
       }
 
-  /** Converts an old EncryptionKeyScheme enum to the new key scheme,
-    * ensuring backward compatibility with existing data.
+  /** Converts an old EncryptionKeyScheme enum to the new key scheme, ensuring backward
+    * compatibility with existing data.
     */
   def fromProtoEnumEncryptionKeyScheme(
       field: String,
@@ -397,10 +404,13 @@ object EncryptionAlgorithmSpec {
     }
 }
 
-/** Required encryption algorithms and keys for asymmetric/hybrid encryption to be listed in the synchronizer.
+/** Required encryption algorithms and keys for asymmetric/hybrid encryption to be listed in the
+  * synchronizer.
   *
-  * @param algorithms list of required encryption algorithm specifications
-  * @param keys list of required encryption key specifications
+  * @param algorithms
+  *   list of required encryption algorithm specifications
+  * @param keys
+  *   list of required encryption key specifications
   */
 final case class RequiredEncryptionSpecs(
     algorithms: NonEmpty[Set[EncryptionAlgorithmSpec]],

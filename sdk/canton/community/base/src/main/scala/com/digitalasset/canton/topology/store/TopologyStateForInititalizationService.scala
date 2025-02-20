@@ -30,11 +30,12 @@ final class StoreBasedTopologyStateForInitializationService(
 
   /** Downloading the initial topology snapshot works as follows:
     *
-    * 1. Determine the first MediatorSynchronizerState or SynchronizerTrustCertificate that mentions the member to onboard.
-    * 2. Take its effective time (here t0')
-    * 3. Find all transactions with sequence time <= t0'
-    * 4. Find the maximum effective time of the transactions returned in 3. (here t1')
-    * 5. Set all validUntil > t1' to None
+    *   1. Determine the first MediatorSynchronizerState or SynchronizerTrustCertificate that
+    *      mentions the member to onboard.
+    *   1. Take its effective time (here t0')
+    *   1. Find all transactions with sequence time <= t0'
+    *   1. Find the maximum effective time of the transactions returned in 3. (here t1')
+    *   1. Set all validUntil > t1' to None
     *
     * {{{
     *
@@ -51,7 +52,7 @@ final class StoreBasedTopologyStateForInitializationService(
     *                xx               xx
     *                 xx             xx
     *                   xx MDS/DTC xx
-    *    }}}
+    * }}}
     */
   override def initialSnapshot(member: Member)(implicit
       executionContext: ExecutionContext,

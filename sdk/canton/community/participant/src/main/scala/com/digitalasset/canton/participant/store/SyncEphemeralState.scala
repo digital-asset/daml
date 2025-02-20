@@ -34,9 +34,10 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
 
-/** The participant-relevant state and components for a synchronizer that is kept only in memory and must be reconstructed after crashes
-  * and fatal errors from the [[SyncPersistentState]]. The ephemeral state can be kept across network disconnects
-  * provided that the local processing continues as far as possible.
+/** The participant-relevant state and components for a synchronizer that is kept only in memory and
+  * must be reconstructed after crashes and fatal errors from the [[SyncPersistentState]]. The
+  * ephemeral state can be kept across network disconnects provided that the local processing
+  * continues as far as possible.
   */
 class SyncEphemeralState(
     participantId: ParticipantId,

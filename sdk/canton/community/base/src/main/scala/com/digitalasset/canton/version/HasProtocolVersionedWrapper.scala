@@ -18,28 +18,26 @@ trait HasRepresentativeProtocolVersion {
   @transient protected val companionObj: AnyRef
 
   /** We have a correspondence {Proto version} <-> {[protocol version]}: each proto version
-    * correspond to a list of consecutive protocol versions. The representative is one instance
-    * of this list, usually the smallest value. In other words, the Proto versions induce an
+    * correspond to a list of consecutive protocol versions. The representative is one instance of
+    * this list, usually the smallest value. In other words, the Proto versions induce an
     * equivalence relation on the list of protocol version, thus use of `representative`.
     *
-    * The method `protocolVersionRepresentativeFor` below
-    * allows to query the representative for an equivalence class.
+    * The method `protocolVersionRepresentativeFor` below allows to query the representative for an
+    * equivalence class.
     */
   def representativeProtocolVersion: RepresentativeProtocolVersion[companionObj.type]
 }
 
-/** Trait for classes that can be serialized by using ProtoBuf.
-  * See "CONTRIBUTING.md" for our guidelines on serialization.
+/** Trait for classes that can be serialized by using ProtoBuf. See "CONTRIBUTING.md" for our
+  * guidelines on serialization.
   *
   * This wrapper is to be used when every instance can be tied to a single protocol version.
-  * Consequently, some attributes of the class may depend on the protocol version (e.g., the signature).
-  * The protocol version is then bundled with the instance and does not need to
-  * be passed to the toProtoVersioned, toByteString and getCryptographicEvidence
-  * methods.
+  * Consequently, some attributes of the class may depend on the protocol version (e.g., the
+  * signature). The protocol version is then bundled with the instance and does not need to be
+  * passed to the toProtoVersioned, toByteString and getCryptographicEvidence methods.
   *
-  * The underlying ProtoClass is [[com.digitalasset.canton.version.v1.UntypedVersionedMessage]]
-  * but we often specify the typed alias [[com.digitalasset.canton.version.VersionedMessage]]
-  * instead.
+  * The underlying ProtoClass is [[com.digitalasset.canton.version.v1.UntypedVersionedMessage]] but
+  * we often specify the typed alias [[com.digitalasset.canton.version.VersionedMessage]] instead.
   */
 
 // In the versioning framework, such calls are legitimate
@@ -68,9 +66,9 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
 
   /** Yields the proto representation of the class inside an `UntypedVersionedMessage` wrapper.
     *
-    * Subclasses should make this method public by default, as this supports composing proto serializations.
-    * Keep it protected, if there are good reasons for it
-    * (e.g. [[com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence]]).
+    * Subclasses should make this method public by default, as this supports composing proto
+    * serializations. Keep it protected, if there are good reasons for it (e.g.
+    * [[com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence]]).
     */
   def toProtoVersioned: VersionedMessage[ValueClass] =
     companionObj.versioningTable.converters
@@ -86,7 +84,8 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
   def protoVersion: ProtoVersion =
     companionObj.protoVersionFor(representativeProtocolVersion)
 
-  /** Yields a byte string representation of the corresponding `UntypedVersionedMessage` wrapper of this instance.
+  /** Yields a byte string representation of the corresponding `UntypedVersionedMessage` wrapper of
+    * this instance.
     */
   def toByteString: ByteString = companionObj.versioningTable.converters
     .collectFirst {
@@ -101,20 +100,21 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
     }
     .getOrElse(serializeToHighestVersion.toByteString)
 
-  /** Serializes this instance to a message together with a delimiter (the message length) to the given output stream.
+  /** Serializes this instance to a message together with a delimiter (the message length) to the
+    * given output stream.
     *
-    * This method works in conjunction with
-    *  parseDelimitedFromTrusted which deserializes the
-    *  message again. It is useful for serializing multiple messages to a single output stream through multiple
-    *  invocations.
+    * This method works in conjunction with parseDelimitedFromTrusted which deserializes the message
+    * again. It is useful for serializing multiple messages to a single output stream through
+    * multiple invocations.
     *
-    * Serialization is only supported for
-    *  [[com.digitalasset.canton.version.VersionedProtoCodec]], an error message is
-    *  returned otherwise.
+    * Serialization is only supported for [[com.digitalasset.canton.version.VersionedProtoCodec]],
+    * an error message is returned otherwise.
     *
-    * @param output the sink to which this message is serialized to
-    * @return an Either where left represents an error message, and right represents a successful message
-    *         serialization
+    * @param output
+    *   the sink to which this message is serialized to
+    * @return
+    *   an Either where left represents an error message, and right represents a successful message
+    *   serialization
     */
   def writeDelimitedTo(output: OutputStream): Either[String, Unit] = {
     val converter: Either[String, VersionedMessage[ValueClass]] =
@@ -134,15 +134,16 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
     )
   }
 
-  /** Yields a byte array representation of the corresponding `UntypedVersionedMessage` wrapper of this instance.
+  /** Yields a byte array representation of the corresponding `UntypedVersionedMessage` wrapper of
+    * this instance.
     */
   def toByteArray: Array[Byte] = toByteString.toByteArray
 
   def writeToFile(outputFile: String): Unit =
     BinaryFileUtil.writeByteStringToFile(outputFile, toByteString)
 
-  /** Casts this instance's representative protocol version to one for the target type.
-    * This only succeeds if the versioning schemes are the same.
+  /** Casts this instance's representative protocol version to one for the target type. This only
+    * succeeds if the versioning schemes are the same.
     */
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def castRepresentativeProtocolVersion[T <: BaseVersioningCompanion[?, ?, ?, ?]](

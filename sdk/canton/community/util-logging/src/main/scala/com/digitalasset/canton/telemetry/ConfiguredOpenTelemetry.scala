@@ -7,9 +7,10 @@ import com.digitalasset.canton.metrics.OnDemandMetricsReader
 import io.opentelemetry.sdk.OpenTelemetrySdk
 import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder
 
-/** Keeps a reference to the open telemetry instance built through autoconfiguration and local configuration.
-  * The [[tracerProviderBuilder]] is the same one used to create the [[openTelemetry]] instance. We can use it to
-  * piggy back on the already configured tracer provider and add resource attributes.
+/** Keeps a reference to the open telemetry instance built through autoconfiguration and local
+  * configuration. The [[tracerProviderBuilder]] is the same one used to create the
+  * [[openTelemetry]] instance. We can use it to piggy back on the already configured tracer
+  * provider and add resource attributes.
   */
 final case class ConfiguredOpenTelemetry(
     openTelemetry: OpenTelemetrySdk,

@@ -66,9 +66,12 @@ class BatchAggregatorTest
     BatchAggregator[K, V](processor, config)
   }
 
-  /** @param requestsCountPerSize Track the number of requests per size
-    * @param blocker Future that blocks the computations.
-    * @return The default batcher (Int => String = _.toString)
+  /** @param requestsCountPerSize
+    *   Track the number of requests per size
+    * @param blocker
+    *   Future that blocks the computations.
+    * @return
+    *   The default batcher (Int => String = _.toString)
     */
   private def batchGetterWithCounter(
       requestsCountPerSize: TrieMap[Int, Int],

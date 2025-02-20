@@ -25,9 +25,9 @@ import com.digitalasset.canton.util.MonadUtil
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Defines the default methods for protocol signing and verification that use a topology snapshot for key lookup.
-  * This approach uses the signing APIs registered in Canton's [[com.digitalasset.canton.crypto.Crypto]]
-  * object at node startup.
+/** Defines the default methods for protocol signing and verification that use a topology snapshot
+  * for key lookup. This approach uses the signing APIs registered in Canton's
+  * [[com.digitalasset.canton.crypto.Crypto]] object at node startup.
   */
 class SyncCryptoSignerDefault(
     member: Member,

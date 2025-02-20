@@ -12,8 +12,8 @@ import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
 import java.util.ConcurrentModificationException
 import java.util.concurrent.atomic.AtomicReference
 
-/** Deals with repair request as part of message processing.
-  * As is, it merely skips the request counters.
+/** Deals with repair request as part of message processing. As is, it merely skips the request
+  * counters.
   */
 class RepairProcessor(
     requestCounterAllocator: RequestCounterAllocator,

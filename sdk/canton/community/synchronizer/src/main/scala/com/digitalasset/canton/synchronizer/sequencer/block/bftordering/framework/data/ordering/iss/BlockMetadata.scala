@@ -8,7 +8,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   BlockNumber,
   EpochNumber,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.BlockMetadata as ProtoBlockMetadata
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BlockMetadata as ProtoBlockMetadata
 import com.google.common.annotations.VisibleForTesting
 
 final case class BlockMetadata(

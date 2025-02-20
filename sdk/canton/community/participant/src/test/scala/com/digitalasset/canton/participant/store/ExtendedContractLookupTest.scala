@@ -127,7 +127,8 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest with FailOn
 
 object ExtendedContractLookupTest {
 
-  /** @param value True iff the contract is a divulged contract
+  /** @param value
+    *   True iff the contract is a divulged contract
     */
   final case class Divulgence(value: Boolean) extends AnyVal
 }

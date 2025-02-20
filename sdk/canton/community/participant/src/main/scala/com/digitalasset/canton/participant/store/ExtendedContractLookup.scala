@@ -19,8 +19,10 @@ import scala.concurrent.ExecutionContext
 
 /** A contract lookup that adds some convenience methods
   *
-  * @param contracts Contracts in this map take precedence over contracts in `backingContractLookup`
-  * @throws java.lang.IllegalArgumentException if `contracts` stores a contract under a wrong id
+  * @param contracts
+  *   Contracts in this map take precedence over contracts in `backingContractLookup`
+  * @throws java.lang.IllegalArgumentException
+  *   if `contracts` stores a contract under a wrong id
   */
 class ExtendedContractLookup(
     private val contracts: Map[LfContractId, SerializableContract],

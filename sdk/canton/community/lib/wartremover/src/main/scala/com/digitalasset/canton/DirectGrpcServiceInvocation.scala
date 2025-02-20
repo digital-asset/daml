@@ -8,18 +8,17 @@ import org.wartremover.{WartTraverser, WartUniverse}
 
 import scala.annotation.{StaticAnnotation, tailrec}
 
-/** This wart warns when methods for a gRPC service stub are called directly.
-  * Instead, the wrapper methods from `CantonGrpcUtil` and others should be used.
-  * This ensures in particular the following aspects:
-  * - The current trace context is set in the gRPC context prior to the call
-  *   so that the gRPC stub implementation picks it up.
-  * - Error handling is done consistently across gRPC calls.
+/** This wart warns when methods for a gRPC service stub are called directly. Instead, the wrapper
+  * methods from `CantonGrpcUtil` and others should be used. This ensures in particular the
+  * following aspects:
+  *   - The current trace context is set in the gRPC context prior to the call so that the gRPC stub
+  *     implementation picks it up.
+  *   - Error handling is done consistently across gRPC calls.
   *
-  * Such helper methods are annotated `@GrpcServiceInvocationMethod`.
-  * The wart does not check any arguments at any call site, nor the implementation of such a method
-  * or any of its overrides. It is the responsibility of the developer to ensure that
-  * typical usage patterns of this method are safe w.r.t. the above aspects.
-  * Primary constructors can be annotated via their class.
+  * Such helper methods are annotated `@GrpcServiceInvocationMethod`. The wart does not check any
+  * arguments at any call site, nor the implementation of such a method or any of its overrides. It
+  * is the responsibility of the developer to ensure that typical usage patterns of this method are
+  * safe w.r.t. the above aspects. Primary constructors can be annotated via their class.
   *
   * For example, instead of `myServiceStub.myMethod(request)`, you should use
   * `CantonGrpcUtil.sendGrpcRequest(myServiceStub, ...)(_.myMethod(request))`.
@@ -128,7 +127,7 @@ object DirectGrpcServiceInvocation extends WartTraverser {
   }
 }
 
-/** Annotation for methods and constructors. Implementations of such method (and any overrides) are not checked.
-  * Neither are the arguments to calls of such a method.
+/** Annotation for methods and constructors. Implementations of such method (and any overrides) are
+  * not checked. Neither are the arguments to calls of such a method.
   */
 final class GrpcServiceInvocationMethod extends StaticAnnotation

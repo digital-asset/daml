@@ -12,7 +12,9 @@ import slick.jdbc.{GetResult, SetParameter}
 
 import java.io.File
 
-/** Encapsulates those classes and their utility methods which enforce a given invariant via the use of require. */
+/** Encapsulates those classes and their utility methods which enforce a given invariant via the use
+  * of require.
+  */
 object RequireTypes {
   final case class InvariantViolation(message: String)
 
@@ -94,13 +96,14 @@ object RequireTypes {
       NonNegativeNumeric.tryCreate(fractional.div(value, other.value))
     def tryAdd(other: T): NonNegativeNumeric[T] = NonNegativeNumeric.tryCreate(value + other)
 
-    /** Subtract other from this.
-      * Subtracts as much as possible of "other" from "this" such that "this" stays >= 0.
-      * Any remaining amount will be the remainder.
-      * e.g:
+    /** Subtract other from this. Subtracts as much as possible of "other" from "this" such that
+      * "this" stays >= 0. Any remaining amount will be the remainder. e.g:
+      * {{{
       *   NonNegativeNumeric(5).subtract(NonNegativeNumeric(3)) == SubtractionResult(NonNegativeNumeric(2), NonNegativeNumeric(0))
       *   NonNegativeNumeric(2).subtract(NonNegativeNumeric(3)) == SubtractionResult(NonNegativeNumeric(0), NonNegativeNumeric(1))
-      * @param other value to subtract to this
+      * }}}
+      * @param other
+      *   value to subtract to this
       */
     def subtract(other: NonNegativeNumeric[T]): SubtractionResult[T] = {
       val difference = value - other.value

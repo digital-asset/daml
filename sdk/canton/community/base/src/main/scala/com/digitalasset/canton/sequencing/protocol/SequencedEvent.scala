@@ -31,8 +31,8 @@ import com.google.rpc.status.Status
 import pprint.Tree
 import pprint.Tree.{Apply, KeyValue, Literal}
 
-/** The Deliver events are received as a consequence of a '''Send''' command, received by the recipients of the
-  * originating '''Send''' event.
+/** The Deliver events are received as a consequence of a '''Send''' command, received by the
+  * recipients of the originating '''Send''' event.
   */
 sealed trait SequencedEvent[+Env <: Envelope[?]]
     extends Product
@@ -303,15 +303,20 @@ object DeliverError {
     ) {}
 }
 
-/** Intuitively, the member learns all envelopes addressed to it. It learns some recipients of
-  * these envelopes, as defined by
-  * [[com.digitalasset.canton.sequencing.protocol.Recipients.forMember]]
+/** Intuitively, the member learns all envelopes addressed to it. It learns some recipients of these
+  * envelopes, as defined by [[com.digitalasset.canton.sequencing.protocol.Recipients.forMember]]
   *
-  * @param counter   a monotonically increasing counter for each recipient.
-  * @param timestamp a timestamp defining the order.
-  * @param messageIdO  populated with the message id used on the originating send operation only for the sender
-  * @param batch     a batch of envelopes.
-  * @param topologyTimestampO the timestamp of the topology snapshot used for resolving group recipients if this timestamp is different from the sequencing `timestamp`
+  * @param counter
+  *   a monotonically increasing counter for each recipient.
+  * @param timestamp
+  *   a timestamp defining the order.
+  * @param messageIdO
+  *   populated with the message id used on the originating send operation only for the sender
+  * @param batch
+  *   a batch of envelopes.
+  * @param topologyTimestampO
+  *   the timestamp of the topology snapshot used for resolving group recipients if this timestamp
+  *   is different from the sequencing `timestamp`
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
 case class Deliver[+Env <: Envelope[_]] private[sequencing] (
@@ -327,8 +332,8 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
     val deserializedFrom: Option[ByteString],
 ) extends SequencedEvent[Env] {
 
-  /** Is this deliver event a receipt for a message that the receiver previously sent?
-    * (messageId is only populated for the sender)
+  /** Is this deliver event a receipt for a message that the receiver previously sent? (messageId is
+    * only populated for the sender)
     */
   lazy val isReceipt: Boolean = messageIdO.isDefined
 

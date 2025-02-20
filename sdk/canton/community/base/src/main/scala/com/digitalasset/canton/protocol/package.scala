@@ -14,9 +14,9 @@ import com.digitalasset.daml.lf.transaction.*
 import com.digitalasset.daml.lf.value.Value
 
 /** Provides shorthands for general purpose types.
-  * <p>
-  * Most notably, it provides a facade for Daml-LF transactions and nodes.
-  * By default, code should access Daml-LF transaction and nodes types through this facade.
+  *
+  * Most notably, it provides a facade for Daml-LF transactions and nodes. By default, code should
+  * access Daml-LF transaction and nodes types through this facade.
   */
 package object protocol {
 
@@ -53,9 +53,8 @@ package object protocol {
   type LedgerTransactionNodeStatistics = TransactionNodeStatistics
   val LedgerTransactionNodeStatistics: TransactionNodeStatistics.type = TransactionNodeStatistics
 
-  /** Shorthand for Daml-LF nodes.
-    * Nodes include `NodeId`s of their children.
-    * Children need to be looked up in the underlying transaction.
+  /** Shorthand for Daml-LF nodes. Nodes include `NodeId`s of their children. Children need to be
+    * looked up in the underlying transaction.
     */
   type LfNode = Node
 
@@ -71,9 +70,8 @@ package object protocol {
   type LfNodeFetch = Node.Fetch
   val LfNodeFetch: Node.Fetch.type = Node.Fetch
 
-  /** Shorthand for exercise nodes.
-    * Nodes include `NodeId`s of their children.
-    * Children need to be looked up in the underlying transaction.
+  /** Shorthand for exercise nodes. Nodes include `NodeId`s of their children. Children need to be
+    * looked up in the underlying transaction.
     */
   type LfNodeExercises = Node.Exercise
   val LfNodeExercises: Node.Exercise.type = Node.Exercise

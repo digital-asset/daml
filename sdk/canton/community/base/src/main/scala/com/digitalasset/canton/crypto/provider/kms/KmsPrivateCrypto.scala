@@ -63,10 +63,10 @@ class KmsPrivateCrypto(
         SigningKeyGenerationError.GeneralKmsError(err.show)
       )
 
-  /** This function and [[registerEncryptionKey]] is used to register a key directly to the store (i.e. pre-generated)
-    * and bypass the default key generation procedure.
-    * As we are overriding the usual way to create new keys, by using pre-generated ones,
-    * we need to add their public material to a node's public store.
+  /** This function and [[registerEncryptionKey]] is used to register a key directly to the store
+    * (i.e. pre-generated) and bypass the default key generation procedure. As we are overriding the
+    * usual way to create new keys, by using pre-generated ones, we need to add their public
+    * material to a node's public store.
     */
   def registerSigningKey(
       keyId: KmsKeyId,

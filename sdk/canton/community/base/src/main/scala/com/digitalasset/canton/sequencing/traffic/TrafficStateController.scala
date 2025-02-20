@@ -58,8 +58,8 @@ class TrafficStateController(
 
   def getState: TrafficState = getTrafficConsumed.toTrafficState(currentTrafficPurchased.get())
 
-  /** Update the traffic purchased entry for this member.
-    * Only if the provided traffic purchased has a higher or equal serial number than the current traffic purchased.
+  /** Update the traffic purchased entry for this member. Only if the provided traffic purchased has
+    * a higher or equal serial number than the current traffic purchased.
     */
   def updateBalance(
       newTrafficPurchased: NonNegativeLong,
@@ -100,8 +100,9 @@ class TrafficStateController(
     logger.debug(s"Updating traffic purchased entry $newState")
   }
 
-  /** Used when we receive a deliver error receipt for an event that did not consume traffic.
-    * It will still update the traffic state to reflect the base traffic remainder at the provided timestamp.
+  /** Used when we receive a deliver error receipt for an event that did not consume traffic. It
+    * will still update the traffic state to reflect the base traffic remainder at the provided
+    * timestamp.
     */
   def tickStateAt(sequencingTimestamp: CantonTimestamp)(implicit
       executionContext: ExecutionContext,
@@ -155,8 +156,8 @@ class TrafficStateController(
       }
     }
 
-  /** Compute the cost of a batch of envelopes.
-    * Does NOT debit the cost from the current traffic purchased.
+  /** Compute the cost of a batch of envelopes. Does NOT debit the cost from the current traffic
+    * purchased.
     */
   def computeCost(
       batch: Batch[DefaultOpenEnvelope],

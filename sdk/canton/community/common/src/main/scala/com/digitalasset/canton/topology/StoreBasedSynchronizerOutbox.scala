@@ -382,10 +382,9 @@ abstract class SynchronizerOutbox extends SynchronizerOutboxHandle {
   ): FutureUnlessShutdown[Unit]
 }
 
-/** Dynamic version of a TopologyManagerObserver allowing observers
-  * to be dynamically added or removed while the TopologyManager stays up.
-  * (This is helpful for mediator node failover where synchronizer-outboxes are started
-  * and closed.)
+/** Dynamic version of a TopologyManagerObserver allowing observers to be dynamically added or
+  * removed while the TopologyManager stays up. (This is helpful for mediator node failover where
+  * synchronizer-outboxes are started and closed.)
   */
 class SynchronizerOutboxDynamicObserver(val loggerFactory: NamedLoggerFactory)
     extends TopologyManagerObserver

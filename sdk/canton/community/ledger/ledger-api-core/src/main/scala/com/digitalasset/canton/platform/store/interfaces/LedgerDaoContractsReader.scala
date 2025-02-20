@@ -17,12 +17,15 @@ private[platform] trait LedgerDaoContractsReader {
 
   /** Looks up the contract by id
     *
-    * Due to batching of several requests, we may return newer information than at the provided offset, but never
-    * older information.
+    * Due to batching of several requests, we may return newer information than at the provided
+    * offset, but never older information.
     *
-    * @param contractId the contract id to query
-    * @param notEarlierThanOffset the offset threshold to resolve the contract state (state can be newer, but not older)
-    * @return the optional [[ContractState]]
+    * @param contractId
+    *   the contract id to query
+    * @param notEarlierThanOffset
+    *   the offset threshold to resolve the contract state (state can be newer, but not older)
+    * @return
+    *   the optional [[ContractState]]
     */
   def lookupContractState(contractId: ContractId, notEarlierThanOffset: Offset)(implicit
       loggingContext: LoggingContextWithTrace
@@ -30,12 +33,15 @@ private[platform] trait LedgerDaoContractsReader {
 
   /** Looks up the state of a contract key
     *
-    * Due to batching of several requests, we may return newer information than at the provided offset, but never
-    * older information.
+    * Due to batching of several requests, we may return newer information than at the provided
+    * offset, but never older information.
     *
-    * @param key the contract key to query
-    * @param notEarlierThanOffset the offset threshold to resolve the key state (state can be newer, but not older)
-    * @return the [[KeyState]]
+    * @param key
+    *   the contract key to query
+    * @param notEarlierThanOffset
+    *   the offset threshold to resolve the key state (state can be newer, but not older)
+    * @return
+    *   the [[KeyState]]
     */
   def lookupKeyState(key: GlobalKey, notEarlierThanOffset: Offset)(implicit
       loggingContext: LoggingContextWithTrace

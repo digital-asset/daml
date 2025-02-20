@@ -25,13 +25,12 @@ import scala.annotation.tailrec
 /** Defines which exceptions should be retryable when thrown by the database. */
 object DbExceptionRetryPolicy extends ExceptionRetryPolicy {
 
-  /** Max number of retries for spurious transient errors.
-    * Main use case is a transient unique constraint violation due to racy merge statements.
-    * Should go away after a very limited amount of retries.
+  /** Max number of retries for spurious transient errors. Main use case is a transient unique
+    * constraint violation due to racy merge statements. Should go away after a very limited amount
+    * of retries.
     *
-    * Value determined empirically in the now removed UpsertTestOracle.
-    * For single row inserts, 1 is sufficient.
-    * For batched inserts, 3 was more than sufficient in the test.
+    * Value determined empirically in the now removed UpsertTestOracle. For single row inserts, 1 is
+    * sufficient. For batched inserts, 3 was more than sufficient in the test.
     */
   private val spuriousTransientErrorMaxRetries = 10
 

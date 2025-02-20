@@ -169,8 +169,9 @@ class SequencerReaderTest
 
     def ts(epochSeconds: Int): CantonTimestamp = CantonTimestamp.ofEpochSecond(epochSeconds.toLong)
 
-    /** Can be used at most once per environment because [[org.apache.pekko.stream.scaladsl.FlowOps.take]]
-      * cancels the pre-materialized [[ManualEventSignaller.source]].
+    /** Can be used at most once per environment because
+      * [[org.apache.pekko.stream.scaladsl.FlowOps.take]] cancels the pre-materialized
+      * [[ManualEventSignaller.source]].
       */
     def readAsSeq(
         member: Member,

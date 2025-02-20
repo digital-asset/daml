@@ -46,11 +46,12 @@ class HttpHealthServer(
 object HttpHealthServer {
 
   /** Routes for powering the health server.
+    *
     * Provides:
-    *   GET /health => calls check and returns:
-    *     200 if healthy
-    *     503 if unhealthy
-    *     500 if the check fails
+    *   - GET /health => calls check and returns:
+    *     - 200 if healthy
+    *     - 503 if unhealthy
+    *     - 500 if the check fails
     */
   @VisibleForTesting
   private[health] def route(service: DependenciesHealthService): Route = {

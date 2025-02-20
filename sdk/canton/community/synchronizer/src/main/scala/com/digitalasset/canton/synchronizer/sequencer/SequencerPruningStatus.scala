@@ -53,8 +53,8 @@ final case class SequencerMemberStatus(
   )
 }
 
-/** Structure housing both members and instances of those members. Used to list clients that have been or need to be
-  * disabled.
+/** Structure housing both members and instances of those members. Used to list clients that have
+  * been or need to be disabled.
   */
 final case class SequencerClients(
     members: Set[Member] = Set.empty
@@ -65,15 +65,15 @@ trait AbstractSequencerPruningStatus {
   /** Disabled members */
   def disabledClients: SequencerClients
 
-  /** The earliest [[AbstractSequencerMemberStatus.safePruningTimestamp]]
-    * of any enabled member
+  /** The earliest [[AbstractSequencerMemberStatus.safePruningTimestamp]] of any enabled member
     */
   def earliestMemberSafePruningTimestamp: Option[CantonTimestamp]
 
-  /** Using the member details, calculate based on their acknowledgements when is the latest point we can
-    * safely prune without losing any data that may still be read.
+  /** Using the member details, calculate based on their acknowledgements when is the latest point
+    * we can safely prune without losing any data that may still be read.
     *
-    * @param timestampForNoMembers The timestamp to return if there are no unignored members
+    * @param timestampForNoMembers
+    *   The timestamp to return if there are no unignored members
     */
   def safePruningTimestampFor(timestampForNoMembers: CantonTimestamp): CantonTimestamp =
     earliestMemberSafePruningTimestamp.getOrElse(timestampForNoMembers)
@@ -136,7 +136,8 @@ private[canton] object InternalSequencerPruningStatus {
 
 /** Pruning status of a Sequencer.
   *
-  * @param now the current time of the sequencer clock
+  * @param now
+  *   the current time of the sequencer clock
   */
 final case class SequencerPruningStatus(
     lowerBound: CantonTimestamp,
@@ -155,11 +156,12 @@ final case class SequencerPruningStatus(
   def toInternal: InternalSequencerPruningStatus =
     InternalSequencerPruningStatus(lowerBound, members)
 
-  /** Using the member details, calculate based on their acknowledgements when is the latest point we can
-    * safely prune without losing any data that may still be read.
+  /** Using the member details, calculate based on their acknowledgements when is the latest point
+    * we can safely prune without losing any data that may still be read.
     *
-    * if there are no members (or they've all been ignored), we can technically prune everything.
-    * as in practice a synchronizer will register a IDM, Sequencer and Mediator, this will most likely never occur.
+    * if there are no members (or they've all been ignored), we can technically prune everything. as
+    * in practice a synchronizer will register a IDM, Sequencer and Mediator, this will most likely
+    * never occur.
     */
   lazy val safePruningTimestamp: CantonTimestamp = safePruningTimestampFor(now)
 

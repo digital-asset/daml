@@ -5,7 +5,8 @@ package com.digitalasset.canton.platform.store.dao.events
 
 object Utils {
 
-  /** @param n needs to be positive
+  /** @param n
+    *   needs to be positive
     */
   def largestSmallerOrEqualPowerOfTwo(n: Int): Int =
     Integer.highestOneBit(n)

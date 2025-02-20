@@ -20,8 +20,8 @@ import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 import io.circe.syntax.*
 
-/** Generates a health dump zip file containing information about the current Canton process
-  * This is the core of the implementation of the HealthDump gRPC endpoint.
+/** Generates a health dump zip file containing information about the current Canton process This is
+  * the core of the implementation of the HealthDump gRPC endpoint.
   */
 class HealthDumpGenerator(
     val environment: Environment,

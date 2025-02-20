@@ -13,7 +13,9 @@ import com.digitalasset.canton.util.ErrorUtil
 import com.google.protobuf.ByteString
 import pprint.{PPrinter, Tree}
 
-/** Adhoc pretty printer to nicely print the full structure of a class that does not have an explicit pretty definition */
+/** Adhoc pretty printer to nicely print the full structure of a class that does not have an
+  * explicit pretty definition
+  */
 class CantonPrettyPrinter(maxStringLength: Int, maxMessageLines: Int) {
 
   @SuppressWarnings(Array("org.wartremover.warts.Null"))

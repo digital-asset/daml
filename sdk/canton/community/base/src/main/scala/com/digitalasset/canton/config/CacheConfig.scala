@@ -13,8 +13,10 @@ import scala.concurrent.ExecutionContext
 
 /** Configurations settings for a single cache
   *
-  * @param maximumSize the maximum size of the cache
-  * @param expireAfterAccess how quickly after last access items should be expired from the cache
+  * @param maximumSize
+  *   the maximum size of the cache
+  * @param expireAfterAccess
+  *   how quickly after last access items should be expired from the cache
   */
 final case class CacheConfig(
     maximumSize: PositiveNumeric[Long],
@@ -52,11 +54,13 @@ object CacheConfigWithMemoryBounds {
   }
 }
 
-/** Configurations settings for a single cache where elements are evicted after a certain time as elapsed
-  * (regardless of access).
+/** Configurations settings for a single cache where elements are evicted after a certain time as
+  * elapsed (regardless of access).
   *
-  * @param maximumSize the maximum size of the cache
-  * @param expireAfterTimeout how quickly after creation items should be expired from the cache
+  * @param maximumSize
+  *   the maximum size of the cache
+  * @param expireAfterTimeout
+  *   how quickly after creation items should be expired from the cache
   */
 final case class CacheConfigWithTimeout(
     maximumSize: PositiveNumeric[Long],
@@ -78,14 +82,18 @@ object CacheConfigWithTimeout {
   }
 }
 
-/** Configuration settings for a cache that stores: (a) the public asymmetric encryptions of the session keys for the sender
-  * and (b) the decrypting results in the receiver. This reduces the amount of asymmetric operations that need
-  * to be performed for each of the views that share the same participant recipient group (i.e. use the same session key).
+/** Configuration settings for a cache that stores: (a) the public asymmetric encryptions of the
+  * session keys for the sender and (b) the decrypting results in the receiver. This reduces the
+  * amount of asymmetric operations that need to be performed for each of the views that share the
+  * same participant recipient group (i.e. use the same session key).
   *
-  * @param enabled enable/disable caching of the session key. Caching is enabled by default, offering
-  *                               a trade-off between secrecy and performance
-  * @param senderCache  configuration for the sender's cache that stores the encryptions of the session keys
-  * @param receiverCache configuration for the receiver's cache that stores the decryptions of the session keys
+  * @param enabled
+  *   enable/disable caching of the session key. Caching is enabled by default, offering a trade-off
+  *   between secrecy and performance
+  * @param senderCache
+  *   configuration for the sender's cache that stores the encryptions of the session keys
+  * @param receiverCache
+  *   configuration for the receiver's cache that stores the decryptions of the session keys
   */
 final case class SessionEncryptionKeyCacheConfig(
     enabled: Boolean,
@@ -101,13 +109,18 @@ object SessionEncryptionKeyCacheConfig {
 
 /** Configuration settings for various internal caches
   *
-  * @param indexedStrings cache size configuration for the static string index cache
-  * @param contractStore cache size configuration for the contract store
-  * @param topologySnapshot cache size configuration for topology snapshots
-  * @param keyCache cache configuration for keys in the topology snapshots to avoid loading redundant keys
-  *                 from the database.
-  * @param finalizedMediatorConfirmationRequests cache size for the finalized mediator confirmation requests such the mediator does not have to
-  *                                  perform a db round-trip if we have slow responders.
+  * @param indexedStrings
+  *   cache size configuration for the static string index cache
+  * @param contractStore
+  *   cache size configuration for the contract store
+  * @param topologySnapshot
+  *   cache size configuration for topology snapshots
+  * @param keyCache
+  *   cache configuration for keys in the topology snapshots to avoid loading redundant keys from
+  *   the database.
+  * @param finalizedMediatorConfirmationRequests
+  *   cache size for the finalized mediator confirmation requests such the mediator does not have to
+  *   perform a db round-trip if we have slow responders.
   */
 final case class CachingConfigs(
     indexedStrings: CacheConfig = CachingConfigs.defaultStaticStringCache,

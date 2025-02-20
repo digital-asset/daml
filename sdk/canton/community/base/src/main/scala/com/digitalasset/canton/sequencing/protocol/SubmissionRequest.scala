@@ -29,15 +29,19 @@ import com.digitalasset.canton.version.{
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
-/** @param topologyTimestamp The timestamp of the topology to use for processing this submission request. This includes:
-  *                          - resolving group addresses to members
-  *                          - checking signatures on closed envelopes
-  *                          - determining the signing key for the sequencer on the [[SequencedEvent]]s
-  *                          If [[scala.None$]], the snapshot at the sequencing time of the submission request should be used instead
-  * @param aggregationRule If [[scala.Some$]], this submission request is aggregatable.
-  *                        Its envelopes will be delivered only when the rule's conditions are met.
-  *                        The receipt of delivery for an aggregatable submission will be delivered immediately to the sender
-  *                        even if the rule's conditions are not met.
+/** @param topologyTimestamp
+  *   The optional timestamp of the topology to use for processing this submission request. If
+  *   [[scala.None$]], the snapshot at the sequencing time of the submission request should be used
+  *   instead. The topology timestamp is used for:
+  *   - resolving group addresses to members
+  *   - checking signatures on closed envelopes
+  *   - determining the signing key for the sequencer on the [[SequencedEvent]]s.
+  *
+  * @param aggregationRule
+  *   If [[scala.Some$]], this submission request is aggregatable. Its envelopes will be delivered
+  *   only when the rule's conditions are met. The receipt of delivery for an aggregatable
+  *   submission will be delivered immediately to the sender even if the rule's conditions are not
+  *   met.
   */
 final case class SubmissionRequest private (
     sender: Member,
@@ -113,27 +117,25 @@ final case class SubmissionRequest private (
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
 
-  /** Returns the [[AggregationId]] for grouping if this is an aggregatable submission.
-    * The aggregation ID computationally authenticates the relevant contents of the submission request, namely,
-    * <ul>
-    *   <li>Envelope contents [[com.digitalasset.canton.sequencing.protocol.ClosedEnvelope.bytes]],
-    *     the recipients [[com.digitalasset.canton.sequencing.protocol.ClosedEnvelope.recipients]] of the [[batch]],
-    *     and whether there are signatures.
-    *   <li>The [[maxSequencingTime]]</li>
-    *   <li>The [[topologyTimestamp]]</li>
-    *   <li>The [[aggregationRule]]</li>
-    * </ul>
+  /** Returns the [[AggregationId]] for grouping if this is an aggregatable submission. The
+    * aggregation ID computationally authenticates the relevant contents of the submission request,
+    * namely,
+    *   - Envelope contents [[com.digitalasset.canton.sequencing.protocol.ClosedEnvelope.bytes]],
+    *     the recipients [[com.digitalasset.canton.sequencing.protocol.ClosedEnvelope.recipients]]
+    *     of the [[batch]], and whether there are signatures.
+    *   - The [[maxSequencingTime]]
+    *   - The [[topologyTimestamp]]
+    *   - The [[aggregationRule]]
     *
     * The [[AggregationId]] does not authenticate the following pieces of a submission request:
-    * <ul>
-    *   <li>The signatures [[com.digitalasset.canton.sequencing.protocol.ClosedEnvelope.signatures]] on the closed envelopes
-    *     because the signatures differ for each sender. Aggregating the signatures is the whole point of an aggregatable submission.
-    *     In contrast, the presence of signatures is relevant for the ID because it determines how the
+    *   - The signatures [[com.digitalasset.canton.sequencing.protocol.ClosedEnvelope.signatures]]
+    *     on the closed envelopes because the signatures differ for each sender. Aggregating the
+    *     signatures is the whole point of an aggregatable submission. In contrast, the presence of
+    *     signatures is relevant for the ID because it determines how the
     *     [[com.digitalasset.canton.sequencing.protocol.ClosedEnvelope.bytes]] are interpreted.
-    *     </li>
-    *   <li>The [[sender]] and the [[messageId]], as they are specific to the sender of a particular submission request</li>
-    *   <li>The [[isConfirmationRequest]] flag because it is irrelevant for delivery or aggregation</li>
-    * </ul>
+    *   - The [[sender]] and the [[messageId]], as they are specific to the sender of a particular
+    *     submission request
+    *   - The [[isConfirmationRequest]] flag because it is irrelevant for delivery or aggregation
     */
   def aggregationId(hashOps: HashOps): Either[ProtoDeserializationError, Option[AggregationId]] = {
     // TODO(#12075) Use a deterministic serialization scheme for the recipients

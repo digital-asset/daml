@@ -47,8 +47,8 @@ object WriteNotification {
 sealed trait ReadSignal
 case object ReadSignal extends ReadSignal
 
-/** Component to signal to a [[SequencerReader]] that more events may be available to read so should attempt
-  * fetching events from its store.
+/** Component to signal to a [[SequencerReader]] that more events may be available to read so should
+  * attempt fetching events from its store.
   */
 trait EventSignaller extends AutoCloseable {
   def notifyOfLocalWrite(notification: WriteNotification)(implicit

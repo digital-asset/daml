@@ -90,8 +90,8 @@ private[reassignment] class ReassignmentValidation(engine: DAMLe)(implicit
 
 object ReassignmentValidation {
 
-  /** - check if the submitter is a stakeholder
-    * - check if the submitter is hosted on the participant
+  /**   - check if the submitter is a stakeholder
+    *   - check if the submitter is hosted on the participant
     */
   def checkSubmitter(
       reference: ReassignmentRef,

@@ -23,9 +23,9 @@ import org.apache.pekko.stream.scaladsl.Flow
 
 import scala.concurrent.ExecutionContext
 
-/** Transformer for [[com.digitalasset.canton.sequencing.OrdinaryApplicationHandler]]
-  * that stores all event batches in the [[com.digitalasset.canton.store.SequencedEventStore]]
-  * before passing them on to the given handler. Complains if events have the wrong synchronizer id.
+/** Transformer for [[com.digitalasset.canton.sequencing.OrdinaryApplicationHandler]] that stores
+  * all event batches in the [[com.digitalasset.canton.store.SequencedEventStore]] before passing
+  * them on to the given handler. Complains if events have the wrong synchronizer id.
   */
 class StoreSequencedEvent(
     store: SequencedEventStore,

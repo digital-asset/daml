@@ -14,15 +14,20 @@ private[backend] object SimpleSqlExtensions {
 
     /** Returns the result of [[sql]] as a [[Vector]].
       *
-      * Allows to avoid linear operations in lists when using the default
-      * [[anorm.ResultSetParser]]s (e.g. when retrieving the result set
-      * length in [[com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream]]
+      * Allows to avoid linear operations in lists when using the default [[anorm.ResultSetParser]]s
+      * (e.g. when retrieving the result set length in
+      * [[com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream]]
       *
-      * @param parser knows how to turn each row in an [[A]]
-      * @param conn an implicit JDBC connection
-      * @tparam A the type of each item in the result
-      * @throws Throwable if either the query execution or parsing fails
-      * @return the query result as a vector
+      * @param parser
+      *   knows how to turn each row in an [[A]]
+      * @param conn
+      *   an implicit JDBC connection
+      * @tparam A
+      *   the type of each item in the result
+      * @throws Throwable
+      *   if either the query execution or parsing fails
+      * @return
+      *   the query result as a vector
       */
     @throws[Throwable]
     def asVectorOf[A](parser: RowParser[A])(implicit conn: Connection): Vector[A] = {

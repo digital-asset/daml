@@ -4,7 +4,10 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
+  P2PEndpoint,
+  PlainTextP2PEndpoint,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleName
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.RunningFuture
@@ -44,13 +47,13 @@ final case class InternalTick[MessageT](
 final case class ReceiveNetworkMessage[MessageT](peer: SequencerId, msg: MessageT) extends Command
 final case class Quit(reason: String) extends Command
 final case class ClientTick[MessageT](peer: SequencerId, tickId: Int, msg: MessageT) extends Command
-final case class OnboardSequencers(endpoint: Seq[Endpoint]) extends Command
-final case class AddEndpoint(endpoint: Endpoint, to: SequencerId) extends Command
+final case class OnboardSequencers(endpoints: Seq[PlainTextP2PEndpoint]) extends Command
+final case class AddEndpoint(endpoint: PlainTextP2PEndpoint, to: SequencerId) extends Command
 final case class EstablishConnection(
     fromPeer: SequencerId,
     toPeer: SequencerId,
-    endpoint: Endpoint,
-    continuation: (Endpoint, SequencerId) => Unit,
+    endpoint: PlainTextP2PEndpoint,
+    continuation: (P2PEndpoint.Id, SequencerId) => Unit,
 ) extends Command
 final case class CrashRestartPeer(peer: SequencerId) extends Command
 case object MakeSystemHealthy extends Command

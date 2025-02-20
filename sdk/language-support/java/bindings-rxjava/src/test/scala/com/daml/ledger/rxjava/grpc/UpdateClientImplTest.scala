@@ -117,7 +117,8 @@ final class UpdateClientImplTest
       val request = transactionService.lastUpdatesRequest.get()
       request.beginExclusive shouldBe 1L
       request.endInclusive shouldBe Some(2L)
-      val filterByParty = request.filter.get.filtersByParty
+      val filterByParty =
+        request.updateFormat.get.includeTransactions.get.eventFormat.get.filtersByParty
       filterByParty.keySet shouldBe Set("Alice")
       filterByParty("Alice").cumulative
         .flatMap(_.identifierFilter.templateFilter)
@@ -131,7 +132,7 @@ final class UpdateClientImplTest
           includeCreatedEventBlob = false,
         ),
       )
-      request.verbose shouldBe true
+      request.updateFormat.get.includeTransactions.get.eventFormat.get.verbose shouldBe true
     }
   }
 

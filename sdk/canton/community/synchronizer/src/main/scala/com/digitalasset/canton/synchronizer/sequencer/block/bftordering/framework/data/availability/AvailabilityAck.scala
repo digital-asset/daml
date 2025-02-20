@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose, Signature, v30}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.AvailabilityAck as ProtoAvailabilityAck
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.AvailabilityAck as ProtoAvailabilityAck
 import com.digitalasset.canton.topology.{SequencerId, UniqueIdentifier}
 
 final case class AvailabilityAck(from: SequencerId, signature: Signature)

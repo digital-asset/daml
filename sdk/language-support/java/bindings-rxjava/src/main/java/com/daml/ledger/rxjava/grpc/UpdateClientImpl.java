@@ -111,7 +111,7 @@ public final class UpdateClientImpl implements UpdateClient {
       boolean verbose,
       Optional<String> accessToken) {
     UpdateServiceOuterClass.GetUpdatesRequest request =
-        new GetUpdatesRequest(begin, end, filter, verbose).toProto();
+        new GetUpdatesRequest(begin, end, filter, verbose).toProtoLegacy();
     return extractTransactionTrees(request, accessToken);
   }
 

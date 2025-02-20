@@ -21,29 +21,32 @@ import scala.collection.immutable.HashMap
 import scala.collection.mutable
 
 /** Used to mark a transaction to be well-formed. That means:
-  * <ul>
-  *   <li>`tx` is well-formed according to the Daml-LF definition, i.e., a root node is not child of another node and
-  *   every non-root node has exactly one parent and is reachable from a root node. (No cycles, no sharing, no orphaned node).</li>
-  *   <li>All node Ids are non-negative.</li>
-  *   <li>The type parameter `S` determines whether all create nodes have suffixed IDs or none.</li>
-  *   <li>Create nodes have unique contract ids of shape `com.digitalasset.daml.lf.value.Value.ContractId.V1`.
-  *     The contract id of a create node is not referenced before the node.
-  *     The contract id of a rolled back create node is not referenced outside its rollback scope.</li>
-  *   <li>The discriminators of create nodes without suffixed contract ids are unique among all discriminators that appear in the transaction.</li>
-  *   <li>Every action node has at least one signatory.</li>
-  *   <li>Every signatory is also a stakeholder.</li>
-  *   <li>Fetch actors are defined.</li>
-  *   <li>All created contract instances and choice arguments in the transaction can be serialized.</li>
-  *   <li>All nodes in the transaction have the `optLocation` field set to `None`.</li>
-  *   <li>[[metadata]] contains seeds exactly for those node IDs from `tx` that should have a seed (creates and exercises).</li>
-  *   <li>Keys of transaction nodes don't contain contract IDs.</li>
-  *   <li>The maintainers of keys are non-empty.</li>
-  *   <li>ByKey nodes have a key.</li>
-  *   <li>All parties referenced by the transaction can be converted to [[com.digitalasset.canton.topology.PartyId]]</li>
-  *   <li>The transaction has the `optUsedPackages` set to [[scala.None$]]</li>
-  *   <li>Every rollback node has at least one child and no rollback node appears at the root unless the transaction has
-  *     been merged by Canton.</li>
-  * </ul>
+  *   - `tx` is well-formed according to the Daml-LF definition, i.e., a root node is not child of
+  *     another node and every non-root node has exactly one parent and is reachable from a root
+  *     node. (No cycles, no sharing, no orphaned node).
+  *   - All node Ids are non-negative.
+  *   - The type parameter `S` determines whether all create nodes have suffixed IDs or none.
+  *   - Create nodes have unique contract ids of shape
+  *     `com.digitalasset.daml.lf.value.Value.ContractId.V1`.
+  *   - The contract id of a create node is not referenced before the node.
+  *   - The contract id of a rolled back create node is not referenced outside its rollback scope.
+  *   - The discriminators of create nodes without suffixed contract ids are unique among all
+  *     discriminators that appear in the transaction.
+  *   - Every action node has at least one signatory.
+  *   - Every signatory is also a stakeholder.
+  *   - Fetch actors are defined.
+  *   - All created contract instances and choice arguments in the transaction can be serialized.
+  *   - All nodes in the transaction have the `optLocation` field set to `None`.
+  *   - [[metadata]] contains seeds exactly for those node IDs from `tx` that should have a seed
+  *     (creates and exercises).
+  *   - Keys of transaction nodes don't contain contract IDs.
+  *   - The maintainers of keys are non-empty.
+  *   - ByKey nodes have a key.
+  *   - All parties referenced by the transaction can be converted to
+  *     [[com.digitalasset.canton.topology.PartyId]]
+  *   - The transaction has the `optUsedPackages` set to [[scala.None$]]
+  *   - Every rollback node has at least one child and no rollback node appears at the root unless
+  *     the transaction has been merged by Canton.
   */
 final case class WellFormedTransaction[+S <: State] private (
     private val tx: LfVersionedTransaction,
@@ -57,10 +60,11 @@ final case class WellFormedTransaction[+S <: State] private (
 
   /** Adjust the node IDs in an LF transaction by the given (positive or negative) offset
     *
-    * For example, an offset of 1 increases the NodeId of every node by 1.
-    * Ensures that the transaction stays wellformed.
+    * For example, an offset of 1 increases the NodeId of every node by 1. Ensures that the
+    * transaction stays wellformed.
     *
-    * @throws java.lang.IllegalArgumentException if `offset` is negative or a node ID overflow would occur
+    * @throws java.lang.IllegalArgumentException
+    *   if `offset` is negative or a node ID overflow would occur
     */
   def tryAdjustNodeIds(offset: Int): WellFormedTransaction[S] = {
     require(offset >= 0, s"Offset must be non-negative: $offset")
@@ -104,7 +108,8 @@ object WellFormedTransaction {
   }
   type WithSuffixes = WithSuffixes.type
 
-  /** All IDs of created contracts must have non-empty suffixes and transaction has been "merged". */
+  /** All IDs of created contracts must have non-empty suffixes and transaction has been "merged".
+    */
   case object WithSuffixesAndMerged extends State {
     override def withSuffixes: Boolean = true
     override def merged: Boolean = true
@@ -484,8 +489,9 @@ object WellFormedTransaction {
   /** Creates a [[WellFormedTransaction]], with the fields `optLocation` set to [[scala.None$]]
     * (because these fields are not preserved on serialization/deserialization).
     *
-    * @return A well-formed transaction, or an error message if the transaction is not well-formed after the `optLocation`
-    *         have been removed.
+    * @return
+    *   A well-formed transaction, or an error message if the transaction is not well-formed after
+    *   the `optLocation` have been removed.
     */
   def normalizeAndCheck[S <: State](
       lfTransaction: LfVersionedTransaction,
@@ -501,9 +507,8 @@ object WellFormedTransaction {
 
   /** Sanity check the transaction before submission for any invalid input values
     *
-    * Generally, the well-formedness check is used to detect faulty or malicious
-    * behaviour. This method here can be used as a pre-check during submission
-    * to filter out any user input errors.
+    * Generally, the well-formedness check is used to detect faulty or malicious behaviour. This
+    * method here can be used as a pre-check during submission to filter out any user input errors.
     */
   def sanityCheckInputs(
       tx: LfVersionedTransaction
@@ -517,8 +522,8 @@ object WellFormedTransaction {
   /** Creates a [[WellFormedTransaction]], with the fields `optLocation` set to [[scala.None$]]
     * (because these fields are not preserved on serialization/deserialization).
     *
-    * @throws java.lang.IllegalArgumentException if the given transaction is malformed after the `optLocation`
-    *                                            have been removed.
+    * @throws java.lang.IllegalArgumentException
+    *   if the given transaction is malformed after the `optLocation` have been removed.
     */
   def normalizeAndAssert[S <: State](
       lfTransaction: LfVersionedTransaction,
@@ -529,16 +534,18 @@ object WellFormedTransaction {
       .leftMap(err => throw new IllegalArgumentException(err))
       .merge
 
-  /** Merges a list of well-formed transactions into one, adjusting node IDs as necessary.
-    * All transactions must have the same version.
+  /** Merges a list of well-formed transactions into one, adjusting node IDs as necessary. All
+    * transactions must have the same version.
     *
-    * Root-level LfActionNodes with an associated rollback scope are embedded in rollback node ancestors according to
-    * this scheme:
-    * 1. Every root node is embedded in as many rollback nodes as level appear in its rollback scope.
-    * 2. Nodes with shared, non-empty rollback scope prefixes (or full matches) share the same rollback nodes (or all on
-    *    fully matching rollback scopes).
-    * 3. While the lf-engine "collapses" away some rollback nodes as part of normalization, merging does not perform
-    *    any normalization as the daml indexer/ReadService-consumer does not require rollback-normalized lf-transactions.
+    * Root-level LfActionNodes with an associated rollback scope are embedded in rollback node
+    * ancestors according to this scheme:
+    *   1. Every root node is embedded in as many rollback nodes as level appear in its rollback
+    *      scope.
+    *   1. Nodes with shared, non-empty rollback scope prefixes (or full matches) share the same
+    *      rollback nodes (or all on fully matching rollback scopes).
+    *   1. While the lf-engine "collapses" away some rollback nodes as part of normalization,
+    *      merging does not perform any normalization as the daml indexer/ReadService-consumer does
+    *      not require rollback-normalized lf-transactions.
     */
   def merge(
       transactionsWithRollbackScope: NonEmpty[

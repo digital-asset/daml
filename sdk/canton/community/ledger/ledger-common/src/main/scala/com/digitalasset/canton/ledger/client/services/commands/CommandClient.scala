@@ -13,18 +13,22 @@ import scala.concurrent.Future
 
 /** Enables easy access to command services and high level operations on top of them.
   *
-  * @param commandSubmissionService gRPC service reference.
-  * @param commandCompletionService gRPC service reference.
-  * @param applicationId            Will be applied to submitted commands.
-  * @param config                   Options for changing behavior.
+  * @param commandSubmissionService
+  *   gRPC service reference.
+  * @param commandCompletionService
+  *   gRPC service reference.
+  * @param applicationId
+  *   Will be applied to submitted commands.
+  * @param config
+  *   Options for changing behavior.
   */
 final class CommandClient(
     commandSubmissionService: CommandSubmissionServiceStub,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
-  /** Submit a single command. Successful result does not guarantee that the resulting transaction has been written to
-    * the ledger.
+  /** Submit a single command. Successful result does not guarantee that the resulting transaction
+    * has been written to the ledger.
     */
   def submitSingleCommand(
       submitRequest: SubmitRequest,

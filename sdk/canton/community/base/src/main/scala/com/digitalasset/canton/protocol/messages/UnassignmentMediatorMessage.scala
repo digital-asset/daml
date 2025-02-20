@@ -25,8 +25,10 @@ import java.util.UUID
 
 /** Message sent to the mediator as part of an unassignment request
   *
-  * @param tree The unassignment view tree blinded for the mediator
-  * @throws java.lang.IllegalArgumentException if the common data is blinded or the view is not blinded
+  * @param tree
+  *   The unassignment view tree blinded for the mediator
+  * @throws java.lang.IllegalArgumentException
+  *   if the common data is blinded or the view is not blinded
   */
 final case class UnassignmentMediatorMessage(
     tree: UnassignmentViewTree,

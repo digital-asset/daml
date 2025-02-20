@@ -21,8 +21,10 @@ trait ApplicationHandler[-Box[+_ <: Envelope[_]], -Env <: Envelope[_]]
   /** Human-readable name of the application handler for logging and debugging */
   def name: String
 
-  /** Called by the [[com.digitalasset.canton.sequencing.client.SequencerClient]] before the start of a subscription.
-    * @param synchronizerTimeTracker The synchronizer time tracker that listens to this application handler's subscription
+  /** Called by the [[com.digitalasset.canton.sequencing.client.SequencerClient]] before the start
+    * of a subscription.
+    * @param synchronizerTimeTracker
+    *   The synchronizer time tracker that listens to this application handler's subscription
     */
   def subscriptionStartsAt(
       start: SubscriptionStart,
@@ -31,8 +33,8 @@ trait ApplicationHandler[-Box[+_ <: Envelope[_]], -Env <: Envelope[_]]
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
-  /** Replaces the application handler's processing with `f` and
-    * leaves the [[subscriptionStartsAt]] logic and the name the same.
+  /** Replaces the application handler's processing with `f` and leaves the [[subscriptionStartsAt]]
+    * logic and the name the same.
     */
   def replace[Box2[+_ <: Envelope[_]], Env2 <: Envelope[_]](
       f: BoxedEnvelope[Box2, Env2] => HandlerResult
@@ -81,8 +83,8 @@ trait ApplicationHandler[-Box[+_ <: Envelope[_]], -Env <: Envelope[_]]
 
 object ApplicationHandler {
 
-  /** Creates an application handler that runs `f` on the boxed envelopes
-    * and ignores the [[ApplicationHandler.subscriptionStartsAt]] notifications
+  /** Creates an application handler that runs `f` on the boxed envelopes and ignores the
+    * [[ApplicationHandler.subscriptionStartsAt]] notifications
     */
   def create[Box[+_ <: Envelope[_]], Env <: Envelope[_]](name: String)(
       f: BoxedEnvelope[Box, Env] => HandlerResult
@@ -112,28 +114,30 @@ object ApplicationHandler {
     ApplicationHandler.create(name)(_ => HandlerResult.done)
 }
 
-/** Information passed by the [[com.digitalasset.canton.sequencing.client.SequencerClient]]
-  * to the [[ApplicationHandler]] where the subscription (= processing of events) starts.
-  * The [[ApplicationHandler]] can then initialize itself appropriately.
+/** Information passed by the [[com.digitalasset.canton.sequencing.client.SequencerClient]] to the
+  * [[ApplicationHandler]] where the subscription (= processing of events) starts. The
+  * [[ApplicationHandler]] can then initialize itself appropriately.
   */
 sealed trait SubscriptionStart extends Product with Serializable with PrettyPrinting
 
-/** The subscription is a resubscription. The application handler may have previously been called with an event. */
+/** The subscription is a resubscription. The application handler may have previously been called
+  * with an event.
+  */
 sealed trait ResubscriptionStart extends SubscriptionStart
 
 object SubscriptionStart {
 
-  /** The subscription is created for the first time.
-    * The application handler has never been called with an event.
+  /** The subscription is created for the first time. The application handler has never been called
+    * with an event.
     */
   case object FreshSubscription extends SubscriptionStart {
     override protected def pretty: Pretty[FreshSubscription] = prettyOfObject[FreshSubscription]
   }
   type FreshSubscription = FreshSubscription.type
 
-  /** The first processed event is at some timestamp after the `cleanPrehead`.
-    * All events up to `cleanPrehead` inclusive have previously been processed completely.
-    * The application handler has never been called with an event with a higher timestamp.
+  /** The first processed event is at some timestamp after the `cleanPrehead`. All events up to
+    * `cleanPrehead` inclusive have previously been processed completely. The application handler
+    * has never been called with an event with a higher timestamp.
     */
   final case class CleanHeadResubscriptionStart(cleanPrehead: CantonTimestamp)
       extends ResubscriptionStart {
@@ -145,10 +149,10 @@ object SubscriptionStart {
 
   /** The first processed event will be `firstReplayed`.
     *
-    * @param cleanPreheadO The timestamp of the last event known to be clean.
-    *                      If set, this may be before, at, or after `firstReplayed`.
-    *                      If it is before `firstReplayed`,
-    *                      then `firstReplayed` is the timestamp of the first event after `cleanPreheadO`.
+    * @param cleanPreheadO
+    *   The timestamp of the last event known to be clean. If set, this may be before, at, or after
+    *   `firstReplayed`. If it is before `firstReplayed`, then `firstReplayed` is the timestamp of
+    *   the first event after `cleanPreheadO`.
     */
   final case class ReplayResubscriptionStart(
       firstReplayed: CantonTimestamp,

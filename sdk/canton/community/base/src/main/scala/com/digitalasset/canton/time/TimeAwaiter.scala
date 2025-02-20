@@ -86,8 +86,8 @@ final class TimeAwaiter(
     }
   }
 
-  /** Queue of timestamps that are being awaited on, ordered by timestamp.
-    * Access is synchronized via [[awaitTimestampFuturesLock]].
+  /** Queue of timestamps that are being awaited on, ordered by timestamp. Access is synchronized
+    * via [[awaitTimestampFuturesLock]].
     */
   private val awaitTimestampFutures: PriorityQueue[(CantonTimestamp, Awaiting[?])] =
     new PriorityQueue[(CantonTimestamp, Awaiting[?])](

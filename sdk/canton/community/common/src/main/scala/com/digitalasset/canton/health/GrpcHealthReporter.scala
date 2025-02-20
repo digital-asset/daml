@@ -13,10 +13,10 @@ import io.grpc.protobuf.services.HealthStatusManager
 import scala.concurrent.blocking
 import scala.util.Try
 
-/** This class updates gRPC health service with updates coming from Canton's ServiceHealth instances.
-  * See https://github.com/grpc/grpc/blob/master/doc/health-checking.md
-  * This class will update the health manager when new health state are being reported by the services, which will in turn
-  * be available to external clients through the gRPC Health service.
+/** This class updates gRPC health service with updates coming from Canton's ServiceHealth
+  * instances. See https://github.com/grpc/grpc/blob/master/doc/health-checking.md This class will
+  * update the health manager when new health state are being reported by the services, which will
+  * in turn be available to external clients through the gRPC Health service.
   */
 class GrpcHealthReporter(override val loggerFactory: NamedLoggerFactory)
     extends NamedLogging
@@ -25,9 +25,9 @@ class GrpcHealthReporter(override val loggerFactory: NamedLoggerFactory)
   private def allServicesAreServing(healthStatusManager: ServiceHealthStatusManager): Boolean =
     healthStatusManager.services.map(_.getState).forall(_ == ServingStatus.SERVING)
 
-  /** Update a service in a health manager.
-    * If the status is not SERVING, the aggregated health status will be updated to NOT_SERVING
-    * If all statuses are SERVING, the aggregated health status will be updated to SERVING
+  /** Update a service in a health manager. If the status is not SERVING, the aggregated health
+    * status will be updated to NOT_SERVING If all statuses are SERVING, the aggregated health
+    * status will be updated to SERVING
     */
   private def updateHealthManager(
       healthStatusManager: ServiceHealthStatusManager,
@@ -65,10 +65,10 @@ class GrpcHealthReporter(override val loggerFactory: NamedLoggerFactory)
     }
   }
 
-  /** Registers a gRPC health manager with a set of service identifiers.
-    * These services will be available for health check in the health manager.
-    * The "default" service aggregates all services health such that the default service is "SERVING"
-    * if and only if all services are "SERVING"
+  /** Registers a gRPC health manager with a set of service identifiers. These services will be
+    * available for health check in the health manager. The "default" service aggregates all
+    * services health such that the default service is "SERVING" if and only if all services are
+    * "SERVING"
     *
     * Should only be called once per health manager.
     */

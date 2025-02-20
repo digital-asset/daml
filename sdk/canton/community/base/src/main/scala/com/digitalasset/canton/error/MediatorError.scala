@@ -112,7 +112,8 @@ object MediatorError extends MediatorErrorGroup {
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
 
-    /** @param throwableO optional throwable that will not be serialized and is therefore not delivered to clients.
+    /** @param throwableO
+      *   optional throwable that will not be serialized and is therefore not delivered to clients.
       */
     final case class Reject(
         override val cause: String,

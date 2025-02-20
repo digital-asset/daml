@@ -8,8 +8,8 @@ import com.typesafe.scalalogging.Logger
 import org.scalatest.Reporter
 import org.scalatest.events.*
 
-/** Logs when a test case or suite is started or completed.
-  * To use it, register this class with "-C" when ScalaTest is started.
+/** Logs when a test case or suite is started or completed. To use it, register this class with "-C"
+  * when ScalaTest is started.
   */
 class LogReporter extends Reporter {
 

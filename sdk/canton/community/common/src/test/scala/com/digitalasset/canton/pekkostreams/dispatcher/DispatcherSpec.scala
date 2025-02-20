@@ -103,8 +103,8 @@ class DispatcherSpec
     )
   }
 
-  /** Collect the actual results between start (exclusive) and stop (inclusive) from the given Dispatcher,
-    * then cancels the obtained stream.
+  /** Collect the actual results between start (exclusive) and stop (inclusive) from the given
+    * Dispatcher, then cancels the obtained stream.
     */
   private def collect(
       start: Option[Index],

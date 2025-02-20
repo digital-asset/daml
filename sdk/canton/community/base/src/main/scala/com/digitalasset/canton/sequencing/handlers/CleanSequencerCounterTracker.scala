@@ -23,13 +23,14 @@ import java.util.concurrent.atomic.AtomicLong
 import scala.concurrent.ExecutionContext
 import scala.util.Try
 
-/** Application handler transformer that tracks the sequencer counters for which the
-  * given application handler has successfully completed the asynchronous processing.
+/** Application handler transformer that tracks the sequencer counters for which the given
+  * application handler has successfully completed the asynchronous processing.
   *
-  * @param onUpdate Handler to be called after the clean sequencer counter prehead has been updated.
-  *                 Calls are synchronized only in the sense that the supplied prehead is at least the persisted prehead
-  *                 (except for rewinding during crash recovery), but the observed preheads need not increase
-  *                 monotonically from the handler's perspective due to out-of-order execution of futures.
+  * @param onUpdate
+  *   Handler to be called after the clean sequencer counter prehead has been updated. Calls are
+  *   synchronized only in the sense that the supplied prehead is at least the persisted prehead
+  *   (except for rewinding during crash recovery), but the observed preheads need not increase
+  *   monotonically from the handler's perspective due to out-of-order execution of futures.
   */
 class CleanSequencerCounterTracker(
     store: SequencerCounterTrackerStore,
@@ -43,13 +44,14 @@ class CleanSequencerCounterTracker(
   private type EventBatchCounterDiscriminator = EventBatchCounterDiscriminator.type
   private type EventBatchCounter = Counter[EventBatchCounterDiscriminator]
 
-  /** The counter for the next batch of events that goes to the application handler.
-    * The [[EventBatchCounter]] is not persisted anywhere and can therefore be reset upon a restart.
+  /** The counter for the next batch of events that goes to the application handler. The
+    * [[EventBatchCounter]] is not persisted anywhere and can therefore be reset upon a restart.
     */
   private val eventBatchCounterRef: AtomicLong = new AtomicLong(0L)
 
-  /** A Peano queue to track the event batches that have been processed successfully (both synchronously and asynchronously).
-    * The [[SequencerCounter]] belongs to the last event in the corresponding event batch.
+  /** A Peano queue to track the event batches that have been processed successfully (both
+    * synchronously and asynchronously). The [[SequencerCounter]] belongs to the last event in the
+    * corresponding event batch.
     */
   private val eventBatchQueue
       : PeanoQueue[EventBatchCounter, Traced[SequencerCounterCursorPrehead]] =

@@ -38,8 +38,9 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
 
-/** @param outboxQueue If a [[SynchronizerOutboxQueue]] is provided, the processed transactions are not directly stored,
-  *                    but rather sent to the synchronizer via an ephemeral queue (i.e. no persistence).
+/** @param outboxQueue
+  *   If a [[SynchronizerOutboxQueue]] is provided, the processed transactions are not directly
+  *   stored, but rather sent to the synchronizer via an ephemeral queue (i.e. no persistence).
   */
 class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
     val store: TopologyStore[TopologyStoreId],

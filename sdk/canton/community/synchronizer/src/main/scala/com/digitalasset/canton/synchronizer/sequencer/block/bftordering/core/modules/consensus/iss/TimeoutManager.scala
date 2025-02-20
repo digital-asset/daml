@@ -13,8 +13,9 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.duration.FiniteDuration
 
-/** Manages cancellable timeouts on behalf of another module; it is parametric in the type of the timeout message
-  * to send to the owning module and in the type of the handle that represents a cancellable timeout.
+/** Manages cancellable timeouts on behalf of another module; it is parametric in the type of the
+  * timeout message to send to the owning module and in the type of the handle that represents a
+  * cancellable timeout.
   */
 class TimeoutManager[E <: Env[E], ParentModuleMessageT, TimeoutIdT](
     override val loggerFactory: NamedLoggerFactory,

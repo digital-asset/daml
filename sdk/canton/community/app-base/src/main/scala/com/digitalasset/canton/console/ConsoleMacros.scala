@@ -715,10 +715,11 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       (decentralizedNamespaceDefinition.mapping.namespace, foundingTransactions)
     }
 
-    /** Checks that either all given sequencers and mediators already have been initialized for
-      * the expected synchronizer (returns Right(Some(_)), or none have been initialized at all (returns Right(None)).
-      * In any other case (nodes have already been initialized for another synchronizer or some nodes
-      * have been initialized but others not), this method returns a Left(error).
+    /** Checks that either all given sequencers and mediators already have been initialized for the
+      * expected synchronizer (returns Right(Some(_)), or none have been initialized at all (returns
+      * Right(None)). In any other case (nodes have already been initialized for another
+      * synchronizer or some nodes have been initialized but others not), this method returns a
+      * Left(error).
       */
     private def in_synchronizer(
         sequencers: NonEmpty[Seq[SequencerReference]],
@@ -806,7 +807,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
 
       val tempStoreForBootstrap = synchronizerOwners
         .map(
-          _.topology.create_temporary_topology_store(
+          _.topology.stores.create_temporary_topology_store(
             s"$synchronizerName-setup",
             staticSynchronizerParameters.protocolVersion,
           )
@@ -907,7 +908,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         }
 
       synchronizerOwners.foreach(
-        _.topology.drop_temporary_topology_store(tempStoreForBootstrap)
+        _.topology.stores.drop_temporary_topology_store(tempStoreForBootstrap)
       )
 
       synchronizerId

@@ -7,26 +7,23 @@ import com.digitalasset.daml.lf.data.Ref as DamlLfRef
 import com.digitalasset.daml.lf.typesig
 import com.digitalasset.daml.lf.value.Value as V
 
-/** Aliases used by navigator's Scala backend, from which this package
-  * was derived.
+/** Aliases used by navigator's Scala backend, from which this package was derived.
   */
 trait NavigatorModelAliases[Cid] {
 
-  /** An absolute reference of a Daml-LF entity.
-    * Contains a Daml-LF package ID and a qualified name.
+  /** An absolute reference of a Daml-LF entity. Contains a Daml-LF package ID and a qualified name.
     * Currently, such identifiers can point to:
-    * - Templates
-    * - User-defined records
-    * - User-defined variants
+    *   - Templates
+    *   - User-defined records
+    *   - User-defined variants
     */
   type DamlLfIdentifier = DamlLfRef.Identifier
   val DamlLfIdentifier = DamlLfRef.Identifier
 
-  /** A simple Daml-LF type
-    * Currently, these can be:
-    * - Primitive types
-    * - Type constructor applications (i.e., dereferencing a DamlLfIdentifier)
-    * - Type variables
+  /** A simple Daml-LF type Currently, these can be:
+    *   - Primitive types
+    *   - Type constructor applications (i.e., dereferencing a DamlLfIdentifier)
+    *   - Type variables
     */
   type DamlLfType = typesig.Type
   type DamlLfTypeCon = typesig.TypeCon

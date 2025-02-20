@@ -7,8 +7,8 @@ import org.wartremover.{WartTraverser, WartUniverse}
 
 /** Wart such that we avoid using [[scala.concurrent.Future.andThen]]
   *
-  * Using [[scala.concurrent.Future.andThen]] seems to be a bad idea
-  * because it swallows the exceptions in the `andThen` part.
+  * Using [[scala.concurrent.Future.andThen]] seems to be a bad idea because it swallows the
+  * exceptions in the `andThen` part.
   *
   * Better use our own implementation in `Thereafter`.
   */

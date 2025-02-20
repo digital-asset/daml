@@ -42,46 +42,48 @@ object AuthorizedTopologyTransaction {
 
   /** Returns true if the namespace delegation is a root certificate
     *
-    * A root certificate is defined by a namespace delegation that authorizes the
-    * key f to act on the namespace spanned by f, authorized by f.
+    * A root certificate is defined by a namespace delegation that authorizes the key f to act on
+    * the namespace spanned by f, authorized by f.
     */
   def isRootCertificate(namespaceDelegation: AuthorizedNamespaceDelegation): Boolean =
     NamespaceDelegation.isRootCertificate(namespaceDelegation.transaction)
 
   /** Returns true if the namespace delegation is a root certificate or a root delegation
     *
-    * A root delegation is a namespace delegation whose target key may be used to authorize other namespace delegations.
+    * A root delegation is a namespace delegation whose target key may be used to authorize other
+    * namespace delegations.
     */
   def isRootDelegation(namespaceDelegation: AuthorizedNamespaceDelegation): Boolean =
     NamespaceDelegation.isRootDelegation(namespaceDelegation.transaction)
 
 }
 
-/** Stores a set of namespace delegations, tracks dependencies and
-  * determines which keys are authorized to sign on behalf of a namespace.
+/** Stores a set of namespace delegations, tracks dependencies and determines which keys are
+  * authorized to sign on behalf of a namespace.
   *
-  * Namespace delegations are a bit tricky as there can be an arbitrary number of delegations between the namespace key
-  * and the key that will be used for authorizations. Think of it as a certificate chain where we get a
-  * series of certificates and we need to figure out a path from one certificate to the root certificate.
+  * Namespace delegations are a bit tricky as there can be an arbitrary number of delegations
+  * between the namespace key and the key that will be used for authorizations. Think of it as a
+  * certificate chain where we get a series of certificates and we need to figure out a path from
+  * one certificate to the root certificate.
   *
   * NOTE: this class is not thread-safe
   *
   * Properties of the graph:
   *   - Each node corresponds to a target key
   *   - The node with key fingerprint of the namespace is the root node
-  *   - The edges between nodes are namespace delegations.
-  *     If key A signs a namespace delegation with target key B, then key A authorizes key B to act on the namespace.
-  *     In this case, the edge is outgoing from node A and incoming into node B.
+  *   - The edges between nodes are namespace delegations. If key A signs a namespace delegation
+  *     with target key B, then key A authorizes key B to act on the namespace. In this case, the
+  *     edge is outgoing from node A and incoming into node B.
   *   - The graph may have cycles. The implementation does not get confused by this.
   *
-  * Computation task:
-  * The graph maintains a set of nodes that are connected to the root node. Those correspond to the keys that are
-  * authorized to sign on behalf of the namespace.
+  * Computation task: The graph maintains a set of nodes that are connected to the root node. Those
+  * correspond to the keys that are authorized to sign on behalf of the namespace.
   *
   * Limitation: clients need to ensure that the namespace delegations added have valid signatures.
   * If delegations with invalid signatures are added, authorization will break.
   *
-  * @param extraDebugInfo whether to log the authorization graph at debug level on every recomputation
+  * @param extraDebugInfo
+  *   whether to log the authorization graph at debug level on every recomputation
   */
 class AuthorizationGraph(
     val namespace: Namespace,
@@ -91,17 +93,12 @@ class AuthorizationGraph(
     with NamedLogging {
 
   /** Use guava's directed ValueGraph to manage authorizations:
-    * <ul>
-    *   <li>Nodes are the fingerprints of keys</li>
-    *   <li>Edges `from -NSD-> to` represent NamespaceDelegations
-    *     <ul>
-    *       <li>`from` the signing keys of NamespaceDelegation</li>
-    *       <li>`to` the target key of the NamespaceDelegation</li>
-    *     </ul>
-    *   </li>
-    *   <li>All edges incoming to `to` are labelled with the same NSD.</li>
-    *   <li>Each node has at least one incoming or outgoing edge.</li>
-    * </ul>
+    *   - Nodes are the fingerprints of keys
+    *   - Edges `from -NSD-> to` represent NamespaceDelegations
+    *     - `from` the signing keys of NamespaceDelegation
+    *     - `to` the target key of the NamespaceDelegation
+    *   - All edges incoming to `to` are labelled with the same NSD.
+    *   - Each node has at least one incoming or outgoing edge.
     */
   private val graph: MutableValueGraph[Fingerprint, AuthorizedNamespaceDelegation] =
     ValueGraphBuilder
@@ -109,9 +106,9 @@ class AuthorizationGraph(
       .allowsSelfLoops(true) // we allow self loops for the root certificate
       .build[Fingerprint, AuthorizedNamespaceDelegation]
 
-  /** Authorized namespace delegations for namespace `this.namespace`, grouped by target.
-    * The namespace delegations carry the length of the valid certificate chain required to
-    * arrive at the root certificate
+  /** Authorized namespace delegations for namespace `this.namespace`, grouped by target. The
+    * namespace delegations carry the length of the valid certificate chain required to arrive at
+    * the root certificate
     */
   private val cache =
     new TrieMap[Fingerprint, (AuthorizedNamespaceDelegation, Int)]()
@@ -121,11 +118,13 @@ class AuthorizationGraph(
   def replace(item: AuthorizedNamespaceDelegation)(implicit traceContext: TraceContext): Unit =
     replace(Seq(item))
 
-  /** Add the mappings in `items` to this graph and remove any existing mappings with the same target fingerprint.
-    * If an unauthorized namespace delegation is added to the graph, the graph will contain nodes that are not connected to the root.
-    * The target key of the unauthorized delegation will still be considered unauthorized.
+  /** Add the mappings in `items` to this graph and remove any existing mappings with the same
+    * target fingerprint. If an unauthorized namespace delegation is added to the graph, the graph
+    * will contain nodes that are not connected to the root. The target key of the unauthorized
+    * delegation will still be considered unauthorized.
     *
-    * @throws java.lang.IllegalArgumentException if `item` does not refer to `namespace` or the operation is not REPLACE.
+    * @throws java.lang.IllegalArgumentException
+    *   if `item` does not refer to `namespace` or the operation is not REPLACE.
     */
   def replace(
       items: Seq[AuthorizedNamespaceDelegation]
@@ -159,7 +158,8 @@ class AuthorizationGraph(
 
   /** Remove all mappings with the same target key from this graph.
     *
-    * @throws java.lang.IllegalArgumentException if `item` does not refer to `namespace` or the operation is not REMOVE.
+    * @throws java.lang.IllegalArgumentException
+    *   if `item` does not refer to `namespace` or the operation is not REMOVE.
     */
   def remove(item: AuthorizedNamespaceDelegation)(implicit traceContext: TraceContext): Unit = {
     ErrorUtil.requireArgument(
@@ -212,10 +212,10 @@ class AuthorizationGraph(
       )
       .flatten
 
-  /** Recompute the authorization graph starting from the root certificate:
-    * We start at the root certificate and follow outgoing authorizations for all root delegations.
-    * As a result, every key that doesn't end up in the cache is not connected
-    * to the root certificate and therefore useless.
+  /** Recompute the authorization graph starting from the root certificate: We start at the root
+    * certificate and follow outgoing authorizations for all root delegations. As a result, every
+    * key that doesn't end up in the cache is not connected to the root certificate and therefore
+    * useless.
     */
   protected def recompute()(implicit traceContext: TraceContext): Unit = {
     cache.clear()
@@ -321,32 +321,35 @@ class AuthorizationGraph(
 
 trait AuthorizationCheck {
 
-  /** Determines if a subset of the given keys is authorized to sign on behalf of the (possibly decentralized) namespace.
+  /** Determines if a subset of the given keys is authorized to sign on behalf of the (possibly
+    * decentralized) namespace.
     *
-    * @param requireRoot whether the authorization must be suitable to authorize namespace delegations
+    * @param requireRoot
+    *   whether the authorization must be suitable to authorize namespace delegations
     */
   def existsAuthorizedKeyIn(authKeys: Set[Fingerprint], requireRoot: Boolean): Boolean
 
-  /** Returns those keys that are useful for signing on behalf of the (possibly decentralized) namespace.
-    * Only keys with fingerprint in `authKeys` will be returned.
-    * The returned keys are not necessarily sufficient to authorize a transaction on behalf of the namespace;
-    * in case of a decentralized namespace, additional signatures may be required.
+  /** Returns those keys that are useful for signing on behalf of the (possibly decentralized)
+    * namespace. Only keys with fingerprint in `authKeys` will be returned. The returned keys are
+    * not necessarily sufficient to authorize a transaction on behalf of the namespace; in case of a
+    * decentralized namespace, additional signatures may be required.
     */
   def keysSupportingAuthorization(
       authKeys: Set[Fingerprint],
       requireRoot: Boolean,
   ): Set[SigningPublicKey]
 
-  /** Per namespace (required for decentralized namespaces), a list of namespace delegations that have
-    * a gapless chain to the root certificate together with the length of the chain to the root certificate
-    * for each namespace delegation.
+  /** Per namespace (required for decentralized namespaces), a list of namespace delegations that
+    * have a gapless chain to the root certificate together with the length of the chain to the root
+    * certificate for each namespace delegation.
     */
   def authorizedDelegations(): Map[Namespace, Seq[(AuthorizedNamespaceDelegation, Int)]]
 }
 
 /** Authorization graph for a decentralized namespace.
   *
-  * @throws java.lang.IllegalArgumentException if `dnd` and `ownerGraphs` refer to different namespaces.
+  * @throws java.lang.IllegalArgumentException
+  *   if `dnd` and `ownerGraphs` refer to different namespaces.
   */
 final case class DecentralizedNamespaceAuthorizationGraph(
     dnd: DecentralizedNamespaceDefinition,

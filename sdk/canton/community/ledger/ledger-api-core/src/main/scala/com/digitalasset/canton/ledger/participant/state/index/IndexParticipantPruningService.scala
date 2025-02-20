@@ -8,8 +8,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace
 
 import scala.concurrent.Future
 
-/** Serves as a backend to implement
-  * ParticipantPruningService.
+/** Serves as a backend to implement ParticipantPruningService.
   */
 trait IndexParticipantPruningService {
   def prune(

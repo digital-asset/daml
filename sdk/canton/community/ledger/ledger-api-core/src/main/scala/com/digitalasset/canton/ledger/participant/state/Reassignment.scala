@@ -19,13 +19,17 @@ object Reassignment {
 
   /** Represent the update of unassigning a contract from a synchronizer.
     *
-    * @param contractId            Contract ID of the underlying contract.
-    * @param templateId            Template ID of the underlying contract.
-    * @param packageName           Package name of the underlying contract's template.
-    * @param stakeholders          Stakeholders of the underlying contract.
-    * @param assignmentExclusivity Before this time (measured on the target synchronizer), only the submitter
-    *                              of the unassignment can initiate the assignment.
-    *                              Defined for reassigning participants.
+    * @param contractId
+    *   Contract ID of the underlying contract.
+    * @param templateId
+    *   Template ID of the underlying contract.
+    * @param packageName
+    *   Package name of the underlying contract's template.
+    * @param stakeholders
+    *   Stakeholders of the underlying contract.
+    * @param assignmentExclusivity
+    *   Before this time (measured on the target synchronizer), only the submitter of the
+    *   unassignment can initiate the assignment. Defined for reassigning participants.
     */
   final case class Unassign(
       contractId: Value.ContractId,
@@ -39,9 +43,12 @@ object Reassignment {
 
   /** Represents the update of assigning a contract to a synchronizer.
     *
-    * @param ledgerEffectiveTime The ledger time of the creation of the underlying contract.
-    * @param createNode          The details of the creation of the underlying contract.
-    * @param contractMetadata    The metadata provided at creation of the underlying contract.
+    * @param ledgerEffectiveTime
+    *   The ledger time of the creation of the underlying contract.
+    * @param createNode
+    *   The details of the creation of the underlying contract.
+    * @param contractMetadata
+    *   The metadata provided at creation of the underlying contract.
     */
   final case class Assign(
       ledgerEffectiveTime: Timestamp,
@@ -52,17 +59,20 @@ object Reassignment {
   }
 }
 
-/** The common information for all reassigments.
-  * Except from the hosted and reassigning stakeholders, all fields are the same for
-  * reassign and assign updates, which belong to the same reassignment.
+/** The common information for all reassigments. Except from the hosted and reassigning
+  * stakeholders, all fields are the same for reassign and assign updates, which belong to the same
+  * reassignment.
   *
-  * @param sourceSynchronizer      The synchronizer ID from which the contract is unassigned.
-  * @param targetSynchronizer      The synchronizer ID to which the contract is assigned.
-  * @param submitter               Submitter of the command, unless the operation is performed offline.
-  * @param reassignmentCounter     This counter is strictly increasing with each reassignment
-  *                                for one contract.
-  * @param unassignId              The ID of the unassign event. This should be used for the assign
-  *                                command.
+  * @param sourceSynchronizer
+  *   The synchronizer ID from which the contract is unassigned.
+  * @param targetSynchronizer
+  *   The synchronizer ID to which the contract is assigned.
+  * @param submitter
+  *   Submitter of the command, unless the operation is performed offline.
+  * @param reassignmentCounter
+  *   This counter is strictly increasing with each reassignment for one contract.
+  * @param unassignId
+  *   The ID of the unassign event. This should be used for the assign command.
   */
 final case class ReassignmentInfo(
     sourceSynchronizer: Source[SynchronizerId],

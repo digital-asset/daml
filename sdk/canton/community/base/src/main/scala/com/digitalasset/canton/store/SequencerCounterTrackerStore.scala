@@ -15,22 +15,26 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-/** Store for keeping track of the prehead for clean sequencer counters.
-  * A [[com.digitalasset.canton.SequencerCounter]] becomes clean
-  * when the corresponding [[com.digitalasset.canton.sequencing.protocol.SequencedEvent]] has been processed
-  * completely and successfully.
-  * The prehead of the cursor is advanced only so far that all sequencer counters up to the prehead are clean.
+/** Store for keeping track of the prehead for clean sequencer counters. A
+  * [[com.digitalasset.canton.SequencerCounter]] becomes clean when the corresponding
+  * [[com.digitalasset.canton.sequencing.protocol.SequencedEvent]] has been processed completely and
+  * successfully. The prehead of the cursor is advanced only so far that all sequencer counters up
+  * to the prehead are clean.
   */
 trait SequencerCounterTrackerStore extends FlagCloseable {
   protected[store] val cursorStore: CursorPreheadStore[SequencerCounterDiscriminator]
 
-  /** Gets the prehead clean sequencer counter. This sequencer counter and all the ones below are assumed to be clean. */
+  /** Gets the prehead clean sequencer counter. This sequencer counter and all the ones below are
+    * assumed to be clean.
+    */
   def preheadSequencerCounter(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[SequencerCounterCursorPrehead]] =
     cursorStore.prehead
 
-  /** Sets the prehead clean sequencer counter to `sequencerCounter` unless it has previously been set to a higher value. */
+  /** Sets the prehead clean sequencer counter to `sequencerCounter` unless it has previously been
+    * set to a higher value.
+    */
   def advancePreheadSequencerCounterTo(
       sequencerCounter: SequencerCounterCursorPrehead
   )(implicit
@@ -39,7 +43,9 @@ trait SequencerCounterTrackerStore extends FlagCloseable {
   ): FutureUnlessShutdown[Unit] =
     cursorStore.advancePreheadTo(sequencerCounter)
 
-  /** Rewinds the prehead clean sequencer counter to `newPrehead` unless the prehead is already at or before the new `preHead`. */
+  /** Rewinds the prehead clean sequencer counter to `newPrehead` unless the prehead is already at
+    * or before the new `preHead`.
+    */
   def rewindPreheadSequencerCounter(
       newPreheadO: Option[SequencerCounterCursorPrehead]
   )(implicit

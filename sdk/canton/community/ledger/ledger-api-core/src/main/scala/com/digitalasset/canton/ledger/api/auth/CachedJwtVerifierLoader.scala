@@ -21,17 +21,21 @@ import scala.concurrent.{ExecutionContext, Future}
 /** A JWK verifier loader, where the public keys are automatically fetched from the given JWKS URL.
   * The keys are then transformed into JWK Verifier
   *
-  * The verifiers are kept in cache, in order to prevent having to do a remote network access for each token validation.
+  * The verifiers are kept in cache, in order to prevent having to do a remote network access for
+  * each token validation.
   *
-  * The cache is limited both in size and time.
-  * A size limit protects against infinitely growing memory consumption.
-  * A time limit is a safety catch for the case where a public key is used to sign a token without an expiration time
-  * and then is revoked.
+  * The cache is limited both in size and time. A size limit protects against infinitely growing
+  * memory consumption. A time limit is a safety catch for the case where a public key is used to
+  * sign a token without an expiration time and then is revoked.
   *
-  * @param cacheMaxSize Maximum number of public keys to keep in the cache.
-  * @param cacheExpirationTime Maximum time to keep public keys in the cache.
-  * @param connectionTimeout Timeout for connecting to the JWKS URL.
-  * @param readTimeout Timeout for reading from the JWKS URL.
+  * @param cacheMaxSize
+  *   Maximum number of public keys to keep in the cache.
+  * @param cacheExpirationTime
+  *   Maximum time to keep public keys in the cache.
+  * @param connectionTimeout
+  *   Timeout for connecting to the JWKS URL.
+  * @param readTimeout
+  *   Timeout for reading from the JWKS URL.
   */
 class CachedJwtVerifierLoader(
     // Large enough such that malicious users can't cycle through all keys from reasonably sized JWKS,

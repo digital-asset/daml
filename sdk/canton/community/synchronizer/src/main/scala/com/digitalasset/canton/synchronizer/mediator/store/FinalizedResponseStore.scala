@@ -34,10 +34,9 @@ import scala.concurrent.ExecutionContext
   */
 private[mediator] trait FinalizedResponseStore extends AutoCloseable {
 
-  /** Stores finalized mediator verdict.
-    * In the event of a crash we may attempt to store an existing finalized request so the store
-    * should behave in an idempotent manner.
-    * TODO(#4335): If there is an existing value ensure that it matches the value we want to insert
+  /** Stores finalized mediator verdict. In the event of a crash we may attempt to store an existing
+    * finalized request so the store should behave in an idempotent manner. TODO(#4335): If there is
+    * an existing value ensure that it matches the value we want to insert
     */
   def store(
       finalizedResponse: FinalizedResponse
@@ -61,16 +60,16 @@ private[mediator] trait FinalizedResponseStore extends AutoCloseable {
       callerCloseContext: CloseContext,
   ): FutureUnlessShutdown[Unit]
 
-  /** Count how many finalized responses we have stored.
-    * Primarily used for testing mediator pruning.
+  /** Count how many finalized responses we have stored. Primarily used for testing mediator
+    * pruning.
     */
   def count()(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
   ): FutureUnlessShutdown[Long]
 
-  /** Locate a timestamp relative to the earliest available finalized response
-    * Useful to monitor the progress of pruning and for pruning in batches.
+  /** Locate a timestamp relative to the earliest available finalized response Useful to monitor the
+    * progress of pruning and for pruning in batches.
     */
   def locatePruningTimestamp(skip: Int)(implicit
       traceContext: TraceContext,
@@ -179,9 +178,9 @@ private[mediator] class DbFinalizedResponseStore(
   import storage.api.*
   import storage.converters.*
 
-  /** once requests are finished, we keep em around for a few minutes so we can deal with any
-    * late request, avoiding a database lookup. otherwise, we'll be doing a db lookup in our
-    * main processing stage, slowing things down quite a bit
+  /** once requests are finished, we keep em around for a few minutes so we can deal with any late
+    * request, avoiding a database lookup. otherwise, we'll be doing a db lookup in our main
+    * processing stage, slowing things down quite a bit
     */
   private val finishedRequests = finalizedRequestCache
     .buildScaffeine()

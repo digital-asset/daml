@@ -24,10 +24,12 @@ import scala.annotation.unused
 
 /** Represents a serializable contract instance and memoizes the serialization.
   *
-  * @param contractInstance The contract instance whose serialization is to be memoized.
-  * @param deserializedFrom If set, the given [[ByteString]] will be deemed to be the valid serialization for
-  *                         the given contract instance. If [[None]],
-  *                         the serialization is produced by [[TransactionCoder.encodeContractInstance]].
+  * @param contractInstance
+  *   The contract instance whose serialization is to be memoized.
+  * @param deserializedFrom
+  *   If set, the given [[ByteString]] will be deemed to be the valid serialization for the given
+  *   contract instance. If [[None]], the serialization is produced by
+  *   [[TransactionCoder.encodeContractInstance]].
   */
 final case class SerializableRawContractInstance private (
     contractInstance: LfContractInst
@@ -35,7 +37,8 @@ final case class SerializableRawContractInstance private (
     override val deserializedFrom: Option[ByteString]
 ) extends MemoizedEvidenceWithFailure[ValueCoder.EncodeError] {
 
-  /** @throws com.digitalasset.canton.serialization.SerializationCheckFailed If the serialization of the contract instance failed
+  /** @throws com.digitalasset.canton.serialization.SerializationCheckFailed
+    *   If the serialization of the contract instance failed
     */
   @throws[SerializationCheckFailed[ValueCoder.EncodeError]]
   protected[this] override def toByteStringChecked: Either[ValueCoder.EncodeError, ByteString] =
@@ -85,9 +88,12 @@ object SerializableRawContractInstance {
       case SerializationCheckFailed(err: ValueCoder.EncodeError) => Left(err)
     }
 
-  /** Build a [[SerializableRawContractInstance]] from lf-protobuf and ContractId encoded ContractInst
-    * @param bytes byte string representing contract instance
-    * @return  contract id
+  /** Build a [[SerializableRawContractInstance]] from lf-protobuf and ContractId encoded
+    * ContractInst
+    * @param bytes
+    *   byte string representing contract instance
+    * @return
+    *   contract id
     */
   def fromByteString(
       bytes: ByteString

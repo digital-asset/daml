@@ -66,8 +66,8 @@ abstract class ConsumesCancellableGrpcStreamObserver[
 )(implicit executionContext: ExecutionContext)
     extends SequencerSubscription[E] {
 
-  /** Stores ongoing work performed by `onNext` or `complete`.
-    * The contained future is completed whenever these methods are not busy.
+  /** Stores ongoing work performed by `onNext` or `complete`. The contained future is completed
+    * whenever these methods are not busy.
     */
   private val currentProcessing = new AtomicReference[Future[Unit]](Future.unit)
   private val currentAwaitOnNext = new AtomicReference[Promise[UnlessShutdown[Either[E, Unit]]]](

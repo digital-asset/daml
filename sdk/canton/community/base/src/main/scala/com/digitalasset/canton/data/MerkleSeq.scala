@@ -25,12 +25,14 @@ import monocle.Lens
 
 import scala.annotation.tailrec
 
-/** Wraps a sequence that is also a [[MerkleTree]].
-  * Elements are arranged in a balanced binary tree. As a result, if all except one element are blinded, the
-  * resulting MerkleSeq has size logarithmic in the size of the fully unblinded MerkleSeq.
+/** Wraps a sequence that is also a [[MerkleTree]]. Elements are arranged in a balanced binary tree.
+  * As a result, if all except one element are blinded, the resulting MerkleSeq has size logarithmic
+  * in the size of the fully unblinded MerkleSeq.
   *
-  * @param rootOrEmpty the root element or `None` if the sequence is empty
-  * @tparam M the type of elements
+  * @param rootOrEmpty
+  *   the root element or `None` if the sequence is empty
+  * @tparam M
+  *   the type of elements
   */
 final case class MerkleSeq[+M <: VersionedMerkleTree[?]](
     rootOrEmpty: Option[MerkleTree[MerkleSeqElement[M]]]
@@ -44,9 +46,9 @@ final case class MerkleSeq[+M <: VersionedMerkleTree[?]](
 
   /** Obtain a representative protocol version for a [[MerkleSeqElement]] by casting ours.
     *
-    * This is possible because currently there is a close connection between the versioning of these two structures.
-    * Only use this in edge cases, where obtaining a representative for [[MerkleSeqElement]] is not possible without
-    * making unsafe assumptions.
+    * This is possible because currently there is a close connection between the versioning of these
+    * two structures. Only use this in edge cases, where obtaining a representative for
+    * [[MerkleSeqElement]] is not possible without making unsafe assumptions.
     *
     * WARNING: /!\ This will blow up if (when?) the versioning of the two structures diverges. /!\
     */
@@ -71,9 +73,8 @@ final case class MerkleSeq[+M <: VersionedMerkleTree[?]](
     case None => Seq.empty
   }
 
-  /** Converts this to a Seq.
-    * The resulting seq may be shorter than the underlying fully unblinded seq,
-    * because neighbouring blinded elements may be blinded into a single node.
+  /** Converts this to a Seq. The resulting seq may be shorter than the underlying fully unblinded
+    * seq, because neighbouring blinded elements may be blinded into a single node.
     */
   lazy val toSeq: Seq[MerkleTree[M]] = rootOrEmpty match {
     case Some(t) => MerkleSeqElement.seqOf(t)
@@ -107,13 +108,16 @@ final case class MerkleSeq[+M <: VersionedMerkleTree[?]](
       case None => this
     }
 
-  /** Blind everything in this MerkleSeq, except the leaf identified by the given path.
-    * To ensure the path is valid, it should be obtained beforehand with a traversal
-    * method such as [[unblindedElementsWithIndex]] and reversed with [[ViewPosition.reverse]].
+  /** Blind everything in this MerkleSeq, except the leaf identified by the given path. To ensure
+    * the path is valid, it should be obtained beforehand with a traversal method such as
+    * [[unblindedElementsWithIndex]] and reversed with [[ViewPosition.reverse]].
     *
-    * @param path the path from root to leaf
-    * @param actionOnLeaf an action to transform the leaf once it is found
-    * @throws java.lang.UnsupportedOperationException if the path does not lead to an unblinded leaf
+    * @param path
+    *   the path from root to leaf
+    * @param actionOnLeaf
+    *   an action to transform the leaf once it is found
+    * @throws java.lang.UnsupportedOperationException
+    *   if the path does not lead to an unblinded leaf
     */
   def tryBlindAllButLeaf[A <: VersionedMerkleTree[A]](
       path: MerkleSeqIndexFromRoot,
@@ -572,10 +576,13 @@ object MerkleSeq
 
   /** Arranges a non-empty sequence of `elements` in a balanced binary tree.
     *
-    * @param size The [[scala.collection.Iterator.length]] of `elements`.
-    *             We take the size as a separate parameter because the implementation of the method relies on
-    *             [[scala.collection.Iterator.grouped]] and computing the size of an iterator takes linear time.
-    * @param combine The function to construct an inner node of the binary tree from two subtrees.
+    * @param size
+    *   The [[scala.collection.Iterator.length]] of `elements`. We take the size as a separate
+    *   parameter because the implementation of the method relies on
+    *   [[scala.collection.Iterator.grouped]] and computing the size of an iterator takes linear
+    *   time.
+    * @param combine
+    *   The function to construct an inner node of the binary tree from two subtrees.
     */
   @tailrec
   private def mkTree[E](elements: Iterator[E], size: Int)(combine: (E, E) => E): E = {
@@ -597,8 +604,8 @@ object MerkleSeq
     }
   }
 
-  /** Computes the [[ViewPosition.MerkleSeqIndex]]es for all leaves in a [[MerkleSeq]] of the given size.
-    * The returned indices are in sequence.
+  /** Computes the [[ViewPosition.MerkleSeqIndex]]es for all leaves in a [[MerkleSeq]] of the given
+    * size. The returned indices are in sequence.
     */
   // takes O(size) runtime and memory due to sharing albeit there are O(size * log(size)) directions
   def indicesFromSeq(size: Int): Seq[MerkleSeqIndex] = {
@@ -617,7 +624,8 @@ object MerkleSeq
 
     /** Prefixes `subsequentIndices` with all paths from the leaves of this subtree to the root
       *
-      * @param pathFromRoot The path from this node to the root.
+      * @param pathFromRoot
+      *   The path from this node to the root.
       */
     def addTo(pathFromRoot: Path, subsequentIndices: List[MerkleSeqIndex]): List[MerkleSeqIndex]
   }

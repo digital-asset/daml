@@ -110,8 +110,8 @@ class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore 
   ): FutureUnlessShutdown[Option[Long]] =
     FutureUnlessShutdown.pure(Option.when(!deque.isEmpty)(deque.size().toLong - 1))
 
-  /** Query available blocks starting with the specified initial height.
-    * The blocks need to be returned in consecutive block-height order i.e. contain no "gaps".
+  /** Query available blocks starting with the specified initial height. The blocks need to be
+    * returned in consecutive block-height order i.e. contain no "gaps".
     */
   override def queryBlocks(initialHeight: Long)(implicit
       traceContext: TraceContext

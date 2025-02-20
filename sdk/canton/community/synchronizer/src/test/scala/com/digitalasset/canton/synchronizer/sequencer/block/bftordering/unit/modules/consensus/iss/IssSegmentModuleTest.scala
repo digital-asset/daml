@@ -521,6 +521,10 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
                 ) =>
           }
         }
+        val blockMetadata = blockMetadata4Nodes(blockOrder4Nodes.indexOf(selfId))
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage.PrePrepareStored(blockMetadata, ViewNumber.First)
+        )
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
             case MessageFromPipeToSelf(
@@ -529,7 +533,6 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
                 ) =>
           }
         }
-        val blockMetadata = blockMetadata4Nodes(blockOrder4Nodes.indexOf(selfId))
         val expectedPrePrepare = PrePrepare.create(
           blockMetadata,
           ViewNumber.First,
@@ -555,9 +558,6 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         p2pBuffer.clear()
 
         // Prepares from follower peers should trigger sending Commit for the first block
-        consensus.receive(
-          ConsensusSegment.ConsensusMessage.PrePrepareStored(blockMetadata, ViewNumber.First)
-        )
         consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherPeers(0))))
         consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherPeers(1))))
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
@@ -776,6 +776,9 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
                 ) =>
           }
         }
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage.PrePrepareStored(block10Metadata1Node, ViewNumber.First)
+        )
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
             case MessageFromPipeToSelf(
@@ -784,9 +787,6 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
                 ) =>
           }
         }
-        consensus.receive(
-          ConsensusSegment.ConsensusMessage.PrePrepareStored(block10Metadata1Node, ViewNumber.First)
-        )
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
             case MessageFromPipeToSelf(
@@ -872,6 +872,14 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(expectedNewView),
             Set.empty,
           ),
+        )
+        p2pBuffer.clear()
+
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage
+            .NewViewStored(BlockMetadata.mk(EpochNumber.First, BlockNumber.First), nextView)
+        )
+        p2pBuffer shouldBe ArrayBuffer(
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
               prepareFromPrePrepare(bottomBlock1.message)(from = selfId)
@@ -890,11 +898,6 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         //   - delayCount=3 for nested view change timer
         //   - delayCount=4 when view change completed; expecting consensus to resume on incomplete blocks
         context.delayedMessages.size shouldBe 4
-
-        consensus.receive(
-          ConsensusSegment.ConsensusMessage
-            .NewViewStored(BlockMetadata.mk(EpochNumber.First, BlockNumber.First), nextView)
-        )
 
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
@@ -1110,10 +1113,6 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
             ),
             Set.empty,
           ),
-          P2PNetworkOut.Multicast(
-            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(prepareBottomBlock0),
-            Set.empty,
-          ),
         )
         p2pBuffer.clear()
 
@@ -1121,8 +1120,15 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           ConsensusSegment.ConsensusMessage
             .NewViewStored(BlockMetadata.mk(EpochNumber.First, BlockNumber.First), SecondViewNumber)
         )
-        context.runPipedMessagesAndReceiveOnModule(consensus)
+        p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
+          P2PNetworkOut.Multicast(
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(prepareBottomBlock0),
+            Set.empty,
+          )
+        )
+        p2pBuffer.clear()
 
+        context.runPipedMessagesAndReceiveOnModule(consensus)
         p2pBuffer should contain only P2PNetworkOut.Multicast(
           P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(commitBottomBlock0),
           Set.empty,

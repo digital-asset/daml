@@ -37,8 +37,8 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 
-/** This class wraps a CryptoPrivateStore and implements an encrypted version that stores the private keys
-  * in encrypted form using a KMS
+/** This class wraps a CryptoPrivateStore and implements an encrypted version that stores the
+  * private keys in encrypted form using a KMS
   */
 class EncryptedCryptoPrivateStore(
     @VisibleForTesting

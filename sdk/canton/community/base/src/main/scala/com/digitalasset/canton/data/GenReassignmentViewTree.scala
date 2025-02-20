@@ -13,9 +13,8 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.HasProtocolVersionedWrapper
 import com.google.protobuf.ByteString
 
-/** A reassignment request tree has two children:
-  * The `commonData` for the mediator and the involved participants
-  * and the `view` only for the involved participants.
+/** A reassignment request tree has two children: The `commonData` for the mediator and the involved
+  * participants and the `view` only for the involved participants.
   */
 abstract class GenReassignmentViewTree[
     CommonData <: HasProtocolVersionedWrapper[CommonData] & HasCryptographicEvidence,
@@ -37,7 +36,9 @@ abstract class GenReassignmentViewTree[
 
   def viewHash: ViewHash = ViewHash.fromRootHash(rootHash)
 
-  /** Blinds the reassignment view tree such that the `view` is blinded and the `commonData` remains revealed. */
+  /** Blinds the reassignment view tree such that the `view` is blinded and the `commonData` remains
+    * revealed.
+    */
   def mediatorMessage(
       submittingParticipantSignature: Signature
   ): MediatorMessage = {

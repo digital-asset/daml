@@ -19,7 +19,8 @@ class DamlError(
     super.context ++ extraContext.view.mapValues(_.toString)
 }
 
-/** @param definiteAnswer Determines the value of the `definite_answer` key in the error details
+/** @param definiteAnswer
+  *   Determines the value of the `definite_answer` key in the error details
   */
 class DamlErrorWithDefiniteAnswer(
     override val cause: String,

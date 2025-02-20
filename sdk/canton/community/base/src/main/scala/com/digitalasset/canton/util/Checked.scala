@@ -8,13 +8,17 @@ import cats.{Applicative, Eval, Functor, MonadError, Now}
 
 import scala.annotation.tailrec
 
-/** A monad for aborting and non-aborting errors. Non-aborting errors are accumulated in a [[cats.data.Chain]]
-  * until the first aborting error is hit. You can think of [[com.digitalasset.canton.util.Checked]] as an extension of
-  * `Either` to also support errors that should not cause the computation to abort.
+/** A monad for aborting and non-aborting errors. Non-aborting errors are accumulated in a
+  * [[cats.data.Chain]] until the first aborting error is hit. You can think of
+  * [[com.digitalasset.canton.util.Checked]] as an extension of `Either` to also support errors that
+  * should not cause the computation to abort.
   *
-  * @tparam A Type of aborting errors
-  * @tparam N Type of non-aborting errors
-  * @tparam R Result type of the monad
+  * @tparam A
+  *   Type of aborting errors
+  * @tparam N
+  *   Type of non-aborting errors
+  * @tparam R
+  *   Result type of the monad
   */
 sealed abstract class Checked[+A, +N, +R] extends Product with Serializable {
   import Checked.*
@@ -84,7 +88,9 @@ sealed abstract class Checked[+A, +N, +R] extends Product with Serializable {
   def ap[AA >: A, NN >: N, RR](f: Checked[AA, NN, R => RR]): Checked[AA, NN, RR] =
     f.product(this).map { case (g, x) => g(x) }
 
-  /** Reverse applicative operation. Errors from the argument (= `this`) take precedence over those from the function. */
+  /** Reverse applicative operation. Errors from the argument (= `this`) take precedence over those
+    * from the function.
+    */
   def reverseAp[AA >: A, NN >: N, RR](f: Checked[AA, NN, R => RR]): Checked[AA, NN, RR] =
     this.product(f).map { case (x, g) => g(x) }
 
@@ -128,9 +134,9 @@ sealed abstract class Checked[+A, +N, +R] extends Product with Serializable {
     case _ => true
   }
 
-  /** When [[Checked.Result]], apply the function, marking the result as [[Checked.Result]]
-    * inside the Applicative's context, keeping the warnings.
-    * when [[Checked.Abort]], lift the [[Checked.Abort]] into the Applicative's context
+  /** When [[Checked.Result]], apply the function, marking the result as [[Checked.Result]] inside
+    * the Applicative's context, keeping the warnings. when [[Checked.Abort]], lift the
+    * [[Checked.Abort]] into the Applicative's context
     */
   def traverse[F[_], AA >: A, NN >: N, RR](
       f: R => F[RR]

@@ -15,12 +15,12 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.util.chaining.scalaUtilChainingOps
 
-/** Buffer to hold Ledger API Indexer events for a particular connected synchronizer's RecordOrderPublisher
-  * for the duration of Online Party Replication (OPR) while OPR-replicated ACS contracts are published
-  * as they arrive at the target participant.
+/** Buffer to hold Ledger API Indexer events for a particular connected synchronizer's
+  * RecordOrderPublisher for the duration of Online Party Replication (OPR) while OPR-replicated ACS
+  * contracts are published as they arrive at the target participant.
   *
-  * Note: All the public methods of this class are not thread-safe and must only be called from the RecordOrderPublisher
-  * TaskScheduler such that only a single method is executed at a time.
+  * Note: All the public methods of this class are not thread-safe and must only be called from the
+  * RecordOrderPublisher TaskScheduler such that only a single method is executed at a time.
   */
 private[event] final class EventBuffer(
     recordTimeBufferBegin: CantonTimestamp,
@@ -34,8 +34,8 @@ private[event] final class EventBuffer(
   // record time order.
   private val lastBufferedRecordTime = new AtomicReference[CantonTimestamp](recordTimeBufferBegin)
 
-  /** Buffer/hold back a concurrent Ledger API indexer update/event during OPR such that OPR-replicated ACS contracts
-    * can be published "before" with respect to record time order.
+  /** Buffer/hold back a concurrent Ledger API indexer update/event during OPR such that
+    * OPR-replicated ACS contracts can be published "before" with respect to record time order.
     */
   def bufferEvent(event: Update)(implicit traceContext: TraceContext): Unit = {
     ErrorUtil.requireState(

@@ -30,15 +30,17 @@ import ApiValueImplicits.*
 
 /** A compressed encoding of API values.
   *
-  * The encoded values do not include type information.
-  * For example, it is impossible to distinguish party and text values in the encoded format.
+  * The encoded values do not include type information. For example, it is impossible to distinguish
+  * party and text values in the encoded format.
   *
   * Therefore, this JSON format can only decode given a target type.
   *
   * `apiValueJsonReader` can create a JSON reader with the necessary type information.
   *
-  * @param encodeDecimalAsString Not used yet.
-  * @param encodeInt64AsString Not used yet.
+  * @param encodeDecimalAsString
+  *   Not used yet.
+  * @param encodeInt64AsString
+  *   Not used yet.
   */
 class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsString: Boolean)(
     implicit

@@ -19,8 +19,8 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.util.ReassignmentTag.Source
 
 /** Invariants:
-  * - Deliver event contains exactly one protocol message with viewType == UnassignmentViewType
-  * - Verdict of this event is Approve
+  *   - Deliver event contains exactly one protocol message with viewType == UnassignmentViewType
+  *   - Verdict of this event is Approve
   */
 final case class DeliveredUnassignmentResult private (
     result: SignedContent[Deliver[DefaultOpenEnvelope]]
@@ -81,8 +81,8 @@ object DeliveredUnassignmentResult {
         } yield unassignmentResults(0).protocolMessage
     }
 
-  /** - Deliver event contains exactly one protocol message with viewType == UnassignmentViewType
-    * - Verdict of this event is Approve
+  /**   - Deliver event contains exactly one protocol message with viewType == UnassignmentViewType
+    *   - Verdict of this event is Approve
     */
   private def checkInvariants(
       result: SignedContent[Deliver[DefaultOpenEnvelope]]

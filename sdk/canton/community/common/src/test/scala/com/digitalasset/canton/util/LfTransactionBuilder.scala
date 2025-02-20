@@ -82,7 +82,8 @@ object LfTransactionBuilder {
 
   /** Turn a state containing a list of actions into a transaction.
     *
-    * @param state The (monadic) list of actions
+    * @param state
+    *   The (monadic) list of actions
     */
   def toTransaction[M[_]](
       state: StateT[M, NodeIdState, List[LfAction]]

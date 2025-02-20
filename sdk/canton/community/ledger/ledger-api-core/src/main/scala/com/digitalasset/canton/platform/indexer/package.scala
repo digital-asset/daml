@@ -10,7 +10,8 @@ import scala.concurrent.Future
 
 package object indexer {
 
-  /** Indexer is a factory for indexing. Future[Unit] is the completion Future, as it completes indexing is completed with results accordingly (Success/Failure)
+  /** Indexer is a factory for indexing. Future[Unit] is the completion Future, as it completes
+    * indexing is completed with results accordingly (Success/Failure)
     */
   type Indexer = Boolean => Commit => Future[FutureQueueConsumer[Update]]
 }

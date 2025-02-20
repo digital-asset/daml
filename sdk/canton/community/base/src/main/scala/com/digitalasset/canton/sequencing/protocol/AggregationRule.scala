@@ -20,17 +20,20 @@ import com.digitalasset.canton.version.{
   VersioningCompanion,
 }
 
-/** Encodes the conditions on when an aggregatable submission request's envelopes are sequenced and delivered.
+/** Encodes the conditions on when an aggregatable submission request's envelopes are sequenced and
+  * delivered.
   *
-  * Aggregatable submissions are grouped by their [[SubmissionRequest.aggregationId]].
-  * An aggregatable submission's envelopes are delivered to their recipients when the [[threshold]]'s
-  * submission request in its group has been sequenced. The aggregatable submission request that triggers the threshold
-  * defines the sequencing timestamp (and thus the sequencer counters) for all delivered envelopes.
-  * The sender of an aggregatable submission request receives a receipt of delivery immediately when its request was sequenced,
-  * not when its envelopes were delivered. When the envelopes are actually delivered, no further delivery receipt is sent.
+  * Aggregatable submissions are grouped by their [[SubmissionRequest.aggregationId]]. An
+  * aggregatable submission's envelopes are delivered to their recipients when the [[threshold]]'s
+  * submission request in its group has been sequenced. The aggregatable submission request that
+  * triggers the threshold defines the sequencing timestamp (and thus the sequencer counters) for
+  * all delivered envelopes. The sender of an aggregatable submission request receives a receipt of
+  * delivery immediately when its request was sequenced, not when its envelopes were delivered. When
+  * the envelopes are actually delivered, no further delivery receipt is sent.
   *
-  * So a threshold of 1 means that no aggregation takes place and the event is sequenced immediately.
-  * In this case, one can completely omit the aggregation rule in the submission request.
+  * So a threshold of 1 means that no aggregation takes place and the event is sequenced
+  * immediately. In this case, one can completely omit the aggregation rule in the submission
+  * request.
   */
 final case class AggregationRule(
     // TODO(#12075) This is a `Seq` rather than a `Set` just because we then have to worry less about deterministic serialization.

@@ -5,7 +5,8 @@ package com.digitalasset.canton.data
 
 import cats.syntax.either.*
 
-/** Tags transaction views where all the view metadata are visible (such as in the views sent to participants).
+/** Tags transaction views where all the view metadata are visible (such as in the views sent to
+  * participants).
   *
   * Note that the subviews and their metadata are not guaranteed to be visible.
   */

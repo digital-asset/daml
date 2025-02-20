@@ -27,29 +27,36 @@ import scala.concurrent.ExecutionContext
 
 /** Implements the command deduplication logic.
   *
-  * All method calls should be coordinated by the [[InFlightSubmissionTracker]].
-  * In particular, `checkDeduplication` must not be called concurrently with
-  * `processPublications` for the same [[com.digitalasset.canton.ledger.participant.state.ChangeId]]s.
+  * All method calls should be coordinated by the [[InFlightSubmissionTracker]]. In particular,
+  * `checkDeduplication` must not be called concurrently with `processPublications` for the same
+  * [[com.digitalasset.canton.ledger.participant.state.ChangeId]]s.
   */
 trait CommandDeduplicator {
 
-  /** Register the publication of the events in the [[com.digitalasset.canton.participant.store.CommandDeduplicationStore]] */
+  /** Register the publication of the events in the
+    * [[com.digitalasset.canton.participant.store.CommandDeduplicationStore]]
+    */
   def processPublications(
       publications: Seq[PostPublishData]
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
-  /** Perform deduplication for the given [[com.digitalasset.canton.participant.protocol.submission.ChangeIdHash]]
-    * and [[com.digitalasset.canton.data.DeduplicationPeriod]].
+  /** Perform deduplication for the given
+    * [[com.digitalasset.canton.participant.protocol.submission.ChangeIdHash]] and
+    * [[com.digitalasset.canton.data.DeduplicationPeriod]].
     *
-    * @param changeIdHash The change ID hash of the submission to be deduplicated
-    * @param deduplicationPeriod The deduplication period specified with the submission
-    * @return The [[com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationOffset]]
-    *         to be included in the command completion's [[com.digitalasset.canton.ledger.participant.state.CompletionInfo]].
-    *         Canton always returns a [[com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationOffset]]
-    *         because it cannot meet the record time requirements for the other kinds of
-    *         [[com.digitalasset.canton.data.DeduplicationPeriod]]s.
+    * @param changeIdHash
+    *   The change ID hash of the submission to be deduplicated
+    * @param deduplicationPeriod
+    *   The deduplication period specified with the submission
+    * @return
+    *   The [[com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationOffset]] to be included
+    *   in the command completion's
+    *   [[com.digitalasset.canton.ledger.participant.state.CompletionInfo]]. Canton always returns a
+    *   [[com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationOffset]] because it cannot
+    *   meet the record time requirements for the other kinds of
+    *   [[com.digitalasset.canton.data.DeduplicationPeriod]]s.
     */
   def checkDuplication(changeIdHash: ChangeIdHash, deduplicationPeriod: DeduplicationPeriod)(
       implicit traceContext: TraceContext

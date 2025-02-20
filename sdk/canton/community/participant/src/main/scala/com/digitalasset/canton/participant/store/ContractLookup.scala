@@ -39,7 +39,8 @@ trait ContractLookup {
   ): EitherT[FutureUnlessShutdown, UnknownContract, SerializableContract] =
     lookup(id).toRight(UnknownContract(id))
 
-  /** Yields `None` (embedded in a Future) if the contract instance has not been stored or the id cannot be parsed.
+  /** Yields `None` (embedded in a Future) if the contract instance has not been stored or the id
+    * cannot be parsed.
     *
     * Discards the serialization.
     */
@@ -65,10 +66,10 @@ trait ContractLookup {
 
 trait ContractAndKeyLookup extends ContractLookup {
 
-  /** Find a contract with the given key. Typically used for Daml interpretation in Phase 3, where the key resolution
-    * is provided by the submitter.
-    * Returns [[scala.None$]] if the key is not supposed to be resolved, e.g., during reinterpretation by Daml Engine.
-    * Returns [[scala.Some$]]`(`[[scala.None$]]`)` if no contract with the given key can be found.
+  /** Find a contract with the given key. Typically used for Daml interpretation in Phase 3, where
+    * the key resolution is provided by the submitter. Returns [[scala.None$]] if the key is not
+    * supposed to be resolved, e.g., during reinterpretation by Daml Engine. Returns
+    * [[scala.Some$]]`(`[[scala.None$]]`)` if no contract with the given key can be found.
     */
   def lookupKey(key: LfGlobalKey)(implicit
       traceContext: TraceContext
@@ -77,7 +78,9 @@ trait ContractAndKeyLookup extends ContractLookup {
 
 trait ContractLookupAndVerification extends ContractAndKeyLookup {
 
-  /** Verify that the contract metadata associated with the contract id is consistent with the provided metadata */
+  /** Verify that the contract metadata associated with the contract id is consistent with the
+    * provided metadata
+    */
   def verifyMetadata(coid: LfContractId, metadata: ContractMetadata)(implicit
       traceContext: TraceContext
   ): OptionT[FutureUnlessShutdown, String]
@@ -86,8 +89,8 @@ trait ContractLookupAndVerification extends ContractAndKeyLookup {
 
 object ContractLookupAndVerification {
 
-  /** An empty contract and key lookup interface that fails to find any contracts and keys when asked,
-    * but allows any key to be asked
+  /** An empty contract and key lookup interface that fails to find any contracts and keys when
+    * asked, but allows any key to be asked
     */
   def noContracts(namedLoggerFactory: NamedLoggerFactory): ContractLookupAndVerification =
     new ContractLookupAndVerification with NamedLogging {

@@ -111,12 +111,21 @@ final class PbftBlockState(
         }
     }
 
+  // To ensure "store-then-send" semantics, nodes can safely send a local Prepare in two cases:
+  // * Special (optimized) case: if view == 0 and the node is a follower (non-leader), we can return SendPrepare
+  //     result because of the populated `store` field (see below); the framework ensures any specified
+  //    `store` message is persisted first, and only then tries to send the payload (Prepare) to peers
+  // * General case: otherwise, the `store` message would be `None`, and the framework would try to send the
+  //     Prepare immediately. In these cases, we must first wait for the PrePrepare to be confirmed as stored.
   private val sendPrepareAction =
     pbftActionOpt[SignedMessage[Prepare]] { _ =>
-      for {
-        _ <- prePrepare
-        prepare <- prepareMap.get(membership.myId)
-      } yield prepare
+      if (prePrepareStored || (!isLeaderOfThisView && isInitialView))
+        for {
+          _ <- prePrepare
+          prepare <- prepareMap.get(membership.myId)
+        } yield prepare
+      else
+        None
     } { case (prepare, _, pp) =>
       _ =>
         Seq(
@@ -134,7 +143,9 @@ final class PbftBlockState(
         val (matchingHash, nonMatchingHash) = prepareMap.values.partition(_.message.hash == hash)
         if (nonMatchingHash.nonEmpty)
           logger.warn(
-            s"Found non-matching hashes for prepare messages from peers (${nonMatchingHash.map(_.from)})"
+            s"Found non-matching hashes for prepare messages from peers (${nonMatchingHash.map(_.from)}); " +
+              s"Metadata: ${pp.message.blockMetadata}, View: $view, ExpectedHash: ${pp.message.hash}, " +
+              s"BadHashExample: ${nonMatchingHash.headOption.map(_.message.hash)}"
           )
         matchingHash.sizeIs >= membership.orderingTopology.strongQuorum
       }
@@ -170,7 +181,9 @@ final class PbftBlockState(
         val (matchingHash, nonMatchingHash) = commitMap.values.partition(_.message.hash == hash)
         if (nonMatchingHash.nonEmpty)
           logger.warn(
-            s"Found non-matching hashes for commit messages from peers (${nonMatchingHash.map(_.from)})"
+            s"Found non-matching hashes for commit messages from peers (${nonMatchingHash.map(_.from)}); " +
+              s"Metadata: ${pp.message.blockMetadata}, View: $view, ExpectedHash: ${pp.message.hash}, " +
+              s"BadHashExample: ${nonMatchingHash.headOption.map(_.message.hash)}"
           )
         matchingHash.sizeIs >= membership.orderingTopology.strongQuorum
       }
@@ -185,7 +198,8 @@ final class PbftBlockState(
   ) { case (_, _) => _ => Seq.empty }
 
   /** Processes a normal case (i.e., not a view change) PBFT message for the block in progress.
-    * @return `true` if the state has been updated; it's the only case when `advance` should be called,
+    * @return
+    *   `true` if the state has been updated; it's the only case when `advance` should be called,
     */
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def processMessage(
@@ -202,10 +216,11 @@ final class PbftBlockState(
         addCommit(msg.asInstanceOf[SignedMessage[Commit]])
     }
 
-  /** Advances the block processing state.
-    * It should be called only after the state has been updated by `processMessage`.
-    * @return a sequence of actions to be taken as a result of the state change; the order of such actions
-    *         only depends on the state.
+  /** Advances the block processing state. It should be called only after the state has been updated
+    * by `processMessage`.
+    * @return
+    *   a sequence of actions to be taken as a result of the state change; the order of such actions
+    *   only depends on the state.
     */
   def advance()(implicit traceContext: TraceContext): Seq[ProcessResult] =
     prePrepare
@@ -323,7 +338,9 @@ final class PbftBlockState(
         true
     }
 
-  /** @return Boolean signaling whether that block has completed consensus, not including storage of messages
+  /** @return
+    *   Boolean signaling whether that block has completed consensus, not including storage of
+    *   messages
     */
   def isBlockComplete: Boolean = completeAction.isFired
 
@@ -354,7 +371,8 @@ final class PbftBlockState(
     commitsMatchingHash.toSeq.sorted.take(membership.orderingTopology.strongQuorum)
   }
 
-  /** @return Commit certificate is defined if the block has completed consensus
+  /** @return
+    *   Commit certificate is defined if the block has completed consensus
     */
   def commitCertificate: Option[CommitCertificate] =
     if (completeAction.isFired) {
@@ -367,7 +385,9 @@ final class PbftBlockState(
     } else
       None
 
-  /** @return Prepare certificate is defined if the block has reached the prepared state and the prepares have been stored
+  /** @return
+    *   Prepare certificate is defined if the block has reached the prepared state and the prepares
+    *   have been stored
     */
   def prepareCertificate: Option[ConsensusCertificate] =
     if (preparesStored)
@@ -459,10 +479,10 @@ object PbftBlockState {
   final case class ViewChangeStartNestedTimer(blockMetadata: BlockMetadata, viewNumber: ViewNumber)
       extends ProcessResult
 
-  /** Indicates that the view change was successfully completed.
-    * If this node is the leader of this view, it will have sent the new view message and stored it as part of that.
-    * If this node is not the leader, the [[store]] will be populated with the new view message that was already validate and should be
-    * then stored for crash recovery purposes.
+  /** Indicates that the view change was successfully completed. If this node is the leader of this
+    * view, it will have sent the new view message and stored it as part of that. If this node is
+    * not the leader, the [[store]] will be populated with the new view message that was already
+    * validate and should be then stored for crash recovery purposes.
     */
   final case class ViewChangeCompleted(
       blockMetadata: BlockMetadata,

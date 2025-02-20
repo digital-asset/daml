@@ -17,8 +17,8 @@ import com.typesafe.scalalogging.Logger
 import java.util
 import scala.collection.mutable
 
-/** Logback appender that keeps a bounded queue of errors/warnings that have been logged and associated log entries with
-  * the same trace-id.
+/** Logback appender that keeps a bounded queue of errors/warnings that have been logged and
+  * associated log entries with the same trace-id.
   */
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class LastErrorsAppender()
@@ -27,7 +27,9 @@ class LastErrorsAppender()
 
   private val appenders = mutable.ListBuffer[Appender[ILoggingEvent]]()
 
-  /** Treat the last errors file appender separately because we only write there when we encounter an error */
+  /** Treat the last errors file appender separately because we only write there when we encounter
+    * an error
+    */
   private var lastErrorsFileAppender: Option[Appender[ILoggingEvent]] = None
 
   private var maxTraces = 128

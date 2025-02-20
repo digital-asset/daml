@@ -47,8 +47,8 @@ private final class ChangeAssignation(
   private val targetSynchronizerId = repairTarget.map(_.synchronizer.id)
   private val targetPersistentState = repairTarget.map(_.synchronizer.persistentState)
 
-  /** Completes the processing of unassigned contract. Insert the contract in the target synchronizer
-    * and publish the assignment event.
+  /** Completes the processing of unassigned contract. Insert the contract in the target
+    * synchronizer and publish the assignment event.
     */
   def completeUnassigned(
       unassignmentData: ChangeAssignation.Data[UnassignmentData]
@@ -140,9 +140,10 @@ private final class ChangeAssignation(
     } yield ()
   }
 
-  /** Filter out contracts whose assignation should not be changed.
-    * Checks status on source and target synchronizer.
-    * @return Data is enriched with reassignment counter.
+  /** Filter out contracts whose assignation should not be changed. Checks status on source and
+    * target synchronizer.
+    * @return
+    *   Data is enriched with reassignment counter.
     */
   private def filterContracts(
       contracts: Iterable[ChangeAssignation.Data[LfContractId]],
@@ -173,8 +174,8 @@ private final class ChangeAssignation(
     filteredContractsIds <- filterContractsAtTarget(contractsAtSource, contractStatusAtTarget)
   } yield filteredContractsIds
 
-  /** Keep only contracts which have proper state in the source ActiveContractStore.
-    * Enrich the data with reassignment counter.
+  /** Keep only contracts which have proper state in the source ActiveContractStore. Enrich the data
+    * with reassignment counter.
     */
   private def filterContractsAtSource(
       contractIds: Iterable[ChangeAssignation.Data[LfContractId]],
@@ -215,8 +216,8 @@ private final class ChangeAssignation(
 
   /** Keep only contracts which satisfy:
     *
-    * - At least one stakeholder is hosted on the target synchronizer
-    * - State of the contract on the target synchronizer is not active or archived
+    *   - At least one stakeholder is hosted on the target synchronizer
+    *   - State of the contract on the target synchronizer is not active or archived
     */
   private def filterContractsAtTarget(
       sourceContracts: List[ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]],
@@ -539,8 +540,10 @@ private[repair] object ChangeAssignation {
         )
   }
 
-  /** @param contract Contract that is reassigned
-    * @param isNew true if the contract was not seen before, false if already in the store
+  /** @param contract
+    *   Contract that is reassigned
+    * @param isNew
+    *   true if the contract was not seen before, false if already in the store
     */
   final case class Changed(
       contract: SerializableContract,

@@ -144,7 +144,9 @@ object AwaitTimeRequest {
 
 object GrpcSynchronizerTimeService {
 
-  /** To use the time service for a participant a SynchronizerId must be specified as a participant can be connected to many synchronizers */
+  /** To use the time service for a participant a SynchronizerId must be specified as a participant
+    * can be connected to many synchronizers
+    */
   def forParticipant(
       timeTrackerLookup: SynchronizerId => Option[SynchronizerTimeTracker],
       loggerFactory: NamedLoggerFactory,
@@ -162,7 +164,9 @@ object GrpcSynchronizerTimeService {
       loggerFactory,
     )
 
-  /** synchronizer entities have a constant synchronizer id so always have the same time tracker and cannot fetch another */
+  /** synchronizer entities have a constant synchronizer id so always have the same time tracker and
+    * cannot fetch another
+    */
   def forSynchronizerEntity(
       synchronizerId: SynchronizerId,
       timeTracker: SynchronizerTimeTracker,

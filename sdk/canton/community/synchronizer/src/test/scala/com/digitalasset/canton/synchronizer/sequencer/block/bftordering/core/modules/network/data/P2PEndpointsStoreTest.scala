@@ -4,19 +4,24 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.network.data
 
 import com.digitalasset.canton.config.RequireTypes.Port
-import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2pEndpointsStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.P2PEndpointConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
+  P2PEndpoint,
+  PlainTextP2PEndpoint,
+  TlsP2PEndpoint,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2PEndpointsStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem.PekkoEnv
 import org.scalatest.wordspec.AsyncWordSpec
 
-trait P2pEndpointsStoreTest extends AsyncWordSpec {
+trait P2PEndpointsStoreTest extends AsyncWordSpec {
   this: AsyncWordSpec & BftSequencerBaseTest =>
 
-  import P2pEndpointsStoreTest.*
+  import P2PEndpointsStoreTest.*
 
   private[bftordering] def p2pEndpointsStore(
-      createStore: () => P2pEndpointsStore[PekkoEnv]
+      createStore: () => P2PEndpointsStore[PekkoEnv]
   ): Unit =
     "P2pEndpointsStore" should {
       "create and retrieve endpoints" in {
@@ -42,9 +47,9 @@ trait P2pEndpointsStoreTest extends AsyncWordSpec {
         for {
           updated1 <- store.addEndpoint(endpoint1)
           list1 <- store.listEndpoints
-          updated2 <- store.removeEndpoint(endpoint1)
+          updated2 <- store.removeEndpoint(endpoint1.id)
           list2 <- store.listEndpoints
-          updated3 <- store.removeEndpoint(endpoint1)
+          updated3 <- store.removeEndpoint(endpoint1.id)
           list3 <- store.listEndpoints
         } yield {
           list1 should contain only endpoint1
@@ -67,7 +72,7 @@ trait P2pEndpointsStoreTest extends AsyncWordSpec {
           _ <- store.clearAllEndpoints()
           list3 <- store.listEndpoints
         } yield {
-          list1 should contain theSameElementsInOrderAs Seq(endpoint1, endpoint2)
+          list1 should contain theSameElementsInOrderAs Seq[P2PEndpoint](endpoint1, endpoint2)
           list2 should be(empty)
           list3 should be(empty)
           updated1 shouldBe true
@@ -77,9 +82,9 @@ trait P2pEndpointsStoreTest extends AsyncWordSpec {
     }
 }
 
-object P2pEndpointsStoreTest {
+object P2PEndpointsStoreTest {
 
-  private val endpoint1 = Endpoint("host1", Port.tryCreate(1001))
-  private val endpoint2 = Endpoint("host2", Port.tryCreate(1002))
-  private val endpoint3 = Endpoint("host3", Port.tryCreate(1003))
+  private val endpoint1 = PlainTextP2PEndpoint("host1", Port.tryCreate(1001))
+  private val endpoint2 = TlsP2PEndpoint(P2PEndpointConfig("host2", Port.tryCreate(1002)))
+  private val endpoint3 = PlainTextP2PEndpoint("host3", Port.tryCreate(1003))
 }

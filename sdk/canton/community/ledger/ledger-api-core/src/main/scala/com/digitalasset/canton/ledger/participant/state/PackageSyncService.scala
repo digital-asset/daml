@@ -18,13 +18,16 @@ trait PackageSyncService {
 
   /** Upload a DAR to the ledger.
     *
-    * This method must be thread-safe, not throw, and not block on IO. It is
-    * though allowed to perform significant computation.
+    * This method must be thread-safe, not throw, and not block on IO. It is though allowed to
+    * perform significant computation.
     *
-    * @param dar           The DAR payload as ByteString.
-    * @param submissionId       Submitter chosen submission identifier.
+    * @param dar
+    *   The DAR payload as ByteString.
+    * @param submissionId
+    *   Submitter chosen submission identifier.
     *
-    * @return an async result of a [[com.digitalasset.canton.ledger.participant.state.SubmissionResult]]
+    * @return
+    *   an async result of a [[com.digitalasset.canton.ledger.participant.state.SubmissionResult]]
     */
   def uploadDar(
       dars: Seq[ByteString],

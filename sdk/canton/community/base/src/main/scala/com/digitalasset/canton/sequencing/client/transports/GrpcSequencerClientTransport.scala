@@ -147,8 +147,9 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     result
   }
 
-  /** We receive grpc errors for a variety of reasons. The send operation is at-most-once and should only be bubbled up
-    * and potentially retried if we are absolutely certain the request will never be sequenced.
+  /** We receive grpc errors for a variety of reasons. The send operation is at-most-once and should
+    * only be bubbled up and potentially retried if we are absolutely certain the request will never
+    * be sequenced.
     */
   private def bubbleSendErrorPolicy(error: GrpcError): Boolean =
     error match {
@@ -246,7 +247,9 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
 trait GrpcClientTransportHelpers {
   this: FlagCloseable & NamedLogging =>
 
-  /** Retry policy to retry once for authentication failures to allow re-authentication and optionally retry when unavailable. */
+  /** Retry policy to retry once for authentication failures to allow re-authentication and
+    * optionally retry when unavailable.
+    */
   protected def retryPolicy(
       retryOnUnavailable: Boolean
   )(implicit traceContext: TraceContext): GrpcError => Boolean = {

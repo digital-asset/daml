@@ -55,8 +55,9 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-/** This transport is meant to be used to create a sequencer client that connects directly to an in-process sequencer.
-  * Needed for cases when the sequencer node itself needs to listen to specific events such as identity events.
+/** This transport is meant to be used to create a sequencer client that connects directly to an
+  * in-process sequencer. Needed for cases when the sequencer node itself needs to listen to
+  * specific events such as identity events.
   */
 class DirectSequencerClientTransport(
     sequencer: Sequencer,

@@ -14,8 +14,8 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider
 import java.security.Security
 import scala.concurrent.ExecutionContext
 
-/** Factory to create a KMS-backed [[Crypto]] instance based on a [[KmsPrivateCrypto]]
-  * and a software JCE-based pure crypto.
+/** Factory to create a KMS-backed [[Crypto]] instance based on a [[KmsPrivateCrypto]] and a
+  * software JCE-based pure crypto.
   */
 object KmsCrypto {
 

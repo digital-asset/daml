@@ -12,13 +12,12 @@ import com.typesafe.config.{Config, ConfigObject, ConfigValueType}
 import java.net.URLEncoder
 import scala.jdk.CollectionConverters.SetHasAsScala
 
-/** Canton's storage is configured using Slick's configuration.
-  * This offers an expansive set of options allowing you to configure a connection pool, data source, or JDBC driver.
-  * The ledger-api configuration however only takes a JDBC url.
-  * LedgerApiJdbcUrl generator attempts to scrape together enough from Slick's configuration to generate
-  * a jdbc url for the targeted database (currently either H2 or Postgres).
-  * It also adds a schema specification to point the ledger-api server at a distinct schema from canton allowing
-  * it to be managed separately.
+/** Canton's storage is configured using Slick's configuration. This offers an expansive set of
+  * options allowing you to configure a connection pool, data source, or JDBC driver. The ledger-api
+  * configuration however only takes a JDBC url. LedgerApiJdbcUrl generator attempts to scrape
+  * together enough from Slick's configuration to generate a jdbc url for the targeted database
+  * (currently either H2 or Postgres). It also adds a schema specification to point the ledger-api
+  * server at a distinct schema from canton allowing it to be managed separately.
   */
 object LedgerApiJdbcUrl {
 
@@ -44,7 +43,9 @@ object LedgerApiJdbcUrl {
     case postgres: DbConfig.Postgres => reusePostgres(postgres.config)
   }).leftMap(FailedToConfigureLedgerApiStorage.apply)
 
-  /** Extensions to [[com.typesafe.config.Config]] to make config extraction more concise for our purposes. */
+  /** Extensions to [[com.typesafe.config.Config]] to make config extraction more concise for our
+    * purposes.
+    */
   private implicit class ConfigExtensions(config: Config) {
 
     /** Read a string value from either the main config or the properties config within it. */
@@ -214,10 +215,10 @@ object LedgerApiJdbcUrl {
       else (url, Map.empty)
     }
 
-    /** parse out the options currently set.
-      * Based on the simple postgres parsing in org.postgresql.Driver.parseURL.
-      * The h2 parsing is similar but performs validation as it goes (org.h2.engine.ConnectionInfo.readSettingsFromURL),
-      * however we won't mirror this given it'll be loaded by the driver eventually anyway.
+    /** parse out the options currently set. Based on the simple postgres parsing in
+      * org.postgresql.Driver.parseURL. The h2 parsing is similar but performs validation as it goes
+      * (org.h2.engine.ConnectionInfo.readSettingsFromURL), however we won't mirror this given it'll
+      * be loaded by the driver eventually anyway.
       */
     private def parseQueryString(
         queryString: String,

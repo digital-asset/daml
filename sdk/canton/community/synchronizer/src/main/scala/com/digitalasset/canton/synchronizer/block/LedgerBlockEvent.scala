@@ -26,7 +26,8 @@ import com.google.protobuf.ByteString
 
 import RawLedgerBlock.RawBlockEvent
 
-/** Trait that generalizes over the kind of events that could be observed from a [[com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer]].
+/** Trait that generalizes over the kind of events that could be observed from a
+  * [[com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer]].
   */
 sealed trait LedgerBlockEvent extends Product with Serializable
 
@@ -110,7 +111,8 @@ object LedgerBlockEvent extends HasLoggerName {
       )
 }
 
-/** @param tickTopologyAtLeastAt See [[RawLedgerBlock.tickTopologyAtMicrosFromEpoch]]
+/** @param tickTopologyAtLeastAt
+  *   See [[RawLedgerBlock.tickTopologyAtMicrosFromEpoch]]
   */
 final case class BlockEvents(
     height: Long,

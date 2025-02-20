@@ -39,11 +39,15 @@ import scala.collection.concurrent.TrieMap
 
 /** Configure metric instrumentiation
   *
-  * @param reporters which reports should be used to report metric output
-  * @param jvmMetrics if true, then JvmMetrics will be reported
-  * @param histograms customized histogram definitions
-  * @param qualifiers which metric qualifiers to include generally. by default, all except Debug metrics
-  *                   are included. The qualifier filtering takes precedence over the individual reporter filters
+  * @param reporters
+  *   which reports should be used to report metric output
+  * @param jvmMetrics
+  *   if true, then JvmMetrics will be reported
+  * @param histograms
+  *   customized histogram definitions
+  * @param qualifiers
+  *   which metric qualifiers to include generally. by default, all except Debug metrics are
+  *   included. The qualifier filtering takes precedence over the individual reporter filters
   */
 final case class MetricsConfig(
     reporters: Seq[MetricsReporterConfig] = Seq.empty,
@@ -121,13 +125,17 @@ object MetricsReporterConfig {
 
   /** CSV metrics reporter configuration
     *
-    * This reporter will write the given metrics into respective csv files. Please note that you should use
-    * filters as otherwise, you'll get many files
+    * This reporter will write the given metrics into respective csv files. Please note that you
+    * should use filters as otherwise, you'll get many files
     *
-    * @param directory where to write the csv files to
-    * @param interval how often to write the csv files
-    * @param contextKeys which context keys to include in the name. defaults to node names
-    * @param filters which metrics to include
+    * @param directory
+    *   where to write the csv files to
+    * @param interval
+    *   how often to write the csv files
+    * @param contextKeys
+    *   which context keys to include in the name. defaults to node names
+    * @param filters
+    *   which metrics to include
     */
   final case class Csv(
       directory: File,
@@ -141,8 +149,10 @@ object MetricsReporterConfig {
     *
     * This reporter will log the metrics in the given interval
     *
-    * @param interval how often to log the metrics
-    * @param filters which metrics to include
+    * @param interval
+    *   how often to log the metrics
+    * @param filters
+    *   which metrics to include
     */
   final case class Logging(
       interval: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(30),
@@ -231,7 +241,8 @@ final case class MetricsRegistry(
         )
     }
 
-  /** returns the documented metrics by possibly creating fake participants / sequencers / mediators */
+  /** returns the documented metrics by possibly creating fake participants / sequencers / mediators
+    */
   def metricsDoc(): (Seq[MetricDoc.Item], Seq[MetricDoc.Item], Seq[MetricDoc.Item]) = {
     val generator = new MetricsDocGenerator()
     new ParticipantMetrics(histograms.participant, generator)

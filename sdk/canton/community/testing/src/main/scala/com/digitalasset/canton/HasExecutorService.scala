@@ -18,9 +18,9 @@ import org.scalatest.{BeforeAndAfterAll, Suite}
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.atomic.AtomicReference
 
-/** Mixin that adds an executor that can be used by tests.
-  * The executor supports blocking operations, provided they are wrapped in [[scala.concurrent.blocking]]
-  * or [[scala.concurrent.Await]].
+/** Mixin that adds an executor that can be used by tests. The executor supports blocking
+  * operations, provided they are wrapped in [[scala.concurrent.blocking]] or
+  * [[scala.concurrent.Await]].
   */
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 trait HasExecutorService extends BeforeAndAfterAll with HasExecutorServiceGeneric { this: Suite =>

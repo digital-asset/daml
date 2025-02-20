@@ -15,8 +15,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, LoneElement, OptionValues}
 
 /** There are two important parts to cover with Daml exceptions:
-  * - Create and exercise nodes under rollback nodes should not be indexed
-  * - Lookup and fetch nodes under rollback nodes may lead to divulgence
+  *   - Create and exercise nodes under rollback nodes should not be indexed
+  *   - Lookup and fetch nodes under rollback nodes may lead to divulgence
   */
 private[dao] trait JdbcLedgerDaoExceptionSpec
     extends LoneElement

@@ -187,40 +187,52 @@ private class JdbcLedgerDao(
 
   /** Prunes the events and command completions tables.
     *
-    * @param pruneUpToInclusive         Offset up to which to prune archived history inclusively.
-    * @param pruneAllDivulgedContracts  Enables pruning of all immediately and retroactively divulged contracts
-    *                                   up to `pruneUpToInclusive`.
+    * @param pruneUpToInclusive
+    *   Offset up to which to prune archived history inclusively.
+    * @param pruneAllDivulgedContracts
+    *   Enables pruning of all immediately and retroactively divulged contracts up to
+    *   `pruneUpToInclusive`.
     *
-    * NOTE:  Pruning of all divulgence events needs to take into account the following considerations:
-    *        1.  Migration from mutating schema to append-only schema:
-    *            - Divulgence events ingested prior to the migration to the append-only schema do not have offsets assigned
-    *            and cannot be pruned incrementally (i.e. respecting the `pruneUpToInclusive)`.
-    *            - For this reason, when `pruneAllDivulgedContracts` is set, `pruneUpToInclusive` must be after
-    *            the last ingested event offset before the migration, otherwise an INVALID_ARGUMENT response is returned.
-    *            - On the first call with `pruneUpToInclusive` higher than the migration offset, all divulgence events are pruned.
+    * NOTE: Pruning of all divulgence events needs to take into account the following
+    * considerations:
+    *   1. Migration from mutating schema to append-only schema:
+    *      - Divulgence events ingested prior to the migration to the append-only schema do not have
+    *        offsets assigned and cannot be pruned incrementally (i.e. respecting the
+    *        `pruneUpToInclusive)`.
+    *      - For this reason, when `pruneAllDivulgedContracts` is set, `pruneUpToInclusive` must be
+    *        after the last ingested event offset before the migration, otherwise an
+    *        INVALID_ARGUMENT response is returned.
+    *      - On the first call with `pruneUpToInclusive` higher than the migration offset, all
+    *        divulgence events are pruned.
     *
-    *        2.  Backwards compatibility restriction with regard to transaction-local divulgence in the SyncService:
-    *            - Ledgers populated with SyncService versions that do not forward transaction-local divulgence
-    *            will hydrate the index with the divulgence events only once for a specific contract-party divulgence relationship
-    *            regardless of the number of re-divulgences of the contract to the same party have occurred after the initial one.
-    *            - In this case, pruning of all divulged contracts might lead to interpretation failures for command submissions despite
-    *            them relying on divulgences that happened after the `pruneUpToInclusive` offset.
-    *            - We thus recommend participant node operators in the SDK Docs to either not prune all divulgance events; or wait
-    *            for a sufficient amount of time until the Daml application had time to redivulge all events using
-    *            transaction-local divulgence.
+    * 2. Backwards compatibility restriction with regard to transaction-local divulgence in the
+    * SyncService:
+    *   - Ledgers populated with SyncService versions that do not forward transaction-local
+    *     divulgence will hydrate the index with the divulgence events only once for a specific
+    *     contract-party divulgence relationship regardless of the number of re-divulgences of the
+    *     contract to the same party have occurred after the initial one.
+    *   - In this case, pruning of all divulged contracts might lead to interpretation failures for
+    *     command submissions despite them relying on divulgences that happened after the
+    *     `pruneUpToInclusive` offset.
+    *   - We thus recommend participant node operators in the SDK Docs to either not prune all
+    *     divulgance events; or wait for a sufficient amount of time until the Daml application had
+    *     time to redivulge all events using transaction-local divulgence.
     *
-    *        3.  Backwards compatibility restriction with regard to backfilling lookups:
-    *            - Ledgers populated with an old KV SyncService that does not forward divulged contract instances
-    *            to the ReadService (see [[com.digitalasset.canton.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.blind]])
-    *            will hydrate the divulgence entries in the index without the create argument and template id.
-    *            - During command interpretation, on looking up a divulged contract, the create argument and template id
-    *            are backfilled from previous creates/immediate divulgence entries.
-    *            - In the case of pruning of all divulged contracts (which includes immediate divulgence pruning),
-    *            the previously-mentioned backfilling lookup might fail and lead to interpretation failures
-    *            for command submissions that rely on divulged contracts whose associated immediate divulgence event has been pruned.
-    *            As for Consideration 2, we thus recommend participant node operators in the SDK Docs to either not prune all divulgance events; or wait
-    *            for a sufficient amount of time until the Daml application had time to redivulge all events using
-    *            transaction-local divulgence.
+    * 3. Backwards compatibility restriction with regard to backfilling lookups:
+    *   - Ledgers populated with an old KV SyncService that does not forward divulged contract
+    *     instances to the ReadService (see
+    *     [[com.digitalasset.canton.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.blind]])
+    *     will hydrate the divulgence entries in the index without the create argument and template
+    *     id.
+    *   - During command interpretation, on looking up a divulged contract, the create argument and
+    *     template id are backfilled from previous creates/immediate divulgence entries.
+    *   - In the case of pruning of all divulged contracts (which includes immediate divulgence
+    *     pruning), the previously-mentioned backfilling lookup might fail and lead to
+    *     interpretation failures for command submissions that rely on divulged contracts whose
+    *     associated immediate divulgence event has been pruned. As for Consideration 2, we thus
+    *     recommend participant node operators in the SDK Docs to either not prune all divulgance
+    *     events; or wait for a sufficient amount of time until the Daml application had time to
+    *     redivulge all events using transaction-local divulgence.
     */
   override def prune(
       pruneUpToInclusive: Offset,
@@ -419,8 +431,8 @@ private class JdbcLedgerDao(
       loggerFactory,
     )
 
-  /** This is a combined store transaction method to support sandbox-classic and tests
-    * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
+  /** This is a combined store transaction method to support sandbox-classic and tests !!! Usage of
+    * this is discouraged, with the removal of sandbox-classic this will be removed
     */
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
   override def storeTransaction(

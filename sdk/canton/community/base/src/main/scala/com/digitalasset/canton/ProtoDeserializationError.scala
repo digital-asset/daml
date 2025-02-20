@@ -80,8 +80,8 @@ object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
 
   /** Common Deserialization error code
     *
-    * USE THIS ERROR CODE ONLY WITHIN A GRPC SERVICE, PARSING THE INITIAL REQUEST.
-    * Don't used it for something like transaction processing or reading from the database.
+    * USE THIS ERROR CODE ONLY WITHIN A GRPC SERVICE, PARSING THE INITIAL REQUEST. Don't used it for
+    * something like transaction processing or reading from the database.
     */
   @Explanation(
     """This error indicates that an incoming administrative command could not be processed due to a malformed message."""

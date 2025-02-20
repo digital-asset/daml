@@ -78,10 +78,15 @@ trait PasswordBasedEncryptionOps { this: EncryptionOps =>
 
   /** Derive a symmetric encryption key from a given password.
     *
-    * @param password The password used to derive the key
-    * @param symmetricKeyScheme The intended symmetric encryption scheme for the password-based encryption.
-    * @param pbkdfScheme The password-based key derivation function (PBKDF) scheme to derive a key from the password.
-    * @param saltO The optional salt used for the key derivation. If none is a given a random salt is generated.
+    * @param password
+    *   The password used to derive the key
+    * @param symmetricKeyScheme
+    *   The intended symmetric encryption scheme for the password-based encryption.
+    * @param pbkdfScheme
+    *   The password-based key derivation function (PBKDF) scheme to derive a key from the password.
+    * @param saltO
+    *   The optional salt used for the key derivation. If none is a given a random salt is
+    *   generated.
     */
   def deriveSymmetricKey(
       password: String,

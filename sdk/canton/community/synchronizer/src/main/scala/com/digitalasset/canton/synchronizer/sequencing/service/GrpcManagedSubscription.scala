@@ -29,18 +29,18 @@ import scala.util.{Failure, Success, Try}
 /** Trait for the grpc managed subscription to allow easy testing without GRPC infrastructure */
 trait ManagedSubscription extends FlagCloseable with CloseNotification {
 
-  /** If and when the subscription is due to be expired.
-    * Should be set if using sequencer authentication with expiring tokens.
-    * Will be unset if authentication is not used and can be left running indefinitely.
+  /** If and when the subscription is due to be expired. Should be set if using sequencer
+    * authentication with expiring tokens. Will be unset if authentication is not used and can be
+    * left running indefinitely.
     */
   val expireAt: Option[CantonTimestamp]
 }
 
-/** Creates and manages a SequencerSubscription for the given grpc response observer.
-  * The sequencer subscription could be closed internally due to errors on event publishing
-  * or when the grpc connection is cancelled, in these cases [[closedCallback]] will be called
-  * to allow external users to perform any administrative tasks.
-  * Any exception thrown by the call to `observer.onNext` will cause the subscription to close.
+/** Creates and manages a SequencerSubscription for the given grpc response observer. The sequencer
+  * subscription could be closed internally due to errors on event publishing or when the grpc
+  * connection is cancelled, in these cases [[closedCallback]] will be called to allow external
+  * users to perform any administrative tasks. Any exception thrown by the call to `observer.onNext`
+  * will cause the subscription to close.
   */
 private[service] class GrpcManagedSubscription[T](
     createSubscription: SerializedEventOrErrorHandler[SequencedEventError] => EitherT[

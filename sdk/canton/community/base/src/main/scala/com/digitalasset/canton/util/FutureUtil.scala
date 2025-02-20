@@ -36,7 +36,8 @@ object FutureUtil {
       )
     )
 
-  /** If the future fails, log the associated error and re-throw. The returned future completes after logging.
+  /** If the future fails, log the associated error and re-throw. The returned future completes
+    * after logging.
     */
   def logOnFailure[T](
       future: Future[T],
@@ -87,9 +88,10 @@ object FutureUtil {
     }
   }
 
-  /** Discard `future` and log an error if it does not complete successfully.
-    * This is useful to document that a `Future` is intentionally not being awaited upon.
-    *  @param logPassiveInstanceAtInfo: If true, log [[PassiveInstanceException]] at INFO instead of ERROR level. Default is false.
+  /** Discard `future` and log an error if it does not complete successfully. This is useful to
+    * document that a `Future` is intentionally not being awaited upon.
+    * @param logPassiveInstanceAtInfo:
+    *   If true, log [[PassiveInstanceException]] at INFO instead of ERROR level. Default is false.
     */
   def doNotAwait(
       future: Future[?],
@@ -103,7 +105,9 @@ object FutureUtil {
       logOnFailure(future, failureMessage, onFailure, level, closeContext, logPassiveInstanceAtInfo)
   }
 
-  /** Variant of [[doNotAwait]] that also catches non-fatal errors thrown while constructing the future. */
+  /** Variant of [[doNotAwait]] that also catches non-fatal errors thrown while constructing the
+    * future.
+    */
   def catchAndDoNotAwait(
       future: => Future[?],
       failureMessage: => String,
@@ -114,10 +118,11 @@ object FutureUtil {
     doNotAwait(wrappedFuture, failureMessage, onFailure, level)
   }
 
-  /** Java libraries often wrap exceptions in a future inside a [[java.util.concurrent.CompletionException]]
-    * when they convert a Java-style future into a Scala-style future. When our code then tries to catch our own
-    * exceptions, the logic fails because we do not look inside the [[java.util.concurrent.CompletionException]].
-    * We therefore want to unwrap such exceptions
+  /** Java libraries often wrap exceptions in a future inside a
+    * [[java.util.concurrent.CompletionException]] when they convert a Java-style future into a
+    * Scala-style future. When our code then tries to catch our own exceptions, the logic fails
+    * because we do not look inside the [[java.util.concurrent.CompletionException]]. We therefore
+    * want to unwrap such exceptions
     */
   def unwrapCompletionException[A](f: Future[A])(implicit ec: ExecutionContext): Future[A] =
     f.transform(TryUtil.unwrapCompletionException)

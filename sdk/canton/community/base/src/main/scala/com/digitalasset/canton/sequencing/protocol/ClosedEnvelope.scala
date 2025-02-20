@@ -47,9 +47,10 @@ import scala.concurrent.ExecutionContext
 
 /** A [[ClosedEnvelope]]'s contents are serialized as a [[com.google.protobuf.ByteString]].
   *
-  * The serialization is interpreted as a [[com.digitalasset.canton.protocol.messages.EnvelopeContent]]
-  * if `signatures` are empty, and as a [[com.digitalasset.canton.protocol.messages.TypedSignedProtocolMessageContent]] otherwise.
-  * It itself is serialized without version wrappers inside a [[Batch]].
+  * The serialization is interpreted as a
+  * [[com.digitalasset.canton.protocol.messages.EnvelopeContent]] if `signatures` are empty, and as
+  * a [[com.digitalasset.canton.protocol.messages.TypedSignedProtocolMessageContent]] otherwise. It
+  * itself is serialized without version wrappers inside a [[Batch]].
   */
 final case class ClosedEnvelope private (
     bytes: ByteString,

@@ -7,10 +7,11 @@ import com.digitalasset.canton.lifecycle.UnlessShutdown
 
 package object client {
 
-  /** Signature for callbacks provided to the send operation to take advantage of the SendTracker to provide
-    * tracking of the eventual send result. Callback is ephemeral and will be lost if the SequencerClient is recreated
-    * or the process exits.
-    * @see [[SequencerClient.sendAsync]]
+  /** Signature for callbacks provided to the send operation to take advantage of the SendTracker to
+    * provide tracking of the eventual send result. Callback is ephemeral and will be lost if the
+    * SequencerClient is recreated or the process exits.
+    * @see
+    *   [[SequencerClient.sendAsync]]
     */
   type SendCallback = UnlessShutdown[SendResult] => Unit
 

@@ -6,10 +6,11 @@ package com.digitalasset.canton.sequencing.protocol
 import com.digitalasset.canton.logging.pretty.PrettyPrinting
 import com.digitalasset.canton.topology.Member
 
-/** An [[Envelope]] wraps an envelope content such as a [[com.digitalasset.canton.protocol.messages.ProtocolMessage]]
-  * together with the recipients.
+/** An [[Envelope]] wraps an envelope content such as a
+  * [[com.digitalasset.canton.protocol.messages.ProtocolMessage]] together with the recipients.
   *
-  * @tparam M The type of the envelope content
+  * @tparam M
+  *   The type of the envelope content
   */
 trait Envelope[+M] extends PrettyPrinting {
 

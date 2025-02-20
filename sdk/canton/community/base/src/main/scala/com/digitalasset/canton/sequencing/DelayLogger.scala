@@ -15,8 +15,8 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** Wrapper for a sequencer subscription event handler that will log warnings if the timestamps of received messages
-  * appear significantly behind this consumer's clock.
+/** Wrapper for a sequencer subscription event handler that will log warnings if the timestamps of
+  * received messages appear significantly behind this consumer's clock.
   */
 class DelayLogger(
     clock: Clock,

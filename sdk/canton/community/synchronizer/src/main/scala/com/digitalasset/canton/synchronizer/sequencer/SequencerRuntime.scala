@@ -93,14 +93,17 @@ object SequencerAuthenticationConfig {
 
 /** Run a sequencer and its supporting services.
   *
-  * @param authenticationConfig   Authentication setup if supported, otherwise none.
-  * @param staticSynchronizerParameters The set of members to register on startup statically.
-  * @param syncCrypto The sync crypto used for operations related to the Canton protocol, allowing the use of
-  *                   session signing keys.
-  * @param syncCryptoForAuthentication The sync crypto used for sequencer authentication, where session signing keys
-  *                                    are not used.
-  * Creates a sequencer client and connect it to a topology client
-  * to power sequencer authentication.
+  * @param authenticationConfig
+  *   Authentication setup if supported, otherwise none.
+  * @param staticSynchronizerParameters
+  *   The set of members to register on startup statically.
+  * @param syncCrypto
+  *   The sync crypto used for operations related to the Canton protocol, allowing the use of
+  *   session signing keys.
+  * @param syncCryptoForAuthentication
+  *   The sync crypto used for sequencer authentication, where session signing keys are not used.
+  *   Creates a sequencer client and connect it to a topology client to power sequencer
+  *   authentication.
   */
 class SequencerRuntime(
     sequencerId: SequencerId,

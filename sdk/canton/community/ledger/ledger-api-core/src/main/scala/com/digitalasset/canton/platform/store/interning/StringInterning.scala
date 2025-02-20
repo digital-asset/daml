@@ -9,8 +9,9 @@ import com.digitalasset.daml.lf.data.Ref.PackageVersion
 
 /** The facade for all supported string-interning domains
   *
-  * @note The accessors defined in this interface are thread-safe and can
-  *       be used concurrently with [[StringInterningView.internize]] and [[StringInterningView.update]].
+  * @note
+  *   The accessors defined in this interface are thread-safe and can be used concurrently with
+  *   [[StringInterningView.internize]] and [[StringInterningView.update]].
   */
 trait StringInterning {
   def templateId: StringInterningDomain[Identifier]
@@ -20,9 +21,11 @@ trait StringInterning {
   def synchronizerId: StringInterningDomain[SynchronizerId]
 }
 
-/** Composes a StringInterningAccessor for the domain-string type and an unsafe StringInterningAccessor for raw strings
+/** Composes a StringInterningAccessor for the domain-string type and an unsafe
+  * StringInterningAccessor for raw strings
   *
-  * @tparam T is the type of the string-related domain object which is interned
+  * @tparam T
+  *   is the type of the string-related domain object which is interned
   */
 trait StringInterningDomain[T] extends StringInterningAccessor[T] {
   def unsafe: StringInterningAccessor[String]
@@ -59,37 +62,46 @@ object StringInterningDomain {
     }
 }
 
-/** The main interface for using string-interning.
-  * Client code can use this to map between interned id-s and string-domain objects back and forth
+/** The main interface for using string-interning. Client code can use this to map between interned
+  * id-s and string-domain objects back and forth
   *
-  * @tparam T is the type of the string-related domain object which is interned
+  * @tparam T
+  *   is the type of the string-related domain object which is interned
   */
 trait StringInterningAccessor[T] {
 
   /** Get the interned id
     *
-    * @param t the value
-    * @return the integer id, throws exception if id not found
+    * @param t
+    *   the value
+    * @return
+    *   the integer id, throws exception if id not found
     */
   def internalize(t: T): Int
 
   /** Optionally get the interned id
-    * @param t the value
-    * @return some integer id, or none if not found
+    * @param t
+    *   the value
+    * @return
+    *   some integer id, or none if not found
     */
   def tryInternalize(t: T): Option[Int]
 
   /** Get the value for an id
     *
-    * @param id integer id
-    * @return the value, throws exception if no value found
+    * @param id
+    *   integer id
+    * @return
+    *   the value, throws exception if no value found
     */
   def externalize(id: Int): T
 
   /** Optionally get the value for an id
     *
-    * @param id integer id
-    * @return some value, or none if not found
+    * @param id
+    *   integer id
+    * @return
+    *   some value, or none if not found
     */
   def tryExternalize(id: Int): Option[T]
 }

@@ -25,9 +25,9 @@ trait SequencerClientTransportCommon extends FlagCloseable {
     */
   def logout()(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Status, Unit]
 
-  /** Sends a signed submission request to the sequencer.
-    * If we failed to make the request, an error will be returned.
-    * If the sequencer accepted (or may have accepted) the request this call will return successfully.
+  /** Sends a signed submission request to the sequencer. If we failed to make the request, an error
+    * will be returned. If the sequencer accepted (or may have accepted) the request this call will
+    * return successfully.
     */
   def sendAsyncSigned(
       request: SignedContent[SubmissionRequest],
@@ -36,10 +36,11 @@ trait SequencerClientTransportCommon extends FlagCloseable {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit]
 
-  /** Acknowledge that we have successfully processed all events up to and including the given timestamp.
-    * The client should then never subscribe for events from before this point.
+  /** Acknowledge that we have successfully processed all events up to and including the given
+    * timestamp. The client should then never subscribe for events from before this point.
     *
-    * @return True if acknowledgement succeeded, false if sequencer was unavailable
+    * @return
+    *   True if acknowledgement succeeded, false if sequencer was unavailable
     */
   def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
@@ -54,20 +55,25 @@ trait SequencerClientTransportCommon extends FlagCloseable {
   ): EitherT[Future, String, TopologyStateForInitResponse]
 }
 
-/** Implementation dependent operations for a client to read and write to a synchronizer sequencer. */
+/** Implementation dependent operations for a client to read and write to a synchronizer sequencer.
+  */
 trait SequencerClientTransport extends SequencerClientTransportCommon {
 
-  /** Create a single subscription to read events from the Sequencer for this member starting from the counter defined in the request.
-    * Transports are currently responsible for calling the supplied handler.
-    * The handler must not be called concurrently and must receive events in-order.
-    * If the handler fails with an exception the subscription should close with a [[com.digitalasset.canton.sequencing.client.SubscriptionCloseReason.HandlerError]].
-    * If the subscription fails for a technical reason it should close with a [[com.digitalasset.canton.sequencing.client.SubscriptionCloseReason.SubscriptionError]].
-    * The transport is not expected to provide retries of subscriptions.
+  /** Create a single subscription to read events from the Sequencer for this member starting from
+    * the counter defined in the request. Transports are currently responsible for calling the
+    * supplied handler. The handler must not be called concurrently and must receive events
+    * in-order. If the handler fails with an exception the subscription should close with a
+    * [[com.digitalasset.canton.sequencing.client.SubscriptionCloseReason.HandlerError]]. If the
+    * subscription fails for a technical reason it should close with a
+    * [[com.digitalasset.canton.sequencing.client.SubscriptionCloseReason.SubscriptionError]]. The
+    * transport is not expected to provide retries of subscriptions.
     */
   def subscribe[E](request: SubscriptionRequest, handler: SerializedEventHandler[E])(implicit
       traceContext: TraceContext
   ): SequencerSubscription[E]
 
-  /** The transport can decide which errors will cause the sequencer client to not try to reestablish a subscription */
+  /** The transport can decide which errors will cause the sequencer client to not try to
+    * reestablish a subscription
+    */
   def subscriptionRetryPolicy: SubscriptionErrorRetryPolicy
 }

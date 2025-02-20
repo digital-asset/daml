@@ -27,19 +27,22 @@ object SegmentInProgress {
 
   /** This object contains the organized information needed for the crash-recovery of a segment.
     *
-    * @param prepares contains all prepares that should be restored across all views of the segment.
-    *                 In this list there will be at most one quorum of prepares per block, without a specific order.
-    *                 Prepares should be processed first in [[SegmentState]]; in this way, if a prepare is created,
-    *                 as part of processing pre-prepares or new-views, that is already part of the rehydration messages,
-    *                 the rehydrated ones would be taken instead of creating new ones.
-    * @param oldViewsMessages is a list of messages that should be processed in order and are in increasing order
-    *                         of view number, for all views before the latest one.
-    *                         All restored pre-prepares for the first view appear first. Then all new-view messages
-    *                         for which there is at least one quorum of prepares in the same view.
-    * @param currentViewMessages is similar to the previous one, but for the current view only.
-    *                            If at the latest view there is a view-change message (indicating the intent to start a view change),
-    *                            without a corresponding new-view message (i.e., the view change didn't finish),
-    *                            the view-change message will be the only message in this collection.
+    * @param prepares
+    *   contains all prepares that should be restored across all views of the segment. In this list
+    *   there will be at most one quorum of prepares per block, without a specific order. Prepares
+    *   should be processed first in [[SegmentState]]; in this way, if a prepare is created, as part
+    *   of processing pre-prepares or new-views, that is already part of the rehydration messages,
+    *   the rehydrated ones would be taken instead of creating new ones.
+    * @param oldViewsMessages
+    *   is a list of messages that should be processed in order and are in increasing order of view
+    *   number, for all views before the latest one. All restored pre-prepares for the first view
+    *   appear first. Then all new-view messages for which there is at least one quorum of prepares
+    *   in the same view.
+    * @param currentViewMessages
+    *   is similar to the previous one, but for the current view only. If at the latest view there
+    *   is a view-change message (indicating the intent to start a view change), without a
+    *   corresponding new-view message (i.e., the view change didn't finish), the view-change
+    *   message will be the only message in this collection.
     */
   final case class RehydrationMessages(
       prepares: Seq[SignedMessage[Prepare]],

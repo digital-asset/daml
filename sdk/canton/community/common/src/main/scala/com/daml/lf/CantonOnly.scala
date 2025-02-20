@@ -15,9 +15,9 @@ import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.digitalasset.daml.lf.speedy.Compiler
 
-/** As part of upstream Daml-LF refactoring, previously accessible capabilities have become Canton-private. This
-  * enables Daml-LF to limit its API surface area while still allowing Canton deeper visibility into transaction
-  * internals.
+/** As part of upstream Daml-LF refactoring, previously accessible capabilities have become
+  * Canton-private. This enables Daml-LF to limit its API surface area while still allowing Canton
+  * deeper visibility into transaction internals.
   */
 // TODO(i3065): Get rid of lf.CantonOnly again
 object CantonOnly {

@@ -9,8 +9,7 @@ import com.digitalasset.canton.console.CommandErrors.GenericCommandError
   */
 package object console {
 
-  /** Turn a either into a command result.
-    * Left is considered an error, Right is successful.
+  /** Turn a either into a command result. Left is considered an error, Right is successful.
     */
   implicit class EitherToCommandResultExtensions[A, B](either: Either[A, B]) {
     def toResult(errorDescription: A => String): ConsoleCommandResult[B] =

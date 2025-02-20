@@ -10,7 +10,8 @@ import com.digitalasset.canton.version.*
 
 /** A request to receive the topology state for initialization
   *
-  * @param member the member subscribing to the sequencer
+  * @param member
+  *   the member subscribing to the sequencer
   */
 final case class TopologyStateForInitRequest(member: Member)(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[

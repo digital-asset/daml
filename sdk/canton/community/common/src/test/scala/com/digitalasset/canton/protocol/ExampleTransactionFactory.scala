@@ -421,8 +421,7 @@ object ExampleTransactionFactory {
 
 }
 
-/** Factory for [[ExampleTransaction]].
-  * Also contains a number of predefined example transactions.
+/** Factory for [[ExampleTransaction]]. Also contains a number of predefined example transactions.
   * Also provides convenience methods for creating [[ExampleTransaction]]s and parts thereof.
   */
 class ExampleTransactionFactory(
@@ -494,8 +493,8 @@ class ExampleTransactionFactory(
       )
       .onShutdown(throw new RuntimeException("Aborted due to shutdown"))
 
-  /** Yields standard test cases that the sync-protocol must be able to handle.
-    * Yields only "happy" cases, i.e., the sync-protocol must not emit an error.
+  /** Yields standard test cases that the sync-protocol must be able to handle. Yields only "happy"
+    * cases, i.e., the sync-protocol must not emit an error.
     */
   lazy val standardHappyCases: Seq[ExampleTransaction] =
     Seq[ExampleTransaction](
@@ -1047,12 +1046,15 @@ class ExampleTransactionFactory(
       )
   }
 
-  /** Single create.
-    * By default, [[submitter]] is the only signatory and [[observer]] the only observer.
+  /** Single create. By default, [[submitter]] is the only signatory and [[observer]] the only
+    * observer.
     *
-    * @param seed the node seed for the create node, used to derive the contract id
-    * @param capturedContractIds contract ids captured by the contract instance
-    * @throws IllegalArgumentException if [[unsuffixedCapturedContractIds]] and [[capturedContractIds]] have different sizes
+    * @param seed
+    *   the node seed for the create node, used to derive the contract id
+    * @param capturedContractIds
+    *   contract ids captured by the contract instance
+    * @throws IllegalArgumentException
+    *   if [[unsuffixedCapturedContractIds]] and [[capturedContractIds]] have different sizes
     */
   case class SingleCreate(
       seed: LfHash,
@@ -1123,9 +1125,12 @@ class ExampleTransactionFactory(
 
   /** Single fetch with [[submitter]] as signatory and [[observer]] as observer and acting party.
     *
-    * @param lfContractId id of the fetched contract
-    * @param contractId id of the fetched contract
-    * @param fetchedContractInstance instance of the used contract.
+    * @param lfContractId
+    *   id of the fetched contract
+    * @param contractId
+    *   id of the fetched contract
+    * @param fetchedContractInstance
+    *   instance of the used contract.
     */
   @SuppressWarnings(Array("org.wartremover.warts.IsInstanceOf"))
   case class SingleFetch(
@@ -1158,12 +1163,15 @@ class ExampleTransactionFactory(
     override def consuming: Boolean = false
   }
 
-  /** Single consuming exercise without children with [[submitter]] as signatory, acting party and controller, and
-    * [[observer]] as observer.
+  /** Single consuming exercise without children with [[submitter]] as signatory, acting party and
+    * controller, and [[observer]] as observer.
     *
-    * @param lfContractId id of the exercised contract
-    * @param contractId id of the exercised contract
-    * @param inputContractInstance instance of the used contract.
+    * @param lfContractId
+    *   id of the exercised contract
+    * @param contractId
+    *   id of the exercised contract
+    * @param inputContractInstance
+    *   instance of the used contract.
     */
   @SuppressWarnings(Array("org.wartremover.warts.IsInstanceOf"))
   case class SingleExercise(
@@ -1196,9 +1204,12 @@ class ExampleTransactionFactory(
   /** Single consuming exercise without children without any acting party or signatory, and
     * [[observer]] as observer.
     *
-    * @param lfContractId id of the exercised contract
-    * @param contractId id of the exercised contract
-    * @param inputContractInstance instance of the used contract.
+    * @param lfContractId
+    *   id of the exercised contract
+    * @param contractId
+    *   id of the exercised contract
+    * @param inputContractInstance
+    *   instance of the used contract.
     */
   @SuppressWarnings(Array("org.wartremover.warts.IsInstanceOf"))
   case class SingleExerciseWithoutConfirmingParties(
@@ -1276,13 +1287,8 @@ class ExampleTransactionFactory(
 
   }
 
-  /** Transaction structure:
-    * 0. create
-    * 1. create capturing 0.
-    * 2. fetch
-    * 3. fetch 0.
-    * 4. exercise
-    * 5. exercise 1.
+  /** Transaction structure: 0. create
+    *   1. create capturing 0. 2. fetch 3. fetch 0. 4. exercise 5. exercise 1.
     */
   case object MultipleRoots extends ExampleTransaction {
 
@@ -1398,19 +1404,16 @@ class ExampleTransactionFactory(
       transaction(0 until rootViewCount, examples.map(_.node)*)
   }
 
-  /** Transaction structure:
-    * 0. create
-    * 1. exercise absolute
+  /** Transaction structure: 0. create
+    *   1. exercise absolute
     * 1.0. create
     * 1.1. fetch 1.0.
     * 1.2. create
     * 1.3. exercise 1.2.
     *
-    * In this specific
-    * scenario we make sure informees and quorums for action nodes 1.0, 1.1. and 1.3 are correctly merged
-    * to the parent view (v1):
-    * 0. View0
-    * 1. View1
+    * In this specific scenario we make sure informees and quorums for action nodes 1.0, 1.1. and
+    * 1.3 are correctly merged to the parent view (v1): 0. View0
+    *   1. View1
     * 1.2 View10
     */
   case object MultipleRootsAndSimpleViewNesting extends ExampleTransaction {
@@ -1791,9 +1794,8 @@ class ExampleTransactionFactory(
 
   }
 
-  /** Transaction structure:
-    * 0. create
-    * 1. exercise absolute
+  /** Transaction structure: 0. create
+    *   1. exercise absolute
     * 1.0. create
     * 1.1. fetch 1.0.
     * 1.2. create
@@ -1802,9 +1804,8 @@ class ExampleTransactionFactory(
     * 1.3.1. exercise absolute
     * 1.3.1.0 create
     *
-    * View structure:
-    * 0. View0
-    * 1. View1
+    * View structure: 0. View0
+    *   1. View1
     * 1.3.0. View10
     * 1.3.1. View11
     * 1.3.1.0 View110
@@ -2296,25 +2297,21 @@ class ExampleTransactionFactory(
 
   }
 
-  /** Transaction structure:
-    * 0. create
-    * 1. exerciseN
+  /** Transaction structure: 0. create
+    *   1. exerciseN
     * 1.0. exercise
     * 1.0.0. create
     * 1.1. create(capturing 1.0.0)
     * 1.2. exercise
     * 1.2.0. create(capturing 1.0.0)
-    * 1.3. create(capturing 1.2.0)
-    * 2. create
+    * 1.3. create(capturing 1.2.0) 2. create
     *
-    * View structure:
-    * 0. View0
-    * 1. View1
+    * View structure: 0. View0
+    *   1. View1
     * 1.0. View10
     * 1.0.0. View100
     * 1.2. View11
-    * 1.2.0. View110
-    * 2. View2
+    * 1.2.0. View110 2. View2
     */
   case object ViewInterleavings extends ExampleTransaction {
 
@@ -2916,18 +2913,16 @@ class ExampleTransactionFactory(
       )
   }
 
-  /** Transaction structure:
-    * 0. create
-    * 1. exercise(0)
+  /** Transaction structure: 0. create
+    *   1. exercise(0)
     * 1.0. create
     * 1.1. exerciseN(1.0)
     * 1.1.0. create
     * 1.2. exercise(1.1.0)
     * 1.3. exercise(1.0)
     *
-    * View structure:
-    * 0. view0
-    * 1. view1
+    * View structure: 0. view0
+    *   1. view1
     * 1.1. view10
     */
   case object TransientContracts extends ExampleTransaction {

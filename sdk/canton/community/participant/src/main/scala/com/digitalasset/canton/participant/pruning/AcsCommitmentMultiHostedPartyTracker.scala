@@ -33,10 +33,10 @@ class AcsCommitmentMultiHostedPartyTracker(
       : concurrent.Map[CommitmentPeriod, Set[MultiHostedPartyTracker]] =
     new ConcurrentHashMap[CommitmentPeriod, Set[MultiHostedPartyTracker]]().asScala
 
-  /** This builds a new period based on given snapshots and adds the new counterParticipant mapping to its own tracked map.
-    * It behaves idempotent and does not overwrite (in case method is called twice, but newCommit is called in between).
-    * It can handle an empty snapshots.
-    * It does not validate that the period and snapshots correlates.
+  /** This builds a new period based on given snapshots and adds the new counterParticipant mapping
+    * to its own tracked map. It behaves idempotent and does not overwrite (in case method is called
+    * twice, but newCommit is called in between). It can handle an empty snapshots. It does not
+    * validate that the period and snapshots correlates.
     */
   def trackPeriod(
       period: CommitmentPeriod,
@@ -91,9 +91,10 @@ class AcsCommitmentMultiHostedPartyTracker(
     }
   }
 
-  /** takes a sender and Non-Empty set of periods and updates the internal Map
-    * it returns a set of ([[com.digitalasset.canton.protocol.messages.CommitmentPeriod]],[[TrackedPeriodState]]) telling if the period is [[TrackedPeriodState.Cleared]], [[TrackedPeriodState.Outstanding]]
-    * or [[TrackedPeriodState.NotTracked]]
+  /** takes a sender and Non-Empty set of periods and updates the internal Map it returns a set of
+    * ([[com.digitalasset.canton.protocol.messages.CommitmentPeriod]],[[TrackedPeriodState]])
+    * telling if the period is [[TrackedPeriodState.Cleared]], [[TrackedPeriodState.Outstanding]] or
+    * [[TrackedPeriodState.NotTracked]]
     *
     * it is up to the caller to ensure that the stores get properly updated.
     */
@@ -142,9 +143,8 @@ private[pruning] class MultiHostedPartyTracker(
     val missingParticipants: mutable.Set[ParticipantId],
 ) extends PrettyPrinting {
 
-  /** removes a given participantId from the missingParticipants Set.
-    * reduces threshold if participantId is present.
-    * giving an invalid or repeated participantId has no effect.
+  /** removes a given participantId from the missingParticipants Set. reduces threshold if
+    * participantId is present. giving an invalid or repeated participantId has no effect.
     */
   def reduce(participant: ParticipantId): Option[MultiHostedPartyTracker] =
     if (missingParticipants.remove(participant)) {

@@ -39,29 +39,29 @@ import scala.collection.immutable.SortedMap
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Success
 
-/** Thrown if the ephemeral state does not match what is expected in the persisted store.
-  * This is not expected to be able to occur, but if it does likely means that the
-  * ephemeral state is inconsistent with the persisted state.
-  * The sequencer should be restarted and logs verified to ensure that the persisted state is correct.
+/** Thrown if the ephemeral state does not match what is expected in the persisted store. This is
+  * not expected to be able to occur, but if it does likely means that the ephemeral state is
+  * inconsistent with the persisted state. The sequencer should be restarted and logs verified to
+  * ensure that the persisted state is correct.
   */
 class SequencerUnexpectedStateChange(message: String = "Sequencer state has unexpectedly changed")
     extends RuntimeException(message)
 
-/** State manager for operating a sequencer using Blockchain based infrastructure (such as fabric or ethereum) */
+/** State manager for operating a sequencer using Blockchain based infrastructure (such as fabric or
+  * ethereum)
+  */
 trait BlockSequencerStateManagerBase extends FlagCloseable {
 
   def getHeadState: HeadState
 
-  /** Flow to turn [[BlockEvents]] of one block
-    * into a series of [[update.OrderedBlockUpdate]]s
-    * that are to be persisted subsequently using [[applyBlockUpdate]].
+  /** Flow to turn [[BlockEvents]] of one block into a series of [[update.OrderedBlockUpdate]]s that
+    * are to be persisted subsequently using [[applyBlockUpdate]].
     */
   def processBlock(
       bug: BlockUpdateGenerator
   ): Flow[BlockEvents, Traced[OrderedBlockUpdate], NotUsed]
 
-  /** Persists the [[update.BlockUpdate]]s and completes the waiting RPC calls
-    * as necessary.
+  /** Persists the [[update.BlockUpdate]]s and completes the waiting RPC calls as necessary.
     */
   def applyBlockUpdate(
       dbSequencerIntegration: SequencerIntegration
@@ -327,9 +327,9 @@ class BlockSequencerStateManager(
       ErrorUtil.internalError(new SequencerUnexpectedStateChange)
     }
 
-  /** Resolves all outstanding acknowledgements up to the given timestamp.
-    * Unlike for resolutions of other requests, we resolve also all earlier acknowledgements,
-    * because this mimics the effect of the acknowledgement: all earlier acknowledgements are irrelevant now.
+  /** Resolves all outstanding acknowledgements up to the given timestamp. Unlike for resolutions of
+    * other requests, we resolve also all earlier acknowledgements, because this mimics the effect
+    * of the acknowledgement: all earlier acknowledgements are irrelevant now.
     */
   private def resolveAcknowledgements(member: Member, upToInclusive: CantonTimestamp)(implicit
       tc: TraceContext
@@ -443,7 +443,8 @@ object BlockSequencerStateManager {
 
   /** Keeps track of the accumulated state changes by processing chunks of updates from a block
     *
-    * @param chunkNumber The sequence number of the chunk
+    * @param chunkNumber
+    *   The sequence number of the chunk
     */
   final case class ChunkState(
       chunkNumber: Long,
@@ -466,11 +467,13 @@ object BlockSequencerStateManager {
 
   /** The head state is updated after each chunk.
     *
-    * @param block Describes the state after the latest block that was fully processed.
-    * @param chunk Describes the state after the last chunk of the block that is currently being processed.
-    *              When the latest block is fully processed, but no chunks of the next block,
-    *              then this is `ChunkState.initial`
-    *              based on the last block's [[com.digitalasset.canton.synchronizer.block.data.BlockEphemeralState]].
+    * @param block
+    *   Describes the state after the latest block that was fully processed.
+    * @param chunk
+    *   Describes the state after the last chunk of the block that is currently being processed.
+    *   When the latest block is fully processed, but no chunks of the next block, then this is
+    *   `ChunkState.initial` based on the last block's
+    *   [[com.digitalasset.canton.synchronizer.block.data.BlockEphemeralState]].
     */
   final case class HeadState(
       block: BlockInfo,

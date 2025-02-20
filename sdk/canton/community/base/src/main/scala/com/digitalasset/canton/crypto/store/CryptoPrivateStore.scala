@@ -33,7 +33,8 @@ final case class EncryptionPrivateKeyWithName(
   type K = EncryptionPrivateKey
 }
 
-/** A store for cryptographic private material such as signing/encryption private keys and hmac secrets.
+/** A store for cryptographic private material such as signing/encryption private keys and hmac
+  * secrets.
   *
   * It encapsulates only existence checks/delete operations so it can be extendable to an external
   * crypto private store (e.g. an AWS KMS store).
@@ -56,8 +57,10 @@ trait CryptoPrivateStore extends AutoCloseable {
   /** Filter signing keys by checking if their usage intersects with the provided 'filterUsage' set.
     * This ensures that only keys with one or more matching usages are retained.
     *
-    * @param signingKeyIds the fingerprint of the keys to filter
-    * @param filterUsage the key usages to filter for
+    * @param signingKeyIds
+    *   the fingerprint of the keys to filter
+    * @param filterUsage
+    *   the key usages to filter for
     * @return
     */
   def filterSigningKeys(
@@ -80,11 +83,13 @@ trait CryptoPrivateStore extends AutoCloseable {
     case _ => None
   }
 
-  /** Returns the KMS key id that corresponds to a given private key fingerprint
-    * or None if the private key is not stored in a KMS.
+  /** Returns the KMS key id that corresponds to a given private key fingerprint or None if the
+    * private key is not stored in a KMS.
     *
-    * @param keyId the private key fingerprint
-    * @return the KMS key id that matches the fingerprint, or None if key is not stored in a KMS
+    * @param keyId
+    *   the private key fingerprint
+    * @return
+    *   the KMS key id that matches the fingerprint, or None if key is not stored in a KMS
     */
   def queryKmsKeyId(keyId: Fingerprint)(implicit
       traceContext: TraceContext

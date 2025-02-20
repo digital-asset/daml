@@ -159,13 +159,15 @@ class EnterpriseSequencerRateLimitManager(
 
   override def balanceKnownUntil: Option[CantonTimestamp] = trafficPurchasedManager.maxTsO
 
-  /** Compute the cost of a request using the provided topology and compare it to the cost provided in the submission
-    * request.
-    * Returns a Left if there's an inconsistency between the correct traffic cost from the topology and the provided
-    * cost in the request.
-    * Otherwise return the cost and traffic control parameters used for the validation (if traffic control is enabled, None otherwise)
-    * @param request Submission request
-    * @param topology Topology to use to validate the cost
+  /** Compute the cost of a request using the provided topology and compare it to the cost provided
+    * in the submission request. Returns a Left if there's an inconsistency between the correct
+    * traffic cost from the topology and the provided cost in the request. Otherwise return the cost
+    * and traffic control parameters used for the validation (if traffic control is enabled, None
+    * otherwise)
+    * @param request
+    *   Submission request
+    * @param topology
+    *   Topology to use to validate the cost
     */
   private def validateCostIsCorrect(
       request: SubmissionRequest,
@@ -209,12 +211,15 @@ class EnterpriseSequencerRateLimitManager(
     }
   }
 
-  /** Validate that the sender has enough traffic to send the request.
-    * Does NOT consume any traffic.
-    * @param sender sender of the request
-    * @param lastSequencedTimestamp timestamp of the last known sequenced event
-    * @param cost cost of the event
-    * @param parameters traffic parameters to use to compute base traffic
+  /** Validate that the sender has enough traffic to send the request. Does NOT consume any traffic.
+    * @param sender
+    *   sender of the request
+    * @param lastSequencedTimestamp
+    *   timestamp of the last known sequenced event
+    * @param cost
+    *   cost of the event
+    * @param parameters
+    *   traffic parameters to use to compute base traffic
     */
   private def validateEnoughTraffic(
       sender: Member,
@@ -299,11 +304,13 @@ class EnterpriseSequencerRateLimitManager(
       }
   } else EitherT.pure(())
 
-  /** Compute the cost of a batch using the provided topology.
-    * If traffic control parameters are not set in the topology, return None.
-    * Otherwise return the cost and the parameters used for the computation.
-    * @param batch batch to compute the cost of
-    * @param snapshot topology snapshot to use
+  /** Compute the cost of a batch using the provided topology. If traffic control parameters are not
+    * set in the topology, return None. Otherwise return the cost and the parameters used for the
+    * computation.
+    * @param batch
+    *   batch to compute the cost of
+    * @param snapshot
+    *   topology snapshot to use
     */
   private def computeEventCost(
       batch: Batch[ClosedEnvelope],
@@ -332,22 +339,32 @@ class EnterpriseSequencerRateLimitManager(
     result.value
   }
 
-  /** Validate the submitted cost of a submission request.
-    * This method is used for the validation at submission time as we all as sequencing time, albeit with different parameters.
-    * Notable, at submission time the topology used for validation is the current snapshot approximation of the sequencer
-    * processing the request. At sequencing time, it's the topology at sequencing time.
-    * @param request request to be validated
-    * @param submissionTimestampO submission timestamp the sender claims to have used to compute the traffic cost
-    * @param validationSnapshot validation snapshot to be used
-    * @param processingSequencerSignature Optionally, signature of the sequencer that processed the request. This only is set at sequencing time.
-    * @param latestSequencerEventTimestamp Timestamp of the latest sequencer event timestamp.
-    * @param warnIfApproximate Whether to warn if getting approximate topology.
-    * @param mostRecentKnownSynchronizerTimestamp Most recent sequenced timestamp this sequencer has knowledge of.
-    *                                       At submission time, this is the last observed sequenced timestamp.
-    *                                       At sequencing time, it's the sequencing timestamp of the request being processed.
-    * @return An error if the request is invalid, or a pair of (cost, traffic parameters).
-    *         They represent the correct cost of the request and associated traffic params to be checked against the traffic state.
-    *         Note that at sequencing time, even an invalid request (causing this method to return a left), will still debit traffic cost from the sender.
+  /** Validate the submitted cost of a submission request. This method is used for the validation at
+    * submission time as we all as sequencing time, albeit with different parameters. Notable, at
+    * submission time the topology used for validation is the current snapshot approximation of the
+    * sequencer processing the request. At sequencing time, it's the topology at sequencing time.
+    * @param request
+    *   request to be validated
+    * @param submissionTimestampO
+    *   submission timestamp the sender claims to have used to compute the traffic cost
+    * @param validationSnapshot
+    *   validation snapshot to be used
+    * @param processingSequencerSignature
+    *   Optionally, signature of the sequencer that processed the request. This only is set at
+    *   sequencing time.
+    * @param latestSequencerEventTimestamp
+    *   Timestamp of the latest sequencer event timestamp.
+    * @param warnIfApproximate
+    *   Whether to warn if getting approximate topology.
+    * @param mostRecentKnownSynchronizerTimestamp
+    *   Most recent sequenced timestamp this sequencer has knowledge of. At submission time, this is
+    *   the last observed sequenced timestamp. At sequencing time, it's the sequencing timestamp of
+    *   the request being processed.
+    * @return
+    *   An error if the request is invalid, or a pair of (cost, traffic parameters). They represent
+    *   the correct cost of the request and associated traffic params to be checked against the
+    *   traffic state. Note that at sequencing time, even an invalid request (causing this method to
+    *   return a left), will still debit traffic cost from the sender.
     */
   private def validateRequest(
       request: SubmissionRequest,
@@ -809,9 +826,9 @@ class EnterpriseSequencerRateLimitManager(
 
 object EnterpriseSequencerRateLimitManager {
 
-  /** Wrapper class for a cost that is has been validated with the provided parameters and can be consumed.
-    * Note that the cost might actually be greater than the cost computed with the parameters, because
-    * we allow submitted costs >= to the actual cost to be consumed.
+  /** Wrapper class for a cost that is has been validated with the provided parameters and can be
+    * consumed. Note that the cost might actually be greater than the cost computed with the
+    * parameters, because we allow submitted costs >= to the actual cost to be consumed.
     */
   private final case class ValidCost(
       cost: NonNegativeLong,
@@ -842,14 +859,16 @@ object EnterpriseSequencerRateLimitManager {
     val correctCost = correctCostDetails.eventCost
   }
 
-  /** Traffic control is disabled in the topology at validationTimestamp but a cost was provided in the request.
+  /** Traffic control is disabled in the topology at validationTimestamp but a cost was provided in
+    * the request.
     */
   private final case class TrafficControlDisabled(
       submittedCost: NonNegativeLong,
       validationTimestamp: CantonTimestamp,
   ) extends CostValidationError
 
-  /** Traffic control is enabled in the topology at validationTimestamp but not cost was provided in the request.
+  /** Traffic control is enabled in the topology at validationTimestamp but not cost was provided in
+    * the request.
     */
   private final case class NoCostProvided(
       correctCostDetails: EventCostDetails,

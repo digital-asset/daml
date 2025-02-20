@@ -9,8 +9,8 @@ import com.digitalasset.daml.lf.data.Ref.Party
 
 import scala.concurrent.blocking
 
-/** This StringInterning implementation is interning in a transparent way everything it sees.
-  * This is only for test purposes.
+/** This StringInterning implementation is interning in a transparent way everything it sees. This
+  * is only for test purposes.
   */
 @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
 class MockStringInterning extends StringInterning {

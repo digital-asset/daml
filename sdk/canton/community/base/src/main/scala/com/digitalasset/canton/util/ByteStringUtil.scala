@@ -47,9 +47,9 @@ object ByteStringUtil {
     ByteString.copyFrom(compressed.toByteArray)
   }
 
-  /** If maxBytesToRead is not specified, we decompress all the gunzipper input stream.
-    * If maxBytesToRead is specified, we decompress maximum maxBytesToRead bytes, and if the input is larger
-    * we throw MaxBytesToDecompressExceeded error.
+  /** If maxBytesToRead is not specified, we decompress all the gunzipper input stream. If
+    * maxBytesToRead is specified, we decompress maximum maxBytesToRead bytes, and if the input is
+    * larger we throw MaxBytesToDecompressExceeded error.
     */
   def decompressGzip(
       bytes: ByteString,

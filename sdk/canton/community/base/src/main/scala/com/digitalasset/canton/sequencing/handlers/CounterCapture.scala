@@ -12,8 +12,10 @@ import com.digitalasset.canton.tracing.TraceContext
 import java.util.concurrent.atomic.AtomicLong
 import scala.concurrent.ExecutionContext
 
-/** Capture the sequencer counter of the last successfully processed event (only synchronous processing).
-  * @param initial Initial counter to return until a event is successfully processed.
+/** Capture the sequencer counter of the last successfully processed event (only synchronous
+  * processing).
+  * @param initial
+  *   Initial counter to return until a event is successfully processed.
   */
 class CounterCapture(
     private val initial: SequencerCounter,
@@ -22,8 +24,8 @@ class CounterCapture(
 
   private val currentValue = new AtomicLong(initial.v)
 
-  /**  Wrap a handler and capture the counter of a successfully processed event.
-    *  It only makes sense to wrap a single handler however this is not enforced.
+  /** Wrap a handler and capture the counter of a successfully processed event. It only makes sense
+    * to wrap a single handler however this is not enforced.
     */
   def apply[E](handler: SerializedEventHandler[E]): SerializedEventHandler[E] = {
     implicit val ec: ExecutionContext = DirectExecutionContext(noTracingLogger)

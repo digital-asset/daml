@@ -181,7 +181,9 @@ class TrafficControlProcessor(
     } yield ()
   }
 
-  /** @return `true` if the message was a valid update and the listeners have been notified, `false` otherwise
+  /** @return
+    *   `true` if the message was a valid update and the listeners have been notified, `false`
+    *   otherwise
     */
   private def processSetTrafficPurchased(
       envelope: OpenEnvelope[SignedProtocolMessage[SetTrafficPurchasedMessage]],

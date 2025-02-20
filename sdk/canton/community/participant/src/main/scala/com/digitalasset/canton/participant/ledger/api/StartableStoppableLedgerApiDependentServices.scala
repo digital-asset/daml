@@ -34,15 +34,15 @@ import org.apache.pekko.actor.ActorSystem
 
 import scala.concurrent.{ExecutionContextExecutor, blocking}
 
-/** Holds and manages the lifecycle of all Canton services that use the Ledger API
-  * and hence depend on the Ledger API server to be up.
+/** Holds and manages the lifecycle of all Canton services that use the Ledger API and hence depend
+  * on the Ledger API server to be up.
   *
-  * The services are started on participant initialization iff the participant
-  * comes up as an active replica, otherwise they are started when the participant transitions to active.
-  * On transition to passive participant state, these services are shutdown.
+  * The services are started on participant initialization iff the participant comes up as an active
+  * replica, otherwise they are started when the participant transitions to active. On transition to
+  * passive participant state, these services are shutdown.
   *
-  * It is also used to close and restart the services when the Ledger API server
-  * needs to be taken down temporarily (e.g. for ledger pruning).
+  * It is also used to close and restart the services when the Ledger API server needs to be taken
+  * down temporarily (e.g. for ledger pruning).
   */
 class StartableStoppableLedgerApiDependentServices(
     config: LocalParticipantConfig,

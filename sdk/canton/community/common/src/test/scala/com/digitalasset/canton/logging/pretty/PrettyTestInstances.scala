@@ -15,8 +15,8 @@ import com.digitalasset.canton.protocol.{
   LfVersionedTransaction,
 }
 
-/** Pretty printing implicits for use by tests only. These enable showing readable multiline diffs when expected
-  * and actual transactions differ unexpectedly.
+/** Pretty printing implicits for use by tests only. These enable showing readable multiline diffs
+  * when expected and actual transactions differ unexpectedly.
   */
 trait PrettyTestInstances {
   import Pretty.*

@@ -11,18 +11,21 @@ import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 import scala.util.{Failure, Success}
 
 /** PreemptableSequence is a helper to
-  * - facilitate the execution of a sequence of Futures, which can be stopped or aborted
-  * - provide a Handle for the client
-  * - manage the state to implement the above
+  *   - facilitate the execution of a sequence of Futures, which can be stopped or aborted
+  *   - provide a Handle for the client
+  *   - manage the state to implement the above
   */
 trait PreemptableSequence {
 
   /** Execute the preemptable sequence
     *
-    * @param sequence This Future sequence needs to be constructed with the help of the SequenceHelper functions.
-    * @return the Handle, to observe and to interact with the sequence.
-    *         - The completion future will only complete as soon the sequence and all registered release functionality finished as well
-    *         - The Handle is available immediately
+    * @param sequence
+    *   This Future sequence needs to be constructed with the help of the SequenceHelper functions.
+    * @return
+    *   the Handle, to observe and to interact with the sequence.
+    *   - The completion future will only complete as soon the sequence and all registered release
+    *     functionality finished as well
+    *   - The Handle is available immediately
     */
   def executeSequence(sequence: SequenceHelper => Future[_]): Handle
 }
@@ -31,32 +34,40 @@ trait PreemptableSequence {
   */
 trait SequenceHelper {
 
-  /** Register at any point in time a synchronous release function,
-    * which will be ensured to run before the completion future of the handle completes.
+  /** Register at any point in time a synchronous release function, which will be ensured to run
+    * before the completion future of the handle completes.
     *
-    * @param release the release lambda
+    * @param release
+    *   the release lambda
     */
   def registerRelease(release: => Unit): Unit
 
-  /** Wrap a CBN (lazy) Future, so it is only started if the PreemptableSequence is not yet aborted/shut down.
+  /** Wrap a CBN (lazy) Future, so it is only started if the PreemptableSequence is not yet
+    * aborted/shut down.
     *
-    * @param f The lazy Future
-    * @return the wrapped future
+    * @param f
+    *   The lazy Future
+    * @return
+    *   the wrapped future
     */
   def goF[T](f: => Future[T]): Future[T]
 
-  /** Wrap a CBN (lazy) synchronous function in a Future, which is only started if the PreemptableSequence is not yet aborted/shut down.
+  /** Wrap a CBN (lazy) synchronous function in a Future, which is only started if the
+    * PreemptableSequence is not yet aborted/shut down.
     *
-    * @param body The lazy synchronous body
-    * @return the wrapped future
+    * @param body
+    *   The lazy synchronous body
+    * @return
+    *   the wrapped future
     */
   def go[T](body: => T): Future[T]
 
   /** Wrap a synchronous call into a Future sequence, which
-    * - will be preemptable
-    * - will retry to execute the body if Exception-s thrown, and the exception is retryable
+    *   - will be preemptable
+    *   - will retry to execute the body if Exception-s thrown, and the exception is retryable
     *
-    * @return the preemptable, retrying Future sequence
+    * @return
+    *   the preemptable, retrying Future sequence
     */
   def retry[T](
       waitMillisBetweenRetries: Long,
@@ -65,29 +76,35 @@ trait SequenceHelper {
   )(body: => T): Future[T]
 
   /** Delegate the preemptable-future sequence to another Handle
-    * - the completion Future future of the PreemptableSequence will only finish after this Handle finishes,
-    *   and previously registered release functions all completed
-    * - KillSwitch events will be replayed to this handle
-    * - In case of abort/shutdown the PreemptableSequence's completion result will conform to the KillSwitch usage,
-    *   not to the completion of this handle (although it will wait for it naturally)
+    *   - the completion Future future of the PreemptableSequence will only finish after this Handle
+    *     finishes, and previously registered release functions all completed
+    *   - KillSwitch events will be replayed to this handle
+    *   - In case of abort/shutdown the PreemptableSequence's completion result will conform to the
+    *     KillSwitch usage, not to the completion of this handle (although it will wait for it
+    *     naturally)
     *
-    * @param handle The handle to delegate to
-    * @return the completion of the Handle
+    * @param handle
+    *   The handle to delegate to
+    * @return
+    *   the completion of the Handle
     */
   def merge(handle: Handle): Future[Unit]
 
-  /** The handle of the PreemptableSequence. This handle is available for sequence construction as well.
-    * @return the Handle
+  /** The handle of the PreemptableSequence. This handle is available for sequence construction as
+    * well.
+    * @return
+    *   the Handle
     */
   def handle: Handle
 }
 
 object PreemptableSequence {
 
-  /** @param executionContext this execution context will be used to:
+  /** @param executionContext
+    *   this execution context will be used to:
     *   - execute future transformations
-    *   - and encapsulate synchronous work in futures (this could be possibly blocking)
-    *   Because of the possible blocking nature a dedicated pool is recommended.
+    *   - and encapsulate synchronous work in futures (this could be possibly blocking) Because of
+    *     the possible blocking nature a dedicated pool is recommended.
     */
   def apply(timer: Timer, loggerFactory: NamedLoggerFactory)(implicit
       executionContext: ExecutionContext,

@@ -30,10 +30,10 @@ import scala.collection.mutable
 
 import CatchupBehavior.InitialState
 
-/** A catch-up behavior for [[IssConsensusModule]].
-  * It reuses [[StateTransferManager]] and inherits its logic and limitations.
-  * In particular, the topology at the catch-up starting epoch is assumed to allow the whole catch-up process to
-  * complete and, if this is not the case, the catch-up will fail and the node will need to be re-onboarded.
+/** A catch-up behavior for [[IssConsensusModule]]. It reuses [[StateTransferManager]] and inherits
+  * its logic and limitations. In particular, the topology at the catch-up starting epoch is assumed
+  * to allow the whole catch-up process to complete and, if this is not the case, the catch-up will
+  * fail and the node will need to be re-onboarded.
   */
 final class CatchupBehavior[E <: Env[E]](
     private val epochLength: EpochLength, // Currently fixed for all epochs

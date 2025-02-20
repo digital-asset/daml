@@ -21,22 +21,24 @@ import scala.concurrent.ExecutionContext
 /** Read-only interface for [[ParticipantSettingsStore]] */
 trait ParticipantSettingsLookup {
 
-  /** @return the current settings
-    * @throws java.lang.IllegalStateException if [[ParticipantSettingsStore.refreshCache]] has not previously been run successfully
+  /** @return
+    *   the current settings
+    * @throws java.lang.IllegalStateException
+    *   if [[ParticipantSettingsStore.refreshCache]] has not previously been run successfully
     */
   def settings: Settings
 }
 
-/** Stores misc settings for a participant.
-  * Allows clients to read settings without accessing the database.
-  * In turn, a client needs to call `refreshCache` before reading settings.
+/** Stores misc settings for a participant. Allows clients to read settings without accessing the
+  * database. In turn, a client needs to call `refreshCache` before reading settings.
   */
 trait ParticipantSettingsStore extends ParticipantSettingsLookup with AutoCloseable {
 
-  /** A cache for the max number of inflight validation requests.
-    * It is updated in the following situations:
-    * - Before and after a write (successful or not).
-    * - Through [[refreshCache]]. (Clients are requested to call [[refreshCache]] before reading any value.)
+  /** A cache for the max number of inflight validation requests. It is updated in the following
+    * situations:
+    *   - Before and after a write (successful or not).
+    *   - Through [[refreshCache]]. (Clients are requested to call [[refreshCache]] before reading
+    *     any value.)
     */
   protected val cache: AtomicReference[Option[Settings]] = new AtomicReference(None)
 
@@ -53,7 +55,9 @@ trait ParticipantSettingsStore extends ParticipantSettingsLookup with AutoClosea
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
-  /** Insert the given max deduplication duration provided unless a max deduplication duration has been set previously. */
+  /** Insert the given max deduplication duration provided unless a max deduplication duration has
+    * been set previously.
+    */
   def insertMaxDeduplicationDuration(maxDeduplicationDuration: NonNegativeFiniteDuration)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]

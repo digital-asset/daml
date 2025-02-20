@@ -22,8 +22,8 @@ object VersionedStatus extends VersioningCompanion2[VersionedStatus, VersionedSt
   /** The name of the class as used for pretty-printing and error reporting */
   override def name: String = "VersionedStatus"
 
-  /** Proto versions that are supported by `fromProtoVersioned` and `fromByteString`
-    * See the helper `supportedProtoVersion` below to define a `Parser`.
+  /** Proto versions that are supported by `fromProtoVersioned` and `fromByteString` See the helper
+    * `supportedProtoVersion` below to define a `Parser`.
     */
   override def versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoCodec

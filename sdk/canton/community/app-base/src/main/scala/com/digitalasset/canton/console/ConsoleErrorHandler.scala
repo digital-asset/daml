@@ -5,8 +5,8 @@ package com.digitalasset.canton.console
 
 import scala.util.control.NoStackTrace
 
-/** Handle an error from a console.
-  * We expect this implementation will either throw or exit, hence the [[scala.Nothing]] return type.
+/** Handle an error from a console. We expect this implementation will either throw or exit, hence
+  * the [[scala.Nothing]] return type.
   */
 trait ConsoleErrorHandler {
   def handleCommandFailure(): Nothing
@@ -22,8 +22,8 @@ final class CantonInternalError()
     )
     with NoStackTrace
 
-/** Throws a [[CommandFailure]] or [[CantonInternalError]] when a command fails.
-  * The throwables do not have a stacktraces, to avoid noise in the interactive console.
+/** Throws a [[CommandFailure]] or [[CantonInternalError]] when a command fails. The throwables do
+  * not have a stacktraces, to avoid noise in the interactive console.
   */
 object ThrowErrorHandler extends ConsoleErrorHandler {
   override def handleCommandFailure(): Nothing = throw new CommandFailure()

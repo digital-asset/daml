@@ -20,8 +20,8 @@ import scala.concurrent.{Future, Promise}
 
 /** Utility to create futures that succeed after a given delay.
   *
-  * Inspired by the odelay library, but with a restricted interface to avoid hazardous effects that could be caused
-  * by the use of a global executor service.
+  * Inspired by the odelay library, but with a restricted interface to avoid hazardous effects that
+  * could be caused by the use of a global executor service.
   *
   * TODO(i4245): Replace all usages by Clock.
   */
@@ -34,16 +34,17 @@ object DelayUtil extends NamedLogging {
   private val scheduledExecutorService =
     Threading.singleThreadScheduledExecutor("delay-util", noTracingLogger)
 
-  /** Creates a future that succeeds after the given delay.
-    * The caller must make sure that the future is used only in execution contexts that have not yet been closed.
-    * Use the `delay(FiniteDuration, FlagCloseable)` method if this might be an issue.
+  /** Creates a future that succeeds after the given delay. The caller must make sure that the
+    * future is used only in execution contexts that have not yet been closed. Use the
+    * `delay(FiniteDuration, FlagCloseable)` method if this might be an issue.
     *
     * Try to use `Clock` instead!
     */
   def delay(delay: FiniteDuration): Future[Unit] =
     this.delay(scheduledExecutorService, delay, _.success(()))
 
-  /** Creates a future that succeeds after the given delay provided that `flagCloseable` has not yet been closed then.
+  /** Creates a future that succeeds after the given delay provided that `flagCloseable` has not yet
+    * been closed then.
     *
     * Try to use `Clock` instead!
     */
@@ -68,8 +69,9 @@ object DelayUtil extends NamedLogging {
     promise.future
   }
 
-  /** Creates a future that succeeds after the given delay provided that `onShutdownRunner` has not yet been closed then.
-    * The future completes fast with UnlessShutdown.AbortedDueToShutdown if `onShutdownRunner` is already closing.
+  /** Creates a future that succeeds after the given delay provided that `onShutdownRunner` has not
+    * yet been closed then. The future completes fast with UnlessShutdown.AbortedDueToShutdown if
+    * `onShutdownRunner` is already closing.
     */
   def delayIfNotClosing(
       parentName: String,

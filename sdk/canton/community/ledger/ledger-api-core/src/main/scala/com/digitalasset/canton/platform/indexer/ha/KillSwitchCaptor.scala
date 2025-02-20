@@ -9,12 +9,12 @@ import org.apache.pekko.stream.KillSwitch
 
 import java.util.concurrent.atomic.AtomicReference
 
-/** This KillSwitch captures it's usage in it's internal state, which can be queried.
-  * Captured state is available with the 'state' method.
+/** This KillSwitch captures it's usage in it's internal state, which can be queried. Captured state
+  * is available with the 'state' method.
   *
   * Rules of state transitions:
-  * - Shutdown is always the final state
-  * - From multiple aborts, the last abort wins
+  *   - Shutdown is always the final state
+  *   - From multiple aborts, the last abort wins
   *
   * With setDelegate() we can set a delegate KillSwitch, which to usage will be replayed
   */

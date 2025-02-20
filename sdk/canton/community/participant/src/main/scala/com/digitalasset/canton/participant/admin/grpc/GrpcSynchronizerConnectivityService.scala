@@ -109,8 +109,10 @@ class GrpcSynchronizerConnectivityService(
       .fromProtoV30(proto)
       .leftMap(ProtoDeserializationFailure.WrapNoLogging.apply)
 
-  /** @param synchronizerConnectionP Protobuf data
-    * @return True if handshake should be done, false otherwise
+  /** @param synchronizerConnectionP
+    *   Protobuf data
+    * @return
+    *   True if handshake should be done, false otherwise
     */
   private def parseSynchronizerConnection(
       synchronizerConnectionP: v30.RegisterSynchronizerRequest.SynchronizerConnection

@@ -93,12 +93,12 @@ res1: com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderin
   sequencerIds = Vector(SEQ::sequencer1::122068109171..., SEQ::sequencer2::1220ec0faf93..., SEQ::sequencer3::122078a60382..., SEQ::sequencer4::12203fdba69e...)
 )
 
-sequencer1.bft.get_peer_network_status(None)
-res2: com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.PeerNetworkStatus = PeerNetworkStatus(
+@ sequencer1.bft.get_peer_network_status(None)
+res2: com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.PeerNetworkStatus = PeerNetworkStatus(
   endpointStatuses = Vector(
-    PeerEndpointStatus(endpoint = Endpoint(host = "canton", port = Port(n = 30031)), health = PeerEndpointHealth(status = Authenticated, description = None)),
-    PeerEndpointStatus(endpoint = Endpoint(host = "canton", port = Port(n = 30032)), health = PeerEndpointHealth(status = Authenticated, description = None)),
-    PeerEndpointStatus(endpoint = Endpoint(host = "canton", port = Port(n = 30033)), health = PeerEndpointHealth(status = Authenticated, description = None))
+    PeerEndpointStatus(endpointId = PeerEndpointId(address = "0.0.0.0", port = Port(n = 31032), transportSecurity = false), health = PeerEndpointHealth(status = Authenticated, description = None)),
+    PeerEndpointStatus(endpointId = PeerEndpointId(address = "0.0.0.0", port = Port(n = 31033), transportSecurity = false), health = PeerEndpointHealth(status = Authenticated, description = None)),
+    PeerEndpointStatus(endpointId = PeerEndpointId(address = "0.0.0.0", port = Port(n = 31031), transportSecurity = false), health = PeerEndpointHealth(status = Authenticated, description = None))
   )
 )
 ```

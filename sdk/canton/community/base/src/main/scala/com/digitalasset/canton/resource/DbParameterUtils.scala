@@ -9,15 +9,17 @@ import slick.jdbc.{GetResult, PositionedParameters}
 import java.sql.{JDBCType, SQLNonTransientException}
 import scala.reflect.ClassTag
 
-/** This trait provides utility methods for database operations, specifically
-  * for retrieving integer array data from parameters in the database.
+/** This trait provides utility methods for database operations, specifically for retrieving integer
+  * array data from parameters in the database.
   */
 object DbParameterUtils {
 
   /** Sets an array of integers as a database parameter.
     *
-    * @param maybeArray An optional array of integers. If `None`, the parameter is set to null.
-    * @param pp A `PositionedParameters` object, which is used to set the database parameter.
+    * @param maybeArray
+    *   An optional array of integers. If `None`, the parameter is set to null.
+    * @param pp
+    *   A `PositionedParameters` object, which is used to set the database parameter.
     */
   def setArrayIntOParameterDb(
       maybeArray: Option[Array[Int]],
@@ -30,12 +32,15 @@ object DbParameterUtils {
     pp.setObjectOption(jdbcArray, JDBCType.ARRAY.getVendorTypeNumber)
   }
 
-  /** Retrieves an array of integers from the database and deserializes it to the correct type.
-    * This function supports different database profiles (H2 and Postgres) for handling array results.
+  /** Retrieves an array of integers from the database and deserializes it to the correct type. This
+    * function supports different database profiles (H2 and Postgres) for handling array results.
     *
-    * @param storageProfile lists the type of storage (i.e. H2 or Postgres).
-    * @param deserialize A function that converts an `Int` into type `A`.
-    * @tparam A The type to which the integers will be deserialized.
+    * @param storageProfile
+    *   lists the type of storage (i.e. H2 or Postgres).
+    * @param deserialize
+    *   A function that converts an `Int` into type `A`.
+    * @tparam A
+    *   The type to which the integers will be deserialized.
     */
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf", "org.wartremover.warts.Null"))
   def getDataArrayOResultsDb[A: ClassTag](

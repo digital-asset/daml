@@ -8,15 +8,17 @@ import com.digitalasset.canton.data.CantonTimestamp
 
 import scala.util.Try
 
-/** [[RunningFuture]] represents a running future in simulation. Since the future might be built up of smaller futures
-  * (coming from either zip or sequence for example), they might either have run or not. So we represent this with the
-  * [[RunningFuture.IsResolved]] that can either be [[RunningFuture.Resolved]] for a future that has already finished
-  * or [[RunningFuture.Scheduled]] for one that will run in the future.
+/** [[RunningFuture]] represents a running future in simulation. Since the future might be built up
+  * of smaller futures (coming from either zip or sequence for example), they might either have run
+  * or not. So we represent this with the [[RunningFuture.IsResolved]] that can either be
+  * [[RunningFuture.Resolved]] for a future that has already finished or [[RunningFuture.Scheduled]]
+  * for one that will run in the future.
   *
-  * It is important that we can run the futures in any order, so that simulation can faithfully simulate all possible
-  * interleaving.
+  * It is important that we can run the futures in any order, so that simulation can faithfully
+  * simulate all possible interleaving.
   *
-  * @tparam T type of the future
+  * @tparam T
+  *   type of the future
   */
 sealed trait RunningFuture[T] {
   def name: String

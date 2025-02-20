@@ -19,7 +19,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PekkoEnv,
   PekkoFutureUnlessShutdown,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1 as proto
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.tracing.TraceContext
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
@@ -43,11 +43,11 @@ class DbAvailabilityStore(
 
   private implicit def readOrderingRequestBatch: GetResult[OrderingRequestBatch] =
     GetResult { r =>
-      ProtoConverter.protoParserArray(proto.Batch.parseFrom)(r.nextBytes()) match {
+      ProtoConverter.protoParserArray(v30.Batch.parseFrom)(r.nextBytes()) match {
         case Left(error) =>
           throw new DbDeserializationException(s"Could not deserialize proto request batch: $error")
         case Right(value) =>
-          OrderingRequestBatch.fromProto(Some(value)) match {
+          OrderingRequestBatch.fromProtoV30(value) match {
             case Left(error) =>
               throw new DbDeserializationException(s"Could not parse batch: $error")
             case Right(value) => value
@@ -56,7 +56,7 @@ class DbAvailabilityStore(
     }
 
   private implicit val setOrderingRequestBatch: SetParameter[OrderingRequestBatch] =
-    (or, pp) => pp.setBytes(or.toProto.toByteArray)
+    (or, pp) => pp.setBytes(or.toProtoV30.toByteArray)
 
   private implicit def readBatchId: GetResult[BatchId] = GetResult { r =>
     BatchId.fromHexString(r.nextString()) match {

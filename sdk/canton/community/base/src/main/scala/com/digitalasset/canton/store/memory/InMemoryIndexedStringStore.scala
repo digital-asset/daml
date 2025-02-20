@@ -14,8 +14,10 @@ import scala.concurrent.blocking
 
 /** In memory version of an indexed string store.
   *
-  * @param minIndex the minimum value of assigned indices (for testing purposes)
-  * @param maxIndex the maximum value of assigned indices (for testing purposes)
+  * @param minIndex
+  *   the minimum value of assigned indices (for testing purposes)
+  * @param maxIndex
+  *   the maximum value of assigned indices (for testing purposes)
   */
 class InMemoryIndexedStringStore(val minIndex: Int, val maxIndex: Int) extends IndexedStringStore {
 
@@ -28,7 +30,8 @@ class InMemoryIndexedStringStore(val minIndex: Int, val maxIndex: Int) extends I
   ): FutureUnlessShutdown[Int] =
     FutureUnlessShutdown.pure(getOrCreateIndexForTesting(dbTyp, str))
 
-  /** @throws java.lang.IllegalArgumentException if a new index is created and the new index would exceed `maxIndex`
+  /** @throws java.lang.IllegalArgumentException
+    *   if a new index is created and the new index would exceed `maxIndex`
     */
   def getOrCreateIndexForTesting(dbTyp: IndexedStringType, str: String300): Int = blocking {
     synchronized {

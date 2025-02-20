@@ -12,7 +12,8 @@ import com.digitalasset.canton.sequencing.protocol.TrafficState
 import io.scalaland.chimney.Transformer
 import io.scalaland.chimney.dsl.*
 
-/** Conversion utilities between the sequencing TrafficState and the participant admin API TrafficState protos
+/** Conversion utilities between the sequencing TrafficState and the participant admin API
+  * TrafficState protos
   */
 object TrafficStateAdmin {
   implicit val nonNegativeLongToLong: Transformer[NonNegativeLong, Long] = _.value

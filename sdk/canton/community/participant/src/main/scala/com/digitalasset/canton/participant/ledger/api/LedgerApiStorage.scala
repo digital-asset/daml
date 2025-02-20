@@ -14,9 +14,10 @@ import java.util.UUID.randomUUID
 import scala.concurrent.blocking
 import scala.util.Try
 
-/** Configuration and actions for the ledger-api persistence,
-  * Actions are synchronous as they use the underlying jdbc driver directly and there is no simple version of async calls available.
-  * Given these are only used for one off rare actions this is currently sufficient. Just be aware these operations will block.
+/** Configuration and actions for the ledger-api persistence, Actions are synchronous as they use
+  * the underlying jdbc driver directly and there is no simple version of async calls available.
+  * Given these are only used for one off rare actions this is currently sufficient. Just be aware
+  * these operations will block.
   */
 class LedgerApiStorage private[api] (
     val jdbcUrl: String,

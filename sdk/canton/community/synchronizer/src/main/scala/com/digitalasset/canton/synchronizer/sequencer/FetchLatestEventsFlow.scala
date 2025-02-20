@@ -12,8 +12,8 @@ import java.util.ConcurrentModificationException
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Flow that upon read signals will attempt to fetch all events until head is reached.
-  * Events are paged in within a sub-source to prevent all events being held in memory at once.
+/** Flow that upon read signals will attempt to fetch all events until head is reached. Events are
+  * paged in within a sub-source to prevent all events being held in memory at once.
   */
 object FetchLatestEventsFlow {
 

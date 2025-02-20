@@ -80,8 +80,8 @@ class GrpcInspectionService(
       .asGrpcResponse
   }
 
-  /** Configure metrics for slow counter-participants (i.e., that are behind in sending commitments) and
-    * configure thresholds for when a counter-participant is deemed slow.
+  /** Configure metrics for slow counter-participants (i.e., that are behind in sending commitments)
+    * and configure thresholds for when a counter-participant is deemed slow.
     *
     * returns error if synchronizer ids re not distinct.
     */
@@ -187,8 +187,8 @@ class GrpcInspectionService(
       }.asGrpcResponse
     }
 
-  /** Get the number of intervals that counter-participants are behind in sending commitments.
-    * Can be used to decide whether to ignore slow counter-participants w.r.t. pruning.
+  /** Get the number of intervals that counter-participants are behind in sending commitments. Can
+    * be used to decide whether to ignore slow counter-participants w.r.t. pruning.
     */
   override def getIntervalsBehindForCounterParticipants(
       request: v30.GetIntervalsBehindForCounterParticipantsRequest
@@ -278,8 +278,9 @@ class GrpcInspectionService(
       .flatten
   }
 
-  /** List the counter-participants of a participant and their ACS commitments together with the match status
-    * TODO(#18749) R1 Can also be used for R1, to fetch commitments that a counter participant received from myself
+  /** List the counter-participants of a participant and their ACS commitments together with the
+    * match status TODO(#18749) R1 Can also be used for R1, to fetch commitments that a counter
+    * participant received from myself
     */
   override def lookupReceivedAcsCommitments(
       request: v30.LookupReceivedAcsCommitmentsRequest
@@ -404,8 +405,7 @@ class GrpcInspectionService(
     }
 
   /** Request metadata about shared contracts used in commitment computation at a specific time
-    * Subject to the data still being available on the participant
-    * TODO(#9557) R2
+    * Subject to the data still being available on the participant TODO(#9557) R2
     */
   override def openCommitment(
       request: v30.OpenCommitmentRequest,

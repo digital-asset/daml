@@ -12,11 +12,13 @@ import com.google.common.annotations.VisibleForTesting
 import monocle.Lens
 import monocle.macros.GenLens
 
-/** @param consumedInCore Whether the contract is consumed in the core of the view.
-  *   [[com.digitalasset.canton.protocol.WellFormedTransaction]] checks that a created contract
-  *   can only be used in the same or deeper rollback scopes as the create, so if `rolledBack` is true
+/** @param consumedInCore
+  *   Whether the contract is consumed in the core of the view.
+  *   [[com.digitalasset.canton.protocol.WellFormedTransaction]] checks that a created contract can
+  *   only be used in the same or deeper rollback scopes as the create, so if `rolledBack` is true
   *   then `consumedInCore` is false.
-  * @param rolledBack Whether the contract creation has a different rollback scope than the view.
+  * @param rolledBack
+  *   Whether the contract creation has a different rollback scope than the view.
   */
 final case class CreatedContract private (
     contract: SerializableContract,
@@ -94,11 +96,13 @@ object CreatedContract {
     GenLens[CreatedContract](_.contract)
 }
 
-/** @param consumedInView Whether the contract is consumed in the view.
-  *   [[com.digitalasset.canton.protocol.WellFormedTransaction]] checks that a created contract
-  *   can only be used in the same or deeper rollback scopes as the create, so if `rolledBack` is true
+/** @param consumedInView
+  *   Whether the contract is consumed in the view.
+  *   [[com.digitalasset.canton.protocol.WellFormedTransaction]] checks that a created contract can
+  *   only be used in the same or deeper rollback scopes as the create, so if `rolledBack` is true
   *   then `consumedInView` is false.
-  * @param rolledBack Whether the contract creation has a different rollback scope than the view.
+  * @param rolledBack
+  *   Whether the contract creation has a different rollback scope than the view.
   */
 final case class CreatedContractInView(
     contract: SerializableContract,

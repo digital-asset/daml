@@ -43,8 +43,8 @@ final class DefaultCatchupDetector(
     }
   }
 
-  /** Updates the highest known epoch number for the specified peer.
-    * Returns `true` only if the epoch number was updated for the specified peer.
+  /** Updates the highest known epoch number for the specified peer. Returns `true` only if the
+    * epoch number was updated for the specified peer.
     */
   override def updateLatestKnownPeerEpoch(
       peer: SequencerId,

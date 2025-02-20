@@ -11,13 +11,16 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
 /** Encapsulated resource limits for a participant.
   *
-  * @param maxInflightValidationRequests the maximum number of requests that are currently being validated.
-  *                         This also covers requests submitted by other participants.
-  * @param maxSubmissionRate the maximum submission rate at which commands may be submitted through the ledger api.
-  * @param maxSubmissionBurstFactor to ratio of the max submission rate, describing the maximum acceptable initial burst before the steady
-  *                      submission rate limiting kicks in. example: if maxSubmissionRate is 100 and the burst ratio is 0.3, then the first
-  *                      30 commands can submitted in the same instant, while thereafter, only one command every 10ms
-  *                      is accepted.
+  * @param maxInflightValidationRequests
+  *   the maximum number of requests that are currently being validated. This also covers requests
+  *   submitted by other participants.
+  * @param maxSubmissionRate
+  *   the maximum submission rate at which commands may be submitted through the ledger api.
+  * @param maxSubmissionBurstFactor
+  *   to ratio of the max submission rate, describing the maximum acceptable initial burst before
+  *   the steady submission rate limiting kicks in. example: if maxSubmissionRate is 100 and the
+  *   burst ratio is 0.3, then the first 30 commands can submitted in the same instant, while
+  *   thereafter, only one command every 10ms is accepted.
   */
 final case class ResourceLimits(
     maxInflightValidationRequests: Option[NonNegativeInt],
@@ -66,9 +69,9 @@ object ResourceLimits {
 
   def noLimit: ResourceLimits = ResourceLimits(None, None)
 
-  /** Default resource limits to protect Canton from being overloaded by applications that send excessively many commands.
-    * The default settings allow for processing an average of 100 commands/s with a latency of 5s,
-    * with bursts of up to 200 commands/s.
+  /** Default resource limits to protect Canton from being overloaded by applications that send
+    * excessively many commands. The default settings allow for processing an average of 100
+    * commands/s with a latency of 5s, with bursts of up to 200 commands/s.
     */
   def default: ResourceLimits = ResourceLimits(
     maxInflightValidationRequests = Some(NonNegativeInt.tryCreate(500)),

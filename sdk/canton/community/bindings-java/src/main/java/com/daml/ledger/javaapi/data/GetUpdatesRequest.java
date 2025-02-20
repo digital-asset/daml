@@ -8,6 +8,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 public final class GetUpdatesRequest {
 
@@ -15,10 +16,9 @@ public final class GetUpdatesRequest {
 
   @NonNull private final Optional<Long> endInclusive;
 
-  @NonNull private final TransactionFilter transactionFilter;
+  @NonNull private final UpdateFormat updateFormat;
 
-  private final boolean verbose;
-
+  // TODO(i23504) remove
   public GetUpdatesRequest(
       @NonNull Long beginExclusive,
       @NonNull Optional<Long> endInclusive,
@@ -26,28 +26,93 @@ public final class GetUpdatesRequest {
       boolean verbose) {
     this.beginExclusive = beginExclusive;
     this.endInclusive = endInclusive;
-    this.transactionFilter = transactionFilter;
-    this.verbose = verbose;
+    EventFormat eventFormat =
+        new EventFormat(
+            transactionFilter.getPartyToFilters(), transactionFilter.getAnyPartyFilter(), verbose);
+    Optional<TransactionFormat> transactionFormat =
+        Optional.of(new TransactionFormat(eventFormat, TransactionShape.ACS_DELTA));
+    Optional<Set<String>> allFilterPartiesO =
+        transactionFilter.getAnyPartyFilter().isPresent()
+            ?
+            // a filter for the wildcard party is defined then we want the topology events for all
+            // the parties (denoted by the empty set)
+            Optional.of(Set.of())
+            : (transactionFilter.getParties().isEmpty()
+                ?
+                // by-party filters are not defined, do not fetch any topology events
+                Optional.empty()
+                :
+                // by-party filters are not defined, fetch any topology events for the parties
+                // specified
+                Optional.of(transactionFilter.getParties()));
+    Optional<TopologyFormat> topologyFormat =
+        Optional.of(
+            new TopologyFormat(allFilterPartiesO.map(ParticipantAuthorizationTopologyFormat::new)));
+    this.updateFormat =
+        new UpdateFormat(transactionFormat, Optional.of(eventFormat), topologyFormat);
+  }
+
+  public GetUpdatesRequest(
+      @NonNull Long beginExclusive,
+      @NonNull Optional<Long> endInclusive,
+      @NonNull UpdateFormat updateFormat) {
+    this.beginExclusive = beginExclusive;
+    this.endInclusive = endInclusive;
+    this.updateFormat = updateFormat;
   }
 
   public static GetUpdatesRequest fromProto(UpdateServiceOuterClass.GetUpdatesRequest request) {
-    TransactionFilter filters = TransactionFilter.fromProto(request.getFilter());
-    boolean verbose = request.getVerbose();
-    return new GetUpdatesRequest(
-        request.getBeginExclusive(),
-        request.hasEndInclusive() ? Optional.of(request.getEndInclusive()) : Optional.empty(),
-        filters,
-        verbose);
+    if (request.hasUpdateFormat()) {
+      if (request.hasFilter() || request.getVerbose())
+        throw new IllegalArgumentException(
+            "Request has both updateFormat and filter/verbose defined.");
+      return new GetUpdatesRequest(
+          request.getBeginExclusive(),
+          request.hasEndInclusive() ? Optional.of(request.getEndInclusive()) : Optional.empty(),
+          UpdateFormat.fromProto(request.getUpdateFormat()));
+    } else {
+      if (!request.hasFilter())
+        throw new IllegalArgumentException("Request has neither updateFormat nor filter defined.");
+      return new GetUpdatesRequest(
+          request.getBeginExclusive(),
+          request.hasEndInclusive() ? Optional.of(request.getEndInclusive()) : Optional.empty(),
+          TransactionFilter.fromProto(request.getFilter()),
+          request.getVerbose());
+    }
   }
 
   public UpdateServiceOuterClass.GetUpdatesRequest toProto() {
     UpdateServiceOuterClass.GetUpdatesRequest.Builder builder =
         UpdateServiceOuterClass.GetUpdatesRequest.newBuilder()
             .setBeginExclusive(beginExclusive)
-            .setFilter(this.transactionFilter.toProto())
-            .setVerbose(this.verbose);
+            .setUpdateFormat(this.updateFormat.toProto());
 
     endInclusive.ifPresent(builder::setEndInclusive);
+    return builder.build();
+  }
+
+  // TODO(#23504) remove
+  public UpdateServiceOuterClass.GetUpdatesRequest toProtoLegacy() {
+    UpdateServiceOuterClass.GetUpdatesRequest.Builder builder =
+        UpdateServiceOuterClass.GetUpdatesRequest.newBuilder()
+            .setBeginExclusive(beginExclusive)
+            .setVerbose(
+                updateFormat
+                    .getIncludeTransactions()
+                    .map(TransactionFormat::getEventFormat)
+                    .map(EventFormat::getVerbose)
+                    .orElse(false));
+
+    updateFormat
+        .getIncludeTransactions()
+        .map(TransactionFormat::getEventFormat)
+        .ifPresent(
+            t ->
+                builder.setFilter(
+                    new TransactionFilter(t.getPartyToFilters(), t.getAnyPartyFilter()).toProto()));
+
+    endInclusive.ifPresent(builder::setEndInclusive);
+
     return builder.build();
   }
 
@@ -61,15 +126,6 @@ public final class GetUpdatesRequest {
     return endInclusive;
   }
 
-  @NonNull
-  public TransactionFilter getTransactionFilter() {
-    return transactionFilter;
-  }
-
-  public boolean isVerbose() {
-    return verbose;
-  }
-
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -77,14 +133,13 @@ public final class GetUpdatesRequest {
     GetUpdatesRequest that = (GetUpdatesRequest) o;
     return Objects.equals(beginExclusive, that.beginExclusive)
         && Objects.equals(endInclusive, that.endInclusive)
-        && Objects.equals(transactionFilter, that.transactionFilter)
-        && verbose == that.verbose;
+        && Objects.equals(updateFormat, that.updateFormat);
   }
 
   @Override
   public int hashCode() {
 
-    return Objects.hash(beginExclusive, endInclusive, transactionFilter, verbose);
+    return Objects.hash(beginExclusive, endInclusive, updateFormat);
   }
 
   @Override
@@ -94,10 +149,8 @@ public final class GetUpdatesRequest {
         + beginExclusive
         + ", endInclusive="
         + endInclusive
-        + ", transactionFilter="
-        + transactionFilter
-        + ", verbose="
-        + verbose
+        + ", updateFormat="
+        + updateFormat
         + '}';
   }
 }

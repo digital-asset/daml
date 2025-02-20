@@ -14,9 +14,9 @@ import com.digitalasset.canton.util.MessageRecorder
 
 import java.nio.file.Path
 
-/** Record interactions that the Sequencer client has with its synchronizer.
-  * If enabled will record sends to the Sequencer and events received from the Sequencer subscription.
-  * Callers must call `start` with a path for recording before recording sequencer interactions.
+/** Record interactions that the Sequencer client has with its synchronizer. If enabled will record
+  * sends to the Sequencer and events received from the Sequencer subscription. Callers must call
+  * `start` with a path for recording before recording sequencer interactions.
   */
 class SequencerClientRecorder(
     path: Path,

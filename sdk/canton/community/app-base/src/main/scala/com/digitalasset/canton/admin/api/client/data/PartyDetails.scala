@@ -11,7 +11,9 @@ import scala.util.control.NoStackTrace
 
 /** Represents a party details value exposed in the Canton console
   *
-  * @param isLocal true if party is hosted by the participant and the party shares the same identity provider as the user issuing the request.
+  * @param isLocal
+  *   true if party is hosted by the participant and the party shares the same identity provider as
+  *   the user issuing the request.
   */
 final case class PartyDetails(
     party: PartyId,

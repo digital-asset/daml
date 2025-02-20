@@ -20,10 +20,12 @@ import io.grpc.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters.CompletionStageOps
 
-/** This interceptor uses the given [[com.digitalasset.canton.auth.AuthService]] to get [[com.digitalasset.canton.auth.ClaimSet.Claims]] for the current request,
-  * and then stores them in the current [[io.grpc.Context]].
+/** This interceptor uses the given [[com.digitalasset.canton.auth.AuthService]] to get
+  * [[com.digitalasset.canton.auth.ClaimSet.Claims]] for the current request, and then stores them
+  * in the current [[io.grpc.Context]].
   *
-  * @param userManagementStoreO - use None if user management is disabled
+  * @param userManagementStoreO
+  *   use None if user management is disabled
   */
 class UserBasedAuthorizationInterceptor(
     authService: AuthService,

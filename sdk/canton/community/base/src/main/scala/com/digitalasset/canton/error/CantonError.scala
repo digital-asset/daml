@@ -16,8 +16,8 @@ object ErrorCodeUtils {
 
   import cats.syntax.either.*
 
-  /** regex suitable to parse an error code string and extract the error recoverability code
-    * the (?s) supports multi-line matches
+  /** regex suitable to parse an error code string and extract the error recoverability code the
+    * (?s) supports multi-line matches
     */
   lazy val errorCodeCategoryRegexp: Regex = "(?s)^[0-9A-Z_]+\\(([0-9]+),[A-Za-z0-9]+\\).*".r
 
@@ -38,30 +38,31 @@ object ErrorCodeUtils {
 
 /** The main Canton error for everything that should be logged and notified
   *
-  * PREFER [[CantonError]] OVER [[BaseCantonError]] IN ORDER TO LOG THE ERROR IMMEDIATELY UPON CREATION
-  * TO ENSURE WE DON'T LOSE THE ERROR MESSAGE.
+  * PREFER [[CantonError]] OVER [[BaseCantonError]] IN ORDER TO LOG THE ERROR IMMEDIATELY UPON
+  * CREATION TO ENSURE WE DON'T LOSE THE ERROR MESSAGE.
   *
-  * In many cases, we return errors that are communicated to clients as a Left. For such cases,
-  * we should use CantonError to report them.
+  * In many cases, we return errors that are communicated to clients as a Left. For such cases, we
+  * should use CantonError to report them.
   *
-  * For an actual error instance, you should extend one of the given abstract error classes such as [[CantonError.Impl]]
-  * further below (or transaction error).
+  * For an actual error instance, you should extend one of the given abstract error classes such as
+  * [[CantonError.Impl]] further below (or transaction error).
   *
-  * There are two ways to communicate such an error: write it into a log or send it as a string to the user.
-  * In most cases, we'll do both: log the error appropriately locally and communicate it to the user
-  * by failing the api call with an error string.
+  * There are two ways to communicate such an error: write it into a log or send it as a string to
+  * the user. In most cases, we'll do both: log the error appropriately locally and communicate it
+  * to the user by failing the api call with an error string.
   *
   * When we log the error, then we write:
-  *   1) ErrorCode
-  *   2) ErrorName (name of the class defining the error code)
-  *   3) The cause
-  *   4) The context
+  *   1. ErrorCode
+  *   1. ErrorName (name of the class defining the error code)
+  *   1. The cause
+  *   1. The context
   *
   * The context is given by the following:
-  *   1) All arguments of the error case class turned into strings (which invokes pretty printing of the arguments)
-  *      EXCEPT: we ignore arguments that have the following RESERVED name: cause, loggingContext, throwable.
-  *   2) The context of the logger (e.g. participant=participant1, synchronizer=da)
-  *   3) The trace id.
+  *   1. All arguments of the error case class turned into strings (which invokes pretty printing of
+  *      the arguments) EXCEPT: we ignore arguments that have the following RESERVED name: cause,
+  *      loggingContext, throwable.
+  *   1. The context of the logger (e.g. participant=participant1, synchronizer=da)
+  *   1. The trace id.
   */
 trait BaseCantonError extends BaseError {
 
@@ -86,23 +87,26 @@ trait BaseCantonError extends BaseError {
 
 }
 
-/** [[CantonError]]s are logged immediately when they are created. Therefore, they usually expect
-  * an implicit [[com.digitalasset.canton.logging.ErrorLoggingContext]] to be around when they are created.
-  * If you are creating such an error in a class extending [[com.digitalasset.canton.logging.NamedLogging]],
-  * then the implicit function will provide you with such a context. If you don't have that context, then you can
-  * also use [[BaseCantonError]] and invoke the logging yourself at a later point in time (which is what we do,
-  * for example, with [[TransactionError]]).
+/** [[CantonError]]s are logged immediately when they are created. Therefore, they usually expect an
+  * implicit [[com.digitalasset.canton.logging.ErrorLoggingContext]] to be around when they are
+  * created. If you are creating such an error in a class extending
+  * [[com.digitalasset.canton.logging.NamedLogging]], then the implicit function will provide you
+  * with such a context. If you don't have that context, then you can also use [[BaseCantonError]]
+  * and invoke the logging yourself at a later point in time (which is what we do, for example, with
+  * [[TransactionError]]).
   */
 trait CantonError extends BaseCantonError {
 
-  /** The logging context obtained when we created the error, usually passed in as implicit via [[com.digitalasset.canton.logging.NamedLogging]] */
+  /** The logging context obtained when we created the error, usually passed in as implicit via
+    * [[com.digitalasset.canton.logging.NamedLogging]]
+    */
   def loggingContext: ErrorLoggingContext
 
   /** Flag to control if an error should be logged at creation
     *
     * Generally, we do want to log upon creation, except in the case of "nested" or combined errors,
-    * where we just nest the error but don't want it to be logged twice.
-    * See [[com.digitalasset.canton.error.ParentCantonError]] as an example.
+    * where we just nest the error but don't want it to be logged twice. See
+    * [[com.digitalasset.canton.error.ParentCantonError]] as an example.
     */
   def logOnCreation: Boolean = true
 
@@ -125,7 +129,9 @@ object BaseCantonError {
   )(implicit override val code: ErrorCode)
       extends BaseCantonError {}
 
-  /** Custom matcher to extract [[com.google.rpc.error_details.ErrorInfo]] from [[com.google.protobuf.any.Any]] */
+  /** Custom matcher to extract [[com.google.rpc.error_details.ErrorInfo]] from
+    * [[com.google.protobuf.any.Any]]
+    */
   object AnyToErrorInfo {
     def unapply(any: com.google.protobuf.any.Any): Option[ErrorInfo] =
       if (any.is(ErrorInfo)) {
@@ -184,6 +190,7 @@ object CantonError {
   *
   * The classic situation when we re-wrap errors:
   *
+  * {{{
   * sealed trait CryptoError extends CantonError
   *
   * sealed trait ProcessingError extends CantonError
@@ -194,14 +201,17 @@ object CantonError {
   *   // we can mixin our context variables
   *   override def mixinContext: Map[String, String] = Map("someArgs" -> someArgs)
   * }
+  * }}}
   *
-  * Now in the following situation, the someCryptoOp method would generate the CryptoError.
-  * This CryptoError would be logged already (on creation) and therefore, the ParentCantonError
-  * disabled logging on creation.
+  * Now in the following situation, the someCryptoOp method would generate the CryptoError. This
+  * CryptoError would be logged already (on creation) and therefore, the ParentCantonError disabled
+  * logging on creation.
   *
+  * {{{
   * for {
   *   _ <- someCryptoOp(..).leftMap(CryptoNoBueno("oh nooo", _))
   * } yields ()
+  * }}}
   */
 trait ParentCantonError[+T <: BaseCantonError] extends BaseCantonError {
 
@@ -219,12 +229,11 @@ trait ParentCantonError[+T <: BaseCantonError] extends BaseCantonError {
 
 /** Combine several errors into one
   *
-  * This is a rare case but can happen. In some cases, we don't have a single
-  * parent error like [[ParentCantonError]], but many of them. This trait can
-  * be used for such situations.
+  * This is a rare case but can happen. In some cases, we don't have a single parent error like
+  * [[ParentCantonError]], but many of them. This trait can be used for such situations.
   *
-  * Useful for situations with [[com.digitalasset.canton.util.CheckedT]] collecting
-  * several user errors.
+  * Useful for situations with [[com.digitalasset.canton.util.CheckedT]] collecting several user
+  * errors.
   */
 trait CombinedError[+T <: BaseCantonError] {
   this: BaseCantonError =>

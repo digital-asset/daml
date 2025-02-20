@@ -37,13 +37,13 @@ import scala.collection.immutable.SortedMap
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, blocking}
 
-/** Manages traffic purchased entries for sequencer members.
-  * This borrows concepts from topology management, in a simplified way.
-  * There is no "change delay", which has the direct consequence that traffic purchased entry updates need to be processed sequentially
-  * before subsequent messages read in the BlockUpdateGenerator can be processed.
-  * We also only here keep track of the latest *few* balance updates for each member in memory.
-  * Older traffic states will have to be fetched from the database.
-  * Traffic purchased entries can be automatically pruned from the cache AND the store according to pruningRetentionWindow.
+/** Manages traffic purchased entries for sequencer members. This borrows concepts from topology
+  * management, in a simplified way. There is no "change delay", which has the direct consequence
+  * that traffic purchased entry updates need to be processed sequentially before subsequent
+  * messages read in the BlockUpdateGenerator can be processed. We also only here keep track of the
+  * latest *few* balance updates for each member in memory. Older traffic states will have to be
+  * fetched from the database. Traffic purchased entries can be automatically pruned from the cache
+  * AND the store according to pruningRetentionWindow.
   */
 class TrafficPurchasedManager(
     val store: TrafficPurchasedStore,
@@ -88,8 +88,8 @@ class TrafficPurchasedManager(
 
   lazy val subscription = new SequencerTrafficControlSubscriber(this, loggerFactory)
 
-  /** Initializes the traffic manager lastUpdateAt with the initial timestamp from the store if it's not already set.
-    * Call before using the manager.
+  /** Initializes the traffic manager lastUpdateAt with the initial timestamp from the store if it's
+    * not already set. Call before using the manager.
     */
   def initialize(implicit tc: TraceContext): FutureUnlessShutdown[Unit] =
     store.getInitialTimestamp.map {
@@ -110,16 +110,17 @@ class TrafficPurchasedManager(
   def maxTsO: Option[CantonTimestamp] = lastUpdateAt.get()
 
   /** Notify this class that the provided timestamp has been observed by the sequencer client.
-    * Together with [[addTrafficPurchased]], this method is expected to be called sequentially with increasing timestamps.
+    * Together with [[addTrafficPurchased]], this method is expected to be called sequentially with
+    * increasing timestamps.
     */
   def tick(
       timestamp: CantonTimestamp
   )(implicit tc: TraceContext): Unit =
     updateAndCompletePendingUpdates(timestamp)
 
-  /** Add a new traffic purchased entry to the store and the cache.
-    * TrafficPurchased with a serial less or equal to the most recent one will be ignored.
-    * Together with [[tick]], this method expects to be called sequentially with balances in increasing order of sequencingTimestamp.
+  /** Add a new traffic purchased entry to the store and the cache. TrafficPurchased with a serial
+    * less or equal to the most recent one will be ignored. Together with [[tick]], this method
+    * expects to be called sequentially with balances in increasing order of sequencingTimestamp.
     * This method MUST NOT be called concurrently.
     */
   def addTrafficPurchased(
@@ -189,9 +190,9 @@ class TrafficPurchasedManager(
   ): Option[TrafficPurchased] =
     balanceValidAt(SortedMap.from(balances.map(b => b.sequencingTimestamp -> b)), timestamp)
 
-  /** Return the balance at a given timestamp, going to the DB if necessary.
-    * If the balance cannot be found in the DB despite having at least one balance persisted,
-    * return an error, as it means the balance at that timestamp must have been pruned.
+  /** Return the balance at a given timestamp, going to the DB if necessary. If the balance cannot
+    * be found in the DB despite having at least one balance persisted, return an error, as it means
+    * the balance at that timestamp must have been pruned.
     */
   private def getBalanceAt(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -236,8 +237,10 @@ class TrafficPurchasedManager(
           }
       }
 
-  /** Update [[lastUpdatedAt]], and complete pending updates for which we now have the valid balance.
-    * @param timestamp timestamp of the last update
+  /** Update [[lastUpdatedAt]], and complete pending updates for which we now have the valid
+    * balance.
+    * @param timestamp
+    *   timestamp of the last update
     */
   private def updateAndCompletePendingUpdates(
       timestamp: CantonTimestamp
@@ -283,20 +286,30 @@ class TrafficPurchasedManager(
     trafficPurchased.get(member).map(_.trafficPurchasedMap.values.lastOption)
 
   /** Return the traffic purchased entry valid at the given timestamp for the given member.
-    * TrafficPurchased are cached in this class, according to the cache size defined in trafficConfig.
-    * Requesting balances for timestamps outside of the cache will trigger a lookup in the database.
-    * The balances in this class are updated after they've been processed and validated by the sequencer client,
-    * however they can be queried on the sequencer read path. To avoid providing incorrect balance values while
-    * balance updates are "in-flight" (as in being processed by the sequencer client), the parameter lastSeen0 can be
-    * provided. This parameter indicates to the function the youngest timestamp for which the caller thinks a balance update might have been sequenced.
-    * This allows this function to compare this timestamp with the internal state, and if necessary, wait for the potential update before
-    * providing the balance.
-    * Note that if requesting a traffic purchased entry at a timestamp that has already been pruned, the function will return an error.
-    * @param member member to request the traffic purchased entry for
-    * @param desired the timestamp for which the balance is requested
-    * @param lastSeenO the youngest timestamp for which the caller thinks a balance update might have been sequenced
-    * @param warnIfApproximate if no lastSeen0 is provided, and the desired timestamp is more recent than the last update, a warning will be logged if this is true
-    * @return the traffic purchased entry valid at the given timestamp for the given member, or empty if no balance exists for that member
+    * TrafficPurchased are cached in this class, according to the cache size defined in
+    * trafficConfig. Requesting balances for timestamps outside of the cache will trigger a lookup
+    * in the database. The balances in this class are updated after they've been processed and
+    * validated by the sequencer client, however they can be queried on the sequencer read path. To
+    * avoid providing incorrect balance values while balance updates are "in-flight" (as in being
+    * processed by the sequencer client), the parameter lastSeen0 can be provided. This parameter
+    * indicates to the function the youngest timestamp for which the caller thinks a balance update
+    * might have been sequenced. This allows this function to compare this timestamp with the
+    * internal state, and if necessary, wait for the potential update before providing the balance.
+    * Note that if requesting a traffic purchased entry at a timestamp that has already been pruned,
+    * the function will return an error.
+    * @param member
+    *   member to request the traffic purchased entry for
+    * @param desired
+    *   the timestamp for which the balance is requested
+    * @param lastSeenO
+    *   the youngest timestamp for which the caller thinks a balance update might have been
+    *   sequenced
+    * @param warnIfApproximate
+    *   if no lastSeen0 is provided, and the desired timestamp is more recent than the last update,
+    *   a warning will be logged if this is true
+    * @return
+    *   the traffic purchased entry valid at the given timestamp for the given member, or empty if
+    *   no balance exists for that member
     */
   def getTrafficPurchasedAt(
       member: Member,
@@ -375,7 +388,8 @@ class TrafficPurchasedManager(
       }
     }
 
-  /** Prune traffic purchased for members such as it can be queried for timestamps as old as "timestamp"
+  /** Prune traffic purchased for members such as it can be queried for timestamps as old as
+    * "timestamp"
     */
   def prune(
       upToExclusive: CantonTimestamp
@@ -394,20 +408,27 @@ object TrafficPurchasedManager {
       extends TrafficPurchasedManagerError
 
   /** Internal class to store traffic purchased entries per member in an in memory cache
-    * @param trafficPurchasedMap traffic purchased entries, sorted by timestamp in a sorted map
-    *                        This allows to easily find the correct balance for a given timestamp
-    * @param eligibleForPruningBefore If set, this member is eligible to be pruned for balances older than this timestamp
+    * @param trafficPurchasedMap
+    *   traffic purchased entries, sorted by timestamp in a sorted map This allows to easily find
+    *   the correct balance for a given timestamp
+    * @param eligibleForPruningBefore
+    *   If set, this member is eligible to be pruned for balances older than this timestamp
     */
   private final case class TrafficPurchasedForMember(
       trafficPurchasedMap: SortedMap[CantonTimestamp, TrafficPurchased],
       eligibleForPruningBefore: AtomicReference[Option[CantonTimestamp]] = new AtomicReference(None),
   )
 
-  /** Internal class holding a promise for a request for a balance value at a timestamp that isn't available yet
-    * @param desired requested timestamp
-    * @param lastSeen timestamp for which to wait before delivering the balance
-    * @param member member for which the balance is requested
-    * @param promise promise to complete with the balance once it's available
+  /** Internal class holding a promise for a request for a balance value at a timestamp that isn't
+    * available yet
+    * @param desired
+    *   requested timestamp
+    * @param lastSeen
+    *   timestamp for which to wait before delivering the balance
+    * @param member
+    *   member for which the balance is requested
+    * @param promise
+    *   promise to complete with the balance once it's available
     */
   private final case class PendingBalanceUpdate(
       desired: CantonTimestamp,

@@ -25,7 +25,9 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.DurationConverters.ScalaDurationOps
 import scala.util.Failure
 
-/** Wraps a synchronous command client with the ability to retry commands that failed with retryable errors */
+/** Wraps a synchronous command client with the ability to retry commands that failed with retryable
+  * errors
+  */
 class CommandSubmitterWithRetry(
     commandServiceClient: CommandServiceClient,
     clock: Clock,
@@ -45,9 +47,11 @@ class CommandSubmitterWithRetry(
 
   /** Submits commands and retries timed out ones (at most the amount given by `maxRetries`)
     *
-    * @param commands to be submitted
-    * @return Future with the result of the submission. The result can signal success, failure, max retries reached
-    *         or aborted due to shutdown.
+    * @param commands
+    *   to be submitted
+    * @return
+    *   Future with the result of the submission. The result can signal success, failure, max
+    *   retries reached or aborted due to shutdown.
     */
   def submitCommands(
       commands: Commands,
@@ -66,8 +70,8 @@ class CommandSubmitterWithRetry(
 
   /** Aborts a future immediately if this object is closing.
     *
-    * For very long running futures where you don't want to wait for it to complete in case of
-    * an abort, you can wrap it here into a future unless shutdown.
+    * For very long running futures where you don't want to wait for it to complete in case of an
+    * abort, you can wrap it here into a future unless shutdown.
     */
   def abortIfClosing[R](name: String, futureSupervisor: FutureSupervisor)(
       future: => Future[R]

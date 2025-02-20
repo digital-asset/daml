@@ -35,8 +35,9 @@ trait AdminCommand[Req, Res, Result] {
 
   /** Determines within which time frame the request should complete
     *
-    * Some requests can run for a very long time. In this case, they should be "unbounded".
-    * For other requests, you will want to set a custom timeout apart from the global default bounded timeout
+    * Some requests can run for a very long time. In this case, they should be "unbounded". For
+    * other requests, you will want to set a custom timeout apart from the global default bounded
+    * timeout
     */
   def timeoutType: TimeoutType = DefaultBoundedTimeout
 
@@ -78,7 +79,9 @@ object GrpcAdminCommand {
   /** Custom timeout triggered by the client */
   final case class CustomClientTimeout(timeout: NonNegativeDuration) extends TimeoutType
 
-  /** The Server will ensure the operation is timed out so the client timeout is set to an infinite value */
+  /** The Server will ensure the operation is timed out so the client timeout is set to an infinite
+    * value
+    */
   case object ServerEnforcedTimeout extends TimeoutType
   case object DefaultBoundedTimeout extends TimeoutType
   case object DefaultUnboundedTimeout extends TimeoutType

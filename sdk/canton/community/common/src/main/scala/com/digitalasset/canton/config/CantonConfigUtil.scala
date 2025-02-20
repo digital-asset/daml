@@ -8,8 +8,8 @@ import pureconfig.generic.FieldCoproductHint
 
 object CantonConfigUtil {
 
-  /** By default pureconfig will expect our H2 config to use the value `h-2` for type.
-    * This just changes this expectation to being lower cased so `h2` will work.
+  /** By default pureconfig will expect our H2 config to use the value `h-2` for type. This just
+    * changes this expectation to being lower cased so `h2` will work.
     */
   def lowerCaseStorageConfigType[SC <: StorageConfig]: FieldCoproductHint[SC] =
     new FieldCoproductHint[SC]("type") {

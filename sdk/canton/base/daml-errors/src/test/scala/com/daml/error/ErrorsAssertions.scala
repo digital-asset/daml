@@ -17,8 +17,11 @@ import scala.jdk.CollectionConverters.*
 trait ErrorsAssertions extends Matchers with OptionValues with AppendedClues {
 
   /** NOTE: This method is not suitable for:
-    * 1) security sensitive error codes (e.g. internal or authentication related) as they are stripped from all the details when being converted to instances of [[StatusRuntimeException]],
-    * 2) error codes that do not translate to gRPC level errors (i.e. error codes that don't have a corresponding gRPC status)
+    *   1. security sensitive error codes (e.g. internal or authentication related) as they are
+    *      stripped from all the details when being converted to instances of
+    *      [[StatusRuntimeException]],
+    *   1. error codes that do not translate to gRPC level errors (i.e. error codes that don't have
+    *      a corresponding gRPC status)
     */
   def assertMatchesErrorCode(
       actual: StatusRuntimeException,
@@ -73,7 +76,8 @@ trait ErrorsAssertions extends Matchers with OptionValues with AppendedClues {
     )
   }
 
-  /** @param verifyEmptyStackTrace - should be enabled for the server-side testing and disabled for the client side testing
+  /** @param verifyEmptyStackTrace
+    *   should be enabled for the server-side testing and disabled for the client side testing
     */
   def assertError(
       actual: StatusRuntimeException,

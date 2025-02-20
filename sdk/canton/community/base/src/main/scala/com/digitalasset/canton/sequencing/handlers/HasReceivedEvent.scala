@@ -18,7 +18,8 @@ class HasReceivedEvent {
   def awaitEvent: Future[Unit] = promise.future
 }
 
-/** Capture whether the handler has been supplied an event (not whether it has been successfully processed)
+/** Capture whether the handler has been supplied an event (not whether it has been successfully
+  * processed)
   */
 object HasReceivedEvent {
   def apply[E](

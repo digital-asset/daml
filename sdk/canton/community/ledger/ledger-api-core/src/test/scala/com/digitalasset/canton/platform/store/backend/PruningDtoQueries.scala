@@ -11,8 +11,8 @@ import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions
 
 import java.sql.Connection
 
-/** Contains dto classes each holding a minimal set of data sufficient
-  * to uniquely identify a row in the corresponding table.
+/** Contains dto classes each holding a minimal set of data sufficient to uniquely identify a row in
+  * the corresponding table.
   */
 object PruningDto {
 

@@ -36,15 +36,15 @@ import io.scalaland.chimney.{PartialTransformer, Transformer}
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Class to encode an LF Transaction and its metadata to a PreparedTransaction.
-  * Uses chimney to define Transformers and PartialTransformer for all conversions.
+/** Class to encode an LF Transaction and its metadata to a PreparedTransaction. Uses chimney to
+  * define Transformers and PartialTransformer for all conversions.
   */
 final class PreparedTransactionEncoder(
     override val loggerFactory: NamedLoggerFactory
 ) extends NamedLogging {
 
-  /** Defines the mapping between LF version and Encoding versions.
-    * An encoding version can be used for several LF Versions.
+  /** Defines the mapping between LF version and Encoding versions. An encoding version can be used
+    * for several LF Versions.
     */
   private val nodeTransformers = Map(
     LanguageVersion.v2_1 -> v1.nodeTransformer(LanguageVersion.v2_1),

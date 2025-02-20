@@ -16,11 +16,16 @@ import com.google.protobuf.ByteString
 
 /** Result message that the mediator sends to all informees of a request with its verdict.
   *
-  * @param synchronizerId the synchronizer on which the request is running
-  * @param viewType determines which processor (transaction / reassignment) must process this message
-  * @param requestId unique identifier of the confirmation request
-  * @param rootHash hash over the contents of the request
-  * @param verdict the finalized verdict on the request
+  * @param synchronizerId
+  *   the synchronizer on which the request is running
+  * @param viewType
+  *   determines which processor (transaction / reassignment) must process this message
+  * @param requestId
+  *   unique identifier of the confirmation request
+  * @param rootHash
+  *   hash over the contents of the request
+  * @param verdict
+  *   the finalized verdict on the request
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
 case class ConfirmationResultMessage private (

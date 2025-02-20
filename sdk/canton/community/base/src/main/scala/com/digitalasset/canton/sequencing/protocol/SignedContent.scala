@@ -36,9 +36,11 @@ import com.google.protobuf.ByteString
 
 import scala.concurrent.ExecutionContext
 
-/** @param timestampOfSigningKey The timestamp of the topology snapshot that was used for signing the content.
-  *                              [[scala.None$]] if the signing timestamp can be derived from the content.
-  * @param signatures            Signatures of the content provided by the different sequencers.
+/** @param timestampOfSigningKey
+  *   The timestamp of the topology snapshot that was used for signing the content. [[scala.None$]]
+  *   if the signing timestamp can be derived from the content.
+  * @param signatures
+  *   Signatures of the content provided by the different sequencers.
   */
 final case class SignedContent[+A <: HasCryptographicEvidence] private (
     content: A,
@@ -152,7 +154,8 @@ object SignedContent
       )
     }
 
-  /** Creates a new signed content from scratch. Use when creating without having an existing serialized SignedContent.
+  /** Creates a new signed content from scratch. Use when creating without having an existing
+    * serialized SignedContent.
     */
   def create[A <: HasCryptographicEvidence](
       content: A,

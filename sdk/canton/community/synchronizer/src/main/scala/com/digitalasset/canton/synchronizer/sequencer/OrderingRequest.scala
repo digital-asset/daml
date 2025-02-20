@@ -17,8 +17,10 @@ import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
 /** Wrapper for requests sent by a sequencer to the ordering layer.
-  * @param sequencerId sequencerId of the sequencer requesting ordering
-  * @param content content to be ordered
+  * @param sequencerId
+  *   sequencerId of the sequencer requesting ordering
+  * @param content
+  *   content to be ordered
   */
 final case class OrderingRequest[+A <: HasCryptographicEvidence] private (
     sequencerId: SequencerId,

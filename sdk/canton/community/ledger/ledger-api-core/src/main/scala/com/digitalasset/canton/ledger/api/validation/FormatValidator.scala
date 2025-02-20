@@ -18,6 +18,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
   UpdateFormat as ProtoUpdateFormat,
   WildcardFilter,
 }
+import com.digitalasset.canton.ledger.api.TransactionShape.AcsDelta
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
@@ -50,6 +51,34 @@ object FormatValidator {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, EventFormat] =
     validate(ProtoEventFormat(txFilter.filtersByParty, txFilter.filtersForAnyParty, verbose))
+
+  // TODO(i23504) Cleanup
+  def validateLegacyToUpdateFormat(
+      txFilter: ProtoTransactionFilter,
+      verbose: Boolean,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, UpdateFormat] =
+    for {
+      eventFormat <- FormatValidator.validate(txFilter, verbose)
+      filterPartiesO = eventFormat.filtersForAnyParty match {
+        case Some(_) => None // wildcard
+        case None => Some(eventFormat.filtersByParty.keySet)
+      }
+    } yield UpdateFormat(
+      includeTransactions =
+        Some(TransactionFormat(eventFormat = eventFormat, transactionShape = AcsDelta)),
+      includeReassignments = Some(eventFormat),
+      includeTopologyEvents = Some(
+        TopologyFormat(
+          Some(
+            ParticipantAuthorizationFormat(
+              filterPartiesO
+            )
+          )
+        )
+      ),
+    )
 
   def validate(eventFormat: ProtoEventFormat)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

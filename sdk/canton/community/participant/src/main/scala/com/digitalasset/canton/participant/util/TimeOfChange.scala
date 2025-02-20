@@ -11,8 +11,10 @@ import slick.jdbc.GetResult
 
 /** The time when a change of state has happened.
   *
-  * @param rc The request counter on the request that triggered the change
-  * @param timestamp The timestamp when this change takes place.
+  * @param rc
+  *   The request counter on the request that triggered the change
+  * @param timestamp
+  *   The timestamp when this change takes place.
   */
 final case class TimeOfChange(rc: RequestCounter, timestamp: CantonTimestamp)
     extends PrettyPrinting {

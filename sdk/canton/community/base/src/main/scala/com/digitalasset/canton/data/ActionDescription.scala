@@ -39,8 +39,8 @@ import com.google.protobuf.ByteString
 import monocle.Lens
 import monocle.macros.GenLens
 
-/** Summarizes the information that is needed in addition to the other fields of [[ViewParticipantData]] for
-  * determining the root action of a view.
+/** Summarizes the information that is needed in addition to the other fields of
+  * [[ViewParticipantData]] for determining the root action of a view.
   */
 sealed trait ActionDescription
     extends Product
@@ -92,7 +92,9 @@ object ActionDescription extends VersioningCompanion[ActionDescription] {
     )
 
   /** Extracts the action description from an LF node and the optional seed.
-    * @param seedO Must be set iff `node` is a [[com.digitalasset.canton.protocol.LfNodeCreate]] or [[com.digitalasset.canton.protocol.LfNodeExercises]].
+    * @param seedO
+    *   Must be set iff `node` is a [[com.digitalasset.canton.protocol.LfNodeCreate]] or
+    *   [[com.digitalasset.canton.protocol.LfNodeExercises]].
     */
   def fromLfActionNode(
       actionNode: LfActionNode,

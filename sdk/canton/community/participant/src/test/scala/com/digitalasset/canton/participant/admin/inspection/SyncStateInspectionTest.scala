@@ -155,9 +155,12 @@ sealed trait SyncStateInspectionTest
 
   /** a small class to define the hashes between received and sent.
     *
-    * @param isVerbose (default: false) tell if hashes should be included.
-    * @param isOwnDefault (default: true) tells if the generation should use default for its own hash.
-    * @param isCounterDefault (default: true) tell if the generation should use default for its counters hash.
+    * @param isVerbose
+    *   (default: false) tell if hashes should be included.
+    * @param isOwnDefault
+    *   (default: true) tells if the generation should use default for its own hash.
+    * @param isCounterDefault
+    *   (default: true) tell if the generation should use default for its counters hash.
     *
     * you can use the inverse() to build the corresponding HashingState for the other dummy
     */
@@ -184,8 +187,8 @@ sealed trait SyncStateInspectionTest
   }
 
   /** This message creates a dummy commitment that can be persisted with store.storeReceived method.
-    * It also returns the corresponding ReceivedAcsCommitment for comparison.
-    * The ReceivedAcsCommitment is in state Outstanding.
+    * It also returns the corresponding ReceivedAcsCommitment for comparison. The
+    * ReceivedAcsCommitment is in state Outstanding.
     */
   def createDummyReceivedCommitment(
       synchronizerId: SynchronizerId,
@@ -231,8 +234,8 @@ sealed trait SyncStateInspectionTest
   }
 
   /** This message creates a dummy commitment that can be persisted with store.storeComputed method.
-    * It also returns the corresponding SentAcsCommitment for comparison.
-    * The SentAcsCommitment is in state Outstanding.
+    * It also returns the corresponding SentAcsCommitment for comparison. The SentAcsCommitment is
+    * in state Outstanding.
     */
   def createDummyComputedCommitment(
       synchronizerId: SynchronizerId,

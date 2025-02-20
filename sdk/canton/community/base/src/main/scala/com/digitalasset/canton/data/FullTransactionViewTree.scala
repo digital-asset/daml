@@ -10,9 +10,9 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 
 import scala.annotation.tailrec
 
-/** Wraps a `GenTransactionTree` where exactly one view (including subviews) is unblinded.
-  * The `commonMetadata` and `participantMetadata` are also unblinded.
-  * The `submitterMetadata` is unblinded if and only if the unblinded view is a root view.
+/** Wraps a `GenTransactionTree` where exactly one view (including subviews) is unblinded. The
+  * `commonMetadata` and `participantMetadata` are also unblinded. The `submitterMetadata` is
+  * unblinded if and only if the unblinded view is a root view.
   */
 final case class FullTransactionViewTree private (tree: GenTransactionTree)
     extends TransactionViewTree
@@ -48,8 +48,8 @@ final case class FullTransactionViewTree private (tree: GenTransactionTree)
 
 object FullTransactionViewTree {
 
-  /** @throws TransactionViewTree$.InvalidTransactionViewTree if tree is not a transaction view tree
-    *                                                         (i.e. the wrong set of nodes is blinded)
+  /** @throws TransactionViewTree$.InvalidTransactionViewTree
+    *   if tree is not a transaction view tree (i.e. the wrong set of nodes is blinded)
     */
   def tryCreate(tree: GenTransactionTree): FullTransactionViewTree =
     create(tree).valueOr(msg => throw InvalidTransactionViewTree(msg))

@@ -21,20 +21,23 @@ import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.util.SetsUtil.requireDisjoint
 import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 
-/** Describes the effect of a confirmation request on the active contracts, contract keys, and reassignments.
-  * Transient contracts appear the following two sets:
-  * <ol>
-  *   <li>The union of [[creations]] and [[assignments]]</li>
-  *   <li>The union of [[archivals]] or [[unassignments]]</li>
-  * </ol>
+/** Describes the effect of a confirmation request on the active contracts, contract keys, and
+  * reassignments. Transient contracts appear the following two sets:
+  *   - The union of [[creations]] and [[assignments]]
+  *   - The union of [[archivals]] or [[unassignments]]
   *
-  * @param archivals    The contracts to be archived, along with their stakeholders. Must not contain contracts in [[unassignments]].
-  * @param creations    The contracts to be created.
-  * @param unassignments The contracts to be unassigned, along with their target synchronizers and stakeholders.
-  *                     Must not contain contracts in [[archivals]].
-  * @param assignments  The contracts to be assigned, along with their reassignment IDs.
-  * @throws java.lang.IllegalArgumentException if `unassignments` overlap with `archivals`
-  *                                            or `creations` overlaps with `assignments`.
+  * @param archivals
+  *   The contracts to be archived, along with their stakeholders. Must not contain contracts in
+  *   [[unassignments]].
+  * @param creations
+  *   The contracts to be created.
+  * @param unassignments
+  *   The contracts to be unassigned, along with their target synchronizers and stakeholders. Must
+  *   not contain contracts in [[archivals]].
+  * @param assignments
+  *   The contracts to be assigned, along with their reassignment IDs.
+  * @throws java.lang.IllegalArgumentException
+  *   if `unassignments` overlap with `archivals` or `creations` overlaps with `assignments`.
   */
 final case class CommitSet(
     archivals: Map[LfContractId, ArchivalCommit],

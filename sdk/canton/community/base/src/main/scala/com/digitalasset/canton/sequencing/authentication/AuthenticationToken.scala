@@ -27,7 +27,8 @@ final case class AuthenticationToken private[authentication] (private val bytes:
 
   override def getCryptographicEvidence: ByteString = bytes
 
-  /** Custom equals implementation so that the runtime is independent of the position of the first differing byte.
+  /** Custom equals implementation so that the runtime is independent of the position of the first
+    * differing byte.
     */
   override def equals(obj: Any): Boolean =
     obj match {
@@ -46,7 +47,8 @@ final case class AuthenticationToken private[authentication] (private val bytes:
 
 object AuthenticationToken {
 
-  /** As of now, the database schemas can only handle authentication tokens up to a length of 150 bytes. Thus the length of an [[AuthenticationToken]] should never exceed that.
+  /** As of now, the database schemas can only handle authentication tokens up to a length of 150
+    * bytes. Thus the length of an [[AuthenticationToken]] should never exceed that.
     */
   val length: Int = 20
 

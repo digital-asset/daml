@@ -29,11 +29,15 @@ import scala.annotation.tailrec
 object ActivationsDeactivationsConsistencyCheck {
 
   /** Checks whether a new change is consistent with previous changes
-    * @param cid ID of the contract
-    * @param toc Time of change of the new change
-    * @param changes All the changes, ordered by time of change. If two changes have the same toc,
-    *                the activation should come before the deactivation.
-    * @return List of issues.
+    * @param cid
+    *   ID of the contract
+    * @param toc
+    *   Time of change of the new change
+    * @param changes
+    *   All the changes, ordered by time of change. If two changes have the same toc, the activation
+    *   should come before the deactivation.
+    * @return
+    *   List of issues.
     */
   def apply(
       cid: LfContractId,

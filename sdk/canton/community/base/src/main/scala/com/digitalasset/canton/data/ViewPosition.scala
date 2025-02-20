@@ -12,12 +12,12 @@ import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.DeterministicEncoding
 import com.google.protobuf.ByteString
 
-/** A position encodes the path from a view in a [[GenTransactionTree]] to its root.
-  * The encoding must not depend on the hashes of the nodes.
+/** A position encodes the path from a view in a [[GenTransactionTree]] to its root. The encoding
+  * must not depend on the hashes of the nodes.
   *
-  * @param position The path from the view to the root as a singly-linked list.
-  *                 The path starts at the view rather than the root so that paths to the root can
-  *                 be shared.
+  * @param position
+  *   The path from the view to the root as a singly-linked list. The path starts at the view rather
+  *   than the root so that paths to the root can be shared.
   */
 final case class ViewPosition(position: List[MerklePathElement]) extends PrettyPrinting {
 

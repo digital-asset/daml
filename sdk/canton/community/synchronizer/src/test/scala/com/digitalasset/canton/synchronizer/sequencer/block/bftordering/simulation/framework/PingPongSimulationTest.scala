@@ -7,7 +7,10 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
+  P2PEndpoint,
+  PlainTextP2PEndpoint,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
   SystemInitializationResult,
   SystemInitializer,
@@ -147,7 +150,7 @@ final case class PingerClient[E <: Env[E]](
 object TestSystem {
 
   def mkPinger[E <: Env[E]](
-      pongerEndpoint: Endpoint,
+      pongerEndpoint: P2PEndpoint,
       recorder: Recorder,
       loggerFactory: NamedLoggerFactory,
       timeouts: ProcessingTimeout,
@@ -175,7 +178,7 @@ object TestSystem {
     }
 
   def mkPonger[E <: Env[E]](
-      pingerEndpoint: Endpoint,
+      pingerEndpoint: P2PEndpoint,
       recorder: Recorder,
       loggerFactory: NamedLoggerFactory,
       timeouts: ProcessingTimeout,
@@ -229,8 +232,8 @@ class PingPongSimulationTest extends AnyFlatSpec with BaseTest {
     )
 
     val fakePort = Port.tryCreate(0)
-    val pingerEndpoint = Endpoint("pinger", fakePort)
-    val pongerEndpoint = Endpoint("ponger", fakePort)
+    val pingerEndpoint = PlainTextP2PEndpoint("pinger", fakePort)
+    val pongerEndpoint = PlainTextP2PEndpoint("ponger", fakePort)
     val recorder = new Recorder
 
     val topologyInit = Map(

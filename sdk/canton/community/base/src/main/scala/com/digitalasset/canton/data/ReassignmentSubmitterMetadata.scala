@@ -10,9 +10,9 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{ParticipantId, UniqueIdentifier}
 
-/** Information about the submitters of the transaction in the case of a reassignment.
-  * This data structure is quite similar to [[com.digitalasset.canton.data.SubmitterMetadata]]
-  * but differ on a small number of fields.
+/** Information about the submitters of the transaction in the case of a reassignment. This data
+  * structure is quite similar to [[com.digitalasset.canton.data.SubmitterMetadata]] but differ on a
+  * small number of fields.
   */
 final case class ReassignmentSubmitterMetadata(
     submitter: LfPartyId,

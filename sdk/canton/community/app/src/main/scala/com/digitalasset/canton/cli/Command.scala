@@ -15,7 +15,8 @@ object Command {
 
   /** Run a console script then close
     *
-    * @param scriptPath the path to the script
+    * @param scriptPath
+    *   the path to the script
     */
   final case class RunScript(scriptPath: File) extends Command
 

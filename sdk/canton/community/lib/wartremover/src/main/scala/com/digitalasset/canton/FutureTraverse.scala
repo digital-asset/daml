@@ -8,16 +8,15 @@ import org.wartremover.{WartTraverser, WartUniverse}
 
 import scala.annotation.StaticAnnotation
 
-/** Cats' traverse and sequence methods do not specify the evaluation behaviour
-  * and this behaviour has changed between minor versions (e.g., 2.6 and 2.7).
-  * When we traverse over containers, we should therefore be explicit whether the traversal
-  * is parallel or sequential. This wart flags all usages of Cats' syntax extensions
-  * for future-like applicatives, except when used with the singleton containers
-  * [[scala.Option]] and [[scala.Either]].
+/** Cats' traverse and sequence methods do not specify the evaluation behaviour and this behaviour
+  * has changed between minor versions (e.g., 2.6 and 2.7). When we traverse over containers, we
+  * should therefore be explicit whether the traversal is parallel or sequential. This wart flags
+  * all usages of Cats' syntax extensions for future-like applicatives, except when used with the
+  * singleton containers [[scala.Option]] and [[scala.Either]].
   *
   * Limitations:
-  * - It does not flag traverse calls whose applicative instance is more general
-  *   and can be instantiated with a future-like instance.
+  *   - It does not flag traverse calls whose applicative instance is more general and can be
+  *     instantiated with a future-like instance.
   */
 object FutureTraverse extends WartTraverser {
   def errorMessageFor(methodName: String, hint: String = ""): String =
@@ -200,8 +199,8 @@ object FutureTraverse extends WartTraverser {
   }
 }
 
-/** Annotated type constructors will be treated like a [[scala.concurrent.Future]]
-  * when looking for traverse-like calls with such an applicative instance.
+/** Annotated type constructors will be treated like a [[scala.concurrent.Future]] when looking for
+  * traverse-like calls with such an applicative instance.
   */
 final class DoNotTraverseLikeFuture extends StaticAnnotation
 

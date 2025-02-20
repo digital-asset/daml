@@ -24,9 +24,9 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 /** Base class for running persistent store-level tests.
   *
   * Features:
-  * - Before all test cases creates a new database and applies the flyway migrations to it.
-  * - Before each test case resets the contents of the database.
-  * - Ensures that at most one test case runs at a time.
+  *   - Before all test cases creates a new database and applies the flyway migrations to it.
+  *   - Before each test case resets the contents of the database.
+  *   - Ensures that at most one test case runs at a time.
   */
 trait PersistentStoreSpecBase extends BaseTest with BeforeAndAfterEach with BeforeAndAfterAll {
   this: Suite & StorageBackendProvider =>

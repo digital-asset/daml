@@ -23,7 +23,8 @@ object SubSource {
 
   /** Applicable when the persistence layer supports efficient range queries.
     *
-    * @param getRange (startInclusive, endInclusive) => Source[(Index, T), NotUsed]
+    * @param getRange
+    *   (startInclusive, endInclusive) => Source[(Index, T), NotUsed]
     */
   final case class RangeSource[Index, T](
       getRange: (Index, Index) => Source[(Index, T), NotUsed]

@@ -36,8 +36,8 @@ import scala.collection.immutable.SortedSet
 import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.*
 
-/** Thrown when a record that must be unique is inserted with a non-unique key.
-  * Mirrors the type of exceptions that we would expect to see from a database.
+/** Thrown when a record that must be unique is inserted with a non-unique key. Mirrors the type of
+  * exceptions that we would expect to see from a database.
   */
 class UniqueKeyViolationException(message: String) extends RuntimeException(message)
 
@@ -453,7 +453,9 @@ class InMemorySequencerStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.unit
 
-  /** Members must be registered to receive a memberId, so can typically assume they exist in this structure */
+  /** Members must be registered to receive a memberId, so can typically assume they exist in this
+    * structure
+    */
   private def lookupExpectedMember(memberId: SequencerMemberId): Member =
     members
       .collectFirst { case (member, RegisteredMember(`memberId`, _, _)) =>

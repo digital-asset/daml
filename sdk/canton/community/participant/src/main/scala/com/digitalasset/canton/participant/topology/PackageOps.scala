@@ -100,8 +100,9 @@ class PackageOpsImpl(
         )
       }
 
-  /** @return true if the authorized snapshot, or any synchronizer snapshot has a package vetting entry for the package
-    *         regardless of the validity period of the package.
+  /** @return
+    *   true if the authorized snapshot, or any synchronizer snapshot has a package vetting entry
+    *   for the package regardless of the validity period of the package.
     */
   override def hasVettedPackageEntry(
       packageId: PackageId
@@ -165,8 +166,8 @@ class PackageOpsImpl(
       "revoke vetting",
     )
 
-  /** Returns true if a new VettedPackages transaction was authorized.
-    * modifyVettedPackages should not be called concurrently
+  /** Returns true if a new VettedPackages transaction was authorized. modifyVettedPackages should
+    * not be called concurrently
     */
   private def modifyVettedPackages(
       action: Seq[VettedPackage] => Seq[VettedPackage]

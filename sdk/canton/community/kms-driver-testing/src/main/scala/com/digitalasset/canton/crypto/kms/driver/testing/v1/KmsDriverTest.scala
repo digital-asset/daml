@@ -31,10 +31,11 @@ trait KmsDriverTest extends AsyncWordSpec with BaseTest with HasExecutionContext
   /** Create a new specific KMS Driver instance */
   protected def newKmsDriver(): KmsDriver
 
-  /** Test Suite for a KMS Driver.
-    * A new driver is created using `newKmsDriver` if necessary.
+  /** Test Suite for a KMS Driver. A new driver is created using `newKmsDriver` if necessary.
     *
-    * @param allowKeyGeneration Allow the generation of keys during the test. If false, the predefined keys have to be configured.
+    * @param allowKeyGeneration
+    *   Allow the generation of keys during the test. If false, the predefined keys have to be
+    *   configured.
     */
   def kmsDriver(allowKeyGeneration: Boolean): Unit = {
 

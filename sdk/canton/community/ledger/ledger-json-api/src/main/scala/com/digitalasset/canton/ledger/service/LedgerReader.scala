@@ -27,7 +27,8 @@ final case class LedgerReader(loggerFactory: NamedLoggerFactory)
     with NoTracing {
   import LedgerReader.*
 
-  /** @return [[LedgerReader.UpToDate]] if packages did not change
+  /** @return
+    *   [[LedgerReader.UpToDate]] if packages did not change
     */
   def loadPackageStoreUpdates(
       client: PackageClient,

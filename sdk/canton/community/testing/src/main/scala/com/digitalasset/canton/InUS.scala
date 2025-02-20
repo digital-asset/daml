@@ -8,7 +8,8 @@ import org.scalactic.source.Position
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpecLike
 
-/** This trait allows the use of `inUS` in place of `in` when working with tests that return FutureUnlessShutdown
+/** This trait allows the use of `inUS` in place of `in` when working with tests that return
+  * FutureUnlessShutdown
   */
 trait InUS {
 

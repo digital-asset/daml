@@ -18,15 +18,19 @@ import scala.concurrent.blocking
 
 /** The in-memory fan-out buffer.
   *
-  * This buffer stores the last ingested `maxBufferSize` accepted and rejected submission updates
-  * as [[com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate]] and allows bypassing IndexDB persistence fetches for recent updates for:
+  * This buffer stores the last ingested `maxBufferSize` accepted and rejected submission updates as
+  * [[com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate]] and allows bypassing
+  * IndexDB persistence fetches for recent updates for:
   *   - flat and transaction tree streams
   *   - command completion streams
   *   - by-event-id and by-transaction-id flat and transaction tree lookups
   *
-  * @param maxBufferSize The maximum buffer size.
-  * @param metrics The Daml metrics.
-  * @param maxBufferedChunkSize The maximum size of buffered chunks returned by `slice`.
+  * @param maxBufferSize
+  *   The maximum buffer size.
+  * @param metrics
+  *   The Daml metrics.
+  * @param maxBufferedChunkSize
+  *   The maximum size of buffered chunks returned by `slice`.
   */
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class InMemoryFanoutBuffer(
@@ -49,7 +53,8 @@ class InMemoryFanoutBuffer(
     *
     * Starts evicting from the tail when `maxBufferSize` is reached.
     *
-    * @param entry The buffer entry.
+    * @param entry
+    *   The buffer entry.
     */
   def push(entry: TransactionLogUpdate): Unit =
     Timed.value(
@@ -78,11 +83,15 @@ class InMemoryFanoutBuffer(
 
   /** Returns a slice of events from the buffer.
     *
-    * @param startInclusive The start inclusive bound of the requested range.
-    * @param endInclusive The end inclusive bound of the requested range.
-    * @param filter A lambda function that allows pre-filtering the buffered elements
-    *               before assembling `maxBufferedChunkSize`-sized slices.
-    * @return A slice of the series of events as an ordered vector satisfying the input bounds.
+    * @param startInclusive
+    *   The start inclusive bound of the requested range.
+    * @param endInclusive
+    *   The end inclusive bound of the requested range.
+    * @param filter
+    *   A lambda function that allows pre-filtering the buffered elements before assembling
+    *   `maxBufferedChunkSize`-sized slices.
+    * @return
+    *   A slice of the series of events as an ordered vector satisfying the input bounds.
     */
   def slice[FILTER_RESULT](
       startInclusive: Offset,
@@ -137,7 +146,8 @@ class InMemoryFanoutBuffer(
 
   /** Removes entries starting from the buffer head up until `endInclusive`.
     *
-    * @param endInclusive The last inclusive (highest) buffer offset to be pruned.
+    * @param endInclusive
+    *   The last inclusive (highest) buffer offset to be pruned.
     */
   def prune(endInclusive: Offset): Unit =
     Timed.value(
@@ -210,11 +220,15 @@ private[platform] object InMemoryFanoutBuffer {
 
   object BufferSlice {
 
-    /** A slice of a vector that is inclusive (start index of the slice in the source vector is gteq to 1) */
+    /** A slice of a vector that is inclusive (start index of the slice in the source vector is gteq
+      * to 1)
+      */
     private[platform] final case class Inclusive[ELEM](slice: Vector[ELEM])
         extends BufferSlice[ELEM]
 
-    /** A slice of a vector that is a suffix of the requested window (i.e. start index of the slice in the source vector is 0) */
+    /** A slice of a vector that is a suffix of the requested window (i.e. start index of the slice
+      * in the source vector is 0)
+      */
     private[platform] final case class LastBufferChunkSuffix[ELEM](
         bufferedStartExclusive: Offset,
         slice: Vector[ELEM],

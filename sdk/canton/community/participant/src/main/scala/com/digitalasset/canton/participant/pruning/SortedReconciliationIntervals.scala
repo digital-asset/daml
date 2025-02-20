@@ -13,13 +13,13 @@ import java.time.temporal.ChronoUnit
 import scala.annotation.tailrec
 import scala.math.Ordering.Implicits.*
 
-/** Reconciliation intervals, with their validity intervals, sorted by
-  * validFrom in decreasing order.
-  * Note: the factory method ensures that the intervals are pairwise disjoint.
+/** Reconciliation intervals, with their validity intervals, sorted by validFrom in decreasing
+  * order. Note: the factory method ensures that the intervals are pairwise disjoint.
   *
-  * @param intervals Sorted intervals
-  * @param validUntil The data contained in the intervals is valid only
-  *                   for timestamps <= `validUntil`.
+  * @param intervals
+  *   Sorted intervals
+  * @param validUntil
+  *   The data contained in the intervals is valid only for timestamps <= `validUntil`.
   */
 final case class SortedReconciliationIntervals private (
     intervals: List[ReconciliationInterval],
@@ -27,8 +27,10 @@ final case class SortedReconciliationIntervals private (
 ) {
 
   /** Check whether `ts` is on a commitment tick.
-    * @return [[scala.None$]] if `ts > validUntil`
-    * Note: [[com.digitalasset.canton.data.CantonTimestamp.MinValue]] is always considered to fall on a tick.
+    * @return
+    *   [[scala.None$]] if `ts > validUntil` Note:
+    *   [[com.digitalasset.canton.data.CantonTimestamp.MinValue]] is always considered to fall on a
+    *   tick.
     */
   def isAtTick(ts: CantonTimestamp): Option[Boolean] = CantonTimestampSecond
     .fromCantonTimestamp(ts) match {
@@ -37,8 +39,10 @@ final case class SortedReconciliationIntervals private (
   }
 
   /** Check whether `ts` is on a commitment tick.
-    * @return [[scala.None$]] if `ts > validUntil`
-    * Note: [[com.digitalasset.canton.data.CantonTimestampSecond.MinValue]] is always considered to fall on a tick.
+    * @return
+    *   [[scala.None$]] if `ts > validUntil` Note:
+    *   [[com.digitalasset.canton.data.CantonTimestampSecond.MinValue]] is always considered to fall
+    *   on a tick.
     */
   def isAtTick(ts: CantonTimestampSecond): Option[Boolean] =
     if (ts == CantonTimestampSecond.MinValue) Some(true)
@@ -54,8 +58,9 @@ final case class SortedReconciliationIntervals private (
         .orElse(Some(false))
 
   /** Returns the latest tick which is <= ts
-    * @return [[scala.None$]] if `ts > validUntil`
-    * If we query for inside a gap (when no synchronizer parameters are valid), previous ones are used.
+    * @return
+    *   [[scala.None$]] if `ts > validUntil` If we query for inside a gap (when no synchronizer
+    *   parameters are valid), previous ones are used.
     */
   def tickBeforeOrAt(
       ts: CantonTimestamp
@@ -87,8 +92,9 @@ final case class SortedReconciliationIntervals private (
     }
 
   /** Returns the latest tick which is < ts
-    * @return [[scala.None$]] if `ts > validUntil` or if `ts = CantonTimestamp.MinValue`
-    * If we query for inside a gap (when no synchronizer parameters are valid), previous ones are used.
+    * @return
+    *   [[scala.None$]] if `ts > validUntil` or if `ts = CantonTimestamp.MinValue` If we query for
+    *   inside a gap (when no synchronizer parameters are valid), previous ones are used.
     */
   def tickBefore(ts: CantonTimestamp): Option[CantonTimestampSecond] =
     if (ts == CantonTimestamp.MinValue || ts > validUntil)
@@ -115,9 +121,10 @@ final case class SortedReconciliationIntervals private (
 
   /** calls `commitPeriodPreceding`
     *
-    *  however in the case the `endOfPreviousPeriod` is undefined then it calculates a single period that spans from `periodEnd - reconciliationInterval` to `periodEnd`.
+    * however in the case the `endOfPreviousPeriod` is undefined then it calculates a single period
+    * that spans from `periodEnd - reconciliationInterval` to `periodEnd`.
     *
-    *  This prevents us from computing all periods from `CantonTimestamp.MinValue` to `periodEnd`
+    * This prevents us from computing all periods from `CantonTimestamp.MinValue` to `periodEnd`
     */
   def commitmentPeriodPrecedingFixedLowerBound(
       periodEnd: CantonTimestampSecond,
@@ -135,10 +142,9 @@ final case class SortedReconciliationIntervals private (
       }
     }
 
-  /** Returns the tick before or at the specified timestamp `ts` considering the
-    * reconciliation interval `intervalLength`.
-    * Unlike other methods, this one considers the case where `intervalLength` is
-    * valid at each point in time.
+  /** Returns the tick before or at the specified timestamp `ts` considering the reconciliation
+    * interval `intervalLength`. Unlike other methods, this one considers the case where
+    * `intervalLength` is valid at each point in time.
     */
   private def tickBeforeOrAtForIntervalLength(
       ts: CantonTimestamp,

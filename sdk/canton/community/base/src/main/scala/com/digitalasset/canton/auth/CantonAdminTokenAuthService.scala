@@ -22,8 +22,8 @@ object CantonAdminToken {
 /** AuthService interceptor used for internal canton services
   *
   * Internal Canton services such as the PingService or the DarService require access to the
-  * Ledger-Api server. However, if the Ledger-Api server is configured with JWT, they will fail.
-  * But we can't expect that Canton obtains an oauth token from a third party service during startup.
+  * Ledger-Api server. However, if the Ledger-Api server is configured with JWT, they will fail. But
+  * we can't expect that Canton obtains an oauth token from a third party service during startup.
   *
   * Therefore, we create on each startup a master token which is only ever shared internally.
   */

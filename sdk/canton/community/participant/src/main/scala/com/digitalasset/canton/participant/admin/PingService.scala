@@ -61,18 +61,23 @@ import scala.concurrent.duration.{DurationLong, FiniteDuration}
 import scala.jdk.CollectionConverters.*
 import scala.jdk.DurationConverters.JavaDurationOps
 
-/** Implements the core of the ledger ping service for a participant.
-  * The service measures the time needed for a nanobot on the responder to act on a contract created by the initiator.
+/** Implements the core of the ledger ping service for a participant. The service measures the time
+  * needed for a nanobot on the responder to act on a contract created by the initiator.
   *
   * The main functionality:
-  * 1. once instantiated, it automatically starts a Scala Nanobot that responds to pings for this participant
-  * 2. it provides a ping method that sends a ping to the given (target) party
+  *   1. once instantiated, it automatically starts a Scala Nanobot that responds to pings for this
+  *      participant
+  *   1. it provides a ping method that sends a ping to the given (target) party
   *
   * Parameters:
-  * @param adminPartyId PartyId            the party on whose behalf to send/respond to pings
-  * @param maxLevelSupported Long          the maximum level we will participate in "Explode / Collapse" Pings
-  * @param loggerFactory NamedLogger       logger
-  * @param clock Clock                     clock for regular garbage collection of duplicates and merges
+  * @param adminPartyId
+  *   PartyId the party on whose behalf to send/respond to pings
+  * @param maxLevelSupported
+  *   Long the maximum level we will participate in "Explode / Collapse" Pings
+  * @param loggerFactory
+  *   NamedLogger logger
+  * @param clock
+  *   Clock clock for regular garbage collection of duplicates and merges
   */
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class PingService(
@@ -183,9 +188,9 @@ object PingService {
   /** Cleanup time: when will we deregister pings after their completion */
   private val CleanupPingsTime = NonNegativeFiniteDuration.tryOfSeconds(5)
 
-  /** The command deduplication time for commands that don't need deduplication because
-    * any repeated submission would fail anyway, say because the command exercises a consuming choice on
-    * a specific contract ID (not contract key).
+  /** The command deduplication time for commands that don't need deduplication because any repeated
+    * submission would fail anyway, say because the command exercises a consuming choice on a
+    * specific contract ID (not contract key).
     */
   private def NoCommandDeduplicationNeeded: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfMillis(1)
@@ -549,10 +554,14 @@ object PingService {
 
     /** Send a ping to the target party, return round-trip time or a timeout
       *
-      * @param targetParties String     the parties to send ping to
-      * @param validators    additional validators (signatories) of the contracts
-      * @param timeout  how long to wait for pong
-      * @param synchronizerId      the synchronizer to send the ping to
+      * @param targetParties
+      *   String the parties to send ping to
+      * @param validators
+      *   additional validators (signatories) of the contracts
+      * @param timeout
+      *   how long to wait for pong
+      * @param synchronizerId
+      *   the synchronizer to send the ping to
       */
     def ping(
         targetParties: Set[PartyId],
@@ -610,8 +619,10 @@ object PingService {
 
     /** A ping request
       *
-      * @param id          identifier of the ping request
-      * @param promise     the promise to be fulfilled when the ping is complete
+      * @param id
+      *   identifier of the ping request
+      * @param promise
+      *   the promise to be fulfilled when the ping is complete
       */
     private case class PingRequest(
         id: PingId,
@@ -627,8 +638,8 @@ object PingService {
 
       /** The promise which will be fulfilled once the ping completes
         *
-        * We don't use FutureUnlessShutdown as we control the shutdown manually and use
-        * a trick to cancel the pings before the admin server shuts down
+        * We don't use FutureUnlessShutdown as we control the shutdown manually and use a trick to
+        * cancel the pings before the admin server shuts down
         */
       val promise: Promise[PingService.Result] = Promise[PingService.Result]()
 

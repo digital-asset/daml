@@ -5,8 +5,8 @@ package com.digitalasset.canton.synchronizer
 
 package object block {
 
-  /** Height used by the block stores before a height has been set.
-    * The DB store should be initialized to this value in its initial migration.
+  /** Height used by the block stores before a height has been set. The DB store should be
+    * initialized to this value in its initial migration.
     */
   val UninitializedBlockHeight = -1L
 }

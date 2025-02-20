@@ -21,12 +21,13 @@ import scala.util.control.NonFatal
 
 /** The schedule captures the maintenance windows available for the associated scheduler.
   *
-  * @param cron        Cron determining the start times of the schedule
-  * @param maxDuration The maximum duration defines the end time relative to the start time.
-  *                    In order to honor the maximum duration, scheduler's need to break up
-  *                    long-running tasks in such a way that each "Runnable" task takes a small
-  *                    amount of time relative to the maxDuration. The scheduler invokes its
-  *                    task as long as the current time falls within maxDuration.
+  * @param cron
+  *   Cron determining the start times of the schedule
+  * @param maxDuration
+  *   The maximum duration defines the end time relative to the start time. In order to honor the
+  *   maximum duration, scheduler's need to break up long-running tasks in such a way that each
+  *   "Runnable" task takes a small amount of time relative to the maxDuration. The scheduler
+  *   invokes its task as long as the current time falls within maxDuration.
   */
 class Schedule(val cron: Cron, val maxDuration: PositiveSeconds)
 

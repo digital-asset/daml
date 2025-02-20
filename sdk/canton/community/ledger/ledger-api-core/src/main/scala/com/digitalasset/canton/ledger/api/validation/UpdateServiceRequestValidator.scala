@@ -4,24 +4,15 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionByIdRequest,
   GetTransactionByOffsetRequest,
   GetUpdatesRequest,
 }
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.TransactionShape.AcsDelta
+import com.digitalasset.canton.ledger.api.UpdateId
 import com.digitalasset.canton.ledger.api.messages.update
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
-import com.digitalasset.canton.ledger.api.{
-  ParticipantAuthorizationFormat,
-  TopologyFormat,
-  TransactionFormat,
-  UpdateFormat,
-  UpdateId,
-}
-import com.digitalasset.daml.lf.data.Ref
 import io.grpc.StatusRuntimeException
 
 object UpdateServiceRequestValidator {
@@ -30,27 +21,21 @@ object UpdateServiceRequestValidator {
   import FieldValidator.*
 
   final case class PartialValidation(
-      transactionFilter: TransactionFilter,
       begin: Option[Offset],
       end: Option[Offset],
-      knownParties: Set[Ref.Party],
   )
 
   private def commonValidations(
       req: GetUpdatesRequest
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Result[PartialValidation] =
     for {
-      filter <- requirePresence(req.filter, "filter")
       begin <- ParticipantOffsetValidator
         .validateNonNegative(req.beginExclusive, "begin_exclusive")
       end <- ParticipantOffsetValidator
         .validateOptionalPositive(req.endInclusive, "end_inclusive")
-      knownParties <- requireParties(req.getFilter.filtersByParty.keySet)
     } yield PartialValidation(
-      filter,
       begin,
       end,
-      knownParties,
     )
 
   def validate(
@@ -71,27 +56,30 @@ object UpdateServiceRequestValidator {
         partial.end,
         ledgerEnd,
       )
-      eventFormat <- FormatValidator.validate(partial.transactionFilter, req.verbose)
-      filterPartiesO = eventFormat.filtersForAnyParty match {
-        case Some(_) => None // wildcard
-        case None => Some(eventFormat.filtersByParty.keySet)
-      }
-      // TODO(#23517) fill the transaction and reassignment formats separately when GetUpdateRequest includes the
-      //  UpdateFormat field
-      updateFormat = UpdateFormat(
-        includeTransactions =
-          Some(TransactionFormat(eventFormat = eventFormat, transactionShape = AcsDelta)),
-        includeReassignments = Some(eventFormat),
-        includeTopologyEvents = Some(
-          TopologyFormat(
-            Some(
-              ParticipantAuthorizationFormat(
-                filterPartiesO
-              )
+      updateFormat <- (req.filter, req.verbose, req.updateFormat) match {
+        case (Some(_), _, Some(_)) =>
+          Left(
+            ValidationErrors.invalidArgument(
+              s"Both filter/verbose and update_format is specified. Please use either backwards compatible arguments (filter and verbose) or update_format, but not both."
             )
           )
-        ),
-      )
+        case (Some(legacyFilter), legacyVerbose, None) =>
+          FormatValidator.validateLegacyToUpdateFormat(legacyFilter, legacyVerbose)
+        case (None, true, Some(_)) =>
+          Left(
+            ValidationErrors.invalidArgument(
+              s"Both filter/verbose and update_format is specified. Please use either backwards compatible arguments (filter and verbose) or update_format, but not both."
+            )
+          )
+        case (None, false, Some(updateFormat)) =>
+          FormatValidator.validate(updateFormat)
+        case (None, _, None) =>
+          Left(
+            ValidationErrors.invalidArgument(
+              s"Either filter/verbose or update_format is required. Please use either backwards compatible arguments (filter and verbose) or update_format, but not both."
+            )
+          )
+      }
     } yield {
       update.GetUpdatesRequest(
         partial.begin,
@@ -108,7 +96,16 @@ object UpdateServiceRequestValidator {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Result[update.GetUpdatesRequestForTrees] =
     for {
+      _ <-
+        if (req.updateFormat.nonEmpty)
+          Left(
+            ValidationErrors.invalidArgument(
+              s"The event_format field must be unset for trees requests."
+            )
+          )
+        else Right(())
       partial <- commonValidations(req)
+      _ <- requireParties(req.getFilter.filtersByParty.keySet)
       _ <- ParticipantOffsetValidator.offsetIsBeforeEnd(
         "Begin",
         partial.begin,
@@ -119,7 +116,8 @@ object UpdateServiceRequestValidator {
         partial.end,
         ledgerEnd,
       )
-      eventFormat <- FormatValidator.validate(partial.transactionFilter, req.verbose)
+      transactionFilter <- requirePresence(req.filter, "filter")
+      eventFormat <- FormatValidator.validate(transactionFilter, req.verbose)
     } yield {
       update.GetUpdatesRequestForTrees(
         partial.begin,

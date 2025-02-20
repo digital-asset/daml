@@ -22,24 +22,24 @@ trait OnShutdownRunner { this: AutoCloseable =>
 
   protected def logger: TracedLogger
 
-  /** Check whether we're closing.
-    * Susceptible to race conditions; unless you're using this as a flag to the retry lib or you really know
-    * what you're doing, prefer `performUnlessClosing` and friends.
+  /** Check whether we're closing. Susceptible to race conditions; unless you're using this as a
+    * flag to the retry lib or you really know what you're doing, prefer `performUnlessClosing` and
+    * friends.
     */
   def isClosing: Boolean = closingFlag.get()
 
   /** Register a task to run when shutdown is initiated.
     *
-    * You can use this for example to register tasks that cancel long-running computations,
-    * whose termination you can then wait for in "closeAsync".
+    * You can use this for example to register tasks that cancel long-running computations, whose
+    * termination you can then wait for in "closeAsync".
     */
   def runOnShutdown_[T](
       task: RunOnShutdown
   )(implicit traceContext: TraceContext): Unit =
     runOnShutdown(task).discard
 
-  /** Same as [[runOnShutdown_]] but returns a token that allows you to remove the task explicitly from being run
-    * using [[cancelShutdownTask]]
+  /** Same as [[runOnShutdown_]] but returns a token that allows you to remove the task explicitly
+    * from being run using [[cancelShutdownTask]]
     */
   def runOnShutdown[T](
       task: RunOnShutdown

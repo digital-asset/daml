@@ -29,16 +29,15 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Attempts to create a resilient [[SequencerSubscriptionPekko]] for the [[SequencerClient]] by
-  * creating underlying subscriptions using the [[SequencerSubscriptionFactoryPekko]]
-  * and then recreating them if they fail with a reason that is deemed retryable.
-  * If a subscription is closed or fails with a reason that is not retryable the failure will be passed downstream
-  * from this subscription.
-  * We determine whether an error is retryable by calling the [[SubscriptionErrorRetryPolicy]]
-  * of the supplied [[SequencerSubscriptionFactoryPekko]].
-  * We also will delay recreating subscriptions by an interval determined by the
-  * [[com.digitalasset.canton.sequencing.client.SubscriptionRetryDelayRule]].
-  * The recreated subscription starts at the last event received,
-  * or at the starting counter that was given initially if no event was received at all.
+  * creating underlying subscriptions using the [[SequencerSubscriptionFactoryPekko]] and then
+  * recreating them if they fail with a reason that is deemed retryable. If a subscription is closed
+  * or fails with a reason that is not retryable the failure will be passed downstream from this
+  * subscription. We determine whether an error is retryable by calling the
+  * [[SubscriptionErrorRetryPolicy]] of the supplied [[SequencerSubscriptionFactoryPekko]]. We also
+  * will delay recreating subscriptions by an interval determined by the
+  * [[com.digitalasset.canton.sequencing.client.SubscriptionRetryDelayRule]]. The recreated
+  * subscription starts at the last event received, or at the starting counter that was given
+  * initially if no event was received at all.
   *
   * The emitted events stutter whenever the subscription is recreated.
   */
@@ -198,9 +197,11 @@ class ResilientSequencerSubscriberPekko[E](
 
 object ResilientSequencerSubscriberPekko {
 
-  /** @param startingCounter The counter to start the next subscription from
-    * @param delay If the next subscription fails with a retryable error,
-    *              how long should we wait before starting a new subscription?
+  /** @param startingCounter
+    *   The counter to start the next subscription from
+    * @param delay
+    *   If the next subscription fails with a retryable error, how long should we wait before
+    *   starting a new subscription?
     */
   private[ResilientSequencerSubscriberPekko] final case class RestartSourceConfig(
       startingCounter: SequencerCounter,
@@ -287,9 +288,9 @@ trait SequencerSubscriptionFactoryPekko[E] extends HasSequencerSubscriptionFacto
 object SequencerSubscriptionFactoryPekko {
 
   /** Creates a [[SequencerSubscriptionFactoryPekko]] for a [[ResilientSequencerSubscriberPekko]]
-    * that uses an underlying gRPC transport.
-    * Changes to the underlying gRPC transport are not supported by the [[ResilientSequencerSubscriberPekko]];
-    * these can be done via the sequencer aggregator.
+    * that uses an underlying gRPC transport. Changes to the underlying gRPC transport are not
+    * supported by the [[ResilientSequencerSubscriberPekko]]; these can be done via the sequencer
+    * aggregator.
     */
   def fromTransport[E](
       sequencerID: SequencerId,

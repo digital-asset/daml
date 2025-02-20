@@ -176,8 +176,10 @@ class ReferenceSequencerDriver(
 object ReferenceSequencerDriver {
 
   /** Reference sequencer driver configuration
-    * @param storage storage configuration for requests storage
-    * @param pollInterval how often to poll for new blocks in blocks subscription
+    * @param storage
+    *   storage configuration for requests storage
+    * @param pollInterval
+    *   how often to poll for new blocks in blocks subscription
     */
   final case class Config[StorageConfigT <: StorageConfig](
       storage: StorageConfigT,
