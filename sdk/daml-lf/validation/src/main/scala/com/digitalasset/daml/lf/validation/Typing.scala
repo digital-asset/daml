@@ -276,6 +276,15 @@ private[validation] object Typing {
       BGreater -> tComparison,
       BGreaterEq -> tComparison,
       BSECP256K1Bool -> (TText ->: TText ->: TText ->: TBool),
+      BTextToBytes -> (TText ->: TOptional(TBytes)),
+      BBytesToText -> (TBytes ->: TText),
+      BInt64ToBytes -> (TInt64 ->: TBytes),
+      BBytesToInt64 -> (TBytes ->: TOptional(TInt64)),
+      BAppendBytes -> (TBytes ->: TBytes ->: TBytes),
+      BSliceBytes -> (TBytes ->: TInt64 ->: TInt64 ->: TBytes),
+      BSizeBytes -> (TBytes ->: TInt64),
+      BEqualBytes -> (TBytes ->: TBytes ->: TBool),
+      BPackBytes -> (TInt64 ->: TBytes ->: TBytes),
       BCoerceContractId ->
         TForall(
           alpha.name -> KStar,
