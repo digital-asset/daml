@@ -23,15 +23,16 @@ import org.slf4j.event.Level
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** If all Sequencer writes are occurring locally we pipe write notifications to read subscriptions allowing the
-  * [[SequencerReader]] to immediately read from the backing store rather than polling.
+/** If all Sequencer writes are occurring locally we pipe write notifications to read subscriptions
+  * allowing the [[SequencerReader]] to immediately read from the backing store rather than polling.
   *
-  * An important caveat is that we only supply signals when a write for a member occurs. If there are no writes from
-  * starting the process the member will never receive a read signal. The [[SequencerReader]] is responsible for
-  * performing at least one initial read from the store to ensure that all prior events are served as required.
+  * An important caveat is that we only supply signals when a write for a member occurs. If there
+  * are no writes from starting the process the member will never receive a read signal. The
+  * [[SequencerReader]] is responsible for performing at least one initial read from the store to
+  * ensure that all prior events are served as required.
   *
-  * Not suitable or at least very sub-optimal for a horizontally scaled sequencer setup where a reader will not have
-  * visibility of all writes locally.
+  * Not suitable or at least very sub-optimal for a horizontally scaled sequencer setup where a
+  * reader will not have visibility of all writes locally.
   */
 class LocalSequencerStateEventSignaller(
     protected val timeouts: ProcessingTimeout,

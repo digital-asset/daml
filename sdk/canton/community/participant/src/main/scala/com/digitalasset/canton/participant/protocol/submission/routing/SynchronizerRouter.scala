@@ -52,7 +52,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** The synchronizer router routes transaction submissions from upstream to the right synchronizer.
   *
-  * Submitted transactions are inspected for which synchronizers are involved based on the location of the involved contracts.
+  * Submitted transactions are inspected for which synchronizers are involved based on the location
+  * of the involved contracts.
   */
 class SynchronizerRouter(
     contractsReassigner: ContractsReassigner,
@@ -206,11 +207,11 @@ class SynchronizerRouter(
       synchronizerRankTarget <- synchronizerSelector.forMultiSynchronizer
     } yield synchronizerRankTarget
 
-  /** We have a multi-synchronizer transaction if the input contracts are on more than one synchronizer,
-    * if the (single) input synchronizer does not host all informees
-    * or if the target synchronizer is different than the synchronizer of the input contracts
-    * (because we will need to reassign the contracts to a synchronizer that *does* host all informees.
-    * Transactions without input contracts are always single-synchronizer.
+  /** We have a multi-synchronizer transaction if the input contracts are on more than one
+    * synchronizer, if the (single) input synchronizer does not host all informees or if the target
+    * synchronizer is different than the synchronizer of the input contracts (because we will need
+    * to reassign the contracts to a synchronizer that *does* host all informees. Transactions
+    * without input contracts are always single-synchronizer.
     */
   private def isMultiSynchronizerTx(
       inputSynchronizers: Set[SynchronizerId],
@@ -273,9 +274,10 @@ class SynchronizerRouter(
     } yield ()
   }
 
-  /** We intentionally do not store the `keyResolver` in [[com.digitalasset.canton.protocol.WellFormedTransaction]]
-    * because we do not (yet) need to deal with merging the mappings
-    * in [[com.digitalasset.canton.protocol.WellFormedTransaction.merge]].
+  /** We intentionally do not store the `keyResolver` in
+    * [[com.digitalasset.canton.protocol.WellFormedTransaction]] because we do not (yet) need to
+    * deal with merging the mappings in
+    * [[com.digitalasset.canton.protocol.WellFormedTransaction.merge]].
     */
   private def submit(synchronizerId: SynchronizerId)(
       submitterInfo: SubmitterInfo,

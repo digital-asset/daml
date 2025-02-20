@@ -367,14 +367,16 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
 
   def delayedMessages: Seq[MessageT] = delayedQueue.toSeq
 
-  /** @return the count of scheduled events plus the last scheduled event. None if no events have been scheduled.
+  /** @return
+    *   the count of scheduled events plus the last scheduled event. None if no events have been
+    *   scheduled.
     */
   def lastDelayedMessage: Option[(Int, MessageT)] =
     delayedQueue.lastOption.map(msg => (delayedQueue.size, msg))
 
-  /** @return the last scheduled event plus its count corresponding to the number
-    *         of scheduled events when that event was initially scheduled.
-    *         None if no events have been cancelled.
+  /** @return
+    *   the last scheduled event plus its count corresponding to the number of scheduled events when
+    *   that event was initially scheduled. None if no events have been cancelled.
     */
   def lastCancelledEvent: Option[(Int, MessageT)] = lastCancelledEventCell
 

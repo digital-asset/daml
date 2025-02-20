@@ -23,9 +23,9 @@ final case class AsyncResult[T](unwrap: FutureUnlessShutdown[T]) {
   ): AsyncResult[T] =
     AsyncResult(unwrap.transform(f))
 
-  /** Analog to [[com.digitalasset.canton.util.Thereafter.thereafter]]
-    * We do not provide a [[com.digitalasset.canton.util.Thereafter.thereafter]] instance
-    * because [[AsyncResult]] doesn't take a type argument.
+  /** Analog to [[com.digitalasset.canton.util.Thereafter.thereafter]] We do not provide a
+    * [[com.digitalasset.canton.util.Thereafter.thereafter]] instance because [[AsyncResult]]
+    * doesn't take a type argument.
     */
   def thereafter(f: Try[UnlessShutdown[T]] => Unit)(implicit
       ec: ExecutionContext

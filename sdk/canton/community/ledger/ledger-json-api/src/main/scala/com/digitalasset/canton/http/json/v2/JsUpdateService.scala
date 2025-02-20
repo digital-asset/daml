@@ -4,7 +4,8 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.v2.{offset_checkpoint, reassignment, update_service}
+import com.daml.ledger.api.v2.transaction_filter.ParticipantAuthorizationTopologyFormat
+import com.daml.ledger.api.v2.{offset_checkpoint, reassignment, transaction_filter, update_service}
 import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
@@ -346,6 +347,12 @@ object JsUpdateServiceCodecs {
   import JsCommandServiceCodecs.*
   import JsStateServiceCodecs.*
 
+  implicit val participantAuthorizationTopologyFormatRW
+      : Codec[ParticipantAuthorizationTopologyFormat] = deriveCodec
+  implicit val transactionShapeFormatRW: Codec[transaction_filter.TransactionShape] = deriveCodec
+  implicit val transactionFormatRW: Codec[transaction_filter.TransactionFormat] = deriveCodec
+  implicit val topologyFormatRW: Codec[transaction_filter.TopologyFormat] = deriveCodec
+  implicit val updateFormatRW: Codec[transaction_filter.UpdateFormat] = deriveCodec
   implicit val getUpdatesRequest: Codec[update_service.GetUpdatesRequest] = deriveCodec
 
   implicit val jsGetUpdatesResponse: Codec[JsGetUpdatesResponse] = deriveCodec

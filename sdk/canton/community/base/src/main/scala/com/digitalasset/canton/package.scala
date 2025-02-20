@@ -113,15 +113,16 @@ package object canton {
 
   type LfKeyResolver = ContractStateMachine.KeyResolver
 
-  /** The counter assigned by the sequencer to messages sent to the participant.
-    * The counter is specific to every participant.
+  /** The counter assigned by the sequencer to messages sent to the participant. The counter is
+    * specific to every participant.
     */
   type SequencerCounterDiscriminator
   type SequencerCounter = Counter[SequencerCounterDiscriminator]
 
   val SequencerCounter = new CounterCompanion[SequencerCounterDiscriminator] {}
 
-  /** The counter assigned by the transaction processor to confirmation and reassignment requests. */
+  /** The counter assigned by the transaction processor to confirmation and reassignment requests.
+    */
   type RequestCounterDiscriminator
   type RequestCounter = Counter[RequestCounterDiscriminator]
 
@@ -137,13 +138,15 @@ package object canton {
 
   object RequestCounter extends CounterCompanion[RequestCounterDiscriminator]
 
-  /** Wrap a method call with this method to document that the caller is sure that the callee's preconditions are met. */
+  /** Wrap a method call with this method to document that the caller is sure that the callee's
+    * preconditions are met.
+    */
   def checked[A](x: => A): A = x
 
-  /** We should not call `toByteString` directly on a proto message. Rather, we should use the versioning tooling
-    * which ensures that the correct version of the proto message is used (based on the protocol version).
-    * However, in some cases (e.g., when we are sure that the message is not versioned), we can invoke this method
-    * directly.
+  /** We should not call `toByteString` directly on a proto message. Rather, we should use the
+    * versioning tooling which ensures that the correct version of the proto message is used (based
+    * on the protocol version). However, in some cases (e.g., when we are sure that the message is
+    * not versioned), we can invoke this method directly.
     */
   @SuppressWarnings(Array("com.digitalasset.canton.ProtobufToByteString"))
   def checkedToByteString(proto: GeneratedMessage): ByteString = proto.toByteString
@@ -156,8 +159,7 @@ package object canton {
   implicit val lfPartyOrdering: Ordering[LfPartyId] =
     IdString.`Party order instance`.toScalaOrdering
 
-  /** Use this type when scalac struggles to infer `Nothing`
-    * due to it being treated specially.
+  /** Use this type when scalac struggles to infer `Nothing` due to it being treated specially.
     *
     * see https://www.reddit.com/r/scala/comments/73791p/nothings_twin_brother_the_better_one/
     */

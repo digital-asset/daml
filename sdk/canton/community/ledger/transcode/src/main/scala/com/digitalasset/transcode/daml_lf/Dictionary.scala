@@ -15,7 +15,8 @@ final case class Dictionary[T](
 
 object Dictionary {
 
-  /** Collect [[SchemaEntity]] instances into a [[com.digitalasset.daml.lf.data.Ref.Identifier]]-keyed dictionary. Usable in codecs.
+  /** Collect [[SchemaEntity]] instances into a
+    * [[com.digitalasset.daml.lf.data.Ref.Identifier]]-keyed dictionary. Usable in codecs.
     */
   def collect[T]: CollectResult[T, Dictionary[T]] = (entities: Seq[SchemaEntity[T]]) =>
     Dictionary(

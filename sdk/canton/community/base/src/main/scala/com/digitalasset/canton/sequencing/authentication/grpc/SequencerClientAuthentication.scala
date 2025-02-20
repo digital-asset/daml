@@ -27,8 +27,9 @@ import java.util.concurrent.Executor
 import scala.concurrent.ExecutionContext
 import scala.util.control.NonFatal
 
-/** Provides call credentials and an interceptor to generate a token for outgoing requests and add the token to the call
-  * metadata, then cause the token to be invalidated if an UNAUTHORIZED response is returned.
+/** Provides call credentials and an interceptor to generate a token for outgoing requests and add
+  * the token to the call metadata, then cause the token to be invalidated if an UNAUTHORIZED
+  * response is returned.
   */
 private[grpc] class SequencerClientTokenAuthentication(
     synchronizerId: SynchronizerId,
@@ -103,13 +104,12 @@ private[grpc] class SequencerClientTokenAuthentication(
     }
   }
 
-  /** Will invalidate the current token if an UNAUTHORIZED response is observed.
-    * This will typically happen after a token has expired.
-    * Note the caller will still receive the UNAUTHORIZED response,
-    * although there are approaches for buffering and retrying the request this would not
-    * work for all cases (such as a streamed response).
-    * Instead the caller is expected to retry the request which will attempt to fetch
-    * a new authorization token as the prior response invalidated the previous token.
+  /** Will invalidate the current token if an UNAUTHORIZED response is observed. This will typically
+    * happen after a token has expired. Note the caller will still receive the UNAUTHORIZED
+    * response, although there are approaches for buffering and retrying the request this would not
+    * work for all cases (such as a streamed response). Instead the caller is expected to retry the
+    * request which will attempt to fetch a new authorization token as the prior response
+    * invalidated the previous token.
     */
   @VisibleForTesting
   private[grpc] val reauthorizationInterceptor = new ClientInterceptor {

@@ -148,9 +148,9 @@ object CryptoProvider {
       )
   }
 
-  /** The KMS crypto provider is based on the JCE crypto provider because the non-signing/encryption part, as well as
-    * the public crypto operations (i.e., encrypting, or verifying a signature), are implemented in
-    * software using the JCE.
+  /** The KMS crypto provider is based on the JCE crypto provider because the non-signing/encryption
+    * part, as well as the public crypto operations (i.e., encrypting, or verifying a signature),
+    * are implemented in software using the JCE.
     */
   case object Kms extends CryptoProvider with UniformCantonConfigValidation {
     override def name: String = "KMS"

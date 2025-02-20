@@ -8,10 +8,15 @@ import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingCon
 
 /** Configure the behaviour of the Daml Engine
   *
-  * @param enableEngineStackTraces If true, DAMLe stack traces will be enabled
-  * @param iterationsBetweenInterruptions Number of engine iterations between forced interruptions (outside needs of information).
-  * @param submissionPhaseLogging Configuration for logging in phase one (command submission) of canton transaction processing
-  * @param validationPhaseLogging Configuration for logging in phase three (transaction validation) of canton transaction processing
+  * @param enableEngineStackTraces
+  *   If true, DAMLe stack traces will be enabled
+  * @param iterationsBetweenInterruptions
+  *   Number of engine iterations between forced interruptions (outside needs of information).
+  * @param submissionPhaseLogging
+  *   Configuration for logging in phase one (command submission) of canton transaction processing
+  * @param validationPhaseLogging
+  *   Configuration for logging in phase three (transaction validation) of canton transaction
+  *   processing
   */
 final case class CantonEngineConfig(
     enableEngineStackTraces: Boolean = false,

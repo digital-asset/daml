@@ -52,9 +52,9 @@ sealed abstract class EnsureValidContractIds(
 
 object EnsureValidContractIds {
 
-  /** Verify that all contract IDs have a version greater or equal to the contract ID version associated
-    * with the protocol version of the synchronizer to which the contract is assigned.
-    * If any contract ID fails, the whole process fails.
+  /** Verify that all contract IDs have a version greater or equal to the contract ID version
+    * associated with the protocol version of the synchronizer to which the contract is assigned. If
+    * any contract ID fails, the whole process fails.
     */
   private final class VerifyContractIdSuffixes(
       protocolVersionGetter: Traced[SynchronizerId] => Option[ProtocolVersion],
@@ -88,12 +88,13 @@ object EnsureValidContractIds {
       contractId: LfContractId,
   )
 
-  /** Recompute the contract IDs of all contracts using the provided cryptoOps.
-    * The whole preprocessing will fail if any of the following conditions apply to any contract:
-    * - the contract ID discriminator version is unknown
-    * - the contract salt is missing
-    * - any contract ID referenced in a payload is missing from the import
-    * - any contract is referenced by two different IDs (e.g. the ID in the payload is fine but the one in the contract is not)
+  /** Recompute the contract IDs of all contracts using the provided cryptoOps. The whole
+    * preprocessing will fail if any of the following conditions apply to any contract:
+    *   - the contract ID discriminator version is unknown
+    *   - the contract salt is missing
+    *   - any contract ID referenced in a payload is missing from the import
+    *   - any contract is referenced by two different IDs (e.g. the ID in the payload is fine but
+    *     the one in the contract is not)
     */
   private final class RecomputeContractIdSuffixes(
       protocolVersionGetter: Traced[SynchronizerId] => Option[ProtocolVersion],
@@ -255,8 +256,11 @@ object EnsureValidContractIds {
       } yield completedRemapping
   }
 
-  /** Creates an object that ensures that all contract IDs comply with the scheme associated to the synchronizer where the contracts are assigned.
-    * @param cryptoOps If defined, the contract IDs will be recomputed using the provided cryptoOps. Else, the contract IDs will only be verified.
+  /** Creates an object that ensures that all contract IDs comply with the scheme associated to the
+    * synchronizer where the contracts are assigned.
+    * @param cryptoOps
+    *   If defined, the contract IDs will be recomputed using the provided cryptoOps. Else, the
+    *   contract IDs will only be verified.
     */
   def apply(
       loggerFactory: NamedLoggerFactory,

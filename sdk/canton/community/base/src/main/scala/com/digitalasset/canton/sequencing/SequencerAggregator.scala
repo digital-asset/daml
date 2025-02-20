@@ -55,8 +55,7 @@ class SequencerAggregator(
       promise: PromiseUnlessShutdown[Either[SequencerAggregatorError, SequencerId]],
   )
 
-  /** Queue containing received and not yet handled events.
-    * Used for batched processing.
+  /** Queue containing received and not yet handled events. Used for batched processing.
     */
   private val receivedEvents: BlockingQueue[OrdinarySerializedEvent] =
     new ArrayBlockingQueue[OrdinarySerializedEvent](eventInboxSize.unwrap)

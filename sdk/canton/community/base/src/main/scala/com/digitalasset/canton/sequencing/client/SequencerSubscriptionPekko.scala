@@ -12,10 +12,9 @@ import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.Future
 
-/** Wrapper for an Pekko source delivering the stream of sequenced events.
-  * The [[org.apache.pekko.stream.KillSwitch]] can be used to terminate the stream.
-  * The materialized [[scala.concurrent.Future]] completes
-  * after the internal processing in the source has finished
+/** Wrapper for an Pekko source delivering the stream of sequenced events. The
+  * [[org.apache.pekko.stream.KillSwitch]] can be used to terminate the stream. The materialized
+  * [[scala.concurrent.Future]] completes after the internal processing in the source has finished
   * after having been closed through the [[org.apache.pekko.stream.KillSwitch]].
   */
 final case class SequencerSubscriptionPekko[+E](

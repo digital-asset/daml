@@ -24,8 +24,8 @@ trait RoutingSynchronizerState {
 
   val topologySnapshots: Map[SynchronizerId, TopologySnapshot]
 
-  /** Returns an either rather than an option since failure comes from disconnected
-    * synchronizers and we assume the participant to be connected to all synchronizers in `connectedSynchronizers`
+  /** Returns an either rather than an option since failure comes from disconnected synchronizers
+    * and we assume the participant to be connected to all synchronizers in `connectedSynchronizers`
     */
   def getTopologySnapshotAndPVFor(
       synchronizerId: SynchronizerId

@@ -24,9 +24,9 @@ object PreparedTransactionCodec {
   implicit private[interactive] class EnhancedChimneyResult[A](val result: Result[A])
       extends AnyVal {
 
-    /** Converts a chimney Result to a Future.
-      * In the result is a failure, detailed causes get logged at debug level, and a failed Future with a StatusRuntimeException
-      * is returned, containing only the high level reason of the failure.
+    /** Converts a chimney Result to a Future. In the result is a failure, detailed causes get
+      * logged at debug level, and a failed Future with a StatusRuntimeException is returned,
+      * containing only the high level reason of the failure.
       */
     def toFutureWithLoggedFailures(description: String, logger: TracedLogger)(implicit
         errorLoggingContext: ContextualizedErrorLogger,

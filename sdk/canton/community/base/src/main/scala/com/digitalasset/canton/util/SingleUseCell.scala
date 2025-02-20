@@ -5,9 +5,9 @@ package com.digitalasset.canton.util
 
 import java.util.concurrent.atomic.AtomicReference
 
-/** This class provides a mutable container for a single value of type `A`.
-  * The value may be put at most once. A [[SingleUseCell]] therefore provides the following immutability guarantee:
-  * The value of a cell cannot change; once it has been put there, it will remain in the cell.
+/** This class provides a mutable container for a single value of type `A`. The value may be put at
+  * most once. A [[SingleUseCell]] therefore provides the following immutability guarantee: The
+  * value of a cell cannot change; once it has been put there, it will remain in the cell.
   */
 class SingleUseCell[A] {
   private val content: AtomicReference[Option[A]] = new AtomicReference[Option[A]](None)
@@ -15,10 +15,10 @@ class SingleUseCell[A] {
   /** Returns whether the value has not yet been set */
   def isEmpty: Boolean = content.get.isEmpty
 
-  /** Inserts the given value into the cell if it was empty before.
-    * Otherwise returns the content.
+  /** Inserts the given value into the cell if it was empty before. Otherwise returns the content.
     *
-    * @return The previous value or [[scala.None$]] if the cell was empty.
+    * @return
+    *   The previous value or [[scala.None$]] if the cell was empty.
     */
   def putIfAbsent(x: A): Option[A] =
     if (content.compareAndSet(None, Some(x))) None else content.get()

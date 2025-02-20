@@ -20,7 +20,8 @@ object SubmissionResult {
 
   /** The submission has failed with a synchronous error.
     *
-    * Asynchronous errors are reported via the command completion stream as a [[Update.CommandRejected]]
+    * Asynchronous errors are reported via the command completion stream as a
+    * [[Update.CommandRejected]]
     *
     * See the documentation in `error.proto` for how to report common submission errors.
     */

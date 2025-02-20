@@ -22,15 +22,17 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.DurationConverters.*
 
-/** Periodically pull the latest clean timestamp and if it has changed acknowledge it with the sequencer.
-  * This indicates that we have successfully processed all events up to and including this event.
-  * We always acknowledge the current clean timestamp on startup if available to indicate to the sequencer that we are
-  * running. The periodic interval is based on the host clock not in sequencer time, however any drift is likely
-  * insignificant for the purpose of the sequencer acknowledgements (pruning hourly/daily).
-  * Errors are logged at error level - periodic failures are likely not problematic however continuous errors
-  * could eventually be problematic for the sequencer operator.
+/** Periodically pull the latest clean timestamp and if it has changed acknowledge it with the
+  * sequencer. This indicates that we have successfully processed all events up to and including
+  * this event. We always acknowledge the current clean timestamp on startup if available to
+  * indicate to the sequencer that we are running. The periodic interval is based on the host clock
+  * not in sequencer time, however any drift is likely insignificant for the purpose of the
+  * sequencer acknowledgements (pruning hourly/daily). Errors are logged at error level - periodic
+  * failures are likely not problematic however continuous errors could eventually be problematic
+  * for the sequencer operator.
   *
-  * @param isHealthy Ack is sent iff the value is true
+  * @param isHealthy
+  *   Ack is sent iff the value is true
   */
 class PeriodicAcknowledgements(
     isHealthy: => Boolean,

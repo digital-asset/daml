@@ -88,7 +88,7 @@ trait Endpoints extends NamedLogging {
           )
         case _ =>
           val internalError =
-            LedgerApiErrors.InternalError.Generic(unhandled.getMessage, Some(unhandled.getCause))
+            LedgerApiErrors.InternalError.Generic(unhandled.getMessage, Some(unhandled))
 
           Success(
             Left(
@@ -219,7 +219,8 @@ trait Endpoints extends NamedLogging {
   }
 
   /** Utility to prepare flow from a gRPC method with an observer.
-    * @param closeDelay  if true then server will close websocket after a delay when no new elements appear in stream
+    * @param closeDelay
+    *   if true then server will close websocket after a delay when no new elements appear in stream
     */
   protected def prepareSingleWsStream[REQ, RESP, JSRESP](
       stream: (REQ, StreamObserver[RESP]) => Unit,
@@ -273,7 +274,7 @@ trait Endpoints extends NamedLogging {
       val internalError =
         LedgerApiErrors.InternalError.Generic(
           e.getMessage,
-          Some(e.getCause),
+          Some(e),
         )
       Left(
         JsCantonError.fromErrorCode(internalError)

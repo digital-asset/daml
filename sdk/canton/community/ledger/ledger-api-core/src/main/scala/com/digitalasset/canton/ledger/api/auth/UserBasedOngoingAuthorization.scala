@@ -208,8 +208,9 @@ object UserBasedOngoingAuthorization {
     )
   }
 
-  /** @param userRightsCheckIntervalInSeconds - determines the interval at which to check whether user rights state has changed.
-    *                                          Also, double of this value serves as timeout value for subsequent user rights state checks.
+  /** @param userRightsCheckIntervalInSeconds
+    *   determines the interval at which to check whether user rights state has changed. Also,
+    *   double of this value serves as timeout value for subsequent user rights state checks.
     */
   def apply[A](
       observer: ServerCallStreamObserver[A],

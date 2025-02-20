@@ -72,8 +72,8 @@ abstract class AbstractMessageProcessor(
       )
     } yield ()
 
-  /** A clean replay replays a request whose request counter is below the clean head in the request journal.
-    * Since the replayed request is clean, its effects are not persisted.
+  /** A clean replay replays a request whose request counter is below the clean head in the request
+    * journal. Since the replayed request is clean, its effects are not persisted.
     */
   protected def isCleanReplay(requestCounter: RequestCounter): Boolean =
     requestCounter < ephemeral.startingPoints.processing.nextRequestCounter
@@ -133,9 +133,9 @@ abstract class AbstractMessageProcessor(
     }
   }
 
-  /** Immediately moves the request to Confirmed and
-    * register a timeout handler at the decision time with the request tracker
-    * to cover the case that the mediator does not send a confirmation result.
+  /** Immediately moves the request to Confirmed and register a timeout handler at the decision time
+    * with the request tracker to cover the case that the mediator does not send a confirmation
+    * result.
     */
   protected def prepareForMediatorResultOfBadRequest(
       requestCounter: RequestCounter,

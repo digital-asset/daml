@@ -21,13 +21,13 @@ import scala.util.{Failure, Success}
 
 /** Alert if a future does not complete within the prescribed duration
   *
-  * We use future based synchronisation in some places, where we use a promise to only kick
-  * off an action once a promise is completed. This can lead to deadlocks where something
-  * does not start because we never complete the promise.
-  * This leads to hard to debug situations. We can support debugging by tracking such futures.
-  * As this is costly, we'll turn this off in production.
+  * We use future based synchronisation in some places, where we use a promise to only kick off an
+  * action once a promise is completed. This can lead to deadlocks where something does not start
+  * because we never complete the promise. This leads to hard to debug situations. We can support
+  * debugging by tracking such futures. As this is costly, we'll turn this off in production.
   *
-  * @see HasFutureSupervision for a mixin
+  * @see
+  *   HasFutureSupervision for a mixin
   */
 trait FutureSupervisor {
   def supervised[T](
@@ -156,14 +156,14 @@ object FutureSupervisor {
 
     /** A scheduled future to monitor.
       *
-      * The weak reference ensures that we stop monitoring this future if the future is garbage collected,
-      * say because nothing else references it. This can happen if the future has been completed
-      * (but the supervisor has not yet gotten around to checking it again) or the user code decided
-      * that it does not need the future after all.
+      * The weak reference ensures that we stop monitoring this future if the future is garbage
+      * collected, say because nothing else references it. This can happen if the future has been
+      * completed (but the supervisor has not yet gotten around to checking it again) or the user
+      * code decided that it does not need the future after all.
       *
       * This is safe because garbage collection will not remove Futures that are currently executing
-      * or may execute at a later point in time, as all those futures are either referenced from
-      * the executing thread or the execution context they're scheduled on.
+      * or may execute at a later point in time, as all those futures are either referenced from the
+      * executing thread or the execution context they're scheduled on.
       */
     @VisibleForTesting
     private[concurrent] final case class ScheduledFuture(

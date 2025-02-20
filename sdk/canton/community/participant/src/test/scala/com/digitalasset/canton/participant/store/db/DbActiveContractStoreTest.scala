@@ -77,9 +77,9 @@ trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveC
 
 private[db] object DbActiveContractStoreTest {
 
-  /** Limit the range of synchronizer indices that the ActiveContractStoreTest can use, to future-proof against interference
-    * with the ContractStoreTest.
-    * Currently, the ActiveContractStoreTest only needs to reserve the first index 1.
+  /** Limit the range of synchronizer indices that the ActiveContractStoreTest can use, to
+    * future-proof against interference with the ContractStoreTest. Currently, the
+    * ActiveContractStoreTest only needs to reserve the first index 1.
     */
   val maxSynchronizerIndex: Int = 100
 }

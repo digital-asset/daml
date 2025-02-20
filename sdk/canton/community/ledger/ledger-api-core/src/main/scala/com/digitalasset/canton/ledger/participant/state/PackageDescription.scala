@@ -9,11 +9,16 @@ import com.digitalasset.canton.data.CantonTimestamp
 import slick.jdbc.GetResult
 import slick.jdbc.GetResult.GetInt
 
-/** @param packageId         the unique identifier for the package
-  * @param name name of the package (from package metadata])
-  * @param version version of package (from package metadata)
-  * @param uploadedAt The package upload timestamp
-  * @param packageSize The LF archive protobuf-serialized size in bytes
+/** @param packageId
+  *   the unique identifier for the package
+  * @param name
+  *   name of the package (from package metadata])
+  * @param version
+  *   version of package (from package metadata)
+  * @param uploadedAt
+  *   The package upload timestamp
+  * @param packageSize
+  *   The LF archive protobuf-serialized size in bytes
   */
 final case class PackageDescription(
     packageId: LfPackageId,

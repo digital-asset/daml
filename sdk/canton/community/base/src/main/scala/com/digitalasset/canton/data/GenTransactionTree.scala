@@ -33,8 +33,8 @@ import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 
 /** A DAML transaction, decomposed into views (cf. ViewDecomposition) and embedded in a Merkle tree.
-  * Merkle tree nodes may or may not be blinded.
-  * This class is also used to represent transaction view trees and informee trees.
+  * Merkle tree nodes may or may not be blinded. This class is also used to represent transaction
+  * view trees and informee trees.
   */
 // private constructor, because object invariants are checked by factory methods
 final case class GenTransactionTree private (
@@ -100,14 +100,15 @@ final case class GenTransactionTree private (
     )(hashOps)
 
   /** Specialized blinding that addresses the case of blinding a Transaction Tree to obtain a
-    * Transaction View Tree.
-    * The view is identified by its position in the tree, specified by `viewPos`, directed from the root
-    * to the leaf.
-    * To ensure the path is valid, it should be obtained beforehand with a traversal method such as
+    * Transaction View Tree. The view is identified by its position in the tree, specified by
+    * `viewPos`, directed from the root to the leaf. To ensure the path is valid, it should be
+    * obtained beforehand with a traversal method such as
     * [[TransactionView.allSubviewsWithPosition]]
     *
-    * @param viewPos the position of the view from root to leaf
-    * @throws java.lang.UnsupportedOperationException if the path does not lead to a view
+    * @param viewPos
+    *   the position of the view from root to leaf
+    * @throws java.lang.UnsupportedOperationException
+    *   if the path does not lead to a view
     */
   private[data] def tryBlindForTransactionViewTree(
       viewPos: ViewPositionFromRoot
@@ -130,8 +131,8 @@ final case class GenTransactionTree private (
 
   lazy val transactionId: TransactionId = TransactionId.fromRootHash(rootHash)
 
-  /** Yields the full informee tree corresponding to this transaction tree.
-    * The resulting informee tree is full, only if every view common data is unblinded.
+  /** Yields the full informee tree corresponding to this transaction tree. The resulting informee
+    * tree is full, only if every view common data is unblinded.
     */
   def tryFullInformeeTree(protocolVersion: ProtocolVersion): FullInformeeTree = {
     val tree = blind {
@@ -146,8 +147,8 @@ final case class GenTransactionTree private (
     FullInformeeTree.tryCreate(tree, protocolVersion)
   }
 
-  /** Finds the position of the view corresponding to the given hash.
-    * Returns `None` if no such view exists in this tree.
+  /** Finds the position of the view corresponding to the given hash. Returns `None` if no such view
+    * exists in this tree.
     */
   def viewPosition(viewHash: RootHash): Option[ViewPosition] = {
     val pos = for {
@@ -159,10 +160,11 @@ final case class GenTransactionTree private (
     pos.headOption
   }
 
-  /** Yields the transaction view tree corresponding to a given view.
-    * If some subtrees have already been blinded, they will remain blinded.
+  /** Yields the transaction view tree corresponding to a given view. If some subtrees have already
+    * been blinded, they will remain blinded.
     *
-    * @throws java.lang.IllegalArgumentException if there is no transaction view in this tree with `viewHash`
+    * @throws java.lang.IllegalArgumentException
+    *   if there is no transaction view in this tree with `viewHash`
     */
   def transactionViewTree(viewHash: RootHash): FullTransactionViewTree =
     viewPosition(viewHash)
@@ -181,16 +183,17 @@ final case class GenTransactionTree private (
     genTransactionTree = tryBlindForTransactionViewTree(viewPos.reverse)
   } yield FullTransactionViewTree.tryCreate(genTransactionTree)
 
-  /** All lightweight transaction trees in this [[GenTransactionTree]], accompanied by their recipients tree
-    * that will serve to group session keys to encrypt view messages.
+  /** All lightweight transaction trees in this [[GenTransactionTree]], accompanied by their
+    * recipients tree that will serve to group session keys to encrypt view messages.
     *
-    * The lightweight transaction + BCC scheme requires that each parent view contains the randomness for all
-    * its direct children, allowing it to derive the encryption key and subsequently decrypt those views.
-    * By default, the randomness is reused if views share the same recipients tree, and this information is stored in a
-    * temporary cache to be used in multiple transactions.
+    * The lightweight transaction + BCC scheme requires that each parent view contains the
+    * randomness for all its direct children, allowing it to derive the encryption key and
+    * subsequently decrypt those views. By default, the randomness is reused if views share the same
+    * recipients tree, and this information is stored in a temporary cache to be used in multiple
+    * transactions.
     *
-    * The caller should ensure that the provided randomness is long enough to be used for the default HMAC
-    * implementation.
+    * The caller should ensure that the provided randomness is long enough to be used for the
+    * default HMAC implementation.
     */
   def allTransactionViewTreesWithRecipients(topologySnapshot: TopologySnapshot)(implicit
       ec: ExecutionContext,
@@ -258,7 +261,8 @@ final case class GenTransactionTree private (
 
 object GenTransactionTree {
 
-  /** @throws GenTransactionTree$.InvalidGenTransactionTree if two subtrees have the same root hash
+  /** @throws GenTransactionTree$.InvalidGenTransactionTree
+    *   if two subtrees have the same root hash
     */
   def tryCreate(hashOps: HashOps)(
       submitterMetadata: MerkleTree[SubmitterMetadata],
@@ -270,8 +274,7 @@ object GenTransactionTree {
       err => throw InvalidGenTransactionTree(err)
     )
 
-  /** Creates a [[GenTransactionTree]].
-    * Yields `Left(...)` if two subtrees have the same root hash.
+  /** Creates a [[GenTransactionTree]]. Yields `Left(...)` if two subtrees have the same root hash.
     */
   def create(hashOps: HashOps)(
       submitterMetadata: MerkleTree[SubmitterMetadata],

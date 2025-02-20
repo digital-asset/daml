@@ -15,7 +15,8 @@ import org.apache.pekko.stream.scaladsl.Source
 
 import java.sql.Connection
 
-/** @param pageSize a single DB fetch query is guaranteed to fetch no more than this many results.
+/** @param pageSize
+  *   a single DB fetch query is guaranteed to fetch no more than this many results.
   */
 private[dao] final class CommandCompletionsReader(
     dispatcher: DbDispatcher,

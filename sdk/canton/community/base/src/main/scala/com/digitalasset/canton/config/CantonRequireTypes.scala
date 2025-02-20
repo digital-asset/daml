@@ -24,7 +24,9 @@ import slick.jdbc.{GetResult, SetParameter}
 
 import java.util.UUID
 
-/** Encapsulates those classes and their utility methods which enforce a given invariant via the use of require. */
+/** Encapsulates those classes and their utility methods which enforce a given invariant via the use
+  * of require.
+  */
 object CantonRequireTypes {
 
   final case class NonEmptyString private (private val str: String) {
@@ -55,20 +57,22 @@ object CantonRequireTypes {
     }
   }
 
-  /** This trait wraps a String that is limited to a certain maximum length.
-    * The canonical use case is ensuring that we don't write too long strings into the database.
+  /** This trait wraps a String that is limited to a certain maximum length. The canonical use case
+    * is ensuring that we don't write too long strings into the database.
     *
-    * You should normally implement [[LengthLimitedString]] or use its subclasses,
-    * for strings to be stored in standard string columns.
+    * You should normally implement [[LengthLimitedString]] or use its subclasses, for strings to be
+    * stored in standard string columns.
     *
-    * As this class implements fewer checks, this also serves as the basis for longer strings such as CLOBs.
+    * As this class implements fewer checks, this also serves as the basis for longer strings such
+    * as CLOBs.
     */
   sealed trait AbstractLengthLimitedString {
     protected def str: String
 
     /** Maximum number of characters allowed.
       *
-      * Must not be confused with storage space, which can be up to 4*[[maxLength]] in a UTF8 encoding
+      * Must not be confused with storage space, which can be up to 4*[[maxLength]] in a UTF8
+      * encoding
       */
     def maxLength: PositiveInt
     // optionally give a name for the type of String you are attempting to validate for nicer error messages
@@ -103,14 +107,16 @@ object CantonRequireTypes {
     def nonEmpty: Boolean = str.nonEmpty
   }
 
-  /** This trait wraps a String that is limited to a certain maximum length.
-    * Classes implementing this trait expose `create` and `tryCreate` methods to safely (and non-safely) construct
-    * such a String.
+  /** This trait wraps a String that is limited to a certain maximum length. Classes implementing
+    * this trait expose `create` and `tryCreate` methods to safely (and non-safely) construct such a
+    * String.
     *
-    * The canonical use case for [[LengthLimitedString]]s is ensuring that we don't write too long strings into the database.
-    * This validation generally occurs on the server side and not on the client side. Concretely, this means that the
-    * Admin API and Ledger API gRPC services is the point where we validate that the received Protobuf Strings are not too long
-    * (and convert them into [[LengthLimitedString]]s). On the client side, e.g. at the console, we generally take normal String types.
+    * The canonical use case for [[LengthLimitedString]]s is ensuring that we don't write too long
+    * strings into the database. This validation generally occurs on the server side and not on the
+    * client side. Concretely, this means that the Admin API and Ledger API gRPC services is the
+    * point where we validate that the received Protobuf Strings are not too long (and convert them
+    * into [[LengthLimitedString]]s). On the client side, e.g. at the console, we generally take
+    * normal String types.
     *
     * For longer strings, directly inherit from [[AbstractLengthLimitedString]].
     */
@@ -232,9 +238,11 @@ object CantonRequireTypes {
       new String36(str)(name)
   }
 
-  /** Limit used by a hash (SHA256 in particular) in a [[com.digitalasset.canton.topology.UniqueIdentifier]].
+  /** Limit used by a hash (SHA256 in particular) in a
+    * [[com.digitalasset.canton.topology.UniqueIdentifier]].
     *
-    * @see com.digitalasset.canton.topology.UniqueIdentifier for documentation on its origin
+    * @see
+    *   com.digitalasset.canton.topology.UniqueIdentifier for documentation on its origin
     */
   final case class String68 private (str: String)(override val name: Option[String])
       extends LengthLimitedString {
@@ -274,7 +282,8 @@ object CantonRequireTypes {
 
   /** Limit used by [[com.digitalasset.canton.topology.UniqueIdentifier]].
     *
-    * @see com.digitalasset.canton.topology.Identifier for documentation on its origin
+    * @see
+    *   com.digitalasset.canton.topology.Identifier for documentation on its origin
     */
   final case class String185 private (str: String)(
       override protected val name: Option[String]
@@ -289,10 +298,12 @@ object CantonRequireTypes {
       new String185(str)(name)
   }
 
-  /** Default [[LengthLimitedString]] that should be used when in doubt.
-    * 255 was chosen as it is also the limit used in the upstream code for, e.g., LedgerStrings in the upstream code
+  /** Default [[LengthLimitedString]] that should be used when in doubt. 255 was chosen as it is
+    * also the limit used in the upstream code for, e.g., LedgerStrings in the upstream code
     *
-    * @param name optionally set it to improve the error message. It is given as an extra argument, so the automatically generated `equals`-method doesn't use it for comparison
+    * @param name
+    *   optionally set it to improve the error message. It is given as an extra argument, so the
+    *   automatically generated `equals`-method doesn't use it for comparison
     */
   final case class String255 private (str: String)(override val name: Option[String])
       extends LengthLimitedString {
@@ -308,12 +319,14 @@ object CantonRequireTypes {
       new String255(str)(name)
   }
 
-  /** Longest limited-length strings that have been needed so far.
-    * Typical use case: when a 255-length identifier is combined
-    * with other short suffixes or prefixes to further specialize them.
+  /** Longest limited-length strings that have been needed so far. Typical use case: when a
+    * 255-length identifier is combined with other short suffixes or prefixes to further specialize
+    * them.
     *
-    * @see com.digitalasset.canton.store.db.SequencerClientDiscriminator
-    * @see com.digitalasset.canton.crypto.KeyName
+    * @see
+    *   com.digitalasset.canton.store.db.SequencerClientDiscriminator
+    * @see
+    *   com.digitalasset.canton.crypto.KeyName
     */
   final case class String300 private[CantonRequireTypes] (str: String)(
       override val name: Option[String]
@@ -328,14 +341,15 @@ object CantonRequireTypes {
       new String300(str)(name)
   }
 
-  /** Length limitation for an [[com.digitalasset.canton.protocol.LfTemplateId]].
-    * A [[com.digitalasset.canton.protocol.LfTemplateId]] consists of
-    * - The module name ([[com.digitalasset.daml.lf.data.Ref.DottedName]])
-    * - The template name ([[com.digitalasset.daml.lf.data.Ref.DottedName]])
-    * - The package ID
-    * - Two separating dots
-    * Each [[com.digitalasset.daml.lf.data.Ref.DottedName]] can have 1000 chars ([[com.digitalasset.daml.lf.data.Ref.DottedName.maxLength]]).
-    * So a [[com.digitalasset.canton.protocol.LfTemplateId]] serializes to 1000 + 1000 + 64 + 2 = 2066 chars.
+  /** Length limitation for an [[com.digitalasset.canton.protocol.LfTemplateId]]. A
+    * [[com.digitalasset.canton.protocol.LfTemplateId]] consists of
+    *   - The module name ([[com.digitalasset.daml.lf.data.Ref.DottedName]])
+    *   - The template name ([[com.digitalasset.daml.lf.data.Ref.DottedName]])
+    *   - The package ID
+    *   - Two separating dots Each [[com.digitalasset.daml.lf.data.Ref.DottedName]] can have 1000
+    *     chars ([[com.digitalasset.daml.lf.data.Ref.DottedName.maxLength]]). So a
+    *     [[com.digitalasset.canton.protocol.LfTemplateId]] serializes to 1000 + 1000 + 64 + 2 =
+    *     2066 chars.
     */
   final case class String2066 private (str: String)(override val name: Option[String])
       extends AbstractLengthLimitedString {
@@ -350,12 +364,12 @@ object CantonRequireTypes {
   }
 
   /** Length limitation of a `TEXT` or unbounded `VARCHAR` field in postgres.
-    * - Postgres `TEXT` or `VARCHAR` support up to 1GB storage. That is at least `2 ^ 28` characters
-    *   in UTF8 encoding as each character needs at most 4 bytes.
+    *   - Postgres `TEXT` or `VARCHAR` support up to 1GB storage. That is at least `2 ^ 28`
+    *     characters in UTF8 encoding as each character needs at most 4 bytes.
     *
     * `TEXT`/`VARCHAR` are only used for the following values (none are indices):
-    * - daml_packages.source_description
-    * - topology_transactions.ignore_reason
+    *   - daml_packages.source_description
+    *   - topology_transactions.ignore_reason
     */
   final case class String256M private[CantonRequireTypes] (str: String)(
       override val name: Option[String]
@@ -377,16 +391,21 @@ object CantonRequireTypes {
       override val name: Option[String] = None
   ) extends LengthLimitedString
 
-  /** Trait that implements method commonly needed in the companion object of an [[AbstractLengthLimitedString]] */
+  /** Trait that implements method commonly needed in the companion object of an
+    * [[AbstractLengthLimitedString]]
+    */
   trait LengthLimitedStringCompanion[A <: AbstractLengthLimitedString] {
 
     val empty: A = checked(factoryMethod("")(None))
 
-    /** The maximum string length. Should not be overwritten with `val` to avoid initialization issues. */
+    /** The maximum string length. Should not be overwritten with `val` to avoid initialization
+      * issues.
+      */
     def maxLength: PositiveInt
 
     /** Factory method for creating a string.
-      * @throws java.lang.IllegalArgumentException if `str` is longer than [[maxLength]]
+      * @throws java.lang.IllegalArgumentException
+      *   if `str` is longer than [[maxLength]]
       */
     protected def factoryMethod(str: String)(name: Option[String]): A
 
@@ -444,7 +463,8 @@ object CantonRequireTypes {
   }
 
   /** Trait for case classes that are a wrapper around a [[LengthLimitedString]].
-    * @see com.digitalasset.canton.crypto.CertificateId for an example
+    * @see
+    *   com.digitalasset.canton.crypto.CertificateId for an example
     */
   trait LengthLimitedStringWrapper {
     protected val str: LengthLimitedString
@@ -467,10 +487,11 @@ object CantonRequireTypes {
     override def hashCode(): Int = unwrap.hashCode()
   }
 
-  /** Trait that implements utility methods to avoid boilerplate in the companion object of a case class that wraps a
-    * [[LengthLimitedString]] type using [[LengthLimitedStringWrapper]].
+  /** Trait that implements utility methods to avoid boilerplate in the companion object of a case
+    * class that wraps a [[LengthLimitedString]] type using [[LengthLimitedStringWrapper]].
     *
-    * @see com.digitalasset.canton.crypto.CertificateId for an example
+    * @see
+    *   com.digitalasset.canton.crypto.CertificateId for an example
     */
   trait LengthLimitedStringWrapperCompanion[
       A <: LengthLimitedString,

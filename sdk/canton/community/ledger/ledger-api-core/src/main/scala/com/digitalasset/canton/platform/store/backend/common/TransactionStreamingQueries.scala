@@ -251,9 +251,13 @@ class TransactionStreamingQueries(
 object TransactionStreamingQueries {
 
   // TODO(i22416): Rename the arguments of this function, as witnessO and templateIdO are inadequate for party topology events.
-  /** @param tableName   one of filter tables for create, consuming or non-consuming events
-    * @param witnessO    the party for which to fetch the event ids, if None the event ids for all the parties should be fetched
-    * @param templateIdO NOTE: this parameter is not applicable for tree tx stream only oriented filters
+  /** @param tableName
+    *   one of filter tables for create, consuming or non-consuming events
+    * @param witnessO
+    *   the party for which to fetch the event ids, if None the event ids for all the parties should
+    *   be fetched
+    * @param templateIdO
+    *   NOTE: this parameter is not applicable for tree tx stream only oriented filters
     */
   def fetchEventIds(
       tableName: String,

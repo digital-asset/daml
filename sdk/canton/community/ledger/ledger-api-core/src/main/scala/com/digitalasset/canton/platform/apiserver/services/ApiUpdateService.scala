@@ -65,15 +65,7 @@ final class ApiUpdateService(
 
       logger.debug(s"Received new update request $request.")
       Source.future(updateService.currentLedgerEnd()).flatMapConcat { ledgerEnd =>
-        val validation = UpdateServiceRequestValidator.validate(
-          GetUpdatesRequest(
-            beginExclusive = request.beginExclusive,
-            endInclusive = request.endInclusive,
-            filter = request.filter,
-            verbose = request.verbose,
-          ),
-          ledgerEnd,
-        )
+        val validation = UpdateServiceRequestValidator.validate(request, ledgerEnd)
 
         validation.fold(
           t => Source.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),

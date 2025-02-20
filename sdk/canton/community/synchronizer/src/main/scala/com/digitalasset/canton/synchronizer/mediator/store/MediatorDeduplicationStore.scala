@@ -45,9 +45,9 @@ private[mediator] trait MediatorDeduplicationStore extends NamedLogging with Fla
 
   /** Clients must call this method before any other method.
     *
-    * @param firstEventTs the timestamp used to subscribe to the sequencer, i.e.,
-    *                     all data with a requestTime greater than or equal to `firstEventTs` will be deleted so that
-    *                     sequencer events can be replayed
+    * @param firstEventTs
+    *   the timestamp used to subscribe to the sequencer, i.e., all data with a requestTime greater
+    *   than or equal to `firstEventTs` will be deleted so that sequencer events can be replayed
     */
   def initialize(firstEventTs: CantonTimestamp)(implicit
       traceContext: TraceContext,
@@ -66,8 +66,8 @@ private[mediator] trait MediatorDeduplicationStore extends NamedLogging with Fla
     )
   }
 
-  /** Populate in-memory caches and
-    * delete all data with `requestTime` greater than or equal to `deleteFromInclusive`.
+  /** Populate in-memory caches and delete all data with `requestTime` greater than or equal to
+    * `deleteFromInclusive`.
     */
   protected def doInitialize(deleteFromInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext,
@@ -143,9 +143,9 @@ private[mediator] trait MediatorDeduplicationStore extends NamedLogging with Fla
 
   /** Stores the given `uuid` together with `requestTime` and `expireAfter`.
     *
-    * This method supports concurrent invocations.
-    * Changes are effective as soon as this method returns.
-    * If the store supports persistence, changes are persistent as soon as the returned future completes.
+    * This method supports concurrent invocations. Changes are effective as soon as this method
+    * returns. If the store supports persistence, changes are persistent as soon as the returned
+    * future completes.
     */
   def store(uuid: UUID, requestTime: CantonTimestamp, expireAfter: CantonTimestamp)(implicit
       traceContext: TraceContext,
@@ -154,8 +154,8 @@ private[mediator] trait MediatorDeduplicationStore extends NamedLogging with Fla
 
   /** Delete all data with `expireAt` before than or equal to `upToInclusive`.
     *
-    * If some data is concurrently stored and pruned, some data may remain in the in-memory caches and / or in the database.
-    * Such data will be deleted by a subsequent call to `prune`.
+    * If some data is concurrently stored and pruned, some data may remain in the in-memory caches
+    * and / or in the database. Such data will be deleted by a subsequent call to `prune`.
     */
   def prune(upToInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext,

@@ -28,8 +28,8 @@ import org.apache.pekko.stream.{AbruptStageTerminationException, Materializer}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-/** Subscription connected directly to a [[sequencer.Sequencer]].
-  * Should be created with [[DirectSequencerSubscriptionFactory]].
+/** Subscription connected directly to a [[sequencer.Sequencer]]. Should be created with
+  * [[DirectSequencerSubscriptionFactory]].
   */
 private[service] class DirectSequencerSubscription[E](
     member: Member,

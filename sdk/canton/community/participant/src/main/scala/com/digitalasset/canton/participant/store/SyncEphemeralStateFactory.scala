@@ -129,16 +129,18 @@ class SyncEphemeralStateFactoryImpl(
 object SyncEphemeralStateFactory {
 
   /** Returns the starting points for replaying of clean requests and for processing messages.
-    * Replaying of clean requests reconstructs the ephemeral state at the point
-    * where processing resumes.
+    * Replaying of clean requests reconstructs the ephemeral state at the point where processing
+    * resumes.
     *
-    * Processing resumes at the next request after the clean synchronizer Index stored together with the LedgerEnd by the indexer.
-    * If no such next request is known, this is immediately after the clean head synchronizer Index's request's timestamp
-    * or [[com.digitalasset.canton.participant.protocol.MessageProcessingStartingPoint.default]] if there is no clean synchronizer Index.
+    * Processing resumes at the next request after the clean synchronizer Index stored together with
+    * the LedgerEnd by the indexer. If no such next request is known, this is immediately after the
+    * clean head synchronizer Index's request's timestamp or
+    * [[com.digitalasset.canton.participant.protocol.MessageProcessingStartingPoint.default]] if
+    * there is no clean synchronizer Index.
     *
-    * The starting point for replaying of clean requests starts with the first request (by request counter)
-    * whose commit time is after the starting point for processing messages. If there is no such request,
-    * the starting point for replaying is the same as the one for processing messages.
+    * The starting point for replaying of clean requests starts with the first request (by request
+    * counter) whose commit time is after the starting point for processing messages. If there is no
+    * such request, the starting point for replaying is the same as the one for processing messages.
     */
   /* Invariants underlying this method:
    *
@@ -225,8 +227,8 @@ object SyncEphemeralStateFactory {
     }
   }
 
-  /** Returns an upper bound for the timestamps up to which pruning may remove data from the stores (inclusive)
-    * so that crash recovery will still work.
+  /** Returns an upper bound for the timestamps up to which pruning may remove data from the stores
+    * (inclusive) so that crash recovery will still work.
     */
   def crashRecoveryPruningBoundInclusive(
       requestJournalStore: RequestJournalStore,

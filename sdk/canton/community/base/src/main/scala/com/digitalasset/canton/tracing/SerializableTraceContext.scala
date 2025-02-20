@@ -17,8 +17,8 @@ import com.digitalasset.canton.version.{
 }
 import com.typesafe.scalalogging.Logger
 
-/** Wrapper around [[TraceContext]] to keep serialization out of the [[TraceContext]] itself
-  * and thereby reduce its dependencies.
+/** Wrapper around [[TraceContext]] to keep serialization out of the [[TraceContext]] itself and
+  * thereby reduce its dependencies.
   */
 final case class SerializableTraceContext(traceContext: TraceContext)
     extends HasVersionedWrapper[SerializableTraceContext] {
@@ -58,8 +58,8 @@ object SerializableTraceContext
 
   val empty: SerializableTraceContext = SerializableTraceContext(TraceContext.empty)
 
-  /** Construct a TraceContext from provided protobuf structure.
-    * Errors will be logged at a WARN level using the provided storageLogger and an empty TraceContext will be returned.
+  /** Construct a TraceContext from provided protobuf structure. Errors will be logged at a WARN
+    * level using the provided storageLogger and an empty TraceContext will be returned.
     */
   def fromProtoSafeV30Opt(logger: Logger)(
       traceContextP: Option[v30.TraceContext]

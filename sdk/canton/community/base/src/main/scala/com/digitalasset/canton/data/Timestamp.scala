@@ -23,15 +23,17 @@ trait Timestamp extends PrettyPrinting {
   /** Use this method to convert the timestamp into a [[com.google.protobuf.timestamp.Timestamp]].
     * This Protobuf type should be used in messages for external APIs such as the Canton admin APIs.
     *
-    * @see toProtoPrimitive
+    * @see
+    *   toProtoPrimitive
     */
   def toProtoTimestamp: ProtoTimestamp =
     ProtoConverter.InstantConverter.toProtoPrimitive(underlying.toInstant)
 
-  /** Use this method to convert the timestamp into UTC microseconds since UNIX epoch.
-    * This Protobuf type should be used in all protocol messages that obey the protocol versioning regime.
+  /** Use this method to convert the timestamp into UTC microseconds since UNIX epoch. This Protobuf
+    * type should be used in all protocol messages that obey the protocol versioning regime.
     *
-    * @see toProtoTimestamp
+    * @see
+    *   toProtoTimestamp
     */
   def toProtoPrimitive: Long = underlying.micros
 

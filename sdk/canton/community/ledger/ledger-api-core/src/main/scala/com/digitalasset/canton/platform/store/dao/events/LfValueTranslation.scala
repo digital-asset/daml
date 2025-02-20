@@ -53,8 +53,9 @@ import scala.util.chaining.*
 
 /** Serializes and deserializes Daml-Lf values and events.
   *
-  *  Deserializing values in verbose mode involves loading packages in order to fill in missing type information.
-  *  That's why these methods return Futures, while the serialization methods are synchronous.
+  * Deserializing values in verbose mode involves loading packages in order to fill in missing type
+  * information. That's why these methods return Futures, while the serialization methods are
+  * synchronous.
   */
 trait LfValueSerialization {
   def serialize(

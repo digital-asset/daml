@@ -16,10 +16,11 @@ import scala.util.{Failure, Success, Try}
 
 object MemoryConfigChecker {
 
-  /**  The Canton app requires additional memory for off-heap memory, garbage collection overhead, JVM internals, threads, etc.
-    *  It is recommended to allocate at least 2x the -Xmx value to the container's memory limit.
-    *  This method checks if the -Xmx value is within half of the container's total memory, and depending on the configuration,
-    *  logs a warning, error, or crashes the app.
+  /** The Canton app requires additional memory for off-heap memory, garbage collection overhead,
+    * JVM internals, threads, etc. It is recommended to allocate at least 2x the -Xmx value to the
+    * container's memory limit. This method checks if the -Xmx value is within half of the
+    * container's total memory, and depending on the configuration, logs a warning, error, or
+    * crashes the app.
     */
   def check(config: StartupMemoryCheckConfig, logger: TracedLogger)(implicit
       traceContext: TraceContext

@@ -687,8 +687,12 @@ create or replace view debug.common_static_strings as
 
 create or replace view debug.ord_p2p_endpoints as
   select
-    host,
-    port
+    address,
+    port,
+    transport_security,
+    custom_server_trust_certificates,
+    client_certificate_chain,
+    client_private_key_file
   from ord_p2p_endpoints;
 
 create or replace VIEW debug.acs_no_wait_counter_participants as

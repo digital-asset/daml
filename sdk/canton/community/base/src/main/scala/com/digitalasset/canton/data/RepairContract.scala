@@ -8,8 +8,10 @@ import com.digitalasset.canton.protocol.SerializableContract
 
 /** Serializable contract with witnesses for contract add/import used in admin repairs.
   *
-  * @param contract serializable contract
-  * @param reassignmentCounter reassignment counter for the given [[contract]]
+  * @param contract
+  *   serializable contract
+  * @param reassignmentCounter
+  *   reassignment counter for the given [[contract]]
   */
 final case class RepairContract(
     contract: SerializableContract,

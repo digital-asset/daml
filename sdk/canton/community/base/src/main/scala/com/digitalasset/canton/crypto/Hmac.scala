@@ -94,8 +94,8 @@ object Hmac {
         )
     } yield hmac
 
-  /** Computes the HMAC of the given message using an explicit secret.
-    * See [[https://en.wikipedia.org/wiki/HMAC]]
+  /** Computes the HMAC of the given message using an explicit secret. See
+    * [[https://en.wikipedia.org/wiki/HMAC]]
     */
   def compute(
       secret: HmacSecret,
@@ -152,8 +152,8 @@ object HmacSecret {
 
   /** Generates a new random HMAC secret key. A minimum secret key length of 128 bits is enforced.
     *
-    * NOTE: The length of the HMAC secret should not exceed the internal _block_ size of the hash function,
-    * e.g., 512 bits for SHA256.
+    * NOTE: The length of the HMAC secret should not exceed the internal _block_ size of the hash
+    * function, e.g., 512 bits for SHA256.
     */
   def generate(randomOps: RandomOps, length: Int = defaultLength): HmacSecret = {
     require(length >= defaultLength, s"Specified HMAC secret key length $length too small.")

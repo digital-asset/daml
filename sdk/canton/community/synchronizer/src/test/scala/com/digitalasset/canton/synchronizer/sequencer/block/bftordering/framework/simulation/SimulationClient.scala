@@ -21,15 +21,17 @@ object SimulationClient {
   trait Initializer[E <: Env[E], ClientMessageT, SystemInputMessageT] {
 
     /** Create the client that is represented as a Module
-      * @param systemRef is used to send messages to the system under test
+      * @param systemRef
+      *   is used to send messages to the system under test
       */
     def createClient(
         systemRef: ModuleRef[SystemInputMessageT]
     ): Module[E, ClientMessageT]
 
-    /** This will be called once after the client has been created. This can be used to schedule
-      *  the initial messages to the client
-      * @param context for the client
+    /** This will be called once after the client has been created. This can be used to schedule the
+      * initial messages to the client
+      * @param context
+      *   for the client
       */
     def init(context: E#ActorContextT[ClientMessageT]): Unit
   }

@@ -10,8 +10,7 @@ import com.google.protobuf.ByteString
 
 import scala.jdk.CollectionConverters.*
 
-/** Interface to provide observability in the hashing algorithm.
-  * Use for debugging.
+/** Interface to provide observability in the hashing algorithm. Use for debugging.
   */
 sealed trait HashTracer {
   def traceByteString(bytes: ByteString, context: => String): Unit
@@ -43,7 +42,8 @@ object HashTracer {
   }
 
   /** Hash tracer that accumulated encoded values into a string.
-    * @param traceSubNodes whether sub nodes should be traced as well (defaults to false)
+    * @param traceSubNodes
+    *   whether sub nodes should be traced as well (defaults to false)
     */
   final case class StringHashTracer private (
       traceSubNodes: Boolean,
@@ -67,8 +67,8 @@ object HashTracer {
     override def traceByteString(byteBuffer: ByteString, context: => String): Unit =
       traceByteArray(byteBuffer.toByteArray, context)
 
-    /** Returns a byte array of the encoding performed through this HashTracer.
-      * traceSubNodes does not affect the result of this function, only encoded bytes at the first level are returned.
+    /** Returns a byte array of the encoding performed through this HashTracer. traceSubNodes does
+      * not affect the result of this function, only encoded bytes at the first level are returned.
       */
     def asByteArray: Array[Byte] =
       result

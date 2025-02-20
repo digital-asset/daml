@@ -58,6 +58,7 @@ message GetActiveContractsRequest {
   // Format of the contract_entries in the result. In case of CreatedEvent the presentation will be of
   // TRANSACTION_SHAPE_ACS_DELTA.
   // Optional for backwards compatibility, defaults to an EventFormat where:
+  //
   //   - filter is the filter field from this request
   //   - verbose is the verbose field from this request
   EventFormat event_format = 4;

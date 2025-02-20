@@ -26,21 +26,26 @@ import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.AtomicReference
 
-/** The [[GrpcSequencerChannel]] represents a sequencer channel on the sequencer server between two members.
-  * On the sequencer channel service side, the two members are handled symmetrically in a bidirectional communication
-  * with each member communicating via its [[GrpcSequencerChannelMemberMessageHandler]].
+/** The [[GrpcSequencerChannel]] represents a sequencer channel on the sequencer server between two
+  * members. On the sequencer channel service side, the two members are handled symmetrically in a
+  * bidirectional communication with each member communicating via its
+  * [[GrpcSequencerChannelMemberMessageHandler]].
   *
-  * To the sequencer server, the only attribute distinguishing the two members is the order in which the members
-  * connect to the channel.
+  * To the sequencer server, the only attribute distinguishing the two members is the order in which
+  * the members connect to the channel.
   *
-  * The first member to connect initiates the creation of a channel, and when the second member connects, the
-  * GrpcSequencerChannel links the two member message handlers in such a way that messages, the completion, and a
-  * termination error are forwarded from one handler to the other.
+  * The first member to connect initiates the creation of a channel, and when the second member
+  * connects, the GrpcSequencerChannel links the two member message handlers in such a way that
+  * messages, the completion, and a termination error are forwarded from one handler to the other.
   *
-  * @param channelId                   Channel id unique to the sequencer
-  * @param firstMember                 Initial member that creates and connects to the channel
-  * @param secondMember                Subsequent member that connects to the channel
-  * @param firstMemberResponseObserver Initial members GRPC response StreamObserver to pass to the handler
+  * @param channelId
+  *   Channel id unique to the sequencer
+  * @param firstMember
+  *   Initial member that creates and connects to the channel
+  * @param secondMember
+  *   Subsequent member that connects to the channel
+  * @param firstMemberResponseObserver
+  *   Initial members GRPC response StreamObserver to pass to the handler
   */
 private[channel] final class GrpcSequencerChannel(
     val channelId: SequencerChannelId,
@@ -143,13 +148,18 @@ private[channel] trait CreatesSequencerChannelMemberMessageHandler {
   ): Either[String, GrpcSequencerChannelMemberMessageHandler]
 }
 
-/** Represents an "uninitialized" GRPC sequencer channel to bridge the gap until the channel metadata
-  * is received in the first message of the request stream. This helps separate initialization-phase specific logic
-  * from the initialized GrpcSequencerChannel.
+/** Represents an "uninitialized" GRPC sequencer channel to bridge the gap until the channel
+  * metadata is received in the first message of the request stream. This helps separate
+  * initialization-phase specific logic from the initialized GrpcSequencerChannel.
   *
-  * @param responseObserver        The response GRPC StreamObserver used to send messages to the channel client
-  * @param authTokenExpiresAtO     The expiration time of the authentication token, if "sequencer-authentication-token" available on the GRPC context
-  * @param authenticationCheck     Checks that the initiating member matches the "sequencer-authentication-member" on the GRPC context
+  * @param responseObserver
+  *   The response GRPC StreamObserver used to send messages to the channel client
+  * @param authTokenExpiresAtO
+  *   The expiration time of the authentication token, if "sequencer-authentication-token" available
+  *   on the GRPC context
+  * @param authenticationCheck
+  *   Checks that the initiating member matches the "sequencer-authentication-member" on the GRPC
+  *   context
   */
 private[channel] abstract class UninitializedGrpcSequencerChannel(
     private[channel] val responseObserver: ServerCallStreamObserver[

@@ -18,9 +18,9 @@ import com.digitalasset.canton.tracing.TraceContext
 import java.util.concurrent.atomic.AtomicReference
 import java.util.function.UnaryOperator
 
-/** Holds the traffic consumed state of a member.
-  * This is used by the sequencer to keep track of the traffic consumed by its members,
-  * as well as by the members themselves in the TrafficStateController to keep track of their own traffic consumed.
+/** Holds the traffic consumed state of a member. This is used by the sequencer to keep track of the
+  * traffic consumed by its members, as well as by the members themselves in the
+  * TrafficStateController to keep track of their own traffic consumed.
   */
 class TrafficConsumedManager(
     val member: Member,
@@ -34,7 +34,8 @@ class TrafficConsumedManager(
   def getTrafficConsumed: TrafficConsumed = trafficConsumed.get
 
   /** Update the traffic consumed state with the provided receipt only if it is more recent.
-    * @return true if the state was updated.
+    * @return
+    *   true if the state was updated.
     */
   def updateWithReceipt(trafficReceipt: TrafficReceipt, timestamp: CantonTimestamp)(implicit
       metricsContext: MetricsContext
@@ -67,8 +68,8 @@ class TrafficConsumedManager(
     trafficConsumedUpdated
   }
 
-  /** Validate that the event cost is below the traffic limit at the provided timestamp.
-    * DOES NOT debit the cost from the traffic state.
+  /** Validate that the event cost is below the traffic limit at the provided timestamp. DOES NOT
+    * debit the cost from the traffic state.
     */
   def canConsumeAt(
       params: TrafficControlParameters,
@@ -80,8 +81,8 @@ class TrafficConsumedManager(
       .get()
       .canConsumeAt(params, cost, timestamp, trafficPurchasedO, logger)
 
-  /** Update the traffic consumed state to the given timestamp, including updating base rate remainder,
-    * ONLY if it's not already up to date.
+  /** Update the traffic consumed state to the given timestamp, including updating base rate
+    * remainder, ONLY if it's not already up to date.
     */
   def updateAt(timestamp: CantonTimestamp, params: TrafficControlParameters, logger: TracedLogger)(
       implicit
@@ -94,8 +95,8 @@ class TrafficConsumedManager(
       case trafficConsumed => trafficConsumed
     }
 
-  /** Consume the event cost at the given timestamp if enough traffic is available.
-    * This MUST be called sequentially.
+  /** Consume the event cost at the given timestamp if enough traffic is available. This MUST be
+    * called sequentially.
     */
   def consumeIfEnoughTraffic(
       params: TrafficControlParameters,

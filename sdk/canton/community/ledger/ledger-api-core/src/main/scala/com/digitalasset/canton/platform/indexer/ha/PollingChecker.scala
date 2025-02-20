@@ -13,15 +13,18 @@ import scala.concurrent.blocking
 import scala.util.{Failure, Success, Try}
 
 /** A simple host of checking.
-  * - This will ensure that checkBody is accessed by only one caller at a time
-  * - Does periodic checking
-  * - Exposes check() for on-demand checking from the outside
-  * - If whatever check() fails, it uses killSwitch with an abort
-  * - It is also an AutoCloseable to release internal resources
+  *   - This will ensure that checkBody is accessed by only one caller at a time
+  *   - Does periodic checking
+  *   - Exposes check() for on-demand checking from the outside
+  *   - If whatever check() fails, it uses killSwitch with an abort
+  *   - It is also an AutoCloseable to release internal resources
   *
-  * @param periodMillis period of the checking, between each scheduled checks there will be so much delay
-  * @param checkBody the check function, Exception signals failed check
-  * @param killSwitch to abort if a check fails
+  * @param periodMillis
+  *   period of the checking, between each scheduled checks there will be so much delay
+  * @param checkBody
+  *   the check function, Exception signals failed check
+  * @param killSwitch
+  *   to abort if a check fails
   */
 class PollingChecker(
     periodMillis: Long,

@@ -36,9 +36,9 @@ import scala.util.control.NonFatal
 /** Base classes to synchronize a state in a file with the state managed through the admin api
   *
   * The admin api for Canton is imperative, which allows us to manage large states, but it makes
-  * simple deployments more complex. In such cases, the declarative API allows to define the
-  * desired state in a config file, with a process that will in the background attempt to
-  * change the node state accordingly.
+  * simple deployments more complex. In such cases, the declarative API allows to define the desired
+  * state in a config file, with a process that will in the background attempt to change the node
+  * state accordingly.
   */
 trait DeclarativeApi[Cfg, Prep] extends NamedLogging {
 
@@ -55,28 +55,45 @@ trait DeclarativeApi[Cfg, Prep] extends NamedLogging {
 
   /** Generic self-consistency update runner
     *
-    * This function can be used to determine and apply a set of changes to a system. We generally refer to the
-    * state on a per key basis (e.g. user name, party name, dar-id etc). Each key points to a value. So effectively,
-    * we compare for each key whether the values match and if they don't, we update the state such that they do.
+    * This function can be used to determine and apply a set of changes to a system. We generally
+    * refer to the state on a per key basis (e.g. user name, party name, dar-id etc). Each key
+    * points to a value. So effectively, we compare for each key whether the values match and if
+    * they don't, we update the state such that they do.
     *
-    * @param name the name of the operation (e.g. dars, parties)*
-    * @param removeExcess if true, then items which are on the node but not found in the config will be removed.
-    *                     this is off by default to ensure that state that has been added via the admin api is not deleted.
-    * @param checkSelfConsistent if true (default), then the system will check whether it successfully updated the rows by
-    *                            checking the state after an update and verifying that it matches now the "wanted" state.
-    * @param want the state as desired
-    * @param fetch a function to fetch the current state. the function takes a limit argument. If the fetch returns the max limit,
-    *              we assume that we need to fetch more. The system will start to emit warnings but increase the fetch limit to
-    *              remain functional but to warn the user that they are reaching the limits of managing a node through a config file.
-    * @param add if the runner finds a value (K,V) in the want set which is not in the have set, it will invoke the add function.
-    * @param upd if the runner finds a value (K,V) where the want value V differs from the current have value V', then the
-    *            update function is invoked. The first V is the desired, the second is the existing state.
-    * @param rm if removeExcess is set to true and the runner finds a K in the have set but not in the want set, it will invoke
-    *           the rm function to remove K.
-    * @param compare supply distinct comparison function that checks whether an update is necessary (in case x:V == y:V) needs adjustment
-    * @param await the await function can be used to wait for a specific result after the update cycle (concretely, we wait
-    *              for the ledger api server to observe the parties before we start adding users that refer to these parties)
-    * @param onlyCheckKeys: if true, then we won't update values if they differ from the desired one
+    * @param name
+    *   the name of the operation (e.g. dars, parties)*
+    * @param removeExcess
+    *   if true, then items which are on the node but not found in the config will be removed. this
+    *   is off by default to ensure that state that has been added via the admin api is not deleted.
+    * @param checkSelfConsistent
+    *   if true (default), then the system will check whether it successfully updated the rows by
+    *   checking the state after an update and verifying that it matches now the "wanted" state.
+    * @param want
+    *   the state as desired
+    * @param fetch
+    *   a function to fetch the current state. the function takes a limit argument. If the fetch
+    *   returns the max limit, we assume that we need to fetch more. The system will start to emit
+    *   warnings but increase the fetch limit to remain functional but to warn the user that they
+    *   are reaching the limits of managing a node through a config file.
+    * @param add
+    *   if the runner finds a value (K,V) in the want set which is not in the have set, it will
+    *   invoke the add function.
+    * @param upd
+    *   if the runner finds a value (K,V) where the want value V differs from the current have value
+    *   V', then the update function is invoked. The first V is the desired, the second is the
+    *   existing state.
+    * @param rm
+    *   if removeExcess is set to true and the runner finds a K in the have set but not in the want
+    *   set, it will invoke the rm function to remove K.
+    * @param compare
+    *   supply distinct comparison function that checks whether an update is necessary (in case x:V
+    *   \== y:V) needs adjustment
+    * @param await
+    *   the await function can be used to wait for a specific result after the update cycle
+    *   (concretely, we wait for the ledger api server to observe the parties before we start adding
+    *   users that refer to these parties)
+    * @param onlyCheckKeys:
+    *   if true, then we won't update values if they differ from the desired one
     */
   protected def run[K, V](
       name: String,

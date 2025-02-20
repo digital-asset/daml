@@ -18,9 +18,9 @@ import scala.concurrent.Await
 import scala.concurrent.duration.*
 import scala.util.control.NonFatal
 
-/** Base test for writing a database backed storage test.
-  * To ensure idempotency and safety under retries of the store each write operation is executed twice.
-  * Each database should provide a DbTest implementation that can then be mixed into a storage test to provide the actual backend.
+/** Base test for writing a database backed storage test. To ensure idempotency and safety under
+  * retries of the store each write operation is executed twice. Each database should provide a
+  * DbTest implementation that can then be mixed into a storage test to provide the actual backend.
   * See DbCryptoVaultStoreTest for example usage.
   */
 trait DbTest

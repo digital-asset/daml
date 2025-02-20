@@ -13,9 +13,12 @@ final case class ViewValidationResult(
 
 /** The result of the activeness check for a view
   *
-  * @param inactiveContracts The input contracts that are inactive
-  * @param alreadyLockedContracts The contracts that are already locked
-  * @param existingContracts The created contracts that already exist
+  * @param inactiveContracts
+  *   The input contracts that are inactive
+  * @param alreadyLockedContracts
+  *   The contracts that are already locked
+  * @param existingContracts
+  *   The created contracts that already exist
   */
 final case class ViewActivenessResult(
     inactiveContracts: Set[LfContractId],

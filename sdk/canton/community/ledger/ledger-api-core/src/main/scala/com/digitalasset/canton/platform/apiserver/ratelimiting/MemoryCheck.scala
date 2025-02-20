@@ -74,13 +74,13 @@ object MemoryCheck {
     }
   }
 
-  /** When the collected tenured memory pool usage exceeds the threshold this state will continue even if memory
-    * has been freed up if no garbage collection takes place.  For this reason when we are over limit we also
-    * run garbage collection on every request to ensure the collection usage stats are as up to date as possible
-    * to thus stop rate limiting as soon as possible.
+  /** When the collected tenured memory pool usage exceeds the threshold this state will continue
+    * even if memory has been freed up if no garbage collection takes place. For this reason when we
+    * are over limit we also run garbage collection on every request to ensure the collection usage
+    * stats are as up to date as possible to thus stop rate limiting as soon as possible.
     *
-    * We use a throttled memory bean to ensure that even if the server is under heavy rate limited load calls
-    * to the underlying system gc are limited.
+    * We use a throttled memory bean to ensure that even if the server is under heavy rate limited
+    * load calls to the underlying system gc are limited.
     */
 
   private def gc(memoryMxBean: GcThrottledMemoryBean): Unit =

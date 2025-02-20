@@ -17,13 +17,15 @@ import com.digitalasset.canton.tracing.TraceContext
   */
 sealed trait JobSchedule {
 
-  /** Determines how long (at millisecond granularity) to wait before running the next task depending on the result
-    * of the previous execution result (affects how soon to retry e.g. on errors or when there is more work to do).
+  /** Determines how long (at millisecond granularity) to wait before running the next task
+    * depending on the result of the previous execution result (affects how soon to retry e.g. on
+    * errors or when there is more work to do).
     *
     * Returns:
-    * 1. time to wait and
-    * 2. the specific schedule that corresponds to the most immediate time to wait. This can be used by the scheduler
-    *    job on which actions to perform depending on the triggering schedule.
+    *   1. time to wait and
+    *   1. the specific schedule that corresponds to the most immediate time to wait. This can be
+    *      used by the scheduler job on which actions to perform depending on the triggering
+    *      schedule.
     */
   protected[scheduler] def determineNextRun(result: ScheduledRunResult)(implicit
       traceContext: TraceContext
@@ -140,8 +142,8 @@ final class IntervalSchedule(interval: PositiveSeconds) extends IndividualSchedu
     NextRun(NonNegativeFiniteDuration(interval), this).some
 }
 
-/** Compound schedule allow combining multiple individual schedules into one schedule
-  * that represents "the union" of all schedules.
+/** Compound schedule allow combining multiple individual schedules into one schedule that
+  * represents "the union" of all schedules.
   */
 final class CompoundSchedule(schedules: NonEmpty[Set[IndividualSchedule]]) extends JobSchedule {
 

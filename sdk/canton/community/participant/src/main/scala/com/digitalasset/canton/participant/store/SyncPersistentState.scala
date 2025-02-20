@@ -26,7 +26,9 @@ import com.digitalasset.canton.topology.{
 
 import scala.concurrent.ExecutionContext
 
-/** The participant-relevant state and components of a synchronizer that is independent of the connectivity to the synchronizer. */
+/** The participant-relevant state and components of a synchronizer that is independent of the
+  * connectivity to the synchronizer.
+  */
 trait SyncPersistentState extends NamedLogging with AutoCloseable {
 
   protected[participant] def loggerFactory: NamedLoggerFactory

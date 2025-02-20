@@ -22,21 +22,22 @@ import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.ExecutionContext
 
-/** The request journal records the committed [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestState!]]
-  * associated with particular requests.
-  * The request journal is only written to by the [[com.digitalasset.canton.participant.protocol.ProtocolProcessor]]s.
-  * In particular, reads of request journal state are used for maintaining consistency in reads from contract stores.
-  * The request journal is also used for bookkeeping and recovery.
-  * The only exception to the writing rule is the [[com.digitalasset.canton.participant.store.RequestJournalStore.prune]] method,
+/** The request journal records the committed
+  * [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestState!]] associated with
+  * particular requests. The request journal is only written to by the
+  * [[com.digitalasset.canton.participant.protocol.ProtocolProcessor]]s. In particular, reads of
+  * request journal state are used for maintaining consistency in reads from contract stores. The
+  * request journal is also used for bookkeeping and recovery. The only exception to the writing
+  * rule is the [[com.digitalasset.canton.participant.store.RequestJournalStore.prune]] method,
   * which may be user-triggered, though the call's pre-conditions must be respected.
   *
-  * For every request, which is identified by a participant-local request counter,
-  * the request journal records the [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestState]]
+  * For every request, which is identified by a participant-local request counter, the request
+  * journal records the [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestState]]
   * associated with the request counter.
   *
-  * The request journal also stores the timestamp associated with the request.
-  * The assumption is made that every request is associated with only one timestamp.
-  * However, several requests may have the same timestamp.
+  * The request journal also stores the timestamp associated with the request. The assumption is
+  * made that every request is associated with only one timestamp. However, several requests may
+  * have the same timestamp.
   */
 class RequestJournal(
     store: RequestJournalStore,
@@ -60,26 +61,27 @@ class RequestJournal(
 
   /** Yields the number of requests that are currently not in state clean.
     *
-    * The number may be incorrect, if previous calls to `insert` or `terminate` have failed with an exception.
-    * This can be tolerated, as the ConnectedSynchronizer should be restarted after such an exception and that will
-    * reset the request journal.
+    * The number may be incorrect, if previous calls to `insert` or `terminate` have failed with an
+    * exception. This can be tolerated, as the ConnectedSynchronizer should be restarted after such
+    * an exception and that will reset the request journal.
     */
   def numberOfDirtyRequests: Int = numDirtyRequests.get()
 
-  /** Insert a new request into the request journal.
-    * The insertion will become visible immediately.
+  /** Insert a new request into the request journal. The insertion will become visible immediately.
     * The request has the initial state [[RequestJournal.RequestState.Pending]].
     *
     * Preconditions:
-    * <ul>
-    * <li>The request counter must not have been previously inserted.</li>
-    * <li>The request counter must be at least the front value of `pendingCursor`.</li>
-    * <li>The request counter must not be `Long.MaxValue`.</li>
-    * </ul>
+    *   - The request counter must not have been previously inserted.
+    *   - The request counter must be at least the front value of `pendingCursor`.
+    *   - The request counter must not be `Long.MaxValue`.
     *
-    * @param rc The request counter for the request.
-    * @param requestTimestamp The timestamp on the request message.
-    * @return A future that will terminate as soon as the request has been stored or fail if a precondition is violated.
+    * @param rc
+    *   The request counter for the request.
+    * @param requestTimestamp
+    *   The timestamp on the request message.
+    * @return
+    *   A future that will terminate as soon as the request has been stored or fail if a
+    *   precondition is violated.
     */
   def insert(rc: RequestCounter, requestTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -127,16 +129,16 @@ class RequestJournal(
     * Does nothing if the request was already clean.
     *
     * Preconditions:
-    * <ul>
-    * <li>The request counter `rc` is in this request journal with timestamp `requestTimestamp`.</li>
-    * <li>The commit time must be after or at the request time of the request.</li>
-    * <li>The methods [[insert]] and [[terminate]] are not called concurrently.</li>
-    * </ul>
+    *   - The request counter `rc` is in this request journal with timestamp `requestTimestamp`.
+    *   - The commit time must be after or at the request time of the request.
+    *   - The methods [[insert]] and [[terminate]] are not called concurrently.
     *
-    * @param requestTimestamp The timestamp assigned to the request counter
-    * @return A future that completes as soon as the state change has been persisted
-    *         or fails if a precondition is violated.
-    *         The future itself contains a future that completes as soon as the clean cursor reaches `rc`.
+    * @param requestTimestamp
+    *   The timestamp assigned to the request counter
+    * @return
+    *   A future that completes as soon as the state change has been persisted or fails if a
+    *   precondition is violated. The future itself contains a future that completes as soon as the
+    *   clean cursor reaches `rc`.
     */
   def terminate(
       rc: RequestCounter,
@@ -196,8 +198,10 @@ class RequestJournal(
 
   /** Counts requests whose timestamps lie between the given timestamps (inclusive).
     *
-    * @param start Count all requests after or at the given timestamp
-    * @param end   Count all requests before or at the given timestamp; use None to impose no upper limit
+    * @param start
+    *   Count all requests after or at the given timestamp
+    * @param end
+    *   Count all requests before or at the given timestamp; use None to impose no upper limit
     */
   @VisibleForTesting
   def size(start: CantonTimestamp = CantonTimestamp.Epoch, end: Option[CantonTimestamp] = None)(
@@ -210,9 +214,11 @@ class RequestJournal(
 
 object RequestJournal {
 
-  /** Enumeration for the states a transaction confirmation request can be in while it is being processed.
+  /** Enumeration for the states a transaction confirmation request can be in while it is being
+    * processed.
     *
-    * A transaction confirmation request must transit the states in the order given by this enumeration.
+    * A transaction confirmation request must transit the states in the order given by this
+    * enumeration.
     */
   sealed trait RequestState
       extends Ordered[RequestState]
@@ -236,7 +242,8 @@ object RequestJournal {
     override protected def pretty: Pretty[this.type] = prettyOfObject[this.type]
   }
 
-  /** State of a transaction confirmation request whose head value the request journal tracks with a cursor
+  /** State of a transaction confirmation request whose head value the request journal tracks with a
+    * cursor
     */
   sealed trait RequestStateWithCursor extends RequestState {
     override def hasCursor: Boolean = true
@@ -252,8 +259,8 @@ object RequestJournal {
       override def next: Option[RequestState] = Some(Clean)
     }
 
-    /** This state is reached when the result of a request is fully committed and no further processing is required,
-      * and the ACS is up to date with respect to this request.
+    /** This state is reached when the result of a request is fully committed and no further
+      * processing is required, and the ACS is up to date with respect to this request.
       */
     case object Clean extends RequestStateWithCursor {
       override def index: Int = 2
@@ -269,13 +276,19 @@ object RequestJournal {
 
   /** Summarizes the data to be stored for a request in the request journal.
     *
-    * @param rc The request counter to identify the request.
-    * @param state The state the request is in.
-    * @param requestTimestamp The timestamp on the request message
-    * @param commitTime The commit time of the request. May be set only for state [[RequestState.Clean]].
-    * @param repairContext The repair context to mark if the request originated from a repair command.
-    * @throws java.lang.IllegalArgumentException if the `commitTime` is specified and `state` is not [[RequestState.Clean]].
-    *                                            or if the `commitTime` is before the `requestTimestamp`
+    * @param rc
+    *   The request counter to identify the request.
+    * @param state
+    *   The state the request is in.
+    * @param requestTimestamp
+    *   The timestamp on the request message
+    * @param commitTime
+    *   The commit time of the request. May be set only for state [[RequestState.Clean]].
+    * @param repairContext
+    *   The repair context to mark if the request originated from a repair command.
+    * @throws java.lang.IllegalArgumentException
+    *   if the `commitTime` is specified and `state` is not [[RequestState.Clean]]. or if the
+    *   `commitTime` is before the `requestTimestamp`
     */
   final case class RequestData(
       rc: RequestCounter,
@@ -304,9 +317,9 @@ object RequestJournal {
     )
 
     /** Sets the `newState`, and the `commitTime` unless the commit time has previously been set.
-      * @throws java.lang.IllegalArgumentException if the `commitTime` is set or has been set previously
-      *                                            and the new state is not [[RequestState.Clean]],
-      *                                            or if the `commitTime` is before [[requestTimestamp]].
+      * @throws java.lang.IllegalArgumentException
+      *   if the `commitTime` is set or has been set previously and the new state is not
+      *   [[RequestState.Clean]], or if the `commitTime` is before [[requestTimestamp]].
       */
     def tryAdvance(newState: RequestState, commitTime: Option[CantonTimestamp]): RequestData =
       new RequestData(rc, newState, requestTimestamp, commitTime.orElse(commitTime), repairContext)
@@ -338,7 +351,8 @@ trait RequestJournalReader {
   import RequestJournal.*
 
   /** Returns the [[RequestJournal.RequestData]] associated with the given request counter, if any.
-    * Modifications done through the [[RequestJournal]] interface show up eventually, not necessarily immediately.
+    * Modifications done through the [[RequestJournal]] interface show up eventually, not
+    * necessarily immediately.
     */
   def query(rc: RequestCounter)(implicit
       traceContext: TraceContext

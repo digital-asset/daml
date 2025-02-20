@@ -10,17 +10,16 @@ import scala.collection.concurrent.TrieMap
 
 /** This class provides a mutable, thread safe, version of shapeless HMap.
   *
-  * Type safety is only guaranteed by the `ev` parameters that is passed to various
-  * methods. Because of that, default constructors of the class are disabled via the
-  * `private` keyword.
+  * Type safety is only guaranteed by the `ev` parameters that is passed to various methods. Because
+  * of that, default constructors of the class are disabled via the `private` keyword.
   *
   * In order to have type safety, the relation `R` must satisfy the following:
   *
-  * - `R` be single-valued: if `R[A, B1]` and `R[A, B2]` are defined, then
-  *   we should have `B1 = B2`.
+  *   - `R` be single-valued: if `R[A, B1]` and `R[A, B2]` are defined, then we should have `B1 =
+  *     B2`.
   *
-  * - If there is evidence for `R[A1, B1]` and `R[A2, B2]` for different `B1` and `B2`,
-  *   then for all non-null values `x1: A1` and `x2: A2`, we must have `x1 != x2`.
+  *   - If there is evidence for `R[A1, B1]` and `R[A2, B2]` for different `B1` and `B2`, then for
+  *     all non-null values `x1: A1` and `x2: A2`, we must have `x1 != x2`.
   *
   * See tests for counter-examples.
   */

@@ -74,10 +74,12 @@ private[dao] final class DbDispatcherImpl private[dao] (
   override def currentHealth(): HealthStatus =
     connectionProvider.currentHealth()
 
-  /** Runs an SQL statement in a dedicated Executor. The whole block will be run in a single database transaction.
+  /** Runs an SQL statement in a dedicated Executor. The whole block will be run in a single
+    * database transaction.
     *
-    * The isolation level by default is the one defined in the JDBC driver, it can be however overridden per query on
-    * the Connection. See further details at: https://docs.oracle.com/cd/E19830-01/819-4721/beamv/index.html
+    * The isolation level by default is the one defined in the JDBC driver, it can be however
+    * overridden per query on the Connection. See further details at:
+    * https://docs.oracle.com/cd/E19830-01/819-4721/beamv/index.html
     */
   def executeSql[T](databaseMetrics: DatabaseMetrics)(
       sql: Connection => T

@@ -8,7 +8,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Module,
   ModuleRef,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.BftOrderingServiceReceiveRequest
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
 
 trait P2PNetworkIn[E <: Env[E]] extends Module[E, BftOrderingServiceReceiveRequest] {
   def availability: ModuleRef[Availability.Message[E]]

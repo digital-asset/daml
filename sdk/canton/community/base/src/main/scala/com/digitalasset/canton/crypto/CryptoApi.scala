@@ -47,7 +47,9 @@ class Crypto(
     with CompositeHealthElement[String, HealthQuasiComponent]
     with HealthComponent {
 
-  /** Helper method to generate a new signing key pair and store the public key in the public store as well. */
+  /** Helper method to generate a new signing key pair and store the public key in the public store
+    * as well.
+    */
   def generateSigningKey(
       keySpec: SigningKeySpec = privateCrypto.defaultSigningKeySpec,
       usage: NonEmpty[Set[SigningKeyUsage]],
@@ -60,7 +62,9 @@ class Crypto(
       _ <- EitherT.right(cryptoPublicStore.storeSigningKey(publicKey, name))
     } yield publicKey
 
-  /** Helper method to generate a new encryption key pair and store the public key in the public store as well. */
+  /** Helper method to generate a new encryption key pair and store the public key in the public
+    * store as well.
+    */
   def generateEncryptionKey(
       keySpec: EncryptionKeySpec = privateCrypto.defaultEncryptionKeySpec,
       name: Option[KeyName] = None,
@@ -151,19 +155,23 @@ object SyncCryptoError {
 }
 
 // architecture-handbook-entry-begin: SyncCryptoApi
-/** impure part of the crypto api with access to private key store and knowledge about the current entity to key assoc */
+/** impure part of the crypto api with access to private key store and knowledge about the current
+  * entity to key assoc
+  */
 trait SyncCryptoApi {
 
   def pureCrypto: CryptoPureApi
 
   def ipsSnapshot: TopologySnapshot
 
-  /** Signs the given hash using the private signing key. It uses the most recent signing key with the specified usage
-    * in the private store. The key usage must intersect with the provided usage, but it does not need to satisfy all
-    * the provided usages.
+  /** Signs the given hash using the private signing key. It uses the most recent signing key with
+    * the specified usage in the private store. The key usage must intersect with the provided
+    * usage, but it does not need to satisfy all the provided usages.
     *
-    * @param hash the hash to sign
-    * @param usage restricts signing to private keys that have at least one matching usage
+    * @param hash
+    *   the hash to sign
+    * @param usage
+    *   restricts signing to private keys that have at least one matching usage
     */
   def sign(
       hash: Hash,
@@ -172,10 +180,11 @@ trait SyncCryptoApi {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature]
 
-  /** Verify signature of a given owner.
-    * Convenience method to lookup a key of a given owner, synchronizer and timestamp and verify the result.
+  /** Verify signature of a given owner. Convenience method to lookup a key of a given owner,
+    * synchronizer and timestamp and verify the result.
     *
-    * @param usage verifies that the signature was produced with a signing key with at least one matching usage
+    * @param usage
+    *   verifies that the signature was produced with a signing key with at least one matching usage
     */
   def verifySignature(
       hash: Hash,
@@ -192,10 +201,9 @@ trait SyncCryptoApi {
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
 
   /** Verifies a list of `signatures` to be produced by active members of a `mediatorGroup`,
-    * counting each member's signature only once.
-    * Returns `Right` when the `mediatorGroup`'s threshold is met.
-    * Can be successful even if some signatures fail the check, logs the errors in that case.
-    * When the threshold is not met returns `Left` with all the signature check errors.
+    * counting each member's signature only once. Returns `Right` when the `mediatorGroup`'s
+    * threshold is met. Can be successful even if some signatures fail the check, logs the errors in
+    * that case. When the threshold is not met returns `Left` with all the signature check errors.
     */
   def verifyMediatorSignatures(
       hash: Hash,
@@ -210,10 +218,10 @@ trait SyncCryptoApi {
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
 
-  /** This verifies that at least one of the signature is a valid sequencer signature.
-    * In particular, it does not respect the participant trust threshold.
-    * This should be used only in the context of reassignment where the concept of cross-synchronizer
-    * proof of sequencing is not fully fleshed out.
+  /** This verifies that at least one of the signature is a valid sequencer signature. In
+    * particular, it does not respect the participant trust threshold. This should be used only in
+    * the context of reassignment where the concept of cross-synchronizer proof of sequencing is not
+    * fully fleshed out.
     *
     * TODO(#12410) Remove this method and respect trust threshold
     */
@@ -223,8 +231,8 @@ trait SyncCryptoApi {
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
 
-  /** Decrypts a message using the private key of the public key identified by the fingerprint
-    * in the AsymmetricEncrypted object.
+  /** Decrypts a message using the private key of the public key identified by the fingerprint in
+    * the AsymmetricEncrypted object.
     */
   def decrypt[M](encryptedMessage: AsymmetricEncrypted[M])(
       deserialize: ByteString => Either[DeserializationError, M]

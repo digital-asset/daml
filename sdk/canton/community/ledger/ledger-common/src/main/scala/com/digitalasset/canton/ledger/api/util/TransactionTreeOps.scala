@@ -12,11 +12,13 @@ object TransactionTreeOps {
 
   implicit class TransactionTreeOps(val tree: TransactionTree) extends AnyVal {
 
-    /** Computes the node ids of the root nodes (i.e. the nodes that do not have any ancestors). A node can be
-      * considered a root if there are not any ancestors of it. There is no guarantee that the root node was also a root
-      * in the original transaction tree (i.e. before filtering out events from the original transaction tree).
+    /** Computes the node ids of the root nodes (i.e. the nodes that do not have any ancestors). A
+      * node can be considered a root if there are not any ancestors of it. There is no guarantee
+      * that the root node was also a root in the original transaction tree (i.e. before filtering
+      * out events from the original transaction tree).
       *
-      * @return the root node ids
+      * @return
+      *   the root node ids
       */
     def rootNodeIds(): List[Int] = {
       val lastDescendantById = tree.eventsById.view
@@ -48,15 +50,18 @@ object TransactionTreeOps {
       go(sortedNodeIds, List.empty)
     }
 
-    /** Computes the children nodes of an exercised event. It finds the candidate nodes that could be
-      * children of the event given (i.e. its descendants). Then it repeatedly finds from the candidates the one with
-      * the lowest id and adds it to its children and removes the child's descendants from the list with the candidates.
-      * A node can be considered a child of another node if there are not any intermediate descendants between its
-      * parent and itself. There is no guarantee that the child was a child of its parent in the original transaction
-      * tree (i.e. before filtering out events from the original transaction tree).
+    /** Computes the children nodes of an exercised event. It finds the candidate nodes that could
+      * be children of the event given (i.e. its descendants). Then it repeatedly finds from the
+      * candidates the one with the lowest id and adds it to its children and removes the child's
+      * descendants from the list with the candidates. A node can be considered a child of another
+      * node if there are not any intermediate descendants between its parent and itself. There is
+      * no guarantee that the child was a child of its parent in the original transaction tree (i.e.
+      * before filtering out events from the original transaction tree).
       *
-      * @param exercised the exercised event
-      * @return the children's node ids
+      * @param exercised
+      *   the exercised event
+      * @return
+      *   the children's node ids
       */
     def childNodeIds(exercised: ExercisedEvent): List[Int] = {
       val nodeId = exercised.nodeId

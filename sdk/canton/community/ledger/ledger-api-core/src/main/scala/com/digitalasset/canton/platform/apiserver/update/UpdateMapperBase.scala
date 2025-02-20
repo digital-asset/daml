@@ -21,11 +21,13 @@ trait UpdateMapperBase {
       updateTrie: UpdatePathsTrie,
   ): Result[Update]
 
-  /** Validates its input and produces an update object.
-    * NOTE: The return update object might represent an empty (no-op) update.
+  /** Validates its input and produces an update object. NOTE: The return update object might
+    * represent an empty (no-op) update.
     *
-    * @param apiObject       represents the new values for the update
-    * @param updateMask indicates which fields should get updated
+    * @param apiObject
+    *   represents the new values for the update
+    * @param updateMask
+    *   indicates which fields should get updated
     */
   final def toUpdate(
       apiObject: Resource,

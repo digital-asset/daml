@@ -21,8 +21,8 @@ final case class W3CTraceContext(parent: String, state: Option[String] = None)
 
   def toTraceContext: TraceContext = W3CTraceContext.toTraceContext(Some(parent), state)
 
-  /** HTTP headers of this trace context.
-    * Marked transient as the headers do not need to be serialized when using java serialization.
+  /** HTTP headers of this trace context. Marked transient as the headers do not need to be
+    * serialized when using java serialization.
     */
   @transient lazy val asHeaders: Map[String, String] =
     Map(TRACEPARENT_HEADER_NAME -> parent) ++ state.map(TRACESTATE_HEADER_NAME -> _).toList
@@ -91,10 +91,9 @@ object W3CTraceContext {
     resultMap.toMap
   }
 
-  /** Constructs a new trace context from optional serialized w3c trace context values.
-    * If the values are missing or invalid to construct the span then a trace context will
-    * still be returned but the current span will be invalid and [[TraceContext.traceId]]
-    * will return None.
+  /** Constructs a new trace context from optional serialized w3c trace context values. If the
+    * values are missing or invalid to construct the span then a trace context will still be
+    * returned but the current span will be invalid and [[TraceContext.traceId]] will return None.
     */
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
   def toTraceContext(parent: Option[String], state: Option[String]): TraceContext = extract {

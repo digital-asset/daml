@@ -35,13 +35,16 @@ import scala.concurrent.ExecutionContext
 
 /** Aggregates the responses for a request that the mediator has processed so far.
   *
-  * @param state               If the [[com.digitalasset.canton.protocol.messages.MediatorConfirmationRequest]] has been finalized,
-  *                            this will be a `Left` otherwise a `Right` which shows which transaction view hashes are not confirmed yet.
-  * @param requestTraceContext We retain the original trace context from the initial transaction confirmation request
-  *                            for raising timeouts to help with debugging. this ideally would be the same trace
-  *                            context throughout all responses could not be in a distributed setup so this is not
-  *                            validated anywhere. Intentionally supplied in a separate parameter list to avoid being
-  *                            included in equality checks.
+  * @param state
+  *   If the [[com.digitalasset.canton.protocol.messages.MediatorConfirmationRequest]] has been
+  *   finalized, this will be a `Left` otherwise a `Right` which shows which transaction view hashes
+  *   are not confirmed yet.
+  * @param requestTraceContext
+  *   We retain the original trace context from the initial transaction confirmation request for
+  *   raising timeouts to help with debugging. this ideally would be the same trace context
+  *   throughout all responses could not be in a distributed setup so this is not validated
+  *   anywhere. Intentionally supplied in a separate parameter list to avoid being included in
+  *   equality checks.
   */
 final case class ResponseAggregation[VKEY](
     override val requestId: RequestId,

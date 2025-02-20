@@ -115,10 +115,11 @@ class JcePureCrypto(
     val jceInternalName: String = "RSA/NONE/OAEPWithSHA256AndMGF1Padding"
   }
 
-  /** Parses and converts a public key to a java public key.
-    * We store the deserialization result in a cache.
+  /** Parses and converts a public key to a java public key. We store the deserialization result in
+    * a cache.
     *
-    * @return Either an error or the converted java private key
+    * @return
+    *   Either an error or the converted java private key
     */
   private def parseAndGetPublicKey[E](
       publicKey: PublicKey,
@@ -149,10 +150,11 @@ class JcePureCrypto(
     else Left(errFn(s"$keyFormat key format not supported"))
   }
 
-  /** Parses and converts an asymmetric private key to a java private key.
-    * We store the deserialization result in a cache.
+  /** Parses and converts an asymmetric private key to a java private key. We store the
+    * deserialization result in a cache.
     *
-    * @return Either an error or the converted java private key
+    * @return
+    *   Either an error or the converted java private key
     */
   private def parseAndGetPrivateKey[E, T <: JPrivateKey](
       privateKey: PrivateKey,
@@ -271,8 +273,8 @@ class JcePureCrypto(
       }
     } yield signer
 
-  /** Verifies an EC-DSA signature with the given public signing key.
-    * Only supports signatures encoded as DER.
+  /** Verifies an EC-DSA signature with the given public signing key. Only supports signatures
+    * encoded as DER.
     *
     * NOTE: `publicKey` must be an EC-DSA public key, not an Ed-DSA key.
     */

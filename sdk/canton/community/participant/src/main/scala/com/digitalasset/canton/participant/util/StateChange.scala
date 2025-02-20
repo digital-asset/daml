@@ -10,8 +10,10 @@ import slick.jdbc.GetResult
 
 /** A status and when it became effective.
   *
-  * @param status The status
-  * @param asOf When the change became effective
+  * @param status
+  *   The status
+  * @param asOf
+  *   When the change became effective
   */
 final case class StateChange[+Status <: PrettyPrinting](status: Status, asOf: TimeOfChange)
     extends PrettyPrinting {

@@ -46,9 +46,9 @@ object AcsTxStreams extends NoTracing {
     InsertDeleteStep(csb.result() filter (ce => !as.contains(ce.contractId)), as)
   }
 
-  /** Like `acsAndBoundary`, but also include the events produced by `transactionsSince`
-    * after the ACS's last offset, terminating with the last offset of the last transaction,
-    * or the ACS's last offset if there were no transactions.
+  /** Like `acsAndBoundary`, but also include the events produced by `transactionsSince` after the
+    * ACS's last offset, terminating with the last offset of the last transaction, or the ACS's last
+    * offset if there were no transactions.
     */
   def acsFollowingAndBoundary(
       transactionsSince: String => Source[Transaction, NotUsed],
@@ -82,8 +82,8 @@ object AcsTxStreams extends NoTracing {
       new FanOutShape2(acs.in, allSteps.out, txns.out1)
     }
 
-  /** Split a series of ACS responses into two channels: one with contracts, the
-    * other with a single result, the last offset.
+  /** Split a series of ACS responses into two channels: one with contracts, the other with a single
+    * result, the last offset.
     */
   private[this] def acsAndBoundary
       : Graph[FanOutShape2[Either[Long, lav2.state_service.GetActiveContractsResponse], Seq[
@@ -108,9 +108,8 @@ object AcsTxStreams extends NoTracing {
       new FanOutShape2(dup.in, acs.out, off.out)
     }
 
-  /** Interpreting the transaction stream so it conveniently depends on
-    * the ACS graph, if desired.  Deliberately matching output shape
-    * to `acsFollowingAndBoundary`.
+  /** Interpreting the transaction stream so it conveniently depends on the ACS graph, if desired.
+    * Deliberately matching output shape to `acsFollowingAndBoundary`.
     */
   def transactionsFollowingBoundary(
       transactionsSince: String => Source[Transaction, NotUsed],

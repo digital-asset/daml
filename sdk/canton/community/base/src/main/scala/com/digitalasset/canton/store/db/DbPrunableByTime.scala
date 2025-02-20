@@ -14,11 +14,10 @@ import slick.jdbc.SetParameter
 
 import scala.concurrent.ExecutionContext
 
-/** Mixin for a db store that stores the latest point in time when
-  * pruning has started or finished.
+/** Mixin for a db store that stores the latest point in time when pruning has started or finished.
   *
-  * The pruning method of the store must use [[advancePruningTimestamp]] to signal the start end completion
-  * of each pruning.
+  * The pruning method of the store must use [[advancePruningTimestamp]] to signal the start end
+  * completion of each pruning.
   */
 trait DbPrunableByTime extends PrunableByTime {
   this: DbStore =>
@@ -26,13 +25,10 @@ trait DbPrunableByTime extends PrunableByTime {
   protected[this] implicit def setParameterIndexedSynchronizer: SetParameter[IndexedSynchronizer] =
     IndexedString.setParameterIndexedString
 
-  /** The table name to store the pruning timestamp in.
-    * The table must define the following fields:
-    * <ul>
-    *   <li>[[partitionColumn]] primary key</li>
-    *   <li>`phase` stores the [[com.digitalasset.canton.pruning.PruningPhase]]</li>
-    *   <li>`ts` stores the [[com.digitalasset.canton.data.CantonTimestamp]]<li>
-    * </ul>
+  /** The table name to store the pruning timestamp in. The table must define the following fields:
+    *   - [[partitionColumn]] primary key
+    *   - `phase` stores the [[com.digitalasset.canton.pruning.PruningPhase]]
+    *   - `ts` stores the [[com.digitalasset.canton.data.CantonTimestamp]]
     */
   protected[this] def pruning_status_table: String
 

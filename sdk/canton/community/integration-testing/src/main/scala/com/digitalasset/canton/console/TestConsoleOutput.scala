@@ -17,9 +17,9 @@ import java.util.concurrent.{Future, TimeUnit}
 import scala.concurrent.blocking
 import scala.jdk.CollectionConverters.*
 
-/** Implementation of [[com.digitalasset.canton.console.ConsoleOutput]] for test purposes.
-  * By default, it logs messages as errors to fail the build on unexpected output.
-  * Alternatively, messages can be recorded and checked.
+/** Implementation of [[com.digitalasset.canton.console.ConsoleOutput]] for test purposes. By
+  * default, it logs messages as errors to fail the build on unexpected output. Alternatively,
+  * messages can be recorded and checked.
   */
 class TestConsoleOutput(override val loggerFactory: NamedLoggerFactory)
     extends ConsoleOutput
@@ -50,12 +50,15 @@ class TestConsoleOutput(override val loggerFactory: NamedLoggerFactory)
       // Please use recordMessages if you see this error in tests.
       logger.error(s"Unexpected console output: $message")
 
-  /** Executes a piece of code, records the console output created by that code and checks whether the sequence
-    * of emitted messages meets a sequence of assertions.
+  /** Executes a piece of code, records the console output created by that code and checks whether
+    * the sequence of emitted messages meets a sequence of assertions.
     *
-    * @return the result of operation
-    * @throws java.lang.IllegalArgumentException if recording has already been enabled. I.e., no nested usage is supported.
-    * @throws java.lang.UnsupportedOperationException if `T` is `Future[_]`, `EitherT` or `OptionT`.
+    * @return
+    *   the result of operation
+    * @throws java.lang.IllegalArgumentException
+    *   if recording has already been enabled. I.e., no nested usage is supported.
+    * @throws java.lang.UnsupportedOperationException
+    *   if `T` is `Future[_]`, `EitherT` or `OptionT`.
     */
   def assertConsoleOutput[T](operation: => T, assertions: (String => Assertion)*)(implicit
       pos: source.Position

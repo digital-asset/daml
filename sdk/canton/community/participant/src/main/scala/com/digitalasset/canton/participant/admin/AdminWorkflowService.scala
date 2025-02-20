@@ -21,9 +21,9 @@ trait AdminWorkflowService extends NamedLogging with AutoCloseable {
   /** The filters for this service */
   private[admin] def filters: TransactionFilter
 
-  /** Processing the transaction must not block; shutdown problems occur otherwise.
-    * Long-running computations or blocking calls should be spawned off into an asynchronous computation
-    * so that the service itself can synchronize its closing with the spawned-off computation if needed.
+  /** Processing the transaction must not block; shutdown problems occur otherwise. Long-running
+    * computations or blocking calls should be spawned off into an asynchronous computation so that
+    * the service itself can synchronize its closing with the spawned-off computation if needed.
     */
   private[admin] def processTransaction(tx: Transaction): Unit
 

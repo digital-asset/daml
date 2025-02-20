@@ -53,12 +53,14 @@ import scala.concurrent.ExecutionContext
 /** Active contracts journal
   *
   * This database table has the following indexes to support scaling query performance:
-  * - create index idx_par_active_contracts_dirty_request_reset on par_active_contracts (synchronizer_idx, request_counter)
-  * used on startup of the ConnectedSynchronizer to delete all inflight validation requests.
-  * - create index idx_par_active_contracts_contract_id on par_active_contracts (contract_id)
-  * used in conflict detection for point-wise lookup of the contract status.
-  * - create index idx_par_active_contracts_ts_synchronizer_idx on par_active_contracts (ts, synchronizer_idx)
-  * used on startup by the ConnectedSynchronizer to replay ACS changes to the ACS commitment processor.
+  *   - create index idx_par_active_contracts_dirty_request_reset on par_active_contracts
+  *     (synchronizer_idx, request_counter) used on startup of the ConnectedSynchronizer to delete
+  *     all inflight validation requests.
+  *   - create index idx_par_active_contracts_contract_id on par_active_contracts (contract_id) used
+  *     in conflict detection for point-wise lookup of the contract status.
+  *   - create index idx_par_active_contracts_ts_synchronizer_idx on par_active_contracts (ts,
+  *     synchronizer_idx) used on startup by the ConnectedSynchronizer to replay ACS changes to the
+  *     ACS commitment processor.
   */
 class DbActiveContractStore(
     override protected val storage: DbStorage,

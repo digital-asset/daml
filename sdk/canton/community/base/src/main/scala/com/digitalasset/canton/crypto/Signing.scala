@@ -44,7 +44,9 @@ import java.time.Duration
 import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 
-/** Signing operations that do not require access to a private key store but operates with provided keys. */
+/** Signing operations that do not require access to a private key store but operates with provided
+  * keys.
+  */
 trait SigningOps {
 
   def defaultSigningAlgorithmSpec: SigningAlgorithmSpec
@@ -52,9 +54,10 @@ trait SigningOps {
 
   /** Signs the given hash using the private signing key.
     *
-    * @param usage the usage we intend to enforce. If multiple usages are enforced,
-    *              at least one of them must be satisfied. In other words, the provided signing key's usage
-    *              must intersect with the specified usages.
+    * @param usage
+    *   the usage we intend to enforce. If multiple usages are enforced, at least one of them must
+    *   be satisfied. In other words, the provided signing key's usage must intersect with the
+    *   specified usages.
     */
   def sign(
       hash: Hash,
@@ -115,7 +118,9 @@ trait SigningPrivateOps {
       signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, SigningError, Signature]
 
-  /** Generates a new signing key pair with the given scheme and optional name, stores the private key and returns the public key. */
+  /** Generates a new signing key pair with the given scheme and optional name, stores the private
+    * key and returns the public key.
+    */
   def generateSigningKey(
       keySpec: SigningKeySpec = defaultSigningKeySpec,
       usage: NonEmpty[Set[SigningKeyUsage]],
@@ -315,13 +320,14 @@ object Signature
 
 }
 
-/** Defines the validity period of a session signing key delegation within a specific synchronizer timeframe.
-  * This period starts at a creation 'from' timestamp and extends for a specified duration,
-  * covering both the initial and end times inclusively.
+/** Defines the validity period of a session signing key delegation within a specific synchronizer
+  * timeframe. This period starts at a creation 'from' timestamp and extends for a specified
+  * duration, covering both the initial and end times inclusively.
   *
-  * @param fromInclusive the inclusive timestamp, indicating when a delegation to the session
-  *                      key was created
-  * @param periodLength the inclusive validity duration of the session key delegation in seconds
+  * @param fromInclusive
+  *   the inclusive timestamp, indicating when a delegation to the session key was created
+  * @param periodLength
+  *   the inclusive validity duration of the session key delegation in seconds
   */
 final case class SignatureDelegationValidityPeriod(
     fromInclusive: CantonTimestamp,
@@ -336,15 +342,18 @@ final case class SignatureDelegationValidityPeriod(
     )
 }
 
-/** An extension to the signature to accommodate the necessary information
-  * to be able to use session signing keys for protocol messages.
+/** An extension to the signature to accommodate the necessary information to be able to use session
+  * signing keys for protocol messages.
   *
-  * @param sessionKey the session signing key that can be used to verify the protocol message, must be
-  *                   in DerX509Spki format
-  * @param validityPeriod indicates the 'lifespan' (i.e. how long the key is valid) of a session signing key
-  * @param signature this signature authorizes the session key to act on behalf of a long-term key
-  *                  We sign over the combined hash of the fingerprint of the session key, the validity period, and
-  *                  the synchronizer id.
+  * @param sessionKey
+  *   the session signing key that can be used to verify the protocol message, must be in
+  *   DerX509Spki format
+  * @param validityPeriod
+  *   indicates the 'lifespan' (i.e. how long the key is valid) of a session signing key
+  * @param signature
+  *   this signature authorizes the session key to act on behalf of a long-term key We sign over the
+  *   combined hash of the fingerprint of the session key, the validity period, and the synchronizer
+  *   id.
   */
 final case class SignatureDelegation private[crypto] (
     sessionKey: SigningPublicKey,
@@ -471,7 +480,8 @@ sealed trait SignatureFormat extends Product with Serializable with PrettyPrinti
 
 object SignatureFormat {
 
-  /** ASN.1 + DER-encoding of the `r` and `s` integers, as defined in https://datatracker.ietf.org/doc/html/rfc3279#section-2.2.3
+  /** ASN.1 + DER-encoding of the `r` and `s` integers, as defined in
+    * https://datatracker.ietf.org/doc/html/rfc3279#section-2.2.3
     *
     * Used for ECDSA signatures.
     */
@@ -480,9 +490,11 @@ object SignatureFormat {
     override def toProtoEnum: v30.SignatureFormat = v30.SignatureFormat.SIGNATURE_FORMAT_DER
   }
 
-  /** Concatenation of the `r` and `s` integers in little-endian form, as defined in https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
+  /** Concatenation of the `r` and `s` integers in little-endian form, as defined in
+    * https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
     *
-    * Note that this is different from the format defined in IEEE P1363, which uses concatenation in big-endian form.
+    * Note that this is different from the format defined in IEEE P1363, which uses concatenation in
+    * big-endian form.
     *
     * Used for EdDSA signatures.
     */
@@ -578,11 +590,12 @@ object SigningKeyUsage {
     NonEmpty.mk(Set, Protocol, ProofOfOwnership)
 
   /** The following combinations are invalid because:
-    *   - `ProofOfOwnership` is an internal type and must always be associated with another usage. It identifies that
-    *     a key can be used to prove ownership within the context of `OwnerToKeyMappings` and `PartyToKeyMappings`
-    *     topology transactions.
-    *   - Keys associated with `Namespace` and `IdentityDelegation` are not part of `OwnerToKeyMappings` or
-    *     `PartyToKeyMappings`, and therefore are not used to prove ownership.
+    *   - `ProofOfOwnership` is an internal type and must always be associated with another usage.
+    *     It identifies that a key can be used to prove ownership within the context of
+    *     `OwnerToKeyMappings` and `PartyToKeyMappings` topology transactions.
+    *   - Keys associated with `Namespace` and `IdentityDelegation` are not part of
+    *     `OwnerToKeyMappings` or `PartyToKeyMappings`, and therefore are not used to prove
+    *     ownership.
     */
   private val invalidUsageCombinations: Set[NonEmpty[Set[SigningKeyUsage]]] =
     Set(
@@ -629,9 +642,9 @@ object SigningKeyUsage {
       v30.SigningKeyUsage.SIGNING_KEY_USAGE_PROTOCOL
   }
 
-  /** Internal type used to identify keys that can self-sign to prove ownership,
-    * required for topology requests such as OwnerToKeyMappings and PartyToKeyMappings.
-    * Generally, any key not intended for namespace or identity delegation will have this usage automatically assigned.
+  /** Internal type used to identify keys that can self-sign to prove ownership, required for
+    * topology requests such as OwnerToKeyMappings and PartyToKeyMappings. Generally, any key not
+    * intended for namespace or identity delegation will have this usage automatically assigned.
     */
   private case object ProofOfOwnership extends SigningKeyUsage {
     override val identifier: String = "proof-of-ownership"
@@ -659,8 +672,8 @@ object SigningKeyUsage {
       case v30.SigningKeyUsage.SIGNING_KEY_USAGE_PROOF_OF_OWNERSHIP => Right(ProofOfOwnership)
     }
 
-  /** When deserializing the usages for a signing key, if the usages are empty, we default to allowing all usages to
-    * maintain backward compatibility.
+  /** When deserializing the usages for a signing key, if the usages are empty, we default to
+    * allowing all usages to maintain backward compatibility.
     */
   def fromProtoListWithDefault(
       usages: Seq[v30.SigningKeyUsage]
@@ -679,13 +692,13 @@ object SigningKeyUsage {
         NonEmpty.from(listUsages.toSet).toRight(ProtoDeserializationError.FieldNotSet("usage"))
       )
 
-  /** Ensures that the intersection of a `key's usage` and the `allowed usages` is not empty, except when the only
-    * intersecting element is `ProofOfOwnership`.
+  /** Ensures that the intersection of a `key's usage` and the `allowed usages` is not empty, except
+    * when the only intersecting element is `ProofOfOwnership`.
     *
-    * This guarantees that at least one usage is shared, as long as it's not limited to `ProofOfOwnership`,
-    * which is an internal key usage type.
-    * The only case where the intersection can consist solely of `ProofOfOwnership` is when signing or verifying
-    * topology mappings like `OwnerToKeyMappings`, where the keys must be self-signed. In this case, we allow only
+    * This guarantees that at least one usage is shared, as long as it's not limited to
+    * `ProofOfOwnership`, which is an internal key usage type. The only case where the intersection
+    * can consist solely of `ProofOfOwnership` is when signing or verifying topology mappings like
+    * `OwnerToKeyMappings`, where the keys must be self-signed. In this case, we allow only
     * `ProofOfOwnership` type keys.
     */
   def compatibleUsage(
@@ -697,8 +710,8 @@ object SigningKeyUsage {
     else intersect.nonEmpty && intersect != Set(SigningKeyUsage.ProofOfOwnership)
   }
 
-  /** Adds the `ProofOfOwnershipOnly` usage to the list of usages, unless it forms an
-    * invalid combination.
+  /** Adds the `ProofOfOwnershipOnly` usage to the list of usages, unless it forms an invalid
+    * combination.
     */
   def addProofOfOwnership(usage: NonEmpty[Set[SigningKeyUsage]]): NonEmpty[Set[SigningKeyUsage]] = {
     val newUsage = usage ++ ProofOfOwnershipOnly
@@ -727,8 +740,7 @@ object SigningKeySpec {
   implicit val signingKeySpecCantonConfigValidation: CantonConfigValidator[SigningKeySpec] =
     CantonConfigValidatorDerivation[SigningKeySpec]
 
-  /** Elliptic Curve Key from the Curve25519 curve
-    * as defined in http://ed25519.cr.yp.to/
+  /** Elliptic Curve Key from the Curve25519 curve as defined in http://ed25519.cr.yp.to/
     */
   case object EcCurve25519 extends SigningKeySpec {
     override val name: String = "EC-Curve25519"
@@ -736,8 +748,8 @@ object SigningKeySpec {
       v30.SigningKeySpec.SIGNING_KEY_SPEC_EC_CURVE25519
   }
 
-  /** Elliptic Curve Key from the P-256 curve (aka secp256r1)
-    * as defined in https://doi.org/10.6028/NIST.FIPS.186-4
+  /** Elliptic Curve Key from the P-256 curve (aka secp256r1) as defined in
+    * https://doi.org/10.6028/NIST.FIPS.186-4
     */
   case object EcP256 extends SigningKeySpec {
     override val name: String = "EC-P256"
@@ -745,8 +757,8 @@ object SigningKeySpec {
       v30.SigningKeySpec.SIGNING_KEY_SPEC_EC_P256
   }
 
-  /** Elliptic Curve Key from the P-384 curve (aka secp384r1)
-    * as defined in https://doi.org/10.6028/NIST.FIPS.186-4
+  /** Elliptic Curve Key from the P-384 curve (aka secp384r1) as defined in
+    * https://doi.org/10.6028/NIST.FIPS.186-4
     */
   case object EcP384 extends SigningKeySpec {
     override val name: String = "EC-P384"
@@ -754,9 +766,8 @@ object SigningKeySpec {
       v30.SigningKeySpec.SIGNING_KEY_SPEC_EC_P384
   }
 
-  /** Elliptic Curve Key from SECG P256k1 curve (aka secp256k1)
-    * commonly used in bitcoin and ethereum
-    * as defined in https://www.secg.org/sec2-v2.pdf
+  /** Elliptic Curve Key from SECG P256k1 curve (aka secp256k1) commonly used in bitcoin and
+    * ethereum as defined in https://www.secg.org/sec2-v2.pdf
     */
   case object EcSecp256k1 extends SigningKeySpec {
     override val name: String = "EC-Secp256k1"
@@ -794,8 +805,8 @@ object SigningKeySpec {
       case err => Left(err)
     }
 
-  /** Converts an old SigningKeyScheme enum to the new key scheme,
-    * ensuring backward compatibility with existing data.
+  /** Converts an old SigningKeyScheme enum to the new key scheme, ensuring backward compatibility
+    * with existing data.
     */
   private def fromProtoEnumSigningKeyScheme(
       field: String,
@@ -837,8 +848,7 @@ object SigningAlgorithmSpec {
       : CantonConfigValidator[SigningAlgorithmSpec] =
     CantonConfigValidatorDerivation[SigningAlgorithmSpec]
 
-  /** EdDSA signature scheme based on Curve25519 and SHA512
-    * as defined in http://ed25519.cr.yp.to/
+  /** EdDSA signature scheme based on Curve25519 and SHA512 as defined in http://ed25519.cr.yp.to/
     */
   case object Ed25519 extends SigningAlgorithmSpec {
     override val name: String = "Ed25519"
@@ -850,8 +860,8 @@ object SigningAlgorithmSpec {
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_ED25519
   }
 
-  /** Elliptic Curve Digital Signature Algorithm with SHA256
-    * as defined in https://doi.org/10.6028/NIST.FIPS.186-4
+  /** Elliptic Curve Digital Signature Algorithm with SHA256 as defined in
+    * https://doi.org/10.6028/NIST.FIPS.186-4
     */
   case object EcDsaSha256 extends SigningAlgorithmSpec {
     override val name: String = "EC-DSA-SHA256"
@@ -863,8 +873,8 @@ object SigningAlgorithmSpec {
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256
   }
 
-  /** Elliptic Curve Digital Signature Algorithm with SHA384
-    * as defined in https://doi.org/10.6028/NIST.FIPS.186-4
+  /** Elliptic Curve Digital Signature Algorithm with SHA384 as defined in
+    * https://doi.org/10.6028/NIST.FIPS.186-4
     */
   case object EcDsaSha384 extends SigningAlgorithmSpec {
     override val name: String = "EC-DSA-SHA384"
@@ -923,8 +933,10 @@ object SigningAlgorithmSpec {
 
 /** Required signing algorithms and keys specifications to be supported by all synchronizer members.
   *
-  * @param algorithms list of required signing algorithm specifications
-  * @param keys list of required signing key specifications
+  * @param algorithms
+  *   list of required signing algorithm specifications
+  * @param keys
+  *   list of required signing key specifications
   */
 final case class RequiredSigningSpecs(
     algorithms: NonEmpty[Set[SigningAlgorithmSpec]],

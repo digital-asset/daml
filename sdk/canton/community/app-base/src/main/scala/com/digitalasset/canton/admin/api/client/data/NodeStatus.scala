@@ -183,9 +183,12 @@ object SimpleStatus {
 /** Topology manager queue status
   *
   * Status around topology management queues
-  * @param manager number of queued commands in the topology manager
-  * @param dispatcher number of queued transactions in the dispatcher
-  * @param clients number of observed transactions that are not yet effective
+  * @param manager
+  *   number of queued commands in the topology manager
+  * @param dispatcher
+  *   number of queued transactions in the dispatcher
+  * @param clients
+  *   number of observed transactions that are not yet effective
   */
 final case class TopologyQueueStatus(manager: Int, dispatcher: Int, clients: Int)
     extends PrettyPrinting {

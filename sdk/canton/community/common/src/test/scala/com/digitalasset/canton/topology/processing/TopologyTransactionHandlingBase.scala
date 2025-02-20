@@ -17,7 +17,8 @@ import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
-/** Base class for [[TopologyTransactionProcessorTest]] and [[InitialTopologySnapshotValidatorTest]].
+/** Base class for [[TopologyTransactionProcessorTest]] and
+  * [[InitialTopologySnapshotValidatorTest]].
   */
 abstract class TopologyTransactionHandlingBase
     extends AsyncWordSpec

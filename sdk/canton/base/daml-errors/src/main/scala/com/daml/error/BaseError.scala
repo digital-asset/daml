@@ -8,9 +8,9 @@ import io.grpc.StatusRuntimeException
 
 /** The main error interface for everything that should be logged and notified.
   *
-  * There are two ways to communicate an error to the user: write it into a log or send it as a string.
-  * In most cases, we'll do both: log the error appropriately locally and communicate it to the user
-  * by failing the API call with an error string.
+  * There are two ways to communicate an error to the user: write it into a log or send it as a
+  * string. In most cases, we'll do both: log the error appropriately locally and communicate it to
+  * the user by failing the API call with an error string.
   */
 trait BaseError extends LocationMixin {
 
@@ -24,15 +24,18 @@ trait BaseError extends LocationMixin {
     *
     * If you want to log an exception as part of your error, then use the following example:
     *
+    * {{{
     * object MyCode extends ErrorCode(id="SUPER_DUPER_ERROR") {
     *   case class MyError(someString: String, throwable: Throwable) extends SomeInternalError(
     *     cause = "Something failed with an exception bla",
     *     throwableO = Some(throwable)
     *   )
     * }
+    * }}}
     *
     * NOTE: This throwable's details are not included the exception communicated to the gRPC clients
-    *       so if you want them communicated, you need to explicitly add them to the e.g. context map or cause string.
+    * so if you want them communicated, you need to explicitly add them to the e.g. context map or
+    * cause string.
     */
   def throwableO: Option[Throwable] = None
 
@@ -42,8 +45,8 @@ trait BaseError extends LocationMixin {
 
   /** The resources related to this error
     *
-    * We return the set of resources via com.google.rpc.ResourceInfo. Override this method
-    * in order to return resource information via com.google.rpc.Status
+    * We return the set of resources via com.google.rpc.ResourceInfo. Override this method in order
+    * to return resource information via com.google.rpc.Status
     */
   def resources: Seq[(ErrorResource, String)] = Seq()
 
@@ -54,8 +57,8 @@ trait BaseError extends LocationMixin {
 
   /** Returns retryability information of this particular error
     *
-    * In some cases, error instances would like to provide custom retry intervals.
-    * This can be achieved by locally overriding this method.
+    * In some cases, error instances would like to provide custom retry intervals. This can be
+    * achieved by locally overriding this method.
     *
     * Do not use this to change the contract of the error categories. Non-retryable errors shouldn't
     * be made retryable. Only use it for adjusting the retry intervals.

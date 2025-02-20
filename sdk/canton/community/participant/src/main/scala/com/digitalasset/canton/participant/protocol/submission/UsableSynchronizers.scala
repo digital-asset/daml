@@ -30,8 +30,8 @@ import scala.concurrent.ExecutionContext
 object UsableSynchronizers {
 
   /** Split the synchronizers in two categories:
-    * - Synchronizers that cannot be used
-    * - synchronizer that can be used
+    *   - Synchronizers that cannot be used
+    *   - synchronizer that can be used
     */
   def check(
       synchronizers: List[(SynchronizerId, ProtocolVersion, TopologySnapshot)],
@@ -132,8 +132,8 @@ object UsableSynchronizers {
     }
     .getOrElse(EitherT.pure(()))
 
-  /** Check that every confirming party in the transaction is hosted by an active confirming participant
-    * on synchronizer `synchronizerId`.
+  /** Check that every confirming party in the transaction is hosted by an active confirming
+    * participant on synchronizer `synchronizerId`.
     */
   private def checkConfirmingParties(
       synchronizerId: SynchronizerId,
@@ -155,7 +155,8 @@ object UsableSynchronizers {
       .leftMap(MissingActiveParticipant(synchronizerId, _))
   }
 
-  /** Check that every party in `parties` is hosted by an active participant on synchronizer `synchronizerId`
+  /** Check that every party in `parties` is hosted by an active participant on synchronizer
+    * `synchronizerId`
     */
   private def checkConnectedParties(
       synchronizerId: SynchronizerId,
@@ -203,24 +204,22 @@ object UsableSynchronizers {
 
   /** The following is checked:
     *
-    * - For every (`party`, `pkgs`) in `requiredPackagesByParty`
+    *   - For every (`party`, `pkgs`) in `requiredPackagesByParty`
     *
-    * - For every participant `P` hosting `party`
+    *   - For every participant `P` hosting `party`
     *
-    * - All packages `pkgs` are vetted by `P` on synchronizer `synchronizerId`
+    *   - All packages `pkgs` are vetted by `P` on synchronizer `synchronizerId`
     *
-    * Note: in order to avoid false errors, it is important that the set of packages needed
-    * for the parties hosted locally covers the set of packages needed for all the parties.
+    * Note: in order to avoid false errors, it is important that the set of packages needed for the
+    * parties hosted locally covers the set of packages needed for all the parties.
     *
     * This is guaranteed in the following situations:
     *
-    * - Phase 1:
-    * Because the submitting participant hosts one of the authorizers, which sees the whole
-    * transaction. Hence, they need all the packages necessary for the transaction.
+    *   - Phase 1: Because the submitting participant hosts one of the authorizers, which sees the
+    *     whole transaction. Hence, they need all the packages necessary for the transaction.
     *
-    * - Phase 3:
-    * The participant receives a projection for the parties it hosts. Hence, the packages
-    * needed for these parties will be sufficient to re-interpret the whole projection.
+    *   - Phase 3: The participant receives a projection for the parties it hosts. Hence, the
+    *     packages needed for these parties will be sufficient to re-interpret the whole projection.
     */
   def checkPackagesVetted(
       synchronizerId: SynchronizerId,

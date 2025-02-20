@@ -17,7 +17,9 @@ sealed trait TransactionRoutingErrorWithSynchronizer extends TransactionRoutingE
   def synchronizerId: SynchronizerId
 }
 
-/** All routing errors happen before in-flight submission checking and are therefore never definite answers. */
+/** All routing errors happen before in-flight submission checking and are therefore never definite
+  * answers.
+  */
 object TransactionRoutingError extends RoutingErrorGroup {
 
   final case class SubmissionError(
@@ -350,7 +352,8 @@ object TransactionRoutingError extends RoutingErrorGroup {
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
 
-      /** @param synchronizersNotUsed The reason why each synchronizer cannot be used for submission.
+      /** @param synchronizersNotUsed
+        *   The reason why each synchronizer cannot be used for submission.
         */
       final case class Error(synchronizersNotUsed: Map[SynchronizerId, String])
           extends TransactionErrorImpl(

@@ -302,7 +302,8 @@ final class CommandsValidator(
       maxDeduplicationDuration,
     )
 
-  /** We validate only using current time because we set the currentTime as submitTime so no need to check both
+  /** We validate only using current time because we set the currentTime as submitTime so no need to
+    * check both
     */
   def validateDeduplicationPeriod(
       deduplicationPeriod: ProtoCommands.DeduplicationPeriod,
@@ -364,8 +365,10 @@ final class CommandsValidator(
 object CommandsValidator {
 
   /** Effective submitters of a command
-    * @param actAs Guaranteed to be non-empty. Will contain exactly one element in most cases.
-    * @param readAs May be empty.
+    * @param actAs
+    *   Guaranteed to be non-empty. Will contain exactly one element in most cases.
+    * @param readAs
+    *   May be empty.
     */
   final case class Submitters[T](actAs: Set[T], readAs: Set[T])
 

@@ -74,7 +74,8 @@ class AcsInspection(
 
   /** Get the current snapshot
     *
-    * @return A snapshot (with its timestamp) or None if no clean timestamp is known
+    * @return
+    *   A snapshot (with its timestamp) or None if no clean timestamp is known
     */
   def getCurrentSnapshot()(implicit
       traceContext: TraceContext,
@@ -178,9 +179,9 @@ class AcsInspection(
     )
   }
 
-  /** Check that the ACS snapshot does not contain contracts that are still needed on the participant.
-    * In the context of party offboarding, we want to avoid purging contracts
-    * that are needed for other parties hosted on the participant.
+  /** Check that the ACS snapshot does not contain contracts that are still needed on the
+    * participant. In the context of party offboarding, we want to avoid purging contracts that are
+    * needed for other parties hosted on the participant.
     */
   def checkOffboardingSnapshot(
       participantId: ParticipantId,
@@ -241,10 +242,11 @@ class AcsInspection(
       }
     } yield allStakeholdersAndTs
 
-  /** Applies function f to all the contracts in the batch whose set of stakeholders has
-    * non-empty intersection with `parties`
+  /** Applies function f to all the contracts in the batch whose set of stakeholders has non-empty
+    * intersection with `parties`
     *
-    * @return The union of all stakeholders of all contracts on which `f` was applied
+    * @return
+    *   The union of all stakeholders of all contracts on which `f` was applied
     */
   private def forEachBatch(
       synchronizerId: SynchronizerId,

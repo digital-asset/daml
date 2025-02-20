@@ -48,9 +48,9 @@ trait TransactionViewTree extends ViewTree {
 
   override def toBeSigned: Option[RootHash] = if (isTopLevel) Some(rootHash) else None
 
-  /** Returns the hashes of the direct subviews of the view represented by this tree.
-    * By definition, all subviews are unblinded, therefore this will also work when the subviews
-    * are stored in a MerkleSeq.
+  /** Returns the hashes of the direct subviews of the view represented by this tree. By definition,
+    * all subviews are unblinded, therefore this will also work when the subviews are stored in a
+    * MerkleSeq.
     */
   def subviewHashes: Seq[ViewHash] = view.subviews.trySubviewHashes
 

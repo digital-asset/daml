@@ -8,10 +8,12 @@ import net.logstash.logback.encoder.LogstashEncoder;
 /** canton specific json log encoding
   *
   * equivalent of:
+  * {{{
   * <encoder class="net.logstash.logback.encoder.LogstashEncoder">
   *      <excludeMdcKeyName>err-context</excludeMdcKeyName>
   *      <shortenedLoggerNameLength>30</shortenedLoggerNameLength>
   * </encoder>
+  * }}}
   */
 class CantonJsonEncoder extends LogstashEncoder {
   addExcludeMdcKeyName("err-context")

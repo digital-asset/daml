@@ -18,8 +18,9 @@ object StaticGrpcServices {
       "This method is unsupported by the Community edition of canton. Please see https://www.digitalasset.com/products/daml-enterprise for details on obtaining Canton Enterprise."
     )
 
-  /** Return a `UNIMPLEMENTED` error for any methods called on this service mentioning that the service is only
-    * supported in canton Enterprise. Also log a warning so the node operator is aware this method was called.
+  /** Return a `UNIMPLEMENTED` error for any methods called on this service mentioning that the
+    * service is only supported in canton Enterprise. Also log a warning so the node operator is
+    * aware this method was called.
     */
   def notSupportedByCommunity(
       descriptor: ServiceDescriptor,

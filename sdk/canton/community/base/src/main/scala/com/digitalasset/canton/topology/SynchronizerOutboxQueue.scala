@@ -13,14 +13,15 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 
 import scala.concurrent.{ExecutionContext, Promise, blocking}
 
-/** The [[SynchronizerOutboxQueue]] connects a [[SynchronizerTopologyManager]] and a `SynchronizerOutbox`.
-  * The topology manager enqueues transactions that the synchronizer outbox will pick up and send
-  * to the synchronizer to be sequenced and distributed to the nodes in the synchronizer.
+/** The [[SynchronizerOutboxQueue]] connects a [[SynchronizerTopologyManager]] and a
+  * `SynchronizerOutbox`. The topology manager enqueues transactions that the synchronizer outbox
+  * will pick up and send to the synchronizer to be sequenced and distributed to the nodes in the
+  * synchronizer.
   *
-  * On the one hand, [[com.digitalasset.canton.topology.SynchronizerOutboxQueue#enqueue]] may be called at any point to add
-  * more topology transactions to the queue. On the other hand, each invocation of
-  * [[com.digitalasset.canton.topology.SynchronizerOutboxQueue#dequeue]] must be followed by either
-  * [[com.digitalasset.canton.topology.SynchronizerOutboxQueue#requeue]] or
+  * On the one hand, [[com.digitalasset.canton.topology.SynchronizerOutboxQueue#enqueue]] may be
+  * called at any point to add more topology transactions to the queue. On the other hand, each
+  * invocation of [[com.digitalasset.canton.topology.SynchronizerOutboxQueue#dequeue]] must be
+  * followed by either [[com.digitalasset.canton.topology.SynchronizerOutboxQueue#requeue]] or
   * [[com.digitalasset.canton.topology.SynchronizerOutboxQueue#completeCycle]], before
   * [[com.digitalasset.canton.topology.SynchronizerOutboxQueue#dequeue]] is called again.
   */
@@ -49,8 +50,10 @@ class SynchronizerOutboxQueue(
   def numInProcessTransactions: Int = blocking(synchronized(inProcessQueue.size))
 
   /** Marks up to `limit` transactions as pending and returns those transactions.
-    * @param limit batch size
-    * @return the topology transactions that have been marked as pending.
+    * @param limit
+    *   batch size
+    * @return
+    *   the topology transactions that have been marked as pending.
     */
   def dequeue(limit: PositiveInt)(implicit
       traceContext: TraceContext
@@ -66,7 +69,8 @@ class SynchronizerOutboxQueue(
     inProcessQueue.toSeq.map { case (Traced(tx), _) => tx }
   })
 
-  /** Marks the currently pending transactions as unsent and adds them to the front of the queue in the same order.
+  /** Marks the currently pending transactions as unsent and adds them to the front of the queue in
+    * the same order.
     */
   def requeue()(implicit traceContext: TraceContext): Unit = blocking(synchronized {
     logger.debug(s"requeuing $inProcessQueue")

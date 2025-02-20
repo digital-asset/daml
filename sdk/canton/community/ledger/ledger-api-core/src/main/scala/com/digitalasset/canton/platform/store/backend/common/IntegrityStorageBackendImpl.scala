@@ -331,9 +331,8 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
        """.asSingle(int("count"))(connection))
       .getOrElse(0)
 
-  /**  ONLY FOR TESTING
-    *  This is causing wiping of all LAPI event data.
-    *  This should not be used during working indexer.
+  /** ONLY FOR TESTING This is causing wiping of all LAPI event data. This should not be used during
+    * working indexer.
     */
   override def onlyForTestingMoveLedgerEndBackToScratch()(connection: Connection): Unit = {
     SQL"DELETE FROM lapi_parameters".executeUpdate()(connection).discard

@@ -17,12 +17,34 @@ message AddPeerEndpointRequest {
 }
 
 message RemovePeerEndpointRequest {
-  PeerEndpoint endpoint = 1;
+  PeerEndpointId endpoint_id = 1;
 }
 
 message PeerEndpoint {
-  string host = 1;
+  string address = 1;
   uint32 port = 2;
+  oneof security {
+    PlainTextPeerEndpoint plain_text = 3;
+    TlsPeerEndpoint tls = 4;
+  }
+}
+
+message PeerEndpointId {
+  string address = 1;
+  uint32 port = 2;
+  bool tls = 3;
+}
+
+message PlainTextPeerEndpoint {}
+
+message TlsPeerEndpoint {
+  optional bytes custom_server_trust_certificate = 1;
+  TlsClientCertificate client_certificate = 2;
+}
+
+message TlsClientCertificate {
+  bytes certificate_chain = 1;
+  string private_key_file = 2;
 }
 
 message AddPeerEndpointResponse {
@@ -47,13 +69,13 @@ message PeerEndpointHealth {
 }
 
 message PeerEndpointStatus {
-  PeerEndpoint endpoint = 1;
+  PeerEndpointId endpoint_id = 1;
   PeerEndpointHealth health = 2;
 }
 
 message GetPeerNetworkStatusRequest {
   // If empty, the status of all known endpoints will be returned
-  repeated PeerEndpoint endpoints = 1;
+  repeated PeerEndpointId endpoint_ids = 1;
 }
 
 message GetPeerNetworkStatusResponse {

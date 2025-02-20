@@ -31,7 +31,6 @@ import com.digitalasset.canton.console.{
   Help,
   Helpful,
   InstanceReference,
-  ParticipantReference,
 }
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
@@ -85,6 +84,10 @@ class TopologyAdministrationGroup(
   private def timeouts: ConsoleCommandTimeout = consoleEnvironment.commandTimeouts
   implicit protected[canton] lazy val executionContext: ExecutionContext =
     consoleEnvironment.environment.executionContext
+
+  /** run a topology change command */
+  private[console] def runAdminCommand[T](grpcCommand: => GrpcAdminCommand[_, _, T]): T =
+    consoleEnvironment.run(adminCommand(grpcCommand))
 
   @Help.Summary("Initialize the node with a unique identifier")
   @Help.Description("""Every node in Canton is identified using a unique identifier, which is composed
@@ -170,55 +173,7 @@ class TopologyAdministrationGroup(
         is_idle(),
         s"topology queue status never became idle $topologyQueueStatus after $timeout",
       )
-
-    /** run a topology change command synchronized and wait until the node becomes idle again */
-    private[console] def run[T](timeout: Option[NonNegativeDuration])(func: => T): T = {
-      val ret = func
-      ConsoleMacros.utils.synchronize_topology(timeout)(consoleEnvironment)
-      ret
-    }
-
-    /** run a topology change command synchronized and wait until the node becomes idle again */
-    private[console] def runAdminCommand[T](
-        timeout: Option[NonNegativeDuration]
-    )(grpcCommand: => GrpcAdminCommand[_, _, T]): T = {
-      val ret = consoleEnvironment.run(adminCommand(grpcCommand))
-      // Only wait for topology synchronization if a timeout is specified.
-      if (timeout.nonEmpty) {
-        ConsoleMacros.utils.synchronize_topology(timeout)(consoleEnvironment)
-      }
-      ret
-    }
   }
-
-  @Help.Summary("Creates a temporary topology store.")
-  @Help.Description(
-    """A temporary topology store is useful for orchestrating the synchronizer founding ceremony or importing a topology snapshot for later inspection.
-      |Temporary topology stores are not persisted and all transactions are kept in memory only, which means restarting the node causes the loss of all
-      |transactions in that store.
-      |Additionally, temporary topology stores are not connected to any synchronizer, so there is no automatic propagation of topology transactions
-      |from the temporary store to connected synchronizers."""
-  )
-  def create_temporary_topology_store(
-      name: String,
-      protocolVersion: ProtocolVersion,
-  ): TopologyStoreId.Temporary =
-    consoleEnvironment.run {
-      adminCommand(TopologyAdminCommands.Write.CreateTemporaryStore(name, protocolVersion))
-    }
-
-  @Help.Summary(
-    "This command drops a temporary topology store and all transactions contained in it."
-  )
-  @Help.Description(
-    """Dropping a temporary topology store is not reversible and all topology transactions in the store will
-      |be permanently dropped.
-      |It's not possible to delete the authorized store or any synchronizer store with this command."""
-  )
-  def drop_temporary_topology_store(temporaryStoreId: TopologyStoreId.Temporary): Unit =
-    consoleEnvironment.run {
-      adminCommand(TopologyAdminCommands.Write.DropTemporaryStore(temporaryStoreId))
-    }
 
   @Help.Summary("Inspect all topology transactions at once")
   @Help.Group("All Transactions")
@@ -846,7 +801,7 @@ class TopologyAdministrationGroup(
         waitToBecomeEffective = synchronize,
       )
 
-      synchronisation.runAdminCommand(synchronize)(command)
+      runAdminCommand(command)
     }
   }
 
@@ -892,7 +847,7 @@ class TopologyAdministrationGroup(
         ),
         forceFlags: ForceFlags = ForceFlags.none,
     ): SignedTopologyTransaction[TopologyChangeOp, NamespaceDelegation] =
-      synchronisation.runAdminCommand(synchronize)(
+      runAdminCommand(
         TopologyAdminCommands.Write.Propose(
           NamespaceDelegation.create(namespace, targetKey, isRootDelegation),
           signedBy = signedBy,
@@ -947,7 +902,7 @@ class TopologyAdministrationGroup(
         filterTargetKey = Some(targetKey.id),
       ) match {
         case Seq(nsd) =>
-          synchronisation.runAdminCommand(synchronize)(
+          runAdminCommand(
             TopologyAdminCommands.Write.Propose(
               nsd.item,
               signedBy = signedBy,
@@ -1051,7 +1006,7 @@ class TopologyAdministrationGroup(
         store = store,
         waitToBecomeEffective = synchronize,
       )
-      synchronisation.runAdminCommand(synchronize)(command)
+      runAdminCommand(command)
     }
 
     def list(
@@ -1148,7 +1103,6 @@ class TopologyAdministrationGroup(
       add = true,
       mustFullyAuthorize,
       force = ForceFlags.none,
-      instance,
     )
 
     @Help.Summary("Remove a key from an owner to key mapping")
@@ -1187,7 +1141,6 @@ class TopologyAdministrationGroup(
       add = false,
       mustFullyAuthorize,
       force = force,
-      instance,
     )
 
     @Help.Summary("Rotate the key for an owner to key mapping")
@@ -1203,7 +1156,6 @@ class TopologyAdministrationGroup(
       """
     )
     def rotate_key(
-        nodeInstance: InstanceReference,
         member: Member,
         currentKey: PublicKey,
         newKey: PublicKey,
@@ -1211,7 +1163,7 @@ class TopologyAdministrationGroup(
           consoleEnvironment.commandTimeouts.bounded
         ),
     ): Unit = {
-      val keysInStore = nodeInstance.keys.secret.list().map(_.publicKey)
+      val keysInStore = instance.keys.secret.list().map(_.publicKey)
       require(
         keysInStore.contains(currentKey),
         "The current key must exist and pertain to this node",
@@ -1228,15 +1180,14 @@ class TopologyAdministrationGroup(
         member,
         signedBy = Seq.empty,
         add = true,
-        nodeInstance = nodeInstance,
         synchronize = synchronize,
       )
 
       // retry until we observe the change in the respective store
       ConsoleMacros.utils.retry_until_true(
-        nodeInstance.topology.owner_to_key_mappings
+        instance.topology.owner_to_key_mappings
           .list(
-            filterKeyOwnerUid = nodeInstance.uid.toProtoPrimitive
+            filterKeyOwnerUid = instance.uid.toProtoPrimitive
           )
           .filter(_.context.storeId != Authorized)
           .forall(_.item.keys.contains(newKey))
@@ -1249,7 +1200,6 @@ class TopologyAdministrationGroup(
         member,
         signedBy = Seq.empty,
         add = false,
-        nodeInstance = nodeInstance,
         synchronize = synchronize,
       )
     }
@@ -1263,10 +1213,9 @@ class TopologyAdministrationGroup(
         add: Boolean,
         mustFullyAuthorize: Boolean = true,
         force: ForceFlags = ForceFlags.none,
-        nodeInstance: InstanceReference,
     ): Unit = {
       // Ensure the specified key has a private key in the vault.
-      val publicKey = nodeInstance.keys.secret.list(
+      val publicKey = instance.keys.secret.list(
         filterFingerprint = key.toProtoPrimitive,
         filterPurpose = Set(purpose),
       ) match {
@@ -1360,7 +1309,7 @@ class TopologyAdministrationGroup(
         mustFullyAuthorize: Boolean = true,
         force: ForceFlags = ForceFlags.none,
     ): SignedTopologyTransaction[TopologyChangeOp, OwnerToKeyMapping] =
-      synchronisation.runAdminCommand(synchronize)(
+      runAdminCommand(
         TopologyAdminCommands.Write.Propose(
           mapping = proposedMapping,
           signedBy = signedBy,
@@ -1418,7 +1367,7 @@ class TopologyAdministrationGroup(
         mustFullyAuthorize: Boolean = true,
         force: ForceFlags = ForceFlags.none,
     ): SignedTopologyTransaction[TopologyChangeOp, PartyToKeyMapping] =
-      synchronisation.runAdminCommand(synchronize)(
+      runAdminCommand(
         TopologyAdminCommands.Write.Propose(
           mapping = proposedMapping,
           signedBy = signedBy.toList,
@@ -1614,7 +1563,7 @@ class TopologyAdministrationGroup(
         waitToBecomeEffective = synchronize,
       )
 
-      synchronisation.runAdminCommand(synchronize)(command)
+      runAdminCommand(command)
     }
 
     @Help.Summary("List party to participant mapping transactions from synchronizer store")
@@ -1662,13 +1611,18 @@ class TopologyAdministrationGroup(
       )
     }
 
-    /** Check whether the node knows about `party` being hosted on `hostingParticipants` and synchronizer `synchronizerId`,
-      * optionally the specified expected permission and threshold.
-      * @param synchronizerId       Synchronizer on which the party should be hosted
-      * @param party                The party which needs to be hosted
-      * @param hostingParticipants  Expected hosting participants
-      * @param permission           If specified, the expected permission
-      * @param threshold            If specified, the expected threshold
+    /** Check whether the node knows about `party` being hosted on `hostingParticipants` and
+      * synchronizer `synchronizerId`, optionally the specified expected permission and threshold.
+      * @param synchronizerId
+      *   Synchronizer on which the party should be hosted
+      * @param party
+      *   The party which needs to be hosted
+      * @param hostingParticipants
+      *   Expected hosting participants
+      * @param permission
+      *   If specified, the expected permission
+      * @param threshold
+      *   If specified, the expected threshold
       */
     def is_known(
         synchronizerId: SynchronizerId,
@@ -1712,10 +1666,14 @@ class TopologyAdministrationGroup(
       participantsError.isEmpty
     }
 
-    /** Check whether the node knows about `parties` being hosted on `hostingParticipants` and synchronizer `synchronizerId`.
-      * @param synchronizerId             Synchronizer on which the party should be hosted
-      * @param parties              The parties which needs to be hosted
-      * @param hostingParticipants  Expected hosting participants
+    /** Check whether the node knows about `parties` being hosted on `hostingParticipants` and
+      * synchronizer `synchronizerId`.
+      * @param synchronizerId
+      *   Synchronizer on which the party should be hosted
+      * @param parties
+      *   The parties which needs to be hosted
+      * @param hostingParticipants
+      *   Expected hosting participants
       */
     def are_known(
         synchronizerId: SynchronizerId,
@@ -1914,7 +1872,7 @@ class TopologyAdministrationGroup(
         change = change,
         waitToBecomeEffective = synchronize,
       )
-      synchronisation.runAdminCommand(synchronize)(cmd)
+      runAdminCommand(cmd)
     }
 
   }
@@ -1976,7 +1934,7 @@ class TopologyAdministrationGroup(
         waitToBecomeEffective = synchronize,
       )
 
-      synchronisation.runAdminCommand(synchronize)(cmd)
+      runAdminCommand(cmd)
     }
 
     @Help.Summary("Revokes the synchronizer permissions of a participant.")
@@ -2136,7 +2094,7 @@ class TopologyAdministrationGroup(
           consoleEnvironment.commandTimeouts.bounded
         ),
     ): SignedTopologyTransaction[TopologyChangeOp, PartyHostingLimits] =
-      synchronisation.runAdminCommand(synchronize)(
+      runAdminCommand(
         TopologyAdminCommands.Write.Propose(
           PartyHostingLimits(synchronizerId, partyId),
           signedBy = signedBy,
@@ -2307,7 +2265,7 @@ class TopologyAdministrationGroup(
         waitToBecomeEffective = synchronize,
       )
 
-      synchronisation.runAdminCommand(synchronize)(command).discard
+      runAdminCommand(command).discard
     }
 
     def list(
@@ -2395,7 +2353,7 @@ class TopologyAdministrationGroup(
         observerAdds: List[MediatorId] = Nil,
         observerRemoves: List[MediatorId] = Nil,
         updateThreshold: Option[PositiveInt] = None,
-        await: Option[config.NonNegativeDuration] = Some(
+        synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
         mustFullyAuthorize: Boolean = false,
@@ -2447,33 +2405,12 @@ class TopologyAdministrationGroup(
         active,
         observers,
         group,
-        synchronize = None, // no synchronize - instead rely on await below
+        store = None,
+        synchronize = synchronize,
         mustFullyAuthorize = mustFullyAuthorize,
         signedBy = signedBy,
         serial = Some(serial),
       ).discard
-
-      await.foreach { timeout =>
-        ConsoleMacros.utils.retry_until_true(timeout) {
-          def areAllChangesPersisted: ((PositiveInt, MediatorSynchronizerState)) => Boolean = {
-            case (serialFound, mds) =>
-              serialFound == serial &&
-              adds.forall(mds.active.contains) && removes.forall(!mds.active.contains(_)) &&
-              observerAdds.forall(mds.observers.contains) && observerRemoves.forall(
-                !mds.observers.contains(_)
-              ) && updateThreshold.forall(_ == mds.threshold)
-          }
-
-          if (mustFullyAuthorize) {
-            queryStore(proposals = false).exists(areAllChangesPersisted)
-          } else {
-            // If the proposal does not need to be authorized, first check for proposals then for an authorized transaction
-            queryStore(proposals = true).exists(areAllChangesPersisted) || queryStore(proposals =
-              false
-            ).exists(areAllChangesPersisted)
-          }
-        }
-      }
     }
 
     @Help.Summary("Replace the mediator topology")
@@ -2523,7 +2460,7 @@ class TopologyAdministrationGroup(
         waitToBecomeEffective = synchronize,
       )
 
-      synchronisation.runAdminCommand(synchronize)(command)
+      runAdminCommand(command)
     }
 
     @Help.Summary("Propose to remove a mediator group")
@@ -2565,7 +2502,7 @@ class TopologyAdministrationGroup(
         waitToBecomeEffective = synchronize,
       )
 
-      synchronisation.runAdminCommand(synchronize)(command)
+      runAdminCommand(command)
     }
   }
 
@@ -2727,14 +2664,13 @@ class TopologyAdministrationGroup(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-        waitForParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
         force: ForceFlags = ForceFlags.none,
     ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerParametersState] = { // TODO(#15815): Don't expose internal TopologyMapping and TopologyChangeOp classes
 
       val parametersInternal =
         parameters.toInternal.valueOr(err => throw new IllegalArgumentException(err))
 
-      val res = synchronisation.runAdminCommand(synchronize)(
+      runAdminCommand(
         TopologyAdminCommands.Write.Propose(
           SynchronizerParametersState(
             synchronizerId,
@@ -2748,39 +2684,6 @@ class TopologyAdministrationGroup(
           waitToBecomeEffective = synchronize,
         )
       )
-
-      def waitForParameters(ref: TopologyAdministrationGroup): Unit =
-        synchronize
-          .foreach(timeout =>
-            ConsoleMacros.utils.retry_until_true(timeout)(
-              {
-                // cannot use get_dynamic_synchronizer_parameters, as this will throw if there are no prior parameters
-                val headState = ref.synchronizer_parameters
-                  .list(
-                    store = TopologyStoreId.Synchronizer(synchronizerId),
-                    timeQuery = TimeQuery.HeadState,
-                    operation = Some(TopologyChangeOp.Replace),
-                    filterSynchronizer = synchronizerId.filterString,
-                  )
-                  .map(r => ConsoleDynamicSynchronizerParameters(r.item))
-
-                headState == Seq(parameters)
-              },
-              s"The dynamic synchronizer parameters never became effective within $timeout",
-            )
-          )
-
-      waitForParameters(TopologyAdministrationGroup.this)
-      waitForParticipants
-        .filter(p =>
-          p.health.is_running() && p.health.initialized() && p.synchronizers.is_connected(
-            synchronizerId
-          )
-        )
-        .map(_.topology)
-        .foreach(waitForParameters)
-
-      res
     }
 
     @Help.Summary("Propose an update to dynamic synchronizer parameters")
@@ -2806,7 +2709,6 @@ class TopologyAdministrationGroup(
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
-        waitForParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
         force: ForceFlags = ForceFlags.none,
     ): Unit = {
       val synchronizerStore = TopologyStoreId.Synchronizer(synchronizerId)
@@ -2829,34 +2731,10 @@ class TopologyAdministrationGroup(
           signedBy,
           Some(previousParameters.context.serial.increment),
           synchronize,
-          waitForParticipants,
           force,
         ).discard
       }
     }
-
-    @Help.Summary(
-      "Update the ledger time record time tolerance in the dynamic synchronizer parameters"
-    )
-    @Help.Description(
-      """
-        synchronizerId: the target synchronizer
-        newLedgerTimeRecordTimeTolerance: the new ledgerTimeRecordTimeTolerance value to apply to the synchronizer
-
-        Note: The force parameter has no effect anymore since Canton 3.2.
-              Updating ledger time record time tolerance is no longer unsafe.
-        """
-    )
-    @deprecated(
-      message =
-        "Use set_ledger_time_record_time_tolerance without the force flag parameter instead",
-      since = "3.2",
-    )
-    def set_ledger_time_record_time_tolerance(
-        synchronizerId: SynchronizerId,
-        newLedgerTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
-        force: Boolean = false,
-    ): Unit = setLedgerTimeRecordTimeTolerance(synchronizerId, newLedgerTimeRecordTimeTolerance)
 
     @Help.Summary(
       "Update the ledger time record time tolerance in the dynamic synchronizer parameters"
@@ -3060,6 +2938,36 @@ class TopologyAdministrationGroup(
           TopologyAdminCommands.Read.ListStores()
         )
       }
+
+    @Help.Summary("Creates a temporary topology store.")
+    @Help.Description(
+      """A temporary topology store is useful for orchestrating the synchronizer founding ceremony or importing a topology snapshot for later inspection.
+        |Temporary topology stores are not persisted and all transactions are kept in memory only, which means restarting the node causes the loss of all
+        |transactions in that store.
+        |Additionally, temporary topology stores are not connected to any synchronizer, so there is no automatic propagation of topology transactions
+        |from the temporary store to connected synchronizers."""
+    )
+    def create_temporary_topology_store(
+        name: String,
+        protocolVersion: ProtocolVersion,
+    ): TopologyStoreId.Temporary =
+      consoleEnvironment.run {
+        adminCommand(TopologyAdminCommands.Write.CreateTemporaryStore(name, protocolVersion))
+      }
+
+    @Help.Summary(
+      "This command drops a temporary topology store and all transactions contained in it."
+    )
+    @Help.Description(
+      """Dropping a temporary topology store is not reversible and all topology transactions in the store will
+        |be permanently dropped.
+        |It's not possible to delete the authorized store or any synchronizer store with this command."""
+    )
+    def drop_temporary_topology_store(temporaryStoreId: TopologyStoreId.Temporary): Unit =
+      consoleEnvironment.run {
+        adminCommand(TopologyAdminCommands.Write.DropTemporaryStore(temporaryStoreId))
+      }
+
   }
 
   private def expectAtMostOneResult[R](seq: Seq[R]): Option[R] = seq match {

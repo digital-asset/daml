@@ -20,11 +20,16 @@ import com.digitalasset.canton.util.ErrorUtil
 import slick.jdbc.GetResult
 
 /** State of the traffic consumed by a member at a given time.
-  * @param member Member consuming the traffic
-  * @param sequencingTimestamp sequencing timestamp at which this traffic consumed state is valid
-  * @param extraTrafficConsumed extra traffic consumed at this sequencing timestamp
-  * @param baseTrafficRemainder base traffic remaining at this sequencing timestamp
-  * @param lastConsumedCost last cost deducted from the traffic balance (base and if not enough, extra)
+  * @param member
+  *   Member consuming the traffic
+  * @param sequencingTimestamp
+  *   sequencing timestamp at which this traffic consumed state is valid
+  * @param extraTrafficConsumed
+  *   extra traffic consumed at this sequencing timestamp
+  * @param baseTrafficRemainder
+  *   base traffic remaining at this sequencing timestamp
+  * @param lastConsumedCost
+  *   last cost deducted from the traffic balance (base and if not enough, extra)
   */
 final case class TrafficConsumed(
     member: Member,
@@ -40,8 +45,9 @@ final case class TrafficConsumed(
     baseTrafficRemainder,
   )
 
-  /** Compute the traffic state off of this traffic consumed and the provided optional traffic purchased.
-    * The caller MUST guarantee that the TrafficPurchased is correct at this.sequencingTime.
+  /** Compute the traffic state off of this traffic consumed and the provided optional traffic
+    * purchased. The caller MUST guarantee that the TrafficPurchased is correct at
+    * this.sequencingTime.
     */
   def toTrafficState(trafficPurchased: Option[TrafficPurchased]): TrafficState =
     TrafficState(
@@ -84,8 +90,8 @@ final case class TrafficConsumed(
     )
   }
 
-  /** Update the base traffic remainder to timestamp.
-    * This should ONLY be called with timestamp > this.sequencingTimestamp.
+  /** Update the base traffic remainder to timestamp. This should ONLY be called with timestamp >
+    * this.sequencingTimestamp.
     */
   def updateTimestamp(
       timestamp: CantonTimestamp,

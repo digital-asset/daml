@@ -31,9 +31,11 @@ object TransactionHash {
         )
   }
 
-  /** Deterministically hash a versioned transaction and its metadata using the Version 1 of the hashing algorithm.
+  /** Deterministically hash a versioned transaction and its metadata using the Version 1 of the
+    * hashing algorithm.
     *
-    * @param hashTracer tracer that can be used to debug encoding of the transaction.
+    * @param hashTracer
+    *   tracer that can be used to debug encoding of the transaction.
     */
   @throws[NodeHashingError]
   def tryHashTransactionWithMetadataV1(
@@ -61,7 +63,8 @@ object TransactionHash {
 
   /** Deterministically hash a versioned transaction using the Version 1 of the hashing algorithm.
     *
-    * @param hashTracer tracer that can be used to debug encoding of the transaction.
+    * @param hashTracer
+    *   tracer that can be used to debug encoding of the transaction.
     */
   @throws[NodeHashingError]
   private[hash] def tryHashTransactionV1(

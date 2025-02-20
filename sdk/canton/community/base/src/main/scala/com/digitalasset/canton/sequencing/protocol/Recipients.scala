@@ -13,8 +13,9 @@ import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.Member
 
-/** Recipients of a batch. Uses a list of [[com.digitalasset.canton.sequencing.protocol.RecipientsTree]]s
-  * that define the members receiving a batch, and which members see which other recipients.
+/** Recipients of a batch. Uses a list of
+  * [[com.digitalasset.canton.sequencing.protocol.RecipientsTree]]s that define the members
+  * receiving a batch, and which members see which other recipients.
   */
 final case class Recipients(trees: NonEmpty[Seq[RecipientsTree]]) extends PrettyPrinting {
 
@@ -48,8 +49,8 @@ final case class Recipients(trees: NonEmpty[Seq[RecipientsTree]]) extends Pretty
       case _ => None
     }
 
-  /** Recipients that appear at the leaf of the BCC tree. For example, the informees of a view are leaf members of the
-    * view message.
+  /** Recipients that appear at the leaf of the BCC tree. For example, the informees of a view are
+    * leaf members of the view message.
     */
   lazy val leafRecipients: NonEmpty[Set[Recipient]] =
     trees.toNEF.reduceLeftTo(_.leafRecipients)(_ ++ _.leafRecipients)
@@ -81,14 +82,14 @@ object Recipients {
   def cc(recipient: Recipient, others: Recipient*): Recipients =
     Recipients(NonEmpty.mk(Seq, RecipientsTree(NonEmpty.mk(Set, recipient, others*), Seq.empty)))
 
-  /** Create a [[com.digitalasset.canton.sequencing.protocol.Recipients]] representing independent groups of members
-    * that do not "see" each other.
+  /** Create a [[com.digitalasset.canton.sequencing.protocol.Recipients]] representing independent
+    * groups of members that do not "see" each other.
     */
   def groups(groups: NonEmpty[Seq[NonEmpty[Set[Member]]]]): Recipients =
     Recipients(groups.map(group => RecipientsTree.leaf(group)))
 
-  /** Create a [[com.digitalasset.canton.sequencing.protocol.Recipients]] representing independent groups of [[Recipient]]
-    * that do not "see" each other.
+  /** Create a [[com.digitalasset.canton.sequencing.protocol.Recipients]] representing independent
+    * groups of [[Recipient]] that do not "see" each other.
     */
   def recipientGroups(groups: NonEmpty[Seq[NonEmpty[Set[Recipient]]]]): Recipients =
     Recipients(groups.map(group => RecipientsTree.recipientsLeaf(group)))

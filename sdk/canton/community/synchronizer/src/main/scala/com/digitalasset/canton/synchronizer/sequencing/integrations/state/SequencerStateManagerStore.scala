@@ -11,23 +11,25 @@ import com.digitalasset.canton.synchronizer.sequencer.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 
-/** Backing store for the [[com.digitalasset.canton.synchronizer.block.BlockSequencerStateManager]] used for sequencer integrations to persist some sequencer
-  * data into a database.
+/** Backing store for the [[com.digitalasset.canton.synchronizer.block.BlockSequencerStateManager]]
+  * used for sequencer integrations to persist some sequencer data into a database.
   */
 trait SequencerStateManagerStore {
 
   /** Rehydrate the sequencer state from the backing persisted store
     *
-    * @param timestamp The timestamp for which the state is computed
+    * @param timestamp
+    *   The timestamp for which the state is computed
     */
   def readInFlightAggregations(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[InFlightAggregations]
 
-  /** Updates the in-flight aggregations for the given aggregation IDs.
-    * Only adds or updates aggregations, but never removes them.
+  /** Updates the in-flight aggregations for the given aggregation IDs. Only adds or updates
+    * aggregations, but never removes them.
     *
-    * @see expireInFlightAggregations for removing in-flight aggregations
+    * @see
+    *   expireInFlightAggregations for removing in-flight aggregations
     */
   def addInFlightAggregationUpdates(updates: InFlightAggregationUpdates)(implicit
       traceContext: TraceContext

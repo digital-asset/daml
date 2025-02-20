@@ -211,8 +211,9 @@ class GrpcTopologyManagerReadService(
   }
 
   /** Collects mappings of specified type from stores specified in baseQueryProto satisfying the
-    * filters specified in baseQueryProto as well as separately specified filter either by
-    * a namespace prefix (Left) or by a uid prefix (Right) depending on which applies to the mapping type.
+    * filters specified in baseQueryProto as well as separately specified filter either by a
+    * namespace prefix (Left) or by a uid prefix (Right) depending on which applies to the mapping
+    * type.
     */
   private def collectFromStores(
       baseQueryProto: Option[adminProto.BaseQuery],

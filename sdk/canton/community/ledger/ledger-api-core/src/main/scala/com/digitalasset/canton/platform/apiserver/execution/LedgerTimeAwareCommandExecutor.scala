@@ -30,8 +30,8 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
 
   /** Executes a command, advancing the ledger time as necessary.
     *
-    * The command execution result is guaranteed to satisfy causal monotonicity, i.e.,
-    * the resulting transaction has a ledger time greater than or equal to the ledger time of any used contract.
+    * The command execution result is guaranteed to satisfy causal monotonicity, i.e., the resulting
+    * transaction has a ledger time greater than or equal to the ledger time of any used contract.
     */
   override def execute(
       commands: Commands,

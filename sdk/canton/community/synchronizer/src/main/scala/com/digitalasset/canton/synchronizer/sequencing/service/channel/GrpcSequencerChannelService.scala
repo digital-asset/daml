@@ -21,7 +21,8 @@ import org.slf4j.event.Level
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Sequencer channel service supporting the creation of bidirectional, GRPC-based sequencer channels.
+/** Sequencer channel service supporting the creation of bidirectional, GRPC-based sequencer
+  * channels.
   */
 private[channel] final class GrpcSequencerChannelService(
     authenticationCheck: AuthenticationCheck,
@@ -32,11 +33,12 @@ private[channel] final class GrpcSequencerChannelService(
     with NamedLogging
     with FlagCloseable {
 
-  /** Create a new, uninitialized sequencer channel whose initialization occurs via the first
-    * entry of the request stream observer returned by this call. Throws a GRPC StatusException
-    * if shutting down.
+  /** Create a new, uninitialized sequencer channel whose initialization occurs via the first entry
+    * of the request stream observer returned by this call. Throws a GRPC StatusException if
+    * shutting down.
     *
-    * @param responseObserver GRPC response observer for messages to the client
+    * @param responseObserver
+    *   GRPC response observer for messages to the client
     */
   override def connectToSequencerChannel(
       responseObserver: StreamObserver[v30.ConnectToSequencerChannelResponse]
@@ -74,11 +76,13 @@ private[channel] final class GrpcSequencerChannelService(
   def disconnectAllMembers()(implicit traceContext: TraceContext): Unit =
     channelPool.closeChannels()
 
-  /** Ensure response observer provided by GRPC is a ServerCallStreamObserver
-    * and that we are not shutting down.
+  /** Ensure response observer provided by GRPC is a ServerCallStreamObserver and that we are not
+    * shutting down.
     *
-    * @param observer response observer
-    * @param handler  handler requiring a ServerCallStreamObserver
+    * @param observer
+    *   response observer
+    * @param handler
+    *   handler requiring a ServerCallStreamObserver
     */
   private def tryWithServerCallStreamObserver[Response, Request](
       observer: StreamObserver[Response]

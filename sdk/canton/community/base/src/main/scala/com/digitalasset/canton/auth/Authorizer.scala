@@ -18,8 +18,8 @@ import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
-/** A simple helper that allows services to use authorization claims
-  * that have been stored by [[AuthorizationInterceptor]].
+/** A simple helper that allows services to use authorization claims that have been stored by
+  * [[AuthorizationInterceptor]].
   */
 final class Authorizer(
     now: () => Instant,
@@ -31,8 +31,8 @@ final class Authorizer(
 ) extends NamedLogging
     with TelemetryTracing {
 
-  /** Validates all properties of claims that do not depend on the request,
-    * such as expiration time or ledger ID.
+  /** Validates all properties of claims that do not depend on the request, such as expiration time
+    * or ledger ID.
     */
   private def valid(claims: ClaimSet.Claims): Either[AuthorizationError, Unit] =
     for {
@@ -97,8 +97,8 @@ final class Authorizer(
     else
       Right(None)
 
-  /** Compute the application-id for a request, defaulting to the one in the claims in
-    * case the request does not specify an application-id.
+  /** Compute the application-id for a request, defaulting to the one in the claims in case the
+    * request does not specify an application-id.
     */
   private def defaultApplicationId(
       reqApplicationId: String,
@@ -163,8 +163,8 @@ final class Authorizer(
 
   /** Directly access the authenticated claims from the thread-local context.
     *
-    * Prefer to use the more specialized methods of [[Authorizer]] instead of this
-    * method to avoid skipping required authorization checks.
+    * Prefer to use the more specialized methods of [[Authorizer]] instead of this method to avoid
+    * skipping required authorization checks.
     */
   private def authenticatedClaimsFromContext(): Try[ClaimSet.Claims] =
     AuthorizationInterceptor

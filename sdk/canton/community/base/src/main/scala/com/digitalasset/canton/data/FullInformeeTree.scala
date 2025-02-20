@@ -21,8 +21,9 @@ import java.util.UUID
 
 /** Wraps a [[GenTransactionTree]] that is also a full informee tree.
   *
-  * The `CommonMetadata` is unblinded, the `ParticipantMetadata` and `SubmitterMetadata` are blinded.
-  * Every `TransactionView` and `ViewCommonData` is unblinded, but every `ViewParticipantData` is blinded.
+  * The `CommonMetadata` is unblinded, the `ParticipantMetadata` and `SubmitterMetadata` are
+  * blinded. Every `TransactionView` and `ViewCommonData` is unblinded, but every
+  * `ViewParticipantData` is blinded.
   */
 // private constructor, because object invariants are checked by factory methods
 final case class FullInformeeTree private (tree: GenTransactionTree)(
@@ -73,7 +74,8 @@ object FullInformeeTree extends VersioningCompanionContextPVValidation2[FullInfo
   )
 
   /** Creates a full informee tree from a [[GenTransactionTree]].
-    * @throws FullInformeeTree$.InvalidInformeeTree if `tree` is not a valid full informee tree (i.e. the wrong nodes are blinded)
+    * @throws FullInformeeTree$.InvalidInformeeTree
+    *   if `tree` is not a valid full informee tree (i.e. the wrong nodes are blinded)
     */
   def tryCreate(tree: GenTransactionTree, protocolVersion: ProtocolVersion): FullInformeeTree =
     create(tree, protocolVersionRepresentativeFor(protocolVersion)).valueOr(err =>
@@ -154,9 +156,9 @@ object FullInformeeTree extends VersioningCompanionContextPVValidation2[FullInfo
   /** Indicates an attempt to create an invalid [[FullInformeeTree]]. */
   final case class InvalidInformeeTree(message: String) extends RuntimeException(message) {}
 
-  /** Lens for modifying the [[GenTransactionTree]] inside of a full informee tree.
-    * It does not check if the new `tree` actually constitutes a valid full informee tree, therefore:
-    * DO NOT USE IN PRODUCTION.
+  /** Lens for modifying the [[GenTransactionTree]] inside of a full informee tree. It does not
+    * check if the new `tree` actually constitutes a valid full informee tree, therefore: DO NOT USE
+    * IN PRODUCTION.
     */
   @VisibleForTesting
   lazy val genTransactionTreeUnsafe: Lens[FullInformeeTree, GenTransactionTree] =

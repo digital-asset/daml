@@ -31,10 +31,10 @@ final case class AuthenticationTokenWithExpiry(
     expiresAt: CantonTimestamp,
 )
 
-/** Attempts to hold a valid authentication token.
-  * The first token will not be fetched until `getToken` is called for the first time.
-  * Subsequent calls to `getToken` before the token is obtained will be resolved for the first token.
-  * `getToken` always returns a `EitherT[Future, ...]` but if a token is already available will be completed immediately with that token.
+/** Attempts to hold a valid authentication token. The first token will not be fetched until
+  * `getToken` is called for the first time. Subsequent calls to `getToken` before the token is
+  * obtained will be resolved for the first token. `getToken` always returns a `EitherT[Future,
+  * ...]` but if a token is already available will be completed immediately with that token.
   */
 class AuthenticationTokenManager(
     obtainToken: TraceContext => EitherT[
@@ -52,18 +52,18 @@ class AuthenticationTokenManager(
 
   private val state = new AtomicReference[State](NoToken)
 
-  /** Request a token.
-    * If a token is immediately available the returned future will be immediately completed.
-    * If there is no token it will cause a token refresh to start and be completed once obtained.
-    * If there is a refresh already in progress it will be completed with this refresh.
+  /** Request a token. If a token is immediately available the returned future will be immediately
+    * completed. If there is no token it will cause a token refresh to start and be completed once
+    * obtained. If there is a refresh already in progress it will be completed with this refresh.
     */
   def getToken(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Status, AuthenticationToken] =
     refreshToken(refreshWhenHaveToken = false)
 
-  /** Invalidate the current token if it matches the provided value.
-    * Although unlikely, the token must be provided here in case a response terminates after a new token has already been generated.
+  /** Invalidate the current token if it matches the provided value. Although unlikely, the token
+    * must be provided here in case a response terminates after a new token has already been
+    * generated.
     */
   def invalidateToken(invalidToken: AuthenticationToken): Unit = {
     val _ = state.updateAndGet {

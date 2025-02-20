@@ -32,8 +32,8 @@ object AccessLevel {
   case object Wildcard extends AccessLevel
 }
 
-/** An AuthService that reads a JWT token from a `Authorization: Bearer` HTTP header.
-  * The token is expected to use the format as defined in [[com.daml.jwt.AuthServiceJWTPayload]]:
+/** An AuthService that reads a JWT token from a `Authorization: Bearer` HTTP header. The token is
+  * expected to use the format as defined in [[com.daml.jwt.AuthServiceJWTPayload]]:
   */
 abstract class AuthServiceJWTBase(
     verifier: JwtVerifierBase,

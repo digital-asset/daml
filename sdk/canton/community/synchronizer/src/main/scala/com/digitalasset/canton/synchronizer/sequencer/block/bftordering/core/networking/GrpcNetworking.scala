@@ -4,9 +4,8 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking
 
 import cats.data.OptionT
-import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
+import com.digitalasset.canton.config.{ProcessingTimeout, TlsClientConfig}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
@@ -15,10 +14,15 @@ import com.digitalasset.canton.lifecycle.{
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.Endpoint
-import com.digitalasset.canton.networking.grpc.CommunityClientChannelBuilder
+import com.digitalasset.canton.networking.grpc.ClientChannelBuilder.createChannelBuilder
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.P2PEndpointConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
+  InitialConnectRetryDelay,
+  MaxConnectRetryDelay,
+  P2PEndpoint,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.p2p.grpc.GrpcClientEndpoint
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.{
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.{
   BftOrderingServiceGrpc,
   BftOrderingServiceReceiveRequest,
   BftOrderingServiceReceiveResponse,
@@ -40,8 +44,6 @@ import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
-import GrpcNetworking.{InitialConnectRetryDelay, MaxConnectRetryDelay}
-
 final class GrpcNetworking(
     servers: List[UnlessShutdown[LifeCycle.CloseableServer]],
     override val timeouts: ProcessingTimeout,
@@ -56,14 +58,18 @@ final class GrpcNetworking(
 
     private val connectExecutor = Executors.newCachedThreadPool()
     private val connectExecutionContext = ExecutionContext.fromExecutor(connectExecutor)
-    private val connectWorkers = mutable.Map[Endpoint, FutureUnlessShutdown[Unit]]()
+    private val connectWorkers =
+      mutable.Map[P2PEndpoint, FutureUnlessShutdown[Unit]]()
     private val serverEndpoints =
-      mutable.Map[Endpoint, (SequencerId, StreamObserver[BftOrderingServiceReceiveRequest])]()
-    private val channels = mutable.Map[Endpoint, ManagedChannel]()
+      mutable.Map[
+        P2PEndpoint,
+        (SequencerId, StreamObserver[BftOrderingServiceReceiveRequest]),
+      ]()
+    private val channels = mutable.Map[P2PEndpoint, ManagedChannel]()
 
     // Called by the client network manager when establishing a connection to a peer
     def getServerEndpointOrStartConnection(
-        serverPeer: Endpoint
+        serverPeer: P2PEndpoint
     ): Option[(SequencerId, StreamObserver[BftOrderingServiceReceiveRequest])] =
       mutex(this) {
         serverEndpoints.get(serverPeer)
@@ -79,7 +85,7 @@ final class GrpcNetworking(
     // - The sender actor, if it fails to send a message to a peer.
     // - The gRPC streaming client endpoint on error (and on completion, but it never occurs).
     // - close().
-    def closeConnection(serverPeer: Endpoint): Unit = {
+    def closeConnection(serverPeer: P2PEndpoint): Unit = {
       logger.info(s"Closing connection to peer in server role $serverPeer")
       mutex(this) {
         serverEndpoints.remove(serverPeer).map(_._2).foreach(completeEndpoint)
@@ -101,7 +107,7 @@ final class GrpcNetworking(
       logger.debug("Closed P2P networking (client role)")
     }
 
-    private def ensureConnectWorker(serverPeer: Endpoint): Unit =
+    private def ensureConnectWorker(serverPeer: P2PEndpoint): Unit =
       mutex(this) {
         connectWorkers.get(serverPeer) match {
           case Some(task) if !task.isCompleted => ()
@@ -113,7 +119,7 @@ final class GrpcNetworking(
         }
       }
 
-    private def connect(serverPeer: Endpoint): FutureUnlessShutdown[Unit] =
+    private def connect(serverPeer: P2PEndpoint): FutureUnlessShutdown[Unit] =
       performUnlessClosingF("p2p-connect") {
         logger.debug(s"Creating a gRPC channel and connecting to peer in server role $serverPeer")
         val (channel, stub) = openGrpcChannel(serverPeer)
@@ -133,16 +139,10 @@ final class GrpcNetworking(
       }(connectExecutionContext, TraceContext.empty)
 
     private def openGrpcChannel(
-        serverPeer: Endpoint
+        serverPeer: P2PEndpoint
     ): (ManagedChannel, BftOrderingServiceGrpc.BftOrderingServiceStub) = {
-      val executor: Executor = (command: Runnable) => executionContext.execute(command)
-      val channel = CommunityClientChannelBuilder(loggerFactory)
-        .create(
-          NonEmpty(Seq, serverPeer),
-          useTls = false,
-          executor,
-        )
-        .build()
+      implicit val executor: Executor = (command: Runnable) => executionContext.execute(command)
+      val channel = createChannelBuilder(serverPeer.endpointConfig).build()
       mutex(this) {
         val _ = channels.put(serverPeer, channel)
         logger.debug(s"Created gRPC channel to peer in server role $serverPeer")
@@ -152,7 +152,7 @@ final class GrpcNetworking(
 
     @SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
     private def createServerEndpoint(
-        serverPeer: Endpoint,
+        serverPeer: P2PEndpoint,
         channel: ManagedChannel,
         stub: BftOrderingServiceGrpc.BftOrderingServiceStub,
         connectRetryDelay: NonNegativeFiniteDuration = InitialConnectRetryDelay,
@@ -220,7 +220,10 @@ final class GrpcNetworking(
       }
     }
 
-    private def shutdownGrpcChannel(serverPeer: Endpoint, channel: ManagedChannel): Unit = {
+    private def shutdownGrpcChannel(
+        serverPeer: P2PEndpoint,
+        channel: ManagedChannel,
+    ): Unit = {
       logger.debug(s"Terminating gRPC channel to peer in server role $serverPeer")
       val terminated =
         channel
@@ -306,9 +309,95 @@ final class GrpcNetworking(
     }
 }
 
-private object GrpcNetworking {
-  val InitialConnectRetryDelay: NonNegativeFiniteDuration =
+object GrpcNetworking {
+
+  private val InitialConnectRetryDelay: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryCreate(Duration.ofMillis(300))
-  val MaxConnectRetryDelay: NonNegativeFiniteDuration =
+
+  private val MaxConnectRetryDelay: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryCreate(Duration.ofSeconds(2))
+
+  // TODO(#23926): generalize further to insulate internals from details and add simple string-typed endpoint for tests
+  /** The BFT orderer's internal representation of a P2P endpoint */
+  sealed trait P2PEndpoint extends Product {
+    def address: String
+    def port: Port
+    def transportSecurity: Boolean
+
+    def endpointConfig: P2PEndpointConfig
+
+    final lazy val id: P2PEndpoint.Id = P2PEndpoint.Id(address, port, transportSecurity)
+  }
+
+  object P2PEndpoint {
+
+    final case class Id(
+        address: String,
+        port: Port,
+        transportSecurity: Boolean,
+    ) extends Ordered[Id]
+        with Product {
+
+      // Used for metrics
+      lazy val url = s"${if (transportSecurity) "https" else "http"}://$address:$port"
+
+      override def compare(that: Id): Int =
+        Id.unapply(this).compare(Id.unapply(that))
+    }
+
+    def fromEndpointConfig(
+        config: P2PEndpointConfig
+    ): P2PEndpoint =
+      config.tlsConfig match {
+        case Some(TlsClientConfig(_, _, enabled)) =>
+          if (!enabled)
+            PlainTextP2PEndpoint.fromEndpointConfig(config)
+          else
+            TlsP2PEndpoint.fromEndpointConfig(config)
+        case _ =>
+          PlainTextP2PEndpoint.fromEndpointConfig(config)
+      }
+  }
+
+  final case class PlainTextP2PEndpoint(
+      address: String,
+      port: Port,
+  ) extends P2PEndpoint {
+
+    override val transportSecurity: Boolean = false
+
+    override lazy val endpointConfig: P2PEndpointConfig =
+      P2PEndpointConfig(
+        address,
+        port,
+        Some(TlsClientConfig(trustCollectionFile = None, clientCert = None, enabled = false)),
+      )
+
+    // TODO(#23926): currently used to build fake sequencer IDs in tests, can be removed once unit/sim-tests switch to symbolic endpoints
+    // TODO(#23911): got collisions between fake sequencer IDs when using a unified endpoint class and including the protocol
+    override def toString: String = s"$address:$port"
+  }
+
+  object PlainTextP2PEndpoint {
+
+    private[networking] def fromEndpointConfig(config: P2PEndpointConfig): PlainTextP2PEndpoint =
+      PlainTextP2PEndpoint(config.address, config.port)
+  }
+
+  final case class TlsP2PEndpoint(
+      override val endpointConfig: P2PEndpointConfig
+  ) extends P2PEndpoint {
+
+    override val transportSecurity: Boolean = true
+
+    override val address: String = endpointConfig.address
+
+    override def port: Port = endpointConfig.port
+  }
+
+  object TlsP2PEndpoint {
+
+    private[networking] def fromEndpointConfig(endpointConfig: P2PEndpointConfig): TlsP2PEndpoint =
+      TlsP2PEndpoint(endpointConfig)
+  }
 }

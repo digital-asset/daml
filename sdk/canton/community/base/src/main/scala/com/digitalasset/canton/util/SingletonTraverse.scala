@@ -12,15 +12,15 @@ import org.apache.pekko.stream.scaladsl.Keep
   */
 trait SingletonTraverse[F[_]] extends Traverse[F] { self =>
 
-  /** The type for actual context of the element.
-    * For example, for `F[A] = Either[String, (Int, A)]`, the `Context` should be `Int`.
-    * This gives better type information than considering the general context type `Either[String, *]`
-    * because `Either[String, *]` could also be a [[scala.Left$]] and thus not contain an `Int` at all.
+  /** The type for actual context of the element. For example, for `F[A] = Either[String, (Int,
+    * A)]`, the `Context` should be `Int`. This gives better type information than considering the
+    * general context type `Either[String, *]` because `Either[String, *]` could also be a
+    * [[scala.Left$]] and thus not contain an `Int` at all.
     */
   type Context
 
-  /** Threads the effect `G` of the given function `f` through this container.
-    * Also passes the context of this container (i.e., the container structure) to the function.
+  /** Threads the effect `G` of the given function `f` through this container. Also passes the
+    * context of this container (i.e., the container structure) to the function.
     */
   def traverseSingleton[G[_], A, B](x: F[A])(f: (Context, A) => G[B])(implicit
       G: Applicative[G]
@@ -29,9 +29,9 @@ trait SingletonTraverse[F[_]] extends Traverse[F] { self =>
   /** Composes this type class instance with another type class instance.
     *
     * Apply the result to a combination function for the contexts of the two type class instances.
-    * This allows to throw away the context of one instance, e.g., if it does not contain
-    * any information like in the case of `Option` or `Either`.
-    * The default [[org.apache.pekko.stream.scaladsl.Keep.both]] retains both contexts.
+    * This allows to throw away the context of one instance, e.g., if it does not contain any
+    * information like in the case of `Option` or `Either`. The default
+    * [[org.apache.pekko.stream.scaladsl.Keep.both]] retains both contexts.
     */
   // Partial application to help with type inference:
   // The parameter `G` defines one parameter type of the combination function.
@@ -48,9 +48,8 @@ object SingletonTraverse {
 
   /** Make the dependent Context type explicit as a type argument to help with type inference.
     *
-    * The construction is the same as in shapeless.
-    * [The Type Astronaut's Guide to Shapeless Book](https://underscore.io/books/shapeless-guide/)
-    * explains the idea in Chapter 4.2.
+    * The construction is the same as in shapeless. [The Type Astronaut's Guide to Shapeless
+    * Book](https://underscore.io/books/shapeless-guide/) explains the idea in Chapter 4.2.
     */
   type Aux[F[_], C] = SingletonTraverse[F] { type Context = C }
 
@@ -75,8 +74,8 @@ object SingletonTraverse {
       composeWith(F, G)(combine)
   }
 
-  /** Method implementations for [[cats.Traverse]] and ancestors are taken from [[cats.ComposedTraverse]]
-    * and ancestors as they are package-private to cats. :-(
+  /** Method implementations for [[cats.Traverse]] and ancestors are taken from
+    * [[cats.ComposedTraverse]] and ancestors as they are package-private to cats. :-(
     */
   private trait ComposedSingletonTraverse[F[_], G[_], C]
       extends SingletonTraverse[Lambda[a => F[G[a]]]] {

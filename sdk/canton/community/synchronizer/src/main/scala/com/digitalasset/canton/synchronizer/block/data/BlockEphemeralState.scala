@@ -12,16 +12,16 @@ import slick.jdbc.GetResult
 
 /** Persisted information about a block as a whole once it has been fully processed.
   *
-  * @param height The height of the block
-  * @param lastTs The latest timestamp used by an event or member registration in blocks up to `height`
+  * @param height
+  *   The height of the block
+  * @param lastTs
+  *   The latest timestamp used by an event or member registration in blocks up to `height`
   * @param latestSequencerEventTimestamp
-  *               The sequencing timestamp of an event addressed to the sequencer such that
-  *               there is no event addressed to the sequencer (by sequencing time)
-  *               between this timestamp (exclusive) and the last event in the block with height `height`.
-  *               Must not be after `lastTs`.
-  *
-  *               [[scala.None$]] if no such timestamp is known.
-  *               In that case, it is not guaranteed that the correct topology and traffic states will be used for validating the events in the block.
+  *   The sequencing timestamp of an event addressed to the sequencer such that there is no event
+  *   addressed to the sequencer (by sequencing time) between this timestamp (exclusive) and the
+  *   last event in the block with height `height`. Must not be after `lastTs`. [[scala.None$]] if
+  *   no such timestamp is known. In that case, it is not guaranteed that the correct topology and
+  *   traffic states will be used for validating the events in the block.
   */
 final case class BlockInfo(
     height: Long,
@@ -54,7 +54,8 @@ object BlockInfo {
 
 /** Our typical sequencer state with an associated block height.
   *
-  * @param latestBlock Information about the latest block
+  * @param latestBlock
+  *   Information about the latest block
   */
 final case class BlockEphemeralState(
     latestBlock: BlockInfo,
@@ -62,10 +63,11 @@ final case class BlockEphemeralState(
 ) extends HasLoggerName {
 
   /** Checks that the class invariant holds:
-    * - Expired in-flight aggregations have been evicted
-    * - In-flight aggregations satisfy their invariant
+    *   - Expired in-flight aggregations have been evicted
+    *   - In-flight aggregations satisfy their invariant
     *
-    * @throws java.lang.IllegalStateException if the invariant check fails
+    * @throws java.lang.IllegalStateException
+    *   if the invariant check fails
     */
   def checkInvariant()(implicit loggingContext: NamedLoggingContext): Unit = {
     // All expired in-flight aggregations have been evicted

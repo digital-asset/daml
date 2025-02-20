@@ -18,8 +18,8 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 
 class SymbolicPureCrypto extends CryptoPureApi {
 
-  /** This flag is used to control the randomness during asymmetric encryption.
-    * This is only intended to be used for testing purposes and it overrides the randomization flag given to
+  /** This flag is used to control the randomness during asymmetric encryption. This is only
+    * intended to be used for testing purposes and it overrides the randomization flag given to
     * [[encryptWithInternal]].
     */
   private val neverRandomizeAsymmetricEncryption = new AtomicBoolean(false)
@@ -329,7 +329,9 @@ class SymbolicPureCrypto extends CryptoPureApi {
 
 object SymbolicPureCrypto {
 
-  /** Symbolic signatures use the content as the signature, padded with a `counter` to simulate the general non-determinism of signing */
+  /** Symbolic signatures use the content as the signature, padded with a `counter` to simulate the
+    * general non-determinism of signing
+    */
   private[symbolic] def createSignature(
       bytes: ByteString,
       signingKey: Fingerprint,

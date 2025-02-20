@@ -23,13 +23,16 @@ import scala.collection.{concurrent, mutable}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 
-/** Manages in-memory states of items (contracts, keys, ...) that are used or modified by in-flight requests.
-  * Such in-memory states take precedence over the states in the underlying store,
-  * which is only updated when a request is finalized.
+/** Manages in-memory states of items (contracts, keys, ...) that are used or modified by in-flight
+  * requests. Such in-memory states take precedence over the states in the underlying store, which
+  * is only updated when a request is finalized.
   *
-  * @param lockableStatus Type-class dictionary for operations on the state that are specific to conflict detection.
-  * @tparam Key Identifier for states
-  * @tparam Status The status type for states.
+  * @param lockableStatus
+  *   Type-class dictionary for operations on the state that are specific to conflict detection.
+  * @tparam Key
+  *   Identifier for states
+  * @tparam Status
+  *   The status type for states.
   */
 private[conflictdetection] class LockableStates[
     Key,
@@ -48,9 +51,8 @@ private[conflictdetection] class LockableStates[
   import LockableStates.*
   import Pretty.*
 
-  /** The in-memory map for storing the states.
-    * This map is also accessed by the [[SynchronizerRouter]]
-    * and must therefore be thread-safe.
+  /** The in-memory map for storing the states. This map is also accessed by the
+    * [[SynchronizerRouter]] and must therefore be thread-safe.
     */
   private val states: concurrent.Map[Key, MutableLockableState[Status]] =
     new TrieMap[Key, MutableLockableState[Status]]()
@@ -146,9 +148,9 @@ private[conflictdetection] class LockableStates[
     )(check.prettyK)
   }
 
-  /** Adds the `fetched` states to the in-memory states that are cached in the handle.
-    * Items in `handle`'s [[LockableStates.LockableStatesCheckHandle.toBeFetched]] are considered treated as nonexistent
-    * if `fetched` does not contain them.
+  /** Adds the `fetched` states to the in-memory states that are cached in the handle. Items in
+    * `handle`'s [[LockableStates.LockableStatesCheckHandle.toBeFetched]] are considered treated as
+    * nonexistent if `fetched` does not contain them.
     *
     * Must not be called concurrently with other methods of this class unless stated otherwise.
     */
@@ -165,20 +167,21 @@ private[conflictdetection] class LockableStates[
     toBeFetchedM.clear()
   }
 
-  /** Performs the activeness check consisting of the following:
-    * <ul>
-    *   <li>Check that [[LockableStates$.LockableStatesCheckHandle]]`.fresh` are fresh.</li>
-    *   <li>Check that [[LockableStates$.LockableStatesCheckHandle]]`.free` are free, i.e., if they are in known,
-    *     then they are not locked and free as determined by [[LockableStatus.isFree]]</li>
-    *   <li>Check that [[LockableStates$.LockableStatesCheckHandle]]`.active` are active, i.e., they are known
-    *     and not locked and active as determined by [[LockableStatus.isActive]].</li>
-    *   <li>Lock all in [[LockableStates$.LockableStatesCheckHandle]]`.lockOnly` and the above that are marked for locking.</li>
-    * </ul>
+  /** Performs the activeness check consisting of the following: <ul> <li>Check that
+    * [[LockableStates$.LockableStatesCheckHandle]]`.fresh` are fresh.</li> <li>Check that
+    * [[LockableStates$.LockableStatesCheckHandle]]`.free` are free, i.e., if they are in known,
+    * then they are not locked and free as determined by [[LockableStatus.isFree]]</li> <li>Check
+    * that [[LockableStates$.LockableStatesCheckHandle]]`.active` are active, i.e., they are known
+    * and not locked and active as determined by [[LockableStatus.isActive]].</li> <li>Lock all in
+    * [[LockableStates$.LockableStatesCheckHandle]]`.lockOnly` and the above that are marked for
+    * locking.</li> </ul>
     *
     * Must not be called concurrently with other methods of this class unless stated otherwise.
     *
-    * @return The activeness result of the activeness check
-    * @throws IllegalConflictDetectionStateException if the handle has outstanding pre-fetches.
+    * @return
+    *   The activeness result of the activeness check
+    * @throws IllegalConflictDetectionStateException
+    *   if the handle has outstanding pre-fetches.
     */
   def checkAndLock(
       handle: LockableStatesCheckHandle[Key, Status]
@@ -319,8 +322,8 @@ private[conflictdetection] class LockableStates[
     (obtainedLocks.result(), result)
   }
 
-  /** Fetches the given states from the store and returns them.
-    * Nonexistent items are excluded from the returned map.
+  /** Fetches the given states from the store and returns them. Nonexistent items are excluded from
+    * the returned map.
     *
     * May be called concurrently with other methods of this class.
     */
@@ -339,18 +342,16 @@ private[conflictdetection] class LockableStates[
       )
   }
 
-  /** Returns the internal state of `id`:
-    * <ul>
-    *   <li>`Some(state)` if the state is in memory with state `state`.</li>
-    *   <li>`None` signifies that the state is not held in memory (it may be stored in the store, though).</li>
-    * </ul>
+  /** Returns the internal state of `id`: <ul> <li>`Some(state)` if the state is in memory with
+    * state `state`.</li> <li>`None` signifies that the state is not held in memory (it may be
+    * stored in the store, though).</li> </ul>
     */
   @VisibleForTesting
   private[conflictdetection] def getInternalState(id: Key): Option[ImmutableLockableState[Status]] =
     states.get(id).map(_.snapshot)
 
-  /** Returns the state of `id`, fetching it from the [[store]] if it is not in memory.
-    * May be called concurrently with any other method. In that case, the returned state may be outdated.
+  /** Returns the state of `id`, fetching it from the [[store]] if it is not in memory. May be
+    * called concurrently with any other method. In that case, the returned state may be outdated.
     */
   def getApproximateStates(
       ids: Seq[Key]
@@ -408,8 +409,8 @@ private[conflictdetection] class LockableStates[
     cs.setStatusPendingWrite(newState, toc)
   }
 
-  /** Evicts the given state if it is not locked
-    * The state `expectedState` must be what `stores` maps `id` to.
+  /** Evicts the given state if it is not locked The state `expectedState` must be what `stores`
+    * maps `id` to.
     */
   private[this] def tryEvict(
       rc: RequestCounter,
@@ -437,7 +438,8 @@ private[conflictdetection] class LockableStates[
     *
     * Must not be called concurrently with other methods of this class unless stated otherwise.
     *
-    * @throws IllegalConflictDetectionStateException if the invariant does not hold.
+    * @throws IllegalConflictDetectionStateException
+    *   if the invariant does not hold.
     */
   def invariant[A, B, C](
       pendingActivenessChecks: collection.Map[RequestCounter, A],
@@ -620,17 +622,33 @@ private[conflictdetection] object LockableStates {
 
   def withRC(rc: RequestCounter, msg: String) = s"Request $rc: $msg"
 
-  /** Handle with references to all the [[MutableLockableState]]s that are needed for the activeness check.
+  /** Handle with references to all the [[MutableLockableState]]s that are needed for the activeness
+    * check.
     *
-    * @param requestCounter The request counter to which this handle belongs to
-    * @param availableF Completes if all states other than `toBeFetched` have been provided from the stores
-    * @param lockCount Number of locks to acquire during the activeness check
-    * @param fresh The list of items and their [[MutableLockableState]]s in [[LockableStates.states]] that are checked for being fresh.
-    * @param free The list of items and their [[MutableLockableState]]s in [[LockableStates.states]] that are checked for being free.
-    * @param active The list of items and their [[MutableLockableState]]s in [[LockableStates.states]] that are checked for being active.
-    * @param lockOnly The list of items and their [[MutableLockableState]]s in [[LockableStates.states]] that are to be locked.
-    * @param toBeFetchedM The items that must be fetched from the store for this request and their corresponding [[MutableLockableState]] in [[LockableStates.states]].
-    * @param priorStates The items whose state prior to the activeness check shall be returned in the [[ActivenessCheckResult]].
+    * @param requestCounter
+    *   The request counter to which this handle belongs to
+    * @param availableF
+    *   Completes if all states other than `toBeFetched` have been provided from the stores
+    * @param lockCount
+    *   Number of locks to acquire during the activeness check
+    * @param fresh
+    *   The list of items and their [[MutableLockableState]]s in [[LockableStates.states]] that are
+    *   checked for being fresh.
+    * @param free
+    *   The list of items and their [[MutableLockableState]]s in [[LockableStates.states]] that are
+    *   checked for being free.
+    * @param active
+    *   The list of items and their [[MutableLockableState]]s in [[LockableStates.states]] that are
+    *   checked for being active.
+    * @param lockOnly
+    *   The list of items and their [[MutableLockableState]]s in [[LockableStates.states]] that are
+    *   to be locked.
+    * @param toBeFetchedM
+    *   The items that must be fetched from the store for this request and their corresponding
+    *   [[MutableLockableState]] in [[LockableStates.states]].
+    * @param priorStates
+    *   The items whose state prior to the activeness check shall be returned in the
+    *   [[ActivenessCheckResult]].
     */
   class LockableStatesCheckHandle[Key, Status <: PrettyPrinting] private[LockableStates] (
       val requestCounter: RequestCounter,
@@ -660,9 +678,12 @@ private[conflictdetection] object LockableStates {
     )
   }
 
-  /** @param id The ID of the item
-    * @param state The reference to the [[MutableLockableState]] in [[LockableStates.states]] for this item
-    * @param doLock Whether the activeness check shall obtain a lock on this item
+  /** @param id
+    *   The ID of the item
+    * @param state
+    *   The reference to the [[MutableLockableState]] in [[LockableStates.states]] for this item
+    * @param doLock
+    *   Whether the activeness check shall obtain a lock on this item
     */
   private final case class KeyStateLock[Key, Status <: PrettyPrinting](
       id: Key,

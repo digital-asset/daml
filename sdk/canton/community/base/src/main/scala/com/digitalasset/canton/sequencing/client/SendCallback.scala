@@ -15,16 +15,18 @@ object SendCallback {
   /** Do nothing when send result is observed */
   val empty: SendCallback = _ => ()
 
-  /** Callback that just logs the eventual result with provided logger and traceContext available at the callsite.
-    * @param sendDescription Description of the send appropriate for a log message. Will have the outcome appended to it.
+  /** Callback that just logs the eventual result with provided logger and traceContext available at
+    * the callsite.
+    * @param sendDescription
+    *   Description of the send appropriate for a log message. Will have the outcome appended to it.
     */
   def log(sendDescription: String, logger: TracedLogger)(implicit
       traceContext: TraceContext
   ): SendCallback =
     SendResult.log(sendDescription, logger)(_)
 
-  /** Provides an easy mechanism for waiting for the send result.
-    * Should likely not be used within event handlers as this could prevent reading further events that may complete this callback,
+  /** Provides an easy mechanism for waiting for the send result. Should likely not be used within
+    * event handlers as this could prevent reading further events that may complete this callback,
     * and cause a deadlock.
     */
   class CallbackFuture extends SendCallback {

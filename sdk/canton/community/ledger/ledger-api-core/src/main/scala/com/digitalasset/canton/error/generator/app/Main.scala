@@ -15,7 +15,8 @@ import io.circe.syntax.*
 
 import java.nio.file.{Files, Paths, StandardOpenOption}
 
-/** Outputs information about self-service error codes needed for generating documentation to a json file.
+/** Outputs information about self-service error codes needed for generating documentation to a json
+  * file.
   */
 object Main {
 

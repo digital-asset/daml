@@ -7,8 +7,11 @@ import com.digitalasset.canton.tracing.TracingConfig.{Propagation, Tracer}
 
 import scala.concurrent.duration.FiniteDuration
 
-/** @param propagation       How should trace contexts (debugging details associated with actions) be propagated between nodes.
-  * @param tracer            Tracer configuration
+/** @param propagation
+  *   How should trace contexts (debugging details associated with actions) be propagated between
+  *   nodes.
+  * @param tracer
+  *   Tracer configuration
   */
 final case class TracingConfig(
     propagation: Propagation = Propagation.Enabled,

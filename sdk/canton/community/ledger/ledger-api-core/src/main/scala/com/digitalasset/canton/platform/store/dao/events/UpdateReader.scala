@@ -48,16 +48,24 @@ import org.apache.pekko.{Done, NotUsed}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-/** @param updatesStreamReader Knows how to stream updates
-  * @param treeTransactionsStreamReader Knows how to stream tree transactions
-  * @param transactionPointwiseReader Knows how to fetch a transaction by its id or its offset
-  * @param treeTransactionPointwiseReader Knows how to fetch a tree transaction by its id or its offset
-  * @param dispatcher Executes the queries prepared by this object
+/** @param updatesStreamReader
+  *   Knows how to stream updates
+  * @param treeTransactionsStreamReader
+  *   Knows how to stream tree transactions
+  * @param transactionPointwiseReader
+  *   Knows how to fetch a transaction by its id or its offset
+  * @param treeTransactionPointwiseReader
+  *   Knows how to fetch a tree transaction by its id or its offset
+  * @param dispatcher
+  *   Executes the queries prepared by this object
   * @param queryValidRange
   * @param eventStorageBackend
   * @param metrics
-  * @param acsReader Knows how to streams ACS
-  * @param executionContext Runs transformations on data fetched from the database, including Daml-LF value deserialization
+  * @param acsReader
+  *   Knows how to streams ACS
+  * @param executionContext
+  *   Runs transformations on data fetched from the database, including Daml-LF value
+  *   deserialization
   */
 private[dao] final class UpdateReader(
     updatesStreamReader: UpdatesStreamReader,
@@ -252,14 +260,13 @@ private[dao] object UpdateReader {
     mat
   }
 
-  /** Groups together items of type [[A]] that share an attribute [[K]] over a
-    * contiguous stretch of the input [[Source]]. Well suited to perform group-by
-    * operations of streams where [[K]] attributes are either sorted or at least
-    * show up in blocks.
+  /** Groups together items of type [[A]] that share an attribute [[K]] over a contiguous stretch of
+    * the input [[Source]]. Well suited to perform group-by operations of streams where [[K]]
+    * attributes are either sorted or at least show up in blocks.
     *
-    * Implementation detail: this method _must_ use concatSubstreams instead of
-    * mergeSubstreams to prevent the substreams to be processed in parallel,
-    * potentially causing the outputs to be delivered in a different order.
+    * Implementation detail: this method _must_ use concatSubstreams instead of mergeSubstreams to
+    * prevent the substreams to be processed in parallel, potentially causing the outputs to be
+    * delivered in a different order.
     *
     * Docs: https://doc.akka.io/docs/akka/2.6.10/stream/stream-substream.html#groupby
     */

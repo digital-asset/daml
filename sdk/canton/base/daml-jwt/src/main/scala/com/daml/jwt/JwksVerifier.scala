@@ -15,19 +15,23 @@ import java.util.concurrent.TimeUnit
 
 /** A JWK verifier, where the public keys are automatically fetched from the given JWKS URL.
   *
-  * In JWKS, each key ID uniquely identifies a public key.
-  * The keys are kept in cache, in order to prevent having to do a remote network access for each token validation.
+  * In JWKS, each key ID uniquely identifies a public key. The keys are kept in cache, in order to
+  * prevent having to do a remote network access for each token validation.
   *
-  * The cache is limited both in size and time.
-  * A size limit protects against infinitely growing memory consumption.
-  * A time limit is a safety catch for the case where a public key is used to sign a token without an expiration time
-  * and then is revoked.
+  * The cache is limited both in size and time. A size limit protects against infinitely growing
+  * memory consumption. A time limit is a safety catch for the case where a public key is used to
+  * sign a token without an expiration time and then is revoked.
   *
-  * @param url The URL that points to the JWKS JSON document
-  * @param cacheMaxSize Maximum number of public keys to keep in the cache.
-  * @param cacheExpirationTime Maximum time to keep public keys in the cache.
-  * @param connectionTimeout Timeout for connecting to the JWKS URL.
-  * @param readTimeout Timeout for reading from the JWKS URL.
+  * @param url
+  *   The URL that points to the JWKS JSON document
+  * @param cacheMaxSize
+  *   Maximum number of public keys to keep in the cache.
+  * @param cacheExpirationTime
+  *   Maximum time to keep public keys in the cache.
+  * @param connectionTimeout
+  *   Timeout for connecting to the JWKS URL.
+  * @param readTimeout
+  *   Timeout for reading from the JWKS URL.
   */
 class JwksVerifier(
     url: URL,
@@ -75,8 +79,8 @@ class JwksVerifier(
         -\/(Error(Symbol("getVerifier"), s"Unknown error while getting jwk from http"))
     }
 
-  /** Looks up the verifier for the given keyId from the local cache.
-    * On a cache miss, creates a new verifier by fetching the public key from the JWKS URL.
+  /** Looks up the verifier for the given keyId from the local cache. On a cache miss, creates a new
+    * verifier by fetching the public key from the JWKS URL.
     */
   private[this] def getCachedVerifier(keyId: String): Error \/ JwtVerifier =
     if (keyId == null)

@@ -114,8 +114,8 @@ final class SyncStateInspection(
       loggerFactory,
     )
 
-  /** Look up all unpruned state changes of a set of contracts on all synchronizers.
-    * If a contract is not found in an available ACS it will be omitted from the response.
+  /** Look up all unpruned state changes of a set of contracts on all synchronizers. If a contract
+    * is not found in an available ACS it will be omitted from the response.
     */
   def lookupContractSynchronizers(
       contractIds: Set[LfContractId]
@@ -131,8 +131,8 @@ final class SyncStateInspection(
       .sequence
       .map(_.toMap)
 
-  /** Returns the potentially large ACS of a given synchronizer
-    * containing a map of contract IDs to tuples containing the latest activation timestamp and the contract reassignment counter
+  /** Returns the potentially large ACS of a given synchronizer containing a map of contract IDs to
+    * tuples containing the latest activation timestamp and the contract reassignment counter
     */
   def findAcs(
       synchronizerAlias: SynchronizerAlias
