@@ -5176,6 +5176,7 @@ If zero, the empty set will be returned.
 Format of the contract_entries in the result. In case of CreatedEvent the presentation will be of
 TRANSACTION_SHAPE_ACS_DELTA.
 Optional for backwards compatibility, defaults to an EventFormat where:
+
   - filter is the filter field from this request
   - verbose is the verbose field from this request 
 
@@ -5715,8 +5716,10 @@ Required
 
 The collection of events.
 Contains:
+
   - ``CreatedEvent`` or ``ArchivedEvent`` in case of ACS_DELTA transaction shape
   - ``CreatedEvent`` or ``ExercisedEvent`` in case of LEDGER_EFFECTS transaction shape
+
 Required 
 
 .. _com.daml.ledger.api.v2.Transaction.offset:
@@ -5942,10 +5945,12 @@ which is expected to be specified alongside usages of `EventFormat`.
 
 Each key must be a valid PartyIdString (as described in ``value.proto``).
 The interpretation of the filter depends on the transaction-shape being filtered:
+
 1. For **ledger-effects** create and exercise events are returned, for which the witnesses include at least one of
     the listed parties and match the per-party filter.
 2. For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
     stakeholders include at least one of the listed parties and match the per-party filter.
+
 Optional 
 
 .. _com.daml.ledger.api.v2.EventFormat.filters_for_any_party:
@@ -6256,7 +6261,7 @@ Shapes are exclusive and only one of them can be defined in queries.
 UpdateService, |version com.daml.ledger.api.v2|
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-Allows clients to read updates (transactions and reassignments) from the ledger.
+Allows clients to read updates (transactions, (un)assignments, topology events) from the ledger.
 
 ``GetUpdates`` and ``GetUpdateTrees`` provide a comprehensive stream of updates/changes
 which happened on the virtual shared ledger. These streams are indexed with ledger
@@ -6274,9 +6279,11 @@ offsets for the same synchronizer. Across different synchronizers this is not gu
 GetUpdates method, |version com.daml.ledger.api.v2|
 ========================================================================================================================================================================================================
 
-Read the ledger's filtered transaction stream and related reassignments for a set of parties.
-For transactions it lists only creates and archives, but no other events.
-Omits all events on transient contracts, i.e., contracts that were both created and archived in the same transaction.
+Read the ledger's filtered update stream for the specified contents and filters.
+It returns the event types in accordance with the stream contents selected. Also the selection criteria
+for individual events depends on the transaction shape chosen.
+- ACS delta: a requesting party must be a stakeholder of an event for it to be included.
+- ledger effects: a requesting party must be a witness of an en event for it to be included.
 
 * Request: :ref:`GetUpdatesRequest <com.daml.ledger.api.v2.GetUpdatesRequest>`
 * Response: :ref:`GetUpdatesResponse <com.daml.ledger.api.v2.GetUpdatesResponse>`
@@ -6288,7 +6295,8 @@ Omits all events on transient contracts, i.e., contracts that were both created 
 GetUpdateTrees method, |version com.daml.ledger.api.v2|
 ========================================================================================================================================================================================================
 
-Read the ledger's complete transaction tree stream and related reassignments for a set of parties.
+TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+Read the ledger's complete transaction tree stream and related (un)assignments for a set of parties.
 The stream will be filtered only by the parties as wildcard parties.
 The template/interface filters describe the respective fields in the ``CreatedEvent`` results.
 
@@ -6426,7 +6434,7 @@ Required
 GetUpdateTreesResponse message, |version com.daml.ledger.api.v2|
 ========================================================================================================================================================================================================
 
-
+TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
 
 .. _com.daml.ledger.api.v2.GetUpdateTreesResponse.update.transaction_tree:
 
@@ -6482,18 +6490,34 @@ If specified, the stream will terminate after this absolute offset (positive int
 
 ``filter`` : :ref:`TransactionFilter <com.daml.ledger.api.v2.TransactionFilter>`
 
+TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
 Requesting parties with template filters.
 Template filters must be empty for GetUpdateTrees requests.
-Required 
+Optional for backwards compatibility, if defined update_format must be unset 
 
 .. _com.daml.ledger.api.v2.GetUpdatesRequest.verbose:
 
 ``verbose`` : :ref:`bool <bool>`
 
+TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
 If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
 In particular, setting the verbose flag to true triggers the ledger to include labels, record and variant type ids
 for record fields.
-Optional 
+Optional for backwards compatibility, if defined update_format must be unset 
+
+.. _com.daml.ledger.api.v2.GetUpdatesRequest.update_format:
+
+``update_format`` : :ref:`UpdateFormat <com.daml.ledger.api.v2.UpdateFormat>`
+
+Must be unset for GetUpdateTrees request.
+Optional for backwards compatibility for GetUpdates request: defaults to an UpdateFormat where:
+
+  - include_transactions.event_format.filter = the same filter specified on the request
+  - include_transactions.event_format.verbose = the same flag specified on the request
+  - include_transactions.transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
+  - include_reassignments.filter = the same filter specified on the request
+  - include_reassignments.verbose = the same flag specified on the request
+  - include_topology_events.include_participant_authorization_events.parties = all the parties specified in filter 
 
 .. _com.daml.ledger.api.v2.GetUpdatesResponse:
 
@@ -7049,3 +7073,5 @@ Scalar Value Types
 .. |version com.daml.ledger.api.v2| replace:: v2
 .. |version com.daml.ledger.api.v2.testing| replace:: v2/testing
 .. |version com.daml.ledger.api.v2.admin| replace:: v2/admin
+.. |version com.daml.ledger.api.v2.interactive| replace:: v2/interactive
+.. |version com.daml.ledger.api.v2.interactive.transaction.v1| replace:: v2/interactive/transaction/v1
