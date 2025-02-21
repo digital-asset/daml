@@ -21,10 +21,14 @@ import com.google.common.annotations.VisibleForTesting
 object EventCostCalculator {
 
   /** Contains details of the computation of the cost of an envelope.
-    * @param writeCost write cost associated with the envelope
-    * @param readCost read cost associated with the envelope
-    * @param finalCost final cost associated with the envelope (typically writeCost + readCost at the moment)
-    * @param recipients recipients of the envelope
+    * @param writeCost
+    *   write cost associated with the envelope
+    * @param readCost
+    *   read cost associated with the envelope
+    * @param finalCost
+    *   final cost associated with the envelope (typically writeCost + readCost at the moment)
+    * @param recipients
+    *   recipients of the envelope
     */
   final case class EnvelopeCostDetails(
       writeCost: Long,
@@ -42,10 +46,14 @@ object EventCostCalculator {
   }
 
   /** Contains details of the computation of the cost of an event
-    * @param costMultiplier cost multiplier used for the computation
-    * @param groupToMembersSize size of each recipient group
-    * @param envelopes details of the cost computation of each envelope
-    * @param eventCost final cost of the event
+    * @param costMultiplier
+    *   cost multiplier used for the computation
+    * @param groupToMembersSize
+    *   size of each recipient group
+    * @param envelopes
+    *   details of the cost computation of each envelope
+    * @param eventCost
+    *   final cost of the event
     */
   final case class EventCostDetails(
       costMultiplier: PositiveInt,

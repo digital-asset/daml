@@ -66,7 +66,8 @@ object TopologyStoreId {
 
   /** A topology store storing sequenced topology transactions
     *
-    * @param synchronizerId the synchronizer id of the store
+    * @param synchronizerId
+    *   the synchronizer id of the store
     */
   final case class SynchronizerStore(synchronizerId: SynchronizerId) extends TopologyStoreId {
     override val dbString = synchronizerId.toLengthLimitedString
@@ -159,7 +160,8 @@ object StoredTopologyTransaction {
   type GenericStoredTopologyTransaction =
     StoredTopologyTransaction[TopologyChangeOp, TopologyMapping]
 
-  /** @return `true` if both transactions are the same without comparing the signatures, `false` otherwise
+  /** @return
+    *   `true` if both transactions are the same without comparing the signatures, `false` otherwise
     */
   def equalIgnoringSignatures(
       a: GenericStoredTopologyTransaction,
@@ -220,22 +222,20 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
 
   /** fetch the effective time updates greater than or equal to a certain timestamp
     *
-    * this function is used to recover the future effective timestamp such that we can reschedule "pokes" of the
-    * topology client and updates of the acs commitment processor on startup
+    * this function is used to recover the future effective timestamp such that we can reschedule
+    * "pokes" of the topology client and updates of the acs commitment processor on startup
     */
   def findUpcomingEffectiveChanges(asOfInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[TopologyStore.Change]]
 
-  /** Yields the currently valid and all upcoming topology change delays.
-    * Namely:
-    * - The change delay with validFrom < sequencedTime and validUntil.forall(_ >= sequencedTime), or
-    *   the initial default value, if no such change delay exists.
-    * - All change delays with validFrom >= sequencedTime and sequenced < sequencedTime.
-    * Excludes:
-    * - Proposals
-    * - Rejected transactions
-    * - Transactions with `validUntil.contains(validFrom)`
+  /** Yields the currently valid and all upcoming topology change delays. Namely:
+    *   - The change delay with validFrom < sequencedTime and validUntil.forall(_ >= sequencedTime),
+    *     or the initial default value, if no such change delay exists.
+    *   - All change delays with validFrom >= sequencedTime and sequenced < sequencedTime. Excludes:
+    *   - Proposals
+    *   - Rejected transactions
+    *   - Transactions with `validUntil.contains(validFrom)`
     *
     * The result is sorted descending by validFrom. So the current change delay comes last.
     */
@@ -270,17 +270,16 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       .getOrElse(throw new NoSuchElementException("Unexpected empty sequence."))
   }
 
-  /** Implementation specific parts of findCurrentAndUpcomingChangeDelays.
-    * Implementations must filter by validFrom, validUntil, sequenced, isProposal, and rejected.
-    * Implementations may or may not apply further filters.
-    * Implementations should not spend resources for sorting.
+  /** Implementation specific parts of findCurrentAndUpcomingChangeDelays. Implementations must
+    * filter by validFrom, validUntil, sequenced, isProposal, and rejected. Implementations may or
+    * may not apply further filters. Implementations should not spend resources for sorting.
     */
   protected def doFindCurrentAndUpcomingChangeDelays(sequencedTime: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Iterable[GenericStoredTopologyTransaction]]
 
-  /** Yields the topologyChangeDelay valid at a given time or, if there is none in the store,
-    * the initial default value.
+  /** Yields the topologyChangeDelay valid at a given time or, if there is none in the store, the
+    * initial default value.
     */
   def currentChangeDelay(
       asOfExclusive: CantonTimestamp
@@ -319,8 +318,8 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
         )
     }
 
-  /** Yields all topologyChangeDelays that have expired within a given time period.
-    * Does not yield any proposals or rejections.
+  /** Yields all topologyChangeDelays that have expired within a given time period. Does not yield
+    * any proposals or rejections.
     */
   def findExpiredChangeDelays(
       validUntilMinInclusive: CantonTimestamp,
@@ -329,10 +328,11 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[TopologyStore.Change.TopologyDelay]]
 
-  /** Finds the transaction with maximum effective time that has been sequenced before `sequencedTime` and
-    * yields the sequenced / effective time of that transaction.
+  /** Finds the transaction with maximum effective time that has been sequenced before
+    * `sequencedTime` and yields the sequenced / effective time of that transaction.
     *
-    * @param includeRejected whether to include rejected transactions
+    * @param includeRejected
+    *   whether to include rejected transactions
     */
   def maxTimestamp(sequencedTime: CantonTimestamp, includeRejected: Boolean)(implicit
       traceContext: TraceContext
@@ -340,8 +340,8 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
 
   /** returns the current dispatching watermark
     *
-    * for topology transaction dispatching, we keep track up to which point in time
-    * we have mirrored the authorized store to the remote store
+    * for topology transaction dispatching, we keep track up to which point in time we have mirrored
+    * the authorized store to the remote store
     *
     * the timestamp always refers to the timestamp of the authorized store!
     */
@@ -371,8 +371,10 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
     * this function is used by the topology processor to determine the set of transaction, such that
     * we can perform cascading updates if there was a certificate revocation
     *
-    * @param asOfInclusive whether the search interval should include the current timepoint or not. the state at t is
-    *                      defined as "exclusive" of t, whereas for updating the state, we need to be able to query inclusive.
+    * @param asOfInclusive
+    *   whether the search interval should include the current timepoint or not. the state at t is
+    *   defined as "exclusive" of t, whereas for updating the state, we need to be able to query
+    *   inclusive.
     */
   def findPositiveTransactions(
       asOf: CantonTimestamp,
@@ -385,14 +387,13 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[PositiveStoredTopologyTransactions]
 
-  /** Updates topology transactions.
-    * The method proceeds as follows:
-    * 1. It expires all transactions `tx` with `removeMapping.get(tx.mapping.uniqueKey).exists(tx.serial <= _)`.
-    *    By `expire` we mean that `valid_until` is set to `effective`, provided `valid_until` was previously `NULL` and
-    *    `valid_from < effective`.
-    * 2. It expires all transactions `tx` with `tx.hash` in `removeTxs`.
-    * 3. It adds all transactions in additions. Thereby:
-    * 3.1. It sets valid_until to effective, if there is a rejection reason or if `expireImmediately`.
+  /** Updates topology transactions. The method proceeds as follows:
+    *   1. It expires all transactions `tx` with
+    *      `removeMapping.get(tx.mapping.uniqueKey).exists(tx.serial <= _)`. By `expire` we mean
+    *      that `valid_until` is set to `effective`, provided `valid_until` was previously `NULL`
+    *      and `valid_from < effective`. 2. It expires all transactions `tx` with `tx.hash` in
+    *      `removeTxs`. 3. It adds all transactions in additions. Thereby: 3.1. It sets valid_until
+    *      to effective, if there is a rejection reason or if `expireImmediately`.
     */
   def update(
       sequenced: SequencedTime,
@@ -411,8 +412,10 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
 
   /** query optimized for inspection
     *
-    * @param proposals if true, query only for proposals instead of approved transaction mappings
-    * @param asOfExclusiveO if exists, use this timestamp for the head state to prevent race conditions on the console
+    * @param proposals
+    *   if true, query only for proposals instead of approved transaction mappings
+    * @param asOfExclusiveO
+    *   if exists, use this timestamp for the head state to prevent race conditions on the console
     */
   def inspect(
       proposals: Boolean,
@@ -462,8 +465,9 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
     Option[StoredTopologyTransaction[TopologyChangeOp.Replace, SynchronizerTrustCertificate]]
   ]
 
-  /** Yields all transactions with sequenced time less than or equal to `asOfInclusive`.
-    * Sets `validUntil` to `None`, if `validUntil` is strictly greater than the maximum value of `validFrom`.
+  /** Yields all transactions with sequenced time less than or equal to `asOfInclusive`. Sets
+    * `validUntil` to `None`, if `validUntil` is strictly greater than the maximum value of
+    * `validFrom`.
     */
   def findEssentialStateAtSequencedTime(
       asOfInclusive: SequencedTime,
@@ -483,15 +487,14 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
 
   /** Returns initial set of onboarding transactions that should be dispatched to the synchronizer.
     * Includes:
-    * - SynchronizerTrustCertificates for the given participantId
-    * - OwnerToKeyMappings for the given participantId
-    * - NamespaceDelegations for the participantId's namespace
-    * - The above even if they are expired.
-    * - Transactions with operation REMOVE.
-    * Excludes:
-    * - Proposals
-    * - Rejected transactions
-    * - Transactions that are not valid for synchronizerId
+    *   - SynchronizerTrustCertificates for the given participantId
+    *   - OwnerToKeyMappings for the given participantId
+    *   - NamespaceDelegations for the participantId's namespace
+    *   - The above even if they are expired.
+    *   - Transactions with operation REMOVE. Excludes:
+    *   - Proposals
+    *   - Rejected transactions
+    *   - Transactions that are not valid for synchronizerId
     */
   def findParticipantOnboardingTransactions(
       participantId: ParticipantId,
@@ -500,8 +503,8 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]]
 
-  /** Yields transactions with `validFrom` strictly greater than `timestampExclusive`.
-    * Excludes rejected transactions and expired proposals.
+  /** Yields transactions with `validFrom` strictly greater than `timestampExclusive`. Excludes
+    * rejected transactions and expired proposals.
     */
   def findDispatchingTransactionsAfter(
       timestampExclusive: CantonTimestamp,
@@ -510,9 +513,9 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericStoredTopologyTransactions]
 
-  /** Finds the last (i.e. highest id) stored transaction with `validFrom` strictly before `asOfExclusive` that has
-    * the same hash as `transaction` and the representative protocol version for the given `protocolVersion`.
-    * Excludes rejected transactions.
+  /** Finds the last (i.e. highest id) stored transaction with `validFrom` strictly before
+    * `asOfExclusive` that has the same hash as `transaction` and the representative protocol
+    * version for the given `protocolVersion`. Excludes rejected transactions.
     */
   def findStoredForVersion(
       asOfExclusive: CantonTimestamp,
@@ -522,8 +525,8 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[GenericStoredTopologyTransaction]]
 
-  /** Finds the last (i.e. highest id) stored transaction with `validFrom` strictly before `asOfExclusive` that has
-    * the same hash as `transaction`.
+  /** Finds the last (i.e. highest id) stored transaction with `validFrom` strictly before
+    * `asOfExclusive` that has the same hash as `transaction`.
     */
   def findStored(
       asOfExclusive: CantonTimestamp,
@@ -533,16 +536,23 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[GenericStoredTopologyTransaction]]
 
-  /** Find all effective-time state changes.
-    * One EffectiveStateChange contains all positive transactions which have valid_from == fromEffectiveInclusive for the new state,
-    * and all positive transactions which have valid_until == fromEffectiveInclusive for the old/previous,
-    * but none of those transactions which meet both criteria (transient topology changes).
-    * This query does not return proposals, rejected transactions or removals.
+  /** Find all effective-time state changes. One EffectiveStateChange contains all positive
+    * transactions which have valid_from == fromEffectiveInclusive for the new state, and all
+    * positive transactions which have valid_until == fromEffectiveInclusive for the old/previous,
+    * but none of those transactions which meet both criteria (transient topology changes). This
+    * query does not return proposals, rejected transactions or removals.
     *
-    * @param fromEffectiveInclusive If onlyAtEffective is true, look up state change for a single effective time, which should produce at most one result per mapping unique key.
-    *                               If onlyAtEffective is false, this defines the inclusive lower bound for effective time: lookup up all state changes for all effective times bigger than or equal to this.
-    * @param onlyAtEffective Controls whether fromEffectiveInclusive defines a single effective time, or an inclusive lower bound for the query.
-    * @return A sequence of EffectiveStateChange. Neither the sequence, nor the before/after fields in the results are ordered.
+    * @param fromEffectiveInclusive
+    *   If onlyAtEffective is true, look up state change for a single effective time, which should
+    *   produce at most one result per mapping unique key. If onlyAtEffective is false, this defines
+    *   the inclusive lower bound for effective time: lookup up all state changes for all effective
+    *   times bigger than or equal to this.
+    * @param onlyAtEffective
+    *   Controls whether fromEffectiveInclusive defines a single effective time, or an inclusive
+    *   lower bound for the query.
+    * @return
+    *   A sequence of EffectiveStateChange. Neither the sequence, nor the before/after fields in the
+    *   results are ordered.
     */
   def findEffectiveStateChanges(
       fromEffectiveInclusive: CantonTimestamp,
@@ -635,7 +645,9 @@ object TopologyStore {
       signedTx.mapping.restrictedToSynchronizer.forall(_ == synchronizerId)
     }
 
-  /** convenience method waiting until the last eligible transaction inserted into the source store has been dispatched successfully to the target synchronizer */
+  /** convenience method waiting until the last eligible transaction inserted into the source store
+    * has been dispatched successfully to the target synchronizer
+    */
   def awaitTxObserved(
       client: SynchronizerTopologyClient,
       transaction: GenericSignedTopologyTransaction,

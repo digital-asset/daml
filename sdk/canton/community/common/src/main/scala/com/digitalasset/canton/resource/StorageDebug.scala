@@ -16,10 +16,9 @@ import java.util.concurrent.atomic.AtomicReference
 
 /** Convenience method to extract the arguments of a sql query for debugging purposes
   *
-  * Generally, we stuff our arguments into an SQLActionBuilder from where
-  * they can not be read. In order to support debugging, we can use the extractArguments
-  * method which will iterate through action builder and extract a string version
-  * of the argument.
+  * Generally, we stuff our arguments into an SQLActionBuilder from where they can not be read. In
+  * order to support debugging, we can use the extractArguments method which will iterate through
+  * action builder and extract a string version of the argument.
   */
 object StorageDebug {
 

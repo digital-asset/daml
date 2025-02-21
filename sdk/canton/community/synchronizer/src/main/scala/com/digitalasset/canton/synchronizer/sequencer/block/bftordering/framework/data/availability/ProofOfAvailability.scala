@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 import cats.syntax.traverse.*
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.ProofOfAvailability as ProtoProofOfAvailability
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.ProofOfAvailability as ProtoProofOfAvailability
 
 final case class ProofOfAvailability(
     batchId: BatchId,

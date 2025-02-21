@@ -6,6 +6,7 @@ package com.digitalasset.canton.crypto.provider.jce
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CryptoProvider.Jce
+import com.digitalasset.canton.config.{CryptoConfig, CryptoProvider}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.deterministic.encryption.DeterministicRandom
@@ -39,6 +40,7 @@ import java.security.{
   PrivateKey as JPrivateKey,
   PublicKey as JPublicKey,
   SecureRandom,
+  Security,
   Signature as JSignature,
 }
 import javax.crypto.Cipher
@@ -115,10 +117,11 @@ class JcePureCrypto(
     val jceInternalName: String = "RSA/NONE/OAEPWithSHA256AndMGF1Padding"
   }
 
-  /** Parses and converts a public key to a java public key.
-    * We store the deserialization result in a cache.
+  /** Parses and converts a public key to a java public key. We store the deserialization result in
+    * a cache.
     *
-    * @return Either an error or the converted java private key
+    * @return
+    *   Either an error or the converted java private key
     */
   private def parseAndGetPublicKey[E](
       publicKey: PublicKey,
@@ -149,10 +152,11 @@ class JcePureCrypto(
     else Left(errFn(s"$keyFormat key format not supported"))
   }
 
-  /** Parses and converts an asymmetric private key to a java private key.
-    * We store the deserialization result in a cache.
+  /** Parses and converts an asymmetric private key to a java private key. We store the
+    * deserialization result in a cache.
     *
-    * @return Either an error or the converted java private key
+    * @return
+    *   Either an error or the converted java private key
     */
   private def parseAndGetPrivateKey[E, T <: JPrivateKey](
       privateKey: PrivateKey,
@@ -271,8 +275,8 @@ class JcePureCrypto(
       }
     } yield signer
 
-  /** Verifies an EC-DSA signature with the given public signing key.
-    * Only supports signatures encoded as DER.
+  /** Verifies an EC-DSA signature with the given public signing key. Only supports signatures
+    * encoded as DER.
     *
     * NOTE: `publicKey` must be an EC-DSA public key, not an Ed-DSA key.
     */
@@ -1028,4 +1032,27 @@ class JcePureCrypto(
         )
     }
 
+}
+
+object JcePureCrypto {
+
+  def create(
+      config: CryptoConfig,
+      loggerFactory: NamedLoggerFactory,
+  ): Either[String, JcePureCrypto] = for {
+    _ <- Either
+      .cond(config.provider == CryptoProvider.Jce, (), "JCE provider must be configured")
+    _ = Security.addProvider(JceSecurityProvider.bouncyCastleProvider)
+    schemes <- CryptoSchemes.fromConfig(config)
+    pbkdfSchemes <- schemes.pbkdfSchemes.toRight("PBKDF schemes must be defined for JCE provider")
+  } yield new JcePureCrypto(
+    defaultSymmetricKeyScheme = schemes.symmetricKeySchemes.default,
+    defaultSigningAlgorithmSpec = schemes.signingAlgoSpecs.default,
+    supportedSigningAlgorithmSpecs = schemes.signingAlgoSpecs.allowed,
+    defaultEncryptionAlgorithmSpec = schemes.encryptionAlgoSpecs.default,
+    supportedEncryptionAlgorithmSpecs = schemes.encryptionAlgoSpecs.allowed,
+    defaultHashAlgorithm = schemes.hashAlgorithms.default,
+    defaultPbkdfScheme = pbkdfSchemes.default,
+    loggerFactory = loggerFactory,
+  )
 }

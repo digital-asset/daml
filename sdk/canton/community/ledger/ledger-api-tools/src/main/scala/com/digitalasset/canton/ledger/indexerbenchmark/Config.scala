@@ -14,10 +14,13 @@ import scopt.OptionParser
 
 import java.time.Duration
 
-/** @param updateCount The number of updates to process.
-  * @param updateSource The name of the source of state updates.
-  * @param waitForUserInput If enabled, the app will wait for user input after the benchmark has finished,
-  *                         but before cleaning up resources.
+/** @param updateCount
+  *   The number of updates to process.
+  * @param updateSource
+  *   The name of the source of state updates.
+  * @param waitForUserInput
+  *   If enabled, the app will wait for user input after the benchmark has finished, but before
+  *   cleaning up resources.
   */
 final case class Config(
     updateCount: Option[Long],

@@ -5,17 +5,19 @@ package com.digitalasset.canton.health
 
 import com.digitalasset.canton.lifecycle.FlagCloseable
 
-/** A [[HealthElement]] that is its own [[com.digitalasset.canton.lifecycle.FlagCloseable]].
-  * Use this when the health reporting shall use inheritance over composition.
+/** A [[HealthElement]] that is its own [[com.digitalasset.canton.lifecycle.FlagCloseable]]. Use
+  * this when the health reporting shall use inheritance over composition.
   *
-  * When combining different [[HealthElement]] traits, mix in this one first
-  * so that the [[com.digitalasset.canton.lifecycle.FlagCloseable]] gets initialized first.
+  * When combining different [[HealthElement]] traits, mix in this one first so that the
+  * [[com.digitalasset.canton.lifecycle.FlagCloseable]] gets initialized first.
   */
 trait CloseableHealthElement extends FlagCloseable with HealthElement {
   final override protected def associatedOnShutdownRunner: FlagCloseable = this
 }
 
-/** Refines the state of a [[CloseableHealthElement]] to something convertible to a [[ComponentHealthState]] */
+/** Refines the state of a [[CloseableHealthElement]] to something convertible to a
+  * [[ComponentHealthState]]
+  */
 trait CloseableHealthQuasiComponent extends CloseableHealthElement with HealthQuasiComponent
 
 /** Fixes the state of a [[CloseableHealthQuasiComponent]] to [[ComponentHealthState]] */

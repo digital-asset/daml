@@ -122,8 +122,8 @@ class AsyncExecutorWithMetrics(
       tf,
     ) {
 
-      /** If the runnable/task is a low/medium priority item, we increase the items in use count, because first thing it will do
-        * is open a Jdbc connection from the pool.
+      /** If the runnable/task is a low/medium priority item, we increase the items in use count,
+        * because first thing it will do is open a Jdbc connection from the pool.
         */
       override def beforeExecute(t: Thread, r: Runnable): Unit = {
         (r, queue) match {

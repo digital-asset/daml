@@ -37,8 +37,8 @@ trait StorageBackendSpec
     )
   )
 
-  /** Runs the given database operations in parallel.
-    * Each operation will run in a separate thread and will use a separate database connection.
+  /** Runs the given database operations in parallel. Each operation will run in a separate thread
+    * and will use a separate database connection.
     */
   protected def executeParallelSql[T](fs: Vector[Connection => T]): Vector[T] = {
     require(fs.sizeIs <= connectionPoolSize)

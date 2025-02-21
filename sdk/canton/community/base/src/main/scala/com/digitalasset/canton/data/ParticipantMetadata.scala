@@ -15,9 +15,12 @@ import com.google.protobuf.ByteString
 
 /** Information concerning every '''participant''' involved in the underlying transaction.
   *
-  * @param ledgerTime     The ledger time of the transaction
-  * @param submissionTime The submission time of the transaction
-  * @param workflowIdO    optional workflow id associated with the ledger api provided workflow instance
+  * @param ledgerTime
+  *   The ledger time of the transaction
+  * @param submissionTime
+  *   The submission time of the transaction
+  * @param workflowIdO
+  *   optional workflow id associated with the ledger api provided workflow instance
   */
 final case class ParticipantMetadata private (
     ledgerTime: CantonTimestamp,

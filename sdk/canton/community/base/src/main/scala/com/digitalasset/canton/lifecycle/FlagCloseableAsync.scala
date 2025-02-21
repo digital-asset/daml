@@ -14,7 +14,9 @@ import scala.concurrent.{Future, TimeoutException}
 trait FlagCloseableAsync extends FlagCloseable {
 
   /** closeAsync asynchronously releases resources held by a future
-    * @return an ordered sequence of async and sync closeables with async closeables made up of future and timeout
+    * @return
+    *   an ordered sequence of async and sync closeables with async closeables made up of future and
+    *   timeout
     */
   protected def closeAsync(): Seq[AsyncOrSyncCloseable]
 

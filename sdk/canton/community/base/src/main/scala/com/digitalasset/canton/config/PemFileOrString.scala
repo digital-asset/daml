@@ -7,7 +7,8 @@ import better.files.*
 import com.digitalasset.canton.config.RequireTypes.ExistingFile
 import com.google.protobuf.ByteString
 
-/** A class representing either an existing PEM file path or an inlined PEM string for configuration file fields
+/** A class representing either an existing PEM file path or an inlined PEM string for configuration
+  * file fields
   */
 sealed trait PemFileOrString {
   def pemBytes: ByteString

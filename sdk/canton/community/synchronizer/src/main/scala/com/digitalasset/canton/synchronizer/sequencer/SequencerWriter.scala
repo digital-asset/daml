@@ -55,24 +55,26 @@ final case class OnlineSequencerCheckConfig(
 object TotalNodeCountValues {
   val SingleSequencerTotalNodeCount: PositiveInt = PositiveInt.tryCreate(1)
 
-  /** We need to allocate a range of available DbLockCounters so need to specify a maximum number of sequencer writers
-    * that can concurrently exist.
+  /** We need to allocate a range of available DbLockCounters so need to specify a maximum number of
+    * sequencer writers that can concurrently exist.
     */
   val MaxNodeCount = 32
 }
 
-/** Create instances for a [[sequencer.store.SequencerWriterStore]] and a predicate to know whether we can recreate a sequencer writer
-  * on failures encountered potentially during storage.
-  * Implements `AutoClosable` so implementations can use [[lifecycle.FlagCloseable]] to short circuit retry attempts.
+/** Create instances for a [[sequencer.store.SequencerWriterStore]] and a predicate to know whether
+  * we can recreate a sequencer writer on failures encountered potentially during storage.
+  * Implements `AutoClosable` so implementations can use [[lifecycle.FlagCloseable]] to short
+  * circuit retry attempts.
   */
 trait SequencerWriterStoreFactory extends AutoCloseable {
   def create(storage: Storage, generalStore: SequencerStore)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, WriterStartupError, SequencerWriterStore]
 
-  /** When the sequencer goes offline Exceptions may be thrown by the [[sequencer.store.SequencerStore]] and [[sequencer.SequencerWriterSource]].
-    * This allows callers to check whether the captured exception is expected when offline and indicates that the
-    * [[sequencer.SequencerWriter]] can still be recreated.
+  /** When the sequencer goes offline Exceptions may be thrown by the
+    * [[sequencer.store.SequencerStore]] and [[sequencer.SequencerWriterSource]]. This allows
+    * callers to check whether the captured exception is expected when offline and indicates that
+    * the [[sequencer.SequencerWriter]] can still be recreated.
     */
   def expectedOfflineException(error: Throwable): Boolean = false
 }
@@ -88,19 +90,21 @@ object SequencerWriterStoreFactory {
     }
 }
 
-/** The Writer component is in practice a little state machine that will run crash recovery on startup then
-  * create a running [[SequencerWriterSource]]. If this materialized Sequencer flow then crashes with an exception
-  * that can be recovered by running crash recovery it will then go through this process and attempt to restart the flow.
+/** The Writer component is in practice a little state machine that will run crash recovery on
+  * startup then create a running [[SequencerWriterSource]]. If this materialized Sequencer flow
+  * then crashes with an exception that can be recovered by running crash recovery it will then go
+  * through this process and attempt to restart the flow.
   *
-  * Callers must call [[start]] to start the writer and will likely have to wait for this completing before accepting
-  * calls for the sequencer to direct at [[send]]. Note that the crash recovery steps may take a long
-  * duration to run:
-  *  - we delete invalid events previously written by the sequencer and then attempt to insert a new online watermark,
-  *    and these database queries may simply take a long time to run.
-  *  - the [[SequencerWriter]] will wait until our clock has reached the new online watermark timestamp before starting
-  *    the writer to ensure that no events before this timestamp are written. If this online watermark is significantly
-  *    ahead of the current clock value it will just wait until this is reached. In practice assuming all sequencers in
-  *    the local topology are kept in sync through NTP or similar, this duration should be very small (<1s).
+  * Callers must call [[start]] to start the writer and will likely have to wait for this completing
+  * before accepting calls for the sequencer to direct at [[send]]. Note that the crash recovery
+  * steps may take a long duration to run:
+  *   - we delete invalid events previously written by the sequencer and then attempt to insert a
+  *     new online watermark, and these database queries may simply take a long time to run.
+  *   - the [[SequencerWriter]] will wait until our clock has reached the new online watermark
+  *     timestamp before starting the writer to ensure that no events before this timestamp are
+  *     written. If this online watermark is significantly ahead of the current clock value it will
+  *     just wait until this is reached. In practice assuming all sequencers in the local topology
+  *     are kept in sync through NTP or similar, this duration should be very small (<1s).
   */
 class SequencerWriter(
     writerStoreFactory: SequencerWriterStoreFactory,
@@ -160,8 +164,9 @@ class SequencerWriter(
             )
         }
 
-    /** Ensures that all resources for the writer flow are halted and cleaned up.
-      * The store should not be used after calling this operation (the HA implementation will close its exclusive storage instance).
+    /** Ensures that all resources for the writer flow are halted and cleaned up. The store should
+      * not be used after calling this operation (the HA implementation will close its exclusive
+      * storage instance).
       */
     def close()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
       logger.debug(s"Completing writer flow")
@@ -205,11 +210,10 @@ class SequencerWriter(
   private def sequencerQueues: Option[SequencerWriterQueues] =
     runningWriterRef.get().map(_.flow.queues)
 
-  /** The startup of a [[SequencerWriter]] can fail at runtime.
-    * Currently if this occurs we will log a message at error level but as we have no ability to forcibly
-    * crash the node we will likely continue running in an unhealthy state.
-    * This will however be visible to anyone calling the status operation and could be used by a process monitor
-    * to externally restart the sequencer.
+  /** The startup of a [[SequencerWriter]] can fail at runtime. Currently if this occurs we will log
+    * a message at error level but as we have no ability to forcibly crash the node we will likely
+    * continue running in an unhealthy state. This will however be visible to anyone calling the
+    * status operation and could be used by a process monitor to externally restart the sequencer.
     */
   def startOrLogError(
       initialSnapshot: Option[SequencerInitialState],
@@ -357,9 +361,9 @@ class SequencerWriter(
       }
     } yield onlineTimestamp
 
-  /** When we go online we're given the value of the new watermark that is inserted for this sequencer.
-    * We cannot start the writer before this point to ensure that no events before this point are inserted.
-    * It may have already be surpassed in which case we can immediately start.
+  /** When we go online we're given the value of the new watermark that is inserted for this
+    * sequencer. We cannot start the writer before this point to ensure that no events before this
+    * point are inserted. It may have already be surpassed in which case we can immediately start.
     * Otherwise we wait until this point has been reached.
     */
   private def waitForOnline(
@@ -470,13 +474,13 @@ object SequencerWriter {
   )(implicit executionContext: ExecutionContext) {
     private val completed = new AtomicBoolean(false)
 
-    /** Future for when the underlying stream has completed.
-      * We intentionally hand out a transformed future that ensures our completed flag is set first.
-      * This is to in most cases avoiding the race where we may call `queues.complete` on an already completed stream
-      * which will cause a `IllegalStateException`.
-      * However as we can't actually synchronize the pekko stream completing due to an error with close being called there
-      * is likely still a short window when this situation could occur, however at this point it should only result in an
-      * unclean shutdown.
+    /** Future for when the underlying stream has completed. We intentionally hand out a transformed
+      * future that ensures our completed flag is set first. This is to in most cases avoiding the
+      * race where we may call `queues.complete` on an already completed stream which will cause a
+      * `IllegalStateException`. However as we can't actually synchronize the pekko stream
+      * completing due to an error with close being called there is likely still a short window when
+      * this situation could occur, however at this point it should only result in an unclean
+      * shutdown.
       */
     val done: Future[Unit] = doneF.thereafter(_ => completed.set(true))
 

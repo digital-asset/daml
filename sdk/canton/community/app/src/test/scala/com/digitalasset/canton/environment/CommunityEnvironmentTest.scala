@@ -33,8 +33,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   // we don't care about any values of this config, so just mock
-  lazy val participant1Config: CommunityParticipantConfig = ConfigStubs.participant
-  lazy val participant2Config: CommunityParticipantConfig = ConfigStubs.participant
+  lazy val participant1Config: LocalParticipantConfig = ConfigStubs.participant
+  lazy val participant2Config: LocalParticipantConfig = ConfigStubs.participant
 
   lazy val sampleConfig: CantonCommunityConfig = CantonCommunityConfig(
     sequencers = Map(
@@ -110,7 +110,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
     ) {
       override def createParticipant(
           name: String,
-          participantConfig: CommunityParticipantConfig,
+          participantConfig: LocalParticipantConfig,
       ): ParticipantNodeBootstrap =
         createParticipantMock(name, participantConfig)
 

@@ -91,11 +91,15 @@ object ErrorDetails {
     case any => throw new IllegalStateException(s"Could not unpack value of: |$any|")
   }
 
-  /** @return whether a status runtime exception matches the error code.
+  /** @return
+    *   whether a status runtime exception matches the error code.
     *
     * NOTE: This method is not suitable for:
-    * 1) security sensitive error codes (e.g. internal or authentication related) as they are stripped from all the details when being converted to instances of [[io.grpc.StatusRuntimeException]],
-    * 2) error codes that do not translate to gRPC level errors (i.e. error codes that don't have a corresponding gRPC status)
+    *   1. security sensitive error codes (e.g. internal or authentication related) as they are
+    *      stripped from all the details when being converted to instances of
+    *      [[io.grpc.StatusRuntimeException]],
+    *   1. error codes that do not translate to gRPC level errors (i.e. error codes that don't have
+    *      a corresponding gRPC status)
     */
   def matches(e: StatusRuntimeException, errorCode: ErrorCode): Boolean = {
     val matchesErrorCodeId = from(e).exists {

@@ -70,8 +70,8 @@ trait DbStorageSetup extends FlagCloseable with HasCloseContext with NamedLoggin
 
   final lazy val storage: DbStorage = mkStorage(config)
 
-  /** Will run all setup code of this instance and throw the setup code fails.
-    * If this method is not called up front, the setup code will run (and possibly fail) when a field is accessed.
+  /** Will run all setup code of this instance and throw the setup code fails. If this method is not
+    * called up front, the setup code will run (and possibly fail) when a field is accessed.
     */
   // We could make `storage` a `val` so that no separate method is needed.
   // In that case, the initialization code of this trait would invoke code from subtypes through abstract methods.
@@ -137,12 +137,15 @@ abstract class PostgresDbStorageSetup(
     new CommunityDbMigrationsFactory(loggerFactory)
 }
 
-/** Assumes Postgres is available on a already running and that connections details are
-  * provided through environment variables.
-  * In CI this is done by running a Postgres docker container alongside the build.
-  * @param migrationMode migration mode to use
-  * @param mkDbConfig function to create a db config from a basic config
-  * @param useDbNameO optional name of the database to use for the tests (will be created if it does not exist)
+/** Assumes Postgres is available on a already running and that connections details are provided
+  * through environment variables. In CI this is done by running a Postgres docker container
+  * alongside the build.
+  * @param migrationMode
+  *   migration mode to use
+  * @param mkDbConfig
+  *   function to create a db config from a basic config
+  * @param useDbNameO
+  *   optional name of the database to use for the tests (will be created if it does not exist)
   */
 class PostgresCISetup(
     override val migrationMode: MigrationMode,
@@ -232,8 +235,8 @@ class PostgresCISetup(
   override protected def destroyDatabase(): Unit = ()
 }
 
-/** Use [TestContainers]() to create a Postgres docker container instance to run against.
-  * Used for running tests locally.
+/** Use [TestContainers]() to create a Postgres docker container instance to run against. Used for
+  * running tests locally.
   */
 class PostgresTestContainerSetup(
     override val migrationMode: MigrationMode,
@@ -299,9 +302,10 @@ class H2DbStorageSetup(
 
 object DbStorageSetup {
 
-  /** If we are running in CI on a docker executor opt to use a separate docker setup for testing postgres
-    * If we are running in CI on a `machine` use a local [org.testcontainers.containers.PostgreSQLContainer.PostgreSQLContainer]
-    * If we are running locally use a local [org.testcontainers.containers.PostgreSQLContainer.PostgreSQLContainer]
+  /** If we are running in CI on a docker executor opt to use a separate docker setup for testing
+    * postgres If we are running in CI on a `machine` use a local
+    * [org.testcontainers.containers.PostgreSQLContainer.PostgreSQLContainer] If we are running
+    * locally use a local [org.testcontainers.containers.PostgreSQLContainer.PostgreSQLContainer]
     */
   def postgres(
       loggerFactory: NamedLoggerFactory,

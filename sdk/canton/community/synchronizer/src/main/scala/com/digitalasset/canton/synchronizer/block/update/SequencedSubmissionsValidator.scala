@@ -57,9 +57,9 @@ private[update] final class SequencedSubmissionsValidator(
     )(validateSequencedSubmissionAndAddEvents(state.latestSequencerEventTimestamp, height))
 
   /** @param latestSequencerEventTimestamp
-    * Since each chunk contains at most one event addressed to the sequencer,
-    * (and if so it's the last event), we can treat this timestamp static for the whole chunk and
-    * need not update it in the accumulator.
+    *   Since each chunk contains at most one event addressed to the sequencer, (and if so it's the
+    *   last event), we can treat this timestamp static for the whole chunk and need not update it
+    *   in the accumulator.
     */
   private def validateSequencedSubmissionAndAddEvents(
       latestSequencerEventTimestamp: Option[CantonTimestamp],

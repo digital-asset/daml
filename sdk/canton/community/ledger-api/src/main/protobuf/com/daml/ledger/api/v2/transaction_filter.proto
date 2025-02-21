@@ -121,10 +121,12 @@ message TransactionFilter {
 message EventFormat {
   // Each key must be a valid PartyIdString (as described in ``value.proto``).
   // The interpretation of the filter depends on the transaction-shape being filtered:
+  //
   // 1. For **ledger-effects** create and exercise events are returned, for which the witnesses include at least one of
   //     the listed parties and match the per-party filter.
   // 2. For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
   //     stakeholders include at least one of the listed parties and match the per-party filter.
+  //
   // Optional
   map<string, Filters> filters_by_party = 1;
 

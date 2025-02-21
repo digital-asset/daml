@@ -102,10 +102,11 @@ import java.util.concurrent.{Executors, ScheduledExecutorService}
 import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
 
-/** When a canton node is created it first has to obtain an identity before most of its services can be started.
-  * This process will begin when `start` is called and will try to perform as much as permitted by configuration automatically.
-  * If external action is required before this process can complete `start` will return successfully but `isInitialized` will still be false.
-  * When the node is successfully initialized the underlying node will be available through `getNode`.
+/** When a canton node is created it first has to obtain an identity before most of its services can
+  * be started. This process will begin when `start` is called and will try to perform as much as
+  * permitted by configuration automatically. If external action is required before this process can
+  * complete `start` will return successfully but `isInitialized` will still be false. When the node
+  * is successfully initialized the underlying node will be available through `getNode`.
   */
 trait CantonNodeBootstrap[+T <: CantonNode]
     extends FlagCloseable
@@ -165,8 +166,8 @@ final case class CantonNodeBootstrapCommonArguments[
     tracerProvider: TracerProvider,
 )
 
-/** CantonNodeBootstrapImpl insists that nodes have their own topology manager
-  * and that they have the ability to auto-initialize their identity on their own.
+/** CantonNodeBootstrapImpl insists that nodes have their own topology manager and that they have
+  * the ability to auto-initialize their identity on their own.
   */
 abstract class CantonNodeBootstrapImpl[
     T <: CantonNode,
@@ -331,8 +332,8 @@ abstract class CantonNodeBootstrapImpl[
   /** callback for topology read service
     *
     * this callback must be implemented by all node types, providing access to the synchronizer
-    * topology stores which are only available in a later startup stage (sequencer and mediator nodes) or
-    * in the node runtime itself (participant connected synchronizer)
+    * topology stores which are only available in a later startup stage (sequencer and mediator
+    * nodes) or in the node runtime itself (participant connected synchronizer)
     */
   protected def sequencedTopologyStores: Seq[TopologyStore[SynchronizerStore]]
 
@@ -449,7 +450,7 @@ abstract class CantonNodeBootstrapImpl[
       // crypto factory doesn't write to the db during startup, hence,
       // we won't have "isPassive" issues here
       performUnlessClosingEitherUSF("create-crypto")(
-        CryptoFactory
+        Crypto
           .create(
             cryptoConfig,
             storage,

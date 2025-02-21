@@ -20,37 +20,43 @@ trait RequestCounterAllocator {
     * The assigned request counters form a contiguous sequence that can be monotonically embedded
     * into the sequence of [[com.digitalasset.canton.SequencerCounter]]s.
     *
-    * All calls must be sequential with increasing sequencer counters, although they can run in different threads.
-    * So if [[allocateFor]] is called for two sequencer counters `sc1` and `sc2` with `sc1 < sc2`,
-    * then returning from the call for `sc1` must happen before the call for `sc2`.
+    * All calls must be sequential with increasing sequencer counters, although they can run in
+    * different threads. So if [[allocateFor]] is called for two sequencer counters `sc1` and `sc2`
+    * with `sc1 < sc2`, then returning from the call for `sc1` must happen before the call for
+    * `sc2`.
     *
-    * Consecutive calls are idempotent. So if [[allocateFor]] is called for the same sequencer counter twice,
-    * without another intervening call for a difference sequencer counter,
-    * then the second call returns the same result as the first one.
+    * Consecutive calls are idempotent. So if [[allocateFor]] is called for the same sequencer
+    * counter twice, without another intervening call for a difference sequencer counter, then the
+    * second call returns the same result as the first one.
     *
-    * @return [[scala.None]] if the sequencer counter is before the clean replay starting point and request processing should be skipped
-    * @throws java.lang.IllegalArgumentException if the values `Long.MaxValue` is used as a sequence counter
-    * @throws java.lang.IllegalStateException if no request counter can be assigned
-    *                                         because an earlier call assigned already a
-    *                                         [[com.digitalasset.canton.RequestCounter]]
-    *                                         to a higher [[com.digitalasset.canton.SequencerCounter]],
-    *                                         or because all request counters have been exhausted.
-    *                                         The request counter `Long.MaxValue` cannot be used.
+    * @return
+    *   [[scala.None]] if the sequencer counter is before the clean replay starting point and
+    *   request processing should be skipped
+    * @throws java.lang.IllegalArgumentException
+    *   if the values `Long.MaxValue` is used as a sequence counter
+    * @throws java.lang.IllegalStateException
+    *   if no request counter can be assigned because an earlier call assigned already a
+    *   [[com.digitalasset.canton.RequestCounter]] to a higher
+    *   [[com.digitalasset.canton.SequencerCounter]], or because all request counters have been
+    *   exhausted. The request counter `Long.MaxValue` cannot be used.
     */
   def allocateFor(sc: SequencerCounter)(implicit traceContext: TraceContext): Option[RequestCounter]
 
   /** Skips the next request counter.
     *
-    * This allows for "holes" in the mapping of sequencer to request counters allowing for request counters for which no
-    * sequencer counters exist (for example "repair" requests made outside the realm of a sequencer).
+    * This allows for "holes" in the mapping of sequencer to request counters allowing for request
+    * counters for which no sequencer counters exist (for example "repair" requests made outside the
+    * realm of a sequencer).
     *
-    * All calls must be sequential, and the only request counter that can be skipped is the "next" request counter that
-    * would have been allocated by [[allocateFor]].
+    * All calls must be sequential, and the only request counter that can be skipped is the "next"
+    * request counter that would have been allocated by [[allocateFor]].
     *
-    * @throws java.lang.IllegalArgumentException if the specified [[com.digitalasset.canton.RequestCounter]] is not the
-    *                                            one that would otherwise be allocated next.
-    * @throws java.lang.IllegalStateException if all request counters have been exhausted.
-    *                                         The request counter `Long.MaxValue` cannot be used.
+    * @throws java.lang.IllegalArgumentException
+    *   if the specified [[com.digitalasset.canton.RequestCounter]] is not the one that would
+    *   otherwise be allocated next.
+    * @throws java.lang.IllegalStateException
+    *   if all request counters have been exhausted. The request counter `Long.MaxValue` cannot be
+    *   used.
     */
   def skipRequestCounter(rc: RequestCounter)(implicit traceContext: TraceContext): Unit
 
@@ -63,8 +69,10 @@ trait RequestCounterAllocator {
   *
   * This class is not thread safe.
   *
-  * @param initRc The request counter to start from. Must not be `Long.MaxValue`.
-  * @throws java.lang.IllegalArgumentException if `initRc` is `Long.MaxValue`.
+  * @param initRc
+  *   The request counter to start from. Must not be `Long.MaxValue`.
+  * @throws java.lang.IllegalArgumentException
+  *   if `initRc` is `Long.MaxValue`.
   */
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class RequestCounterAllocatorImpl(

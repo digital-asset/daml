@@ -79,9 +79,9 @@ object DAMLe {
     else if (enableLfBeta) LanguageVersion.EarlyAccessVersions(LanguageVersion.Major.V2).max
     else LanguageVersion.StableVersions(LanguageVersion.Major.V2).max
 
-  /** Resolves packages by [[com.digitalasset.daml.lf.data.Ref.PackageId]].
-    * The returned packages must have been validated
-    * so that [[com.digitalasset.daml.lf.engine.Engine]] can skip validation.
+  /** Resolves packages by [[com.digitalasset.daml.lf.data.Ref.PackageId]]. The returned packages
+    * must have been validated so that [[com.digitalasset.daml.lf.engine.Engine]] can skip
+    * validation.
     */
   type PackageResolver = PackageId => TraceContext => FutureUnlessShutdown[Option[Package]]
   type Enricher[A] = A => TraceContext => EitherT[
@@ -148,12 +148,14 @@ object DAMLe {
 
 }
 
-/** Represents a Daml runtime instance for interpreting commands. Provides an abstraction for the Daml engine
-  * handling requests for contract instance lookup as well as in resolving packages.
-  * The recommended execution context is to use a work stealing pool.
+/** Represents a Daml runtime instance for interpreting commands. Provides an abstraction for the
+  * Daml engine handling requests for contract instance lookup as well as in resolving packages. The
+  * recommended execution context is to use a work stealing pool.
   *
-  * @param resolvePackage A resolver for resolving packages
-  * @param ec The execution context where Daml interpretation and validation are execution
+  * @param resolvePackage
+  *   A resolver for resolving packages
+  * @param ec
+  *   The execution context where Daml interpretation and validation are execution
   */
 class DAMLe(
     resolvePackage: PackageResolver,

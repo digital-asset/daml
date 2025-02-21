@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.version
 
-/** Represents the synchronizer protocol version for the deserialization validation such that
-  * cases where no protocol version is defined can be clearly expressed with
+/** Represents the synchronizer protocol version for the deserialization validation such that cases
+  * where no protocol version is defined can be clearly expressed with
   * [[ProtocolVersionValidation.NoValidation]].
   */
 sealed trait ProtocolVersionValidation extends Product with Serializable

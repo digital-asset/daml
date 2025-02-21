@@ -23,8 +23,8 @@ import MempoolModuleMetrics.{emitRequestStats, emitStateStats}
 
 /** Simple, non-crash-fault-tolerant in-memory mempool implementation.
   *
-  * Crash fault-tolerance is not strictly needed because the sequencer client will re-send the requests if they
-  * are lost before being ordered.
+  * Crash fault-tolerance is not strictly needed because the sequencer client will re-send the
+  * requests if they are lost before being ordered.
   */
 class MempoolModule[E <: Env[E]](
     config: MempoolModuleConfig,
@@ -98,7 +98,7 @@ class MempoolModule[E <: Env[E]](
         emitStateStats(metrics, mempoolState)
 
       case Mempool.MempoolBatchCreationClockTick =>
-        logger.debug(
+        logger.trace(
           s"Mempool received batch creation clock tick (maxRequestsInBatch: ${config.maxRequestsInBatch})"
         )
         createAndSendBatches(messageType)
@@ -111,7 +111,7 @@ class MempoolModule[E <: Env[E]](
       traceContext: TraceContext,
   ): Unit = {
     val interval = config.maxBatchCreationInterval
-    logger.debug(s"Scheduling mempool batch creation clock tick in $interval")
+    logger.trace(s"Scheduling mempool batch creation clock tick in $interval")
     val _ = context.delayedEvent(interval, Mempool.MempoolBatchCreationClockTick)
   }
 
@@ -128,7 +128,7 @@ class MempoolModule[E <: Env[E]](
   private def createAndSendBatch(
       messageType: String
   )(implicit traceContext: TraceContext): Unit = {
-    val batch = OrderingRequestBatch(
+    val batch = OrderingRequestBatch.create(
       dequeueN(mempoolState.receivedOrderRequests, config.maxRequestsInBatch)
         .map(_.tx)
     )

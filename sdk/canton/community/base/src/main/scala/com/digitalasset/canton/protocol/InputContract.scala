@@ -8,9 +8,11 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
-/** @param consumed Whether this contract is consumed in the core of the view this [[InputContract]] belongs to.
+/** @param consumed
+  *   Whether this contract is consumed in the core of the view this [[InputContract]] belongs to.
   *
-  * @see com.digitalasset.canton.data.ViewParticipantData.coreInputs
+  * @see
+  *   com.digitalasset.canton.data.ViewParticipantData.coreInputs
   */
 final case class InputContract(contract: SerializableContract, consumed: Boolean)
     extends PrettyPrinting {

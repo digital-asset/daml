@@ -163,11 +163,16 @@ object RefinedNonNegativeDuration {
 
   /** Await the result of a future, logging periodically if the future is taking "too long".
     *
-    * @param future      The future to await
-    * @param description A description of the future, for logging
-    * @param timeout     The timeout for the future to complete within
-    * @param warnAfter   The amount of time to wait for the future to complete before starting to complain.
-    * @param killAwait   A kill-switch for the noisy await
+    * @param future
+    *   The future to await
+    * @param description
+    *   A description of the future, for logging
+    * @param timeout
+    *   The timeout for the future to complete within
+    * @param warnAfter
+    *   The amount of time to wait for the future to complete before starting to complain.
+    * @param killAwait
+    *   A kill-switch for the noisy await
     */
   @SuppressWarnings(Array("org.wartremover.warts.TryPartial"))
   private def noisyAwaitResult[T](

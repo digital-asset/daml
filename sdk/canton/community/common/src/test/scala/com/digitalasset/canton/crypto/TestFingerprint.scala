@@ -13,7 +13,7 @@ object TestFingerprint {
       ByteString.copyFrom(id.getBytes),
       HashAlgorithm.Sha256,
     )
-    Fingerprint.tryCreate(hash.toLengthLimitedHexString)
+    Fingerprint.tryFromString(hash.toLengthLimitedHexString)
   }
 
 }

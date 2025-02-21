@@ -10,8 +10,8 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
 
-/** Encodes the submission cost calculated by the sender.
-  * It will be validated by the sequencer and the submission will be rejected if the cost is incorrect.
+/** Encodes the submission cost calculated by the sender. It will be validated by the sequencer and
+  * the submission will be rejected if the cost is incorrect.
   */
 final case class SequencingSubmissionCost(
     cost: NonNegativeLong

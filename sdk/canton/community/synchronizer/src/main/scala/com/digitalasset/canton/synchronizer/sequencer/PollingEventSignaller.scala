@@ -14,7 +14,8 @@ import org.apache.pekko.stream.scaladsl.Source
 import scala.concurrent.Future
 
 /** Ignore local writes and simply trigger reads periodically based on a static polling interval.
-  * Suitable for horizontally scaled sequencers where the local process will not have in-process visibility of all writes.
+  * Suitable for horizontally scaled sequencers where the local process will not have in-process
+  * visibility of all writes.
   */
 class PollingEventSignaller(
     pollingInterval: NonNegativeFiniteDuration,

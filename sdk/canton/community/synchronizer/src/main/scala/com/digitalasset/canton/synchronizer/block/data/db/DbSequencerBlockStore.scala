@@ -77,13 +77,12 @@ class DbSequencerBlockStore(
     query.as[Option[CantonTimestamp]].headOption.map(_.flatten)
   }
 
-  /** Find a completed earlier block that must be used for crash recovery.
-    * Since `readAtBlockTimestampDBIO` returns the state after the block (by BlockInfo.lastTs),
-    * and that's used to initialize the sequencer on the startup,
-    * we select the block that has its latest event timestamp less than or equal to the watermark.
-    * In the less than case it select the previous block.
-    * In the equal case it means that all of the events of the block have been written and watermarked,
-    * so we can start the sequencer from the following block.
+  /** Find a completed earlier block that must be used for crash recovery. Since
+    * `readAtBlockTimestampDBIO` returns the state after the block (by BlockInfo.lastTs), and that's
+    * used to initialize the sequencer on the startup, we select the block that has its latest event
+    * timestamp less than or equal to the watermark. In the less than case it select the previous
+    * block. In the equal case it means that all of the events of the block have been written and
+    * watermarked, so we can start the sequencer from the following block.
     */
   private def findBlockForCrashRecoveryForWatermark(
       beforeInclusive: CantonTimestamp

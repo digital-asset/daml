@@ -28,15 +28,14 @@ import scala.concurrent.ExecutionContext
 
 /** Validates an initial topology snapshot by:
   *
-  * <ul>
-  *   <li>running transaction authorization validation</li>
-  *   <li>deduplicating topology transactions</li>
-  *   <li>removing superfluous signatures</li>
-  *   <li>checking that serials are strictly monotonic</li>
-  *   <li>checking that rejected transactions in the initial snapshot also are rejected in stored snapshot</li>
-  *   <li>checking that the effective times valid_from and valid_until of the transactions are the same in the initial snapshot
-  *   and the stored snapshot</li>
-  * </ul>
+  *   - running transaction authorization validation
+  *   - deduplicating topology transactions
+  *   - removing superfluous signatures
+  *   - checking that serials are strictly monotonic
+  *   - checking that rejected transactions in the initial snapshot also are rejected in stored
+  *     snapshot
+  *   - checking that the effective times valid_from and valid_until of the transactions are the
+  *     same in the initial snapshot and the stored snapshot
   *
   * Also compares the computed effective time with the effective provided in the snapshot.
   *
@@ -63,13 +62,11 @@ class InitialTopologySnapshotValidator(
   /** Runs the topology snapshot through the normal processing/validation pipeline of the
     * TopologyStateProcessor.
     *
-    * <strong>NOTICE</strong>:
-    * <ol>
-    *   <li>the preparation and pre-processing of the provided topology snapshot is only done to
-    *  support a wider variety of (legacy) topology snapshots.</li>
-    *  <li>The outcome of the validation and import is compared with the expected outcome of the snapshot.
-    *  Any inconsistencies are raised as errors. This serves as a security barrier.</li>
-    * </ol
+    * '''NOTICE''':
+    *   - the preparation and pre-processing of the provided topology snapshot is only done to
+    *     support a wider variety of (legacy) topology snapshots.
+    *   - The outcome of the validation and import is compared with the expected outcome of the
+    *     snapshot. Any inconsistencies are raised as errors. This serves as a security barrier.
     */
   final def validateAndApplyInitialTopologySnapshot(
       initialSnapshot: GenericStoredTopologyTransactions

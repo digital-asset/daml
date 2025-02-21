@@ -25,16 +25,20 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
   this: NamedLogging =>
 
   /** Invariants:
-    * - If it stores ns -> graph, then graph consists of all active namespace delegations for ns.
-    * - If it stores ns -> graph and graph is non-empty, then there is no decentralized namespace delegation active for ns.
+    *   - If it stores ns -> graph, then graph consists of all active namespace delegations for ns.
+    *   - If it stores ns -> graph and graph is non-empty, then there is no decentralized namespace
+    *     delegation active for ns.
     */
   protected val namespaceCache = new TrieMap[Namespace, AuthorizationGraph]()
 
   /** Invariants:
-    * - If it stores ns -> Some(graph), then the graph corresponds to the active decentralized namespace delegation for ns.
-    *   Moreover, for each owner o, the owner graph is namespaceCache(o).
-    * - If it stores ns -> None, then there is no decentralized namespace delegation active for ns.
-    * - If it stores ns -> Some(graph), then there is no direct namespace delegation active for ns.
+    *   - If it stores ns -> Some(graph), then the graph corresponds to the active decentralized
+    *     namespace delegation for ns. Moreover, for each owner o, the owner graph is
+    *     namespaceCache(o).
+    *   - If it stores ns -> None, then there is no decentralized namespace delegation active for
+    *     ns.
+    *   - If it stores ns -> Some(graph), then there is no direct namespace delegation active for
+    *     ns.
     */
   protected val decentralizedNamespaceCache =
     new TrieMap[
@@ -43,7 +47,7 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
     ]()
 
   /** Invariants:
-    * - If it stores id -> ids, then ids consists of all active identifier delegations for id.
+    *   - If it stores id -> ids, then ids consists of all active identifier delegations for id.
     */
   protected val identifierDelegationCache =
     new TrieMap[UniqueIdentifier, Set[AuthorizedIdentifierDelegation]]()

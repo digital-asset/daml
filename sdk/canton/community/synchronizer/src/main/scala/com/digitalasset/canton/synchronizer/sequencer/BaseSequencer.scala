@@ -28,8 +28,8 @@ import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.ExecutionContext
 
-/** Implements parts of [[Sequencer]] interface, common to all sequencers.
-  * Adds `*Internal` methods without implementation for variance among specific sequencer subclasses.
+/** Implements parts of [[Sequencer]] interface, common to all sequencers. Adds `*Internal` methods
+  * without implementation for variance among specific sequencer subclasses.
   */
 abstract class BaseSequencer(
     protected val loggerFactory: NamedLoggerFactory,

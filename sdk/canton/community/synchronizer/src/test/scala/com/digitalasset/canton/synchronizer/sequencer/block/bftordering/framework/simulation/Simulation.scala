@@ -5,7 +5,10 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
+  P2PEndpoint,
+  PlainTextP2PEndpoint,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl.Send
@@ -38,9 +41,12 @@ import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.util.Try
 
-/** @param clock Due to using the [[com.digitalasset.canton.time.SimClock]] and [[com.digitalasset.canton.data.CantonTimestamp]]s,
-  *              the time resolution needs to be at least microseconds. Otherwise, commands might be scheduled with timestamps that are the same
-  *              from the [[com.digitalasset.canton.time.SimClock]] point of view. It may result in executing commands in an incorrect order.
+/** @param clock
+  *   Due to using the [[com.digitalasset.canton.time.SimClock]] and
+  *   [[com.digitalasset.canton.data.CantonTimestamp]]s, the time resolution needs to be at least
+  *   microseconds. Otherwise, commands might be scheduled with timestamps that are the same from
+  *   the [[com.digitalasset.canton.time.SimClock]] point of view. It may result in executing
+  *   commands in an incorrect order.
   */
 class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, ClientMessageT](
     private var topology: Topology[
@@ -66,7 +72,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
   // onboarding
   simSettings.peerOnboardingDelays
     .zip(topology.laterOnboardedEndpointsWithInitializers)
-    .foldLeft(Map[TopologyActivationTime, Seq[Endpoint]]()) {
+    .foldLeft(Map[TopologyActivationTime, Seq[PlainTextP2PEndpoint]]()) {
       case (acc, (onboardingDelay, (endpoint, _))) =>
         val activationTime = onboardingTime(simulationStageStart, onboardingDelay)
         acc.get(activationTime) match {
@@ -226,7 +232,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
     runNodeCollector(peer, FromInit, machine.nodeCollector)
   }
 
-  private def onboardSequencers(endpoints: Seq[Endpoint]): Unit = {
+  private def onboardSequencers(endpoints: Seq[PlainTextP2PEndpoint]): Unit = {
     val endpointToSequencerId = endpoints.view
       .map(endpoint => endpoint -> SimulationP2PNetworkManager.fakeSequencerId(endpoint))
       .toMap
@@ -269,7 +275,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
     }
   }
 
-  private def addEndpoint(endpoint: Endpoint, to: SequencerId): Unit =
+  private def addEndpoint(endpoint: P2PEndpoint, to: SequencerId): Unit =
     executeEvent(
       to,
       tryGetMachine(to).networkOutReactor,
@@ -354,7 +360,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
             addEndpoint(endpoint, to)
           case EstablishConnection(fromPeer, toPeer, endpoint, continuation) =>
             logger.debug(s"Establish connection $fromPeer -> $toPeer via $endpoint")
-            continuation(endpoint, toPeer)
+            continuation(endpoint.id, toPeer)
             val machine = tryGetMachine(fromPeer)
             runNodeCollector(fromPeer, FromNetwork, machine.nodeCollector)
           case CrashRestartPeer(peer) =>
@@ -388,7 +394,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
       simulationSettings: SimulationSettings,
       onboardingDataProvider: OnboardingDataProvider[OnboardingDataT],
       newlyOnboardedEndpointsToInitializers: Map[
-        Endpoint,
+        PlainTextP2PEndpoint,
         SimulationInitializer[
           OnboardingDataT,
           SystemNetworkMessageT,
@@ -454,7 +460,7 @@ final case class Topology[
 ](
     activeSequencersToMachines: Map[SequencerId, Machine[?, ?]],
     laterOnboardedEndpointsWithInitializers: Map[
-      Endpoint,
+      PlainTextP2PEndpoint,
       SimulationInitializer[
         OnboardingDataT,
         SystemNetworkMessageT,

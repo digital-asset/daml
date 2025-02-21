@@ -10,10 +10,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.ConfigErrors.CantonConfigError
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
-import com.digitalasset.canton.participant.config.{
-  CommunityParticipantConfig,
-  RemoteParticipantConfig,
-}
+import com.digitalasset.canton.participant.config.{LocalParticipantConfig, RemoteParticipantConfig}
 import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.mediator.{
   CommunityMediatorNodeConfig,
@@ -33,7 +30,7 @@ import java.io.File
 import scala.annotation.nowarn
 
 final case class CantonCommunityConfig(
-    participants: Map[InstanceName, CommunityParticipantConfig] = Map.empty,
+    participants: Map[InstanceName, LocalParticipantConfig] = Map.empty,
     sequencers: Map[InstanceName, CommunitySequencerNodeConfig] = Map.empty,
     mediators: Map[InstanceName, CommunityMediatorNodeConfig] = Map.empty,
     remoteParticipants: Map[InstanceName, RemoteParticipantConfig] = Map.empty,
@@ -46,24 +43,26 @@ final case class CantonCommunityConfig(
     with ConfigDefaults[DefaultPorts, CantonCommunityConfig]
     with CommunityOnlyCantonConfigValidation {
 
-  override type ParticipantConfigType = CommunityParticipantConfig
+  override type ParticipantConfigType = LocalParticipantConfig
   override type MediatorNodeConfigType = CommunityMediatorNodeConfig
   override type SequencerNodeConfigType = CommunitySequencerNodeConfig
 
   /** renders the config as json (used for dumping config for diagnostic purposes) */
   override def dumpString: String = CantonCommunityConfig.makeConfidentialString(this)
 
-  override def validate: Validated[NonEmpty[Seq[String]], Unit] =
-    CommunityConfigValidations.validate(this)
+  override def edition: CantonEdition = CommunityCantonEdition
 
-  override def withDefaults(ports: DefaultPorts): CantonCommunityConfig =
+  override def validate: Validated[NonEmpty[Seq[String]], Unit] =
+    CommunityConfigValidations.validate(this, edition)
+
+  override def withDefaults(ports: DefaultPorts, edition: CantonEdition): CantonCommunityConfig =
     this
       .focus(_.participants)
-      .modify(_.fmap(_.withDefaults(ports)))
+      .modify(_.fmap(_.withDefaults(ports, edition)))
       .focus(_.sequencers)
-      .modify(_.fmap(_.withDefaults(ports)))
+      .modify(_.fmap(_.withDefaults(ports, edition)))
       .focus(_.mediators)
-      .modify(_.fmap(_.withDefaults(ports)))
+      .modify(_.fmap(_.withDefaults(ports, edition)))
 }
 
 object CantonCommunityConfig {
@@ -88,9 +87,6 @@ object CantonCommunityConfig {
     import CantonConfig.ConfigReaders.Crypto.*
     import BaseCantonConfig.Readers.*
 
-    implicit val communityParticipantConfigReader: ConfigReader[CommunityParticipantConfig] =
-      deriveReader[CommunityParticipantConfig]
-
     implicit val communitySequencerNodeConfigReader: ConfigReader[CommunitySequencerNodeConfig] = {
       implicit val communityPublicServerConfigReader: ConfigReader[PublicServerConfig] =
         deriveReader[PublicServerConfig]
@@ -106,8 +102,6 @@ object CantonCommunityConfig {
     import writers.*
     import writers.Crypto.*
 
-    implicit val communityParticipantConfigWriter: ConfigWriter[CommunityParticipantConfig] =
-      deriveWriter[CommunityParticipantConfig]
     implicit val communitySequencerNodeConfigWriter: ConfigWriter[CommunitySequencerNodeConfig] = {
       implicit val communityPublicServerConfigWriter: ConfigWriter[PublicServerConfig] =
         deriveWriter[PublicServerConfig]

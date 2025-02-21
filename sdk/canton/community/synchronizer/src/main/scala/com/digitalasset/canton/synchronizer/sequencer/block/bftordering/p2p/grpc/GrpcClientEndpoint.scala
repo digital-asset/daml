@@ -4,8 +4,9 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.p2p.grpc
 
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.Endpoint
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.BftOrderingServiceReceiveResponse
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.p2p.grpc.GrpcClientEndpoint.AuthenticationTimeout
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveResponse
 import com.digitalasset.canton.topology.{SequencerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.DelayUtil
@@ -15,12 +16,10 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Promise}
 import scala.util.{Failure, Success}
 
-import GrpcClientEndpoint.AuthenticationTimeout
-
 final class GrpcClientEndpoint(
-    server: Endpoint,
+    server: P2PEndpoint,
     sequencerIdPromise: Promise[SequencerId],
-    cleanupClientConnectionToServer: Endpoint => Unit,
+    cleanupClientConnectionToServer: P2PEndpoint => Unit,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends StreamObserver[BftOrderingServiceReceiveResponse]

@@ -81,16 +81,16 @@ object Fingerprint {
     new Fingerprint(hash.toLengthLimitedHexString)
   }
 
-  def create(str: String): Either[String, Fingerprint] =
+  def fromString(str: String): Either[String, Fingerprint] =
     fromProtoPrimitive(str).leftMap(_.message)
 
-  def tryCreate(str: String): Fingerprint =
-    create(str).valueOr(err =>
+  def tryFromString(str: String): Fingerprint =
+    fromString(str).valueOr(err =>
       throw new IllegalArgumentException(s"Invalid fingerprint $str: $err")
     )
 
-  def tryCreate(str68: String68): Fingerprint =
-    tryCreate(str68.unwrap)
+  def tryFromString(str68: String68): Fingerprint =
+    tryFromString(str68.unwrap)
 
 }
 
@@ -184,10 +184,11 @@ trait PublicKey extends CryptoKeyPairKey {
 
   /** The data used to compute the key fingerprint.
     *
-    * This should normally be the same as the key contents (in which case it is `None`), but can be different
-    * when we need to support backward compatibility. For example, Ed25519 keys were originally stored raw;
-    * when changing the format to X.509, the key content became the DER-encoded SubjectPublicKeyInfo. To keep the
-    * same fingerprint, this field retains the raw key.
+    * This should normally be the same as the key contents (in which case it is `None`), but can be
+    * different when we need to support backward compatibility. For example, Ed25519 keys were
+    * originally stored raw; when changing the format to X.509, the key content became the
+    * DER-encoded SubjectPublicKeyInfo. To keep the same fingerprint, this field retains the raw
+    * key.
     */
   protected def dataForFingerprintO: Option[ByteString]
 
@@ -208,9 +209,10 @@ trait PublicKey extends CryptoKeyPairKey {
 
   protected def toProtoPublicKeyKeyV30: v30.PublicKey.Key
 
-  /** With the v30.PublicKey message we model the class hierarchy of public keys in protobuf.
-    * Each child class that implements this trait can be serialized with `toProto` to their corresponding protobuf
-    * message. With the following method, it can be serialized to this trait's protobuf message.
+  /** With the v30.PublicKey message we model the class hierarchy of public keys in protobuf. Each
+    * child class that implements this trait can be serialized with `toProto` to their corresponding
+    * protobuf message. With the following method, it can be serialized to this trait's protobuf
+    * message.
     */
   def toProtoPublicKeyV30: v30.PublicKey = v30.PublicKey(key = toProtoPublicKeyKeyV30)
 }
@@ -331,7 +333,8 @@ object CryptoKeyFormat {
   implicit val cryptoKeyFormatOrder: Order[CryptoKeyFormat] =
     Order.by[CryptoKeyFormat, String](_.name)
 
-  /** ASN.1 + DER-encoding of X.509 SubjectPublicKeyInfo structure: [[https://datatracker.ietf.org/doc/html/rfc5280#section-4.1 RFC 5280]]
+  /** ASN.1 + DER-encoding of X.509 SubjectPublicKeyInfo structure:
+    * [[https://datatracker.ietf.org/doc/html/rfc5280#section-4.1 RFC 5280]]
     *
     * Used for all the signing and encryption public keys.
     */
@@ -341,7 +344,8 @@ object CryptoKeyFormat {
       v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER_X509_SUBJECT_PUBLIC_KEY_INFO
   }
 
-  /** ASN.1 + DER-encoding of PKCS #8 PrivateKeyInfo structure: [[https://datatracker.ietf.org/doc/html/rfc5208#section-5 RFC 5208]]
+  /** ASN.1 + DER-encoding of PKCS #8 PrivateKeyInfo structure:
+    * [[https://datatracker.ietf.org/doc/html/rfc5208#section-5 RFC 5208]]
     *
     * Used for all the signing and encryption private keys.
     */
@@ -351,9 +355,11 @@ object CryptoKeyFormat {
       v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER_PKCS8_PRIVATE_KEY_INFO
   }
 
-  /** For public keys: ASN.1 + DER-encoding of X.509 SubjectPublicKeyInfo structure: [[https://datatracker.ietf.org/doc/html/rfc5280#section-4.1 RFC 5280]]
+  /** For public keys: ASN.1 + DER-encoding of X.509 SubjectPublicKeyInfo structure:
+    * [[https://datatracker.ietf.org/doc/html/rfc5280#section-4.1 RFC 5280]]
     *
-    * For private keys: ASN.1 + DER-encoding of PKCS #8 PrivateKeyInfo structure: [[https://datatracker.ietf.org/doc/html/rfc5208#section-5 RFC 5208]]
+    * For private keys: ASN.1 + DER-encoding of PKCS #8 PrivateKeyInfo structure:
+    * [[https://datatracker.ietf.org/doc/html/rfc5208#section-5 RFC 5208]]
     *
     * Legacy format no longer used, except in the migration methods.
     */
@@ -451,15 +457,18 @@ object KeyPurpose {
     }
 }
 
-/** Information that is cached for each view and is to be re-used if another view has
-  * the same recipients and transparency can be respected.
+/** Information that is cached for each view and is to be re-used if another view has the same
+  * recipients and transparency can be respected.
   *
-  * @param sessionKeyAndReference the randomness, the corresponding symmetric key used to
-  *                               encrypt the view, and a symbolic reference to use in the 'encryptedBy' field.
-  * @param encryptedBy an optional symbolic reference for the parent session key (if it exists) that encrypts a view
-  *                    containing this session key’s randomness. This cache entry must be revoked if the
-  *                    reference no longer matches.
-  * @param encryptedSessionKeys the randomness of the session key encrypted for each recipient.
+  * @param sessionKeyAndReference
+  *   the randomness, the corresponding symmetric key used to encrypt the view, and a symbolic
+  *   reference to use in the 'encryptedBy' field.
+  * @param encryptedBy
+  *   an optional symbolic reference for the parent session key (if it exists) that encrypts a view
+  *   containing this session key’s randomness. This cache entry must be revoked if the reference no
+  *   longer matches.
+  * @param encryptedSessionKeys
+  *   the randomness of the session key encrypted for each recipient.
   */
 final case class SessionKeyInfo(
     sessionKeyAndReference: SessionKeyAndReference,
@@ -467,7 +476,8 @@ final case class SessionKeyInfo(
     encryptedSessionKeys: Seq[AsymmetricEncrypted[SecureRandomness]],
 )
 
-/** The randomness and corresponding session key, as well as a temporary reference to it that lives as long as the cache lives.
+/** The randomness and corresponding session key, as well as a temporary reference to it that lives
+  * as long as the cache lives.
   */
 final case class SessionKeyAndReference(
     randomness: SecureRandomness,

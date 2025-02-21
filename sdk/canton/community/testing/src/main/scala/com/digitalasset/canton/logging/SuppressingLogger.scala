@@ -34,21 +34,25 @@ import scala.util.control.NonFatal
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
-/** A version of [[NamedLoggerFactory]] that allows suppressing and intercepting warnings and errors in the log.
-  * Intended for testing.
+/** A version of [[NamedLoggerFactory]] that allows suppressing and intercepting warnings and errors
+  * in the log. Intended for testing.
   *
-  * Suppressed warnings and errors will still be logged, but with level `INFO` and the prefix `"Suppressed WARN: "`
-  * or `"Suppressed ERROR: "`.
+  * Suppressed warnings and errors will still be logged, but with level `INFO` and the prefix
+  * `"Suppressed WARN: "` or `"Suppressed ERROR: "`.
   *
-  * The methods of this class will check whether the computation during which logging is suppressed yields a future.
-  * If so, suppression will finish after completion of the future (instead of after creation of the future).
+  * The methods of this class will check whether the computation during which logging is suppressed
+  * yields a future. If so, suppression will finish after completion of the future (instead of after
+  * creation of the future).
   *
-  * Nested suppression / recording of log messages is not supported to keep the implementation simple.
+  * Nested suppression / recording of log messages is not supported to keep the implementation
+  * simple.
   *
-  * Only affects logging by Canton code.
-  * To suppress logging in libraries configure a [[com.digitalasset.canton.logging.Rewrite]] rule in `logback-test.xml`.
+  * Only affects logging by Canton code. To suppress logging in libraries configure a
+  * [[com.digitalasset.canton.logging.Rewrite]] rule in `logback-test.xml`.
   *
-  * @param skipLogEntry Log entries satisfying this predicate are suppressed, but not included in the queue of suppressed log entries.
+  * @param skipLogEntry
+  *   Log entries satisfying this predicate are suppressed, but not included in the queue of
+  *   suppressed log entries.
   */
 class SuppressingLogger private[logging] (
     underlyingLoggerFactory: NamedLoggerFactory,
@@ -217,32 +221,36 @@ class SuppressingLogger private[logging] (
       )
     } yield ()
 
-  /** Asserts that the sequence of logged warnings/errors meets a given sequence of assertions.
-    * Use this if the expected sequence of logged warnings/errors is deterministic.
+  /** Asserts that the sequence of logged warnings/errors meets a given sequence of assertions. Use
+    * this if the expected sequence of logged warnings/errors is deterministic.
     *
     * This method will automatically use asynchronous suppression if `A` is `Future[_]`.
     *
-    * The method will delete logged messages up to and including the first message on which an assertion fails.
+    * The method will delete logged messages up to and including the first message on which an
+    * assertion fails.
     *
-    * @throws java.lang.IllegalArgumentException if `T` is `EitherT` or `OptionT`, because the method cannot detect
-    *                                            whether asynchronous suppression is needed in this case.
-    *                                            Use `EitherT.value` or `OptionT`.value to work around this.
+    * @throws java.lang.IllegalArgumentException
+    *   if `T` is `EitherT` or `OptionT`, because the method cannot detect whether asynchronous
+    *   suppression is needed in this case. Use `EitherT.value` or `OptionT`.value to work around
+    *   this.
     */
   def assertLogs[A](within: => A, assertions: (LogEntry => Assertion)*)(implicit
       pos: source.Position
   ): A =
     assertLogs(rule = SuppressionRule.LevelAndAbove(WARN))(within, assertions*)
 
-  /** Asserts that the sequence of logs captured by the suppression rule meets a given sequence of assertions.
-    * Use this if the expected sequence of logs is deterministic.
+  /** Asserts that the sequence of logs captured by the suppression rule meets a given sequence of
+    * assertions. Use this if the expected sequence of logs is deterministic.
     *
     * This method will automatically use asynchronous suppression if `A` is `Future[_]`.
     *
-    * The method will delete logged messages up to and including the first message on which an assertion fails.
+    * The method will delete logged messages up to and including the first message on which an
+    * assertion fails.
     *
-    * @throws java.lang.IllegalArgumentException if `T` is `EitherT` or `OptionT`, because the method cannot detect
-    *                                            whether asynchronous suppression is needed in this case.
-    *                                            Use `EitherT.value` or `OptionT`.value to work around this.
+    * @throws java.lang.IllegalArgumentException
+    *   if `T` is `EitherT` or `OptionT`, because the method cannot detect whether asynchronous
+    *   suppression is needed in this case. Use `EitherT.value` or `OptionT`.value to work around
+    *   this.
     */
   def assertLogs[A](
       rule: SuppressionRule
@@ -279,18 +287,20 @@ class SuppressingLogger private[logging] (
   def assertLoggedWarningsAndErrorsSeq[A](within: => A, assertion: Seq[LogEntry] => Assertion): A =
     assertLogsSeq(SuppressionRule.LevelAndAbove(WARN))(within, assertion)
 
-  /** Asserts that the sequence of logged warnings/errors meets a given assertion.
-    * Use this if the expected sequence of logged warnings/errors is non-deterministic.
+  /** Asserts that the sequence of logged warnings/errors meets a given assertion. Use this if the
+    * expected sequence of logged warnings/errors is non-deterministic.
     *
     * On success, the method will delete all logged messages. So this method is not idempotent.
     *
-    * On failure, the method will not delete any logged message to support retrying with [[com.digitalasset.canton.BaseTest#eventually]].
+    * On failure, the method will not delete any logged message to support retrying with
+    * [[com.digitalasset.canton.BaseTest#eventually]].
     *
     * This method will automatically use asynchronous suppression if `A` is `Future[_]`.
     *
-    * @throws java.lang.IllegalArgumentException if `A` is `EitherT` or `OptionT`, because the method cannot detect
-    *                                            whether asynchronous suppression is needed in this case.
-    *                                            Use `EitherT.value` or `OptionT`.value to work around this.
+    * @throws java.lang.IllegalArgumentException
+    *   if `A` is `EitherT` or `OptionT`, because the method cannot detect whether asynchronous
+    *   suppression is needed in this case. Use `EitherT.value` or `OptionT`.value to work around
+    *   this.
     */
   def assertLogsSeq[A](
       rule: SuppressionRule
@@ -304,13 +314,16 @@ class SuppressingLogger private[logging] (
     }
 
   /** Asserts that the sequence of logged warnings/errors will eventually meet a given assertion.
-    * Use this if the expected sequence of logged warnings/errors is non-deterministic and the log-message assertion might not immediately succeed when it is called (e.g. because the messages might be logged with a delay).
-    * The SuppressingLogger only starts suppressing and capturing logs when this method is called,
-    * If some logs that we want to capture might fire before the start or after the end of the suppression. Please use method `assertEventuallyLogsSeq` instead to provide those action in `within` parameter.
-    * On success, the method will delete all logged messages. So this method is not idempotent.
+    * Use this if the expected sequence of logged warnings/errors is non-deterministic and the
+    * log-message assertion might not immediately succeed when it is called (e.g. because the
+    * messages might be logged with a delay). The SuppressingLogger only starts suppressing and
+    * capturing logs when this method is called, If some logs that we want to capture might fire
+    * before the start or after the end of the suppression. Please use method
+    * `assertEventuallyLogsSeq` instead to provide those action in `within` parameter. On success,
+    * the method will delete all logged messages. So this method is not idempotent.
     *
-    * On failure of the log-message assertion, it will be retried until it eventually succeeds or a timeout occurs.
-    * On timeout without success, the method will not delete any logged message
+    * On failure of the log-message assertion, it will be retried until it eventually succeeds or a
+    * timeout occurs. On timeout without success, the method will not delete any logged message
     */
   def assertEventuallyLogsSeq_(
       rule: SuppressionRule
@@ -321,18 +334,21 @@ class SuppressingLogger private[logging] (
   ): Unit = assertEventuallyLogsSeq(rule)((), assertion, timeUntilSuccess, maxPollInterval)
 
   /** Asserts that the sequence of logged warnings/errors will eventually meet a given assertion.
-    * Use this if the expected sequence of logged warnings/errors is non-deterministic and the log-message assertion might not immediately succeed when it is called (e.g. because the messages might be logged with a delay).
+    * Use this if the expected sequence of logged warnings/errors is non-deterministic and the
+    * log-message assertion might not immediately succeed when it is called (e.g. because the
+    * messages might be logged with a delay).
     *
     * On success, the method will delete all logged messages. So this method is not idempotent.
     *
-    * On failure of the log-message assertion, it will be retried until it eventually succeeds or a timeout occurs.
-    * On timeout without success, the method will not delete any logged message
+    * On failure of the log-message assertion, it will be retried until it eventually succeeds or a
+    * timeout occurs. On timeout without success, the method will not delete any logged message
     *
     * This method will automatically use asynchronous suppression if `A` is `Future[_]`.
     *
-    * @throws java.lang.IllegalArgumentException if `A` is `EitherT` or `OptionT`, because the method cannot detect
-    *                                            whether asynchronous suppression is needed in this case.
-    *                                            Use `EitherT.value` or `OptionT`.value to work around this.
+    * @throws java.lang.IllegalArgumentException
+    *   if `A` is `EitherT` or `OptionT`, because the method cannot detect whether asynchronous
+    *   suppression is needed in this case. Use `EitherT.value` or `OptionT`.value to work around
+    *   this.
     */
   def assertEventuallyLogsSeq[A](
       rule: SuppressionRule
@@ -372,36 +388,38 @@ class SuppressingLogger private[logging] (
         ),
     )
 
-  /** Asserts that the sequence of logged warnings/errors matches a set of assertions.
-    * Use this if the order of logged warnings/errors is nondeterministic.
-    * Matching the assertions against the logged messages is sequential in the order of the assertions.
-    * That is, more specific assertions must be listed earlier.
+  /** Asserts that the sequence of logged warnings/errors matches a set of assertions. Use this if
+    * the order of logged warnings/errors is nondeterministic. Matching the assertions against the
+    * logged messages is sequential in the order of the assertions. That is, more specific
+    * assertions must be listed earlier.
     *
     * This method will automatically use asynchronous suppression if `A` is `Future[_]`.
     *
     * The method will delete as many logged messages as there are assertions.
     *
-    * @throws java.lang.IllegalArgumentException if `T` is `EitherT` or `OptionT`, because the method cannot detect
-    *                                            whether asynchronous suppression is needed in this case.
-    *                                            Use `EitherT.value` or `OptionT`.value to work around this.
+    * @throws java.lang.IllegalArgumentException
+    *   if `T` is `EitherT` or `OptionT`, because the method cannot detect whether asynchronous
+    *   suppression is needed in this case. Use `EitherT.value` or `OptionT`.value to work around
+    *   this.
     */
   def assertLogsUnordered[A](within: => A, assertions: (LogEntry => Assertion)*)(implicit
       pos: source.Position
   ): A =
     assertLogsUnorderedOptional(within, assertions.map(LogEntryOptionality.Required -> _)*)
 
-  /** Asserts that the sequence of logged warnings/errors matches a set of assertions.
-    * Use this if the order of logged warnings/errors is nondeterministic and some of them are optional.
-    * Matching the assertions against the logged messages is sequential in the order of the assertions.
-    * That is, more specific assertions must be listed earlier.
+  /** Asserts that the sequence of logged warnings/errors matches a set of assertions. Use this if
+    * the order of logged warnings/errors is nondeterministic and some of them are optional.
+    * Matching the assertions against the logged messages is sequential in the order of the
+    * assertions. That is, more specific assertions must be listed earlier.
     *
     * This method will automatically use asynchronous suppression if `A` is `Future[_]`.
     *
     * The method will delete as many logged messages as there are assertions.
     *
-    * @throws java.lang.IllegalArgumentException if `T` is `EitherT` or `OptionT`, because the method cannot detect
-    *                                            whether asynchronous suppression is needed in this case.
-    *                                            Use `EitherT.value` or `OptionT`.value to work around this.
+    * @throws java.lang.IllegalArgumentException
+    *   if `T` is `EitherT` or `OptionT`, because the method cannot detect whether asynchronous
+    *   suppression is needed in this case. Use `EitherT.value` or `OptionT`.value to work around
+    *   this.
     */
   def assertLogsUnorderedOptional[A](
       within: => A,
@@ -471,28 +489,28 @@ class SuppressingLogger private[logging] (
 
   def fetchRecordedLogEntries: Seq[LogEntry] = recordedLogEntries.asScala.toSeq
 
-  /** Use this only in very early stages of development.
-    * Try to use [[assertLogs]] instead which lets you specify the specific messages that you expected to suppress.
-    * This avoids the risk of hiding unrelated warnings and errors.
+  /** Use this only in very early stages of development. Try to use [[assertLogs]] instead which
+    * lets you specify the specific messages that you expected to suppress. This avoids the risk of
+    * hiding unrelated warnings and errors.
     */
   def suppressWarnings[A](within: => A): A = suppress(SuppressionRule.Level(WARN))(within)
 
-  /** Use this only in very early stages of development.
-    * Try to use [[assertLogs]] instead which lets you specify the specific messages that you expected to suppress.
-    * This avoids the risk of hiding unrelated warnings and errors.
+  /** Use this only in very early stages of development. Try to use [[assertLogs]] instead which
+    * lets you specify the specific messages that you expected to suppress. This avoids the risk of
+    * hiding unrelated warnings and errors.
     */
   def suppressWarningsAndErrors[A](within: => A): A =
     suppress(SuppressionRule.LevelAndAbove(WARN))(within)
 
-  /** Use this only in very early stages of development.
-    * Try to use [[assertLogs]] instead which lets you specify the specific messages that you expected to suppress.
-    * This avoids the risk of hiding unrelated warnings and errors.
+  /** Use this only in very early stages of development. Try to use [[assertLogs]] instead which
+    * lets you specify the specific messages that you expected to suppress. This avoids the risk of
+    * hiding unrelated warnings and errors.
     */
   def suppressErrors[A](within: => A): A = suppress(SuppressionRule.Level(ERROR))(within)
 
-  /** Use this only in very early stages of development.
-    * Try to use [[assertThrowsAndLogs]] instead which lets you specify the specific messages that you expected to suppress.
-    * This avoids the risk of hiding unrelated warnings and errors.
+  /** Use this only in very early stages of development. Try to use [[assertThrowsAndLogs]] instead
+    * which lets you specify the specific messages that you expected to suppress. This avoids the
+    * risk of hiding unrelated warnings and errors.
     */
   def suppressWarningsErrorsExceptions[T <: Throwable](
       within: => Any
@@ -511,13 +529,15 @@ class SuppressingLogger private[logging] (
     runWithCleanup(within, () => (), endSuppress)
   }
 
-  /** First runs `body`, `onSuccess`, and then `doFinally`.
-    * Runs `onSuccess` after `body` if `body` completes successfully
-    * Runs `doFinally` after `body` and `onSuccess`, even if they terminate abruptly.
+  /** First runs `body`, `onSuccess`, and then `doFinally`. Runs `onSuccess` after `body` if `body`
+    * completes successfully Runs `doFinally` after `body` and `onSuccess`, even if they terminate
+    * abruptly.
     *
-    * @return The result of `body`. If `body` is of type `Future[_]`, a future with the same result as `body` that
-    *         completes after completion of `doFinally`.
-    * @throws java.lang.IllegalArgumentException if `T` is `EitherT` or `OptionT`
+    * @return
+    *   The result of `body`. If `body` is of type `Future[_]`, a future with the same result as
+    *   `body` that completes after completion of `doFinally`.
+    * @throws java.lang.IllegalArgumentException
+    *   if `T` is `EitherT` or `OptionT`
     */
   @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.AsInstanceOf"))
   private def runWithCleanup[T](body: => T, onSuccess: () => Unit, doFinally: () => Unit): T = {

@@ -23,11 +23,12 @@ import scala.concurrent.ExecutionContext
 
 trait ContractStore extends ContractLookup with Purgeable with FlagCloseable {
 
-  /** Stores contracts created by a request.
-    * Assumes the contract data has been authenticated against the contract id using
+  /** Stores contracts created by a request. Assumes the contract data has been authenticated
+    * against the contract id using
     * [[com.digitalasset.canton.participant.protocol.ContractAuthenticator]].
     *
-    * @param contracts The created contracts to be stored
+    * @param contracts
+    *   The created contracts to be stored
     */
   def storeContracts(contracts: Seq[SerializableContract])(implicit
       traceContext: TraceContext

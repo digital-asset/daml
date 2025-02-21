@@ -27,12 +27,12 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
 
-/** Resilient ledger subscriber, which keeps continuously
-  * re-subscribing (on failure) to the Ledger API transaction stream
-  * and applies the received transactions to the `processTransaction` function.
+/** Resilient ledger subscriber, which keeps continuously re-subscribing (on failure) to the Ledger
+  * API transaction stream and applies the received transactions to the `processTransaction`
+  * function.
   *
-  * `processTransaction` must not throw. If it does, it must be idempotent
-  * (i.e. allow re-processing the same transaction twice).
+  * `processTransaction` must not throw. If it does, it must be idempotent (i.e. allow re-processing
+  * the same transaction twice).
   */
 class ResilientLedgerSubscription[S, T](
     makeSource: Long => Source[S, NotUsed],

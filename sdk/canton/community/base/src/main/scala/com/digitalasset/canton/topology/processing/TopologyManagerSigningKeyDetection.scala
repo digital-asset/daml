@@ -22,49 +22,49 @@ import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
 
-/** Component that determines the signing keys both relevant for the transaction and available
-  * on the node.
+/** Component that determines the signing keys both relevant for the transaction and available on
+  * the node.
+  *
   * The selection rules are as follows:
+  *
   * General objectives:
-  * <ul>
-  *   <li>the selected keys must be in the node's private crypto store</li>
-  *   <li>if possible, select a key other than the root certificate key</li>
-  * </ul>
+  *   - the selected keys must be in the node's private crypto store
+  *   - if possible, select a key other than the root certificate key
   *
-  * For <strong>namespaces</strong>: select the key with the longest certificate chain
-  * from the root certificate. This way we always favor keys that are not
-  * the root certificate key. We define chainLength(ns, k) as number of namespace delegations
-  * required to construct a valid certificate chain from the root certificate of namespace ns
-  * to the target key k. The same mechanism holds true in case the authorization requires a root delegation,
-  * with the additional restriction that only root delegations are taken into account.
+  * For '''namespaces''': select the key with the longest certificate chain from the root
+  * certificate. This way we always favor keys that are not the root certificate key. We define
+  * chainLength(ns, k) as number of namespace delegations required to construct a valid certificate
+  * chain from the root certificate of namespace ns to the target key k. The same mechanism holds
+  * true in case the authorization requires a root delegation, with the additional restriction that
+  * only root delegations are taken into account.
   *
-  * If there are multiple keys with the same chainLength, sort the keys lexicographically and take the last one.
-  * While this decision is arbitrary (because there is no other criteria easily available), it is deterministic.
+  * If there are multiple keys with the same chainLength, sort the keys lexicographically and take
+  * the last one. While this decision is arbitrary (because there is no other criteria easily
+  * available), it is deterministic.
   *
   * Example:
   *
-  * Given
-  * <ul>
-  *   <li>NSD(ns1, target = k1, signedBy = k1) // root certificate</li>
-  *   <li>NSD(ns1, target = k2, signedBy = k1)</li>
-  *   <li>NSD(ns1, target = k3, signedBy = k2)</li>
-  * </ul>
-  * Then
-  * <ul>
-  *   <li>chainLength(ns1, k1) = 1</li>
-  *   <li>chainLength(ns1, k2) = 2</li>
-  *   <li>chainLength(ns1, k3) = 3</li>
-  * </ul>
+  * Given:
+  *   - NSD(ns1, target k1, signedBy = k1) // root certificate
+  *   - NSD(ns1, target = k2, signedBy = k1)
+  *   - NSD(ns1, target = k3, signedBy = k2)
   *
-  * For <strong>decentralized namespaces</strong>: apply the mechanism used for determining keys for namespaces
+  * Then:
+  *   - chainLength(ns1, k1) = 1
+  *   - chainLength(ns1, k2) = 2
+  *   - chainLength(ns1, k3) = 3
+  *
+  * For '''decentralized namespaces''': apply the mechanism used for determining keys for namespaces
   * separately for each of the decentralized namespace owners' namespace.
   *
-  * For <strong>UIDs</strong>: select any identifier delegation that is well authorized. Since an identifier delegation
-  * is issued for s specific UID, the chainLength property is not so relevant, because the target key of an identifier
-  * delegation is supposed to be a different key than the root certificate key anyway.
+  * For '''UIDs''': select any identifier delegation that is well authorized. Since an identifier
+  * delegation is issued for s specific UID, the chainLength property is not so relevant, because
+  * the target key of an identifier delegation is supposed to be a different key than the root
+  * certificate key anyway.
   *
-  * If there are multiple keys with the same chainLength, sort the keys lexicographically and take the last one.
-  * While this decision is arbitrary (because there is no other criteria easily available), it is deterministic.
+  * If there are multiple keys with the same chainLength, sort the keys lexicographically and take
+  * the last one. While this decision is arbitrary (because there is no other criteria easily
+  * available), it is deterministic.
   *
   * If there is no identifier delegation, follow the rules for namespaces for the UID's namespace.
   */
@@ -140,12 +140,17 @@ class TopologyManagerSigningKeyDetection[+PureCrypto <: CryptoPureApi](
       }
   }
 
-  /** @param asOfExclusive the timestamp used to query topology state
-    * @param toSign the topology transaction to sign
-    * @param inStore the latest fully authorized topology transaction with the same unique key as `toSign`
-    * @param returnAllValidKeys if true, returns all keys that can be used to sign.
-    *                           if false, only returns the most specific keys per namespace/uid.
-    * @return fingerprints of keys the node can use to sign the topology transaction `toSign`
+  /** @param asOfExclusive
+    *   the timestamp used to query topology state
+    * @param toSign
+    *   the topology transaction to sign
+    * @param inStore
+    *   the latest fully authorized topology transaction with the same unique key as `toSign`
+    * @param returnAllValidKeys
+    *   if true, returns all keys that can be used to sign. if false, only returns the most specific
+    *   keys per namespace/uid.
+    * @return
+    *   fingerprints of keys the node can use to sign the topology transaction `toSign`
     */
   def getValidSigningKeysForTransaction(
       asOfExclusive: CantonTimestamp,

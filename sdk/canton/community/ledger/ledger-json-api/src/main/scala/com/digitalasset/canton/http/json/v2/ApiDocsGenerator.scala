@@ -16,7 +16,8 @@ import java.nio.file.{Files, Paths}
 object ApiDocsGenerator {
 
   /** Endpoints used for static documents generation - should match with the live endpoints
-    *  @see V2Routes.serverEndpoints
+    * @see
+    *   V2Routes.serverEndpoints
     */
   private val staticDocumentationEndpoints: Seq[AnyEndpoint] = {
     val services: Seq[DocumentationEndpoints] =

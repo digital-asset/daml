@@ -74,7 +74,8 @@ class PeanoTreeQueue[Discr, V](initHead: Counter[Discr]) extends PeanoQueue[Coun
       true
     }
 
-  /** Update `front` as long as the [[elems]] contain consecutive key-value pairs starting at `front`.
+  /** Update `front` as long as the [[elems]] contain consecutive key-value pairs starting at
+    * `front`.
     */
   @SuppressWarnings(Array("org.wartremover.warts.While"))
   private def cleanup(): Unit = {

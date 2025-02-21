@@ -11,8 +11,8 @@ import com.digitalasset.daml.lf.value.Value
 
 import scala.annotation.nowarn
 
-/** Helper functions to work with `com.digitalasset.daml.lf.transaction.GenTransaction`.
-  * Using these helper functions is useful to provide a buffer from upstream changes.
+/** Helper functions to work with `com.digitalasset.daml.lf.transaction.GenTransaction`. Using these
+  * helper functions is useful to provide a buffer from upstream changes.
   */
 object LfTransactionUtil {
 
@@ -81,9 +81,9 @@ object LfTransactionUtil {
   )(node: LfActionNode): Either[String, LfActionNode] =
     node.suffixCid(suffixForDiscriminator(unicumOfDiscriminator, cantonContractId))
 
-  /** Monadic visit to all nodes of the transaction in execution order.
-    * Exercise nodes are visited twice: when execution reaches them and when execution leaves their body.
-    * Crashes on malformed transactions (see `com.digitalasset.daml.lf.transaction.GenTransaction.isWellFormed`)
+  /** Monadic visit to all nodes of the transaction in execution order. Exercise nodes are visited
+    * twice: when execution reaches them and when execution leaves their body. Crashes on malformed
+    * transactions (see `com.digitalasset.daml.lf.transaction.GenTransaction.isWellFormed`)
     */
   @nowarn("msg=match may not be exhaustive")
   def foldExecutionOrderM[F[_], A](tx: LfTransaction, initial: A)(
@@ -121,7 +121,8 @@ object LfTransactionUtil {
       consumed | tx.consumedContracts
     }
 
-  /** Yields the signatories of the node's contract, or key maintainers for nodes without signatories.
+  /** Yields the signatories of the node's contract, or key maintainers for nodes without
+    * signatories.
     */
   val signatoriesOrMaintainers: LfActionNode => Set[LfPartyId] = {
     case n: LfNodeCreate => n.signatories
@@ -144,7 +145,8 @@ object LfTransactionUtil {
 
   /** Yields the the acting parties of the node, if applicable
     *
-    * @throws java.lang.IllegalArgumentException if a Fetch node does not contain the acting parties.
+    * @throws java.lang.IllegalArgumentException
+    *   if a Fetch node does not contain the acting parties.
     */
   val actingParties: LfActionNode => Set[LfPartyId] = {
     case _: LfNodeCreate => Set.empty
@@ -178,7 +180,8 @@ object LfTransactionUtil {
 
   /** Yields the light-weight version (i.e. without exercise children and result) of this node.
     *
-    * @throws java.lang.UnsupportedOperationException if `node` is a rollback.
+    * @throws java.lang.UnsupportedOperationException
+    *   if `node` is a rollback.
     */
   def lightWeight(node: LfActionNode): LfActionNode =
     node match {

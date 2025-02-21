@@ -59,7 +59,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Output,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleRef}
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
@@ -103,7 +103,7 @@ final class IssConsensusModule[E <: Env[E]](
     private var newEpochTopology: Option[Consensus.NewEpochTopology[E]] = None,
 )(implicit mc: MetricsContext)
     extends Consensus[E]
-    with HasDelayedInit[Consensus.ProtocolMessage] {
+    with HasDelayedInit[Consensus.Message[E]] {
 
   private val thisPeer = initialState.topologyInfo.thisPeer
 
@@ -177,7 +177,11 @@ final class IssConsensusModule[E <: Env[E]](
               startEpoch,
             )(abort)
           case BootstrapKind.RegularStartup =>
-            startConsensusAndCompleteInit()
+            logger.debug(
+              s"Resuming node after restart, starting from ${initialState.epochState.epoch.info.number}"
+            )
+            startConsensusForCurrentEpoch()
+            initCompleted(receiveInternal(_))
         }
 
       case Consensus.Admin.GetOrderingTopology(callback) =>
@@ -194,101 +198,112 @@ final class IssConsensusModule[E <: Env[E]](
             newOrderingTopology,
             cryptoProvider: CryptoProvider[E],
           ) =>
-        val latestCompletedEpochNumber = latestCompletedEpoch.info.number
-        if (latestCompletedEpochNumber == newEpochNumber - 1) {
-          val currentEpochNumber = epochState.epoch.info.number
-          if (currentEpochNumber == newEpochNumber) {
-            // The output module may re-send the topology for the current epoch upon restart if it didn't store
-            //  the first block metadata or if the subscribing sequencer runtime hasn't processed it yet.
+        // Don't process a NewEpochTopology from the Output module, that may start earlier, until init completes
+        ifInitCompleted(newEpochTopologyMessage) { _ =>
+          val latestCompletedEpochNumber = latestCompletedEpoch.info.number
+          if (latestCompletedEpochNumber == newEpochNumber - 1) {
+            val currentEpochNumber = epochState.epoch.info.number
+            if (currentEpochNumber == newEpochNumber) {
+              // The output module may re-send the topology for the current epoch upon restart if it didn't store
+              //  the first block metadata or if the subscribing sequencer runtime hasn't processed it yet.
+              logger.debug(
+                s"Received NewEpochTopology event for epoch $newEpochNumber, but the epoch has already started; ignoring it"
+              )
+            } else if (currentEpochNumber == newEpochNumber - 1) {
+              startNewEpochUnlessOffboarded(newEpochNumber, newOrderingTopology, cryptoProvider)
+            } else {
+              abort(
+                s"Received NewEpochTopology event for epoch $newEpochNumber, " +
+                  s"but the current epoch number $currentEpochNumber is neither $newEpochNumber nor ${newEpochNumber - 1}"
+              )
+            }
+          } else if (latestCompletedEpochNumber < newEpochNumber - 1) {
             logger.debug(
-              s"Received NewEpochTopology event for epoch $newEpochNumber, but the epoch has already started; ignoring it"
+              s"Epoch (${newEpochNumber - 1}) has not yet been completed: remembering the topology and " +
+                s"waiting for the completed epoch to be stored"
             )
-          } else if (currentEpochNumber == newEpochNumber - 1) {
-            startNewEpochUnlessOffboarded(newEpochNumber, newOrderingTopology, cryptoProvider)
-          } else {
-            abort(
-              s"Received NewEpochTopology event for epoch $newEpochNumber, " +
-                s"but the current epoch number $currentEpochNumber is neither $newEpochNumber nor ${newEpochNumber - 1}"
+            // Upon epoch completion, a new epoch with this topology will be started.
+            newEpochTopology = Some(newEpochTopologyMessage)
+          } else { // latestCompletedEpochNumber >= epochNumber
+            // The output module re-sent a topology for an already completed epoch; this can happen upon restart if
+            //  either the output module, or the subscribing sequencer runtime, or both are more than one epoch behind
+            //  consensus, because the output module will just reprocess the blocks to be recovered.
+            logger.info(
+              s"Received NewEpochTopology for epoch $newEpochNumber, but the latest completed epoch is already $latestCompletedEpochNumber; ignoring"
             )
           }
-        } else if (latestCompletedEpochNumber < newEpochNumber - 1) {
-          logger.debug(
-            s"Epoch (${newEpochNumber - 1}) has not yet been completed: remembering the topology and " +
-              s"waiting for the completed epoch to be stored"
-          )
-          // Upon epoch completion, a new epoch with this topology will be started.
-          newEpochTopology = Some(newEpochTopologyMessage)
-        } else { // latestCompletedEpochNumber >= epochNumber
-          // The output module re-sent a topology for an already completed epoch; this can happen upon restart if
-          //  either the output module, or the subscribing sequencer runtime, or both are more than one epoch behind
-          //  consensus, because the output module will just reprocess the blocks to be recovered.
-          logger.info(
-            s"Received NewEpochTopology for epoch $newEpochNumber, but the latest completed epoch is already $latestCompletedEpochNumber; ignoring"
-          )
         }
 
-      case Consensus.NewEpochStored(newEpochInfo, newTopology, newCryptoProvider) =>
-        logger.debug(s"Stored new epoch ${newEpochInfo.number}")
-
-        // Reset any topology remembered while waiting for the previous (completed) epoch to be stored.
-        newEpochTopology = None
-
-        // Update the topology and start a new epoch.
-        val previousTopology = activeTopologyInfo.currentTopology
-        val previousCryptoProvider = activeTopologyInfo.currentCryptoProvider
-        activeTopologyInfo = OrderingTopologyInfo(
-          thisPeer,
-          newTopology,
-          newCryptoProvider,
-          previousTopology,
-          previousCryptoProvider,
-        )
-        val currentMembership = activeTopologyInfo.currentMembership
-        catchupDetector.updateMembership(currentMembership)
-
-        val newEpoch =
-          Epoch(
+      case newEpochStored @ Consensus.NewEpochStored(
             newEpochInfo,
-            currentMembership,
-            activeTopologyInfo.previousMembership,
-            DefaultLeaderSelectionPolicy,
-          )
+            newTopology,
+            newCryptoProvider,
+          ) =>
+        // Despite being generated internally by Consensus, we delay this event (a) for uniformity with other
+        // Output module events, and (b) to prevent tests from bypassing the delayed queue when sending this event
+        ifInitCompleted(newEpochStored) { _ =>
+          logger.debug(s"Stored new epoch ${newEpochInfo.number}")
 
-        epochState = new EpochState(
-          newEpoch,
-          clock,
-          abort,
-          metrics,
-          segmentModuleRefFactory = segmentModuleRefFactory(
-            context,
+          // Reset any topology remembered while waiting for the previous (completed) epoch to be stored.
+          newEpochTopology = None
+
+          // Update the topology and start a new epoch.
+          val previousTopology = activeTopologyInfo.currentTopology
+          val previousCryptoProvider = activeTopologyInfo.currentCryptoProvider
+          activeTopologyInfo = OrderingTopologyInfo(
+            thisPeer,
+            newTopology,
+            newCryptoProvider,
+            previousTopology,
+            previousCryptoProvider,
+          )
+          val currentMembership = activeTopologyInfo.currentMembership
+          catchupDetector.updateMembership(currentMembership)
+
+          val newEpoch =
+            Epoch(
+              newEpochInfo,
+              currentMembership,
+              activeTopologyInfo.previousMembership,
+              DefaultLeaderSelectionPolicy,
+            )
+
+          epochState = new EpochState(
             newEpoch,
-            activeTopologyInfo.currentCryptoProvider,
-            latestCompletedEpoch.lastBlockCommits,
-            epochInProgress = EpochStore.EpochInProgress(
-              completedBlocks = Seq.empty,
-              pbftMessagesForIncompleteBlocks = Seq.empty,
+            clock,
+            abort,
+            metrics,
+            segmentModuleRefFactory = segmentModuleRefFactory(
+              context,
+              newEpoch,
+              activeTopologyInfo.currentCryptoProvider,
+              latestCompletedEpoch.lastBlockCommits,
+              epochInProgress = EpochStore.EpochInProgress(
+                completedBlocks = Seq.empty,
+                pbftMessagesForIncompleteBlocks = Seq.empty,
+              ),
             ),
-          ),
-          completedBlocks = Seq.empty,
-          loggerFactory = loggerFactory,
-          timeouts = timeouts,
-        )
-
-        startConsensusAndCompleteInit()
-        logger.debug(
-          s"New epoch: ${epochState.epoch.info.number} has started with ordering topology $newTopology"
-        )
-
-        // Process messages for this epoch that may have arrived when processing the previous one.
-        //  PBFT messages for a future epoch may become stale after a catch-up, so we need to extract and discard them.
-        val queuedPbftMessages =
-          futurePbftMessageQueue.dequeueAll(
-            _.message.blockMetadata.epochNumber <= epochState.epoch.info.number
+            completedBlocks = Seq.empty,
+            loggerFactory = loggerFactory,
+            timeouts = timeouts,
           )
 
-        queuedPbftMessages.foreach { pbftMessage =>
-          if (pbftMessage.message.blockMetadata.epochNumber == epochState.epoch.info.number)
-            processPbftMessage(pbftMessage)
+          startConsensusForCurrentEpoch()
+          logger.debug(
+            s"New epoch: ${epochState.epoch.info.number} has started with ordering topology $newTopology"
+          )
+
+          // Process messages for this epoch that may have arrived when processing the previous one.
+          //  PBFT messages for a future epoch may become stale after a catch-up, so we need to extract and discard them.
+          val queuedPbftMessages =
+            futurePbftMessageQueue.dequeueAll(
+              _.message.blockMetadata.epochNumber <= epochState.epoch.info.number
+            )
+
+          queuedPbftMessages.foreach { pbftMessage =>
+            if (pbftMessage.message.blockMetadata.epochNumber == epochState.epoch.info.number)
+              processPbftMessage(pbftMessage)
+          }
         }
     }
 
@@ -309,7 +324,9 @@ final class IssConsensusModule[E <: Env[E]](
 
         maybeNewEpochState match {
           case NothingToStateTransfer =>
-            startConsensusAndCompleteInit()
+            // We can participate in consensus immediately
+            startConsensusForCurrentEpoch()
+            initCompleted(receiveInternal(_))
           case BlockTransferCompleted(lastCompletedEpoch, lastCompletedEpochStored) =>
             logger.info(
               s"State transfer: completed last epoch $lastCompletedEpoch, stored epoch info = ${lastCompletedEpochStored.info}, updating"
@@ -353,6 +370,8 @@ final class IssConsensusModule[E <: Env[E]](
                 loggerFactory = loggerFactory,
                 timeouts = timeouts,
               )
+              // Start processing events, including NewEpochTopology from Output that will start consensus
+              initCompleted(receiveInternal(_))
             } // else it is equal, so we don't need to update the state
           case StateTransferMessageResult.Continue =>
         }
@@ -526,10 +545,10 @@ final class IssConsensusModule[E <: Env[E]](
     }
   }
 
-  private def startConsensusAndCompleteInit()(implicit
+  private def startConsensusForCurrentEpoch()(implicit
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
-  ): Unit = {
+  ): Unit =
     if (epochState.epoch.info == GenesisEpoch.info) {
       logger.debug("Started at genesis, self-sending its topology to start epoch 0")
       context.self.asyncSend(
@@ -563,8 +582,6 @@ final class IssConsensusModule[E <: Env[E]](
         "Started after a completed epoch but before starting a new one, waiting for topology from the output module"
       )
     }
-    initCompleted(handleProtocolMessage(_)) // idempotent
-  }
 
   private def startNewEpochUnlessOffboarded(
       epochNumber: EpochNumber,
@@ -747,24 +764,24 @@ object IssConsensusModule {
   val DefaultLeaderSelectionPolicy: LeaderSelectionPolicy = SimpleLeaderSelectionPolicy
 
   def parseNetworkMessage(
-      protoSignedMessage: v1.SignedMessage
+      protoSignedMessage: v30.SignedMessage
   ): ParsingResult[Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage] =
     SignedMessage
-      .fromProtoWithSequencerId(v1.ConsensusMessage)(from =>
+      .fromProtoWithSequencerId(v30.ConsensusMessage)(from =>
         proto => originalByteString => parseConsensusNetworkMessage(from, proto)(originalByteString)
       )(protoSignedMessage)
       .map(Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage.apply)
 
   def parseConsensusNetworkMessage(
       from: SequencerId,
-      message: v1.ConsensusMessage,
+      message: v30.ConsensusMessage,
   )(
       originalByteString: ByteString
   ): ParsingResult[ConsensusSegment.ConsensusMessage.PbftNetworkMessage] =
     for {
       header <- headerFromProto(message)
       result <- (message.message match {
-        case v1.ConsensusMessage.Message.PrePrepare(value) =>
+        case v30.ConsensusMessage.Message.PrePrepare(value) =>
           ConsensusSegment.ConsensusMessage.PrePrepare.fromProto(
             header.blockMetadata,
             header.viewNumber,
@@ -772,7 +789,7 @@ object IssConsensusModule {
             value,
             from,
           )(originalByteString)
-        case v1.ConsensusMessage.Message.Prepare(value) =>
+        case v30.ConsensusMessage.Message.Prepare(value) =>
           ConsensusSegment.ConsensusMessage.Prepare.fromProto(
             header.blockMetadata,
             header.viewNumber,
@@ -780,7 +797,7 @@ object IssConsensusModule {
             value,
             from,
           )(originalByteString)
-        case v1.ConsensusMessage.Message.Commit(value) =>
+        case v30.ConsensusMessage.Message.Commit(value) =>
           ConsensusSegment.ConsensusMessage.Commit.fromProto(
             header.blockMetadata,
             header.viewNumber,
@@ -788,7 +805,7 @@ object IssConsensusModule {
             value,
             from,
           )(originalByteString)
-        case v1.ConsensusMessage.Message.ViewChange(value) =>
+        case v30.ConsensusMessage.Message.ViewChange(value) =>
           ConsensusSegment.ConsensusMessage.ViewChange.fromProto(
             header.blockMetadata,
             header.viewNumber,
@@ -796,7 +813,7 @@ object IssConsensusModule {
             value,
             from,
           )(originalByteString)
-        case v1.ConsensusMessage.Message.NewView(value) =>
+        case v30.ConsensusMessage.Message.NewView(value) =>
           ConsensusSegment.ConsensusMessage.NewView.fromProto(
             header.blockMetadata,
             header.viewNumber,
@@ -804,45 +821,45 @@ object IssConsensusModule {
             value,
             from,
           )(originalByteString)
-        case v1.ConsensusMessage.Message.Empty =>
+        case v30.ConsensusMessage.Message.Empty =>
           Left(ProtoDeserializationError.OtherError("Empty Received"))
       }): ParsingResult[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
     } yield result
 
-  def parseRetransmissionMessage(from: SequencerId, message: v1.RetransmissionMessage)(
+  def parseRetransmissionMessage(from: SequencerId, message: v30.RetransmissionMessage)(
       originalByteString: ByteString
   ): ParsingResult[Consensus.RetransmissionsMessage.RetransmissionsNetworkMessage] =
     message.message match {
-      case v1.RetransmissionMessage.Message.RetransmissionRequest(value) =>
+      case v30.RetransmissionMessage.Message.RetransmissionRequest(value) =>
         Consensus.RetransmissionsMessage.RetransmissionRequest.fromProto(from, value)(
           originalByteString
         )
-      case v1.RetransmissionMessage.Message.RetransmissionResponse(value) =>
+      case v30.RetransmissionMessage.Message.RetransmissionResponse(value) =>
         Consensus.RetransmissionsMessage.RetransmissionResponse.fromProto(from, value)(
           originalByteString
         )
-      case v1.RetransmissionMessage.Message.Empty =>
+      case v30.RetransmissionMessage.Message.Empty =>
         Left(ProtoDeserializationError.OtherError("Empty Received"))
     }
 
   def parseStateTransferMessage(
       from: SequencerId,
-      message: v1.StateTransferMessage,
+      message: v30.StateTransferMessage,
   )(
       originalByteString: ByteString
   ): ParsingResult[Consensus.StateTransferMessage.StateTransferNetworkMessage] =
     message.message match {
-      case v1.StateTransferMessage.Message.BlockRequest(value) =>
+      case v30.StateTransferMessage.Message.BlockRequest(value) =>
         Right(
           Consensus.StateTransferMessage.BlockTransferRequest.fromProto(from, value)(
             originalByteString
           )
         )
-      case v1.StateTransferMessage.Message.BlockResponse(value) =>
+      case v30.StateTransferMessage.Message.BlockResponse(value) =>
         Consensus.StateTransferMessage.BlockTransferResponse.fromProto(from, value)(
           originalByteString
         )
-      case v1.StateTransferMessage.Message.Empty =>
+      case v30.StateTransferMessage.Message.Empty =>
         Left(ProtoDeserializationError.OtherError("Empty Received"))
     }
 

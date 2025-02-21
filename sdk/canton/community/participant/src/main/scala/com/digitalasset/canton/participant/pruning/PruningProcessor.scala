@@ -61,12 +61,18 @@ import scala.math.Ordering.Implicits.*
 
 /** The pruning processor coordinates the pruning of all participant node stores
   *
-  * @param participantNodePersistentState the persistent state of the participant node that is not specific to a synchronizer
-  * @param syncPersistentStateManager   manager to provide a participant's state for a synchronizer used for pruning
-  * @param maxPruningBatchSize          size to which to break up pruning batches to limit (memory) resource consumption
-  * @param metrics                      pruning metrics
-  * @param exitOnFatalFailures          whether to crash on failures
-  * @param synchronizerConnectionStatus       helper to determine whether the synchronizer is active or in another state
+  * @param participantNodePersistentState
+  *   the persistent state of the participant node that is not specific to a synchronizer
+  * @param syncPersistentStateManager
+  *   manager to provide a participant's state for a synchronizer used for pruning
+  * @param maxPruningBatchSize
+  *   size to which to break up pruning batches to limit (memory) resource consumption
+  * @param metrics
+  *   pruning metrics
+  * @param exitOnFatalFailures
+  *   whether to crash on failures
+  * @param synchronizerConnectionStatus
+  *   helper to determine whether the synchronizer is active or in another state
   */
 class PruningProcessor(
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
@@ -161,10 +167,12 @@ class PruningProcessor(
     executionQueue.executeEUS(doPrune(), s"prune ledger events upto $pruneUpToInclusive")
   }
 
-  /** Returns an offset of at most `boundInclusive` that is safe to prune and whose timestamp is before or at `beforeOrAt`.
+  /** Returns an offset of at most `boundInclusive` that is safe to prune and whose timestamp is
+    * before or at `beforeOrAt`.
     *
-    * @param boundInclusive The caller must choose a bound so that the ledger API server never requests an offset at or below `boundInclusive`.
-    *                       Offsets at or below ledger end are typically a safe choice.
+    * @param boundInclusive
+    *   The caller must choose a bound so that the ledger API server never requests an offset at or
+    *   below `boundInclusive`. Offsets at or below ledger end are typically a safe choice.
     */
   def safeToPrune(beforeOrAt: CantonTimestamp, boundInclusive: Offset)(implicit
       traceContext: TraceContext
@@ -679,7 +687,8 @@ class PruningProcessor(
     participantNodePersistentState.value.acsCounterParticipantConfigStore
       .removeNoWaitCounterParticipant(configs.map(_.synchronizerId), configs.map(_.participantId))
 
-  /** Providing the next Offset for iterative pruning: computed by the current pruning Offset increased by the max pruning batch size.
+  /** Providing the next Offset for iterative pruning: computed by the current pruning Offset
+    * increased by the max pruning batch size.
     */
   def locatePruningOffsetForOneIteration(implicit
       traceContext: TraceContext
@@ -827,8 +836,10 @@ private[pruning] object PruningProcessor extends HasLoggerName {
       cause: String,
   )
 
-  /** PruningCutoffs captures two "formats" of the same pruning cutoff: The global offset and per-synchronizer local offsets (with participant offset).
-    * @param synchronizerOffsets cutoff as synchronizer-local offsets used for canton-internal per-synchronizer pruning
+  /** PruningCutoffs captures two "formats" of the same pruning cutoff: The global offset and
+    * per-synchronizer local offsets (with participant offset).
+    * @param synchronizerOffsets
+    *   cutoff as synchronizer-local offsets used for canton-internal per-synchronizer pruning
     */
   final case class PruningCutoffs(
       globalOffsetO: Option[(Offset, CantonTimestamp)],
@@ -837,9 +848,12 @@ private[pruning] object PruningProcessor extends HasLoggerName {
 
   object PruningCutoffs {
 
-    /** @param state SyncsyPersistentState of the synchronizer
-      * @param lastTimestamp Last sequencing timestamp below the given globalOffset
-      * @param lastRequestCounter Last request counter below the given globalOffset
+    /** @param state
+      *   SyncsyPersistentState of the synchronizer
+      * @param lastTimestamp
+      *   Last sequencing timestamp below the given globalOffset
+      * @param lastRequestCounter
+      *   Last request counter below the given globalOffset
       */
     final case class SynchronizerOffset(
         state: SyncPersistentState,

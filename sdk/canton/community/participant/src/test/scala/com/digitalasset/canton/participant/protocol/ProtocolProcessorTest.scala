@@ -217,7 +217,7 @@ class ProtocolProcessorTest
       ByteString.EMPTY,
       // this is only a placeholder, the data is not encrypted
       crypto.pureCrypto.defaultEncryptionAlgorithmSpec,
-      Fingerprint.tryCreate("dummy"),
+      Fingerprint.tryFromString("dummy"),
     ),
   )
 

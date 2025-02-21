@@ -46,7 +46,7 @@ object GeneratorsCrypto {
     Generators.nonEmptySet[CryptoKeyFormat]
 
   implicit val fingerprintArb: Arbitrary[Fingerprint] = Arbitrary(
-    Generators.lengthLimitedStringGen(String68).map(s => Fingerprint.tryCreate(s.str))
+    Generators.lengthLimitedStringGen(String68).map(s => Fingerprint.tryFromString(s.str))
   )
 
   val validUsageGen: Gen[Set[SigningKeyUsage]] = for {
@@ -77,9 +77,10 @@ object GeneratorsCrypto {
       signingKeySpec <- Arbitrary
         .arbitrary[SigningKeySpec]
 
-      /** The session signing keys inside the signature delegation are a special type of signing key where
-        * the format is fixed (i.e. DerX509Spki) and their scheme is identified by the 'sessionKeySpec' protobuf field.
-        * Therefore, we cannot use the usual Arbitrary.arbitrary[SigningKey] because it produces keys in a Symbolic format.
+      /** The session signing keys inside the signature delegation are a special type of signing key
+        * where the format is fixed (i.e. DerX509Spki) and their scheme is identified by the
+        * 'sessionKeySpec' protobuf field. Therefore, we cannot use the usual
+        * Arbitrary.arbitrary[SigningKey] because it produces keys in a Symbolic format.
         */
       sessionKey = JcePrivateCrypto
         .generateSigningKeypair(
@@ -187,7 +188,7 @@ object GeneratorsCrypto {
         encryptionAlgorithmSpec <- Arbitrary.arbitrary[EncryptionAlgorithmSpec]
         fingerprint <- Gen
           .stringOfN(68, Gen.alphaChar)
-          .map(str => Fingerprint.tryCreate(String68.tryCreate(str)))
+          .map(str => Fingerprint.tryFromString(String68.tryCreate(str)))
       } yield AsymmetricEncrypted.apply(ciphertext, encryptionAlgorithmSpec, fingerprint)
     )
 }

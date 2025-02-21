@@ -92,7 +92,8 @@ final case class SequencerNodeStatus(
 }
 
 /** Health status of the sequencer component itself.
-  * @param isActive implementation specific flag indicating whether the sequencer is active
+  * @param isActive
+  *   implementation specific flag indicating whether the sequencer is active
   */
 final case class SequencerHealthStatus(isActive: Boolean, details: Option[String] = None)
     extends ToComponentHealthState
@@ -127,7 +128,9 @@ object SequencerHealthStatus extends PrettyUtil with ShowUtil {
 }
 
 /** Admin status of the sequencer node.
-  * @param acceptsAdminChanges implementation specific flag indicating whether the sequencer node accepts administration commands
+  * @param acceptsAdminChanges
+  *   implementation specific flag indicating whether the sequencer node accepts administration
+  *   commands
   */
 final case class SequencerAdminStatus(acceptsAdminChanges: Boolean)
     extends ToComponentHealthState

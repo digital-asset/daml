@@ -21,8 +21,10 @@ import scala.concurrent.Future
 object StatusAdminCommands {
 
   /** Query the shared part of the status endpoint and project to an attribute
-    * @param cmd Comment to query the node status endpoint
-    * @param projector Projector from the node status to the attribute
+    * @param cmd
+    *   Comment to query the node status endpoint
+    * @param projector
+    *   Projector from the node status to the attribute
     */
   final case class NodeStatusElement[S <: NodeStatus.Status, GrpcRequest, GrpcResponse, T](
       cmd: GrpcAdminCommand[GrpcRequest, GrpcResponse, NodeStatus[S]],

@@ -21,7 +21,9 @@ trait SynchronizerTopologyClientHeadStateInitializer {
   ): FutureUnlessShutdown[SynchronizerTopologyClientWithInit]
 }
 
-/** A topology client head initializer implementation relying solely on maximum timestamps from the topology store. */
+/** A topology client head initializer implementation relying solely on maximum timestamps from the
+  * topology store.
+  */
 final class DefaultHeadStateInitializer(store: TopologyStore[TopologyStoreId.SynchronizerStore])
     extends SynchronizerTopologyClientHeadStateInitializer {
 

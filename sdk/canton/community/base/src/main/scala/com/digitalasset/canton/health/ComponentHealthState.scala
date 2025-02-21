@@ -12,9 +12,9 @@ import com.digitalasset.canton.util.ShowUtil
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 
-/** Generic State implementation of a component
-  * This can be used as a base health state for most component.
-  * However ComponentHealth (below) does not enforce the use of this class and a custom State class can be used instead
+/** Generic State implementation of a component This can be used as a base health state for most
+  * component. However ComponentHealth (below) does not enforce the use of this class and a custom
+  * State class can be used instead
   */
 sealed trait ComponentHealthState extends ToComponentHealthState with PrettyPrinting {
   def isOk: Boolean = this match {
@@ -90,10 +90,11 @@ object ComponentHealthState extends ShowUtil {
 
   def fatal(description: String): Fatal = Fatal(UnhealthyState(Some(description)))
 
-  /** Degraded state, as in not fully but still functional. A degraded component will NOT cause a service
-    * to report NOT_SERVING
+  /** Degraded state, as in not fully but still functional. A degraded component will NOT cause a
+    * service to report NOT_SERVING
     *
-    * @param state data
+    * @param state
+    *   data
     */
   final case class Degraded(state: UnhealthyState = UnhealthyState())
       extends ComponentHealthState
@@ -105,7 +106,8 @@ object ComponentHealthState extends ShowUtil {
 
   /** The component has failed, any service that depends on it will report NOT_SERVING
     *
-    * @param state data
+    * @param state
+    *   data
     */
   final case class Failed(state: UnhealthyState = UnhealthyState())
       extends ComponentHealthState
@@ -116,7 +118,8 @@ object ComponentHealthState extends ShowUtil {
   }
 
   /** Used to indicate liveness problem, when the node should be restarted externally
-    * @param state data
+    * @param state
+    *   data
     */
   final case class Fatal(state: UnhealthyState = UnhealthyState())
       extends ComponentHealthState
@@ -124,8 +127,10 @@ object ComponentHealthState extends ShowUtil {
 
   /** Unhealthy state data
     *
-    * @param description description of the state
-    * @param error       associated canton error
+    * @param description
+    *   description of the state
+    * @param error
+    *   associated canton error
     */
   final case class UnhealthyState(
       description: Option[String] = None,

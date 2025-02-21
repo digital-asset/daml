@@ -40,8 +40,9 @@ import org.slf4j.event.Level
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Scalable service to validate the received MediatorConfirmationRequests and ConfirmationResponses,
-  * derive a verdict, and send ConfirmationResultMessages to informee participants.
+/** Scalable service to validate the received MediatorConfirmationRequests and
+  * ConfirmationResponses, derive a verdict, and send ConfirmationResultMessages to informee
+  * participants.
   */
 private[mediator] class ConfirmationRequestAndResponseProcessor(
     synchronizerId: SynchronizerId,
@@ -171,9 +172,8 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
     }
   }
 
-  /** Stores the incoming request in the MediatorStore.
-    * Sends a result message if no responses need to be received or if the request is malformed,
-    * including if it declares a different mediator.
+  /** Stores the incoming request in the MediatorStore. Sends a result message if no responses need
+    * to be received or if the request is malformed, including if it declares a different mediator.
     */
   @VisibleForTesting
   private[mediator] def processRequest(
@@ -255,8 +255,8 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
 
   /** Validate a mediator confirmation request
     *
-    * Yields `Left(Some(verdict))`, if `request` can already be finalized.
-    * Yields `Left(None)`, if `request` should be discarded
+    * Yields `Left(Some(verdict))`, if `request` can already be finalized. Yields `Left(None)`, if
+    * `request` should be discarded
     */
   private def validateRequest(
       requestId: RequestId,

@@ -387,7 +387,9 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
     }
   }
 
-  /** @param ledgerEffectiveTimeO - set if the ledger effective time was used when preparing the transaction */
+  /** @param ledgerEffectiveTimeO
+    *   set if the ledger effective time was used when preparing the transaction
+    */
   private def deriveExecutionTimes(ledgerEffectiveTimeO: Option[Time.Timestamp]): ExecutionTimes =
     (ledgerEffectiveTimeO, timeProviderType) match {
       case (Some(let), _) =>

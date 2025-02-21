@@ -296,9 +296,9 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     List(sequencers, mediators, participants)
   private def runningNodes: Seq[CantonNodeBootstrap[CantonNode]] = allNodes.flatMap(_.running)
 
-  /** Try to startup all nodes in the configured environment and reconnect them to one another.
-    * The first error will prevent further nodes from being started.
-    * If an error is returned previously started nodes will not be stopped.
+  /** Try to startup all nodes in the configured environment and reconnect them to one another. The
+    * first error will prevent further nodes from being started. If an error is returned previously
+    * started nodes will not be stopped.
     */
   def startAndReconnect(): Either[StartupError, Unit] =
     withNewTraceContext { implicit traceContext =>
@@ -419,7 +419,8 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
 
   /** run some task on nodes ordered by their startup group
     *
-    * @param reverse if true, then the order will be reverted (e.g. for stop)
+    * @param reverse
+    *   if true, then the order will be reverted (e.g. for stop)
     */
   private def runOnNodesOrderedByStartupGroup[T, I](
       name: String,
@@ -537,10 +538,11 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
 
 object Environment {
 
-  /** Ensure all java.util.logging statements are routed to slf4j instead and can be configured with logback.
-    * This should be paired with adding a LevelChangePropagator to the logback configuration to avoid the performance impact
-    * of translating all JUL log statements (regardless of whether they are being used).
-    * See for more details: https://logback.qos.ch/manual/configuration.html#LevelChangePropagator
+  /** Ensure all java.util.logging statements are routed to slf4j instead and can be configured with
+    * logback. This should be paired with adding a LevelChangePropagator to the logback
+    * configuration to avoid the performance impact of translating all JUL log statements
+    * (regardless of whether they are being used). See for more details:
+    * https://logback.qos.ch/manual/configuration.html#LevelChangePropagator
     */
   def installJavaUtilLoggingBridge(): Unit =
     if (!SLF4JBridgeHandler.isInstalled) {

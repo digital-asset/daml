@@ -10,7 +10,9 @@ trait HasSubmissionTrackerData extends PrettyPrinting {
   def submissionTrackerData: Option[SubmissionTrackerData]
 }
 
-/** submissionTrackerData extends HasSubmissionTrackerData because it's used as the ViewSubmitterMetadata in the ViewTypeTest. */
+/** submissionTrackerData extends HasSubmissionTrackerData because it's used as the
+  * ViewSubmitterMetadata in the ViewTypeTest.
+  */
 final case class SubmissionTrackerData(
     submittingParticipant: ParticipantId,
     maxSequencingTime: CantonTimestamp,

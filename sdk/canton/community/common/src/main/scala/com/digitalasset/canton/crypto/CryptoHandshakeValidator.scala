@@ -5,20 +5,17 @@ package com.digitalasset.canton.crypto
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CryptoConfig
-import com.digitalasset.canton.crypto.CryptoFactory.{CryptoScheme, selectSchemes}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 
 object CryptoHandshakeValidator {
 
   private def validateScheme[S](
       required: NonEmpty[Set[S]],
-      schemeE: Either[String, CryptoScheme[S]],
-  ): Either[String, Unit] =
+      scheme: CryptoScheme[S],
+  ): Either[String, Unit] = {
+    val unsupported = required.diff(scheme.allowed)
     for {
-      scheme <- schemeE
-
       // Required but not allowed
-      unsupported = required.diff(scheme.allowed)
       _ <- Either.cond(
         unsupported.isEmpty,
         (),
@@ -32,6 +29,7 @@ object CryptoHandshakeValidator {
         s"The default ${scheme.default} scheme is not a required scheme: $required",
       )
     } yield ()
+  }
 
   private def validateFormats[F](
       requiredFormats: NonEmpty[Set[F]],
@@ -46,43 +44,42 @@ object CryptoHandshakeValidator {
     )
   }
 
-  /** Validates that the required crypto schemes are allowed and supported. The default scheme must be one of the required schemes.
+  /** Validates that the required crypto schemes are allowed and supported. The default scheme must
+    * be one of the required schemes.
     *
-    * The synchronizer defines for each signing, encryption, symmetric, and hashing a set of required schemes.
-    * A connecting member must be configured to allow (and thus support) all required schemes of the synchronizer.
+    * The synchronizer defines for each signing, encryption, symmetric, and hashing a set of
+    * required schemes. A connecting member must be configured to allow (and thus support) all
+    * required schemes of the synchronizer.
     */
   def validate(
       parameters: StaticSynchronizerParameters,
       config: CryptoConfig,
   ): Either[String, Unit] =
     for {
+      schemes <- CryptoSchemes.fromConfig(config)
       _ <- validateScheme(
         parameters.requiredSigningSpecs.algorithms,
-        selectSchemes(config.signing.algorithms, config.provider.signingAlgorithms)
-          .map(cs => CryptoScheme(cs.default, cs.allowed)),
+        schemes.signingAlgoSpecs,
       )
       _ <- validateScheme(
         parameters.requiredSigningSpecs.keys,
-        selectSchemes(config.signing.keys, config.provider.signingKeys)
-          .map(cs => CryptoScheme(cs.default, cs.allowed)),
+        schemes.signingKeySpecs,
       )
       _ <- validateScheme(
         parameters.requiredEncryptionSpecs.algorithms,
-        selectSchemes(config.encryption.algorithms, config.provider.encryptionAlgorithms)
-          .map(cs => CryptoScheme(cs.default, cs.allowed)),
+        schemes.encryptionAlgoSpecs,
       )
       _ <- validateScheme(
         parameters.requiredEncryptionSpecs.keys,
-        selectSchemes(config.encryption.keys, config.provider.encryptionKeys)
-          .map(cs => CryptoScheme(cs.default, cs.allowed)),
+        schemes.encryptionKeySpecs,
       )
       _ <- validateScheme(
         parameters.requiredSymmetricKeySchemes,
-        selectSchemes(config.symmetric, config.provider.symmetric),
+        schemes.symmetricKeySchemes,
       )
       _ <- validateScheme(
         parameters.requiredHashAlgorithms,
-        selectSchemes(config.hash, config.provider.hash),
+        schemes.hashAlgorithms,
       )
       _ <- validateFormats(
         parameters.requiredCryptoKeyFormats,

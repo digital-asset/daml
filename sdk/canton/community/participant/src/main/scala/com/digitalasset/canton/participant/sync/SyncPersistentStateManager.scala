@@ -10,7 +10,6 @@ import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.TopologyConfig
 import com.digitalasset.canton.crypto.Crypto
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.{
   StoreBasedSynchronizerTopologyInitializationCallback,
   SynchronizerTopologyInitializationCallback,
@@ -28,7 +27,7 @@ import com.digitalasset.canton.participant.synchronizer.{
 import com.digitalasset.canton.participant.topology.TopologyComponentFactory
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.Storage
-import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer, SequencedEventStore}
+import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -47,8 +46,9 @@ trait SyncPersistentStateLookup {
 
 /** Manages participant-relevant state for a synchronizer that needs to survive reconnects
   *
-  * Factory for [[com.digitalasset.canton.participant.store.SyncPersistentState]]. Tries to discover existing persistent states or create new ones
-  * and checks consistency of synchronizer parameters and unique contract key synchronizers
+  * Factory for [[com.digitalasset.canton.participant.store.SyncPersistentState]]. Tries to discover
+  * existing persistent states or create new ones and checks consistency of synchronizer parameters
+  * and unique contract key synchronizers
   */
 class SyncPersistentStateManager(
     participantId: ParticipantId,
@@ -72,10 +72,10 @@ class SyncPersistentStateManager(
 
   private val lock = new StampedLockWithHandle()
 
-  /** Creates [[com.digitalasset.canton.participant.store.SyncPersistentState]]s for all known synchronizer aliases
-    * provided that the synchronizer parameters and a sequencer offset are known.
-    * Does not check for unique contract key synchronizer constraints.
-    * Must not be called concurrently with itself or other methods of this class.
+  /** Creates [[com.digitalasset.canton.participant.store.SyncPersistentState]]s for all known
+    * synchronizer aliases provided that the synchronizer parameters and a sequencer offset are
+    * known. Does not check for unique contract key synchronizer constraints. Must not be called
+    * concurrently with itself or other methods of this class.
     */
   def initializePersistentStates()(implicit
       traceContext: TraceContext
@@ -104,9 +104,6 @@ class SyncPersistentStateManager(
         )
         staticSynchronizerParameters <- getStaticSynchronizerParameters(synchronizerId)
         persistentState = createPersistentState(synchronizerIdIndexed, staticSynchronizerParameters)
-        _lastProcessedPresent <- persistentState.sequencedEventStore
-          .find(SequencedEventStore.LatestUpto(CantonTimestamp.MaxValue))
-          .leftMap(_ => "No persistent event")
         _ = logger.debug(s"Discovered existing state for $alias")
       } yield {
         val synchronizerId = persistentState.indexedSynchronizer.synchronizerId
@@ -126,11 +123,14 @@ class SyncPersistentStateManager(
   ): FutureUnlessShutdown[IndexedSynchronizer] =
     IndexedSynchronizer.indexed(this.indexedStringStore)(synchronizerId)
 
-  /** Retrieves the [[com.digitalasset.canton.participant.store.SyncPersistentState]] from the [[com.digitalasset.canton.participant.sync.SyncPersistentStateManager]]
-    * for the given synchronizer if there is one. Otherwise creates a new [[com.digitalasset.canton.participant.store.SyncPersistentState]] for the synchronizer
-    * and registers it with the [[com.digitalasset.canton.participant.sync.SyncPersistentStateManager]].
-    * Checks that the [[com.digitalasset.canton.protocol.StaticSynchronizerParameters]] are the same as what has been persisted (if so)
-    * and enforces the unique contract key synchronizer constraints.
+  /** Retrieves the [[com.digitalasset.canton.participant.store.SyncPersistentState]] from the
+    * [[com.digitalasset.canton.participant.sync.SyncPersistentStateManager]] for the given
+    * synchronizer if there is one. Otherwise creates a new
+    * [[com.digitalasset.canton.participant.store.SyncPersistentState]] for the synchronizer and
+    * registers it with the [[com.digitalasset.canton.participant.sync.SyncPersistentStateManager]].
+    * Checks that the [[com.digitalasset.canton.protocol.StaticSynchronizerParameters]] are the same
+    * as what has been persisted (if so) and enforces the unique contract key synchronizer
+    * constraints.
     *
     * Must not be called concurrently with itself or other methods of this class.
     */

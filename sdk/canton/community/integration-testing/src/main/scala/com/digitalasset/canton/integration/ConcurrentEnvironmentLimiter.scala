@@ -10,20 +10,22 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{Semaphore, TimeUnit}
 import scala.util.control.NonFatal
 
-/** Although our integration tests are designed not to conflict with one another when running concurrently,
-  * practically due to how resource heavy their setups are you will start encountering problems if we run
-  * too many canton environments at once.
-  * To prevent this we have a global limit on how many environments can be started concurrently.
-  * NOTE: The limit is per class loader, therefore when running both enterprise and community integration tests, each
-  * has their own limit as sbt creates a class loader per sub-project.
-  * This defaults to 1 but can be overridden using the system property [[ConcurrentEnvironmentLimiter.IntegrationTestConcurrencyLimit]].
-  * Integration test setups should create their environments within [[ConcurrentEnvironmentLimiter.create]]
-  * and destroy them within [[ConcurrentEnvironmentLimiter.destroy]].
-  * A semaphore is used to block creations until a permit is available, and then the permit is released after the environment is destroyed.
+/** Although our integration tests are designed not to conflict with one another when running
+  * concurrently, practically due to how resource heavy their setups are you will start encountering
+  * problems if we run too many canton environments at once. To prevent this we have a global limit
+  * on how many environments can be started concurrently. NOTE: The limit is per class loader,
+  * therefore when running both enterprise and community integration tests, each has their own limit
+  * as sbt creates a class loader per sub-project. This defaults to 1 but can be overridden using
+  * the system property [[ConcurrentEnvironmentLimiter.IntegrationTestConcurrencyLimit]].
+  * Integration test setups should create their environments within
+  * [[ConcurrentEnvironmentLimiter.create]] and destroy them within
+  * [[ConcurrentEnvironmentLimiter.destroy]]. A semaphore is used to block creations until a permit
+  * is available, and then the permit is released after the environment is destroyed.
   *
-  * Due to this approach tests will start but then be blocked until a permit is available. In some cases for many minutes.
-  * This may well activate a slow poke notification in ScalaTest, however these are left in place to support discovery
-  * of any tests that fail to halt entirely or run for an abnormally long amount of time.
+  * Due to this approach tests will start but then be blocked until a permit is available. In some
+  * cases for many minutes. This may well activate a slow poke notification in ScalaTest, however
+  * these are left in place to support discovery of any tests that fail to halt entirely or run for
+  * an abnormally long amount of time.
   */
 object ConcurrentEnvironmentLimiter extends LazyLogging {
 

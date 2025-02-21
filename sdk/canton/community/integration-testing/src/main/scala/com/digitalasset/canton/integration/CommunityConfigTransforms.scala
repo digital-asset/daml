@@ -6,7 +6,7 @@ package com.digitalasset.canton.integration
 import cats.syntax.option.*
 import com.digitalasset.canton.UniquePortGenerator
 import com.digitalasset.canton.config.{CantonCommunityConfig, DbConfig, StorageConfig}
-import com.digitalasset.canton.participant.config.CommunityParticipantConfig
+import com.digitalasset.canton.participant.config.LocalParticipantConfig
 import com.digitalasset.canton.synchronizer.mediator.CommunityMediatorNodeConfig
 import com.digitalasset.canton.synchronizer.sequencer.config.CommunitySequencerNodeConfig
 import com.digitalasset.canton.version.{ParticipantProtocolVersion, ProtocolVersion}
@@ -58,7 +58,7 @@ object CommunityConfigTransforms {
   }
 
   def updateAllParticipantConfigs(
-      update: (String, CommunityParticipantConfig) => CommunityParticipantConfig
+      update: (String, LocalParticipantConfig) => LocalParticipantConfig
   ): CommunityConfigTransform =
     cantonConfig =>
       cantonConfig
@@ -108,7 +108,7 @@ object CommunityConfigTransforms {
     _.focus(_.parameters.betaVersionSupport).replace(enable)
 
   def updateAllParticipantConfigs_(
-      update: CommunityParticipantConfig => CommunityParticipantConfig
+      update: LocalParticipantConfig => LocalParticipantConfig
   ): CommunityConfigTransform =
     updateAllParticipantConfigs((_, participantConfig) => update(participantConfig))
 

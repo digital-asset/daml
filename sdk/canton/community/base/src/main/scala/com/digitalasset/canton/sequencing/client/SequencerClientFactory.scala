@@ -320,8 +320,8 @@ object SequencerClientFactory {
         )
       }
 
-      /** the wait-for-ready call option is added for when round-robin-ing through connections
-        * so that if one of them gets closed, we try the next one instead of unnecessarily failing.
+      /** the wait-for-ready call option is added for when round-robin-ing through connections so
+        * that if one of them gets closed, we try the next one instead of unnecessarily failing.
         * wait-for-ready semantics: https://github.com/grpc/grpc/blob/master/doc/wait-for-ready.md
         * this is safe for non-idempotent RPCs.
         */

@@ -11,7 +11,8 @@ import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfi
 
 /** Configuration for the mediator.
   *
-  * @param pruning mediator pruning configuration
+  * @param pruning
+  *   mediator pruning configuration
   */
 final case class MediatorConfig(
     pruning: MediatorPruningConfig = MediatorPruningConfig()
@@ -24,9 +25,12 @@ object MediatorConfig {
 
 /** Configuration for mediator pruning
   *
-  * @param maxPruningBatchSize         Maximum number of events to prune from a mediator at a time, used to break up batches internally
-  * @param pruningMetricUpdateInterval How frequently to update the `max-event-age` pruning progress metric in the background.
-  *                                    A setting of None disables background metric updating.
+  * @param maxPruningBatchSize
+  *   Maximum number of events to prune from a mediator at a time, used to break up batches
+  *   internally
+  * @param pruningMetricUpdateInterval
+  *   How frequently to update the `max-event-age` pruning progress metric in the background. A
+  *   setting of None disables background metric updating.
   */
 final case class MediatorPruningConfig(
     maxPruningBatchSize: PositiveInt =

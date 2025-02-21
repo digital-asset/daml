@@ -61,7 +61,8 @@ object SaltAlgorithm {
 
 /** A (pseudo-)random salt used for hashing to prevent pre-computed hash attacks.
   *
-  * The algorithm that was used to generate/derive the salt is kept to support the verification of the salt generation.
+  * The algorithm that was used to generate/derive the salt is kept to support the verification of
+  * the salt generation.
   */
 final case class Salt private (private val salt: ByteString, private val algorithm: SaltAlgorithm)
     extends PrettyPrinting {

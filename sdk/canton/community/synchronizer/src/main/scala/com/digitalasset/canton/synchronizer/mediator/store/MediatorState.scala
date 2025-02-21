@@ -33,12 +33,12 @@ import java.util.concurrent.ConcurrentSkipListMap
 import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.*
 
-/** Provides state management for messages received by the mediator.
-  * Non-finalized response aggregations are kept in memory, such that in case of the node shutting down,
-  * they are lost but the participants waiting for a transaction result will simply timeout.
-  * The finalized response aggregations are stored in the provided [[FinalizedResponseStore]].
-  * It is expected that `fetchPendingRequestIdsBefore` operation is not called concurrently with operations
-  * to modify the pending requests.
+/** Provides state management for messages received by the mediator. Non-finalized response
+  * aggregations are kept in memory, such that in case of the node shutting down, they are lost but
+  * the participants waiting for a transaction result will simply timeout. The finalized response
+  * aggregations are stored in the provided [[FinalizedResponseStore]]. It is expected that
+  * `fetchPendingRequestIdsBefore` operation is not called concurrently with operations to modify
+  * the pending requests.
   */
 private[mediator] class MediatorState(
     val finalizedResponseStore: FinalizedResponseStore,
@@ -98,10 +98,11 @@ private[mediator] class MediatorState(
       case None => finalizedResponseStore.fetch(requestId).widen[ResponseAggregator]
     }
 
-  /** Replaces a [[ResponseAggregation]] for the `requestId` if the stored version matches `currentVersion`.
-    * You can only use this to update non-finalized aggregations
+  /** Replaces a [[ResponseAggregation]] for the `requestId` if the stored version matches
+    * `currentVersion`. You can only use this to update non-finalized aggregations
     *
-    * @return Whether the replacement was successful
+    * @return
+    *   Whether the replacement was successful
     */
   def replace(oldValue: ResponseAggregator, newValue: ResponseAggregation[?])(implicit
       traceContext: TraceContext,
@@ -173,9 +174,9 @@ private[mediator] class MediatorState(
     pendingRequests.get(requestId)
   )
 
-  /** Prune unnecessary data from before and including the given timestamp which should be calculated by the [[Mediator]]
-    * based on the confirmation response timeout synchronizer parameters. In practice a much larger retention period
-    * may be kept.
+  /** Prune unnecessary data from before and including the given timestamp which should be
+    * calculated by the [[Mediator]] based on the confirmation response timeout synchronizer
+    * parameters. In practice a much larger retention period may be kept.
     *
     * Also updates the current age of the oldest finalized response after pruning.
     */
@@ -184,7 +185,8 @@ private[mediator] class MediatorState(
       callerCloseContext: CloseContext,
   ): FutureUnlessShutdown[Unit] = finalizedResponseStore.prune(pruneRequestsBeforeAndIncludingTs)
 
-  /** Locate the timestamp of the finalized response at or, if skip > 0, near the beginning of the sequence of finalized responses.
+  /** Locate the timestamp of the finalized response at or, if skip > 0, near the beginning of the
+    * sequence of finalized responses.
     *
     * If skip == 0, returns the timestamp of the oldest, unpruned finalized response.
     */
@@ -196,8 +198,8 @@ private[mediator] class MediatorState(
     _ = if (skip.value == 0) MetricsHelper.updateAgeInHoursGauge(clock, metrics.maxEventAge, ts)
   } yield ts
 
-  /** Report the max-event-age metric based on the oldest response timestamp and the current clock time or
-    * zero if no oldest timestamp exists (e.g. mediator fully pruned).
+  /** Report the max-event-age metric based on the oldest response timestamp and the current clock
+    * time or zero if no oldest timestamp exists (e.g. mediator fully pruned).
     */
   def reportMaxResponseAgeMetric(oldestResponseTimestamp: Option[CantonTimestamp]): Unit =
     MetricsHelper.updateAgeInHoursGauge(clock, metrics.maxEventAge, oldestResponseTimestamp)

@@ -7,8 +7,8 @@ import com.digitalasset.canton.topology.SequencerId
 
 import scala.collection.immutable.SortedSet
 
-/** A simple leader selection policy based on the one from the ISS paper.
-  * It returns a sorted set of all peers.
+/** A simple leader selection policy based on the one from the ISS paper. It returns a sorted set of
+  * all peers.
   */
 object SimpleLeaderSelectionPolicy extends LeaderSelectionPolicy {
 

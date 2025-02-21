@@ -291,7 +291,8 @@ class SegmentState(
   }
 
   /** process some kind of message, which will either be a network message or an internal event
-    * @param process process the message and indicate if we should attempt to advance the view change process
+    * @param process
+    *   process the message and indicate if we should attempt to advance the view change process
     */
   private def processViewChangeMessage[Message](
       message: Message,

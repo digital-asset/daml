@@ -21,11 +21,17 @@ import com.digitalasset.canton.{LedgerParticipantId, LedgerTransactionId, LfPart
 private[protocol] object TopologyTransactionDiff {
 
   /** Compute a set of topology events from the old state and the current state
-    * @param synchronizerId synchronizer on which the topology transactions were sequenced
-    * @param oldRelevantState Previous topology state
-    * @param currentRelevantState Current state, after applying the batch of transactions
-    * @param participantId The local participant that may require initiation of online party replication
-    * @return The set of events, the update_id, and whether a party needs to be replicated to this participant
+    * @param synchronizerId
+    *   synchronizer on which the topology transactions were sequenced
+    * @param oldRelevantState
+    *   Previous topology state
+    * @param currentRelevantState
+    *   Current state, after applying the batch of transactions
+    * @param participantId
+    *   The local participant that may require initiation of online party replication
+    * @return
+    *   The set of events, the update_id, and whether a party needs to be replicated to this
+    *   participant
     */
   private[protocol] def apply(
       synchronizerId: SynchronizerId,

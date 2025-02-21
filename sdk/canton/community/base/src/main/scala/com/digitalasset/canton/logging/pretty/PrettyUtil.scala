@@ -121,14 +121,14 @@ trait PrettyUtil {
   def unnamedParamIfDefined[T, V: Pretty](getValue: T => Option[V]): T => Option[Tree] =
     getValue(_).map(value => value.toTree)
 
-  /** A tree representing a parameter name without a parameter value.
-    * Use this for parameters storing confidential or binary data.
+  /** A tree representing a parameter name without a parameter value. Use this for parameters
+    * storing confidential or binary data.
     */
   def paramWithoutValue[T](name: String, cond: T => Boolean = (_: T) => true): T => Option[Tree] =
     conditionalParam(_ => treeOfString("..."), cond, mkNameValue(name, _))
 
-  /** Use this if you need a custom representation of a parameter.
-    * Do not use this to create lengthy strings, as line wrapping is not supported.
+  /** Use this if you need a custom representation of a parameter. Do not use this to create lengthy
+    * strings, as line wrapping is not supported.
     */
   def customParam[T](
       getValue: T => String,
@@ -140,13 +140,14 @@ trait PrettyUtil {
   def indicateOmittedFields[T]: T => Option[Tree] =
     customParam(_ => "...")
 
-  /** Use this to give a class with a singleton parameter the same pretty representation as the parameter.
+  /** Use this to give a class with a singleton parameter the same pretty representation as the
+    * parameter.
     */
   def prettyOfParam[T, V: Pretty](getValue: T => V): Pretty[T] = inst =>
     if (inst == null) nullTree else getValue(inst).toTree
 
-  /** Creates a pretty instance from a string function.
-    * Do not use this with lengthy strings, as line wrapping is not supported.
+  /** Creates a pretty instance from a string function. Do not use this with lengthy strings, as
+    * line wrapping is not supported.
     */
   def prettyOfString[T](toString: T => String): Pretty[T] = inst =>
     if (inst == null) nullTree else treeOfString(toString(inst))
@@ -160,10 +161,7 @@ trait PrettyUtil {
     }
 
   /** Use this as a temporary solution, to make the code compile during an ongoing migration.
-    * Drawbacks:
-    * <ul>
-    * <li> Instances of `Pretty[T]` are ignored.</li>
-    * <li> No parameter names</li>
+    * Drawbacks: <ul> <li> Instances of `Pretty[T]` are ignored.</li> <li> No parameter names</li>
     * </ul>
     */
   def adHocPrettyInstance[T <: Product](implicit c: ClassTag[T]): Pretty[T] =

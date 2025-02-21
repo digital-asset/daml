@@ -16,9 +16,8 @@ import com.digitalasset.canton.console.{
   SequencerReference,
 }
 
-/** Aliases used by our typical single synchronizer and multi synchronizer tests.
-  * If a test attempts to use an aliases against an environment without
-  * that node configured it will immediately throw.
+/** Aliases used by our typical single synchronizer and multi synchronizer tests. If a test attempts
+  * to use an aliases against an environment without that node configured it will immediately throw.
   */
 trait CommonTestAliases[+CE <: ConsoleEnvironment] {
   this: ConsoleEnvironmentTestHelpers[CE] =>

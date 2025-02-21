@@ -14,8 +14,8 @@ import scala.annotation.nowarn
 
 object OptionUtil {
 
-  /** If left is non empty, zip its content with the lazily evaluated result of right (if right returns a non empty result as well),
-    * and apply f to the pair (l, r)
+  /** If left is non empty, zip its content with the lazily evaluated result of right (if right
+    * returns a non empty result as well), and apply f to the pair (l, r)
     */
   def zipWithF[F[_]: Monad: Parallel, A, B, C](left: Option[A], right: => F[Option[B]])(
       f: (A, B) => F[C]
@@ -44,8 +44,8 @@ object OptionUtil {
   /** Return None iff both `left` and `right` are defined and not equal.
     *
     * Otherwise, return
-    *  - Some(left), if only left is defined
-    *  - Some(right), if right is defined
+    *   - Some(left), if only left is defined
+    *   - Some(right), if right is defined
     */
   def mergeEqual[A](left: Option[A], right: Option[A]): Option[Option[A]] =
     if (left eq right) Some(left)

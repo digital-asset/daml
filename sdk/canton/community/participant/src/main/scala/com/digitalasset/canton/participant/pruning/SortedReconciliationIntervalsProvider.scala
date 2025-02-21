@@ -66,10 +66,9 @@ class SortedReconciliationIntervalsProvider(
           }
       }
 
-  /** checks if the given timestamp `ts` represents a reconciliation interval tick
-    * returns an Option[Boolean]
-    * if returned is None then the given `ts` is older than the oldest reconciliation interval
-    * otherwise returns a boolean stating if it is a tick or not
+  /** checks if the given timestamp `ts` represents a reconciliation interval tick returns an
+    * Option[Boolean] if returned is None then the given `ts` is older than the oldest
+    * reconciliation interval otherwise returns a boolean stating if it is a tick or not
     */
   private def validateTick(
       ts: CantonTimestamp
@@ -79,8 +78,8 @@ class SortedReconciliationIntervalsProvider(
       isTick = sortedReconciliationIntervals.isAtTick(ts)
     } yield isTick
 
-  /** Succeeds if the given timestamp `ts` represents a reconciliation interval tick
-    * otherwise throws an InvalidParameterException.
+  /** Succeeds if the given timestamp `ts` represents a reconciliation interval tick otherwise
+    * throws an InvalidParameterException.
     */
   private def tryCheckIsTick(
       ts: CantonTimestamp
@@ -98,8 +97,8 @@ class SortedReconciliationIntervalsProvider(
       }
     }
 
-  /** returns true if the given timestamp `ts` represents a reconciliation interval tick
-    * otherwise returns false.
+  /** returns true if the given timestamp `ts` represents a reconciliation interval tick otherwise
+    * returns false.
     */
   private def isTick(
       ts: CantonTimestamp
@@ -117,16 +116,17 @@ class SortedReconciliationIntervalsProvider(
       }
     }
 
-  /** splits a given CommitmentPeriod into a NonEmpty Set of CommitmentPeriods with ValidTicks.
-    * if the given period does not have any valid periods within it then None is returned.
+  /** splits a given CommitmentPeriod into a NonEmpty Set of CommitmentPeriods with ValidTicks. if
+    * the given period does not have any valid periods within it then None is returned.
     *
-    * if given period( from = 0, to = 100) and we have one reconciliationInterval of 5
-    * then it will return a NonEmpty set with 20 periods (0 -> 5, 5 -> 10, 10 -> 15 etc.)
+    * if given period( from = 0, to = 100) and we have one reconciliationInterval of 5 then it will
+    * return a NonEmpty set with 20 periods (0 -> 5, 5 -> 10, 10 -> 15 etc.)
     *
     * if multiple reconciliation intervals exists then it gets split correctly as well.
     *
-    * if given period( from = 0, to 100) and we have two reconciliationIntervals (5 at 0 and 10 at 30)
-    * then it will return a NonEmpty set with 6 + 7 periods (0 -> 5, 5 -> 10, 10 -> 15 [...] 30 -> 40, 40 -> 50, 50 -> 60 etc.)
+    * if given period( from = 0, to 100) and we have two reconciliationIntervals (5 at 0 and 10 at
+    * 30) then it will return a NonEmpty set with 6 + 7 periods (0 -> 5, 5 -> 10, 10 -> 15 [...] 30
+    * -> 40, 40 -> 50, 50 -> 60 etc.)
     */
 
   def splitCommitmentPeriod(commitmentPeriod: CommitmentPeriod)(implicit
@@ -145,8 +145,8 @@ class SortedReconciliationIntervalsProvider(
           FutureUnlessShutdown.pure(List.empty)
     } yield NonEmpty.from(periods.toSet)
 
-  /** Computes a list of commitment periods between `fromExclusive` to `toInclusive`.
-    * The caller should ensure that `fromExclusive` and `toInclusive` represent valid reconciliation ticks.
+  /** Computes a list of commitment periods between `fromExclusive` to `toInclusive`. The caller
+    * should ensure that `fromExclusive` and `toInclusive` represent valid reconciliation ticks.
     * Otherwise, the method throws an `InvalidParameterException`
     */
   def computeReconciliationIntervalsCovering(

@@ -22,10 +22,9 @@ import io.grpc.protobuf.services.ProtoReflectionService
 
 import scala.concurrent.ExecutionContextExecutorService
 
-/** Creates a dynamic public server to which services can be added at a later time,
-  * while providing a gRPC health service from the start.
-  * This is useful to bring up the sequencer node endpoint with health service, prior to being
-  * initialized.
+/** Creates a dynamic public server to which services can be added at a later time, while providing
+  * a gRPC health service from the start. This is useful to bring up the sequencer node endpoint
+  * with health service, prior to being initialized.
   */
 class DynamicGrpcServer(
     val loggerFactory: NamedLoggerFactory,

@@ -40,9 +40,10 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** Builder of the in-memory state updater Pekko flow.
   *
-  * This flow is attached at the end of the Indexer pipeline,
-  * consumes the [[com.digitalasset.canton.ledger.participant.state.Update]]s (that have been ingested by the Indexer
-  * into the Index database) for populating the Ledger API server in-memory state (see [[InMemoryState]]).
+  * This flow is attached at the end of the Indexer pipeline, consumes the
+  * [[com.digitalasset.canton.ledger.participant.state.Update]]s (that have been ingested by the
+  * Indexer into the Index database) for populating the Ledger API server in-memory state (see
+  * [[InMemoryState]]).
   */
 private[platform] object InMemoryStateUpdaterFlow {
 

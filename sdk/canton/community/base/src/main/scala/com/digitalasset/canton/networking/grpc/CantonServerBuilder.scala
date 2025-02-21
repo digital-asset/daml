@@ -20,9 +20,8 @@ import io.netty.handler.ssl.{SslContext, SslContextBuilder}
 import java.net.InetSocketAddress
 import java.util.concurrent.{Executor, TimeUnit}
 
-/** The [[io.grpc.ServerBuilder]] is pretty "loose" with its type parameters
-  * causing some issues for `scalac` and IntelliJ.
-  * Here we provide a wrapper hiding these type issues.
+/** The [[io.grpc.ServerBuilder]] is pretty "loose" with its type parameters causing some issues for
+  * `scalac` and IntelliJ. Here we provide a wrapper hiding these type issues.
   */
 trait CantonServerBuilder {
   def mutableHandlerRegistry(): CantonMutableHandlerRegistry
@@ -54,8 +53,8 @@ trait CantonMutableHandlerRegistry extends AutoCloseable {
 
 object CantonServerBuilder {
 
-  /** Creates our wrapper for a grpc ServerBuilder.
-    * As we only create our servers from our configuration this is intentionally private.
+  /** Creates our wrapper for a grpc ServerBuilder. As we only create our servers from our
+    * configuration this is intentionally private.
     */
   private class BaseBuilder(
       serverBuilder: ServerBuilder[_ <: ServerBuilder[?]],
@@ -136,8 +135,10 @@ object CantonServerBuilder {
     }
 
   /** Create a GRPC server build using conventions from our configuration.
-    * @param config server configuration
-    * @return builder to attach application services and interceptors
+    * @param config
+    *   server configuration
+    * @return
+    *   builder to attach application services and interceptors
     */
   def forConfig(
       config: ServerConfig,
@@ -202,8 +203,8 @@ object CantonServerBuilder {
     sslContext
   }
 
-  /** We know this operation is safe due to the definition of [[io.grpc.ServerBuilder]].
-    * This method isolates the usage of `asInstanceOf` to only here.
+  /** We know this operation is safe due to the definition of [[io.grpc.ServerBuilder]]. This method
+    * isolates the usage of `asInstanceOf` to only here.
     */
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private def reifyBuilder(builder: ServerBuilder[?]): ServerBuilder[_ <: ServerBuilder[?]] =

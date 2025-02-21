@@ -7,9 +7,9 @@ import com.daml.error.ErrorCategory.{SecurityAlert, UnredactedSecurityAlert}
 import com.daml.error.{BaseError, ContextualizedErrorLogger, ErrorClass, ErrorCode}
 import io.grpc.StatusRuntimeException
 
-/** An alarm indicates that a different node is behaving maliciously.
-  * Alarms include situations where an attack has been mitigated successfully.
-  * Alarms are security relevant events that need to be logged in a standardized way for monitoring and auditing.
+/** An alarm indicates that a different node is behaving maliciously. Alarms include situations
+  * where an attack has been mitigated successfully. Alarms are security relevant events that need
+  * to be logged in a standardized way for monitoring and auditing.
   */
 abstract class AlarmErrorCode(id: String, redactDetails: Boolean = true)(implicit
     parent: ErrorClass
@@ -28,7 +28,8 @@ trait BaseAlarm extends BaseError {
   def report()(implicit logger: ContextualizedErrorLogger): Unit = logWithContext()
 
   /** Reports the alarm to the logger.
-    * @return this alarm
+    * @return
+    *   this alarm
     */
   def reported()(implicit logger: ContextualizedErrorLogger): this.type = {
     report()

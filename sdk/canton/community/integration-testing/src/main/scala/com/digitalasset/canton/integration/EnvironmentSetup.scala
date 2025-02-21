@@ -13,9 +13,10 @@ import org.scalatest.{Assertion, BeforeAndAfterAll, Suite}
 
 import scala.util.control.NonFatal
 
-/** Provides an ability to create a canton environment when needed for test.
-  * Include [[IsolatedEnvironments]] or [[SharedEnvironment]] to determine when this happens.
-  * Uses [[ConcurrentEnvironmentLimiter]] to ensure we limit the number of concurrent environments in a test run.
+/** Provides an ability to create a canton environment when needed for test. Include
+  * [[IsolatedEnvironments]] or [[SharedEnvironment]] to determine when this happens. Uses
+  * [[ConcurrentEnvironmentLimiter]] to ensure we limit the number of concurrent environments in a
+  * test run.
   */
 sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]]
     extends BeforeAndAfterAll {
@@ -39,13 +40,14 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
     try super.afterAll()
     finally plugins.foreach(_.afterTests())
 
-  /** Provide an environment for an individual test either by reusing an existing one or creating a new one
-    * depending on the approach being used.
+  /** Provide an environment for an individual test either by reusing an existing one or creating a
+    * new one depending on the approach being used.
     */
   def provideEnvironment: TCE
 
-  /** Optional hook for implementors to know when a test has finished and be provided the environment instance.
-    * This is required over a afterEach hook as we need the environment instance passed.
+  /** Optional hook for implementors to know when a test has finished and be provided the
+    * environment instance. This is required over a afterEach hook as we need the environment
+    * instance passed.
     */
   def testFinished(environment: TCE): Unit = {}
 
@@ -58,15 +60,20 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
       .map(assertion => loggerFactory.assertLoggedWarningsAndErrorsSeq(start, assertion))
       .getOrElse(start)
 
-  /** Creates a new environment manually for a test without concurrent environment limitation and with optional config transformation.
+  /** Creates a new environment manually for a test without concurrent environment limitation and
+    * with optional config transformation.
     *
-    * @param initialConfig specifies which configuration to start from with the default being a NEW one created
-    *                      from the current environment.
-    * @param configTransform a function that applies changes to the initial configuration
-    *                        (with the plugins applied on top)
-    * @param runPlugins a function that expects a plugin reference and returns whether or not it's supposed to be run
-    *                   against the initial configuration
-    * @return a new test console environment
+    * @param initialConfig
+    *   specifies which configuration to start from with the default being a NEW one created from
+    *   the current environment.
+    * @param configTransform
+    *   a function that applies changes to the initial configuration (with the plugins applied on
+    *   top)
+    * @param runPlugins
+    *   a function that expects a plugin reference and returns whether or not it's supposed to be
+    *   run against the initial configuration
+    * @return
+    *   a new test console environment
     */
   protected def manualCreateEnvironment(
       initialConfig: E#Config = envDef.generateConfig,
@@ -85,7 +92,8 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
       )
 
     // Once all the plugins and config transformation is done apply the defaults
-    val finalConfig = configTransform(pluginConfig).withDefaults(new DefaultPorts())
+    val finalConfig =
+      configTransform(pluginConfig).withDefaults(new DefaultPorts(), pluginConfig.edition)
 
     val scopedMetricsFactory = new ScopedInMemoryMetricsFactory
     val environmentFixture =
@@ -174,11 +182,11 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
 
 }
 
-/** Starts an environment in a beforeAll test and uses it for all tests.
-  * Destroys it in an afterAll hook.
+/** Starts an environment in a beforeAll test and uses it for all tests. Destroys it in an afterAll
+  * hook.
   *
-  * As a result, the environment state at the beginning of a test case
-  * equals the state at the end of the previous test case.
+  * As a result, the environment state at the beginning of a test case equals the state at the end
+  * of the previous test case.
   */
 trait SharedEnvironment[E <: Environment, TCE <: TestConsoleEnvironment[E]]
     extends EnvironmentSetup[E, TCE]
@@ -204,10 +212,11 @@ trait SharedEnvironment[E <: Environment, TCE <: TestConsoleEnvironment[E]]
     )
 }
 
-/** Creates an environment for each test.
-  * As a result, every test case starts with a fresh environment.
+/** Creates an environment for each test. As a result, every test case starts with a fresh
+  * environment.
   *
-  * Try to use SharedEnvironment instead to avoid the cost of frequently creating environments in CI.
+  * Try to use SharedEnvironment instead to avoid the cost of frequently creating environments in
+  * CI.
   */
 trait IsolatedEnvironments[E <: Environment, TCE <: TestConsoleEnvironment[E]]
     extends EnvironmentSetup[E, TCE] {

@@ -14,8 +14,8 @@ import com.digitalasset.canton.util.retry
 
 import java.util.UUID
 
-/** A subset of the sequencer storage methods required by the [[SequencerWriter]] with
-  * convenience methods to avoid passing the `instanceIndex` everywhere.
+/** A subset of the sequencer storage methods required by the [[SequencerWriter]] with convenience
+  * methods to avoid passing the `instanceIndex` everywhere.
   */
 trait SequencerWriterStore extends AutoCloseable {
   protected[store] val store: SequencerStore
@@ -30,25 +30,24 @@ trait SequencerWriterStore extends AutoCloseable {
   ): EitherT[FutureUnlessShutdown, String, Unit] =
     store.validateCommitMode(configuredCommitMode)
 
-  /** Lookup an existing member id for the given member.
-    * Return [[scala.None]] if no id exists.
+  /** Lookup an existing member id for the given member. Return [[scala.None]] if no id exists.
     */
   def lookupMember(member: Member)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[RegisteredMember]] =
     store.lookupMember(member)
 
-  /** Save a series of payloads to the store.
-    * Is up to the caller to determine a reasonable batch size and no batching is done within the store.
+  /** Save a series of payloads to the store. Is up to the caller to determine a reasonable batch
+    * size and no batching is done within the store.
     */
   def savePayloads(payloads: NonEmpty[Seq[BytesPayload]], instanceDiscriminator: UUID)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SavePayloadsError, Unit] =
     store.savePayloads(payloads, instanceDiscriminator)
 
-  /** Save a series of events to the store.
-    * Callers should determine batch size. No batching is done within the store.
-    * Callers MUST ensure that event-ids are unique otherwise stores will throw (likely a constraint violation).
+  /** Save a series of events to the store. Callers should determine batch size. No batching is done
+    * within the store. Callers MUST ensure that event-ids are unique otherwise stores will throw
+    * (likely a constraint violation).
     */
   def saveEvents(events: NonEmpty[Seq[Sequenced[PayloadId]]])(implicit
       traceContext: TraceContext
@@ -63,27 +62,29 @@ trait SequencerWriterStore extends AutoCloseable {
   ): EitherT[FutureUnlessShutdown, SaveWatermarkError, Unit] =
     store.resetWatermark(instanceIndex, ts)
 
-  /** Write the watermark that we promise not to write anything earlier than.
-    * Does not indicate that there is an event written by this sequencer for this timestamp as there may be no activity
-    * at the sequencer, but updating the timestamp allows the sequencer to indicate that it's still alive.
-    * Return an error if we find our sequencer is offline.
+  /** Write the watermark that we promise not to write anything earlier than. Does not indicate that
+    * there is an event written by this sequencer for this timestamp as there may be no activity at
+    * the sequencer, but updating the timestamp allows the sequencer to indicate that it's still
+    * alive. Return an error if we find our sequencer is offline.
     */
   def saveWatermark(ts: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SaveWatermarkError, Unit] =
     store.saveWatermark(instanceIndex, ts)
 
-  /** Read the watermark for this sequencer and its online/offline status.
-    * Currently only used for testing.
+  /** Read the watermark for this sequencer and its online/offline status. Currently only used for
+    * testing.
     */
   def fetchWatermark(maxRetries: Int = retry.Forever)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[Watermark]] =
     store.fetchWatermark(instanceIndex, maxRetries)
 
-  /** Mark the sequencer as online and return a timestamp for when this sequencer can start safely producing events.
-    * @param now Now according to this sequencer's clock which will be used if it is ahead of the lowest available
-    *            timestamp from other sequencers.
+  /** Mark the sequencer as online and return a timestamp for when this sequencer can start safely
+    * producing events.
+    * @param now
+    *   Now according to this sequencer's clock which will be used if it is ahead of the lowest
+    *   available timestamp from other sequencers.
     */
   def goOnline(now: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -97,10 +98,10 @@ trait SequencerWriterStore extends AutoCloseable {
   ): FutureUnlessShutdown[Unit] =
     store.goOffline(instanceIndex)
 
-  /** Delete all events that are ahead of the watermark of this sequencer.
-    * These events will not have been read and should be removed before returning the sequencer online.
-    * Should not be called alongside updating the watermark for this sequencer and only while the sequencer is offline.
-    * Returns the watermark that was used for the deletion.
+  /** Delete all events that are ahead of the watermark of this sequencer. These events will not
+    * have been read and should be removed before returning the sequencer online. Should not be
+    * called alongside updating the watermark for this sequencer and only while the sequencer is
+    * offline. Returns the watermark that was used for the deletion.
     */
   def deleteEventsPastWatermark()(implicit
       traceContext: TraceContext
@@ -117,7 +118,9 @@ trait SequencerWriterStore extends AutoCloseable {
 
 }
 
-/** Writer store that just passes directly through to the underlying store using the provided instance index. */
+/** Writer store that just passes directly through to the underlying store using the provided
+  * instance index.
+  */
 private[store] class SimpleSequencerWriterStore(
     override val instanceIndex: Int,
     override protected[store] val store: SequencerStore,

@@ -16,8 +16,9 @@ import com.digitalasset.canton.{LfPartyId, ProtoDeserializationError}
 
 /** A set of confirming parties and their weights plus a threshold constitutes a quorum.
   *
-  * @param confirmers maps a party id to a weight. The weight is a positive int because
-  *                   only PlainInformees have a weight of 0.
+  * @param confirmers
+  *   maps a party id to a weight. The weight is a positive int because only PlainInformees have a
+  *   weight of 0.
   */
 final case class Quorum(
     confirmers: Map[LfPartyId, PositiveInt],

@@ -98,13 +98,20 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 
 /** A connected synchronizer from the synchronization service.
   *
-  * @param synchronizerId          The identifier of the connected synchronizer.
-  * @param synchronizerHandle      A synchronizer handle providing sequencer clients.
-  * @param participantId     The participant node id hosting this sync service.
-  * @param persistent        The persistent state of the connected synchronizer.
-  * @param ephemeral         The ephemeral state of the connected synchronizer.
-  * @param packageService    Underlying package management service.
-  * @param synchronizerCrypto      Synchronisation crypto utility combining IPS and Crypto operations for a single synchronizer.
+  * @param synchronizerId
+  *   The identifier of the connected synchronizer.
+  * @param synchronizerHandle
+  *   A synchronizer handle providing sequencer clients.
+  * @param participantId
+  *   The participant node id hosting this sync service.
+  * @param persistent
+  *   The persistent state of the connected synchronizer.
+  * @param ephemeral
+  *   The ephemeral state of the connected synchronizer.
+  * @param packageService
+  *   Underlying package management service.
+  * @param synchronizerCrypto
+  *   Synchronisation crypto utility combining IPS and Crypto operations for a single synchronizer.
   */
 class ConnectedSynchronizer(
     val synchronizerId: SynchronizerId,
@@ -526,7 +533,9 @@ class ConnectedSynchronizer(
     } yield ()
   }
 
-  /** Starts the connected synchronizer. NOTE: Must only be called at most once on a synchronizer instance. */
+  /** Starts the connected synchronizer. NOTE: Must only be called at most once on a synchronizer
+    * instance.
+    */
   private[sync] def start()(implicit
       initializationTraceContext: TraceContext
   ): FutureUnlessShutdown[Either[ConnectedSynchronizerInitializationError, Unit]] =
@@ -758,8 +767,9 @@ class ConnectedSynchronizer(
   def readyForSubmission: SubmissionReady =
     SubmissionReady(ready && !isFailed && !sequencerClient.healthComponent.isFailed)
 
-  /** Helper method to perform the submission (unless shutting down), but track the inner FUS completion as well:
-    * on shutdown wait for the inner FUS to complete before closing the child-services.
+  /** Helper method to perform the submission (unless shutting down), but track the inner FUS
+    * completion as well: on shutdown wait for the inner FUS to complete before closing the
+    * child-services.
     */
   private def performSubmissionUnlessClosing[ERROR, RESULT](
       name: String,
@@ -786,8 +796,9 @@ class ConnectedSynchronizer(
     EitherT(resultPromise.future)
   }
 
-  /** @return The outer future completes after the submission has been registered as in-flight.
-    *          The inner future completes after the submission has been sequenced or if it will never be sequenced.
+  /** @return
+    *   The outer future completes after the submission has been registered as in-flight. The inner
+    *   future completes after the submission has been sequenced or if it will never be sequenced.
     */
   def submitTransaction(
       submitterInfo: SubmitterInfo,

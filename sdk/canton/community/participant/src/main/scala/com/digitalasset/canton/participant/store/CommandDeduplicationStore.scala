@@ -38,22 +38,24 @@ trait CommandDeduplicationStore extends AutoCloseable {
       traceContext: TraceContext
   ): OptionT[FutureUnlessShutdown, CommandDeduplicationData]
 
-  /** Updates the [[com.digitalasset.canton.participant.protocol.submission.ChangeIdHash]]'s for the given
-    * [[com.digitalasset.canton.ledger.participant.state.ChangeId]]s with the given [[DefiniteAnswerEvent]]s.
-    * The [[scala.Boolean]] specifies whether the definite answer is an acceptance (or rejection) of the command.
+  /** Updates the [[com.digitalasset.canton.participant.protocol.submission.ChangeIdHash]]'s for the
+    * given [[com.digitalasset.canton.ledger.participant.state.ChangeId]]s with the given
+    * [[DefiniteAnswerEvent]]s. The [[scala.Boolean]] specifies whether the definite answer is an
+    * acceptance (or rejection) of the command.
     *
-    * Does not overwrite the data if the existing data has a higher [[DefiniteAnswerEvent.offset]]. This should never
-    * happen in practice.
+    * Does not overwrite the data if the existing data has a higher [[DefiniteAnswerEvent.offset]].
+    * This should never happen in practice.
     */
   def storeDefiniteAnswers(answers: Seq[(ChangeId, DefiniteAnswerEvent, Boolean)])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
-  /** Updates the [[com.digitalasset.canton.participant.protocol.submission.ChangeIdHash]]'s for the given
-    * [[com.digitalasset.canton.ledger.participant.state.ChangeId]] with the given [[DefiniteAnswerEvent]].
+  /** Updates the [[com.digitalasset.canton.participant.protocol.submission.ChangeIdHash]]'s for the
+    * given [[com.digitalasset.canton.ledger.participant.state.ChangeId]] with the given
+    * [[DefiniteAnswerEvent]].
     *
-    * Does not overwrite the data if the existing data has a higher [[DefiniteAnswerEvent.offset]]. This should never
-    * happen in practice.
+    * Does not overwrite the data if the existing data has a higher [[DefiniteAnswerEvent.offset]].
+    * This should never happen in practice.
     */
   def storeDefiniteAnswer(
       changeId: ChangeId,
@@ -64,16 +66,18 @@ trait CommandDeduplicationStore extends AutoCloseable {
       definiteAnswerEvent.traceContext
     )
 
-  /** Prunes all command deduplication entries whose [[CommandDeduplicationData.latestDefiniteAnswer]] offset
-    * is less or equal to `upToInclusive`.
+  /** Prunes all command deduplication entries whose
+    * [[CommandDeduplicationData.latestDefiniteAnswer]] offset is less or equal to `upToInclusive`.
     *
-    * @param prunedPublicationTime The publication time of the given offset
+    * @param prunedPublicationTime
+    *   The publication time of the given offset
     */
   def prune(upToInclusive: Offset, prunedPublicationTime: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
-  /** Returns the highest offset with which [[prune]] was called, and an upper bound on its publication time, if any.
+  /** Returns the highest offset with which [[prune]] was called, and an upper bound on its
+    * publication time, if any.
     */
   def latestPruning()(implicit
       traceContext: TraceContext
@@ -117,11 +121,15 @@ object CommandDeduplicationStore {
   }
 }
 
-/** The command deduplication data associated with a [[com.digitalasset.canton.ledger.participant.state.ChangeId]].
+/** The command deduplication data associated with a
+  * [[com.digitalasset.canton.ledger.participant.state.ChangeId]].
   *
-  * @param changeId The change ID this command deduplication data is associated with
-  * @param latestDefiniteAnswer The latest definite answer for the change ID
-  * @param latestAcceptance The latest accepting completion for the change ID, if any
+  * @param changeId
+  *   The change ID this command deduplication data is associated with
+  * @param latestDefiniteAnswer
+  *   The latest definite answer for the change ID
+  * @param latestAcceptance
+  *   The latest accepting completion for the change ID, if any
   */
 final case class CommandDeduplicationData private (
     changeId: ChangeId,
@@ -186,9 +194,12 @@ object CommandDeduplicationData {
   }
 }
 
-/** @param offset A completion offset
-  * @param publicationTime The publication time associated with the `offset`
-  * @param traceContext The trace context that created the completion offset.
+/** @param offset
+  *   A completion offset
+  * @param publicationTime
+  *   The publication time associated with the `offset`
+  * @param traceContext
+  *   The trace context that created the completion offset.
   */
 final case class DefiniteAnswerEvent(
     offset: Offset,

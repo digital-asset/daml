@@ -31,9 +31,14 @@ import com.daml.ledger.api.v2.transaction.{
   Transaction as TransactionV2,
   TransactionTree as TransactionTreeProto,
 }
+import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
 import com.daml.ledger.api.v2.transaction_filter.{
+  CumulativeFilter,
+  EventFormat,
   Filters,
+  TemplateFilter,
   TransactionFilter as TransactionFilterProto,
+  UpdateFormat,
 }
 import com.daml.ledger.javaapi as javab
 import com.daml.ledger.javaapi.data.{
@@ -269,6 +274,70 @@ trait BaseLedgerApiAdministration extends NoTracing {
         )
       })
 
+      @Help.Summary("Get reassignments", FeatureFlag.Testing)
+      @Help.Description(
+        """This function connects to the update stream for the given parties and template ids and collects reassignment
+          |events (assigned and unassigned) until either `completeAfter` updates have been received or `timeout` has
+          |elapsed.
+          |If the party ids set is empty then the reassignments for all the parties will be fetched.
+          |If the template ids collection is empty then the reassignments for all the template ids will be fetched.
+          |The returned updates can be filtered to be between the given offsets (default: no filtering).
+          |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
+          |this command fails with a `NOT_FOUND` error.
+          |If the beginOffset is zero then the participant begin is taken as beginning offset.
+          |If the endOffset is None then a continuous stream is returned."""
+      )
+      def reassignments(
+          partyIds: Set[PartyId],
+          filterTemplates: Seq[TemplateId],
+          completeAfter: Int,
+          beginOffsetExclusive: Long = 0L,
+          endOffsetInclusive: Option[Long] = None,
+          timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+          resultFilter: UpdateWrapper => Boolean = _ => true,
+          synchronizerFilter: Option[SynchronizerId] = None,
+      ): Seq[ReassignmentWrapper] = check(FeatureFlag.Testing)({
+
+        val resultFilterWithSynchronizer = synchronizerFilter match {
+          case Some(synchronizerId) =>
+            (update: UpdateWrapper) =>
+              resultFilter(update) && update.synchronizerId == synchronizerId.toProtoPrimitive
+          case None => resultFilter
+        }
+
+        val observer =
+          new RecordingStreamObserver[UpdateWrapper](completeAfter, resultFilterWithSynchronizer)
+
+        val filters: Filters = Filters(
+          filterTemplates.map(templateId =>
+            CumulativeFilter(
+              IdentifierFilter.TemplateFilter(
+                TemplateFilter(Some(templateId.toIdentifier))
+              )
+            )
+          )
+        )
+
+        val updateFormat = UpdateFormat(includeReassignments =
+          if (partyIds.isEmpty)
+            Some(EventFormat(filtersForAnyParty = Some(filters)))
+          else
+            Some(EventFormat(filtersByParty = partyIds.map(_.toLf -> filters).toMap))
+        )
+
+        mkResult(
+          subscribe_updates(
+            observer = observer,
+            updateFormat = updateFormat,
+            beginOffsetExclusive = beginOffsetExclusive,
+            endOffsetInclusive = endOffsetInclusive,
+          ),
+          "getUpdates",
+          observer,
+          timeout,
+        ).collect { case reassignment: ReassignmentWrapper => reassignment }
+      })
+
       @Help.Summary("Get flat updates", FeatureFlag.Testing)
       @Help.Description(
         """This function connects to the flat update stream for the given transaction filter and collects updates
@@ -324,6 +393,36 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 endOffsetInclusive,
                 filter,
                 verbose,
+              )
+            )
+          }
+        )
+
+      @Help.Summary("Subscribe to the update stream", FeatureFlag.Testing)
+      @Help.Description("""This function connects to the update stream and passes updates to `observer` until the stream
+          |is completed.
+          |The updates as described in the update format will be returned.
+          |Use `EventFormat(Map(myParty.toLf -> Filters()))` to return transactions or reassignments for
+          |`myParty: PartyId`.
+          |The returned updates can be filtered to be between the given offsets (default: no filtering).
+          |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
+          |this command fails with a `NOT_FOUND` error.
+          |If the beginOffset is zero then the participant begin is taken as beginning offset.
+          |If the endOffset is None then a continuous stream is returned.""")
+      def subscribe_updates(
+          observer: StreamObserver[UpdateWrapper],
+          updateFormat: UpdateFormat,
+          beginOffsetExclusive: Long = 0L,
+          endOffsetInclusive: Option[Long] = None,
+      ): AutoCloseable =
+        check(FeatureFlag.Testing)(
+          consoleEnvironment.run {
+            ledgerApiCommand(
+              LedgerApiCommands.UpdateService.SubscribeUpdates(
+                observer = observer,
+                beginExclusive = beginOffsetExclusive,
+                endInclusive = endOffsetInclusive,
+                updateFormat = updateFormat,
               )
             )
           }
@@ -2483,7 +2582,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
     }
   }
 
-  /** @return The modified map where deletion from the original are represented as keys with empty values
+  /** @return
+    *   The modified map where deletion from the original are represented as keys with empty values
     */
   private def makeAnnotationsUpdate(
       original: Map[String, String],

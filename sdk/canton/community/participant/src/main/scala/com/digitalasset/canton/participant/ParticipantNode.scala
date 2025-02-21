@@ -878,7 +878,8 @@ class ParticipantNodeBootstrap(
 
   override def config: LocalParticipantConfig = arguments.config
 
-  /** If set to `Some(path)`, every sequencer client will record all received events to the directory `path`.
+  /** If set to `Some(path)`, every sequencer client will record all received events to the
+    * directory `path`.
     */
   protected val recordSequencerInteractions: AtomicReference[Option[RecordingConfig]] =
     new AtomicReference(None)
@@ -920,7 +921,14 @@ object ParticipantNodeBootstrap {
     type Arguments =
       CantonNodeBootstrapCommonArguments[PC, ParticipantNodeParameters, ParticipantMetrics]
 
-    protected def createEngine(arguments: Arguments): Engine
+    protected def createEngine(arguments: Arguments): Engine = DAMLe.newEngine(
+      enableLfDev = arguments.parameterConfig.alphaVersionSupport,
+      enableLfBeta = arguments.parameterConfig.betaVersionSupport,
+      enableStackTraces = arguments.parameterConfig.engine.enableEngineStackTraces,
+      profileDir = arguments.config.features.profileDir,
+      iterationsBetweenInterruptions =
+        arguments.parameterConfig.engine.iterationsBetweenInterruptions,
+    )
 
     protected def createResourceService(
         arguments: Arguments
@@ -958,16 +966,7 @@ object ParticipantNodeBootstrap {
   )
 
   object CommunityParticipantFactory
-      extends Factory[CommunityParticipantConfig, ParticipantNodeBootstrap] {
-
-    override protected def createEngine(arguments: Arguments): Engine =
-      DAMLe.newEngine(
-        enableLfDev = arguments.parameterConfig.alphaVersionSupport,
-        enableLfBeta = arguments.parameterConfig.betaVersionSupport,
-        enableStackTraces = arguments.parameterConfig.engine.enableEngineStackTraces,
-        iterationsBetweenInterruptions =
-          arguments.parameterConfig.engine.iterationsBetweenInterruptions,
-      )
+      extends Factory[LocalParticipantConfig, ParticipantNodeBootstrap] {
 
     override protected def createResourceService(
         arguments: Arguments
@@ -1007,7 +1006,7 @@ object ParticipantNodeBootstrap {
 
     override def create(
         arguments: NodeFactoryArguments[
-          CommunityParticipantConfig,
+          LocalParticipantConfig,
           ParticipantNodeParameters,
           ParticipantMetrics,
         ],
@@ -1122,8 +1121,10 @@ class ParticipantNode(
 
   override def isActive: Boolean = storage.isActive
 
-  /** @param isTriggeredManually True if the call of this method is triggered by an explicit call to the connectivity service,
-    *                            false if the call of this method is triggered by a node restart or transition to active
+  /** @param isTriggeredManually
+    *   True if the call of this method is triggered by an explicit call to the connectivity
+    *   service, false if the call of this method is triggered by a node restart or transition to
+    *   active
     */
   def reconnectSynchronizersIgnoreFailures(isTriggeredManually: Boolean)(implicit
       traceContext: TraceContext,

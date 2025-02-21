@@ -23,8 +23,8 @@ object ForceFlag {
 
   case object AlienMember extends ForceFlag(v30.ForceFlag.FORCE_FLAG_ALIEN_MEMBER)
 
-  /** Deprecated. Increasing LedgerTimeRecordTimeTolerance does not require a force flag from PV >= 32
-    * Instead increasing SubmissionTimeRecordTimeTolerance does
+  /** Deprecated. Increasing LedgerTimeRecordTimeTolerance does not require a force flag from PV >=
+    * 32 Instead increasing SubmissionTimeRecordTimeTolerance does
     */
   @deprecated(
     message =
@@ -54,11 +54,9 @@ object ForceFlag {
       extends ForceFlag(v30.ForceFlag.FORCE_FLAG_ALLOW_UNVALIDATED_SIGNING_KEYS)
 
   /** This should only be used internally in situations where
-    * <ul>
-    *   <li>the caller knows what they are doing</li>
-    *  <li>it's not necessarily clear which specific flags to use, but there also isn't really any
-    *   other choice, eg. when importing a topology snapshot.</li>
-    * </ul>
+    *   - the caller knows what they are doing
+    *   - it's not necessarily clear which specific flags to use, but there also isn't really any
+    *     other choice, eg. when importing a topology snapshot.
     */
   @nowarn("cat=deprecation")
   // We need to keep LedgerTimeRecordTimeToleranceIncrease around to not break backwards compatibility

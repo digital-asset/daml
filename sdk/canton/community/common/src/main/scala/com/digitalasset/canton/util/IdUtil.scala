@@ -8,8 +8,8 @@ import cats.{Id, Semigroup}
 /** Contains instances for the `Id` functor. */
 object IdUtil {
 
-  /** Right-biased semigroup instance for any type:
-    * `combine` keeps the value on the right and discards the one on the left
+  /** Right-biased semigroup instance for any type: `combine` keeps the value on the right and
+    * discards the one on the left
     */
   implicit def catsSemigroupForIdRightBias[A]: Semigroup[Id[A]] = new Semigroup[Id[A]] {
     override def combine(x: A, y: A): A = y
@@ -17,8 +17,8 @@ object IdUtil {
     protected[this] override def repeatedCombineN(a: A, n: Int): A = a
   }
 
-  /** Left-biased semigroup instance for any type:
-    * `combine` keeps the value on the left and discards the one on the right
+  /** Left-biased semigroup instance for any type: `combine` keeps the value on the left and
+    * discards the one on the right
     */
   implicit def catsSemigroupForIdLeftBias[A]: Semigroup[Id[A]] = new Semigroup[Id[A]] {
     override def combine(x: A, y: A): A = x

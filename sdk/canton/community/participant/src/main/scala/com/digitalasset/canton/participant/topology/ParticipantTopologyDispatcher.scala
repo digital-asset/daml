@@ -47,8 +47,8 @@ trait ParticipantTopologyDispatcherHandle {
     * When connecting / reconnecting to a synchronizer, we will first attempt to push out all
     * pending topology transactions until we have caught up with the authorized store.
     *
-    * This will guarantee that all parties known on this participant are active once the synchronizer
-    * is marked as ready to process transactions.
+    * This will guarantee that all parties known on this participant are active once the
+    * synchronizer is marked as ready to process transactions.
     */
   def synchronizerConnected()(implicit
       traceContext: TraceContext
@@ -73,7 +73,9 @@ class ParticipantTopologyDispatcher(
     with FlagCloseable
     with HasFutureSupervision {
 
-  /** map of active synchronizer outboxes, i.e. where we are connected and actively try to push topology state onto the synchronizers */
+  /** map of active synchronizer outboxes, i.e. where we are connected and actively try to push
+    * topology state onto the synchronizers
+    */
   private[topology] val synchronizers =
     new TrieMap[SynchronizerAlias, NonEmpty[Seq[SynchronizerOutbox]]]()
 
@@ -328,10 +330,10 @@ class ParticipantTopologyDispatcher(
 
 /** Utility class to dispatch the initial set of onboarding transactions to a synchronizer
   *
-  * Generally, when we onboard to a new synchronizer, we only want to onboard with the minimal set of
-  * topology transactions that are required to join a synchronizer. Otherwise, if we e.g. have
-  * registered one million parties and then subsequently roll a key, we'd send an enormous
-  * amount of unnecessary topology transactions.
+  * Generally, when we onboard to a new synchronizer, we only want to onboard with the minimal set
+  * of topology transactions that are required to join a synchronizer. Otherwise, if we e.g. have
+  * registered one million parties and then subsequently roll a key, we'd send an enormous amount of
+  * unnecessary topology transactions.
   */
 private class SynchronizerOnboardingOutbox(
     synchronizerAlias: SynchronizerAlias,

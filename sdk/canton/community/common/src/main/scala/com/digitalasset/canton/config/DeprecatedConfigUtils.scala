@@ -13,9 +13,13 @@ object DeprecatedConfigUtils {
   final case class MovedConfigPath(from: String, to: String*)
 
   /** Deprecate a config path. A message will be logged at INFO level if the config path is used
-    * @param path config path to deprecated
-    * @param since canton version when the deprecation was introduced
-    * @param valueFilter optional filter on the value. Only config fields on 'path' with that value will be deprecated
+    * @param path
+    *   config path to deprecated
+    * @param since
+    *   canton version when the deprecation was introduced
+    * @param valueFilter
+    *   optional filter on the value. Only config fields on 'path' with that value will be
+    *   deprecated
     */
   final case class DeprecatedConfigPath[T: ConfigReader](
       path: String,
@@ -41,7 +45,8 @@ object DeprecatedConfigUtils {
   }
 
   /** Simple typeclass to provide deprecated fields for a config class
-    * @tparam T type of the config being targeted
+    * @tparam T
+    *   type of the config being targeted
     */
   trait DeprecatedFieldsFor[-T] {
     def movedFields: List[MovedConfigPath] = List.empty
@@ -50,10 +55,14 @@ object DeprecatedConfigUtils {
 
   implicit class EnhancedConfigReader[T](val configReader: ConfigReader[T]) extends AnyVal {
 
-    /** Moves the value at 'from' to 'to' if 'to' is not already set, and removes 'from' from the config.
-      * @param from path to the deprecated field. e.g: "path.to.deprecated.field"
-      * @param to string path to the new field. e.g: "path.to.new.field"
-      * @return config reader with fallback values from the deprecated fields
+    /** Moves the value at 'from' to 'to' if 'to' is not already set, and removes 'from' from the
+      * config.
+      * @param from
+      *   path to the deprecated field. e.g: "path.to.deprecated.field"
+      * @param to
+      *   string path to the new field. e.g: "path.to.new.field"
+      * @return
+      *   config reader with fallback values from the deprecated fields
       */
     def moveDeprecatedField(from: String, to: Seq[String])(implicit
         elc: ErrorLoggingContext
@@ -127,7 +136,8 @@ object DeprecatedConfigUtils {
     }
 
     /** Applies a list of deprecation fallbacks to the configReader
-      * @return config reader with fallbacks applied
+      * @return
+      *   config reader with fallbacks applied
       */
     def applyDeprecations(implicit
         elc: ErrorLoggingContext,

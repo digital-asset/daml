@@ -7,8 +7,7 @@ import io.grpc.*
 import io.grpc.Context as GrpcContext
 import io.grpc.ForwardingClientCall.SimpleForwardingClientCall
 
-/** Support for propagating TraceContext values across GRPC boundaries.
-  * Includes:
+/** Support for propagating TraceContext values across GRPC boundaries. Includes:
   *   - a client interceptor for setting context values when sending requests to a server
   *   - a server interceptor for receiving context values when receiving requests from a client
   */

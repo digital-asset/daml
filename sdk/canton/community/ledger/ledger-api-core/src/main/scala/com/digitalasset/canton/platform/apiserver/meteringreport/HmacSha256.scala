@@ -37,9 +37,12 @@ object HmacSha256 {
       .fold(deserializationError(s"Failed to deserialize $json", _), identity)
   }
 
-  /** @param scheme  - a long lived name that be associated with, and only with, this key
-    * @param encoded - the encoded bytes of a HmacSha256 secret key
-    * @param algorithm - the key algorithm
+  /** @param scheme
+    *   a long lived name that be associated with, and only with, this key
+    * @param encoded
+    *   the encoded bytes of a HmacSha256 secret key
+    * @param algorithm
+    *   the key algorithm
     */
   final case class Key(scheme: String, encoded: Bytes, algorithm: String)
 

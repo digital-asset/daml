@@ -19,11 +19,11 @@ import scala.concurrent.{ExecutionContext, Future, blocking}
 /** This class is a wrapper around a Caffeine cache designed to handle correct resolution of
   * concurrent updates for the same key.
   *
-  * The [[StateCache]] tracks its own notion of logical time with the `cacheIndex`
-  * which evolves monotonically based on the index DB's offset (updated by [[putBatch]]).
+  * The [[StateCache]] tracks its own notion of logical time with the `cacheIndex` which evolves
+  * monotonically based on the index DB's offset (updated by [[putBatch]]).
   *
-  * The cache's logical time (i.e. the `cacheIndex`) is used for establishing precedence of cache updates
-  * stemming from read-throughs triggered from command interpretation on cache misses.
+  * The cache's logical time (i.e. the `cacheIndex`) is used for establishing precedence of cache
+  * updates stemming from read-throughs triggered from command interpretation on cache misses.
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
 private[platform] case class StateCache[K, V](
@@ -40,8 +40,10 @@ private[platform] case class StateCache[K, V](
 
   /** Fetch the corresponding value for an input key, if present.
     *
-    * @param key the key to query for
-    * @return optionally [[V]]
+    * @param key
+    *   the key to query for
+    * @return
+    *   optionally [[V]]
     */
   def get(key: K)(implicit traceContext: TraceContext): Option[V] =
     cache.getIfPresent(key) match {
@@ -53,11 +55,13 @@ private[platform] case class StateCache[K, V](
         None
     }
 
-  /** Synchronous cache updates evolve the cache ahead with the most recent Index DB entries.
-    * This method increases the `cacheIndex` monotonically.
+  /** Synchronous cache updates evolve the cache ahead with the most recent Index DB entries. This
+    * method increases the `cacheIndex` monotonically.
     *
-    * @param validAt ordering discriminator for pending updates for the same key
-    * @param batch the batch of events updating the cache at `validAt`
+    * @param validAt
+    *   ordering discriminator for pending updates for the same key
+    * @param batch
+    *   the batch of events updating the cache at `validAt`
     */
   def putBatch(validAt: Offset, batch: Map[K, V])(implicit
       traceContext: TraceContext
@@ -89,13 +93,14 @@ private[platform] case class StateCache[K, V](
 
   /** Update the cache asynchronously.
     *
-    * In face of multiple in-flight updates competing for the `key`,
-    * this method registers an async update to the cache
-    * only if the to-be-inserted tuple is the most recent
-    * (i.e. it has `validAt` highest amongst the competing updates).
+    * In face of multiple in-flight updates competing for the `key`, this method registers an async
+    * update to the cache only if the to-be-inserted tuple is the most recent (i.e. it has `validAt`
+    * highest amongst the competing updates).
     *
-    * @param key the key at which to update the cache
-    * @param fetchAsync fetches asynchronously the value for key `key` at the current cache index
+    * @param key
+    *   the key at which to update the cache
+    * @param fetchAsync
+    *   fetches asynchronously the value for key `key` at the current cache index
     */
   @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
   def putAsync(key: K, fetchAsync: Offset => Future[V])(implicit
@@ -138,7 +143,8 @@ private[platform] case class StateCache[K, V](
 
   /** Resets the cache and cancels are pending asynchronous updates.
     *
-    * @param resetAtOffset The cache re-initialization offset
+    * @param resetAtOffset
+    *   The cache re-initialization offset
     */
   def reset(resetAtOffset: Option[Offset]): Unit =
     blocking(pendingUpdates.synchronized {
@@ -214,8 +220,10 @@ private[platform] case class StateCache[K, V](
 object StateCache {
 
   /** Used to track competing updates to the cache for a specific key.
-    * @param pendingCount The number of in-progress updates.
-    * @param latestValidAt Highest version of any pending update.
+    * @param pendingCount
+    *   The number of in-progress updates.
+    * @param latestValidAt
+    *   Highest version of any pending update.
     */
   private[cache] final case class PendingUpdatesState(
       pendingCount: Long,

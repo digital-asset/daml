@@ -25,8 +25,7 @@ object ContractConsistencyChecker {
     )
   }
 
-  /** Checks that the provided contracts have a ledger time
-    * no later than `ledgerTime`.
+  /** Checks that the provided contracts have a ledger time no later than `ledgerTime`.
     */
   def assertInputContractsInPast(
       inputContracts: List[(LfContractId, SerializableContract)],
