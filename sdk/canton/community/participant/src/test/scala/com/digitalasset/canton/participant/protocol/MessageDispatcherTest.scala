@@ -96,7 +96,7 @@ trait MessageDispatcherTest {
       ByteString.EMPTY,
       // this is only a placeholder, the data is not encrypted
       EncryptionAlgorithmSpec.RsaOaepSha256,
-      Fingerprint.tryCreate("dummy"),
+      Fingerprint.tryFromString("dummy"),
     ),
   )
 

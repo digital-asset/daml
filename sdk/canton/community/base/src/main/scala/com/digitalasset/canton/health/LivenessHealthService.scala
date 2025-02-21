@@ -10,13 +10,14 @@ import com.digitalasset.canton.logging.pretty.Pretty.*
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.health.v1.HealthCheckResponse.ServingStatus
 
-/** A [[LivenessHealthService]] aggregates [[CloseableHealthComponent]]s under dependencies.
-  * Once switching to [[io.grpc.health.v1.HealthCheckResponse.ServingStatus.NOT_SERVING]] it will not switch back.
-  * Services are queryable through their name in the gRPC Health Check service.
+/** A [[LivenessHealthService]] aggregates [[CloseableHealthComponent]]s under dependencies. Once
+  * switching to [[io.grpc.health.v1.HealthCheckResponse.ServingStatus.NOT_SERVING]] it will not
+  * switch back. Services are queryable through their name in the gRPC Health Check service.
   * Dependencies are reported under their names too.
   *
-  * The state of the [[LivenessHealthService]] is [[io.grpc.health.v1.HealthCheckResponse.ServingStatus.SERVING]]
-  * if and only if none of the dependencies have fatally failed (have their state [[ComponentHealthState.Fatal]].
+  * The state of the [[LivenessHealthService]] is
+  * [[io.grpc.health.v1.HealthCheckResponse.ServingStatus.SERVING]] if and only if none of the
+  * dependencies have fatally failed (have their state [[ComponentHealthState.Fatal]].
   */
 final class LivenessHealthService(
     override protected val logger: TracedLogger,

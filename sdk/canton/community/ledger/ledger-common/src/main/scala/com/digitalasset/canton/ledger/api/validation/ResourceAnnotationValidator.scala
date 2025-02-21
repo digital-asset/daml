@@ -31,7 +31,8 @@ object ResourceAnnotationValidator {
     override val reason = s"The value of an annotation is empty for key: '${shorten(key)}'"
   }
 
-  /** @return a Left(actualSizeInBytes) in case of a failed validation
+  /** @return
+    *   a Left(actualSizeInBytes) in case of a failed validation
     */
   def isWithinMaxAnnotationsByteSize(annotations: Map[String, String]): Boolean = {
     val totalSizeInBytes = annotations.iterator.foldLeft(0L) { case (size, (key, value)) =>

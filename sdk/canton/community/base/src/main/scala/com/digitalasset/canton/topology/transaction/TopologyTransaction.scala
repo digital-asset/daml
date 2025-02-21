@@ -89,14 +89,14 @@ trait DelegatedTopologyTransactionLike[+Op <: TopologyChangeOp, +M <: TopologyMa
 
 /** Change to the distributed synchronizer topology
   *
-  * A topology transaction is a state change to the synchronizer topology. There are different
-  * types of topology states (so called mappings, because they map some id to some value).
+  * A topology transaction is a state change to the synchronizer topology. There are different types
+  * of topology states (so called mappings, because they map some id to some value).
   *
-  * Each mapping has some variables and some combination of these variables makes a
-  * "unique key". Subsequent changes to that key need to have an incremental serial number.
+  * Each mapping has some variables and some combination of these variables makes a "unique key".
+  * Subsequent changes to that key need to have an incremental serial number.
   *
-  * Topology changes always affect certain identities. Therefore, these topology
-  * transactions need to be authorized through signatures.
+  * Topology changes always affect certain identities. Therefore, these topology transactions need
+  * to be authorized through signatures.
   *
   * An authorized transaction is called a [[SignedTopologyTransaction]]
   */
@@ -164,8 +164,8 @@ final case class TopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
       TopologyTransaction.protocolVersionRepresentativeFor(protocolVersion)
     )
 
-  /** Indicates how to pretty print this instance.
-    * See `PrettyPrintingTest` for examples on how to implement this method.
+  /** Indicates how to pretty print this instance. See `PrettyPrintingTest` for examples on how to
+    * implement this method.
     */
   override protected def pretty: Pretty[TopologyTransaction.this.type] =
     prettyOfClass(

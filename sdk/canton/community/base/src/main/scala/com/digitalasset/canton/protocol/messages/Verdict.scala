@@ -128,8 +128,10 @@ object Verdict
     }
   }
 
-  /** @param reasons Mapping from the parties of a [[com.digitalasset.canton.protocol.messages.ConfirmationResponse]]
-    *                to the rejection reason from the [[com.digitalasset.canton.protocol.messages.ConfirmationResponse]]
+  /** @param reasons
+    *   Mapping from the parties of a
+    *   [[com.digitalasset.canton.protocol.messages.ConfirmationResponse]] to the rejection reason
+    *   from the [[com.digitalasset.canton.protocol.messages.ConfirmationResponse]]
     */
   final case class ParticipantReject(
       reasons: NonEmpty[List[(Set[LfPartyId], LocalReject)]]

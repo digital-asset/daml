@@ -7,8 +7,10 @@ import com.digitalasset.daml.lf.data.Ref
 
 /** Represents a party with additional known information.
   *
-  * @param party       The stable unique identifier of a Daml party.
-  * @param isLocal     True if party is hosted by the backing participant.
+  * @param party
+  *   The stable unique identifier of a Daml party.
+  * @param isLocal
+  *   True if party is hosted by the backing participant.
   */
 final case class IndexerPartyDetails(
     party: Ref.Party,

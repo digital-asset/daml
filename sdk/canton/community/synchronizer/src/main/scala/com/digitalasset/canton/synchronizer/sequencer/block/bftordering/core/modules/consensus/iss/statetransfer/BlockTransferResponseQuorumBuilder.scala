@@ -8,8 +8,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 
 import scala.collection.mutable.ArrayBuffer
 
-/** Used for building a (weak) quorum of matching block transfer response messages. Responses match if,
-  * up to their highest common epoch, pre-prepares are the same and commits match (TBD).
+/** Used for building a (weak) quorum of matching block transfer response messages. Responses match
+  * if, up to their highest common epoch, pre-prepares are the same and commits match (TBD).
   *
   * Uses mutable state for storing groups of matching responses and is not thread-safe.
   */
@@ -42,7 +42,9 @@ final class BlockTransferResponseQuorumBuilder(activeMembership: Membership) {
         matchingResponseGroups += ArrayBuffer(response)
     }
 
-  /** Finds a group that has at least a quorum of matching responses. Returns `None` if there's no quorum. */
+  /** Finds a group that has at least a quorum of matching responses. Returns `None` if there's no
+    * quorum.
+    */
   def build: Option[Set[BlockTransferResponse]] =
     matchingResponseGroups
       .map(_.toSet)

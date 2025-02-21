@@ -1160,9 +1160,9 @@ trait SequencerApiTestUtils
     override protected def pretty: Pretty[TestingEnvelope] = adHocPrettyInstance
   }
 
-  /** Registers all the members present in the topology snapshot with the sequencer.
-    * Used for unit testing sequencers. During the normal sequencer operation members are registered
-    * via topology subscription or sequencer startup in SequencerRuntime.
+  /** Registers all the members present in the topology snapshot with the sequencer. Used for unit
+    * testing sequencers. During the normal sequencer operation members are registered via topology
+    * subscription or sequencer startup in SequencerRuntime.
     */
   def registerAllTopologyMembers(headSnapshot: TopologySnapshot, sequencer: Sequencer): Unit =
     (for {

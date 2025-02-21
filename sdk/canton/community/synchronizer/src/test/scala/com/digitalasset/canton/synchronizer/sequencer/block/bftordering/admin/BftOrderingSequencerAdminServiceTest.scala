@@ -5,16 +5,21 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.Port
-import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencer.admin.v30.{
   AddPeerEndpointRequest,
   GetOrderingTopologyRequest,
   GetPeerNetworkStatusRequest,
   PeerEndpoint,
+  PeerEndpointId,
   RemovePeerEndpointRequest,
+  TlsPeerEndpoint,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.BftOrderingSequencerAdminService
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.PeerNetworkStatus
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.P2PEndpointConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
+  P2PEndpoint,
+  TlsP2PEndpoint,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
@@ -45,11 +50,28 @@ class BftOrderingSequencerAdminServiceTest extends AsyncWordSpec with BaseTest {
           () => resultPromise,
         )
       bftOrderingSequencerAdminService
-        .addPeerEndpoint(AddPeerEndpointRequest(Some(PeerEndpoint("localhost", 1234))))
+        .addPeerEndpoint(
+          AddPeerEndpointRequest(
+            Some(
+              PeerEndpoint(
+                "localhost",
+                port = 1234,
+                PeerEndpoint.Security.Tls(
+                  TlsPeerEndpoint(customServerTrustCertificate = None, clientCertificate = None)
+                ),
+              )
+            )
+          )
+        )
         .map { response =>
           verify(p2PNetworkOutAdminSpy).asyncSend(
             P2PNetworkOut.Admin
-              .AddEndpoint(new Endpoint("localhost", Port.tryCreate(1234)), any[Boolean => Unit])
+              .AddEndpoint(
+                TlsP2PEndpoint(
+                  P2PEndpointConfig("localhost", Port.tryCreate(1234), tlsConfig = None)
+                ),
+                any[Boolean => Unit],
+              )
           )
           response.added shouldBe true
         }
@@ -72,11 +94,24 @@ class BftOrderingSequencerAdminServiceTest extends AsyncWordSpec with BaseTest {
           () => resultPromise,
         )
       bftOrderingSequencerAdminService
-        .removePeerEndpoint(RemovePeerEndpointRequest(Some(PeerEndpoint("localhost", 1234))))
+        .removePeerEndpoint(
+          RemovePeerEndpointRequest(
+            Some(
+              PeerEndpointId(
+                "localhost",
+                port = 1234,
+                tls = true,
+              )
+            )
+          )
+        )
         .map { response =>
           verify(p2PNetworkOutAdminSpy).asyncSend(
             P2PNetworkOut.Admin
-              .RemoveEndpoint(new Endpoint("localhost", Port.tryCreate(1234)), any[Boolean => Unit])
+              .RemoveEndpoint(
+                P2PEndpoint.Id("localhost", Port.tryCreate(1234), transportSecurity = true),
+                any[Boolean => Unit],
+              )
           )
           response.removed shouldBe true
         }
@@ -102,8 +137,7 @@ class BftOrderingSequencerAdminServiceTest extends AsyncWordSpec with BaseTest {
         .getPeerNetworkStatus(GetPeerNetworkStatusRequest(Seq.empty))
         .map { response =>
           verify(p2PNetworkOutAdminSpy).asyncSend(
-            P2PNetworkOut.Admin
-              .GetStatus(None, any[PeerNetworkStatus => Unit])
+            P2PNetworkOut.Admin.GetStatus(any[PeerNetworkStatus => Unit])
           )
           response.statuses shouldBe empty
         }

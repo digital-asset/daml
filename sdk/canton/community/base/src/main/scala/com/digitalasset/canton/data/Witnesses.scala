@@ -22,8 +22,8 @@ import scala.concurrent.ExecutionContext
 
 /** Encodes the hierarchy of the witnesses of a view.
   *
-  * By convention, the order is: the view's informees are at the head of the list, then the parent's views informees,
-  * then the grandparent's, etc.
+  * By convention, the order is: the view's informees are at the head of the list, then the parent's
+  * views informees, then the grandparent's, etc.
   */
 final case class Witnesses(unwrap: NonEmpty[Seq[Set[LfPartyId]]]) {
   import Witnesses.*

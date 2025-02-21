@@ -27,7 +27,8 @@ trait ExampleTransaction {
   /** Metadata for the transaction as a whole */
   def metadata: TransactionMetadata
 
-  /** @throws IllegalArgumentException if [[versionedUnsuffixedTransaction]] is malformed
+  /** @throws IllegalArgumentException
+    *   if [[versionedUnsuffixedTransaction]] is malformed
     */
   def wellFormedUnsuffixedTransaction: WellFormedTransaction[WithoutSuffixes] =
     WellFormedTransaction.normalizeAndAssert(
@@ -45,8 +46,8 @@ trait ExampleTransaction {
   /** The root views of the transaction in execution order */
   def rootViews: Seq[TransactionView]
 
-  /** Associates all views (root or not) with their (direct and indirect) subviews (in execution order).
-    * Recall that every view is also a subview of itself.
+  /** Associates all views (root or not) with their (direct and indirect) subviews (in execution
+    * order). Recall that every view is also a subview of itself.
     */
   def viewWithSubviews: Seq[(TransactionView, Seq[TransactionView])]
 
@@ -59,7 +60,9 @@ trait ExampleTransaction {
 
   def fullInformeeTree: FullInformeeTree
 
-  /** The sequence of reinterpreted action descriptions for all views in execution order, with their witnesses */
+  /** The sequence of reinterpreted action descriptions for all views in execution order, with their
+    * witnesses
+    */
   def reinterpretedSubtransactions: Seq[
     (
         FullTransactionViewTree,
@@ -68,10 +71,14 @@ trait ExampleTransaction {
     )
   ]
 
-  /** All transaction view trees, including those corresponding to non-root views, in execution order */
+  /** All transaction view trees, including those corresponding to non-root views, in execution
+    * order
+    */
   def transactionViewTrees: Seq[FullTransactionViewTree] = reinterpretedSubtransactions.map(_._1)
 
-  /** All transaction view trees, including those corresponding to non-root views, in execution order */
+  /** All transaction view trees, including those corresponding to non-root views, in execution
+    * order
+    */
   def transactionViewTreesWithWitnesses: Seq[(FullTransactionViewTree, Witnesses)] =
     reinterpretedSubtransactions.map(r => r._1 -> r._3)
 
@@ -81,12 +88,14 @@ trait ExampleTransaction {
   /** The transaction with suffixed contract ids and the transaction version. */
   def versionedSuffixedTransaction: LfVersionedTransaction
 
-  /** @throws IllegalArgumentException if [[versionedSuffixedTransaction]] is malformed
+  /** @throws IllegalArgumentException
+    *   if [[versionedSuffixedTransaction]] is malformed
     */
   def wellFormedSuffixedTransaction: WellFormedTransaction[WithSuffixes] =
     WellFormedTransaction.normalizeAndAssert(versionedSuffixedTransaction, metadata, WithSuffixes)
 
-  /** Yields brief description of this example, which must be suitable for naming test cases.as part of usable to identify
+  /** Yields brief description of this example, which must be suitable for naming test cases.as part
+    * of usable to identify
     *
     * Implementing classes must overwrite this method.
     */

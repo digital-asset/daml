@@ -111,8 +111,10 @@ trait TopologyAwaiter extends FlagCloseable {
 
 /** The synchronizer topology client that reads data from a topology store
   *
-  * @param synchronizerId The synchronizer id corresponding to this store
-  * @param store The store
+  * @param synchronizerId
+  *   The synchronizer id corresponding to this store
+  * @param store
+  *   The store
   */
 class StoreBasedSynchronizerTopologyClient(
     val clock: Clock,
@@ -286,9 +288,9 @@ class StoreBasedSynchronizerTopologyClient(
 
   /** returns the current approximate timestamp
     *
-    * whenever we get an update, we do set the approximate timestamp first to the sequencer time
-    * and use the synchronizer time tracker to advance the approximate time to the effective time
-    * after the time difference elapsed.
+    * whenever we get an update, we do set the approximate timestamp first to the sequencer time and
+    * use the synchronizer time tracker to advance the approximate time to the effective time after
+    * the time difference elapsed.
     */
   override def approximateTimestamp: CantonTimestamp =
     head.get().approximateTimestamp.value.immediateSuccessor

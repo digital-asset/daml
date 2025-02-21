@@ -195,7 +195,6 @@ class SecretKeyAdministration(
 
     // Rotate the key for the node in the topology management
     instance.topology.owner_to_key_mappings.rotate_key(
-      instance,
       owner,
       currentKey,
       newKey,
@@ -224,7 +223,6 @@ class SecretKeyAdministration(
 
     // Rotate the key for the node in the topology management
     instance.topology.owner_to_key_mappings.rotate_key(
-      instance,
       owner,
       currentKey,
       newKey,
@@ -258,7 +256,6 @@ class SecretKeyAdministration(
 
       // Rotate the key for the node in the topology management
       instance.topology.owner_to_key_mappings.rotate_key(
-        instance,
         owner,
         currentKey,
         newKey,
@@ -266,7 +263,7 @@ class SecretKeyAdministration(
     }
   }
 
-  /** Helper to find public keys for topology/x shared between community and enterprise
+  /** Helper to find public keys for topology shared between community and enterprise
     */
   private def findPublicKeys(
       topologyAdmin: TopologyAdministrationGroup,
@@ -280,8 +277,8 @@ class SecretKeyAdministration(
       )
       .flatMap(_.item.keys)
 
-  /** Helper to name new keys generated during a rotation with a ...-rotated-<timestamp> tag to better identify
-    * the new keys after a rotation
+  /** Helper to name new keys generated during a rotation with a ...-rotated-<timestamp> tag to
+    * better identify the new keys after a rotation
     */
   private def generateNewNameForRotatedKey(
       currentKeyId: String,

@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.memory
 
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.networking.Endpoint
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2pEndpointsStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2PEndpointsStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem.{
   PekkoEnv,
@@ -17,36 +18,38 @@ import scala.collection.mutable
 import scala.concurrent.blocking
 import scala.util.{Success, Try}
 
-abstract class GenericInMemoryP2pEndpointsStore[E <: Env[E]](initialEndpoints: Set[Endpoint])
-    extends P2pEndpointsStore[E] {
+abstract class GenericInMemoryP2PEndpointsStore[E <: Env[E]](
+    initialEndpoints: Set[P2PEndpoint]
+) extends P2PEndpointsStore[E] {
 
-  private val endpointsSet = new mutable.HashSet[Endpoint]
-  endpointsSet ++= initialEndpoints
+  private val endpoints = new mutable.HashMap[P2PEndpoint.Id, P2PEndpoint]
+  initialEndpoints.foreach(endpoint => endpoints.put(endpoint.id, endpoint).discard)
 
   protected def createFuture[A](action: String)(x: () => Try[A]): E#FutureUnlessShutdownT[A]
 
   override final def listEndpoints(implicit
       traceContext: TraceContext
-  ): E#FutureUnlessShutdownT[Seq[Endpoint]] =
+  ): E#FutureUnlessShutdownT[Seq[P2PEndpoint]] =
     blocking {
       synchronized {
         createFuture("") { () =>
           Success(
-            endpointsSet.toSeq.sorted
+            endpoints.keySet.toSeq.sorted.map(endpointId => endpoints(endpointId))
           )
         }
       }
     }
 
-  override final def addEndpoint(
-      endpoint: Endpoint
-  )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Boolean] =
+  override final def addEndpoint(endpoint: P2PEndpoint)(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[Boolean] =
     blocking {
       synchronized {
         createFuture("") { () =>
+          val endpointId = endpoint.id
           val changed =
-            if (!endpointsSet.contains(endpoint)) {
-              val _ = endpointsSet += endpoint
+            if (!endpoints.contains(endpointId)) {
+              endpoints.addOne(endpointId -> endpoint).discard
               true
             } else {
               false
@@ -56,21 +59,17 @@ abstract class GenericInMemoryP2pEndpointsStore[E <: Env[E]](initialEndpoints: S
       }
     }
 
-  override final def removeEndpoint(
-      endpoint: Endpoint
-  )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Boolean] =
+  override final def removeEndpoint(endpointId: P2PEndpoint.Id)(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[Boolean] =
     blocking {
       synchronized {
         createFuture("") { () =>
-          Success(if (endpointsSet.contains(endpoint)) {
-            val _ = endpointsSet -= endpoint
-            true
-          } else {
-            false
-          })
+          Success(endpoints.remove(endpointId).isDefined)
         }
       }
     }
+
   override final def clearAllEndpoints()(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Unit] =
@@ -78,16 +77,19 @@ abstract class GenericInMemoryP2pEndpointsStore[E <: Env[E]](initialEndpoints: S
       synchronized {
         createFuture("") { () =>
           Success {
-            endpointsSet.clear()
+            endpoints.clear()
           }
         }
       }
     }
 }
 
-final class InMemoryP2pEndpointsStore(initialEndpoints: Set[Endpoint] = Set.empty)
-    extends GenericInMemoryP2pEndpointsStore[PekkoEnv](initialEndpoints) {
+final class InMemoryP2PEndpointsStore(
+    initialEndpoints: Set[P2PEndpoint] = Set.empty
+) extends GenericInMemoryP2PEndpointsStore[PekkoEnv](initialEndpoints) {
+
   override def createFuture[A](action: String)(x: () => Try[A]): PekkoFutureUnlessShutdown[A] =
     PekkoFutureUnlessShutdown(action, () => FutureUnlessShutdown.fromTry(x()))
+
   override def close(): Unit = ()
 }

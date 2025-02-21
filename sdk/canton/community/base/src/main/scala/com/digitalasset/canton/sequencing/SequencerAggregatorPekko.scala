@@ -49,13 +49,15 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Aggregates sequenced events from a dynamically configurable set of
-  * [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]]s
-  * until a configurable threshold is reached.
+  * [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]]s until a configurable
+  * threshold is reached.
   *
-  * @param createEventValidator The validator used to validate the sequenced events of the
-  *                       [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]]s
-  * @param bufferSize How many elements to buffer for each
-  *                   [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]].
+  * @param createEventValidator
+  *   The validator used to validate the sequenced events of the
+  *   [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]]s
+  * @param bufferSize
+  *   How many elements to buffer for each
+  *   [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]].
   */
 class SequencerAggregatorPekko(
     synchronizerId: SynchronizerId,
@@ -72,8 +74,10 @@ class SequencerAggregatorPekko(
     *
     * Must be materialized at most once.
     *
-    * @param initialCounterOrPriorEvent The sequencer counter to start the subscription from or the prior event to validate the subscription against.
-    *                                   If present, the prior event's sequencer counter determines the subscription start.
+    * @param initialCounterOrPriorEvent
+    *   The sequencer counter to start the subscription from or the prior event to validate the
+    *   subscription against. If present, the prior event's sequencer counter determines the
+    *   subscription start.
     */
   def aggregateFlow[E: Pretty](
       initialCounterOrPriorEvent: Either[SequencerCounter, PossiblyIgnoredSerializedEvent]

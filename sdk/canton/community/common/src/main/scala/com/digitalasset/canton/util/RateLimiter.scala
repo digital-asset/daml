@@ -9,21 +9,23 @@ import java.util.concurrent.atomic.AtomicReference
 
 /** Utility class that allows clients to keep track of a rate limit.
   *
-  * The decay rate limiter keeps track of the current rate, allowing temporary
-  * bursts. This allows temporary bursts at the risk of overloading the system too quickly.
+  * The decay rate limiter keeps track of the current rate, allowing temporary bursts. This allows
+  * temporary bursts at the risk of overloading the system too quickly.
   *
-  * Clients need to tell an instance whenever they intend to start a new task.
-  * The instance will inform the client whether the task can be executed while still meeting the rate limit.
+  * Clients need to tell an instance whenever they intend to start a new task. The instance will
+  * inform the client whether the task can be executed while still meeting the rate limit.
   *
   * Guarantees:
-  * <ul>
-  * <li>Maximum burst size: if `checkAndUpdateRate` is called `n` times in parallel, at most `max 1, maxTasksPerSecond * maxBurstFactor` calls may return `true`.</li>
-  * <li>Average rate: if `checkAndUpdateRate` is called at a rate of at least `maxTasksPerSecond` during `n` seconds,
-  *     then the number of calls that return `true` divided by `n` is roughly `maxTasksPerSecond` .*
-  * </ul>
+  *   - Maximum burst size: if `checkAndUpdateRate` is called `n` times in parallel, at most `max 1,
+  *     maxTasksPerSecond * maxBurstFactor` calls may return `true`.
+  *   - Average rate: if `checkAndUpdateRate` is called at a rate of at least `maxTasksPerSecond`
+  *     during `n` seconds, then the number of calls that return `true` divided by `n` is roughly
+  *     `maxTasksPerSecond` .
   *
-  * @param maxTasksPerSecond the maximum number of tasks per second
-  * @param maxBurstFactor ratio of max tasks per second when the throtteling should start to kick in
+  * @param maxTasksPerSecond
+  *   the maximum number of tasks per second
+  * @param maxBurstFactor
+  *   ratio of max tasks per second when the throtteling should start to kick in
   */
 class RateLimiter(
     val maxTasksPerSecond: NonNegativeNumeric[Double],
@@ -55,7 +57,8 @@ class RateLimiter(
   }
 
   /** Call this before starting a new task.
-    * @return whether the tasks can be executed while still meeting the rate limit
+    * @return
+    *   whether the tasks can be executed while still meeting the rate limit
     */
   final def checkAndUpdateRate(): Boolean = {
     val now = nanoTime

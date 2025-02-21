@@ -13,8 +13,8 @@ import slick.jdbc.{GetResult, SetParameter}
 
 /** Offsets into streams with hierarchical addressing.
   *
-  * We use these offsets to address changes to the participant state.
-  * Offsets are opaque values that must be strictly increasing.
+  * We use these offsets to address changes to the participant state. Offsets are opaque values that
+  * must be strictly increasing.
   */
 class Offset private (val positive: Long)
     extends AnyVal

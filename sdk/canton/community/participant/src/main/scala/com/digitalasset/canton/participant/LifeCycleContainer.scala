@@ -23,10 +23,12 @@ class LifeCycleContainer[T <: AutoCloseable & OnShutdownRunner](
   // Will NOT be reset to None when closing
   private val stateRef: AtomicReference[Option[T]] = new AtomicReference(None)
 
-  /** Creates a new state, and as it is completed successfully, the subsequent evaluations will return that.
-    * As the new state is set, the old state will be closed (if any).
+  /** Creates a new state, and as it is completed successfully, the subsequent evaluations will
+    * return that. As the new state is set, the old state will be closed (if any).
     *
-    * @return The resulting Future will complete after creation of the new state and closure of the old (if any)
+    * @return
+    *   The resulting Future will complete after creation of the new state and closure of the old
+    *   (if any)
     */
   def initializeNext(): FutureUnlessShutdown[Unit] = {
     noTracingLogger.info(s"Initializing next $stateName")
@@ -47,8 +49,8 @@ class LifeCycleContainer[T <: AutoCloseable & OnShutdownRunner](
     } yield ()
   }
 
-  /** Closes the current state if any. This function returns only after closure is finished.
-    * The closed state still can be retrieved after.
+  /** Closes the current state if any. This function returns only after closure is finished. The
+    * closed state still can be retrieved after.
     */
   def closeCurrent(): Unit =
     // Close it but don't set the ref to None on purpose here, as the state may still be accessed while the participant

@@ -53,23 +53,24 @@ sealed trait TopologyMapping extends Product with Serializable with PrettyPrinti
   /** Returns the code used to store & index this mapping */
   def code: Code
 
-  /** The "primary" namespace authorizing the topology mapping.
-    * Used for filtering query results.
+  /** The "primary" namespace authorizing the topology mapping. Used for filtering query results.
     */
   def namespace: Namespace
 
-  /** The "primary" identity authorizing the topology mapping, optional as some mappings (namespace delegations and
-    * decentralized namespace definitions) only have a namespace
-    * Used for filtering query results.
+  /** The "primary" identity authorizing the topology mapping, optional as some mappings (namespace
+    * delegations and decentralized namespace definitions) only have a namespace Used for filtering
+    * query results.
     */
   def maybeUid: Option[UniqueIdentifier]
 
   /** Returns authorization information
     *
-    * Each topology transaction must be authorized directly or indirectly by
-    * all necessary controllers of the given namespace.
+    * Each topology transaction must be authorized directly or indirectly by all necessary
+    * controllers of the given namespace.
     *
-    * @param previous the previously validly authorized state (some state changes only need subsets of the authorizers)
+    * @param previous
+    *   the previously validly authorized state (some state changes only need subsets of the
+    *   authorizers)
     */
   def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
@@ -225,10 +226,9 @@ object TopologyMapping {
     final def or(next: RequiredAuth): RequiredAuth =
       RequiredAuth.Or(this, next)
 
-    /** Authorizations referenced by this instance.
-      * Note that the result is not equivalent to this instance, as an "or" gets translated to an "and".
-      * Instead, the result indicates which authorization keys need to be evaluated in order to check
-      * if this RequiredAuth is met.
+    /** Authorizations referenced by this instance. Note that the result is not equivalent to this
+      * instance, as an "or" gets translated to an "and". Instead, the result indicates which
+      * authorization keys need to be evaluated in order to check if this RequiredAuth is met.
       */
     def referenced: ReferencedAuthorizations
   }
@@ -267,8 +267,9 @@ object TopologyMapping {
 
     /** Required authorizations for a set of UIDs
       *
-      * @param extraKeys any additional key that needs to authorize the topology transaction,
-      *                  used to verify that an owner really owns the key
+      * @param extraKeys
+      *   any additional key that needs to authorize the topology transaction, used to verify that
+      *   an owner really owns the key
       */
     final case class RequiredUids(
         uids: Set[UniqueIdentifier],
@@ -350,11 +351,10 @@ object TopologyMapping {
 
 /** A namespace delegation transaction (intermediate CA)
   *
-  * Entrusts a public-key to perform changes on the namespace
-  * {(*,I) => p_k}
+  * Entrusts a public-key to perform changes on the namespace {(*,I) => p_k}
   *
-  * If the delegation is a root delegation, then the target key
-  * inherits the right to authorize other NamespaceDelegations.
+  * If the delegation is a root delegation, then the target key inherits the right to authorize
+  * other NamespaceDelegations.
   */
 final case class NamespaceDelegation private (
     namespace: Namespace,
@@ -458,10 +458,9 @@ object NamespaceDelegation {
 
 /** Defines a decentralized namespace
   *
-  * authorization: whoever controls the synchronizer and all the owners of the active or observing sequencers that
-  *   were not already present in the tx with serial = n - 1
-  *   exception: a sequencer can leave the consortium unilaterally as long as there are enough members
-  *              to reach the threshold
+  * authorization: whoever controls the synchronizer and all the owners of the active or observing
+  * sequencers that were not already present in the tx with serial = n - 1 exception: a sequencer
+  * can leave the consortium unilaterally as long as there are enough members to reach the threshold
   */
 final case class DecentralizedNamespaceDefinition private (
     override val namespace: Namespace,
@@ -565,14 +564,13 @@ object DecentralizedNamespaceDefinition {
     owners.toSeq
       .sorted(Namespace.namespaceOrder.toOrdering)
       .foreach(ns => builder.add(ns.fingerprint.unwrap))
-    Namespace(Fingerprint.tryCreate(builder.finish().toLengthLimitedHexString))
+    Namespace(Fingerprint.tryFromString(builder.finish().toLengthLimitedHexString))
   }
 }
 
 /** An identifier delegation
   *
-  * entrusts a public-key to do any change with respect to the identifier
-  * {(X,I) => p_k}
+  * entrusts a public-key to do any change with respect to the identifier {(X,I) => p_k}
   */
 final case class IdentifierDelegation(identifier: UniqueIdentifier, target: SigningPublicKey)
     extends TopologyMapping {
@@ -632,9 +630,9 @@ sealed trait KeyMapping extends Product with Serializable {
 
 /** A key owner (participant, mediator, sequencer) to key mapping
   *
-  * In Canton, we need to know keys for all participating entities. The entities are
-  * all the protocol members (participant, mediator) plus the
-  * sequencer (which provides the communication infrastructure for the protocol members).
+  * In Canton, we need to know keys for all participating entities. The entities are all the
+  * protocol members (participant, mediator) plus the sequencer (which provides the communication
+  * infrastructure for the protocol members).
   */
 final case class OwnerToKeyMapping(
     member: Member,
@@ -706,9 +704,9 @@ object OwnerToKeyMapping {
 
 /** A party to key mapping
   *
-  * In Canton, we can delegate the submission authorisation to a participant
-  * node, or we can sign the transaction outside of the node with a party
-  * key. This mapping is used to map the party to a set of public keys authorized to sign submissions.
+  * In Canton, we can delegate the submission authorisation to a participant node, or we can sign
+  * the transaction outside of the node with a party key. This mapping is used to map the party to a
+  * set of public keys authorized to sign submissions.
   */
 final case class PartyToKeyMapping private (
     party: PartyId,
@@ -877,7 +875,8 @@ object SynchronizerTrustCertificate {
 
 /** Permissions of a participant, i.e., things a participant can do on behalf of a party
   *
-  * Permissions are hierarchical. A participant who can submit can confirm. A participant who can confirm can observe.
+  * Permissions are hierarchical. A participant who can submit can confirm. A participant who can
+  * confirm can observe.
   */
 sealed trait ParticipantPermission extends Product with Serializable {
   def toProtoV30: v30.Enums.ParticipantPermission
@@ -932,7 +931,8 @@ object ParticipantPermission {
     fst.max(snd)
 }
 
-/** @param confirmationRequestsMaxRate maximum number of mediator confirmation requests sent per participant per second
+/** @param confirmationRequestsMaxRate
+  *   maximum number of mediator confirmation requests sent per participant per second
   */
 final case class ParticipantSynchronizerLimits(
     confirmationRequestsMaxRate: NonNegativeInt
@@ -1108,11 +1108,14 @@ object PartyHostingLimits {
 }
 
 /** Represents a package with an optional validity period. No start or end means that the validity
-  * of the package is unbounded. The validity period is expected to be compared to the
-  * ledger effective time of Daml transactions.
-  * @param packageId the hash of the package
-  * @param validFrom optional exclusive start of the validity period
-  * @param validUntil optional inclusive end of the validity period
+  * of the package is unbounded. The validity period is expected to be compared to the ledger
+  * effective time of Daml transactions.
+  * @param packageId
+  *   the hash of the package
+  * @param validFrom
+  *   optional exclusive start of the validity period
+  * @param validUntil
+  *   optional inclusive end of the validity period
   */
 final case class VettedPackage(
     packageId: LfPackageId,
@@ -1414,9 +1417,8 @@ object PartyToParticipant {
 
 /** Dynamic synchronizer parameter settings for the synchronizer
   *
-  * Each synchronizer has a set of parameters that can be changed at runtime.
-  * These changes are authorized by the owner of the synchronizer and distributed
-  * to all nodes accordingly.
+  * Each synchronizer has a set of parameters that can be changed at runtime. These changes are
+  * authorized by the owner of the synchronizer and distributed to all nodes accordingly.
   */
 final case class SynchronizerParametersState(
     synchronizerId: SynchronizerId,
@@ -1471,9 +1473,9 @@ object SynchronizerParametersState {
 
 /** Dynamic sequencing parameter settings for the synchronizer
   *
-  * Each synchronizer has a set of sequencing parameters that can be changed at runtime.
-  * These changes are authorized by the owner of the synchronizer and distributed
-  * to all nodes accordingly.
+  * Each synchronizer has a set of sequencing parameters that can be changed at runtime. These
+  * changes are authorized by the owner of the synchronizer and distributed to all nodes
+  * accordingly.
   */
 final case class DynamicSequencingParametersState(
     synchronizerId: SynchronizerId,
@@ -1529,9 +1531,9 @@ object DynamicSequencingParametersState {
 
 /** Mediator definition for a synchronizer
   *
-  * Each synchronizer needs at least one mediator (group), but can have multiple.
-  * Mediators can be temporarily turned off by making them observers. This way,
-  * they get informed but they don't have to reply.
+  * Each synchronizer needs at least one mediator (group), but can have multiple. Mediators can be
+  * temporarily turned off by making them observers. This way, they get informed but they don't have
+  * to reply.
   */
 final case class MediatorSynchronizerState private (
     synchronizerId: SynchronizerId,
@@ -1631,10 +1633,9 @@ object MediatorSynchronizerState {
 
 /** which sequencers are active on the given synchronizer
   *
-  * authorization: whoever controls the synchronizer and all the owners of the active or observing sequencers that
-  *   were not already present in the tx with serial = n - 1
-  *   exception: a sequencer can leave the consortium unilaterally as long as there are enough members
-  *              to reach the threshold
+  * authorization: whoever controls the synchronizer and all the owners of the active or observing
+  * sequencers that were not already present in the tx with serial = n - 1 exception: a sequencer
+  * can leave the consortium unilaterally as long as there are enough members to reach the threshold
   * UNIQUE(synchronizer_id)
   */
 final case class SequencerSynchronizerState private (

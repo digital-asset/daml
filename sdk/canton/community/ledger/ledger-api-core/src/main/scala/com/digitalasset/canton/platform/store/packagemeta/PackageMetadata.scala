@@ -27,17 +27,17 @@ final case class PackageMetadata(
 
   /** Resolve all template or interface ids for (package-name, qualified-name).
     *
-    * As context, package-level upgrading compatibility between two packages pkg1 and pkg2,
-    * where pkg2 upgrades pkg1 and they both have the same package-name,
-    * ensures that all templates and interfaces defined in pkg1 are present in pkg2.
-    * Then, for resolving all the ids for (package-name, qualified-name):
+    * As context, package-level upgrading compatibility between two packages pkg1 and pkg2, where
+    * pkg2 upgrades pkg1 and they both have the same package-name, ensures that all templates and
+    * interfaces defined in pkg1 are present in pkg2. Then, for resolving all the ids for
+    * (package-name, qualified-name):
     *
-    * * we first create all possible ids by concatenation with the requested qualified-name
-    *   of the known package-ids for the requested package-name.
+    * * we first create all possible ids by concatenation with the requested qualified-name of the
+    * known package-ids for the requested package-name.
     *
     * * Then, since some templates/interfaces can only be defined later (in a package with greater
-    *   package-version), we filter the previous result by intersection with the set of all known
-    *   identifiers (both template-ids and interface-ids).
+    * package-version), we filter the previous result by intersection with the set of all known
+    * identifiers (both template-ids and interface-ids).
     */
   def resolveTypeConRef(ref: Ref.TypeConRef): Set[Ref.Identifier] = ref match {
     case Ref.TypeConRef(Ref.PackageRef.Name(packageName), qualifiedName) =>

@@ -7,14 +7,16 @@ import scala.annotation.nowarn
 
 /** There are 3 kinds of possible dynamic values:
   *   - ADTs: records or variants. These are fixed in size, and are containers to other types.
-  *   - Traversables: lists, maps, optionals. These are variable in size and are containers to other types.
+  *   - Traversables: lists, maps, optionals. These are variable in size and are containers to other
+  *     types.
   *   - Primitives: primitive scalar types.
   *
-  * Codecs and code-generations should be constructed in such a way that ADTs and Traversables expecting other
-  * underlying dynamic values in processing routines should know exactly what underlying values they expect. The
-  * unwrapping of dynamic value and casting should be safe then. SchemaProcessor takes care of constructing a tree of
-  * type processors and injects correct underlying processors where needed. Also see examples of how this is used in
-  * JSON and Grpc codecs.
+  * Codecs and code-generations should be constructed in such a way that ADTs and Traversables
+  * expecting other underlying dynamic values in processing routines should know exactly what
+  * underlying values they expect. The unwrapping of dynamic value and casting should be safe then.
+  * SchemaProcessor takes care of constructing a tree of type processors and injects correct
+  * underlying processors where needed. Also see examples of how this is used in JSON and Grpc
+  * codecs.
   */
 
 sealed trait DynamicValue {
@@ -36,9 +38,10 @@ object DynamicValue {
   // Algebraic data types //
   //////////////////////////
 
-  /** ADT, Product type. Field values have to be in the same order as in the defining type.
-    * Field labels here are not necessary, as codecs knows about field names at the time of construction.
-    * We store them in order to recreate some error conditions (for instance wrong labels) and reuse gRPC API error handling.
+  /** ADT, Product type. Field values have to be in the same order as in the defining type. Field
+    * labels here are not necessary, as codecs knows about field names at the time of construction.
+    * We store them in order to recreate some error conditions (for instance wrong labels) and reuse
+    * gRPC API error handling.
     */
 
   final case class Record(fields: IterableOnce[(Option[String], DynamicValue)]) extends Adt {
@@ -100,7 +103,8 @@ object DynamicValue {
       value.asInstanceOf[IterableOnce[(String, DynamicValue)]]
   }
 
-  /** Map with arbitrarily-typed keys and values. Codecs should maintain stable order of key-value entries if possible.
+  /** Map with arbitrarily-typed keys and values. Codecs should maintain stable order of key-value
+    * entries if possible.
     */
   final case class GenMap(value: IterableOnce[(DynamicValue, DynamicValue)]) extends Traversable {
     override def inner: Any = value
@@ -157,7 +161,9 @@ object DynamicValue {
     def numeric: String = value.inner.asInstanceOf[String]
   }
 
-  /** Timestamp. Number of microseconds (10^-6^) since epoch (midnight of 1 Jan 1970) in UTC timezone. */
+  /** Timestamp. Number of microseconds (10^-6^) since epoch (midnight of 1 Jan 1970) in UTC
+    * timezone.
+    */
   final case class Timestamp(value: Long) extends Primitive {
     override def inner: Any = value
   }

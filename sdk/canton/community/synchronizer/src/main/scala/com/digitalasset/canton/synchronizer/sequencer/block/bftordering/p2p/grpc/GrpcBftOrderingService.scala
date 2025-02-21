@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.p2p.grpc
 
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.{
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.{
   BftOrderingServiceGrpc,
   BftOrderingServiceReceiveRequest,
   BftOrderingServiceReceiveResponse,

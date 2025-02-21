@@ -83,11 +83,11 @@ object ContractIdSyntax {
     def toProtoPrimitive: String = contractId.coid
 
     /** An [[LfContractId]] consists of
-      * - a version (1 byte)
-      * - a discriminator (32 bytes)
-      * - a suffix (at most 94 bytes)
-      * Those 1 + 32 + 94 = 127 bytes are base-16 encoded, so this makes 254 chars at most.
-      * See https://github.com/digital-asset/daml/blob/main/daml-lf/spec/contract-id.rst
+      *   - a version (1 byte)
+      *   - a discriminator (32 bytes)
+      *   - a suffix (at most 94 bytes) Those 1 + 32 + 94 = 127 bytes are base-16 encoded, so this
+      *     makes 254 chars at most. See
+      *     https://github.com/digital-asset/daml/blob/main/daml-lf/spec/contract-id.rst
       */
     def toLengthLimitedString: String255 = checked(String255.tryCreate(contractId.coid))
     def encodeDeterministically: ByteString = ByteString.copyFromUtf8(toProtoPrimitive)

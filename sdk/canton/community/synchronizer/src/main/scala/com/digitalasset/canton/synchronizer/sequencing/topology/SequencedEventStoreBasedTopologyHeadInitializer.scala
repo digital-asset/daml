@@ -17,9 +17,9 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-/** As not all events observable by the topology processor are topology transactions, updates the topology client's head
-  * based on either the sequenced event store or the topology store, depending on which one has a higher timestamp.
-  * This becomes useful on restarts.
+/** As not all events observable by the topology processor are topology transactions, updates the
+  * topology client's head based on either the sequenced event store or the topology store,
+  * depending on which one has a higher timestamp. This becomes useful on restarts.
   */
 final class SequencedEventStoreBasedTopologyHeadInitializer(
     sequencedEventStore: SequencedEventStore,

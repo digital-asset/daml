@@ -42,7 +42,9 @@ import scala.concurrent.ExecutionContext
 
 sealed trait SynchronizerMigrationError extends Product with Serializable with CantonError
 
-/** Migration of contracts from a source synchronizer to target synchronizer by re-associating them in the participant's persistent store. */
+/** Migration of contracts from a source synchronizer to target synchronizer by re-associating them
+  * in the participant's persistent store.
+  */
 class SynchronizerMigration(
     aliasManager: SynchronizerAliasManager,
     synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,
@@ -137,9 +139,9 @@ class SynchronizerMigration(
   }
 
   /** Checks whether the migration is possible:
-    * - Participant needs to be disconnected from both synchronizers.
-    * - No in-flight submission (except if `force = true`)
-    * - No dirty request (except if `force = true`)
+    *   - Participant needs to be disconnected from both synchronizers.
+    *   - No in-flight submission (except if `force = true`)
+    *   - No dirty request (except if `force = true`)
     */
   def isSynchronizerMigrationPossible(
       source: Source[SynchronizerAlias],
@@ -213,8 +215,8 @@ class SynchronizerMigration(
             .leftWiden[SyncServiceError]
     } yield targetSynchronizerInfo
 
-  /** Performs the synchronizer migration.
-    * Assumes that [[isSynchronizerMigrationPossible]] was called before to check preconditions.
+  /** Performs the synchronizer migration. Assumes that [[isSynchronizerMigrationPossible]] was
+    * called before to check preconditions.
     */
   def migrateSynchronizer(
       source: Source[SynchronizerAlias],

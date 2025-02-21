@@ -287,7 +287,7 @@ class ValidatingTopologyMappingChecksTest
         val dns = factory.mkAddMultiKey(
           DecentralizedNamespaceDefinition
             .create(
-              Namespace(Fingerprint.tryCreate("bogusNamespace")),
+              Namespace(Fingerprint.tryFromString("bogusNamespace")),
               PositiveInt.one,
               NonEmpty.from(namespaces).value.toSet,
             )

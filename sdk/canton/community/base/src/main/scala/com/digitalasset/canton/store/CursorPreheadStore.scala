@@ -48,11 +48,13 @@ trait CursorPreheadStore[Discr] extends AutoCloseable {
   ): FutureUnlessShutdown[Unit]
 }
 
-/** Information for the prehead of a cursor.
-  * The prehead of a cursor is the counter before the cursors' head, if any.
+/** Information for the prehead of a cursor. The prehead of a cursor is the counter before the
+  * cursors' head, if any.
   *
-  * @param counter The counter corresponding to the prehead
-  * @param timestamp The timestamp corresponding to the prehead
+  * @param counter
+  *   The counter corresponding to the prehead
+  * @param timestamp
+  *   The timestamp corresponding to the prehead
   */
 final case class CursorPrehead[Discr](counter: Counter[Discr], timestamp: CantonTimestamp)
     extends PrettyPrinting {

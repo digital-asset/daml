@@ -19,11 +19,11 @@ sealed trait SendResult extends Product with Serializable
 
 object SendResult {
 
-  /** Send caused a deliver event to be successfully sequenced.
-    * For aggregatable submission requests, success means that the aggregatable submission was assigned a timestamp.
-    * It does not mean that the [[com.digitalasset.canton.sequencing.protocol.AggregationRule.threshold]]
-    * was reached and the envelopes are delivered.
-    * Accordingly, the [[com.digitalasset.canton.sequencing.protocol.Deliver]] event may contain an empty batch.
+  /** Send caused a deliver event to be successfully sequenced. For aggregatable submission
+    * requests, success means that the aggregatable submission was assigned a timestamp. It does not
+    * mean that the [[com.digitalasset.canton.sequencing.protocol.AggregationRule.threshold]] was
+    * reached and the envelopes are delivered. Accordingly, the
+    * [[com.digitalasset.canton.sequencing.protocol.Deliver]] event may contain an empty batch.
     */
   final case class Success(deliver: Deliver[Envelope[_]]) extends SendResult
 
@@ -33,12 +33,13 @@ object SendResult {
   /** Send caused a deliver error to be sequenced */
   final case class Error(error: DeliverError) extends NotSequenced
 
-  /** No event was sequenced for the send up until the provided max sequencing time.
-    * A correct sequencer implementation will no longer sequence any events from the send past this point.
+  /** No event was sequenced for the send up until the provided max sequencing time. A correct
+    * sequencer implementation will no longer sequence any events from the send past this point.
     */
   final case class Timeout(sequencerTime: CantonTimestamp) extends NotSequenced
 
-  /** Log the value of this result to the given logger at an appropriate level and given description */
+  /** Log the value of this result to the given logger at an appropriate level and given description
+    */
   def log(sendDescription: String, logger: TracedLogger)(
       result: UnlessShutdown[SendResult]
   )(implicit traceContext: TraceContext): Unit = result match {

@@ -64,8 +64,7 @@ object MemberCode {
 
 /** A member in a synchronizer such as a participant and or synchronizer entities
   *
-  * A member can be addressed and talked to on the transaction level
-  * through the sequencer.
+  * A member can be addressed and talked to on the transaction level through the sequencer.
   */
 sealed trait Member extends Identity with Product with Serializable {
 
@@ -128,8 +127,8 @@ object Member {
   // Use the same ordering as for what we use in the database
   implicit val memberOrdering: Ordering[Member] = Ordering.by(_.toLengthLimitedString.unwrap)
 
-  /** Instances for slick to set and get members.
-    * Not exposed by default as other types derived from [[Member]] have their own persistence schemes ([[ParticipantId]]).
+  /** Instances for slick to set and get members. Not exposed by default as other types derived from
+    * [[Member]] have their own persistence schemes ([[ParticipantId]]).
     */
   object DbStorageImplicits {
     implicit val setParameterMember: SetParameter[Member] = (v: Member, pp) =>
@@ -280,10 +279,14 @@ object PartyId {
 }
 
 /** Represents a mediator group, containing only mediators that have at least 1 signing key.
-  * @param index uniquely identifies the group, just like [[MediatorId]] for single mediators.
-  * @param active the active mediators belonging to the group
-  * @param passive the passive mediators belonging to the group
-  * @param threshold the minimum size of a quorum
+  * @param index
+  *   uniquely identifies the group, just like [[MediatorId]] for single mediators.
+  * @param active
+  *   the active mediators belonging to the group
+  * @param passive
+  *   the passive mediators belonging to the group
+  * @param threshold
+  *   the minimum size of a quorum
   */
 final case class MediatorGroup(
     index: MediatorGroupIndex,
@@ -331,8 +334,8 @@ object MediatorId {
 
 /** Contains only sequencers from SequencerSynchronizerState that also have at least 1 signing key.
   *
-  * When reading `threshold`, recall the contract of `SequencerSynchronizerState`:
-  * The system must tolerate up to `min(threshold - 1, (active.size - 1)/3)` malicious active sequencers.
+  * When reading `threshold`, recall the contract of `SequencerSynchronizerState`: The system must
+  * tolerate up to `min(threshold - 1, (active.size - 1)/3)` malicious active sequencers.
   */
 final case class SequencerGroup(
     active: Seq[SequencerId],

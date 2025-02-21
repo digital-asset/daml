@@ -26,26 +26,25 @@ import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
-/** This batch aggregator exposes a [[BatchAggregator.run]] method
-  * that allows for batching [[scala.concurrent.Future]] computations,
-  * defined by a [[BatchAggregator.Processor]].
+/** This batch aggregator exposes a [[BatchAggregator.run]] method that allows for batching
+  * [[scala.concurrent.Future]] computations, defined by a [[BatchAggregator.Processor]].
   *
-  * Note: it is required that `getter` and `batchGetter` do not throw an exception.
-  * If they do, the number of in-flight requests could fail to be decremented which
-  * would result in degraded performance or even prevent calls to the getters.
+  * Note: it is required that `getter` and `batchGetter` do not throw an exception. If they do, the
+  * number of in-flight requests could fail to be decremented which would result in degraded
+  * performance or even prevent calls to the getters.
   */
 
 trait BatchAggregator[A, B] {
 
-  /** Runs the processor of this aggregator for the given item,
-    * possibly batching several items.
+  /** Runs the processor of this aggregator for the given item, possibly batching several items.
     *
     * This method can be used as the `mappingFunction` of a Scaffeine async cache.
     *
-    * @return The [[scala.concurrent.Future]] completes with the processor's response to this item,
-    *         after the batch of items has finished. If the processor fails with an exception for
-    *         some item in a batch, the exception may propagate to the [[scala.concurrent.Future]]s
-    *         of all items in the batch.
+    * @return
+    *   The [[scala.concurrent.Future]] completes with the processor's response to this item, after
+    *   the batch of items has finished. If the processor fails with an exception for some item in a
+    *   batch, the exception may propagate to the [[scala.concurrent.Future]]s of all items in the
+    *   batch.
     */
   def run(item: A)(implicit
       ec: ExecutionContext,
@@ -79,8 +78,7 @@ object BatchAggregator {
     /** Logger to be used by the [[com.digitalasset.canton.util.BatchAggregator]] */
     def logger: TracedLogger
 
-    /** Computation for a single item.
-      * Should be equivalent to
+    /** Computation for a single item. Should be equivalent to
       * {{{
       *   executeBatch(Seq(Traced(item))).map(_.head)
       * }}}
@@ -102,8 +100,8 @@ object BatchAggregator {
 
     /** Computation for a batch of items.
       *
-      * @return The responses for the items in the correct order.
-      *         Must have the same length
+      * @return
+      *   The responses for the items in the correct order. Must have the same length
       */
     def executeBatch(items: NonEmpty[Seq[Traced[A]]])(implicit
         traceContext: TraceContext,

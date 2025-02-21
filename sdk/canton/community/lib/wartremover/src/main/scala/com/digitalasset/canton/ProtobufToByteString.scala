@@ -8,7 +8,8 @@ import org.wartremover.{WartTraverser, WartUniverse}
 
 /** Detects calls to `toByteString` on generated protobuf messages.
   *
-  * @see https://github.com/DACH-NY/canton/blob/main/contributing/backwards-incompatible-changes.md
+  * @see
+  *   https://github.com/DACH-NY/canton/blob/main/contributing/backwards-incompatible-changes.md
   */
 object ProtobufToByteString extends WartTraverser {
 

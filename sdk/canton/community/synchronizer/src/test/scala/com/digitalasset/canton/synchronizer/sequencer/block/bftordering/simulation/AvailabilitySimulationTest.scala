@@ -5,22 +5,31 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulat
 
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.config.{ProcessingTimeout, TlsClientConfig}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.{
+  P2PEndpointConfig,
+  P2PNetworkConfig,
+  P2PServerConfig,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.memory.SimulationAvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.network.data.memory.SimulationP2pEndpointsStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.network.data.memory.SimulationP2PEndpointsStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
+  P2PEndpoint,
+  PlainTextP2PEndpoint,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.{
   BftP2PNetworkIn,
   BftP2PNetworkOut,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.SystemInitializationResult
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
@@ -42,17 +51,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   OrderingRequest,
   OrderingRequestBatch,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.{
   AvailabilityModuleDependencies,
   ConsensusModuleDependencies,
   P2PNetworkOutModuleDependencies,
-}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
-  Availability,
-  Consensus,
-  Mempool,
-  Output,
-  P2PNetworkOut,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.{
@@ -61,18 +64,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SimulationP2PNetworkManager,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.EmptyOnboardingDataProvider
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
-  ClientP2PNetworkManager,
-  Env,
-  ModuleName,
-  ModuleRef,
-  ModuleSystem,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.{
   SimulationOrderingTopologyProvider,
   SimulationTopologyHelpers,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.BftOrderingServiceReceiveRequest
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
 import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -82,8 +78,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.util.Random
-
-import BftBlockOrderer.BftNetwork
 
 class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
 
@@ -123,7 +117,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
     override def ready(self: ModuleRef[Mempool.Message]): Unit =
       (1 to RequestsPerPeer).foreach { _ =>
         val batch =
-          OrderingRequestBatch(
+          OrderingRequestBatch.create(
             Seq(
               Traced(
                 OrderingRequest(
@@ -293,16 +287,19 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
     val p2pNetworkOut =
       new BftP2PNetworkOut[SimulationEnv](
         selfPeer,
-        new SimulationP2pEndpointsStore(
-          config.initialBftNetwork.map(_.otherEndpoints).getOrElse(Seq.empty).toSet
+        new SimulationP2PEndpointsStore(
+          config.initialNetwork
+            .map(_.peerEndpoints.map(P2PEndpoint.fromEndpointConfig))
+            .getOrElse(Seq.empty)
+            .toSet
         ),
         metrics,
         p2PNetworkOutDependencies,
         loggerFactoryWithSequencerId,
         timeouts,
       )
-    val peerSequencerIds = config.initialBftNetwork.toList
-      .flatMap(_.otherEndpoints)
+    val peerSequencerIds = config.initialNetwork.toList
+      .flatMap(_.peerEndpoints.map(P2PEndpoint.fromEndpointConfig))
       .map(SimulationP2PNetworkManager.fakeSequencerId)
     val membership = Membership(selfPeer, peerSequencerIds.toSet)
     val availabilityStore = store(simulationModel.availabilityStorage)
@@ -382,11 +379,22 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
       Table("Peers count", 1, 2, 3, 4)
     ) { peersCount =>
       val peersRange: Range = 0 until peersCount
-      val peerEndpoints = peersRange.map(n => Endpoint(s"peer$n", Port.tryCreate(0)))
+      val peerEndpoints = peersRange.map(n =>
+        P2PEndpointConfig(
+          s"peer$n",
+          Port.tryCreate(0),
+          Some(TlsClientConfig(trustCollectionFile = None, clientCert = None, enabled = false)),
+        )
+      )
       val configs =
         peerEndpoints.map { peer =>
           BftBlockOrderer.Config(
-            initialBftNetwork = Some(BftNetwork(peer, peerEndpoints.filterNot(_ == peer))),
+            initialNetwork = Some(
+              P2PNetworkConfig(
+                P2PServerConfig(peer.address, Some(peer.port)),
+                peerEndpoints.filterNot(_ == peer),
+              )
+            ),
             maxRequestsInBatch = MaxRequestsInBatch,
             maxBatchesPerBlockProposal = MaxBatchesPerProposal,
           )
@@ -398,7 +406,9 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
       val clock = new SimClock(loggerFactory = loggerFactory)
 
       val peerEndpointsToOnboardingTimes = peerEndpoints.map { endpoint =>
-        endpoint -> Genesis.GenesisTopologyActivationTime
+        P2PEndpoint.fromEndpointConfig(
+          endpoint
+        ) -> Genesis.GenesisTopologyActivationTime
       }.toMap
 
       val peerEndpointsSimulationTopologyData =
@@ -408,7 +418,8 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
         )
 
       val topologyInit = peersRange.map { n =>
-        val peerEndpoint = peerEndpoints(n)
+        val peerEndpointConfig = peerEndpoints(n)
+        val peerEndpoint = PlainTextP2PEndpoint(peerEndpointConfig.address, peerEndpointConfig.port)
         val sequencerId = SimulationP2PNetworkManager.fakeSequencerId(peerEndpoint)
 
         val orderingTopologyProvider =
@@ -450,23 +461,20 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
 
       // Run and check invariants
 
-      val history = simulation
-        .run {
-          SimulationVerifier.onlyCheckInvariant { _ =>
-            simulationModels.forall { simulationModel =>
-              simulationModel.proposalsToConsensus.forall { proposal =>
-                proposal.orderingBlock.proofs.forall { proofOfAvailability =>
-                  simulationModels.count { simulationModel =>
-                    simulationModel.availabilityStorage.contains(proofOfAvailability.batchId) &&
-                    proofOfAvailability.acks.sizeIs >= availabilityQuorum
-                  } >= availabilityQuorum
-                }
+      simulation.run {
+        SimulationVerifier.onlyCheckInvariant { _ =>
+          simulationModels.forall { simulationModel =>
+            simulationModel.proposalsToConsensus.forall { proposal =>
+              proposal.orderingBlock.proofs.forall { proofOfAvailability =>
+                simulationModels.count { simulationModel =>
+                  simulationModel.availabilityStorage.contains(proofOfAvailability.batchId) &&
+                  proofOfAvailability.acks.sizeIs >= availabilityQuorum
+                } >= availabilityQuorum
               }
-            } shouldBe true
-          }
+            }
+          } shouldBe true
         }
-      logger.debug("Simulation command history follows")
-      history.foreach(command => logger.debug(s"$command"))
+      }
 
       simulationModels.count { simulationModel =>
         simulationModel.availabilityStorage.keys.toSet.sizeIs >= RequestsPerPeer * availabilityQuorum

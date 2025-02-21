@@ -95,8 +95,8 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
         .getOrElse(fail("there is no latest running writer flow"))
         .doneP
 
-    /** Any futures enqueued on the sequential scalatest execution context before queuing this will be completed
-      * before this one is (doesn't matter that we're not doing anything).
+    /** Any futures enqueued on the sequential scalatest execution context before queuing this will
+      * be completed before this one is (doesn't matter that we're not doing anything).
       */
     def allowScheduledFuturesToComplete: Future[Unit] = Future.unit
 

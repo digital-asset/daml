@@ -55,7 +55,8 @@ trait PrettyInstances {
 
   implicit def prettyTree[T <: Tree]: Pretty[T] = identity
 
-  /** Makes the syntax from [[com.digitalasset.canton.util.ShowUtil]] accessible in places where a Pretty is expected.
+  /** Makes the syntax from [[com.digitalasset.canton.util.ShowUtil]] accessible in places where a
+    * Pretty is expected.
     */
   implicit def prettyShown: Pretty[Shown] = prettyOfString(_.toString)
 

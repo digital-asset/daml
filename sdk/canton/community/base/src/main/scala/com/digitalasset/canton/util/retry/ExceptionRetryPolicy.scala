@@ -12,8 +12,8 @@ import org.slf4j.event.Level
 import java.sql.SQLException
 import scala.util.{Failure, Try}
 
-/** When using retry code in different contexts, different exceptions should be retried on. This trait provides a
-  * way to define what exceptions should be retried and which are fatal.
+/** When using retry code in different contexts, different exceptions should be retried on. This
+  * trait provides a way to define what exceptions should be retried and which are fatal.
   */
 trait ExceptionRetryPolicy {
 
@@ -22,8 +22,8 @@ trait ExceptionRetryPolicy {
       tc: TraceContext
   ): ErrorKind
 
-  /** Determines what kind of error resulted in the outcome,
-    * and gives a recommendation on how many times to retry.
+  /** Determines what kind of error resulted in the outcome, and gives a recommendation on how many
+    * times to retry.
     *
     * Also logs the embedded exception.
     */
@@ -86,7 +86,9 @@ sealed trait ErrorKind {
 
 object ErrorKind {
 
-  /** The outcome of the future was success, but the success predicate was false, we retry indefinitely */
+  /** The outcome of the future was success, but the success predicate was false, we retry
+    * indefinitely
+    */
   case object NoSuccessErrorKind extends ErrorKind {
     override val maxRetries: Int = Int.MaxValue
 
@@ -107,7 +109,8 @@ object ErrorKind {
     override def toString: String = "fatal error (give up immediately)"
   }
 
-  /** Main use case is a network outage. Infinite retries are needed, as we don't know how long the outage takes.
+  /** Main use case is a network outage. Infinite retries are needed, as we don't know how long the
+    * outage takes.
     */
   final case class TransientErrorKind(maxRetries: Int = Int.MaxValue) extends ErrorKind {
     private lazy val numRetriesString =

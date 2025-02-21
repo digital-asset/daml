@@ -9,7 +9,17 @@ import com.daml.ledger.api.v2.admin.party_management_service.{
 }
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRequest
 import com.daml.ledger.api.v2.state_service.GetActiveContractsRequest
-import com.daml.ledger.api.v2.transaction_filter.{EventFormat, Filters, TransactionFilter}
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
+import com.daml.ledger.api.v2.transaction_filter.{
+  EventFormat,
+  Filters,
+  ParticipantAuthorizationTopologyFormat,
+  TopologyFormat,
+  TransactionFilter,
+  TransactionFormat,
+  UpdateFormat,
+}
+import com.daml.ledger.api.v2.update_service.GetUpdatesRequest
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.auth.RequiredClaim
 import com.digitalasset.canton.ledger.api.auth.RequiredClaims
@@ -304,16 +314,347 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
     ) shouldBe Nil
   }
 
-  // TODO(i23504) Remove
-  it should "compute the aggregated claims if both legacy and new usage, if neither defined" in {
-    StateServiceAuthorization.getActiveContractsClaims(
-      GetActiveContractsRequest(
+  behavior of "UpdateServiceAuthorization.getUpdatesClaims"
+
+  it should "compute the correct claims in the happy path" in {
+    UpdateServiceAuthorization.getUpdatesClaims(
+      GetUpdatesRequest(
+        beginExclusive = 10,
+        endInclusive = Some(15),
         filter = None,
         verbose = true,
-        activeAtOffset = 15,
-        eventFormat = None,
+        updateFormat = Some(
+          UpdateFormat(
+            includeTransactions = Some(
+              TransactionFormat(
+                eventFormat = Some(
+                  EventFormat(
+                    filtersByParty = Map(
+                      "a" -> Filters(),
+                      "b" -> Filters(),
+                    ),
+                    filtersForAnyParty = Some(Filters()),
+                    verbose = true,
+                  )
+                ),
+                transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+              )
+            ),
+            includeReassignments = Some(
+              EventFormat(
+                filtersByParty = Map(
+                  "c" -> Filters(),
+                  "d" -> Filters(),
+                ),
+                filtersForAnyParty = Some(Filters()),
+                verbose = true,
+              )
+            ),
+            includeTopologyEvents = Some(
+              TopologyFormat(Some(ParticipantAuthorizationTopologyFormat(parties = Seq("e", "f"))))
+            ),
+          )
+        ),
+      )
+    ) should contain theSameElementsAs RequiredClaims[GetActiveContractsRequest](
+      RequiredClaim.ReadAs("a"),
+      RequiredClaim.ReadAs("b"),
+      RequiredClaim.ReadAs("c"),
+      RequiredClaim.ReadAs("d"),
+      RequiredClaim.ReadAs("e"),
+      RequiredClaim.ReadAs("f"),
+      RequiredClaim.ReadAsAnyParty(),
+    )
+  }
+
+  it should "compute the correct claims if no party wildcards exist" in {
+    UpdateServiceAuthorization.getUpdatesClaims(
+      GetUpdatesRequest(
+        beginExclusive = 10,
+        endInclusive = Some(15),
+        filter = None,
+        verbose = true,
+        updateFormat = Some(
+          UpdateFormat(
+            includeTransactions = Some(
+              TransactionFormat(
+                eventFormat = Some(
+                  EventFormat(
+                    filtersByParty = Map(
+                      "a" -> Filters(),
+                      "b" -> Filters(),
+                    ),
+                    filtersForAnyParty = None,
+                    verbose = true,
+                  )
+                ),
+                transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+              )
+            ),
+            includeReassignments = Some(
+              EventFormat(
+                filtersByParty = Map(
+                  "c" -> Filters(),
+                  "d" -> Filters(),
+                ),
+                filtersForAnyParty = None,
+                verbose = true,
+              )
+            ),
+            includeTopologyEvents = Some(
+              TopologyFormat(Some(ParticipantAuthorizationTopologyFormat(parties = Seq("e", "f"))))
+            ),
+          )
+        ),
+      )
+    ) should contain theSameElementsAs RequiredClaims[GetActiveContractsRequest](
+      RequiredClaim.ReadAs("a"),
+      RequiredClaim.ReadAs("b"),
+      RequiredClaim.ReadAs("c"),
+      RequiredClaim.ReadAs("d"),
+      RequiredClaim.ReadAs("e"),
+      RequiredClaim.ReadAs("f"),
+    )
+  }
+
+  it should "compute the correct claims if no filtersByParty in transactions and reassignments exists" in {
+    val eventFormatO = Some(
+      EventFormat(
+        filtersByParty = Map.empty,
+        filtersForAnyParty = None,
+        verbose = true,
+      )
+    )
+    UpdateServiceAuthorization.getUpdatesClaims(
+      GetUpdatesRequest(
+        beginExclusive = 10,
+        endInclusive = Some(15),
+        filter = None,
+        verbose = true,
+        updateFormat = Some(
+          UpdateFormat(
+            includeTransactions = Some(
+              TransactionFormat(
+                eventFormat = eventFormatO,
+                transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+              )
+            ),
+            includeReassignments = eventFormatO,
+            includeTopologyEvents = Some(
+              TopologyFormat(Some(ParticipantAuthorizationTopologyFormat(parties = Seq("e", "f"))))
+            ),
+          )
+        ),
+      )
+    ) should contain theSameElementsAs RequiredClaims[GetActiveContractsRequest](
+      RequiredClaim.ReadAs("e"),
+      RequiredClaim.ReadAs("f"),
+    )
+  }
+
+  it should "compute the correct claims if no filtersByParty in transactions and reassignments exists and topology format is empty" in {
+    val eventFormatO = Some(
+      EventFormat(
+        filtersByParty = Map.empty,
+        filtersForAnyParty = None,
+        verbose = true,
+      )
+    )
+    UpdateServiceAuthorization.getUpdatesClaims(
+      GetUpdatesRequest(
+        beginExclusive = 10,
+        endInclusive = Some(15),
+        filter = None,
+        verbose = true,
+        updateFormat = Some(
+          UpdateFormat(
+            includeTransactions = Some(
+              TransactionFormat(
+                eventFormat = eventFormatO,
+                transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+              )
+            ),
+            includeReassignments = eventFormatO,
+            includeTopologyEvents = Some(
+              TopologyFormat(None)
+            ),
+          )
+        ),
       )
     ) shouldBe Nil
+  }
+
+  it should "compute the correct claims if no updateFormat exists" in {
+    UpdateServiceAuthorization.getUpdatesClaims(
+      GetUpdatesRequest(
+        beginExclusive = 10,
+        endInclusive = Some(15),
+        filter = None,
+        updateFormat = None,
+      )
+    ) shouldBe Nil
+  }
+
+  it should "compute the correct claims for topology format without wildcard" in {
+    UpdateServiceAuthorization.getUpdatesClaims(
+      GetUpdatesRequest(
+        beginExclusive = 10,
+        endInclusive = Some(15),
+        filter = None,
+        verbose = true,
+        updateFormat = Some(
+          UpdateFormat(
+            includeTopologyEvents = Some(
+              TopologyFormat(Some(ParticipantAuthorizationTopologyFormat(parties = Seq("e", "f"))))
+            )
+          )
+        ),
+      )
+    ) should contain theSameElementsAs RequiredClaims[GetActiveContractsRequest](
+      RequiredClaim.ReadAs("e"),
+      RequiredClaim.ReadAs("f"),
+    )
+  }
+
+  it should "compute the correct claims for transactions format with wildcard" in {
+    UpdateServiceAuthorization.getUpdatesClaims(
+      GetUpdatesRequest(
+        beginExclusive = 10,
+        endInclusive = Some(15),
+        filter = None,
+        verbose = true,
+        updateFormat = Some(
+          UpdateFormat(
+            includeTransactions = Some(
+              TransactionFormat(
+                eventFormat = Some(
+                  EventFormat(
+                    filtersForAnyParty = Some(Filters())
+                  )
+                ),
+                transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+              )
+            )
+          )
+        ),
+      )
+    ) should contain theSameElementsAs RequiredClaims[GetActiveContractsRequest](
+      RequiredClaim.ReadAsAnyParty()
+    )
+  }
+
+  it should "compute the correct claims for reassignments with wildcard" in {
+    UpdateServiceAuthorization.getUpdatesClaims(
+      GetUpdatesRequest(
+        beginExclusive = 10,
+        endInclusive = Some(15),
+        filter = None,
+        verbose = true,
+        updateFormat = Some(
+          UpdateFormat(
+            includeReassignments = Some(
+              EventFormat(
+                filtersForAnyParty = Some(Filters())
+              )
+            )
+          )
+        ),
+      )
+    ) should contain theSameElementsAs RequiredClaims[GetActiveContractsRequest](
+      RequiredClaim.ReadAsAnyParty()
+    )
+  }
+
+  it should "compute the correct claims for topology format with wildcard" in {
+    UpdateServiceAuthorization.getUpdatesClaims(
+      GetUpdatesRequest(
+        beginExclusive = 10,
+        endInclusive = Some(15),
+        filter = None,
+        verbose = true,
+        updateFormat = Some(
+          UpdateFormat(
+            includeTopologyEvents = Some(
+              TopologyFormat(Some(ParticipantAuthorizationTopologyFormat(parties = Seq.empty)))
+            )
+          )
+        ),
+      )
+    ) should contain theSameElementsAs RequiredClaims[GetActiveContractsRequest](
+      RequiredClaim.ReadAsAnyParty()
+    )
+  }
+
+  // TODO(i23504) Remove
+  it should "compute the aggregated claims if legacy, happy path" in {
+    UpdateServiceAuthorization.getUpdatesClaims(
+      GetUpdatesRequest(
+        beginExclusive = 10,
+        endInclusive = Some(15),
+        filter = Some(
+          TransactionFilter(
+            filtersByParty = Map(
+              "1" -> Filters(),
+              "2" -> Filters(),
+              "3" -> Filters(),
+            ),
+            filtersForAnyParty = Some(Filters()),
+          )
+        ),
+        verbose = true,
+        updateFormat = None,
+      )
+    ) should contain theSameElementsAs RequiredClaims[GetActiveContractsRequest](
+      RequiredClaim.ReadAs("1"),
+      RequiredClaim.ReadAs("2"),
+      RequiredClaim.ReadAs("3"),
+      RequiredClaim.ReadAsAnyParty(),
+    )
+  }
+
+  // TODO(i23504) Remove
+  it should "compute the aggregated claims if legacy, if the any party filters are missing" in {
+    UpdateServiceAuthorization.getUpdatesClaims(
+      GetUpdatesRequest(
+        beginExclusive = 10,
+        endInclusive = Some(15),
+        filter = Some(
+          TransactionFilter(
+            filtersByParty = Map(
+              "1" -> Filters(),
+              "2" -> Filters(),
+              "3" -> Filters(),
+            ),
+            filtersForAnyParty = None,
+          )
+        ),
+        verbose = true,
+        updateFormat = None,
+      )
+    ) should contain theSameElementsAs RequiredClaims[GetActiveContractsRequest](
+      RequiredClaim.ReadAs("1"),
+      RequiredClaim.ReadAs("2"),
+      RequiredClaim.ReadAs("3"),
+    )
+  }
+
+  // TODO(i23504) Remove
+  it should "compute the aggregated claims if legacy, if only any party filters exist" in {
+    UpdateServiceAuthorization.getUpdatesClaims(
+      GetUpdatesRequest(
+        beginExclusive = 10,
+        endInclusive = Some(15),
+        filter = Some(
+          TransactionFilter(
+            filtersForAnyParty = Some(Filters())
+          )
+        ),
+        verbose = true,
+        updateFormat = None,
+      )
+    ) should contain theSameElementsAs RequiredClaims[GetActiveContractsRequest](
+      RequiredClaim.ReadAsAnyParty()
+    )
   }
 
   behavior of "UserManagementServiceAuthorization.userReaderClaims"

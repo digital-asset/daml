@@ -35,7 +35,8 @@ class EncryptedViewMessageFactoryTest extends AsyncWordSpec with BaseTest {
   private lazy val pureCrypto: CryptoPureApi = new SymbolicPureCrypto()
 
   private lazy val alice: ParticipantId = ParticipantId("Alice")
-  private lazy val keyFingerprintAlice: Fingerprint = Fingerprint.tryCreate("alice_encryptionKey")
+  private lazy val keyFingerprintAlice: Fingerprint =
+    Fingerprint.tryFromString("alice_encryptionKey")
 
   private lazy val bob: ParticipantId = ParticipantId("Bob")
   private lazy val charlie: ParticipantId = ParticipantId("Charlie")
@@ -102,7 +103,7 @@ class EncryptedViewMessageFactoryTest extends AsyncWordSpec with BaseTest {
         (recipientsGroupBob.recipients,
         ViewParticipantsKeysAndParentRecipients(
           NonEmpty.mk(Set, bob),
-          Set(Fingerprint.tryCreate("bob_encryptionKey")),
+          Set(Fingerprint.tryFromString("bob_encryptionKey")),
           Some(parentRecipients),
         )),
       // n2
@@ -110,7 +111,7 @@ class EncryptedViewMessageFactoryTest extends AsyncWordSpec with BaseTest {
         (recipientsGroupCharlie.recipients,
         ViewParticipantsKeysAndParentRecipients(
           NonEmpty.mk(Set, charlie),
-          Set(Fingerprint.tryCreate("charlie_encryptionKey")),
+          Set(Fingerprint.tryFromString("charlie_encryptionKey")),
           Some(parentRecipients),
         )),
       // n0
@@ -224,7 +225,7 @@ class EncryptedViewMessageFactoryTest extends AsyncWordSpec with BaseTest {
               AsymmetricEncrypted(
                 ByteString.empty(),
                 EciesHkdfHmacSha256Aes128Cbc,
-                Fingerprint.tryCreate("wrong_fingerprint"),
+                Fingerprint.tryFromString("wrong_fingerprint"),
               )
             ),
           ),
@@ -257,7 +258,7 @@ class EncryptedViewMessageFactoryTest extends AsyncWordSpec with BaseTest {
               AsymmetricEncrypted(
                 ByteString.empty(),
                 EciesHkdfHmacSha256Aes128Cbc,
-                Fingerprint.tryCreate("wrong_fingerprint"),
+                Fingerprint.tryFromString("wrong_fingerprint"),
               )
             ),
           ),
@@ -298,7 +299,7 @@ class EncryptedViewMessageFactoryTest extends AsyncWordSpec with BaseTest {
               AsymmetricEncrypted(
                 ByteString.empty(),
                 EciesHkdfHmacSha256Aes128Cbc,
-                Fingerprint.tryCreate("wrong_fingerprint"),
+                Fingerprint.tryFromString("wrong_fingerprint"),
               )
             ),
           ),
@@ -310,7 +311,7 @@ class EncryptedViewMessageFactoryTest extends AsyncWordSpec with BaseTest {
               AsymmetricEncrypted(
                 ByteString.empty(),
                 EciesHkdfHmacSha256Aes128Cbc,
-                Fingerprint.tryCreate("wrong_fingerprint"),
+                Fingerprint.tryFromString("wrong_fingerprint"),
               )
             ),
           ),

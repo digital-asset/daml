@@ -16,10 +16,13 @@ trait CryptoTestHelper extends BaseTest with HasExecutionContext {
 
   /** Gets a new encryption key by generating a new key.
     *
-    * @param crypto determines the algorithms used for signing, hashing, and encryption, used
-    *               on the client side for serialization.
-    * @param encryptionKeySpec the encryption key specification for the new key.
-    * @return an encryption public key
+    * @param crypto
+    *   determines the algorithms used for signing, hashing, and encryption, used on the client side
+    *   for serialization.
+    * @param encryptionKeySpec
+    *   the encryption key specification for the new key.
+    * @return
+    *   an encryption public key
     */
   protected def getEncryptionPublicKey(
       crypto: Crypto,
@@ -42,11 +45,15 @@ trait CryptoTestHelper extends BaseTest with HasExecutionContext {
 
   /** Gets a new signing key by generating a new key.
     *
-    * @param crypto    determines the algorithms used for signing, hashing, and encryption, used
-    *                  on the client side for serialization.
-    * @param usage     what the key must be used for
-    * @param keySpec   the signing key specification for the new key.
-    * @return a signing public key
+    * @param crypto
+    *   determines the algorithms used for signing, hashing, and encryption, used on the client side
+    *   for serialization.
+    * @param usage
+    *   what the key must be used for
+    * @param keySpec
+    *   the signing key specification for the new key.
+    * @return
+    *   a signing public key
     */
   protected def getSigningPublicKey(
       crypto: Crypto,

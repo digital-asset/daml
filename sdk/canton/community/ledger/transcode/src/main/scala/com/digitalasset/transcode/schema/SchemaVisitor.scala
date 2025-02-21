@@ -3,28 +3,29 @@
 
 package com.digitalasset.transcode.schema
 
-/** This trait describes various types that a Daml package can contain. `SchemaProcessor` will use an implementation of
-  * this trait to feed types into the visitor. The visitor implementation should define [[SchemaVisitor.Type]], which
-  * can be a Codec, or a Code-generator along with instructions how to process daml types. There are several use cases:
+/** This trait describes various types that a Daml package can contain. `SchemaProcessor` will use
+  * an implementation of this trait to feed types into the visitor. The visitor implementation
+  * should define [[SchemaVisitor.Type]], which can be a Codec, or a Code-generator along with
+  * instructions how to process daml types. There are several use cases:
   *
   * ==Codecs==
   *
-  * To achieve the best performance, a codec should create a tree-like structure copying the structure of Daml types
-  * with each node processing corresponding daml type and delegating processing to the next node if it's a type
-  * container.
+  * To achieve the best performance, a codec should create a tree-like structure copying the
+  * structure of Daml types with each node processing corresponding daml type and delegating
+  * processing to the next node if it's a type container.
   *
-  * A codec should convert to and from [[DynamicValue]] instances. This allows to compose codecs from various protocols
-  * by combining them in [[com.digitalasset.transcode.Converter]]. For example, one code combine `JsonCodec` and
-  * `GrpcValueCodec` to get direct conversions from json to Ledger API proto values and vice versa. Or one can compose
-  * `JsonCodec` and `ScalaCodec`, etc.
+  * A codec should convert to and from [[DynamicValue]] instances. This allows to compose codecs
+  * from various protocols by combining them in [[com.digitalasset.transcode.Converter]]. For
+  * example, one code combine `JsonCodec` and `GrpcValueCodec` to get direct conversions from json
+  * to Ledger API proto values and vice versa. Or one can compose `JsonCodec` and `ScalaCodec`, etc.
   *
   * ==Code generators==
   *
-  * Code generators can produce code snippets at each handler and combine them into a file or a set of files that can be
-  * used as generated source in the target language.
+  * Code generators can produce code snippets at each handler and combine them into a file or a set
+  * of files that can be used as generated source in the target language.
   *
-  * It is advisable to also generate a codec along with DTOs (Data Transfer Object) to allow for direct interoperability
-  * with other existing protocols (Json or Protobuf).
+  * It is advisable to also generate a codec along with DTOs (Data Transfer Object) to allow for
+  * direct interoperability with other existing protocols (Json or Protobuf).
   */
 trait SchemaVisitor {
 
@@ -53,7 +54,8 @@ trait SchemaVisitor {
       cases: => Seq[(VariantConName, Type)],
   ): Type
 
-  /** ADT, Sum type - special case, where there are only named constructors without further payloads */
+  /** ADT, Sum type - special case, where there are only named constructors without further payloads
+    */
   def `enum`(id: Identifier, cases: Seq[EnumConName]): Type
 
   //////////////////
@@ -112,8 +114,8 @@ trait SchemaVisitor {
 
   /** Type Variable.
     *
-    * Codecs might want to use `value` substitution, effectively replacing type variables with concrete types, while
-    * code generators might want to use type variable names.
+    * Codecs might want to use `value` substitution, effectively replacing type variables with
+    * concrete types, while code generators might want to use type variable names.
     */
   def variable(name: TypeVarName, value: Type): Type
 

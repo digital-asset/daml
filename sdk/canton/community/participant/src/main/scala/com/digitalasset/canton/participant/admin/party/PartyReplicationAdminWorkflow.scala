@@ -57,7 +57,8 @@ class PartyReplicationAdminWorkflow(
     with FlagCloseable
     with NamedLogging {
 
-  /** Have the target/current participant submit a Daml PartyReplication.ChannelProposal contract to agree on with the source participant.
+  /** Have the target/current participant submit a Daml PartyReplication.ChannelProposal contract to
+    * agree on with the source participant.
     */
   private[admin] def proposePartyReplication(
       partyId: PartyId,

@@ -42,12 +42,16 @@ sealed trait DeliverableSubmissionOutcome extends SubmissionOutcome {
 object SubmissionOutcome {
 
   /** The submission was successfully sequenced and should be delivered to the specified members.
-    * @param submission        The original submission request.
-    * @param sequencingTime    The time at which the submission was sequenced.
-    * @param deliverToMembers  The members to which the submission should be delivered,
-    *                          only needed before group addressing in DBS is finished.
-    * @param batch             The batch of envelopes to be delivered (may include aggregated signatures,
-    *                          prefer this to submissionRequest.batch).
+    * @param submission
+    *   The original submission request.
+    * @param sequencingTime
+    *   The time at which the submission was sequenced.
+    * @param deliverToMembers
+    *   The members to which the submission should be delivered, only needed before group addressing
+    *   in DBS is finished.
+    * @param batch
+    *   The batch of envelopes to be delivered (may include aggregated signatures, prefer this to
+    *   submissionRequest.batch).
     */
   final case class Deliver(
       override val submission: SubmissionRequest,
@@ -63,13 +67,17 @@ object SubmissionOutcome {
     ): DeliverableSubmissionOutcome = copy(trafficReceiptO = trafficReceiptO)
   }
 
-  /** Receipt, is sent to the sender of an aggregate submission still awaiting more votes.
-    * No messages are sent to the recipients.
-    * @param submission                 The original submission request.
-    * @param sequencingTime             The time at which the submission was sequenced.
-    * @param submissionTraceContext     The trace context of the submission.
-    * @param trafficReceiptO            The traffic receipt, `None` if traffic control is disabled or
-    *                                     if the sender is not rate limited (e.g. Sequencer).
+  /** Receipt, is sent to the sender of an aggregate submission still awaiting more votes. No
+    * messages are sent to the recipients.
+    * @param submission
+    *   The original submission request.
+    * @param sequencingTime
+    *   The time at which the submission was sequenced.
+    * @param submissionTraceContext
+    *   The trace context of the submission.
+    * @param trafficReceiptO
+    *   The traffic receipt, `None` if traffic control is disabled or if the sender is not rate
+    *   limited (e.g. Sequencer).
     */
   final case class DeliverReceipt(
       override val submission: SubmissionRequest,
@@ -85,7 +93,8 @@ object SubmissionOutcome {
     ): DeliverableSubmissionOutcome = copy(trafficReceiptO = trafficReceiptO)
   }
 
-  /** The submission was fully discarded, no error is delivered to sender, no messages are sent to the members.
+  /** The submission was fully discarded, no error is delivered to sender, no messages are sent to
+    * the members.
     */
   case object Discard extends SubmissionOutcome {
     override def updateTrafficReceipt(trafficReceiptO: Option[TrafficReceipt]): SubmissionOutcome =
@@ -94,12 +103,17 @@ object SubmissionOutcome {
 
   /** The submission was rejected and an error should be delivered to the sender.
     *
-    * @param submission               The original submission request.
-    * @param sequencingTime           The time at which the submission was sequenced.
-    * @param error                    The error status to be delivered to the sender.
-    * @param submissionTraceContext   The trace context of the submission.
-    * @param trafficReceiptO          The traffic receipt, `None` if traffic control is disabled or
-    *                                   if the sender is not rate limited (e.g. Sequencer).
+    * @param submission
+    *   The original submission request.
+    * @param sequencingTime
+    *   The time at which the submission was sequenced.
+    * @param error
+    *   The error status to be delivered to the sender.
+    * @param submissionTraceContext
+    *   The trace context of the submission.
+    * @param trafficReceiptO
+    *   The traffic receipt, `None` if traffic control is disabled or if the sender is not rate
+    *   limited (e.g. Sequencer).
     */
   final case class Reject(
       override val submission: SubmissionRequest,

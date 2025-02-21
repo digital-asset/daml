@@ -84,11 +84,11 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
 
   private[console] val tracer: Tracer = environment.tracerProvider.tracer
 
-  /** Definition of the startup order of local instances.
-    * Nodes support starting up in any order however to avoid delays/warnings we opt to start in the most desirable order
-    * for simple execution. (e.g. synchronizers started before participants).
-    * Implementations should just return a int for the instance (typically just a static value based on type),
-    * and then the console will start these instances for lower to higher values.
+  /** Definition of the startup order of local instances. Nodes support starting up in any order
+    * however to avoid delays/warnings we opt to start in the most desirable order for simple
+    * execution. (e.g. synchronizers started before participants). Implementations should just
+    * return a int for the instance (typically just a static value based on type), and then the
+    * console will start these instances for lower to higher values.
     */
   private def startupOrderPrecedence(instance: LocalInstanceReference): Int =
     instance match {
@@ -107,7 +107,8 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
       startupOrderPrecedence(x) compare startupOrderPrecedence(y)
 
   /** allows for injecting a custom admin command runner during tests
-    * @param apiName API name checked against and expected on the server-side
+    * @param apiName
+    *   API name checked against and expected on the server-side
     */
   protected def createAdminCommandRunner(
       consoleEnvironment: ConsoleEnvironment,
@@ -147,7 +148,8 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
 
   protected def timeouts: ProcessingTimeout = environment.config.parameters.timeouts.processing
 
-  /** @return maximum runtime of a console command
+  /** @return
+    *   maximum runtime of a console command
     */
   def commandTimeouts: ConsoleCommandTimeout = commandTimeoutReference.get()
 
@@ -171,7 +173,8 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
     }
   }
 
-  /** Holder for top level values including their name, their value, and a description to display when `help` is printed.
+  /** Holder for top level values including their name, their value, and a description to display
+    * when `help` is printed.
     */
   protected case class TopLevelValue[T: universe.TypeTag](
       nameUnsafe: String,
@@ -193,9 +196,10 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
 
   object TopLevelValue {
 
-    /** Provide all details but the value itself. A subsequent call can then specify the value from another location.
-      * This oddness is to allow the ConsoleEnvironment implementations to specify the values of node instances they
-      * use as scala's runtime reflection can't easily take advantage of the type members we have available here.
+    /** Provide all details but the value itself. A subsequent call can then specify the value from
+      * another location. This oddness is to allow the ConsoleEnvironment implementations to specify
+      * the values of node instances they use as scala's runtime reflection can't easily take
+      * advantage of the type members we have available here.
       */
     case class Partial(name: String, summary: String, topics: Seq[String] = Seq.empty) {
       def apply[T: universe.TypeTag](value: T): TopLevelValue[T] =
@@ -439,8 +443,8 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
       TopLevelValue("nodes", "All nodes" + genericNodeReferencesDoc, nodes, referencesTopic)
   }
 
-  /** Bindings for ammonite
-    * Add a reference to this instance to resolve implicit references within the console
+  /** Bindings for ammonite Add a reference to this instance to resolve implicit references within
+    * the console
     */
   lazy val bindings: Either[RuntimeException, IndexedSeq[Bind[_]]] = {
     import cats.syntax.traverse.*
@@ -566,7 +570,7 @@ object ConsoleEnvironment {
     ): SequencerConnections =
       SequencerConnections.single(ref.sequencerConnection)
 
-    implicit def toFingerprint(fp: String): Fingerprint = Fingerprint.tryCreate(fp)
+    implicit def toFingerprint(fp: String): Fingerprint = Fingerprint.tryFromString(fp)
 
     /** Implicitly map ParticipantReferences to the ParticipantId
       */
@@ -575,17 +579,20 @@ object ConsoleEnvironment {
       references.map(_.id)
 
     /** Implicitly map an `Int` to a `NonNegativeInt`.
-      * @throws java.lang.IllegalArgumentException if `n` is negative
+      * @throws java.lang.IllegalArgumentException
+      *   if `n` is negative
       */
     implicit def toNonNegativeInt(n: Int): NonNegativeInt = NonNegativeInt.tryCreate(n)
 
     /** Implicitly map an `Int` to a `PositiveInt`.
-      * @throws java.lang.IllegalArgumentException if `n` is not positive
+      * @throws java.lang.IllegalArgumentException
+      *   if `n` is not positive
       */
     implicit def toPositiveInt(n: Int): PositiveInt = PositiveInt.tryCreate(n)
 
     /** Implicitly map a Double to a `PositiveDouble`
-      * @throws java.lang.IllegalArgumentException if `n` is not positive
+      * @throws java.lang.IllegalArgumentException
+      *   if `n` is not positive
       */
     implicit def toPositiveDouble(n: Double): PositiveDouble = PositiveDouble.tryCreate(n)
 
@@ -595,13 +602,16 @@ object ConsoleEnvironment {
       SerializableContract.LedgerCreateTime(ts)
 
     /** Implicitly convert a duration to a [[com.digitalasset.canton.config.NonNegativeDuration]]
-      * @throws java.lang.IllegalArgumentException if `duration` is negative
+      * @throws java.lang.IllegalArgumentException
+      *   if `duration` is negative
       */
     implicit def durationToNonNegativeDuration(duration: SDuration): NonNegativeDuration =
       NonNegativeDuration.tryFromDuration(duration)
 
-    /** Implicitly convert a duration to a [[com.digitalasset.canton.config.NonNegativeFiniteDuration]]
-      * @throws java.lang.IllegalArgumentException if `duration` is negative or infinite
+    /** Implicitly convert a duration to a
+      * [[com.digitalasset.canton.config.NonNegativeFiniteDuration]]
+      * @throws java.lang.IllegalArgumentException
+      *   if `duration` is negative or infinite
       */
     implicit def durationToNonNegativeFiniteDuration(
         duration: SDuration
@@ -609,47 +619,64 @@ object ConsoleEnvironment {
       NonNegativeFiniteDuration.tryFromDuration(duration)
 
     /** Implicitly convert a duration to a [[com.digitalasset.canton.config.PositiveFiniteDuration]]
-      * @throws java.lang.IllegalArgumentException if `duration` is negative, zero, or infinite
+      * @throws java.lang.IllegalArgumentException
+      *   if `duration` is negative, zero, or infinite
       */
     implicit def durationToPositiveFiniteDuration(
         duration: SDuration
     ): PositiveFiniteDuration =
       PositiveFiniteDuration.tryFromDuration(duration)
 
-    /** Implicitly convert a duration to a [[com.digitalasset.canton.config.PositiveDurationSeconds]]
-      * @throws java.lang.IllegalArgumentException if `duration` is not positive or not rounded to the second.
+    /** Implicitly convert a duration to a
+      * [[com.digitalasset.canton.config.PositiveDurationSeconds]]
+      * @throws java.lang.IllegalArgumentException
+      *   if `duration` is not positive or not rounded to the second.
       */
     implicit def durationToPositiveDurationRoundedSeconds(
         duration: SDuration
     ): PositiveDurationSeconds =
       PositiveDurationSeconds.tryFromDuration(duration)
 
-    /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]] */
+    /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to
+      * [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]]
+      */
     implicit def toSynchronizerTopologyStoreId(
         synchronizerId: SynchronizerId
     ): TopologyStoreId.Synchronizer = TopologyStoreId.Synchronizer(synchronizerId)
 
-    /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to [[scala.Option]] of [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]] */
+    /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to [[scala.Option]]
+      * of [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]]
+      */
     implicit def synchronizerIdIsSomeTopologyStoreId(
         synchronizerId: SynchronizerId
     ): Option[TopologyStoreId.Synchronizer] =
       Some(TopologyStoreId.Synchronizer(synchronizerId))
 
-    /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to [[scala.Option]] of [[com.digitalasset.canton.topology.SynchronizerId]] */
+    /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to [[scala.Option]]
+      * of [[com.digitalasset.canton.topology.SynchronizerId]]
+      */
     implicit def synchronizerIdIsSome(synchronizerId: SynchronizerId): Option[SynchronizerId] =
       Some(synchronizerId)
 
-    /** Implicitly convert an [[scala.Option]] of [[com.digitalasset.canton.topology.SynchronizerId]] to [[scala.Option]] of [[com.digitalasset.canton.topology.SynchronizerId]] */
+    /** Implicitly convert an [[scala.Option]] of
+      * [[com.digitalasset.canton.topology.SynchronizerId]] to [[scala.Option]] of
+      * [[com.digitalasset.canton.topology.SynchronizerId]]
+      */
     implicit def optionSynchronizerIdIsOptionTopologyStoreId(
         synchronizerId: Option[SynchronizerId]
     ): Option[TopologyStoreId] =
       synchronizerId.map(TopologyStoreId.Synchronizer(_))
 
-    /** Implicitly convert a [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId]] to [[scala.Option]] of [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]] */
+    /** Implicitly convert a [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId]] to
+      * [[scala.Option]] of
+      * [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]]
+      */
     implicit def topologyStoreIdIsSome(topologyStoreId: TopologyStoreId): Option[TopologyStoreId] =
       Some(topologyStoreId)
 
-    /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to [[scala.collection.immutable.Set]] of [[com.digitalasset.canton.topology.SynchronizerId]] */
+    /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to
+      * [[scala.collection.immutable.Set]] of [[com.digitalasset.canton.topology.SynchronizerId]]
+      */
     implicit def synchronizerIdIsSet(synchronizerId: SynchronizerId): Set[SynchronizerId] = Set(
       synchronizerId
     )

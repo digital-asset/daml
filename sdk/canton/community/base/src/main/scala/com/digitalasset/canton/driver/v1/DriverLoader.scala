@@ -16,17 +16,26 @@ import scala.reflect.{ClassTag, classTag}
 
 object DriverLoader {
 
-  /** Loads a driver factory based on Java Service Providers and instantiates a driver with the factory.
+  /** Loads a driver factory based on Java Service Providers and instantiates a driver with the
+    * factory.
     *
-    * @param driverName The name of the driver to instantiate.
-    * @param driverApiVersion The version of the driver API.
-    * @param rawConfig The driver-specific raw configuration that will be passed into the driver.
-    * @param loggerFactory The logger factory that is used by the factory and driver to get loggers.
-    * @param executionContext The execution context to be used by the driver to schedule threads.
+    * @param driverName
+    *   The name of the driver to instantiate.
+    * @param driverApiVersion
+    *   The version of the driver API.
+    * @param rawConfig
+    *   The driver-specific raw configuration that will be passed into the driver.
+    * @param loggerFactory
+    *   The logger factory that is used by the factory and driver to get loggers.
+    * @param executionContext
+    *   The execution context to be used by the driver to schedule threads.
     *
-    * @tparam Factory A sub-type of a [[driver.api.DriverFactory]] for a particular driver kind and version.
-    * @tparam BaseFactory A sub-type of a [[driver.api.DriverFactory]] for a particular driver kind.
-    * @return Either the instantiated driver or an error.
+    * @tparam Factory
+    *   A sub-type of a [[driver.api.DriverFactory]] for a particular driver kind and version.
+    * @tparam BaseFactory
+    *   A sub-type of a [[driver.api.DriverFactory]] for a particular driver kind.
+    * @return
+    *   Either the instantiated driver or an error.
     */
   def load[Factory <: api.v1.DriverFactory: ClassTag, BaseFactory <: api.DriverFactory: ClassTag](
       driverName: String,
@@ -73,12 +82,16 @@ object DriverFactoryLoader {
       .asScala
       .toList
 
-  /** Load a [[driver.api.DriverFactory]] based on Java Service Providers, with the given driver name and version.
+  /** Load a [[driver.api.DriverFactory]] based on Java Service Providers, with the given driver
+    * name and version.
     *
-    * @param driverName The name of the driver that implements the particular driver factory.
+    * @param driverName
+    *   The name of the driver that implements the particular driver factory.
     *
-    * @tparam Factory A sub-type of a [[driver.api.DriverFactory]] for a particular driver kind.
-    * @return Either the matching factory or an error.
+    * @tparam Factory
+    *   A sub-type of a [[driver.api.DriverFactory]] for a particular driver kind.
+    * @return
+    *   Either the matching factory or an error.
     */
   def load[Factory <: api.v1.DriverFactory: ClassTag, BaseFactory <: api.DriverFactory: ClassTag](
       driverName: String

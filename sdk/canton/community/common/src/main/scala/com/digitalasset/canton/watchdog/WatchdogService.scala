@@ -17,10 +17,14 @@ import io.grpc.health.v1.HealthCheckResponse.ServingStatus
 
 import java.util.concurrent.{ScheduledFuture, TimeUnit}
 
-/** A watchdog service with it's own executor that checks if a node or service is alive and kills it if it is not.
-  * @param checkInterval Periodicity of the check
-  * @param checkIsAlive Function that checks if the service is alive, truthy means alive
-  * @param killAction Function to execute if the service is not alive
+/** A watchdog service with it's own executor that checks if a node or service is alive and kills it
+  * if it is not.
+  * @param checkInterval
+  *   Periodicity of the check
+  * @param checkIsAlive
+  *   Function that checks if the service is alive, truthy means alive
+  * @param killAction
+  *   Function to execute if the service is not alive
   */
 class WatchdogService(
     checkInterval: PositiveFiniteDuration,
@@ -75,8 +79,10 @@ class WatchdogService(
 object WatchdogService {
 
   /** Create a watchdog service that `sys.exit` when `healthService` returns `NOT_SERVING` status.
-    * @param checkInterval Periodicity of the check
-    * @param healthService Health service to check the status of
+    * @param checkInterval
+    *   Periodicity of the check
+    * @param healthService
+    *   Health service to check the status of
     * @return
     */
   def SysExitOnNotServing(

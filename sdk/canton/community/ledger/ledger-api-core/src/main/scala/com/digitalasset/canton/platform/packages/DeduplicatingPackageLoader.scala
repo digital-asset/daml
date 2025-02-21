@@ -14,8 +14,8 @@ import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
 
-/** Deduplicates package load requests, such that concurrent requests
-  * only access the data store and decode the package once.
+/** Deduplicates package load requests, such that concurrent requests only access the data store and
+  * decode the package once.
   */
 class DeduplicatingPackageLoader() {
   // Concurrent map of promises to request each package only once.

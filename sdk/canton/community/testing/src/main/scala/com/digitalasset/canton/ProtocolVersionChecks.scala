@@ -15,8 +15,7 @@ import org.scalatest.wordspec.{
 
 import scala.concurrent.Future
 
-/** Adds utilities for checking protocol versions in FixtureAnyWordSpec tests.
-  * For example:
+/** Adds utilities for checking protocol versions in FixtureAnyWordSpec tests. For example:
   * {{{
   * class MyTest extends EnterpriseIntegrationTest with ProtocolVersionChecksFixtureAnyWordSpec {
   *   "some feature" onlyRunWithOrGreaterThan ProtocolVersion.v4 in { implicit env =>
@@ -27,8 +26,8 @@ import scala.concurrent.Future
   * }
   * }}}
   *
-  * See [[com.digitalasset.canton.BaseTest.testedProtocolVersion]] on how to set the
-  * protocol version for tests at runtime.
+  * See [[com.digitalasset.canton.BaseTest.testedProtocolVersion]] on how to set the protocol
+  * version for tests at runtime.
   */
 trait ProtocolVersionChecksFixtureAnyWordSpec {
   this: TestEssentials & FixtureAnyWordSpecLike =>
@@ -102,8 +101,7 @@ trait ProtocolVersionChecksFixtureAnyWordSpec {
   }
 }
 
-/** Adds utilities for checking protocol versions in FixtureAsyncWordSpec tests.
-  * For example:
+/** Adds utilities for checking protocol versions in FixtureAsyncWordSpec tests. For example:
   * {{{
   * class MyTest extends FixtureAsyncWordSpec with ProtocolVersionChecksFixtureAsyncWordSpec {
   *   "some feature"  in { implicit env =>
@@ -114,8 +112,8 @@ trait ProtocolVersionChecksFixtureAnyWordSpec {
   * }
   * }}}
   *
-  * See [[com.digitalasset.canton.BaseTest.testedProtocolVersion]] on how to set the
-  * protocol version for tests at runtime.
+  * See [[com.digitalasset.canton.BaseTest.testedProtocolVersion]] on how to set the protocol
+  * version for tests at runtime.
   */
 trait ProtocolVersionChecksFixtureAsyncWordSpec {
   this: TestEssentials & FixtureAsyncWordSpecLike =>
@@ -174,8 +172,7 @@ trait ProtocolVersionChecksFixtureAsyncWordSpec {
   }
 }
 
-/** Adds utilities for checking protocol versions in AsyncWordSpec tests.
-  * For example:
+/** Adds utilities for checking protocol versions in AsyncWordSpec tests. For example:
   * {{{
   * class MyTest extends AsyncWordSpec with ProtocolVersionChecksAsyncWordSpec {
   *   "some feature"  in {
@@ -188,8 +185,8 @@ trait ProtocolVersionChecksFixtureAsyncWordSpec {
   * }
   * }}}
   *
-  * See [[com.digitalasset.canton.BaseTest.testedProtocolVersion]] on how to set the
-  * protocol version for tests at runtime.
+  * See [[com.digitalasset.canton.BaseTest.testedProtocolVersion]] on how to set the protocol
+  * version for tests at runtime.
   */
 trait ProtocolVersionChecksAsyncWordSpec {
   this: TestEssentials & AsyncWordSpecLike =>
@@ -225,8 +222,7 @@ trait ProtocolVersionChecksAsyncWordSpec {
   }
 }
 
-/** Adds utilities for checking protocol versions in AnyWordSpec tests.
-  * For example:
+/** Adds utilities for checking protocol versions in AnyWordSpec tests. For example:
   * {{{
   * class MyTest extends AnyWordSpec with ProtocolVersionChecksAnyWordSpec {
   *   "some feature"  in {
@@ -237,8 +233,8 @@ trait ProtocolVersionChecksAsyncWordSpec {
   * }
   * }}}
   *
-  * See [[com.digitalasset.canton.BaseTest.testedProtocolVersion]] on how to set the
-  * protocol version for tests at runtime.
+  * See [[com.digitalasset.canton.BaseTest.testedProtocolVersion]] on how to set the protocol
+  * version for tests at runtime.
   */
 trait ProtocolVersionChecksAnyWordSpec {
   this: TestEssentials & AnyWordSpecLike =>

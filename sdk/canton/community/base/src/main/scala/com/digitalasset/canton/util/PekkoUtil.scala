@@ -81,7 +81,8 @@ object PekkoUtil extends HasLoggerName {
 
   /** Utility function to run the graph supervised and stop on an unhandled exception.
     *
-    * By default, an Pekko flow will discard exceptions. Use this method to avoid discarding exceptions.
+    * By default, an Pekko flow will discard exceptions. Use this method to avoid discarding
+    * exceptions.
     */
   def runSupervised[MaterializedValueT](
       graph: RunnableGraph[MaterializedValueT],
@@ -130,7 +131,8 @@ object PekkoUtil extends HasLoggerName {
       config = Some(ConfigFactory.load),
     )
 
-  /** Create a new execution sequencer factory (mainly used to create a ledger client) with the existing actor system `actorSystem`
+  /** Create a new execution sequencer factory (mainly used to create a ledger client) with the
+    * existing actor system `actorSystem`
     */
   def createExecutionSequencerFactory(namePrefix: String, logger: Logger)(implicit
       actorSystem: ActorSystem
@@ -140,14 +142,14 @@ object PekkoUtil extends HasLoggerName {
       actorCount = Threading.detectNumberOfThreads(logger),
     )
 
-  /** Remembers the last `memory` many elements that have already been emitted previously.
-    * Passes those remembered elements downstream with each new element.
-    * The current element is the [[com.daml.nonempty.NonEmptyCollInstances.NEPreservingOps.last1]]
-    * of the sequence.
+  /** Remembers the last `memory` many elements that have already been emitted previously. Passes
+    * those remembered elements downstream with each new element. The current element is the
+    * [[com.daml.nonempty.NonEmptyCollInstances.NEPreservingOps.last1]] of the sequence.
     *
-    * [[remember]] differs from [[org.apache.pekko.stream.scaladsl.FlowOps.sliding]] in
-    * that [[remember]] emits elements immediately when the given source emits,
-    * whereas [[org.apache.pekko.stream.scaladsl.FlowOps.sliding]] only after the source has emitted enough elements to fill the window.
+    * [[remember]] differs from [[org.apache.pekko.stream.scaladsl.FlowOps.sliding]] in that
+    * [[remember]] emits elements immediately when the given source emits, whereas
+    * [[org.apache.pekko.stream.scaladsl.FlowOps.sliding]] only after the source has emitted enough
+    * elements to fill the window.
     */
   def remember[A, Mat](
       graph: FlowOps[A, Mat],
@@ -175,9 +177,12 @@ object PekkoUtil extends HasLoggerName {
       FutureUnlessShutdown.outcomeF(future)
     }
 
-  /** A version of [[org.apache.pekko.stream.scaladsl.FlowOps.mapAsync]] that additionally allows to pass state of type `S` between
-    * every subsequent element. Unlike [[org.apache.pekko.stream.scaladsl.FlowOps.statefulMapConcat]], the state is passed explicitly.
-    * Must not be run with supervision strategies [[org.apache.pekko.stream.Supervision.Restart]] nor [[org.apache.pekko.stream.Supervision.Resume]]
+  /** A version of [[org.apache.pekko.stream.scaladsl.FlowOps.mapAsync]] that additionally allows to
+    * pass state of type `S` between every subsequent element. Unlike
+    * [[org.apache.pekko.stream.scaladsl.FlowOps.statefulMapConcat]], the state is passed
+    * explicitly. Must not be run with supervision strategies
+    * [[org.apache.pekko.stream.Supervision.Restart]] nor
+    * [[org.apache.pekko.stream.Supervision.Resume]]
     */
   def statefulMapAsync[Out, Mat, S, T](graph: FlowOps[Out, Mat], initial: S)(
       f: (S, Out) => Future[(S, T)]
@@ -196,8 +201,9 @@ object PekkoUtil extends HasLoggerName {
       )
   }
 
-  /** See the scaladoc of [[mapAsyncUS]] for details. This is the actual implementation except it abstracts over
-    * the async method used, which allows it to be re-used for both mapAsyncUS and mapAsyncUnorderedUS
+  /** See the scaladoc of [[mapAsyncUS]] for details. This is the actual implementation except it
+    * abstracts over the async method used, which allows it to be re-used for both mapAsyncUS and
+    * mapAsyncUnorderedUS
     */
   private def _mapAsyncUS[A, Mat, B](graph: FlowOps[A, Mat], parallelism: Int)(
       asyncFn: (A => Future[UnlessShutdown[B]]) => graph.Repr[UnlessShutdown[B]]
@@ -237,46 +243,54 @@ object PekkoUtil extends HasLoggerName {
     }
   }
 
-  /** Version of [[org.apache.pekko.stream.scaladsl.FlowOps.mapAsync]] for a [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]].
-    * If `f` returns [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]] on one element of
-    * `source`, then the returned source returns [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]]
-    * for all subsequent elements as well.
+  /** Version of [[org.apache.pekko.stream.scaladsl.FlowOps.mapAsync]] for a
+    * [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]]. If `f` returns
+    * [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]] on one element of
+    * `source`, then the returned source returns
+    * [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]] for all subsequent
+    * elements as well.
     *
     * If `parallelism` is one, ensures that `f` is called sequentially for each element of `source`
     * and that `f` is not invoked on later stream elements if `f` returns
-    * [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]] for an earlier element.
-    * If `parellelism` is greater than one, `f` may be invoked on later stream elements
+    * [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]] for an earlier
+    * element. If `parellelism` is greater than one, `f` may be invoked on later stream elements
     * even though an earlier invocation results in `f` returning
     * [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]].
     *
-    * '''Emits when''' the Future returned by the provided function finishes for the next element in sequence
+    * '''Emits when''' the Future returned by the provided function finishes for the next element in
+    * sequence
     *
-    * '''Backpressures when''' the number of futures reaches the configured parallelism and the downstream
-    * backpressures or the first future is not completed
+    * '''Backpressures when''' the number of futures reaches the configured parallelism and the
+    * downstream backpressures or the first future is not completed
     *
-    * '''Completes when''' upstream completes and all futures have been completed and all elements have been emitted,
-    * including those for which the future did not run due to earlier [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]]s.
+    * '''Completes when''' upstream completes and all futures have been completed and all elements
+    * have been emitted, including those for which the future did not run due to earlier
+    * [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]]s.
     *
     * '''Cancels when''' downstream cancels
     *
-    * @param parallelism The parallelism level. Must be at least 1.
-    * @throws java.lang.IllegalArgumentException if `parallelism` is not positive.
+    * @param parallelism
+    *   The parallelism level. Must be at least 1.
+    * @throws java.lang.IllegalArgumentException
+    *   if `parallelism` is not positive.
     */
   def mapAsyncUS[A, Mat, B](graph: FlowOps[A, Mat], parallelism: Int)(
       f: A => FutureUnlessShutdown[B]
   )(implicit loggingContext: NamedLoggingContext): graph.Repr[UnlessShutdown[B]] =
     _mapAsyncUS[A, Mat, B](graph, parallelism)(graph.mapAsync(parallelism))(f)
 
-  /** Same as [[mapAsyncUS]] except it uses mapAsyncUnordered as the underlying async method. Therefore the
-    * elements emitted may come out of order. See [[org.apache.pekko.stream.scaladsl.Flow.mapAsyncUnordered]] for more details.
+  /** Same as [[mapAsyncUS]] except it uses mapAsyncUnordered as the underlying async method.
+    * Therefore the elements emitted may come out of order. See
+    * [[org.apache.pekko.stream.scaladsl.Flow.mapAsyncUnordered]] for more details.
     */
   def mapAsyncUnorderedUS[A, Mat, B](graph: FlowOps[A, Mat], parallelism: Int)(
       f: A => FutureUnlessShutdown[B]
   )(implicit loggingContext: NamedLoggingContext): graph.Repr[UnlessShutdown[B]] =
     _mapAsyncUS[A, Mat, B](graph, parallelism)(graph.mapAsyncUnordered(parallelism))(f)
 
-  /** Same as [[mapAsyncAndDrainUS]] except it uses mapAsyncUnordered as the underlying async method. Therefore the
-    * elements emitted may come out of order. See [[org.apache.pekko.stream.scaladsl.Flow.mapAsyncUnordered]] for more details.
+  /** Same as [[mapAsyncAndDrainUS]] except it uses mapAsyncUnordered as the underlying async
+    * method. Therefore the elements emitted may come out of order. See
+    * [[org.apache.pekko.stream.scaladsl.Flow.mapAsyncUnordered]] for more details.
     */
   def mapAsyncUnorderedAndDrainUS[A, Mat, B](graph: FlowOps[A, Mat], parallelism: Int)(
       f: A => FutureUnlessShutdown[B]
@@ -287,9 +301,11 @@ object PekkoUtil extends HasLoggerName {
       // TODO(#13789) Should we cancel/pull a kill switch to signal upstream that no more elements are needed?
       .collect { case Outcome(x) => x }
 
-  /** Version of [[mapAsyncUS]] that discards the [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]]s.
+  /** Version of [[mapAsyncUS]] that discards the
+    * [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]]s.
     *
-    * '''Completes when''' upstream completes and all futures have been completed and all elements have been emitted.
+    * '''Completes when''' upstream completes and all futures have been completed and all elements
+    * have been emitted.
     */
   def mapAsyncAndDrainUS[A, Mat, B](graph: FlowOps[A, Mat], parallelism: Int)(
       f: A => FutureUnlessShutdown[B]
@@ -371,19 +387,23 @@ object PekkoUtil extends HasLoggerName {
     }
   }
 
-  /** Defines the policy when [[restartSource]] should restart the source, and the state from which the source should be restarted from. */
+  /** Defines the policy when [[restartSource]] should restart the source, and the state from which
+    * the source should be restarted from.
+    */
   trait RetrySourcePolicy[S, -A] {
 
-    /** Determines whether the source should be restarted, and if so (([[scala.Some$]])),
-      * the backoff duration and the new state to restart from.
-      * Called after the current source has terminated normally or with an error.
+    /** Determines whether the source should be restarted, and if so (([[scala.Some$]])), the
+      * backoff duration and the new state to restart from. Called after the current source has
+      * terminated normally or with an error.
       *
-      * @param lastState The state that was used to create the current source
-      * @param lastEmittedElement The last element emitted by the current source and passed downstream.
-      *                           Downstream obviously need not yet have fully processed the element though.
-      *                           [[scala.None$]] if the current source did not emit anything,
-      *                           even if previous sources have emitted elements.
-      * @param lastFailure The error the current source failed with, if any.
+      * @param lastState
+      *   The state that was used to create the current source
+      * @param lastEmittedElement
+      *   The last element emitted by the current source and passed downstream. Downstream obviously
+      *   need not yet have fully processed the element though. [[scala.None$]] if the current
+      *   source did not emit anything, even if previous sources have emitted elements.
+      * @param lastFailure
+      *   The error the current source failed with, if any.
       */
     def shouldRetry(
         lastState: S,
@@ -404,24 +424,25 @@ object PekkoUtil extends HasLoggerName {
     def never[S, A]: RetrySourcePolicy[S, A] = NEVER.asInstanceOf[RetrySourcePolicy[S, A]]
   }
 
-  /** Creates a source from `mkSource` from the `initial` state.
-    * Whenever this source terminates, `policy` determines whether another source shall be constructed (after a given delay) from a possibly new state.
-    * The returned source concatenates the output of all the constructed sources in order.
-    * At most one constructed source is active at any given point in time.
+  /** Creates a source from `mkSource` from the `initial` state. Whenever this source terminates,
+    * `policy` determines whether another source shall be constructed (after a given delay) from a
+    * possibly new state. The returned source concatenates the output of all the constructed sources
+    * in order. At most one constructed source is active at any given point in time.
     *
     * Failures in the constructed sources are passed to the `policy`, but do not make it downstream.
     * The `policy` is responsible for properly logging these errors if necessary.
     *
-    * @return The concatenation of all constructed sources.
-    *         This source is NOT a blueprint and MUST therefore be materialized at most once.
-    *         Its materialized value provides a kill switch to stop retrying.
-    *         Only the [[org.apache.pekko.stream.KillSwitch.shutdown]] method should be used;
-    *         The switch does not short-circuit the already constructed sources though.
-    *         synchronization may not work correctly with [[org.apache.pekko.stream.KillSwitch.abort]].
-    *         Downstream should not cancel; use the kill switch instead.
+    * @return
+    *   The concatenation of all constructed sources. This source is NOT a blueprint and MUST
+    *   therefore be materialized at most once. Its materialized value provides a kill switch to
+    *   stop retrying. Only the [[org.apache.pekko.stream.KillSwitch.shutdown]] method should be
+    *   used; The switch does not short-circuit the already constructed sources though.
+    *   synchronization may not work correctly with [[org.apache.pekko.stream.KillSwitch.abort]].
+    *   Downstream should not cancel; use the kill switch instead.
     *
-    *         The materialized [[scala.concurrent.Future]] can be used to synchronize on the computations for restarts:
-    *         if the source is stopped with the kill switch, the future completes after the computations have finished.
+    * The materialized [[scala.concurrent.Future]] can be used to synchronize on the computations
+    * for restarts: if the source is stopped with the kill switch, the future completes after the
+    * computations have finished.
     */
   def restartSource[S: Pretty, A](
       name: String,
@@ -451,7 +472,8 @@ object PekkoUtil extends HasLoggerName {
 
       /** Register a function to be executed when the kill switch is pulled.
         *
-        * @return A handle with which the function can be removed again using [[removeOnClose]].
+        * @return
+        *   A handle with which the function can be removed again using [[removeOnClose]].
         */
       def runOnClose(f: () => Unit): Handle
       def removeOnClose(handle: Handle): Unit
@@ -652,8 +674,8 @@ object PekkoUtil extends HasLoggerName {
       }
       .map { case (a, ref) => WithKillSwitch(a)(ref.get()) }
 
-  /** Drops the first `count` many elements from the `graph` that satisfy the `condition`.
-    * Keeps all elements that do not satisfy the `condition`.
+  /** Drops the first `count` many elements from the `graph` that satisfy the `condition`. Keeps all
+    * elements that do not satisfy the `condition`.
     */
   def dropIf[A, Mat](graph: FlowOps[A, Mat], count: Int, condition: A => Boolean): graph.Repr[A] =
     graph.statefulMapConcat { () =>
@@ -712,17 +734,17 @@ object PekkoUtil extends HasLoggerName {
       new LoggingInHandler(delegate, logger, name)
   }
 
-  /** Pekko by default swallows exceptions thrown in async callbacks.
-    * This wrapper makes sure that they are logged.
+  /** Pekko by default swallows exceptions thrown in async callbacks. This wrapper makes sure that
+    * they are logged.
     */
   def loggingAsyncCallback[A](logger: Logger, name: String)(asyncCallback: A => Unit): A => Unit =
     x => logOnThrow(logger, name)(asyncCallback(x))
 
   /** Creates a value upon materialization that is added to every element of the stream.
     *
-    * WARNING: This flow breaks the synchronization abstraction of Pekko streams,
-    * as the created value is accessible from within the stream and from the outside through the materialized value.
-    * Users of this flow must make sure that accessing the value is thread-safe!
+    * WARNING: This flow breaks the synchronization abstraction of Pekko streams, as the created
+    * value is accessible from within the stream and from the outside through the materialized
+    * value. Users of this flow must make sure that accessing the value is thread-safe!
     */
   private class WithMaterializedValue[M, A](create: () => M)
       extends GraphStageWithMaterializedValue[FlowShape[A, (A, M)], M] {
@@ -747,11 +769,12 @@ object PekkoUtil extends HasLoggerName {
     }
   }
 
-  /** Container class for adding a [[org.apache.pekko.stream.KillSwitch]] to a single value.
-    * Two containers are equal if their contained values are equal.
+  /** Container class for adding a [[org.apache.pekko.stream.KillSwitch]] to a single value. Two
+    * containers are equal if their contained values are equal.
     *
-    * (Equality ignores the [[org.apache.pekko.stream.KillSwitch]]es because it is usually not very meaningful.
-    * The [[org.apache.pekko.stream.KillSwitch]] is therefore in the second argument list.)
+    * (Equality ignores the [[org.apache.pekko.stream.KillSwitch]]es because it is usually not very
+    * meaningful. The [[org.apache.pekko.stream.KillSwitch]] is therefore in the second argument
+    * list.)
     */
   final case class WithKillSwitch[+A](override val value: A)(val killSwitch: KillSwitch)
       extends WithGeneric[A, KillSwitch, WithKillSwitch] {
@@ -764,8 +787,9 @@ object PekkoUtil extends HasLoggerName {
       singletonTraverseWithGeneric[KillSwitch, WithKillSwitch]
   }
 
-  /** Passes through all elements of the source until and including the first element that satisfies the condition.
-    * Thereafter pulls the kill switch of the first such element and drops all remaining elements of the source.
+  /** Passes through all elements of the source until and including the first element that satisfies
+    * the condition. Thereafter pulls the kill switch of the first such element and drops all
+    * remaining elements of the source.
     *
     * '''Emits when''' upstream emits and all previously emitted elements do not meet the condition.
     *
@@ -799,11 +823,11 @@ object PekkoUtil extends HasLoggerName {
     override def abort(ex: Throwable): Unit = ()
   }
 
-  /** Delegates to a future [[org.apache.pekko.stream.KillSwitch]] once the kill switch becomes available.
-    * If both [[com.digitalasset.canton.util.PekkoUtil.DelayedKillSwitch.shutdown]] and
+  /** Delegates to a future [[org.apache.pekko.stream.KillSwitch]] once the kill switch becomes
+    * available. If both [[com.digitalasset.canton.util.PekkoUtil.DelayedKillSwitch.shutdown]] and
     * [[com.digitalasset.canton.util.PekkoUtil.DelayedKillSwitch.abort]] are called or
-    * [[com.digitalasset.canton.util.PekkoUtil.DelayedKillSwitch.abort]] is called multiple times before the delegate
-    * is available, then the winning call is non-deterministic.
+    * [[com.digitalasset.canton.util.PekkoUtil.DelayedKillSwitch.abort]] is called multiple times
+    * before the delegate is available, then the winning call is non-deterministic.
     */
   class DelayedKillSwitch(delegate: Future[KillSwitch], logger: Logger) extends KillSwitch {
     private implicit val directExecutionContext: ExecutionContext = DirectExecutionContext(logger)
@@ -815,14 +839,17 @@ object PekkoUtil extends HasLoggerName {
 
   object syntax {
 
-    /** Defines extension methods for [[org.apache.pekko.stream.scaladsl.FlowOpsMat]] that map to the methods defined in this class.
+    /** Defines extension methods for [[org.apache.pekko.stream.scaladsl.FlowOpsMat]] that map to
+      * the methods defined in this class.
       *
-      * The construction with type parameter `U` follows
-      * <a href="https://typelevel.org/blog/2017/03/01/four-ways-to-escape-a-cake.html">Stephen's blog post about relatable variables</a>
-      * to ensure that we can uniformly abstract over [[org.apache.pekko.stream.scaladsl.Source]]s and [[org.apache.pekko.stream.scaladsl.Flow]]s.
-      * In particular, we cannot use an implicit class here. Unlike in the blog post, the implicit conversion [[pekkoUtilSyntaxForFlowOps]]
-      * does not extract [[org.apache.pekko.stream.scaladsl.FlowOpsMat]] into a separate type parameter because this would confuse
-      * type inference.
+      * The construction with type parameter `U` follows <a
+      * href="https://typelevel.org/blog/2017/03/01/four-ways-to-escape-a-cake.html">Stephen's blog
+      * post about relatable variables</a> to ensure that we can uniformly abstract over
+      * [[org.apache.pekko.stream.scaladsl.Source]]s and [[org.apache.pekko.stream.scaladsl.Flow]]s.
+      * In particular, we cannot use an implicit class here. Unlike in the blog post, the implicit
+      * conversion [[pekkoUtilSyntaxForFlowOps]] does not extract
+      * [[org.apache.pekko.stream.scaladsl.FlowOpsMat]] into a separate type parameter because this
+      * would confuse type inference.
       */
     private[util] class PekkoUtilSyntaxForFlowOps[A, Mat, U <: FlowOps[A, Mat]](
         private val graph: U
@@ -886,8 +913,10 @@ object PekkoUtil extends HasLoggerName {
     ): PekkoUtilSyntaxForFlowOps[B, Mat, graph.type] =
       new PekkoUtilSyntaxForFlowOps(graph)
 
-    /** Defines extension methods for [[org.apache.pekko.stream.scaladsl.FlowOps]] with a [[org.apache.pekko.stream.KillSwitch]].
-      * @see PekkoUtilSyntaxForFlowOps for an explanation of the type parameter U
+    /** Defines extension methods for [[org.apache.pekko.stream.scaladsl.FlowOps]] with a
+      * [[org.apache.pekko.stream.KillSwitch]].
+      * @see
+      *   PekkoUtilSyntaxForFlowOps for an explanation of the type parameter U
       */
     private[util] class PekkoUtilSyntaxForFLowOpsWithKillSwitch[
         A,
@@ -909,8 +938,10 @@ object PekkoUtil extends HasLoggerName {
     ): PekkoUtilSyntaxForFLowOpsWithKillSwitch[B, Mat, graph.type] =
       new PekkoUtilSyntaxForFLowOpsWithKillSwitch(graph)
 
-    /** Defines extension methods for [[org.apache.pekko.stream.scaladsl.FlowOpsMat]] that map to the methods defined in this class.
-      * @see PekkoUtilSyntaxForFlowOps for an explanation of the type parameter U
+    /** Defines extension methods for [[org.apache.pekko.stream.scaladsl.FlowOpsMat]] that map to
+      * the methods defined in this class.
+      * @see
+      *   PekkoUtilSyntaxForFlowOps for an explanation of the type parameter U
       */
     private[util] class PekkoUtilSyntaxForFlowOpsMat[A, Mat, U <: FlowOpsMat[A, Mat]](
         private val graph: U
@@ -939,8 +970,8 @@ object PekkoUtil extends HasLoggerName {
     ): PekkoUtilSyntaxForFlowOpsMat[B, Mat, graph.type] =
       new PekkoUtilSyntaxForFlowOpsMat(graph)
 
-    /** Extension method to contextualize a source over a single type constructor.
-      * For complex type expressions, use [[ContextualizedFlowOps.contextualize]] with an explicit type argument.
+    /** Extension method to contextualize a source over a single type constructor. For complex type
+      * expressions, use [[ContextualizedFlowOps.contextualize]] with an explicit type argument.
       */
     implicit class PekkoUtilSyntaxContextualizeSource[Context[+_], A, Mat](
         private val source: Source[Context[A], Mat]
@@ -949,8 +980,8 @@ object PekkoUtil extends HasLoggerName {
         ContextualizedFlowOps.contextualize[Context](source)
     }
 
-    /** Extension method to contextualize a flow over a single type constructor.
-      * For complex type expressions, use [[ContextualizedFlowOps.contextualize]] with an explicit type argument.
+    /** Extension method to contextualize a flow over a single type constructor. For complex type
+      * expressions, use [[ContextualizedFlowOps.contextualize]] with an explicit type argument.
       */
     implicit class PekkoUtilSyntaxContextualizeFlow[Context[+_], A, B, Mat](
         private val flow: Flow[A, Context[B], Mat]
@@ -1075,17 +1106,17 @@ object PekkoUtil extends HasLoggerName {
       */
     def shutdown(): Unit
 
-    /** @return successfully after shutdown, or with a failure after aborted internally
+    /** @return
+      *   successfully after shutdown, or with a failure after aborted internally
       */
     def done: Future[Done]
   }
 
   trait FutureQueue[T] extends CompletingAndShutdownable {
 
-    /** Adding elements to the queue.
-      * The backpressure is implemented with the future result.
-      * An implementation may limit how many parallel unfinished futures can be outstanding at
-      * any point in time.
+    /** Adding elements to the queue. The backpressure is implemented with the future result. An
+      * implementation may limit how many parallel unfinished futures can be outstanding at any
+      * point in time.
       */
     def offer(elem: T): Future[Done]
   }
@@ -1099,14 +1130,14 @@ object PekkoUtil extends HasLoggerName {
       fromExclusive: Long,
   )
 
-  /** RecoveringFutureQueue governs the life cycle of a FutureQueue, which is created asynchronously,
-    * can be initialized and started again after a failure and operates on elements that
-    * define a monotonically increasing index.
-    * As part of the recovery process, the implementation keeps track of already offered elements,
-    * and based on the provided fromExclusive index, replays the missing elements.
-    * The FutureQueue needs to make sure with help of the Commit, that up to the INDEX, the elements are fully
-    * processed. This needs to be done as soon as possible, because this allows to "forget" about the offered elements
-    * in the RecoveringFutureQueue implementation.
+  /** RecoveringFutureQueue governs the life cycle of a FutureQueue, which is created
+    * asynchronously, can be initialized and started again after a failure and operates on elements
+    * that define a monotonically increasing index. As part of the recovery process, the
+    * implementation keeps track of already offered elements, and based on the provided
+    * fromExclusive index, replays the missing elements. The FutureQueue needs to make sure with
+    * help of the Commit, that up to the INDEX, the elements are fully processed. This needs to be
+    * done as soon as possible, because this allows to "forget" about the offered elements in the
+    * RecoveringFutureQueue implementation.
     */
   trait RecoveringFutureQueue[T] extends FutureQueue[T] {
     def firstSuccessfulConsumerInitialization: Future[Unit]

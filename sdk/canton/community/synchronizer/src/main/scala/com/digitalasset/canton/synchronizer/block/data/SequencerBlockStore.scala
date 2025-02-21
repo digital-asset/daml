@@ -31,9 +31,9 @@ trait SequencerBlockStore extends AutoCloseable {
 
   protected def executionContext: ExecutionContext
 
-  /** Set initial state of the sequencer node from which it supports serving requests.
-    * This should be called at most once. If not called, it means this sequencer node can
-    * server requests from genesis.
+  /** Set initial state of the sequencer node from which it supports serving requests. This should
+    * be called at most once. If not called, it means this sequencer node can server requests from
+    * genesis.
     */
   def setInitialState(
       initial: SequencerInitialState,
@@ -42,16 +42,16 @@ trait SequencerBlockStore extends AutoCloseable {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
-  /** The current state of the sequencer, which can be used when the node is restarted to deterministically
-    * derive the following counters and timestamps.
+  /** The current state of the sequencer, which can be used when the node is restarted to
+    * deterministically derive the following counters and timestamps.
     *
     * The state excludes updates of unfinalized blocks added with [[partialBlockUpdate]].
     */
   def readHead(implicit traceContext: TraceContext): FutureUnlessShutdown[BlockEphemeralState]
 
-  /** The state at the end of the block that contains the given timestamp. This will typically be used to inform
-    * other sequencer nodes being initialized of the initial state they should use based on the timestamp they provide
-    * which is typically the timestamp of their signing key.
+  /** The state at the end of the block that contains the given timestamp. This will typically be
+    * used to inform other sequencer nodes being initialized of the initial state they should use
+    * based on the timestamp they provide which is typically the timestamp of their signing key.
     */
   def readStateForBlockContainingTimestamp(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -61,11 +61,9 @@ trait SequencerBlockStore extends AutoCloseable {
       traceContext: TraceContext
   ): FutureUnlessShutdown[String]
 
-  /** Stores some updates that happen in a single block.
-    * May be called several times for the same block
-    * and the same update may be contained in several of the calls.
-    * Before adding updates of a subsequent block, [[finalizeBlockUpdate]] must be called to wrap up
-    * the current block.
+  /** Stores some updates that happen in a single block. May be called several times for the same
+    * block and the same update may be contained in several of the calls. Before adding updates of a
+    * subsequent block, [[finalizeBlockUpdate]] must be called to wrap up the current block.
     *
     * This method must not be called concurrently with itself or [[finalizeBlockUpdate]].
     */
@@ -73,14 +71,15 @@ trait SequencerBlockStore extends AutoCloseable {
       inFlightAggregationUpdates: InFlightAggregationUpdates
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
-  /** Finalizes the current block whose updates have been added in the calls to [[partialBlockUpdate]]
-    * since the last call to [[finalizeBlockUpdate]].
+  /** Finalizes the current block whose updates have been added in the calls to
+    * [[partialBlockUpdate]] since the last call to [[finalizeBlockUpdate]].
     *
-    * This method must not be called concurrently with itself or [[partialBlockUpdate]],
-    * and must be called for the blocks in monotonically increasing order of height.
+    * This method must not be called concurrently with itself or [[partialBlockUpdate]], and must be
+    * called for the blocks in monotonically increasing order of height.
     *
-    * @param block The block information about the current block.
-    *              It is the responsibility of the caller to ensure that the height increases monotonically by one
+    * @param block
+    *   The block information about the current block. It is the responsibility of the caller to
+    *   ensure that the height increases monotonically by one
     */
   def finalizeBlockUpdate(block: BlockInfo)(implicit
       traceContext: TraceContext

@@ -51,16 +51,18 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.jdk.DurationConverters.*
 import scala.util.chaining.*
 
-/** Replays previously recorded sends against the configured sequencer and using a real sequencer client transport.
-  * Records the latencies/rates to complete the send itself, and latencies/rates for an event that was caused by the send to be witnessed.
-  * These metrics are currently printed to stdout.
-  * Sequencers are able to drop sends so to know when all sends have likely been sequenced we simply wait for a period
-  * where no events are received for a configurable duration. This isn't perfect as technically a sequencer could stall,
-  * however the inflight gauge will report a number greater than 0 indicating that these sends have gone missing.
-  * Clients are responsible for interacting with the transport to initiate a replay and wait for observed events to
-  * be idle. A reference can be obtained to this transport component by waiting on the future provided in [[ReplayAction.SequencerSends]].
-  * This testing transport is very stateful and the metrics will only make sense for a single replay,
-  * however currently multiple or even concurrent calls are not prevented (just don't).
+/** Replays previously recorded sends against the configured sequencer and using a real sequencer
+  * client transport. Records the latencies/rates to complete the send itself, and latencies/rates
+  * for an event that was caused by the send to be witnessed. These metrics are currently printed to
+  * stdout. Sequencers are able to drop sends so to know when all sends have likely been sequenced
+  * we simply wait for a period where no events are received for a configurable duration. This isn't
+  * perfect as technically a sequencer could stall, however the inflight gauge will report a number
+  * greater than 0 indicating that these sends have gone missing. Clients are responsible for
+  * interacting with the transport to initiate a replay and wait for observed events to be idle. A
+  * reference can be obtained to this transport component by waiting on the future provided in
+  * [[ReplayAction.SequencerSends]]. This testing transport is very stateful and the metrics will
+  * only make sense for a single replay, however currently multiple or even concurrent calls are not
+  * prevented (just don't).
   */
 trait ReplayingSendsSequencerClientTransport extends SequencerClientTransportCommon {
   import ReplayingSendsSequencerClientTransport.*
@@ -71,7 +73,9 @@ trait ReplayingSendsSequencerClientTransport extends SequencerClientTransportCom
       startFromCounter: SequencerCounter = SequencerCounter.Genesis,
   ): Future[EventsReceivedReport]
 
-  /** Dump the submission related metrics into a string for periodic reporting during the replay test */
+  /** Dump the submission related metrics into a string for periodic reporting during the replay
+    * test
+    */
   def metricReport(snapshot: Seq[MetricData]): String
 }
 
@@ -255,7 +259,9 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     }
   }
 
-  /** Dump the submission related metrics into a string for periodic reporting during the replay test */
+  /** Dump the submission related metrics into a string for periodic reporting during the replay
+    * test
+    */
   override def metricReport(snapshot: Seq[MetricData]): String = {
     val metricName = metrics.submissions.prefix.toString()
     val out = snapshot.flatMap {
@@ -270,9 +276,9 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
       handler: SerializedEventHandler[NotUsed],
   ): AutoCloseable
 
-  /** Monitor that when created subscribes the underlying transports and waits for Deliver or DeliverError events
-    * to stop being observed for the given [[idlenessDuration]] (suggesting that there are no more events being
-    * produced for the member).
+  /** Monitor that when created subscribes the underlying transports and waits for Deliver or
+    * DeliverError events to stop being observed for the given [[idlenessDuration]] (suggesting that
+    * there are no more events being produced for the member).
     */
   private class SimpleIdlenessMonitor(
       readFrom: SequencerCounter,

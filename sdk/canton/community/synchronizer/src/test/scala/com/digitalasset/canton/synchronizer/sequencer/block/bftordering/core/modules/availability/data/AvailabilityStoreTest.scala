@@ -28,11 +28,11 @@ trait AvailabilityStoreTest extends AsyncWordSpec with BftSequencerBaseTest {
     OrderingRequest("tag", ByteString.copyFromUtf8("payload3"))
   )
 
-  private val batch1 = OrderingRequestBatch(Seq(request1, request3))
+  private val batch1 = OrderingRequestBatch.create(Seq(request1, request3))
   private val batch1Id = BatchId.from(batch1)
-  private val batch2 = OrderingRequestBatch(Seq(request2, request3))
+  private val batch2 = OrderingRequestBatch.create(Seq(request2, request3))
   private val batch2Id = BatchId.from(batch2)
-  private val batchEmpty = OrderingRequestBatch(Seq())
+  private val batchEmpty = OrderingRequestBatch.create(Seq())
   private val batchEmptyId = BatchId.from(batchEmpty)
 
   private val missingBatchId1 = BatchId.createForTesting("A missing batchId")

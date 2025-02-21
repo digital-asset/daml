@@ -211,7 +211,7 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
       assertLogs(
         context.runPipedMessages() shouldBe List(),
-        logMessage => logMessage.level shouldBe Level.WARN,
+        logMessage => logMessage.level shouldBe Level.INFO,
       )
     }
 

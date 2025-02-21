@@ -35,9 +35,8 @@ object SeedService {
       case Seeding.Static => staticRandom("static random seed service")
     }
 
-  /** Pseudo random generator seeded with high entropy seed.
-    * May block while gathering entropy from the underlying operating system
-    * Thread safe.
+  /** Pseudo random generator seeded with high entropy seed. May block while gathering entropy from
+    * the underlying operating system Thread safe.
     */
   // lazy to avoid gathering unnecessary entropy.
   lazy val StrongRandom: SeedService = {
@@ -62,9 +61,8 @@ object SeedService {
     new SeedService(crypto.Hash.assertFromByteArray(seed))
   }
 
-  /** Pseudo random generator seeded with a possibly low entropy seed.
-    * Do not block. Thread safe.
-    * Do not use in production mode.
+  /** Pseudo random generator seeded with a possibly low entropy seed. Do not block. Thread safe. Do
+    * not use in production mode.
     */
   lazy val WeakRandom: SeedService = {
     val seed = new Array[Byte](crypto.Hash.underlyingHashLength)
@@ -73,9 +71,8 @@ object SeedService {
     new SeedService(crypto.Hash.assertFromByteArray(seed))
   }
 
-  /** Pseudo random generator seeded with a given seed.
-    * Do not block. Thread safe.
-    * Can be use to get reproducible run. Do not use in production mode.
+  /** Pseudo random generator seeded with a given seed. Do not block. Thread safe. Can be use to get
+    * reproducible run. Do not use in production mode.
     */
   def staticRandom(seed: String) = new SeedService(crypto.Hash.hashPrivateKey(seed))
 

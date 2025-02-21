@@ -45,20 +45,27 @@ final case class QueryValidRangeImpl(
 
   /** Runs a query and throws an error if the query accesses an invalid offset range.
     *
-    * @param query              query to execute
-    * @param minOffsetInclusive minimum, inclusive offset used by the query (i.e. all fetched offsets are larger or equal)
-    * @param maxOffsetInclusive maximum, inclusive offset used by the query (i.e. all fetched offsets are before or equal)
-    * @param errorPruning       function that generates a context-specific error parameterized by participant pruning offset
-    * @param errorLedgerEnd     function that generates a context-specific error parameterized by ledger end offset
-    * @tparam T type of result passed through
-    * @return either an Error if offset range violates conditions or query result
+    * @param query
+    *   query to execute
+    * @param minOffsetInclusive
+    *   minimum, inclusive offset used by the query (i.e. all fetched offsets are larger or equal)
+    * @param maxOffsetInclusive
+    *   maximum, inclusive offset used by the query (i.e. all fetched offsets are before or equal)
+    * @param errorPruning
+    *   function that generates a context-specific error parameterized by participant pruning offset
+    * @param errorLedgerEnd
+    *   function that generates a context-specific error parameterized by ledger end offset
+    * @tparam T
+    *   type of result passed through
+    * @return
+    *   either an Error if offset range violates conditions or query result
     *
-    * Note in order to prevent race condition on connections at READ_COMMITTED isolation levels
-    * (in fact any level below SNAPSHOT isolation level), this check must be performed after
-    * fetching the corresponding range of data. This way we avoid a race between pruning and
-    * the query reading the offsets in which offsets are "silently skipped". First fetching
-    * the objects and only afterwards checking that no pruning operation has interfered, avoids
-    * such a race condition.
+    * Note in order to prevent race condition on connections at READ_COMMITTED isolation levels (in
+    * fact any level below SNAPSHOT isolation level), this check must be performed after fetching
+    * the corresponding range of data. This way we avoid a race between pruning and the query
+    * reading the offsets in which offsets are "silently skipped". First fetching the objects and
+    * only afterwards checking that no pruning operation has interfered, avoids such a race
+    * condition.
     */
   override def withRangeNotPruned[T](
       minOffsetInclusive: Offset,

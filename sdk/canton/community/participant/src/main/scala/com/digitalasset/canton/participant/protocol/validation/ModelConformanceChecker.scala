@@ -58,11 +58,13 @@ import com.digitalasset.daml.lf.transaction.FatContractInstance
 import java.util.UUID
 import scala.concurrent.ExecutionContext
 
-/** Allows for checking model conformance of a list of transaction view trees.
-  * If successful, outputs the received transaction as LfVersionedTransaction along with TransactionMetadata.
+/** Allows for checking model conformance of a list of transaction view trees. If successful,
+  * outputs the received transaction as LfVersionedTransaction along with TransactionMetadata.
   *
-  * @param reinterpreter reinterprets the lf command to a transaction.
-  * @param transactionTreeFactory reconstructs a transaction view from the reinterpreted action description.
+  * @param reinterpreter
+  *   reinterprets the lf command to a transaction.
+  * @param transactionTreeFactory
+  *   reconstructs a transaction view from the reinterpreted action description.
   */
 class ModelConformanceChecker(
     val reinterpreter: HasReinterpret,
@@ -77,11 +79,15 @@ class ModelConformanceChecker(
 
   /** Reinterprets the transaction resulting from the received transaction view trees.
     *
-    * @param rootViewTrees all received transaction view trees contained in a confirmation request that
-    *                      have the same transaction id and represent a top-most view
-    * @param keyResolverFor The key resolver to be used for re-interpreting root views
-    * @param commonData the common data of all the (rootViewTree :  TransactionViewTree) trees in `rootViews`
-    * @return the resulting LfTransaction with [[com.digitalasset.canton.protocol.LfContractId]]s only
+    * @param rootViewTrees
+    *   all received transaction view trees contained in a confirmation request that have the same
+    *   transaction id and represent a top-most view
+    * @param keyResolverFor
+    *   The key resolver to be used for re-interpreting root views
+    * @param commonData
+    *   the common data of all the (rootViewTree : TransactionViewTree) trees in `rootViews`
+    * @return
+    *   the resulting LfTransaction with [[com.digitalasset.canton.protocol.LfContractId]]s only
     */
   private[protocol] def check(
       rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]],
@@ -445,8 +451,9 @@ object ModelConformanceChecker {
       viewInputContracts: Map[LfContractId, SerializableContract],
   ) {
 
-    /** Compute the hash of a re-interpreted transaction to validate external signatures.
-      * Note that we need to enrich the transaction to re-hydrate the record values with labels, since they're part of the hash
+    /** Compute the hash of a re-interpreted transaction to validate external signatures. Note that
+      * we need to enrich the transaction to re-hydrate the record values with labels, since they're
+      * part of the hash
       */
     def computeHash(
         hashingSchemeVersion: HashingSchemeVersion,
@@ -568,8 +575,8 @@ object ModelConformanceChecker {
 
   sealed trait Error extends PrettyPrinting
 
-  /** Enriches a model conformance error with the valid subtransaction, if any.
-    * If there is a valid subtransaction, the list of valid subview trees will not be empty.
+  /** Enriches a model conformance error with the valid subtransaction, if any. If there is a valid
+    * subtransaction, the list of valid subview trees will not be empty.
     */
   final case class ErrorWithSubTransaction(
       errors: NonEmpty[Seq[Error]],

@@ -33,13 +33,11 @@ object LifeCycle extends NoTracing {
   /** Successful shutdowns taking longer than this will be reported */
   private val slowShutdownThreshold = 1.seconds
 
-  /** Attempts to close all provided closable instances.
-    * Instances are closed in the order that they are provided.
-    * These instances are expected to synchronously close or throw.
-    * If an exception is encountered when closing an instance, we will still attempt to close other closeables
-    * and then throw a [[ShutdownFailedException]].
-    * Exceptions thrown by `close` will be logged and
-    * the names of failed instances are wrapped into the [[ShutdownFailedException]].
+  /** Attempts to close all provided closable instances. Instances are closed in the order that they
+    * are provided. These instances are expected to synchronously close or throw. If an exception is
+    * encountered when closing an instance, we will still attempt to close other closeables and then
+    * throw a [[ShutdownFailedException]]. Exceptions thrown by `close` will be logged and the names
+    * of failed instances are wrapped into the [[ShutdownFailedException]].
     */
   def close(instances: AutoCloseable*)(logger: TracedLogger): Unit = {
     def stopSingle(instance: AutoCloseable): Option[String] = {

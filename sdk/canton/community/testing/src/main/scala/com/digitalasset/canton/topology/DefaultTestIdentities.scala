@@ -11,13 +11,13 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 object DefaultTestIdentities {
 
   private def createParticipantAndParty(counter: Int): (ParticipantId, PartyId) = {
-    val namespace = Namespace(Fingerprint.tryCreate(s"participant$counter-identity"))
+    val namespace = Namespace(Fingerprint.tryFromString(s"participant$counter-identity"))
     val id = ParticipantId(UniqueIdentifier.tryCreate(s"participant$counter", namespace))
     val party = PartyId(UniqueIdentifier.tryCreate(s"party$counter", namespace))
     (id, party)
   }
 
-  val namespace = Namespace(Fingerprint.tryCreate("default"))
+  val namespace = Namespace(Fingerprint.tryFromString("default"))
   val uid = UniqueIdentifier.tryCreate("da", namespace)
   val synchronizerId = SynchronizerId(uid)
 

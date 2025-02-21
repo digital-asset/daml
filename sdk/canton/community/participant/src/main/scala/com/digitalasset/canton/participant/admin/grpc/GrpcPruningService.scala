@@ -171,8 +171,8 @@ class GrpcPruningService(
   ): Future[ParticipantPruningScheduler] =
     Future.successful(pruningScheduler)
 
-  /** Enable or disable waiting for commitments from the given counter-participants
-    * Disabling waiting for commitments disregards these counter-participants w.r.t. pruning, which gives up
+  /** Enable or disable waiting for commitments from the given counter-participants Disabling
+    * waiting for commitments disregards these counter-participants w.r.t. pruning, which gives up
     * non-repudiation for those counter-participants, but increases pruning resilience to failures
     * and slowdowns of those counter-participants and/or the network
     */
@@ -262,8 +262,8 @@ class GrpcPruningService(
     CantonGrpcUtil.mapErrNewEUS(result)
   }
 
-  /** Enable waiting for commitments from the given counter-participants
-    * Waiting for commitments is the default behavior; explicitly enabling it is useful if it was explicitly disabled
+  /** Enable waiting for commitments from the given counter-participants Waiting for commitments is
+    * the default behavior; explicitly enabling it is useful if it was explicitly disabled
     */
   override def resetNoWaitCommitmentsFrom(
       request: v30.ResetNoWaitCommitmentsFromRequest

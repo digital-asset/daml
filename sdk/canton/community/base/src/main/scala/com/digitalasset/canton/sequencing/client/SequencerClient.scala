@@ -100,20 +100,22 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
     */
   def logout()(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Status, Unit]
 
-  /** The sequencer client computes the cost of submission requests sent to the sequencer,
-    * and update the traffic state when receiving confirmation that the event has been sequenced.
-    * This is done via the traffic state controller.
+  /** The sequencer client computes the cost of submission requests sent to the sequencer, and
+    * update the traffic state when receiving confirmation that the event has been sequenced. This
+    * is done via the traffic state controller.
     */
   def trafficStateController: Option[TrafficStateController]
 
-  /** Create a subscription for sequenced events for this member,
-    * starting after the prehead in the `sequencerCounterTrackerStore`.
+  /** Create a subscription for sequenced events for this member, starting after the prehead in the
+    * `sequencerCounterTrackerStore`.
     *
-    * The `eventHandler` is monitored by [[com.digitalasset.canton.sequencing.handlers.CleanSequencerCounterTracker]]
-    * so that the `sequencerCounterTrackerStore` advances the prehead
-    * when (a batch of) events has been successfully processed by the `eventHandler` (synchronously and asynchronously).
+    * The `eventHandler` is monitored by
+    * [[com.digitalasset.canton.sequencing.handlers.CleanSequencerCounterTracker]] so that the
+    * `sequencerCounterTrackerStore` advances the prehead when (a batch of) events has been
+    * successfully processed by the `eventHandler` (synchronously and asynchronously).
     *
-    * @see subscribe for the description of the `eventHandler` and the `timeTracker`
+    * @see
+    *   subscribe for the description of the `eventHandler` and the `timeTracker`
     */
   def subscribeTracking(
       sequencerCounterTrackerStore: SequencerCounterTrackerStore,
@@ -122,25 +124,34 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
       onCleanHandler: Traced[SequencerCounterCursorPrehead] => Unit = _ => (),
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
-  /** Create a subscription for sequenced events for this member,
-    * starting after the last event in the [[com.digitalasset.canton.store.SequencedEventStore]] up to `priorTimestamp`.
-    * A sequencer client can only have a single subscription - additional subscription attempts will throw an exception.
-    * When an event is received, we will check the pending sends and invoke the provided call-backs with the send result
-    * (which can be deliver or timeout) before invoking the `eventHandler`.
+  /** Create a subscription for sequenced events for this member, starting after the last event in
+    * the [[com.digitalasset.canton.store.SequencedEventStore]] up to `priorTimestamp`. A sequencer
+    * client can only have a single subscription - additional subscription attempts will throw an
+    * exception. When an event is received, we will check the pending sends and invoke the provided
+    * call-backs with the send result (which can be deliver or timeout) before invoking the
+    * `eventHandler`.
     *
-    * If the [[com.digitalasset.canton.store.SequencedEventStore]] contains events after `priorTimestamp`,
-    * the handler is first fed with these events before the subscription is established,
-    * starting at the last event found in the [[com.digitalasset.canton.store.SequencedEventStore]].
+    * If the [[com.digitalasset.canton.store.SequencedEventStore]] contains events after
+    * `priorTimestamp`, the handler is first fed with these events before the subscription is
+    * established, starting at the last event found in the
+    * [[com.digitalasset.canton.store.SequencedEventStore]].
     *
-    * @param priorTimestamp      The timestamp of the event prior to where the event processing starts.
-    *                            If [[scala.None$]], the subscription starts at the [[initialCounterLowerBound]].
-    * @param cleanPreheadTsO     The timestamp of the clean prehead sequencer counter, if known.
-    * @param eventHandler        A function handling the events.
-    * @param timeTracker         Tracker for operations requiring the current synchronizer time. Only updated with received events and not previously stored events.
-    * @param fetchCleanTimestamp A function for retrieving the latest clean timestamp to use for periodic acknowledgements
-    * @return The future completes after the subscription has been established or when an error occurs before that.
-    *         In particular, synchronous processing of events from the [[com.digitalasset.canton.store.SequencedEventStore]]
-    *         runs before the future completes.
+    * @param priorTimestamp
+    *   The timestamp of the event prior to where the event processing starts. If [[scala.None$]],
+    *   the subscription starts at the [[initialCounterLowerBound]].
+    * @param cleanPreheadTsO
+    *   The timestamp of the clean prehead sequencer counter, if known.
+    * @param eventHandler
+    *   A function handling the events.
+    * @param timeTracker
+    *   Tracker for operations requiring the current synchronizer time. Only updated with received
+    *   events and not previously stored events.
+    * @param fetchCleanTimestamp
+    *   A function for retrieving the latest clean timestamp to use for periodic acknowledgements
+    * @return
+    *   The future completes after the subscription has been established or when an error occurs
+    *   before that. In particular, synchronous processing of events from the
+    *   [[com.digitalasset.canton.store.SequencedEventStore]] runs before the future completes.
     */
   def subscribeAfter(
       priorTimestamp: CantonTimestamp,
@@ -150,8 +161,8 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
-  /** Acknowledge that we have successfully processed all events up to and including the given timestamp.
-    * The client should then never subscribe for events from before this point.
+  /** Acknowledge that we have successfully processed all events up to and including the given
+    * timestamp. The client should then never subscribe for events from before this point.
     */
   def acknowledgeSigned(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -174,14 +185,14 @@ trait RichSequencerClient extends SequencerClient {
       sequencerTransports: SequencerTransports[?]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
-  /** Future which is completed when the client is not functional any more and is ready to be closed.
-    * The value with which the future is completed will indicate the reason for completion.
+  /** Future which is completed when the client is not functional any more and is ready to be
+    * closed. The value with which the future is completed will indicate the reason for completion.
     */
   def completion: FutureUnlessShutdown[SequencerClient.CloseReason]
 
   /** Returns a future that completes after asynchronous processing has completed for all events
-    * whose synchronous processing has been completed prior to this call. May complete earlier if event processing
-    * has failed.
+    * whose synchronous processing has been completed prior to this call. May complete earlier if
+    * event processing has failed.
     */
   @VisibleForTesting
   def flush(): FutureUnlessShutdown[Unit]
@@ -487,9 +498,9 @@ abstract class SequencerClientImpl(
         sendTracker.cancelPendingSend(messageId).map(_ => err)
       }
 
-  /** Send the `signedRequest` to the `firstSequencer` via `firstTransport`.
-    * If `firstPatienceO` is defined, continue sending the request to more sequencers until
-    * the sequencer transport state returns no patience.
+  /** Send the `signedRequest` to the `firstSequencer` via `firstTransport`. If `firstPatienceO` is
+    * defined, continue sending the request to more sequencers until the sequencer transport state
+    * returns no patience.
     */
   private def amplifiedSend(
       signedRequest: SignedContent[SubmissionRequest],
@@ -628,14 +639,16 @@ abstract class SequencerClientImpl(
 
   override def generateMessageId: MessageId = MessageId.randomMessageId()
 
-  /** Create a subscription for sequenced events for this member,
-    * starting after the prehead in the `sequencerCounterTrackerStore`.
+  /** Create a subscription for sequenced events for this member, starting after the prehead in the
+    * `sequencerCounterTrackerStore`.
     *
-    * The `eventHandler` is monitored by [[com.digitalasset.canton.sequencing.handlers.CleanSequencerCounterTracker]]
-    * so that the `sequencerCounterTrackerStore` advances the prehead
-    * when (a batch of) events has been successfully processed by the `eventHandler` (synchronously and asynchronously).
+    * The `eventHandler` is monitored by
+    * [[com.digitalasset.canton.sequencing.handlers.CleanSequencerCounterTracker]] so that the
+    * `sequencerCounterTrackerStore` advances the prehead when (a batch of) events has been
+    * successfully processed by the `eventHandler` (synchronously and asynchronously).
     *
-    * @see subscribe for the description of the `eventHandler` and the `timeTracker`
+    * @see
+    *   subscribe for the description of the `eventHandler` and the `timeTracker`
     */
   def subscribeTracking(
       sequencerCounterTrackerStore: SequencerCounterTrackerStore,
@@ -661,25 +674,34 @@ abstract class SequencerClientImpl(
       )
     }
 
-  /** Create a subscription for sequenced events for this member,
-    * starting after the last event in the [[com.digitalasset.canton.store.SequencedEventStore]] up to `priorTimestamp`.
-    * A sequencer client can only have a single subscription - additional subscription attempts will throw an exception.
-    * When an event is received, we will check the pending sends and invoke the provided call-backs with the send result
-    * (which can be deliver or timeout) before invoking the `eventHandler`.
+  /** Create a subscription for sequenced events for this member, starting after the last event in
+    * the [[com.digitalasset.canton.store.SequencedEventStore]] up to `priorTimestamp`. A sequencer
+    * client can only have a single subscription - additional subscription attempts will throw an
+    * exception. When an event is received, we will check the pending sends and invoke the provided
+    * call-backs with the send result (which can be deliver or timeout) before invoking the
+    * `eventHandler`.
     *
-    * If the [[com.digitalasset.canton.store.SequencedEventStore]] contains events after `priorTimestamp`,
-    * the handler is first fed with these events before the subscription is established,
-    * starting at the last event found in the [[com.digitalasset.canton.store.SequencedEventStore]].
+    * If the [[com.digitalasset.canton.store.SequencedEventStore]] contains events after
+    * `priorTimestamp`, the handler is first fed with these events before the subscription is
+    * established, starting at the last event found in the
+    * [[com.digitalasset.canton.store.SequencedEventStore]].
     *
-    * @param priorTimestamp The timestamp of the event prior to where the event processing starts.
-    *                       If [[scala.None$]], the subscription starts at the [[com.digitalasset.canton.data.CounterCompanion.Genesis]].
-    * @param cleanPreheadTsO The timestamp of the clean prehead sequencer counter, if known.
-    * @param eventHandler A function handling the events.
-    * @param timeTracker Tracker for operations requiring the current synchronizer time. Only updated with received events and not previously stored events.
-    * @param fetchCleanTimestamp A function for retrieving the latest clean timestamp to use for periodic acknowledgements
-    * @return The future completes after the subscription has been established or when an error occurs before that.
-    *         In particular, synchronous processing of events from the [[com.digitalasset.canton.store.SequencedEventStore]]
-    *         runs before the future completes.
+    * @param priorTimestamp
+    *   The timestamp of the event prior to where the event processing starts. If [[scala.None$]],
+    *   the subscription starts at the [[com.digitalasset.canton.data.CounterCompanion.Genesis]].
+    * @param cleanPreheadTsO
+    *   The timestamp of the clean prehead sequencer counter, if known.
+    * @param eventHandler
+    *   A function handling the events.
+    * @param timeTracker
+    *   Tracker for operations requiring the current synchronizer time. Only updated with received
+    *   events and not previously stored events.
+    * @param fetchCleanTimestamp
+    *   A function for retrieving the latest clean timestamp to use for periodic acknowledgements
+    * @return
+    *   The future completes after the subscription has been established or when an error occurs
+    *   before that. In particular, synchronous processing of events from the
+    *   [[com.digitalasset.canton.store.SequencedEventStore]] runs before the future completes.
     */
   def subscribeAfter(
       priorTimestamp: CantonTimestamp,
@@ -712,8 +734,8 @@ abstract class SequencerClientImpl(
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
-  /** Acknowledge that we have successfully processed all events up to and including the given timestamp.
-    * The client should then never subscribe for events from before this point.
+  /** Acknowledge that we have successfully processed all events up to and including the given
+    * timestamp. The client should then never subscribe for events from before this point.
     */
   def acknowledgeSigned(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -751,9 +773,10 @@ object SequencerClientImpl {
   )
 }
 
-/** The sequencer client facilitates access to the individual synchronizer sequencer. A client centralizes the
-  * message signing operations, as well as the handling and storage of message receipts and delivery proofs,
-  * such that this functionality does not have to be duplicated throughout the participant node.
+/** The sequencer client facilitates access to the individual synchronizer sequencer. A client
+  * centralizes the message signing operations, as well as the handling and storage of message
+  * receipts and delivery proofs, such that this functionality does not have to be duplicated
+  * throughout the participant node.
   */
 class RichSequencerClientImpl(
     synchronizerId: SynchronizerId,
@@ -844,8 +867,8 @@ class RichSequencerClientImpl(
 
   val healthComponent: CloseableHealthComponent = deferredSubscriptionHealth
 
-  /** Stash for storing the failure that comes out of an application handler, either synchronously or asynchronously.
-    * If non-empty, no further events should be sent to the application handler.
+  /** Stash for storing the failure that comes out of an application handler, either synchronously
+    * or asynchronously. If non-empty, no further events should be sent to the application handler.
     */
   private val applicationHandlerFailure: SingleUseCell[ApplicationHandlerFailure] =
     new SingleUseCell[ApplicationHandlerFailure]
@@ -1216,9 +1239,9 @@ class RichSequencerClientImpl(
     }
   }
 
-  /** If the returned future fails, contains a [[scala.Left$]]
-    * or [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]]
-    * then [[applicationHandlerFailure]] contains an error.
+  /** If the returned future fails, contains a [[scala.Left$]] or
+    * [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]] then
+    * [[applicationHandlerFailure]] contains an error.
     */
   private def processEventBatch[
       Box[+X <: Envelope[?]] <: PossiblyIgnoredSequencedEvent[X],
@@ -1345,8 +1368,8 @@ class RichSequencerClientImpl(
     FutureUnlessShutdown.outcomeF(sequencersTransportState.changeTransport(sequencerTransports))
   }
 
-  /** Future which is completed when the client is not functional any more and is ready to be closed.
-    * The value with which the future is completed will indicate the reason for completion.
+  /** Future which is completed when the client is not functional any more and is ready to be
+    * closed. The value with which the future is completed will indicate the reason for completion.
     */
   def completion: FutureUnlessShutdown[SequencerClient.CloseReason] =
     FutureUnlessShutdown.outcomeF(sequencersTransportState.completion)
@@ -1381,18 +1404,21 @@ class RichSequencerClientImpl(
     )
 
   /** Returns a future that completes after asynchronous processing has completed for all events
-    * whose synchronous processing has been completed prior to this call. May complete earlier if event processing
-    * has failed.
+    * whose synchronous processing has been completed prior to this call. May complete earlier if
+    * event processing has failed.
     */
   @VisibleForTesting
   def flush(): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.outcomeF(doFlush())
 
-  /** Await the completion of `future`. Log a message if the future does not complete within `timeout`.
-    * If the `future` fails with an exception within `timeout`, this method rethrows the exception.
+  /** Await the completion of `future`. Log a message if the future does not complete within
+    * `timeout`. If the `future` fails with an exception within `timeout`, this method rethrows the
+    * exception.
     *
-    * Instead of using this method, you should use the respective method on one of the ProcessingTimeouts
+    * Instead of using this method, you should use the respective method on one of the
+    * ProcessingTimeouts
     *
-    * @return Optionally the completed value of `future` if it successfully completes in time.
+    * @return
+    *   Optionally the completed value of `future` if it successfully completes in time.
     */
   private def valueOrLog[T](
       future: FutureUnlessShutdown[T],
@@ -1923,7 +1949,8 @@ object SequencerClient {
     case object BecamePassive extends CloseReason
   }
 
-  /** Utility to add retries around sends as an attempt to guarantee the send is eventually sequenced.
+  /** Utility to add retries around sends as an attempt to guarantee the send is eventually
+    * sequenced.
     */
   def sendWithRetries(
       sendBatch: SendCallback => EitherT[Future, SendAsyncClientError, Unit],

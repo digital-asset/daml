@@ -86,9 +86,9 @@ sealed trait CantonVersion extends Ordered[CantonVersion] with PrettyPrinting {
   }
 }
 
-/** This class represent a release version.
-  * Please refer to the [[https://docs.daml.com/canton/usermanual/versioning.html versioning documentation]]
-  * in the user manual for details.
+/** This class represent a release version. Please refer to the
+  * [[https://docs.daml.com/canton/usermanual/versioning.html versioning documentation]] in the user
+  * manual for details.
   */
 final case class ReleaseVersion(
     major: Int,

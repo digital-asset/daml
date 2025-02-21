@@ -6,32 +6,41 @@ package com.digitalasset.canton.synchronizer.config
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.{CryptoConfig, ProtocolConfig, SessionSigningKeysConfig}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.CryptoFactory.{
-  selectAllowedEncryptionAlgorithmSpecs,
-  selectAllowedEncryptionKeySpecs,
-  selectAllowedHashAlgorithms,
-  selectAllowedSigningAlgorithmSpecs,
-  selectAllowedSigningKeySpecs,
-  selectAllowedSymmetricKeySchemes,
-}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.version.ProtocolVersion
 
-/** Configuration of synchronizer parameters that all members connecting to a synchronizer must adhere to.
+/** Configuration of synchronizer parameters that all members connecting to a synchronizer must
+  * adhere to.
   *
-  * To set these parameters, you need to be familiar with the Canton architecture.
-  * See <a href="https://docs.daml.com/canton/architecture/overview.html">the Canton architecture overview</a>
-  * for further information.
+  * To set these parameters, you need to be familiar with the Canton architecture. See <a
+  * href="https://docs.daml.com/canton/architecture/overview.html">the Canton architecture
+  * overview</a> for further information.
   *
-  * @param requiredSigningAlgorithmSpecs         The optional required signing algorithm specifications that a member has to support. If none is specified, all the allowed specifications are required.
-  * @param requiredSigningKeySpecs      The optional required signing key specifications that a member has to support. If none is specified, all the allowed specifications are required.
-  * @param requiredEncryptionAlgorithmSpecs      The optional required encryption algorithm specifications that a member has to support. If none is specified, all the allowed specifications are required.
-  * @param requiredEncryptionKeySpecs   The optional required encryption key specifications that a member has to support. If none is specified, all the allowed specifications are required.
-  * @param requiredSymmetricKeySchemes  The optional required symmetric key schemes that a member has to support. If none is specified, all the allowed schemes are required.
-  * @param requiredHashAlgorithms       The optional required hash algorithms that a member has to support. If none is specified, all the allowed algorithms are required.
-  * @param requiredCryptoKeyFormats     The optional required crypto key formats that a member has to support. If none is specified, all the supported algorithms are required.
-  * @param dontWarnOnDeprecatedPV       If true, then this synchronizer will not emit a warning when configured to use a deprecated protocol version (such as 2.0.0).
+  * @param requiredSigningAlgorithmSpecs
+  *   The optional required signing algorithm specifications that a member has to support. If none
+  *   is specified, all the allowed specifications are required.
+  * @param requiredSigningKeySpecs
+  *   The optional required signing key specifications that a member has to support. If none is
+  *   specified, all the allowed specifications are required.
+  * @param requiredEncryptionAlgorithmSpecs
+  *   The optional required encryption algorithm specifications that a member has to support. If
+  *   none is specified, all the allowed specifications are required.
+  * @param requiredEncryptionKeySpecs
+  *   The optional required encryption key specifications that a member has to support. If none is
+  *   specified, all the allowed specifications are required.
+  * @param requiredSymmetricKeySchemes
+  *   The optional required symmetric key schemes that a member has to support. If none is
+  *   specified, all the allowed schemes are required.
+  * @param requiredHashAlgorithms
+  *   The optional required hash algorithms that a member has to support. If none is specified, all
+  *   the allowed algorithms are required.
+  * @param requiredCryptoKeyFormats
+  *   The optional required crypto key formats that a member has to support. If none is specified,
+  *   all the supported algorithms are required.
+  * @param dontWarnOnDeprecatedPV
+  *   If true, then this synchronizer will not emit a warning when configured to use a deprecated
+  *   protocol version (such as 2.0.0).
   */
 final case class SynchronizerParametersConfig(
     requiredSigningAlgorithmSpecs: Option[NonEmpty[Set[SigningAlgorithmSpec]]] = None,
@@ -67,7 +76,8 @@ final case class SynchronizerParametersConfig(
 
   /** Converts the synchronizer parameters config into a synchronizer parameters protocol message.
     *
-    * Sets the required crypto schemes based on the provided crypto config if they are unset in the config.
+    * Sets the required crypto schemes based on the provided crypto config if they are unset in the
+    * config.
     */
   def toStaticSynchronizerParameters(
       cryptoConfig: CryptoConfig = CryptoConfig(),
@@ -76,11 +86,10 @@ final case class SynchronizerParametersConfig(
 
     def selectSchemes[S](
         configuredRequired: Option[NonEmpty[Set[S]]],
-        allowedFn: CryptoConfig => Either[String, NonEmpty[Set[S]]],
-    ): Either[String, NonEmpty[Set[S]]] =
+        allowed: NonEmpty[Set[S]],
+    ): Either[String, NonEmpty[Set[S]]] = {
+      val required = configuredRequired.getOrElse(allowed)
       for {
-        allowed <- allowedFn(cryptoConfig)
-        required = configuredRequired.getOrElse(allowed)
         // All required schemes must be allowed
         _ <- Either.cond(
           required.forall(r => allowed.contains(r)),
@@ -88,32 +97,34 @@ final case class SynchronizerParametersConfig(
           s"Required schemes $required are not all allowed $allowed",
         )
       } yield required
+    }
 
     // Set to allowed schemes if none required schemes are specified
     for {
+      schemes <- CryptoSchemes.fromConfig(cryptoConfig)
       newRequiredSigningAlgorithmSpecs <- selectSchemes(
         requiredSigningAlgorithmSpecs,
-        selectAllowedSigningAlgorithmSpecs,
+        schemes.signingAlgoSpecs.allowed,
       )
       newRequiredSigningKeySpecs <- selectSchemes(
         requiredSigningKeySpecs,
-        selectAllowedSigningKeySpecs,
+        schemes.signingKeySpecs.allowed,
       )
       newRequiredEncryptionAlgorithmSpecs <- selectSchemes(
         requiredEncryptionAlgorithmSpecs,
-        selectAllowedEncryptionAlgorithmSpecs,
+        schemes.encryptionAlgoSpecs.allowed,
       )
       newRequiredEncryptionKeySpecs <- selectSchemes(
         requiredEncryptionKeySpecs,
-        selectAllowedEncryptionKeySpecs,
+        schemes.encryptionKeySpecs.allowed,
       )
       newRequiredSymmetricKeySchemes <- selectSchemes(
         requiredSymmetricKeySchemes,
-        selectAllowedSymmetricKeySchemes,
+        schemes.symmetricKeySchemes.allowed,
       )
       newRequiredHashAlgorithms <- selectSchemes(
         requiredHashAlgorithms,
-        selectAllowedHashAlgorithms,
+        schemes.hashAlgorithms.allowed,
       )
       newCryptoKeyFormats = requiredCryptoKeyFormats.getOrElse(
         cryptoConfig.provider.supportedCryptoKeyFormatsForProtocol(protocolVersion)

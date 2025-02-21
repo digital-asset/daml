@@ -31,11 +31,14 @@ final case class DefaultDeserializationError(message: String) extends Deserializ
 final case class MaxByteToDecompressExceeded(message: String) extends DeserializationError
 
 /** The methods in this object should be used when a <strong>deterministic</strong> encoding is
-  * needed. They are not meant for computing serializations for a wire format. Protobuf is a better choice there.
+  * needed. They are not meant for computing serializations for a wire format. Protobuf is a better
+  * choice there.
   */
 object DeterministicEncoding {
 
-  /** Tests that the given [[com.google.protobuf.ByteString]] has at least `len` bytes and splits the [[com.google.protobuf.ByteString]] at `len`. */
+  /** Tests that the given [[com.google.protobuf.ByteString]] has at least `len` bytes and splits
+    * the [[com.google.protobuf.ByteString]] at `len`.
+    */
   def splitAt(
       len: Int,
       bytes: ByteString,
@@ -62,13 +65,17 @@ object DeterministicEncoding {
       bytesAndRest <- splitAt(len, content)
     } yield bytesAndRest
 
-  /** Encode an [[scala.Int]] into a fixed-length [[com.google.protobuf.ByteString]] in big-endian order. */
+  /** Encode an [[scala.Int]] into a fixed-length [[com.google.protobuf.ByteString]] in big-endian
+    * order.
+    */
   def encodeInt(i: Int): ByteString =
     ByteString.copyFrom(
       ByteBuffer.allocate(Integer.BYTES).order(ByteOrder.BIG_ENDIAN).putInt(i).array()
     )
 
-  /** Encodes the [[scala.Long]] into a unsigned variable integer according to https://github.com/multiformats/unsigned-varint */
+  /** Encodes the [[scala.Long]] into a unsigned variable integer according to
+    * https://github.com/multiformats/unsigned-varint
+    */
   @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.While"))
   def encodeUVarInt(i: Long): ByteString = {
     require(i >= 0, "Only unsigned integers can be encoded to var-int")
@@ -90,7 +97,9 @@ object DeterministicEncoding {
     bs.concat(encodeByte((x & 0x7f).toByte))
   }
 
-  /** Decodes a unsigned variable integer according to https://github.com/multiformats/unsigned-varint */
+  /** Decodes a unsigned variable integer according to
+    * https://github.com/multiformats/unsigned-varint
+    */
   def decodeUVarInt(bytes: ByteString): Either[DeserializationError, (Long, ByteString)] = {
 
     // Returns a tuple of output varint and index to last consumed byte
@@ -140,7 +149,8 @@ object DeterministicEncoding {
       )
     } yield intAndB
 
-  /** Consume and decode a fixed-length big-endian [[scala.Int]] and return the remainder of the [[com.google.protobuf.ByteString]].
+  /** Consume and decode a fixed-length big-endian [[scala.Int]] and return the remainder of the
+    * [[com.google.protobuf.ByteString]].
     *
     * Inverse to [[DeterministicEncoding.encodeInt]]
     */
@@ -157,13 +167,16 @@ object DeterministicEncoding {
       rest,
     )
 
-  /** Encode a [[scala.Long]] into a fixed-length [[com.google.protobuf.ByteString]] in big-endian order. */
+  /** Encode a [[scala.Long]] into a fixed-length [[com.google.protobuf.ByteString]] in big-endian
+    * order.
+    */
   def encodeLong(l: Long): ByteString =
     ByteString.copyFrom(
       ByteBuffer.allocate(java.lang.Long.BYTES).order(ByteOrder.BIG_ENDIAN).putLong(l).array()
     )
 
-  /** Decode a [[scala.Long]] from a [[com.google.protobuf.ByteString]] and return the remainder of the [[com.google.protobuf.ByteString]].
+  /** Decode a [[scala.Long]] from a [[com.google.protobuf.ByteString]] and return the remainder of
+    * the [[com.google.protobuf.ByteString]].
     *
     * Inverse to [[DeterministicEncoding.encodeLong]]
     */
@@ -180,12 +193,14 @@ object DeterministicEncoding {
       rest,
     )
 
-  /** Encode a [[java.lang.String]] into a [[com.google.protobuf.ByteString]], prefixing the string content with its length.
+  /** Encode a [[java.lang.String]] into a [[com.google.protobuf.ByteString]], prefixing the string
+    * content with its length.
     */
   def encodeString(s: String): ByteString =
     encodeBytes(ByteString.copyFromUtf8(s))
 
-  /** Decode a [[java.lang.String]] from a length-prefixed [[com.google.protobuf.ByteString]] and return the remainder of the [[com.google.protobuf.ByteString]].
+  /** Decode a [[java.lang.String]] from a length-prefixed [[com.google.protobuf.ByteString]] and
+    * return the remainder of the [[com.google.protobuf.ByteString]].
     *
     * Inverse to [[DeterministicEncoding.encodeString]]
     */
@@ -199,7 +214,8 @@ object DeterministicEncoding {
   def encodeInstant(instant: Instant): ByteString =
     encodeLong(instant.getEpochSecond).concat(encodeInt(instant.getNano))
 
-  /** Decode a [[java.time.Instant]] from a [[com.google.protobuf.ByteString]] and return the remainder of the [[com.google.protobuf.ByteString]].
+  /** Decode a [[java.time.Instant]] from a [[com.google.protobuf.ByteString]] and return the
+    * remainder of the [[com.google.protobuf.ByteString]].
     *
     * Inverse to [[DeterministicEncoding.encodeInstant]]
     */
@@ -213,19 +229,22 @@ object DeterministicEncoding {
       (int, bytes) = intAndBytes
     } yield (Instant.ofEpochSecond(long, int.toLong), bytes)
 
-  /** Encode an [[LfPartyId]] into a [[com.google.protobuf.ByteString]], using the underlying string */
+  /** Encode an [[LfPartyId]] into a [[com.google.protobuf.ByteString]], using the underlying string
+    */
   def encodeParty(party: LfPartyId): ByteString =
     encodeString(party)
 
-  /** Encode an [[scala.Option]] into a tagged [[com.google.protobuf.ByteString]], using the given `encode` function. */
+  /** Encode an [[scala.Option]] into a tagged [[com.google.protobuf.ByteString]], using the given
+    * `encode` function.
+    */
   def encodeOptionWith[A](option: Option[A])(encode: A => ByteString): ByteString =
     option match {
       case None => encodeByte(0)
       case Some(x) => encodeByte(1).concat(encode(x))
     }
 
-  /** Encode a [[scala.Seq]] into a [[com.google.protobuf.ByteString]] using the given encoding function,
-    *  prefixing it with the length of the [[scala.Seq]]
+  /** Encode a [[scala.Seq]] into a [[com.google.protobuf.ByteString]] using the given encoding
+    * function, prefixing it with the length of the [[scala.Seq]]
     */
   def encodeSeqWith[A](seq: Seq[A])(encode: A => ByteString): ByteString = {
     import scala.jdk.CollectionConverters.*
@@ -256,7 +275,9 @@ object DeterministicEncoding {
     } yield dc
   }
 
-  /** Encode an [[scala.Either]] of [[com.google.protobuf.ByteString]]s into a tagged [[com.google.protobuf.ByteString]]. */
+  /** Encode an [[scala.Either]] of [[com.google.protobuf.ByteString]]s into a tagged
+    * [[com.google.protobuf.ByteString]].
+    */
   def encodeEitherWith[L, R](
       either: Either[L, R]
   )(encodeL: L => ByteString, encodeR: R => ByteString): ByteString =
@@ -265,7 +286,9 @@ object DeterministicEncoding {
       case Right(r) => encodeByte(2).concat(encodeR(r))
     }
 
-  /** Encode a pair of [[com.google.protobuf.ByteString]]s as an untagged [[com.google.protobuf.ByteString]] */
+  /** Encode a pair of [[com.google.protobuf.ByteString]]s as an untagged
+    * [[com.google.protobuf.ByteString]]
+    */
   def encodeTuple2With[A, B](
       pair: (A, B)
   )(encodeA: A => ByteString, encodeB: B => ByteString): ByteString =

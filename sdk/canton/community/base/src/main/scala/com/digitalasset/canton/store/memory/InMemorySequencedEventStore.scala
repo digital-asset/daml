@@ -36,15 +36,14 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
 
   private val lock = new Object()
 
-  /** Invariant:
-    * The sequenced event stored at timestamp `ts` has timestamp `ts`.
+  /** Invariant: The sequenced event stored at timestamp `ts` has timestamp `ts`.
     */
   private val eventByTimestamp: mutable.SortedMap[CantonTimestamp, PossiblyIgnoredSerializedEvent] =
     mutable.SortedMap.empty
 
   /** Invariants:
-    * - The value set equals the key set of `eventsByTimestamp`.
-    * - `eventsByTimestamp(timestampOfCounter(sc))` has sequencer counter `sc`
+    *   - The value set equals the key set of `eventsByTimestamp`.
+    *   - `eventsByTimestamp(timestampOfCounter(sc))` has sequencer counter `sc`
     */
   private val timestampOfCounter: mutable.SortedMap[SequencerCounter, CantonTimestamp] =
     mutable.SortedMap.empty

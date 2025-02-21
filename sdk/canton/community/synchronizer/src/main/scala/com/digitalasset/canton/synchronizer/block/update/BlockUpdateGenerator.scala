@@ -36,26 +36,26 @@ import scala.concurrent.ExecutionContext
   * and compute the new [[BlockUpdate]]s.
   *
   * These functions correspond to the following steps in the block processing stream pipeline:
-  * 1. Extracting block events from a raw ledger block ([[extractBlockEvents]]).
-  * 2. Chunking such block events into either event chunks terminated by a sequencer-addessed event or a block
-  *    completion ([[chunkBlock]]).
-  * 3. Validating and enriching chunks to yield block updates ([[processBlockChunk]]).
+  *   1. Extracting block events from a raw ledger block ([[extractBlockEvents]]).
+  *   1. Chunking such block events into either event chunks terminated by a sequencer-addessed
+  *      event or a block completion ([[chunkBlock]]).
+  *   1. Validating and enriching chunks to yield block updates ([[processBlockChunk]]).
   *
-  * In particular, these functions are responsible for the final timestamp assignment of a given submission request.
-  * The timestamp assignment works as follows:
-  * 1. an initial timestamp is assigned to the submission request by the sequencer that writes it to the ledger
-  * 2. each sequencer that reads the block potentially adapts the previously assigned timestamp
-  * deterministically via `ensureStrictlyIncreasingTimestamp`
-  * 3. this timestamp is used to compute the [[BlockUpdate]]s
+  * In particular, these functions are responsible for the final timestamp assignment of a given
+  * submission request. The timestamp assignment works as follows:
+  *   1. an initial timestamp is assigned to the submission request by the sequencer that writes it
+  *      to the ledger
+  *   1. each sequencer that reads the block potentially adapts the previously assigned timestamp
+  *      deterministically via `ensureStrictlyIncreasingTimestamp`
+  *   1. this timestamp is used to compute the [[BlockUpdate]]s
   *
   * Reasoning:
-  * Step 1 is done so that every sequencer sees the same timestamp for a given event.
-  * Step 2 is needed because different sequencers may assign the same timestamps to different events or may not assign
-  * strictly increasing timestamps due to clock skews.
+  *   - Step 1 is done so that every sequencer sees the same timestamp for a given event.
+  *   - Step 2 is needed because different sequencers may assign the same timestamps to different
+  *     events or may not assign strictly increasing timestamps due to clock skews.
   *
-  * Invariants:
-  * For step 2, we assume that every sequencer observes the same stream of events from the underlying ledger
-  * (and especially that events are always read in the same order).
+  * Invariants: For step 2, we assume that every sequencer observes the same stream of events from
+  * the underlying ledger (and especially that events are always read in the same order).
   */
 trait BlockUpdateGenerator {
   import BlockUpdateGenerator.*

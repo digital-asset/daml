@@ -9,19 +9,20 @@ import com.digitalasset.daml.lf.data.Ref.*
 
 import scala.collection.View
 
-/**  This class encapsulates the logic of how contract arguments and interface views are
-  *  being projected to the consumer based on the filter criteria and the relation between
-  *  interfaces and templates implementing them.
+/** This class encapsulates the logic of how contract arguments and interface views are being
+  * projected to the consumer based on the filter criteria and the relation between interfaces and
+  * templates implementing them.
   *
-  * @param verbose enriching in verbose mode
-  * @param templateWildcardWitnesses all the parties for which contract arguments will be
-  *                                  populated for all the templates,if None then contract arguments
-  *                                  for all the parties and for all the templates will be populated
-  * @param witnessTemplateProjections per witness party, per template projections
-  * @param templateWildcardCreatedEventBlobParties parties for which the created event blob will be
-  *                                                populated for all the templates, if None then
-  *                                                blobs for all the parties and all the templates
-  *                                                will be populated
+  * @param verbose
+  *   enriching in verbose mode
+  * @param templateWildcardWitnesses
+  *   all the parties for which contract arguments will be populated for all the templates,if None
+  *   then contract arguments for all the parties and for all the templates will be populated
+  * @param witnessTemplateProjections
+  *   per witness party, per template projections
+  * @param templateWildcardCreatedEventBlobParties
+  *   parties for which the created event blob will be populated for all the templates, if None then
+  *   blobs for all the parties and all the templates will be populated
   */
 final case class EventProjectionProperties(
     verbose: Boolean,
@@ -63,13 +64,14 @@ object EventProjectionProperties {
       )
   }
 
-  /** @param eventFormat            EventFormat as defined by the consumer of the API.
-    * @param interfaceImplementedBy The relation between an interface id and template id.
-    *                               If template has no relation to the interface,
-    *                               an empty Set must be returned.
-    * @param alwaysPopulateArguments If this flag is set, the witnessTemplate filter will
-    *                                be populated with all the parties, so that rendering of
-    *                                contract arguments and contract keys is always true.
+  /** @param eventFormat
+    *   EventFormat as defined by the consumer of the API.
+    * @param interfaceImplementedBy
+    *   The relation between an interface id and template id. If template has no relation to the
+    *   interface, an empty Set must be returned.
+    * @param alwaysPopulateArguments
+    *   If this flag is set, the witnessTemplate filter will be populated with all the parties, so
+    *   that rendering of contract arguments and contract keys is always true.
     */
   def apply(
       eventFormat: EventFormat,

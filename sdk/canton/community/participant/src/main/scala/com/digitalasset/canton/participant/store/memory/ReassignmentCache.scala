@@ -40,8 +40,8 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
 
 /** Adds an in-memory cache of pending completions on top of a [[store.ReassignmentStore]].
-  * Completions appear atomic to reassignment lookups that go through the cache,
-  * even if they are written to the store only later.
+  * Completions appear atomic to reassignment lookups that go through the cache, even if they are
+  * written to the store only later.
   */
 class ReassignmentCache(
     reassignmentStore: ReassignmentStore,
@@ -59,11 +59,12 @@ class ReassignmentCache(
       : concurrent.Map[ReassignmentId, PendingReassignmentCompletion] =
     new TrieMap[ReassignmentId, PendingReassignmentCompletion]
 
-  /** Completes the given reassignment with the given `tsCompletion`.
-    * Completion appears atomic to reassignment lookups that go through the cache.
+  /** Completes the given reassignment with the given `tsCompletion`. Completion appears atomic to
+    * reassignment lookups that go through the cache.
     *
-    * @return The future completes when this completion or a completion of the same reassignment by an earlier request
-    *         has been written to the underlying [[store.ReassignmentStore]].
+    * @return
+    *   The future completes when this completion or a completion of the same reassignment by an
+    *   earlier request has been written to the underlying [[store.ReassignmentStore]].
     */
   def completeReassignment(reassignmentId: ReassignmentId, tsCompletion: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -146,11 +147,11 @@ class ReassignmentCache(
       _.filter(reassignmentData => !pendingCompletions.contains(reassignmentData.reassignmentId))
     )
 
-  /** unassignment/assignment global offsets will be updated upon publication on Ledger API Indexer, when
-    * the global offset is assigned to the event.
-    * In order to avoid race conditions, the multi-synchronizer event log will wait for the calls to
-    * `ReassignmentStore.addReassignmentOffsets` to complete before updating ledger end.
-    * Hence, we don't need additional synchronization here and we can directly query the store.
+  /** unassignment/assignment global offsets will be updated upon publication on Ledger API Indexer,
+    * when the global offset is assigned to the event. In order to avoid race conditions, the
+    * multi-synchronizer event log will wait for the calls to
+    * `ReassignmentStore.addReassignmentOffsets` to complete before updating ledger end. Hence, we
+    * don't need additional synchronization here and we can directly query the store.
     */
   override def findIncomplete(
       sourceSynchronizer: Option[Source[SynchronizerId]],

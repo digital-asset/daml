@@ -18,9 +18,9 @@ import scala.concurrent.ExecutionContext
 
 /** the party metadata used to inform the ledger api server
   *
-  * the first class parameters correspond to the relevant information, whereas the
-  * second class parameters are synchronisation information used during crash recovery.
-  * we don't want these in an equality comparison.
+  * the first class parameters correspond to the relevant information, whereas the second class
+  * parameters are synchronisation information used during crash recovery. we don't want these in an
+  * equality comparison.
   */
 final case class PartyMetadata(
     partyId: PartyId,
@@ -35,8 +35,8 @@ final case class PartyMetadata(
   */
 trait PartyMetadataStore extends AutoCloseable {
 
-  /** Fetch the metadata for the given party IDs. The order of the response corresponds
-    * to the input order. None is returned on behalf of currently unknown parties.
+  /** Fetch the metadata for the given party IDs. The order of the response corresponds to the input
+    * order. None is returned on behalf of currently unknown parties.
     */
   def metadataForParties(partyIds: Seq[PartyId])(implicit
       traceContext: TraceContext
@@ -47,8 +47,8 @@ trait PartyMetadataStore extends AutoCloseable {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
-  /** Mark the given parties as having been successfully forwarded to the ledger API server
-    * as of the specified effectiveAt timestamp.
+  /** Mark the given parties as having been successfully forwarded to the ledger API server as of
+    * the specified effectiveAt timestamp.
     */
   def markNotified(effectiveAt: CantonTimestamp, partyIds: Seq[PartyId])(implicit
       traceContext: TraceContext

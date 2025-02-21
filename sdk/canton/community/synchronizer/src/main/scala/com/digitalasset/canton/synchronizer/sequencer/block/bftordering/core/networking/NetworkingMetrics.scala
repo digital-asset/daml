@@ -4,10 +4,10 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking
 
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.BftOrderingMessageBody
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.BftOrderingMessageBody.Message
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessageBody
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessageBody.Message
 import com.digitalasset.canton.topology.SequencerId
 
 private[networking] object NetworkingMetrics {
@@ -104,14 +104,14 @@ private[networking] object NetworkingMetrics {
 
   def emitIdentityEquivocation(
       metrics: BftOrderingMetrics,
-      fromEndpoint: Endpoint,
+      fromEndpointId: P2PEndpoint.Id,
       fromSequencerId: SequencerId,
   )(implicit
       mc: MetricsContext
   ): Unit =
     metrics.security.noncompliant.behavior.mark()(
       mc.withExtraLabels(
-        metrics.security.noncompliant.labels.Endpoint -> fromEndpoint.toString,
+        metrics.security.noncompliant.labels.Endpoint -> fromEndpointId.url,
         metrics.security.noncompliant.labels.Sequencer -> fromSequencerId.toProtoPrimitive,
         metrics.security.noncompliant.labels.violationType.Key -> metrics.security.noncompliant.labels.violationType.values.AuthIdentityEquivocation,
       )

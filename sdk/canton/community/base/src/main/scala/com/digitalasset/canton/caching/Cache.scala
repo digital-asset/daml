@@ -7,8 +7,10 @@ package com.digitalasset.canton.caching
   *
   * The strategy used for eviction is implementation-dependent.
   *
-  * @tparam Key   The type of the key used to look up values.
-  * @tparam Value The type of the cached value.
+  * @tparam Key
+  *   The type of the key used to look up values.
+  * @tparam Value
+  *   The type of the cached value.
   */
 abstract class Cache[Key, Value] {
 
@@ -28,13 +30,17 @@ abstract class Cache[Key, Value] {
 
   /** Transform values when reading from or writing to the cache.
     *
-    * Optionally allows the mapping to discard values by returning [[scala.None]] when transforming before
-    * writing.
+    * Optionally allows the mapping to discard values by returning [[scala.None]] when transforming
+    * before writing.
     *
-    * @param mapAfterReading  Transform values after reading.
-    * @param mapBeforeWriting Transform values before writing. Discards the value if the result is [[scala.None]].
-    * @tparam NewValue The new value type.
-    * @return A wrapped cache, backed by this cache.
+    * @param mapAfterReading
+    *   Transform values after reading.
+    * @param mapBeforeWriting
+    *   Transform values before writing. Discards the value if the result is [[scala.None]].
+    * @tparam NewValue
+    *   The new value type.
+    * @return
+    *   A wrapped cache, backed by this cache.
     */
   def mapValues[NewValue](
       mapAfterReading: Value => NewValue,
@@ -49,8 +55,10 @@ abstract class Cache[Key, Value] {
 /** A cache that is concurrency-safe. This means it is able to look up a value, and if it does not
   * exist, populate the value at that key, in a single, atomic action.
   *
-  * @tparam Key   The type of the key used to look up values.
-  * @tparam Value The type of the cached value.
+  * @tparam Key
+  *   The type of the key used to look up values.
+  * @tparam Value
+  *   The type of the cached value.
   */
 abstract class ConcurrentCache[Key, Value] extends Cache[Key, Value] {
 

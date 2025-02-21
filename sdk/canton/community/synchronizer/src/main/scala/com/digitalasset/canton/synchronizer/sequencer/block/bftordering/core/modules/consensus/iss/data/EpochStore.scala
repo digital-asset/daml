@@ -63,17 +63,19 @@ trait EpochStore[E <: Env[E]] extends AutoCloseable {
 
   protected def addPreparesActionName: String = "add Prepares"
 
-  /** Storing view-change and new-view messages for in-progress segments is important in order to properly rehydrate
-    * the segment states after a crash and restart.
+  /** Storing view-change and new-view messages for in-progress segments is important in order to
+    * properly rehydrate the segment states after a crash and restart.
     *
-    * We store all new-view messages, in order to indicate we've definitely moved to the indicated views.
-    * The pre-prepares in the new-view messages, together with prepares stored separately during that view
-    * will allow the node to either make progress in that view or build prepare certificates to change into another view.
+    * We store all new-view messages, in order to indicate we've definitely moved to the indicated
+    * views. The pre-prepares in the new-view messages, together with prepares stored separately
+    * during that view will allow the node to either make progress in that view or build prepare
+    * certificates to change into another view.
     *
-    * We only store locally-created view-change messages, in order to indicate that this node started a view change,
-    * either because of a timeout or because of gathering a weak quorum of view-change messages from other nodes.
-    * Once a correct node starts a view change to v+1, and sends the view-change message to other peers, it should not
-    * go back to working on view v after a restart.
+    * We only store locally-created view-change messages, in order to indicate that this node
+    * started a view change, either because of a timeout or because of gathering a weak quorum of
+    * view-change messages from other nodes. Once a correct node starts a view change to v+1, and
+    * sends the view-change message to other peers, it should not go back to working on view v after
+    * a restart.
     */
   def addViewChangeMessage[M <: PbftViewChangeMessage](viewChangeMessage: SignedMessage[M])(implicit
       traceContext: TraceContext

@@ -45,8 +45,8 @@ object FlagCloseable {
 
 /** Context to capture and pass through a caller's closing state.
   *
-  * This allows us for example to stop operations down the call graph if either the caller or the current component
-  * executing an operation is closed.
+  * This allows us for example to stop operations down the call graph if either the caller or the
+  * current component executing an operation is closed.
   */
 final case class CloseContext(private val flagCloseable: FlagCloseable) {
   def context: PerformUnlessClosing = flagCloseable
@@ -54,14 +54,13 @@ final case class CloseContext(private val flagCloseable: FlagCloseable) {
 
 object CloseContext {
 
-  /** Combines the 2 given close contexts such that if any of them gets closed,
-    * the returned close context is also closed. Works like an OR operator.
-    * However if this returned close context is closed directly, the 2 given
-    * closed contexts are _NOT_ closed, neither will it wait for any pending
-    * tasks on any of the 2 given close context to finish.
+  /** Combines the 2 given close contexts such that if any of them gets closed, the returned close
+    * context is also closed. Works like an OR operator. However if this returned close context is
+    * closed directly, the 2 given closed contexts are _NOT_ closed, neither will it wait for any
+    * pending tasks on any of the 2 given close context to finish.
     *
-    * NOTE: YOU MUST CLOSE THE CONTEXT MANUALLY IN ORDER TO AVOID PILING UP
-    *       NEW TASKS ON THE RUNONSHUTDOWN HOOK OF THE PARENT CONTEXTS
+    * NOTE: YOU MUST CLOSE THE CONTEXT MANUALLY IN ORDER TO AVOID PILING UP NEW TASKS ON THE
+    * RUNONSHUTDOWN HOOK OF THE PARENT CONTEXTS
     */
   def combineUnsafe(
       closeContext1: CloseContext,
@@ -121,11 +120,12 @@ trait HasCloseContext extends PromiseUnlessShutdownFactory { self: FlagCloseable
 trait PromiseUnlessShutdownFactory { self: HasCloseContext =>
   protected def logger: TracedLogger
 
-  /** Use this method to create a PromiseUnlessShutdown that will automatically be cancelled when the close context
-    * is closed. This allows proper clean up of stray promises when the node is transitioning to a passive state.
+  /** Use this method to create a PromiseUnlessShutdown that will automatically be cancelled when
+    * the close context is closed. This allows proper clean up of stray promises when the node is
+    * transitioning to a passive state.
     *
-    * Note: you should *not* invoke `success` on the returned promise but rather use `trySuccess`. The reason is that
-    * the call to `success` may fail in case of shutdown.
+    * Note: you should *not* invoke `success` on the returned promise but rather use `trySuccess`.
+    * The reason is that the call to `success` may fail in case of shutdown.
     */
   def mkPromise[A](
       description: String,

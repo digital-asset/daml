@@ -21,12 +21,12 @@ trait Pretty[-T] {
 /** The companion object collects everything you might need for implementing [[Pretty]] instances.
   *
   * Import this as follows:
-  * <pre>
+  * {{{
   * implicit val prettyMyClass: Pretty[MyClass] = {
   *   import Pretty._
   *   ...
   * }
-  * </pre>
+  * }}}
   */
 object Pretty extends ShowUtil with PrettyUtil with PrettyInstances {
 

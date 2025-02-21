@@ -28,9 +28,9 @@ object SubscriptionPool {
   object PoolClosed extends RegistrationError
 }
 
-/** Connects GRPC Sequencer subscriptions with subscriptions to the sequencer itself.
-  * Ensures that when one side is closed that the other is.
-  * When the subscription manager is closed all active subscriptions and responses will be closed.
+/** Connects GRPC Sequencer subscriptions with subscriptions to the sequencer itself. Ensures that
+  * when one side is closed that the other is. When the subscription manager is closed all active
+  * subscriptions and responses will be closed.
   */
 class SubscriptionPool[Subscription <: ManagedSubscription](
     clock: Clock,
@@ -49,8 +49,11 @@ class SubscriptionPool[Subscription <: ManagedSubscription](
   def activeSubscriptions(): Seq[Subscription] = pool.values.flatten.toSeq
 
   /** Create a subscription and register in the pool.
-    * @param createSubscription Function for creating a subscription. Only called if the pool can register new subscriptions.
-    * @return An error or the subscription we've created.
+    * @param createSubscription
+    *   Function for creating a subscription. Only called if the pool can register new
+    *   subscriptions.
+    * @return
+    *   An error or the subscription we've created.
     */
   def create(createSubscription: () => Subscription, member: Member)(implicit
       traceContext: TraceContext

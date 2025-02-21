@@ -137,14 +137,14 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         SignPbftMessage(prepare.message),
       )
 
+      // We don't send a local Prepare until the local PrePrepare is stored
       assertNoLogs(blockState.processMessage(prepare)) shouldBe true
-      blockState.advance() should contain theSameElementsInOrderAs List(
-        SendPbftMessage(prepare, None)
-      )
+      blockState.advance() shouldBe empty
 
       blockState.confirmPrePrepareStored()
       blockState.advance() should contain theSameElementsInOrderAs List(
-        SignPbftMessage(createCommit(myId).message)
+        SendPbftMessage(prepare, None),
+        SignPbftMessage(createCommit(myId).message),
       )
 
       assertNoLogs(blockState.processMessage(createCommit(myId))) shouldBe true
@@ -176,6 +176,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           SendPbftMessage(prePrepare, store = Some(StorePrePrepare(prePrepare))),
           SignPbftMessage(createPrepare(myId).message),
         )
+        blockState.confirmPrePrepareStored()
         assertNoLogs(blockState.processMessage(createPrepare(myId))) shouldBe true
         blockState.advance() should contain theSameElementsInOrderAs List(
           SendPbftMessage(createPrepare(myId), store = None)
@@ -197,11 +198,6 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         peerPrepares.headOption.foreach { prepare =>
           assertNoLogs(blockState.processMessage(prepare)) shouldBe true
         }
-        blockState.advance() shouldBe empty
-
-        // Advance should reach threshold; local commit is returned
-        blockState.confirmPrePrepareStored()
-
         blockState.advance() should contain theSameElementsInOrderAs List(
           SignPbftMessage(createCommit(myId, ppHash).message)
         )
@@ -429,10 +425,10 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         SignPbftMessage(myPrepare.message),
       )
       assertNoLogs(blockState.processMessage(myPrepare)) shouldBe true
+      blockState.confirmPrePrepareStored()
       blockState.advance() should contain theSameElementsInOrderAs List(
         SendPbftMessage(myPrepare, store = None)
       )
-      blockState.confirmPrePrepareStored()
 
       // Receive some commits first, but not enough yet to complete the block
       otherPeers.dropRight(1).foreach { peer =>
@@ -668,6 +664,48 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       )
     }
 
+    "as leader, only send local Prepare once PrePrepare is stored" in {
+      val blockState = createBlockState(otherPeers.toSet, myId)
+      val myPrepare = createPrepare(myId)
+
+      // Process the local PrePrepare
+      assertNoLogs(blockState.processMessage(prePrepare)) shouldBe true
+      blockState.advance() shouldBe List(
+        SendPbftMessage(prePrepare, store = Some(StorePrePrepare(prePrepare))),
+        SignPbftMessage(myPrepare.message),
+      )
+
+      // Before confirming that the PrePrepare is stored, the local Prepare is not sent
+      assertNoLogs(blockState.processMessage(myPrepare)) shouldBe true
+      blockState.advance() shouldBe empty
+
+      // After confirming the PrePrepare is stored, the send action triggers
+      blockState.confirmPrePrepareStored()
+      blockState.advance() shouldBe List(
+        SendPbftMessage(myPrepare, store = None)
+      )
+    }
+
+    "as any node, only send local Prepare after view change once NewView is stored" in {
+      val blockState = createBlockState(otherPeers.toSet, myId, viewNumber = ViewNumber(1L))
+      val myPrepare = createPrepare(myId, view = ViewNumber(1L))
+
+      assertNoLogs(blockState.processMessage(prePrepare)) shouldBe true
+      blockState.advance() shouldBe List(
+        SignPbftMessage(myPrepare.message)
+      )
+
+      // Before confirming that the PrePrepare is stored, the local Prepare is not sent
+      assertNoLogs(blockState.processMessage(myPrepare)) shouldBe true
+      blockState.advance() shouldBe empty
+
+      // After confirming the PrePrepare is stored, the send action triggers
+      blockState.confirmPrePrepareStored()
+      blockState.advance() shouldBe List(
+        SendPbftMessage(myPrepare, store = None)
+      )
+    }
+
     "be able to restore prepare before pre-prepare" in {
       val blockState = createBlockState(Set(fakeSequencerId("peer1"), fakeSequencerId("peer2")))
       clock.advance(Duration.ofMinutes(5))
@@ -675,17 +713,20 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val prepare = createPrepare(myId)
 
       assertNoLogs(blockState.processMessage(prepare)) shouldBe true
-      val processResults1 = assertNoLogs(blockState.advance())
-      processResults1 shouldBe empty
+      assertNoLogs(blockState.advance()) shouldBe empty
 
-      // when processing our pre-prepare we should attempt to create the prepare, but see that it is already there and
-      // use the pre-existing one
+      // after processing our pre-prepare, we should only see a send result (and no sign result) for the prepare,
+      // since we are using the recovered (pre-existing) prepare
       assertNoLogs(blockState.processMessage(prePrepare)) shouldBe true
-      val processResults2 = assertNoLogs(blockState.advance())
-      inside(processResults2) {
+      assertNoLogs(blockState.advance()) shouldBe List(
+        SendPbftMessage(prePrepare, store = Some(StorePrePrepare(prePrepare)))
+      )
+      blockState.confirmPrePrepareStored()
+
+      val processResults = assertNoLogs(blockState.advance())
+      inside(processResults) {
         case Seq(
-              SendPbftMessage(SignedMessage(_: PrePrepare, _), _),
-              SendPbftMessage(SignedMessage(p, _), _),
+              SendPbftMessage(SignedMessage(p, _), _)
             ) =>
           // if a new prepare had been created, its timestamp would have been influenced by the clock advancement
           // but that didn't happen, we know the rehydrated prepare was picked
@@ -809,6 +850,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       otherPeers: Set[SequencerId] = Set.empty,
       leader: SequencerId = myId,
       pbftMessageValidator: PbftMessageValidator = (_: PrePrepare) => Right(()),
+      viewNumber: ViewNumber = ViewNumber.First,
   ) =
     new PbftBlockState(
       Membership(myId, otherPeers),
@@ -816,7 +858,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       pbftMessageValidator,
       leader,
       EpochNumber.First,
-      ViewNumber.First,
+      viewNumber,
       abort = fail(_),
       SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,
       loggerFactory,
@@ -862,22 +904,30 @@ object PbftBlockStateTest {
       )
       .fakeSign
 
-  private def createPrepare(p: SequencerId, hash: Hash = ppHash): SignedMessage[Prepare] =
+  private def createPrepare(
+      p: SequencerId,
+      hash: Hash = ppHash,
+      view: ViewNumber = ViewNumber.First,
+  ): SignedMessage[Prepare] =
     Prepare
       .create(
         BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
-        ViewNumber.First,
+        view,
         hash,
         CantonTimestamp.Epoch,
         from = p,
       )
       .fakeSign
 
-  private def createCommit(p: SequencerId, hash: Hash = ppHash): SignedMessage[Commit] =
+  private def createCommit(
+      p: SequencerId,
+      hash: Hash = ppHash,
+      view: ViewNumber = ViewNumber.First,
+  ): SignedMessage[Commit] =
     Commit
       .create(
         BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
-        ViewNumber.First,
+        view,
         hash,
         CantonTimestamp.Epoch,
         from = p,

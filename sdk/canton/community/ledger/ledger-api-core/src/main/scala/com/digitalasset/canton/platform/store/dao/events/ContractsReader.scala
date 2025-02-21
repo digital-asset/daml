@@ -52,9 +52,12 @@ private[dao] sealed class ContractsReader(
 
   /** Lookup a contract key state at a specific ledger offset.
     *
-    * @param key the contract key
-    * @param notEarlierThanOffset the lower bound offset of the ledger for which to query for the key state
-    * @return the key state.
+    * @param key
+    *   the contract key
+    * @param notEarlierThanOffset
+    *   the lower bound offset of the ledger for which to query for the key state
+    * @return
+    *   the key state.
     */
   override def lookupKeyState(key: Key, notEarlierThanOffset: Offset)(implicit
       loggingContext: LoggingContextWithTrace

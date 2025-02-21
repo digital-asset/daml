@@ -526,15 +526,17 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
 
   /** Creates the following transaction
     *
+    * {{{
     * Create A --> Exercise A
     *              |        |
     *              |        |
     *              v        v
     *           Create B  Create C
+    * }}}
     *
-    * A is visible to Charlie
-    * B is visible to Alice and Charlie
-    * C is visible to Bob and Charlie
+    *   - A is visible to Charlie
+    *   - B is visible to Alice and Charlie
+    *   - C is visible to Bob and Charlie
     */
   protected def partiallyVisible: (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
@@ -581,10 +583,11 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
 
   /** Creates a transactions with multiple top-level creates.
     *
-    * Every contract will be signed by a fixed "operator" and each contract will have a
-    * further signatory and a template as defined by signatoriesAndTemplates.
+    * Every contract will be signed by a fixed "operator" and each contract will have a further
+    * signatory and a template as defined by signatoriesAndTemplates.
     *
-    * @throws IllegalArgumentException if signatoryAndTemplate is empty
+    * @throws IllegalArgumentException
+    *   if signatoryAndTemplate is empty
     */
   protected def multipleCreates(
       operator: String,

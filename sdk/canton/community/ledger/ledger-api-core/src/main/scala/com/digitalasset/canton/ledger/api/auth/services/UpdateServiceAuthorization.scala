@@ -74,5 +74,7 @@ final class UpdateServiceAuthorization(
 object UpdateServiceAuthorization {
 
   def getUpdatesClaims(request: GetUpdatesRequest): List[RequiredClaim[GetUpdatesRequest]] =
-    request.filter.toList.flatMap(RequiredClaims.transactionFilterClaims[GetUpdatesRequest])
+    request.updateFormat.toList.flatMap(
+      RequiredClaims.updateFormatClaims[GetUpdatesRequest]
+    ) ::: request.filter.toList.flatMap(RequiredClaims.transactionFilterClaims[GetUpdatesRequest])
 }

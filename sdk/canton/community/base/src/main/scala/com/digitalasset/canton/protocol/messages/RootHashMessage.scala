@@ -22,12 +22,12 @@ import com.digitalasset.canton.version.{
 }
 import com.google.protobuf.ByteString
 
-/** One root hash message is sent for each participant involved in a mediator confirmation request that requires root hash messages.
-  * The root hash message is delivered to the participant and the mediator.
-  * The mediator checks that it receives the right root hash messages
-  * and that they all contain the root hash that the mediator confirmation request message specifies.
-  * The mediator also checks that all payloads have the same serialization and,
-  * if it can parse the mediator confirmation request envelope, that the payload fits to the mediator confirmation request.
+/** One root hash message is sent for each participant involved in a mediator confirmation request
+  * that requires root hash messages. The root hash message is delivered to the participant and the
+  * mediator. The mediator checks that it receives the right root hash messages and that they all
+  * contain the root hash that the mediator confirmation request message specifies. The mediator
+  * also checks that all payloads have the same serialization and, if it can parse the mediator
+  * confirmation request envelope, that the payload fits to the mediator confirmation request.
   */
 final case class RootHashMessage[+Payload <: RootHashMessagePayload](
     rootHash: RootHash,

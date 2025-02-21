@@ -8,8 +8,8 @@ import org.wartremover.{WartTraverser, WartUniverse}
 /** Wart such that we avoid using Try.failed
   *
   * Using Try.failed seems to be a bad idea because it will create an UnsupportedOperationException
-  * for each Success, which constantly builds a stack trace and then throws it away. Seems to be quite
-  * expensive in particular in tight loops.
+  * for each Success, which constantly builds a stack trace and then throws it away. Seems to be
+  * quite expensive in particular in tight loops.
   *
   * Better match on a Try. If you need failed.foreach, use TryUtil.forFailed instead.
   */

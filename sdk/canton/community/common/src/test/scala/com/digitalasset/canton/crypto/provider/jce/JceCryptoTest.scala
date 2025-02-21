@@ -29,7 +29,7 @@ class JceCryptoTest
   "JceCrypto" can {
 
     def jceCrypto(): FutureUnlessShutdown[Crypto] =
-      CryptoFactory
+      Crypto
         .create(
           CryptoConfig(provider = Jce),
           new MemoryStorage(loggerFactory, timeouts),

@@ -8,11 +8,12 @@ import io.grpc.ServerCall
 import scala.collection.mutable
 import scala.concurrent.blocking
 
-/** This listener buffers all messages until `setNextListener` is called,
-  * at which point all buffered messages are sent to the given listener.
-  * From then on, all future messages are sent directly to the given listener.
+/** This listener buffers all messages until `setNextListener` is called, at which point all
+  * buffered messages are sent to the given listener. From then on, all future messages are sent
+  * directly to the given listener.
   *
-  * The target listener is usually created through `Contexts.interceptCall` or `ServerCallHandler.startCall`.
+  * The target listener is usually created through `Contexts.interceptCall` or
+  * `ServerCallHandler.startCall`.
   */
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 abstract class AsyncForwardingListener[ReqT] extends ServerCall.Listener[ReqT] {

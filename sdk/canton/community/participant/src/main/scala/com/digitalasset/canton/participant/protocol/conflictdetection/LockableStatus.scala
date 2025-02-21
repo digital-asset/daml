@@ -14,14 +14,18 @@ private[conflictdetection] trait LockableStatus[-Status] {
   /** The kind of item this `Status` can be used for. Used for logging and pretty printing. */
   def kind: String
 
-  /** Determines whether the activeness check for being free should pass for unlocked items in this status */
+  /** Determines whether the activeness check for being free should pass for unlocked items in this
+    * status
+    */
   def isFree(status: Status): Boolean
 
-  /** Determines whether the activeness check for being active should pass for unlocked items in this status */
+  /** Determines whether the activeness check for being active should pass for unlocked items in
+    * this status
+    */
   def isActive(status: Status): Boolean
 
-  /** Determines whether the conflict detector should not keep items with this status in memory
-    * if it is safe from the conflict detection perspective to evict them.
+  /** Determines whether the conflict detector should not keep items with this status in memory if
+    * it is safe from the conflict detection perspective to evict them.
     */
   def shouldEvict(status: Status): Boolean
 }

@@ -17,13 +17,17 @@ import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.{LfPartyId, LfWorkflowId, ReassignmentCounter}
 
-/** Common supertype of all view trees that are sent as [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]]s */
+/** Common supertype of all view trees that are sent as
+  * [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]]s
+  */
 trait ViewTree extends PrettyPrinting {
 
   /** The informees of the view in the tree */
   def informees: Set[LfPartyId]
 
-  /** Return the hash whose signature is to be included in the [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]] */
+  /** Return the hash whose signature is to be included in the
+    * [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]]
+    */
   def toBeSigned: Option[RootHash]
 
   /** The hash of the view */
@@ -33,12 +37,14 @@ trait ViewTree extends PrettyPrinting {
 
   /** The root hash of the view tree.
     *
-    * Two view trees with the same [[rootHash]] must also have the same [[synchronizerId]] and [[mediator]]
-    * (except for hash collisions).
+    * Two view trees with the same [[rootHash]] must also have the same [[synchronizerId]] and
+    * [[mediator]] (except for hash collisions).
     */
   def rootHash: RootHash
 
-  /** The synchronizer to which the [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]] should be sent to */
+  /** The synchronizer to which the
+    * [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]] should be sent to
+    */
   def synchronizerId: SynchronizerId
 
   /** The mediator group that is responsible for coordinating this request */

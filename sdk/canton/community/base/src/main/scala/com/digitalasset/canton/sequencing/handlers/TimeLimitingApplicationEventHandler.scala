@@ -26,9 +26,9 @@ import java.time.temporal.ChronoUnit
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
-/** Monitors how long the processing of batches of sequenced events takes.
-  * If the processing takes longer than the time limit on the given clock,
-  * the handler will once log an error or exit the process, depending on `exitOnTimeout`.
+/** Monitors how long the processing of batches of sequenced events takes. If the processing takes
+  * longer than the time limit on the given clock, the handler will once log an error or exit the
+  * process, depending on `exitOnTimeout`.
   */
 class TimeLimitingApplicationEventHandler(
     timeLimit: config.NonNegativeDuration,

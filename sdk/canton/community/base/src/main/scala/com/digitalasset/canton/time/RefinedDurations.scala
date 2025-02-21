@@ -36,9 +36,11 @@ import scala.jdk.DurationConverters.*
 
 object RefinedDuration {
 
-  /** Returns the duration in seconds truncated to the size of Int, returns as a maximum Int.MaxValue.
+  /** Returns the duration in seconds truncated to the size of Int, returns as a maximum
+    * Int.MaxValue.
     *
-    * Usage: On the database/jdbc level many timeouts require to be specified in seconds as an integer, not a long.
+    * Usage: On the database/jdbc level many timeouts require to be specified in seconds as an
+    * integer, not a long.
     */
   def toSecondsTruncated(duration: Duration, logger: TracedLogger)(implicit
       traceContext: TraceContext
@@ -68,7 +70,8 @@ sealed trait RefinedDuration extends Ordered[RefinedDuration] {
 trait RefinedDurationCompanion[RD <: RefinedDuration] {
 
   /** Factory method for creating the [[RefinedDuration]] from a [[java.time.Duration]]
-    * @throws java.lang.IllegalArgumentException if the duration does not satisfy the refinement predicate
+    * @throws java.lang.IllegalArgumentException
+    *   if the duration does not satisfy the refinement predicate
     */
   def tryCreate(duration: Duration): RD =
     create(duration).valueOr(err => throw new IllegalArgumentException(err))
@@ -150,9 +153,11 @@ final case class PositiveFiniteDuration private (duration: Duration)
 
   override protected def pretty: Pretty[PositiveFiniteDuration] = prettyOfParam(_.duration)
 
-  /** Returns the duration in seconds truncated to the size of Int, returns as a maximum Int.MaxValue.
+  /** Returns the duration in seconds truncated to the size of Int, returns as a maximum
+    * Int.MaxValue.
     *
-    * Usage: On the database/jdbc level many timeouts require to be specified in seconds as an integer, not a long.
+    * Usage: On the database/jdbc level many timeouts require to be specified in seconds as an
+    * integer, not a long.
     */
   def toSecondsTruncated(
       logger: TracedLogger
@@ -206,9 +211,11 @@ final case class NonNegativeFiniteDuration private (duration: Duration)
     NonNegativeFiniteDurationConfig.tryFromJavaDuration(duration)
   )
 
-  /** Returns the duration in seconds truncated to the size of Int, returns as a maximum Int.MaxValue.
+  /** Returns the duration in seconds truncated to the size of Int, returns as a maximum
+    * Int.MaxValue.
     *
-    * Usage: On the database/jdbc level many timeouts require to be specified in seconds as an integer, not a long.
+    * Usage: On the database/jdbc level many timeouts require to be specified in seconds as an
+    * integer, not a long.
     */
   def toSecondsTruncated(
       logger: TracedLogger

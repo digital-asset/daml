@@ -14,6 +14,11 @@ trait HasDelayedInit[M] { self: NamedLogging =>
   private var initComplete = false
   private val postponedMessages = new mutable.Queue[M]
 
+  /** Called when a module completes relevant initialization and is ready to resume processing
+    * events. Any postponed events are dequeued and processed using the provided message handler.
+    * For clean startup, we recommend only calling method once per module. However, this method is
+    * still idempotent, as subsequent invocations should have no effect.
+    */
   protected final def initCompleted(messageHandler: M => Unit)(implicit
       traceContext: TraceContext
   ): Unit = {
@@ -25,7 +30,7 @@ trait HasDelayedInit[M] { self: NamedLogging =>
     }
   }
 
-  protected final def ifInitCompleted(message: M)(messageHandler: M => Unit)(implicit
+  protected final def ifInitCompleted[T <: M](message: T)(messageHandler: T => Unit)(implicit
       traceContext: TraceContext
   ): Unit =
     if (initComplete) {

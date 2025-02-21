@@ -122,15 +122,23 @@ object UnassignmentViewTree
   }
 }
 
-/** Aggregates the data of an unassignment request that is sent to the mediator and the involved participants.
+/** Aggregates the data of an unassignment request that is sent to the mediator and the involved
+  * participants.
   *
-  * @param salt Salt for blinding the Merkle hash
-  * @param sourceSynchronizerId The synchronizer to which the unassignment request is sent
-  * @param sourceMediatorGroup The mediator that coordinates the unassignment request on the source synchronizer
-  * @param stakeholders Information about the stakeholders and signatories
-  * @param reassigningParticipants The list of reassigning participants
-  * @param uuid The request UUID of the unassignment
-  * @param submitterMetadata information about the submission
+  * @param salt
+  *   Salt for blinding the Merkle hash
+  * @param sourceSynchronizerId
+  *   The synchronizer to which the unassignment request is sent
+  * @param sourceMediatorGroup
+  *   The mediator that coordinates the unassignment request on the source synchronizer
+  * @param stakeholders
+  *   Information about the stakeholders and signatories
+  * @param reassigningParticipants
+  *   The list of reassigning participants
+  * @param uuid
+  *   The request UUID of the unassignment
+  * @param submitterMetadata
+  *   information about the submission
   */
 final case class UnassignmentCommonData private (
     override val salt: Salt,
@@ -271,12 +279,17 @@ object UnassignmentCommonData
 
 /** Aggregates the data of an unassignment request that is only sent to the involved participants
   */
-/** @param salt The salt used to blind the Merkle hash.
-  * @param contract Contract being reassigned
-  * @param targetSynchronizerId The synchronizer to which the contract is reassigned.
-  * @param targetTimeProof The sequenced event from the target synchronizer whose timestamp defines
-  *                        the baseline for measuring time periods on the target synchronizer
-  * @param targetProtocolVersion Protocol version of the target synchronizer
+/** @param salt
+  *   The salt used to blind the Merkle hash.
+  * @param contract
+  *   Contract being reassigned
+  * @param targetSynchronizerId
+  *   The synchronizer to which the contract is reassigned.
+  * @param targetTimeProof
+  *   The sequenced event from the target synchronizer whose timestamp defines the baseline for
+  *   measuring time periods on the target synchronizer
+  * @param targetProtocolVersion
+  *   Protocol version of the target synchronizer
   */
 final case class UnassignmentView private (
     override val salt: Salt,
@@ -398,7 +411,8 @@ object UnassignmentView extends VersioningCompanionContextMemoization[Unassignme
 
 /** A fully unblinded [[UnassignmentViewTree]]
   *
-  * @throws java.lang.IllegalArgumentException if the [[tree]] is not fully unblinded
+  * @throws java.lang.IllegalArgumentException
+  *   if the [[tree]] is not fully unblinded
   */
 final case class FullUnassignmentTree(tree: UnassignmentViewTree)
     extends FullReassignmentViewTree

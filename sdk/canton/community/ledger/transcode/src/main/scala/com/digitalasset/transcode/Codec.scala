@@ -6,8 +6,8 @@ package com.digitalasset.transcode
 import com.digitalasset.transcode.schema.DynamicValue
 
 /** Codec encodes and decodes target protocol to and from an intermediary
-  * [[com.digitalasset.transcode.schema.DynamicValue]] representation. Arbitrary codecs can be composed together to
-  * create direct interoperability [[Converter]]s.
+  * [[com.digitalasset.transcode.schema.DynamicValue]] representation. Arbitrary codecs can be
+  * composed together to create direct interoperability [[Converter]]s.
   */
 trait Codec[A] extends Decoder[A] with Encoder[A]
 

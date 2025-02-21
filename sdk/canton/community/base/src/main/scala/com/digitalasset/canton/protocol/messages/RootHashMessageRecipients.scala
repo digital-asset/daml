@@ -21,9 +21,12 @@ object RootHashMessageRecipients extends HasLoggerName {
 
   /** Computes the list of recipients for the root hash messages of a confirmation request.
     *
-    * @param informees informees of the confirmation request
-    * @param ipsSnapshot topology snapshot used at submission time
-    * @return list of root hash message recipients
+    * @param informees
+    *   informees of the confirmation request
+    * @param ipsSnapshot
+    *   topology snapshot used at submission time
+    * @return
+    *   list of root hash message recipients
     */
   def rootHashRecipientsForInformees(
       informees: Set[LfPartyId],

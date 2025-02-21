@@ -6,10 +6,7 @@ package com.digitalasset.canton
 import cats.syntax.option.*
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{AdminServerConfig, CryptoConfig, StorageConfig}
-import com.digitalasset.canton.participant.config.{
-  CommunityParticipantConfig,
-  ParticipantInitConfig,
-}
+import com.digitalasset.canton.participant.config.{LocalParticipantConfig, ParticipantInitConfig}
 import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.mediator.CommunityMediatorNodeConfig
 import com.digitalasset.canton.synchronizer.sequencer.config.CommunitySequencerNodeConfig
@@ -18,8 +15,8 @@ import com.digitalasset.canton.synchronizer.sequencer.config.CommunitySequencerN
   */
 @SuppressWarnings(Array("org.wartremover.warts.Null"))
 object ConfigStubs {
-  def participant: CommunityParticipantConfig =
-    CommunityParticipantConfig(
+  def participant: LocalParticipantConfig =
+    LocalParticipantConfig(
       ParticipantInitConfig(),
       CryptoConfig(),
       null,

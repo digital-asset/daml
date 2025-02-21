@@ -31,13 +31,20 @@ object TransactionLogUpdate {
 
   /** Complete view of a ledger transaction.
     *
-    * @param updateId The transaction it.
-    * @param workflowId The workflow id.
-    * @param effectiveAt The transaction ledger time.
-    * @param offset The transaction's offset in the ledger.
-    * @param events The transaction events, in execution order.
-    * @param completionStreamResponse The successful submission's completion details.
-    * @param recordTime The time at which the transaction was recorded.
+    * @param updateId
+    *   The transaction it.
+    * @param workflowId
+    *   The workflow id.
+    * @param effectiveAt
+    *   The transaction ledger time.
+    * @param offset
+    *   The transaction's offset in the ledger.
+    * @param events
+    *   The transaction events, in execution order.
+    * @param completionStreamResponse
+    *   The successful submission's completion details.
+    * @param recordTime
+    *   The time at which the transaction was recorded.
     */
   final case class TransactionAccepted(
       updateId: String,
@@ -54,8 +61,10 @@ object TransactionLogUpdate {
 
   /** A rejected submission.
     *
-    * @param offset The offset at which the rejection has been enqueued in the ledger.
-    * @param completionStreamResponse The rejected submission's completion details.
+    * @param offset
+    *   The offset at which the rejection has been enqueued in the ledger.
+    * @param completionStreamResponse
+    *   The rejected submission's completion details.
     */
   final case class TransactionRejected(
       offset: Offset,

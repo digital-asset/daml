@@ -11,12 +11,14 @@ object TransactionTraversalUtils {
 
   final case class NodeInfo(nodeId: NodeId, node: Node, lastDescendantNodeId: NodeId)
 
-  /** It reorders the node ids of a transaction to follow the execution order (pre-order traversal) and finds the
-    * node ids of their last descendant, omitting the fetch, the lookup, the rollback nodes and the descendants of
-    * the rollback nodes.
+  /** It reorders the node ids of a transaction to follow the execution order (pre-order traversal)
+    * and finds the node ids of their last descendant, omitting the fetch, the lookup, the rollback
+    * nodes and the descendants of the rollback nodes.
     *
-    * @param transaction the given transaction
-    * @return the node id, node and the node id of the last descendant in the execution order
+    * @param transaction
+    *   the given transaction
+    * @return
+    *   the node id, node and the node id of the last descendant in the execution order
     */
   def executionOrderTraversalForIngestion(transaction: Transaction): Iterator[NodeInfo] = {
     // Rearrange node ids to follow the execution order.

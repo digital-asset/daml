@@ -10,15 +10,15 @@ import java.io.File
 import java.nio.file.Path
 import scala.concurrent.duration.FiniteDuration
 
-/** Type class for validations of Canton config classes depending on [[CantonEdition]]s.
-  * Instances are typically derived using [[manual.CantonConfigValidatorDerivation]] via Magnolia
-  * so that validation automatically calls `validate` on the subconfigurations,
-  * where the subconfigurations of `A` are all the types of fields of a case class that implements `A`.
-  * The derivation must find a corresponding [[CantonConfigPrevalidator]] instance via implicit resolution.
+/** Type class for validations of Canton config classes depending on [[CantonEdition]]s. Instances
+  * are typically derived using [[manual.CantonConfigValidatorDerivation]] via Magnolia so that
+  * validation automatically calls `validate` on the subconfigurations, where the subconfigurations
+  * of `A` are all the types of fields of a case class that implements `A`. The derivation must find
+  * a corresponding [[CantonConfigPrevalidator]] instance via implicit resolution.
   *
-  * @tparam A the type of the config class to validate.
-  *           This should normally be contravariant, but Magnolia's derivation algorithm
-  *           cannot deal with contravariant type classes for sealed traits.
+  * @tparam A
+  *   the type of the config class to validate. This should normally be contravariant, but
+  *   Magnolia's derivation algorithm cannot deal with contravariant type classes for sealed traits.
   */
 trait CantonConfigValidator[A] {
   def validate(
@@ -31,8 +31,8 @@ object CantonConfigValidator {
 
   /** Summons an instance of the type class [[CantonConfigValidator]].
     *
-    * This triggers automatic derivation at the call site in the scope of
-    * `import com.digitalasset.canton.config.auto.*`.
+    * This triggers automatic derivation at the call site in the scope of `import
+    * com.digitalasset.canton.config.auto.*`.
     */
   @inline def apply[A](implicit ev: CantonConfigValidator[A]): CantonConfigValidator[A] = ev
 

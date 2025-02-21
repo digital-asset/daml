@@ -50,9 +50,11 @@ import org.apache.pekko.{Done, NotUsed}
 import java.sql.SQLTransientConnectionException
 import scala.concurrent.ExecutionContext
 
-/** We throw this if a [[com.digitalasset.canton.synchronizer.sequencer.store.SaveCounterCheckpointError.CounterCheckpointInconsistent]] error is returned when saving a new member
-  * counter checkpoint. This is exceptionally concerning as may suggest that we are streaming events with inconsistent counters.
-  * Should only be caused by a bug or the datastore being corrupted.
+/** We throw this if a
+  * [[com.digitalasset.canton.synchronizer.sequencer.store.SaveCounterCheckpointError.CounterCheckpointInconsistent]]
+  * error is returned when saving a new member counter checkpoint. This is exceptionally concerning
+  * as may suggest that we are streaming events with inconsistent counters. Should only be caused by
+  * a bug or the datastore being corrupted.
   */
 class CounterCheckpointInconsistentException(message: String) extends RuntimeException(message)
 
@@ -68,7 +70,8 @@ trait SequencerReaderConfig {
   /** max number of payloads to fetch from the datastore in one page */
   def payloadBatchSize: Int
 
-  /** max time window to wait for more payloads before fetching the current batch from the datastore */
+  /** max time window to wait for more payloads before fetching the current batch from the datastore
+    */
   def payloadBatchWindow: config.NonNegativeFiniteDuration
 
   /** how many batches of payloads will be fetched in parallel */
@@ -197,10 +200,9 @@ class SequencerReader(
           )
         )
 
-    /** An Pekko flow that passes the [[UnsignedEventData]] untouched from input to output,
-      * but asynchronously records every checkpoint interval.
-      * The materialized future completes when all checkpoints have been recorded
-      * after the kill switch has been pulled.
+    /** An Pekko flow that passes the [[UnsignedEventData]] untouched from input to output, but
+      * asynchronously records every checkpoint interval. The materialized future completes when all
+      * checkpoints have been recorded after the kill switch has been pulled.
       */
     private def recordCheckpointFlow(implicit
         traceContext: TraceContext
@@ -583,7 +585,9 @@ class SequencerReader(
         )
     }
 
-    /** Attempt to save the counter checkpoint and fail horribly if we find this is an inconsistent checkpoint update. */
+    /** Attempt to save the counter checkpoint and fail horribly if we find this is an inconsistent
+      * checkpoint update.
+      */
     private def saveCounterCheckpoint(
         member: Member,
         memberId: SequencerMemberId,
@@ -853,7 +857,9 @@ object SequencerReader {
         lastBatchWasFull = readEvents.events.sizeCompare(batchSize) == 0,
       )
 
-    /** Apply a previously recorded counter checkpoint so that we don't have to start from 0 on every subscription */
+    /** Apply a previously recorded counter checkpoint so that we don't have to start from 0 on
+      * every subscription
+      */
     def startFromCheckpoint(checkpoint: CounterCheckpoint): ReadState =
       // with this checkpoint we'll start reading from this timestamp and as reads are not inclusive we'll receive the next event after this checkpoint first
       copy(

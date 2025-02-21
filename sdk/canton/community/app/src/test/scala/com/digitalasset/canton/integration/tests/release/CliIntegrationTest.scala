@@ -14,9 +14,9 @@ import org.scalatest.{Assertion, Outcome, SuiteMixin}
 import java.io.ByteArrayInputStream
 import scala.sys.process.*
 
-/** The `CliIntegrationTest` tests Canton command line options by instantiating a Canton binary in a new process with
-  * the to-be-tested CLI options as arguments.
-  * Before being able to run these tests locally, you need to execute `sbt bundle` and `sbt package`.
+/** The `CliIntegrationTest` tests Canton command line options by instantiating a Canton binary in a
+  * new process with the to-be-tested CLI options as arguments. Before being able to run these tests
+  * locally, you need to execute `sbt bundle` and `sbt package`.
   */
 class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixin {
 

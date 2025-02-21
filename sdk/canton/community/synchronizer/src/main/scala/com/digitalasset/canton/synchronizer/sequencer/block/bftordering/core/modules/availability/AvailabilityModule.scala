@@ -47,7 +47,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Output,
   P2PNetworkOut,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
@@ -63,7 +63,8 @@ import AvailabilityModuleMetrics.{emitDisseminationStateStats, emitInvalidMessag
 
 /** Trantor-inspired availability implementation.
   *
-  * @param random the random source used to select what peer to download batches from
+  * @param random
+  *   the random source used to select what peer to download batches from
   */
 final class AvailabilityModule[E <: Env[E]](
     initialMembership: Membership,
@@ -956,35 +957,35 @@ object AvailabilityModule {
 
   private def parseAvailabilityNetworkMessage(
       from: SequencerId,
-      message: v1.AvailabilityMessage,
+      message: v30.AvailabilityMessage,
       originalMessage: ByteString,
   ): ParsingResult[Availability.RemoteProtocolMessage] =
     message.message match {
-      case v1.AvailabilityMessage.Message.Empty =>
+      case v30.AvailabilityMessage.Message.Empty =>
         Left(ProtoDeserializationError.OtherError("Empty Received"))
-      case v1.AvailabilityMessage.Message.Ping(_) =>
+      case v30.AvailabilityMessage.Message.Ping(_) =>
         Left(ProtoDeserializationError.OtherError("Ping Received"))
-      case v1.AvailabilityMessage.Message.StoreRequest(value) =>
+      case v30.AvailabilityMessage.Message.StoreRequest(value) =>
         Availability.RemoteDissemination.RemoteBatch.fromProtoV30(from, value)(originalMessage)
-      case v1.AvailabilityMessage.Message.StoreResponse(value) =>
+      case v30.AvailabilityMessage.Message.StoreResponse(value) =>
         Availability.RemoteDissemination.RemoteBatchAcknowledged.fromProtoV30(from, value)(
           originalMessage
         )
-      case v1.AvailabilityMessage.Message.BatchRequest(value) =>
+      case v30.AvailabilityMessage.Message.BatchRequest(value) =>
         Availability.RemoteOutputFetch.FetchRemoteBatchData.fromProtoV30(from, value)(
           originalMessage
         )
-      case v1.AvailabilityMessage.Message.BatchResponse(value) =>
+      case v30.AvailabilityMessage.Message.BatchResponse(value) =>
         Availability.RemoteOutputFetch.RemoteBatchDataFetched.fromProtoV30(from, value)(
           originalMessage
         )
     }
 
   def parseNetworkMessage(
-      protoSignedMessage: v1.SignedMessage
+      protoSignedMessage: v30.SignedMessage
   ): ParsingResult[Availability.UnverifiedProtocolMessage] =
     SignedMessage
-      .fromProtoWithSequencerId(v1.AvailabilityMessage)(from =>
+      .fromProtoWithSequencerId(v30.AvailabilityMessage)(from =>
         proto =>
           originalByteString => parseAvailabilityNetworkMessage(from, proto, originalByteString)
       )(protoSignedMessage)

@@ -49,9 +49,9 @@ object KmsMetadataStore {
 
   /** The data to be stored inside the KMS metadata store.
     *
-    * @param usage If the key is for signing,
-    *              this is the set of signing key usages that the key supports.
-    *              Otherwise, it must be empty.
+    * @param usage
+    *   If the key is for signing, this is the set of signing key usages that the key supports.
+    *   Otherwise, it must be empty.
     */
   final case class KmsMetadata(
       fingerprint: Fingerprint,

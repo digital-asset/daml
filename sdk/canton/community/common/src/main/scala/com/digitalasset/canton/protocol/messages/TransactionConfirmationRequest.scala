@@ -20,7 +20,8 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
-/** Represents the confirmation request for a transaction as sent from a participant node to the sequencer.
+/** Represents the confirmation request for a transaction as sent from a participant node to the
+  * sequencer.
   */
 final case class TransactionConfirmationRequest(
     informeeMessage: InformeeMessage,

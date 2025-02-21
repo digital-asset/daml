@@ -20,26 +20,29 @@ import com.google.common.annotations.VisibleForTesting
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Use [[fetchTimeProof]] to fetch a time proof we observe from the sequencer via [[handleTimeProof]].
-  * Will batch fetch calls so there is only a single request occurring at any point.
+/** Use [[fetchTimeProof]] to fetch a time proof we observe from the sequencer via
+  * [[handleTimeProof]]. Will batch fetch calls so there is only a single request occurring at any
+  * point.
   *
-  * The submission of this request to the sequencer is slightly more involved than usual as we do not rely at all
-  * on synchronizer time as this component is primarily used when the synchronizer time is likely unknown or stale.
-  * Instead we use the the local node clock for retries.
+  * The submission of this request to the sequencer is slightly more involved than usual as we do
+  * not rely at all on synchronizer time as this component is primarily used when the synchronizer
+  * time is likely unknown or stale. Instead we use the the local node clock for retries.
   *
   * Future optimizations:
-  *  - Most scenarios don't need a time event specifically and instead just need any event to cause a "tick".
-  *    In these cases we could short circuit and cancel a pending request when receiving any event with a timestamp.
-  *    However this would only optimize our retry loop so the distinction doesn't currently feel anywhere near worthwhile.
+  *   - Most scenarios don't need a time event specifically and instead just need any event to cause
+  *     a "tick". In these cases we could short circuit and cancel a pending request when receiving
+  *     any event with a timestamp. However this would only optimize our retry loop so the
+  *     distinction doesn't currently feel anywhere near worthwhile.
   */
 trait TimeProofRequestSubmitter extends AutoCloseable {
 
-  /** The [[TimeProofRequestSubmitter]] will attempt to produce a time proof by calling send on the synchronizer sequencer.
-    * It will stop requesting a time proof with the first time proof it witnesses (not necessarily the one
-    * it requested).
-    * Ensures that only a single request is in progress at a time regardless of how many times it is called.
-    * Is safe to call frequently without causing many requests to the sequencer.
-    * If the component is shutdown it stops requesting a time proof.
+  /** The [[TimeProofRequestSubmitter]] will attempt to produce a time proof by calling send on the
+    * synchronizer sequencer. It will stop requesting a time proof with the first time proof it
+    * witnesses (not necessarily the one it requested).
+    *
+    * Ensures that only a single request is in progress at a time regardless of how many times it is
+    * called. Is safe to call frequently without causing many requests to the sequencer. If the
+    * component is shutdown it stops requesting a time proof.
     */
   def fetchTimeProof()(implicit traceContext: TraceContext): Unit
 

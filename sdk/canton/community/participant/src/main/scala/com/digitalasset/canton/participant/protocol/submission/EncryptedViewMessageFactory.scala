@@ -199,8 +199,9 @@ object EncryptedViewMessageFactory {
 
   /** Generates session keys based on the recipients trees and on the values already cached.
     *
-    * @param viewRecipients the list of views and their respective recipients, parent recipients and informees. For
-    *                       this function to work correctly the views MUST be passed in PRE-ORDER.
+    * @param viewRecipients
+    *   the list of views and their respective recipients, parent recipients and informees. For this
+    *   function to work correctly the views MUST be passed in PRE-ORDER.
     */
   def generateKeysFromRecipients(
       viewRecipients: Seq[(ViewHashAndRecipients, Option[Recipients], List[LfPartyId])],

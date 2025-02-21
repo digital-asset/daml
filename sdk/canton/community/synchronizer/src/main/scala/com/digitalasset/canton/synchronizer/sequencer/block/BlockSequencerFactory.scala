@@ -275,15 +275,15 @@ abstract class BlockSequencerFactory(
 
 object BlockSequencerFactory {
 
-  /** Whether a sequencer implementation requires `BlockUpdateGenerator` to adjust ordering timestamps
-    * to ensure they are strictly increasing or just validate that they are.
+  /** Whether a sequencer implementation requires `BlockUpdateGenerator` to adjust ordering
+    * timestamps to ensure they are strictly increasing or just validate that they are.
     */
   sealed trait OrderingTimeFixMode
 
   object OrderingTimeFixMode {
 
-    /** Ordering timestamps are not necessarily unique or increasing.
-      * Clients should adjust timestamps to enforce that.
+    /** Ordering timestamps are not necessarily unique or increasing. Clients should adjust
+      * timestamps to enforce that.
       */
     final case object MakeStrictlyIncreasing extends OrderingTimeFixMode
 

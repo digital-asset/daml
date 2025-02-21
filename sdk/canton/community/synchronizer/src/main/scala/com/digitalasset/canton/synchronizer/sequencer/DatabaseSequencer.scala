@@ -397,8 +397,8 @@ class DatabaseSequencer(
   // until the database and block sequencers are unified.
   override protected def localSequencerMember: Member = SequencerId(synchronizerId.uid)
 
-  /** helper for performing operations that are expected to be called with a registered member so will just throw if we
-    * find the member is unregistered.
+  /** helper for performing operations that are expected to be called with a registered member so
+    * will just throw if we find the member is unregistered.
     */
   final protected def withExpectedRegisteredMember[A](member: Member, operationName: String)(
       fn: SequencerMemberId => FutureUnlessShutdown[A]

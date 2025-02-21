@@ -7,8 +7,10 @@ import scala.math.Ordered.orderingToOrdered
 import scala.reflect.ClassTag
 
 /** Invariants that an instance of `ValueClass` should respect.
-  * @tparam ValueClass Type of the instance
-  * @tparam Comp Companion object
+  * @tparam ValueClass
+  *   Type of the instance
+  * @tparam Comp
+  *   Companion object
   */
 trait Invariant[ValueClass, Comp] {
   def validateInstance(

@@ -47,9 +47,9 @@ import scala.concurrent.{ExecutionContext, Future}
 
 // architecture-handbook-entry-begin: IdentityProvidingServiceClient
 
-/** Client side API for the Identity Providing Service. This API is used to get information about the layout of
-  * the synchronizers, such as party-participant relationships, used encryption and signing keys,
-  * package information, participant states, synchronizer parameters, and so on.
+/** Client side API for the Identity Providing Service. This API is used to get information about
+  * the layout of the synchronizers, such as party-participant relationships, used encryption and
+  * signing keys, package information, participant states, synchronizer parameters, and so on.
   */
 class IdentityProvidingServiceClient {
 
@@ -80,22 +80,23 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
 
   /** Our current snapshot approximation
     *
-    * As topology transactions are future dated (to prevent sequential bottlenecks), we do
-    * have to "guess" the current state, as time is defined by the sequencer after
-    * we've sent the transaction. Therefore, this function will return the
-    * best snapshot approximation known.
+    * As topology transactions are future dated (to prevent sequential bottlenecks), we do have to
+    * "guess" the current state, as time is defined by the sequencer after we've sent the
+    * transaction. Therefore, this function will return the best snapshot approximation known.
     *
-    * The snapshot returned by this method should be used when preparing a transaction or reassignment request (Phase 1).
-    * It must not be used when validating a request (Phase 2 - 7); instead, use one of the `snapshot` methods with the request timestamp.
+    * The snapshot returned by this method should be used when preparing a transaction or
+    * reassignment request (Phase 1). It must not be used when validating a request (Phase 2 - 7);
+    * instead, use one of the `snapshot` methods with the request timestamp.
     */
   def currentSnapshotApproximation(implicit traceContext: TraceContext): T
 
   /** Possibly future dated head snapshot
     *
-    * As we future date topology transactions, the head snapshot is our latest knowledge of the topology state,
-    * but as it can be still future dated, we need to be careful when actually using it: the state might not
-    * yet be active, as the topology transactions are future dated. Therefore, do not act towards the sequencer
-    * using this snapshot, but use the currentSnapshotApproximation instead.
+    * As we future date topology transactions, the head snapshot is our latest knowledge of the
+    * topology state, but as it can be still future dated, we need to be careful when actually using
+    * it: the state might not yet be active, as the topology transactions are future dated.
+    * Therefore, do not act towards the sequencer using this snapshot, but use the
+    * currentSnapshotApproximation instead.
     */
   def headSnapshot(implicit traceContext: TraceContext): T = checked(
     trySnapshot(topologyKnownUntilTimestamp)
@@ -103,15 +104,15 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
 
   /** The approximate timestamp
     *
-    * This is either the last observed sequencer timestamp OR the effective timestamp after we observed
-    * the time difference of (effective - sequencer = epsilon) to elapse
+    * This is either the last observed sequencer timestamp OR the effective timestamp after we
+    * observed the time difference of (effective - sequencer = epsilon) to elapse
     */
   def approximateTimestamp: CantonTimestamp
 
   /** The most recently observed effective timestamp
     *
-    * The effective timestamp is sequencer_time + epsilon(sequencer_time), where
-    * epsilon is given by the topology change delay time, defined using the synchronizer parameters.
+    * The effective timestamp is sequencer_time + epsilon(sequencer_time), where epsilon is given by
+    * the topology change delay time, defined using the synchronizer parameters.
     *
     * This is the highest timestamp for which we can serve snapshots
     */
@@ -122,12 +123,13 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
 
   /** Returns the topology information at a certain point in time
     *
-    * Use this method if you are sure to be synchronized with the topology state updates.
-    * The method will block & wait for an update, but emit a warning if it is not available
+    * Use this method if you are sure to be synchronized with the topology state updates. The method
+    * will block & wait for an update, but emit a warning if it is not available
     *
-    * The snapshot returned by this method should be used for validating transaction and reassignment requests (Phase 2 - 7).
-    * Use the request timestamp as parameter for this method.
-    * Do not use a response or result timestamp, because all validation steps must use the same topology snapshot.
+    * The snapshot returned by this method should be used for validating transaction and
+    * reassignment requests (Phase 2 - 7). Use the request timestamp as parameter for this method.
+    * Do not use a response or result timestamp, because all validation steps must use the same
+    * topology snapshot.
     */
   def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -135,9 +137,10 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
 
   /** Waits until a snapshot is available
     *
-    * The snapshot returned by this method should be used for validating transaction and reassignment requests (Phase 2 - 7).
-    * Use the request timestamp as parameter for this method.
-    * Do not use a response or result timestamp, because all validation steps must use the same topology snapshot.
+    * The snapshot returned by this method should be used for validating transaction and
+    * reassignment requests (Phase 2 - 7). Use the request timestamp as parameter for this method.
+    * Do not use a response or result timestamp, because all validation steps must use the same
+    * topology snapshot.
     */
   def awaitSnapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -154,9 +157,10 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
     *
     * Fails with an exception if the state is not yet known.
     *
-    * The snapshot returned by this method should be used for validating transaction and reassignment requests (Phase 2 - 7).
-    * Use the request timestamp as parameter for this method.
-    * Do not use a response or result timestamp, because all validation steps must use the same topology snapshot.
+    * The snapshot returned by this method should be used for validating transaction and
+    * reassignment requests (Phase 2 - 7). Use the request timestamp as parameter for this method.
+    * Do not use a response or result timestamp, because all validation steps must use the same
+    * topology snapshot.
     */
   def trySnapshot(timestamp: CantonTimestamp)(implicit traceContext: TraceContext): T
 
@@ -168,11 +172,11 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Option[FutureUnlessShutdown[Unit]]
 
-  /** Finds the topology transaction with maximum effective time whose effects would be visible,
-    * at earliest i.e. if delay is 0, in a topology snapshot at `effectiveTime`, and yields
-    * the sequenced and actual effective time of that topology transaction, if necessary after waiting
-    * to observe a timestamp at or after sequencing time `effectiveTime.immediatePredecessor`
-    * that the topology processor has fully processed.
+  /** Finds the topology transaction with maximum effective time whose effects would be visible, at
+    * earliest i.e. if delay is 0, in a topology snapshot at `effectiveTime`, and yields the
+    * sequenced and actual effective time of that topology transaction, if necessary after waiting
+    * to observe a timestamp at or after sequencing time `effectiveTime.immediatePredecessor` that
+    * the topology processor has fully processed.
     */
   def awaitMaxTimestamp(sequencedTime: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -186,7 +190,8 @@ trait SynchronizerTopologyClient extends TopologyClientApi[TopologySnapshot] wit
 
   /** Wait for a condition to become true according to the current snapshot approximation
     *
-    * @return true if the condition became true, false if it timed out
+    * @return
+    *   true if the condition became true, false if it timed out
     */
   def await(condition: TopologySnapshot => Future[Boolean], timeout: Duration)(implicit
       traceContext: TraceContext
@@ -205,7 +210,9 @@ trait BaseTopologySnapshotClient {
   /** The official timestamp corresponding to this snapshot */
   def timestamp: CantonTimestamp
 
-  /** Internally used reference time (representing when the last change happened that affected this snapshot) */
+  /** Internally used reference time (representing when the last change happened that affected this
+    * snapshot)
+    */
   def referenceTime: CantonTimestamp = timestamp
 
 }
@@ -226,7 +233,8 @@ trait PartyTopologySnapshotClient {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[LfPartyId, PartyInfo]]
 
-  /** Returns the set of active participants the given party is represented by as of the snapshot timestamp
+  /** Returns the set of active participants the given party is represented by as of the snapshot
+    * timestamp
     *
     * Should never return a PartyParticipantRelationship where ParticipantPermission is DISABLED.
     */
@@ -236,14 +244,17 @@ trait PartyTopologySnapshotClient {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[ParticipantId, ParticipantAttributes]]
 
-  /** Returns Right if all parties have at least an active participant passing the check. Otherwise, all parties not passing are passed as Left */
+  /** Returns Right if all parties have at least an active participant passing the check. Otherwise,
+    * all parties not passing are passed as Left
+    */
   def allHaveActiveParticipants(
       parties: Set[LfPartyId],
       check: ParticipantPermission => Boolean = _ => true,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Set[LfPartyId], Unit]
 
-  /** Returns the consortium thresholds (how many votes from different participants that host the consortium party
-    * are required for the confirmation to become valid). For normal parties returns 1.
+  /** Returns the consortium thresholds (how many votes from different participants that host the
+    * consortium party are required for the confirmation to become valid). For normal parties
+    * returns 1.
     */
   def consortiumThresholds(parties: Set[LfPartyId])(implicit
       traceContext: TraceContext
@@ -287,9 +298,10 @@ trait PartyTopologySnapshotClient {
       parties: Seq[LfPartyId],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[immutable.Iterable[LfPartyId]]
 
-  /** Returns all active participants of all the given parties. Returns a Left if some of the parties don't have active
-    * participants, in which case the parties with missing active participants are returned. Note that it will return
-    * an empty set as a Right when given an empty list of parties.
+  /** Returns all active participants of all the given parties. Returns a Left if some of the
+    * parties don't have active participants, in which case the parties with missing active
+    * participants are returned. Note that it will return an empty set as a Right when given an
+    * empty list of parties.
     */
   def activeParticipantsOfAll(
       parties: List[LfPartyId]
@@ -334,8 +346,10 @@ object PartyKeyTopologySnapshotClient {
 
   /** party key information
     *
-    * @param threshold how many signatures we require to have for the given party to authorize a transaction
-    * @param signingKeys the valid signing keys for the given party
+    * @param threshold
+    *   how many signatures we require to have for the given party to authorize a transaction
+    * @param signingKeys
+    *   the valid signing keys for the given party
     */
   final case class PartyAuthorizationInfo(
       threshold: PositiveInt,
@@ -350,9 +364,11 @@ trait KeyTopologySnapshotClient {
 
   /** Retrieves the signing keys for a given owner, filtering them based on the provided usage set.
     *
-    * @param owner The owner whose signing keys are being queried.
-    * @param filterUsage A non-empty set of usages to filter the signing keys by.
-    *              At least one usage from this set must match with the key's usage.
+    * @param owner
+    *   The owner whose signing keys are being queried.
+    * @param filterUsage
+    *   A non-empty set of usages to filter the signing keys by. At least one usage from this set
+    *   must match with the key's usage.
     */
   def signingKeys(
       owner: Member,
@@ -399,17 +415,17 @@ trait ParticipantTopologySnapshotClient {
 
   this: BaseTopologySnapshotClient =>
 
-  /** Checks whether the provided participant exists and is active.
-    * Active means:
-    * 1. The participant has a SynchronizerTrustCertificate.
-    * 2. The synchronizer is either unrestricted or there is a ParticipantSynchronizerPermission for the participant.
-    * 3. The participant has an OwnerToKeyMapping with signing and encryption keys.
+  /** Checks whether the provided participant exists and is active. Active means:
+    *   1. The participant has a SynchronizerTrustCertificate. 2. The synchronizer is either
+    *      unrestricted or there is a ParticipantSynchronizerPermission for the participant. 3. The
+    *      participant has an OwnerToKeyMapping with signing and encryption keys.
     */
   def isParticipantActive(participantId: ParticipantId)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean]
 
-  /** Checks whether the provided participant exists, is active and can login at the given point in time
+  /** Checks whether the provided participant exists, is active and can login at the given point in
+    * time
     *
     * (loginAfter is before timestamp)
     */
@@ -428,11 +444,9 @@ trait MediatorSynchronizerStateClient {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[MediatorGroup]]
 
-  /** Returns true if
-    * <ul>
-    *   <li>the mediator is a member of a mediator group with num_active_sequencers >= threshold</li>
-    *   <li>the mediator has an OwnerToKeyMapping with at least 1 signing key</li>
-    * </ul>
+  /** Returns true if <ul> <li>the mediator is a member of a mediator group with
+    * num_active_sequencers >= threshold</li> <li>the mediator has an OwnerToKeyMapping with at
+    * least 1 signing key</li> </ul>
     */
   def isMediatorActive(mediatorId: MediatorId)(implicit
       traceContext: TraceContext
@@ -481,10 +495,8 @@ trait MediatorSynchronizerStateClient {
 trait SequencerSynchronizerStateClient {
   this: BaseTopologySnapshotClient =>
 
-  /** The returned sequencer group contains all sequencers that
-    * <ul>
-    *   <li>are mentioned in the SequencerSynchronizerState topology transaction and</li>
-    *   <li>have at least 1 signing key</li>
+  /** The returned sequencer group contains all sequencers that <ul> <li>are mentioned in the
+    * SequencerSynchronizerState topology transaction and</li> <li>have at least 1 signing key</li>
     * </ul>
     */
   def sequencerGroup()(implicit
@@ -498,10 +510,14 @@ trait VettedPackagesSnapshotClient {
 
   /** Returns the set of packages that are not vetted by the given participant
     *
-    * @param participantId the participant for which we want to check the package vettings
-    * @param packages the set of packages that should be vetted
-    * @return Right the set of unvetted packages (which is empty if all packages are vetted)
-    *         Left if a package is missing locally such that we can not verify the vetting state of the package dependencies
+    * @param participantId
+    *   the participant for which we want to check the package vettings
+    * @param packages
+    *   the set of packages that should be vetted
+    * @return
+    *   Right the set of unvetted packages (which is empty if all packages are vetted) Left if a
+    *   package is missing locally such that we can not verify the vetting state of the package
+    *   dependencies
     */
   def findUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
@@ -509,14 +525,16 @@ trait VettedPackagesSnapshotClient {
       ledgerTime: CantonTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PackageId]]
 
-  /** Checks the vetting state for the given packages and returns the packages
-    * that have no entry in the participant's VettedPackages topology transactions.
-    * Note: this does not check the vetted packages for their validity period, but simply for their
-    * existence in the mapping.
+  /** Checks the vetting state for the given packages and returns the packages that have no entry in
+    * the participant's VettedPackages topology transactions. Note: this does not check the vetted
+    * packages for their validity period, but simply for their existence in the mapping.
     *
-    * @param participantId the participant for which we want to check the package vettings
-    * @param packageIds the set of packages to check
-    * @return the packages that have no entry in the participant's VettedPackages mapping
+    * @param participantId
+    *   the participant for which we want to check the package vettings
+    * @param packageIds
+    *   the set of packages to check
+    * @return
+    *   the packages that have no entry in the participant's VettedPackages mapping
     */
   def determinePackagesWithNoVettingEntry(
       participantId: ParticipantId,
@@ -577,8 +595,9 @@ trait MembersTopologySnapshotClient {
   /** Convenience method to determin all members with `isMemberKnown`. */
   def allMembers()(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[Member]]
 
-  /** Determines if a member is known on the synchronizer (through a SynchronizerTrustCertificate, MediatorSynchronizerState, or SequencerSynchronizerState).
-    * Note that a "known" member is not necessarily authorized to use the synchronizer.
+  /** Determines if a member is known on the synchronizer (through a SynchronizerTrustCertificate,
+    * MediatorSynchronizerState, or SequencerSynchronizerState). Note that a "known" member is not
+    * necessarily authorized to use the synchronizer.
     */
   def isMemberKnown(member: Member)(implicit
       traceContext: TraceContext
@@ -608,7 +627,9 @@ trait TopologySnapshot
 
 // architecture-handbook-entry-end: IdentityProvidingServiceClient
 
-/** The internal synchronizer topology client interface used for initialisation and efficient processing */
+/** The internal synchronizer topology client interface used for initialisation and efficient
+  * processing
+  */
 trait SynchronizerTopologyClientWithInit
     extends SynchronizerTopologyClient
     with TopologyTransactionProcessingSubscriber
@@ -674,7 +695,9 @@ trait SynchronizerTopologyClientWithInit
   ): FutureUnlessShutdown[Boolean]
 }
 
-/** An internal interface with a simpler lookup function which can be implemented efficiently with caching and reading from a store */
+/** An internal interface with a simpler lookup function which can be implemented efficiently with
+  * caching and reading from a store
+  */
 private[client] trait KeyTopologySnapshotClientLoader extends KeyTopologySnapshotClient {
   this: BaseTopologySnapshotClient =>
 
@@ -729,7 +752,9 @@ private[client] trait KeyTopologySnapshotClientLoader extends KeyTopologySnapsho
     allKeys(members).map(_.view.mapValues(_.encryptionKeys).toMap)
 }
 
-/** An internal interface with a simpler lookup function which can be implemented efficiently with caching and reading from a store */
+/** An internal interface with a simpler lookup function which can be implemented efficiently with
+  * caching and reading from a store
+  */
 private[client] trait ParticipantTopologySnapshotLoader extends ParticipantTopologySnapshotClient {
 
   this: BaseTopologySnapshotClient & KeyTopologySnapshotClient =>
@@ -752,9 +777,10 @@ private[client] trait ParticipantTopologySnapshotLoader extends ParticipantTopol
   ): FutureUnlessShutdown[Option[ParticipantAttributes]] =
     loadParticipantStates(Seq(participantId)).map(_.get(participantId))
 
-  /** Loads the participant state for the given set of participant ids.
-    * The result covers only active participants, i.e., only participants with SynchronizerTrustCertificates,
-    * ParticipantSynchronizerPermission (if the synchronizer is restricted), and signing and encryption keys.
+  /** Loads the participant state for the given set of participant ids. The result covers only
+    * active participants, i.e., only participants with SynchronizerTrustCertificates,
+    * ParticipantSynchronizerPermission (if the synchronizer is restricted), and signing and
+    * encryption keys.
     */
   def loadParticipantStates(
       participants: Seq[ParticipantId]

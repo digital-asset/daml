@@ -12,9 +12,9 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
-/** Represents one or more schedulers whose activeness and lifetime are managed together.
-  * Also allows looking up each scheduler by name which is useful to wire up schedulers
-  * with grpc services to handle schedule changes.
+/** Represents one or more schedulers whose activeness and lifetime are managed together. Also
+  * allows looking up each scheduler by name which is useful to wire up schedulers with grpc
+  * services to handle schedule changes.
   */
 class SchedulersImpl(
     val schedulers: Map[String, Scheduler],

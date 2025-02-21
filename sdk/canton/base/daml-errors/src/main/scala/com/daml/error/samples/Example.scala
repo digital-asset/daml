@@ -48,10 +48,11 @@ object DummmyServer {
 
 }
 
-/** This shows how a user can handle error codes.
-  * In particular it shows how to extract useful information from the signalled exception with minimal library dependencies.
+/** This shows how a user can handle error codes. In particular it shows how to extract useful
+  * information from the signalled exception with minimal library dependencies.
   *
-  * NOTE: This class is given as an example in the official Daml documentation. If you change it here, change it also in the docs.
+  * NOTE: This class is given as an example in the official Daml documentation. If you change it
+  * here, change it also in the docs.
   */
 object SampleClientSide {
 

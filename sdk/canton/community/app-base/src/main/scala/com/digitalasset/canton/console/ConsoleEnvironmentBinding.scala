@@ -5,8 +5,8 @@ package com.digitalasset.canton.console
 
 import com.digitalasset.canton.discard.Implicits.*
 
-/** To make the [[ConsoleEnvironment]] functionality conveniently available in ammonite we stash
-  * it in a implicit variable included as a predef before any script or REPL commands are run.
+/** To make the [[ConsoleEnvironment]] functionality conveniently available in ammonite we stash it
+  * in a implicit variable included as a predef before any script or REPL commands are run.
   */
 class ConsoleEnvironmentBinding {
 
@@ -106,7 +106,9 @@ class ConsoleEnvironmentBinding {
 
 object ConsoleEnvironmentBinding {
 
-  /** where we hide the value of the active environment instance within the scope of our repl ******* */
+  /** where we hide the value of the active environment instance within the scope of our repl
+    * *******
+    */
   private[console] val BindingName = "__replEnvironmentValue"
 
 }

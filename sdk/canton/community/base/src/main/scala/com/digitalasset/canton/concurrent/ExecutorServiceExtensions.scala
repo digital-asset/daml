@@ -19,7 +19,9 @@ final case class ExecutorServiceExtensions[EC <: ExecutorService](executorServic
     timeouts.shutdownShort.asFiniteApproximation
 
   /** Cleanly shuts down an executor service as best we can.
-    * @param name Name of the component using the ExecutorService. Used in log messages if executor does not shutdown cleanly.
+    * @param name
+    *   Name of the component using the ExecutorService. Used in log messages if executor does not
+    *   shutdown cleanly.
     */
   def close(name: String): Unit = close(Some(name))
 

@@ -70,10 +70,12 @@ class ReassignmentCoordination(
         )
     }
 
-  /** Returns a future that completes when a snapshot can be taken on the given synchronizer for the given timestamp.
+  /** Returns a future that completes when a snapshot can be taken on the given synchronizer for the
+    * given timestamp.
     *
-    * This is used when an assignment blocks for the identity state at the unassignment. For more general uses,
-    * `awaitTimestamp` should be preferred as it triggers the progression of time on `synchronizerId` by requesting a tick.
+    * This is used when an assignment blocks for the identity state at the unassignment. For more
+    * general uses, `awaitTimestamp` should be preferred as it triggers the progression of time on
+    * `synchronizerId` by requesting a tick.
     */
   private[reassignment] def awaitUnassignmentTimestamp(
       synchronizerId: Source[SynchronizerId],
@@ -94,9 +96,10 @@ class ReassignmentCoordination(
         .traverse(_.awaitTimestamp(timestamp).getOrElse(FutureUnlessShutdown.unit))
     )
 
-  /** Returns a future that completes when it is safe to take an identity snapshot for the given `timestamp` on the given `synchronizerId`.
-    * [[scala.None$]] indicates that this point has already been reached before the call.
-    * [[scala.Left$]] if the `synchronizer` is unknown or the participant is not connected to the synchronizer.
+  /** Returns a future that completes when it is safe to take an identity snapshot for the given
+    * `timestamp` on the given `synchronizerId`. [[scala.None$]] indicates that this point has
+    * already been reached before the call. [[scala.Left$]] if the `synchronizer` is unknown or the
+    * participant is not connected to the synchronizer.
     */
   private[reassignment] def awaitTimestamp[T[X] <: ReassignmentTag[X]: SameReassignmentType](
       synchronizerId: T[SynchronizerId],
@@ -118,7 +121,8 @@ class ReassignmentCoordination(
 
   /** Similar to [[awaitTimestamp]] but lifted into an [[EitherT]]
     *
-    * @param onImmediate A callback that will be invoked if no wait was actually needed
+    * @param onImmediate
+    *   A callback that will be invoked if no wait was actually needed
     */
   private[reassignment] def awaitTimestamp[T[X] <: ReassignmentTag[X]: SameReassignmentType](
       synchronizerId: T[SynchronizerId],
@@ -135,8 +139,8 @@ class ReassignmentCoordination(
       _ <- EitherT.right[ReassignmentProcessorError](timeout.getOrElse(onImmediate))
     } yield ()
 
-  /** Submits an assignment. Used by the [[UnassignmentProcessingSteps]] to automatically trigger the submission of
-    * an assignment after the exclusivity timeout.
+  /** Submits an assignment. Used by the [[UnassignmentProcessingSteps]] to automatically trigger
+    * the submission of an assignment after the exclusivity timeout.
     */
   private[reassignment] def assign(
       targetSynchronizerId: Target[SynchronizerId],
@@ -176,9 +180,10 @@ class ReassignmentCoordination(
       )
     }
 
-  /** Returns a [[crypto.SynchronizerSnapshotSyncCryptoApi]] for the given `synchronizer` at the given timestamp.
-    * The returned future fails with [[java.lang.IllegalArgumentException]] if the `synchronizer` has not progressed far enough
-    * such that it can compute the snapshot. Use [[awaitTimestamp]] to ensure progression to `timestamp`.
+  /** Returns a [[crypto.SynchronizerSnapshotSyncCryptoApi]] for the given `synchronizer` at the
+    * given timestamp. The returned future fails with [[java.lang.IllegalArgumentException]] if the
+    * `synchronizer` has not progressed far enough such that it can compute the snapshot. Use
+    * [[awaitTimestamp]] to ensure progression to `timestamp`.
     */
   private[reassignment] def cryptoSnapshot[T[X] <: ReassignmentTag[
     X
@@ -310,7 +315,9 @@ class ReassignmentCoordination(
         )
     } yield ()
 
-  /** Removes the given [[com.digitalasset.canton.protocol.ReassignmentId]] from the given [[com.digitalasset.canton.topology.SynchronizerId]]'s [[store.ReassignmentStore]]. */
+  /** Removes the given [[com.digitalasset.canton.protocol.ReassignmentId]] from the given
+    * [[com.digitalasset.canton.topology.SynchronizerId]]'s [[store.ReassignmentStore]].
+    */
   private[reassignment] def deleteReassignment(
       targetSynchronizer: Target[SynchronizerId],
       reassignmentId: ReassignmentId,
