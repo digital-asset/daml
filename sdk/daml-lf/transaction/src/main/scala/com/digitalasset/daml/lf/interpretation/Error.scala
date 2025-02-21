@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package interpretation
 
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node, NodeId}
 import com.digitalasset.daml.lf.language.Ast
@@ -189,11 +189,11 @@ object Error {
     object CCTP {
       sealed abstract class Error extends Serializable with Product
 
-      final case class MalformedByteEncoding(value: String, cause: String) extends Error
+      final case class MalformedByteEncoding(value: Bytes, cause: String) extends Error
 
-      final case class MalformedKey(key: String, cause: String) extends Error
+      final case class MalformedKey(key: Bytes, cause: String) extends Error
 
-      final case class MalformedSignature(signature: String, cause: String) extends Error
+      final case class MalformedSignature(signature: Bytes, cause: String) extends Error
     }
 
     sealed case class Conformance(

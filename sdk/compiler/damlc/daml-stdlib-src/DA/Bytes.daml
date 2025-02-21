@@ -21,6 +21,7 @@ module DA.Bytes
   ) where
 
 import GHC.Types (primitive)
+import DA.Optional (fromSome)
 
 instance Eq Bytes where
   (==) = primitive @"BEEqualBytes"
@@ -34,6 +35,10 @@ class HasFromBytes a where
 instance HasToBytes Text (Optional Bytes) where
   -- | TODO:
   toBytes = primitive @"BETextToBytes"
+
+instance HasToBytes Text Bytes where
+  -- | TODO:
+  toBytes txt = fromSome (primitive @"BETextToBytes" txt)
 
 instance HasToBytes Int Bytes where
   -- | TODO:

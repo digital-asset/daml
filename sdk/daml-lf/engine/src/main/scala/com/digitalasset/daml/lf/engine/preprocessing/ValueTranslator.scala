@@ -117,6 +117,8 @@ private[lf] final class ValueTranslator(
             }
           case (ContractIdF(_), ValueContractId(c)) =>
             unsafeTranslateCid(c)
+          case (BytesF, ValueBytes(b)) =>
+            SValue.SBytes(b)
           case (OptionalF(a), ValueOptional(mbValue)) =>
             mbValue match {
               case Some(v) =>

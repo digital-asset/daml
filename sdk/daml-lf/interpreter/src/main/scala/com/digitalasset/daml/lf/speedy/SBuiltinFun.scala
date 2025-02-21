@@ -614,21 +614,21 @@ private[lf] object SBuiltinFun {
           Control.Error(
             IE.Dev(
               NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(IE.Dev.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)),
+              IE.Dev.CCTP(IE.Dev.CCTP.MalformedKey(getSBytes(args, 2), exn.getMessage)),
             )
           )
         case exn: InvalidKeySpecException =>
           Control.Error(
             IE.Dev(
               NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(IE.Dev.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)),
+              IE.Dev.CCTP(IE.Dev.CCTP.MalformedKey(getSBytes(args, 2), exn.getMessage)),
             )
           )
         case exn: SignatureException =>
           Control.Error(
             IE.Dev(
               NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(IE.Dev.CCTP.MalformedSignature(getSText(args, 0), exn.getMessage)),
+              IE.Dev.CCTP(IE.Dev.CCTP.MalformedSignature(getSBytes(args, 0), exn.getMessage)),
             )
           )
       }
@@ -675,12 +675,17 @@ private[lf] object SBuiltinFun {
   final case object SBBytesToInt64 extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
       val bytes = getSBytes(args, 0)
-      val value = BigInt(bytes.toByteArray)
 
-      if (value.isValidLong) {
-        SOptional(Some(SInt64(value.longValue)))
+      if (bytes.isEmpty) {
+        SOptional(Some(SInt64(0)))
       } else {
-        SOptional(None)
+        val value = BigInt(bytes.toByteArray)
+
+        if (value.isValidLong) {
+          SOptional(Some(SInt64(value.longValue)))
+        } else {
+          SOptional(None)
+        }
       }
     }
   }
@@ -727,7 +732,7 @@ private[lf] object SBuiltinFun {
       val bytes = getSBytes(args, 1)
 
       if (bytes.length <= size) {
-        SBytes(bytes.toByteArray.padTo[Byte](size, 0))
+        SBytes(Bytes.fromByteArray(Array.empty[Byte].padTo(size - bytes.length, 0)) ++ bytes)
       } else {
         SBytes(bytes.toByteArray.drop(bytes.length - size))
       }

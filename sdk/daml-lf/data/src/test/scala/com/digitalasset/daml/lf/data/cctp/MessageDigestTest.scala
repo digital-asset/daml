@@ -10,8 +10,8 @@ import org.scalatest.matchers.should.Matchers
 class MessageDigestTest extends AnyFreeSpec with Matchers {
 
   "correctly keccak-256 digest messages" in {
-    val message = Ref.HexString.assertFromString("deadbeef")
-    val expectedDigest = Ref.HexString.assertFromString(
+    val message = Bytes.assertFromString("deadbeef")
+    val expectedDigest = Bytes.assertFromString(
       "d4fd4e189132273036449fc9e11198c739161b4c0116a9a2dccdfa1c492006f1"
     )
 

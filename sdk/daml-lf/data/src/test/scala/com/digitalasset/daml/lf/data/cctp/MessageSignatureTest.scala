@@ -4,9 +4,11 @@
 package com.digitalasset.daml.lf.data
 package cctp
 
-import java.security.{InvalidKeyException, KeyPairGenerator, SignatureException}
+import java.security.{InvalidKeyException, KeyFactory, KeyPairGenerator, SignatureException}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
+
+import java.security.spec.PKCS8EncodedKeySpec
 
 class MessageSignatureTest extends AnyFreeSpec with Matchers {
 
@@ -14,7 +16,7 @@ class MessageSignatureTest extends AnyFreeSpec with Matchers {
     val keyPair = MessageSignatureUtil.generateKeyPair
     val publicKey = keyPair.getPublic
     val privateKey = keyPair.getPrivate
-    val message = Ref.HexString.assertFromString("deadbeef")
+    val message = Bytes.assertFromString("deadbeef")
     val signature = MessageSignatureUtil.sign(message, privateKey)
 
     MessageSignature.verify(signature, message, publicKey) shouldBe true
@@ -25,7 +27,7 @@ class MessageSignatureTest extends AnyFreeSpec with Matchers {
     invalidKeyPairGen.initialize(1024)
     val privateKey = MessageSignatureUtil.generateKeyPair.getPrivate
     val invalidPublicKey = invalidKeyPairGen.generateKeyPair().getPublic
-    val message = Ref.HexString.assertFromString("deadbeef")
+    val message = Bytes.assertFromString("deadbeef")
     val signature = MessageSignatureUtil.sign(message, privateKey)
 
     assertThrows[InvalidKeyException](MessageSignature.verify(signature, message, invalidPublicKey))
@@ -34,7 +36,7 @@ class MessageSignatureTest extends AnyFreeSpec with Matchers {
   "incorrect secp256k1 public keys fail to verify secp256k1 signatures" in {
     val privateKey = MessageSignatureUtil.generateKeyPair.getPrivate
     val incorrectPublicKey = MessageSignatureUtil.generateKeyPair.getPublic
-    val message = Ref.HexString.assertFromString("deadbeef")
+    val message = Bytes.assertFromString("deadbeef")
     val signature = MessageSignatureUtil.sign(message, privateKey)
 
     MessageSignature.verify(signature, message, incorrectPublicKey) shouldBe false
@@ -44,8 +46,8 @@ class MessageSignatureTest extends AnyFreeSpec with Matchers {
     val keyPair = MessageSignatureUtil.generateKeyPair
     val publicKey = keyPair.getPublic
     val privateKey = keyPair.getPrivate
-    val message = Ref.HexString.assertFromString("deadbeef")
-    val invalidMessage = Ref.HexString.assertFromString("deadbeefdeadbeef")
+    val message = Bytes.assertFromString("deadbeef")
+    val invalidMessage = Bytes.assertFromString("deadbeefdeadbeef")
     val signature = MessageSignatureUtil.sign(message, privateKey)
 
     MessageSignature.verify(signature, invalidMessage, publicKey) shouldBe false
@@ -53,8 +55,8 @@ class MessageSignatureTest extends AnyFreeSpec with Matchers {
 
   "correctly identify invalid signatures" in {
     val publicKey = MessageSignatureUtil.generateKeyPair.getPublic
-    val message = Ref.HexString.assertFromString("deadbeef")
-    val invalidSignature = Ref.HexString.assertFromString("deadbeef")
+    val message = Bytes.assertFromString("deadbeef")
+    val invalidSignature = Bytes.assertFromString("deadbeef")
 
     assertThrows[SignatureException](MessageSignature.verify(invalidSignature, message, publicKey))
   }
@@ -63,8 +65,8 @@ class MessageSignatureTest extends AnyFreeSpec with Matchers {
     val keyPair = MessageSignatureUtil.generateKeyPair
     val publicKey = keyPair.getPublic
     val privateKey = keyPair.getPrivate
-    val message = Ref.HexString.assertFromString("deadbeef")
-    val altMessage = Ref.HexString.assertFromString("deadbeefdeadbeef")
+    val message = Bytes.assertFromString("deadbeef")
+    val altMessage = Bytes.assertFromString("deadbeefdeadbeef")
     val invalidSignature = MessageSignatureUtil.sign(altMessage, privateKey)
 
     MessageSignature.verify(invalidSignature, message, publicKey) shouldBe false

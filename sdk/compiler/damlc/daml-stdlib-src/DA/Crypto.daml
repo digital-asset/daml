@@ -20,7 +20,6 @@ module DA.Crypto
   ) where
 
 import DA.Bytes
-import DA.Text qualified as Text
 import GHC.Types (primitive)
 
 -- | A DER formatted public key to be used for ECDSA signature verification
@@ -31,7 +30,7 @@ type Signature = Bytes
 
 -- TODO: https://github.com/DACH-NY/canton-network-utilities/issues/2922: fully parse DER encoded formats
 isDEREncoded : Bytes -> Bool
-isDEREncoded msg = Some(slice msg 0 1) == toBytes "30" && size msg == 1 + (fromBytes (slice msg 1 1)) -- FIXME: manage Optional type!!
+isDEREncoded msg = Some(slice msg 0 1) == toBytes "30" && optional False (\n -> size msg == 2 + n) (fromBytes (slice msg 1 2))
 
 -- | Computes the KECCAK256 hash of the given blob, and returns it as a bytes blob..
 keccak256 : Bytes -> Bytes

@@ -9,7 +9,7 @@ import com.daml.crypto.MessageDigestPrototype
 object MessageDigest {
   def digest(message: Bytes): Bytes = {
     val digest = MessageDigestPrototype.KecCak256.newDigest
-    digest.update(message.toByteBuffer)
+    digest.update(message.toByteArray)
 
     Bytes.fromByteArray(digest.digest())
   }

@@ -1769,7 +1769,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
   "CCTP" - {
 
     "KECCAK256_BYTES" - {
-      "correctly digest hex strings" in {
+      "correctly digest byte blobs" in {
         val testCases = Table(
           "" ->
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -1780,43 +1780,9 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             "a332df1e58a99d8dcb0767dab2d23985ef337d59fadbe040f56e1c642b314973",
         )
         forEvery(testCases) { (input, output) =>
-          eval(e"""KECCAK256_BYTES "$input"""") shouldBe Right(SText(output))
-        }
-      }
-
-      "fail to digest non-hex strings" in {
-        val testCases = Table(
-          "0",
-          "000",
-          "0g",
-          "DeadBeef",
-          "843d0824-9133-4bc9-b0e8-7cb4e8487dd1",
-          "input",
-          """Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
-            |eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad
-            |minim veniam, quis nostrud exercitation ullamco laboris nisi ut
-            |aliquip ex ea commodo consequat. Duis aute irure dolor in
-            |reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
-            |pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
-            |culpa qui officia deserunt mollit anim id est laborum..."""
-            .replaceAll("\r", "")
-            .stripMargin,
-          "a¶‱😂",
-        )
-        forEvery(testCases) { input =>
-          inside(eval(e"""KECCAK256_BYTES "$input"""")) {
-            case Left(
-                  SError.SErrorDamlException(
-                    interpretation.Error.Dev(
-                      _,
-                      interpretation.Error.Dev
-                        .CCTP(interpretation.Error.Dev.CCTP.MalformedByteEncoding(value, reason)),
-                    )
-                  )
-                ) =>
-              value should be(input)
-              reason should be("can not parse hex string")
-          }
+          eval(
+            SEApp(SEBuiltinFun(SBuiltinFun.SBKECCAK256Bytes), Array(SBytes(input)))
+          ) shouldBe Right(SBytes(output))
         }
       }
     }
@@ -1826,64 +1792,50 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
       "valid secp256k1 signature and public key" - {
         "correctly verify signed message" in {
-          val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
+          val publicKey = SBytes(keyPair.getPublic.getEncoded)
           val privateKey = keyPair.getPrivate
-          val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+          val message = SBytes("deadbeef")
+          val signature = SBytes(cctp.MessageSignatureUtil.sign(message.value, privateKey))
 
-          eval(e"""SECP256K1_BOOL "$signature" "$message" "$publicKey"""") shouldBe Right(
+          eval(
+            SEApp(SEBuiltinFun(SBuiltinFun.SBSECP256K1Bool), Array(signature, message, publicKey))
+          ) shouldBe Right(
             SBool(true)
           )
         }
 
         "fail to verify unsigned messages" in {
-          val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
+          val publicKey = SBytes(keyPair.getPublic.getEncoded)
           val privateKey = keyPair.getPrivate
-          val message = Ref.HexString.assertFromString("deadbeef")
-          val invalidMessage = Ref.HexString.assertFromString("deadbeefdeadbeef")
-          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+          val message = Bytes.assertFromString("deadbeef")
+          val invalidMessage = SBytes("deadbeefdeadbeef")
+          val signature = SBytes(cctp.MessageSignatureUtil.sign(message, privateKey))
 
-          eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""") shouldBe Right(
+          eval(
+            SEApp(
+              SEBuiltinFun(SBuiltinFun.SBSECP256K1Bool),
+              Array(signature, invalidMessage, publicKey),
+            )
+          ) shouldBe Right(
             SBool(false)
           )
-        }
-
-        "throws with non-hex encoded messages" in {
-          val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
-          val privateKey = keyPair.getPrivate
-          val message = Ref.HexString.assertFromString("deadbeef")
-          val invalidMessage = "DeadBeef"
-          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
-
-          inside(eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""")) {
-            case Left(
-                  SError.SErrorDamlException(
-                    interpretation.Error.Dev(
-                      _,
-                      interpretation.Error.Dev
-                        .CCTP(interpretation.Error.Dev.CCTP.MalformedByteEncoding(value, reason)),
-                    )
-                  )
-                ) =>
-              value should be(invalidMessage)
-              reason should startWith(
-                "can not parse message hex string"
-              )
-          }
         }
       }
 
       "valid signature and valid message" - {
         "fails with incorrect secp256k1 public key" in {
           val incorrectPublicKey =
-            Bytes
-              .fromByteArray(cctp.MessageSignatureUtil.generateKeyPair.getPublic.getEncoded)
-              .toHexString
+            SBytes(cctp.MessageSignatureUtil.generateKeyPair.getPublic.getEncoded)
           val privateKey = keyPair.getPrivate
-          val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+          val message = SBytes("deadbeef")
+          val signature = SBytes(cctp.MessageSignatureUtil.sign(message.value, privateKey))
 
-          eval(e"""SECP256K1_BOOL "$signature" "$message" "$incorrectPublicKey"""") shouldBe Right(
+          eval(
+            SEApp(
+              SEBuiltinFun(SBuiltinFun.SBSECP256K1Bool),
+              Array(signature, message, incorrectPublicKey),
+            )
+          ) shouldBe Right(
             SBool(false)
           )
         }
@@ -1891,67 +1843,59 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         "throws with invalid public key" in {
           val invalidKeyPairGen = KeyPairGenerator.getInstance("RSA")
           invalidKeyPairGen.initialize(1024)
-          val invalidPublicKey = Bytes
-            .fromByteArray(invalidKeyPairGen.generateKeyPair().getPublic.getEncoded)
-            .toHexString
+          val invalidPublicKey = SBytes(invalidKeyPairGen.generateKeyPair().getPublic.getEncoded)
           val privateKey = keyPair.getPrivate
-          val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+          val message = SBytes("deadbeef")
+          val signature = SBytes(cctp.MessageSignatureUtil.sign(message.value, privateKey))
 
-          inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
+          inside(
+            eval(
+              SEApp(
+                SEBuiltinFun(SBuiltinFun.SBSECP256K1Bool),
+                Array(signature, message, invalidPublicKey),
+              )
+            )
+          ) {
             case Left(
                   SError.SErrorDamlException(
                     interpretation.Error.Dev(
                       _,
                       interpretation.Error.Dev
                         .CCTP(
-                          interpretation.Error.Dev.CCTP.MalformedKey(`invalidPublicKey`, reason)
+                          interpretation.Error.Dev.CCTP.MalformedKey(publicKey, reason)
                         ),
                     )
                   )
                 ) =>
+              publicKey should be(invalidPublicKey.value)
               reason should startWith("java.security.InvalidKeyException")
-          }
-        }
-
-        "throws with non-hex encoded public key" in {
-          val invalidPublicKey = keyPair.getPublic
-          val privateKey = keyPair.getPrivate
-          val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
-
-          inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
-            case Left(
-                  SError.SErrorDamlException(
-                    interpretation.Error.Dev(
-                      _,
-                      interpretation.Error.Dev
-                        .CCTP(interpretation.Error.Dev.CCTP.MalformedByteEncoding(value, reason)),
-                    )
-                  )
-                ) =>
-              value should be(s"$invalidPublicKey")
-              reason should be("can not parse DER encoded public key hex string")
           }
         }
       }
 
       "valid message and secp256k1 public key" - {
         "throws with invalid signature" in {
-          def rsaSign(msg: Ref.HexString, pk: PrivateKey): Ref.HexString = {
+          def rsaSign(msg: Bytes, pk: PrivateKey): Bytes = {
             val signer = new MessageSignaturePrototypeUtil("SHA256withRSA")
 
-            Bytes.fromByteArray(signer.sign(Bytes.fromHexString(msg).toByteArray, pk)).toHexString
+            Bytes.fromByteArray(signer.sign(msg.toByteArray, pk))
           }
 
           val invalidKeyPairGen = KeyPairGenerator.getInstance("RSA")
           invalidKeyPairGen.initialize(1024)
           val invalidPrivateKey = invalidKeyPairGen.generateKeyPair().getPrivate
-          val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
-          val message = Ref.HexString.assertFromString("deadbeef")
-          val invalidSignature = rsaSign(message, invalidPrivateKey)
+          val publicKey = SBytes(keyPair.getPublic.getEncoded)
+          val message = SBytes("deadbeef")
+          val invalidSignature = SBytes(rsaSign(message.value, invalidPrivateKey))
 
-          inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
+          inside(
+            eval(
+              SEApp(
+                SEBuiltinFun(SBuiltinFun.SBSECP256K1Bool),
+                Array(invalidSignature, message, publicKey),
+              )
+            )
+          ) {
             case Left(
                   SError.SErrorDamlException(
                     interpretation.Error.Dev(
@@ -1959,33 +1903,13 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
                       interpretation.Error.Dev
                         .CCTP(
                           interpretation.Error.Dev.CCTP
-                            .MalformedSignature(`invalidSignature`, reason)
+                            .MalformedSignature(signature, reason)
                         ),
                     )
                   )
                 ) =>
+              signature should be(invalidSignature.value)
               reason should be("error decoding signature bytes.")
-          }
-        }
-
-        "throws with non-hex encoded signature" in {
-          for (invalidSignature <- List("DeadBeef", "non-hex encoded")) {
-            val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
-            val message = Ref.HexString.assertFromString("deadbeef")
-
-            inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
-              case Left(
-                    SError.SErrorDamlException(
-                      interpretation.Error.Dev(
-                        _,
-                        interpretation.Error.Dev
-                          .CCTP(interpretation.Error.Dev.CCTP.MalformedByteEncoding(value, reason)),
-                      )
-                    )
-                  ) =>
-                value should be(invalidSignature)
-                reason should be("can not parse signature hex string")
-            }
           }
         }
       }
