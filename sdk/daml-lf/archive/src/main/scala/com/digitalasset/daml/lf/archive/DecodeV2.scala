@@ -1597,7 +1597,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(TEXT_TO_NUMERIC, BTextToNumeric),
       BuiltinFunctionInfo(TEXT_TO_CODE_POINTS, BTextToCodePoints),
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
-      BuiltinFunctionInfo(KECCAK256_TEXT, BKECCAK256Text, minVersion = LV.Features.cctp),
+      BuiltinFunctionInfo(KECCAK256_BYTES, BKECCAK256Bytes, minVersion = LV.Features.cctp),
       BuiltinFunctionInfo(SECP256K1_BOOL, BSECP256K1Bool, minVersion = LV.Features.cctp),
       BuiltinFunctionInfo(TEXT_TO_BYTES, BTextToBytes, minVersion = LV.Features.cctp),
       BuiltinFunctionInfo(BYTES_TO_TEXT, BBytesToText, minVersion = LV.Features.cctp),

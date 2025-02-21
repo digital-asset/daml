@@ -501,7 +501,7 @@ object Ast {
 
   final case object BSHA256Text extends BuiltinFunction // : Text -> Text
 
-  final case object BKECCAK256Text extends BuiltinFunction // : Text -> Text
+  final case object BKECCAK256Bytes extends BuiltinFunction // : Bytes -> Bytes
 
   // Errors
   final case object BError extends BuiltinFunction // : ∀a. Text → a
@@ -524,7 +524,7 @@ object Ast {
   final case object BGreater extends BuiltinFunction // ∀a. a -> a -> Bool
   final case object BGreaterEq extends BuiltinFunction // ∀a. a -> a -> Bool
 
-  final case object BSECP256K1Bool extends BuiltinFunction // : Text -> Text -> Text -> Bool
+  final case object BSECP256K1Bool extends BuiltinFunction // : Bytes -> Bytes -> Bytes -> Bool
 
   final case object BTextToBytes extends BuiltinFunction // : Text -> Option Bytes
   final case object BBytesToText extends BuiltinFunction // : Bytes -> Text

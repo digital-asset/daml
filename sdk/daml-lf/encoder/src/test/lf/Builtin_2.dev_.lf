@@ -89,9 +89,9 @@ module BuiltinMod {
     TEXT_TO_CODE_POINTS;
   val sha256Text: Text -> Text =
     SHA256_TEXT;
-  val keccak256Text: Text -> Text =
-    KECCAK256_TEXT;
-  val secp256k1Bool: Text -> Text -> Text -> Bool =
+  val keccak256Bytes: Bytes -> Bytes =
+    KECCAK256_BYTES;
+  val secp256k1Bool: Bytes -> Bytes -> Bytes -> Bool =
     SECP256K1_BOOL;
   val textToBytes: Text -> Option Bytes =
     TEXT_TO_BYTES;

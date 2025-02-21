@@ -375,7 +375,7 @@ enum BuiltinFunction {
 
   TYPE_REP_TYCON_NAME = 3011;          // *Available in versions >= 2.dev*
 
-  KECCAK256_TEXT = 4000;               // *Available in versions >= 2.dev*
+  KECCAK256_BYTES = 4000;              // *Available in versions >= 2.dev*
   SECP256K1_BOOL = 4001;               // *Available in versions >= 2.dev*
 
   TEXT_TO_BYTES = 4002;                // *Available in versions >= 2.dev*
@@ -386,7 +386,7 @@ enum BuiltinFunction {
   SLICE_BYTES = 4007;                  // *Available in versions >= 2.dev*
   SIZE_BYTES = 4008;                   // *Available in versions >= 2.dev*
   EQUAL_BYTES = 4009;                  // *Available in versions >= 2.dev*
-  PACK_BYTES = 4010;                  // *Available in versions >= 2.dev*
+  PACK_BYTES = 4010;                   // *Available in versions >= 2.dev*
 }
 
 // Builtin literals

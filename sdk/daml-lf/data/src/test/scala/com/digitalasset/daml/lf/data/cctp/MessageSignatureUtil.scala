@@ -10,14 +10,14 @@ import java.security.{KeyPair, KeyPairGenerator, PrivateKey}
 import java.security.spec.ECGenParameterSpec
 
 object MessageSignatureUtil {
-  def sign(message: Ref.HexString, privateKey: PrivateKey): Ref.HexString = {
+  def sign(message: Bytes, privateKey: PrivateKey): Bytes = {
     val signature =
       MessageSignaturePrototypeUtil.Secp256k1.sign(
-        Bytes.fromHexString(message).toByteArray,
+        message.toByteArray,
         privateKey,
       )
 
-    Ref.HexString.encode(Bytes.fromByteArray(signature))
+    Bytes.fromByteArray(signature)
   }
 
   def generateKeyPair: KeyPair = {

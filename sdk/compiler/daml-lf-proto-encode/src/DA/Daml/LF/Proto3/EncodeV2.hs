@@ -427,7 +427,7 @@ encodeBuiltinExpr = \case
     BEAppendText -> builtin P.BuiltinFunctionAPPEND_TEXT
     BEImplodeText -> builtin P.BuiltinFunctionIMPLODE_TEXT
     BESha256Text -> builtin P.BuiltinFunctionSHA256_TEXT
-    BEKecCak256Text -> builtin P.BuiltinFunctionKECCAK256_TEXT
+    BEKecCak256Bytes -> builtin P.BuiltinFunctionKECCAK256_BYTES
     BESecp256k1Bool -> builtin P.BuiltinFunctionSECP256K1_BOOL
 
     BETextToBytes -> builtin P.BuiltinFunctionTEXT_TO_BYTES

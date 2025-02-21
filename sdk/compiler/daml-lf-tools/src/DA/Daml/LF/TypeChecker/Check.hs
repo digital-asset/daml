@@ -263,8 +263,8 @@ typeOfBuiltin = \case
   BEAppendText       -> pure $ tBinop TText
   BEImplodeText      -> pure $ TList TText :-> TText
   BESha256Text       -> pure $ TText :-> TText
-  BEKecCak256Text    -> pure $ TText :-> TText
-  BESecp256k1Bool    -> pure $ TText :-> TText :-> TText :-> TBool
+  BEKecCak256Bytes    -> pure $ TBytes :-> TBytes
+  BESecp256k1Bool    -> pure $ TBytes :-> TBytes :-> TBytes :-> TBool
   BETextToBytes      -> pure $ TText :-> TOptional TBytes
   BEBytesToText      -> pure $ TBytes :-> TText
   BEInt64ToBytes     -> pure $ TInt64 :-> TBytes
