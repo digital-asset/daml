@@ -341,25 +341,25 @@ class ParticipantPartiesAdministrationGroup(
       modifier = modifier,
     )
 
-  @Help.Summary("Start party replication from a source participant", FeatureFlag.Preview)
+  @Help.Summary("Add a previously existing party to the local participant", FeatureFlag.Preview)
   @Help.Description(
-    """Initiate replicating a party from the specified source participant to this participant on the specified synchronizer.
-      |Performs some checks synchronously and then initiates the replication asynchronously. The optional `id`
+    """Initiate adding a previously existing party to this participant on the specified synchronizer.
+      |Performs some checks synchronously and then initiates party replication asynchronously. The returned `id`
       |parameter allows identifying asynchronous progress and errors."""
   )
-  def start_party_replication(
+  def add_party_async(
       party: PartyId,
-      sourceParticipant: ParticipantId,
       synchronizerId: SynchronizerId,
-      id: Option[String] = None,
-  ): Unit = check(FeatureFlag.Preview) {
+      sourceParticipant: Option[ParticipantId],
+      serial: Option[PositiveInt],
+  ): String = check(FeatureFlag.Preview) {
     consoleEnvironment.run {
       reference.adminCommand(
-        ParticipantAdminCommands.PartyManagement.StartPartyReplication(
-          id,
+        ParticipantAdminCommands.PartyManagement.AddPartyAsync(
           party,
-          sourceParticipant,
           synchronizerId,
+          sourceParticipant,
+          serial,
         )
       )
     }

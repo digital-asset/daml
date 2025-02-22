@@ -36,4 +36,15 @@ object ReplicationConfig {
         true
       )
     )
+
+  def withDefaultO(
+      storage: StorageConfig,
+      replicationO: Option[ReplicationConfig],
+      edition: CantonEdition,
+  ): Option[ReplicationConfig] = {
+    val enabled = withDefault(storage, replicationO.flatMap(_.enabled), edition)
+    replicationO
+      .map(_.copy(enabled = enabled))
+      .orElse(enabled.map(enabled => ReplicationConfig(enabled = Some(enabled))))
+  }
 }

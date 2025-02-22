@@ -10,7 +10,7 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.HasFutureSupervision
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.SigningKeyUsage.compatibleUsage
+import com.digitalasset.canton.crypto.SigningKeyUsage.matchesRelevantUsages
 import com.digitalasset.canton.crypto.{EncryptionPublicKey, SigningKeyUsage, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -717,7 +717,7 @@ private[client] trait KeyTopologySnapshotClientLoader extends KeyTopologySnapsho
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[SigningPublicKey]] =
     allKeys(owner).map(keys =>
-      keys.signingKeys.filter(key => compatibleUsage(key.usage, filterUsage))
+      keys.signingKeys.filter(key => matchesRelevantUsages(key.usage, filterUsage))
     )
 
   override def signingKeys(
@@ -727,7 +727,7 @@ private[client] trait KeyTopologySnapshotClientLoader extends KeyTopologySnapsho
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[Member, Seq[SigningPublicKey]]] =
     allKeys(members).map(_.view.mapValues(_.signingKeys).toMap.map { case (member, keys) =>
-      member -> keys.filter(key => compatibleUsage(key.usage, filterUsage))
+      member -> keys.filter(key => matchesRelevantUsages(key.usage, filterUsage))
     })
 
   override def encryptionKey(owner: Member)(implicit

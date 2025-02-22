@@ -15,26 +15,25 @@ import com.daml.jwt.{
 }
 import com.digitalasset.canton.auth.{AuthService, ClaimSet}
 import com.digitalasset.canton.ledger.api.IdentityProviderId
-import com.digitalasset.canton.ledger.api.auth.interceptor.IdentityProviderAwareAuthService
-import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.Metadata
 import spray.json.*
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class IdentityProviderAwareAuthServiceImpl(
+class IdentityProviderAwareAuthService(
     identityProviderConfigLoader: IdentityProviderConfigLoader,
     jwtVerifierLoader: JwtVerifierLoader,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
-) extends IdentityProviderAwareAuthService
+) extends AuthService
     with NamedLogging {
 
   def decodeMetadata(
       headers: Metadata
-  )(implicit loggingContext: LoggingContextWithTrace): Future[ClaimSet] =
+  )(implicit traceContext: TraceContext): Future[ClaimSet] =
     getAuthorizationHeader(headers) match {
       case None => Future.successful(ClaimSet.Unauthenticated)
       case Some(header) =>
@@ -51,7 +50,7 @@ class IdentityProviderAwareAuthServiceImpl(
 
   private def parseJWTPayload(
       header: String
-  )(implicit loggingContext: LoggingContextWithTrace): Future[ClaimSet] =
+  )(implicit traceContext: TraceContext): Future[ClaimSet] =
     for {
       token <- toFuture(JwtFromBearerHeader(header))
       decodedJWT <- Future(JWT.decode(token))
@@ -66,13 +65,13 @@ class IdentityProviderAwareAuthServiceImpl(
       token: String,
       issuer: Option[String],
       keyId: Option[String],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[ClaimSet] =
+  )(implicit traceContext: TraceContext): Future[ClaimSet] =
     issuer match {
       case None => Future.successful(ClaimSet.Unauthenticated)
       case Some(issuer) =>
         for {
           identityProviderConfig <- identityProviderConfigLoader
-            .getIdentityProviderConfig(issuer)
+            .getIdentityProviderConfig(issuer)(LoggingContextWithTrace(loggerFactory))
           verifier <- jwtVerifierLoader.loadJwtVerifier(
             jwksUrl = identityProviderConfig.jwksUrl,
             keyId,

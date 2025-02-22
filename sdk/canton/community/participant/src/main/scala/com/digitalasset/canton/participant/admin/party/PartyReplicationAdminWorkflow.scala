@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.admin.party
 
 import cats.data.EitherT
-import cats.syntax.either.*
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod.DeduplicationDuration
 import com.daml.ledger.api.v2.event.{CreatedEvent as ScalaCreatedEvent, Event}
@@ -15,11 +14,10 @@ import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v2.value.Identifier
 import com.daml.ledger.javaapi.data.{CreatedEvent as JavaCreatedEvent, Identifier as JavaIdentifier}
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.CommandId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.ledger.client.{LedgerClient, LedgerClientUtils}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -57,38 +55,35 @@ class PartyReplicationAdminWorkflow(
     with FlagCloseable
     with NamedLogging {
 
-  /** Have the target/current participant submit a Daml PartyReplication.ChannelProposal contract to
-    * agree on with the source participant.
+  /** Have the target/current participant submit a Daml PartyReplication.PartyReplicationProposal
+    * contract to agree on with the source participant.
     */
   private[admin] def proposePartyReplication(
+      partyReplicationId: Hash,
       partyId: PartyId,
       synchronizerId: SynchronizerId,
-      sequencerCandidates: NonEmpty[Seq[SequencerId]],
-      acsSnapshotTs: CantonTimestamp,
-      startAtWatermark: NonNegativeInt,
       sourceParticipantId: ParticipantId,
-      channelId: ChannelId,
+      sequencerCandidates: NonEmpty[Seq[SequencerId]],
+      serial: Option[PositiveInt],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
-    val ChannelId(CommandId(id)) = channelId
-    val channelProposal = new M.partyreplication.ChannelProposal(
+    val partyReplicationIdS = partyReplicationId.toHexString
+    val serialOrZero: Int = serial.map(_.value).getOrElse(0)
+    val proposal = new M.partyreplication.PartyReplicationProposal(
+      partyReplicationIdS,
+      partyId.toProtoPrimitive,
       sourceParticipantId.adminParty.toProtoPrimitive,
       participantId.adminParty.toProtoPrimitive,
       sequencerCandidates.forgetNE.map(_.uid.toProtoPrimitive).asJava,
-      new M.partyreplication.PartyReplicationMetadata(
-        id,
-        partyId.toProtoPrimitive,
-        acsSnapshotTs.toInstant,
-        startAtWatermark.value,
-      ),
+      serialOrZero,
     )
     EitherT(
       retrySubmitter
         .submitCommands(
           Commands(
             applicationId = applicationId,
-            commandId = s"channel-proposal-$id",
+            commandId = s"proposal-$partyReplicationIdS",
             actAs = Seq(participantId.adminParty.toProtoPrimitive),
-            commands = channelProposal.create.commands.asScala.toSeq
+            commands = proposal.create.commands.asScala.toSeq
               .map(LedgerClientUtils.javaCodegenToScalaProto),
             deduplicationPeriod =
               DeduplicationDuration(syncService.maxDeduplicationDuration.toProtoPrimitive),
@@ -96,9 +91,7 @@ class PartyReplicationAdminWorkflow(
           ),
           timeouts.default.asFiniteApproximation,
         )
-        .map(
-          handleCommandResult(s"propose channel $id to replicate party")
-        )
+        .map(handleCommandResult(s"propose $partyReplicationIdS to replicate party"))
     ).mapK(FutureUnlessShutdown.outcomeK)
   }
 
@@ -113,32 +106,32 @@ class PartyReplicationAdminWorkflow(
     tx.events
       .collect {
         case Event(Event.Event.Created(event))
-            if event.templateId.exists(isTemplateChannelRelated) =>
+            if event.templateId.exists(isTemplatePartyReplicationRelated) =>
           event
       }
       .foreach(
         createEventHandler(
-          processChannelProposalAtSourceParticipant(tx, _),
-          processChannelAgreementAtSourceOrTargetParticipant(tx, _),
+          processProposalAtSourceParticipant(tx, _),
+          processAgreementAtSourceOrTargetParticipant(tx, _),
         )
       )
   }
 
-  private def processChannelProposalAtSourceParticipant(
+  private def processProposalAtSourceParticipant(
       tx: Transaction,
-      contract: M.partyreplication.ChannelProposal.Contract,
+      contract: M.partyreplication.PartyReplicationProposal.Contract,
   )(implicit traceContext: TraceContext): Unit = {
     val synchronizerId = tx.synchronizerId
     logger.info(
-      s"Received channel proposal for party ${contract.data.payloadMetadata.partyId} on synchronizer $synchronizerId" +
+      s"Received party replication proposal ${contract.data.partyReplicationId} for party ${contract.data.partyId} on synchronizer $synchronizerId" +
         s" from source participant ${contract.data.sourceParticipant} to target participant ${contract.data.targetParticipant}"
     )
     if (contract.data.sourceParticipant == participantId.adminParty.toProtoPrimitive) {
       val validationET = for {
         params <- EitherT.fromEither[FutureUnlessShutdown](
-          ChannelProposalParams.fromDaml(contract.data, synchronizerId)
+          PartyReplicationProposalParams.fromDaml(contract.data, synchronizerId)
         )
-        sequencerId <- partyReplicator.validateChannelProposalAtSourceParticipant(params)
+        sequencerId <- partyReplicator.validatePartyReplicationProposalAtSourceParticipant(params)
       } yield sequencerId
 
       val commandResultF = for {
@@ -147,14 +140,14 @@ class PartyReplicationAdminWorkflow(
             logger.warn(err)
             (
               contract.id.exerciseReject(err).commands,
-              // Upon reject use the contract id as the channel-id might be invalid
-              s"channel-proposal-reject-${contract.id.contractId}",
+              // Upon reject use the contract id as the party-replication-id might be invalid
+              s"proposal-reject-${contract.id.contractId}",
             )
           },
           sequencerId =>
             (
               contract.id.exerciseAccept(sequencerId.uid.toProtoPrimitive).commands,
-              s"channel-proposal-accept-${contract.data.payloadMetadata.id}",
+              s"proposal-accept-${contract.data.partyReplicationId}",
             ),
         )
         (exercise, commandId) = acceptOrReject
@@ -174,22 +167,22 @@ class PartyReplicationAdminWorkflow(
         )
       } yield commandResult
 
-      superviseBackgroundSubmission("Accept or reject channel proposal", commandResultF)
+      superviseBackgroundSubmission("Accept or reject proposal", commandResultF)
     }
   }
 
-  private def processChannelAgreementAtSourceOrTargetParticipant(
+  private def processAgreementAtSourceOrTargetParticipant(
       tx: Transaction,
-      contract: M.partyreplication.ChannelAgreement.Contract,
+      contract: M.partyreplication.PartyReplicationAgreement.Contract,
   )(implicit traceContext: TraceContext): Unit = {
     val synchronizerId = tx.synchronizerId
     logger.info(
-      s"Received channel agreement for party ${contract.data.payloadMetadata.partyId} on synchronizer $synchronizerId" +
+      s"Received agreement for party ${contract.data.partyId} on synchronizer $synchronizerId" +
         s" from source participant ${contract.data.sourceParticipant} to target participant ${contract.data.targetParticipant}"
     )
 
-    def processOrLogWarning(processAgreement: ChannelAgreementParams => Unit): Unit =
-      ChannelAgreementParams
+    def processOrLogWarning(processAgreement: PartyReplicationAgreementParams => Unit): Unit =
+      PartyReplicationAgreementParams
         .fromDaml(contract.data, synchronizerId)
         .fold(
           err => logger.warn(s"Failed to handle party replication agreement: $err"),
@@ -198,9 +191,9 @@ class PartyReplicationAdminWorkflow(
 
     participantId.adminParty.toProtoPrimitive match {
       case `contract`.data.sourceParticipant =>
-        processOrLogWarning(partyReplicator.processChannelAgreementAtSourceParticipant)
+        processOrLogWarning(partyReplicator.processPartyReplicationAgreementAtSourceParticipant)
       case `contract`.data.targetParticipant =>
-        processOrLogWarning(partyReplicator.processChannelAgreementAtTargetParticipant)
+        processOrLogWarning(partyReplicator.processPartyReplicationAgreementAtTargetParticipant)
       case nonStakeholder =>
         logger.warn(
           s"Received unexpected party replication agreement between source ${contract.data.sourceParticipant}" +
@@ -213,15 +206,15 @@ class PartyReplicationAdminWorkflow(
     if (
       tx.event.assignedEvent.exists(
         _.createdEvent
-          .exists(_.templateId.exists(isTemplateChannelRelated))
+          .exists(_.templateId.exists(isTemplatePartyReplicationRelated))
       ) ||
       tx.event.unassignedEvent.exists(
-        _.templateId.exists(isTemplateChannelRelated)
+        _.templateId.exists(isTemplatePartyReplicationRelated)
       )
     ) {
       implicit val traceContext: TraceContext =
         LedgerClient.traceContextFromLedgerApi(tx.traceContext)
-      // TODO(#20638): Should we archive unexpectedly reassigned channel contracts or only warn?
+      // TODO(#20638): Should we archive unexpectedly reassigned party replication contracts or only warn?
       logger.warn(
         s"Received unexpected reassignment of party replication related contract: ${tx.event}"
       )
@@ -233,7 +226,7 @@ class PartyReplicationAdminWorkflow(
     val activeContracts = acs
       .filter(
         _.createdEvent
-          .exists(_.templateId.exists(isTemplateChannelRelated))
+          .exists(_.templateId.exists(isTemplatePartyReplicationRelated))
       )
 
     // TODO(#20636): Upon node restart or synchronizer reconnect, archive previously created contracts
@@ -245,25 +238,25 @@ class PartyReplicationAdminWorkflow(
     }
   }
 
-  // Event handler sharable outside of create event handling, e.g. for acs handling
+  // Event handler sharable outside create event handling, e.g. for acs handling
   private def createEventHandler(
-      handleChannelProposal: M.partyreplication.ChannelProposal.Contract => Unit,
-      handleChannelAgreement: M.partyreplication.ChannelAgreement.Contract => Unit,
+      handleProposal: M.partyreplication.PartyReplicationProposal.Contract => Unit,
+      handleAgreement: M.partyreplication.PartyReplicationAgreement.Contract => Unit,
   ): ScalaCreatedEvent => Unit = {
     case event
         if event.templateId
-          .contains(channelProposalTemplate) =>
+          .contains(proposalTemplate) =>
       val contract =
-        M.partyreplication.ChannelProposal.COMPANION
+        M.partyreplication.PartyReplicationProposal.COMPANION
           .fromCreatedEvent(JavaCreatedEvent.fromProto(ScalaCreatedEvent.toJavaProto(event)))
-      handleChannelProposal(contract)
+      handleProposal(contract)
     case event
         if event.templateId
-          .contains(channelAgreementTemplate) =>
+          .contains(agreementTemplate) =>
       val contract =
-        M.partyreplication.ChannelAgreement.COMPANION
+        M.partyreplication.PartyReplicationAgreement.COMPANION
           .fromCreatedEvent(JavaCreatedEvent.fromProto(ScalaCreatedEvent.toJavaProto(event)))
-      handleChannelAgreement(contract)
+      handleAgreement(contract)
     case _ => ()
   }
 
@@ -294,23 +287,11 @@ class PartyReplicationAdminWorkflow(
 
 object PartyReplicationAdminWorkflow {
   final case class PartyReplicationArguments(
-      id: ChannelId,
       partyId: PartyId,
-      sourceParticipantId: ParticipantId,
       synchronizerId: SynchronizerId,
+      sourceParticipantIdO: Option[ParticipantId],
+      serialO: Option[PositiveInt],
   )
-  final case class ChannelId private (id: CommandId) {
-    def unwrap: String = id.unwrap
-  }
-  object ChannelId {
-    def fromString(id: String): Either[String, ChannelId] =
-      // Ensure id can be embedded in a commandId i.e. does not contain non-allowed characters
-      // and is not too long.
-      CommandId
-        .fromProtoPrimitive(id)
-        .bimap(err => s"Invalid channel id $err", cmdId => ChannelId(cmdId))
-  }
-
   private def applicationId = "PartyReplicationAdminWorkflow"
 
   private def apiIdentifierFromJavaIdentifier(javaIdentifier: JavaIdentifier): Identifier =
@@ -321,11 +302,15 @@ object PartyReplicationAdminWorkflow {
     )
 
   @VisibleForTesting
-  lazy val channelProposalTemplate: Identifier =
-    apiIdentifierFromJavaIdentifier(M.partyreplication.ChannelProposal.TEMPLATE_ID_WITH_PACKAGE_ID)
-  lazy val channelAgreementTemplate: Identifier =
-    apiIdentifierFromJavaIdentifier(M.partyreplication.ChannelAgreement.TEMPLATE_ID_WITH_PACKAGE_ID)
+  lazy val proposalTemplate: Identifier =
+    apiIdentifierFromJavaIdentifier(
+      M.partyreplication.PartyReplicationProposal.TEMPLATE_ID_WITH_PACKAGE_ID
+    )
+  lazy val agreementTemplate: Identifier =
+    apiIdentifierFromJavaIdentifier(
+      M.partyreplication.PartyReplicationAgreement.TEMPLATE_ID_WITH_PACKAGE_ID
+    )
 
-  private def isTemplateChannelRelated(id: Identifier) =
-    id == channelProposalTemplate || id == channelAgreementTemplate
+  private def isTemplatePartyReplicationRelated(id: Identifier) =
+    id == proposalTemplate || id == agreementTemplate
 }

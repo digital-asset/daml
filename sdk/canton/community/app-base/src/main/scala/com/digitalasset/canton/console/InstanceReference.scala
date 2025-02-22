@@ -37,7 +37,7 @@ import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerCon
 import com.digitalasset.canton.synchronizer.mediator.{
   MediatorNode,
   MediatorNodeBootstrap,
-  MediatorNodeConfigCommon,
+  MediatorNodeConfig,
   RemoteMediatorConfig,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.{
@@ -1376,10 +1376,10 @@ class LocalMediatorReference(consoleEnvironment: ConsoleEnvironment, val name: S
   override def adminToken: Option[String] = runningNode.flatMap(_.getAdminToken)
 
   @Help.Summary("Returns the mediator configuration")
-  override def config: MediatorNodeConfigCommon =
+  override def config: MediatorNodeConfig =
     consoleEnvironment.environment.config.mediatorsByString(name)
 
-  private[console] val nodes: MediatorNodes[?] = consoleEnvironment.environment.mediators
+  private[console] val nodes: MediatorNodes = consoleEnvironment.environment.mediators
 
   override protected[console] def runningNode: Option[MediatorNodeBootstrap] =
     nodes.getRunning(name)

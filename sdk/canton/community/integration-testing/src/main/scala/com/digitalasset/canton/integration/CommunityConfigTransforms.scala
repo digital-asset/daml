@@ -7,7 +7,7 @@ import cats.syntax.option.*
 import com.digitalasset.canton.UniquePortGenerator
 import com.digitalasset.canton.config.{CantonCommunityConfig, DbConfig, StorageConfig}
 import com.digitalasset.canton.participant.config.LocalParticipantConfig
-import com.digitalasset.canton.synchronizer.mediator.CommunityMediatorNodeConfig
+import com.digitalasset.canton.synchronizer.mediator.MediatorNodeConfig
 import com.digitalasset.canton.synchronizer.sequencer.config.CommunitySequencerNodeConfig
 import com.digitalasset.canton.version.{ParticipantProtocolVersion, ProtocolVersion}
 import com.typesafe.config.{Config, ConfigValueFactory}
@@ -77,12 +77,12 @@ object CommunityConfigTransforms {
     updateAllSequencerConfigs((_, config) => update(config))
 
   def updateAllMediatorConfigs_(
-      update: CommunityMediatorNodeConfig => CommunityMediatorNodeConfig
+      update: MediatorNodeConfig => MediatorNodeConfig
   ): CommunityConfigTransform =
     updateAllMediatorConfigs((_, config) => update(config))
 
   def updateAllMediatorConfigs(
-      update: (String, CommunityMediatorNodeConfig) => CommunityMediatorNodeConfig
+      update: (String, MediatorNodeConfig) => MediatorNodeConfig
   ): CommunityConfigTransform =
     cantonConfig =>
       cantonConfig

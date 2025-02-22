@@ -6,9 +6,8 @@ package com.digitalasset.canton.participant.admin.party
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
-import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow.ChannelId
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.participant.admin.workflows.java.canton.internal as M
 import com.digitalasset.canton.topology.{
   ParticipantId,
@@ -20,28 +19,28 @@ import com.digitalasset.canton.topology.{
 
 import scala.jdk.CollectionConverters.*
 
-final case class ChannelProposalParams private (
-    ts: CantonTimestamp,
+final case class PartyReplicationProposalParams private (
+    partyReplicationId: Hash,
     partyId: PartyId,
+    synchronizerId: SynchronizerId,
     targetParticipantId: ParticipantId,
     sequencerIds: NonEmpty[List[SequencerId]],
-    synchronizerId: SynchronizerId,
+    serial: Option[PositiveInt],
 )
 
-object ChannelProposalParams {
+object PartyReplicationProposalParams {
   def fromDaml(
-      c: M.partyreplication.ChannelProposal,
+      c: M.partyreplication.PartyReplicationProposal,
       synchronizer: String,
-  ): Either[String, ChannelProposalParams] =
+  ): Either[String, PartyReplicationProposalParams] =
     for {
-      ts <-
-        CantonTimestamp
-          .fromInstant(c.payloadMetadata.timestamp)
-          // the following error is actually impossible to trigger as the lf-engine catches bad timestamps
-          .leftMap(err => s"Invalid timestamp $err")
+      _ <- Either.cond(c.partyReplicationId.nonEmpty, (), "Empty party replication id")
+      partyReplicationId <- Hash
+        .fromHexString(c.partyReplicationId)
+        .leftMap(err => s"Invalid party replication id: $err")
       partyId <-
         PartyId
-          .fromProtoPrimitive(c.payloadMetadata.partyId, "partyId")
+          .fromProtoPrimitive(c.partyId, "partyId")
           .leftMap(err => s"Invalid partyId $err")
       // Check the target participant. The source participant has already been checked by the transaction filter.
       targetParticipantId <-
@@ -63,9 +62,18 @@ object ChannelProposalParams {
           .fromProtoPrimitive(synchronizer, "synchronizer")
           // The following error is impossible to trigger as the ledger-api does not emit invalid synchronizer ids
           .leftMap(err => s"Invalid synchronizerId $err")
-      _ <- ChannelId.fromString(c.payloadMetadata.id)
-      _ <- NonNegativeLong
-        .create(c.payloadMetadata.startAtWatermark)
-        .leftMap(_ => s"Invalid, negative startAtWatermark ${c.payloadMetadata.startAtWatermark}")
-    } yield ChannelProposalParams(ts, partyId, targetParticipantId, sequencerIdsNE, synchronizerId)
+      serialIntO <- Either.cond(
+        c.topologySerial.toInt.toLong == c.topologySerial,
+        Option.when(c.topologySerial.toInt != 0)(c.topologySerial.toInt),
+        s"Non-integer serial ${c.topologySerial}",
+      )
+      serial <- serialIntO.traverse(PositiveInt.create).leftMap(_.message)
+    } yield PartyReplicationProposalParams(
+      partyReplicationId,
+      partyId,
+      synchronizerId,
+      targetParticipantId,
+      sequencerIdsNE,
+      serial,
+    )
 }

@@ -73,7 +73,9 @@ state_client = state_service_pb2_grpc.StateServiceStub(lapi_channel)
 eqs_client = event_query_service_pb2_grpc.EventQueryServiceStub(lapi_channel)
 # [Created LAPI gRPC Channel]
 
+# [Create Admin API gRPC Channel]
 admin_channel = grpc.insecure_channel(f"localhost:{admin_port}")
+# [Created Admin API gRPC Channel]
 
 
 # [Define ping template]

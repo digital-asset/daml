@@ -20,8 +20,9 @@ import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbSerializationException
+import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.TopologyManager.assignExpectedUsageToKeys
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{SynchronizerId, TopologyManager}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.*
 import com.google.common.annotations.VisibleForTesting
@@ -162,10 +163,10 @@ object SignedTopologyTransaction
 
   import com.digitalasset.canton.resource.DbStorage.Implicits.*
 
-  /** Sign the given topology transaction. */
-  def create[Op <: TopologyChangeOp, M <: TopologyMapping](
+  @VisibleForTesting
+  def createWithAssignedKeyUsages[Op <: TopologyChangeOp, M <: TopologyMapping](
       transaction: TopologyTransaction[Op, M],
-      signingKeys: NonEmpty[Map[Fingerprint, NonEmpty[Set[SigningKeyUsage]]]],
+      keysWithUsage: NonEmpty[Map[Fingerprint, NonEmpty[Set[SigningKeyUsage]]]],
       isProposal: Boolean,
       crypto: CryptoPrivateApi,
       protocolVersion: ProtocolVersion,
@@ -174,7 +175,7 @@ object SignedTopologyTransaction
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, SigningError, SignedTopologyTransaction[Op, M]] =
     for {
-      signaturesNE <- signingKeys.toSeq.toNEF.parTraverse { case (keyId, usage) =>
+      signaturesNE <- keysWithUsage.toSeq.toNEF.parTraverse { case (keyId, usage) =>
         crypto.sign(transaction.hash.hash, keyId, usage)
       }
       representativeProtocolVersion = versioningTable.protocolVersionRepresentativeFor(
@@ -183,6 +184,25 @@ object SignedTopologyTransaction
     } yield SignedTopologyTransaction(transaction, signaturesNE.toSet, isProposal)(
       representativeProtocolVersion
     )
+
+  /** Sign the given topology transaction. */
+  def create[Op <: TopologyChangeOp, M <: TopologyMapping](
+      transaction: TopologyTransaction[Op, M],
+      signingKeys: NonEmpty[Set[Fingerprint]],
+      isProposal: Boolean,
+      crypto: CryptoPrivateApi,
+      protocolVersion: ProtocolVersion,
+  )(implicit
+      ec: ExecutionContext,
+      tc: TraceContext,
+  ): EitherT[FutureUnlessShutdown, SigningError, SignedTopologyTransaction[Op, M]] = {
+    val keysWithUsage = assignExpectedUsageToKeys(
+      transaction.mapping,
+      signingKeys,
+      forSigning = true,
+    )
+    createWithAssignedKeyUsages(transaction, keysWithUsage, isProposal, crypto, protocolVersion)
+  }
 
   def asVersion[Op <: TopologyChangeOp, M <: TopologyMapping](
       signedTx: SignedTopologyTransaction[Op, M],
@@ -203,16 +223,11 @@ object SignedTopologyTransaction
         )
       } else {
         val convertedTx = originTx.asVersion(protocolVersion)
-        val keysWithUsage = TopologyManager
-          .assignExpectedUsageToKeys(
-            convertedTx.mapping,
-            signedTx.signatures.map(signature => signature.signedBy),
-          )
         for {
           signedTopologyTransaction <- SignedTopologyTransaction
             .create(
               convertedTx,
-              keysWithUsage,
+              signedTx.signatures.map(signature => signature.signedBy),
               signedTx.isProposal,
               crypto.privateCrypto,
               protocolVersion,

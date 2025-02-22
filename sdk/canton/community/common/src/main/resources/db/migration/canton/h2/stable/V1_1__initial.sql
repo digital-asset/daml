@@ -354,10 +354,9 @@ create table par_commitment_queue (
     from_exclusive bigint not null,
     -- UTC timestamp in microseconds relative to EPOCH
     to_inclusive bigint not null,
-    commitment binary large object not null,
-    commitment_hex varchar not null,  -- As a hex string so that it is indexable in H2
+    commitment binary varying not null,
     constraint check_nonempty_interval_queue check(to_inclusive > from_exclusive),
-    primary key (synchronizer_idx, sender, counter_participant, from_exclusive, to_inclusive, commitment_hex)
+    primary key (synchronizer_idx, sender, counter_participant, from_exclusive, to_inclusive, commitment)
 );
 
 create index idx_par_commitment_queue_by_time on par_commitment_queue (synchronizer_idx, to_inclusive);

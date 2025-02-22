@@ -365,8 +365,7 @@ create or replace view debug.par_commitment_queue as
     counter_participant,
     debug.canton_timestamp(from_exclusive) as from_exclusive,
     debug.canton_timestamp(to_inclusive) as to_inclusive,
-    commitment,
-    commitment_hex
+    commitment
   from par_commitment_queue;
 
 create or replace view debug.par_static_synchronizer_parameters as

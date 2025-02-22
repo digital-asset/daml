@@ -378,9 +378,8 @@ create table par_commitment_queue (
   -- UTC timestamp in microseconds relative to EPOCH
   to_inclusive bigint not null,
   commitment bytea not null,
-  commitment_hex varchar collate "C" not null, -- As a hex string so that it is indexable in H2; could be dropped if we supported only Postgres
   constraint check_nonempty_interval_queue check(to_inclusive > from_exclusive),
-  primary key (synchronizer_idx, sender, counter_participant, from_exclusive, to_inclusive, commitment_hex)
+  primary key (synchronizer_idx, sender, counter_participant, from_exclusive, to_inclusive, commitment)
 );
 
 create index idx_par_commitment_queue_by_time on par_commitment_queue (synchronizer_idx, to_inclusive);
