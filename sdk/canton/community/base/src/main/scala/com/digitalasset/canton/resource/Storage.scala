@@ -27,7 +27,6 @@ import com.digitalasset.canton.logging.{
   TracedLogger,
 }
 import com.digitalasset.canton.metrics.{DbQueueMetrics, DbStorageMetrics}
-import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.{LfContractId, LfGlobalKey, LfHash}
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
 import com.digitalasset.canton.resource.DbStorage.{DbAction, Profile}
@@ -40,6 +39,7 @@ import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.retry.RetryEither
 import com.digitalasset.canton.{LfPackageId, LfPartyId, RichGeneratedMessage}
+import com.digitalasset.daml.lf.data.Bytes
 import com.google.protobuf.ByteString
 import com.typesafe.config.{Config, ConfigValueFactory}
 import com.typesafe.scalalogging.Logger
@@ -462,12 +462,12 @@ object DbStorage {
     }
 
     implicit val absCoidGetResult: GetResult[LfContractId] = GetResult(r =>
-      ProtoConverter
-        .parseLfContractId(r.nextString())
-        .fold(err => throw new DbDeserializationException(err.toString), Predef.identity)
+      LfContractId
+        .fromBytes(Bytes.fromByteArray(r.nextBytes()))
+        .fold(err => throw new DbDeserializationException(err), Predef.identity)
     )
     implicit val absCoidSetParameter: SetParameter[LfContractId] =
-      (c, pp) => pp >> c.toLengthLimitedString
+      (c, pp) => pp.setBytes(c.toBytes.toByteArray)
 
     // We assume that the HexString of the hash of the global key will fit into 255 characters
     // Please consult the team, if you want to increase this limit

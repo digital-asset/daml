@@ -365,7 +365,7 @@ final case class SignatureDelegation private[crypto] (
   // set to be used for protocol messages
   require(
     sessionKey.format == CryptoKeyFormat.DerX509Spki &&
-      SigningKeyUsage.compatibleUsage(sessionKey.usage, SigningKeyUsage.ProtocolOnly) &&
+      SigningKeyUsage.matchesRelevantUsages(sessionKey.usage, SigningKeyUsage.ProtocolOnly) &&
       signature.signatureDelegation.isEmpty // we don't support recursive delegations
   )
 
@@ -581,6 +581,8 @@ object SigningKeyUsage {
   val IdentityDelegationOnly: NonEmpty[Set[SigningKeyUsage]] = NonEmpty.mk(Set, IdentityDelegation)
   val NamespaceOrIdentityDelegation: NonEmpty[Set[SigningKeyUsage]] =
     NonEmpty.mk(Set, Namespace, IdentityDelegation)
+  val NamespaceOrProofOfOwnership: NonEmpty[Set[SigningKeyUsage]] =
+    NonEmpty.mk(Set, Namespace, ProofOfOwnership)
   val SequencerAuthenticationOnly: NonEmpty[Set[SigningKeyUsage]] =
     NonEmpty.mk(Set, SequencerAuthentication)
   val ProtocolOnly: NonEmpty[Set[SigningKeyUsage]] = NonEmpty.mk(Set, Protocol)
@@ -691,22 +693,33 @@ object SigningKeyUsage {
         NonEmpty.from(listUsages.toSet).toRight(ProtoDeserializationError.FieldNotSet("usage"))
       )
 
-  /** Ensures that the intersection of a `key's usage` and the `allowed usages` is not empty, except
-    * when the only intersecting element is `ProofOfOwnership`.
+  /** Ensures that the intersection of a `key's usages` and the `allowed usages` is not empty,
+    * guaranteeing that at least one usage is shared.
     *
-    * This guarantees that at least one usage is shared, as long as it's not limited to
-    * `ProofOfOwnership`, which is an internal key usage type. The only case where the intersection
-    * can consist solely of `ProofOfOwnership` is when signing or verifying topology mappings like
-    * `OwnerToKeyMappings`, where the keys must be self-signed. In this case, we allow only
-    * `ProofOfOwnership` type keys.
+    * This function should only be used in the context of signing and verification, as it treats
+    * `ProofOfOwnership` like any other usage and attempts to match it.
+    *
+    * The only case where `ProofOfOwnership` can be part of the allowed usages is when signing or
+    * verifying topology mappings such as `OwnerToKeyMappings` or `PartyToKeyMappings`, where the
+    * keys must self-sign the request.
     */
-  def compatibleUsage(
+  def compatibleUsageForSignAndVerify(
+      keyUsage: NonEmpty[Set[SigningKeyUsage]],
+      allowedUsages: NonEmpty[Set[SigningKeyUsage]],
+  ): Boolean =
+    keyUsage.intersect(allowedUsages).nonEmpty
+
+  /** Verifies that there is at least one common usage between a `key's usages` and the `allowed
+    * usages`, considering only relevant usages and excluding the internal `ProofOfOwnership` type.
+    * `ProofOfOwnership` should only be considered when signing or verifying. This method must be
+    * used for all other scenarios, such as filtering or finding keys.
+    */
+  def matchesRelevantUsages(
       keyUsage: NonEmpty[Set[SigningKeyUsage]],
       allowedUsages: NonEmpty[Set[SigningKeyUsage]],
   ): Boolean = {
-    val intersect = keyUsage.intersect(allowedUsages)
-    if (allowedUsages == SigningKeyUsage.ProofOfOwnershipOnly) intersect.nonEmpty
-    else intersect.nonEmpty && intersect != Set(SigningKeyUsage.ProofOfOwnership)
+    val relevantUsages = allowedUsages - ProofOfOwnership
+    keyUsage.intersect(relevantUsages).nonEmpty
   }
 
   /** Adds the `ProofOfOwnershipOnly` usage to the list of usages, unless it forms an invalid
@@ -1622,7 +1635,7 @@ object SignatureCheckError {
     override def pretty: Pretty[InvalidKeyUsage] = prettyOfClass(
       param("keyId", _.keyId),
       param("keyUsage", _.keyUsage),
-      param("expectedKeyUsages", _.expectedKeyUsage),
+      param("expectedKeyUsage", _.expectedKeyUsage),
     )
   }
 

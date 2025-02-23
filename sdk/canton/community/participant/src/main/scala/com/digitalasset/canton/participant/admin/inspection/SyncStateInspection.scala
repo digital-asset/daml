@@ -157,7 +157,7 @@ final class SyncStateInspection(
   /** searches the pcs and returns the contract and activeness flag */
   def findContracts(
       synchronizerAlias: SynchronizerAlias,
-      filterId: Option[String],
+      exactId: Option[String],
       filterPackage: Option[String],
       filterTemplate: Option[String],
       limit: Int,
@@ -166,7 +166,7 @@ final class SyncStateInspection(
       timeouts.inspection.await("findContracts") {
         syncPersistentStateManager
           .getByAlias(synchronizerAlias)
-          .traverse(_.acsInspection.findContracts(filterId, filterPackage, filterTemplate, limit))
+          .traverse(_.acsInspection.findContracts(exactId, filterPackage, filterTemplate, limit))
           .failOnShutdownToAbortException("findContracts")
       },
       synchronizerAlias,

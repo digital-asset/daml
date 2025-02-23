@@ -65,7 +65,7 @@ import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.synchronizer.block.{SequencerDriver, SequencerDriverFactory}
 import com.digitalasset.canton.synchronizer.mediator.{
   MediatorConfig,
-  MediatorNodeConfigCommon,
+  MediatorNodeConfig,
   MediatorNodeParameterConfig,
   MediatorNodeParameters,
   MediatorPruningConfig,
@@ -355,11 +355,6 @@ trait CantonConfig extends CantonConfigValidation {
 
   def edition: CantonEdition
 
-  type ParticipantConfigType <: LocalParticipantConfig & ConfigDefaults[
-    DefaultPorts,
-    ParticipantConfigType,
-  ]
-  type MediatorNodeConfigType <: MediatorNodeConfigCommon
   type SequencerNodeConfigType <: SequencerNodeConfigCommon
 
   def allNodes: Map[InstanceName, LocalNodeConfig] =
@@ -369,11 +364,11 @@ trait CantonConfig extends CantonConfigValidation {
     *
     * participants are grouped by their local name
     */
-  def participants: Map[InstanceName, ParticipantConfigType]
+  def participants: Map[InstanceName, LocalParticipantConfig]
 
   /** Use `participants` instead!
     */
-  def participantsByString: Map[String, ParticipantConfigType] = participants.map { case (n, c) =>
+  def participantsByString: Map[String, LocalParticipantConfig] = participants.map { case (n, c) =>
     n.unwrap -> c
   }
 
@@ -394,11 +389,11 @@ trait CantonConfig extends CantonConfigValidation {
       n.unwrap -> c
   }
 
-  def mediators: Map[InstanceName, MediatorNodeConfigType]
+  def mediators: Map[InstanceName, MediatorNodeConfig]
 
   /** Use `mediators` instead!
     */
-  def mediatorsByString: Map[String, MediatorNodeConfigType] = mediators.map { case (n, c) =>
+  def mediatorsByString: Map[String, MediatorNodeConfig] = mediators.map { case (n, c) =>
     n.unwrap -> c
   }
 
@@ -536,7 +531,7 @@ trait CantonConfig extends CantonConfigValidation {
     def sequencer(config: SequencerNodeConfigCommon): Seq[String] =
       portDescriptionFromConfig(config)(Seq(("admin-api", _.adminApi), ("public-api", _.publicApi)))
 
-    def mediator(config: MediatorNodeConfigCommon): Seq[String] =
+    def mediator(config: MediatorNodeConfig): Seq[String] =
       portDescriptionFromConfig(config)(Seq(("admin-api", _.adminApi)))
 
     Seq(
@@ -1186,6 +1181,8 @@ object CantonConfig {
 
     implicit val localParticipantConfigReader: ConfigReader[LocalParticipantConfig] =
       deriveReader[LocalParticipantConfig]
+    implicit val mediatorNodeConfigReader: ConfigReader[MediatorNodeConfig] =
+      deriveReader[MediatorNodeConfig]
   }
 
   /** writers
@@ -1741,6 +1738,8 @@ object CantonConfig {
 
     implicit val localParticipantConfigWriter: ConfigWriter[LocalParticipantConfig] =
       deriveWriter[LocalParticipantConfig]
+    implicit val mediatorNodeConfigWriter: ConfigWriter[MediatorNodeConfig] =
+      deriveWriter[MediatorNodeConfig]
   }
 
   /** Parses and merges the provided configuration files into a single

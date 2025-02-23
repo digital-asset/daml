@@ -627,8 +627,8 @@ class DbCommitmentQueue(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val insertAction =
       sqlu"""insert
-             into par_commitment_queue(synchronizer_idx, sender, counter_participant, from_exclusive, to_inclusive, commitment, commitment_hex)
-             values($indexedSynchronizer, ${commitment.sender}, ${commitment.counterParticipant}, ${commitment.period.fromExclusive}, ${commitment.period.toInclusive}, ${commitment.commitment}, ${commitment.commitment.toLengthLimitedHexString})
+             into par_commitment_queue(synchronizer_idx, sender, counter_participant, from_exclusive, to_inclusive, commitment)
+             values($indexedSynchronizer, ${commitment.sender}, ${commitment.counterParticipant}, ${commitment.period.fromExclusive}, ${commitment.period.toInclusive}, ${commitment.commitment})
              on conflict do nothing"""
 
     storage.update_(insertAction, operationName = "enqueue commitment")
@@ -643,7 +643,7 @@ class DbCommitmentQueue(
   ): FutureUnlessShutdown[List[AcsCommitment]] =
     storage
       .query(
-        sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment_hex
+        sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
              from par_commitment_queue
              where synchronizer_idx = $indexedSynchronizer and to_inclusive <= $timestamp"""
           .as[AcsCommitment],
@@ -660,7 +660,7 @@ class DbCommitmentQueue(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[AcsCommitment]] =
     storage
       .query(
-        sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment_hex
+        sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
                                             from par_commitment_queue
                                             where synchronizer_idx = $indexedSynchronizer and to_inclusive >= $timestamp"""
           .as[AcsCommitment],
@@ -675,7 +675,7 @@ class DbCommitmentQueue(
   ): FutureUnlessShutdown[Seq[AcsCommitment]] =
     storage
       .query(
-        sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment_hex
+        sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
                  from par_commitment_queue
                  where synchronizer_idx = $indexedSynchronizer and sender = $counterParticipant
                  and to_inclusive > ${period.fromExclusive}

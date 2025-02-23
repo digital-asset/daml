@@ -41,7 +41,7 @@ trait ContractStore extends ContractLookup with Purgeable with FlagCloseable {
   /** Debug find utility to search pcs
     */
   def find(
-      filterId: Option[String],
+      exactId: Option[String],
       filterPackage: Option[String],
       filterTemplate: Option[String],
       limit: Int,

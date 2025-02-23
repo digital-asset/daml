@@ -175,7 +175,7 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
         _ <- store.storeContract(contract3).failOnShutdown
         contractsBeforePurge <- store
           .find(
-            filterId = None,
+            exactId = None,
             filterPackage = None,
             filterTemplate = None,
             limit = 5,
@@ -184,7 +184,7 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
         _ <- store.purge().failOnShutdown
         contractsAfterPurge <- store
           .find(
-            filterId = None,
+            exactId = None,
             filterPackage = None,
             filterTemplate = None,
             limit = 5,
@@ -213,14 +213,14 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
           )
           .failOnShutdown
 
-        resId <- store.find(filterId = Some(contractId.coid), None, None, 100)
+        resId <- store.find(exactId = Some(contractId.coid), None, None, 100)
         resPkg <- store
-          .find(filterId = None, filterPackage = Some(pkgId2), None, 100)
+          .find(exactId = None, filterPackage = Some(pkgId2), None, 100)
         resPkgLimit <- store
-          .find(filterId = None, filterPackage = Some(pkgId2), None, 2)
+          .find(exactId = None, filterPackage = Some(pkgId2), None, 2)
         resTemplatePkg <- store
           .find(
-            filterId = None,
+            exactId = None,
             filterPackage = Some(contract4.contractInstance.unversioned.template.packageId),
             filterTemplate =
               Some(contract4.contractInstance.unversioned.template.qualifiedName.toString()),

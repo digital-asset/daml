@@ -108,13 +108,7 @@ final case class LocalParticipantConfig(
       .focus(_.adminApi.internalPort)
       .modify(ports.participantAdminApiPort.setDefaultPort)
       .focus(_.replication)
-      .modify(
-        _.map(_.focus(_.enabled).modify(ReplicationConfig.withDefault(storage, _, edition))).orElse(
-          ReplicationConfig
-            .withDefault(storage, None, edition)
-            .map(enabled => ReplicationConfig(enabled = Some(enabled)))
-        )
-      )
+      .modify(ReplicationConfig.withDefaultO(storage, _, edition))
 }
 
 object LocalParticipantConfig {

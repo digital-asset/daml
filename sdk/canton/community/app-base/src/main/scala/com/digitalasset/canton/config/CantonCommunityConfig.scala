@@ -12,10 +12,7 @@ import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.participant.config.{LocalParticipantConfig, RemoteParticipantConfig}
 import com.digitalasset.canton.synchronizer.config.PublicServerConfig
-import com.digitalasset.canton.synchronizer.mediator.{
-  CommunityMediatorNodeConfig,
-  RemoteMediatorConfig,
-}
+import com.digitalasset.canton.synchronizer.mediator.{MediatorNodeConfig, RemoteMediatorConfig}
 import com.digitalasset.canton.synchronizer.sequencer.config.{
   CommunitySequencerNodeConfig,
   RemoteSequencerConfig,
@@ -32,7 +29,7 @@ import scala.annotation.nowarn
 final case class CantonCommunityConfig(
     participants: Map[InstanceName, LocalParticipantConfig] = Map.empty,
     sequencers: Map[InstanceName, CommunitySequencerNodeConfig] = Map.empty,
-    mediators: Map[InstanceName, CommunityMediatorNodeConfig] = Map.empty,
+    mediators: Map[InstanceName, MediatorNodeConfig] = Map.empty,
     remoteParticipants: Map[InstanceName, RemoteParticipantConfig] = Map.empty,
     remoteSequencers: Map[InstanceName, RemoteSequencerConfig] = Map.empty,
     remoteMediators: Map[InstanceName, RemoteMediatorConfig] = Map.empty,
@@ -43,8 +40,6 @@ final case class CantonCommunityConfig(
     with ConfigDefaults[DefaultPorts, CantonCommunityConfig]
     with CommunityOnlyCantonConfigValidation {
 
-  override type ParticipantConfigType = LocalParticipantConfig
-  override type MediatorNodeConfigType = CommunityMediatorNodeConfig
   override type SequencerNodeConfigType = CommunitySequencerNodeConfig
 
   /** renders the config as json (used for dumping config for diagnostic purposes) */
@@ -92,8 +87,6 @@ object CantonCommunityConfig {
         deriveReader[PublicServerConfig]
       deriveReader[CommunitySequencerNodeConfig]
     }
-    implicit val communityMediatorNodeConfigReader: ConfigReader[CommunityMediatorNodeConfig] =
-      deriveReader[CommunityMediatorNodeConfig]
     deriveReader[CantonCommunityConfig]
   }
 
@@ -107,8 +100,6 @@ object CantonCommunityConfig {
         deriveWriter[PublicServerConfig]
       deriveWriter[CommunitySequencerNodeConfig]
     }
-    implicit val communityMediatorNodeConfigWriter: ConfigWriter[CommunityMediatorNodeConfig] =
-      deriveWriter[CommunityMediatorNodeConfig]
 
     deriveWriter[CantonCommunityConfig]
   }

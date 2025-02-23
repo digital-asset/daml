@@ -73,7 +73,9 @@ state_client = state_service_pb2_grpc.StateServiceStub(lapi_channel)
 eqs_client = event_query_service_pb2_grpc.EventQueryServiceStub(lapi_channel)
 # [Created LAPI gRPC Channel]
 
+# [Create Admin API gRPC Channel]
 admin_channel = grpc.insecure_channel(f"localhost:{admin_port}")
+# [Created Admin API gRPC Channel]
 
 
 # [Define ping template]
@@ -294,6 +296,7 @@ def exercise_respond_choice(
     created_event_blob: bytes,
     template_id: value_pb2.Identifier,
 ):
+    # [Create the exercise command]
     ping_exercise_command = commands_pb2.Command(
         exercise=commands_pb2.ExerciseCommand(
             template_id=ping_template_id,
@@ -304,8 +307,10 @@ def exercise_respond_choice(
             ),
         )
     )
+    # [Created the exercise command]
 
     print("Preparing exercise Respond choice transaction")
+    # [Prepare the exercise command]
     prepare_exercise_request = interactive_submission_service_pb2.PrepareSubmissionRequest(
         application_id=application_id,
         command_id=str(uuid.uuid4()),
@@ -325,11 +330,12 @@ def exercise_respond_choice(
     )
 
     prepare_exercise_response = iss_client.PrepareSubmission(prepare_exercise_request)
+    # [Prepared the exercise command]
 
     prepared_exercise_transaction = prepare_exercise_response.prepared_transaction
 
     print("Submitting exercise Respond choice transaction")
-    # Exercise the Respond choice on the ping contract by bob
+    # [Exercise the Respond choice on the ping contract by bob]
     execute_and_get_contract_id(
         prepared_exercise_transaction,
         responder,
@@ -345,6 +351,7 @@ def exercise_respond_choice(
         )
     else:
         raise Exception("Expected an archive event")
+    # [Exercised Respond choice and observed archived contract]
 
 
 def demo_interactive_submissions(participant_id: str, synchronizer_id: str):
@@ -415,6 +422,11 @@ if __name__ == "__main__":
         type=str,
         help="Path of the file to which the private key should be written to",
     )
+    parser_onboard_party.add_argument(
+        "--public-key-file",
+        type=str,
+        help="Path of the file to which the public key should be written to",
+    )
 
     args = parser.parse_args()
 
@@ -425,17 +437,28 @@ if __name__ == "__main__":
             args.name, args.participant_id, args.synchronizer_id, admin_channel
         )
         private_key_file = (
-            args.private_key_file or f"{args.name}::{party_fingerprint}-private-key.pem"
+            args.private_key_file or f"{args.name}::{party_fingerprint}-private-key.der"
+        )
+        public_key_file = (
+            args.public_key_file or f"{args.name}::{party_fingerprint}-public-key.der"
         )
         with open(private_key_file, "wb") as key_file:
             key_file.write(
                 party_private_key.private_bytes(
-                    encoding=serialization.Encoding.PEM,
+                    encoding=serialization.Encoding.DER,
                     format=serialization.PrivateFormat.PKCS8,
                     encryption_algorithm=serialization.NoEncryption(),
                 )
             )
+        with open(public_key_file, "wb") as key_file:
+            key_file.write(
+                party_private_key.public_key().public_bytes(
+                    encoding=serialization.Encoding.DER,
+                    format=serialization.PublicFormat.SubjectPublicKeyInfo,
+                )
+            )
         print(f"Party ID: {args.name}::{party_fingerprint}")
         print(f"Written private key to: {private_key_file}")
+        print(f"Written public key to: {public_key_file}")
     else:
         parser.print_help()

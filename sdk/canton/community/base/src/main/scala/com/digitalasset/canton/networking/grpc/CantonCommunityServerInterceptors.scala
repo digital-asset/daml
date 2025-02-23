@@ -8,6 +8,7 @@ import com.daml.metrics.grpc.{GrpcMetricsServerInterceptor, GrpcServerMetrics}
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.{
   AdminAuthorizer,
+  AuthServiceWildcard,
   AuthorizationInterceptor,
   CantonAdminToken,
   CantonAdminTokenAuthService,
@@ -33,7 +34,7 @@ class CantonCommunityServerInterceptors(
     apiLoggingConfig: ApiLoggingConfig,
     loggerFactory: NamedLoggerFactory,
     grpcMetrics: GrpcServerMetrics,
-    authServices: Seq[AuthServiceConfig],
+    authServiceConfigs: Seq[AuthServiceConfig],
     adminToken: Option[CantonAdminToken],
     jwtTimestampLeeway: Option[JwtTimestampLeeway],
     telemetry: Telemetry,
@@ -65,17 +66,18 @@ class CantonCommunityServerInterceptors(
   private def addAuthorizationInterceptor(
       service: ServerServiceDefinition
   ): ServerServiceDefinition = {
-    val authService = new CantonAdminTokenAuthService(
-      adminToken,
-      parent = authServices.map(
-        _.create(
-          jwtTimestampLeeway,
-          loggerFactory,
-        )
-      ),
-    )
+    val authServices = new CantonAdminTokenAuthService(adminToken) +:
+      (if (authServiceConfigs.isEmpty)
+         List(AuthServiceWildcard)
+       else
+         authServiceConfigs.map(
+           _.create(
+             jwtTimestampLeeway,
+             loggerFactory,
+           )
+         ))
     val interceptor = new AuthorizationInterceptor(
-      authService,
+      authServices,
       telemetry,
       loggerFactory,
       DirectExecutionContext(loggerFactory.getLogger(AuthorizationInterceptor.getClass)),

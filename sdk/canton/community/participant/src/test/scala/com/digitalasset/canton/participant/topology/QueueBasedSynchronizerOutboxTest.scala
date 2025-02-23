@@ -83,8 +83,8 @@ class QueueBasedSynchronizerOutboxTest
         testedProtocolVersion,
       ),
       signingKeys = NonEmpty(
-        Map,
-        publicKey.fingerprint -> SigningKeyUsage.NamespaceOnly,
+        Set,
+        publicKey.fingerprint,
       ),
       isProposal = false,
       crypto.privateCrypto,

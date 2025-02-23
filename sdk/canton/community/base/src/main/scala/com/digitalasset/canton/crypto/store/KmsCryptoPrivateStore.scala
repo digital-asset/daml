@@ -8,7 +8,7 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.{CacheConfig, ProcessingTimeout}
-import com.digitalasset.canton.crypto.SigningKeyUsage.compatibleUsage
+import com.digitalasset.canton.crypto.SigningKeyUsage.matchesRelevantUsages
 import com.digitalasset.canton.crypto.kms.{Kms, KmsKeyId}
 import com.digitalasset.canton.crypto.store.KmsMetadataStore.KmsMetadata
 import com.digitalasset.canton.crypto.{Fingerprint, KeyPurpose, SigningKeyUsage}
@@ -131,7 +131,7 @@ class KmsCryptoPrivateStore(
               // usage to default to 'All' usages.
               case None => SigningKeyUsage.All
             }
-            if (compatibleUsage(metadataUsage, filterUsage)) true
+            if (matchesRelevantUsages(metadataUsage, filterUsage)) true
             else false
 
           }

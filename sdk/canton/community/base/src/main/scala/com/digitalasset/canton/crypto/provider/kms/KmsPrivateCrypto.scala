@@ -75,9 +75,9 @@ class KmsPrivateCrypto(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningPublicKey] =
     for {
-      publicKeyNoPoO <- getPublicSigningKey(keyId)
-      publicKey = publicKeyNoPoO
-        .copy(usage = SigningKeyUsage.addProofOfOwnership(usage))(publicKeyNoPoO.migrated)
+      publicKeyWithoutUsage <- getPublicSigningKey(keyId)
+      publicKey = publicKeyWithoutUsage
+        .copy(usage = SigningKeyUsage.addProofOfOwnership(usage))(publicKeyWithoutUsage.migrated)
       _ <- EitherT.right(publicStore.storeSigningKey(publicKey, keyName))
       _ = privateStore.storeKeyMetadata(
         KmsMetadata(publicKey.id, keyId, KeyPurpose.Signing, Some(publicKey.usage))
@@ -102,13 +102,13 @@ class KmsPrivateCrypto(
         .leftMap[SigningKeyGenerationError](err =>
           SigningKeyGenerationError.GeneralKmsError(err.show)
         )
-      publicKeyNoPoO <- kms
+      publicKeyWithoutUsage <- kms
         .getPublicSigningKey(keyId)
         .leftMap[SigningKeyGenerationError](err =>
           SigningKeyGenerationError.GeneralKmsError(err.show)
         )
-      publicKey = publicKeyNoPoO
-        .copy(usage = SigningKeyUsage.addProofOfOwnership(usage))(publicKeyNoPoO.migrated)
+      publicKey = publicKeyWithoutUsage
+        .copy(usage = SigningKeyUsage.addProofOfOwnership(usage))(publicKeyWithoutUsage.migrated)
       _ = privateStore.storeKeyMetadata(
         KmsMetadata(publicKey.id, keyId, KeyPurpose.Signing, Some(publicKey.usage))
       )
