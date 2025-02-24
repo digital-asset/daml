@@ -6,8 +6,13 @@
 module CCTPMintToken where
 
 import DA.Assert ((===))
-import DA.Crypto
+import DA.Crypto.Text
 import Daml.Script
+
+type Bytes32Hex = Text
+type UInt32Hex = Text
+type UInt64Hex = Text
+type UInt256Hex = Text
 
 data BurnMessage = BurnMessage with
     version : UInt32Hex
