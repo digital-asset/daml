@@ -102,8 +102,10 @@ message Record {
 message RecordField {
   // When reading a transaction stream, it's omitted if verbose streaming is not enabled.
   // When submitting a command, it's optional:
+  //
   // - if all keys within a single record are present, the order in which fields appear does not matter. however, each key must appear exactly once.
   // - if any of the keys within a single record are omitted, the order of fields MUST match the order of declaration in the Daml template.
+  //
   // Must be a valid NameString
   string label = 1;
 
