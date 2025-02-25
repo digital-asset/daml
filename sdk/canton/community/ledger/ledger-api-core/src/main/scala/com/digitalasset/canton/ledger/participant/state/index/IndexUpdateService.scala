@@ -10,9 +10,8 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
 }
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.{EventFormat, UpdateFormat, UpdateId}
+import com.digitalasset.canton.ledger.api.{EventFormat, TransactionFormat, UpdateFormat, UpdateId}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.platform.InternalTransactionFormat
 import com.digitalasset.daml.lf.data.Ref
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
@@ -38,7 +37,7 @@ trait IndexUpdateService extends LedgerEndService {
 
   def getTransactionById(
       updateId: UpdateId,
-      internalTransactionFormat: InternalTransactionFormat,
+      transactionFormat: TransactionFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]]
 
   // TODO(#23504) cleanup
@@ -49,7 +48,7 @@ trait IndexUpdateService extends LedgerEndService {
 
   def getTransactionByOffset(
       offset: Offset,
-      internalTransactionFormat: InternalTransactionFormat,
+      transactionFormat: TransactionFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]]
 
   // TODO(#23504) cleanup

@@ -562,7 +562,7 @@ object Update {
       synchronizerId: SynchronizerId,
       recordTime: CantonTimestamp,
   )(implicit override val traceContext: TraceContext)
-      extends SynchronizerUpdate {
+      extends FloatingUpdate {
     override protected def pretty: Pretty[EmptyAcsPublicationRequired] =
       prettyOfClass(
         param("synchronizerId", _.synchronizerId.uid),

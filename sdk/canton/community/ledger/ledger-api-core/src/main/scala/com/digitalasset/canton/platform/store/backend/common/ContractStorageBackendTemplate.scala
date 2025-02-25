@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend.common
 
-import anorm.SqlParser.{array, byteArray, int, str}
+import anorm.SqlParser.{array, byteArray, int}
 import anorm.{RowParser, ~}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
@@ -67,9 +67,9 @@ class ContractStorageBackendTemplate(
   }
 
   private val archivedContractRowParser: RowParser[(ContractId, RawArchivedContract)] =
-    (str("contract_id") ~ array[Int]("flat_event_witnesses"))
+    (contractId("contract_id") ~ array[Int]("flat_event_witnesses"))
       .map { case coid ~ flatEventWitnesses =>
-        ContractId.assertFromString(coid) -> RawArchivedContract(
+        coid -> RawArchivedContract(
           flatEventWitnesses = flatEventWitnesses.view
             .map(stringInterning.party.externalize)
             .toSet
@@ -85,7 +85,7 @@ class ContractStorageBackendTemplate(
        SELECT contract_id, flat_event_witnesses
        FROM lapi_events_consuming_exercise
        WHERE
-         contract_id ${queryStrategy.anyOfStrings(contractIds.map(_.coid))}
+         contract_id ${queryStrategy.anyOfBinary(contractIds.map(_.toBytes.toByteArray))}
          AND event_offset <= $before"""
         .as(archivedContractRowParser.*)(connection)
         .toMap
@@ -93,7 +93,7 @@ class ContractStorageBackendTemplate(
 
   private val rawCreatedContractRowParser
       : RowParser[(ContractId, ContractStorageBackend.RawCreatedContract)] =
-    (str("contract_id")
+    (contractId("contract_id")
       ~ int("template_id")
       ~ int("package_name")
       ~ int("package_version").?
@@ -108,7 +108,7 @@ class ContractStorageBackendTemplate(
       ~ byteArray("driver_metadata"))
       .map {
         case coid ~ internedTemplateId ~ internedPackageName ~ internedPackageVersion ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ ledgerEffectiveTime ~ signatories ~ createKey ~ createKeyCompression ~ keyMaintainers ~ driverMetadata =>
-          ContractId.assertFromString(coid) -> RawCreatedContract(
+          coid -> RawCreatedContract(
             templateId = stringInterning.templateId.unsafe.externalize(internedTemplateId),
             packageName = stringInterning.packageName.unsafe.externalize(internedPackageName),
             packageVersion =
@@ -149,7 +149,7 @@ class ContractStorageBackendTemplate(
            driver_metadata
          FROM lapi_events_create
          WHERE
-           contract_id ${queryStrategy.anyOfStrings(contractIds.map(_.coid))}
+           contract_id ${queryStrategy.anyOfBinary(contractIds.map(_.toBytes.toByteArray))}
            AND event_offset <= $before"""
         .as(rawCreatedContractRowParser.*)(connection)
         .toMap
@@ -168,7 +168,7 @@ class ContractStorageBackendTemplate(
              SELECT MIN(event_sequential_id) min_event_sequential_id
              FROM lapi_events_assign
              WHERE
-               contract_id ${queryStrategy.anyOfStrings(contractIds.map(_.coid))}
+               contract_id ${queryStrategy.anyOfBinary(contractIds.map(_.toBytes.toByteArray))}
                AND event_offset <= $before
              GROUP BY contract_id
            )

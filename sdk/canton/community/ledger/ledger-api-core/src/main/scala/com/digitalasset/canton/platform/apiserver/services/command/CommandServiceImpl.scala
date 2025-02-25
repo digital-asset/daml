@@ -7,6 +7,8 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.command_service.*
 import com.daml.ledger.api.v2.command_submission_service.{SubmitRequest, SubmitResponse}
 import com.daml.ledger.api.v2.commands.Commands
+import com.daml.ledger.api.v2.transaction_filter.Filters
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionByIdRequest,
   GetTransactionResponse,
@@ -20,6 +22,7 @@ import com.digitalasset.canton.ledger.api.services.CommandService
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator
 import com.digitalasset.canton.ledger.error.CommonErrors
+import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{
   LedgerErrorLoggingContext,
@@ -35,7 +38,7 @@ import com.digitalasset.canton.platform.apiserver.services.tracking.{
 }
 import com.digitalasset.canton.platform.apiserver.services.{ApiCommandService, logging}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import io.grpc.{Context, Deadline}
+import io.grpc.{Context, Deadline, Status}
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
@@ -81,13 +84,44 @@ private[apiserver] final class CommandServiceImpl private[services] (
   )(loggingContext: LoggingContextWithTrace): Future[SubmitAndWaitForTransactionResponse] =
     withCommandsLoggingContext(request.getCommands, loggingContext) { (errorLogger, traceContext) =>
       submitAndWaitInternal(request)(errorLogger, traceContext).flatMap { resp =>
+        val updateId = resp.completion.updateId
         val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
         val txRequest = GetTransactionByIdRequest(
-          updateId = resp.completion.updateId,
+          updateId = updateId,
           requestingParties = effectiveActAs.toList,
         )
         transactionServices
           .getTransactionById(txRequest)
+          .recoverWith {
+            case e: io.grpc.StatusRuntimeException
+                if e.getStatus.getCode == Status.Code.NOT_FOUND
+                  && e.getStatus.getDescription.contains(
+                    RequestValidationErrors.NotFound.Transaction.id
+                  )
+                // TODO(#23504) fallback to ledger effect only if acs delta had been requested
+                // && request.transactionFormat.map(_.transactionShape).fold(false)(_ == TRANSACTION_SHAPE_ACS_DELTA) =>
+                =>
+              logger.debug(
+                s"Transaction not found in AcsDelta transaction lookup for updateId $updateId, falling back to LedgerEffects lookup."
+              )(traceContext)
+              // When a command submission completes successfully,
+              // the submitters can end up getting a TRANSACTION_NOT_FOUND when querying its corresponding AcsDelta transaction that either:
+              // * has only non-consuming events
+              // * has only events of contracts which have stakeholders that are not amongst the requesting parties
+              // In these situations, we fallback to a LedgerEffects transaction lookup and populate the AcsDelta transaction response
+              // with its details but no events.
+              transactionServices
+                .getTransactionById(
+                  txRequest
+                    .update(
+                      _.transactionFormat.transactionShape := TRANSACTION_SHAPE_LEDGER_EFFECTS,
+                      _.transactionFormat.eventFormat.modify(_.clearFiltersForAnyParty),
+                      _.transactionFormat.eventFormat.filtersForAnyParty := Filters(),
+                    )
+                    .clearRequestingParties
+                )
+                .map(_.update(_.transaction.modify(_.clearEvents)))
+          }
           .map(transactionResponse =>
             SubmitAndWaitForTransactionResponse
               .of(

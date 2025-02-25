@@ -7,18 +7,38 @@ import com.daml.ledger.api.v2.UpdateServiceOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 public final class GetTransactionByOffsetRequest {
 
   @NonNull private final Long offset;
 
-  @NonNull private final List<@NonNull String> requestingParties;
+  @NonNull private final TransactionFormat transactionFormat;
 
   public GetTransactionByOffsetRequest(
       @NonNull Long offset, @NonNull List<@NonNull String> requestingParties) {
     this.offset = offset;
-    this.requestingParties = List.copyOf(requestingParties);
+    Map<String, Filter> partyFilters =
+        requestingParties.stream()
+            .collect(
+                Collectors.toMap(
+                    party -> party,
+                    party ->
+                        new CumulativeFilter(
+                            Map.of(),
+                            Map.of(),
+                            Optional.of(Filter.Wildcard.HIDE_CREATED_EVENT_BLOB))));
+    EventFormat eventFormat = new EventFormat(partyFilters, Optional.empty(), true);
+    this.transactionFormat = new TransactionFormat(eventFormat, TransactionShape.ACS_DELTA);
+  }
+
+  public GetTransactionByOffsetRequest(
+      @NonNull Long offset, @NonNull TransactionFormat transactionFormat) {
+    this.offset = offset;
+    this.transactionFormat = transactionFormat;
   }
 
   @NonNull
@@ -28,19 +48,35 @@ public final class GetTransactionByOffsetRequest {
 
   @NonNull
   public List<@NonNull String> getRequestingParties() {
-    return requestingParties;
+    return transactionFormat.getEventFormat().getParties().stream().toList();
+  }
+
+  @NonNull
+  public TransactionFormat getTransactionFormat() {
+    return transactionFormat;
   }
 
   public static GetTransactionByOffsetRequest fromProto(
       UpdateServiceOuterClass.GetTransactionByOffsetRequest request) {
-    return new GetTransactionByOffsetRequest(
-        request.getOffset(), request.getRequestingPartiesList());
+    if (request.hasTransactionFormat()) {
+      if (!request.getRequestingPartiesList().isEmpty())
+        throw new IllegalArgumentException(
+            "Request has both transactionFormat and requestingParties defined.");
+      return new GetTransactionByOffsetRequest(
+          request.getOffset(), TransactionFormat.fromProto(request.getTransactionFormat()));
+    } else {
+      if (request.getRequestingPartiesList().isEmpty())
+        throw new IllegalArgumentException(
+            "Request has neither transactionFormat nor requestingParties defined.");
+      return new GetTransactionByOffsetRequest(
+          request.getOffset(), request.getRequestingPartiesList());
+    }
   }
 
   public UpdateServiceOuterClass.GetTransactionByOffsetRequest toProto() {
     return UpdateServiceOuterClass.GetTransactionByOffsetRequest.newBuilder()
         .setOffset(offset)
-        .addAllRequestingParties(requestingParties)
+        .setTransactionFormat(transactionFormat.toProto())
         .build();
   }
 
@@ -50,13 +86,12 @@ public final class GetTransactionByOffsetRequest {
     if (o == null || getClass() != o.getClass()) return false;
     GetTransactionByOffsetRequest that = (GetTransactionByOffsetRequest) o;
     return Objects.equals(offset, that.offset)
-        && Objects.equals(requestingParties, that.requestingParties);
+        && Objects.equals(transactionFormat, that.transactionFormat);
   }
 
   @Override
   public int hashCode() {
-
-    return Objects.hash(offset, requestingParties);
+    return Objects.hash(offset, transactionFormat);
   }
 
   @Override
@@ -64,8 +99,8 @@ public final class GetTransactionByOffsetRequest {
     return "GetTransactionByOffsetRequest{"
         + "offset="
         + offset
-        + ", requestingParties="
-        + requestingParties
+        + ", transactionFormat="
+        + transactionFormat
         + '}';
   }
 }

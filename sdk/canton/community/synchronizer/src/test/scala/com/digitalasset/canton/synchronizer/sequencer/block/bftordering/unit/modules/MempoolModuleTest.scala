@@ -20,7 +20,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleRef}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.UnitTestContext.DelayCount
-import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -34,15 +34,17 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
   )
 
   private val requestRefusedHandler = Some(new ModuleRef[SequencerNode.Message] {
-    override def asyncSend(msg: SequencerNode.Message): Unit =
+    override def asyncSendTraced(msg: SequencerNode.Message)(implicit
+        traceContext: TraceContext
+    ): Unit =
       msg match {
         case SequencerNode.RequestAccepted => fail("the request should fail")
         case _ => ()
       }
   })
 
-  private implicit val unitTestContext: UnitTestContext[UnitTestEnv, Mempool.Message] =
-    UnitTestContext()
+  private implicit val unitTestContext: UnitTestEnv#ActorContextT[Mempool.Message] =
+    new UnitTestContextWithTraceContext()
 
   "the mempool module" when {
 
@@ -178,8 +180,9 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         val mempoolState = new MempoolState()
 
         val timerCell = new AtomicReference[Option[(DelayCount, Mempool.Message)]](None)
-        implicit val timeCellContext: FakeTimerCellUnitTestContext[Mempool.Message] =
-          FakeTimerCellUnitTestContext(timerCell)
+        implicit val timeCellContext
+            : FakeTimerCellUnitTestContextWithTraceContext[Mempool.Message] =
+          new FakeTimerCellUnitTestContextWithTraceContext(timerCell)
 
         val mempool = createMempool[FakeTimerCellUnitTestEnv](
           availability = fakeCellModule[Availability.Message[

@@ -173,9 +173,14 @@ object EpochStateTest {
   private def segmentModuleRefFactory(
       segmentState: SegmentState,
       @unused _epochMetricsAccumulator: EpochMetricsAccumulator,
-  )(implicit traceContext: TraceContext): ModuleRef[ConsensusSegment.Message] = {
-    case pbftEvent: ConsensusSegment.ConsensusMessage.PbftEvent =>
-      segmentState.processEvent(pbftEvent)
-    case _ => ()
-  }
+  ): ModuleRef[ConsensusSegment.Message] =
+    new ModuleRef[ConsensusSegment.Message] {
+      override def asyncSendTraced(
+          msg: ConsensusSegment.Message
+      )(implicit traceContext: TraceContext): Unit = msg match {
+        case pbftEvent: ConsensusSegment.ConsensusMessage.PbftEvent =>
+          segmentState.processEvent(pbftEvent)
+        case _ => ()
+      }
+    }
 }

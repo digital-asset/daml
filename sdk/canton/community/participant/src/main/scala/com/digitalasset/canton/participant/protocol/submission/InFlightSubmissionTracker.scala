@@ -12,7 +12,7 @@ import com.daml.error.utils.DecodedCantonError
 import com.daml.metrics.api.MetricHandle.Gauge
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.FloatingUpdate
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
@@ -118,7 +118,7 @@ class InFlightSubmissionTracker(
     def pullTimelyRejectEvent(
         messageId: MessageId,
         recordTime: CantonTimestamp,
-    ): Option[Update] =
+    ): Option[FloatingUpdate] =
       unsequencedSubmissionMap
         .pull(messageId)
         .map { entry =>
@@ -395,7 +395,7 @@ class InFlightSubmissionSynchronizerTracker(
   private def pullTimelyRejectEvent(
       messageId: MessageId,
       recordTime: CantonTimestamp,
-  ): Option[Update] =
+  ): Option[FloatingUpdate] =
     unsequencedSubmissionMap
       .pull(messageId)
       .map { entry =>

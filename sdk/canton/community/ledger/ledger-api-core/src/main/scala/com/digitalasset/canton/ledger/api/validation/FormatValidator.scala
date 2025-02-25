@@ -6,6 +6,7 @@ package com.digitalasset.canton.ledger.api.validation
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
 import com.daml.ledger.api.v2.transaction_filter.{
+  CumulativeFilter as ProtoCumulativeFilter,
   EventFormat as ProtoEventFormat,
   Filters,
   InterfaceFilter as ProtoInterfaceFilter,
@@ -79,6 +80,32 @@ object FormatValidator {
         )
       ),
     )
+
+  // TODO(i23504) Cleanup
+  def validateLegacyToTransactionFormat(
+      requestingParties: Seq[String]
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, TransactionFormat] = {
+    val txFilter = ProtoTransactionFilter(
+      filtersByParty = requestingParties
+        .map(
+          _ -> Filters(
+            Seq(
+              ProtoCumulativeFilter(
+                ProtoCumulativeFilter.IdentifierFilter
+                  .WildcardFilter(WildcardFilter())
+              )
+            )
+          )
+        )
+        .toMap,
+      filtersForAnyParty = None,
+    )
+    for {
+      eventFormat <- FormatValidator.validate(txFilter = txFilter, verbose = true)
+    } yield TransactionFormat(eventFormat = eventFormat, transactionShape = AcsDelta)
+  }
 
   def validate(eventFormat: ProtoEventFormat)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

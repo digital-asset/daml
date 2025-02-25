@@ -12,6 +12,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleName
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.RunningFuture
 import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.util.Try
 
@@ -37,6 +38,7 @@ final case class RunFuture[FutureT, MessageT](
     to: ModuleName,
     toRun: RunningFuture[FutureT],
     fun: Try[FutureT] => Option[MessageT],
+    traceContext: TraceContext,
 ) extends Command
 final case class InternalTick[MessageT](
     peer: SequencerId,
@@ -44,7 +46,11 @@ final case class InternalTick[MessageT](
     tickId: Int,
     msg: ModuleControl[SimulationEnv, MessageT],
 ) extends Command
-final case class ReceiveNetworkMessage[MessageT](peer: SequencerId, msg: MessageT) extends Command
+final case class ReceiveNetworkMessage[MessageT](
+    peer: SequencerId,
+    msg: MessageT,
+    traceContext: TraceContext,
+) extends Command
 final case class Quit(reason: String) extends Command
 final case class ClientTick[MessageT](peer: SequencerId, tickId: Int, msg: MessageT) extends Command
 final case class OnboardSequencers(endpoints: Seq[PlainTextP2PEndpoint]) extends Command

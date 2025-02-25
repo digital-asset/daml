@@ -8,7 +8,11 @@ import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.UpdateService
 import com.digitalasset.canton.auth.{Authorizer, RequiredClaim}
 import com.digitalasset.canton.ledger.api.ProxyCloseable
 import com.digitalasset.canton.ledger.api.auth.RequiredClaims
-import com.digitalasset.canton.ledger.api.auth.services.UpdateServiceAuthorization.getUpdatesClaims
+import com.digitalasset.canton.ledger.api.auth.services.UpdateServiceAuthorization.{
+  getTransactionByIdClaims,
+  getTransactionByOffsetClaims,
+  getUpdatesClaims,
+}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
@@ -60,14 +64,14 @@ final class UpdateServiceAuthorization(
       request: GetTransactionByOffsetRequest
   ): Future[GetTransactionResponse] =
     authorizer.rpc(service.getTransactionByOffset)(
-      RequiredClaims.readAsForAllParties[GetTransactionByOffsetRequest](request.requestingParties)*
+      getTransactionByOffsetClaims(request)*
     )(request)
 
   override def getTransactionById(
       request: GetTransactionByIdRequest
   ): Future[GetTransactionResponse] =
     authorizer.rpc(service.getTransactionById)(
-      RequiredClaims.readAsForAllParties[GetTransactionByIdRequest](request.requestingParties)*
+      getTransactionByIdClaims(request)*
     )(request)
 }
 
@@ -77,4 +81,28 @@ object UpdateServiceAuthorization {
     request.updateFormat.toList.flatMap(
       RequiredClaims.updateFormatClaims[GetUpdatesRequest]
     ) ::: request.filter.toList.flatMap(RequiredClaims.transactionFilterClaims[GetUpdatesRequest])
+
+  def getTransactionByOffsetClaims(
+      request: GetTransactionByOffsetRequest
+  ): List[RequiredClaim[GetTransactionByOffsetRequest]] =
+    request.transactionFormat
+      .flatMap(_.eventFormat)
+      .toList
+      .flatMap(
+        RequiredClaims.eventFormatClaims[GetTransactionByOffsetRequest]
+      ) ::: RequiredClaims.readAsForAllParties[GetTransactionByOffsetRequest](
+      request.requestingParties
+    )
+
+  def getTransactionByIdClaims(
+      request: GetTransactionByIdRequest
+  ): List[RequiredClaim[GetTransactionByIdRequest]] =
+    request.transactionFormat
+      .flatMap(_.eventFormat)
+      .toList
+      .flatMap(
+        RequiredClaims.eventFormatClaims[GetTransactionByIdRequest]
+      ) ::: RequiredClaims.readAsForAllParties[GetTransactionByIdRequest](
+      request.requestingParties
+    )
 }

@@ -632,9 +632,9 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       )
   }
 
-  object GetEventsByContractIdRequest
+  object GetEventsByContractIdResponse
       extends ProtocolConverter[
-        lapi.event_query_service.GetEventsByContractIdRequest,
+        lapi.event_query_service.GetEventsByContractIdResponse,
         JsGetEventsByContractIdResponse,
       ] {
     def toJson(

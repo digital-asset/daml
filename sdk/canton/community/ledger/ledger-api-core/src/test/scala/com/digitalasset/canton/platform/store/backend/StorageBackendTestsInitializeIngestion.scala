@@ -242,11 +242,13 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           contractsArchived.get(hashCid("#201")) shouldBe empty
           contractsAssigned.get(hashCid("#103")) should not be empty
           contractsAssigned.get(hashCid("#203")) should not be empty
-          assignedEvents shouldBe List(hashCid("#103"), hashCid("#203")).map(
-            _.coid
+          assignedEvents shouldBe List(
+            hashCid("#103"),
+            hashCid("#203"),
           ) // not constrained by ledger end
-          unassignedEvents shouldBe List(hashCid("#103"), hashCid("#203")).map(
-            _.coid
+          unassignedEvents shouldBe List(
+            hashCid("#103"),
+            hashCid("#203"),
           ) // not constrained by ledger end
           fetchIdsFromTransactionMetaUpdateIds(allDtos.collect { case meta: DbDto.TransactionMeta =>
             meta.update_id
@@ -298,10 +300,8 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           contractsArchived.get(hashCid("#201")) shouldBe empty
           contractsAssigned.get(hashCid("#103")) should not be empty
           contractsAssigned.get(hashCid("#203")) shouldBe empty
-          assignedEvents shouldBe List(hashCid("#103")).map(_.coid) // not constrained by ledger end
-          unassignedEvents shouldBe List(hashCid("#103")).map(
-            _.coid
-          ) // not constrained by ledger end
+          assignedEvents shouldBe List(hashCid("#103")) // not constrained by ledger end
+          unassignedEvents shouldBe List(hashCid("#103")) // not constrained by ledger end
           fetchIdsFromTransactionMetaUpdateIds(allDtos.collect { case meta: DbDto.TransactionMeta =>
             meta.update_id
           }) shouldBe Set((1, 1), (2, 4))

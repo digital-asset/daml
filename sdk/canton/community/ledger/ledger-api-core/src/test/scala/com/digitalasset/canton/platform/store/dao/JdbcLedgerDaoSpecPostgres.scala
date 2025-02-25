@@ -21,4 +21,3 @@ final class JdbcLedgerDaoSpecPostgres
     with JdbcLedgerDaoTransactionsSpec
     with JdbcLedgerDaoTransactionTreesSpec
     with JdbcLedgerDaoTransactionsWriterSpec
-    with JdbcLedgerDaoEventsSpec

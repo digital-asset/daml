@@ -107,37 +107,27 @@ class JsUpdateService(
 
   private def getTransactionByOffset(
       caller: CallerContext
-  ): TracedInput[(Long, List[String])] => Future[
+  ): TracedInput[update_service.GetTransactionByOffsetRequest] => Future[
     Either[JsCantonError, JsGetTransactionResponse]
   ] =
     req => {
       implicit val token = caller.token()
       implicit val tc = req.traceContext
       updateServiceClient(caller.token())(req.traceContext)
-        .getTransactionByOffset(
-          update_service.GetTransactionByOffsetRequest(
-            offset = req.in._1,
-            requestingParties = req.in._2,
-          )
-        )
+        .getTransactionByOffset(req.in)
         .flatMap(protocolConverters.GetTransactionResponse.toJson(_))
         .resultToRight
     }
 
   private def getTransactionById(
       caller: CallerContext
-  ): TracedInput[(String, List[String])] => Future[
+  ): TracedInput[update_service.GetTransactionByIdRequest] => Future[
     Either[JsCantonError, JsGetTransactionResponse]
   ] = { req =>
     implicit val token = caller.token()
     implicit val tc = req.traceContext
     updateServiceClient(caller.token())(req.traceContext)
-      .getTransactionById(
-        update_service.GetTransactionByIdRequest(
-          updateId = req.in._1,
-          requestingParties = req.in._2,
-        )
-      )
+      .getTransactionById(req.in)
       .flatMap(protocolConverters.GetTransactionResponse.toJson(_))
       .resultToRight
   }
@@ -266,18 +256,16 @@ object JsUpdateService extends DocumentationEndpoints {
     .description("Get transaction tree by  id")
 
   val getTransactionByIdEndpoint =
-    updates.get
+    updates.post
       .in(sttp.tapir.stringToPath("transaction-by-id"))
-      .in(path[String]("update-id"))
-      .in(query[List[String]]("parties"))
+      .in(jsonBody[update_service.GetTransactionByIdRequest])
       .out(jsonBody[JsGetTransactionResponse])
       .description("Get transaction by id")
 
   val getTransactionByOffsetEndpoint =
-    updates.get
+    updates.post
       .in(sttp.tapir.stringToPath("transaction-by-offset"))
-      .in(path[Long]("offset"))
-      .in(query[List[String]]("parties"))
+      .in(jsonBody[update_service.GetTransactionByOffsetRequest])
       .out(jsonBody[JsGetTransactionResponse])
       .description("Get transaction by offset")
 
@@ -359,6 +347,11 @@ object JsUpdateServiceCodecs {
   implicit val topologyFormatRW: Codec[transaction_filter.TopologyFormat] = deriveCodec
   implicit val updateFormatRW: Codec[transaction_filter.UpdateFormat] = deriveCodec
   implicit val getUpdatesRequest: Codec[update_service.GetUpdatesRequest] = deriveCodec
+  implicit val getTransactionByIdRequestRW: Codec[update_service.GetTransactionByIdRequest] =
+    deriveCodec
+  implicit val getTransactionByOffsetRequestRW
+      : Codec[update_service.GetTransactionByOffsetRequest] =
+    deriveCodec
 
   implicit val jsGetUpdatesResponse: Codec[JsGetUpdatesResponse] = deriveCodec
 

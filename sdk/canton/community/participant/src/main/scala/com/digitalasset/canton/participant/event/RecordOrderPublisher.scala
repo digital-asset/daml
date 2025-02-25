@@ -10,7 +10,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.{CantonTimestamp, TaskScheduler, TaskSchedulerMetrics}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update.EmptyAcsPublicationRequired
-import com.digitalasset.canton.ledger.participant.state.{SequencedUpdate, Update}
+import com.digitalasset.canton.ledger.participant.state.{FloatingUpdate, SequencedUpdate, Update}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.logging.pretty.Pretty
@@ -161,7 +161,7 @@ class RecordOrderPublisher(
     */
   def scheduleFloatingEventPublication[T](
       timestamp: CantonTimestamp,
-      eventFactory: CantonTimestamp => Option[Update],
+      eventFactory: CantonTimestamp => Option[FloatingUpdate],
       onScheduled: () => FutureUnlessShutdown[T], // perform will wait for this to complete
   )(implicit traceContext: TraceContext): Either[CantonTimestamp, FutureUnlessShutdown[T]] =
     ifNotClosedYet {
@@ -194,7 +194,7 @@ class RecordOrderPublisher(
     */
   def scheduleFloatingEventPublication(
       timestamp: CantonTimestamp,
-      eventFactory: CantonTimestamp => Option[Update],
+      eventFactory: CantonTimestamp => Option[FloatingUpdate],
   )(implicit traceContext: TraceContext): Either[CantonTimestamp, Unit] =
     scheduleFloatingEventPublication(
       timestamp = timestamp,
@@ -213,7 +213,7 @@ class RecordOrderPublisher(
     *   The timestamp used for the publication.
     */
   def scheduleFloatingEventPublicationImmediately(
-      eventFactory: CantonTimestamp => Option[Update]
+      eventFactory: CantonTimestamp => Option[FloatingUpdate]
   )(implicit traceContext: TraceContext): CantonTimestamp = ifNotClosedYet {
     taskScheduler
       .scheduleTaskImmediately(
@@ -372,7 +372,7 @@ class RecordOrderPublisher(
       waitFor: FutureUnlessShutdown[T], // ability to hold back publication execution
       override val timestamp: CantonTimestamp,
   )(
-      eventO: () => Option[Update]
+      eventO: () => Option[FloatingUpdate]
   )(implicit val traceContext: TraceContext)
       extends PublicationTask {
 

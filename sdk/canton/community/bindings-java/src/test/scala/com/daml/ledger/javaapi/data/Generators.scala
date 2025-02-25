@@ -949,7 +949,9 @@ object Generators {
     import v2.UpdateServiceOuterClass.GetTransactionByOffsetRequest as Request
     for {
       offset <- Arbitrary.arbLong.arbitrary
-      requestingParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
+      requestingParties <- Gen
+        .listOf(Arbitrary.arbString.arbitrary.suchThat(_.nonEmpty))
+        .suchThat(_.nonEmpty)
     } yield Request
       .newBuilder()
       .setOffset(offset)
@@ -960,8 +962,10 @@ object Generators {
   def getTransactionByIdRequestGen: Gen[v2.UpdateServiceOuterClass.GetTransactionByIdRequest] = {
     import v2.UpdateServiceOuterClass.GetTransactionByIdRequest as Request
     for {
-      updateId <- Arbitrary.arbString.arbitrary
-      requestingParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
+      updateId <- Arbitrary.arbString.arbitrary.suchThat(_.nonEmpty)
+      requestingParties <- Gen
+        .listOf(Arbitrary.arbString.arbitrary.suchThat(_.nonEmpty))
+        .suchThat(_.nonEmpty)
     } yield Request
       .newBuilder()
       .setUpdateId(updateId)

@@ -155,6 +155,8 @@ abstract class ProtocolProcessor[
     *
     * @param submissionParam
     *   The bundled submission parameters
+    * @param topologySnapshot
+    *   A recent topology snapshot
     * @return
     *   The submission error or a future with the submission result. With submission tracking, the
     *   outer future completes after the submission is registered as in-flight, and the inner future
@@ -162,12 +164,12 @@ abstract class ProtocolProcessor[
     *   tracking, both futures complete after the submission has been sequenced or if it will not be
     *   sequenced.
     */
-  def submit(submissionParam: SubmissionParam)(implicit
+  def submit(submissionParam: SubmissionParam, topologySnapshot: TopologySnapshot)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SubmissionError, FutureUnlessShutdown[SubmissionResult]] = {
     logger.debug(withKind(s"Preparing request ${steps.submissionDescription(submissionParam)}"))
 
-    val recentSnapshot = crypto.currentSnapshotApproximation
+    val recentSnapshot = crypto.create(topologySnapshot)
     val explicitMediatorGroupIndex = steps.explicitMediatorGroup(submissionParam)
     for {
       _ <- preSubmissionValidations(submissionParam, recentSnapshot, protocolVersion)

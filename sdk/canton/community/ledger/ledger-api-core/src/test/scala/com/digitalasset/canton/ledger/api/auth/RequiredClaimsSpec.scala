@@ -168,6 +168,18 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
     )
   }
 
+  it should "compute the correct claims if no by party filters" in {
+    RequiredClaims.eventFormatClaims[String](
+      EventFormat(
+        filtersByParty = Map.empty,
+        filtersForAnyParty = Some(Filters()),
+        verbose = false,
+      )
+    ) should contain theSameElementsAs RequiredClaims[String](
+      RequiredClaim.ReadAsAnyParty()
+    )
+  }
+
   it should "compute the correct claims if no any party filters and no party filters" in {
     RequiredClaims.eventFormatClaims[String](
       EventFormat(

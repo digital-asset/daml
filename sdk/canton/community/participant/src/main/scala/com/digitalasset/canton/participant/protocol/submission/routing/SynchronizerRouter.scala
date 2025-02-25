@@ -42,6 +42,7 @@ import com.digitalasset.canton.participant.sync.{
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
+import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
@@ -169,6 +170,15 @@ class SynchronizerRouter(
         )
         .mapK(FutureUnlessShutdown.outcomeK)
       _ = logger.debug(s"Routing the transaction to the ${synchronizerRankTarget.synchronizerId}")
+
+      topologySnapshot <- EitherT
+        .fromEither[Future] {
+          synchronizerState.topologySnapshots
+            .get(synchronizerRankTarget.synchronizerId)
+            .toRight(UnableToQueryTopologySnapshot.Failed(synchronizerRankTarget.synchronizerId))
+        }
+        .mapK(FutureUnlessShutdown.outcomeK)
+
       transactionSubmittedF <- submit(synchronizerRankTarget.synchronizerId)(
         submitterInfo,
         transactionMeta,
@@ -176,6 +186,7 @@ class SynchronizerRouter(
         wfTransaction,
         traceContext,
         inputDisclosedContracts.view.map(sc => sc.contractId -> sc).toMap,
+        topologySnapshot,
       ).mapK(FutureUnlessShutdown.outcomeK)
     } yield transactionSubmittedF
 
@@ -286,6 +297,7 @@ class SynchronizerRouter(
       tx: WellFormedTransaction[WithoutSuffixes],
       traceContext: TraceContext,
       disclosedContracts: Map[LfContractId, SerializableContract],
+      topologySnapshot: TopologySnapshot,
   )(implicit
       ec: ExecutionContext
   ): EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmissionResult]] =
@@ -304,6 +316,7 @@ class SynchronizerRouter(
           keyResolver,
           tx,
           disclosedContracts,
+          topologySnapshot,
         )(traceContext)
       )
     } yield result
