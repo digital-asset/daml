@@ -3274,6 +3274,7 @@ GetEventsByContractId method, |version com.daml.ledger.api.v2|
 Get the create and the consuming exercise event for the contract with the provided ID.
 No events will be returned for contracts that have been pruned because they
 have already been archived before the latest pruning offset.
+If the contract cannot be found for the request, or all the contract-events are filtered, a CONTRACT_NOT_FOUND error will be raised.
 
 * Request: :ref:`GetEventsByContractIdRequest <com.daml.ledger.api.v2.GetEventsByContractIdRequest>`
 * Response: :ref:`GetEventsByContractIdResponse <com.daml.ledger.api.v2.GetEventsByContractIdResponse>`
@@ -3341,11 +3342,21 @@ Required
 
 ``requesting_parties`` : :ref:`string <string>` (repeated)
 
+TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
 The parties whose events the client expects to see.
 The events associated with the contract id will only be returned if the requesting parties includes
 at least one party that is a stakeholder of the event. For a definition of stakeholders see
 https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#contract-observers-and-stakeholders
-Required 
+Optional, if some parties specified, event_format needs to be unset. 
+
+.. _com.daml.ledger.api.v2.GetEventsByContractIdRequest.event_format:
+
+``event_format`` : :ref:`EventFormat <com.daml.ledger.api.v2.EventFormat>`
+
+Format of the events in the result, the presentation will be of TRANSACTION_SHAPE_ACS_DELTA.
+Optional for backwards compatibility, defaults to an EventFormat where:
+  - filter is a wildcard filter for  all requesting_parties
+  - verbose is set 
 
 .. _com.daml.ledger.api.v2.GetEventsByContractIdResponse:
 
@@ -6310,8 +6321,10 @@ The template/interface filters describe the respective fields in the ``CreatedEv
 GetTransactionTreeByOffset method, |version com.daml.ledger.api.v2|
 ========================================================================================================================================================================================================
 
+TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
 Lookup a transaction tree by its offset.
-For looking up a transaction instead of a transaction tree, please see GetTransactionByOffset.
+For looking up a transaction instead of a transaction tree, please see GetTransactionByEventId
+If the transaction cannot be found for the request, or all the events are filtered, a TRANSACTION_NOT_FOUND error will be raised.
 
 * Request: :ref:`GetTransactionByOffsetRequest <com.daml.ledger.api.v2.GetTransactionByOffsetRequest>`
 * Response: :ref:`GetTransactionTreeResponse <com.daml.ledger.api.v2.GetTransactionTreeResponse>`
@@ -6323,8 +6336,10 @@ For looking up a transaction instead of a transaction tree, please see GetTransa
 GetTransactionTreeById method, |version com.daml.ledger.api.v2|
 ========================================================================================================================================================================================================
 
+TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
 Lookup a transaction tree by its ID.
-For looking up a transaction instead of a transaction tree, please see GetTransactionById.
+For looking up a transaction instead of a transaction tree, please see GetTransactionById
+If the transaction cannot be found for the request, or all the events are filtered, a TRANSACTION_NOT_FOUND error will be raised.
 
 * Request: :ref:`GetTransactionByIdRequest <com.daml.ledger.api.v2.GetTransactionByIdRequest>`
 * Response: :ref:`GetTransactionTreeResponse <com.daml.ledger.api.v2.GetTransactionTreeResponse>`
@@ -6337,6 +6352,8 @@ GetTransactionByOffset method, |version com.daml.ledger.api.v2|
 ========================================================================================================================================================================================================
 
 Lookup a transaction by its offset.
+If there is no transaction with this offset, or all the events are filtered, a TRANSACTION_NOT_FOUND error will be raised.
+Use a wildcard template filter if you want to retrieve any transaction visible to the parties you can read as.
 
 * Request: :ref:`GetTransactionByOffsetRequest <com.daml.ledger.api.v2.GetTransactionByOffsetRequest>`
 * Response: :ref:`GetTransactionResponse <com.daml.ledger.api.v2.GetTransactionResponse>`
@@ -6349,6 +6366,8 @@ GetTransactionById method, |version com.daml.ledger.api.v2|
 ========================================================================================================================================================================================================
 
 Lookup a transaction by its ID.
+If there is no transaction with this id, or all the events are filtered, a TRANSACTION_NOT_FOUND error will be raised.
+Use a wildcard template filter if you want to retrieve any transaction visible to the parties you can read as.
 
 * Request: :ref:`GetTransactionByIdRequest <com.daml.ledger.api.v2.GetTransactionByIdRequest>`
 * Response: :ref:`GetTransactionResponse <com.daml.ledger.api.v2.GetTransactionResponse>`
@@ -6374,10 +6393,23 @@ Required
 
 ``requesting_parties`` : :ref:`string <string>` (repeated)
 
+TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
 The parties whose events the client expects to see.
 Events that are not visible for the parties in this collection will not be present in the response.
-Each element be a valid PartyIdString (as describe in ``value.proto``).
-Required 
+Each element must be a valid PartyIdString (as described in ``value.proto``).
+Must be set for GetTransactionTreeById request.
+Optional for backwards compatibility for GetTransactionById request: if defined transaction_format must be
+unset (falling back to defaults). 
+
+.. _com.daml.ledger.api.v2.GetTransactionByIdRequest.transaction_format:
+
+``transaction_format`` : :ref:`TransactionFormat <com.daml.ledger.api.v2.TransactionFormat>`
+
+Must be unset for GetTransactionTreeById request.
+Optional for GetTransactionById request for backwards compatibility: defaults to a transaction_format, where:
+  - event_format.filter will have wildcard filters for all the requesting_parties
+  - event_format.verbose = true
+  - transaction_shape = TRANSACTION_SHAPE_ACS_DELTA 
 
 .. _com.daml.ledger.api.v2.GetTransactionByOffsetRequest:
 
@@ -6398,10 +6430,23 @@ Required
 
 ``requesting_parties`` : :ref:`string <string>` (repeated)
 
+TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
 The parties whose events the client expects to see.
 Events that are not visible for the parties in this collection will not be present in the response.
 Each element must be a valid PartyIdString (as described in ``value.proto``).
-Required 
+Must be set for GetTransactionTreeByOffset request.
+Optional for backwards compatibility for GetTransactionByOffset request: if defined transaction_format must be
+unset (falling back to defaults). 
+
+.. _com.daml.ledger.api.v2.GetTransactionByOffsetRequest.transaction_format:
+
+``transaction_format`` : :ref:`TransactionFormat <com.daml.ledger.api.v2.TransactionFormat>`
+
+Must be unset for GetTransactionTreeByOffset request.
+Optional for GetTransactionByOffset request for backwards compatibility: defaults to a TransactionFormat, where:
+  - event_format.filter will have wildcard filters for all the requesting_parties
+  - event_format.verbose = true
+  - transaction_shape = TRANSACTION_SHAPE_ACS_DELTA 
 
 .. _com.daml.ledger.api.v2.GetTransactionResponse:
 
@@ -6421,7 +6466,7 @@ Required
 GetTransactionTreeResponse message, |version com.daml.ledger.api.v2|
 ========================================================================================================================================================================================================
 
-
+TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
 
 .. _com.daml.ledger.api.v2.GetTransactionTreeResponse.transaction:
 
