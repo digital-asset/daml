@@ -47,7 +47,7 @@ in rec {
     m4              = pkgs.m4;
 
     thrift          = pkgs.thrift;
-    protoc          = bazel_dependencies.protobuf3_21;
+    protoc          = bazel_dependencies.protobuf3_19;
 
     # Haskell development
     ghc             = bazel_dependencies.ghc;

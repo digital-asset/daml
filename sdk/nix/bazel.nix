@@ -23,7 +23,7 @@ let shared = rec {
     netcat-gnu
     openssl
     patchelf
-    protobuf3_21
+    protobuf3_19
     python3
     toxiproxy
     zip
