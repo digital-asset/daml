@@ -7,14 +7,10 @@
 
 -- | Functions for working with Crypto builtins.
 -- For example, as used to implement CCTP functionality.
-module DA.Crypto
+module DA.Crypto.Text
   (keccak256
   , secp256k1
   , BytesHex
-  , Bytes32Hex
-  , UInt32Hex
-  , UInt64Hex
-  , UInt256Hex
   , PublicKeyHex
   , SignatureHex
   ) where
@@ -25,10 +21,6 @@ import GHC.Types (primitive)
 -- TODO: https://github.com/DACH-NY/canton-network-utilities/issues/2943: Introduce ByteString opaque data types
 
 type BytesHex = Text
-type Bytes32Hex = Text
-type UInt32Hex = Text
-type UInt64Hex = Text
-type UInt256Hex = Text
 
 -- | A DER formatted public key to be used for ECDSA signature verification
 type PublicKeyHex = Text
@@ -69,7 +61,7 @@ isDEREncoded msg = Text.isHex msg && Text.substring 0 2 msg == "30" && Text.leng
 
 -- | Computes the KECCAK256 hash of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
 -- form. The hex encoding uses lowercase letters.
-keccak256 : BytesHex -> Bytes32Hex
+keccak256 : BytesHex -> BytesHex
 keccak256 msg | Text.isHex msg = primitive @"BEKecCak256Text" (Text.asciiToLower msg)
 keccak256 msg = error $ "Message argument is not a hex string: " <> msg
 
