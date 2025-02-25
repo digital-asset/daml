@@ -189,7 +189,15 @@ class JsonCodec(
   override def int64: Type =
     if (encodeInt64AsString) {
       new Type {
-        override def toDynamicValue(v: Value): DynamicValue = DynamicValue.Int64(v.str.toLong)
+
+        /** While decoding we support numeric values on input. */
+        override def toDynamicValue(v: Value): DynamicValue = v match {
+          case Str(value) => DynamicValue.Int64(value.toLong)
+
+          case Num(value) => DynamicValue.Int64(value.longValue)
+
+          case _ => throw new IllegalArgumentException(s"$v is not a valid Int64 value")
+        }
 
         override def fromDynamicValue(dv: DynamicValue): Value = Str(String.valueOf(dv.int64))
       }
@@ -204,7 +212,14 @@ class JsonCodec(
   override def numeric(scale: Int): Type =
     if (encodeNumericAsString) {
       new Type {
-        override def toDynamicValue(v: Value): DynamicValue = DynamicValue.Numeric(v.str)
+
+        /** While decoding we support numeric values on input. */
+        override def toDynamicValue(v: Value): DynamicValue =
+          v match {
+            case Num(value) => DynamicValue.Numeric(value.toString())
+            case Str(value) => DynamicValue.Numeric(value)
+            case _ => throw new IllegalArgumentException(s"$v is not a valid numeric value")
+          }
 
         override def fromDynamicValue(dv: DynamicValue): Value = Str(dv.numeric)
       }

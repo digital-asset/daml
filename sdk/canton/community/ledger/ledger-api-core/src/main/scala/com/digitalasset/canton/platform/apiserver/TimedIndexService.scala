@@ -15,12 +15,11 @@ import com.daml.ledger.api.v2.update_service.{
 import com.daml.metrics.Timed
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.api.{EventFormat, UpdateFormat, UpdateId}
+import com.digitalasset.canton.ledger.api.{EventFormat, TransactionFormat, UpdateFormat, UpdateId}
 import com.digitalasset.canton.ledger.participant.state.index.*
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.platform.InternalTransactionFormat
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{ApplicationId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -70,11 +69,11 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
 
   override def getTransactionById(
       updateId: UpdateId,
-      internalTransactionFormat: InternalTransactionFormat,
+      transactionFormat: TransactionFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
     Timed.future(
       metrics.services.index.getTransactionById,
-      delegate.getTransactionById(updateId, internalTransactionFormat),
+      delegate.getTransactionById(updateId, transactionFormat),
     )
 
   override def getTransactionTreeById(
@@ -88,11 +87,11 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
 
   def getTransactionByOffset(
       offset: Offset,
-      internalTransactionFormat: InternalTransactionFormat,
+      transactionFormat: TransactionFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
     Timed.future(
       metrics.services.index.getTransactionByOffset,
-      delegate.getTransactionByOffset(offset, internalTransactionFormat),
+      delegate.getTransactionByOffset(offset, transactionFormat),
     )
 
   def getTransactionTreeByOffset(
@@ -198,11 +197,11 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
 
   override def getEventsByContractId(
       contractId: ContractId,
-      requestingParties: Set[Ref.Party],
+      eventFormat: EventFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractIdResponse] =
     Timed.future(
       metrics.services.index.getEventsByContractId,
-      delegate.getEventsByContractId(contractId, requestingParties),
+      delegate.getEventsByContractId(contractId, eventFormat),
     )
 
   // TODO(i16065): Re-enable getEventsByContractKey tests

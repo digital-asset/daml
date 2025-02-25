@@ -76,7 +76,10 @@ import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
-import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
+import com.digitalasset.canton.topology.client.{
+  SynchronizerTopologyClientWithInit,
+  TopologySnapshot,
+}
 import com.digitalasset.canton.topology.processing.{
   ApproximateTime,
   EffectiveTime,
@@ -806,6 +809,7 @@ class ConnectedSynchronizer(
       keyResolver: LfKeyResolver,
       transaction: WellFormedTransaction[WithoutSuffixes],
       disclosedContracts: Map[LfContractId, SerializableContract],
+      topologySnapshot: TopologySnapshot,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionSubmissionError, FutureUnlessShutdown[
@@ -817,7 +821,14 @@ class ConnectedSynchronizer(
     ](functionFullName, SubmissionDuringShutdown.Rejection()) {
       ErrorUtil.requireState(ready, "Cannot submit transaction before recovery")
       transactionProcessor
-        .submit(submitterInfo, transactionMeta, keyResolver, transaction, disclosedContracts)
+        .submit(
+          submitterInfo,
+          transactionMeta,
+          keyResolver,
+          transaction,
+          disclosedContracts,
+          topologySnapshot,
+        )
         .onShutdown(Left(SubmissionDuringShutdown.Rejection()))
     }
 
@@ -852,7 +863,8 @@ class ConnectedSynchronizer(
               contractId,
               targetSynchronizer,
               targetProtocolVersion,
-            )
+            ),
+          synchronizerCrypto.currentSnapshotApproximation.ipsSnapshot,
         )
         .onShutdown(Left(SynchronizerNotReady(synchronizerId, "The synchronizer is shutting down")))
     }
@@ -880,7 +892,8 @@ class ConnectedSynchronizer(
       assignmentProcessor
         .submit(
           AssignmentProcessingSteps
-            .SubmissionParam(submitterMetadata, reassignmentId)
+            .SubmissionParam(submitterMetadata, reassignmentId),
+          synchronizerCrypto.currentSnapshotApproximation.ipsSnapshot,
         )
         .onShutdown(Left(SynchronizerNotReady(synchronizerId, "The synchronizer is shutting down")))
     }

@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.ledger.api.messages.event
 
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.canton.ledger.api.EventFormat
 import com.digitalasset.daml.lf.value.Value.ContractId
 
 final case class GetEventsByContractIdRequest(
     contractId: ContractId,
-    requestingParties: Set[Party],
+    eventFormat: EventFormat,
 )

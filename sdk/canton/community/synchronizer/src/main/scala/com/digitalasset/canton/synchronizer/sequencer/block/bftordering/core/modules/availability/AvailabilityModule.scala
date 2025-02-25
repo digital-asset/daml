@@ -882,7 +882,7 @@ final class AvailabilityModule[E <: Env[E]](
       )
     )(
       handleFailure(s"Can't sign message $message") { signedMessage =>
-        dependencies.p2pNetworkOut.asyncSend(
+        dependencies.p2pNetworkOut.asyncSendTraced(
           P2PNetworkOut.send(
             P2PNetworkOut.BftOrderingNetworkMessage.AvailabilityMessage(signedMessage),
             to,
@@ -904,7 +904,7 @@ final class AvailabilityModule[E <: Env[E]](
       )
     )(
       handleFailure(s"Can't sign message $message") { signedMessage =>
-        dependencies.p2pNetworkOut.asyncSend(
+        dependencies.p2pNetworkOut.asyncSendTraced(
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.AvailabilityMessage(signedMessage),
             peers,

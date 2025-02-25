@@ -22,7 +22,6 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.CommittedTransaction
 import org.apache.pekko.NotUsed
@@ -90,7 +89,7 @@ private[platform] trait LedgerDaoEventsReader {
 
   def getEventsByContractId(
       contractId: ContractId,
-      requestingParties: Set[Ref.Party],
+      internalEventFormatO: Option[InternalEventFormat],
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractIdResponse]
 
   // TODO(i16065): Re-enable getEventsByContractKey tests

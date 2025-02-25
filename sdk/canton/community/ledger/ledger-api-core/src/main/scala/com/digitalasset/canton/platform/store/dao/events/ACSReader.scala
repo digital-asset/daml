@@ -47,6 +47,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.value.Value.ContractId
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Attributes
@@ -344,7 +345,7 @@ class ACSReader(
       )
 
     def fetchCreateIdsForContractIds(
-        contractIds: Iterable[String]
+        contractIds: Iterable[ContractId]
     ): Future[Vector[Long]] =
       globalIdQueriesLimiter.execute(
         dispatcher.executeSql(metrics.index.db.getCreateIdsForContractIds) { connection =>
@@ -454,7 +455,7 @@ class ACSReader(
           .distinct
         createdIds <- fetchCreateIdsForContractIds(missingContractIds)
         createdPayloads <- fetchCreatePayloads(createdIds)
-        rawCreatedFromCreatedResults: Map[String, Vector[Entry[RawCreatedEvent]]] =
+        rawCreatedFromCreatedResults: Map[ContractId, Vector[Entry[RawCreatedEvent]]] =
           createdPayloads.groupBy(_.event.contractId)
       } yield batch.flatMap { rawUnassignEntry =>
         val unassignProperties = extractUnassignProperties(rawUnassignEntry)

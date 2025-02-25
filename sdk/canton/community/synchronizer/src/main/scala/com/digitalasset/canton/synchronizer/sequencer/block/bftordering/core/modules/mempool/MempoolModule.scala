@@ -116,7 +116,9 @@ class MempoolModule[E <: Env[E]](
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.While"))
-  private def createAndSendBatches(messageType: String)(implicit traceContext: TraceContext): Unit =
+  private def createAndSendBatches(
+      messageType: String
+  )(implicit context: E#ActorContextT[Mempool.Message]): Unit =
     while (
       mempoolState.receivedOrderRequests.nonEmpty && mempoolState.toBeProvidedToAvailability > 0
     ) {
@@ -127,22 +129,24 @@ class MempoolModule[E <: Env[E]](
 
   private def createAndSendBatch(
       messageType: String
-  )(implicit traceContext: TraceContext): Unit = {
+  )(implicit context: E#ActorContextT[Mempool.Message]): Unit = {
     val batch = OrderingRequestBatch.create(
       dequeueN(mempoolState.receivedOrderRequests, config.maxRequestsInBatch)
         .map(_.tx)
     )
     val batchId = BatchId.from(batch)
-    logger.debug(
-      s"$messageType: mempool sending batch with ID $batchId to local availability with the following tids ${batch.requests
-          .flatMap(_.traceContext.traceId)}"
-    )
-    availability.asyncSend(
-      Availability.LocalDissemination.LocalBatchCreated(
-        batchId,
-        batch,
+    context.withNewTraceContext { implicit traceContext =>
+      logger.debug(
+        s"$messageType: mempool sending batch with ID $batchId to local availability with the following tids ${batch.requests
+            .flatMap(_.traceContext.traceId)}"
       )
-    )
+      availability.asyncSendTraced(
+        Availability.LocalDissemination.LocalBatchCreated(
+          batchId,
+          batch,
+        )
+      )
+    }
     emitStateStats(metrics, mempoolState)
   }
 }

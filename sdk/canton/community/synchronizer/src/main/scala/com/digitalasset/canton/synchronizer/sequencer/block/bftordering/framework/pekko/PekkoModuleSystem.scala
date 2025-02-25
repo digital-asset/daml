@@ -61,13 +61,12 @@ object PekkoModuleSystem {
       loggerFactory: NamedLoggerFactory,
   ): Behavior[ModuleControl[PekkoEnv, MessageT]] =
     Behaviors.setup { context =>
-      implicit val pekkoContext: PekkoActorContext[MessageT] =
+      val pekkoContext: PekkoActorContext[MessageT] =
         PekkoActorContext(moduleSystem, context, loggerFactory)
-      implicit val traceContext: TraceContext = TraceContext.empty
       val logger = loggerFactory.getLogger(getClass)
       @SuppressWarnings(Array("org.wartremover.warts.Var"))
       var maybeModule: Option[framework.Module[PekkoEnv, MessageT]] = None
-      val sendsAwaitingAModule = mutable.Queue[MessageT]()
+      val sendsAwaitingAModule = mutable.Queue[Send[PekkoEnv, MessageT]]()
       Behaviors
         .receiveMessage[ModuleControl[PekkoEnv, MessageT]] {
           case SetBehavior(m: framework.Module[PekkoEnv, MessageT], ready) =>
@@ -75,15 +74,17 @@ object PekkoModuleSystem {
             maybeModule = Some(m)
             if (ready)
               m.ready(pekkoContext.self)
-            sendsAwaitingAModule.foreach(m.receive)
+            sendsAwaitingAModule.foreach { case Send(message, traceContext) =>
+              m.receive(message)(pekkoContext, traceContext)
+            }
             sendsAwaitingAModule.clear()
             Behaviors.same
-          case Send(message) =>
+          case send @ Send(message, traceContext) =>
             maybeModule match {
               case Some(module) =>
-                module.receive(message)
+                module.receive(message)(pekkoContext, traceContext)
               case _ =>
-                sendsAwaitingAModule.enqueue(message)
+                sendsAwaitingAModule.enqueue(send)
             }
             Behaviors.same
           case NoOp() =>
@@ -105,8 +106,10 @@ object PekkoModuleSystem {
   private[bftordering] final case class PekkoModuleRef[AcceptedMessageT](
       ref: ActorRef[ModuleControl[PekkoEnv, AcceptedMessageT]]
   ) extends ModuleRef[AcceptedMessageT] {
-
-    override def asyncSend(message: AcceptedMessageT): Unit = ref ! Send(message)
+    override def asyncSendTraced(message: AcceptedMessageT)(implicit
+        traceContext: TraceContext
+    ): Unit =
+      ref ! Send(message, traceContext)
   }
 
   private final case class PekkoCancellableEvent(cancellable: Cancellable)
@@ -125,7 +128,11 @@ object PekkoModuleSystem {
 
     override def delayedEvent(delay: FiniteDuration, message: MessageT): CancellableEvent =
       PekkoCancellableEvent(
-        underlying.scheduleOnce(delay, underlying.self, Send[PekkoEnv, MessageT](message))
+        underlying.scheduleOnce(
+          delay,
+          underlying.self,
+          Send[PekkoEnv, MessageT](message, TraceContext.empty),
+        )
       )
 
     override def newModuleRef[NewModuleMessageT](
@@ -178,7 +185,7 @@ object PekkoModuleSystem {
 
     override def pipeToSelfInternal[X](
         futureUnlessShutdown: PekkoFutureUnlessShutdown[X]
-    )(fun: Try[X] => Option[MessageT]): Unit =
+    )(fun: Try[X] => Option[MessageT])(implicit traceContext: TraceContext): Unit =
       underlying.pipeToSelf(
         toFuture(
           futureUnlessShutdown.action,
@@ -187,7 +194,7 @@ object PekkoModuleSystem {
         )
       ) { result =>
         fun(result) match {
-          case Some(msg) => Send(msg)
+          case Some(msg) => Send(msg, traceContext)
           case None => NoOp()
         }
       }
@@ -227,6 +234,9 @@ object PekkoModuleSystem {
         underlying: ActorContext[ModuleControl[PekkoEnv, MessageT]],
     ): Future[X] =
       futureUnlessShutdown.failOnShutdownToAbortException(action)(underlying.executionContext)
+
+    override def withNewTraceContext[A](fn: TraceContext => A): A =
+      TraceContext.withNewTraceContext(fn)
   }
 
   final case class PekkoFutureUnlessShutdown[MessageT](

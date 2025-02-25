@@ -45,14 +45,16 @@ class IssClient[E <: Env[E]](
           ByteString.copyFromUtf8("-").concat(ByteString.copyFrom(random.nextBytes(bytes.value)))
         )
         .getOrElse(ByteString.empty)
-    val request = Mempool.OrderRequest(
-      Traced(
-        OrderingRequest(
-          "tag",
-          ByteString.copyFromUtf8(s"$name-submission-$submissionNumber").concat(additionalPayload),
+    val request = context.withNewTraceContext { implicit traceContext =>
+      Mempool.OrderRequest(
+        Traced(
+          OrderingRequest(
+            "tag",
+            ByteString.copyFromUtf8(s"$name-submission-$submissionNumber").concat(additionalPayload),
+          )
         )
       )
-    )
+    }
     submissionNumber += 1
 
     mempool.asyncSend(request)

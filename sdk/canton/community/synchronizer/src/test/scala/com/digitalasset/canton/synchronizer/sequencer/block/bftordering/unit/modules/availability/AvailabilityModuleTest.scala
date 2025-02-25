@@ -1458,7 +1458,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           ](None)
           implicit val timeCellContext
               : FakeTimerCellUnitTestContext[Availability.Message[FakeTimerCellUnitTestEnv]] =
-            FakeTimerCellUnitTestContext(timerCell)
+            new FakeTimerCellUnitTestContext(timerCell)
           val clock = new SimClock(loggerFactory = loggerFactory)
 
           // initially consensus requests a proposal and there is nothing to be ordered, then a message is sent to mempool

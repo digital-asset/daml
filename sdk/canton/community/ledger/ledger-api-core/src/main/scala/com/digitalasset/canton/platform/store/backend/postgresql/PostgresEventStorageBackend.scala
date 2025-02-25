@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.store.backend.postgresql
 import anorm.SqlParser.*
 import anorm.~
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.platform.store.backend.Conversions.contractId
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.UnassignProperties
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
@@ -46,7 +47,10 @@ class PostgresEventStorageBackend(
               )
         }.unzip3
 
-        val contractIdsJavaArray: Array[String] = contractIds.toArray
+        // need to override the default to not allow anorm to guess incorrectly the array type
+        import PostgresQueryStrategy.ArrayByteaToStatement
+        val contractIdsJavaArray: Array[Array[Byte]] =
+          contractIds.map(_.toBytes.toByteArray).toArray
         val synchronizerIdsJavaArray: Array[Integer] = synchronizerIds.map(Int.box).toArray
         val sequentialIdsJavaArray: Array[java.lang.Long] = sequentialIds.map(Long.box).toArray
 
@@ -65,7 +69,7 @@ class PostgresEventStorageBackend(
       """
           .asVectorOf(
             long("assign_event_sequential_id")
-              ~ str("contract_id")
+              ~ contractId("contract_id")
               ~ int("synchronizer_id")
               ~ long("unassign_event_sequential_id")
               map { case foundSeqId ~ contractId ~ internedSynchronizerId ~ queriedSeqId =>

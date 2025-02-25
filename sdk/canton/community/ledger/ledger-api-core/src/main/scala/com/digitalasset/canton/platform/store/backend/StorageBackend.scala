@@ -358,7 +358,7 @@ trait EventStorageBackend {
   )(connection: Connection): Map[UnassignProperties, Long]
 
   def lookupCreateSequentialIdByContractId(
-      contractIds: Iterable[String]
+      contractIds: Iterable[ContractId]
   )(connection: Connection): Vector[Long]
 
   def maxEventSequentialId(untilInclusiveOffset: Option[Offset])(
@@ -433,7 +433,7 @@ object EventStorageBackend {
       updateId: String,
       offset: Long,
       nodeId: Int,
-      contractId: String,
+      contractId: ContractId,
       templateId: Identifier,
       packageName: PackageName,
       packageVersion: Option[PackageVersion],
@@ -455,7 +455,7 @@ object EventStorageBackend {
       updateId: String,
       offset: Long,
       nodeId: Int,
-      contractId: String,
+      contractId: ContractId,
       templateId: Identifier,
       packageName: PackageName,
       witnessParties: Set[String],
@@ -465,7 +465,7 @@ object EventStorageBackend {
       updateId: String,
       offset: Long,
       nodeId: Int,
-      contractId: String,
+      contractId: ContractId,
       templateId: Identifier,
       packageName: PackageName,
       exerciseConsuming: Boolean,
@@ -493,7 +493,7 @@ object EventStorageBackend {
       unassignId: String,
       submitter: Option[String],
       reassignmentCounter: Long,
-      contractId: String,
+      contractId: ContractId,
       templateId: Identifier,
       packageName: PackageName,
       witnessParties: Set[String],
@@ -535,7 +535,7 @@ object EventStorageBackend {
   }
 
   final case class UnassignProperties(
-      contractId: String,
+      contractId: ContractId,
       synchronizerId: String,
       sequentialId: Long,
   )

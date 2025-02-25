@@ -3,18 +3,21 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event_query_service.{Archived, Created, GetEventsByContractIdResponse}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors
+import com.digitalasset.canton.logging.{
+  ErrorLoggingContext,
+  LoggingContextWithTrace,
+  NamedLoggerFactory,
+  NamedLogging,
+}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.InternalEventFormat
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawCreatedEvent
 import com.digitalasset.canton.platform.store.backend.{EventStorageBackend, ParameterStorageBackend}
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
-import com.digitalasset.canton.platform.store.dao.{
-  DbDispatcher,
-  EventProjectionProperties,
-  LedgerDaoEventsReader,
-}
+import com.digitalasset.canton.platform.store.dao.{DbDispatcher, LedgerDaoEventsReader}
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -36,57 +39,78 @@ private[dao] sealed class EventsReader(
 
   protected val dbMetrics: metrics.index.db.type = metrics.index.db
 
-  override def getEventsByContractId(contractId: ContractId, requestingParties: Set[Party])(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[GetEventsByContractIdResponse] = {
+  override def getEventsByContractId(
+      contractId: ContractId,
+      internalEventFormatO: Option[InternalEventFormat],
+  )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractIdResponse] = {
+    implicit val errorLoggingContext: ErrorLoggingContext = ErrorLoggingContext(logger, implicitly)
+    internalEventFormatO
+      .map { internalEventFormat =>
+        for {
+          rawEvents <- dbDispatcher.executeSql(dbMetrics.getEventsByContractId)(
+            eventStorageBackend.eventReaderQueries.fetchContractIdEvents(
+              contractId,
+              requestingParties = internalEventFormat.templatePartiesFilter.allFilterParties,
+              endEventSequentialId = ledgerEndCache().map(_.lastEventSeqId).getOrElse(0L),
+            )
+          )
+          rawCreatedEvent = rawEvents.view.map(_.event).collectFirst {
+            case created: RawCreatedEvent => created
+          }
 
-    val eventProjectionProperties = EventProjectionProperties(
-      // Used by LfEngineToApi
-      verbose = true,
-      // Needed to get create arguments mapped
-      templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
-    )
+          deserialized <- Future.delegate {
+            implicit val ec: ExecutionContext =
+              directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
+            MonadUtil.sequentialTraverse(rawEvents) { event =>
+              UpdateReader
+                .deserializeRawFlatEvent(
+                  internalEventFormat.eventProjectionProperties,
+                  lfValueTranslation,
+                )(event)
+                .map(_ -> event.synchronizerId)
+            }
+          }
 
-    for {
-      rawEvents <- dbDispatcher.executeSql(dbMetrics.getEventsByContractId)(
-        eventStorageBackend.eventReaderQueries.fetchContractIdEvents(
-          contractId,
-          requestingParties = requestingParties,
-          endEventSequentialId = ledgerEndCache().map(_.lastEventSeqId).getOrElse(0L),
-        )
-      )
-
-      deserialized <- Future.delegate {
-        implicit val ec: ExecutionContext =
-          directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
-        MonadUtil.sequentialTraverse(rawEvents) { event =>
-          UpdateReader
-            .deserializeRawFlatEvent(eventProjectionProperties, lfValueTranslation)(event)
-            .map(_ -> event.synchronizerId)
+          createEvent = deserialized.flatMap { case (entry, synchronizerId) =>
+            entry.event.event.created.map(create => Created(Some(create), synchronizerId))
+          }.headOption
+          archiveEvent = deserialized.flatMap { case (entry, synchronizerId) =>
+            entry.event.event.archived.map(archive => Archived(Some(archive), synchronizerId))
+          }.headOption
+        } yield {
+          Option.when(
+            rawCreatedEvent
+              .exists { createEvent =>
+                def witnessesMatch(filter: Option[Set[Party]]): Boolean = filter match {
+                  case None => true // wildcard party
+                  case Some(filterParties) =>
+                    filterParties.view.map(_.toString).exists(createEvent.witnessParties)
+                }
+                val wildcardPartiesMatch =
+                  witnessesMatch(internalEventFormat.templatePartiesFilter.templateWildcardParties)
+                def templatePartiesFilterMatch: Boolean =
+                  internalEventFormat.templatePartiesFilter.relation
+                    .get(createEvent.templateId)
+                    .exists(witnessesMatch)
+                wildcardPartiesMatch || templatePartiesFilterMatch
+              }
+          )(GetEventsByContractIdResponse(createEvent, archiveEvent))
         }
       }
-
-      createEvent = deserialized.flatMap { case (entry, synchronizerId) =>
-        entry.event.event.created.map(create => Created(Some(create), synchronizerId))
-      }.headOption
-      archiveEvent = deserialized.flatMap { case (entry, synchronizerId) =>
-        entry.event.event.archived.map(archive => Archived(Some(archive), synchronizerId))
-      }.headOption
-
-    } yield {
-      if (
-        createEvent
-          .flatMap(_.createdEvent)
-          .exists(stakeholders(_).exists(requestingParties.map(identity[String])))
-      ) {
-        GetEventsByContractIdResponse(createEvent, archiveEvent)
-      } else {
-        GetEventsByContractIdResponse(None, None)
+      .getOrElse(Future.successful(None))
+      .flatMap {
+        case Some(result) => Future.successful(result)
+        case None =>
+          Future.failed(
+            ConsistencyErrors.ContractNotFound
+              .Reject(
+                "No events found for contract ID, or all events were filtered out by the specified event_format",
+                contractId,
+              )
+              .asGrpcError
+          )
       }
-    }
   }
-
-  private def stakeholders(e: CreatedEvent): Set[String] = e.signatories.toSet ++ e.observers
 
   // TODO(i16065): Re-enable getEventsByContractKey tests
 //  override def getEventsByContractKey(

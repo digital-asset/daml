@@ -141,6 +141,14 @@ trait QueryStrategy {
     cSQL"= ANY($stringArray)"
   }
 
+  /** ANY SQL clause generation for a number of Binary values
+    */
+  def anyOfBinary(binaries: Iterable[Array[Byte]]): CompositeSql = {
+    val binaryArray: Array[Array[Byte]] =
+      binaries.toArray
+    cSQL"= ANY($binaryArray)"
+  }
+
   def analyzeTable(tableName: String): CompositeSql
 
   def forceSynchronousCommitForCurrentTransactionForPostgreSQL(connection: Connection): Unit = ()

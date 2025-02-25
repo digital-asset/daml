@@ -80,12 +80,12 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
     flatTransactionEvents.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
     flatTransactionEvents.map(_.event).collect { case created: RawCreatedEvent =>
       created.contractId
-    } shouldBe Vector(contractId1, contractId2, contractId3, contractId4).map(_.coid)
+    } shouldBe Vector(contractId1, contractId2, contractId3, contractId4)
 
     transactionTreeEvents.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
     transactionTreeEvents.map(_.event).collect { case created: RawCreatedEvent =>
       created.contractId
-    } shouldBe Vector(contractId1, contractId2, contractId3, contractId4).map(_.coid)
+    } shouldBe Vector(contractId1, contractId2, contractId3, contractId4)
 
     acs.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
 
@@ -100,12 +100,12 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
     flatTransactionEventsSuperReader.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
     flatTransactionEventsSuperReader.map(_.event).collect { case created: RawCreatedEvent =>
       created.contractId
-    } shouldBe Vector(contractId1, contractId2, contractId3, contractId4).map(_.coid)
+    } shouldBe Vector(contractId1, contractId2, contractId3, contractId4)
 
     transactionTreeEventsSuperReader.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
     transactionTreeEventsSuperReader.map(_.event).collect { case created: RawCreatedEvent =>
       created.contractId
-    } shouldBe Vector(contractId1, contractId2, contractId3, contractId4).map(_.coid)
+    } shouldBe Vector(contractId1, contractId2, contractId3, contractId4)
 
     acsSuperReader.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
 

@@ -8,8 +8,8 @@ import anorm.Column.nonNull
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.value.Value
 import com.typesafe.scalalogging.Logger
 
@@ -20,6 +20,11 @@ private[backend] object Conversions {
   private def stringColumnToX[X](f: String => Either[String, X]): Column[X] =
     Column.nonNull((value: Any, meta) =>
       Column.columnToString(value, meta).flatMap(x => f(x).left.map(SqlMappingError.apply))
+    )
+
+  private def binaryColumnToX[X](f: Array[Byte] => Either[String, X]): Column[X] =
+    Column.nonNull((value: Any, meta) =>
+      Column.columnToByteArray(value, meta).flatMap(x => f(x).left.map(SqlMappingError.apply))
     )
 
   private final class SubTypeOfStringToStatement[S <: String] extends ToStatement[S] {
@@ -79,14 +84,14 @@ private[backend] object Conversions {
   def participantId(columnName: String): RowParser[Ref.ParticipantId] =
     SqlParser.get[Ref.ParticipantId](columnName)(columnToParticipantId)
 
-  // ContractIdString
+  // ContractId
 
   private implicit val columnToContractId: Column[Value.ContractId] =
-    stringColumnToX(Value.ContractId.fromString)
+    binaryColumnToX(byteArray => Value.ContractId.fromBytes(Bytes.fromByteArray(byteArray)))
 
   implicit object ContractIdToStatement extends ToStatement[Value.ContractId] {
     override def set(s: PreparedStatement, index: Int, v: Value.ContractId): Unit =
-      ToStatement.stringToStatement.set(s, index, v.coid)
+      ToStatement.byteArrayToStatement.set(s, index, v.toBytes.toByteArray)
   }
 
   def contractId(columnName: String): RowParser[Value.ContractId] =

@@ -150,7 +150,13 @@ trait ModuleRef[-AcceptedMessageT] {
     */
   def asyncSend(
       msg: AcceptedMessageT
-  ): Unit // should this return if successfully queued? potential backpressure
+  ): Unit = asyncSendTraced(msg)(TraceContext.empty)
+
+  /** Send operation that is also providing the current TraceContext
+    */
+  def asyncSendTraced(
+      msg: AcceptedMessageT
+  )(implicit traceContext: TraceContext): Unit
 }
 
 /** An abstraction of the network for deterministic simulation testing purposes.
@@ -207,6 +213,10 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging {
 
   def delayedEvent(delay: FiniteDuration, message: MessageT): CancellableEvent
 
+  /** Similar to TraceContext.withNewTraceContext but can be deterministically simulated
+    */
+  def withNewTraceContext[A](fn: TraceContext => A): A
+
   def timeFuture[X](timer: Timer, futureUnlessShutdown: => E#FutureUnlessShutdownT[X])(implicit
       mc: MetricsContext
   ): E#FutureUnlessShutdownT[X]
@@ -237,20 +247,21 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging {
 
   def pipeToSelf[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(
       fun: Try[X] => Option[MessageT]
-  )(implicit traceContext: TraceContext): Unit = pipeToSelfInternal(futureUnlessShutdown) {
-    UnlessShutdown.recoverFromAbortException(_) match {
-      case Success(Outcome(x)) => fun(Success(x))
-      case Success(AbortedDueToShutdown) =>
-        logger.info("Can't complete future, shutting down")
-        stop()
-        None
-      case Failure(ex) => fun(Failure(ex))
+  )(implicit traceContext: TraceContext): Unit =
+    pipeToSelfInternal(futureUnlessShutdown) {
+      UnlessShutdown.recoverFromAbortException(_) match {
+        case Success(Outcome(x)) => fun(Success(x))
+        case Success(AbortedDueToShutdown) =>
+          logger.info("Can't complete future, shutting down")
+          stop()
+          None
+        case Failure(ex) => fun(Failure(ex))
+      }
     }
-  }
 
   protected def pipeToSelfInternal[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(
       fun: Try[X] => Option[MessageT]
-  ): Unit
+  )(implicit traceContext: TraceContext): Unit
 
   def blockingAwait[X](future: E#FutureUnlessShutdownT[X]): X
 
@@ -310,8 +321,10 @@ object Module {
 
   protected[framework] sealed trait ModuleControl[E <: Env[E], AcceptedMessageT] extends Product
   protected[framework] object ModuleControl {
-    final case class Send[E <: Env[E], AcceptedMessageT](message: AcceptedMessageT)
-        extends ModuleControl[E, AcceptedMessageT]
+    final case class Send[E <: Env[E], AcceptedMessageT](
+        message: AcceptedMessageT,
+        traceContext: TraceContext,
+    ) extends ModuleControl[E, AcceptedMessageT]
 
     final case class SetBehavior[E <: Env[E], AcceptedMessageT](
         module: Module[E, AcceptedMessageT],

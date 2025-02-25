@@ -523,7 +523,9 @@ final class BftBlockOrderer(
   ): EitherT[Future, SequencerError, Option[v30.BftSequencerSnapshotAdditionalInfo]] = {
     val replyPromise = Promise[SequencerNode.SnapshotMessage]()
     val replyRef = new ModuleRef[SequencerNode.SnapshotMessage] {
-      override def asyncSend(msg: SequencerNode.SnapshotMessage): Unit =
+      override def asyncSendTraced(msg: SequencerNode.SnapshotMessage)(implicit
+          traceContext: TraceContext
+      ): Unit =
         replyPromise.success(msg)
     }
     outputModuleRef.asyncSend(
@@ -557,10 +559,12 @@ final class BftBlockOrderer(
   )(implicit traceContext: TraceContext): EitherT[Future, SequencerDeliverError, Unit] = {
     val replyPromise = Promise[SequencerNode.Message]()
     val replyRef = new ModuleRef[SequencerNode.Message] {
-      override def asyncSend(msg: SequencerNode.Message): Unit =
+      override def asyncSendTraced(msg: SequencerNode.Message)(implicit
+          traceContext: TraceContext
+      ): Unit =
         replyPromise.success(msg)
     }
-    mempoolRef.asyncSend(
+    mempoolRef.asyncSendTraced(
       Mempool.OrderRequest(
         Traced(
           OrderingRequest(

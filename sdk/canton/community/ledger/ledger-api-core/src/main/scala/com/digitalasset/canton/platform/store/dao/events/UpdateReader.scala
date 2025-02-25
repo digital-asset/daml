@@ -292,7 +292,7 @@ private[dao] object UpdateReader {
   def toUnassignedEvent(rawUnassignEvent: RawUnassignEvent): UnassignedEvent =
     UnassignedEvent(
       unassignId = rawUnassignEvent.unassignId,
-      contractId = rawUnassignEvent.contractId,
+      contractId = rawUnassignEvent.contractId.coid,
       templateId = Some(LfEngineToApi.toApiIdentifier(rawUnassignEvent.templateId)),
       packageName = rawUnassignEvent.packageName,
       source = rawUnassignEvent.sourceSynchronizerId,

@@ -343,7 +343,7 @@ class SynchronizerCryptoClient private (
   ): FutureUnlessShutdown[SynchronizerSnapshotSyncCryptoApi] =
     ips.awaitSnapshot(timestamp).map(create)
 
-  private def create(snapshot: TopologySnapshot): SynchronizerSnapshotSyncCryptoApi =
+  def create(snapshot: TopologySnapshot): SynchronizerSnapshotSyncCryptoApi =
     new SynchronizerSnapshotSyncCryptoApi(
       synchronizerId,
       staticSynchronizerParameters,

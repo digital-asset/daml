@@ -104,7 +104,7 @@ class BftP2PNetworkIn[E <: Env[E]](
               logger.warn(
                 s"Dropping availability message from $from as it couldn't be parsed: $errorMessage"
               ),
-            availability.asyncSend,
+            msg => availability.asyncSendTraced(msg),
           )
         metrics.p2p.receive.labels.source.values.Availability(from)
       case Message.ConsensusMessage(consensusMessage) =>
@@ -123,7 +123,7 @@ class BftP2PNetworkIn[E <: Env[E]](
                   s"Received retransmitted message at epoch $epoch from $from originally created by $originalSender"
                 )
               }
-              consensus.asyncSend(message)
+              consensus.asyncSendTraced(message)
             },
           )
         metrics.p2p.receive.labels.source.values.Consensus(from)
@@ -140,7 +140,7 @@ class BftP2PNetworkIn[E <: Env[E]](
                 s"Dropping retransmission message from $from as it couldn't be parsed: $errorMessage"
               ),
             signedMessage =>
-              consensus.asyncSend(
+              consensus.asyncSendTraced(
                 Consensus.RetransmissionsMessage.UnverifiedNetworkMessage(signedMessage)
               ),
           )
@@ -158,7 +158,7 @@ class BftP2PNetworkIn[E <: Env[E]](
                 s"Dropping state transfer message from $from as it couldn't be parsed: $errorMessage"
               ),
             signedMessage =>
-              consensus.asyncSend(
+              consensus.asyncSendTraced(
                 Consensus.StateTransferMessage.UnverifiedStateTransferMessage(signedMessage)
               ),
           )

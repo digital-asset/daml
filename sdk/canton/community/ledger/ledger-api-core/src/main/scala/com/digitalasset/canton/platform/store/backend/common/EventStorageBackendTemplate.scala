@@ -110,7 +110,7 @@ object EventStorageBackendTemplate {
     baseColumnsForFlatTransactionsExercise.mkString(", ")
 
   private type SharedRow =
-    Long ~ String ~ Int ~ Long ~ String ~ Timestamp ~ Int ~ Int ~ Option[String] ~
+    Long ~ String ~ Int ~ Long ~ ContractId ~ Timestamp ~ Int ~ Int ~ Option[String] ~
       Option[String] ~ Array[Int] ~ Option[Array[Int]] ~ Int ~ Option[Array[Byte]] ~ Timestamp
 
   private val sharedRow: RowParser[SharedRow] =
@@ -118,7 +118,7 @@ object EventStorageBackendTemplate {
       str("update_id") ~
       int("node_id") ~
       long("event_sequential_id") ~
-      str("contract_id") ~
+      contractId("contract_id") ~
       timestampFromMicros("ledger_effective_time") ~
       int("template_id") ~
       int("package_name") ~
@@ -483,7 +483,7 @@ object EventStorageBackendTemplate {
       int("submitter").? ~
       long("reassignment_counter") ~
       str("update_id") ~
-      str("contract_id") ~
+      contractId("contract_id") ~
       int("template_id") ~
       int("package_name") ~
       int("package_version").? ~
@@ -594,7 +594,7 @@ object EventStorageBackendTemplate {
       int("submitter").? ~
       long("reassignment_counter") ~
       str("update_id") ~
-      str("contract_id") ~
+      contractId("contract_id") ~
       int("template_id") ~
       int("package_name") ~
       array[Int]("flat_event_witnesses") ~
@@ -663,7 +663,7 @@ object EventStorageBackendTemplate {
       long("reassignment_counter") ~
       str("update_id") ~
       long("event_offset") ~
-      str("contract_id") ~
+      contractId("contract_id") ~
       int("template_id") ~
       int("package_name") ~
       int("package_version").? ~
@@ -746,7 +746,7 @@ object EventStorageBackendTemplate {
       int("synchronizer_id") ~
       str("update_id") ~
       long("event_offset") ~
-      str("contract_id") ~
+      contractId("contract_id") ~
       int("template_id") ~
       int("package_name") ~
       int("package_version").? ~
@@ -1517,7 +1517,7 @@ abstract class EventStorageBackendTemplate(
             SQL"""
               SELECT MAX(assign_evs.event_sequential_id) AS event_sequential_id
               FROM lapi_events_assign assign_evs
-              WHERE assign_evs.contract_id = $contractId
+              WHERE assign_evs.contract_id = ${contractId.toBytes.toByteArray}
               AND assign_evs.target_synchronizer_id = $synchronizerId
               AND assign_evs.event_sequential_id < $sequentialId
             """
@@ -1528,13 +1528,13 @@ abstract class EventStorageBackendTemplate(
     }.toMap
 
   override def lookupCreateSequentialIdByContractId(
-      contractIds: Iterable[String]
+      contractIds: Iterable[ContractId]
   )(connection: Connection): Vector[Long] =
     SQL"""
         SELECT event_sequential_id
         FROM lapi_events_create
         WHERE
-          contract_id ${queryStrategy.anyOfStrings(contractIds)}
+          contract_id ${queryStrategy.anyOfBinary(contractIds.map(_.toBytes.toByteArray))}
         """
       .asVectorOf(long("event_sequential_id"))(connection)
 
