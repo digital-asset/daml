@@ -3,38 +3,35 @@
 
 module Canton.Internal.PartyReplication where
 
-data PartyReplicationMetadata = PartyReplicationMetadata
+-- A PartyReplicationProposal is created by the target participant to reach an agreement with the source participant to
+-- replicate the specified party via one of the specified sequencers.
+template PartyReplicationProposal
   with
-    id : Text -- uniquely identifies party replication, potentially across multiple generations of channel proposals and agreements
+    partyReplicationId : Text
     partyId : Party
-    timestamp : Time
-    startAtWatermark: Int -- "batch counter" assigned by source participant beginning at 0, but larger after restarting
-  deriving (Eq, Show)
-
--- A ChannelProposal is created by the target participant to reach an agreement with the source participant to
--- replicate the specified party using a channel via the specified sequencer.
-template ChannelProposal
-  with
     sourceParticipant : Party -- participant admin party
     targetParticipant : Party -- participant admin party
-    sequencerUids : [Text] -- sequencerUis needs to be non-empty as otherwise it is impossible to accept the proposal
-    payloadMetadata : PartyReplicationMetadata
+    sequencerUids : [Text]
+    topologySerial : Int
   where
     signatory targetParticipant
     observer sourceParticipant
 
-    -- The source participant decides whether to accept the channel proposal
-    -- and if so, indicates one of the sequencer UIDs to host the channel
-    choice Accept : ContractId ChannelAgreement
+    -- sequencerUids needs to be non-empty as otherwise it is impossible to accept the proposal
+    ensure length sequencerUids > 0
+
+    -- The source participant decides whether to accept the party replication proposal
+    -- and if so, indicates one of the sequencer UIDs to communicate via
+    choice Accept : ContractId PartyReplicationAgreement
       with
         sequencerUid : Text
       controller sourceParticipant
         do
           assertMsg "sequencerUid needs to be one of sequencerUids" (sequencerUid `elem` sequencerUids)
-          channelAgreement <- create ChannelAgreement with sourceParticipant, targetParticipant, sequencerUid, payloadMetadata
-          return channelAgreement
+          partyReplicationAgreement <- create PartyReplicationAgreement with partyReplicationId, partyId, sourceParticipant, targetParticipant, sequencerUid, topologySerial
+          return partyReplicationAgreement
 
-    -- Or the source participant rejects the channel proposal
+    -- Or the source participant rejects the party replication proposal
     choice Reject : ()
       with
         reason : Text
@@ -42,18 +39,20 @@ template ChannelProposal
         do
           return ()
 
--- A ChannelAgreement represents an agreement between the source and target participants to replicate the specified
--- party using a channel via the specified sequencer.
-template ChannelAgreement
+-- A PartyReplicationAgreement represents an agreement between the source and target participants to replicate the specified
+-- party via the specified sequencer.
+template PartyReplicationAgreement
   with
+    partyReplicationId : Text
+    partyId : Party
     sourceParticipant : Party -- participant admin party
     targetParticipant : Party -- participant admin party
     sequencerUid : Text
-    payloadMetadata : PartyReplicationMetadata
+    topologySerial : Int
   where
     signatory targetParticipant, sourceParticipant
 
-    -- The source or target participant can declare the channel agreement as done
+    -- The source or target participant can declare the party replication agreement as done
     choice Done : ()
       with
         participant : Party

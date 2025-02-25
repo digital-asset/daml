@@ -74,18 +74,11 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
 
   abstract class TestEnvironment(val config: CantonCommunityConfig = DefaultConfig) {
     val environment: CommunityEnvironment = mock[CommunityEnvironment]
-    val participants: ParticipantNodes[
-      ParticipantNodeBootstrap,
-      ParticipantNode,
-      config.ParticipantConfigType,
-    ] =
-      mock[
-        ParticipantNodes[ParticipantNodeBootstrap, ParticipantNode, config.ParticipantConfigType]
-      ]
+    val participants: ParticipantNodes[ParticipantNodeBootstrap, ParticipantNode] =
+      mock[ParticipantNodes[ParticipantNodeBootstrap, ParticipantNode]]
     val sequencers: SequencerNodes[config.SequencerNodeConfigType] =
       mock[SequencerNodes[config.SequencerNodeConfigType]]
-    val mediators: MediatorNodes[config.MediatorNodeConfigType] =
-      mock[MediatorNodes[config.MediatorNodeConfigType]]
+    val mediators: MediatorNodes = mock[MediatorNodes]
     val participantBootstrap: ParticipantNodeBootstrap = mock[ParticipantNodeBootstrap]
     val participant: ParticipantNode = mock[ParticipantNode]
     val sequencer: SequencerNodeBootstrap = mock[SequencerNodeBootstrap]

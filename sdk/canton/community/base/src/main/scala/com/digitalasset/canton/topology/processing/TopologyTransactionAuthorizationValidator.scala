@@ -153,7 +153,9 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
   )(implicit traceContext: TraceContext): GenericValidatedTopologyTransaction = {
     // See validateRootCertificate why we need to check the removal of a root certificate explicitly here.
     val signatureCheckResult = validateRootCertificate(toValidate)
-      .getOrElse(validateSignaturesAndDetermineMissingAuthorizers(toValidate, inStore))
+      .getOrElse(
+        validateSignaturesAndDetermineMissingAuthorizers(toValidate, inStore)
+      )
 
     signatureCheckResult match {
       // propagate the rejection reason
@@ -311,6 +313,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       keyIdsWithUsage = TopologyManager.assignExpectedUsageToKeys(
         txWithSignaturesToVerify.mapping,
         allKeyIdsUsedForAuthorizationNE,
+        forSigning = false,
       )
 
       _ <- txWithSignaturesToVerify.signatures.forgetNE.toList

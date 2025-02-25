@@ -494,7 +494,6 @@ object ReassignmentProcessingSteps {
       error: TransactionRejection,
   )
 
-  // TODO(#18531) Check whether all the errors are needed
   trait ReassignmentProcessorError
       extends WrapsProcessorError
       with Product

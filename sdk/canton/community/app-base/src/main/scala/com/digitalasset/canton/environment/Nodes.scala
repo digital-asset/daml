@@ -22,7 +22,7 @@ import com.digitalasset.canton.resource.{DbMigrations, DbMigrationsFactory}
 import com.digitalasset.canton.synchronizer.mediator.{
   MediatorNode,
   MediatorNodeBootstrap,
-  MediatorNodeConfigCommon,
+  MediatorNodeConfig,
   MediatorNodeParameters,
 }
 import com.digitalasset.canton.synchronizer.sequencer.config.{
@@ -394,18 +394,18 @@ class ManagedNodes[
     }
 }
 
-class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode, PC <: LocalParticipantConfig](
-    create: (String, PC) => B, // (nodeName, config) => bootstrap
+class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode](
+    create: (String, LocalParticipantConfig) => B, // (nodeName, config) => bootstrap
     migrationsFactory: DbMigrationsFactory,
     timeouts: ProcessingTimeout,
-    configs: Map[String, PC],
+    configs: Map[String, LocalParticipantConfig],
     parametersFor: String => ParticipantNodeParameters,
     runnerFactory: String => GrpcAdminCommandRunner,
     loggerFactory: NamedLoggerFactory,
 )(implicit
     protected val executionContext: ExecutionContextIdlenessExecutorService,
     scheduler: ScheduledExecutorService,
-) extends ManagedNodes[N, PC, ParticipantNodeParameters, B](
+) extends ManagedNodes[N, LocalParticipantConfig, ParticipantNodeParameters, B](
       create,
       migrationsFactory,
       timeouts,
@@ -437,17 +437,17 @@ class SequencerNodes[SC <: SequencerNodeConfigCommon](
       loggerFactory,
     )
 
-class MediatorNodes[MNC <: MediatorNodeConfigCommon](
-    create: (String, MNC) => MediatorNodeBootstrap,
+class MediatorNodes(
+    create: (String, MediatorNodeConfig) => MediatorNodeBootstrap,
     migrationsFactory: DbMigrationsFactory,
     timeouts: ProcessingTimeout,
-    configs: Map[String, MNC],
+    configs: Map[String, MediatorNodeConfig],
     parameters: String => MediatorNodeParameters,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends ManagedNodes[
       MediatorNode,
-      MNC,
+      MediatorNodeConfig,
       MediatorNodeParameters,
       MediatorNodeBootstrap,
     ](

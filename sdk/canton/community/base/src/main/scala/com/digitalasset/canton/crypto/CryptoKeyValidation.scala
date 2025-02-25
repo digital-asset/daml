@@ -6,7 +6,7 @@ package com.digitalasset.canton.crypto
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
-import com.digitalasset.canton.crypto.SigningKeyUsage.compatibleUsage
+import com.digitalasset.canton.crypto.SigningKeyUsage.compatibleUsageForSignAndVerify
 import com.digitalasset.canton.crypto.provider.jce.JceJavaKeyConverter
 
 import java.security.PublicKey as JPublicKey
@@ -122,7 +122,7 @@ object CryptoKeyValidation {
       errFn: String => E,
   ): Either[E, Unit] =
     Either.cond(
-      compatibleUsage(keyUsage, usage),
+      compatibleUsageForSignAndVerify(keyUsage, usage),
       (),
       errFn(
         s"Signing key $fingerprint [$keyUsage] is not valid for usage $usage"

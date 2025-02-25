@@ -45,6 +45,7 @@ class TopologyStoreTestData(
       .assignExpectedUsageToKeys(
         mapping,
         signingKeyIdsNE,
+        forSigning = true,
       )
     val signatures = NonEmpty
       .from(

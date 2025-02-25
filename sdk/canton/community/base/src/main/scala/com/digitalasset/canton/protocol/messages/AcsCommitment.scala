@@ -264,7 +264,7 @@ object AcsCommitment extends VersioningCompanionMemoization[AcsCommitment] {
       GetResult[ParticipantId],
       GetResult[ParticipantId],
       GetResult[CommitmentPeriod],
-      Hash.getResultHashFromHexString,
+      GetResult[Hash],
     ).andThen { case (sender, counterParticipant, period, commitment) =>
       new AcsCommitment(synchronizerId, sender, counterParticipant, period, commitment)(
         protocolVersionRepresentativeFor(protocolVersion),

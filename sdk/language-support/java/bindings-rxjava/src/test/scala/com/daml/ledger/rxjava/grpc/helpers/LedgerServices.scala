@@ -11,12 +11,9 @@ import com.daml.ledger.rxjava.grpc._
 import com.daml.ledger.rxjava.grpc.helpers.UpdateServiceImpl.LedgerItem
 import com.daml.ledger.rxjava.{CommandCompletionClient, EventQueryClient, PackageClient}
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
-import com.digitalasset.canton.auth.{AuthService, AuthServiceWildcard, Authorizer, ClaimSet}
+import com.digitalasset.canton.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.digitalasset.canton.ledger.api.auth.UserBasedOngoingAuthorization
-import com.digitalasset.canton.ledger.api.auth.interceptor.{
-  IdentityProviderAwareAuthService,
-  UserBasedAuthorizationInterceptor,
-}
+import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor
 import com.digitalasset.canton.tracing.TraceContext
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
@@ -34,7 +31,7 @@ import com.daml.ledger.api.v2.package_service.{
 import com.daml.ledger.api.v2.testing.time_service.GetTimeResponse
 import com.daml.ledger.api.v2.command_submission_service.SubmitResponse
 import com.daml.tracing.NoOpTelemetry
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
@@ -102,21 +99,13 @@ final class LedgerServices(val name: String) {
     }
   }
 
-  private class IDPAuthService extends IdentityProviderAwareAuthService {
-    override def decodeMetadata(headers: Metadata)(implicit
-        loggingContext: LoggingContextWithTrace
-    ): Future[ClaimSet] =
-      Future.successful(ClaimSet.Unauthenticated)
-  }
-
   private def createServer(
       authService: AuthService,
       services: Seq[ServerServiceDefinition],
   ): Server = {
     val authorizationInterceptor = new UserBasedAuthorizationInterceptor(
-      authService,
+      List(authService),
       Some(new InMemoryUserManagementStore(false, loggerFactory)),
-      new IDPAuthService,
       NoOpTelemetry,
       loggerFactory,
       executionContext,

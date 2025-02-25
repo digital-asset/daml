@@ -4,35 +4,35 @@
 package com.digitalasset.canton.participant.admin.party
 
 import cats.syntax.either.*
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
-import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow.ChannelId
+import cats.syntax.traverse.*
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.participant.admin.workflows.java.canton.internal as M
 import com.digitalasset.canton.topology.*
 
-final case class ChannelAgreementParams private (
-    ts: CantonTimestamp,
+final case class PartyReplicationAgreementParams private (
+    partyReplicationId: Hash,
     partyId: PartyId,
+    synchronizerId: SynchronizerId,
     sourceParticipantId: ParticipantId,
     targetParticipantId: ParticipantId,
     sequencerId: SequencerId,
-    synchronizerId: SynchronizerId,
+    serialO: Option[PositiveInt],
 )
 
-object ChannelAgreementParams {
+object PartyReplicationAgreementParams {
   def fromDaml(
-      c: M.partyreplication.ChannelAgreement,
+      c: M.partyreplication.PartyReplicationAgreement,
       synchronizer: String,
-  ): Either[String, ChannelAgreementParams] =
+  ): Either[String, PartyReplicationAgreementParams] =
     for {
-      ts <-
-        CantonTimestamp
-          .fromInstant(c.payloadMetadata.timestamp)
-          // the following error is actually impossible to trigger as the lf-engine catches bad timestamps
-          .leftMap(err => s"Invalid timestamp $err")
+      _ <- Either.cond(c.partyReplicationId.nonEmpty, (), "Empty party replication id")
+      partyReplicationId <- Hash
+        .fromHexString(c.partyReplicationId)
+        .leftMap(err => s"Invalid party replication id: $err")
       partyId <-
         PartyId
-          .fromProtoPrimitive(c.payloadMetadata.partyId, "partyId")
+          .fromProtoPrimitive(c.partyId, "partyId")
           .leftMap(err => s"Invalid partyId $err")
       sourceParticipantId <-
         PartyId
@@ -57,16 +57,19 @@ object ChannelAgreementParams {
           .fromProtoPrimitive(synchronizer, "synchronizer")
           // The following error is impossible to trigger as the ledger-api does not emit invalid synchronizer ids
           .leftMap(err => s"Invalid synchronizerId $err")
-      _ <- ChannelId.fromString(c.payloadMetadata.id)
-      _ <- NonNegativeLong
-        .create(c.payloadMetadata.startAtWatermark)
-        .leftMap(_ => s"Invalid, negative startAtWatermark ${c.payloadMetadata.startAtWatermark}")
-    } yield ChannelAgreementParams(
-      ts,
+      serialIntO <- Either.cond(
+        c.topologySerial.toInt.toLong == c.topologySerial,
+        Option.when(c.topologySerial.toInt != 0)(c.topologySerial.toInt),
+        s"Non-integer serial ${c.topologySerial}",
+      )
+      serial <- serialIntO.traverse(PositiveInt.create).leftMap(_.message)
+    } yield PartyReplicationAgreementParams(
+      partyReplicationId,
       partyId,
+      synchronizerId,
       sourceParticipantId,
       targetParticipantId,
       sequencerId,
-      synchronizerId,
+      serial,
     )
 }

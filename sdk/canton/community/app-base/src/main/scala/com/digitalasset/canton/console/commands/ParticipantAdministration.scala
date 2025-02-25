@@ -437,11 +437,11 @@ class LocalParticipantTestingGroup(
   The filter commands will check if the target value ``contains`` the given string.
   The arguments can be started with ``^`` such that ``startsWith`` is used for comparison or ``!`` to use ``equals``.
   The ``activeSet`` argument allows to restrict the search to the active contract set.
+  For contract ID filtration only exact match is supported.
   """)
   def pcs_search(
       synchronizerAlias: SynchronizerAlias,
-      // filter by id (which is txId::discriminator, so can be used to look for both)
-      filterId: String = "",
+      exactId: String = "",
       filterPackage: String = "",
       filterTemplate: String = "",
       // only include active contracts
@@ -453,7 +453,7 @@ class LocalParticipantTestingGroup(
     val pcs = state_inspection
       .findContracts(
         synchronizerAlias,
-        toOpt(filterId),
+        toOpt(exactId),
         toOpt(filterPackage),
         toOpt(filterTemplate),
         limit.value,
@@ -465,8 +465,7 @@ class LocalParticipantTestingGroup(
   @Help.Summary("Lookup of active contracts", FeatureFlag.Testing)
   def acs_search(
       synchronizerAlias: SynchronizerAlias,
-      // filter by id (which is txId::discriminator, so can be used to look for both)
-      filterId: String = "",
+      exactId: String = "",
       filterPackage: String = "",
       filterTemplate: String = "",
       filterStakeholder: Option[PartyId] = None,
@@ -478,7 +477,7 @@ class LocalParticipantTestingGroup(
     check(FeatureFlag.Testing) {
       pcs_search(
         synchronizerAlias,
-        filterId,
+        exactId,
         filterPackage,
         filterTemplate,
         activeSet = true,

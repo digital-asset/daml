@@ -27,8 +27,13 @@ import com.digitalasset.canton.metrics.MetricsConfig.JvmMetrics
 import com.digitalasset.canton.metrics.{CantonHistograms, MetricsRegistry}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.participant.*
+import com.digitalasset.canton.participant.config.LocalParticipantConfig
 import com.digitalasset.canton.resource.DbMigrationsFactory
-import com.digitalasset.canton.synchronizer.mediator.{MediatorNodeBootstrap, MediatorNodeParameters}
+import com.digitalasset.canton.synchronizer.mediator.{
+  MediatorNodeBootstrap,
+  MediatorNodeConfig,
+  MediatorNodeParameters,
+}
 import com.digitalasset.canton.synchronizer.metrics.MediatorMetrics
 import com.digitalasset.canton.synchronizer.sequencer.SequencerNodeBootstrap
 import com.digitalasset.canton.telemetry.{ConfiguredOpenTelemetry, OpenTelemetryFactory}
@@ -102,7 +107,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   )
 
   protected def participantNodeFactory
-      : ParticipantNodeBootstrap.Factory[Config#ParticipantConfigType, ParticipantNodeBootstrap]
+      : ParticipantNodeBootstrap.Factory[LocalParticipantConfig, ParticipantNodeBootstrap]
   protected def migrationsFactory: DbMigrationsFactory
 
   def isEnterprise: Boolean
@@ -261,7 +266,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   private val testingTimeService = new TestingTimeService(clock, () => simClocks)
 
   lazy val participants =
-    new ParticipantNodes[ParticipantNodeBootstrap, ParticipantNode, Config#ParticipantConfigType](
+    new ParticipantNodes[ParticipantNodeBootstrap, ParticipantNode](
       createParticipant,
       migrationsFactory,
       timeouts,
@@ -455,12 +460,12 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
 
   protected def createMediator(
       name: String,
-      mediatorConfig: Config#MediatorNodeConfigType,
+      mediatorConfig: MediatorNodeConfig,
   ): MediatorNodeBootstrap
 
   protected def createParticipant(
       name: String,
-      participantConfig: Config#ParticipantConfigType,
+      participantConfig: LocalParticipantConfig,
   ): ParticipantNodeBootstrap =
     participantNodeFactory
       .create(
@@ -484,24 +489,21 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
 
   protected def mediatorNodeFactoryArguments(
       name: String,
-      mediatorConfig: Config#MediatorNodeConfigType,
-  ): NodeFactoryArguments[
-    Config#MediatorNodeConfigType,
-    MediatorNodeParameters,
-    MediatorMetrics,
-  ] = NodeFactoryArguments(
-    name,
-    mediatorConfig,
-    config.mediatorNodeParametersByString(name),
-    createClock(Some(MediatorNodeBootstrap.LoggerFactoryKeyName -> name)),
-    metricsRegistry.forMediator(name),
-    testingConfig,
-    futureSupervisor,
-    loggerFactory.append(MediatorNodeBootstrap.LoggerFactoryKeyName, name),
-    writeHealthDumpToFile,
-    configuredOpenTelemetry,
-    executionContext,
-  )
+      mediatorConfig: MediatorNodeConfig,
+  ): NodeFactoryArguments[MediatorNodeConfig, MediatorNodeParameters, MediatorMetrics] =
+    NodeFactoryArguments(
+      name,
+      mediatorConfig,
+      config.mediatorNodeParametersByString(name),
+      createClock(Some(MediatorNodeBootstrap.LoggerFactoryKeyName -> name)),
+      metricsRegistry.forMediator(name),
+      testingConfig,
+      futureSupervisor,
+      loggerFactory.append(MediatorNodeBootstrap.LoggerFactoryKeyName, name),
+      writeHealthDumpToFile,
+      configuredOpenTelemetry,
+      executionContext,
+    )
 
   private def simClocks: Seq[SimClock] = {
     val clocks = clock +: (participants.running.map(_.clock) ++ sequencers.running.map(

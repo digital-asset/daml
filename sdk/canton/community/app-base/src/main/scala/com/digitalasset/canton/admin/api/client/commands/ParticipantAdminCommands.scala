@@ -460,41 +460,39 @@ object ParticipantAdminCommands {
 
   object PartyManagement {
 
-    final case class StartPartyReplication(
-        id: Option[String],
+    final case class AddPartyAsync(
         party: PartyId,
-        sourceParticipant: ParticipantId,
         synchronizerId: SynchronizerId,
+        sourceParticipant: Option[ParticipantId],
+        serial: Option[PositiveInt],
     ) extends GrpcAdminCommand[
-          v30.StartPartyReplicationRequest,
-          v30.StartPartyReplicationResponse,
-          Unit,
+          v30.AddPartyAsyncRequest,
+          v30.AddPartyAsyncResponse,
+          String,
         ] {
       override type Svc = PartyManagementServiceStub
 
       override def createService(channel: ManagedChannel): PartyManagementServiceStub =
         v30.PartyManagementServiceGrpc.stub(channel)
 
-      override protected def createRequest(): Either[String, v30.StartPartyReplicationRequest] =
+      override protected def createRequest(): Either[String, v30.AddPartyAsyncRequest] =
         Right(
-          v30.StartPartyReplicationRequest(
-            id = id,
+          v30.AddPartyAsyncRequest(
             partyUid = party.uid.toProtoPrimitive,
-            sourceParticipantUid = sourceParticipant.uid.toProtoPrimitive,
             synchronizerId = synchronizerId.toProtoPrimitive,
+            sourceParticipantUid = sourceParticipant.fold("")(_.uid.toProtoPrimitive),
+            serial = serial.fold(0)(_.value),
           )
         )
 
       override protected def submitRequest(
           service: PartyManagementServiceStub,
-          request: v30.StartPartyReplicationRequest,
-      ): Future[v30.StartPartyReplicationResponse] =
-        service.startPartyReplication(request)
+          request: v30.AddPartyAsyncRequest,
+      ): Future[v30.AddPartyAsyncResponse] = service.addPartyAsync(request)
 
       override protected def handleResponse(
-          response: v30.StartPartyReplicationResponse
-      ): Either[String, Unit] =
-        Either.unit
+          response: v30.AddPartyAsyncResponse
+      ): Either[String, String] = Right(response.partyReplicationId)
     }
   }
 

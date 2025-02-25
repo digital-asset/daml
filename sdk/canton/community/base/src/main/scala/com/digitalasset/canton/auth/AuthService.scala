@@ -6,7 +6,7 @@ package com.digitalasset.canton.auth
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.Metadata
 
-import java.util.concurrent.CompletionStage
+import scala.concurrent.Future
 
 /** An interface for authorizing the ledger API access to a participant.
   *
@@ -35,7 +35,7 @@ trait AuthService {
     */
   def decodeMetadata(headers: io.grpc.Metadata)(implicit
       traceContext: TraceContext
-  ): CompletionStage[ClaimSet]
+  ): Future[ClaimSet]
 
 }
 

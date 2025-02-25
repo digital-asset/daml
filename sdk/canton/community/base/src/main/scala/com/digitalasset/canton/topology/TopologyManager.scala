@@ -510,14 +510,10 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
           )
         case _ => EitherT.rightT[FutureUnlessShutdown, TopologyManagerError](())
       }
-      keysWithUsage = assignExpectedUsageToKeys(
-        transaction.mapping,
-        keysToUseForSigning,
-      )
       signed <- SignedTopologyTransaction
         .create(
           transaction,
-          keysWithUsage,
+          keysToUseForSigning,
           isProposal,
           crypto.privateCrypto,
           protocolVersion,
@@ -543,6 +539,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
       keyWithUsage = assignExpectedUsageToKeys(
         transaction.mapping,
         keys,
+        forSigning = true,
       )
       signatures <- keyWithUsage.forgetNE.toSeq
         .parTraverse { case (key, usage) =>
@@ -948,18 +945,26 @@ object TopologyManager {
   /** Assigns the appropriate key usage for a given set of keys based on the current topology
     * request and necessary authorizations. In most cases, the request is expected to be signed with
     * Namespace or IdentityDelegation keys. However, for requests like OwnerToKeyMapping or
-    * PartyToKeyMapping, keys must be able to prove their ownership.
+    * PartyToKeyMapping, keys must be able to prove their ownership. For these requests we also
+    * accept namespace as a valid usage when verifying a signature, as this ensures backwards
+    * compatibility (e.g. older topology states might have mistakenly added a namespace key to this
+    * mapping). By enforcing only ProofOfOwnership on the sign path, we ensure that this new
+    * restriction applies to any newly added key, preventing the addition of namespace-only keys to
+    * these requests.
     *
     * @param mapping
     *   The current topology request
     * @param signingKeys
     *   A non-empty set of signing key fingerprints for which a usage will be assigned.
+    * @param forSigning
+    *   A flag indicating whether usages are being assigned for signing or signature verification.
     * @return
     *   A map where each key is associated with its expected usage.
     */
   def assignExpectedUsageToKeys(
       mapping: TopologyMapping,
       signingKeys: NonEmpty[Set[Fingerprint]],
+      forSigning: Boolean,
   ): NonEmpty[Map[Fingerprint, NonEmpty[Set[SigningKeyUsage]]]] = {
 
     def onlyNamespaceAuth(auth: RequiredAuth): Boolean = auth match {
@@ -977,8 +982,14 @@ object TopologyManager {
         val mappedKeyIds = keyMapping.mappedKeys.toSet.map(_.id)
         signingKeys.map {
           case keyId if mappedKeyIds.contains(keyId) =>
-            // the mapped keys need to prove ownership
-            keyId -> SigningKeyUsage.ProofOfOwnershipOnly
+            if (forSigning)
+              // the mapped keys need to prove ownership
+              keyId -> SigningKeyUsage.ProofOfOwnershipOnly
+            else
+              // We need to verify proof of ownership for the mapped keys. The expected key usage is
+              // ProofOfOwnership, analog what is used for signing. However, for backwards compatibility we
+              // also allow keys with NamespaceOnly to have proven ownership in historical topology states.
+              keyId -> SigningKeyUsage.NamespaceOrProofOfOwnership
           case keyId =>
             // all other keys must be namespace or identifier delegation keys
             keyId -> SigningKeyUsage.NamespaceOrIdentityDelegation

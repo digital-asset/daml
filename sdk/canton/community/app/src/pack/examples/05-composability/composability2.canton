@@ -169,8 +169,8 @@ utils.retry_until_true(10.seconds) {
   participant2.testing.fetch_synchronizer_times()
   participant3.testing.fetch_synchronizer_times()
 
-  participant3.testing.acs_search(paintAlias, filterId=paintHouseId.contractId).nonEmpty &&
-    participant2.testing.acs_search(paintAlias, filterId=paintHouseId.contractId).nonEmpty
+  participant3.testing.acs_search(paintAlias, exactId=paintHouseId.contractId).nonEmpty &&
+    participant2.testing.acs_search(paintAlias, exactId=paintHouseId.contractId).nonEmpty
 }
 // architecture-handbook-entry-end: automatic-assignment
 

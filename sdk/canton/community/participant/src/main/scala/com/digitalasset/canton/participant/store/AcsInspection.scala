@@ -36,7 +36,7 @@ class AcsInspection(
     val ledgerApiStore: Eval[LedgerApiStore],
 ) {
   def findContracts(
-      filterId: Option[String],
+      exactId: Option[String],
       filterPackage: Option[String],
       filterTemplate: Option[String],
       limit: Int,
@@ -47,7 +47,7 @@ class AcsInspection(
     getCurrentSnapshot()
       .flatMap(_.traverse { acs =>
         contractStore
-          .find(filterId, filterPackage, filterTemplate, limit)
+          .find(exactId, filterPackage, filterTemplate, limit)
           .map(_.map(sc => (acs.snapshot.contains(sc.contractId), sc)))
       })
       .map(_.getOrElse(Nil))

@@ -6,12 +6,12 @@ package com.digitalasset.canton.auth
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.Metadata
 
-import java.util.concurrent.{CompletableFuture, CompletionStage}
+import scala.concurrent.Future
 
 /** An AuthService that authorizes all calls by always returning a wildcard [[ClaimSet.Claims]] */
 object AuthServiceWildcard extends AuthService {
   override def decodeMetadata(
       headers: Metadata
-  )(implicit traceContext: TraceContext): CompletionStage[ClaimSet] =
-    CompletableFuture.completedFuture(ClaimSet.Claims.Wildcard)
+  )(implicit traceContext: TraceContext): Future[ClaimSet] =
+    Future.successful(ClaimSet.Claims.Wildcard)
 }

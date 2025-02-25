@@ -9,24 +9,30 @@ package com.digitalasset.canton.admin.participant.v30;
  * The PartyManagementService allows modifying party hosting on participants.
  */
 service PartyManagementService {
-  // Initiate replicating a party from a source participant to the local participant
-  // in the synchronizer of a specified sequencer.
+  // Initiate adding a party already hosted on one or more non-local participants to the
+  // local participant in the specified synchronizer.
   // Performs some checks synchronously and then starts the replication asynchronously.
-  rpc StartPartyReplication(StartPartyReplicationRequest) returns (StartPartyReplicationResponse);
+  rpc AddPartyAsync(AddPartyAsyncRequest) returns (AddPartyAsyncResponse);
 }
 
-message StartPartyReplicationRequest {
-  // A identifier used to uniquely track party replication activity
-  optional string id = 1;
+message AddPartyAsyncRequest {
   // The party to replicate
   // Required
-  string party_uid = 2;
-  // The source participant already hosting the party
-  // Required
-  string source_participant_uid = 3;
+  string party_uid = 1;
   // The synchronizer in which to replicate the party
   // Required
-  string synchronizer_id = 4;
+  string synchronizer_id = 2;
+  // Optionally, the source participant already hosting the party
+  // Required if the party is already hosted on multiple participants.
+  string source_participant_uid = 3;
+  // Optionally, the topology serial number of this request (auto-determined if omitted)
+  // NOTE: omitting the serial MAY end up overwriting previous mappings processed concurrently.
+  // To avoid such cases, first read the PartyToParticipant state using the TopologyManagerReadService
+  // and update the mappings accordingly, incrementing the serial by one and setting it explicitly.
+  uint32 serial = 4;
 }
 
-message StartPartyReplicationResponse {}
+message AddPartyAsyncResponse {
+  // A identifier used to uniquely track add party activity
+  string party_replication_id = 1;
+}

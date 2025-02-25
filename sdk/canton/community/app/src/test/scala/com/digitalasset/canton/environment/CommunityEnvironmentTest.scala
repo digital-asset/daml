@@ -16,10 +16,7 @@ import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.metrics.{ParticipantHistograms, ParticipantMetrics}
 import com.digitalasset.canton.participant.sync.SyncServiceError
 import com.digitalasset.canton.participant.{ParticipantNode, ParticipantNodeBootstrap}
-import com.digitalasset.canton.synchronizer.mediator.{
-  CommunityMediatorNodeConfig,
-  MediatorNodeBootstrap,
-}
+import com.digitalasset.canton.synchronizer.mediator.{MediatorNodeBootstrap, MediatorNodeConfig}
 import com.digitalasset.canton.synchronizer.sequencer.SequencerNodeBootstrap
 import com.digitalasset.canton.synchronizer.sequencer.config.CommunitySequencerNodeConfig
 import com.digitalasset.canton.tracing.TraceContext
@@ -63,7 +60,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
     private val createSequencerMock =
       mock[(String, CommunitySequencerNodeConfig) => SequencerNodeBootstrap]
     private val createMediatorMock =
-      mock[(String, CommunityMediatorNodeConfig) => MediatorNodeBootstrap]
+      mock[(String, MediatorNodeConfig) => MediatorNodeBootstrap]
 
     def mockSequencer: SequencerNodeBootstrap = {
       val sequencer = mock[SequencerNodeBootstrap]
@@ -122,7 +119,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
 
       override def createMediator(
           name: String,
-          mediatorConfig: CommunityMediatorNodeConfig,
+          mediatorConfig: MediatorNodeConfig,
       ): MediatorNodeBootstrap =
         createMediatorMock(name, mediatorConfig)
     }
@@ -143,7 +140,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
       when(createSequencerMock(eqTo(id), any[CommunitySequencerNodeConfig])).thenAnswer(create)
 
     protected def setupMediatorFactory(id: String, create: => MediatorNodeBootstrap): Unit =
-      when(createMediatorMock(eqTo(id), any[CommunityMediatorNodeConfig])).thenAnswer(create)
+      when(createMediatorMock(eqTo(id), any[MediatorNodeConfig])).thenAnswer(create)
   }
 
   "Environment" when {

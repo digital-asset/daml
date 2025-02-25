@@ -58,3 +58,24 @@ The demo scenario is as follows:
 - `bob` exercises the `Respond` choice, which archives the contract
 
 Note that in all interactions between the python application and Canton, transactions are signed with a private key that is kept private for the party and never provided to any Canton node. Only the public key part is shared with the Canton nodes.
+
+## Onboard an external party
+
+```shell
+python interactive_submission.py create-party --name alice
+```
+
+Will create an external party on the ledger and write their private and public keys to local `der` files.
+
+Output:
+
+```text
+Onboarding alice
+Waiting for alice to appear in topology
+Party ID: alice::122076f2a757c1ea944f52fc1fa854aa78077672efa32d7903e97cbf92646331876d
+Written private key to: alice::122076f2a757c1ea944f52fc1fa854aa78077672efa32d7903e97cbf92646331876d-private-key.der
+Written public key to: alice::122076f2a757c1ea944f52fc1fa854aa78077672efa32d7903e97cbf92646331876d-public-key.der
+```
+
+By default the `synchronizer ID` and `participant ID` will be picked up from the files written by the canton bootstrap script in this directory.
+They can be overridden with ` --synchronizer-id synchronizer_id` and `--participant-id participant_id`.

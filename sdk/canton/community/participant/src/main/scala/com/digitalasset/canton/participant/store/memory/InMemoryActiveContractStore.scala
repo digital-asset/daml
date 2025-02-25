@@ -461,7 +461,7 @@ class InMemoryActiveContractStore(
   ): FutureUnlessShutdown[Option[(LfContractId)]] =
     for {
       contracts <- contractStore.find(
-        filterId = None,
+        exactId = None,
         filterPackage = Some(pkg),
         filterTemplate = None,
         limit = Int.MaxValue,

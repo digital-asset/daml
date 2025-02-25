@@ -14,7 +14,7 @@ import com.daml.logging.entries.LoggingEntries
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.auth.CantonAdminTokenAuthService
+import com.digitalasset.canton.auth.{AuthServiceWildcard, CantonAdminTokenAuthService}
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
@@ -190,16 +190,18 @@ class StartableStoppableLedgerApiServer(
       LoggingContextWithTrace(loggerFactory, telemetry)
 
     val indexServiceConfig = config.serverConfig.indexService
-
-    val authService = new CantonAdminTokenAuthService(
-      Some(config.adminToken),
-      parent = config.serverConfig.authServices.map(
-        _.create(
-          config.serverConfig.jwtTimestampLeeway,
-          loggerFactory,
-        )
-      ),
-    )
+    val authServices = new CantonAdminTokenAuthService(Some(config.adminToken)) +:
+      (
+        if (config.serverConfig.authServices.isEmpty)
+          List(AuthServiceWildcard)
+        else
+          config.serverConfig.authServices.map(
+            _.create(
+              config.serverConfig.jwtTimestampLeeway,
+              loggerFactory,
+            )
+          )
+      )
 
     val jwtVerifierLoader =
       new CachedJwtVerifierLoader(metrics = config.metrics, loggerFactory = loggerFactory)
@@ -344,7 +346,7 @@ class StartableStoppableLedgerApiServer(
         checkOverloaded = config.syncService.checkOverloaded,
         ledgerFeatures = getLedgerFeatures,
         maxDeduplicationDuration = config.maxDeduplicationDuration,
-        authService = authService,
+        authServices = authServices,
         jwtVerifierLoader = jwtVerifierLoader,
         jwtTimestampLeeway = config.serverConfig.jwtTimestampLeeway,
         tokenExpiryGracePeriodForStreams =

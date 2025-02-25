@@ -101,7 +101,7 @@ object ApiServiceOwner {
       commandExecutionContext: ExecutionContextExecutor,
       checkOverloaded: TraceContext => Option[state.SubmissionResult] =
         _ => None, // Used for Canton rate-limiting,
-      authService: AuthService,
+      authServices: Seq[AuthService],
       jwtVerifierLoader: JwtVerifierLoader,
       userManagement: UserManagementServiceConfig = ApiServiceOwner.DefaultUserManagement,
       partyManagementServiceConfig: PartyManagementServiceConfig =
@@ -205,13 +205,12 @@ object ApiServiceOwner {
         address,
         tls,
         new UserBasedAuthorizationInterceptor(
-          authService = authService,
-          Option.when(userManagement.enabled)(userManagementStore),
-          new IdentityProviderAwareAuthServiceImpl(
+          authServices = authServices :+ new IdentityProviderAwareAuthService(
             identityProviderConfigLoader = identityProviderConfigLoader,
             jwtVerifierLoader = jwtVerifierLoader,
             loggerFactory = loggerFactory,
           )(commandExecutionContext),
+          Option.when(userManagement.enabled)(userManagementStore),
           telemetry,
           loggerFactory,
           commandExecutionContext,
