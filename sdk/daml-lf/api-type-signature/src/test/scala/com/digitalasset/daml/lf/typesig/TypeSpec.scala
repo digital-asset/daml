@@ -89,6 +89,8 @@ class TypeSpec(majorLanguageVersion: LanguageMajorVersion) extends AnyWordSpec w
           case Pkg.BTBigNumeric => sys.error("cannot use big numeric in interface type")
           case Pkg.BTAnyException =>
             sys.error("exception not supported")
+          case Pkg.BTBytes =>
+            TypePrim(PrimTypeBytes, ImmArraySeq.empty)
         }
       case Pkg.TTyCon(tycon) => TypeCon(TypeConName(tycon), args.toImmArray.toSeq)
       case Pkg.TNat(_) => sys.error("cannot use nat type in interface type")

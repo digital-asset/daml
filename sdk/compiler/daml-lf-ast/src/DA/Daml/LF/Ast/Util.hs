@@ -192,7 +192,7 @@ infixr 1 :->
 pattern (:->) :: Type -> Type -> Type
 pattern a :-> b = TArrow `TApp` a `TApp` b
 
-pattern TUnit, TBool, TInt64, TText, TTimestamp, TParty, TDate, TArrow, TNumeric10, TAny, TNat10, TTypeRep, TAnyException, TRoundingMode, TBigNumeric :: Type
+pattern TUnit, TBool, TInt64, TText, TTimestamp, TParty, TDate, TArrow, TNumeric10, TAny, TNat10, TTypeRep, TAnyException, TRoundingMode, TBigNumeric, TBytes :: Type
 pattern TUnit       = TBuiltin BTUnit
 pattern TBool       = TBuiltin BTBool
 pattern TInt64      = TBuiltin BTInt64
@@ -208,6 +208,7 @@ pattern TTypeRep    = TBuiltin BTTypeRep
 pattern TRoundingMode = TBuiltin BTRoundingMode
 pattern TBigNumeric  = TBuiltin BTBigNumeric
 pattern TAnyException = TBuiltin BTAnyException
+pattern TBytes = TBuiltin BTBytes
 
 pattern TList, TOptional, TTextMap, TUpdate, TContractId, TNumeric :: Type -> Type
 pattern TList typ = TApp (TBuiltin BTList) typ

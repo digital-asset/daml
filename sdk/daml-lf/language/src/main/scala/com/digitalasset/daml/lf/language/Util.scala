@@ -97,6 +97,8 @@ object Util {
 
   val TAnyException = TBuiltin(BTAnyException)
 
+  val TBytes = TBuiltin(BTBytes)
+
   val EUnit = EBuiltinCon(BCUnit)
   val ETrue = EBuiltinCon(BCTrue)
   val EFalse = EBuiltinCon(BCFalse)

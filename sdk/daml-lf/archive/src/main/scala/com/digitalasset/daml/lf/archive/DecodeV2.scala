@@ -1531,6 +1531,7 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = LV.Features.bigNumeric),
       BuiltinTypeInfo(ROUNDING_MODE, BTRoundingMode, minVersion = LV.Features.bigNumeric),
       BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException, minVersion = LV.Features.exceptions),
+      BuiltinTypeInfo(BYTES, BTBytes, minVersion = LV.Features.cctp),
     )
   }
 

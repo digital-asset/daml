@@ -367,6 +367,8 @@ object ValueCoder {
             builder.setDate(d.days).build()
           case ValueTimestamp(t) =>
             builder.setTimestamp(t.micros).build()
+          case ValueBytes(bs) =>
+            builder.setTextBytes(bs.toByteString).build()
           case ValueContractId(coid) =>
             builder.setContractId(coid.toBytes.toByteString).build()
           case ValueList(elems) =>

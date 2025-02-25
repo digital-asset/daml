@@ -105,6 +105,7 @@ object LanguageVersion {
 
     val contractKeys = v2_dev
 
+    /** CCTP */
     val cctp = v2_dev
 
     /** Unstable, experimental features. This should stay in x.dev forever.

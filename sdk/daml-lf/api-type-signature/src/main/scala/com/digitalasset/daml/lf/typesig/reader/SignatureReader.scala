@@ -303,6 +303,7 @@ object SignatureReader {
         case Ast.BTDate => \/-((0, PrimType.Date))
         case Ast.BTTimestamp => \/-((0, PrimType.Timestamp))
         case Ast.BTParty => \/-((0, PrimType.Party))
+        case Ast.BTBytes => \/-((0, PrimType.Bytes))
         case Ast.BTContractId => \/-((1, PrimType.ContractId))
         case Ast.BTList => \/-((1, PrimType.List))
         case Ast.BTOptional => \/-((1, PrimType.Optional))

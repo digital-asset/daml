@@ -136,6 +136,12 @@ object Value {
     def apply(value: Boolean): ValueBool =
       if (value) ValueTrue else ValueFalse
   }
+  final case class ValueBytes(bytes: Bytes) extends ValueCidlessLeaf
+  object ValueBytes {
+    def apply(value: String): ValueBytes = {
+      ValueBytes(Bytes.assertFromString(value))
+    }
+  }
   case object ValueUnit extends ValueCidlessLeaf
 
   final case class ValueOptional(value: Option[Value]) extends Value

@@ -542,6 +542,7 @@ private[lf] object Pretty {
           case _ => Doc.empty
         }) + text(constructor)
       case ValueText(t) => char('"') + text(t) + char('"')
+      case ValueBytes(bytes) => char('"') + text(bytes.toHexString) + char('"')
       case ValueContractId(acoid) => text(acoid.coid)
       case ValueUnit => text("<unit>")
       case ValueBool(b) => str(b)
