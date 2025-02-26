@@ -34,14 +34,15 @@ load("//:daml_finance_dep.bzl", "quickstart")
 rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
 rules_scala_sha256 = "6899cddf7407d09266dddcf6faf9f2a8b414de5e2b35ef8b294418f559172f28"
 
-rules_haskell_version = "15aba7bee8823264fb6a7e7a053b37e806d2cb5c"  # 0.16
-rules_haskell_sha256 = "a4b5e11738a78cf177a65b0938b12b10f15746818a8afdfa9351d9b47fe7409b"
+rules_haskell_version = "a361943682c2f312de4afff0e4438259bfd8119c"  # 1.0
+rules_haskell_sha256 = "f2b04c7dd03f8adacc44f44e6232cd086c02395a03236228d8f09335a931ab9c"
 rules_haskell_patches = [
     # This is a daml specific patch and not upstreamable.
     "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
+    # TODO This must have been upstream
     # This should be made configurable in rules_haskell.
     # Remove this patch once that's available.
-    "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
+    # "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
 ]
 rules_nixpkgs_version = "ff70910af286a19dbcc109fe36f2e3cb59da78ff"  # 0.10.0
 rules_nixpkgs_sha256 = "c269fa7f70069180e31aa5982313f5a26838db2a6e5f2e9ecbd5941c8c6ceed0"
@@ -62,16 +63,20 @@ buildifier_sha256 = "c2399161fa569f7c815f8e27634035557a2e07a557996df579412ac73bf
 
 zlib_version = "1.2.11"
 zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
-rules_nodejs_version = "4.6.1"
-rules_nodejs_sha256 = "d63ecec7192394f5cc4ad95a115f8a6c9de55c60d56c1f08da79c306355e4654"
+rules_nodejs_version = "5.8.5"
+rules_nodejs_sha256 = "a1295b168f183218bc88117cf00674bcd102498f294086ff58318f830dd9d9d1"
 rules_jvm_external_version = "4.4.2"
 rules_jvm_external_sha256 = "735602f50813eb2ea93ca3f5e43b1959bd80b213b836a07a62a29d757670b77b"
 rules_go_version = "0.40.0"
 rules_go_sha256 = "bfc5ce70b9d1634ae54f4e7b495657a18a04e0d596785f672d35d5f505ab491a"
-bazel_gazelle_version = "67a3e22af6547f43bb9b8e4dd0bad5f354ad4e60"
-bazel_gazelle_sha256 = "c71b12d890d1e299e012bfa6f08dc3d9e57281a0955dc28a1e9c16769d556203"
+bazel_gazelle_version = "0.42.0"
+bazel_gazelle_sha256 = "5d80e62a70314f39cc764c1c3eaa800c5936c9f1ea91625006227ce4d20cd086"
 rules_bazel_common_version = "9e3880428c1837db9fb13335ed390b7e33e346a7"
 rules_bazel_common_sha256 = "5290e0c8e0b7639f20b70f8d0046b50ad340cb55a4733545f6ec8f43af8727fe"
+go_googleapis_version = "83c3605afb5a39952bf0a0809875d41cf2a558ca"
+go_googleapis_sha256 = "ba694861340e792fd31cb77274eacaf6e4ca8bda97707898f41d8bebfd8a4984"
+rules_pkg_version = "1.0.1"
+rules_pkg_sha256 = "d20c951960ed77cb7b341c2a59488534e494d5ad1d30c4818c736d57772a9fef"
 
 # Recent davl.
 davl_version = "f2d7480d118f32626533d6a150a8ee7552cc0222"  # 2020-03-23, "Deploy upgrade to SDK 0.13.56-snapshot.20200318",https://github.com/digital-asset/davl/pull/233/commits.
@@ -174,13 +179,14 @@ def daml_deps():
         # This import of go_googleapis is taken from rules_go and extended with the status.proto patch.
         http_archive(
             name = "go_googleapis",
+            # We must use the same version as rules_go
             # master, as of 2022-12-05
             urls = [
-                "https://mirror.bazel.build/github.com/googleapis/googleapis/archive/83c3605afb5a39952bf0a0809875d41cf2a558ca.zip",
-                "https://github.com/googleapis/googleapis/archive/83c3605afb5a39952bf0a0809875d41cf2a558ca.zip",
+                "https://mirror.bazel.build/github.com/googleapis/googleapis/archive/{}.zip".format(go_googleapis_version),
+                "https://github.com/googleapis/googleapis/archive/{}.zip".format(go_googleapis_version),
             ],
-            sha256 = "ba694861340e792fd31cb77274eacaf6e4ca8bda97707898f41d8bebfd8a4984",
-            strip_prefix = "googleapis-83c3605afb5a39952bf0a0809875d41cf2a558ca",
+            sha256 = go_googleapis_sha256,
+            strip_prefix = "googleapis-{}".format(go_googleapis_version),
             patches = [
                 # releaser:patch-cmd find . -name BUILD.bazel -delete
                 "@io_bazel_rules_go//third_party:go_googleapis-deletebuild.patch",
@@ -228,9 +234,8 @@ def daml_deps():
         http_archive(
             name = "bazel_gazelle",
             urls = [
-                "https://github.com/bazelbuild/bazel-gazelle/archive/{version}/bazel-gazelle-{version}.tar.gz".format(version = bazel_gazelle_version),
+                "https://github.com/bazel-contrib/bazel-gazelle/releases/download/v{}/bazel-gazelle-v{}.tar.gz".format(bazel_gazelle_version, bazel_gazelle_version),
             ],
-            strip_prefix = "bazel-gazelle-{version}".format(version = bazel_gazelle_version),
             sha256 = bazel_gazelle_sha256,
         )
 
@@ -252,10 +257,12 @@ def daml_deps():
             urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/{}/rules_nodejs-{}.tar.gz".format(rules_nodejs_version, rules_nodejs_version)],
             sha256 = rules_nodejs_sha256,
             patches = [
-                # Work around for https://github.com/bazelbuild/rules_nodejs/issues/1565
-                "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_npm_cli_path.patch",
-                "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_node_dependency.patch",
+                "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_hotfix.patch",
             ],
+            # # TODO Those must be backported? or can we jump directly to rules_js?
+            #  # Work around for https://github.com/bazelbuild/rules_nodejs/issues/1565
+            #  "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_npm_cli_path.patch",
+            # #     "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_node_dependency.patch",
             patch_args = ["-p1"],
         )
 
@@ -350,10 +357,10 @@ def daml_deps():
         http_archive(
             name = "rules_pkg",
             urls = [
-                "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.5.1/rules_pkg-0.5.1.tar.gz",
-                "https://github.com/bazelbuild/rules_pkg/releases/download/0.5.1/rules_pkg-0.5.1.tar.gz",
+                "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/{}/rules_pkg-{}.tar.gz".format(rules_pkg_version, rules_pkg_version),
+                "https://github.com/bazelbuild/rules_pkg/releases/download/{}/rules_pkg-{}.tar.gz".format(rules_pkg_version, rules_pkg_version),
             ],
-            sha256 = "a89e203d3cf264e564fcb96b6e06dd70bc0557356eb48400ce4b5d97c2c3720d",
+            sha256 = rules_pkg_sha256,
         )
 
     if "com_github_grpc_ecosystem_grpc_health_probe_binary" not in native.existing_rules():

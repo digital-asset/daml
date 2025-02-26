@@ -27,9 +27,7 @@ main = withSdkVersions $ do
     defaultMain (tests damlc)
 
 tests :: SdkVersioned => FilePath -> TestTree
-tests damlc = testGroup "damlc" $ map (\f -> f damlc)
-  [ testsForDamlcLint
-  ]
+tests damlc = testGroup "damlc" [(\ f -> f damlc) testsForDamlcLint]
 
 testsForDamlcLint :: SdkVersioned => FilePath -> TestTree
 testsForDamlcLint damlc = testGroup "damlc test"

@@ -24,6 +24,8 @@ GHCIDE_LOCAL_PATH = None
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"
+PROTO3SUITE_REV = "0.5.1"
+PROTO3SUITE_SHA256 = "6e6d514867e8efe90fe6a7e5167b86260da00fdb7ef335af694295a1adde57f4"
 SHAKE_VERSION = "0.19.6"
 ZIP_VERSION = "1.7.1"
 GRPC_HASKELL_REV = "4b3b04d0ac9d1db53033fb4f0b6864f25b6e945d"
@@ -97,7 +99,7 @@ haskell_library(
         "@stackage//:tasty-hunit",
         "@stackage//:text",
     ],
-    compiler_flags = [
+    ghcopts = [
        "-XBangPatterns",
        "-XDeriveFunctor",
        "-XDeriveGeneric",
@@ -217,7 +219,7 @@ haskell_library(
         build_file_content = """
 load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
-deps = [p for p in packages["proto3-suite"].deps if p.name != "swagger2"]
+deps = [p for p in packages["proto3-suite"].deps if p != "swagger2"]
 haskell_cabal_library(
     name = "proto3-suite",
     version = packages["proto3-suite"].version,
@@ -235,14 +237,14 @@ load("@rules_haskell//haskell:defs.bzl", "haskell_binary")
 haskell_binary(
     name = "compile-proto-file",
     srcs = ["tools/compile-proto-file/Main.hs"],
-    compiler_flags = ["-w", "-optF=-w"],
+    ghcopts = ["-w", "-optF=-w"],
     deps = [":proto3-suite"] + deps,
     visibility = ["//visibility:public"],
 )
 """,
-        sha256 = "6e6d514867e8efe90fe6a7e5167b86260da00fdb7ef335af694295a1adde57f4",
-        strip_prefix = "proto3-suite-0.5.1",
-        urls = ["https://github.com/awakesecurity/proto3-suite/archive/refs/tags/v0.5.1.tar.gz"],
+        sha256 = PROTO3SUITE_SHA256,
+        strip_prefix = "proto3-suite-{}".format(PROTO3SUITE_REV),
+        urls = ["https://github.com/awakesecurity/proto3-suite/archive/refs/tags/v{}.tar.gz".format(PROTO3SUITE_REV)],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell_proto3_suite_deriving_defaults.patch",
             "@com_github_digital_asset_daml//bazel_tools:haskell_proto3_support_reserved_enums.patch",
