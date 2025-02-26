@@ -37,7 +37,7 @@ main = withSdkVersions $ do
 
 tests :: SdkVersioned => FilePath -> FilePath -> TestTree
 tests damlc dar =
-    testGroup "damlc package manager" $ map (\f -> f damlc dar) [testsForRemoteDataDependencies]
+    testGroup "damlc package manager" [(\f -> f damlc dar) testsForRemoteDataDependencies]
 
 lfVersion :: LF.Version
 lfVersion = LF.defaultOrLatestStable LF.V2

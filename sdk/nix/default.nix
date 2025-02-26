@@ -47,7 +47,7 @@ in rec {
     m4              = pkgs.m4;
 
     thrift          = pkgs.thrift;
-    protoc          = bazel_dependencies.protobuf3_19;
+    protoc          = bazel_dependencies.protobuf3_20;
 
     # Haskell development
     ghc             = bazel_dependencies.ghc;
@@ -100,8 +100,6 @@ in rec {
     # Nix development
     cabal2nix = pkgs.cabal2nix;
 
-    pypi2nix  = pkgs.pypi2nix;
-
     # Web development
     node        = bazel_dependencies.nodejs;
     npm         = bazel_dependencies.nodejs;
@@ -115,14 +113,12 @@ in rec {
       };
     });
 
-    node2nix  = pkgs.nodePackages.node2nix;
-
     # Python development
-    pip3        = pkgs.python38Packages.pip;
-    python      = pkgs.python38Packages.python;
+    pip3        = pkgs.python39Packages.pip;
+    python      = pkgs.python39Packages.python;
     python3     = python;
 
-    yapf = pkgs.python38Packages.yapf;
+    yapf = pkgs.python39Packages.yapf;
 
     pipenv = pkgs.pipenv;
 
@@ -151,8 +147,10 @@ in rec {
     '' + pkgs.lib.optionalString (pkgs.buildPlatform.libc == "glibc") ''
       export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive"
     '' + ''
-      exec ${pkgs.bazel_5}/bin/bazel --bazelrc "${bazelrc}" "$@"
+      exec ${pkgs.bazel_6}/bin/bazel --bazelrc "${bazelrc}" "$@"
     '');
+
+    bazelisk = pkgs.bazelisk;
 
     # System tools
     shellcheck = pkgs.shellcheck;

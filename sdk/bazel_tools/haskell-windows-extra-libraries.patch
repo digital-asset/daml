@@ -1,11 +1,11 @@
 diff --git a/haskell/private/actions/package.bzl b/haskell/private/actions/package.bzl
-index fddf30fd..564da872 100644
+index ef1d06f9..c6f40536 100644
 --- a/haskell/private/actions/package.bzl
 +++ b/haskell/private/actions/package.bzl
-@@ -105,7 +105,13 @@ def package(
+@@ -101,7 +101,13 @@ def package(
+         "import-dirs": [import_dir],
          "library-dirs": [pkgroot_lib_path] + extra_lib_dirs,
          "dynamic-library-dirs": [pkgroot_lib_path] + extra_dynamic_lib_dirs,
-         "hs-libraries": [pkg_id.library_name(hs, my_pkg_id)] if has_hs_library else [],
 -        "extra-libraries": extra_libs,
 +        "extra-libraries": extra_libs + ([
 +            "stdc++",
