@@ -1,0 +1,21 @@
+GHC 8.10 enables -Wderiving-defaults as part of -Wall.
+It’s a useful warning so we want to keep it. However,
+proto3-suite generates code that triggers this warning.
+Now ideally, we would just switch proto3-suite over to
+DerivingStrategies but unfortunately haskell-src, the library
+used to generate the Haskell source, does not support that.
+So instead, we disable the warning on a per file basis.
+The warning only exists in GHC >= 8.10 so we cannot
+upstream this atm.
+diff --git a/src/Proto3/Suite/DotProto/Generate.hs b/src/Proto3/Suite/DotProto/Generate.hs
+index a751775..f39ff36 100644
+--- a/src/Proto3/Suite/DotProto/Generate.hs
++++ b/src/Proto3/Suite/DotProto/Generate.hs
+@@ -217,6 +217,7 @@ renderHsModuleForDotProto stringType recordStyle extraInstanceFiles dotProto imp
+                   , "-fno-warn-name-shadowing"
+                   , "-fno-warn-unused-matches"
+                   , "-fno-warn-missing-export-lists"
++                  , "-Wno-deriving-defaults"
+                   ] ++
+                   case recordStyle of
+                     RegularRecords -> []

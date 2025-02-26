@@ -69,7 +69,7 @@ def _wrap_rule(rule, common_flags, name = "", deps = [], hackage_deps = [], comp
     stackage_libs = ["@stackage//:{}".format(dep) for dep in hackage_deps]
     rule(
         name = name,
-        compiler_flags = ext_flags + common_flags + compiler_flags,
+        ghcopts = ext_flags + common_flags + compiler_flags,
         deps = stackage_libs + deps,
         **kwargs
     )
