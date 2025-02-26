@@ -32,15 +32,15 @@
     "lint": "eslint --ext .ts --ignore-pattern lib/ --max-warnings 0 ./"
   },
   "devDependencies": {
-    "@types/jest": "^26.0.23",
+    "@types/jest": "^27.0",
     "@types/lodash": "4.14.161",
     "@types/ws": "^7.2.1",
     "@typescript-eslint/eslint-plugin": "^2.16.0",
     "@typescript-eslint/parser": "^2.16.0",
     "eslint": "^6.8.0",
-    "jest": "^27.0.5",
+    "jest": "^27.0",
     "jest-mock-console": "^1.0.0",
-    "ts-jest": "^27.0.3",
-    "typescript": "~3.8.3"
+    "ts-jest": "^27.0",
+    "typescript": "~5.8"
   }
 }

@@ -403,6 +403,10 @@ common_ghc_flags = [
 haskell_register_ghc_nixpkgs(
     attribute_path = "ghcDwarf" if enable_ghc_dwarf else "ghc",
     build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
+    compiler_flags_select = {
+        "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
+        "//conditions:default": [],
+    },
 
     # -fexternal-dynamic-refs is required so that we produce position-independent
     # relocations against some functions (-fPIC alone isn’t sufficient).
@@ -412,7 +416,7 @@ haskell_register_ghc_nixpkgs(
     # we get a similar behavior on Darwin by default.
     # However, we had to disable split-sections for now as it seems to interact very badly
     # with the GHCi linker to the point where :main takes several minutes rather than several seconds.
-    compiler_flags = common_ghc_flags + [
+    ghcopts = common_ghc_flags + [
         "-fexternal-dynamic-refs",
     ] + (["-g3"] if enable_ghc_dwarf else ([
         "-optl-unexported_symbols_list=*",
@@ -424,10 +428,6 @@ haskell_register_ghc_nixpkgs(
         "-framework=Security",
         "-framework=Foundation",
     ] if is_darwin else ["-optl-s"])),
-    compiler_flags_select = {
-        "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
-        "//conditions:default": [],
-    },
     locale_archive = "@glibc_locales//:locale-archive",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
@@ -602,7 +602,7 @@ nixpkgs_go_configure(
 
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains")
 
-go_register_toolchains(version = "1.16.9") if is_windows else None
+go_register_toolchains()
 
 # gazelle:repo bazel_gazelle
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
@@ -708,17 +708,14 @@ dev_env_tool(
 )
 
 # Setup the Node.js toolchain
+load("@build_bazel_rules_nodejs//:repositories.bzl", "build_bazel_rules_nodejs_dependencies")
+
+build_bazel_rules_nodejs_dependencies()
+
 load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories", "yarn_install")
 
 node_repositories(
-    # Using `dev_env_tool` introduces an additional layer of symlink
-    # indirection. Bazel doesn't track dependencies through symbolic links.
-    # Occasionally, this can cause build failures on CI if a build is not
-    # invalidated despite a change of an original source. To avoid such issues
-    # we use the `nixpkgs_package` directly.
-    node_version = "16.13.0",
-    package_json = ["//:package.json"],
-    vendored_node = "@nodejs_dev_env" if is_windows else "@node_nix",
+    node_version = "18.12.1",
 )
 
 # TODO use fine-grained managed dependency

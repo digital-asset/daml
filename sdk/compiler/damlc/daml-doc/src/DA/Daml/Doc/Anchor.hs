@@ -71,9 +71,9 @@ anchor k m n v = Anchor $ T.intercalate "-" [k, convertModulename m, expandOps n
       ':' -> "colon"
       ',' -> "comma"
       '$' -> "dollar"
-      c | '0' <= c && c <= '9' -> [c]
-      c | 'a' <= c && c <= 'z' -> [c]
-      c | 'A' <= c && c <= 'Z' -> [C.toLower c]
+      c | C.isDigit c -> [c]
+      c | C.isAsciiLower c -> [c]
+      c | C.isAsciiUpper c -> [C.toLower c]
       _ -> ""
 
 hashText :: Hashable v => v -> T.Text
