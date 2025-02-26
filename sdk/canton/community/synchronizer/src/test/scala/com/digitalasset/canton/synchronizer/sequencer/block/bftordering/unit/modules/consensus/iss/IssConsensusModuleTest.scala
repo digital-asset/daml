@@ -9,6 +9,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.{
@@ -116,6 +117,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
   private val clock = new SimClock(loggerFactory = loggerFactory)
 
   private implicit val metricsContext: MetricsContext = MetricsContext.Empty
+  private implicit val config: BftBlockOrderer.Config = BftBlockOrderer.Config()
 
   private val blockOrder4Nodes =
     Iterator.continually(allPeers).flatten.take(DefaultEpochLength.toInt).toSeq

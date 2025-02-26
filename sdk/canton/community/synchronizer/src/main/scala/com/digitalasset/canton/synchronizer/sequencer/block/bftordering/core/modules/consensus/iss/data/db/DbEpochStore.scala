@@ -465,6 +465,49 @@ class DbEpochStore(
           }
         }
     }
+
+  override def loadNumberOfRecords(implicit
+      traceContext: TraceContext
+  ): PekkoFutureUnlessShutdown[EpochStore.NumberOfRecords] =
+    createFuture(loadNumberOfRecordsName) {
+      storage.query(
+        (for {
+          numberOfEpochs <- sql"""select count(*) from ord_epochs""".as[Long].head
+          numberOfMsgsCompleted <- sql"""select count(*) from ord_pbft_messages_completed"""
+            .as[Long]
+            .head
+          numberOfMsgsInProgress <- sql"""select count(*) from ord_pbft_messages_in_progress"""
+            .as[Int]
+            .head
+        } yield EpochStore
+          .NumberOfRecords(numberOfEpochs, numberOfMsgsCompleted, numberOfMsgsInProgress)),
+        functionFullName,
+      )
+    }
+
+  override def prune(epochNumberInclusive: EpochNumber)(implicit
+      traceContext: TraceContext
+  ): PekkoFutureUnlessShutdown[EpochStore.NumberOfRecords] =
+    createFuture(pruneName(epochNumberInclusive)) {
+      for {
+        epochsDeleted <- storage.update(
+          sqlu""" delete from ord_epochs where epoch_number <= $epochNumberInclusive """,
+          functionFullName,
+        )
+        pbftMessagesCompletedDeleted <- storage.update(
+          sqlu""" delete from ord_pbft_messages_completed where epoch_number <= $epochNumberInclusive """,
+          functionFullName,
+        )
+        pbftMessagesInProgressDeleted <- storage.update(
+          sqlu""" delete from ord_pbft_messages_in_progress where epoch_number <= $epochNumberInclusive """,
+          functionFullName,
+        )
+      } yield EpochStore.NumberOfRecords(
+        epochsDeleted.toLong,
+        pbftMessagesCompletedDeleted.toLong,
+        pbftMessagesInProgressDeleted,
+      )
+    }
 }
 
 object DbEpochStore {

@@ -87,12 +87,10 @@ object CloseContext {
     })
     flagCloseable.runOnShutdown_(new RunOnShutdown {
       override def name: String = "cancel-close-propagation-of-combined-context"
-      override def done: Boolean =
-        !closeContext1.context.containsShutdownTask(cancelToken1) &&
-          !closeContext2.context.containsShutdownTask(cancelToken2)
+      override def done: Boolean = !cancelToken1.isScheduled && !cancelToken2.isScheduled
       override def run(): Unit = {
-        closeContext1.context.cancelShutdownTask(cancelToken1)
-        closeContext2.context.cancelShutdownTask(cancelToken2)
+        cancelToken1.cancel()
+        cancelToken2.cancel()
       }
     })
     CloseContext(flagCloseable)

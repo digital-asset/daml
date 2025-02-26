@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mo
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
@@ -223,6 +224,7 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
     implicit val context: ContextType = new ProgrammableUnitTestContext
 
     implicit val metricsContext: MetricsContext = MetricsContext.Empty
+    implicit val config: BftBlockOrderer.Config = BftBlockOrderer.Config()
 
     val dependencies = ConsensusModuleDependencies[ProgrammableUnitTestEnv](
       availabilityModuleRef,

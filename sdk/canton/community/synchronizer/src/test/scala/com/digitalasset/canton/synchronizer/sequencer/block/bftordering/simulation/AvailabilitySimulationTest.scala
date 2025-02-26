@@ -304,6 +304,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
     val membership = Membership(selfPeer, peerSequencerIds.toSet)
     val availabilityStore = store(simulationModel.availabilityStorage)
     val availabilityConfig = AvailabilityModuleConfig(
+      config.maxRequestsInBatch,
       config.maxBatchesPerBlockProposal,
       config.outputFetchTimeout,
     )

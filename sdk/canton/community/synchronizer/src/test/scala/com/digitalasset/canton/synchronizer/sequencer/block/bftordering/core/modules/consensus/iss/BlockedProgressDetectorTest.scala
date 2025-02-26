@@ -9,6 +9,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.{
   Epoch,
   Segment,
@@ -108,7 +109,9 @@ class BlockedProgressDetectorTest extends AnyWordSpec with BftSequencerBaseTest 
   private def createSegmentState(
       segment: Segment,
       completedBlocks: Seq[Block] = Seq.empty,
-  ) =
+  ) = {
+    implicit val metricsContext: MetricsContext = MetricsContext.Empty
+    implicit val config: BftBlockOrderer.Config = BftBlockOrderer.Config()
     new SegmentState(
       segment,
       epoch,
@@ -117,7 +120,8 @@ class BlockedProgressDetectorTest extends AnyWordSpec with BftSequencerBaseTest 
       abort = fail(_),
       SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,
       loggerFactory,
-    )(MetricsContext.Empty)
+    )
+  }
 }
 
 object BlockedProgressDetectorTest {

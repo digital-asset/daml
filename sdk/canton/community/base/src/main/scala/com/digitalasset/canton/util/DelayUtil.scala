@@ -95,7 +95,7 @@ object DelayUtil extends NamedLogging {
       promise.trySuccess(UnlessShutdown.Outcome(())).discard
       // No need to complete the promise on shutdown with an AbortedDueToShutdown since we succeeded, and also
       // keeps the list of shutdown tasks from growing indefinitely with each retry
-      onShutdownRunner.cancelShutdownTask(cancelToken)
+      cancelToken.cancel()
     }
 
     // TODO(i4245): Use Clock instead

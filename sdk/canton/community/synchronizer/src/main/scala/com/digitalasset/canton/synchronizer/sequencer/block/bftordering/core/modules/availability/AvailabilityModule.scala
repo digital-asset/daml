@@ -279,14 +279,17 @@ final class AvailabilityModule[E <: Env[E]](
     disseminationMessage match {
       case Availability.RemoteDissemination.RemoteBatch(batchId, batch, from) =>
         logger.debug(s"$messageType: received request from $from to store batch $batchId")
-        if (!validateBatch(batchId, batch, from)) return
-        pipeToSelf(availabilityStore.addBatch(batchId, batch)) {
-          case Failure(exception) =>
-            abort(s"Failed to add batch $batchId", exception)
+        validateBatch(batchId, batch, from).fold(
+          error => logger.warn(error),
+          _ =>
+            pipeToSelf(availabilityStore.addBatch(batchId, batch)) {
+              case Failure(exception) =>
+                abort(s"Failed to add batch $batchId", exception)
 
-          case Success(_) =>
-            Availability.LocalDissemination.RemoteBatchStored(batchId, from)
-        }
+              case Success(_) =>
+                Availability.LocalDissemination.RemoteBatchStored(batchId, from)
+            },
+        )
       case Availability.RemoteDissemination.RemoteBatchAcknowledged(batchId, from, signature) =>
         pipeToSelf(
           activeCryptoProvider
@@ -494,20 +497,22 @@ final class AvailabilityModule[E <: Env[E]](
           .discard
 
       case Availability.RemoteOutputFetch.RemoteBatchDataFetched(from, batchId, batch) =>
-        if (!validateBatch(batchId, batch, from)) return
-        outputFetchProtocolState.localOutputMissingBatches.get(batchId) match {
-          case Some(_) =>
-            logger.debug(s"$messageType: received $batchId, persisting it")
-            // The batch is currently trusted, but it will be verified once cryptography is in place
-            pipeToSelf(availabilityStore.addBatch(batchId, batch)) {
-              case Failure(exception) =>
-                abort(s"Failed to add batch $batchId", exception)
-              case Success(_) =>
-                Availability.LocalOutputFetch.FetchedBatchStored(batchId)
-            }
-          case None =>
-            logger.debug(s"$messageType: received $batchId but nobody needs it, ignoring")
-        }
+        validateBatch(batchId, batch, from).fold(
+          error => logger.warn(error),
+          _ =>
+            outputFetchProtocolState.localOutputMissingBatches.get(batchId) match {
+              case Some(_) =>
+                logger.debug(s"$messageType: received $batchId, persisting it")
+                pipeToSelf(availabilityStore.addBatch(batchId, batch)) {
+                  case Failure(exception) =>
+                    abort(s"Failed to add batch $batchId", exception)
+                  case Success(_) =>
+                    Availability.LocalOutputFetch.FetchedBatchStored(batchId)
+                }
+              case None =>
+                logger.debug(s"$messageType: received $batchId but nobody needs it, ignoring")
+            },
+        )
     }
   }
 
@@ -918,14 +923,25 @@ final class AvailabilityModule[E <: Env[E]](
       batchId: BatchId,
       batch: OrderingRequestBatch,
       from: SequencerId,
-  )(implicit traceContext: TraceContext): Boolean =
-    if (BatchId.from(batch) != batchId) {
-      logger.warn(s"BatchId doesn't match digest for remote batch from $from, skipping")
-      emitInvalidMessage(metrics, from)
-      false
-    } else {
-      true
-    }
+  ): Either[String, Unit] =
+    for {
+      _ <- Either.cond(
+        BatchId.from(batch) == batchId,
+        (), {
+          emitInvalidMessage(metrics, from)
+          s"BatchId doesn't match digest for remote batch from $from, skipping"
+        },
+      )
+
+      _ <- Either.cond(
+        batch.requests.sizeIs <= config.maxRequestsInBatch.toInt,
+        (), {
+          emitInvalidMessage(metrics, from)
+          s"Batch $batchId from $from contains more requests (${batch.requests.size}) than allowed " +
+            s"(${config.maxRequestsInBatch}), skipping"
+        },
+      )
+    } yield ()
 }
 
 object AvailabilityModule {
