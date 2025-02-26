@@ -27,6 +27,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem.PekkoEnv
 import com.digitalasset.canton.tracing.TraceContext
+import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
 
@@ -116,6 +117,21 @@ trait EpochStore[E <: Env[E]] extends AutoCloseable {
       endEpochNumberInclusive: EpochNumber,
   ): String =
     s"load complete blocks from $startEpochNumberInclusive to $endEpochNumberInclusive"
+
+  @VisibleForTesting
+  def loadNumberOfRecords(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[EpochStore.NumberOfRecords]
+  protected def loadNumberOfRecordsName: String = s"load number of records"
+
+  def prune(
+      epochNumberInclusive: EpochNumber
+  )(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[EpochStore.NumberOfRecords]
+  protected def pruneName(epochNumberInclusive: EpochNumber): String =
+    s"prune at epoch $epochNumberInclusive (inclusive)"
+
 }
 
 object EpochStore {
@@ -147,4 +163,14 @@ object EpochStore {
       case dbStorage: DbStorage =>
         new DbEpochStore(dbStorage, timeouts, loggerFactory)(ec)
     }
+
+  final case class NumberOfRecords(
+      epochs: Long,
+      pbftMessagesCompleted: Long,
+      pbftMessagesInProgress: Int,
+  )
+
+  object NumberOfRecords {
+    val empty = NumberOfRecords(0L, 0L, 0)
+  }
 }

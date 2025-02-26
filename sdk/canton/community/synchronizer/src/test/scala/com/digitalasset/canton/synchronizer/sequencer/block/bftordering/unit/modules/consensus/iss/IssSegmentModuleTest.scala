@@ -8,6 +8,7 @@ import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose, Signatu
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.EpochInProgress
@@ -1728,6 +1729,9 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
       epochInfo: EpochInfo =
         GenesisEpoch.info.next(epochLength, Genesis.GenesisTopologyActivationTime)
   ): IssSegmentModule[E] = {
+    implicit val metricsContext: MetricsContext = MetricsContext.Empty
+    implicit val config: BftBlockOrderer.Config = BftBlockOrderer.Config()
+
     val epoch = {
       val membership = Membership(selfId, otherPeers = otherPeers)
       Epoch(
@@ -1747,7 +1751,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         fail(_),
         SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,
         loggerFactory,
-      )(MetricsContext.Empty)
+      )
     }
     new IssSegmentModule[E](
       epoch,

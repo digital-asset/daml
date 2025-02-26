@@ -606,12 +606,21 @@ object BftBlockOrderer {
   val DefaultMaxBatchesPerProposal: Short = 16
   val DefaultOutputFetchTimeout: FiniteDuration = 1.second
 
+  /** @param maxRequestsInBatch
+    *   A maximum number of requests in a batch. Needs to be the same across the network for the BFT
+    *   time assumptions to hold. It is validated in runtime.
+    * @param maxBatchesPerBlockProposal
+    *   A maximum number of batches per block proposal (pre-prepare). Needs to be the same across
+    *   the network for the BFT time assumptions to hold. It is validated in runtime.
+    */
   final case class Config(
       maxRequestPayloadBytes: Int = DefaultMaxRequestPayloadBytes,
       maxMempoolQueueSize: Int = DefaultMaxMempoolQueueSize,
+      // TODO(#24184) make a dynamic sequencing parameter
       maxRequestsInBatch: Short = DefaultMaxRequestsInBatch,
       minRequestsInBatch: Short = DefaultMinRequestsInBatch,
       maxBatchCreationInterval: FiniteDuration = DefaultMaxBatchCreationInterval,
+      // TODO(#24184) make a dynamic sequencing parameter
       maxBatchesPerBlockProposal: Short = DefaultMaxBatchesPerProposal,
       outputFetchTimeout: FiniteDuration = DefaultOutputFetchTimeout,
       initialNetwork: Option[P2PNetworkConfig] = None,

@@ -314,6 +314,83 @@ trait EpochStoreTest extends AsyncWordSpec {
         }
       }
     }
+
+    "prune" should {
+      "delete epochs, messages for completed blocks and messages for in progress block" in {
+        val store = createStore()
+        val epoch0 = EpochInfo.mk(EpochNumber.First, BlockNumber.First, length = 2)
+        val epoch1 = EpochInfo.mk(1L, 1L, 1)
+        val epoch2 = EpochInfo.mk(2L, 2L, 2)
+        for {
+          numberOfRecords0 <- store.loadNumberOfRecords
+          _ = numberOfRecords0 shouldBe (EpochStore.NumberOfRecords.empty)
+
+          _ <- store.startEpoch(epoch0)
+          _ <- store.addOrderedBlock(
+            prePrepare(EpochNumber.First, BlockNumber.First),
+            commitMessages(EpochNumber.First, BlockNumber.First),
+          )
+
+          numberOfRecords1 <- store.loadNumberOfRecords
+          _ = numberOfRecords1 shouldBe (EpochStore.NumberOfRecords(
+            epochs = 1L,
+            pbftMessagesCompleted = 4L,
+            pbftMessagesInProgress = 0,
+          ))
+
+          _ <- store.startEpoch(epoch1)
+          _ <- store.addOrderedBlock(
+            prePrepare(epochNumber = 1L, blockNumber = 1L),
+            commitMessages(epochNumber = 1L, blockNumber = 1L),
+          )
+
+          numberOfRecords2 <- store.loadNumberOfRecords
+          _ = numberOfRecords2 shouldBe (EpochStore.NumberOfRecords(
+            epochs = 2L,
+            pbftMessagesCompleted = 8L,
+            pbftMessagesInProgress = 0,
+          ))
+
+          _ <- store.startEpoch(epoch2)
+          _ <- store.addPrePrepare(prePrepare(EpochNumber(2L), 3L))
+          _ <- store.addPrepares(Seq(prepare(EpochNumber(2L), 3L)))
+          _ <- store.addViewChangeMessage(viewChange(EpochNumber(2L), 3L))
+          _ <- store.addViewChangeMessage(newView(EpochNumber(2L), 3L))
+
+          numberOfRecords3 <- store.loadNumberOfRecords
+          _ = numberOfRecords3 shouldBe (EpochStore.NumberOfRecords(
+            epochs = 3L,
+            pbftMessagesCompleted = 8L,
+            pbftMessagesInProgress = 4,
+          ))
+
+          _ <- store.prune(epochNumberInclusive = EpochNumber.First)
+          numberOfRecordsAfterPrune1 <- store.loadNumberOfRecords
+          _ = numberOfRecordsAfterPrune1 shouldBe (EpochStore.NumberOfRecords(
+            epochs = 2L,
+            pbftMessagesCompleted = 4L,
+            pbftMessagesInProgress = 4,
+          ))
+
+          _ <- store.prune(epochNumberInclusive = EpochNumber(1L))
+          numberOfRecordsAfterPrune2 <- store.loadNumberOfRecords
+          _ = numberOfRecordsAfterPrune2 shouldBe (EpochStore.NumberOfRecords(
+            epochs = 1L,
+            pbftMessagesCompleted = 0L,
+            pbftMessagesInProgress = 4,
+          ))
+
+          _ <- store.prune(epochNumberInclusive = EpochNumber(2L))
+          numberOfRecordsAfterPrune3 <- store.loadNumberOfRecords
+          _ = numberOfRecordsAfterPrune3 shouldBe (EpochStore.NumberOfRecords(
+            epochs = 0L,
+            pbftMessagesCompleted = 0L,
+            pbftMessagesInProgress = 0,
+          ))
+
+        } yield succeed
+      }
+    }
   }
 }
 

@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 final case class AvailabilityModuleConfig(
+    maxRequestsInBatch: Short,
     maxBatchesPerProposal: Short,
     outputFetchTimeout: FiniteDuration,
     emptyBlockCreationInterval: FiniteDuration = AvailabilityModuleConfig.EmptyBlockCreationInterval,

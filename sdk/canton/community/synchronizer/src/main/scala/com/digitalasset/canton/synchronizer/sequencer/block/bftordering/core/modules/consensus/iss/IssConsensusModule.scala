@@ -10,6 +10,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders.{
@@ -101,7 +102,7 @@ final class IssConsensusModule[E <: Env[E]](
     ),
     // Only passed in tests
     private var newEpochTopology: Option[Consensus.NewEpochTopology[E]] = None,
-)(implicit mc: MetricsContext)
+)(implicit mc: MetricsContext, config: BftBlockOrderer.Config)
     extends Consensus[E]
     with HasDelayedInit[Consensus.Message[E]] {
 

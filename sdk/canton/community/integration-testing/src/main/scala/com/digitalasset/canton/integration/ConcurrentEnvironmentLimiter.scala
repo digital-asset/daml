@@ -15,7 +15,7 @@ import scala.util.control.NonFatal
   * problems if we run too many canton environments at once. To prevent this we have a global limit
   * on how many environments can be started concurrently. NOTE: The limit is per class loader,
   * therefore when running both enterprise and community integration tests, each has their own limit
-  * as sbt creates a class loader per sub-project. This defaults to 1 but can be overridden using
+  * as sbt creates a class loader per sub-project. This defaults to 3 but can be overridden using
   * the system property [[ConcurrentEnvironmentLimiter.IntegrationTestConcurrencyLimit]].
   * Integration test setups should create their environments within
   * [[ConcurrentEnvironmentLimiter.create]] and destroy them within

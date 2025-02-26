@@ -104,7 +104,7 @@ class OnShutdownRunnerTest extends AnyWordSpec with Matchers with NoTracing with
         override def run() =
           shutdownTasks = shutdownTasks :+ "third"
       })
-      closeable.cancelShutdownTask(token)
+      token.cancel()
 
       closeable.close()
 

@@ -83,6 +83,8 @@ object BftOrderingModuleSystemInitializer {
   )(implicit
       mc: MetricsContext
   ): SystemInitializer[E, BftOrderingServiceReceiveRequest, Mempool.Message] = {
+    implicit val c: BftBlockOrderer.Config = config
+
     val thisPeerFirstKnownAt =
       sequencerSnapshotAdditionalInfo.flatMap(_.peerActiveAt.get(bootstrapTopologyInfo.thisPeer))
     val firstBlockNumberInOnboardingEpoch = thisPeerFirstKnownAt.flatMap(_.firstBlockNumberInEpoch)
@@ -148,6 +150,7 @@ object BftOrderingModuleSystemInitializer {
             },
         availability = (mempoolRef, networkOutRef, consensusRef, outputRef) => {
           val cfg = AvailabilityModuleConfig(
+            config.maxRequestsInBatch,
             config.maxBatchesPerBlockProposal,
             config.outputFetchTimeout,
           )

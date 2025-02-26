@@ -103,12 +103,12 @@ class PromiseUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExec
     "discarded promises do not leak memory" in {
 
       object RecordingOnShutdownRunner extends AutoCloseable with OnShutdownRunner {
-        var tasks = Seq.empty[(Long, RunOnShutdown)]
+        var tasks = Seq.empty[(OnShutdownRunner.RunOnShutdownHandle, RunOnShutdown)]
 
         // Intercept all the tasks and add them to tasks list
         override def runOnShutdown[T](task: RunOnShutdown)(implicit
             traceContext: TraceContext
-        ): Long = {
+        ): OnShutdownRunner.RunOnShutdownHandle = {
           val token = super.runOnShutdown(task)
           tasks = tasks :+ (token -> task)
           token
@@ -139,7 +139,7 @@ class PromiseUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExec
         override def run(): Unit = ()
       })
 
-      RecordingOnShutdownRunner.containsShutdownTask(token) shouldBe false
+      token.isScheduled shouldBe false
     }
   }
 }
