@@ -23,6 +23,7 @@ NPM=$(rlocation "$TEST_WORKSPACE/$2")
 JQ=$(rlocation "$TEST_WORKSPACE/$3")
 DAR1=$(rlocation "$TEST_WORKSPACE/$4")
 DAR2=$(rlocation "$TEST_WORKSPACE/$5")
+NODE_PATH=$(rlocation "$TEST_WORKSPACE/$(dirname $6)")
 TMP_DIR=$(mktemp -d)
 mkdir -p "$TMP_DIR/.npm"
 export npm_config_cache="$TMP_DIR/.npm"
@@ -45,6 +46,7 @@ EOF
 
 $DAMLJS "$DAR1" -o "$TMP_DIR"/daml.js
 cd "$TMP_DIR"
+export PATH=$NODE_PATH:$PATH
 $NPM install
 PACKAGELOCK1=$($JQ '.dependencies | length' < "$TMP_DIR"/package-lock.json)
 

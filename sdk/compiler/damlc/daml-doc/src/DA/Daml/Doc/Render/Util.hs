@@ -14,6 +14,7 @@ module DA.Daml.Doc.Render.Util
   , (<->)
   ) where
 
+import qualified Data.Char as Char (isAsciiUpper, isAsciiLower)
 import qualified Data.Text as T
 
 -- | Puts text between (round) parentheses
@@ -51,8 +52,8 @@ wrapOp t =
         else inParens t
   where
     isIdChar :: Char -> Bool
-    isIdChar c = ('A' <= c && c <= 'Z')
-              || ('a' <= c && c <= 'z')
+    isIdChar c = Char.isAsciiUpper c
+              || Char.isAsciiLower c
               || ('_' == c)
 
 -- | Add backslashes before each character that passes the predicate.

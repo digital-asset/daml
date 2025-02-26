@@ -42,7 +42,7 @@ main = withSdkVersions $ do
         oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "old-proj-2.1.dar")
         let lfVersionTestPairs = lfVersionTestPairsV2
         return TestArgs{..}
-    let testTrees = map tests [v2TestArgs]
+    let testTrees = [tests v2TestArgs]
     defaultMain (testGroup "Data Dependencies" testTrees)
   where
     minExceptionVersion major =
