@@ -1,0 +1,92 @@
+diff --git a/src/Proto3/Suite/DotProto/AST.hs b/src/Proto3/Suite/DotProto/AST.hs
+index 55cbd6b..90ed790 100644
+--- a/src/Proto3/Suite/DotProto/AST.hs
++++ b/src/Proto3/Suite/DotProto/AST.hs
+@@ -31,7 +31,7 @@ module Proto3.Suite.DotProto.AST
+     , RPCMethod(..)
+     , DotProtoMessagePart(..)
+     , DotProtoField(..)
+-    , DotProtoReservedField(..)
++    , DotProtoReserved(..)
+   ) where
+ 
+ import           Control.Applicative
+@@ -58,7 +58,7 @@ instance Show MessageName where
+ 
+ -- | The name of some field
+ newtype FieldName = FieldName
+-  { getFieldName :: String } 
++  { getFieldName :: String }
+   deriving (Data, Eq, Generic, IsString, Ord)
+ 
+ instance Show FieldName where
+@@ -66,14 +66,14 @@ instance Show FieldName where
+ 
+ -- | The name of the package
+ newtype PackageName = PackageName
+-  { getPackageName :: String } 
++  { getPackageName :: String }
+   deriving (Data, Eq, Generic, IsString, Ord)
+ 
+ instance Show PackageName where
+   show = show . getPackageName
+ 
+-newtype Path = Path 
+-  { components :: NE.NonEmpty String } 
++newtype Path = Path
++  { components :: NE.NonEmpty String }
+   deriving (Data, Eq, Generic, Ord, Show)
+ 
+ -- Used for testing
+@@ -91,7 +91,7 @@ data DotProtoIdentifier
+ data DotProtoImport = DotProtoImport
+   { dotProtoImportQualifier :: DotProtoImportQualifier
+   , dotProtoImportPath      :: FilePath
+-  } 
++  }
+   deriving (Data, Eq, Generic, Ord, Show)
+ 
+ instance Arbitrary DotProtoImport where
+@@ -329,7 +329,7 @@ data RPCMethod = RPCMethod
+   , rpcMethodResponseType :: DotProtoIdentifier
+   , rpcMethodResponseStreaming :: Streaming
+   , rpcMethodOptions :: [DotProtoOption]
+-  } 
++  }
+   deriving (Data, Eq, Generic, Ord, Show)
+ 
+ instance Arbitrary RPCMethod where
+@@ -346,7 +346,7 @@ data DotProtoMessagePart
+   = DotProtoMessageField DotProtoField
+   | DotProtoMessageOneOf DotProtoIdentifier [DotProtoField]
+   | DotProtoMessageDefinition DotProtoDefinition
+-  | DotProtoMessageReserved   [DotProtoReservedField]
++  | DotProtoMessageReserved   [DotProtoReserved]
+   | DotProtoMessageOption DotProtoOption
+   deriving (Data, Eq, Generic, Ord, Show)
+ 
+@@ -375,7 +375,7 @@ instance Arbitrary DotProtoMessagePart where
+         fields <- oneof [smallListOf1 arbitrary, arbitraryReservedLabels]
+         return (DotProtoMessageReserved fields)
+ 
+-      arbitraryReservedLabels :: Gen [DotProtoReservedField]
++      arbitraryReservedLabels :: Gen [DotProtoReserved]
+       arbitraryReservedLabels =
+           smallListOf1 (ReservedIdentifier <$> arbitraryIdentifierName)
+ 
+@@ -399,13 +399,13 @@ instance Arbitrary DotProtoField where
+     dotProtoFieldComment <- pure mempty
+     return (DotProtoField {..})
+ 
+-data DotProtoReservedField
++data DotProtoReserved
+   = SingleField Int
+   | FieldRange  Int Int
+   | ReservedIdentifier String
+   deriving (Data, Eq, Generic, Ord, Show)
+ 
+-instance Arbitrary DotProtoReservedField where
++instance Arbitrary DotProtoReserved where
+   arbitrary =
+     oneof [arbitrarySingleField, arbitraryFieldRange]
+       where
