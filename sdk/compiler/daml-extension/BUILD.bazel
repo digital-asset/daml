@@ -56,19 +56,21 @@ genrule(
         mkdir node_modules
         cd node_modules
         for f in $(locations @daml_extension_deps//:node_modules); do
-            # Because Bazel paths are weird, we need to remove everything
-            # before node_modules. We also need to extract the path separately
-            # from the filename because we need to create the path (mkdir -p)
-            # before we can write the file
-            file=$$(basename $$f)
-            dir=$$(dirname $$f | sed 's:^.*/node_modules/::')
-            mkdir -p $$dir
-            cp ../$$f $$dir/$$file
+            # exclude @bazel and @types directories that will be copied later
+            if [[ $$f != *"@"* ]]; then
+              cp -r ../$$f ./
+            fi
         done
+        cp -r ../bazel-out/k8-opt/bin/external/daml_extension_deps/node_modules/@types ./
+        cp -r ../bazel-out/k8-opt/bin/external/daml_extension_deps/node_modules/@bazel ./
         cd ..
         # Avoid file path too long errors on Windows of the form
         #   .../tar_dev_env/usr/bin/tar: node_modules/.cache/terser-webpack-plugin/...: file name is too long (cannot be split); not dumped
-        $(execpath //bazel_tools/sh:mktgz) $@ --exclude="node_modules/.cache/*" node_modules
+
+        # cd node_modules/bazel-out/k8-opt/bin/external/daml_extension_deps
+
+        # $(execpath //bazel_tools/sh:mktgz) $@ --exclude="node_modules/.cache/*" node_modules
+        $(execpath //bazel_tools/sh:mktgz) $@ node_modules
     """,
     tools = ["//bazel_tools/sh:mktgz"],
 )
