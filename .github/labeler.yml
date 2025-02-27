@@ -1,0 +1,39 @@
+# .github/labeler.yml
+# Add 'root' label to any root file changes
+# Quotation marks are required for the leading asterisk
+root:
+- changed-files:
+  - any-glob-to-any-file: '*'
+
+# Add 'AnyChange' label to any changes within the entire repository
+AnyChange:
+- changed-files:
+  - any-glob-to-any-file: '**'
+
+# file filters
+Standard-Change:
+- changed-files:
+  - any-glob-to-any-file: '.ci/**'
+  - any-glob-to-any-file: 'release/**'
+  - any-glob-to-any-file: 'deployment/**'
+  - any-glob-to-any-file: 'scripts/ci/**'
+  - any-glob-to-any-file: '.ci/Dockerfile'
+  - any-glob-to-any-file: 'nix/**'
+  - any-glob-to-any-file: 'shell.nix'
+  - any-glob-to-any-file: 'project/**'
+  - any-glob-to-any-file: 'build.sbt'
+  - any-glob-to-any-file: 'dependencies.json'
+  
+'c:Standard-Change':
+- changed-files:
+  - any-glob-to-any-file: '.ci/**'
+  - any-glob-to-any-file: 'release/**'
+  - any-glob-to-any-file: 'deployment/**'
+  - any-glob-to-any-file: 'scripts/ci/**'
+  - any-glob-to-any-file: '.ci/Dockerfile'
+  - any-glob-to-any-file: 'nix/**'
+  - any-glob-to-any-file: 'shell.nix'
+  - any-glob-to-any-file: 'project/**'
+  - any-glob-to-any-file: 'build.sbt'
+  - any-glob-to-any-file: 'dependencies.json'
+  
