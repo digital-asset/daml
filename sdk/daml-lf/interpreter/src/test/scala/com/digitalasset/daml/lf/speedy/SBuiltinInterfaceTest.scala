@@ -143,7 +143,7 @@ class SBuiltinInterfaceUpgradeTest extends AnyFreeSpec with Matchers with Inside
   }
 
   "exercise_interface" - {
-    "should reject inconsistent view upgrades" in {
+    "should not reject inconsistent view upgrades" in {
       inside(
         evalApp(
           e"\(cid: ContractId Mod:Iface) -> exercise_interface @Mod:Iface MyChoice cid ()" (

@@ -40,14 +40,14 @@ tests damlc =
                   , warnBadInterfaceInstances = True
                   }
             , mkTest
-                "FailsWhenAnInstanceIsAddedSeparateDep"
+                "SucceedsWhenAnInstanceIsAddedSeparateDep"
                 Succeed
                 testOptions
                   { sharedDep = SharedDep
                   , warnBadInterfaceInstances = True
                   }
             , mkTest
-                "FailsWhenAnInstanceIsAddedUpgradedPackage"
+                "SucceedsWhenAnInstanceIsAddedUpgradedPackage"
                 Succeed
                 testOptions
                   { sharedDep = DependOnV1

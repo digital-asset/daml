@@ -342,17 +342,17 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
       )
     }
 
-    "Fails when an instance is added (separate dep)." in {
+    "Succeeds when an instance is added (separate dep)." in {
       testPackages(
         Seq(
-          "test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-dep.dar",
-          "test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-v1.dar",
-          "test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-v2.dar",
+          "test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar",
+          "test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v1.dar",
+          "test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v2.dar",
         ),
         Seq(
           (
-            "test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-v1.dar",
-            "test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-v2.dar",
+            "test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v1.dar",
+            "test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v2.dar",
             None,
           )
         ),
@@ -1168,13 +1168,13 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
     "Succeeds when an instance is added (upgraded package)." in {
       testPackages(
         Seq(
-          "test-common/upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
-          "test-common/upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
+          "test-common/upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
+          "test-common/upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
         ),
         Seq(
           (
-            "test-common/upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
-            "test-common/upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
+            "test-common/upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
+            "test-common/upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
             None,
           )
         ),

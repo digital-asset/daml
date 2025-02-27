@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main where
-import qualified "upgrades-example-FailsWhenAnInstanceIsAddedUpgradedPackage" Main as V1
+import qualified "upgrades-example-SucceedsWhenAnInstanceIsAddedUpgradedPackage" Main as V1
 template T with
     p: Party
   where
