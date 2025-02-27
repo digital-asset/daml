@@ -407,7 +407,7 @@ throwIfNonEmpty handleError hm =
 
 checkModuleM :: LF.UpgradedPackageId -> Upgrading LF.Module -> TcUpgradeM ()
 checkModuleM upgradedPackageId module_ = do
-    (existingTemplates, newTemplates) <- checkDeleted (EUpgradeMissingTemplate . NM.name) $ NM.toHashMap . moduleTemplates <$> module_
+    (existingTemplates, _newTemplates) <- checkDeleted (EUpgradeMissingTemplate . NM.name) $ NM.toHashMap . moduleTemplates <$> module_
     forM_ existingTemplates $ \template ->
         withContextF
             present'
@@ -504,7 +504,6 @@ checkModuleM upgradedPackageId module_ = do
             , implementation <- NM.elems (tplImplements template)
             ]
     let (instanceDel, _instanceExisting, instanceNew) = extractDelExistNew (flattenInstances <$> module_)
-    let notANewTemplate (tyCon, _) _ = not (HMS.member tyCon newTemplates)
     checkDeletedInstances (_present module_) instanceDel
 
     checkUpgradedInterfacesAreUnused upgradedPackageId (_present module_) instanceNew
