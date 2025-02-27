@@ -36,6 +36,7 @@ import com.digitalasset.canton.synchronizer.mediator.{
 }
 import com.digitalasset.canton.synchronizer.metrics.MediatorMetrics
 import com.digitalasset.canton.synchronizer.sequencer.SequencerNodeBootstrap
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
 import com.digitalasset.canton.telemetry.{ConfiguredOpenTelemetry, OpenTelemetryFactory}
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
@@ -455,7 +456,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
 
   protected def createSequencer(
       name: String,
-      sequencerConfig: Config#SequencerNodeConfigType,
+      sequencerConfig: SequencerNodeConfig,
   ): SequencerNodeBootstrap
 
   protected def createMediator(

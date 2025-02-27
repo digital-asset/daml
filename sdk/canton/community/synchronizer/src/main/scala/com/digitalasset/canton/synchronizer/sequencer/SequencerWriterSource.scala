@@ -15,7 +15,7 @@ import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.error.BaseCantonError
+import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.*
 import com.digitalasset.canton.sequencing.protocol.*
@@ -604,7 +604,7 @@ object SequenceWritesFlow {
     ): Option[Sequenced[BytesPayload]] = {
       def checkMaxSequencingTime(
           event: Presequenced[StoreEvent[BytesPayload]]
-      ): Either[BaseCantonError, Presequenced[StoreEvent[BytesPayload]]] =
+      ): Either[CantonBaseError, Presequenced[StoreEvent[BytesPayload]]] =
         event.maxSequencingTimeO
           .toLeft(event)
           .leftFlatMap { maxSequencingTime =>
@@ -658,7 +658,7 @@ object SequenceWritesFlow {
 
       def checkPayloadToEventMargin(
           presequencedEvent: Presequenced[StoreEvent[BytesPayload]]
-      ): Either[BaseCantonError, Presequenced[StoreEvent[BytesPayload]]] =
+      ): Either[CantonBaseError, Presequenced[StoreEvent[BytesPayload]]] =
         presequencedEvent match {
           // we only need to check deliver events for payloads
           // the only reason why

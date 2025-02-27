@@ -11,11 +11,10 @@ import com.digitalasset.canton.config.ConfigErrors.CantonConfigError
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.participant.config.{LocalParticipantConfig, RemoteParticipantConfig}
-import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.mediator.{MediatorNodeConfig, RemoteMediatorConfig}
 import com.digitalasset.canton.synchronizer.sequencer.config.{
-  CommunitySequencerNodeConfig,
   RemoteSequencerConfig,
+  SequencerNodeConfig,
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.typesafe.config.Config
@@ -28,7 +27,7 @@ import scala.annotation.nowarn
 
 final case class CantonCommunityConfig(
     participants: Map[InstanceName, LocalParticipantConfig] = Map.empty,
-    sequencers: Map[InstanceName, CommunitySequencerNodeConfig] = Map.empty,
+    sequencers: Map[InstanceName, SequencerNodeConfig] = Map.empty,
     mediators: Map[InstanceName, MediatorNodeConfig] = Map.empty,
     remoteParticipants: Map[InstanceName, RemoteParticipantConfig] = Map.empty,
     remoteSequencers: Map[InstanceName, RemoteSequencerConfig] = Map.empty,
@@ -39,8 +38,6 @@ final case class CantonCommunityConfig(
 ) extends CantonConfig
     with ConfigDefaults[DefaultPorts, CantonCommunityConfig]
     with CommunityOnlyCantonConfigValidation {
-
-  override type SequencerNodeConfigType = CommunitySequencerNodeConfig
 
   /** renders the config as json (used for dumping config for diagnostic purposes) */
   override def dumpString: String = CantonCommunityConfig.makeConfidentialString(this)
@@ -78,28 +75,15 @@ object CantonCommunityConfig {
   @nowarn("cat=unused")
   private implicit val cantonCommunityConfigReader: ConfigReader[CantonCommunityConfig] = {
     import ConfigReaders.*
-    import DeprecatedConfigUtils.*
-    import CantonConfig.ConfigReaders.Crypto.*
+    import ConfigReaders.Crypto.*
     import BaseCantonConfig.Readers.*
 
-    implicit val communitySequencerNodeConfigReader: ConfigReader[CommunitySequencerNodeConfig] = {
-      implicit val communityPublicServerConfigReader: ConfigReader[PublicServerConfig] =
-        deriveReader[PublicServerConfig]
-      deriveReader[CommunitySequencerNodeConfig]
-    }
     deriveReader[CantonCommunityConfig]
   }
 
   private lazy implicit val cantonCommunityConfigWriter: ConfigWriter[CantonCommunityConfig] = {
     val writers = new CantonConfig.ConfigWriters(confidential = true)
     import writers.*
-    import writers.Crypto.*
-
-    implicit val communitySequencerNodeConfigWriter: ConfigWriter[CommunitySequencerNodeConfig] = {
-      implicit val communityPublicServerConfigWriter: ConfigWriter[PublicServerConfig] =
-        deriveWriter[PublicServerConfig]
-      deriveWriter[CommunitySequencerNodeConfig]
-    }
 
     deriveWriter[CantonCommunityConfig]
   }

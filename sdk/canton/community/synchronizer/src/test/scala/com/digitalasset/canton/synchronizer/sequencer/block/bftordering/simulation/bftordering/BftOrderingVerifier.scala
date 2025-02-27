@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.bftordering
 
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.PeanoQueue
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
@@ -30,8 +31,10 @@ final class BftOrderingVerifier(
     stores: Map[SequencerId, OutputMetadataStore[SimulationEnv]],
     onboardingTimes: Map[SequencerId, TopologyActivationTime],
     simSettings: SimulationSettings,
+    override val loggerFactory: NamedLoggerFactory,
 ) extends SimulationVerifier
-    with Matchers {
+    with Matchers
+    with NamedLogging {
 
   private val currentLog = ArrayBuffer[BlockFormat.Block]()
 
@@ -75,6 +78,7 @@ final class BftOrderingVerifier(
         stores ++ newStores,
         newOnboardingTimes,
         simulationSettings,
+        loggerFactory,
       )
     newVerifier.currentLog ++= currentLog
     newVerifier.previousTimestamp = previousTimestamp
@@ -148,7 +152,9 @@ final class BftOrderingVerifier(
     }
 
   private def checkStores(): Unit = {
+    implicit val traceContext: TraceContext = TraceContext.empty
     queue.foreach { case (sequencer, block) =>
+      logger.debug(s"Simulation verifier: got block ${block.blockHeight} from sequencer $sequencer")
       val peanoQueue = peanoQueues.getOrElse(
         sequencer,
         throw new RuntimeException(s"Sequencer $sequencer not onboarded"),
@@ -156,6 +162,9 @@ final class BftOrderingVerifier(
       peanoQueue.insert(BlockNumber(block.blockHeight), block)
       val newBlocks = peanoQueue.pollAvailable()
       newBlocks.foreach { blockToInsert =>
+        logger.debug(
+          s"Simulation verifier: checking block ${blockToInsert.blockHeight} in order from sequencer $sequencer"
+        )
         checkBlockAgainstModel(blockToInsert)
       }
     }

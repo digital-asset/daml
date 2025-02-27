@@ -5,12 +5,12 @@ package com.digitalasset.canton.sequencing.traffic
 
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.error.CantonErrorGroups.TrafficControlErrorGroup
-import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
+import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError, ContextualizedCantonError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 
 object TrafficControlErrors extends TrafficControlErrorGroup {
-  sealed trait TrafficControlError extends Product with Serializable with CantonError
+  sealed trait TrafficControlError extends Product with Serializable with ContextualizedCantonError
 
   @Explanation(
     """This error indicates that the participant does not have a traffic state."""

@@ -11,8 +11,8 @@ import com.daml.metrics.api.MetricsContext.withEmptyMetricsContext
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.error.BaseCantonError
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, *}
+import com.digitalasset.canton.error.CantonBaseError
+import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.sequencing.client.SendResult.{Error, Success, Timeout}
@@ -269,7 +269,7 @@ class SendTracker(
           tsc.updateWithReceipt(
             _,
             deliverError.timestamp,
-            BaseCantonError
+            CantonBaseError
               .statusErrorCodes(deliverError.reason)
               .headOption
               .orElse(Some("unknown")),

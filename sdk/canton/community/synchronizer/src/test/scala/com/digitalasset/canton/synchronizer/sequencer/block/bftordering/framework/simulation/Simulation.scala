@@ -455,10 +455,9 @@ final case class Machine[OnboardingDataT, SystemNetworkMessageT](
     allReactors.clear()
     val system = new SimulationModuleSystem(nodeCollector, loggerFactory)
     logger.info("Initializing modules again to simulate restart")
-    val _ = init.systemInitializerFactory(onboardingDataProvider.provide(peer))(
-      system,
-      simulationP2PNetworkManager,
-    )
+    val _ = init
+      .systemInitializerFactory(onboardingDataProvider.provide(peer))
+      .initialize(system, simulationP2PNetworkManager)
   }
 }
 

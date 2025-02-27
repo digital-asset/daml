@@ -46,7 +46,7 @@ private object NetworkSimulatorState {
     ): Set[BrokenLink] = {
       val selectedSet: Set[SequencerId] = settings.partitionMode.selectSet(nodes, random)
       val otherSet = nodes.removedAll(selectedSet)
-      nodes.flatMap { peer1 =>
+      selectedSet.flatMap { peer1 =>
         otherSet.flatMap { peer2 =>
           BrokenLink(settings, peer1, peer2)
         }

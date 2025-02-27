@@ -1,0 +1,139 @@
+{{/*
+The contents of this file is the same as rst_lapi.tmpl, except the following:
+- No intro ("Ledger API Reference" header + the description)
+- No docs for scalar types
+- No replacement directives
+- No include, since this is for the actually included file (*.rst.inc)
+
+TODO (optional): find out a way to re-use the common parts of these templates instead of copy-pasting. (https://github.com/DACH-NY/docs-website/issues/66)
+
+ */ -}}
+
+{{/* ---------------------------------------------------------
+  Nested template for method details
+  */ -}}
+{{define "TMethod"}}{{$method := . -}}
+
+{{$method.Description}}
+
+* Request: :ref:`{{$method.RequestLongType}} <{{$method.RequestFullType}}>`
+* Response: :ref:`{{$method.ResponseLongType}} <{{$method.ResponseFullType}}>`
+
+{{end}}{{/* end of TMethod */ -}}
+
+{{/* ---------------------------------------------------------
+  Nested template for message details
+  */ -}}
+{{define "TMessage"}}{{$message := . -}}
+
+{{$message.Description}}
+
+{{if not $message.HasFields -}}
+Message has no fields.
+
+{{else -}}
+{{range $message.Fields}}{{$field := . -}}
+
+{{if $field.IsOneof -}}
+.. _{{$message.FullName}}.{{$field.OneofDecl}}.{{$field.Name}}:
+{{- else -}}
+.. _{{$message.FullName}}.{{$field.Name}}:
+{{- end}}
+
+``{{if $field.IsOneof -}}oneof {{$field.OneofDecl}}.{{end -}}
+{{$field.Name}}`` : :ref:`{{$field.LongType}} <{{$field.FullType}}>`
+{{- if len $field.Label}} ({{$field.Label}}){{end}}
+
+{{$field.Description}} {{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}
+
+{{end}}{{/* end of $message.Fields */ -}}
+{{end}}{{/* end of if */ -}}
+{{end}}{{/* end of TMessage */ -}}
+
+{{/* ---------------------------------------------------------
+  Nested template for enum details
+  */ -}}
+{{define "TEnum"}}{{$enum:= .}}
+
+{{$enum.Description}}
+
+.. list-table::
+   :header-rows: 0
+   :width: 100%
+
+   {{range .Values}}{{$value := . -}}
+   * - .. _{{$enum.FullName}}.{{$value.Name}}:
+
+       {{$value.Name}}
+     - {{$value.Number}}
+     - {{nobr $value.Description}}
+
+   {{end}}{{/* end of .Values loop */ -}}
+{{end}}{{/* end of TEnum */ -}}
+
+{{/* ---------------------------------------------------------
+  Main template for the Ledger API reference
+  */ -}}
+
+{{/* Loop over all the proto files */ -}}
+{{$files := .Files -}}
+{{range $files}}{{$file := . -}}
+
+----
+
+.. _{{$file.Name}}:
+
+``{{$file.Name}}``
+
+{{/*--------------------------------------
+    Loop over all the services in a proto file */ -}}
+{{range $file.Services}}{{$service := . -}}
+
+.. _{{$service.FullName}}:
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+{{$service.LongName}}, |version {{$file.Package}}|
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+{{$service.Description}}
+
+{{/*--------------------------------------
+    Loop over all the methods in a service */ -}}
+{{range $service.Methods}}{{$method := . -}}
+
+.. _{{$service.FullName}}.{{$method.Name}}:
+
+{{$method.Name}} method, |version {{$file.Package}}|
+========================================================================================================================================================================================================
+
+{{template "TMethod" $method}}
+
+{{end}}{{/* end of $service.Methods */ -}}
+{{end}}{{/* end of $file.Services */ -}}
+
+{{/*--------------------------------------
+    Loop over all the messages in a file */ -}}
+{{range $file.Messages}}{{$message := . -}}
+
+.. _{{$message.FullName}}:
+
+{{$message.LongName}} message, |version {{$file.Package}}|
+========================================================================================================================================================================================================
+
+{{template "TMessage" $message -}}
+
+{{end}}{{/* end of $file.Messages */ -}}
+
+{{/*--------------------------------------
+    Loop over all the enums in a file */}}
+{{range $file.Enums}}{{$enum := .}}
+
+.. _{{$enum.FullName}}:
+
+{{$enum.LongName}} enum, |version {{$file.Package}}|
+========================================================================================================================================================================================================
+
+{{template "TEnum" $enum}}
+
+{{end}}{{/* end of $file.Enums */ -}}
+{{end}}{{/* end of .Files */}}

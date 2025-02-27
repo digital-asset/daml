@@ -96,6 +96,17 @@ class ParticipantTopologyTerminateProcessing(
       FutureUnlessShutdown.unit
     }
 
+  /** Scheduling missing events at synchronizer initialization.
+    *
+    * This process takes care of both scheduling missing events at crash recovery, and scheduling
+    * missing events at joining a synchronizer the first time (bootstrapping).
+    *
+    * @param topologyEventPublishedOnInitialRecordTime
+    *   There could be at most one topology event per record-time, this information helps to make
+    *   precise scheduling at recovery.
+    * @param traceContextForSequencedEvent
+    *   Helper function to look up TraceContext for sequenced timestamps.
+    */
   def scheduleMissingTopologyEventsAtInitialization(
       topologyEventPublishedOnInitialRecordTime: Boolean,
       traceContextForSequencedEvent: CantonTimestamp => FutureUnlessShutdown[Option[TraceContext]],
@@ -108,21 +119,49 @@ class ParticipantTopologyTerminateProcessing(
       s"Fetching effective state changes after initial record time $initialRecordTime at synchronizer-startup for topology event recovery."
     )
     for {
-      effectiveChanges <- store.findEffectiveStateChanges(
+      trustCertificateEffectiveTime <- store
+        .findFirstTrustCertificateForParticipant(participantId)
+        .map {
+          case Some(trustCertTx) => trustCertTx.validFrom.value
+          case None =>
+            ErrorUtil.invalidState(
+              "Missing Trust Certificate topology transaction at initialization."
+            )
+        }
+      outstandingEffectiveChanges <- store.findEffectiveStateChanges(
         fromEffectiveInclusive = initialRecordTime,
         onlyAtEffective = false,
       )
-      eventsWithSequencedTimeWithoutTraceContext = effectiveChanges
-        .filter(_.sequencedTime.value <= initialRecordTime)
-        .flatMap(effectiveChange =>
+      eventFromEffectiveChangeWithInitializationTraceContext =
+        (effectiveChange: EffectiveStateChange) =>
           getNewEvents(effectiveChange)
             .map(eventInfo => eventInfo.event -> effectiveChange.sequencedTime.value)
+      eventsFromBootstrapping = outstandingEffectiveChanges.view
+        .filter(
+          // changes coming from bootstrapping (not a mistake, topology state initialization is happening for this bound - topology transaction will be emitted to new member which are sequenced after the trustCertificateEffectiveTime)
+          _.sequencedTime.value <= trustCertificateEffectiveTime
         )
+        .flatMap(eventFromEffectiveChangeWithInitializationTraceContext)
+        .toVector
+      eventsFromProcessingWithoutTraceContext = outstandingEffectiveChanges.view
+        .filter(
+          // changes coming from topology processing
+          _.sequencedTime.value > trustCertificateEffectiveTime
+        )
+        .filter(
+          // all sequenced above initialRecordTime (if any) will be re-processed
+          _.sequencedTime.value <= initialRecordTime
+        )
+        .flatMap(eventFromEffectiveChangeWithInitializationTraceContext)
+        .toVector
       _ = logger.info(
-        s"Fetching trace-contexts for ${eventsWithSequencedTimeWithoutTraceContext.size} topology-updates for topology event recovery."
+        s"Found ${eventsFromBootstrapping.size} outstanding events from synchronizer bootstrapping and ${eventsFromProcessingWithoutTraceContext.size} outstanding events from topology processing to process."
       )
-      eventsWithSequencedTime <- MonadUtil.parTraverseWithLimit(parallelism)(
-        eventsWithSequencedTimeWithoutTraceContext
+      _ = logger.info(
+        s"Fetching trace-contexts for ${eventsFromProcessingWithoutTraceContext.size} topology-updates for topology event recovery."
+      )
+      eventsFromProcessing <- MonadUtil.parTraverseWithLimit(parallelism)(
+        eventsFromProcessingWithoutTraceContext
       ) { case (event, sequencedTime) =>
         traceContextForSequencedEvent(sequencedTime).map {
           case Some(sourceEventTraceContext) =>
@@ -135,11 +174,12 @@ class ParticipantTopologyTerminateProcessing(
             event -> sequencedTime
         }
       }
+      allEvents = eventsFromBootstrapping ++ eventsFromProcessing
     } yield {
       logger.info(
-        s"Scheduling #${eventsWithSequencedTime.size} topology events at synchronizer-startup."
+        s"Scheduling ${allEvents.size} topology events at synchronizer-startup."
       )
-      eventsWithSequencedTime.foreach(
+      allEvents.foreach(
         scheduleEventAtRecovery(topologyEventPublishedOnInitialRecordTime)
       )
     }
@@ -157,13 +197,13 @@ class ParticipantTopologyTerminateProcessing(
       ) match {
         case Right(()) =>
           logger.debug(
-            s"Re-scheduled topology event publication after restart, with sequenced time: $sequencedTime, effective time: $effectiveTime"
+            s"Scheduled topology event publication at initialization, with sequenced time: $sequencedTime, effective time: $effectiveTime"
           )
 
         case Left(`initialRecordTime`) =>
           if (topologyEventPublishedOnInitialRecordTime) {
             logger.debug(
-              s"Omit re-scheduling topology event publication after restart: a topology event is already published at initial record time: $initialRecordTime. (sequenced time: $sequencedTime, effective time: $effectiveTime)"
+              s"Omit scheduling topology event publication at initialization: a topology event is already published at initial record time: $initialRecordTime. (sequenced time: $sequencedTime, effective time: $effectiveTime)"
             )
           } else {
             recordOrderPublisher.scheduleFloatingEventPublicationImmediately {
@@ -172,7 +212,7 @@ class ParticipantTopologyTerminateProcessing(
                 Some(event)
             }.discard
             logger.debug(
-              s"Re-scheduled topology event publication immediately after restart, as record time is already the effective time, and no topology event was published at this time. (sequenced time: $sequencedTime, effective time: $effectiveTime)"
+              s"Scheduled topology event publication immediately at initialization, as record time is already the effective time, and no topology event was published at this time. (sequenced time: $sequencedTime, effective time: $effectiveTime)"
             )
           }
 

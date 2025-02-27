@@ -147,7 +147,7 @@ final case class MediatorNodeConfig(
     with ConfigDefaults[DefaultPorts, MediatorNodeConfig]
     with UniformCantonConfigValidation {
 
-  override val nodeTypeName: String = "mediator"
+  override def nodeTypeName: String = "mediator"
 
   override def clientAdminApi: ClientConfig = adminApi.clientConfig
 

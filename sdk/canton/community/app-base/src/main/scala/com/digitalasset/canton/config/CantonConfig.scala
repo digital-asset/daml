@@ -63,6 +63,7 @@ import com.digitalasset.canton.pureconfigutils.SharedConfigReaders.catchConvertE
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.synchronizer.block.{SequencerDriver, SequencerDriverFactory}
+import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.mediator.{
   MediatorConfig,
   MediatorNodeConfig,
@@ -72,6 +73,10 @@ import com.digitalasset.canton.synchronizer.mediator.{
   RemoteMediatorConfig,
 }
 import com.digitalasset.canton.synchronizer.sequencer.*
+import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig.{
+  DatabaseSequencerExclusiveStorageConfig,
+  SequencerHighAvailabilityConfig,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.DriverBlockSequencerFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.P2PServerConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.{
@@ -80,7 +85,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.dri
 }
 import com.digitalasset.canton.synchronizer.sequencer.config.{
   RemoteSequencerConfig,
-  SequencerNodeConfigCommon,
+  SequencerNodeConfig,
   SequencerNodeInitConfig,
   SequencerNodeParameterConfig,
   SequencerNodeParameters,
@@ -355,8 +360,6 @@ trait CantonConfig extends CantonConfigValidation {
 
   def edition: CantonEdition
 
-  type SequencerNodeConfigType <: SequencerNodeConfigCommon
-
   def allNodes: Map[InstanceName, LocalNodeConfig] =
     (participants: Map[InstanceName, LocalNodeConfig]) ++ sequencers ++ mediators
 
@@ -372,11 +375,11 @@ trait CantonConfig extends CantonConfigValidation {
     n.unwrap -> c
   }
 
-  def sequencers: Map[InstanceName, SequencerNodeConfigType]
+  def sequencers: Map[InstanceName, SequencerNodeConfig]
 
   /** Use `sequencers` instead!
     */
-  def sequencersByString: Map[String, SequencerNodeConfigType] = sequencers.map { case (n, c) =>
+  def sequencersByString: Map[String, SequencerNodeConfig] = sequencers.map { case (n, c) =>
     n.unwrap -> c
   }
 
@@ -528,7 +531,7 @@ trait CantonConfig extends CantonConfigValidation {
     def participant(config: LocalParticipantConfig): Seq[String] =
       portDescriptionFromConfig(config)(Seq(("admin-api", _.adminApi), ("ledger-api", _.ledgerApi)))
 
-    def sequencer(config: SequencerNodeConfigCommon): Seq[String] =
+    def sequencer(config: SequencerNodeConfig): Seq[String] =
       portDescriptionFromConfig(config)(Seq(("admin-api", _.adminApi), ("public-api", _.publicApi)))
 
     def mediator(config: MediatorNodeConfig): Seq[String] =
@@ -608,7 +611,7 @@ object CantonConfig {
   import pureconfig.generic.semiauto.*
   import pureconfig.module.cats.*
 
-  implicit val communityStorageConfigTypeHint: FieldCoproductHint[StorageConfig] =
+  implicit val storageConfigTypeHint: FieldCoproductHint[StorageConfig] =
     CantonConfigUtil.lowerCaseStorageConfigType[StorageConfig]
 
   /** In the external config we use `port` for an optionally set port, while internally we store it
@@ -871,27 +874,26 @@ object CantonConfig {
     lazy implicit final val topologyConfigReader: ConfigReader[TopologyConfig] =
       deriveReader[TopologyConfig]
 
-    // NOTE: the below readers should move to community / enterprise
-    lazy implicit final val communitySequencerConfigDatabaseReader
-        : ConfigReader[CommunitySequencerConfig.Database] =
-      deriveReader[CommunitySequencerConfig.Database]
+    lazy implicit val databaseSequencerExclusiveStorageConfigReader
+        : ConfigReader[DatabaseSequencerExclusiveStorageConfig] =
+      deriveReader[DatabaseSequencerExclusiveStorageConfig]
+    lazy implicit val sequencerHighAvailabilityConfigReader
+        : ConfigReader[SequencerHighAvailabilityConfig] =
+      deriveReader[SequencerHighAvailabilityConfig]
+    lazy implicit final val sequencerConfigDatabaseReader: ConfigReader[SequencerConfig.Database] =
+      deriveReader[SequencerConfig.Database]
     lazy implicit final val blockSequencerConfigReader: ConfigReader[BlockSequencerConfig] =
       deriveReader[BlockSequencerConfig]
-    lazy implicit final val communityDatabaseSequencerReaderConfigReader
-        : ConfigReader[CommunitySequencerReaderConfig] =
-      deriveReader[CommunitySequencerReaderConfig]
-    lazy implicit final val communitySequencerWriterCommitModeConfigReader
-        : ConfigReader[CommitMode] =
+    lazy implicit final val sequencerWriterCommitModeConfigReader: ConfigReader[CommitMode] =
       deriveEnumerationReader[CommitMode]
-    lazy implicit final val communityNewDatabaseSequencerWriterConfigReader
-        : ConfigReader[SequencerWriterConfig] =
+    lazy implicit final val sequencerWriterConfigReader: ConfigReader[SequencerWriterConfig] =
       deriveReader[SequencerWriterConfig]
     lazy implicit final val bytesUnitReader: ConfigReader[BytesUnit] =
       BasicReaders.configMemorySizeReader.map(cms => BytesUnit(cms.toBytes))
-    lazy implicit final val communityNewDatabaseSequencerWriterConfigHighThroughputReader
+    lazy implicit final val sequencerWriterConfigHighThroughputReader
         : ConfigReader[SequencerWriterConfig.HighThroughput] =
       deriveReader[SequencerWriterConfig.HighThroughput]
-    lazy implicit final val communityNewDatabaseSequencerWriterConfigLowLatencyReader
+    lazy implicit final val sequencerWriterConfigLowLatencyReader
         : ConfigReader[SequencerWriterConfig.LowLatency] =
       deriveReader[SequencerWriterConfig.LowLatency]
 
@@ -922,9 +924,8 @@ object CantonConfig {
       deriveReader[BftBlockOrderer.P2PNetworkConfig]
     implicit val bftBlockOrdererConfigReader: ConfigReader[BftBlockOrderer.Config] =
       deriveReader[BftBlockOrderer.Config]
-    implicit val communitySequencerConfigBftSequencerReader
-        : ConfigReader[CommunitySequencerConfig.BftSequencer] =
-      deriveReader[CommunitySequencerConfig.BftSequencer]
+    implicit val sequencerConfigBftSequencerReader: ConfigReader[SequencerConfig.BftSequencer] =
+      deriveReader[SequencerConfig.BftSequencer]
 
     lazy implicit final val sequencerPruningConfig
         : ConfigReader[DatabaseSequencerConfig.SequencerPruningConfig] =
@@ -933,21 +934,19 @@ object CantonConfig {
       deriveReader[SequencerNodeInitConfig]
         .enableNestedOpt("auto-init", _.copy(identity = None))
 
-    lazy implicit final val communitySequencerConfigReader: ConfigReader[CommunitySequencerConfig] =
-      ConfigReader.fromCursor[CommunitySequencerConfig] { cur =>
+    lazy implicit val sequencerReaderConfigReader: ConfigReader[SequencerReaderConfig] =
+      deriveReader[SequencerReaderConfig]
+
+    lazy implicit final val sequencerConfigReader: ConfigReader[SequencerConfig] =
+      ConfigReader.fromCursor[SequencerConfig] { cur =>
         for {
           objCur <- cur.asObjectCursor
-          sequencerType <- objCur.atKey("type").flatMap(_.asString) match {
-            case Right("reference") =>
-              // Allow using "reference" as the sequencer type in both community and enterprise
-              Right("community-reference")
-            case other => other
-          }
+          sequencerType <- objCur.atKey("type").flatMap(_.asString)
           config <- (sequencerType match {
             case "database" =>
-              communitySequencerConfigDatabaseReader.from(objCur.withoutKey("type"))
+              sequencerConfigDatabaseReader.from(objCur.withoutKey("type"))
             case BftSequencerFactory.ShortName =>
-              communitySequencerConfigBftSequencerReader.from(objCur.withoutKey("type"))
+              sequencerConfigBftSequencerReader.from(objCur.withoutKey("type"))
             case other =>
               for {
                 config <- objCur.atKey("config")
@@ -959,8 +958,8 @@ object CantonConfig {
                   .valueOpt
                   .getOrElse(ConfigValueFactory.fromMap(new java.util.HashMap()))
                 blockSequencerConfig <- blockSequencerConfigReader.from(database)
-              } yield CommunitySequencerConfig.External(other, blockSequencerConfig, config)
-          }): ConfigReader.Result[CommunitySequencerConfig]
+              } yield SequencerConfig.External(other, blockSequencerConfig, config)
+          }): ConfigReader.Result[SequencerConfig]
         } yield config
       }
 
@@ -1183,6 +1182,11 @@ object CantonConfig {
       deriveReader[LocalParticipantConfig]
     implicit val mediatorNodeConfigReader: ConfigReader[MediatorNodeConfig] =
       deriveReader[MediatorNodeConfig]
+
+    implicit val publicServerConfigReader: ConfigReader[PublicServerConfig] =
+      deriveReader[PublicServerConfig]
+    implicit val sequencerNodeConfigReader: ConfigReader[SequencerNodeConfig] =
+      deriveReader[SequencerNodeConfig]
   }
 
   /** writers
@@ -1447,31 +1451,35 @@ object CantonConfig {
     lazy implicit final val topologyConfigWriter: ConfigWriter[TopologyConfig] =
       deriveWriter[TopologyConfig]
 
-    // NOTE: the below writers should move to community / enterprise
-    lazy implicit final val communitySequencerConfigDatabaseWriter
-        : ConfigWriter[CommunitySequencerConfig.Database] =
-      deriveWriter[CommunitySequencerConfig.Database]
+    lazy implicit val databaseSequencerExclusiveStorageConfigWriter
+        : ConfigWriter[DatabaseSequencerExclusiveStorageConfig] =
+      deriveWriter[DatabaseSequencerExclusiveStorageConfig]
+    lazy implicit val sequencerHighAvailabilityConfigWriter
+        : ConfigWriter[SequencerHighAvailabilityConfig] =
+      deriveWriter[SequencerHighAvailabilityConfig]
+    lazy implicit final val sequencerConfigDatabaseWriter: ConfigWriter[SequencerConfig.Database] =
+      deriveWriter[SequencerConfig.Database]
     lazy implicit final val blockSequencerConfigWriter: ConfigWriter[BlockSequencerConfig] =
       deriveWriter[BlockSequencerConfig]
-    lazy implicit final val communityDatabaseSequencerReaderConfigWriter
-        : ConfigWriter[CommunitySequencerReaderConfig] =
-      deriveWriter[CommunitySequencerReaderConfig]
-    lazy implicit final val communitySequencerWriterCommitModeConfigWriter
-        : ConfigWriter[CommitMode] =
+    lazy implicit final val sequencerReaderConfigWriter: ConfigWriter[SequencerReaderConfig] =
+      deriveWriter[SequencerReaderConfig]
+    lazy implicit final val sequencerWriterCommitModeConfigWriter: ConfigWriter[CommitMode] =
       deriveEnumerationWriter[CommitMode]
-    lazy implicit final val communityDatabaseSequencerWriterConfigWriter
-        : ConfigWriter[SequencerWriterConfig] =
+    lazy implicit final val sequencerWriterConfigWriter: ConfigWriter[SequencerWriterConfig] =
       deriveWriter[SequencerWriterConfig]
     lazy implicit final val bytesUnitWriter: ConfigWriter[BytesUnit] =
       BasicWriters.configMemorySizeWriter.contramap[BytesUnit](b =>
         ConfigMemorySize.ofBytes(b.bytes)
       )
-    lazy implicit final val communityDatabaseSequencerWriterConfigHighThroughputWriter
+    lazy implicit final val sequencerWriterConfigHighThroughputWriter
         : ConfigWriter[SequencerWriterConfig.HighThroughput] =
       deriveWriter[SequencerWriterConfig.HighThroughput]
-    lazy implicit final val communityDatabaseSequencerWriterConfigLowLatencyWriter
+    lazy implicit final val sequencerWriterConfigLowLatencyWriter
         : ConfigWriter[SequencerWriterConfig.LowLatency] =
       deriveWriter[SequencerWriterConfig.LowLatency]
+
+    implicit val publicServerConfigWriter: ConfigWriter[PublicServerConfig] =
+      deriveWriter[PublicServerConfig]
 
     implicit val memoryWriter: ConfigWriter[StorageConfig.Memory] =
       deriveWriter[StorageConfig.Memory]
@@ -1500,27 +1508,26 @@ object CantonConfig {
     implicit val bftBlockOrdererConfigWriter: ConfigWriter[BftBlockOrderer.Config] =
       deriveWriter[BftBlockOrderer.Config]
 
-    implicit val communitySequencerConfigBftSequencerWriter
-        : ConfigWriter[CommunitySequencerConfig.BftSequencer] =
-      deriveWriter[CommunitySequencerConfig.BftSequencer]
+    implicit val sequencerConfigBftSequencerWriter: ConfigWriter[SequencerConfig.BftSequencer] =
+      deriveWriter[SequencerConfig.BftSequencer]
     implicit val sequencerPruningConfigWriter
         : ConfigWriter[DatabaseSequencerConfig.SequencerPruningConfig] =
       deriveWriter[DatabaseSequencerConfig.SequencerPruningConfig]
     lazy implicit final val sequencerNodeInitConfigWriter: ConfigWriter[SequencerNodeInitConfig] =
       InitConfigBase.writerForSubtype(deriveWriter[SequencerNodeInitConfig])
 
-    implicit def communitySequencerConfigWriter[C]: ConfigWriter[CommunitySequencerConfig] = {
-      case dbSequencerConfig: CommunitySequencerConfig.Database =>
+    implicit def sequencerConfigWriter[C]: ConfigWriter[SequencerConfig] = {
+      case dbSequencerConfig: SequencerConfig.Database =>
         import pureconfig.syntax.*
         Map("type" -> "database").toConfig
-          .withFallback(communitySequencerConfigDatabaseWriter.to(dbSequencerConfig))
+          .withFallback(sequencerConfigDatabaseWriter.to(dbSequencerConfig))
 
-      case bftSequencerConfig: CommunitySequencerConfig.BftSequencer =>
+      case bftSequencerConfig: SequencerConfig.BftSequencer =>
         import pureconfig.syntax.*
         Map("type" -> BftSequencerFactory.ShortName).toConfig
-          .withFallback(communitySequencerConfigBftSequencerWriter.to(bftSequencerConfig))
+          .withFallback(sequencerConfigBftSequencerWriter.to(bftSequencerConfig))
 
-      case otherSequencerConfig: CommunitySequencerConfig.External =>
+      case otherSequencerConfig: SequencerConfig.External =>
         import scala.jdk.CollectionConverters.*
         val sequencerType = otherSequencerConfig.sequencerType
 
@@ -1740,6 +1747,8 @@ object CantonConfig {
       deriveWriter[LocalParticipantConfig]
     implicit val mediatorNodeConfigWriter: ConfigWriter[MediatorNodeConfig] =
       deriveWriter[MediatorNodeConfig]
+    implicit val sequencerNodeConfigWriter: ConfigWriter[SequencerNodeConfig] =
+      deriveWriter[SequencerNodeConfig]
   }
 
   /** Parses and merges the provided configuration files into a single

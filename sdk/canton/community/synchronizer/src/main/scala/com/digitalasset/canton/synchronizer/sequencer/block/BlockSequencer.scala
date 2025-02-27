@@ -96,8 +96,7 @@ class BlockSequencer(
         loggerFactory,
       ),
       None,
-      // TODO(#18407): Dummy config which will be ignored anyway as `config.highAvailabilityEnabled` is false
-      OnlineSequencerCheckConfig(),
+      None,
       processingTimeouts,
       storage,
       None,

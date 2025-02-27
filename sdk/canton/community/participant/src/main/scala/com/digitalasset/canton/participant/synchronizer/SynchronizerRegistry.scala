@@ -34,7 +34,10 @@ trait SynchronizerRegistry extends AutoCloseable {
 
 }
 
-sealed trait SynchronizerRegistryError extends Product with Serializable with CantonError
+sealed trait SynchronizerRegistryError
+    extends Product
+    with Serializable
+    with ContextualizedCantonError
 
 object SynchronizerRegistryError extends SynchronizerRegistryErrorGroup {
 

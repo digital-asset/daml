@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.health
 
-import com.daml.error.BaseError
 import com.digitalasset.canton.admin.health.v30 as proto
+import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.health.ComponentHealthState.{Degraded, Failed, Fatal, Ok}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting, PrettyUtil}
@@ -134,7 +134,7 @@ object ComponentHealthState extends ShowUtil {
     */
   final case class UnhealthyState(
       description: Option[String] = None,
-      error: Option[BaseError] = None,
+      error: Option[CantonError] = None,
       elc: Option[ErrorLoggingContext] = None,
   ) {
     val errorAsStringOpt: Option[String] = error.map { error =>

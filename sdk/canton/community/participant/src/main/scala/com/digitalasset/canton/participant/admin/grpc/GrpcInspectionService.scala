@@ -10,8 +10,8 @@ import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
-import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.InspectionServiceErrorGroup
+import com.digitalasset.canton.error.{CantonError, ContextualizedCantonError}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
@@ -683,7 +683,7 @@ class GrpcInspectionService(
 }
 
 object InspectionServiceError extends InspectionServiceErrorGroup {
-  sealed trait InspectionServiceError extends CantonError
+  sealed trait InspectionServiceError extends ContextualizedCantonError
 
   @Explanation("""Inspection has failed because of an internal server error.""")
   @Resolution("Identify the error in the server log.")

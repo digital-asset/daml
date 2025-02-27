@@ -1095,15 +1095,50 @@ class TopologyAdministrationGroup(
         // configurable in case of a key under a decentralized namespace
         mustFullyAuthorize: Boolean = true,
     ): Unit = update(
-      key,
-      purpose,
+      NonEmpty.mk(Seq, (key, purpose)),
       keyOwner,
       signedBy,
       synchronize,
       add = true,
-      mustFullyAuthorize,
+      mustFullyAuthorize = mustFullyAuthorize,
       force = ForceFlags.none,
     )
+
+    @Help.Summary("Add a set of keys to an owner to key mapping")
+    @Help.Description(
+      """Add a set of keys to an owner to key mapping. A key owner is anyone in the system that needs a key-pair known
+        |to all members (participants, mediators, sequencers) of a synchronizer. If no owner to key mapping exists for the
+        |specified key owner, create a new mapping with the specified keys. The specified keys needs to have
+        |been created previously via the `keys.secret` api.
+
+        keys: Fingerprint and key purpose of the keys
+        keyOwner: The member that owns the key
+        signedBy: Optional fingerprint of the authorizing key which in turn refers to a specific, locally existing certificate.
+        synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
+        mustFullyAuthorize: Whether to only add the key if the member is in the position to authorize the change.
+      """
+    )
+    def add_keys(
+        keys: Seq[(Fingerprint, KeyPurpose)],
+        keyOwner: Member = instance.id.member,
+        signedBy: Seq[Fingerprint] = Seq.empty,
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+        // configurable in case of a key under a decentralized namespace
+        mustFullyAuthorize: Boolean = true,
+    ): Unit =
+      update(
+        NonEmpty
+          .from(keys)
+          .getOrElse(throw new IllegalArgumentException("At least one key is required")),
+        keyOwner,
+        signedBy,
+        synchronize,
+        add = true,
+        mustFullyAuthorize = mustFullyAuthorize,
+        force = ForceFlags.none,
+      )
 
     @Help.Summary("Remove a key from an owner to key mapping")
     @Help.Description(
@@ -1133,13 +1168,12 @@ class TopologyAdministrationGroup(
         mustFullyAuthorize: Boolean = true,
         force: ForceFlags = ForceFlags.none,
     ): Unit = update(
-      key,
-      purpose,
+      NonEmpty.mk(Seq, (key, purpose)),
       keyOwner,
       signedBy,
       synchronize,
       add = false,
-      mustFullyAuthorize,
+      mustFullyAuthorize = mustFullyAuthorize,
       force = force,
     )
 
@@ -1171,52 +1205,47 @@ class TopologyAdministrationGroup(
       require(keysInStore.contains(newKey), "The new key must exist and pertain to this node")
       require(currentKey.purpose == newKey.purpose, "The rotated keys must have the same purpose")
 
+      def verifyKeyPresence(key: PublicKey, contains: Boolean): Unit =
+        // retry until we observe the change in the respective store
+        ConsoleMacros.utils.retry_until_true(
+          instance.topology.owner_to_key_mappings
+            .list(
+              filterKeyOwnerUid = instance.uid.toProtoPrimitive
+            )
+            .filter(_.context.storeId != Authorized)
+            .forall(_.item.keys.contains(key) == contains)
+        )(consoleEnvironment)
+
       // Authorize the new key
       // The owner will now have two keys, but by convention the first one added is always
       // used by everybody.
       update(
-        newKey.fingerprint,
-        newKey.purpose,
+        NonEmpty.mk(Seq, (newKey.fingerprint, newKey.purpose)),
         member,
         signedBy = Seq.empty,
         add = true,
         synchronize = synchronize,
       )
 
-      // retry until we observe the change in the respective store
-      ConsoleMacros.utils.retry_until_true(
-        instance.topology.owner_to_key_mappings
-          .list(
-            filterKeyOwnerUid = instance.uid.toProtoPrimitive
-          )
-          .filter(_.context.storeId != Authorized)
-          .forall(_.item.keys.contains(newKey))
-      )(consoleEnvironment)
+      verifyKeyPresence(newKey, contains = true)
 
       // Remove the old key by sending the matching `Remove` transaction
       update(
-        currentKey.fingerprint,
-        currentKey.purpose,
+        NonEmpty.mk(Seq, (currentKey.fingerprint, currentKey.purpose)),
         member,
         signedBy = Seq.empty,
         add = false,
         synchronize = synchronize,
       )
+
+      verifyKeyPresence(currentKey, contains = false)
+
+      // TODO(#24218): reduce the risk of using a new key that is not yet recognized by another node.
     }
 
-    private def update(
-        key: Fingerprint,
-        purpose: KeyPurpose,
-        keyOwner: Member,
-        signedBy: Seq[Fingerprint],
-        synchronize: Option[config.NonNegativeDuration],
-        add: Boolean,
-        mustFullyAuthorize: Boolean = true,
-        force: ForceFlags = ForceFlags.none,
-    ): Unit = {
-      // Ensure the specified key has a private key in the vault.
-      val publicKey = instance.keys.secret.list(
-        filterFingerprint = key.toProtoPrimitive,
+    private def ensurePrivateKeyExists(fingerprint: Fingerprint, purpose: KeyPurpose): PublicKey =
+      instance.keys.secret.list(
+        filterFingerprint = fingerprint.toProtoPrimitive,
         filterPurpose = Set(purpose),
       ) match {
         case privateKeyMetadata +: Nil => privateKeyMetadata.publicKey
@@ -1226,6 +1255,21 @@ class TopologyAdministrationGroup(
           throw new IllegalArgumentException(
             s"Found ${multipleKeys.size} keys where only one key was expected. Specify a full key instead of a prefix"
           )
+      }
+
+    private def update(
+        keys: NonEmpty[Seq[(Fingerprint, KeyPurpose)]],
+        keyOwner: Member,
+        signedBy: Seq[Fingerprint],
+        synchronize: Option[config.NonNegativeDuration],
+        add: Boolean,
+        mustFullyAuthorize: Boolean = true,
+        force: ForceFlags = ForceFlags.none,
+    ): Unit = {
+
+      val publicKeys = keys.map { case (fingerprint, purpose) =>
+        // Ensure the specified key has a private key in the vault and get the public key
+        ensurePrivateKeyExists(fingerprint, purpose)
       }
 
       // Look for an existing authorized OKM mapping.
@@ -1242,23 +1286,23 @@ class TopologyAdministrationGroup(
         maybePreviousState match {
           case None =>
             (
-              OwnerToKeyMapping(keyOwner, NonEmpty(Seq, publicKey)),
+              OwnerToKeyMapping(keyOwner, publicKeys),
               PositiveInt.one,
               TopologyChangeOp.Replace,
             )
           case Some((_, TopologyChangeOp.Remove, previousSerial)) =>
             (
-              OwnerToKeyMapping(keyOwner, NonEmpty(Seq, publicKey)),
+              OwnerToKeyMapping(keyOwner, publicKeys),
               previousSerial.increment,
               TopologyChangeOp.Replace,
             )
           case Some((okm, TopologyChangeOp.Replace, previousSerial)) =>
             require(
-              !okm.keys.contains(publicKey),
-              "The owner-to-key mapping already contains the specified key to add",
+              okm.keys.intersect(publicKeys).isEmpty,
+              "The owner-to-key mapping already contains the specified keys to add",
             )
             (
-              okm.copy(keys = okm.keys :+ publicKey),
+              okm.copy(keys = okm.keys ++ publicKeys),
               previousSerial.increment,
               TopologyChangeOp.Replace,
             )
@@ -1272,10 +1316,12 @@ class TopologyAdministrationGroup(
             )
           case Some((okm, TopologyChangeOp.Replace, previousSerial)) =>
             require(
-              okm.keys.contains(publicKey),
-              "The owner-to-key mapping does not contain the specified key to remove",
+              // All publicKeys to be removed must be in okm.keys
+              publicKeys.forall(okm.keys.contains),
+              "The owner-to-key mapping does not contain the specified keys to remove",
             )
-            NonEmpty.from(okm.keys.filterNot(_ == publicKey)) match {
+            // Remove publicKeys from okm.keys
+            NonEmpty.from(okm.keys.filterNot(publicKeys.contains)) match {
               case Some(fewerKeys) =>
                 (okm.copy(keys = fewerKeys), previousSerial.increment, TopologyChangeOp.Replace)
               case None =>
@@ -2823,7 +2869,7 @@ class TopologyAdministrationGroup(
       if (
         oldSynchronizerParameters.mediatorDeduplicationTimeout < minMediatorDeduplicationTimeout
       ) {
-        val err = TopologyManagerError.IncreaseOfSubmissionTimeRecordTimeTolerance
+        val err: CantonError = TopologyManagerError.IncreaseOfSubmissionTimeRecordTimeTolerance
           .PermanentlyInsecure(
             newSubmissionTimeRecordTimeTolerance.toInternal,
             oldSynchronizerParameters.mediatorDeduplicationTimeout.toInternal,

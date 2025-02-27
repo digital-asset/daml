@@ -10,7 +10,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
 import com.digitalasset.canton.error.CantonErrorGroups.TopologyManagementErrorGroup.TopologyManagerErrorGroup
-import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
+import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError, ContextualizedCantonError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.protocol.OnboardingRestriction
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -24,7 +24,7 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.value.Value.ContractId
 
-sealed trait TopologyManagerError extends CantonError
+sealed trait TopologyManagerError extends ContextualizedCantonError
 
 object TopologyManagerError extends TopologyManagerErrorGroup {
 

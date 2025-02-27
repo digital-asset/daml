@@ -92,7 +92,7 @@ final case class LocalParticipantConfig(
     with BaseParticipantConfig
     with ConfigDefaults[DefaultPorts, LocalParticipantConfig]
     with UniformCantonConfigValidation {
-  override val nodeTypeName: String = "participant"
+  override def nodeTypeName: String = "participant"
 
   override def clientAdminApi: ClientConfig = adminApi.clientConfig
 

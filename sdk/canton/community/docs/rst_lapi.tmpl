@@ -146,6 +146,8 @@ for interacting with the gRPC-based Ledger API.
 {{end}}{{/* end of $file.Enums */ -}}
 {{end}}{{/* end of .Files */}}
 
+.. include:: lapi-value-proto-docs.rst.inc
+
 {{/*--------------------------------------
     Display information about scalars. */}}
 
@@ -183,12 +185,10 @@ Scalar Value Types
 {{end}}{{/* end of .Scalars */}}
 
 {{/*--------------------------------------
-    Display (v1) or (v2) with the Service names */}}
-.. |version com.daml.ledger.api.v1| replace:: v1
-.. |version com.daml.ledger.api.v1.testing| replace:: v1/testing
-.. |version com.daml.ledger.api.v1.admin| replace:: v1/admin
+    Display (v2) with the Service names */}}
 .. |version com.daml.ledger.api.v2| replace:: v2
-.. |version com.daml.ledger.api.v2.testing| replace:: v2/testing
 .. |version com.daml.ledger.api.v2.admin| replace:: v2/admin
 .. |version com.daml.ledger.api.v2.interactive| replace:: v2/interactive
 .. |version com.daml.ledger.api.v2.interactive.transaction.v1| replace:: v2/interactive/transaction/v1
+.. |version com.daml.ledger.api.v2.testing| replace:: v2/testing
+

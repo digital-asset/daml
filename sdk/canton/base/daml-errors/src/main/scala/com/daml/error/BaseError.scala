@@ -3,8 +3,7 @@
 
 package com.daml.error
 
-import com.google.rpc.Status
-import io.grpc.StatusRuntimeException
+import com.google.rpc.status.Status as ProtoStatus
 
 /** The main error interface for everything that should be logged and notified.
   *
@@ -68,34 +67,10 @@ trait BaseError extends LocationMixin {
   /** Controls whether a `definite_answer` error detail is added to the gRPC status code */
   def definiteAnswerO: Option[Boolean] = None
 
-  def rpcStatus(
-      overrideCode: Option[io.grpc.Status.Code] = None
-  )(implicit loggingContext: ContextualizedErrorLogger): com.google.rpc.status.Status = {
-    import scala.jdk.CollectionConverters.*
-    val status0: com.google.rpc.Status = ErrorCode.asGrpcStatus(this)
-
-    val details: Seq[com.google.protobuf.Any] = status0.getDetailsList.asScala.toSeq
-    val detailsScalapb = details.map(com.google.protobuf.any.Any.fromJavaProto)
-
-    com.google.rpc.status.Status(
-      code = overrideCode.map(_.value()).getOrElse(status0.getCode),
-      message = status0.getMessage,
-      details = detailsScalapb,
-    )
-  }
-}
-
-/** Base class for errors for which error context is known at creation.
-  */
-trait ContextualizedError extends BaseError {
-
-  protected def errorContext: ContextualizedErrorLogger
-
-  def asGrpcStatus: Status =
-    ErrorCode.asGrpcStatus(this)(errorContext)
-
-  def asGrpcError: StatusRuntimeException =
-    ErrorCode.asGrpcError(this)(errorContext)
+  def rpcStatus()(implicit
+      loggingContext: ContextualizedErrorLogger
+  ): com.google.rpc.status.Status =
+    ProtoStatus.fromJavaProto(ErrorCode.asGrpcStatus(this))
 
 }
 

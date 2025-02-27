@@ -112,7 +112,7 @@ class SequencerTest
 
     val metrics: SequencerMetrics = SequencerMetrics.noop("sequencer-test")
 
-    val dbConfig = CommunitySequencerConfig.Database()
+    val dbConfig = SequencerConfig.Database()
     val storage = new MemoryStorage(loggerFactory, timeouts)
     val sequencerStore = SequencerStore(
       storage,

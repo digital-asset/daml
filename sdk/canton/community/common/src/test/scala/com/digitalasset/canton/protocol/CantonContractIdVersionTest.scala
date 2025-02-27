@@ -8,30 +8,34 @@ import com.digitalasset.canton.crypto.*
 import org.scalatest.wordspec.AnyWordSpec
 
 class CantonContractIdVersionTest extends AnyWordSpec with BaseTest {
-  "AuthenticatedContractIdVersionV2" when {
-    val discriminator = ExampleTransactionFactory.lfHash(1)
-    val hash =
-      Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).add(0).finish()
 
-    val unicum = Unicum(hash)
-    val cid = AuthenticatedContractIdVersionV10.fromDiscriminator(discriminator, unicum)
+  forEvery(Seq(AuthenticatedContractIdVersionV10, AuthenticatedContractIdVersionV11)) { underTest =>
+    s"$underTest" when {
+      val discriminator = ExampleTransactionFactory.lfHash(1)
+      val hash =
+        Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).add(0).finish()
 
-    "creating a contract ID from discriminator and unicum" should {
-      "succeed" in {
-        cid.coid shouldBe (
-          LfContractId.V1.prefix.toHexString +
-            discriminator.bytes.toHexString +
-            AuthenticatedContractIdVersionV10.versionPrefixBytes.toHexString +
-            unicum.unwrap.toHexString
-        )
+      val unicum = Unicum(hash)
+
+      val cid = underTest.fromDiscriminator(discriminator, unicum)
+
+      "creating a contract ID from discriminator and unicum" should {
+        "succeed" in {
+          cid.coid shouldBe (
+            LfContractId.V1.prefix.toHexString +
+              discriminator.bytes.toHexString +
+              underTest.versionPrefixBytes.toHexString +
+              unicum.unwrap.toHexString
+          )
+        }
       }
-    }
 
-    "ensuring canton contract id of AuthenticatedContractIdVersionV2" should {
-      "return a AuthenticatedContractIdVersionV2" in {
-        CantonContractIdVersion.ensureCantonContractId(cid) shouldBe Right(
-          AuthenticatedContractIdVersionV10
-        )
+      "extracting a canton-contract-id-version" should {
+        "succeed" in {
+          CantonContractIdVersion.extractCantonContractIdVersion(cid) shouldBe Right(
+            underTest
+          )
+        }
       }
     }
   }

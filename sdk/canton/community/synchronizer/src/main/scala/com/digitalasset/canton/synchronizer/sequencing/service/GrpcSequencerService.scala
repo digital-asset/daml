@@ -234,7 +234,7 @@ class GrpcSequencerService(
 
     val resET = performUnlessClosingEitherUSF(functionFullName)(sendET.leftMap { err =>
       logger.info(s"Rejecting submission request by $senderFromMetadata with $err")
-      err
+      err.toCantonError
     })
     CantonGrpcUtil.mapErrNewEUS(resET)
   }

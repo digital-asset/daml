@@ -5,6 +5,7 @@ package com.digitalasset.canton.ledger.participant.state
 
 import com.daml.grpc.GrpcStatus
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
+import com.google.rpc.status.Status as ProtoStatus
 import io.grpc.{StatusRuntimeException, protobuf}
 
 sealed abstract class SubmissionResult extends Product with Serializable {
@@ -41,5 +42,10 @@ object SubmissionResult {
             "message" -> error.status.message,
           )
         )
+
+    def apply(status: com.google.rpc.Status): SynchronousError = new SynchronousError(
+      ProtoStatus.fromJavaProto(status)
+    )
+
   }
 }

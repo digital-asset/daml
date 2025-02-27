@@ -14,6 +14,7 @@ import com.digitalasset.canton.error.{
   AlarmErrorCode,
   CantonError,
   CombinedError,
+  ContextualizedCantonError,
   ParentCantonError,
   TransactionErrorImpl,
 }
@@ -29,7 +30,7 @@ import com.google.rpc.status.Status
 import io.grpc.Status.Code
 import org.slf4j.event.Level
 
-trait SyncServiceError extends Serializable with Product with CantonError
+trait SyncServiceError extends Serializable with Product with ContextualizedCantonError
 
 object SyncServiceInjectionError extends InjectionErrorGroup {
 
@@ -407,7 +408,7 @@ object SyncServiceError extends SyncServiceErrorGroup {
 
     final case class CombinedStartError(override val errors: NonEmpty[Seq[SyncServiceError]])(
         implicit val loggingContext: ErrorLoggingContext
-    ) extends CombinedError[SyncServiceError]
+    ) extends CombinedError
         with SyncServiceError
 
     final case class InitError(

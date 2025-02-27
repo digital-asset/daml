@@ -16,7 +16,7 @@ object ErrorGenerator {
       override val throwableO: Option[Throwable] = None,
       override val definiteAnswerO: Option[Boolean] = None,
       override val resources: Seq[(ErrorResource, String)] = Seq(),
-  ) extends DamlError(
+  ) extends ContextualizedDamlError(
         cause,
         throwableO,
         contextMap,

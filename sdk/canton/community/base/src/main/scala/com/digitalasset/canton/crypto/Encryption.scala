@@ -13,7 +13,7 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPrivateStoreExtended}
-import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
+import com.digitalasset.canton.error.{CantonBaseError, CantonErrorGroups}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -920,7 +920,7 @@ object EncryptionKeyGenerationError extends CantonErrorGroups.CommandErrorGroup 
         ErrorCategory.InvalidIndependentOfSystemState,
       ) {
     final case class Wrap(reason: EncryptionKeyGenerationError)
-        extends BaseCantonError.Impl(cause = "Unable to create encryption key")
+        extends CantonBaseError.Impl(cause = "Unable to create encryption key")
   }
 
   final case class GeneralError(error: Exception) extends EncryptionKeyGenerationError {

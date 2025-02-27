@@ -152,7 +152,7 @@ object SerializableContract
 
     for {
       _disclosedContractIdVersion <- CantonContractIdVersion
-        .ensureCantonContractId(disclosedContract.contractId)
+        .extractCantonContractIdVersion(disclosedContract.contractId)
         .leftMap(err => s"Invalid disclosed contract id: ${err.toString}")
       salt <- {
         if (driverContractMetadataBytes.isEmpty)

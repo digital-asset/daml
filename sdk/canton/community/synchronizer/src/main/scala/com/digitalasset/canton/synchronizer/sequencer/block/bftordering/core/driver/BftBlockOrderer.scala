@@ -77,7 +77,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.BlockNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.SequencerSnapshotAdditionalInfo
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopologyInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Mempool,
   Output,
@@ -123,7 +122,7 @@ final class BftBlockOrderer(
     clock: Clock,
     orderingTopologyProvider: OrderingTopologyProvider[PekkoEnv],
     nodeParameters: CantonNodeParameters,
-    initialHeight: Long,
+    sequencerSubscriptionInitialHeight: Long,
     override val orderingTimeFixMode: OrderingTimeFixMode,
     sequencerSnapshotInfo: Option[SequencerSnapshot.ImplementationSpecificInfo],
     metrics: BftOrderingMetrics,
@@ -138,8 +137,8 @@ final class BftBlockOrderer(
   import BftBlockOrderer.*
 
   require(
-    initialHeight >= BlockNumber.First,
-    s"Initial height must be non-negative, but was $initialHeight",
+    sequencerSubscriptionInitialHeight >= BlockNumber.First,
+    s"The sequencer subscription initial height must be non-negative, but was $sequencerSubscriptionInitialHeight",
   )
 
   // The initial metrics factory, which also pre-initializes histograms (as required by OpenTelemetry), is built
@@ -165,7 +164,7 @@ final class BftBlockOrderer(
 
   override val timeouts: ProcessingTimeout = nodeParameters.processingTimeouts
 
-  override def firstBlockHeight: Long = initialHeight
+  override def firstBlockHeight: Long = sequencerSubscriptionInitialHeight
 
   override protected val loggerFactory: NamedLoggerFactory =
     namedLoggerFactory
@@ -232,74 +231,6 @@ final class BftBlockOrderer(
       )
   }
 
-  private val bootstrapTopologyInfo: OrderingTopologyInfo[PekkoEnv] = {
-    implicit val traceContext: TraceContext = TraceContext.empty
-
-    // This timestamp is always known by the topology client, even when it is equal to `lastTs` from the onboarding state.
-    val thisPeerActiveAt = sequencerSnapshotAdditionalInfo.flatMap(snapshotAdditionalInfo =>
-      snapshotAdditionalInfo.peerActiveAt.get(sequencerId)
-    )
-
-    // We assume that, if a sequencer snapshot has been provided, then we're onboarding; in that case, we use
-    //  topology information from the sequencer snapshot, else we fetch the latest topology from the DB.
-    val initialTopologyQueryTimestamp = thisPeerActiveAt
-      .map(_.timestamp)
-      .getOrElse {
-        val latestEpoch =
-          awaitFuture(epochStore.latestEpoch(includeInProgress = true), "fetch latest epoch")
-        latestEpoch.info.topologyActivationTime
-      }
-
-    val (initialTopology, initialCryptoProvider) = awaitFuture(
-      orderingTopologyProvider.getOrderingTopologyAt(initialTopologyQueryTimestamp),
-      "fetch initial ordering topology",
-    )
-      .getOrElse {
-        val msg = "Failed to fetch initial ordering topology"
-        logger.error(msg)
-        sys.error(msg)
-      }
-
-    // Get the previous topology for validating data (e.g., canonical commit sets) from the previous epoch
-    val previousTopologyQueryTimestamp = thisPeerActiveAt
-      // Use the start epoch topology query timestamp when onboarding (sequencer snapshot is provided)
-      .map { activeAt =>
-        activeAt.epochTopologyQueryTimestamp.getOrElse {
-          val msg =
-            "Start epoch topology query timestamp is required when onboarding but it's empty"
-          logger.error(msg)
-          sys.error(msg)
-        }
-      }
-      // Or last completed epoch's activation timestamp
-      .getOrElse {
-        val latestCompletedEpoch =
-          awaitFuture(
-            epochStore.latestEpoch(includeInProgress = false),
-            "fetch latest completed epoch",
-          )
-        latestCompletedEpoch.info.topologyActivationTime
-      }
-
-    val (previousTopology, previousCryptoProvider) = awaitFuture(
-      orderingTopologyProvider.getOrderingTopologyAt(previousTopologyQueryTimestamp),
-      "fetch previous ordering topology for bootstrap",
-    )
-      .getOrElse {
-        val msg = "Failed to fetch previous ordering topology"
-        logger.error(msg)
-        sys.error(msg)
-      }
-
-    OrderingTopologyInfo(
-      sequencerId,
-      initialTopology,
-      initialCryptoProvider,
-      previousTopology,
-      previousCryptoProvider,
-    )
-  }
-
   private val PekkoModuleSystem.PekkoModuleSystemInitResult(
     actorSystem,
     SystemInitializationResult(
@@ -325,7 +256,11 @@ final class BftBlockOrderer(
     )
 
   private lazy val blockSubscription =
-    new PekkoBlockSubscription[PekkoEnv](BlockNumber(initialHeight), timeouts, loggerFactory)(
+    new PekkoBlockSubscription[PekkoEnv](
+      BlockNumber(sequencerSubscriptionInitialHeight),
+      timeouts,
+      loggerFactory,
+    )(
       abort = sys.error
     )
 
@@ -374,11 +309,11 @@ final class BftBlockOrderer(
         epochStoreReader = epochStore,
         outputStore,
       )
-    BftOrderingModuleSystemInitializer(
+    new BftOrderingModuleSystemInitializer(
       protocolVersion,
-      bootstrapTopologyInfo,
+      sequencerId,
       config,
-      BlockNumber(initialHeight),
+      BlockNumber(sequencerSubscriptionInitialHeight),
       // TODO(#18910) test with multiple epoch lengths >= 1 (incl. 1)
       // TODO(#19289) support dynamically configurable epoch length
       IssConsensusModule.DefaultEpochLength,

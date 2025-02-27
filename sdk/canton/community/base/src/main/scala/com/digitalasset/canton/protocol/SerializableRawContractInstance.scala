@@ -46,11 +46,12 @@ final case class SerializableRawContractInstance private (
       .encodeContractInstance(coinst = contractInstance)
       .map(_.toByteString)
 
-  lazy val contractHash: LfHash =
+  def contractHash(upgradeFriendly: Boolean): LfHash =
     LfHash.assertHashContractInstance(
       contractInstance.unversioned.template,
       contractInstance.unversioned.arg,
       contractInstance.unversioned.packageName,
+      upgradeFriendly = upgradeFriendly,
     )
 
   @unused // needed for lenses

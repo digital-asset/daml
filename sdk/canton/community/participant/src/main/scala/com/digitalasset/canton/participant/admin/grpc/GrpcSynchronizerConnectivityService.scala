@@ -16,11 +16,10 @@ import com.digitalasset.canton.admin.participant.v30.{
 import com.digitalasset.canton.admin.sequencer.v30 as sequencerV30
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.error.BaseCantonError
+import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectSynchronizer
@@ -53,14 +52,19 @@ class GrpcSynchronizerConnectivityService(
 ) extends v30.SynchronizerConnectivityServiceGrpc.SynchronizerConnectivityService
     with NamedLogging {
 
+  private def _mapErrNewEUS[C](res: EitherT[FutureUnlessShutdown, CantonBaseError, C])(implicit
+      ec: ExecutionContext,
+      errorLoggingContext: ErrorLoggingContext,
+  ): Future[C] = CantonGrpcUtil.mapErrNewEUS(res.leftMap(_.toCantonError))
+
   private def waitUntilActiveIfSuccess(success: Boolean, synchronizerAlias: SynchronizerAlias)(
       implicit traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, BaseCantonError, Unit] =
-    if (success) waitUntilActive(synchronizerAlias) else EitherTUtil.unitUS[BaseCantonError]
+  ): EitherT[FutureUnlessShutdown, CantonBaseError, Unit] =
+    if (success) waitUntilActive(synchronizerAlias) else EitherTUtil.unitUS[CantonBaseError]
 
   private def waitUntilActive(
       synchronizerAlias: SynchronizerAlias
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, BaseCantonError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, CantonBaseError, Unit] =
     for {
       synchronizerId <- EitherT.fromOption[FutureUnlessShutdown](
         aliasManager
@@ -81,13 +85,13 @@ class GrpcSynchronizerConnectivityService(
             (),
             SynchronizerRegistryError.ConnectionErrors.ParticipantIsNotActive.Error(
               s"While synchronizerAlias $synchronizerAlias promised, participant ${sync.participantId} never became active within `timeouts.network` (${timeouts.network})."
-            ): BaseCantonError,
+            ): CantonBaseError,
           )
     } yield ()
 
   private def parseSynchronizerAlias(
       synchronizerAliasP: String
-  ): EitherT[FutureUnlessShutdown, BaseCantonError, SynchronizerAlias] =
+  ): EitherT[FutureUnlessShutdown, CantonBaseError, SynchronizerAlias] =
     EitherT.fromEither[FutureUnlessShutdown](
       SynchronizerAlias
         .create(synchronizerAliasP)
@@ -97,14 +101,14 @@ class GrpcSynchronizerConnectivityService(
   private def parseSynchronizerConnectionConfig(
       proto: Option[v30.SynchronizerConnectionConfig],
       name: String,
-  ): Either[BaseCantonError, SynchronizerConnectionConfig] =
+  ): Either[CantonBaseError, SynchronizerConnectionConfig] =
     ProtoConverter
       .parseRequired(SynchronizerConnectionConfig.fromProtoV30, name, proto)
       .leftMap(ProtoDeserializationFailure.WrapNoLogging.apply)
 
   private def parseSequencerConnectionValidation(
       proto: sequencerV30.SequencerConnectionValidation
-  ): Either[BaseCantonError, SequencerConnectionValidation] =
+  ): Either[CantonBaseError, SequencerConnectionValidation] =
     SequencerConnectionValidation
       .fromProtoV30(proto)
       .leftMap(ProtoDeserializationFailure.WrapNoLogging.apply)
@@ -137,7 +141,7 @@ class GrpcSynchronizerConnectivityService(
       success <- sync.connectSynchronizer(alias, keepRetrying, ConnectSynchronizer.Connect)
       _ <- waitUntilActiveIfSuccess(success, alias)
     } yield v30.ReconnectSynchronizerResponse(connectedSuccessfully = success)
-    CantonGrpcUtil.mapErrNewEUS(ret)
+    _mapErrNewEUS(ret)
   }
 
   override def disconnectSynchronizer(
@@ -147,9 +151,9 @@ class GrpcSynchronizerConnectivityService(
     val v30.DisconnectSynchronizerRequest(synchronizerAlias) = request
     val ret = for {
       alias <- parseSynchronizerAlias(synchronizerAlias)
-      _ <- sync.disconnectSynchronizer(alias).leftWiden[BaseCantonError]
+      _ <- sync.disconnectSynchronizer(alias).leftWiden[CantonBaseError]
     } yield v30.DisconnectSynchronizerResponse()
-    CantonGrpcUtil.mapErrNewEUS(ret)
+    _mapErrNewEUS(ret)
   }
 
   override def disconnectAllSynchronizers(
@@ -223,7 +227,7 @@ class GrpcSynchronizerConnectivityService(
     val v30.ConnectSynchronizerRequest(configPO, sequencerConnectionValidationPO) =
       request
 
-    val ret: EitherT[FutureUnlessShutdown, BaseCantonError, v30.ConnectSynchronizerResponse] = for {
+    val ret: EitherT[FutureUnlessShutdown, CantonBaseError, v30.ConnectSynchronizerResponse] = for {
       config <- EitherT.fromEither[FutureUnlessShutdown](
         parseSynchronizerConnectionConfig(configPO, "config")
       )
@@ -243,7 +247,7 @@ class GrpcSynchronizerConnectivityService(
 
     } yield v30.ConnectSynchronizerResponse(success)
 
-    CantonGrpcUtil.mapErrNewEUS(ret)
+    _mapErrNewEUS(ret)
   }
 
   override def registerSynchronizer(
@@ -257,7 +261,7 @@ class GrpcSynchronizerConnectivityService(
     ) =
       request
 
-    val ret: EitherT[FutureUnlessShutdown, BaseCantonError, v30.RegisterSynchronizerResponse] =
+    val ret: EitherT[FutureUnlessShutdown, CantonBaseError, v30.RegisterSynchronizerResponse] =
       for {
         performHandshake <- EitherT.fromEither[FutureUnlessShutdown](
           parseSynchronizerConnection(synchronizerConnectionP)
@@ -283,10 +287,10 @@ class GrpcSynchronizerConnectivityService(
                 )
               _ <- waitUntilActiveIfSuccess(success, config.synchronizerAlias)
             } yield ()
-          } else EitherT.rightT[FutureUnlessShutdown, BaseCantonError](())
+          } else EitherT.rightT[FutureUnlessShutdown, CantonBaseError](())
       } yield v30.RegisterSynchronizerResponse()
 
-    CantonGrpcUtil.mapErrNewEUS(ret)
+    _mapErrNewEUS(ret)
   }
 
   /** reconfigure a synchronizer connection
@@ -303,9 +307,9 @@ class GrpcSynchronizerConnectivityService(
       validation <- EitherT.fromEither[FutureUnlessShutdown](
         parseSequencerConnectionValidation(sequencerConnectionValidationPO)
       )
-      _ <- sync.modifySynchronizer(config, validation).leftWiden[BaseCantonError]
+      _ <- sync.modifySynchronizer(config, validation).leftWiden[CantonBaseError]
     } yield v30.ModifySynchronizerResponse()
-    mapErrNewEUS(ret)
+    _mapErrNewEUS(ret)
   }
 
   /** reconnect to synchronizers
@@ -324,7 +328,7 @@ class GrpcSynchronizerConnectivityService(
       )
       _ <- aliases.parTraverse(waitUntilActive)
     } yield v30.ReconnectSynchronizersResponse()
-    CantonGrpcUtil.mapErrNewEUS(ret)
+    _mapErrNewEUS(ret)
   }
 
   /** Get the synchronizer id of the given synchronizer alias
@@ -353,15 +357,15 @@ class GrpcSynchronizerConnectivityService(
             traceContext,
             CloseContext(sync),
           )
-          .leftMap[BaseCantonError](err =>
+          .leftMap[CantonBaseError](err =>
             SynchronizerRegistryError.fromSequencerInfoLoaderError(err)
           )
       _ <- aliasManager
         .processHandshake(connectionConfig.synchronizerAlias, result.synchronizerId)
         .leftMap(SynchronizerRegistryHelpers.fromSynchronizerAliasManagerError)
-        .leftWiden[BaseCantonError]
+        .leftWiden[CantonBaseError]
     } yield v30.GetSynchronizerIdResponse(synchronizerId = result.synchronizerId.toProtoPrimitive)
-    CantonGrpcUtil.mapErrNewEUS(ret)
+    _mapErrNewEUS(ret)
   }
 
 }

@@ -162,8 +162,9 @@ abstract class Clock() extends TimeProvider with AutoCloseable with NamedLogging
       timestamp: CantonTimestamp,
   ): FutureUnlessShutdown[A] = {
     val queued = Queued(action, timestamp)
-    if (!now.isBefore(timestamp)) {
-      queued.run(now)
+    val nowTime = now
+    if (!nowTime.isBefore(timestamp)) {
+      queued.run(nowTime)
     } else {
       addToQueue(queued)
     }

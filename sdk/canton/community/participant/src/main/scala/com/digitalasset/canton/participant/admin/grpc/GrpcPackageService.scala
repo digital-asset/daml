@@ -7,7 +7,6 @@ import cats.data.EitherT
 import cats.implicits.catsSyntaxOptionId
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.daml.error.ErrorCode
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.ProtoDeserializationError.{
   ProtoDeserializationFailure,
@@ -79,7 +78,7 @@ class GrpcPackageService(
         .map(darId => v30.ValidateDarResponse(darId = darId.unwrap))
     EitherTUtil.toFuture(
       ret
-        .leftMap(ErrorCode.asGrpcError)
+        .leftMap(_.asGrpcError)
         .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
     )
   }
@@ -144,7 +143,7 @@ class GrpcPackageService(
             request.force,
           )
           .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error()))
-          .leftMap(ErrorCode.asGrpcError)
+          .leftMap(_.asGrpcError)
       } yield {
         v30.RemovePackageResponse(success = Some(Empty()))
       }

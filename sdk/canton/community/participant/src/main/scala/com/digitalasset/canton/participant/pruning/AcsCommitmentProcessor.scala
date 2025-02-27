@@ -25,7 +25,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.AcsCommitmentErrorGroup
-import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
+import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError, ContextualizedCantonError}
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
@@ -2473,7 +2473,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       }
     }
 
-    trait AcsCommitmentDegradation extends CantonError
+    trait AcsCommitmentDegradation extends ContextualizedCantonError
     object DegradationError extends ErrorGroup {
 
       @Explanation(

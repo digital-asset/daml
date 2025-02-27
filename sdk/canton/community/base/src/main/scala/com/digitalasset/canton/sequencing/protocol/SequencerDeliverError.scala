@@ -10,7 +10,7 @@ import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
 import com.digitalasset.canton.error.{
   Alarm,
   AlarmErrorCode,
-  BaseCantonError,
+  CantonBaseError,
   TransactionError,
   TransactionErrorImpl,
 }
@@ -38,7 +38,7 @@ sealed abstract class SequencerDeliverErrorCode(id: String, category: ErrorCateg
   /** Match the GRPC status on the ErrorCode and return the message string on success
     */
   def unapply(rpcStatus: Status): Option[String] =
-    BaseCantonError.extractStatusErrorCodeMessage(this, rpcStatus)
+    CantonBaseError.extractStatusErrorCodeMessage(this, rpcStatus)
 
   def unapply(grpcError: GrpcError): Option[String] =
     grpcError.decodedCantonError.flatMap(status =>

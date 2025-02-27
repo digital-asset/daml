@@ -369,7 +369,7 @@ object ErrorInterceptorSpec {
 
     final case class Error(msg: String)(implicit
         val loggingContext: ContextualizedErrorLogger
-    ) extends DamlError(
+    ) extends ContextualizedDamlError(
           cause = s"Foo is missing: $msg"
         )
 

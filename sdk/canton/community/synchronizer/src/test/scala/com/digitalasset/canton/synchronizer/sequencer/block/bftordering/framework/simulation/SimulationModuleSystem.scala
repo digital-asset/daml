@@ -473,10 +473,9 @@ object SimulationModuleSystem {
 
         val simulationP2PNetworkManager =
           SimulationP2PNetworkManager[SystemNetworkMessageT](collector, timeouts, loggerFactory)
-        val resultFromInit = simulationInitializer.systemInitializerFactory(onboardingData)(
-          system,
-          simulationP2PNetworkManager,
-        )
+        val resultFromInit = simulationInitializer
+          .systemInitializerFactory(onboardingData)
+          .initialize(system, simulationP2PNetworkManager)
         val clientCollector = new ClientCollector(getSimulationName(resultFromInit.inputModuleRef))
         val client = simulationInitializer.clientInitializer.createClient(
           SimulatedRefForClient(clientCollector)

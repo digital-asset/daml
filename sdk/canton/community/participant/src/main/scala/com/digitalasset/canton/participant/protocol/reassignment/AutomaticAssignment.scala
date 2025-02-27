@@ -11,7 +11,7 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.error.{BaseCantonError, MediatorError}
+import com.digitalasset.canton.error.{CantonBaseError, MediatorError}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.NoReassignmentData
@@ -98,7 +98,7 @@ private[participant] object AutomaticAssignment {
       def tryAgain(
           previous: com.google.rpc.status.Status
       ): EitherT[FutureUnlessShutdown, StopRetry, com.google.rpc.status.Status] =
-        if (BaseCantonError.isStatusErrorCode(MediatorError.Timeout, previous))
+        if (CantonBaseError.isStatusErrorCode(MediatorError.Timeout, previous))
           performAutoAssignmentOnce.leftMap(error => StopRetry(Left(error)))
         else
           EitherT

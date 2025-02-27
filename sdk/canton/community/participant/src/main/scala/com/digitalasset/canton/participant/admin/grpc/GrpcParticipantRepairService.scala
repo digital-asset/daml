@@ -135,7 +135,7 @@ final class GrpcParticipantRepairService(
         .leftMap(RepairServiceError.fromAcsInspectionError(_, logger))
     } yield ()
 
-    mapErrNewEUS(res)
+    mapErrNewEUS(res.leftMap(_.toCantonError))
   }
 
   /** New endpoint to upload contracts for a party which uses the versioned ActiveContract

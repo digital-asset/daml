@@ -253,7 +253,7 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
       store: Option[v30.StoreId],
   ): Future[ImportTopologySnapshotResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val res = for {
+    val res: EitherT[FutureUnlessShutdown, CantonError, ImportTopologySnapshotResponse] = for {
       storedTxs <- EitherT.fromEither[FutureUnlessShutdown](
         StoredTopologyTransactions
           .fromTrustedByteString(topologySnapshot)

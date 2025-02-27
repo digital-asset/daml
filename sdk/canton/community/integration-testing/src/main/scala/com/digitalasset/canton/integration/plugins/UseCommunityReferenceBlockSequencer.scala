@@ -22,11 +22,8 @@ import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBas
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
-import com.digitalasset.canton.synchronizer.sequencer.config.CommunitySequencerNodeConfig
-import com.digitalasset.canton.synchronizer.sequencer.{
-  BlockSequencerConfig,
-  CommunitySequencerConfig,
-}
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
+import com.digitalasset.canton.synchronizer.sequencer.{BlockSequencerConfig, SequencerConfig}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.{
   CommunityReferenceSequencerDriverFactory,
   ReferenceSequencerDriver,
@@ -43,7 +40,7 @@ class UseCommunityReferenceBlockSequencer[S <: StorageConfig](
 )(implicit c: ClassTag[S])
     extends UseReferenceBlockSequencerBase[
       S,
-      CommunitySequencerConfig,
+      SequencerConfig,
       CommunityEnvironment,
       CommunityTestConsoleEnvironment,
     ](loggerFactory, "reference", sequencerGroups) {
@@ -53,11 +50,11 @@ class UseCommunityReferenceBlockSequencer[S <: StorageConfig](
   override def driverConfigs(
       config: CantonCommunityConfig,
       storageConfigs: Map[CantonRequireTypes.InstanceName, S],
-  ): Map[InstanceName, CommunitySequencerConfig] = {
+  ): Map[InstanceName, SequencerConfig] = {
     implicit val errorLoggingContext: ErrorLoggingContext =
       ErrorLoggingContext.forClass(loggerFactory, classOf[UseCommunityReferenceBlockSequencer[S]])
     config.sequencers.keys.map { sequencerName =>
-      sequencerName -> CommunitySequencerConfig.External(
+      sequencerName -> SequencerConfig.External(
         driverFactory.name,
         BlockSequencerConfig(),
         ConfigCursor(
@@ -129,12 +126,12 @@ class UseCommunityReferenceBlockSequencer[S <: StorageConfig](
         }.toMap
     }
 
-    val sequencersToConfig: Map[InstanceName, CommunitySequencerConfig] =
+    val sequencersToConfig: Map[InstanceName, SequencerConfig] =
       driverConfigs(config, storageConfigMap)
 
     def mapSequencerConfigs(
-        kv: (InstanceName, CommunitySequencerNodeConfig)
-    ): (InstanceName, CommunitySequencerNodeConfig) = kv match {
+        kv: (InstanceName, SequencerNodeConfig)
+    ): (InstanceName, SequencerNodeConfig) = kv match {
       case (name, cfg) =>
         (
           name,

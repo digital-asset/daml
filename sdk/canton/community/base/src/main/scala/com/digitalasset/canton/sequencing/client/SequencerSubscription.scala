@@ -7,8 +7,8 @@ import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerSubscriptionErrorGroup
+import com.digitalasset.canton.error.{CantonError, ContextualizedCantonError}
 import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, FlagCloseableAsync, SyncCloseable}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
 import com.digitalasset.canton.topology.Member
@@ -90,7 +90,7 @@ trait SequencerSubscription[HandlerError] extends FlagCloseableAsync with NamedL
 
 object SequencerSubscriptionError extends SequencerSubscriptionErrorGroup {
 
-  sealed trait SequencedEventError extends CantonError
+  sealed trait SequencedEventError extends ContextualizedCantonError
 
   @Explanation(
     """This error indicates that a sequencer subscription to a recently onboarded sequencer attempted to read
