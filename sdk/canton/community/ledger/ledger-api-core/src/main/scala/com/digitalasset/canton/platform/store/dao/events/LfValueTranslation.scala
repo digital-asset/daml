@@ -53,8 +53,9 @@ import scala.util.chaining.*
 
 /** Serializes and deserializes Daml-Lf values and events.
   *
-  *  Deserializing values in verbose mode involves loading packages in order to fill in missing type information.
-  *  That's why these methods return Futures, while the serialization methods are synchronous.
+  * Deserializing values in verbose mode involves loading packages in order to fill in missing type
+  * information. That's why these methods return Futures, while the serialization methods are
+  * synchronous.
   */
 trait LfValueSerialization {
   def serialize(
@@ -295,7 +296,7 @@ final class LfValueTranslation(
     } yield ExercisedEvent(
       offset = rawExercisedEvent.offset,
       nodeId = rawExercisedEvent.nodeId,
-      contractId = rawExercisedEvent.contractId,
+      contractId = rawExercisedEvent.contractId.coid,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawExercisedEvent.templateId)
       ),
@@ -318,7 +319,7 @@ final class LfValueTranslation(
     ArchivedEvent(
       offset = rawArchivedEvent.offset,
       nodeId = rawArchivedEvent.nodeId,
-      contractId = rawArchivedEvent.contractId,
+      contractId = rawArchivedEvent.contractId.coid,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawArchivedEvent.templateId)
       ),
@@ -339,7 +340,6 @@ final class LfValueTranslation(
         createKey: Option[VersionedValue],
     ): Either[String, FatContractInstance] =
       for {
-        contractId <- ContractId.fromString(rawCreatedEvent.contractId)
         signatories <- rawCreatedEvent.signatories.toList.traverse(Party.fromString).map(_.toSet)
         observers <- rawCreatedEvent.observers.toList.traverse(Party.fromString).map(_.toSet)
         maintainers <- rawCreatedEvent.createKeyMaintainers.toList
@@ -354,7 +354,7 @@ final class LfValueTranslation(
           )
       } yield FatContractInstance.fromCreateNode(
         Node.Create(
-          coid = contractId,
+          coid = rawCreatedEvent.contractId,
           templateId = rawCreatedEvent.templateId,
           packageName = rawCreatedEvent.packageName,
           packageVersion = rawCreatedEvent.packageVersion,
@@ -397,7 +397,7 @@ final class LfValueTranslation(
     } yield CreatedEvent(
       offset = rawCreatedEvent.offset,
       nodeId = rawCreatedEvent.nodeId,
-      contractId = rawCreatedEvent.contractId,
+      contractId = rawCreatedEvent.contractId.coid,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawCreatedEvent.templateId)
       ),

@@ -33,9 +33,9 @@ private[routing] final class AdmissibleSynchronizers(
 ) extends NamedLogging {
 
   /** Synchronizers that host both submitters and informees of the transaction:
-    * - submitters have to be hosted on the local participant
-    * - informees have to be hosted on some participant
-    * It is assumed that the participant is connected to all synchronizers in `connectedSynchronizers`
+    *   - submitters have to be hosted on the local participant
+    *   - informees have to be hosted on some participant It is assumed that the participant is
+    *     connected to all synchronizers in `connectedSynchronizers`
     */
   def forParties(
       submitters: Set[LfPartyId],

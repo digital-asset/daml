@@ -15,10 +15,11 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContextExecutor
 
-/** A generic client to send requests to a sequencer. This trait attempts to be independent of the underlying transport.
+/** A generic client to send requests to a sequencer. This trait attempts to be independent of the
+  * underlying transport.
   *
-  * NOTE: We currently make only a minimal effort to keep transport independence, and there are obvious leaks.
-  * This will be extended when we need it.
+  * NOTE: We currently make only a minimal effort to keep transport independence, and there are
+  * obvious leaks. This will be extended when we need it.
   */
 trait SequencerConnectionXClient {
   import SequencerConnectionXClient.*

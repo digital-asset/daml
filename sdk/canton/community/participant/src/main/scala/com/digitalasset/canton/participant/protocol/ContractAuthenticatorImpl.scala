@@ -22,25 +22,31 @@ import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance}
 
 trait ContractAuthenticator {
 
-  /** Authenticates the contract payload and metadata (consisted of ledger create time, contract instance and
-    * contract salt) against the contract id, iff the contract id has a [[com.digitalasset.canton.protocol.AuthenticatedContractIdVersionV10]] format.
+  /** Authenticates the contract payload and metadata (consisted of ledger create time, contract
+    * instance and contract salt) against the contract id, iff the contract id has a
+    * [[com.digitalasset.canton.protocol.AuthenticatedContractIdVersionV10]] format.
     *
-    * @param contract the serializable contract
+    * @param contract
+    *   the serializable contract
     */
   def authenticateSerializable(contract: SerializableContract): Either[String, Unit]
 
-  /** Authenticates the contract payload and metadata (consisted of ledger create time, contract instance and
-    * contract salt) against the contract id, iff the contract id has a [[com.digitalasset.canton.protocol.AuthenticatedContractIdVersionV10]] format.
+  /** Authenticates the contract payload and metadata (consisted of ledger create time, contract
+    * instance and contract salt) against the contract id, iff the contract id has a
+    * [[com.digitalasset.canton.protocol.AuthenticatedContractIdVersionV10]] format.
     *
-    * @param contract the fat contract contract
+    * @param contract
+    *   the fat contract contract
     */
   def authenticateFat(contract: FatContractInstance): Either[String, Unit]
 
-  /** This method is used in contract upgrade verification to ensure that the metadata computed by the upgraded
-    * template matches the original metadata.
+  /** This method is used in contract upgrade verification to ensure that the metadata computed by
+    * the upgraded template matches the original metadata.
     *
-    * @param contract the contract whose metadata has been re-calculated
-    * @param metadata the recalculated metadata
+    * @param contract
+    *   the contract whose metadata has been re-calculated
+    * @param metadata
+    *   the recalculated metadata
     */
   def verifyMetadata(
       contract: SerializableContract,

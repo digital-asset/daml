@@ -53,10 +53,13 @@ import scala.concurrent.ExecutionContext
 
 /** Factory class for creating transaction confirmation requests from Daml-LF transactions.
   *
-  * @param transactionTreeFactory used to create the payload
-  * @param seedGenerator used to derive the transaction seed
-  * @param parallel to flag if view processing is done in parallel or sequentially. Intended to be set only during tests
-  *                 to enforce determinism, otherwise it is always set to true.
+  * @param transactionTreeFactory
+  *   used to create the payload
+  * @param seedGenerator
+  *   used to derive the transaction seed
+  * @param parallel
+  *   to flag if view processing is done in parallel or sequentially. Intended to be set only during
+  *   tests to enforce determinism, otherwise it is always set to true.
   */
 class TransactionConfirmationRequestFactory(
     submitterNode: ParticipantId,
@@ -69,10 +72,13 @@ class TransactionConfirmationRequestFactory(
 
   /** Creates a confirmation request from a wellformed transaction.
     *
-    * @param cryptoSnapshot used to determine participants of parties and for signing and encryption
-    * @return the confirmation request and the transaction root hash (aka transaction id) or an error. See the
-    *         documentation of [[com.digitalasset.canton.participant.protocol.submission.TransactionConfirmationRequestFactory.TransactionConfirmationRequestCreationError]]
-    *         for more information on error cases.
+    * @param cryptoSnapshot
+    *   used to determine participants of parties and for signing and encryption
+    * @return
+    *   the confirmation request and the transaction root hash (aka transaction id) or an error. See
+    *   the documentation of
+    *   [[com.digitalasset.canton.participant.protocol.submission.TransactionConfirmationRequestFactory.TransactionConfirmationRequestCreationError]]
+    *   for more information on error cases.
     */
   def createConfirmationRequest(
       wfTransaction: WellFormedTransaction[WithoutSuffixes],
@@ -384,7 +390,8 @@ object TransactionConfirmationRequestFactory {
       with Serializable
       with PrettyPrinting
 
-  /** Indicates that the submitterNode is not allowed to represent the submitter or to submit requests.
+  /** Indicates that the submitterNode is not allowed to represent the submitter or to submit
+    * requests.
     */
   final case class ParticipantAuthorizationError(message: String)
       extends TransactionConfirmationRequestCreationError {
@@ -430,7 +437,8 @@ object TransactionConfirmationRequestFactory {
   }
 
   /** Indicates that the transaction could not be converted to a transaction tree.
-    * @see TransactionTreeFactory.TransactionTreeConversionError for more information.
+    * @see
+    *   TransactionTreeFactory.TransactionTreeConversionError for more information.
     */
   final case class TransactionTreeFactoryError(cause: TransactionTreeConversionError)
       extends TransactionConfirmationRequestCreationError {

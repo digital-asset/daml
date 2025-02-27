@@ -111,18 +111,21 @@ message ValidateDarResponse {
 }
 
 message UploadDarRequest {
-  bytes data = 1;
-  string description = 2;
+  message UploadDarData {
+    bytes bytes = 1;
+    optional string description = 2;
+    // optionally the expected package id of the main package
+    optional string expected_main_package_id = 3;
+  }
+  repeated UploadDarData dars = 1;
   // if set to true (should be used by default), we'll register the vetting topology transactions on all synchronizers
-  bool vet_all_packages = 3;
+  bool vet_all_packages = 2;
   // if set to true, we'll wait until the vetting transaction has been observed by this participant on all connected synchronizers
-  bool synchronize_vetting = 4;
-  // optionally the expected package id of the main package
-  string expected_main_package_id = 5;
+  bool synchronize_vetting = 3;
 }
 
 message UploadDarResponse {
-  string dar_id = 1;
+  repeated string dar_ids = 1;
 }
 
 message RemoveDarRequest {

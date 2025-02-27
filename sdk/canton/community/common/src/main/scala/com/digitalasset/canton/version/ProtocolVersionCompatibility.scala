@@ -23,7 +23,8 @@ object ProtocolVersionCompatibility {
 
   /** Returns the protocol versions supported by the canton node parameters and the release.
     *
-    * @param release defaults to the current release
+    * @param release
+    *   defaults to the current release
     */
   def supportedProtocols(
       cantonNodeParameters: CantonNodeParameters,
@@ -82,15 +83,16 @@ object ProtocolVersionCompatibility {
       s"CantonVersion $version is not supported! The supported versions are ${supported.map(_.toString).mkString(", ")}. Please configure one of these protocol versions in the SynchronizerParameters. "
   }
 
-  /** Returns successfully if the client and server should be compatible.
-    * Otherwise returns an error message.
+  /** Returns successfully if the client and server should be compatible. Otherwise returns an error
+    * message.
     *
     * The client and server are compatible if both of the following conditions are true:
-    *   - The protocol version required by the server is among the protocol versions supported by the client.
+    *   - The protocol version required by the server is among the protocol versions supported by
+    *     the client.
     *   - The protocol version required by the server is not lower than `clientMinimumVersion`.
     *
-    * Note that the second condition is not enforced if support for development versions is active for both
-    * client and server.
+    * Note that the second condition is not enforced if support for development versions is active
+    * for both client and server.
     */
   def canClientConnectToServer(
       clientSupportedVersions: Seq[ProtocolVersion],
@@ -128,7 +130,8 @@ final case class MinProtocolError(
     s"The version required by the synchronizer (${server.toString}) is lower than the minimum version configured by the participant (${clientMinimumProtocolVersion
         .map(_.toString)
         .getOrElse("")}). " +
-      s"${if (clientSupportsRequiredVersion) "The participant supports the version required by the synchronizer and would be able to connect to the synchronizer if the minimum required version is configured to be lower."} "
+      s"${if (clientSupportsRequiredVersion) "The participant supports the version required by the synchronizer and would be able to connect to the synchronizer if the minimum required version is configured to be lower."
+        else ""} "
 }
 
 final case class VersionNotSupportedError(
@@ -173,8 +176,9 @@ object HandshakeErrors extends HandshakeErrorGroup {
   }
 }
 
-/** Wrapper around a [[ProtocolVersion]] so we can verify during configuration loading that synchronizer operators only
-  * configure a [[ProtocolVersion]] which is supported by the corresponding sequencer release.
+/** Wrapper around a [[ProtocolVersion]] so we can verify during configuration loading that
+  * synchronizer operators only configure a [[ProtocolVersion]] which is supported by the
+  * corresponding sequencer release.
   */
 final case class SynchronizerProtocolVersion(version: ProtocolVersion) {
   def unwrap: ProtocolVersion = version
@@ -212,9 +216,10 @@ object SynchronizerProtocolVersion {
     }
 }
 
-/** Wrapper around a [[ProtocolVersion]] so we can verify during configuration loading that participant operators only
-  * configure a minimum [[ProtocolVersion]] in [[com.digitalasset.canton.participant.config.LocalParticipantConfig]]
-  * which is supported by the corresponding participant release.
+/** Wrapper around a [[ProtocolVersion]] so we can verify during configuration loading that
+  * participant operators only configure a minimum [[ProtocolVersion]] in
+  * [[com.digitalasset.canton.participant.config.LocalParticipantConfig]] which is supported by the
+  * corresponding participant release.
   */
 final case class ParticipantProtocolVersion(version: ProtocolVersion)
     extends UniformCantonConfigValidation {

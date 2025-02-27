@@ -40,8 +40,7 @@ class BadRootHashMessagesRequestProcessor(
       synchronizerId,
     ) {
 
-  /** Sends `reject` for the given `rootHash`.
-    * Also ticks the record order publisher.
+  /** Sends `reject` for the given `rootHash`. Also ticks the record order publisher.
     */
   def sendRejectionAndTerminate(
       timestamp: CantonTimestamp,
@@ -55,23 +54,23 @@ class BadRootHashMessagesRequestProcessor(
         requestId = RequestId(timestamp)
         _ = reject.log()
         rejection = checked(
-          ConfirmationResponse.tryCreate(
-            viewPositionO = None,
-            localVerdict = reject.toLocalReject(protocolVersion),
-            confirmingParties = Set.empty,
-          )
-        )
-        signedRejection <- signResponses(
-          snapshot,
           ConfirmationResponses.tryCreate(
             requestId,
             rootHash,
             synchronizerId,
             participantId,
-            NonEmpty.mk(Seq, rejection),
+            NonEmpty.mk(
+              Seq,
+              ConfirmationResponse.tryCreate(
+                viewPositionO = None,
+                localVerdict = reject.toLocalReject(protocolVersion),
+                confirmingParties = Set.empty,
+              ),
+            ),
             protocolVersion,
-          ),
+          )
         )
+        signedRejection <- signResponses(snapshot, rejection)
         _ <- sendResponses(
           requestId,
           Seq(signedRejection -> Recipients.cc(mediator)),

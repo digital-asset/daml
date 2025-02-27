@@ -25,9 +25,9 @@ object MeteringReportKey {
   )
 
   /** It may help when loading from the class path:
-    *  - To start with a `Class` close to the key resource location
-    *  - Get the `ClassLoader` associated with that class
-    *  - Use the `getResource` classloader method.
+    *   - To start with a `Class` close to the key resource location
+    *   - Get the `ClassLoader` associated with that class
+    *   - Use the `getResource` classloader method.
     */
   def assertReadSystemResourceAsKey(keyUrl: URL): Key =
     assertParseKey(keyUrl.openStream().readAllBytes())

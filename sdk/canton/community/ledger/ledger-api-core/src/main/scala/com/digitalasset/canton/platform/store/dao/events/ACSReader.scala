@@ -47,6 +47,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.value.Value.ContractId
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Attributes
@@ -57,15 +58,14 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining.*
 
 /** Streams ACS events (active contracts) in a two step process consisting of:
-  * 1) fetching event sequential ids of the active contracts based on the filtering constraints,
-  * 2) fetching the active contracts based on the fetched event sequential ids.
+  *   1. fetching event sequential ids of the active contracts based on the filtering constraints,
+  *   1. fetching the active contracts based on the fetched event sequential ids.
   *
-  * Details:
-  * An input filtering constraint (consisting of parties and template ids) is converted into
-  * decomposed filtering constraints (a constraint with exactly one party and at most one template id).
-  * For each decomposed filter, the matching event sequential ids are fetched in parallel and then merged into
-  * a strictly increasing sequence. The elements from this sequence are then batched and the batch ids serve as
-  * the input to the payload fetching step.
+  * Details: An input filtering constraint (consisting of parties and template ids) is converted
+  * into decomposed filtering constraints (a constraint with exactly one party and at most one
+  * template id). For each decomposed filter, the matching event sequential ids are fetched in
+  * parallel and then merged into a strictly increasing sequence. The elements from this sequence
+  * are then batched and the batch ids serve as the input to the payload fetching step.
   */
 class ACSReader(
     config: ActiveContractsServiceStreamsConfig,
@@ -345,7 +345,7 @@ class ACSReader(
       )
 
     def fetchCreateIdsForContractIds(
-        contractIds: Iterable[String]
+        contractIds: Iterable[ContractId]
     ): Future[Vector[Long]] =
       globalIdQueriesLimiter.execute(
         dispatcher.executeSql(metrics.index.db.getCreateIdsForContractIds) { connection =>
@@ -455,7 +455,7 @@ class ACSReader(
           .distinct
         createdIds <- fetchCreateIdsForContractIds(missingContractIds)
         createdPayloads <- fetchCreatePayloads(createdIds)
-        rawCreatedFromCreatedResults: Map[String, Vector[Entry[RawCreatedEvent]]] =
+        rawCreatedFromCreatedResults: Map[ContractId, Vector[Entry[RawCreatedEvent]]] =
           createdPayloads.groupBy(_.event.contractId)
       } yield batch.flatMap { rawUnassignEntry =>
         val unassignProperties = extractUnassignProperties(rawUnassignEntry)

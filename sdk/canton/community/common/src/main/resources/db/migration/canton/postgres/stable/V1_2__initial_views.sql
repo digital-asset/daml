@@ -183,7 +183,7 @@ create or replace view debug.common_crypto_public_keys as
 
 create or replace view debug.par_contracts as
   select
-    contract_id,
+    lower(encode(contract_id, 'hex')) as contract_id,
     instance,
     metadata,
     ledger_create_time,
@@ -216,7 +216,7 @@ create or replace view debug.common_topology_dispatching as
 create or replace view debug.par_active_contracts as
   select
     debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
-    contract_id,
+    lower(encode(contract_id, 'hex')) as contract_id,
     change, operation,
     debug.canton_timestamp(ts) as ts,
     request_counter,
@@ -365,8 +365,7 @@ create or replace view debug.par_commitment_queue as
     counter_participant,
     debug.canton_timestamp(from_exclusive) as from_exclusive,
     debug.canton_timestamp(to_inclusive) as to_inclusive,
-    commitment,
-    commitment_hash
+    commitment
   from par_commitment_queue;
 
 create or replace view debug.par_static_synchronizer_parameters as
@@ -687,8 +686,12 @@ create or replace view debug.common_static_strings as
 
 create or replace view debug.ord_p2p_endpoints as
   select
-    host,
-    port
+    address,
+    port,
+    transport_security,
+    custom_server_trust_certificates,
+    client_certificate_chain,
+    client_private_key_file
   from ord_p2p_endpoints;
 
 create or replace VIEW debug.acs_no_wait_counter_participants as

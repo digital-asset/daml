@@ -5,7 +5,6 @@ package com.digitalasset.canton.auth
 
 import cats.syntax.either.*
 import com.daml.jwt.JwtTimestampLeeway
-import com.daml.ledger.api.v2.transaction_filter.Filters
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.LfLedgerString
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -15,11 +14,12 @@ import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import scalapb.lenses.Lens
 
 import java.time.Instant
+import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
-/** A simple helper that allows services to use authorization claims
-  * that have been stored by [[AuthorizationInterceptor]].
+/** A simple helper that allows services to use authorization claims that have been stored by
+  * [[AuthorizationInterceptor]].
   */
 final class Authorizer(
     now: () => Instant,
@@ -31,8 +31,8 @@ final class Authorizer(
 ) extends NamedLogging
     with TelemetryTracing {
 
-  /** Validates all properties of claims that do not depend on the request,
-    * such as expiration time or ledger ID.
+  /** Validates all properties of claims that do not depend on the request, such as expiration time
+    * or ledger ID.
     */
   private def valid(claims: ClaimSet.Claims): Either[AuthorizationError, Unit] =
     for {
@@ -46,83 +46,15 @@ final class Authorizer(
       ()
     }
 
-  def requirePublicClaims[Req, Res](call: Req => Future[Res]): Req => Future[Res] =
-    authorize(call) { (claims, req) =>
-      for {
-        _ <- valid(claims)
-        _ <- claims.isPublic
-      } yield req
-    }
-
-  def requireAdminClaims[Req, Res](call: Req => Future[Res]): Req => Future[Res] =
-    authorize(call) { (claims, req) =>
-      for {
-        _ <- valid(claims)
-        _ <- claims.isAdmin
-      } yield req
-    }
-
-  def requireIdpAdminClaimsAndMatchingRequestIdpId[Req, Res](
-      identityProviderIdL: Lens[Req, String],
-      call: Req => Future[Res],
-  ): Req => Future[Res] =
-    requireIdpAdminClaimsAndMatchingRequestIdpId(
-      identityProviderIdL,
-      mustBeParticipantAdmin = false,
-      call,
-    )
-
-  def requireIdpAdminClaimsAndMatchingRequestIdpId[Req, Res](
-      identityProviderIdL: Lens[Req, String],
-      mustBeParticipantAdmin: Boolean,
-      call: Req => Future[Res],
-  )(req: Req): Future[Res] =
-    authorize(call) { (claims, req) =>
-      for {
-        _ <- valid(claims)
-        _ <- if (mustBeParticipantAdmin) claims.isAdmin else claims.isAdminOrIDPAdmin
-        modifiedRequest = implyIdentityProviderIdFromClaims(identityProviderIdL, claims, req)
-        requestIdentityProviderId <- sanitizeIdentityProviderId(
-          identityProviderIdL.get(modifiedRequest)
-        )
-        _ <- validateRequestIdentityProviderId(requestIdentityProviderId, claims)
-      } yield modifiedRequest
-    }(req)
-
   private def implyIdentityProviderIdFromClaims[Req](
       identityProviderIdL: Lens[Req, String],
       claims: ClaimSet.Claims,
       req: Req,
   ): Req =
     if (identityProviderIdL.get(req) == "" && !claims.claims.contains(ClaimAdmin)) {
-      val impliedIdpId = identityProviderIdFromClaims.getOrElse(ClaimSet.DefaultIdentityProviderId)
+      val impliedIdpId = claims.identityProviderId.getOrElse(ClaimSet.DefaultIdentityProviderId)
       identityProviderIdL.set(impliedIdpId)(req)
     } else req
-
-  def requireMatchingRequestIdpId[Req, Res](
-      identityProviderIdL: Lens[Req, String],
-      call: Req => Future[Res],
-  ): Req => Future[Res] =
-    authorize(call) { (claims, req) =>
-      for {
-        _ <- valid(claims)
-        modifiedRequest = implyIdentityProviderIdFromClaims(identityProviderIdL, claims, req)
-        requestIdentityProviderId <- sanitizeIdentityProviderId(
-          identityProviderIdL.get(modifiedRequest)
-        )
-        _ <- validateRequestIdentityProviderId(requestIdentityProviderId, claims)
-      } yield modifiedRequest
-    }
-
-  def requireIdpAdminClaims[Req, Res](
-      call: Req => Future[Res]
-  ): Req => Future[Res] =
-    authorize(call) { (claims, req) =>
-      for {
-        _ <- valid(claims)
-        _ <- claims.isAdminOrIDPAdmin
-      } yield req
-    }
 
   private def sanitizeIdentityProviderId(
       identityProviderId: String
@@ -148,138 +80,38 @@ final class Authorizer(
       Either.unit
   }
 
-  private[this] def requireForAll[T](
-      xs: IterableOnce[T],
-      f: T => Either[AuthorizationError, Unit],
-  ): Either[AuthorizationError, Unit] =
-    xs.iterator.foldLeft(Either.unit[AuthorizationError])((acc, x) => acc.flatMap(_ => f(x)))
-
-  /** Wraps a streaming call to verify whether some Claims authorize to read as all parties
-    * of the given set. Authorization is always granted for an empty collection of parties.
-    */
-  def requireReadClaimsForAllPartiesOnStream[Req, Res](
-      parties: Iterable[String],
-      readAsAnyParty: Boolean,
-      call: (Req, StreamObserver[Res]) => Unit,
-  ): (Req, StreamObserver[Res]) => Unit =
-    authorize(call) { claims =>
-      for {
-        _ <- valid(claims)
-        _ <- if (readAsAnyParty) claims.canReadAsAnyParty else Either.unit
-        _ <- requireForAll(parties, party => claims.canReadAs(party))
-      } yield {
-        ()
+  private def authenticatedUserId(
+      claims: ClaimSet.Claims
+  ): Either[AuthorizationError, Option[String]] =
+    if (claims.resolvedFromUser)
+      claims.applicationId match {
+        case Some(applicationId) => Right(Some(applicationId))
+        case None =>
+          Left(
+            AuthorizationError.InternalAuthorizationError(
+              "unexpectedly the user-id is not set in the authenticated claims",
+              new RuntimeException(),
+            )
+          )
       }
-    }
+    else
+      Right(None)
 
-  def requireReadClaimsForAllPartiesOnStreamWithApplicationId[Req, Res](
-      parties: Iterable[String],
-      applicationIdL: Lens[Req, String],
-      call: (Req, StreamObserver[Res]) => Unit,
-  ): (Req, StreamObserver[Res]) => Unit =
-    authorizeWithReq(call) { (claims, req) =>
-      val reqApplicationId = applicationIdL.get(req)
-      for {
-        _ <- authorizationErrorAsGrpc(valid(claims))
-        _ <- authorizationErrorAsGrpc(requireForAll(parties, party => claims.canReadAs(party)))
-        defaultedApplicationId <- defaultApplicationId(reqApplicationId, claims)
-        _ <-
-          if (claims.claims.contains(ClaimReadAsAnyParty)) Either.unit
-          else authorizationErrorAsGrpc(claims.validForApplication(defaultedApplicationId))
-      } yield applicationIdL.set(defaultedApplicationId)(req)
-    }
-
-  /** Wraps a single call to verify whether some Claims authorize to read as all parties
-    * of the given set. Authorization is always granted for an empty collection of parties.
-    */
-  def requireReadClaimsForAllParties[Req, Res](
-      parties: Iterable[String],
-      call: Req => Future[Res],
-  ): Req => Future[Res] =
-    authorize(call) { (claims, req) =>
-      for {
-        _ <- valid(claims)
-        _ <- requireForAll(parties, party => claims.canReadAs(party))
-      } yield req
-    }
-
-  def requireActAndReadClaimsForParties[Req, Res](
-      actAs: Set[String],
-      readAs: Set[String],
-      applicationIdL: Lens[Req, String],
-      call: Req => Future[Res],
-  ): Req => Future[Res] =
-    authorizeWithReq(call) { (claims, req) =>
-      val reqApplicationId = applicationIdL.get(req)
-      for {
-        _ <- authorizationErrorAsGrpc(valid(claims))
-        _ <- authorizationErrorAsGrpc(
-          actAs.foldRight(Either.unit[AuthorizationError])((p, acc) =>
-            acc.flatMap(_ => claims.canActAs(p))
-          )
-        )
-        _ <- authorizationErrorAsGrpc(
-          readAs.foldRight(Either.unit[AuthorizationError])((p, acc) =>
-            acc.flatMap(_ => claims.canReadAs(p))
-          )
-        )
-        defaultedApplicationId <- defaultApplicationId(reqApplicationId, claims)
-        _ <- authorizationErrorAsGrpc(claims.validForApplication(defaultedApplicationId))
-      } yield applicationIdL.set(defaultedApplicationId)(req)
-    }
-
-  /** Checks whether the current Claims authorize to read data for all parties mentioned in the given transaction filter */
-  def requireReadClaimsForTransactionFilterOnStream[Req, Res](
-      filter: Option[Map[String, Filters]],
-      readAsAnyParty: Boolean,
-      call: (Req, StreamObserver[Res]) => Unit,
-  ): (Req, StreamObserver[Res]) => Unit =
-    requireReadClaimsForAllPartiesOnStream(
-      filter.fold(Set.empty[String])(_.keySet),
-      readAsAnyParty,
-      call,
-    )
-
-  def identityProviderIdFromClaims: Option[LfLedgerString] =
-    authenticatedClaimsFromContext().toOption.flatMap(_.identityProviderId)
-
-  def authenticatedUserId(): Try[Option[String]] =
-    authenticatedClaimsFromContext()
-      .flatMap(claims =>
-        if (claims.resolvedFromUser)
-          claims.applicationId match {
-            case Some(applicationId) => Success(Some(applicationId))
-            case None =>
-              Failure(
-                AuthorizationChecksErrors.InternalAuthorizationError
-                  .Reject(
-                    "unexpectedly the user-id is not set in the authenticated claims",
-                    new RuntimeException(),
-                  )
-                  .asGrpcError
-              )
-          }
-        else
-          Success(None)
-      )
-
-  /** Compute the application-id for a request, defaulting to the one in the claims in
-    * case the request does not specify an application-id.
+  /** Compute the application-id for a request, defaulting to the one in the claims in case the
+    * request does not specify an application-id.
     */
   private def defaultApplicationId(
       reqApplicationId: String,
       claims: ClaimSet.Claims,
-  ): Either[StatusRuntimeException, String] =
+  ): Either[AuthorizationError, String] =
     if (reqApplicationId.isEmpty)
       claims.applicationId match {
         case Some(applicationId) if applicationId.nonEmpty => Right(applicationId)
         case _ =>
           Left(
-            AuthorizationChecksErrors.InvalidToken
-              .MissingUserId(
-                "Cannot default application_id field because claims do not specify an application-id or user-id. Is authentication turned on?"
-              )
-              .asGrpcError
+            AuthorizationError.MissingUserId(
+              "Cannot default application_id field because claims do not specify an application-id or user-id. Is authentication turned on?"
+            )
           )
       }
     else Right(reqApplicationId)
@@ -295,6 +127,21 @@ final class Authorizer(
               .InvalidField(fieldName = fieldName, message = reason)
               .asGrpcError
           )
+
+        case AuthorizationError.MissingUserId(reason) =>
+          Left(
+            AuthorizationChecksErrors.InvalidToken
+              .MissingUserId(reason)
+              .asGrpcError
+          )
+
+        case AuthorizationError.InternalAuthorizationError(reason, throwable) =>
+          Left(
+            AuthorizationChecksErrors.InternalAuthorizationError
+              .Reject(reason, throwable)
+              .asGrpcError
+          )
+
         case err =>
           Left(
             AuthorizationChecksErrors.PermissionDenied.Reject(err.reason).asGrpcError
@@ -316,8 +163,8 @@ final class Authorizer(
 
   /** Directly access the authenticated claims from the thread-local context.
     *
-    * Prefer to use the more specialized methods of [[Authorizer]] instead of this
-    * method to avoid skipping required authorization checks.
+    * Prefer to use the more specialized methods of [[Authorizer]] instead of this method to avoid
+    * skipping required authorization checks.
     */
   private def authenticatedClaimsFromContext(): Try[ClaimSet.Claims] =
     AuthorizationInterceptor
@@ -343,54 +190,156 @@ final class Authorizer(
         case claims: ClaimSet.Claims => Success(claims)
       }
 
-  private def authorizeWithReq[Req, Res](call: (Req, ServerCallStreamObserver[Res]) => Unit)(
-      authorized: (ClaimSet.Claims, Req) => Either[StatusRuntimeException, Req]
-  ): (Req, StreamObserver[Res]) => Unit = (request, observer) => {
-    val serverCallStreamObserver = assertServerCall(observer)
-    authenticatedClaimsFromContext()
-      .fold(
-        ex => {
-          observer.onError(ex)
-        },
-        claims =>
-          authorized(claims, request) match {
-            case Right(modifiedRequest) =>
-              call(
-                modifiedRequest,
-                if (claims.expiration.isDefined || claims.resolvedFromUser)
-                  ongoingAuthorizationFactory(serverCallStreamObserver, claims)
-                else
-                  serverCallStreamObserver,
-              )
-            case Left(ex) =>
-              observer.onError(ex)
-          },
-      )
-  }
+  private def defaultToAuthenticatedUser(
+      claims: ClaimSet.Claims,
+      userId: String,
+  ): Either[AuthorizationError, Option[String]] =
+    authenticatedUserId(claims).flatMap {
+      case Some(authUserId) if userId.isEmpty || userId == authUserId =>
+        // We include the case where the request userId is equal to the authenticated userId in the defaulting.
+        Right(Some(authUserId))
 
-  private def authorize[Req, Res](call: (Req, ServerCallStreamObserver[Res]) => Unit)(
-      authorized: ClaimSet.Claims => Either[AuthorizationError, Unit]
-  ): (Req, StreamObserver[Res]) => Unit =
-    authorizeWithReq(call)((claims, req) =>
-      authorizationErrorAsGrpc(authorized(claims)).map(_ => req)
+      case None if userId.isEmpty =>
+        // This case can be hit both when running without authentication and when using custom Daml tokens.
+        Left(
+          AuthorizationError.MissingUserId(
+            "requests with an empty user-id are only supported if there is an authenticated user"
+          )
+        )
+
+      case _ => Right(None)
+    }
+
+  private def authorizeRequiredClaim[Req](
+      requiredClaim: RequiredClaim[Req],
+      claims: ClaimSet.Claims,
+      req: Req,
+  ): Either[AuthorizationError, Req] =
+    requiredClaim match {
+      case RequiredClaim.Public() => claims.isPublic.map(_ => req)
+
+      case RequiredClaim.ReadAs(party) => claims.canReadAs(party).map(_ => req)
+
+      case RequiredClaim.ReadAsAnyParty() => claims.canReadAsAnyParty.map(_ => req)
+
+      case RequiredClaim.ActAs(party) => claims.canActAs(party).map(_ => req)
+
+      case RequiredClaim.MatchIdentityProviderId(_) =>
+        val identityProviderIdL = requiredClaim.requestStringL
+        val modifiedRequest = implyIdentityProviderIdFromClaims(identityProviderIdL, claims, req)
+        sanitizeIdentityProviderId(identityProviderIdL.get(modifiedRequest))
+          .flatMap(validateRequestIdentityProviderId(_, claims))
+          .map(_ => modifiedRequest)
+
+      case RequiredClaim.MatchApplicationId(_, skipApplicationIdValidationForAnyPartyReaders) =>
+        val applicationIdL = requiredClaim.requestStringL
+        defaultApplicationId(applicationIdL.get(req), claims).flatMap(defaultedApplicationId =>
+          Option
+            .when(
+              skipApplicationIdValidationForAnyPartyReaders && claims.claims.contains(
+                ClaimReadAsAnyParty
+              )
+            )(Either.unit)
+            .getOrElse(claims.validForApplication(defaultedApplicationId))
+            .map(_ => applicationIdL.set(defaultedApplicationId)(req))
+        )
+
+      case RequiredClaim.MatchUserId(_) =>
+        val userIdL = requiredClaim.requestStringL
+        defaultToAuthenticatedUser(
+          claims = claims,
+          userId = userIdL.get(req),
+        ).flatMap {
+          case Some(userId) => Right(userIdL.set(userId)(req))
+          case None => claims.isAdminOrIDPAdmin.map(_ => req)
+        }
+
+      case RequiredClaim.Admin() => claims.isAdmin.map(_ => req)
+
+      case RequiredClaim.AdminOrIdpAdmin() => claims.isAdminOrIDPAdmin.map(_ => req)
+    }
+
+  @tailrec
+  private def authorizedIteration[Req](
+      requiredClaims: List[RequiredClaim[Req]],
+      claims: ClaimSet.Claims,
+      req: Req,
+  ): Either[AuthorizationError, Req] =
+    requiredClaims match {
+      case Nil => Right(req)
+      case requiredClaim :: rest =>
+        authorizeRequiredClaim(requiredClaim, claims, req) match {
+          case Left(err) => Left(err)
+          case Right(newReq) => authorizedIteration(rest, claims, newReq)
+        }
+    }
+
+  private def authorized[Req](
+      requiredClaims: List[RequiredClaim[Req]],
+      claims: ClaimSet.Claims,
+      req: Req,
+  ): Either[StatusRuntimeException, Req] =
+    authorizationErrorAsGrpc(
+      valid(claims).flatMap(_ => authorizedIteration(requiredClaims, claims, req))
     )
 
-  private[auth] def authorizeWithReq[Req, Res](call: Req => Future[Res])(
-      authorized: (ClaimSet.Claims, Req) => Either[StatusRuntimeException, Req]
-  ): Req => Future[Res] = request =>
+  def stream[Req, Res](
+      call: (Req, StreamObserver[Res]) => Unit
+  )(
+      requiredClaims: RequiredClaim[Req]*
+  )(req: Req, responseObserver: StreamObserver[Res]): Unit = {
+    val serverCallStreamObserver = assertServerCall(responseObserver)
+    authenticatedClaimsFromContext() match {
+      case Failure(ex) => responseObserver.onError(ex)
+      case Success(claims) =>
+        authorized(requiredClaims.toList, claims, req) match {
+          case Right(modifiedRequest) =>
+            call(
+              modifiedRequest,
+              if (claims.expiration.isDefined || claims.resolvedFromUser)
+                ongoingAuthorizationFactory(serverCallStreamObserver, claims)
+              else
+                serverCallStreamObserver,
+            )
+          case Left(ex) =>
+            responseObserver.onError(ex)
+        }
+    }
+  }
+
+  def rpc[Req, Res](
+      call: Req => Future[Res]
+  )(
+      requiredClaims: RequiredClaim[Req]*
+  )(req: Req): Future[Res] =
     authenticatedClaimsFromContext() match {
       case Failure(ex) => Future.failed(ex)
       case Success(claims) =>
-        authorized(claims, request) match {
+        authorized(requiredClaims.toList, claims, req) match {
           case Right(modifiedReq) => call(modifiedReq)
           case Left(ex) =>
             Future.failed(ex)
         }
     }
+}
 
-  private[auth] def authorize[Req, Res](call: Req => Future[Res])(
-      authorized: (ClaimSet.Claims, Req) => Either[AuthorizationError, Req]
-  ): Req => Future[Res] =
-    authorizeWithReq(call)((claims, req) => authorizationErrorAsGrpc(authorized(claims, req)))
+sealed trait RequiredClaim[Req] extends Product with Serializable {
+  def requestStringL: Lens[Req, String] = throw new UnsupportedOperationException()
+}
 
+object RequiredClaim {
+  final case class Public[Req]() extends RequiredClaim[Req]
+  final case class ReadAs[Req](party: String) extends RequiredClaim[Req]
+  final case class ReadAsAnyParty[Req]() extends RequiredClaim[Req]
+  final case class ActAs[Req](party: String) extends RequiredClaim[Req]
+  final case class MatchIdentityProviderId[Req](override val requestStringL: Lens[Req, String])
+      extends RequiredClaim[Req]
+  final case class MatchApplicationId[Req](
+      override val requestStringL: Lens[Req, String],
+      skipApplicationIdValidationForAnyPartyReaders: Boolean = false,
+  ) extends RequiredClaim[Req]
+  final case class MatchUserId[Req](override val requestStringL: Lens[Req, String])
+      extends RequiredClaim[Req]
+  final case class Admin[Req]() extends RequiredClaim[Req]
+  final case class AdminOrIdpAdmin[Req]() extends RequiredClaim[Req]
 }

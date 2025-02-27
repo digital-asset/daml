@@ -14,14 +14,13 @@ import com.digitalasset.canton.logging.{
 import io.grpc.*
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.FutureConverters.CompletionStageOps
 import scala.util.{Failure, Success, Try}
 
-/** This interceptor uses the given [[AuthService]] to get [[ClaimSet.Claims]] for the current request,
-  * and then stores them in the current [[io.grpc.Context]].
+/** This interceptor uses the given [[AuthService]] to get [[ClaimSet.Claims]] for the current
+  * request, and then stores them in the current [[io.grpc.Context]].
   */
 class AuthorizationInterceptor(
-    authService: AuthService,
+    authServices: Seq[AuthService],
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
     implicit val ec: ExecutionContext,
@@ -82,12 +81,18 @@ class AuthorizationInterceptor(
     }
   }
 
+  private val deny = Future.successful(ClaimSet.Unauthenticated: ClaimSet)
+
   def headerToClaims(
       headers: Metadata
   )(implicit loggingContextWithTrace: LoggingContextWithTrace): Future[ClaimSet] =
-    authService
-      .decodeMetadata(headers)
-      .asScala
+    authServices
+      .foldLeft(deny) { case (acc, elem) =>
+        acc.flatMap {
+          case ClaimSet.Unauthenticated => elem.decodeMetadata(headers)
+          case authenticated => Future.successful(authenticated)
+        }
+      }
 }
 
 object AuthorizationInterceptor {

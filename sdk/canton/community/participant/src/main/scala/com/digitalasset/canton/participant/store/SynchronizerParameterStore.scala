@@ -19,7 +19,9 @@ trait SynchronizerParameterStore {
 
   /** Sets new synchronizer parameters. Calls with the same argument are idempotent.
     *
-    * @return The future fails with an [[java.lang.IllegalArgumentException]] if different synchronizer parameters have been stored before.
+    * @return
+    *   The future fails with an [[java.lang.IllegalArgumentException]] if different synchronizer
+    *   parameters have been stored before.
     */
   def setParameters(newParameters: StaticSynchronizerParameters)(implicit
       traceContext: TraceContext

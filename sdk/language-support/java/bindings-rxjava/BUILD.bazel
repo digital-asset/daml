@@ -80,7 +80,6 @@ da_scala_library(
         "//canton:community_util-logging",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/data",
-        "//libs-scala/contextualized-logging",
         "//libs-scala/rs-grpc-bridge",
         "//observability/tracing",
         "@maven//:com_google_protobuf_protobuf_java",

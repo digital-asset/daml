@@ -365,9 +365,9 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     logger.debug(s"Querying first sequencer state for $sequencerId")
 
     queryForTransactions(
-      // We don't expect too many MediatorSynchronizerState mappings in a single synchronizer, so fetching them all from the db
+      // We don't expect too many SequencerSynchronizerState mappings in a single synchronizer, so fetching them all from the db
       // is acceptable and also because we don't expect to run this query frequently. We can only evaluate the
-      // `mediatorId` field locally as the mediator-id is not exposed in a separate column.
+      // `sequencerId` field locally as the sequencer-id is not exposed in a separate column.
       sql" AND is_proposal = false" ++
         sql" AND operation = ${TopologyChangeOp.Replace}" ++
         sql" AND transaction_type = ${SequencerSynchronizerState.code}",

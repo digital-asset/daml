@@ -6,6 +6,7 @@ package com.digitalasset.canton.ledger.api.validation
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
 import com.daml.ledger.api.v2.transaction_filter.{
+  CumulativeFilter as ProtoCumulativeFilter,
   EventFormat as ProtoEventFormat,
   Filters,
   InterfaceFilter as ProtoInterfaceFilter,
@@ -18,6 +19,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
   UpdateFormat as ProtoUpdateFormat,
   WildcardFilter,
 }
+import com.digitalasset.canton.ledger.api.TransactionShape.AcsDelta
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
@@ -50,6 +52,60 @@ object FormatValidator {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, EventFormat] =
     validate(ProtoEventFormat(txFilter.filtersByParty, txFilter.filtersForAnyParty, verbose))
+
+  // TODO(i23504) Cleanup
+  def validateLegacyToUpdateFormat(
+      txFilter: ProtoTransactionFilter,
+      verbose: Boolean,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, UpdateFormat] =
+    for {
+      eventFormat <- FormatValidator.validate(txFilter, verbose)
+      filterPartiesO = eventFormat.filtersForAnyParty match {
+        case Some(_) => None // wildcard
+        case None => Some(eventFormat.filtersByParty.keySet)
+      }
+    } yield UpdateFormat(
+      includeTransactions =
+        Some(TransactionFormat(eventFormat = eventFormat, transactionShape = AcsDelta)),
+      includeReassignments = Some(eventFormat),
+      includeTopologyEvents = Some(
+        TopologyFormat(
+          Some(
+            ParticipantAuthorizationFormat(
+              filterPartiesO
+            )
+          )
+        )
+      ),
+    )
+
+  // TODO(i23504) Cleanup
+  def validateLegacyToTransactionFormat(
+      requestingParties: Seq[String]
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, TransactionFormat] = {
+    val txFilter = ProtoTransactionFilter(
+      filtersByParty = requestingParties
+        .map(
+          _ -> Filters(
+            Seq(
+              ProtoCumulativeFilter(
+                ProtoCumulativeFilter.IdentifierFilter
+                  .WildcardFilter(WildcardFilter())
+              )
+            )
+          )
+        )
+        .toMap,
+      filtersForAnyParty = None,
+    )
+    for {
+      eventFormat <- FormatValidator.validate(txFilter = txFilter, verbose = true)
+    } yield TransactionFormat(eventFormat = eventFormat, transactionShape = AcsDelta)
+  }
 
   def validate(eventFormat: ProtoEventFormat)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

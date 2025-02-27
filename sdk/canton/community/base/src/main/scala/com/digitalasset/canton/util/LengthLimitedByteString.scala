@@ -6,12 +6,12 @@ package com.digitalasset.canton.util
 import com.digitalasset.canton.checked
 import com.google.protobuf.ByteString
 
-/** This trait wraps a ByteString that is limited to a certain maximum length.
-  * Classes implementing this trait expose `create` and `tryCreate` methods to safely (and non-safely) construct
-  * such a ByteString.
+/** This trait wraps a ByteString that is limited to a certain maximum length. Classes implementing
+  * this trait expose `create` and `tryCreate` methods to safely (and non-safely) construct such a
+  * ByteString.
   *
-  * The canonical use case is ensuring that we don't encrypt more data than the underlying crypto algorithm can:
-  * for example, Rsa2048OaepSha256 can only encrypt 190 bytes at a time.
+  * The canonical use case is ensuring that we don't encrypt more data than the underlying crypto
+  * algorithm can: for example, Rsa2048OaepSha256 can only encrypt 190 bytes at a time.
   */
 sealed trait LengthLimitedByteString {
   protected def str: ByteString
@@ -96,17 +96,22 @@ object ByteString6144 extends LengthLimitedByteStringCompanion[ByteString6144] {
     ByteString6144(str)(name)
 }
 
-/** Trait that implements method commonly needed in the companion object of an [[LengthLimitedByteString]] */
+/** Trait that implements method commonly needed in the companion object of an
+  * [[LengthLimitedByteString]]
+  */
 trait LengthLimitedByteStringCompanion[A <: LengthLimitedByteString] {
 
   val empty: A = checked(factoryMethod(ByteString.EMPTY)(None))
 
-  /** The maximum byteString length. Should not be overwritten with `val` to avoid initialization issues. */
+  /** The maximum byteString length. Should not be overwritten with `val` to avoid initialization
+    * issues.
+    */
   def maxLength: Int
 
   /** Factory method for creating a ByteString.
     *
-    * @throws java.lang.IllegalArgumentException if `str` is longer than [[maxLength]]
+    * @throws java.lang.IllegalArgumentException
+    *   if `str` is longer than [[maxLength]]
     */
   protected def factoryMethod(str: ByteString)(name: Option[String]): A
 

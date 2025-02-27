@@ -13,27 +13,31 @@ import scala.concurrent.blocking
 import scala.math.Numeric.Implicits.*
 import scala.math.Ordering.Implicits.*
 
-/** This in-memory fan-out buffer allows a DatabaseSequencer.single(...) instance to fully bypass reading events
-  * back from the database, since there's only a single writer.
+/** This in-memory fan-out buffer allows a DatabaseSequencer.single(...) instance to fully bypass
+  * reading events back from the database, since there's only a single writer.
   *
-  * Multiple readers may request an immutable snapshot of the buffer at any time. We use immutable [[scala.collection.immutable.Vector]]
-  * to allow efficient random access to find the reading start point using binary search.
+  * Multiple readers may request an immutable snapshot of the buffer at any time. We use immutable
+  * [[scala.collection.immutable.Vector]] to allow efficient random access to find the reading start
+  * point using binary search.
   *
   * The user of this buffer is responsible for providing the events in the right order.
   *
-  * The buffer is configured with a memory limit and only holds events up to this limit. The memory used by an event
-  * is merely an approximated value and not intended to be very precise, see [[com.digitalasset.canton.synchronizer.sequencer.store.EventsBuffer.approximateEventSize]].
-  * There is no direct bound on the number of events that can be buffered, as long as the total sum of the memory used by all events is below the memory limit.
-  * This means there could be a few very big events or a lot of small events, or anything in between.
+  * The buffer is configured with a memory limit and only holds events up to this limit. The memory
+  * used by an event is merely an approximated value and not intended to be very precise, see
+  * [[com.digitalasset.canton.synchronizer.sequencer.store.EventsBuffer.approximateEventSize]].
+  * There is no direct bound on the number of events that can be buffered, as long as the total sum
+  * of the memory used by all events is below the memory limit. This means there could be a few very
+  * big events or a lot of small events, or anything in between.
   *
   * There are some invariants/restrictions:
-  * <ul>
-  *   <li>The [[EventsBuffer]] always keeps at least 1 element, even if the single event exceeds the memory limit.</li>
-  *   <li>After adding elements to the buffer, old elements are removed from the buffer until the memory usage drops below the memory limit.</li>
-  *   <li>Only a single process may write to the buffer.</li>
-  * </ul
+  *   - The [[EventsBuffer]] always keeps at least 1 element, even if the single event exceeds the
+  *     memory limit.
+  *   - After adding elements to the buffer, old elements are removed from the buffer until the
+  *     memory usage drops below the memory limit.
+  *   - Only a single process may write to the buffer.
   *
-  * @param maxEventsBufferMemory the maximum amount of memory the buffered events may occupy
+  * @param maxEventsBufferMemory
+  *   the maximum amount of memory the buffered events may occupy
   */
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class EventsBuffer(
@@ -50,16 +54,18 @@ class EventsBuffer(
   @volatile
   private var memoryUsed = BytesUnit(0)
 
-  /** Appends events up to the memory limit to the buffer. May drop already buffered events and may not buffer all provided
-    * events to stay within the memory limit.
+  /** Appends events up to the memory limit to the buffer. May drop already buffered events and may
+    * not buffer all provided events to stay within the memory limit.
     */
   final def bufferEvents(
       events: NonEmpty[Seq[Sequenced[BytesPayload]]]
   ): Unit = addElementsInternal(events, append = true).discard
 
-  /** Prepends events to the buffer up to the memory limit. May not buffer all provided
-    * events to stay within the memory limits.
-    * @return true if the buffer is at the memory limit or some events had to be dropped again to stay within the memory limit.
+  /** Prepends events to the buffer up to the memory limit. May not buffer all provided events to
+    * stay within the memory limits.
+    * @return
+    *   true if the buffer is at the memory limit or some events had to be dropped again to stay
+    *   within the memory limit.
     */
   final def prependEventsForPreloading(events: NonEmpty[Seq[Sequenced[BytesPayload]]]): Boolean =
     addElementsInternal(events, append = false)

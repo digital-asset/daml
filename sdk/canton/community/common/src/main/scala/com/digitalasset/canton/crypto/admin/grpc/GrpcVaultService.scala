@@ -70,7 +70,7 @@ class GrpcVaultService(
       filter.usage.fold(true)(filterUsage =>
         key match {
           case SigningPublicKeyWithName(publicSigningKey, _) =>
-            SigningKeyUsage.compatibleUsage(publicSigningKey.usage, filterUsage)
+            SigningKeyUsage.matchesRelevantUsages(publicSigningKey.usage, filterUsage)
           case _ => true
         }
       )
@@ -194,8 +194,8 @@ class GrpcVaultService(
       .failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
   }
 
-  /** Generates a new signing key. If there is an empty usage in the request (i.e. and old key request),
-    * it defaults to all.
+  /** Generates a new signing key. If there is an empty usage in the request (i.e. and old key
+    * request), it defaults to all.
     */
   override def generateSigningKey(
       request: v30.GenerateSigningKeyRequest

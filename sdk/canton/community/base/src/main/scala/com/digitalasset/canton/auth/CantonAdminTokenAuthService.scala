@@ -9,7 +9,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.HexString
 import io.grpc.Metadata
 
-import java.util.concurrent.{CompletableFuture, CompletionStage}
+import scala.concurrent.Future
 
 final case class CantonAdminToken(secret: String)
 object CantonAdminToken {
@@ -22,16 +22,15 @@ object CantonAdminToken {
 /** AuthService interceptor used for internal canton services
   *
   * Internal Canton services such as the PingService or the DarService require access to the
-  * Ledger-Api server. However, if the Ledger-Api server is configured with JWT, they will fail.
-  * But we can't expect that Canton obtains an oauth token from a third party service during startup.
+  * Ledger-Api server. However, if the Ledger-Api server is configured with JWT, they will fail. But
+  * we can't expect that Canton obtains an oauth token from a third party service during startup.
   *
   * Therefore, we create on each startup a master token which is only ever shared internally.
   */
-class CantonAdminTokenAuthService(adminTokenO: Option[CantonAdminToken], parent: Seq[AuthService])
-    extends AuthService {
+class CantonAdminTokenAuthService(adminTokenO: Option[CantonAdminToken]) extends AuthService {
   override def decodeMetadata(
       headers: Metadata
-  )(implicit traceContext: TraceContext): CompletionStage[ClaimSet] = {
+  )(implicit traceContext: TraceContext): Future[ClaimSet] = {
     val bearerTokenRegex = "Bearer (.*)".r
     val authToken = for {
       adminToken <- adminTokenO
@@ -40,24 +39,9 @@ class CantonAdminTokenAuthService(adminTokenO: Option[CantonAdminToken], parent:
       _ <- if (token == adminToken.secret) Some(()) else None
     } yield ()
     authToken
-      .map(_ => wildcard)
-      .getOrElse(if (parent.isEmpty) wildcard else decodeMetadataParent(headers))
+      .fold(deny)(_ => wildcard)
   }
 
-  private val wildcard = CompletableFuture.completedFuture(ClaimSet.Claims.Wildcard: ClaimSet)
-  private val deny = CompletableFuture.completedFuture(ClaimSet.Unauthenticated: ClaimSet)
-
-  private def decodeMetadataParent(
-      headers: Metadata
-  )(implicit traceContext: TraceContext): CompletionStage[ClaimSet] =
-    // iterate until we find one claim set which is not unauthenticated
-    parent.foldLeft(deny) { case (acc, elem) =>
-      acc.thenCompose { prevClaims =>
-        if (prevClaims != ClaimSet.Unauthenticated)
-          CompletableFuture.completedFuture(prevClaims)
-        else
-          elem.decodeMetadata(headers)
-      }
-    }
-
+  private val wildcard = Future.successful(ClaimSet.Claims.Wildcard: ClaimSet)
+  private val deny = Future.successful(ClaimSet.Unauthenticated: ClaimSet)
 }

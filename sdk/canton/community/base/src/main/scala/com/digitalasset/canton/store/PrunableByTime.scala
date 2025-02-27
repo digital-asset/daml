@@ -21,10 +21,17 @@ import scala.concurrent.ExecutionContext
 
 /** Various parameter to control prunable by time batching (used for journal pruning)
   *
-  * @param targetBatchSize Defines the ideal pruning batch size.  If the batches are larger than the target pruning size, the number of buckets is doubled. If they are substantially smaller than the target pruning size, the number of buckets is reduced by 10%.
-  * @param initialInterval The start interval for the prune batching
-  * @param maxBuckets maximum number of buckets to split a batch into (limit the iterations when nodes are inactive for quite a while)
-  * @param controlFactors The adjustment parameters for the prune batch size computation (threshold, factor)
+  * @param targetBatchSize
+  *   Defines the ideal pruning batch size. If the batches are larger than the target pruning size,
+  *   the number of buckets is doubled. If they are substantially smaller than the target pruning
+  *   size, the number of buckets is reduced by 10%.
+  * @param initialInterval
+  *   The start interval for the prune batching
+  * @param maxBuckets
+  *   maximum number of buckets to split a batch into (limit the iterations when nodes are inactive
+  *   for quite a while)
+  * @param controlFactors
+  *   The adjustment parameters for the prune batch size computation (threshold, factor)
   */
 final case class PrunableByTimeParameters(
     targetBatchSize: PositiveInt,
@@ -37,10 +44,10 @@ object PrunableByTimeParameters {
 
   /** Prunable by time control parameters
     *
-    * When we try to compute the optimal batching parameter, we adjust the batching interval dynamically using
-    * these parameters.
-    * So a threshold of 4.0 with factor of 0.5 would mean that if the average batch size exceeded 4 times the
-    * target, then the interval should be reduced by 50%.
+    * When we try to compute the optimal batching parameter, we adjust the batching interval
+    * dynamically using these parameters. So a threshold of 4.0 with factor of 0.5 would mean that
+    * if the average batch size exceeded 4 times the target, then the interval should be reduced by
+    * 50%.
     */
   final case class ControlFactors(
       threshold: PositiveDouble,
@@ -62,7 +69,9 @@ object PrunableByTimeParameters {
   )
 }
 
-/** Interface for a store that allows pruning and keeps track of when pruning has started and finished. */
+/** Interface for a store that allows pruning and keeps track of when pruning has started and
+  * finished.
+  */
 trait PrunableByTime {
 
   protected implicit val ec: ExecutionContext
@@ -70,17 +79,19 @@ trait PrunableByTime {
 
   /** Parameters to control prune batching
     *
-    * If defined, then the pruning window will be computed such that it targets
-    * the ideal target batch size in order to optimize the load on the database.
+    * If defined, then the pruning window will be computed such that it targets the ideal target
+    * batch size in order to optimize the load on the database.
     *
-    * This is currently used with the journal stores. Normal pruning of other stores already does batching on its own.
+    * This is currently used with the journal stores. Normal pruning of other stores already does
+    * batching on its own.
     */
   protected def batchingParameters: Option[PrunableByTimeParameters] = None
 
   /** Prune all unnecessary data relating to events before the given timestamp.
     *
-    * The meaning of "unnecessary", and whether the limit is inclusive or exclusive both depend on the particular store.
-    * The store must implement the actual pruning logic in the [[doPrune]] method.
+    * The meaning of "unnecessary", and whether the limit is inclusive or exclusive both depend on
+    * the particular store. The store must implement the actual pruning logic in the [[doPrune]]
+    * method.
     */
   final def prune(
       limit: CantonTimestamp
@@ -158,8 +169,8 @@ trait PrunableByTime {
 
   /** Compute the pruning intervals to invoke pruning on
     *
-    * If lastTsO is set, then an overlapping sequence of intervals is returned into
-    * which the pruning should be bucketed.
+    * If lastTsO is set, then an overlapping sequence of intervals is returned into which the
+    * pruning should be bucketed.
     */
   private def computeBuckets(
       lastTsO: Option[CantonTimestamp],
@@ -188,13 +199,13 @@ trait PrunableByTime {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]] = pruningStatus.map(_.flatMap(_.lastSuccess))
 
-  /** Returns the latest timestamp at which pruning was started or completed.
-    * For [[com.digitalasset.canton.pruning.PruningPhase.Started]], it is guaranteed
-    * that no pruning has been run on the store after the returned timestamp.
-    * For [[com.digitalasset.canton.pruning.PruningPhase.Completed]], it is guaranteed
-    * that the store is pruned at least up to the returned timestamp (inclusive).
-    * That is, another pruning with the returned timestamp (or earlier) has no effect on the store.
-    * Returns [[scala.None$]] if no pruning has ever been started on the store.
+  /** Returns the latest timestamp at which pruning was started or completed. For
+    * [[com.digitalasset.canton.pruning.PruningPhase.Started]], it is guaranteed that no pruning has
+    * been run on the store after the returned timestamp. For
+    * [[com.digitalasset.canton.pruning.PruningPhase.Completed]], it is guaranteed that the store is
+    * pruned at least up to the returned timestamp (inclusive). That is, another pruning with the
+    * returned timestamp (or earlier) has no effect on the store. Returns [[scala.None$]] if no
+    * pruning has ever been started on the store.
     */
   def pruningStatus(implicit
       traceContext: TraceContext
@@ -207,7 +218,9 @@ trait PrunableByTime {
 
   /** Actual invocation of doPrune
     *
-    * @return the approximate number of pruned rows, used to adjust the pruning windows to reach optimal batch sizes
+    * @return
+    *   the approximate number of pruned rows, used to adjust the pruning windows to reach optimal
+    *   batch sizes
     */
   @VisibleForTesting
   protected[canton] def doPrune(limit: CantonTimestamp, lastPruning: Option[CantonTimestamp])(

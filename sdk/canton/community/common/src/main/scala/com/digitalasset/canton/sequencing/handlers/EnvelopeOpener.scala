@@ -25,7 +25,9 @@ class EnvelopeOpener[Box[+_ <: Envelope[_]]](protocolVersion: ProtocolVersion, h
 
 object EnvelopeOpener {
 
-  /** Opens the envelopes inside the [[EnvelopeBox]] before handing them to the given application handler. */
+  /** Opens the envelopes inside the [[EnvelopeBox]] before handing them to the given application
+    * handler.
+    */
   def apply[Box[+_ <: Envelope[_]]](
       protocolVersion: ProtocolVersion,
       hashOps: HashOps,

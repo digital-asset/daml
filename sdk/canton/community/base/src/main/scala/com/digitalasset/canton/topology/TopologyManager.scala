@@ -271,8 +271,8 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
 
   def clearObservers(): Unit = observers.set(Seq.empty)
 
-  /** Allows the participant to override this method to enable additional checks on the VettedPackages transaction.
-    * Only the participant has access to the package store.
+  /** Allows the participant to override this method to enable additional checks on the
+    * VettedPackages transaction. Only the participant has access to the package store.
     */
   def validatePackageVetting(
       @unused currentlyVettedPackages: Set[LfPackageId],
@@ -297,13 +297,21 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
 
   /** Authorizes a new topology transaction by signing it and adding it to the topology state
     *
-    * @param op              the operation that should be performed
-    * @param mapping         the mapping that should be added
-    * @param signingKeys     the keys which should be used to sign
-    * @param protocolVersion the protocol version corresponding to the transaction
-    * @param expectFullAuthorization whether the transaction must be fully signed and authorized by keys on this node
-    * @param forceChanges    force dangerous operations, such as removing the last signing key of a participant
-    * @return the synchronizer state (initialized or not initialized) or an error code of why the addition failed
+    * @param op
+    *   the operation that should be performed
+    * @param mapping
+    *   the mapping that should be added
+    * @param signingKeys
+    *   the keys which should be used to sign
+    * @param protocolVersion
+    *   the protocol version corresponding to the transaction
+    * @param expectFullAuthorization
+    *   whether the transaction must be fully signed and authorized by keys on this node
+    * @param forceChanges
+    *   force dangerous operations, such as removing the last signing key of a participant
+    * @return
+    *   the synchronizer state (initialized or not initialized) or an error code of why the addition
+    *   failed
     */
   def proposeAndAuthorize(
       op: TopologyChangeOp,
@@ -321,7 +329,13 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
     TopologyManagerError,
     GenericSignedTopologyTransaction,
   ] = {
-    logger.debug(show"Attempting to build, sign, and $op $mapping with serial $serial")
+    val signingKeyString =
+      if (signingKeys.nonEmpty)
+        s"signed by ${signingKeys.mkString(", ")}"
+      else ""
+    logger.debug(
+      show"Attempting to build, sign, and $op $mapping with serial $serial $signingKeyString"
+    )
     for {
       existingTransaction <- findExistingTransaction(mapping)
       tx <- build(op, mapping, serial, protocolVersion, existingTransaction).mapK(
@@ -348,15 +362,20 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
   }
 
   /** Authorizes an existing topology transaction by signing it and adding it to the topology state.
-    * If {@code expectFullAuthorization} is {@code true} and the topology transaction cannot be fully
-    * authorized with keys from this node, returns with an error and the existing topology transaction
-    * remains unchanged.
+    * If {@code expectFullAuthorization} is {@code true} and the topology transaction cannot be
+    * fully authorized with keys from this node, returns with an error and the existing topology
+    * transaction remains unchanged.
     *
-    * @param transactionHash the uniquely identifying hash of a previously proposed topology transaction
-    * @param signingKeys the key which should be used to sign
-    * @param forceChanges force dangerous operations, such as removing the last signing key of a participant
-    * @param expectFullAuthorization whether the resulting transaction must be fully authorized or not
-    * @return the signed transaction or an error code of why the addition failed
+    * @param transactionHash
+    *   the uniquely identifying hash of a previously proposed topology transaction
+    * @param signingKeys
+    *   the key which should be used to sign
+    * @param forceChanges
+    *   force dangerous operations, such as removing the last signing key of a participant
+    * @param expectFullAuthorization
+    *   whether the resulting transaction must be fully authorized or not
+    * @return
+    *   the signed transaction or an error code of why the addition failed
     */
   def accept(
       transactionHash: TxHash,
@@ -491,14 +510,10 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
           )
         case _ => EitherT.rightT[FutureUnlessShutdown, TopologyManagerError](())
       }
-      keysWithUsage = assignExpectedUsageToKeys(
-        transaction.mapping,
-        keysToUseForSigning,
-      )
       signed <- SignedTopologyTransaction
         .create(
           transaction,
-          keysWithUsage,
+          keysToUseForSigning,
           isProposal,
           crypto.privateCrypto,
           protocolVersion,
@@ -524,6 +539,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
       keyWithUsage = assignExpectedUsageToKeys(
         transaction.mapping,
         keys,
+        forSigning = true,
       )
       signatures <- keyWithUsage.forgetNE.toSeq
         .parTraverse { case (key, usage) =>
@@ -625,7 +641,8 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
 
   /** sequential(!) adding of topology transactions
     *
-    * @param forceChanges force a dangerous change (such as revoking the last key)
+    * @param forceChanges
+    *   force a dangerous change (such as revoking the last key)
     */
   def add(
       transactions: Seq[GenericSignedTopologyTransaction],
@@ -925,17 +942,29 @@ object TopologyManager {
     override def serialization: ProtocolVersion = ProtocolVersion.latest
   }
 
-  /** Assigns the appropriate key usage for a given set of keys based on the current topology request and necessary
-    * authorizations. In most cases, the request is expected to be signed with Namespace or IdentityDelegation keys.
-    * However, for requests like OwnerToKeyMapping or PartyToKeyMapping, keys must be able to prove their ownership.
+  /** Assigns the appropriate key usage for a given set of keys based on the current topology
+    * request and necessary authorizations. In most cases, the request is expected to be signed with
+    * Namespace or IdentityDelegation keys. However, for requests like OwnerToKeyMapping or
+    * PartyToKeyMapping, keys must be able to prove their ownership. For these requests we also
+    * accept namespace as a valid usage when verifying a signature, as this ensures backwards
+    * compatibility (e.g. older topology states might have mistakenly added a namespace key to this
+    * mapping). By enforcing only ProofOfOwnership on the sign path, we ensure that this new
+    * restriction applies to any newly added key, preventing the addition of namespace-only keys to
+    * these requests.
     *
-    * @param mapping     The current topology request
-    * @param signingKeys A non-empty set of signing key fingerprints for which a usage will be assigned.
-    * @return            A map where each key is associated with its expected usage.
+    * @param mapping
+    *   The current topology request
+    * @param signingKeys
+    *   A non-empty set of signing key fingerprints for which a usage will be assigned.
+    * @param forSigning
+    *   A flag indicating whether usages are being assigned for signing or signature verification.
+    * @return
+    *   A map where each key is associated with its expected usage.
     */
   def assignExpectedUsageToKeys(
       mapping: TopologyMapping,
       signingKeys: NonEmpty[Set[Fingerprint]],
+      forSigning: Boolean,
   ): NonEmpty[Map[Fingerprint, NonEmpty[Set[SigningKeyUsage]]]] = {
 
     def onlyNamespaceAuth(auth: RequiredAuth): Boolean = auth match {
@@ -953,8 +982,14 @@ object TopologyManager {
         val mappedKeyIds = keyMapping.mappedKeys.toSet.map(_.id)
         signingKeys.map {
           case keyId if mappedKeyIds.contains(keyId) =>
-            // the mapped keys need to prove ownership
-            keyId -> SigningKeyUsage.ProofOfOwnershipOnly
+            if (forSigning)
+              // the mapped keys need to prove ownership
+              keyId -> SigningKeyUsage.ProofOfOwnershipOnly
+            else
+              // We need to verify proof of ownership for the mapped keys. The expected key usage is
+              // ProofOfOwnership, analog what is used for signing. However, for backwards compatibility we
+              // also allow keys with NamespaceOnly to have proven ownership in historical topology states.
+              keyId -> SigningKeyUsage.NamespaceOrProofOfOwnership
           case keyId =>
             // all other keys must be namespace or identifier delegation keys
             keyId -> SigningKeyUsage.NamespaceOrIdentityDelegation

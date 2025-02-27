@@ -20,12 +20,12 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success}
 
-/** Small state machine to handle potential bursts of validations caused by rapidly flipping states of
-  * the underlying connection. If a validation is requested while one is being run, we schedule a
+/** Small state machine to handle potential bursts of validations caused by rapidly flipping states
+  * of the underlying connection. If a validation is requested while one is being run, we schedule a
   * new validation to start when the current one completes. Extra requests are collapsed into this
   * single scheduling.
   *
-  * <pre>
+  * {{{
   *                   request                       request
   *  ┌───────────┐   validation   ┌───────────┐    validation    ┌───────────┐
   *  │   IDLE    ├────────────────►VALIDATING ├──────────────────►VALIDATION ├────┐
@@ -35,7 +35,7 @@ import scala.util.{Failure, Success}
   *  │           ◄────────────────┤validation ◄──────────────────┤           ◄────┘
   *  └───────────┘   validation   └───────────┘    validation    └───────────┘
   *                   complete                      complete
-  * </pre>
+  * }}}
   */
 class ConnectionValidationLimiter(
     validate: TraceContext => FutureUnlessShutdown[Unit],
@@ -135,8 +135,9 @@ class ConnectionValidationLimiter(
   }
 
   /** Abnormal completion of a validation
-    * @param throwableO if defined, the exception that the validation threw;
-    *                   if undefined, the validation completed with a shutdown
+    * @param throwableO
+    *   if defined, the exception that the validation threw; if undefined, the validation completed
+    *   with a shutdown
     */
   private def abortValidation(
       throwableO: Option[Throwable]
@@ -190,17 +191,22 @@ object ConnectionValidationLimiter {
       override protected def pretty: Pretty[Idle.type] = prettyOfObject[Idle.type]
     }
 
-    /** @param traceContext trace context of the currently running validation
-      * @param promise promise for the currently running validation
+    /** @param traceContext
+      *   trace context of the currently running validation
+      * @param promise
+      *   promise for the currently running validation
       */
     final case class Validating(traceContext: TraceContext, promise: PromiseUnlessShutdown[Unit])
         extends ValidationState {
       override protected def pretty: Pretty[this.type] = prettyOfObject[this.type]
     }
 
-    /** @param traceContext trace context of the scheduled validation
-      * @param runningP promise for the currently running validation, needed for shutdown
-      * @param scheduledP promise for the scheduled validation
+    /** @param traceContext
+      *   trace context of the scheduled validation
+      * @param runningP
+      *   promise for the currently running validation, needed for shutdown
+      * @param scheduledP
+      *   promise for the scheduled validation
       */
     final case class ValidationPending(
         traceContext: TraceContext,

@@ -10,6 +10,8 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.DefaultMaxBatchesPerProposal
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.{
   Epoch,
   Segment,
@@ -108,6 +110,25 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           Left(
             "Canonical commit set is empty for block BlockMetadata(1,12) with 1 proofs of availability, " +
               "but it can only be empty for empty blocks or first blocks in segments"
+          ),
+        ),
+        // negative: block has more batches than allowed
+        (
+          createPrePrepare(
+            OrderingBlock(
+              Seq.fill(DefaultMaxBatchesPerProposal.toInt + 1)(
+                ProofOfAvailability(BatchId.createForTesting("test"), acksWithMeOnly)
+              )
+            ),
+            CanonicalCommitSet.empty,
+          ),
+          aSegment,
+          aMembership,
+          aMembership,
+          Left(
+            "PrePrepare for block BlockMetadata(1,12) has 17 proofs of availability, but it should have up to " +
+              "the maximum batch number per proposal of 16, this number should be configured to the same value " +
+              "across all nodes"
           ),
         ),
         // negative: block is not empty, but it's the first block of a segment in the first epoch
@@ -394,6 +415,9 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           ),
         ),
       ).forEvery { (prePrepare, segment, previousMembership, currentMembership, expectedResult) =>
+        implicit val metricsContext: MetricsContext = MetricsContext.Empty
+        implicit val config: BftBlockOrderer.Config = BftBlockOrderer.Config()
+
         val epoch = createEpoch(
           prePrepare.blockMetadata.epochNumber,
           segment.firstBlockNumber,
@@ -404,7 +428,7 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           segment,
           epoch,
           SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,
-        )(fail(_))(MetricsContext.Empty)
+        )(fail(_))
 
         validator.validatePrePrepare(prePrepare) shouldBe expectedResult
       }

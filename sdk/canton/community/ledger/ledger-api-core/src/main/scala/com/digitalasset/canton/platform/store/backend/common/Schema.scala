@@ -102,7 +102,7 @@ private[backend] object AppendOnlySchema {
           _.submitters.map(_.map(stringInterning.party.unsafe.internalize))
         ),
         "node_id" -> fieldStrategy.int(_ => _.node_id),
-        "contract_id" -> fieldStrategy.string(_ => _.contract_id),
+        "contract_id" -> fieldStrategy.bytea(_ => _.contract_id),
         "template_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.templateId.unsafe.internalize(dbDto.template_id)
         ),
@@ -148,7 +148,7 @@ private[backend] object AppendOnlySchema {
     val exerciseFields: Vector[(String, Field[DbDto.EventExercise, _, _])] =
       Vector[(String, Field[DbDto.EventExercise, _, _])](
         "event_offset" -> fieldStrategy.bigint(_ => _.event_offset),
-        "contract_id" -> fieldStrategy.string(_ => _.contract_id),
+        "contract_id" -> fieldStrategy.bytea(_ => _.contract_id),
         "update_id" -> fieldStrategy.string(_ => _.update_id),
         "ledger_effective_time" -> fieldStrategy.bigint(_ => _.ledger_effective_time),
         "node_id" -> fieldStrategy.int(_ => _.node_id),
@@ -217,7 +217,7 @@ private[backend] object AppendOnlySchema {
         "submitter" -> fieldStrategy.intOptional(stringInterning =>
           _.submitter.map(stringInterning.party.unsafe.internalize)
         ),
-        "contract_id" -> fieldStrategy.string(_ => _.contract_id),
+        "contract_id" -> fieldStrategy.bytea(_ => _.contract_id),
         "template_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.templateId.unsafe.internalize(dbDto.template_id)
         ),
@@ -250,7 +250,7 @@ private[backend] object AppendOnlySchema {
         "submitter" -> fieldStrategy.intOptional(stringInterning =>
           _.submitter.map(stringInterning.party.unsafe.internalize)
         ),
-        "contract_id" -> fieldStrategy.string(_ => _.contract_id),
+        "contract_id" -> fieldStrategy.bytea(_ => _.contract_id),
         "template_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.templateId.unsafe.internalize(dbDto.template_id)
         ),

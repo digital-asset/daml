@@ -15,8 +15,8 @@ import io.grpc.stub.AbstractStub
 import scala.concurrent.Future
 
 /** Exposes shared grpc client pruning scheduler commands reusable by participant/mediator/sequencer
-  * admin api.
-  * Having to type-parameterize as grpc does not support inheritance and passing in the grpc stub methods in one by one
+  * admin api. Having to type-parameterize as grpc does not support inheritance and passing in the
+  * grpc stub methods in one by one
   */
 @GrpcServiceInvocationMethod
 class PruningSchedulerCommands[Stub <: AbstractStub[Stub]](

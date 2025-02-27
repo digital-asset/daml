@@ -15,7 +15,10 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
   protected def testSynchronizerId(index: Int): SynchronizerId =
     SynchronizerId.tryFromString(s"test-synchronizer-$index::namespace")
   protected def testSequencerId(index: Int): SequencerId =
-    SequencerId.tryCreate(s"test-sequencer-$index", Namespace(Fingerprint.tryCreate("namespace")))
+    SequencerId.tryCreate(
+      s"test-sequencer-$index",
+      Namespace(Fingerprint.tryFromString("namespace")),
+    )
 
   protected def mkDummyConnectionConfig(
       index: Int,

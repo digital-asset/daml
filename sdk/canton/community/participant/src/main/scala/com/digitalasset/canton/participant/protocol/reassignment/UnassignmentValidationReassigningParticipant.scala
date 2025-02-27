@@ -34,10 +34,10 @@ private[reassignment] class UnassignmentValidationReassigningParticipant(
 )(request: FullUnassignmentTree, recipients: Recipients) {
 
   /** check that:
-    * - all stakeholders are hosted on active participants
-    * - the recipients from the request match the computed recipients
-    * - the reassigning participants from the request match the computed reassigning participants
-    * - the package of the template is vetted
+    *   - all stakeholders are hosted on active participants
+    *   - the recipients from the request match the computed recipients
+    *   - the reassigning participants from the request match the computed reassigning participants
+    *   - the package of the template is vetted
     */
   def check(expectedStakeholders: Stakeholders, expectedTemplateId: LfTemplateId)(implicit
       ec: ExecutionContext,

@@ -9,7 +9,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.event.RecordTime
-import com.digitalasset.canton.protocol.messages.AcsCommitment.CommitmentType
+import com.digitalasset.canton.protocol.messages.AcsCommitment.HashedCommitmentType
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
@@ -29,8 +29,8 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
   // Counts the number of write method invocations
   val writeCounter = new AtomicInteger(0)
 
-  override def storeComputed(items: NonEmpty[Seq[AcsCommitmentStore.CommitmentData]])(implicit
-      traceContext: TraceContext
+  override def storeComputed(items: NonEmpty[Seq[AcsCommitmentStore.ParticipantCommitmentData]])(
+      implicit traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     incrementCounterAndErr()
 
@@ -79,7 +79,7 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
 
   override def getComputed(period: CommitmentPeriod, counterParticipant: ParticipantId)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, CommitmentType)]] =
+  ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, HashedCommitmentType)]] =
     FutureUnlessShutdown.pure(Iterable.empty)
 
   override def lastComputedAndSent(implicit
@@ -110,7 +110,7 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
       counterParticipants: Seq[ParticipantId],
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, ParticipantId, CommitmentType)]] =
+  ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, ParticipantId, HashedCommitmentType)]] =
     FutureUnlessShutdown.pure(Iterable.empty)
 
   override def searchReceivedBetween(

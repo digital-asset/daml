@@ -301,8 +301,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           CreatedEvent.toJson(value)
         case lapi.event.Event.Event.Archived(value) =>
           Future(ArchivedEvent.toJson(value))
-        case lapi.event.Event.Event.Exercised(_) =>
-          jsFail("Invalid value")
+        case lapi.event.Event.Event.Exercised(value) =>
+          ExercisedEvent.toJson(value)
       }
 
     def fromJson(event: JsEvent.Event)(implicit
@@ -310,9 +310,11 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         contextualizedErrorLogger: ContextualizedErrorLogger,
     ): Future[lapi.event.Event.Event] = event match {
       case createdEvent: JsEvent.CreatedEvent =>
-        CreatedEvent.fromJson(createdEvent).map(lapi.event.Event.Event.Created.apply)
+        CreatedEvent.fromJson(createdEvent).map(lapi.event.Event.Event.Created(_))
       case archivedEvent: JsEvent.ArchivedEvent =>
         Future.successful(lapi.event.Event.Event.Archived(ArchivedEvent.fromJson(archivedEvent)))
+      case exercisedEvent: JsEvent.ExercisedEvent =>
+        ExercisedEvent.fromJson(exercisedEvent).map(lapi.event.Event.Event.Exercised(_))
     }
   }
 
@@ -630,9 +632,9 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       )
   }
 
-  object GetEventsByContractIdRequest
+  object GetEventsByContractIdResponse
       extends ProtocolConverter[
-        lapi.event_query_service.GetEventsByContractIdRequest,
+        lapi.event_query_service.GetEventsByContractIdResponse,
         JsGetEventsByContractIdResponse,
       ] {
     def toJson(
@@ -784,6 +786,79 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         packageName = createdEvent.packageName,
       )
     }
+
+  }
+
+  object ExercisedEvent
+      extends ProtocolConverter[lapi.event.ExercisedEvent, JsEvent.ExercisedEvent] {
+    def toJson(exercised: lapi.event.ExercisedEvent)(implicit
+        token: Option[String],
+        contextualizedErrorLogger: ContextualizedErrorLogger,
+    ): Future[JsEvent.ExercisedEvent] =
+      for {
+        choiceArgs <-
+          schemaProcessors
+            .choiceArgsFromProtoToJson(
+              exercised.getTemplateId,
+              Ref.ChoiceName.assertFromString(exercised.choice),
+              exercised.getChoiceArgument,
+            )
+        exerciseResult <-
+          schemaProcessors
+            .exerciseResultFromProtoToJson(
+              exercised.getTemplateId,
+              Ref.ChoiceName.assertFromString(exercised.choice),
+              exercised.getExerciseResult,
+            )
+      } yield JsEvent.ExercisedEvent(
+        offset = exercised.offset,
+        nodeId = exercised.nodeId,
+        contractId = exercised.contractId,
+        templateId = exercised.getTemplateId,
+        interfaceId = exercised.interfaceId,
+        choice = exercised.choice,
+        choiceArgument = choiceArgs,
+        actingParties = exercised.actingParties,
+        consuming = exercised.consuming,
+        witnessParties = exercised.witnessParties,
+        lastDescendantNodeId = exercised.lastDescendantNodeId,
+        exerciseResult = exerciseResult,
+        packageName = exercised.packageName,
+      )
+
+    def fromJson(exericisedEvent: JsEvent.ExercisedEvent)(implicit
+        token: Option[String],
+        contextualizedErrorLogger: ContextualizedErrorLogger,
+    ): Future[lapi.event.ExercisedEvent] =
+      for {
+        choiceArgs <-
+          schemaProcessors.choiceArgsFromJsonToProto(
+            exericisedEvent.templateId,
+            Ref.ChoiceName.assertFromString(exericisedEvent.choice),
+            exericisedEvent.choiceArgument,
+          )
+        choiceResult <-
+          schemaProcessors
+            .exerciseResultFromJsonToProto(
+              exericisedEvent.templateId,
+              Ref.ChoiceName.assertFromString(exericisedEvent.choice),
+              exericisedEvent.exerciseResult,
+            )
+      } yield lapi.event.ExercisedEvent(
+        offset = exericisedEvent.offset,
+        nodeId = exericisedEvent.nodeId,
+        contractId = exericisedEvent.contractId,
+        templateId = Some(exericisedEvent.templateId),
+        interfaceId = exericisedEvent.interfaceId,
+        choice = exericisedEvent.choice,
+        choiceArgument = Some(choiceArgs),
+        actingParties = exericisedEvent.actingParties,
+        consuming = exericisedEvent.consuming,
+        witnessParties = exericisedEvent.witnessParties,
+        lastDescendantNodeId = exericisedEvent.lastDescendantNodeId,
+        exerciseResult = choiceResult,
+        packageName = exericisedEvent.packageName,
+      )
 
   }
 

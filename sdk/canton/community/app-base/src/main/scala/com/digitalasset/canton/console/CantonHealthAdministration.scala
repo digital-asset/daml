@@ -27,11 +27,11 @@ import scala.util.{Failure, Success, Try}
 
 object CantonHealthAdministrationEncoders {
 
-  /** Wraps the standardized log writer from OpenTelemetry, that outputs the metrics as JSON
-    * Source: https://github.com/open-telemetry/opentelemetry-java/blob/main/exporters/logging-otlp/src/main/java/io/opentelemetry/exporter/logging/otlp/OtlpJsonLoggingMetricExporter.java
-    * The encoder is not the most efficient as we first use the OpenTelemetry JSON serializer to write as a String,
-    * and then use the Circe Jawn decoder to transform the string into a circe.Json object.
-    * This is fine as the encoder is used only for on demand health dumps.
+  /** Wraps the standardized log writer from OpenTelemetry, that outputs the metrics as JSON Source:
+    * https://github.com/open-telemetry/opentelemetry-java/blob/main/exporters/logging-otlp/src/main/java/io/opentelemetry/exporter/logging/otlp/OtlpJsonLoggingMetricExporter.java
+    * The encoder is not the most efficient as we first use the OpenTelemetry JSON serializer to
+    * write as a String, and then use the Circe Jawn decoder to transform the string into a
+    * circe.Json object. This is fine as the encoder is used only for on demand health dumps.
     */
   implicit val openTelemetryMetricDataEncoder: Encoder[Seq[MetricData]] =
     Encoder.encodeSeq[Json].contramap[Seq[MetricData]] { metrics =>

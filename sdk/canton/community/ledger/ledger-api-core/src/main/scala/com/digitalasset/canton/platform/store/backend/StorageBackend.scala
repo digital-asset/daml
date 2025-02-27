@@ -46,45 +46,52 @@ import java.sql.Connection
 import javax.sql.DataSource
 import scala.annotation.unused
 
-/** Encapsulates the interface which hides database technology specific implementations.
-  * Naming convention for the interface methods, which requiring Connection:
-  *  - read operations are represented as nouns (plural, singular form indicates cardinality)
-  *  - write operations are represented as verbs
+/** Encapsulates the interface which hides database technology specific implementations. Naming
+  * convention for the interface methods, which requiring Connection:
+  *   - read operations are represented as nouns (plural, singular form indicates cardinality)
+  *   - write operations are represented as verbs
   */
 
 trait ResetStorageBackend {
 
-  /** Truncates ALL storage backend tables.
-    * Does not touch other tables, like the Flyway history table.
-    * The result is a database that looks the same as a freshly created database with Flyway migrations applied.
+  /** Truncates ALL storage backend tables. Does not touch other tables, like the Flyway history
+    * table. The result is a database that looks the same as a freshly created database with Flyway
+    * migrations applied.
     */
   def resetAll(connection: Connection): Unit
 }
 
 trait IngestionStorageBackend[DB_BATCH] {
 
-  /** The CPU intensive batching operation hides the batching logic, and the mapping to the database specific representation of the inserted data.
-    * This should be pure CPU logic without IO.
+  /** The CPU intensive batching operation hides the batching logic, and the mapping to the database
+    * specific representation of the inserted data. This should be pure CPU logic without IO.
     *
-    * @param dbDtos is a collection of DbDto from which the batch is formed
-    * @param stringInterning will be used to switch ingested strings to the internal integers
-    * @return the database-specific batch DTO, which can be inserted via insertBatch
+    * @param dbDtos
+    *   is a collection of DbDto from which the batch is formed
+    * @param stringInterning
+    *   will be used to switch ingested strings to the internal integers
+    * @return
+    *   the database-specific batch DTO, which can be inserted via insertBatch
     */
   def batch(dbDtos: Vector[DbDto], stringInterning: StringInterning): DB_BATCH
 
-  /** Using a JDBC connection, a batch will be inserted into the database.
-    * No significant CPU load, mostly blocking JDBC communication with the database backend.
+  /** Using a JDBC connection, a batch will be inserted into the database. No significant CPU load,
+    * mostly blocking JDBC communication with the database backend.
     *
-    * @param connection to be used when inserting the batch
-    * @param batch      to be inserted
+    * @param connection
+    *   to be used when inserting the batch
+    * @param batch
+    *   to be inserted
     */
   def insertBatch(connection: Connection, batch: DB_BATCH): Unit
 
   /** Deletes all partially ingested data, written during a non-graceful stop of previous indexing.
     * No significant CPU load, mostly blocking JDBC communication with the database backend.
     *
-    * @param ledgerEnd the current ledger end, or None if no ledger end exists
-    * @param connection to be used when inserting the batch
+    * @param ledgerEnd
+    *   the current ledger end, or None if no ledger end exists
+    * @param connection
+    *   to be used when inserting the batch
     */
   def deletePartiallyIngestedData(ledgerEnd: Option[ParameterStorageBackend.LedgerEnd])(
       connection: Connection
@@ -93,21 +100,24 @@ trait IngestionStorageBackend[DB_BATCH] {
 
 trait ParameterStorageBackend {
 
-  /** This method is used to update the new observable ledger end.
-    * No significant CPU load, mostly blocking JDBC communication with the database backend.
+  /** This method is used to update the new observable ledger end. No significant CPU load, mostly
+    * blocking JDBC communication with the database backend.
     *
-    * @param connection to be used when updating the parameters table
+    * @param connection
+    *   to be used when updating the parameters table
     */
   def updateLedgerEnd(
       ledgerEnd: ParameterStorageBackend.LedgerEnd,
       lastSynchronizerIndex: Map[SynchronizerId, SynchronizerIndex] = Map.empty,
   )(connection: Connection): Unit
 
-  /** Query the current ledger end, read from the parameters table.
-    * No significant CPU load, mostly blocking JDBC communication with the database backend.
+  /** Query the current ledger end, read from the parameters table. No significant CPU load, mostly
+    * blocking JDBC communication with the database backend.
     *
-    * @param connection to be used to get the LedgerEnd
-    * @return the current LedgerEnd
+    * @param connection
+    *   to be used to get the LedgerEnd
+    * @return
+    *   the current LedgerEnd
     */
   def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd]
 
@@ -115,7 +125,8 @@ trait ParameterStorageBackend {
       connection: Connection
   ): Option[SynchronizerIndex]
 
-  /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
+  /** Part of pruning process, this needs to be in the same transaction as the other pruning related
+    * database operations
     */
   def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit
 
@@ -139,12 +150,12 @@ trait ParameterStorageBackend {
       connection: Connection
   ): Option[Offset]
 
-  /** Initializes the parameters table and verifies or updates ledger identity parameters.
-    * This method is idempotent:
-    *  - If no identity parameters are stored, then they are set to the given value.
-    *  - If identity parameters are stored, then they are compared to the given ones.
-    *  - Ledger identity parameters are written at most once, and are never overwritten.
-    *    No significant CPU load, mostly blocking JDBC communication with the database backend.
+  /** Initializes the parameters table and verifies or updates ledger identity parameters. This
+    * method is idempotent:
+    *   - If no identity parameters are stored, then they are set to the given value.
+    *   - If identity parameters are stored, then they are compared to the given ones.
+    *   - Ledger identity parameters are written at most once, and are never overwritten. No
+    *     significant CPU load, mostly blocking JDBC communication with the database backend.
     *
     * This method is NOT safe to call concurrently.
     */
@@ -153,7 +164,8 @@ trait ParameterStorageBackend {
       loggerFactory: NamedLoggerFactory,
   )(connection: Connection): Unit
 
-  /** Returns the ledger identity parameters, or None if the database hasn't been initialized yet. */
+  /** Returns the ledger identity parameters, or None if the database hasn't been initialized yet.
+    */
   def ledgerIdentity(connection: Connection): Option[ParameterStorageBackend.IdentityParams]
 }
 
@@ -220,7 +232,8 @@ trait CompletionStorageBackend {
       endInclusive: Offset,
   )(connection: Connection): Vector[PostPublishData]
 
-  /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
+  /** Part of pruning process, this needs to be in the same transaction as the other pruning related
+    * database operations
     */
   def pruneCompletions(
       pruneUpToInclusive: Offset
@@ -234,7 +247,8 @@ trait ContractStorageBackend {
 
   /** Batch lookup of key states
     *
-    * If the backend does not support batch lookups, the implementation will fall back to sequential lookups
+    * If the backend does not support batch lookups, the implementation will fall back to sequential
+    * lookups
     */
   def keyStates(keys: Seq[Key], validAt: Offset)(connection: Connection): Map[Key, KeyState]
 
@@ -281,7 +295,8 @@ trait EventStorageBackend {
   def transactionStreamingQueries: TransactionStreamingQueries
   def eventReaderQueries: EventReaderQueries
 
-  /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
+  /** Part of pruning process, this needs to be in the same transaction as the other pruning related
+    * database operations
     */
   def pruneEvents(
       pruneUpToInclusive: Offset,
@@ -343,7 +358,7 @@ trait EventStorageBackend {
   )(connection: Connection): Map[UnassignProperties, Long]
 
   def lookupCreateSequentialIdByContractId(
-      contractIds: Iterable[String]
+      contractIds: Iterable[ContractId]
   )(connection: Connection): Vector[Long]
 
   def maxEventSequentialId(untilInclusiveOffset: Option[Offset])(
@@ -418,7 +433,7 @@ object EventStorageBackend {
       updateId: String,
       offset: Long,
       nodeId: Int,
-      contractId: String,
+      contractId: ContractId,
       templateId: Identifier,
       packageName: PackageName,
       packageVersion: Option[PackageVersion],
@@ -440,7 +455,7 @@ object EventStorageBackend {
       updateId: String,
       offset: Long,
       nodeId: Int,
-      contractId: String,
+      contractId: ContractId,
       templateId: Identifier,
       packageName: PackageName,
       witnessParties: Set[String],
@@ -450,7 +465,7 @@ object EventStorageBackend {
       updateId: String,
       offset: Long,
       nodeId: Int,
-      contractId: String,
+      contractId: ContractId,
       templateId: Identifier,
       packageName: PackageName,
       exerciseConsuming: Boolean,
@@ -478,7 +493,7 @@ object EventStorageBackend {
       unassignId: String,
       submitter: Option[String],
       reassignmentCounter: Long,
-      contractId: String,
+      contractId: ContractId,
       templateId: Identifier,
       packageName: PackageName,
       witnessParties: Set[String],
@@ -520,7 +535,7 @@ object EventStorageBackend {
   }
 
   final case class UnassignProperties(
-      contractId: String,
+      contractId: ContractId,
       synchronizerId: String,
       sequentialId: Long,
   )
@@ -542,8 +557,11 @@ trait DataSourceStorageBackend {
 
 object DataSourceStorageBackend {
 
-  /** @param jdbcUrl JDBC URL of the database, parameter to establish the connection between the application and the database
-    * @param postgresConfig configurations which apply only for the PostgresSQL backend
+  /** @param jdbcUrl
+    *   JDBC URL of the database, parameter to establish the connection between the application and
+    *   the database
+    * @param postgresConfig
+    *   configurations which apply only for the PostgresSQL backend
     */
   final case class DataSourceConfig(
       jdbcUrl: String,
@@ -579,8 +597,8 @@ object DBLockStorageBackend {
 trait IntegrityStorageBackend {
 
   /** Verifies the integrity of the index database, throwing an exception if any issue is found.
-    * This operation is allowed to take some time to finish.
-    * It is not expected that it is used during regular index/indexer operation.
+    * This operation is allowed to take some time to finish. It is not expected that it is used
+    * during regular index/indexer operation.
     */
   def onlyForTestingVerifyIntegrity(failForEmptyDB: Boolean = true)(connection: Connection): Unit
 
@@ -608,26 +626,25 @@ trait MeteringStorageReadBackend {
 
 trait MeteringStorageWriteBackend {
 
-  /** This method will return the maximum offset of the lapi_transaction_metering record
-    * which has an offset greater than the from offset and a timestamp prior to the
-    * to timestamp, if any.
+  /** This method will return the maximum offset of the lapi_transaction_metering record which has
+    * an offset greater than the from offset and a timestamp prior to the to timestamp, if any.
     *
-    * Note that the offset returned may not have been fully ingested. This is to allow the metering to wait if there
-    * are still un-fully ingested records withing the time window.
+    * Note that the offset returned may not have been fully ingested. This is to allow the metering
+    * to wait if there are still un-fully ingested records withing the time window.
     */
   def transactionMeteringMaxOffset(from: Option[Offset], to: Timestamp)(
       connection: Connection
   ): Option[Offset]
 
   /** This method will return all transaction metering records between the from offset (exclusive)
-    * and the to offset (inclusive).  It is called prior to aggregation.
+    * and the to offset (inclusive). It is called prior to aggregation.
     */
   def selectTransactionMetering(from: Option[Offset], to: Offset)(
       connection: Connection
   ): Map[ApplicationId, Int]
 
-  /** This method will delete transaction metering records between the from offset (exclusive)
-    * and the to offset (inclusive).  It is called following aggregation.
+  /** This method will delete transaction metering records between the from offset (exclusive) and
+    * the to offset (inclusive). It is called following aggregation.
     */
   def deleteTransactionMetering(from: Option[Offset], to: Offset)(
       connection: Connection

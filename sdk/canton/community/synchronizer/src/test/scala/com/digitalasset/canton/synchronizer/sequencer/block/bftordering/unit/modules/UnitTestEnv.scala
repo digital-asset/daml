@@ -96,9 +96,9 @@ class UnitTestContext[E <: Env[E], MessageT] extends ModuleContext[E, MessageT] 
 
   override def pureFuture[X](x: X): E#FutureUnlessShutdownT[X] = unsupported()
 
-  override def pipeToSelfInternal[X](
-      futureUnlessShutdown: E#FutureUnlessShutdownT[X]
-  )(fun: Try[X] => Option[MessageT]): Unit =
+  override def pipeToSelfInternal[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(
+      fun: Try[X] => Option[MessageT]
+  )(implicit traceContext: TraceContext): Unit =
     unsupported()
 
   override def blockingAwait[X](future: E#FutureUnlessShutdownT[X]): X = unsupported()
@@ -115,15 +115,25 @@ class UnitTestContext[E <: Env[E], MessageT] extends ModuleContext[E, MessageT] 
 
   override def stop(onStop: () => Unit): Unit = unsupported()
 
+  override def withNewTraceContext[A](fn: TraceContext => A): A = unsupported()
+
   private def unsupported() =
     fail("Unsupported by unit tests")
 }
+
+class UnitTestContextWithTraceContext[E <: Env[E], MessageT]
+    extends UnitTestContext[E, MessageT]
+    with WithTraceContext[E, MessageT]
 
 object UnitTestContext {
   def apply[MessageT](): UnitTestContext[UnitTestEnv, MessageT] =
     new UnitTestContext[UnitTestEnv, MessageT]
 
   type DelayCount = Int
+}
+
+trait WithTraceContext[E <: Env[E], MessageT] extends ModuleContext[E, MessageT] {
+  override def withNewTraceContext[A](fn: TraceContext => A): A = fn(TraceContext.empty)
 }
 
 class SelfEnv extends Env[SelfEnv] {
@@ -165,14 +175,14 @@ final case class IgnoringUnitTestContext[MessageT]()
 
   override def pipeToSelfInternal[X](futureUnlessShutdown: () => X)(
       fun: Try[X] => Option[MessageT]
-  ): Unit = ()
+  )(implicit traceContext: TraceContext): Unit = ()
 
   override def blockingAwait[X](future: () => X): X = future()
   override def blockingAwait[X](future: () => X, duration: FiniteDuration): X = future()
 }
 
 class IgnoringModuleRef[-MessageT] extends ModuleRef[MessageT] {
-  override def asyncSend(msg: MessageT): Unit = ()
+  override def asyncSendTraced(msg: MessageT)(implicit traceContext: TraceContext): Unit = ()
 }
 
 /** Convenience unit test [[Env]] storing delayed messages, with support for cancellation.
@@ -182,7 +192,7 @@ class FakeTimerCellUnitTestEnv extends BaseIgnoringUnitTestEnv[FakeTimerCellUnit
   override type ModuleRefT[MessageT] = ModuleRef[MessageT]
 }
 
-final case class FakeTimerCellUnitTestContext[MessageT](
+class FakeTimerCellUnitTestContext[MessageT](
     cell: AtomicReference[Option[(DelayCount, MessageT)]]
 ) extends UnitTestContext[FakeTimerCellUnitTestEnv, MessageT] {
   private var delayCount: DelayCount = 0
@@ -201,11 +211,18 @@ final case class FakeTimerCellUnitTestContext[MessageT](
     () => true
   }
 
-  override def pipeToSelfInternal[X](future: () => X)(fun: Try[X] => Option[MessageT]): Unit = ()
+  override def pipeToSelfInternal[X](future: () => X)(fun: Try[X] => Option[MessageT])(implicit
+      traceContext: TraceContext
+  ): Unit = ()
 
   override def blockingAwait[X](future: () => X): X = future()
   override def blockingAwait[X](future: () => X, duration: FiniteDuration): X = future()
 }
+
+final class FakeTimerCellUnitTestContextWithTraceContext[MessageT](
+    cell: AtomicReference[Option[(DelayCount, MessageT)]]
+) extends FakeTimerCellUnitTestContext(cell)
+    with WithTraceContext[FakeTimerCellUnitTestEnv, MessageT]
 
 /** Convenience unit test [[Env]] storing single pipeToSelf message.
   */
@@ -234,7 +251,7 @@ final case class FakePipeToSelfCellUnitTestContext[MessageT](
 
   override def pipeToSelfInternal[X](futureUnlessShutdown: () => X)(
       fun: Try[X] => Option[MessageT]
-  ): Unit =
+  )(implicit traceContext: TraceContext): Unit =
     cell.set(Some(() => fun(Try(futureUnlessShutdown()))))
 
   override def flatMapFuture[R1, R2](future1: () => R1, future2: PureFun[R1, () => R2]): () => R2 =
@@ -266,7 +283,9 @@ final case class FakePipeToSelfQueueUnitTestContext[MessageT](
   ): () => X =
     futureUnlessShutdown
 
-  override def pipeToSelfInternal[X](future: () => X)(fun: Try[X] => Option[MessageT]): Unit =
+  override def pipeToSelfInternal[X](future: () => X)(fun: Try[X] => Option[MessageT])(implicit
+      traceContext: TraceContext
+  ): Unit =
     queue.addOne(() => fun(Try(future())))
 }
 
@@ -306,11 +325,14 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
   private val pipedQueue = mutable.Queue.empty[() => Option[MessageT]]
   private val delayedQueue = mutable.Queue.empty[MessageT]
   private var lastCancelledEventCell: Option[(Int, MessageT)] = None
-  private val selfQueue = mutable.Queue.empty[MessageT]
+  private val selfQueue = mutable.Queue.empty[(MessageT, TraceContext)]
   private val becomesQueue = mutable.Queue.empty[Module[ProgrammableUnitTestEnv, MessageT]]
   private var closeActionCell: Option[() => Unit] = None
 
-  override def self: ModuleRef[MessageT] = (msg: MessageT) => selfQueue.addOne(msg)
+  override def self: ModuleRef[MessageT] = new ModuleRef[MessageT] {
+    override def asyncSendTraced(msg: MessageT)(implicit traceContext: TraceContext): Unit =
+      selfQueue.addOne((msg, traceContext))
+  }
 
   override def delayedEvent(delay: FiniteDuration, message: MessageT): CancellableEvent = {
     delayedQueue.addOne(message)
@@ -321,7 +343,9 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
     }
   }
 
-  override def pipeToSelfInternal[X](future: () => X)(fun: Try[X] => Option[MessageT]): Unit =
+  override def pipeToSelfInternal[X](future: () => X)(fun: Try[X] => Option[MessageT])(implicit
+      traceContext: TraceContext
+  ): Unit =
     pipedQueue.addOne(() => fun(Try(future())))
 
   def runPipedMessagesAndReceiveOnModule(
@@ -357,24 +381,26 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
     }
   }
 
-  def selfMessages: Seq[MessageT] = selfQueue.toSeq
+  def selfMessages: Seq[MessageT] = selfQueue.toSeq.map(_._1)
 
   def extractSelfMessages(): Seq[MessageT] = {
     val actions = selfQueue.toSeq
     selfQueue.clear()
-    actions
+    actions.map(_._1)
   }
 
   def delayedMessages: Seq[MessageT] = delayedQueue.toSeq
 
-  /** @return the count of scheduled events plus the last scheduled event. None if no events have been scheduled.
+  /** @return
+    *   the count of scheduled events plus the last scheduled event. None if no events have been
+    *   scheduled.
     */
   def lastDelayedMessage: Option[(Int, MessageT)] =
     delayedQueue.lastOption.map(msg => (delayedQueue.size, msg))
 
-  /** @return the last scheduled event plus its count corresponding to the number
-    *         of scheduled events when that event was initially scheduled.
-    *         None if no events have been cancelled.
+  /** @return
+    *   the last scheduled event plus its count corresponding to the number of scheduled events when
+    *   that event was initially scheduled. None if no events have been cancelled.
     */
   def lastCancelledEvent: Option[(Int, MessageT)] = lastCancelledEventCell
 

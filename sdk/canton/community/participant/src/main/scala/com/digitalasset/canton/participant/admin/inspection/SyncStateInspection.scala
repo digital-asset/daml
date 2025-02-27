@@ -114,8 +114,8 @@ final class SyncStateInspection(
       loggerFactory,
     )
 
-  /** Look up all unpruned state changes of a set of contracts on all synchronizers.
-    * If a contract is not found in an available ACS it will be omitted from the response.
+  /** Look up all unpruned state changes of a set of contracts on all synchronizers. If a contract
+    * is not found in an available ACS it will be omitted from the response.
     */
   def lookupContractSynchronizers(
       contractIds: Set[LfContractId]
@@ -131,8 +131,8 @@ final class SyncStateInspection(
       .sequence
       .map(_.toMap)
 
-  /** Returns the potentially large ACS of a given synchronizer
-    * containing a map of contract IDs to tuples containing the latest activation timestamp and the contract reassignment counter
+  /** Returns the potentially large ACS of a given synchronizer containing a map of contract IDs to
+    * tuples containing the latest activation timestamp and the contract reassignment counter
     */
   def findAcs(
       synchronizerAlias: SynchronizerAlias
@@ -157,7 +157,7 @@ final class SyncStateInspection(
   /** searches the pcs and returns the contract and activeness flag */
   def findContracts(
       synchronizerAlias: SynchronizerAlias,
-      filterId: Option[String],
+      exactId: Option[String],
       filterPackage: Option[String],
       filterTemplate: Option[String],
       limit: Int,
@@ -166,7 +166,7 @@ final class SyncStateInspection(
       timeouts.inspection.await("findContracts") {
         syncPersistentStateManager
           .getByAlias(synchronizerAlias)
-          .traverse(_.acsInspection.findContracts(filterId, filterPackage, filterTemplate, limit))
+          .traverse(_.acsInspection.findContracts(exactId, filterPackage, filterTemplate, limit))
           .failOnShutdownToAbortException("findContracts")
       },
       synchronizerAlias,
@@ -514,7 +514,7 @@ final class SyncStateInspection(
       counterParticipant: Option[ParticipantId] = None,
   )(implicit
       traceContext: TraceContext
-  ): Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)] =
+  ): Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.HashedCommitmentType)] =
     timeouts.inspection
       .awaitUS(s"$functionFullName from $start to $end on $synchronizerAlias")(
         getOrFail(getPersistentState(synchronizerAlias), synchronizerAlias).acsCommitmentStore

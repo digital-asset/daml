@@ -83,29 +83,11 @@ import org.apache.pekko.actor.ActorSystem
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.atomic.AtomicReference
 
-abstract class MediatorNodeConfigCommon(
-    val adminApi: AdminServerConfig,
-    val storage: StorageConfig,
-    val crypto: CryptoConfig,
-    val init: InitConfig,
-    val timeTracker: SynchronizerTimeTrackerConfig,
-    val sequencerClient: SequencerClientConfig,
-    val caching: CachingConfigs,
-    val parameters: MediatorNodeParameterConfig,
-    val mediator: MediatorConfig,
-    val monitoring: NodeMonitoringConfig,
-) extends LocalNodeConfig {
-
-  override def clientAdminApi: ClientConfig = adminApi.clientConfig
-
-  def toRemoteConfig: RemoteMediatorConfig = RemoteMediatorConfig(adminApi.clientConfig)
-
-  def replicationEnabled: Boolean
-}
-
 /** Various parameters for non-standard mediator settings
   *
-  * @param dontWarnOnDeprecatedPV if true, then this mediator will not emit a warning when connecting to a sequencer using a deprecated protocol version.
+  * @param dontWarnOnDeprecatedPV
+  *   if true, then this mediator will not emit a warning when connecting to a sequencer using a
+  *   deprecated protocol version.
   */
 final case class MediatorNodeParameterConfig(
     override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
@@ -134,7 +116,7 @@ final case class MediatorNodeParameters(
     with HasProtocolCantonNodeParameters
 
 final case class RemoteMediatorConfig(
-    adminApi: ClientConfig,
+    adminApi: FullClientConfig,
     token: Option[String] = None,
 ) extends NodeConfig
     with UniformCantonConfigValidation {
@@ -146,54 +128,52 @@ object RemoteMediatorConfig {
     CantonConfigValidatorDerivation[RemoteMediatorConfig]
 }
 
-/** Community Mediator Node configuration that defaults to auto-init
+/** Mediator Node configuration that defaults to auto-init
   */
-final case class CommunityMediatorNodeConfig(
+final case class MediatorNodeConfig(
     override val adminApi: AdminServerConfig = AdminServerConfig(),
     override val storage: StorageConfig = StorageConfig.Memory(),
     override val crypto: CryptoConfig = CryptoConfig(),
+    replication: Option[ReplicationConfig] = None,
     override val init: InitConfig = InitConfig(identity = Some(InitConfigBase.Identity())),
-    override val timeTracker: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),
+    timeTracker: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
-    override val caching: CachingConfigs = CachingConfigs(),
+    caching: CachingConfigs = CachingConfigs(),
     override val parameters: MediatorNodeParameterConfig = MediatorNodeParameterConfig(),
-    override val mediator: MediatorConfig = MediatorConfig(),
+    mediator: MediatorConfig = MediatorConfig(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
     override val topology: TopologyConfig = TopologyConfig(),
-) extends MediatorNodeConfigCommon(
-      adminApi,
-      storage,
-      crypto,
-      init,
-      timeTracker,
-      sequencerClient,
-      caching,
-      parameters,
-      mediator,
-      monitoring,
-    )
-    with ConfigDefaults[DefaultPorts, CommunityMediatorNodeConfig]
-    with CommunityOnlyCantonConfigValidation {
+) extends LocalNodeConfig
+    with ConfigDefaults[DefaultPorts, MediatorNodeConfig]
+    with UniformCantonConfigValidation {
 
   override val nodeTypeName: String = "mediator"
 
-  override def replicationEnabled: Boolean = false
+  override def clientAdminApi: ClientConfig = adminApi.clientConfig
 
-  override def withDefaults(ports: DefaultPorts): CommunityMediatorNodeConfig =
+  def toRemoteConfig: RemoteMediatorConfig = RemoteMediatorConfig(adminApi.clientConfig)
+
+  def replicationEnabled: Boolean = replication.exists(_.isEnabled)
+
+  override def withDefaults(
+      ports: DefaultPorts,
+      edition: CantonEdition,
+  ): MediatorNodeConfig =
     this
       .focus(_.adminApi.internalPort)
       .modify(ports.mediatorAdminApiPort.setDefaultPort)
+      .focus(_.replication)
+      .modify(ReplicationConfig.withDefaultO(storage, _, edition))
 }
 
-object CommunityMediatorNodeConfig {
-  implicit val communityMediatorNodeConfigCantonConfigValidator
-      : CantonConfigValidator[CommunityMediatorNodeConfig] =
-    CantonConfigValidatorDerivation[CommunityMediatorNodeConfig]
+object MediatorNodeConfig {
+  implicit val mediatorNodeConfigCantonConfigValidator: CantonConfigValidator[MediatorNodeConfig] =
+    CantonConfigValidatorDerivation[MediatorNodeConfig]
 }
 
 class MediatorNodeBootstrap(
     arguments: CantonNodeBootstrapCommonArguments[
-      MediatorNodeConfigCommon,
+      MediatorNodeConfig,
       MediatorNodeParameters,
       MediatorMetrics,
     ],
@@ -205,7 +185,7 @@ class MediatorNodeBootstrap(
     actorSystem: ActorSystem,
 ) extends CantonNodeBootstrapImpl[
       MediatorNode,
-      MediatorNodeConfigCommon,
+      MediatorNodeConfig,
       MediatorNodeParameters,
       MediatorMetrics,
     ](arguments) {
@@ -781,18 +761,17 @@ class MediatorNodeBootstrap(
 object MediatorNodeBootstrap {
   val LoggerFactoryKeyName: String = "mediator"
 
-  /** If the function maps `member` to `recordConfig`,
-    * the sequencer client for `member` will record all sends requested and events received to the directory specified
-    * by the recording config.
-    * A new recording starts whenever the synchronizer is restarted.
+  /** If the function maps `member` to `recordConfig`, the sequencer client for `member` will record
+    * all sends requested and events received to the directory specified by the recording config. A
+    * new recording starts whenever the synchronizer is restarted.
     */
   @VisibleForTesting
   val recordSequencerInteractions: AtomicReference[PartialFunction[Member, RecordingConfig]] =
     new AtomicReference(PartialFunction.empty)
 
-  /** If the function maps `member` to `path`,
-    * the sequencer client for `member` will replay events from `path` instead of pulling them from the sequencer.
-    * A new replay starts whenever the synchronizer is restarted.
+  /** If the function maps `member` to `path`, the sequencer client for `member` will replay events
+    * from `path` instead of pulling them from the sequencer. A new replay starts whenever the
+    * synchronizer is restarted.
     */
   @VisibleForTesting
   val replaySequencerConfig: AtomicReference[PartialFunction[Member, ReplayConfig]] =
@@ -800,7 +779,7 @@ object MediatorNodeBootstrap {
 }
 
 class MediatorNode(
-    config: MediatorNodeConfigCommon,
+    config: MediatorNodeConfig,
     mediatorId: MediatorId,
     synchronizerId: SynchronizerId,
     protected[canton] val replicaManager: MediatorReplicaManager,

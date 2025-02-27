@@ -12,9 +12,9 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
+import sttp.tapir.AnyEndpoint
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
-import sttp.tapir.{AnyEndpoint, path, query}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -41,21 +41,14 @@ class JsEventService(
 
   def getEventsByContractId(
       callerContext: CallerContext
-  ): TracedInput[(String, List[String])] => Future[
+  ): TracedInput[event_query_service.GetEventsByContractIdRequest] => Future[
     Either[JsCantonError, JsGetEventsByContractIdResponse]
   ] = req => {
     implicit val token = callerContext.token()
     implicit val tc = req.traceContext
-    val parties = req.in._2
     eventServiceClient(callerContext.token())(req.traceContext)
-      .getEventsByContractId(
-        event_query_service
-          .GetEventsByContractIdRequest(
-            contractId = req.in._1,
-            requestingParties = parties.toIndexedSeq,
-          )
-      )
-      .flatMap(protocolConverters.GetEventsByContractIdRequest.toJson(_))
+      .getEventsByContractId(req.in)
+      .flatMap(protocolConverters.GetEventsByContractIdResponse.toJson(_))
       .resultToRight
   }
 }
@@ -79,10 +72,9 @@ object JsEventService extends DocumentationEndpoints {
   import JsEventServiceCodecs.*
 
   private lazy val events = v2Endpoint.in(sttp.tapir.stringToPath("events"))
-  val getEventsByContractIdEndpoint = events.get
+  val getEventsByContractIdEndpoint = events.post
     .in(sttp.tapir.stringToPath("events-by-contract-id"))
-    .in(path[String]("contract-id"))
-    .in(query[List[String]]("parties"))
+    .in(jsonBody[event_query_service.GetEventsByContractIdRequest])
     .out(jsonBody[JsGetEventsByContractIdResponse])
     .description("Get events by contract Id")
 
@@ -91,8 +83,12 @@ object JsEventService extends DocumentationEndpoints {
   )
 }
 object JsEventServiceCodecs {
+  import JsStateServiceCodecs.eventFormatRW
   implicit val jsCreatedRW: Codec[JsCreated] = deriveCodec
   implicit val jsArchivedRW: Codec[JsArchived] = deriveCodec
   implicit val jsGetEventsByContractIdResponseRW: Codec[JsGetEventsByContractIdResponse] =
+    deriveCodec
+  implicit val jsGetEventsByContractIdRequestRW
+      : Codec[event_query_service.GetEventsByContractIdRequest] =
     deriveCodec
 }

@@ -10,12 +10,16 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.{
   Epoch,
   Segment,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultLeaderSelectionPolicy
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.PbftBlockState.*
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.PbftBlockState.{
+  SignPbftMessage,
+  *,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.SegmentState.computeLeaderOfView
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
@@ -69,10 +73,10 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           SendPbftMessage(prePrepare, Some(StorePrePrepare(prePrepare))),
           SignPbftMessage(myPrepare.message),
         )
+        segmentState.processEvent(prePrepare.message.stored)
         segmentState.processEvent(PbftSignedNetworkMessage(myPrepare)) shouldBe Seq(
           SendPbftMessage(myPrepare, None)
         )
-        segmentState.processEvent(prePrepare.message.stored)
         otherPeers.foreach { peer =>
           val prepare = createPrepare(blockNumber, ViewNumber.First, peer, prePrepare.message.hash)
           val commit = createCommit(blockNumber, ViewNumber.First, peer, prePrepare.message.hash)
@@ -185,7 +189,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       ) should contain theSameElementsInOrderAs List(
         SignPbftMessage(viewChangeMessage.message)
       )
-
       segment.isViewChangeInProgress shouldBe true
 
       assertNoLogs(
@@ -199,15 +202,15 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           prePrepares.map(x => Left(x.message)),
         ),
       )
-
       segment.isViewChangeInProgress shouldBe true
+
       assertNoLogs(
         segment.processEvent(SignedPrePrepares(blockMetaData, ViewNumber(1), prePrepares))
       ) should contain theSameElementsInOrderAs List(
         SignPbftMessage(newViewMessage.message)
       )
-
       segment.isViewChangeInProgress shouldBe true
+
       val results = assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(newViewMessage)))
       results.take(2) shouldBe List(
         SendPbftMessage(
@@ -216,7 +219,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         ),
         ViewChangeCompleted(blockMetaData, nextView, store = None),
       )
-
       segment.isViewChangeInProgress shouldBe false
 
       // Below, each 3-tuple represents: SendPbft(Prepare), SendPbft(Commit), CompletedBlock
@@ -227,25 +229,24 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
               SignPbftMessage(_: Prepare),
             ) =>
       }
+
       prePrepares.foreach { pp =>
         val prepare =
           createPrepare(pp.message.blockMetadata.blockNumber, ViewNumber(1), myId, pp.message.hash)
-        assertNoLogs(
-          segment.processEvent(PbftSignedNetworkMessage(prepare))
-        ) should contain theSameElementsInOrderAs List(
-          SendPbftMessage(prepare, None)
-        )
+        assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(prepare))) shouldBe empty
       }
 
-      assertNoLogs(
-        segment.processEvent(createNewViewStored(nextView))
-      ) should matchPattern {
+      assertNoLogs(segment.processEvent(createNewViewStored(nextView))) should matchPattern {
         case Seq(
+              SendPbftMessage(SignedMessage(_: Prepare, _), None),
               SignPbftMessage(_: Commit),
+              SendPbftMessage(SignedMessage(_: Prepare, _), None),
               SignPbftMessage(_: Commit),
+              SendPbftMessage(SignedMessage(_: Prepare, _), None),
               SignPbftMessage(_: Commit),
             ) =>
       }
+
       prePrepares.foreach { pp =>
         val prepare =
           createPrepare(pp.message.blockMetadata.blockNumber, ViewNumber(1), myId, pp.message.hash)
@@ -833,11 +834,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         SignPbftMessage(prepare3.message),
       )
 
-      Seq(prepare1(), prepare2, prepare3).foreach { prepare =>
-        assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(prepare))) shouldBe List(
-          SendPbftMessage(prepare, None)
-        )
-      }
+      assertNoLogs(segment.processEvent(createNewViewStored(nextView))) shouldBe empty
 
       val commit = Commit
         .create(
@@ -847,9 +844,15 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           prepare1().message.localTimestamp,
           from = myId,
         )
-      assertNoLogs(
-        segment.processEvent(createNewViewStored(nextView))
-      ) should contain only SignPbftMessage(commit)
+      assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(prepare1()))) shouldBe List(
+        SendPbftMessage(prepare1(), None),
+        SignPbftMessage(commit),
+      )
+      Seq(prepare2, prepare3).foreach { prepare =>
+        assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(prepare))) shouldBe List(
+          SendPbftMessage(prepare, None)
+        )
+      }
 
       assertNoLogs(
         segment.processEvent(PbftSignedNetworkMessage(commit.fakeSign))
@@ -1347,7 +1350,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       // getting new-view message without having gotten any view-change messages
       // although this could indeed happen in real life, it is more commonly seen during rehydration of messages
       clock.advance(Duration.ofMinutes(5))
-      val results = assertNoLogs(
+      assertNoLogs(
         segment
           .processEvent(
             PbftSignedNetworkMessage(
@@ -1364,19 +1367,15 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
               )
             )
           )
-      )
+      ) should matchPattern { case List(_: ViewChangeCompleted) => }
 
-      inside(results) {
+      assertNoLogs(segment.processEvent(createNewViewStored(view2))) should matchPattern {
         case List(
-              _: ViewChangeCompleted,
-              SendPbftMessage(p1 @ SignedMessage(_: Prepare, _), _),
-              SendPbftMessage(p2 @ SignedMessage(_: Prepare, _), _),
-              SendPbftMessage(p3 @ SignedMessage(_: Prepare, _), _),
+              SendPbftMessage(`prepare1`, _),
+              SendPbftMessage(`prepare2`, _),
+              SendPbftMessage(`prepare3`, _),
             ) =>
-          // because we advanced the clock time, this would fail if new prepares were being created, with different timestamps
-          p1 shouldBe prepare1
-          p2 shouldBe prepare2
-          p3 shouldBe prepare3
+        // because we advanced the clock time, this would fail if new prepares were being created, with different timestamps
       }
 
       segment.isViewChangeInProgress shouldBe false
@@ -1570,6 +1569,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       otherPeers: Seq[SequencerId] = otherPeers,
       completedBlocks: Seq[Block] = Seq.empty,
   ) = {
+    implicit val config: BftBlockOrderer.Config = BftBlockOrderer.Config()
     val membership = Membership(myId, otherPeers.toSet)
     new SegmentState(
       Segment(originalLeader, slotNumbers),

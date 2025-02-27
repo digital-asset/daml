@@ -51,7 +51,7 @@ class Generator(random: Random, inMemoryStore: InMemoryAvailabilityStore) {
   }
 
   def genBatch: Gen[OrderingRequestBatch] = _ => {
-    OrderingRequestBatch(genSeq(genTraced(genOrderingRequest)).apply(()))
+    OrderingRequestBatch.create(genSeq(genTraced(genOrderingRequest)).apply(()))
   }
 
   def generateCommand: Gen[Command] = _ => {

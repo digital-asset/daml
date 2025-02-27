@@ -10,7 +10,8 @@ import com.digitalasset.canton.version.*
 
 /** A response from the GetTrafficForMember RPC
   *
-  * @param trafficState the traffic state of the requested member, if any
+  * @param trafficState
+  *   the traffic state of the requested member, if any
   */
 final case class GetTrafficStateForMemberResponse private (trafficState: Option[TrafficState])(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[

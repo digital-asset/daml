@@ -263,7 +263,7 @@ final class ParticipantPruningScheduler(
       token = Some(adminToken.secret),
     )
     val clientChannelConfig = LedgerClientChannelConfiguration(
-      ledgerApiClientConfig.tls.map(x => ClientChannelBuilder.sslContext(x))
+      ledgerApiClientConfig.tlsConfig.map(x => ClientChannelBuilder.sslContext(x))
     )
     val builder = clientChannelConfig
       .builderFor(

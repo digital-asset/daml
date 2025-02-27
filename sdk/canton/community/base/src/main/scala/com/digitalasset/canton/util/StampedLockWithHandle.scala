@@ -10,12 +10,12 @@ import java.util.concurrent.locks.StampedLock
 import scala.concurrent.blocking
 import scala.util.control.NonFatal
 
-/** A stamped lock that allows passing around a lock handle to better guard methods
-  * that should only be called with an active lock.
+/** A stamped lock that allows passing around a lock handle to better guard methods that should only
+  * be called with an active lock.
   *
   * For example:
   *
-  * <pre>
+  * {{{
   * object Foo {
   *   val lock = new StampedLockWithHandle()
   *
@@ -29,10 +29,10 @@ import scala.util.control.NonFatal
   *     // do some more stuff
   *   }
   * }
-  * </pre>
+  * }}}
   *
-  * In the above example, `baz` cannot be called unless a write lock
-  * was acquired specifically only with `lock`.
+  * In the above example, `baz` cannot be called unless a write lock was acquired specifically only
+  * with `lock`.
   */
 class StampedLockWithHandle {
   class ReadLockHandle private[StampedLockWithHandle] (
@@ -45,12 +45,14 @@ class StampedLockWithHandle {
   val lock = new StampedLock()
 
   /** Acquire a read lock, blocking if it's currently not possible.
-    * @return A read lock handle with which the lock can be unlocked again.
+    * @return
+    *   A read lock handle with which the lock can be unlocked again.
     */
   def readLock(): ReadLockHandle = new ReadLockHandle(lock.readLock())
 
   /** Acquire a write lock, blocking if it's currently not possible.
-    * @return A write lock handle with which the lock can be unlocked again.
+    * @return
+    *   A write lock handle with which the lock can be unlocked again.
     */
   def writeLock(): WriteLockHandle = new WriteLockHandle(lock.writeLock())
 

@@ -23,6 +23,7 @@ import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
   EventFormat,
   TraceIdentifiers,
+  TransactionFormat,
   UpdateFormat,
   UpdateId,
 }
@@ -365,10 +366,33 @@ private[index] class IndexServiceImpl(
 
   override def getTransactionById(
       updateId: UpdateId,
-      internalTransactionFormat: InternalTransactionFormat,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
-    updatesReader
-      .lookupTransactionById(updateId.unwrap, internalTransactionFormat)
+      transactionFormat: TransactionFormat,
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] = {
+    val currentPackageMetadata = getPackageMetadataSnapshot(implicitly)
+    checkUnknownIdentifiers(transactionFormat.eventFormat, currentPackageMetadata).left
+      .map(_.asGrpcError)
+      .fold(
+        Future.failed,
+        _ => {
+          val internalTransactionFormatO = eventFormatProjection(
+            eventFormat = transactionFormat.eventFormat,
+            metadata = currentPackageMetadata,
+            alwaysPopulateArguments = false,
+          ).map(internalEventFormat =>
+            InternalTransactionFormat(
+              internalEventFormat = internalEventFormat,
+              transactionShape = transactionFormat.transactionShape,
+            )
+          )
+
+          internalTransactionFormatO match {
+            case Some(internalTransactionFormat) =>
+              updatesReader.lookupTransactionById(updateId.unwrap, internalTransactionFormat)
+            case None => Future.successful(None)
+          }
+        },
+      )
+  }
 
   override def getTransactionTreeById(
       updateId: UpdateId,
@@ -379,10 +403,33 @@ private[index] class IndexServiceImpl(
 
   override def getTransactionByOffset(
       offset: Offset,
-      internalTransactionFormat: InternalTransactionFormat,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
-    updatesReader
-      .lookupTransactionByOffset(offset, internalTransactionFormat)
+      transactionFormat: TransactionFormat,
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] = {
+    val currentPackageMetadata = getPackageMetadataSnapshot(implicitly)
+    checkUnknownIdentifiers(transactionFormat.eventFormat, currentPackageMetadata).left
+      .map(_.asGrpcError)
+      .fold(
+        Future.failed,
+        _ => {
+          val internalTransactionFormatO = eventFormatProjection(
+            eventFormat = transactionFormat.eventFormat,
+            metadata = currentPackageMetadata,
+            alwaysPopulateArguments = false,
+          ).map(internalEventFormat =>
+            InternalTransactionFormat(
+              internalEventFormat = internalEventFormat,
+              transactionShape = transactionFormat.transactionShape,
+            )
+          )
+
+          internalTransactionFormatO match {
+            case Some(internalTransactionFormat) =>
+              updatesReader.lookupTransactionByOffset(offset, internalTransactionFormat)
+            case None => Future.successful(None)
+          }
+        },
+      )
+  }
 
   override def getTransactionTreeByOffset(
       offset: Offset,
@@ -395,12 +442,24 @@ private[index] class IndexServiceImpl(
 
   override def getEventsByContractId(
       contractId: ContractId,
-      requestingParties: Set[Ref.Party],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractIdResponse] =
-    ledgerDao.eventsReader.getEventsByContractId(
-      contractId,
-      requestingParties,
-    )
+      eventFormat: EventFormat,
+  )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractIdResponse] = {
+    val currentPackageMetadata = getPackageMetadataSnapshot(implicitly)
+    checkUnknownIdentifiers(eventFormat, currentPackageMetadata).left
+      .map(_.asGrpcError)
+      .fold(
+        Future.failed,
+        _ =>
+          ledgerDao.eventsReader.getEventsByContractId(
+            contractId = contractId,
+            internalEventFormatO = eventFormatProjection(
+              eventFormat,
+              currentPackageMetadata,
+              alwaysPopulateArguments = false,
+            ),
+          ),
+      )
+  }
 
   // TODO(i16065): Re-enable getEventsByContractKey tests
 //  override def getEventsByContractKey(
@@ -556,7 +615,7 @@ object IndexServiceImpl {
     ) ++ apiEventFormat.filtersForAnyParty.iterator
 
     cumulativeFilters.foreach {
-      case CumulativeFilter(templateFilters, interfaceFilters, _wildacrdFilter) =>
+      case CumulativeFilter(templateFilters, interfaceFilters, _wildcardFilters) =>
         templateFilters.iterator
           .map(_.templateTypeRef)
           .foreach(

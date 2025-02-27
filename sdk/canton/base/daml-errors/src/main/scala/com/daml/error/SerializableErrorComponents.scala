@@ -144,8 +144,9 @@ private[error] final case class NonSecuritySensitiveErrorCodeComponents(
 
   /** Truncates and serializes the self-service error components into a [[com.google.rpc.Status]].
     *
-    * Truncation happens for both the error message and error details aiming to ensure that
-    * the maximum message size ([[NonSecuritySensitiveErrorCodeComponents.MaxCauseLogLength]]) and maximum total Status serialization size ([[ErrorCode.MaxErrorContentBytes]]) are respected.
+    * Truncation happens for both the error message and error details aiming to ensure that the
+    * maximum message size ([[NonSecuritySensitiveErrorCodeComponents.MaxCauseLogLength]]) and
+    * maximum total Status serialization size ([[ErrorCode.MaxErrorContentBytes]]) are respected.
     */
   def toStatusProto(maxSizeBytes: Int): com.google.rpc.Status = {
     val grpcStatusCode = validatedGrpcErrorCode(errorCode.category.grpcCode)
@@ -214,7 +215,9 @@ private[error] final case class NonSecuritySensitiveErrorCodeComponents(
 
 private[error] object NonSecuritySensitiveErrorCodeComponents {
 
-  /** The maximum size (in characters) of the self-service error description, truncated for transport as part of a Status */
+  /** The maximum size (in characters) of the self-service error description, truncated for
+    * transport as part of a Status
+    */
   val MaxCauseLogLength = 512
 
   private[error] def truncateDetails(

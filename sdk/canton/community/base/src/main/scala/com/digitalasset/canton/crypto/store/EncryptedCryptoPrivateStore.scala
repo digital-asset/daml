@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.implicits.showInterpolator
 import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
+import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.KeyPurpose.{Encryption, Signing}
@@ -24,16 +25,20 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
   NamedLoggingContext,
 }
+import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, StampedLockWithHandle}
+import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
+import com.digitalasset.canton.util.retry.{NoExceptionRetryPolicy, Success}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, StampedLockWithHandle, retry}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.*
 
-/** This class wraps a CryptoPrivateStore and implements an encrypted version that stores the private keys
-  * in encrypted form using a KMS
+/** This class wraps a CryptoPrivateStore and implements an encrypted version that stores the
+  * private keys in encrypted form using a KMS
   */
 class EncryptedCryptoPrivateStore(
     @VisibleForTesting
@@ -182,6 +187,44 @@ class EncryptedCryptoPrivateStore(
 
 object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper with HasLoggerName {
 
+  private def retryGetWrapperKeyId(
+      dbCryptoPrivateStore: DbCryptoPrivateStore,
+      timeouts: ProcessingTimeout,
+      logger: NamedLoggingContext,
+  )(implicit
+      success: Success[Either[CryptoPrivateStoreError, Option[String300]]],
+      ec: ExecutionContext,
+      tc: TraceContext,
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[String300]] =
+    EitherT(
+      retry
+        .Pause(
+          logger.tracedLogger,
+          FlagCloseable(logger.tracedLogger, timeouts),
+          timeouts.activeInit.retries(50.millis),
+          50.millis,
+          functionFullName,
+        )
+        .unlessShutdown(dbCryptoPrivateStore.getWrapperKeyId().value, NoExceptionRetryPolicy)
+    )
+
+  private def createEncryptedPrivateStore(
+      dbCryptoPrivateStore: DbCryptoPrivateStore,
+      kms: Kms,
+      wrapperKeyId: KmsKeyId,
+      releaseProtocolVersion: ReleaseProtocolVersion,
+      timeouts: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit ec: ExecutionContext): EncryptedCryptoPrivateStore =
+    new EncryptedCryptoPrivateStore(
+      dbCryptoPrivateStore,
+      kms,
+      wrapperKeyId,
+      releaseProtocolVersion,
+      timeouts,
+      loggerFactory,
+    )
+
   private def migrateToEncrypted(
       dbCryptoPrivateStore: DbCryptoPrivateStore,
       kms: Kms,
@@ -320,4 +363,138 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
     )
   }
 
+  // The passive replica will wait for the active replica to decrypt the crypto private key store
+  private def passiveReplicaRevertEncryptedStore(
+      dbCryptoPrivateStore: DbCryptoPrivateStore,
+      timeouts: ProcessingTimeout,
+      logger: NamedLoggingContext,
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] = {
+    // Retry until all wrapper key ids are unset or an error occurred
+    implicit val success: Success[Either[CryptoPrivateStoreError, Option[String300]]] =
+      Success {
+        case Right(None) | Left(_) => true
+        case _ => false
+      }
+    logger.debug(
+      "passive replica waiting for encrypted private key store to be reverted"
+    )
+    retryGetWrapperKeyId(dbCryptoPrivateStore, timeouts, logger).flatMap {
+      case Some(wrapperKeyId) =>
+        EitherT.leftT[FutureUnlessShutdown, Unit](
+          EncryptedPrivateStoreError(
+            s"passive replica waiting for the decryption of the private keys, but wrapper key still set to $wrapperKeyId"
+          )
+        )
+      case None => EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](())
+    }
+  }
+
+  // The passive replica waits for the active replica to create a wrapper key and encrypt the crypto private key store
+  private[crypto] def passiveReplicaInitEncryptedStore(
+      dbCryptoPrivateStore: DbCryptoPrivateStore,
+      timeouts: ProcessingTimeout,
+      logger: NamedLoggingContext,
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, KmsKeyId] = {
+    // Retry until all wrapper key ids are set or an error has occurred
+    implicit val success: Success[Either[CryptoPrivateStoreError, Option[String300]]] =
+      Success {
+        case Right(Some(_)) | Left(_) => true
+        case _ => false
+      }
+    logger.debug(
+      "passive replica waiting for encrypted private key store to be initialized"
+    )
+    // wait for the wrapper key to be defined
+    retryGetWrapperKeyId(dbCryptoPrivateStore, timeouts, logger).flatMap {
+      case Some(wrapperKeyId) =>
+        EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](KmsKeyId(wrapperKeyId))
+      case None =>
+        EitherT.leftT[FutureUnlessShutdown, KmsKeyId](
+          EncryptedPrivateStoreError(
+            "Active replica failed to initialize encrypted crypto private store"
+          )
+        )
+    }
+  }
+
+  def create(
+      storage: Storage,
+      dbCryptoPrivateStore: DbCryptoPrivateStore,
+      kms: Kms,
+      kmsKeyId: Option[KmsKeyId],
+      reverted: Boolean,
+      releaseProtocolVersion: ReleaseProtocolVersion,
+      timeouts: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit
+      ec: ExecutionContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, CryptoPrivateStore] =
+    TraceContext.withNewTraceContext { implicit traceContext =>
+      val logger = NamedLoggingContext(loggerFactory, traceContext)
+      (storage.isActive, reverted) match {
+        case (false, false) =>
+          passiveReplicaInitEncryptedStore(
+            dbCryptoPrivateStore,
+            timeouts,
+            logger,
+          )
+            .map { wrapperKeyId =>
+              createEncryptedPrivateStore(
+                dbCryptoPrivateStore,
+                kms,
+                wrapperKeyId,
+                releaseProtocolVersion,
+                timeouts,
+                loggerFactory,
+              )
+            }
+        case (true, false) =>
+          activeReplicaInitEncryptedStore(
+            dbCryptoPrivateStore,
+            kms,
+            kmsKeyId,
+            logger,
+          )
+            .map { wrapperKeyId =>
+              createEncryptedPrivateStore(
+                dbCryptoPrivateStore,
+                kms,
+                wrapperKeyId,
+                releaseProtocolVersion,
+                timeouts,
+                loggerFactory,
+              )
+            }
+        case (false, true) =>
+          passiveReplicaRevertEncryptedStore(
+            dbCryptoPrivateStore,
+            timeouts,
+            logger,
+          ).thereafter { _ =>
+            // Close the KMS after we migrated from encrypted to clear keys
+            kms.close()
+          }.map { _ =>
+            dbCryptoPrivateStore
+          }
+        case (true, true) =>
+          activeReplicaRevertEncryptedStore(
+            dbCryptoPrivateStore,
+            kms,
+            logger,
+          )
+            .thereafter { _ =>
+              // Close the KMS after we migrated from encrypted to clear keys
+              kms.close()
+            }
+            .map { _ =>
+              dbCryptoPrivateStore
+            }
+      }
+    }
 }

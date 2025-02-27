@@ -18,44 +18,33 @@ import com.digitalasset.daml.lf.data.Ref.UserId
 import io.grpc.*
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.FutureConverters.CompletionStageOps
 
-/** This interceptor uses the given [[com.digitalasset.canton.auth.AuthService]] to get [[com.digitalasset.canton.auth.ClaimSet.Claims]] for the current request,
-  * and then stores them in the current [[io.grpc.Context]].
+/** This interceptor uses the given [[com.digitalasset.canton.auth.AuthService]] to get
+  * [[com.digitalasset.canton.auth.ClaimSet.Claims]] for the current request, and then stores them
+  * in the current [[io.grpc.Context]].
   *
-  * @param userManagementStoreO - use None if user management is disabled
+  * @param userManagementStoreO
+  *   use None if user management is disabled
   */
 class UserBasedAuthorizationInterceptor(
-    authService: AuthService,
+    authServices: Seq[AuthService],
     userManagementStoreO: Option[UserManagementStore],
-    identityProviderAwareAuthService: IdentityProviderAwareAuthService,
     telemetry: Telemetry,
     loggerFactory: NamedLoggerFactory,
     override implicit val ec: ExecutionContext,
-) extends AuthorizationInterceptor(authService, telemetry, loggerFactory, ec)
+) extends AuthorizationInterceptor(authServices, telemetry, loggerFactory, ec)
     with NamedLogging {
 
   import UserBasedAuthorizationInterceptor.*
-  import LoggingContextWithTrace.implicitExtractTraceContext
 
   override def headerToClaims(
       headers: Metadata
-  )(implicit loggingContextWithTrace: LoggingContextWithTrace) = {
+  )(implicit loggingContextWithTrace: LoggingContextWithTrace): Future[ClaimSet] = {
     implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
-    authService
-      .decodeMetadata(headers)
-      .asScala
-      .flatMap(fallbackToIdpAuthService(headers, _))
+    super
+      .headerToClaims(headers)
       .flatMap(resolveAuthenticatedUserRights)
   }
-
-  private def fallbackToIdpAuthService(headers: Metadata, claimSet: ClaimSet)(implicit
-      loggingContext: LoggingContextWithTrace
-  ) =
-    if (claimSet == ClaimSet.Unauthenticated)
-      identityProviderAwareAuthService.decodeMetadata(headers)
-    else
-      Future.successful(claimSet)
 
   private[this] def resolveAuthenticatedUserRights(
       claimSet: ClaimSet

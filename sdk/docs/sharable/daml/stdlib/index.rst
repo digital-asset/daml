@@ -27,7 +27,7 @@ Here is a complete list of modules in the standard library:
    DA.Action.State.Class <DA-Action-State-Class>
    DA.Assert <DA-Assert>
    DA.Bifunctor <DA-Bifunctor>
-   DA.Crypto <DA-Crypto>
+   DA.Crypto.Text <DA-Crypto-Text>
    DA.Date <DA-Date>
    DA.Either <DA-Either>
    DA.Exception <DA-Exception>

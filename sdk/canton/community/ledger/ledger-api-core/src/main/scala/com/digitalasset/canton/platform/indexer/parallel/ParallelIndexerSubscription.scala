@@ -269,10 +269,14 @@ object ParallelIndexerSubscription {
 
   /** Batch wraps around a T-typed batch, enriching it with processing relevant information.
     *
-    * @param ledgerEnd The LedgerEnd for the batch. Needed for tail ingestion.
-    * @param lastTraceContext The latest trace context contained in the batch. Needed for logging.
-    * @param batch The batch of variable type.
-    * @param batchSize Size of the batch measured in number of updates. Needed for metrics population.
+    * @param ledgerEnd
+    *   The LedgerEnd for the batch. Needed for tail ingestion.
+    * @param lastTraceContext
+    *   The latest trace context contained in the batch. Needed for logging.
+    * @param batch
+    *   The batch of variable type.
+    * @param batchSize
+    *   Size of the batch measured in number of updates. Needed for metrics population.
     */
   final case class Batch[+T](
       ledgerEnd: LedgerEnd,

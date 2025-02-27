@@ -26,7 +26,8 @@ class AuthServiceJWTCodecSpec
     with TryValues
     with ScalaCheckDrivenPropertyChecks {
 
-  /** Serializes a [[AuthServiceJWTPayload]] to JSON, then parses it back to a AuthServiceJWTPayload */
+  /** Serializes a [[AuthServiceJWTPayload]] to JSON, then parses it back to a AuthServiceJWTPayload
+    */
   private def serializeAndParse(
       value: AuthServiceJWTPayload
   )(implicit format: RootJsonFormat[AuthServiceJWTPayload]): Try[AuthServiceJWTPayload] =

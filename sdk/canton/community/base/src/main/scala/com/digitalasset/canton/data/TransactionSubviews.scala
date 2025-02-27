@@ -12,10 +12,11 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.ProtocolVersion
 
-/** Abstraction over the subviews of a [[TransactionView]]
-  * Implementation of [[TransactionSubviews]] where the subviews are a merkle tree
+/** Abstraction over the subviews of a [[TransactionView]] Implementation of [[TransactionSubviews]]
+  * where the subviews are a merkle tree
   *
-  * @param subviews transaction views wrapped in this class
+  * @param subviews
+  *   transaction views wrapped in this class
   */
 final case class TransactionSubviews private[data] (
     subviews: MerkleSeq[TransactionView]
@@ -37,7 +38,9 @@ final case class TransactionSubviews private[data] (
 
   lazy val blindedElements: Seq[RootHash] = subviews.blindedElements
 
-  /** Check that the provided subview hashes are consistent with the ones from the contained subviews. */
+  /** Check that the provided subview hashes are consistent with the ones from the contained
+    * subviews.
+    */
   def hashesConsistentWith(hashOps: HashOps)(subviewHashes: Seq[ViewHash]): Boolean = {
     val merkleSeqRepr = subviews.representativeProtocolVersion
     val merkleSeqElemRepr = subviews.tryMerkleSeqElementRepresentativeProtocolVersion
@@ -74,7 +77,8 @@ final case class TransactionSubviews private[data] (
 
   /** Return the view hashes of the contained subviews
     *
-    * @throws java.lang.IllegalStateException if applied to a [[TransactionSubviews]] with blinded elements
+    * @throws java.lang.IllegalStateException
+    *   if applied to a [[TransactionSubviews]] with blinded elements
     */
   lazy val trySubviewHashes: Seq[ViewHash] =
     if (blindedElements.isEmpty) unblindedElements.map(_.viewHash)
@@ -85,8 +89,9 @@ final case class TransactionSubviews private[data] (
 
   /** Assert that all contained subviews are unblinded
     *
-    * @throws java.lang.IllegalStateException if there are blinded subviews, passing the first blinded subview hash
-    *                                         to the provided function to generate the error message
+    * @throws java.lang.IllegalStateException
+    *   if there are blinded subviews, passing the first blinded subview hash to the provided
+    *   function to generate the error message
     */
   def assertAllUnblinded(makeMessage: RootHash => String): Unit =
     blindedElements.headOption.foreach(hash => throw new IllegalStateException(makeMessage(hash)))
@@ -113,13 +118,14 @@ object TransactionSubviews {
   def empty(protocolVersion: ProtocolVersion, hashOps: HashOps): TransactionSubviews =
     apply(Seq.empty)(protocolVersion, hashOps)
 
-  /** Produce a sequence of indices for subviews.
-    * When subviews are stored in a sequence, it is essentially (0, ..., size - 1).
-    * When subviews are stored in a merkle tree, it gives the view paths in the tree. For example, a
-    * balanced tree with 4 subviews will produce (LL, LR, RL, RR).
+  /** Produce a sequence of indices for subviews. When subviews are stored in a sequence, it is
+    * essentially (0, ..., size - 1). When subviews are stored in a merkle tree, it gives the view
+    * paths in the tree. For example, a balanced tree with 4 subviews will produce (LL, LR, RL, RR).
     *
-    * @param nbOfSubviews total number of subviews
-    * @return the sequence of indices for the subviews
+    * @param nbOfSubviews
+    *   total number of subviews
+    * @return
+    *   the sequence of indices for the subviews
     */
   def indices(nbOfSubviews: Int): Seq[MerklePathElement] =
     MerkleSeq.indicesFromSeq(nbOfSubviews)

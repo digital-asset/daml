@@ -19,7 +19,8 @@ import scala.util.Try
 
 /** Server side interceptor that logs incoming and outgoing traffic.
   *
-  * @param config Configuration to tailor the output
+  * @param config
+  *   Configuration to tailor the output
   */
 class ApiRequestLogger(
     override protected val loggerFactory: NamedLoggerFactory,
@@ -133,13 +134,14 @@ class ApiRequestLogger(
   }
 }
 
-/** Base class for building gRPC API request loggers.
-  * Used in Canton network to build a client-side gRPC API
-  * request logger in addition to the server-side one.
+/** Base class for building gRPC API request loggers. Used in Canton network to build a client-side
+  * gRPC API request logger in addition to the server-side one.
   *
-  * See https://github.com/DACH-NY/the-real-canton-coin/blob/bea9ccff84e72957aa7ac57ae3d1a00bc6d368d0/canton/community/common/src/main/scala/com/digitalasset/canton/networking/grpc/ApiClientRequestLogger.scala#L16
+  * See
+  * https://github.com/DACH-NY/the-real-canton-coin/blob/bea9ccff84e72957aa7ac57ae3d1a00bc6d368d0/canton/community/common/src/main/scala/com/digitalasset/canton/networking/grpc/ApiClientRequestLogger.scala#L16
   *
-  * @param config Configuration to tailor the output
+  * @param config
+  *   Configuration to tailor the output
   */
 @SuppressWarnings(Array("org.wartremover.warts.Null"))
 class ApiRequestLoggerBase(

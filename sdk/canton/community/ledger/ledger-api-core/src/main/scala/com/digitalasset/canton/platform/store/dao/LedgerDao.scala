@@ -22,7 +22,6 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.CommittedTransaction
 import org.apache.pekko.NotUsed
@@ -90,7 +89,7 @@ private[platform] trait LedgerDaoEventsReader {
 
   def getEventsByContractId(
       contractId: ContractId,
-      requestingParties: Set[Ref.Party],
+      internalEventFormatO: Option[InternalEventFormat],
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractIdResponse]
 
   // TODO(i16065): Re-enable getEventsByContractKey tests
@@ -133,10 +132,11 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       loggingContext: LoggingContextWithTrace
   ): Future[List[IndexerPartyDetails]]
 
-  /** Prunes participant events and completions in archived history and remembers largest
-    * pruning offset processed thus far.
+  /** Prunes participant events and completions in archived history and remembers largest pruning
+    * offset processed thus far.
     *
-    * @param pruneUpToInclusive offset up to which to prune archived history inclusively
+    * @param pruneUpToInclusive
+    *   offset up to which to prune archived history inclusively
     * @return
     */
   def prune(
@@ -147,8 +147,9 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       loggingContext: LoggingContextWithTrace
   ): Future[Unit]
 
-  /** Return the pruned offsets from the parameters table (if defined)
-    * as a tuple of (participant_all_divulged_contracts_pruned_up_to_inclusive, participant_pruned_up_to_inclusive)
+  /** Return the pruned offsets from the parameters table (if defined) as a tuple of
+    * (participant_all_divulged_contracts_pruned_up_to_inclusive,
+    * participant_pruned_up_to_inclusive)
     */
   def pruningOffsets(implicit
       loggingContext: LoggingContextWithTrace
@@ -167,17 +168,16 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
 //                                It should be removed when the assertions in that suite are covered by other suites
 private[platform] trait LedgerWriteDaoForTests extends ReportsHealth {
 
-  /** Initializes the database with the given ledger identity.
-    * If the database was already intialized, instead compares the given identity parameters
-    * to the existing ones, and returns a Future failed with [[MismatchException]]
-    * if they don't match.
+  /** Initializes the database with the given ledger identity. If the database was already
+    * intialized, instead compares the given identity parameters to the existing ones, and returns a
+    * Future failed with [[MismatchException]] if they don't match.
     *
-    * This method is idempotent.
-    * This method is NOT safe to call concurrently.
+    * This method is idempotent. This method is NOT safe to call concurrently.
     *
     * This method must succeed at least once before other LedgerWriteDao methods may be used.
     *
-    * @param participantId the participant id to be stored
+    * @param participantId
+    *   the participant id to be stored
     */
   def initialize(
       participantId: ParticipantId
@@ -202,8 +202,8 @@ private[platform] trait LedgerWriteDaoForTests extends ReportsHealth {
       loggingContext: LoggingContextWithTrace
   ): Future[PersistenceResponse]
 
-  /** This is a combined store transaction method to support sandbox-classic and tests
-    * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
+  /** This is a combined store transaction method to support sandbox-classic and tests !!! Usage of
+    * this is discouraged, with the removal of sandbox-classic this will be removed
     */
   def storeTransaction(
       completionInfo: Option[state.CompletionInfo],

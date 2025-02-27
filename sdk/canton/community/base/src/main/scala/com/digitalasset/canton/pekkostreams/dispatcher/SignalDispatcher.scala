@@ -14,9 +14,9 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-/** A fanout signaller that can be subscribed to dynamically.
-  * Signals may be coalesced, but if a signal is sent, we guarantee that all consumers subscribed before
-  * the signal is sent will eventually receive a signal.
+/** A fanout signaller that can be subscribed to dynamically. Signals may be coalesced, but if a
+  * signal is sent, we guarantee that all consumers subscribed before the signal is sent will
+  * eventually receive a signal.
   */
 @SuppressWarnings(Array("com.digitalasset.canton.GlobalExecutionContext"))
 class SignalDispatcher private () {
@@ -29,14 +29,15 @@ class SignalDispatcher private () {
   private[pekkostreams] def getRunningState: Set[SourceQueueWithComplete[Signal]] =
     runningState.get.getOrElse(throwClosed())
 
-  /** Signal to this Dispatcher that there's a new head `Index`.
-    * The Dispatcher will emit values on all streams until the new head is reached.
+  /** Signal to this Dispatcher that there's a new head `Index`. The Dispatcher will emit values on
+    * all streams until the new head is reached.
     */
   def signal(): Unit = getRunningState.foreach(state => state.offer(Signal).discard)
 
   /** Returns a Source that, when materialized, subscribes to this SignalDispatcher.
     *
-    * @param signalOnSubscribe True if you want to send a signal to the new subscription.
+    * @param signalOnSubscribe
+    *   True if you want to send a signal to the new subscription.
     */
   def subscribe(signalOnSubscribe: Boolean = false): Source[Signal, NotUsed] =
     Source
@@ -62,8 +63,8 @@ class SignalDispatcher private () {
 
   private def throwClosed(): Nothing = throw new IllegalStateException("SignalDispatcher is closed")
 
-  /** Closes this SignalDispatcher by gracefully completing the existing Source subscriptions.
-    * For any downstream with pending signals, at least one such signal will be sent first.
+  /** Closes this SignalDispatcher by gracefully completing the existing Source subscriptions. For
+    * any downstream with pending signals, at least one such signal will be sent first.
     */
   def shutdown(): Future[Unit] =
     shutdownInternal { source =>
@@ -71,7 +72,9 @@ class SignalDispatcher private () {
       source.watchCompletion()
     }
 
-  /** Closes this SignalDispatcher by failing the existing Source subscriptions with the provided throwable. */
+  /** Closes this SignalDispatcher by failing the existing Source subscriptions with the provided
+    * throwable.
+    */
   def fail(throwableBuilder: () => Throwable): Future[Unit] =
     shutdownInternal { source =>
       implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.parasitic
@@ -123,6 +126,7 @@ object SignalDispatcher {
   /** The signal sent by SignalDispatcher. */
   final case object Signal extends Signal
 
-  /** Construct a new SignalDispatcher. Created Sources will consume Pekko resources until closed. */
+  /** Construct a new SignalDispatcher. Created Sources will consume Pekko resources until closed.
+    */
   def apply[T](): SignalDispatcher = new SignalDispatcher()
 }

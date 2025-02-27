@@ -47,7 +47,11 @@ message Value {
     // A Numeric, that is a decimal value with precision 38 (at most 38 significant digits) and a
     // scale between 0 and 37 (significant digits on the right of the decimal point).
     // The field has to match the regex
+    //
+    // .. code-block:: none
+    //
     //   [+-]?\d{1,38}(.\d{0,37})?
+    //
     // and should be representable by a Numeric without loss of precision.
     string numeric = 6;
 
@@ -97,9 +101,11 @@ message Record {
 // A named nested value within a record.
 message RecordField {
   // When reading a transaction stream, it's omitted if verbose streaming is not enabled.
-  // When submitting a commmand, it's optional:
-  //   - if all keys within a single record are present, the order in which fields appear does not matter. however, each key must appear exactly once.
-  //   - if any of the keys within a single record are omitted, the order of fields MUST match the order of declaration in the Daml template.
+  // When submitting a command, it's optional:
+  //
+  // - if all keys within a single record are present, the order in which fields appear does not matter. however, each key must appear exactly once.
+  // - if any of the keys within a single record are omitted, the order of fields MUST match the order of declaration in the Daml template.
+  //
   // Must be a valid NameString
   string label = 1;
 

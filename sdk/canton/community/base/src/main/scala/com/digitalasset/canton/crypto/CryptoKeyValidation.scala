@@ -6,7 +6,7 @@ package com.digitalasset.canton.crypto
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
-import com.digitalasset.canton.crypto.SigningKeyUsage.compatibleUsage
+import com.digitalasset.canton.crypto.SigningKeyUsage.compatibleUsageForSignAndVerify
 import com.digitalasset.canton.crypto.provider.jce.JceJavaKeyConverter
 
 import java.security.PublicKey as JPublicKey
@@ -28,9 +28,9 @@ object CryptoKeyValidation {
       .leftMap(err => KeyParseAndValidateError(err.show))
 
   // TODO(#15634): Verify crypto scheme as part of key validation
-  /** Parses and validates a public key. This includes recomputing the fingerprint and verifying that it matches the
-    * id of the key, as well as validating its format.
-    * We store the validation results in a cache.
+  /** Parses and validates a public key. This includes recomputing the fingerprint and verifying
+    * that it matches the id of the key, as well as validating its format. We store the validation
+    * results in a cache.
     */
   private[crypto] def parseAndValidatePublicKey[E](
       publicKey: PublicKey,
@@ -80,8 +80,8 @@ object CryptoKeyValidation {
         .find(_.supportedSigningKeySpecs.contains(keySpec))
         .toRight(errFn(defaultAlgorithmSpec))
 
-  /** Ensures that a given key specification is supported by the selected crypto algorithm. It
-    * also checks if this crypto algorithm is part of the set of supported algorithms.
+  /** Ensures that a given key specification is supported by the selected crypto algorithm. It also
+    * checks if this crypto algorithm is part of the set of supported algorithms.
     */
   private[crypto] def ensureCryptoSpec[KeySpec, AlgorithmSpec, E](
       keySpec: KeySpec,
@@ -122,7 +122,7 @@ object CryptoKeyValidation {
       errFn: String => E,
   ): Either[E, Unit] =
     Either.cond(
-      compatibleUsage(keyUsage, usage),
+      compatibleUsageForSignAndVerify(keyUsage, usage),
       (),
       errFn(
         s"Signing key $fingerprint [$keyUsage] is not valid for usage $usage"

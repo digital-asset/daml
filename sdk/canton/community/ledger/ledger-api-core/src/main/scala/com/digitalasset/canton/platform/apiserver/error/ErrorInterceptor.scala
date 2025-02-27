@@ -25,33 +25,40 @@ final class ErrorInterceptor(val loggerFactory: NamedLoggerFactory)
     val forwardingCall = new SimpleForwardingServerCall[ReqT, RespT](call) {
 
       /** Here we are trying to detect status/trailers pairs that:
-        * - originated from the server implementation (i.e. Participant services as opposed to internal to gRPC implementation) AND
-        * - did not originate from LAPI error codes.
-        * NOTE: We are not attempting to detect if a status/trailers pair originates from exceptional conditions within gRPC implementation itself.
+        *   - originated from the server implementation (i.e. Participant services as opposed to
+        *     internal to gRPC implementation) AND
+        *   - did not originate from LAPI error codes.
         *
-        * We are handling unary endpoints that returned failed Futures or other direct invocation of [[io.grpc.stub.StreamObserver#onError]].
-        * We are NOT handling here exceptions thrown outside of Futures or Pekko streams. These are handled separately in
-        * [[com.digitalasset.canton.platform.apiserver.error.ErrorListener]].
-        * We are NOT handling here exceptions thrown inside Pekko streaming. These are handled in
+        * NOTE: We are not attempting to detect if a status/trailers pair originates from
+        * exceptional conditions within gRPC implementation itself.
+        *
+        * We are handling unary endpoints that returned failed Futures or other direct invocation of
+        * [[io.grpc.stub.StreamObserver#onError]]. We are NOT handling here exceptions thrown
+        * outside of Futures or Pekko streams. These are handled separately in
+        * [[com.digitalasset.canton.platform.apiserver.error.ErrorListener]]. We are NOT handling
+        * here exceptions thrown inside Pekko streaming. These are handled in
         * [[com.daml.grpc.adapter.server.pekko.ServerAdapter.toSink]]
         *
-        * Details:
-        * 1. Handling of Status.INTERNAL:
-        * The gRPC services that we generate via scalapb are using [[scalapb.grpc.Grpc.completeObserver]]
-        * when bridging from Future[T] and into io.grpc.stub.StreamObserver[T].
-        * [[scalapb.grpc.Grpc.completeObserver]] does the following:
-        * a) propagates instances of StatusException and StatusRuntimeException without changes,
-        * b) translates other throwables into a StatusException with Status.INTERNAL.
-        * We assume that we don't need to deal with a) but need to detect and deal with b).
-        * Knowing that Status.INTERNAL is used only by [[com.daml.error.ErrorCategory.SystemInternalAssumptionViolated]],
-        * which is marked a security sensitive, we have the following heuristic: check whether gRPC status is Status.INTERNAL
-        * and gRPC status description is not security sanitized.
-        * 2. Handling of Status.UNKNOWN:
-        * We do not have an error category that uses UNKNOWN so there is no risk of catching a legitimate Ledger API error code.
-        * A Status.UNKNOWN can arise when someone (us or a library):
-        * - calls [[io.grpc.stub.StreamObserver#onError]] providing an exception that is not a Status(Runtime)Exception
-        *   (see [[io.grpc.stub.ServerCalls.ServerCallStreamObserverImpl#onError]] and [[io.grpc.Status#fromThrowable]]),
-        * - calls [[io.grpc.ServerCall#close]] providing status.UNKNOWN.
+        * Handling of Status.INTERNAL: The gRPC services that we generate via scalapb are using
+        * [[scalapb.grpc.Grpc.completeObserver]] when bridging from Future[T] and into
+        * io.grpc.stub.StreamObserver[T]. [[scalapb.grpc.Grpc.completeObserver]] does the following:
+        *   a. propagates instances of StatusException and StatusRuntimeException without changes,
+        *   a. translates other throwables into a StatusException with Status.INTERNAL.
+        *
+        * We assume that we don't need to deal with a) but need to detect and deal with b). Knowing
+        * that Status.INTERNAL is used only by
+        * [[com.daml.error.ErrorCategory.SystemInternalAssumptionViolated]], which is marked a
+        * security sensitive, we have the following heuristic: check whether gRPC status is
+        * Status.INTERNAL and gRPC status description is not security sanitized.
+        *
+        * Handling of Status.UNKNOWN: We do not have an error category that uses UNKNOWN so there is
+        * no risk of catching a legitimate Ledger API error code. A Status.UNKNOWN can arise when
+        * someone (us or a library):
+        *   - calls [[io.grpc.stub.StreamObserver#onError]] providing an exception that is not a
+        *     Status(Runtime)Exception (see
+        *     [[io.grpc.stub.ServerCalls.ServerCallStreamObserverImpl#onError]] and
+        *     [[io.grpc.Status#fromThrowable]]),
+        *   - calls [[io.grpc.ServerCall#close]] providing status.UNKNOWN.
         */
       override def close(status: Status, trailers: Metadata): Unit =
         if (isUnsanitizedInternal(status) || status.getCode == Status.Code.UNKNOWN) {
@@ -68,9 +75,9 @@ final class ErrorInterceptor(val loggerFactory: NamedLoggerFactory)
           LogOnUnhandledFailureInClose(logger, superClose(status, trailers))
         }
 
-      /** This method serves as an accessor to the super.close() which facilitates its access from the outside of this class.
-        * This is needed in order to allow the call to be captured in the closure passed to the [[LogOnUnhandledFailureInClose]]
-        * error handler.
+      /** This method serves as an accessor to the super.close() which facilitates its access from
+        * the outside of this class. This is needed in order to allow the call to be captured in the
+        * closure passed to the [[LogOnUnhandledFailureInClose]] error handler.
         *
         * As at Scala 2.13.8, not using this redirection results in a runtime IllegalAccessError.
         * Remove this redirection once the runtime exception can be avoided.

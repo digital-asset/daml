@@ -16,8 +16,8 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-/** Stores traffic consumed entries in a database.
-  * The store is organized as a journal, every traffic consumption is added as a new row.
+/** Stores traffic consumed entries in a database. The store is organized as a journal, every
+  * traffic consumption is added as a new row.
   */
 class DbTrafficConsumedStore(
     override protected val storage: DbStorage,

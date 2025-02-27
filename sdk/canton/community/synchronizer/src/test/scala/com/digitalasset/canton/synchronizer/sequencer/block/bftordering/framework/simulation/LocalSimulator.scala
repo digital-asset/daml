@@ -8,6 +8,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleName
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
 import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.mutable
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -58,7 +59,7 @@ class LocalSimulator(
   ): Unit = {
     val (priority, duration) =
       msg match {
-        case ModuleControl.Send(_) =>
+        case ModuleControl.Send(_, _) =>
           /* A guarantee that we need to provide is that if a module `from`` sends message m1 to module `to``
            * and then sends message m2 to the same module, m1 *must* be delivered before m2.
            * So here we find if there is such a message, and uses that as a lower bound for when this message can be
@@ -115,6 +116,7 @@ class LocalSimulator(
       now: CantonTimestamp,
       future: SimulationFuture[X],
       fun: Try[X] => Option[T],
+      traceContext: TraceContext,
   ): Unit = {
     val runningFuture = future.schedule { () =>
       now.add(settings.futureTimeDistribution.generateRandomDuration(random).toJava)
@@ -125,7 +127,7 @@ class LocalSimulator(
     )
 
     agenda.addOne(
-      RunFuture(peer, to, runningFuture, fun),
+      RunFuture(peer, to, runningFuture, fun, traceContext),
       timeToRun,
       ScheduledCommand.DefaultPriority,
     )

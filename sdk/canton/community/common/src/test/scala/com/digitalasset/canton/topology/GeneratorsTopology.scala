@@ -11,7 +11,7 @@ object GeneratorsTopology {
   import com.digitalasset.canton.config.GeneratorsConfig.*
 
   implicit val fingerprintArb: Arbitrary[Fingerprint] = Arbitrary(
-    string68Arb.arbitrary.map(Fingerprint.tryCreate)
+    string68Arb.arbitrary.map(Fingerprint.tryFromString)
   )
   implicit val namespaceArb: Arbitrary[Namespace] = Arbitrary(
     fingerprintArb.arbitrary.map(Namespace(_))

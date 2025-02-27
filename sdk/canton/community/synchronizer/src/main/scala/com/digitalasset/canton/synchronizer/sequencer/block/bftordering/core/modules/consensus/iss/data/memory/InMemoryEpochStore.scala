@@ -346,6 +346,60 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
         }
         .map(_.sortBy(_.orderedBlock.metadata.blockNumber))
     }
+
+  override def loadNumberOfRecords(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[EpochStore.NumberOfRecords] =
+    createFuture(loadNumberOfRecordsName) { () =>
+      Success(
+        EpochStore.NumberOfRecords(
+          epochs.size.toLong,
+          blocks.values.map(_.commits.size + 1).sum.toLong,
+          List(prePreparesMap, preparesMap, viewChangesMap, newViewsMap).map(_.size).sum,
+        )
+      )
+    }
+
+  override def prune(epochNumberInclusive: EpochNumber)(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[EpochStore.NumberOfRecords] =
+    createFuture(pruneName(epochNumberInclusive)) { () =>
+      val epochsToDelete = epochs.filter(_._1 <= epochNumberInclusive)
+      val blocksToDelete =
+        blocks.filter(_._2.prePrepare.message.blockMetadata.epochNumber <= epochNumberInclusive)
+      epochs --= epochsToDelete.keys
+      blocks --= blocksToDelete.keys
+
+      val blockNumbersToDeleteInProgressMessages = epochsToDelete
+        .maxByOption(_._1)
+        .map { epoch =>
+          val info = epoch._2.epochInfo
+          (info.startBlockNumber to info.lastBlockNumber).toList.map(BlockNumber(_))
+        }
+        .getOrElse(List.empty)
+
+      val pbftMessagesInProgressDeleted =
+        blockNumbersToDeleteInProgressMessages.map { blockNumber =>
+          prePreparesMap.get(blockNumber).map(_.size).getOrElse(0) +
+            preparesMap.get(blockNumber).map(_.values.flatten.size).getOrElse(0) +
+            viewChangesMap.get(blockNumber).map(_.size).getOrElse(0) +
+            newViewsMap.get(blockNumber).map(_.size).getOrElse(0)
+        }.sum
+
+      prePreparesMap --= blockNumbersToDeleteInProgressMessages
+      preparesMap --= blockNumbersToDeleteInProgressMessages
+      viewChangesMap --= blockNumbersToDeleteInProgressMessages
+      newViewsMap --= blockNumbersToDeleteInProgressMessages
+
+      Success(
+        EpochStore.NumberOfRecords(
+          epochsToDelete.size.toLong,
+          blocksToDelete.values.map(_.commits.size + 1).sum.toLong,
+          pbftMessagesInProgressDeleted,
+        )
+      )
+    }
+
 }
 
 private object GenericInMemoryEpochStore {

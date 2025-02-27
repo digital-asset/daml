@@ -461,7 +461,7 @@ class InMemoryActiveContractStore(
   ): FutureUnlessShutdown[Option[(LfContractId)]] =
     for {
       contracts <- contractStore.find(
-        filterId = None,
+        exactId = None,
         filterPackage = Some(pkg),
         filterTemplate = None,
         limit = Int.MaxValue,
@@ -478,12 +478,13 @@ class InMemoryActiveContractStore(
 object InMemoryActiveContractStore {
   import ActiveContractStore.*
 
-  /** A contract status change consists of the actual [[ActivenessChange]] (timestamp, request counter, and kind)
-    * and the details. The [[com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessChangeDetail]]
-    * determines whether the actual [[ActivenessChange]]
-    * is a creation/archival or a assignment/unassignment. In the store, at most one
+  /** A contract status change consists of the actual [[ActivenessChange]] (timestamp, request
+    * counter, and kind) and the details. The
     * [[com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessChangeDetail]]
-    * may be associated with the same [[ActivenessChange]].
+    * determines whether the actual [[ActivenessChange]] is a creation/archival or a
+    * assignment/unassignment. In the store, at most one
+    * [[com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessChangeDetail]] may
+    * be associated with the same [[ActivenessChange]].
     */
   type IndividualChange = (ActivenessChange, ActivenessChangeDetail)
   object IndividualChange {
@@ -540,9 +541,9 @@ object InMemoryActiveContractStore {
 
   object ActivenessChange {
 
-    /** Intended order is by [[com.digitalasset.canton.participant.util.TimeOfChange]]
-      * and then activations (creates/assignments) before deactivation,
-      * but this is the reversed order because we want to iterate over the earlier events in the [[ChangeJournal]]
+    /** Intended order is by [[com.digitalasset.canton.participant.util.TimeOfChange]] and then
+      * activations (creates/assignments) before deactivation, but this is the reversed order
+      * because we want to iterate over the earlier events in the [[ChangeJournal]]
       */
     implicit val reverseOrderingForActivenessChange: Ordering[ActivenessChange] =
       Ordering
@@ -556,8 +557,9 @@ object InMemoryActiveContractStore {
 
   /** Journal of the changes to contract.
     *
-    * @param changes The journal of changes that have been recorded for the contract.
-    *                Must be ordered by [[ActivenessChange.reverseOrderingForActivenessChange]].
+    * @param changes
+    *   The journal of changes that have been recorded for the contract. Must be ordered by
+    *   [[ActivenessChange.reverseOrderingForActivenessChange]].
     */
   final case class ContractStatus private (changes: ChangeJournal) {
     import IndividualChange.{add, archive, create, purge}
@@ -737,8 +739,9 @@ object InMemoryActiveContractStore {
       laterChanges.result().toList
     }
 
-    /** If the contract is active right after the given `timestamp`,
-      * returns the [[com.digitalasset.canton.data.CantonTimestamp]] of the latest creation or latest assignment.
+    /** If the contract is active right after the given `timestamp`, returns the
+      * [[com.digitalasset.canton.data.CantonTimestamp]] of the latest creation or latest
+      * assignment.
       */
     def activeBy(timestamp: CantonTimestamp): Option[(CantonTimestamp, ReassignmentCounter)] = {
       val iter = changes.iteratorFrom(ContractStatus.searchByTimestamp(timestamp))
@@ -759,8 +762,8 @@ object InMemoryActiveContractStore {
       }
     }
 
-    /** If the contract is active right after the given `rc`,
-      * returns the [[com.digitalasset.canton.RequestCounter]] of the latest creation or latest assignment.
+    /** If the contract is active right after the given `rc`, returns the
+      * [[com.digitalasset.canton.RequestCounter]] of the latest creation or latest assignment.
       */
     def activeBy(rc: RequestCounter): Option[(RequestCounter, ReassignmentCounter)] =
       changes
@@ -800,7 +803,9 @@ object InMemoryActiveContractStore {
           Some(this)
       }
 
-    /** Returns a contract status that has all changes removed whose request counter is at least `criterion`. */
+    /** Returns a contract status that has all changes removed whose request counter is at least
+      * `criterion`.
+      */
     def deleteSince(criterion: RequestCounter): ContractStatus = {
       val affected = changes.headOption.exists { case (change, _detail) =>
         change.toc.rc >= criterion

@@ -22,7 +22,8 @@ final case class Nonce private (private val bytes: ByteString) extends HasCrypto
 
 object Nonce {
 
-  /** As of now, the database schemas can only handle nonces up to a length of 150 bytes. Thus the length of a [[Nonce]] should never exceed that.
+  /** As of now, the database schemas can only handle nonces up to a length of 150 bytes. Thus the
+    * length of a [[Nonce]] should never exceed that.
     */
   val length: Int = 20
 

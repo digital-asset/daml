@@ -18,7 +18,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsHelpers
-import com.digitalasset.canton.participant.store.AcsCommitmentStore.CommitmentData
+import com.digitalasset.canton.participant.store.AcsCommitmentStore.ParticipantCommitmentData
 import com.digitalasset.canton.participant.store.db.DbAcsCommitmentStore
 import com.digitalasset.canton.participant.store.{
   AcsCommitmentStore,
@@ -155,9 +155,12 @@ sealed trait SyncStateInspectionTest
 
   /** a small class to define the hashes between received and sent.
     *
-    * @param isVerbose (default: false) tell if hashes should be included.
-    * @param isOwnDefault (default: true) tells if the generation should use default for its own hash.
-    * @param isCounterDefault (default: true) tell if the generation should use default for its counters hash.
+    * @param isVerbose
+    *   (default: false) tell if hashes should be included.
+    * @param isOwnDefault
+    *   (default: true) tells if the generation should use default for its own hash.
+    * @param isCounterDefault
+    *   (default: true) tell if the generation should use default for its counters hash.
     *
     * you can use the inverse() to build the corresponding HashingState for the other dummy
     */
@@ -184,8 +187,8 @@ sealed trait SyncStateInspectionTest
   }
 
   /** This message creates a dummy commitment that can be persisted with store.storeReceived method.
-    * It also returns the corresponding ReceivedAcsCommitment for comparison.
-    * The ReceivedAcsCommitment is in state Outstanding.
+    * It also returns the corresponding ReceivedAcsCommitment for comparison. The
+    * ReceivedAcsCommitment is in state Outstanding.
     */
   def createDummyReceivedCommitment(
       synchronizerId: SynchronizerId,
@@ -196,6 +199,12 @@ sealed trait SyncStateInspectionTest
   ): (ReceivedAcsCommitment, SignedProtocolMessage[AcsCommitment]) = {
 
     val dummyCommitment = createDummyHash(hashingState.isOwnDefault)
+    val hashedDummyCommitment: AcsCommitment.HashedCommitmentType =
+      AcsCommitment.hashCommitment(dummyCommitment)
+    val dummyCounterCommitment = createDummyHash(hashingState.isCounterDefault)
+    val hashedDummyCounterCommitment: AcsCommitment.HashedCommitmentType =
+      AcsCommitment.hashCommitment(dummyCounterCommitment)
+
     val dummySignature: Signature =
       symbolicCrypto.sign(
         symbolicCrypto.pureCrypto.digest(TestHash.testHashPurpose, dummyCommitment),
@@ -217,16 +226,16 @@ sealed trait SyncStateInspectionTest
       synchronizerId,
       commitmentPeriod,
       remoteParticipant,
-      Option.when(hashingState.isVerbose)(dummyCommitment),
-      Option.when(hashingState.isVerbose)(createDummyHash(hashingState.isCounterDefault)),
+      Option.when(hashingState.isVerbose)(hashedDummyCommitment),
+      Option.when(hashingState.isVerbose)(hashedDummyCounterCommitment),
       state,
     )
     (received, signed)
   }
 
   /** This message creates a dummy commitment that can be persisted with store.storeComputed method.
-    * It also returns the corresponding SentAcsCommitment for comparison.
-    * The SentAcsCommitment is in state Outstanding.
+    * It also returns the corresponding SentAcsCommitment for comparison. The SentAcsCommitment is
+    * in state Outstanding.
     */
   def createDummyComputedCommitment(
       synchronizerId: SynchronizerId,
@@ -234,16 +243,20 @@ sealed trait SyncStateInspectionTest
       period: CommitmentPeriod,
       hashingState: HashingState = new HashingState(),
       state: ValidSentPeriodState = CommitmentPeriodState.Outstanding,
-  ): (SentAcsCommitment, AcsCommitmentStore.CommitmentData) = {
+  ): (SentAcsCommitment, AcsCommitmentStore.ParticipantCommitmentData) = {
 
     val dummyCommitment = createDummyHash(hashingState.isOwnDefault)
-    val commitmentData = CommitmentData(counterParticipant, period, dummyCommitment)
+    val hashedDummyCommitment = AcsCommitment.hashCommitment(dummyCommitment)
+    val dummyCounterCommitment = createDummyHash(hashingState.isCounterDefault)
+    val hashedDummyCounterCommitment = AcsCommitment.hashCommitment(dummyCounterCommitment)
+    val commitmentData =
+      ParticipantCommitmentData(counterParticipant, period, hashedDummyCommitment)
     val sent = SentAcsCommitment(
       synchronizerId,
       period,
       counterParticipant,
-      Option.when(hashingState.isVerbose)(dummyCommitment),
-      Option.when(hashingState.isVerbose)(createDummyHash(hashingState.isCounterDefault)),
+      Option.when(hashingState.isVerbose)(hashedDummyCommitment),
+      Option.when(hashingState.isVerbose)(hashedDummyCounterCommitment),
       state,
     )
     (sent, commitmentData)

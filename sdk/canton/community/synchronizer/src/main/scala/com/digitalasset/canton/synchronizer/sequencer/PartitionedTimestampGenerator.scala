@@ -9,8 +9,8 @@ import com.digitalasset.canton.time.Clock
 
 import java.util.concurrent.atomic.AtomicLong
 
-/** To generate unique timestamps between many nodes without coordination we partition available timestamps by the
-  * node index within a range of the total number of nodes.
+/** To generate unique timestamps between many nodes without coordination we partition available
+  * timestamps by the node index within a range of the total number of nodes.
   */
 class PartitionedTimestampGenerator(clock: Clock, nodeIndex: Int, nodeCount: PositiveInt) {
   private val lastRef = new AtomicLong(

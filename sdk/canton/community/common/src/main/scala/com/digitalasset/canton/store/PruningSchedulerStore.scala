@@ -17,14 +17,15 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-/** Stores for the pruning scheduler parameters such as the cron schedule
-  * and pruning retention period
+/** Stores for the pruning scheduler parameters such as the cron schedule and pruning retention
+  * period
   */
 trait PruningSchedulerStore extends AutoCloseable {
 
   implicit def ec: ExecutionContext
 
-  /** Inserts or updates the pruning scheduler's cron with associated maximum duration and retention */
+  /** Inserts or updates the pruning scheduler's cron with associated maximum duration and retention
+    */
   def setSchedule(schedule: PruningSchedule)(implicit
       tc: TraceContext
   ): FutureUnlessShutdown[Unit]

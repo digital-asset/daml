@@ -51,7 +51,9 @@ object PruningError {
     lazy val message: String = "This sequencer does not support pruning"
   }
 
-  /** The requested timestamp would cause data for enabled members to be removed potentially permanently breaking them. */
+  /** The requested timestamp would cause data for enabled members to be removed potentially
+    * permanently breaking them.
+    */
   final case class UnsafePruningPoint(
       requestedTimestamp: CantonTimestamp,
       safeTimestamp: CantonTimestamp,
@@ -66,9 +68,9 @@ object PruningError {
   }
 }
 
-/** Interface for sequencer operations.
-  * The default [[DatabaseSequencer]] implementation is backed by a database run by a single operator.
-  * Other implementations support operating a Sequencer on top of third party ledgers or other infrastructure.
+/** Interface for sequencer operations. The default [[DatabaseSequencer]] implementation is backed
+  * by a database run by a single operator. Other implementations support operating a Sequencer on
+  * top of third party ledgers or other infrastructure.
   */
 trait Sequencer
     extends SequencerPruning
@@ -104,43 +106,44 @@ trait Sequencer
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource]
 
-  /** Return a snapshot state that other newly onboarded sequencers can use as an initial state
-    * from which to support serving events. This state depends on the provided timestamp
-    * and will contain registered members, counters per member, latest timestamp (which will be greater than
-    * or equal to the provided timestamp) as well as a sequencer implementation specific piece of information
-    * such that all together form the point after which the new sequencer can safely operate.
-    * The provided timestamp is typically the timestamp of the requesting sequencer's private key,
-    * which is the point in time where it can effectively sign events.
+  /** Return a snapshot state that other newly onboarded sequencers can use as an initial state from
+    * which to support serving events. This state depends on the provided timestamp and will contain
+    * registered members, counters per member, latest timestamp (which will be greater than or equal
+    * to the provided timestamp) as well as a sequencer implementation specific piece of information
+    * such that all together form the point after which the new sequencer can safely operate. The
+    * provided timestamp is typically the timestamp of the requesting sequencer's private key, which
+    * is the point in time where it can effectively sign events.
     */
   def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerError, SequencerSnapshot]
 
-  /** Disable the provided member. Should prevent them from reading or writing in the future (although they can still be addressed).
-    * Their unread data can also be pruned.
-    * Effectively disables all instances of this member.
+  /** Disable the provided member. Should prevent them from reading or writing in the future
+    * (although they can still be addressed). Their unread data can also be pruned. Effectively
+    * disables all instances of this member.
     */
   def disableMember(member: Member)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerAdministrationError, Unit]
 
-  /** The first [[com.digitalasset.canton.SequencerCounter]] that this sequencer can serve for its sequencer client
-    * when the sequencer topology processor's [[com.digitalasset.canton.store.SequencedEventStore]] is empty.
-    * For a sequencer bootstrapped from a [[SequencerSnapshot]],
-    * this should be at least the [[sequencer.SequencerSnapshot.heads]] for
-    * the [[com.digitalasset.canton.topology.SequencerId]].
-    * For a non-bootstrapped sequencer, this can be [[com.digitalasset.canton.GenesisSequencerCounter]].
-    * This is sound as pruning ensures that we never
+  /** The first [[com.digitalasset.canton.SequencerCounter]] that this sequencer can serve for its
+    * sequencer client when the sequencer topology processor's
+    * [[com.digitalasset.canton.store.SequencedEventStore]] is empty. For a sequencer bootstrapped
+    * from a [[SequencerSnapshot]], this should be at least the
+    * [[sequencer.SequencerSnapshot.heads]] for the
+    * [[com.digitalasset.canton.topology.SequencerId]]. For a non-bootstrapped sequencer, this can
+    * be [[com.digitalasset.canton.GenesisSequencerCounter]]. This is sound as pruning ensures that
+    * we never
     */
   private[sequencer] def firstSequencerCounterServeableForSequencer(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[SequencerCounter]
 
-  /** Return the latest known status of the specified members, either at wall clock time of this sequencer or
-    * latest known sequenced event, whichever is the most recent.
-    * This method should be used for information purpose only and not to get a deterministic traffic state
-    * as the state will depend on current time. To get the state at a specific timestamp, use [[getTrafficStateAt]] instead.
-    * If the list is empty, return the status of all members.
+  /** Return the latest known status of the specified members, either at wall clock time of this
+    * sequencer or latest known sequenced event, whichever is the most recent. This method should be
+    * used for information purpose only and not to get a deterministic traffic state as the state
+    * will depend on current time. To get the state at a specific timestamp, use
+    * [[getTrafficStateAt]] instead. If the list is empty, return the status of all members.
     * Requested members who are not registered in the Sequencer will not be in the response.
     * Registered members with no sent or received event will return an empty status.
     */
@@ -148,9 +151,9 @@ trait Sequencer
       traceContext: TraceContext
   ): FutureUnlessShutdown[SequencerTrafficStatus]
 
-  /** Sets the traffic purchased of a member to the new provided value.
-    * This will only become effective if / when properly authorized by enough sequencers according to the
-    * synchronizer owners threshold.
+  /** Sets the traffic purchased of a member to the new provided value. This will only become
+    * effective if / when properly authorized by enough sequencers according to the synchronizer
+    * owners threshold.
     */
   def setTrafficPurchased(
       member: Member,
@@ -190,59 +193,63 @@ trait SequencerPruning {
   def pruningScheduler: Option[PruningScheduler] = None
 
   /** Prune as much sequencer data as safely possible without breaking operation (except for members
-    * that have been previously flagged as disabled).
-    * Sequencers are permitted to prune to an earlier timestamp if required to for their own consistency.
-    * For example, the Database Sequencer will adjust this time to a potentially earlier point in time where
-    * counter checkpoints are available for all members (who aren't being ignored).
+    * that have been previously flagged as disabled). Sequencers are permitted to prune to an
+    * earlier timestamp if required to for their own consistency. For example, the Database
+    * Sequencer will adjust this time to a potentially earlier point in time where counter
+    * checkpoints are available for all members (who aren't being ignored).
     *
-    * Implementations that support pruning also update the "oldest-response-age" metric if pruning succeeds.
+    * Implementations that support pruning also update the "oldest-response-age" metric if pruning
+    * succeeds.
     */
   def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, PruningError, String]
 
-  /** Locate a timestamp relative to the earliest available sequencer event based on an index starting at one.
+  /** Locate a timestamp relative to the earliest available sequencer event based on an index
+    * starting at one.
     *
-    * When index == 1, indicates the progress of pruning as the timestamp of the oldest unpruned response
-    * When index > 1, returns the timestamp of the index'th oldest response which is useful for pruning in batches
-    * when index == batchSize.
+    * When index == 1, indicates the progress of pruning as the timestamp of the oldest unpruned
+    * response When index > 1, returns the timestamp of the index'th oldest response which is useful
+    * for pruning in batches when index == batchSize.
     */
   def locatePruningTimestamp(index: PositiveInt)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, PruningSupportError, Option[CantonTimestamp]]
 
-  /** Report the max-event-age metric based on the oldest event timestamp and the current clock time or
-    * zero if no oldest timestamp exists (e.g. events fully pruned).
+  /** Report the max-event-age metric based on the oldest event timestamp and the current clock time
+    * or zero if no oldest timestamp exists (e.g. events fully pruned).
     */
   def reportMaxEventAgeMetric(
       oldestEventTimestamp: Option[CantonTimestamp]
   ): Either[PruningSupportError, Unit]
 
-  /** Newer version of acknowledgements.
-    * To be active for protocol versions >= 4.
-    * The signature is checked on the server side to avoid that malicious sequencers create fake
-    * acknowledgements in multi-writer architectures where writers don't fully trust each other.
+  /** Newer version of acknowledgements. To be active for protocol versions >= 4. The signature is
+    * checked on the server side to avoid that malicious sequencers create fake acknowledgements in
+    * multi-writer architectures where writers don't fully trust each other.
     *
-    * Acknowledge that a member has successfully handled all events up to and including the timestamp provided.
-    * Makes earlier events for this member available for pruning.
-    * The timestamp is in sequencer time and will likely correspond to an event that the client has processed however
-    * this is not validated.
-    * It is assumed that members in consecutive calls will never acknowledge an earlier timestamp however this is also
-    * not validated (and could be invalid if the member has many subscriptions from the same or many processes).
-    * It is expected that members will periodically call this endpoint with their latest clean timestamp rather than
-    * calling it for every event they process. The default interval is in the range of once a minute.
+    * Acknowledge that a member has successfully handled all events up to and including the
+    * timestamp provided. Makes earlier events for this member available for pruning. The timestamp
+    * is in sequencer time and will likely correspond to an event that the client has processed
+    * however this is not validated. It is assumed that members in consecutive calls will never
+    * acknowledge an earlier timestamp however this is also not validated (and could be invalid if
+    * the member has many subscriptions from the same or many processes). It is expected that
+    * members will periodically call this endpoint with their latest clean timestamp rather than
+    * calling it for every event they process. The default interval is in the range of once a
+    * minute.
     *
-    * A member should only acknowledge timestamps it has actually received.
-    * The behaviour of the sequencer is implementation-defined when a member acknowledges a later timestamp.
+    * A member should only acknowledge timestamps it has actually received. The behaviour of the
+    * sequencer is implementation-defined when a member acknowledges a later timestamp.
     *
-    * @see com.digitalasset.canton.sequencing.client.SequencerClientConfig.acknowledgementInterval for the default interval
+    * @see
+    *   com.digitalasset.canton.sequencing.client.SequencerClientConfig.acknowledgementInterval for
+    *   the default interval
     */
   def acknowledgeSigned(signedAcknowledgeRequest: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit]
 
-  /** Return a structure containing the members registered with the sequencer and the latest positions of clients
-    * reading events.
+  /** Return a structure containing the members registered with the sequencer and the latest
+    * positions of clients reading events.
     */
   def pruningStatus(implicit
       traceContext: TraceContext
@@ -252,46 +259,37 @@ trait SequencerPruning {
 object Sequencer extends HasLoggerName {
   val healthName: String = "sequencer"
 
-  /** The materialized future completes when all internal side-flows of the source have completed after the kill switch
-    * was pulled. Termination of the main flow must be awaited separately.
+  /** The materialized future completes when all internal side-flows of the source have completed
+    * after the kill switch was pulled. Termination of the main flow must be awaited separately.
     */
   type EventSource =
     Source[OrdinarySerializedEventOrError, (KillSwitch, FutureUnlessShutdown[Done])]
 
-  /** Type alias for a content that is signed by the sender (as in, whoever sent the SubmissionRequest to the sequencer).
-    * Note that the sequencer itself can be the "sender": for instance when processing balance updates for traffic control,
-    * the sequencer will craft a SetTrafficPurchased protocol message and sign it as the "sender".
+  /** Type alias for a content that is signed by the sender (as in, whoever sent the
+    * SubmissionRequest to the sequencer). Note that the sequencer itself can be the "sender": for
+    * instance when processing balance updates for traffic control, the sequencer will craft a
+    * SetTrafficPurchased protocol message and sign it as the "sender".
     */
   type SenderSigned[A <: HasCryptographicEvidence] = SignedContent[A]
 
-  /** Type alias for content that has been signed by the sequencer. The purpose of this is to identify which sequencer has processed a submission request,
-    * such that after the request is ordered and processed by all sequencers, each sequencer knows which sequencer received the submission request.
-    * The signature here will always be one of a sequencer.
+  /** Type alias for content that has been signed by the sequencer. The purpose of this is to
+    * identify which sequencer has processed a submission request, such that after the request is
+    * ordered and processed by all sequencers, each sequencer knows which sequencer received the
+    * submission request. The signature here will always be one of a sequencer.
     */
   type SequencerSigned[A <: HasCryptographicEvidence] =
     SignedContent[OrderingRequest[SenderSigned[A]]]
 
-  /** Ordering request signed by the sequencer.
-    * Outer signature is the signature of the sequencer that received the submission request.
-    * Inner signature is the signature of the member from which the submission request originated.
+  /** Ordering request signed by the sequencer. Outer signature is the signature of the sequencer
+    * that received the submission request. Inner signature is the signature of the member from
+    * which the submission request originated.
     *
-    *                            ┌─────────────────┐       ┌────────────┐
-    *                            │SenderSigned     │       │Sequencer   │
-    * ┌─────────────────┐        │  ┌──────────────┤       │            │
-    * │Sender           │signs   │  │Submission    │sends  │            │
-    * │(e.g participant)├───────►│  │Request       ├──────►│            │
-    * └─────────────────┘        └──┴──────────────┘       └─────┬──────┘
-    *                                                            │
-    *                                                            │signs
-    *                                                            ▼
-    *                                                 ┌──────────────────────┐
-    *                                                 │SequencerSigned       │
-    *                                                 │ ┌────────────────────┤
-    *                                         send to │ │SenderSigned        │
-    *                                         ordering│ │ ┌──────────────────┤
-    *                                        ◄────────┤ │ │Submission        │
-    *                                                 │ │ │Request           │
-    *                                                 └─┴─┴──────────────────┘
+    * ┌─────────────────┐ ┌────────────┐ │SenderSigned │ │Sequencer │ ┌─────────────────┐ │
+    * ┌──────────────┤ │ │ │Sender │signs │ │Submission │sends │ │ │(e.g participant)├───────►│
+    * │Request ├──────►│ │ └─────────────────┘ └──┴──────────────┘ └─────┬──────┘ │ │signs ▼
+    * ┌──────────────────────┐ │SequencerSigned │ │ ┌────────────────────┤ send to │ │SenderSigned │
+    * ordering│ │ ┌──────────────────┤ ◄────────┤ │ │Submission │ │ │ │Request │
+    * └─┴─┴──────────────────┘
     */
   type SignedOrderingRequest = SequencerSigned[SubmissionRequest]
 

@@ -27,6 +27,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem.PekkoEnv
 import com.digitalasset.canton.tracing.TraceContext
+import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
 
@@ -63,17 +64,19 @@ trait EpochStore[E <: Env[E]] extends AutoCloseable {
 
   protected def addPreparesActionName: String = "add Prepares"
 
-  /** Storing view-change and new-view messages for in-progress segments is important in order to properly rehydrate
-    * the segment states after a crash and restart.
+  /** Storing view-change and new-view messages for in-progress segments is important in order to
+    * properly rehydrate the segment states after a crash and restart.
     *
-    * We store all new-view messages, in order to indicate we've definitely moved to the indicated views.
-    * The pre-prepares in the new-view messages, together with prepares stored separately during that view
-    * will allow the node to either make progress in that view or build prepare certificates to change into another view.
+    * We store all new-view messages, in order to indicate we've definitely moved to the indicated
+    * views. The pre-prepares in the new-view messages, together with prepares stored separately
+    * during that view will allow the node to either make progress in that view or build prepare
+    * certificates to change into another view.
     *
-    * We only store locally-created view-change messages, in order to indicate that this node started a view change,
-    * either because of a timeout or because of gathering a weak quorum of view-change messages from other nodes.
-    * Once a correct node starts a view change to v+1, and sends the view-change message to other peers, it should not
-    * go back to working on view v after a restart.
+    * We only store locally-created view-change messages, in order to indicate that this node
+    * started a view change, either because of a timeout or because of gathering a weak quorum of
+    * view-change messages from other nodes. Once a correct node starts a view change to v+1, and
+    * sends the view-change message to other peers, it should not go back to working on view v after
+    * a restart.
     */
   def addViewChangeMessage[M <: PbftViewChangeMessage](viewChangeMessage: SignedMessage[M])(implicit
       traceContext: TraceContext
@@ -114,6 +117,21 @@ trait EpochStore[E <: Env[E]] extends AutoCloseable {
       endEpochNumberInclusive: EpochNumber,
   ): String =
     s"load complete blocks from $startEpochNumberInclusive to $endEpochNumberInclusive"
+
+  @VisibleForTesting
+  def loadNumberOfRecords(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[EpochStore.NumberOfRecords]
+  protected def loadNumberOfRecordsName: String = s"load number of records"
+
+  def prune(
+      epochNumberInclusive: EpochNumber
+  )(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[EpochStore.NumberOfRecords]
+  protected def pruneName(epochNumberInclusive: EpochNumber): String =
+    s"prune at epoch $epochNumberInclusive (inclusive)"
+
 }
 
 object EpochStore {
@@ -145,4 +163,14 @@ object EpochStore {
       case dbStorage: DbStorage =>
         new DbEpochStore(dbStorage, timeouts, loggerFactory)(ec)
     }
+
+  final case class NumberOfRecords(
+      epochs: Long,
+      pbftMessagesCompleted: Long,
+      pbftMessagesInProgress: Int,
+  )
+
+  object NumberOfRecords {
+    val empty = NumberOfRecords(0L, 0L, 0)
+  }
 }

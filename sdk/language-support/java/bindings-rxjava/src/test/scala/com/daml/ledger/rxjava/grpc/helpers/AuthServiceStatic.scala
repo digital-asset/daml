@@ -3,12 +3,12 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import java.util.concurrent.{CompletableFuture, CompletionStage}
-
 import com.digitalasset.canton.auth.AuthService.AUTHORIZATION_KEY
 import com.digitalasset.canton.auth.{AuthService, ClaimSet}
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.Metadata
+
+import scala.concurrent.Future
 
 /** An AuthService that matches the value of the `Authorization` HTTP header against
   * a static map of header values to [[ClaimSet.Claims]].
@@ -18,14 +18,14 @@ import io.grpc.Metadata
 final class AuthServiceStatic(claims: PartialFunction[String, ClaimSet]) extends AuthService {
   override def decodeMetadata(headers: Metadata)(implicit
       traceContext: TraceContext
-  ): CompletionStage[ClaimSet] = {
+  ): Future[ClaimSet] = {
     if (headers.containsKey(AUTHORIZATION_KEY)) {
       val authorizationValue = headers.get(AUTHORIZATION_KEY).stripPrefix("Bearer ")
-      CompletableFuture.completedFuture(
+      Future.successful(
         claims.lift(authorizationValue).getOrElse(ClaimSet.Unauthenticated)
       )
     } else {
-      CompletableFuture.completedFuture(ClaimSet.Unauthenticated)
+      Future.successful(ClaimSet.Unauthenticated)
     }
   }
 }

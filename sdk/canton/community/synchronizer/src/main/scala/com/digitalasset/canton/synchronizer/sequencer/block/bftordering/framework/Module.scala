@@ -10,7 +10,7 @@ import com.digitalasset.canton.DoNotDiscardLikeFuture
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, UnlessShutdown}
 import com.digitalasset.canton.logging.NamedLogging
-import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Consensus,
   Output,
@@ -25,18 +25,21 @@ import scala.util.{Failure, Success, Try}
 
 final case class ModuleName(name: String)
 
-/** Modules abstract actors away from the concrete actor framework, mainly
-  * so that their logic can be more easily deterministically simulation-tested.
+/** Modules abstract actors away from the concrete actor framework, mainly so that their logic can
+  * be more easily deterministically simulation-tested.
   *
-  * @tparam E An environment corresponding to the actor framework, such as Pekko or the deterministic
-  *           simulation testing framework.
-  * @tparam MessageT The root message type understood by the actor.
+  * @tparam E
+  *   An environment corresponding to the actor framework, such as Pekko or the deterministic
+  *   simulation testing framework.
+  * @tparam MessageT
+  *   The root message type understood by the actor.
   */
 trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable {
 
   /** The module's message handler.
     *
-    * @param context Environment-specific information, such as the representation of the actor's state.
+    * @param context
+    *   Environment-specific information, such as the representation of the actor's state.
     */
   final def receive(
       message: MessageT
@@ -49,10 +52,10 @@ trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable {
         logger.info(s"Received $message but won't process because we're shutting down")
       }
 
-  /** Called by the system construction logic when the system is functional and, in particular,
-    *  the module can send messages to references (including itself).
+  /** Called by the system construction logic when the system is functional and, in particular, the
+    * module can send messages to references (including itself).
     *
-    *  It is also called by the module system when the module changes behavior.
+    * It is also called by the module system when the module changes behavior.
     */
   def ready(self: ModuleRef[MessageT]): Unit = ()
 
@@ -135,10 +138,11 @@ trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable {
     logger.error(msg)
 }
 
-/** Modules abstract actor references away from the concrete actor framework, mainly
-  * so that their logic can be more easily deterministically simulation-tested.
+/** Modules abstract actor references away from the concrete actor framework, mainly so that their
+  * logic can be more easily deterministically simulation-tested.
   *
-  * @tparam AcceptedMessageT The root message type understood by the actor.
+  * @tparam AcceptedMessageT
+  *   The root message type understood by the actor.
   */
 trait ModuleRef[-AcceptedMessageT] {
 
@@ -146,7 +150,13 @@ trait ModuleRef[-AcceptedMessageT] {
     */
   def asyncSend(
       msg: AcceptedMessageT
-  ): Unit // should this return if successfully queued? potential backpressure
+  ): Unit = asyncSendTraced(msg)(TraceContext.empty)
+
+  /** Send operation that is also providing the current TraceContext
+    */
+  def asyncSendTraced(
+      msg: AcceptedMessageT
+  )(implicit traceContext: TraceContext): Unit
 }
 
 /** An abstraction of the network for deterministic simulation testing purposes.
@@ -160,11 +170,12 @@ trait P2PNetworkRef[-P2PMessageT] extends FlagCloseable {
 /** An abstraction of the P2P network manager for deterministic simulation testing purposes.
   */
 trait ClientP2PNetworkManager[E <: Env[E], -P2PMessageT] {
+
   def createNetworkRef[ActorContextT](
       context: E#ActorContextT[ActorContextT],
-      peer: Endpoint,
+      peer: P2PEndpoint,
   )(
-      onSequencerId: (Endpoint, SequencerId) => Unit
+      onSequencerId: (P2PEndpoint.Id, SequencerId) => Unit
   ): P2PNetworkRef[P2PMessageT]
 }
 
@@ -172,7 +183,8 @@ trait ClientP2PNetworkManager[E <: Env[E], -P2PMessageT] {
   */
 trait CancellableEvent {
 
-  /** @return True if the cancellation was successful.
+  /** @return
+    *   True if the cancellation was successful.
     */
   def cancel(): Boolean
 }
@@ -187,8 +199,8 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging {
       moduleName: ModuleName
   ): E#ModuleRefT[NewModuleMessageT]
 
-  /** Spawns a new module. The `module` handler object must not be spawned more than once,
-    * lest it potentially cause a violation of the actor model, as its state could be accessed concurrently.
+  /** Spawns a new module. The `module` handler object must not be spawned more than once, lest it
+    * potentially cause a violation of the actor model, as its state could be accessed concurrently.
     */
   def setModule[OtherModuleMessageT](
       moduleRef: E#ModuleRefT[OtherModuleMessageT],
@@ -201,15 +213,19 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging {
 
   def delayedEvent(delay: FiniteDuration, message: MessageT): CancellableEvent
 
+  /** Similar to TraceContext.withNewTraceContext but can be deterministically simulated
+    */
+  def withNewTraceContext[A](fn: TraceContext => A): A
+
   def timeFuture[X](timer: Timer, futureUnlessShutdown: => E#FutureUnlessShutdownT[X])(implicit
       mc: MetricsContext
   ): E#FutureUnlessShutdownT[X]
 
   def pureFuture[X](x: X): E#FutureUnlessShutdownT[X]
 
-  /** [[mapFuture]] requires a [[PureFun]] instead of a normal [[scala.Function1]] since we need to be careful not to mutate
-    * state of the modules in the [[Env#FutureUnlessShutdownT]], as this would violate the assumptions we use when
-    * writing [[Module]]s.
+  /** [[mapFuture]] requires a [[PureFun]] instead of a normal [[scala.Function1]] since we need to
+    * be careful not to mutate state of the modules in the [[Env#FutureUnlessShutdownT]], as this
+    * would violate the assumptions we use when writing [[Module]]s.
     */
   def mapFuture[X, Y](future: E#FutureUnlessShutdownT[X])(
       fun: PureFun[X, Y]
@@ -231,20 +247,21 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging {
 
   def pipeToSelf[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(
       fun: Try[X] => Option[MessageT]
-  )(implicit traceContext: TraceContext): Unit = pipeToSelfInternal(futureUnlessShutdown) {
-    UnlessShutdown.recoverFromAbortException(_) match {
-      case Success(Outcome(x)) => fun(Success(x))
-      case Success(AbortedDueToShutdown) =>
-        logger.info("Can't complete future, shutting down")
-        stop()
-        None
-      case Failure(ex) => fun(Failure(ex))
+  )(implicit traceContext: TraceContext): Unit =
+    pipeToSelfInternal(futureUnlessShutdown) {
+      UnlessShutdown.recoverFromAbortException(_) match {
+        case Success(Outcome(x)) => fun(Success(x))
+        case Success(AbortedDueToShutdown) =>
+          logger.info("Can't complete future, shutting down")
+          stop()
+          None
+        case Failure(ex) => fun(Failure(ex))
+      }
     }
-  }
 
   protected def pipeToSelfInternal[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(
       fun: Try[X] => Option[MessageT]
-  ): Unit
+  )(implicit traceContext: TraceContext): Unit
 
   def blockingAwait[X](future: E#FutureUnlessShutdownT[X]): X
 
@@ -267,11 +284,11 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging {
 /** An environment defines the concrete actor context, reference and timer times for a specific
   * actor framework, such as Pekko or the deterministic simulation testing framework.
   *
-  * A bit of theory:
-  * This type utilizes F-bounded polymorphism, meaning that [[Env]] is parameterized over its own subtypes.
-  * This enables passing the implementing type as an argument to the superclass,
-  * facilitating the use of more specific argument and return types where subtypes of [[Env]] are present.
-  * Another commonly used pattern for this use case is the type-class pattern (also known as ad-hoc polymorphism), you can read more about both here:
+  * A bit of theory: This type utilizes F-bounded polymorphism, meaning that [[Env]] is
+  * parameterized over its own subtypes. This enables passing the implementing type as an argument
+  * to the superclass, facilitating the use of more specific argument and return types where
+  * subtypes of [[Env]] are present. Another commonly used pattern for this use case is the
+  * type-class pattern (also known as ad-hoc polymorphism), you can read more about both here:
   * https://stackoverflow.com/questions/59813323/advantages-of-f-bounded-polymorphism-over-typeclass-for-return-current-type-prob
   */
 trait Env[E <: Env[E]] {
@@ -304,8 +321,10 @@ object Module {
 
   protected[framework] sealed trait ModuleControl[E <: Env[E], AcceptedMessageT] extends Product
   protected[framework] object ModuleControl {
-    final case class Send[E <: Env[E], AcceptedMessageT](message: AcceptedMessageT)
-        extends ModuleControl[E, AcceptedMessageT]
+    final case class Send[E <: Env[E], AcceptedMessageT](
+        message: AcceptedMessageT,
+        traceContext: TraceContext,
+    ) extends ModuleControl[E, AcceptedMessageT]
 
     final case class SetBehavior[E <: Env[E], AcceptedMessageT](
         module: Module[E, AcceptedMessageT],
@@ -321,9 +340,9 @@ object Module {
         with ControlMessage
   }
 
-  /** A system initializer defines how a specific modular distributed system is built
-    * independently of the concrete actors framework, such as Pekko or the simulation testing framework,
-    * as to further reduce the gap between what is run and what is deterministically simulation-tested.
+  /** A system initializer defines how a specific modular distributed system is built independently
+    * of the concrete actors framework, such as Pekko or the simulation testing framework, as to
+    * further reduce the gap between what is run and what is deterministically simulation-tested.
     *
     * Inputs are a module system and a network manager; the latter defines how peers connect.
     */
@@ -333,8 +352,8 @@ object Module {
         ClientP2PNetworkManager[E, P2PMessageT],
     ) => SystemInitializationResult[P2PMessageT, InputMessageT]
 
-  /** The result of initializing a module system independent of the actor framework, to be used during
-    * the actor framework-specific initialization.
+  /** The result of initializing a module system independent of the actor framework, to be used
+    * during the actor framework-specific initialization.
     */
   final case class SystemInitializationResult[P2PMessageT, InputMessageT](
       inputModuleRef: ModuleRef[InputMessageT],

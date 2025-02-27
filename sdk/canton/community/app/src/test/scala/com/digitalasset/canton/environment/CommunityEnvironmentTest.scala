@@ -16,10 +16,7 @@ import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.metrics.{ParticipantHistograms, ParticipantMetrics}
 import com.digitalasset.canton.participant.sync.SyncServiceError
 import com.digitalasset.canton.participant.{ParticipantNode, ParticipantNodeBootstrap}
-import com.digitalasset.canton.synchronizer.mediator.{
-  CommunityMediatorNodeConfig,
-  MediatorNodeBootstrap,
-}
+import com.digitalasset.canton.synchronizer.mediator.{MediatorNodeBootstrap, MediatorNodeConfig}
 import com.digitalasset.canton.synchronizer.sequencer.SequencerNodeBootstrap
 import com.digitalasset.canton.synchronizer.sequencer.config.CommunitySequencerNodeConfig
 import com.digitalasset.canton.tracing.TraceContext
@@ -33,8 +30,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   // we don't care about any values of this config, so just mock
-  lazy val participant1Config: CommunityParticipantConfig = ConfigStubs.participant
-  lazy val participant2Config: CommunityParticipantConfig = ConfigStubs.participant
+  lazy val participant1Config: LocalParticipantConfig = ConfigStubs.participant
+  lazy val participant2Config: LocalParticipantConfig = ConfigStubs.participant
 
   lazy val sampleConfig: CantonCommunityConfig = CantonCommunityConfig(
     sequencers = Map(
@@ -63,7 +60,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
     private val createSequencerMock =
       mock[(String, CommunitySequencerNodeConfig) => SequencerNodeBootstrap]
     private val createMediatorMock =
-      mock[(String, CommunityMediatorNodeConfig) => MediatorNodeBootstrap]
+      mock[(String, MediatorNodeConfig) => MediatorNodeBootstrap]
 
     def mockSequencer: SequencerNodeBootstrap = {
       val sequencer = mock[SequencerNodeBootstrap]
@@ -110,7 +107,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
     ) {
       override def createParticipant(
           name: String,
-          participantConfig: CommunityParticipantConfig,
+          participantConfig: LocalParticipantConfig,
       ): ParticipantNodeBootstrap =
         createParticipantMock(name, participantConfig)
 
@@ -122,7 +119,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
 
       override def createMediator(
           name: String,
-          mediatorConfig: CommunityMediatorNodeConfig,
+          mediatorConfig: MediatorNodeConfig,
       ): MediatorNodeBootstrap =
         createMediatorMock(name, mediatorConfig)
     }
@@ -143,7 +140,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
       when(createSequencerMock(eqTo(id), any[CommunitySequencerNodeConfig])).thenAnswer(create)
 
     protected def setupMediatorFactory(id: String, create: => MediatorNodeBootstrap): Unit =
-      when(createMediatorMock(eqTo(id), any[CommunityMediatorNodeConfig])).thenAnswer(create)
+      when(createMediatorMock(eqTo(id), any[MediatorNodeConfig])).thenAnswer(create)
   }
 
   "Environment" when {

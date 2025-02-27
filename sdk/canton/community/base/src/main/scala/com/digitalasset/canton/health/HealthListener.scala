@@ -13,15 +13,16 @@ trait HealthListener {
 
   /** Called after the state of a health element has changed.
     *
-    * Implementations must be thread-safe in the sense that multiple notifications can run concurrently.
-    * Implementations must not block and should not execute significant computations as part of this call.
-    * In particular, it is wrong to assume that the listener has finished its updates by the time
-    * this method returns.
+    * Implementations must be thread-safe in the sense that multiple notifications can run
+    * concurrently. Implementations must not block and should not execute significant computations
+    * as part of this call. In particular, it is wrong to assume that the listener has finished its
+    * updates by the time this method returns.
     *
-    * We explicitly do NOT pass along the new state of the health element nor the health element itself.
-    * Instead, the listener must query the current state using [[HealthElement.getState]].
-    * This ensures that we do not need to synchronize concurrent updates and notifications;
-    * the state obtained [[HealthElement.getState]] is guaranteed to be at least as up to date as the notification.
+    * We explicitly do NOT pass along the new state of the health element nor the health element
+    * itself. Instead, the listener must query the current state using [[HealthElement.getState]].
+    * This ensures that we do not need to synchronize concurrent updates and notifications; the
+    * state obtained [[HealthElement.getState]] is guaranteed to be at least as up to date as the
+    * notification.
     */
   def poke()(implicit traceContext: TraceContext): Unit
 }

@@ -36,7 +36,9 @@ object SequencerClientSubscriptionError {
       prettyOfClass(param("reason", _.reason.unquoted))
   }
 
-  /** The application handler threw an exception while processing the event (synchronously or asynchronously) */
+  /** The application handler threw an exception while processing the event (synchronously or
+    * asynchronously)
+    */
   final case class ApplicationHandlerException(
       exception: Throwable,
       firstSequencerCounter: SequencerCounter,

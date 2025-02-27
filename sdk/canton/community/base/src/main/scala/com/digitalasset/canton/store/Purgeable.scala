@@ -10,8 +10,9 @@ import com.digitalasset.canton.tracing.TraceContext
  */
 trait Purgeable {
 
-  /** Purges all data from the store. This MUST ONLY be invoked when none of the data is needed anymore
-    * for example on synchronizer migration once all the data has been reassigned to the new synchronizer.
+  /** Purges all data from the store. This MUST ONLY be invoked when none of the data is needed
+    * anymore for example on synchronizer migration once all the data has been reassigned to the new
+    * synchronizer.
     */
   def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 }

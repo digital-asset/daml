@@ -45,7 +45,7 @@ class Agenda(clock: SimClock) {
         case InternalTick(machine, _, _, _) if machine == peer =>
           logger.info(s"Removing internal tick $scheduledCommand to simulate crash")
           false
-        case RunFuture(machine, _, _, _) if machine == peer =>
+        case RunFuture(machine, _, _, _, _) if machine == peer =>
           logger.info(s"Removing future from $scheduledCommand to simulate crash")
           false
         case _ => true

@@ -19,7 +19,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.Metadata
 import spray.json.*
 
-import java.util.concurrent.{CompletableFuture, CompletionStage}
+import scala.concurrent.Future
 import scala.util.Try
 
 sealed trait AccessLevel extends Product with Serializable with UniformCantonConfigValidation
@@ -32,8 +32,8 @@ object AccessLevel {
   case object Wildcard extends AccessLevel
 }
 
-/** An AuthService that reads a JWT token from a `Authorization: Bearer` HTTP header.
-  * The token is expected to use the format as defined in [[com.daml.jwt.AuthServiceJWTPayload]]:
+/** An AuthService that reads a JWT token from a `Authorization: Bearer` HTTP header. The token is
+  * expected to use the format as defined in [[com.daml.jwt.AuthServiceJWTPayload]]:
   */
 abstract class AuthServiceJWTBase(
     verifier: JwtVerifierBase,
@@ -44,8 +44,8 @@ abstract class AuthServiceJWTBase(
 
   override def decodeMetadata(
       headers: Metadata
-  )(implicit traceContext: TraceContext): CompletionStage[ClaimSet] =
-    CompletableFuture.completedFuture {
+  )(implicit traceContext: TraceContext): Future[ClaimSet] =
+    Future.successful {
       getAuthorizationHeader(headers) match {
         case None => ClaimSet.Unauthenticated
         case Some(header) => parseHeader(header)

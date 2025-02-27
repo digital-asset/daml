@@ -32,7 +32,8 @@ trait SequencerConfig {
   def supportsReplicas: Boolean
 }
 
-/** Unsealed trait so the database sequencer config can be reused between community and enterprise */
+/** Unsealed trait so the database sequencer config can be reused between community and enterprise
+  */
 trait DatabaseSequencerConfig {
   this: SequencerConfig =>
 
@@ -47,19 +48,25 @@ trait DatabaseSequencerConfig {
 
 object DatabaseSequencerConfig {
 
-  /** The Postgres sequencer supports adding a interceptor within the sequencer itself for manipulating sequence behavior during tests.
-    * This is used for delaying and/or dropping messages to verify the behavior of transaction processing in abnormal scenarios in a deterministic way.
-    * It is not expected to be used at runtime in any capacity and is not possible to set through pureconfig.
+  /** The Postgres sequencer supports adding a interceptor within the sequencer itself for
+    * manipulating sequence behavior during tests. This is used for delaying and/or dropping
+    * messages to verify the behavior of transaction processing in abnormal scenarios in a
+    * deterministic way. It is not expected to be used at runtime in any capacity and is not
+    * possible to set through pureconfig.
     */
   type TestingInterceptor =
     Clock => Sequencer => ExecutionContext => Sequencer
 
   /** Configuration for database sequencer pruning
     *
-    * @param maxPruningBatchSize            Maximum number of events to prune from a sequencer at a time, used to break up batches internally
-    * @param pruningMetricUpdateInterval    How frequently to update the `max-event-age` pruning progress metric in the background.
-    *                                       A setting of None disables background metric updating.
-    * @param trafficPurchasedRetention      Retention duration on how long to retain traffic purchased entry updates for each member
+    * @param maxPruningBatchSize
+    *   Maximum number of events to prune from a sequencer at a time, used to break up batches
+    *   internally
+    * @param pruningMetricUpdateInterval
+    *   How frequently to update the `max-event-age` pruning progress metric in the background. A
+    *   setting of None disables background metric updating.
+    * @param trafficPurchasedRetention
+    *   Retention duration on how long to retain traffic purchased entry updates for each member
     */
   final case class SequencerPruningConfig(
       maxPruningBatchSize: PositiveInt =
@@ -189,7 +196,8 @@ object CommunitySequencerConfig {
 }
 
 /** Health check related sequencer config
-  * @param backendCheckPeriod interval with which the sequencer will poll the health of its backend connection or state.
+  * @param backendCheckPeriod
+  *   interval with which the sequencer will poll the health of its backend connection or state.
   */
 final case class SequencerHealthConfig(
     backendCheckPeriod: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(5)

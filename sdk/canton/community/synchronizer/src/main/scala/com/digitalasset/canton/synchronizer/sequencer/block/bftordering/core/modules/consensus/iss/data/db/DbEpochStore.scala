@@ -50,8 +50,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PekkoEnv,
   PekkoFutureUnlessShutdown,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.ConsensusMessage as ProtoConsensusMessage
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.ConsensusMessage as ProtoConsensusMessage
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{ProtoDeserializationError, RichGeneratedMessage}
@@ -114,9 +114,9 @@ class DbEpochStore(
     val messageBytes = r.nextBytes()
 
     val messageOrError = for {
-      signedMessageProto <- Try(v1.SignedMessage.parseFrom(messageBytes)).toEither
+      signedMessageProto <- Try(v30.SignedMessage.parseFrom(messageBytes)).toEither
         .leftMap(x => ProtoDeserializationError.OtherError(x.toString))
-      message <- SignedMessage.fromProtoWithSequencerId(v1.ConsensusMessage)(parse)(
+      message <- SignedMessage.fromProtoWithSequencerId(v30.ConsensusMessage)(parse)(
         signedMessageProto
       )
     } yield message
@@ -464,6 +464,49 @@ class DbEpochStore(
             )
           }
         }
+    }
+
+  override def loadNumberOfRecords(implicit
+      traceContext: TraceContext
+  ): PekkoFutureUnlessShutdown[EpochStore.NumberOfRecords] =
+    createFuture(loadNumberOfRecordsName) {
+      storage.query(
+        (for {
+          numberOfEpochs <- sql"""select count(*) from ord_epochs""".as[Long].head
+          numberOfMsgsCompleted <- sql"""select count(*) from ord_pbft_messages_completed"""
+            .as[Long]
+            .head
+          numberOfMsgsInProgress <- sql"""select count(*) from ord_pbft_messages_in_progress"""
+            .as[Int]
+            .head
+        } yield EpochStore
+          .NumberOfRecords(numberOfEpochs, numberOfMsgsCompleted, numberOfMsgsInProgress)),
+        functionFullName,
+      )
+    }
+
+  override def prune(epochNumberInclusive: EpochNumber)(implicit
+      traceContext: TraceContext
+  ): PekkoFutureUnlessShutdown[EpochStore.NumberOfRecords] =
+    createFuture(pruneName(epochNumberInclusive)) {
+      for {
+        epochsDeleted <- storage.update(
+          sqlu""" delete from ord_epochs where epoch_number <= $epochNumberInclusive """,
+          functionFullName,
+        )
+        pbftMessagesCompletedDeleted <- storage.update(
+          sqlu""" delete from ord_pbft_messages_completed where epoch_number <= $epochNumberInclusive """,
+          functionFullName,
+        )
+        pbftMessagesInProgressDeleted <- storage.update(
+          sqlu""" delete from ord_pbft_messages_in_progress where epoch_number <= $epochNumberInclusive """,
+          functionFullName,
+        )
+      } yield EpochStore.NumberOfRecords(
+        epochsDeleted.toLong,
+        pbftMessagesCompletedDeleted.toLong,
+        pbftMessagesInProgressDeleted,
+      )
     }
 }
 

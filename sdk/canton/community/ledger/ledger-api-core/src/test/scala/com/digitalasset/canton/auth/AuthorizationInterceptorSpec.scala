@@ -15,7 +15,6 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.slf4j.event.Level
 
-import java.util.concurrent.CompletableFuture
 import scala.concurrent.{Future, Promise}
 import scala.util.Success
 
@@ -54,9 +53,8 @@ class AuthorizationInterceptorSpec
   ): Future[Assertion] = {
     val authService = mock[AuthService]
     val serverCall = mock[ServerCall[Nothing, Nothing]]
-    val failedMetadataDecode = CompletableFuture.supplyAsync[ClaimSet](() =>
-      throw new RuntimeException("some internal failure")
-    )
+    val failedMetadataDecode =
+      Future.failed[ClaimSet](new RuntimeException("some internal failure"))
 
     val promise = Promise[Unit]()
     // Using a promise to ensure the verify call below happens after the expected call to `serverCall.close`
@@ -67,7 +65,7 @@ class AuthorizationInterceptorSpec
 
     val authorizationInterceptor =
       new AuthorizationInterceptor(
-        authService,
+        List(authService),
         NoOpTelemetry,
         loggerFactory,
         executionContext,

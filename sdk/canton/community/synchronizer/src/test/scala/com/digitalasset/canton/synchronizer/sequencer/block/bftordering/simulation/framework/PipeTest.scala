@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.PlainTextP2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
   SystemInitializationResult,
   SystemInitializer,
@@ -30,14 +30,16 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Module,
   ModuleName,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.framework.PipeTest.{
+  Reporter,
+  SimulatedPipeStore,
+}
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.flatspec.AnyFlatSpec
 
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
-
-import PipeTest.{Reporter, SimulatedPipeStore}
 
 object PipeTest {
   trait PipeStore[E <: Env[E]] {
@@ -64,7 +66,8 @@ object PipeTest {
 
     /** The module's message handler.
       *
-      * @param context Environment-specific information, such as the representation of the actor's state.
+      * @param context
+      *   Environment-specific information, such as the representation of the actor's state.
       */
     override def receiveInternal(message: String)(implicit
         context: E#ActorContextT[String],
@@ -141,7 +144,7 @@ class PipeTest extends AnyFlatSpec with BaseTest {
       durationOfFirstPhaseWithFaults = 2.minutes,
     )
 
-    val thePeerEndpoint = Endpoint("node", Port.tryCreate(0))
+    val thePeerEndpoint = PlainTextP2PEndpoint("node", Port.tryCreate(0))
     val reporter = new Reporter
     val pipeStore = new SimulatedPipeStore
 

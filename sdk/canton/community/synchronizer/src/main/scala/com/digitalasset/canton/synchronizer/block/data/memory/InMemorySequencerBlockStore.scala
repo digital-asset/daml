@@ -39,8 +39,8 @@ class InMemorySequencerBlockStore(
   implicit override protected val executionContext: ExecutionContext =
     DirectExecutionContext(noTracingLogger)
 
-  /** Stores for each block height the timestamp of the last event and the last topology client timestamp
-    * up to and including this block
+  /** Stores for each block height the timestamp of the last event and the last topology client
+    * timestamp up to and including this block
     */
   private val blockToTimestampMap =
     new TrieMap[Long, (CantonTimestamp, Option[CantonTimestamp])]

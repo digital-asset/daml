@@ -5,17 +5,19 @@ package com.digitalasset.canton.crypto
 
 import scala.collection.mutable
 
-/** The purpose of a hash serves to avoid hash collisions due to equal encodings for different objects.
-  * It is in general not possible to derive the purpose of the hash from the hash alone.
+/** The purpose of a hash serves to avoid hash collisions due to equal encodings for different
+  * objects. It is in general not possible to derive the purpose of the hash from the hash alone.
   *
-  * Whenever a hash is computed using [[HashOps]], a [[HashPurpose]] must be specified that gets included in the hash.
-  * To reliably prevent hash collisions, every [[HashPurpose]] object should be used only in a single place.
+  * Whenever a hash is computed using [[HashOps]], a [[HashPurpose]] must be specified that gets
+  * included in the hash. To reliably prevent hash collisions, every [[HashPurpose]] object should
+  * be used only in a single place.
   *
-  * All [[HashPurpose]] objects must be created through the [[HashPurpose$.apply]] method, which checks that the id is
-  * fresh.
+  * All [[HashPurpose]] objects must be created through the [[HashPurpose$.apply]] method, which
+  * checks that the id is fresh.
   *
-  * @param id The identifier for the [[HashPurpose]].
-  *           Every [[HashPurpose]] object must have a unique [[id]].
+  * @param id
+  *   The identifier for the [[HashPurpose]]. Every [[HashPurpose]] object must have a unique
+  *   [[id]].
   */
 class HashPurpose private (val id: Int) extends AnyVal
 
@@ -80,7 +82,7 @@ object HashPurpose {
   val _MediatorLeadershipEvent = HashPurpose(31, "MediatorLeadershipEvent")
   val _LegalIdentityClaim = HashPurpose(32, "LegalIdentityClaim")
   val DbLockId = HashPurpose(33, "DbLockId")
-  val AcsCommitmentDb = HashPurpose(34, "AcsCommitmentDb")
+  val HashedAcsCommitment = HashPurpose(34, "HashedAcsCommitment")
   val SubmissionRequestSignature = HashPurpose(35, "SubmissionRequestSignature")
   val AcknowledgementSignature = HashPurpose(36, "AcknowledgementSignature")
   val DecentralizedNamespaceNamespace = HashPurpose(37, "DecentralizedNamespace")

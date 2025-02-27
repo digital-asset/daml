@@ -11,16 +11,21 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.atomic.AtomicReference
 
-/** Simple class to embody the connection between a component that wants to abort an engine computation and the engine itself.
-  * An instance of this class is created by the protocol processor for each request and passed along during processing.
-  * When a condition determines that the computation should be aborted, the component calls [[abort]].
-  * The instance is also passed to the engine when performing a computation. During the execution of a `ResultInterruption`,
-  * the engine will call [[abortStatus]] to determine whether it should abort or continue.
+/** Simple class to embody the connection between a component that wants to abort an engine
+  * computation and the engine itself. An instance of this class is created by the protocol
+  * processor for each request and passed along during processing. When a condition determines that
+  * the computation should be aborted, the component calls [[abort]]. The instance is also passed to
+  * the engine when performing a computation. During the execution of a `ResultInterruption`, the
+  * engine will call [[abortStatus]] to determine whether it should abort or continue.
   *
-  * @param participantId the participant processing the associated request
-  * @param requestId the associated request
-  * @param testHookFor hooks meant to be used in tests to perform actions during engine processing, such as slowing it down;
-  *                    see [[com.digitalasset.canton.config.TestingConfigInternal]] for a more detailed explanation
+  * @param participantId
+  *   the participant processing the associated request
+  * @param requestId
+  *   the associated request
+  * @param testHookFor
+  *   hooks meant to be used in tests to perform actions during engine processing, such as slowing
+  *   it down; see [[com.digitalasset.canton.config.TestingConfigInternal]] for a more detailed
+  *   explanation
   */
 final case class EngineController(
     participantId: ParticipantId,

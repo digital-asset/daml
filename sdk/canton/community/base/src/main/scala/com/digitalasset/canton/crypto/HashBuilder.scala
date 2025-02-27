@@ -19,40 +19,45 @@ import java.security.MessageDigest
   *
   * Requirements for all implementations:
   *
-  * For any [[HashBuilder]] hb,
-  * it is computationally infeasible to find two sequences `as1` and `as2` of calls to `add`
-  * such that the concatenation of `as1` differs from the concatenation `as2`,
-  * yet their computed hashes are the same, i.e.,
-  * `as1.foldLeft(hb)((hb, a) => hb.add(a)).finish` is the same as `as2.foldLeft(hb)((hb, a) => hb.add(a)).finish`.
+  * For any [[HashBuilder]] hb, it is computationally infeasible to find two sequences `as1` and
+  * `as2` of calls to `add` such that the concatenation of `as1` differs from the concatenation
+  * `as2`, yet their computed hashes are the same, i.e., `as1.foldLeft(hb)((hb, a) =>
+  * hb.add(a)).finish` is the same as `as2.foldLeft(hb)((hb, a) => hb.add(a)).finish`.
   */
 trait HashBuilder {
 
-  /** Appends a [[com.google.protobuf.ByteString]] `a` to the sequence of bytes to be hashed.
-    * Use `add` for [[com.google.protobuf.ByteString]]s of variable length
-    * to prevent hash collisions due to concatenation of variable-length strings.
+  /** Appends a [[com.google.protobuf.ByteString]] `a` to the sequence of bytes to be hashed. Use
+    * `add` for [[com.google.protobuf.ByteString]]s of variable length to prevent hash collisions
+    * due to concatenation of variable-length strings.
     *
-    * Document at the call site in production code why it is not necessary to include a length prefix.
+    * Document at the call site in production code why it is not necessary to include a length
+    * prefix.
     *
-    * @return the updated hash builder
-    * @throws java.lang.IllegalStateException if the [[finish]] method has already been called on this [[HashBuilder]]
+    * @return
+    *   the updated hash builder
+    * @throws java.lang.IllegalStateException
+    *   if the [[finish]] method has already been called on this [[HashBuilder]]
     */
   def addWithoutLengthPrefix(a: ByteString): this.type
 
-  /** Same as addWithoutLengthPrefix but takes an additional context argument.
-    * The context is used by a [[com.digitalasset.canton.protocol.hash.HashTracer]] to trace hashing steps.
+  /** Same as addWithoutLengthPrefix but takes an additional context argument. The context is used
+    * by a [[com.digitalasset.canton.protocol.hash.HashTracer]] to trace hashing steps.
     */
   def addWithoutLengthPrefixWithContext(a: ByteString, context: => String): this.type
 
-  /** Appends the length of `a` (encoded as fixed length [[com.google.protobuf.ByteString]]) as well as `a` to this builder.
+  /** Appends the length of `a` (encoded as fixed length [[com.google.protobuf.ByteString]]) as well
+    * as `a` to this builder.
     *
-    * @return the updated hash builder
-    * @throws java.lang.IllegalStateException if the [[finish]] method has already been called on this [[HashBuilder]]
+    * @return
+    *   the updated hash builder
+    * @throws java.lang.IllegalStateException
+    *   if the [[finish]] method has already been called on this [[HashBuilder]]
     */
   def add(a: ByteString): this.type =
     add(a.size).addWithoutLengthPrefix(a)
 
-  /** Same as add but with an additional context.
-    * The context is used by a [[com.digitalasset.canton.protocol.hash.HashTracer]] to trace hashing steps.
+  /** Same as add but with an additional context. The context is used by a
+    * [[com.digitalasset.canton.protocol.hash.HashTracer]] to trace hashing steps.
     */
   def add(a: ByteString, context: => String): this.type =
     add(a.size).addWithoutLengthPrefixWithContext(a, context)
@@ -62,11 +67,11 @@ trait HashBuilder {
     ByteString.copyFrom(a)
   )
 
-  /** Shorthand for `addWithoutLengthPrefix(ByteString.copyFromUtf8(a))`
-    * Use `add` for strings of variable length
-    * to prevent hash collisions due to concatenation of variable-length strings.
+  /** Shorthand for `addWithoutLengthPrefix(ByteString.copyFromUtf8(a))` Use `add` for strings of
+    * variable length to prevent hash collisions due to concatenation of variable-length strings.
     *
-    * Document at the call site in production code why it is not necessary to include a length prefix.
+    * Document at the call site in production code why it is not necessary to include a length
+    * prefix.
     */
   def addWithoutLengthPrefix(a: String): this.type = addWithoutLengthPrefix(
     ByteString.copyFromUtf8(a)
@@ -83,11 +88,13 @@ trait HashBuilder {
   def add(a: Long): this.type =
     addWithoutLengthPrefixWithContext(DeterministicEncoding.encodeLong(a), s"$a (long)")
 
-  /** Terminates the building of the hash.
-    * No more additions can be made using `HashBuilder.addWithoutLengthPrefix` after this method has been called.
+  /** Terminates the building of the hash. No more additions can be made using
+    * `HashBuilder.addWithoutLengthPrefix` after this method has been called.
     *
-    * @return The hash of the array accumulated so far.
-    * @throws java.lang.IllegalStateException if [[finish]] had been called before on this [[HashBuilder]]
+    * @return
+    *   The hash of the array accumulated so far.
+    * @throws java.lang.IllegalStateException
+    *   if [[finish]] had been called before on this [[HashBuilder]]
     */
   def finish(): Hash
 }
@@ -101,8 +108,8 @@ object HashBuilderFromMessageDigest {
     new HashBuilderFromMessageDigest(algorithm, purpose).addPurpose
 }
 
-/** Constructs a [[HashBuilder]] from the specified [[java.security.MessageDigest]]
-  * ALWAYS use the apply method unless you know what you're doing.
+/** Constructs a [[HashBuilder]] from the specified [[java.security.MessageDigest]] ALWAYS use the
+  * apply method unless you know what you're doing.
   */
 class HashBuilderFromMessageDigest private[crypto] (algorithm: HashAlgorithm, purpose: HashPurpose)
     extends HashBuilder {

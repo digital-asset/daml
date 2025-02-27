@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.{
   Epoch,
   Segment,
@@ -19,9 +20,8 @@ trait PbftMessageValidator {
 
 final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: BftOrderingMetrics)(
     abort: String => Nothing
-)(implicit
-    mc: MetricsContext
-) extends PbftMessageValidator {
+)(implicit mc: MetricsContext, config: BftBlockOrderer.Config)
+    extends PbftMessageValidator {
 
   import PbftMessageValidatorImpl.*
 
@@ -44,9 +44,15 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
     val blockCanBeNonEmpty = prePrepareEpochNumber != EpochNumber.First || !blockFirstInSegment
 
     for {
-      _ <- validateProofsOfAvailability(prePrepare)
-
-      _ <- validateCanonicalCommitSet(prePrepare, blockFirstInSegment)
+      _ <- Either.cond(
+        block.proofs.sizeIs <= config.maxBatchesPerBlockProposal.toInt,
+        (), {
+          emitNonComplianceMetrics(prePrepare)
+          s"PrePrepare for block ${prePrepare.blockMetadata} has ${block.proofs.size} proofs of availability, " +
+            s"but it should have up to the maximum batch number per proposal of ${config.maxBatchesPerBlockProposal}, " +
+            "this number should be configured to the same value across all nodes"
+        },
+      )
 
       _ <- Either.cond(
         blockCanBeNonEmpty || block.proofs.isEmpty,
@@ -56,6 +62,10 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
             s"but it should be empty"
         },
       )
+
+      _ <- validateProofsOfAvailability(prePrepare)
+
+      _ <- validateCanonicalCommitSet(prePrepare, blockFirstInSegment)
     } yield ()
   }
 

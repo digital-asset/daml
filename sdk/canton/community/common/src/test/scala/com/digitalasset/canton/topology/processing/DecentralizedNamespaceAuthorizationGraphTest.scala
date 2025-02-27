@@ -31,7 +31,7 @@ class DecentralizedNamespaceAuthorizationGraphTest
     import factory.SigningKeys.*
 
     val decentralizedNamespace =
-      Namespace(Fingerprint.tryCreate("decentralized-namespace-fingerprint"))
+      Namespace(Fingerprint.tryFromString("decentralized-namespace-fingerprint"))
     val ns1 = Namespace(key1.fingerprint)
     val ns2 = Namespace(key2.fingerprint)
     val ns3 = Namespace(key3.fingerprint)

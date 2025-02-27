@@ -17,23 +17,23 @@ import java.security.{MessageDigest, NoSuchAlgorithmException, SecureRandom}
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.blocking
 
-/** A SP800-90A Hash (SHA512) Deterministic Random Bit Generator (DRBG). A DRBG mechanism uses
-  * an algorithm (i.e., the 'hash' algorithm) that produces a sequence
-  * of bits from an initial value that is determined by a seed that is generated
-  * from the output of an entropy source. Once the seed is provided and the initial value is
-  * determined, the DRBG is said to be instantiated and may be used to produce output.
-  * We set the security strength for the underlying DRGB algorithm to 256 bits, similarly to what is defined in
-  * [[org.bouncycastle.crypto.prng.SP800SecureRandomBuilder]].
-  * This implementation does not make use of a personalization string or additional input (i.e., both empty)
-  * and we disabled prediction resistance (= false).
+/** A SP800-90A Hash (SHA512) Deterministic Random Bit Generator (DRBG). A DRBG mechanism uses an
+  * algorithm (i.e., the 'hash' algorithm) that produces a sequence of bits from an initial value
+  * that is determined by a seed that is generated from the output of an entropy source. Once the
+  * seed is provided and the initial value is determined, the DRBG is said to be instantiated and
+  * may be used to produce output. We set the security strength for the underlying DRGB algorithm to
+  * 256 bits, similarly to what is defined in
+  * [[org.bouncycastle.crypto.prng.SP800SecureRandomBuilder]]. This implementation does not make use
+  * of a personalization string or additional input (i.e., both empty) and we disabled prediction
+  * resistance (= false).
   *
   * The code is based on [[org.bouncycastle.crypto.prng.SP800SecureRandom]] and
   * [[org.bouncycastle.crypto.prng.drbg.HashSP800DRBG]].
   *
-  * @param entropySource the entropy source to be used. We expect the entropy to
-  *                      be the hash of the message we want to later encrypt, but we can also feed
-  *                      other random sources of entropy. The entropy size must be
-  *                      chosen based on the security strength of the underlying DRGB.
+  * @param entropySource
+  *   the entropy source to be used. We expect the entropy to be the hash of the message we want to
+  *   later encrypt, but we can also feed other random sources of entropy. The entropy size must be
+  *   chosen based on the security strength of the underlying DRGB.
   */
 private class SP800HashDRBGSecureRandom(entropySource: EntropySource) extends SecureRandom {
 
@@ -103,13 +103,15 @@ private object SP800HashDRBGSecureRandom {
   }
 }
 
-/** Custom entropy source where the entropy bits are directly passed as a parameter.
-  * We intend to use it to set our DBRG entropy to be the hash of a message (i.e., data we want to encrypt) + publicKey.
+/** Custom entropy source where the entropy bits are directly passed as a parameter. We intend to
+  * use it to set our DBRG entropy to be the hash of a message (i.e., data we want to encrypt) +
+  * publicKey.
   *
   * VERY IMPORTANT: we assume the input entropy to be high and to be only used once, otherwise the
   * pseudo randomness guarantees might not hold.
   *
-  * @param entropy a byte string originated from a securely generated random value
+  * @param entropy
+  *   a byte string originated from a securely generated random value
   */
 private class EntropySourceFromInput(
     val entropy: SecureRandomness,
@@ -139,9 +141,9 @@ private class EntropySourceFromInput(
 
 }
 
-/** Deterministic random generator, MUST NOT be used for security-relevant operations EXCEPT when the use of
-  * deterministic crypto is deemed secure (e.g. during the encryption of the views to ensure
-  * transparency).
+/** Deterministic random generator, MUST NOT be used for security-relevant operations EXCEPT when
+  * the use of deterministic crypto is deemed secure (e.g. during the encryption of the views to
+  * ensure transparency).
   */
 object DeterministicRandom {
   def getDeterministicRandomGenerator(

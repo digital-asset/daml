@@ -27,11 +27,16 @@ trait DeclarativeApiManager[NodeConfig <: LocalNodeConfig] {
 
   /** Once the node is started, we turn on the node state synchronisation
     *
-    * @param name the node name
-    * @param config the config of the node
-    * @param activeAdminToken used to obtain the admin token and at the same time check if the node is active
-    * @param metrics metrics which will be used to report on errors during state sync
-    * @param closeContext the close context of the node. the update runner will terminate when the node is closed
+    * @param name
+    *   the node name
+    * @param config
+    *   the config of the node
+    * @param activeAdminToken
+    *   used to obtain the admin token and at the same time check if the node is active
+    * @param metrics
+    *   metrics which will be used to report on errors during state sync
+    * @param closeContext
+    *   the close context of the node. the update runner will terminate when the node is closed
     */
   def started(
       name: String,

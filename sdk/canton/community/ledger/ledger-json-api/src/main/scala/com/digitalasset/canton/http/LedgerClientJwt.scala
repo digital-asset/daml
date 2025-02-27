@@ -426,7 +426,6 @@ object LedgerClientJwt {
   sealed abstract class Terminates extends Product with Serializable
 
   object Terminates {
-    // TODO(#21801) remove AtParticipantEnd
     case object AtParticipantEnd extends Terminates
     case object Never extends Terminates
     final case class AtAbsolute(off: String) extends Terminates

@@ -3,6 +3,7 @@
 
 # Simple example of an interactive submission demonstrating the external signing flow
 
+# [Imports]
 import argparse
 import grpc
 import uuid
@@ -27,9 +28,9 @@ from com.daml.ledger.api.v2 import (
     event_query_service_pb2_grpc,
     event_query_service_pb2,
 )
-import sys
 import os
 import json
+# [Imports End]
 
 application_id = "demo_python_app"
 # Path to the Canton ports file - This file is created when canton starts using the configuration in this folder
@@ -54,10 +55,8 @@ except json.JSONDecodeError:
 lapi_port = os.environ.get("CANTON_LAPI_PORT", default_lapi_port)
 admin_port = os.environ.get("CANTON_ADMIN_PORT", default_admin_port)
 
-# Create gRPC channels for the admin and Ledger API (lapi)
+# [Create LAPI gRPC Channel]
 lapi_channel = grpc.insecure_channel(f"localhost:{lapi_port}")
-admin_channel = grpc.insecure_channel(f"localhost:{admin_port}")
-
 # Interactive submission service client - used to submit externally signed transactions
 iss_client = interactive_submission_service_pb2_grpc.InteractiveSubmissionServiceStub(
     lapi_channel
@@ -72,13 +71,20 @@ us_client = update_service_pb2_grpc.UpdateServiceStub(lapi_channel)
 state_client = state_service_pb2_grpc.StateServiceStub(lapi_channel)
 # Event query service client - used to retrieve event information of a completed transaction
 eqs_client = event_query_service_pb2_grpc.EventQueryServiceStub(lapi_channel)
+# [Created LAPI gRPC Channel]
 
+# [Create Admin API gRPC Channel]
+admin_channel = grpc.insecure_channel(f"localhost:{admin_port}")
+# [Created Admin API gRPC Channel]
+
+
+# [Define ping template]
 ping_template_id = value_pb2.Identifier(
     package_id="#AdminWorkflows",
     module_name="Canton.Internal.Ping",
     entity_name="Ping",
 )
-
+# [Defined ping template]
 
 # Return active contracts for a party
 def get_active_contracts(party: str):
@@ -126,16 +132,16 @@ def execute_and_get_contract_id(
     party_private_key: EllipticCurvePrivateKey,
     pub_fingerprint: str,
 ):
-
-    # Compute the transaction hash
+    # [Compute transaction hash]
     transaction_hash = encode_prepared_transaction(
         prepared_transaction, create_nodes_dict(prepared_transaction)
     )
-    print("Compute hash: " + transaction_hash.hex())
+    print("Computed hash: " + transaction_hash.hex())
     # Sign it
-    signed_hash = party_private_key.sign(
+    signature = party_private_key.sign(
         transaction_hash, signature_algorithm=ec.ECDSA(hashes.SHA256())
     )
+    # [Signed hash]
     # Create the execute request
     execute_request = interactive_submission_service_pb2.ExecuteSubmissionRequest(
         prepared_transaction=prepared_transaction,
@@ -147,7 +153,7 @@ def execute_and_get_contract_id(
                     signatures=[
                         interactive_submission_service_pb2.Signature(
                             format=interactive_submission_service_pb2.SignatureFormat.SIGNATURE_FORMAT_RAW,
-                            signature=signed_hash,
+                            signature=signature,
                             signed_by=pub_fingerprint,
                             signing_algorithm_spec=interactive_submission_service_pb2.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256,
                         )
@@ -161,8 +167,9 @@ def execute_and_get_contract_id(
 
     # Submit the transaction to the ledger
     iss_client.ExecuteSubmission(execute_request)
+    # [Submitted request]
 
-    # Waiting for the transaction to show on the completion stream
+    # [Waiting for the transaction to show on the completion stream]
     update_request = command_completion_service_pb2.CompletionStreamRequest(
         application_id=application_id, parties=[party]
     )
@@ -190,18 +197,15 @@ def execute_and_get_contract_id(
         if event.HasField("archived"):
             contract_id = event.archived.contract_id
             break
+    # [Got Contract Id from Transaction]
 
     return contract_id
 
-
-def create_ping_contract(
-    initiator: str,
-    initiator_private_key: EllipticCurvePrivateKey,
-    initiator_fingerprint: str,
-    responder: str,
-    synchronizer_id: str,
-) -> event_pb2.CreatedEvent:
-    # A command to create a ping contract
+def prepare_create_ping_contract(
+        initiator: str,
+        responder: str,
+        synchronizer_id: str,
+) -> interactive_submission_service_pb2.PrepareSubmissionResponse:
     ping_create_command = commands_pb2.Command(
         create=commands_pb2.CreateCommand(
             template_id=ping_template_id,
@@ -237,18 +241,33 @@ def create_ping_contract(
 
     # Call the PrepareSubmission RPC
     prepare_create_response = iss_client.PrepareSubmission(prepare_create_request)
-    print("Correct hash is " + prepare_create_response.prepared_transaction_hash.hex())
+
+    return prepare_create_response
+
+def create_ping_contract(
+    initiator: str,
+    initiator_private_key: EllipticCurvePrivateKey,
+    initiator_fingerprint: str,
+    responder: str,
+    synchronizer_id: str,
+) -> event_pb2.CreatedEvent:
+    print("Preparing create ping transaction")
+    # [Call the PrepareSubmission RPC]
+    prepare_create_response = prepare_create_ping_contract(initiator, responder, synchronizer_id)
+    print("Returned transaction hash is " + prepare_create_response.prepared_transaction_hash.hex())
     prepared_create_transaction = prepare_create_response.prepared_transaction
+    # [Transaction prepared]
 
     # Create the ping contract
     print("Submitting create ping transaction")
-    ping_contract_id = execute_and_get_contract_id(
+    contract_id = execute_and_get_contract_id(
         prepared_create_transaction,
         initiator,
         initiator_private_key,
         initiator_fingerprint,
     )
 
+    # [Get created event from contract Id]
     ping_created_event: event_pb2.CreatedEvent
     initiator_active_contracts = get_active_contracts(initiator)
     # Find the contract in the active contract store
@@ -256,13 +275,13 @@ def create_ping_contract(
         if (
             active_contract_response.HasField("active_contract")
             and active_contract_response.active_contract.created_event.contract_id
-            == ping_contract_id
+            == contract_id
         ):
             ping_created_event = active_contract_response.active_contract.created_event
             break
-
+    # [Got created event from contract Id]
     print(
-        f"Ping contract with ID {ping_contract_id} is found in {initiator}'s active contract store"
+        f"Ping contract with ID {contract_id} is found in {initiator}'s active contract store"
     )
 
     return ping_created_event
@@ -277,6 +296,7 @@ def exercise_respond_choice(
     created_event_blob: bytes,
     template_id: value_pb2.Identifier,
 ):
+    # [Create the exercise command]
     ping_exercise_command = commands_pb2.Command(
         exercise=commands_pb2.ExerciseCommand(
             template_id=ping_template_id,
@@ -287,8 +307,10 @@ def exercise_respond_choice(
             ),
         )
     )
+    # [Created the exercise command]
 
     print("Preparing exercise Respond choice transaction")
+    # [Prepare the exercise command]
     prepare_exercise_request = interactive_submission_service_pb2.PrepareSubmissionRequest(
         application_id=application_id,
         command_id=str(uuid.uuid4()),
@@ -308,11 +330,12 @@ def exercise_respond_choice(
     )
 
     prepare_exercise_response = iss_client.PrepareSubmission(prepare_exercise_request)
+    # [Prepared the exercise command]
 
     prepared_exercise_transaction = prepare_exercise_response.prepared_transaction
 
     print("Submitting exercise Respond choice transaction")
-    # Exercise the Respond choice on the ping contract by bob
+    # [Exercise the Respond choice on the ping contract by bob]
     execute_and_get_contract_id(
         prepared_exercise_transaction,
         responder,
@@ -328,6 +351,7 @@ def exercise_respond_choice(
         )
     else:
         raise Exception("Expected an archive event")
+    # [Exercised Respond choice and observed archived contract]
 
 
 def demo_interactive_submissions(participant_id: str, synchronizer_id: str):
@@ -398,6 +422,11 @@ if __name__ == "__main__":
         type=str,
         help="Path of the file to which the private key should be written to",
     )
+    parser_onboard_party.add_argument(
+        "--public-key-file",
+        type=str,
+        help="Path of the file to which the public key should be written to",
+    )
 
     args = parser.parse_args()
 
@@ -408,17 +437,28 @@ if __name__ == "__main__":
             args.name, args.participant_id, args.synchronizer_id, admin_channel
         )
         private_key_file = (
-            args.private_key_file or f"{args.name}::{party_fingerprint}-private-key.pem"
+            args.private_key_file or f"{args.name}::{party_fingerprint}-private-key.der"
+        )
+        public_key_file = (
+            args.public_key_file or f"{args.name}::{party_fingerprint}-public-key.der"
         )
         with open(private_key_file, "wb") as key_file:
             key_file.write(
                 party_private_key.private_bytes(
-                    encoding=serialization.Encoding.PEM,
+                    encoding=serialization.Encoding.DER,
                     format=serialization.PrivateFormat.PKCS8,
                     encryption_algorithm=serialization.NoEncryption(),
                 )
             )
+        with open(public_key_file, "wb") as key_file:
+            key_file.write(
+                party_private_key.public_key().public_bytes(
+                    encoding=serialization.Encoding.DER,
+                    format=serialization.PublicFormat.SubjectPublicKeyInfo,
+                )
+            )
         print(f"Party ID: {args.name}::{party_fingerprint}")
         print(f"Written private key to: {private_key_file}")
+        print(f"Written public key to: {public_key_file}")
     else:
         parser.print_help()

@@ -9,6 +9,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Env,
   ModuleRef,
 }
+import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.Assertions.fail
 
 import java.util.concurrent.atomic.AtomicReference
@@ -19,18 +20,26 @@ package object modules {
 
   private[unit] def fakeCellModule[ModuleMessageT, CellMessageT <: ModuleMessageT: Manifest](
       cell: AtomicReference[Option[CellMessageT]]
-  ): ModuleRef[ModuleMessageT] = {
-    case cellMsg: CellMessageT => cell.set(Some(cellMsg))
-    case other => fail(s"Unexpected message $other")
+  ): ModuleRef[ModuleMessageT] = new ModuleRef[ModuleMessageT] {
+    override def asyncSendTraced(msg: ModuleMessageT)(implicit traceContext: TraceContext): Unit =
+      msg match {
+        case cellMsg: CellMessageT => cell.set(Some(cellMsg))
+        case other => fail(s"Unexpected message $other")
+      }
   }
 
   private[unit] def fakeRecordingModule[MessageT](
       buffer: mutable.ArrayBuffer[MessageT]
-  ): ModuleRef[MessageT] =
-    msg => buffer += msg
+  ): ModuleRef[MessageT] = new ModuleRef[MessageT] {
+    override def asyncSendTraced(msg: MessageT)(implicit traceContext: TraceContext): Unit =
+      buffer += msg
+  }
 
   private[unit] def fakeModuleExpectingSilence[MessageT]: ModuleRef[MessageT] =
-    m => fail(s"Module should not receive any requests but received $m")
+    new ModuleRef[MessageT] {
+      override def asyncSendTraced(msg: MessageT)(implicit traceContext: TraceContext): Unit =
+        fail(s"Module should not receive any requests but received $msg")
+    }
 
   private[unit] def fakeCancellableEventExpectingSilence: CancellableEvent =
     () => fail("Module should not cancel delayed event")

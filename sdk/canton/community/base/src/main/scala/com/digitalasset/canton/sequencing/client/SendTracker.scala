@@ -33,13 +33,15 @@ import com.google.common.annotations.VisibleForTesting
 import java.time.Instant
 import scala.collection.concurrent.TrieMap
 
-/** When a we make a send request to the sequencer it will not be sequenced until some point in the future and may not
-  * be sequenced at all. To track a request call `send` with the messageId and max-sequencing-time of the request,
-  * the tracker then observes sequenced events and will notify the provided handler whether the send times out.
-  * For aggregatable submission requests, the send tracker notifies the handler of successful sequencing of the submission request,
-  * not of successful delivery of the envelopes when the
-  * [[com.digitalasset.canton.sequencing.protocol.AggregationRule.threshold]] has been reached.
-  * In fact, there is no notification of whether the threshold was reached before the max sequencing time.
+/** When a we make a send request to the sequencer it will not be sequenced until some point in the
+  * future and may not be sequenced at all. To track a request call `send` with the messageId and
+  * max-sequencing-time of the request, the tracker then observes sequenced events and will notify
+  * the provided handler whether the send times out. For aggregatable submission requests, the send
+  * tracker notifies the handler of successful sequencing of the submission request, not of
+  * successful delivery of the envelopes when the
+  * [[com.digitalasset.canton.sequencing.protocol.AggregationRule.threshold]] has been reached. In
+  * fact, there is no notification of whether the threshold was reached before the max sequencing
+  * time.
   */
 class SendTracker(
     initialPendingSends: Map[MessageId, CantonTimestamp],
@@ -57,9 +59,10 @@ class SendTracker(
   )
 
   /** Details of sends in-flight
-    * @param startedAt The time the request was made for calculating the elapsed duration for metrics.
-    *                  We use the host clock time for this value and it is only tracked ephemerally
-    *                  as the elapsed value will not be useful if the local process restarts during sequencing.
+    * @param startedAt
+    *   The time the request was made for calculating the elapsed duration for metrics. We use the
+    *   host clock time for this value and it is only tracked ephemerally as the elapsed value will
+    *   not be useful if the local process restarts during sequencing.
     */
   private case class PendingSend(
       maxSequencingTime: CantonTimestamp,
@@ -119,11 +122,10 @@ class SendTracker(
       }
     }.tapOnShutdown(callback(UnlessShutdown.AbortedDueToShutdown))
 
-  /** Cancels a pending send without notifying any callers of the result.
-    * Should only be used if the send operation itself fails and the transport returns an error
-    * indicating that the send will never be sequenced. The SequencerClient should then call cancel
-    * to immediately allow retries with the same message-id and then propagate the send error
-    * to the caller.
+  /** Cancels a pending send without notifying any callers of the result. Should only be used if the
+    * send operation itself fails and the transport returns an error indicating that the send will
+    * never be sequenced. The SequencerClient should then call cancel to immediately allow retries
+    * with the same message-id and then propagate the send error to the caller.
     */
   def cancelPendingSend(messageId: MessageId)(implicit
       traceContext: TraceContext
@@ -132,16 +134,19 @@ class SendTracker(
 
   /** Provide the latest sequenced events to update the send tracker
     *
-    * Callers must not call this concurrently and it is assumed that it is called with sequenced events in order of sequencing.
-    * On receiving an event it will perform the following steps in order:
-    *   1. If the event is a Deliver or DeliverError from a send that is being tracked it will stop tracking this message id.
-    *      This allows using the message-id for new sends.
-    *   2. Checks for any pending sends that have a max-sequencing-time that is less than the timestamp of this event.
-    *      These events have timed out and a correct sequencer implementation will no longer sequence any events for this send.
-    *      The callback of the pending event will be called with the outcome result.
+    * Callers must not call this concurrently and it is assumed that it is called with sequenced
+    * events in order of sequencing. On receiving an event it will perform the following steps in
+    * order:
+    *   1. If the event is a Deliver or DeliverError from a send that is being tracked it will stop
+    *      tracking this message id. This allows using the message-id for new sends.
+    *   1. Checks for any pending sends that have a max-sequencing-time that is less than the
+    *      timestamp of this event. These events have timed out and a correct sequencer
+    *      implementation will no longer sequence any events for this send. The callback of the
+    *      pending event will be called with the outcome result.
     *
-    * The operations performed by update are not atomic, if an error is encountered midway through processing an event
-    * then a subsequent replay will cause operations that still have pending sends stored to be retried.
+    * The operations performed by update are not atomic, if an error is encountered midway through
+    * processing an event then a subsequent replay will cause operations that still have pending
+    * sends stored to be retried.
     */
   def update(
       events: Seq[OrdinarySequencedEvent[_]]
@@ -217,10 +222,9 @@ class SendTracker(
     }
   }
 
-  /** Removes the pending send.
-    * If a send result is supplied the callback will be called with it.
-    * If the sequencedTime is supplied and it is more recent than the max-sequencing time of the
-    * event, then we will not remove the pending send.
+  /** Removes the pending send. If a send result is supplied the callback will be called with it. If
+    * the sequencedTime is supplied and it is more recent than the max-sequencing time of the event,
+    * then we will not remove the pending send.
     */
   private def removePendingSendUnlessTimeout(
       messageId: MessageId,

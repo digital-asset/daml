@@ -87,8 +87,7 @@ private[store] object StorageBackendTestValues {
       is_local = Some(isLocal),
     )
 
-  /** A simple create event.
-    * Corresponds to a transaction with a single create node.
+  /** A simple create event. Corresponds to a transaction with a single create node.
     */
   def dtoCreate(
       offset: Offset,
@@ -119,7 +118,7 @@ private[store] object StorageBackendTestValues {
       application_id = Some(someApplicationId),
       submitters = None,
       node_id = 0,
-      contract_id = contractId.coid,
+      contract_id = contractId.toBytes.toByteArray,
       template_id = someTemplateId.toString,
       package_name = somePackageName.toString,
       package_version = Some(somePackageVersion.toString()),
@@ -141,11 +140,12 @@ private[store] object StorageBackendTestValues {
     )
   }
 
-  /** A simple exercise event.
-    * Corresponds to a transaction with a single exercise node.
+  /** A simple exercise event. Corresponds to a transaction with a single exercise node.
     *
-    * @param signatory The signatory of the contract (see corresponding create node)
-    * @param actor The choice actor, who is also the submitter
+    * @param signatory
+    *   The signatory of the contract (see corresponding create node)
+    * @param actor
+    *   The choice actor, who is also the submitter
     */
   def dtoExercise(
       offset: Offset,
@@ -170,7 +170,7 @@ private[store] object StorageBackendTestValues {
       application_id = Some(someApplicationId),
       submitters = Some(Set(actor)),
       node_id = 0,
-      contract_id = contractId.coid,
+      contract_id = contractId.toBytes.toByteArray,
       template_id = someTemplateId.toString,
       package_name = somePackageName,
       flat_event_witnesses = if (consuming) Set(signatory) else Set.empty,
@@ -211,7 +211,7 @@ private[store] object StorageBackendTestValues {
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
       submitter = Option(someParty),
-      contract_id = contractId.coid,
+      contract_id = contractId.toBytes.toByteArray,
       template_id = someTemplateId.toString,
       package_name = somePackageName.toString,
       package_version = Some(somePackageVersion.toString()),
@@ -255,7 +255,7 @@ private[store] object StorageBackendTestValues {
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
       submitter = Option(someParty),
-      contract_id = contractId.coid,
+      contract_id = contractId.toBytes.toByteArray,
       template_id = someTemplateId.toString,
       package_name = somePackageName,
       flat_event_witnesses = Set(signatory, observer),

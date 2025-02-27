@@ -22,7 +22,7 @@ import com.digitalasset.canton.resource.{DbMigrations, DbMigrationsFactory}
 import com.digitalasset.canton.synchronizer.mediator.{
   MediatorNode,
   MediatorNodeBootstrap,
-  MediatorNodeConfigCommon,
+  MediatorNodeConfig,
   MediatorNodeParameters,
 }
 import com.digitalasset.canton.synchronizer.sequencer.config.{
@@ -45,9 +45,9 @@ trait Nodes[+Node <: CantonNode, +NodeBootstrap <: CantonNodeBootstrap[Node]]
 
   /** Returns the startup group (nodes in the same group will start together)
     *
-    * Mediators automatically connect to a synchronizer. Participants
-    * require an external call to reconnectSynchronizers. Therefore, we can start participant and sequencer
-    * nodes together, but we have to wait for the sequencers to be up before we can kick off mediators.
+    * Mediators automatically connect to a synchronizer. Participants require an external call to
+    * reconnectSynchronizers. Therefore, we can start participant and sequencer nodes together, but
+    * we have to wait for the sequencers to be up before we can kick off mediators.
     */
   def startUpGroup: Int
 
@@ -69,8 +69,8 @@ trait Nodes[+Node <: CantonNode, +NodeBootstrap <: CantonNodeBootstrap[Node]]
   /** Get the single running node */
   def getRunning(name: InstanceName): Option[NodeBootstrap]
 
-  /** Get the node while it is still being started. This is mostly useful during testing to access the node in earlier
-    * stages of its initialization phase.
+  /** Get the node while it is still being started. This is mostly useful during testing to access
+    * the node in earlier stages of its initialization phase.
     */
   def getStarting(name: InstanceName): Option[NodeBootstrap]
 
@@ -89,7 +89,9 @@ trait Nodes[+Node <: CantonNode, +NodeBootstrap <: CantonNodeBootstrap[Node]]
   /** Independently run any pending database migrations for the named node */
   def migrateDatabase(name: InstanceName): Either[StartupError, Unit]
 
-  /** Independently repair the Flyway schema history table for the named node to reset Flyway migration checksums etc */
+  /** Independently repair the Flyway schema history table for the named node to reset Flyway
+    * migration checksums etc
+    */
   def repairDatabaseMigration(name: InstanceName): Either[StartupError, Unit]
 }
 
@@ -392,18 +394,18 @@ class ManagedNodes[
     }
 }
 
-class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode, PC <: LocalParticipantConfig](
-    create: (String, PC) => B, // (nodeName, config) => bootstrap
+class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode](
+    create: (String, LocalParticipantConfig) => B, // (nodeName, config) => bootstrap
     migrationsFactory: DbMigrationsFactory,
     timeouts: ProcessingTimeout,
-    configs: Map[String, PC],
+    configs: Map[String, LocalParticipantConfig],
     parametersFor: String => ParticipantNodeParameters,
     runnerFactory: String => GrpcAdminCommandRunner,
     loggerFactory: NamedLoggerFactory,
 )(implicit
     protected val executionContext: ExecutionContextIdlenessExecutorService,
     scheduler: ScheduledExecutorService,
-) extends ManagedNodes[N, PC, ParticipantNodeParameters, B](
+) extends ManagedNodes[N, LocalParticipantConfig, ParticipantNodeParameters, B](
       create,
       migrationsFactory,
       timeouts,
@@ -435,17 +437,17 @@ class SequencerNodes[SC <: SequencerNodeConfigCommon](
       loggerFactory,
     )
 
-class MediatorNodes[MNC <: MediatorNodeConfigCommon](
-    create: (String, MNC) => MediatorNodeBootstrap,
+class MediatorNodes(
+    create: (String, MediatorNodeConfig) => MediatorNodeBootstrap,
     migrationsFactory: DbMigrationsFactory,
     timeouts: ProcessingTimeout,
-    configs: Map[String, MNC],
+    configs: Map[String, MediatorNodeConfig],
     parameters: String => MediatorNodeParameters,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends ManagedNodes[
       MediatorNode,
-      MNC,
+      MediatorNodeConfig,
       MediatorNodeParameters,
       MediatorNodeBootstrap,
     ](

@@ -6,6 +6,7 @@ package com.daml.nonempty
 import com.digitalasset.canton.logging.pretty.Pretty
 import io.scalaland.chimney.Transformer
 import io.scalaland.chimney.dsl.TransformerOps
+import monocle.Lens
 import pureconfig.{ConfigReader, ConfigWriter}
 
 import scala.collection.immutable
@@ -13,8 +14,8 @@ import scala.reflect.ClassTag
 
 /** Additional methods for [[com.daml.nonempty.NonEmpty]].
   *
-  * Cats instances for [[com.daml.nonempty.NonEmpty]] must be imported explicitly as
-  * `import `[[com.daml.nonempty.catsinstances]]`._` when necessary.
+  * Cats instances for [[com.daml.nonempty.NonEmpty]] must be imported explicitly as `import
+  * `[[com.daml.nonempty.catsinstances]]`._` when necessary.
   */
 object NonEmptyUtil {
 
@@ -24,10 +25,14 @@ object NonEmptyUtil {
   def fromUnsafe[A](xs: A with immutable.Iterable[_]): NonEmpty[A] =
     NonEmpty.from(xs).getOrElse(throw new NoSuchElementException)
 
+  def lensToNEF[A, F[_], B](lens: Lens[A, NonEmpty[F[B]]]): Lens[A, NonEmptyF[F, B]] =
+    NonEmpty.equiv[F, B].subst(lens)
+
   object instances {
 
-    /** This instance is exposed as [[com.digitalasset.canton.logging.pretty.PrettyInstances.prettyNonempty]].
-      * It lives only here because `NonEmptyColl.Instance.subst` is private to the `nonempty` package
+    /** This instance is exposed as
+      * [[com.digitalasset.canton.logging.pretty.PrettyInstances.prettyNonempty]]. It lives only
+      * here because `NonEmptyColl.Instance.subst` is private to the `nonempty` package
       */
     def prettyNonEmpty[A](implicit F: Pretty[A]): Pretty[NonEmpty[A]] = {
       type K[T[_]] = Pretty[T[A]]
@@ -52,6 +57,10 @@ object NonEmptyUtil {
     implicit def nonEmptySetAutoTransformer[From, To](implicit
         transformer: Transformer.AutoDerived[From, To]
     ): Transformer[NonEmpty[Set[From]], NonEmpty[Set[To]]] = _.map(_.transformInto[To])
+
+    implicit class NonEmptyLensOps[A, F[_], B](val lens: Lens[A, NonEmpty[F[B]]]) extends AnyVal {
+      def toNEF: Lens[A, NonEmptyF[F, B]] = lensToNEF(lens)
+    }
   }
 
   /** A failure representing an unexpected empty collection

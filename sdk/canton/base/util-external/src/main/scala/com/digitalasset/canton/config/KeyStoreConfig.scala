@@ -24,7 +24,9 @@ object KeyStoreConfig {
 }
 
 /** Password wrapper for keystores to prevent the values being printed in logs.
-  * @param pw password value - public for supporting PureConfig parsing but callers should prefer accessing through unwrap
+  * @param pw
+  *   password value - public for supporting PureConfig parsing but callers should prefer accessing
+  *   through unwrap
   */
 final case class Password(pw: String) extends AnyVal {
   def unwrap: String = pw

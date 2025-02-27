@@ -47,9 +47,10 @@ import scala.concurrent.duration.*
 /** Crypto API Provider class
   *
   * The utility class combines the information provided by the IPSclient, the pure crypto functions
-  * and the signing and decryption operations on a private key vault in order to automatically resolve
-  * the right keys to use for signing / decryption based on synchronizer and timestamp. This API is intended only for
-  * participants and covers all usages of protocol signing keys, thus, session keys will be used if they are enabled.
+  * and the signing and decryption operations on a private key vault in order to automatically
+  * resolve the right keys to use for signing / decryption based on synchronizer and timestamp. This
+  * API is intended only for participants and covers all usages of protocol signing keys, thus,
+  * session keys will be used if they are enabled.
   *
   * TODO(#23810): Reuse SyncCryptoApiParticipantProvider for all nodes and not only participants
   */
@@ -134,12 +135,13 @@ trait SyncCryptoClient[+T <: SyncCryptoApi] extends TopologyClientApi[T] {
 
   val pureCrypto: SynchronizerCryptoPureApi
 
-  /** Returns a snapshot of the current member topology for the given synchronizer.
-    * The future will log a warning and await the snapshot if the data is not there yet.
+  /** Returns a snapshot of the current member topology for the given synchronizer. The future will
+    * log a warning and await the snapshot if the data is not there yet.
     *
-    * The snapshot returned by this method should be used for validating transaction and transfer requests (Phase 2 - 7).
-    * Use the request timestamp as parameter for this method.
-    * Do not use a response or result timestamp, because all validation steps must use the same topology snapshot.
+    * The snapshot returned by this method should be used for validating transaction and transfer
+    * requests (Phase 2 - 7). Use the request timestamp as parameter for this method. Do not use a
+    * response or result timestamp, because all validation steps must use the same topology
+    * snapshot.
     */
   def ipsSnapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -158,11 +160,12 @@ trait SyncCryptoClient[+T <: SyncCryptoApi] extends TopologyClientApi[T] {
 
 object SyncCryptoClient {
 
-  /** Computes the snapshot for the desired timestamp, assuming that the last (relevant) update to the
-    * topology state happened at or before `previousTimestamp`.
-    * If `previousTimestampO` is [[scala.None$]] and `desiredTimestamp` is currently not known
+  /** Computes the snapshot for the desired timestamp, assuming that the last (relevant) update to
+    * the topology state happened at or before `previousTimestamp`. If `previousTimestampO` is
+    * [[scala.None$]] and `desiredTimestamp` is currently not known
     * [[com.digitalasset.canton.topology.client.TopologyClientApi.topologyKnownUntilTimestamp]],
-    * then the current approximation is returned and if `warnIfApproximate` is set a warning is logged.
+    * then the current approximation is returned and if `warnIfApproximate` is set a warning is
+    * logged.
     */
   def getSnapshotForTimestamp(
       client: SyncCryptoClient[SyncCryptoApi],
@@ -340,7 +343,7 @@ class SynchronizerCryptoClient private (
   ): FutureUnlessShutdown[SynchronizerSnapshotSyncCryptoApi] =
     ips.awaitSnapshot(timestamp).map(create)
 
-  private def create(snapshot: TopologySnapshot): SynchronizerSnapshotSyncCryptoApi =
+  def create(snapshot: TopologySnapshot): SynchronizerSnapshotSyncCryptoApi =
     new SynchronizerSnapshotSyncCryptoApi(
       synchronizerId,
       staticSynchronizerParameters,
@@ -424,7 +427,8 @@ object SynchronizerCryptoClient {
     )
   }
 
-  /** Generates a new sync crypto that can use session signing keys if they are enabled in Canton's configuration.
+  /** Generates a new sync crypto that can use session signing keys if they are enabled in Canton's
+    * configuration.
     */
   def createWithOptionalSessionKeys(
       member: Member,

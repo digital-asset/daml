@@ -7,7 +7,8 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 
 /** Ledger api party management service specific configurations
   *
-  * @param maxPartiesPageSize               maximum number of parties returned
+  * @param maxPartiesPageSize
+  *   maximum number of parties returned
   */
 final case class PartyManagementServiceConfig(
     maxPartiesPageSize: PositiveInt = PartyManagementServiceConfig.DefaultMaxPartiesPageSize

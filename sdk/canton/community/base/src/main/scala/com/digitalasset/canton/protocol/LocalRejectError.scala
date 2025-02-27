@@ -12,7 +12,8 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.google.rpc.status.Status
 import org.slf4j.event.Level
 
-/** Base type for ErrorCodes related to LocalReject, if the rejection does not (necessarily) occur due to malicious behavior.
+/** Base type for ErrorCodes related to LocalReject, if the rejection does not (necessarily) occur
+  * due to malicious behavior.
   */
 abstract class LocalRejectErrorCode(
     id: String,
@@ -22,7 +23,8 @@ abstract class LocalRejectErrorCode(
   override implicit val code: LocalRejectErrorCode = this
 }
 
-/** Base type for ErrorCodes related to LocalRejectError, if the rejection is due to malicious behavior.
+/** Base type for ErrorCodes related to LocalRejectError, if the rejection is due to malicious
+  * behavior.
   */
 abstract class MalformedErrorCode(id: String)(implicit
     parent: ErrorClass
@@ -59,12 +61,12 @@ sealed trait LocalRejectError
     */
   def _resourcesType: Option[ErrorResource] = None
 
-  /** The affected resources.
-    * It is used as follows:
-    * - It will be logged as part of the context information.
-    * - It is included into the resulting LocalReject.
-    * - The LocalReject is sent via the sequencer to the mediator. Therefore: do not include any confidential data!
-    * - The LocalReject is also output through the ledger API.
+  /** The affected resources. It is used as follows:
+    *   - It will be logged as part of the context information.
+    *   - It is included into the resulting LocalReject.
+    *   - The LocalReject is sent via the sequencer to the mediator. Therefore: do not include any
+    *     confidential data!
+    *   - The LocalReject is also output through the ledger API.
     */
   def _resources: Seq[String] = Seq()
 
@@ -83,7 +85,8 @@ sealed trait LocalRejectError
     )
 }
 
-/** Base class for LocalReject errors, if the rejection does not (necessarily) occur due to malicious behavior.
+/** Base class for LocalReject errors, if the rejection does not (necessarily) occur due to
+  * malicious behavior.
   */
 sealed abstract class LocalRejectErrorImpl(
     override val _causePrefix: String,

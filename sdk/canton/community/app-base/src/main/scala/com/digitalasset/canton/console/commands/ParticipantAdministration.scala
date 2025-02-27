@@ -9,6 +9,7 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.*
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Inspection.*
+import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Package.DarData
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Pruning.*
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Resources.{
   GetResourceLimits,
@@ -25,6 +26,7 @@ import com.digitalasset.canton.config.{
   NonNegativeDuration,
   SynchronizerTimeTrackerConfig,
 }
+import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
   BaseInspection,
@@ -99,14 +101,46 @@ private[console] object ParticipantCommands {
         requestHeaders: Map[String, String],
         logger: TracedLogger,
     ): ConsoleCommandResult[String] =
+      runner
+        .adminCommand(
+          ParticipantAdminCommands.Package
+            .UploadDar(
+              path,
+              vetAllPackages,
+              synchronizeVetting,
+              description,
+              expectedMainPackageId,
+              requestHeaders,
+              logger,
+            )
+        )
+        .flatMap {
+          case Seq(darId) =>
+            CommandSuccessful(darId)
+          case Seq() =>
+            GenericCommandError(
+              "Uploading the DAR unexpectedly did not return a DAR ID"
+            )
+          case many =>
+            GenericCommandError(
+              s"Uploading the DAR unexpectedly returned multiple DAR IDs: $many"
+            )
+        }
+
+    def upload_many(
+        runner: AdminCommandRunner,
+        paths: Seq[String],
+        vetAllPackages: Boolean,
+        synchronizeVetting: Boolean,
+        requestHeaders: Map[String, String],
+        logger: TracedLogger,
+    ): ConsoleCommandResult[Seq[String]] =
       runner.adminCommand(
         ParticipantAdminCommands.Package
           .UploadDar(
-            path,
+            paths.map(DarData(_, "", "")),
             vetAllPackages,
             synchronizeVetting,
-            description,
-            expectedMainPackageId,
             requestHeaders,
             logger,
           )
@@ -403,11 +437,11 @@ class LocalParticipantTestingGroup(
   The filter commands will check if the target value ``contains`` the given string.
   The arguments can be started with ``^`` such that ``startsWith`` is used for comparison or ``!`` to use ``equals``.
   The ``activeSet`` argument allows to restrict the search to the active contract set.
+  For contract ID filtration only exact match is supported.
   """)
   def pcs_search(
       synchronizerAlias: SynchronizerAlias,
-      // filter by id (which is txId::discriminator, so can be used to look for both)
-      filterId: String = "",
+      exactId: String = "",
       filterPackage: String = "",
       filterTemplate: String = "",
       // only include active contracts
@@ -419,7 +453,7 @@ class LocalParticipantTestingGroup(
     val pcs = state_inspection
       .findContracts(
         synchronizerAlias,
-        toOpt(filterId),
+        toOpt(exactId),
         toOpt(filterPackage),
         toOpt(filterTemplate),
         limit.value,
@@ -431,8 +465,7 @@ class LocalParticipantTestingGroup(
   @Help.Summary("Lookup of active contracts", FeatureFlag.Testing)
   def acs_search(
       synchronizerAlias: SynchronizerAlias,
-      // filter by id (which is txId::discriminator, so can be used to look for both)
-      filterId: String = "",
+      exactId: String = "",
       filterPackage: String = "",
       filterTemplate: String = "",
       filterStakeholder: Option[PartyId] = None,
@@ -444,7 +477,7 @@ class LocalParticipantTestingGroup(
     check(FeatureFlag.Testing) {
       pcs_search(
         synchronizerAlias,
-        filterId,
+        exactId,
         filterPackage,
         filterTemplate,
         activeSet = true,
@@ -702,7 +735,7 @@ class LocalCommitmentsAdministrationGroup(
       start: Instant,
       end: Instant,
       counterParticipant: Option[ParticipantId] = None,
-  ): Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)] =
+  ): Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.HashedCommitmentType)] =
     access { node =>
       node.sync.stateInspection.findComputedCommitments(
         synchronizerAlias,
@@ -774,7 +807,7 @@ class CommitmentsAdministrationGroup(
       """
   )
   def open_commitment(
-      commitment: AcsCommitment.CommitmentType,
+      commitment: AcsCommitment.HashedCommitmentType,
       synchronizerId: SynchronizerId,
       timestamp: CantonTimestamp,
       counterParticipant: ParticipantId,
@@ -1460,7 +1493,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       )
     }
 
-    @Help.Summary("Upload a Dar to Canton")
+    @Help.Summary("Upload a DAR to Canton")
     @Help.Description("""Daml code is normally shipped as a Dar archive and must explicitly be uploaded to a participant.
         |A Dar is a collection of LF-packages, the native binary representation of Daml smart contracts.
         |
@@ -1500,6 +1533,54 @@ trait ParticipantAdministration extends FeatureFlagFilter {
               vetAllPackages = vetAllPackages,
               synchronizeVetting = synchronizeVetting,
               expectedMainPackageId = expectedMainPackageId,
+              requestHeaders = requestHeaders,
+              logger,
+            )
+            .toEither
+        } yield darId
+      }
+      if (synchronizeVetting && vetAllPackages) {
+        packages.synchronize_vetting()
+      }
+      res
+    }
+
+    @Help.Summary("Upload many DARs to Canton")
+    @Help.Description("""Daml code is normally shipped as a Dar archive and must explicitly be uploaded to a participant.
+        |A Dar is a collection of LF-packages, the native binary representation of Daml smart contracts.
+        |
+        |The Dars can be provided either as a link to a local file or as a URL. If a URL is provided, then
+        |any request headers can be provided as a map. The Dars will be downloaded and then uploaded to the participant.
+        |
+        |In order to use Daml templates on a participant, the Dars must first be uploaded and then
+        |vetted by the participant. Vetting will ensure that other participants can check whether they
+        |can actually send a transaction referring to a particular Daml package and participant.
+        |Vetting is done by registering a VettedPackages topology transaction with the topology manager.
+        |By default, vetting happens automatically and this command waits for
+        |the vetting transaction to be successfully registered on all connected synchronizers.
+        |This is the safe default setting minimizing race conditions.
+        |
+        |If vetAllPackages is true (default), the packages will all be vetted on all synchronizers the participant is registered.
+        |If synchronizeVetting is true (default), then the command will block until the participant has observed the vetting transactions to be registered with the synchronizer.
+        |
+        |Note that synchronize vetting might block on permissioned synchronizers that do not just allow participants to update the topology state.
+        |In such cases, synchronizeVetting should be turned off.
+        |Synchronize vetting can be invoked manually using $participant.package.synchronize_vettings()
+        |""")
+    def upload_many(
+        paths: Seq[String],
+        vetAllPackages: Boolean = true,
+        synchronizeVetting: Boolean = true,
+        requestHeaders: Map[String, String] = Map(),
+    ): Seq[String] = {
+      val res = consoleEnvironment.runE {
+        for {
+          darId <- ParticipantCommands.dars
+            .upload_many(
+              runner,
+              paths,
+              vetAllPackages = vetAllPackages,
+              synchronizeVetting = synchronizeVetting,
               requestHeaders = requestHeaders,
               logger,
             )

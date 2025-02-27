@@ -12,7 +12,7 @@ import com.daml.error.utils.DecodedCantonError
 import com.daml.metrics.api.MetricHandle.Gauge
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.FloatingUpdate
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
@@ -41,20 +41,21 @@ import java.util.UUID
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, blocking}
 
-/** Tracker for in-flight submissions backed by the [[com.digitalasset.canton.participant.store.InFlightSubmissionStore]].
+/** Tracker for in-flight submissions backed by the
+  * [[com.digitalasset.canton.participant.store.InFlightSubmissionStore]].
   *
-  * A submission is in-flight if it is in the [[com.digitalasset.canton.participant.store.InFlightSubmissionStore]].
-  * The tracker registers a submission
-  * before the [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest]]
-  * is sent to the [[com.digitalasset.canton.sequencing.client.SequencerClient]] of a synchronizer.
-  * After the corresponding event has been published to the indexer,
-  * the submission will be removed from the [[com.digitalasset.canton.participant.store.InFlightSubmissionStore]] again.
-  * This happens normally as part of request processing after phase 7.
-  * If the submission has not been sequenced by the specified
-  * [[com.digitalasset.canton.participant.protocol.submission.UnsequencedSubmission.timeout]],
-  * say because the submission was lost on the way to the sequencer,
-  * the participant generates an appropriate update because the submission will never reach request processing.
-  * The latter must work even if the participant crashes (if run with persistence).
+  * A submission is in-flight if it is in the
+  * [[com.digitalasset.canton.participant.store.InFlightSubmissionStore]]. The tracker registers a
+  * submission before the [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest]] is sent
+  * to the [[com.digitalasset.canton.sequencing.client.SequencerClient]] of a synchronizer. After
+  * the corresponding event has been published to the indexer, the submission will be removed from
+  * the [[com.digitalasset.canton.participant.store.InFlightSubmissionStore]] again. This happens
+  * normally as part of request processing after phase 7. If the submission has not been sequenced
+  * by the specified
+  * [[com.digitalasset.canton.participant.protocol.submission.UnsequencedSubmission.timeout]], say
+  * because the submission was lost on the way to the sequencer, the participant generates an
+  * appropriate update because the submission will never reach request processing. The latter must
+  * work even if the participant crashes (if run with persistence).
   */
 class InFlightSubmissionTracker(
     store: Eval[InFlightSubmissionStore],
@@ -92,11 +93,11 @@ class InFlightSubmissionTracker(
 
   /** Create and initialize an InFlightSubmissionSynchronizerTracker for synchronizerId.
     *
-    * Steps of initialization:
-    * Deletes the published, sequenced in-flight submissions with sequencing timestamps up to the given bound
-    * and informs the [[CommandDeduplicator]] about the published events.
-    * Prepares the unsequencedSubmissionMap with all the in-flight, unsequenced entries
-    * and schedules for them potential publication at the retrieved timeout (or immediately if already in the past).
+    * Steps of initialization: Deletes the published, sequenced in-flight submissions with
+    * sequencing timestamps up to the given bound and informs the [[CommandDeduplicator]] about the
+    * published events. Prepares the unsequencedSubmissionMap with all the in-flight, unsequenced
+    * entries and schedules for them potential publication at the retrieved timeout (or immediately
+    * if already in the past).
     */
   def inFlightSubmissionSynchronizerTracker(
       synchronizerId: SynchronizerId,
@@ -117,7 +118,7 @@ class InFlightSubmissionTracker(
     def pullTimelyRejectEvent(
         messageId: MessageId,
         recordTime: CantonTimestamp,
-    ): Option[Update] =
+    ): Option[FloatingUpdate] =
       unsequencedSubmissionMap
         .pull(messageId)
         .map { entry =>
@@ -184,12 +185,12 @@ class InFlightSubmissionSynchronizerTracker(
 )(implicit val ec: ExecutionContext)
     extends NamedLogging {
 
-  /** Registers the given submission as being in flight and unsequenced
-    * unless there already is an in-flight submission for the same change ID
-    * or the timeout has already elapsed.
-    * It is expected that client always calls this function with a unique messageUuid
+  /** Registers the given submission as being in flight and unsequenced unless there already is an
+    * in-flight submission for the same change ID or the timeout has already elapsed. It is expected
+    * that client always calls this function with a unique messageUuid
     *
-    * @return The actual deduplication offset that is being used for deduplication for this submission
+    * @return
+    *   The actual deduplication offset that is being used for deduplication for this submission
     */
   def register(
       submission: InFlightSubmission[UnsequencedSubmission],
@@ -274,7 +275,9 @@ class InFlightSubmissionSynchronizerTracker(
       )
   // nothing else to do: the scheduled task will execute in ROP, and will produce no event
 
-  /** @see com.digitalasset.canton.participant.store.InFlightSubmissionStore.observeSequencedRootHash */
+  /** @see
+    *   com.digitalasset.canton.participant.store.InFlightSubmissionStore.observeSequencedRootHash
+    */
   def observeSequencedRootHash(
       rootHash: RootHash,
       submission: SequencedSubmission,
@@ -324,8 +327,9 @@ class InFlightSubmissionSynchronizerTracker(
           .discard
       }
 
-  /** Updates the unsequenced submission corresponding to the [[com.digitalasset.canton.sequencing.protocol.DeliverError]],
-    * if any, using [[com.digitalasset.canton.participant.protocol.submission.SubmissionTrackingData.updateOnNotSequenced]].
+  /** Updates the unsequenced submission corresponding to the
+    * [[com.digitalasset.canton.sequencing.protocol.DeliverError]], if any, using
+    * [[com.digitalasset.canton.participant.protocol.submission.SubmissionTrackingData.updateOnNotSequenced]].
     */
   def observeDeliverError(
       deliverError: DeliverError
@@ -391,7 +395,7 @@ class InFlightSubmissionSynchronizerTracker(
   private def pullTimelyRejectEvent(
       messageId: MessageId,
       recordTime: CantonTimestamp,
-  ): Option[Update] =
+  ): Option[FloatingUpdate] =
     unsequencedSubmissionMap
       .pull(messageId)
       .map { entry =>
@@ -414,14 +418,18 @@ object InFlightSubmissionTracker {
       lowerBound: CantonTimestamp,
   ) extends InFlightSubmissionTrackerError
 
-  /** For in-memory tracking the unsequenced submissions.
-    * If submission is sequenced, the entry is removed.
-    * If submission is rejected before sequencing, the entry will be removed and a corresponding floating rejection update will be published.
-    * On crash recovery the internal state of this map needs to be recovered from persistence, which should be preceded by post-publish
-    * part of the crash recovery (getting the InFlightSubmissionStore uptodate with the ledger-end)
+  /** For in-memory tracking the unsequenced submissions. If submission is sequenced, the entry is
+    * removed. If submission is rejected before sequencing, the entry will be removed and a
+    * corresponding floating rejection update will be published. On crash recovery the internal
+    * state of this map needs to be recovered from persistence, which should be preceded by
+    * post-publish part of the crash recovery (getting the InFlightSubmissionStore uptodate with the
+    * ledger-end)
     *
-    * @param sizeWarnThreshold defines an upper size-limit for the in-memory storage which above WARN messages will be emitted
-    * @param unsequencedInFlightGauge for tracking the size of the in-memory storage
+    * @param sizeWarnThreshold
+    *   defines an upper size-limit for the in-memory storage which above WARN messages will be
+    *   emitted
+    * @param unsequencedInFlightGauge
+    *   for tracking the size of the in-memory storage
     */
   final class UnsequencedSubmissionMap[T](
       synchronizerId: SynchronizerId,

@@ -27,10 +27,10 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
-/** Sends confirmation result messages to the informee participants of a request.
-  * The result message contains only one envelope addressed to a given informee participant.
-  * If the underlying request has several root hashes and is therefore rejected,
-  * the VerdictSender will send several batches (one per root hash).
+/** Sends confirmation result messages to the informee participants of a request. The result message
+  * contains only one envelope addressed to a given informee participant. If the underlying request
+  * has several root hashes and is therefore rejected, the VerdictSender will send several batches
+  * (one per root hash).
   */
 private[mediator] trait VerdictSender {
   def sendResult(
@@ -48,10 +48,11 @@ private[mediator] trait VerdictSender {
       sendVerdict: Boolean,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
-  /** Mediator rejects are important for situations where malformed mediator confirmation request or RHMs can have valid state
-    * and thus consume resources on the participant side. A prompt rejection will allow to free these resources.
-    * RHMs are used in this method to identify the affected participants that may have received them and to whom
-    * the rejects will be addressed to.
+  /** Mediator rejects are important for situations where malformed mediator confirmation request or
+    * RHMs can have valid state and thus consume resources on the participant side. A prompt
+    * rejection will allow to free these resources. RHMs are used in this method to identify the
+    * affected participants that may have received them and to whom the rejects will be addressed
+    * to.
     */
   def sendReject(
       requestId: RequestId,

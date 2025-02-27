@@ -20,13 +20,20 @@ import java.util.concurrent.TimeUnit
 
 /** Traffic control configuration values - stored as dynamic synchronizer parameters
   *
-  * @param maxBaseTrafficAmount maximum amount of bytes per maxBaseTrafficAccumulationDuration acquired as "free" traffic per member
-  * @param readVsWriteScalingFactor multiplier used to compute cost of an event. In per ten-mil (1 / 10 000). Defaults to 200 (=2%).
-  *                                 A multiplier of 2% means the base cost will be increased by 2% to produce the effective cost.
-  * @param maxBaseTrafficAccumulationDuration maximum amount of time the base rate traffic will accumulate before being capped
-  *                                            The minimum granularity is one microsecond. Values below will be rounded up to one microsecond.
-  * @param setBalanceRequestSubmissionWindowSize time window used to compute the max sequencing time set for balance update requests
-  *                                               The max sequencing time chosen will be the upper bound of the time window at which the request is submitted
+  * @param maxBaseTrafficAmount
+  *   maximum amount of bytes per maxBaseTrafficAccumulationDuration acquired as "free" traffic per
+  *   member
+  * @param readVsWriteScalingFactor
+  *   multiplier used to compute cost of an event. In per ten-mil (1 / 10 000). Defaults to 200
+  *   (=2%). A multiplier of 2% means the base cost will be increased by 2% to produce the effective
+  *   cost.
+  * @param maxBaseTrafficAccumulationDuration
+  *   maximum amount of time the base rate traffic will accumulate before being capped The minimum
+  *   granularity is one microsecond. Values below will be rounded up to one microsecond.
+  * @param setBalanceRequestSubmissionWindowSize
+  *   time window used to compute the max sequencing time set for balance update requests The max
+  *   sequencing time chosen will be the upper bound of the time window at which the request is
+  *   submitted
   */
 final case class TrafficControlParameters(
     maxBaseTrafficAmount: NonNegativeLong = DefaultBaseTrafficAmount,

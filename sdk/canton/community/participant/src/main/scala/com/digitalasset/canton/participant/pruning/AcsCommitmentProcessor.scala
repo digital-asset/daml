@@ -44,7 +44,10 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.RunningCommitments
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
-import com.digitalasset.canton.protocol.messages.AcsCommitment.CommitmentType
+import com.digitalasset.canton.protocol.messages.AcsCommitment.{
+  CommitmentType,
+  HashedCommitmentType,
+}
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
@@ -90,93 +93,82 @@ import scala.math.Ordering.Implicits.*
 
 /** Computes, sends, receives and compares ACS commitments
   *
-  *  In more detail:
+  * In more detail:
   *
-  *  <ol>
-  *   <li>The class computes the participant's ACS commitments (for each of the participant's "counter-participants", i.e.,
-  *     participants who host a stakeholder of some contract in participant's ACS). The commitments are computed at
-  *     specified (sequencer) times that are configured by the synchronizer and are uniform for all participants connected to
-  *     the synchronizer. We refer to them as "commitment ticks". The commitments must be computed "online", i.e., after
-  *     the state of the ACS at a commitment tick becomes known.
+  *   - The class computes the participant's ACS commitments (for each of the participant's
+  *     "counter-participants", i.e., participants who host a stakeholder of some contract in
+  *     participant's ACS). The commitments are computed at specified (sequencer) times that are
+  *     configured by the synchronizer and are uniform for all participants connected to the
+  *     synchronizer. We refer to them as "commitment ticks". The commitments must be computed
+  *     "online", i.e., after the state of the ACS at a commitment tick becomes known.
   *
-  *   <li>After the commitments for a tick are computed, they should be distributed to the counter-participants; but
-  *     this is best-effort.
-  *   </li>
+  *   - After the commitments for a tick are computed, they should be distributed to the
+  *     counter-participants; but this is best-effort.
   *
-  *   <li>The class processes the ACS commitments from counter-participants (method `processBatch`):
+  *   - The class processes the ACS commitments from counter-participants (method `processBatch`):
+  *     - it checks that the commitments are properly signed
+  *     - it checks that they match the locally computed ACS commitments
   *
-  *     <ol>
-  *      <li>it checks that the commitments are properly signed
-  *      </li>
-  *      <li>it checks that they match the locally computed ACS commitments
-  *      </li>
-  *     </ol>
-  *   </li>
+  *   - The class must define crash recovery points, such that the class itself combined with
+  *     startup procedures of the node jointly ensure that the participant doesn't neglect to send
+  *     its ACS commitments or process the remote ones. We allow the participant to send the same
+  *     commitments multiple times in case of a crash, and we do allow the participant to not send
+  *     some commitments in some edge cases due to crashes.
   *
-  *   <li>The class must define crash recovery points, such that the class itself combined with startup procedures of
-  *      the node jointly ensure that the participant doesn't neglect to send its ACS commitments or process the remote
-  *      ones. We allow the participant to send the same commitments multiple times in case of a crash, and we do allow
-  *      the participant to not send some commitments in some edge cases due to crashes.
-  *   </li>
+  *   - Finally, the class supports pruning: it computes the safe timestamps for participant
+  *     pruning, such that, after pruning, non-repudiation still holds for any contract in the ACS
   *
-  *   <li>Finally, the class supports pruning: it computes the safe timestamps for participant pruning, such
-  *     that, after pruning, non-repudiation still holds for any contract in the ACS
-  *   </li>
-  *  </ol>
+  * The first four pieces of class functionality must be appropriately synchronized:
   *
-  *  The first four pieces of class functionality must be appropriately synchronized:
+  *   - ACS commitments for a tick cannot be completely processed before the local commitment for
+  *     that tick is computed. Note that the class cannot make many assumptions on the received
+  *     commitments: the counter-participants can send them in any order, and they can either
+  *     precede or lag behind the local commitment computations.
   *
-  *  <ol>
-  *   <li>ACS commitments for a tick cannot be completely processed before the local commitment for that tick is computed.
-  *      Note that the class cannot make many assumptions on the received commitments: the counter-participants can send
-  *      them in any order, and they can either precede or lag behind the local commitment computations.
-  *   </li>
+  *   - The recovery points must be chosen such that the participant computes its local commitments
+  *     correctly, and never misses to compute a local commitment for every tick. Otherwise, the
+  *     participant will start raising false alarms when remote commitments are received (either
+  *     because it computes the wrong thing, or because it doesn't compute anything at all and thus
+  *     doesn't expect to receive anything).
   *
-  *   <li>The recovery points must be chosen such that the participant computes its local commitments correctly, and
-  *     never misses to compute a local commitment for every tick. Otherwise, the participant will start raising false
-  *     alarms when remote commitments are received (either because it computes the wrong thing, or because it doesn't
-  *     compute anything at all and thus doesn't expect to receive anything).
-  *   </li>
-  *  </ol>
+  * Additionally, the startup procedure must ensure that:
   *
-  *  Additionally, the startup procedure must ensure that:
+  *   - [[processBatch]] is called for every sequencer message that contains commitment messages and
+  *     whose handling hasn't yet completed successfully
+  *   - publish is called for every change to the ACS after
+  *     [[com.digitalasset.canton.participant.store.IncrementalCommitmentStore.watermark]]. where
+  *     the request counter is to be used as a tie-breaker.
   *
-  *  <ol>
-  *    <li> [[processBatch]] is called for every sequencer message that contains commitment messages and whose handling
-  *    hasn't yet completed successfully
-  *    <li> publish is called for every change to the ACS after
-  *    [[com.digitalasset.canton.participant.store.IncrementalCommitmentStore.watermark]]. where the request counter
-  *    is to be used as a tie-breaker.
-  *    </li>
-  *  </ol>
+  * On first time startup (no entries in database) a single outstanding row will be generated for a
+  * previous fictive period, of length one reconciliation interval; this is to generate a starting
+  * point going forward.
   *
-  * On first time startup (no entries in database) a single outstanding row will be generated for a previous fictive period, of length one reconciliation interval;
-  * this is to generate a starting point going forward.
+  * Finally, the class requires the reconciliation interval to be a multiple of 1 second.
   *
-  *  Finally, the class requires the reconciliation interval to be a multiple of 1 second.
+  * The ``commitmentPeriodObserver`` is called whenever a commitment is computed for a period,
+  * except if the participant crashes. If publish is called multiple times for the same timestamp
+  * (once before a crash and once after the recovery), the observer may also be called twice for the
+  * same period.
   *
-  * The ``commitmentPeriodObserver`` is called whenever a commitment is computed for a period, except if the participant crashes.
-  * If publish is called multiple times for the same timestamp (once before a crash and once after the recovery),
-  * the observer may also be called twice for the same period.
+  * When a participant's ACS commitment processor falls behind some counter participants'
+  * processors, the participant has the option to enter a so-called "catch-up mode". In catch-up
+  * mode, the participant skips sending and checking commitments for some reconciliation intervals.
+  * The parameter governing catch-up mode is:
   *
-  * When a participant's ACS commitment processor falls behind some counter participants' processors, the participant
-  * has the option to enter a so-called "catch-up mode". In catch-up mode, the participant skips sending and
-  * checking commitments for some reconciliation intervals. The parameter governing catch-up mode is:
+  * @param maxCommitmentSendDelayMillis
+  *   Optional parameter to specify the maximum delay in milliseconds for sending out commitments.
+  *   To avoid a spike in network activity at the end of each reconciliation period, commitment
+  *   sending is delayed by default with a random amount uniformly distributed between 0 and max.
+  *   Commitment sending should not be delayed by more than a reconciliation interval, for two
+  *   reasons: (1) it'll overlap with the next round of commitment sends, defeating somewhat the
+  *   purpose of delaying commitment sends; and (2) and might not interact well with the catch-up
+  *   mode, depending on the parameters there. If this is not specified, the maximum delay is
+  *   testingConfig.maxCommitmentSendDelayMillis if specified, otherwise the maximum delay is 2/3 of
+  *   the reconciliation interval.
   *
-  * @param maxCommitmentSendDelayMillis Optional parameter to specify the maximum delay in milliseconds for sending out
-  *                                  commitments. To avoid a spike in network activity at the end of each reconciliation
-  *                                  period, commitment sending is delayed by default with a random amount uniformly
-  *                                  distributed between 0 and max.  Commitment sending should not be delayed by more
-  *                                  than a reconciliation interval, for two reasons: (1) it'll overlap with the
-  *                                  next round of commitment sends, defeating somewhat the purpose of delaying commitment
-  *                                  sends; and (2) and might not interact well with the catch-up mode, depending on the
-  *                                  parameters there.
-  *                                  If this is not specified, the maximum delay is testingConfig.maxCommitmentSendDelayMillis
-  *                                  if specified, otherwise the maximum delay is 2/3 of the reconciliation interval.
-  *
-  *   The constructor of this class is private. Instances of this class can only be created using
-  *   [[AcsCommitmentProcessor.apply]], which in turn uses the Factory method in the companion object to ensure that
-  *   the class is properly initialized.
+  * The constructor of this class is private. Instances of this class can only be created using
+  * [[AcsCommitmentProcessor.apply]], which in turn uses the Factory method in the companion object
+  * to ensure that the class is properly initialized.
   */
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class AcsCommitmentProcessor private (
@@ -240,56 +232,64 @@ class AcsCommitmentProcessor private (
   private val rand = new scala.util.Random
 
   /** The sequencer timestamp for which we are ready to process remote commitments.
-    *     Continuously updated as new local commitments are computed.
-    *     All received remote commitments with the timestamp lower than this one will either have been processed or queued.
-    *     Note that we don't guarantee that every remote commitment will be processed once this moves. However, such
-    *     commitments will not be lost, as they will be put in the persistent buffer and get picked up by `processBuffered`
-    *     eventually.
+    *
+    * Continuously updated as new local commitments are computed. All received remote commitments
+    * with the timestamp lower than this one will either have been processed or queued. Note that we
+    * don't guarantee that every remote commitment will be processed once this moves. However, such
+    * commitments will not be lost, as they will be put in the persistent buffer and get picked up
+    * by `processBuffered` eventually.
     */
   private val readyForRemote: AtomicReference[Option[CantonTimestampSecond]] =
     new AtomicReference[Option[CantonTimestampSecond]](endLastProcessedPeriod)
 
-  /**  Denotes the last period queued for processing.
-    *  Always increasing because we schedule periods for processing in monotonically order of their timestamps.
+  /** Denotes the last period queued for processing. Always increasing because we schedule periods
+    * for processing in monotonically order of their timestamps.
     */
   @volatile private[this] var endOfLastPeriod: Option[CantonTimestampSecond] =
     endLastProcessedPeriod
 
-  /** End of the last period until which we have processed, sent and persisted all local and remote commitments.
-    *     It's accessed only through chained futures, such that all accesses are synchronized
+  /** End of the last period until which we have processed, sent and persisted all local and remote
+    * commitments. It's accessed only through chained futures, such that all accesses are
+    * synchronized
     */
   @volatile private[this] var endOfLastProcessedPeriod: Option[CantonTimestampSecond] =
     endLastProcessedPeriod
 
-  /** In contrast to `endOfLastProcessedPeriod`, during catch-up, a period is considered processed when its commitment
-    *     is computed, but not necessarily sent. Thus, we use a new variable `endOfLastProcessedPeriodDuringCatchUp`.
-    *     Used in `processCompletedPeriod` to compute the correct reconciliation interval to be processed.
+  /** In contrast to `endOfLastProcessedPeriod`, during catch-up, a period is considered processed
+    * when its commitment is computed, but not necessarily sent. Thus, we use a new variable
+    * `endOfLastProcessedPeriodDuringCatchUp`. Used in `processCompletedPeriod` to compute the
+    * correct reconciliation interval to be processed.
     */
   @volatile private[this] var endOfLastProcessedPeriodDuringCatchUp: Option[CantonTimestampSecond] =
     None
 
-  /** During a coarse-grained catch-up interval, [[runningCmtSnapshotsForCatchUp]] stores in memory the snapshots for the
-    * fine-grained reconciliation periods. In case of a commitment mismatch at the end of a catch-up interval, the
-    * participant uses these snapshots in the function [[sendCommitmentMessagesInCatchUpInterval]] to compute
-    * fine-grained commitments and send them to the counter-participant, which enables more precise detection of the
-    * interval when ACS divergence happened.
+  /** During a coarse-grained catch-up interval, [[runningCmtSnapshotsForCatchUp]] stores in memory
+    * the snapshots for the fine-grained reconciliation periods. In case of a commitment mismatch at
+    * the end of a catch-up interval, the participant uses these snapshots in the function
+    * [[sendCommitmentMessagesInCatchUpInterval]] to compute fine-grained commitments and send them
+    * to the counter-participant, which enables more precise detection of the interval when ACS
+    * divergence happened.
     */
   private val runningCmtSnapshotsForCatchUp =
     scala.collection.mutable.Map
       .empty[CommitmentPeriod, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType]]
 
-  /** A list containing the last timestamp for a received message per counter participant per synchronizer. */
+  /** A list containing the last timestamp for a received message per counter participant per
+    * synchronizer.
+    */
   private val counterParticipantLastMessage =
     TrieMap
       .empty[ParticipantId, CantonTimestamp]
 
-  /** a separate class that keeps track of multi hosted parties and if a period can be considered done */
+  /** a separate class that keeps track of multi hosted parties and if a period can be considered
+    * done
+    */
   @VisibleForTesting
   private[pruning] val multiHostedPartyTracker =
     new AcsCommitmentMultiHostedPartyTracker(participantId, timeouts, loggerFactory)
 
-  /** A future checking whether the node should enter catch-up mode by computing the catch-up timestamp.
-    * At most one future runs computing this
+  /** A future checking whether the node should enter catch-up mode by computing the catch-up
+    * timestamp. At most one future runs computing this
     */
   private var computingCatchUpTimestamp: FutureUnlessShutdown[Option[CantonTimestamp]] =
     FutureUnlessShutdown.pure(None)
@@ -304,7 +304,8 @@ class AcsCommitmentProcessor private (
   private val timestampsWithPotentialTopologyChanges =
     new AtomicReference[List[Traced[EffectiveTime]]](List())
 
-  /** Queue to serialize the access to the DB, to avoid serialization failures at SERIALIZABLE level */
+  /** Queue to serialize the access to the DB, to avoid serialization failures at SERIALIZABLE level
+    */
   private val dbQueue: SimpleExecutionQueue =
     new SimpleExecutionQueue(
       "acs-commitment-processor-queue",
@@ -389,13 +390,15 @@ class AcsCommitmentProcessor private (
       }
     )
 
-  /** Detects whether the participant is lagging too far behind (w.r.t. the catchUp config) in commitment computation.
-    * If lagging behind, the method returns a new catch-up timestamp, otherwise it returns None.
-    * It is up to the caller to update the [[catchUpToTimestamp]] accordingly.
+  /** Detects whether the participant is lagging too far behind (w.r.t. the catchUp config) in
+    * commitment computation. If lagging behind, the method returns a new catch-up timestamp,
+    * otherwise it returns None. It is up to the caller to update the [[catchUpToTimestamp]]
+    * accordingly.
     *
-    * Note that, even if the participant is not lagging too far behind, it does not mean it "caught up".
-    * In particular, if the participant's current timestamp is behind [[catchUpToTimestamp]], then the participant is
-    * still catching up. Please use the method [[catchUpInProgress]] to determine whether the participant has caught up.
+    * Note that, even if the participant is not lagging too far behind, it does not mean it "caught
+    * up". In particular, if the participant's current timestamp is behind [[catchUpToTimestamp]],
+    * then the participant is still catching up. Please use the method [[catchUpInProgress]] to
+    * determine whether the participant has caught up.
     */
   private def computeCatchUpTimestamp(
       completedPeriodTimestamp: CantonTimestamp,
@@ -528,49 +531,60 @@ class AcsCommitmentProcessor private (
     go()
   }
 
-  /** Event processing consists of two steps: one (primarily) for computing local commitments, and one for handling remote ones.
-    * This is the "local" processing, however, it does also process remote commitments in one case: when they arrive before the corresponding
-    * local ones have been computed (in which case they are buffered).
+  /** Event processing consists of two steps: one (primarily) for computing local commitments, and
+    * one for handling remote ones. This is the "local" processing, however, it does also process
+    * remote commitments in one case: when they arrive before the corresponding local ones have been
+    * computed (in which case they are buffered).
     *
     * The caller(s) must jointly ensure that:
-    * 1. [[publish]] is called with a strictly lexicographically increasing combination of timestamp/tiebreaker within
-    *    a "crash-epoch". I.e., the timestamp/tiebreaker combination may only decrease across participant crashes/restarts.
-    *    Note that the tie-breaker can change non-monotonically between two calls to publish. The tie-breaker is introduced
-    *    to handle repair requests, as these may cause several changes to have the same timestamp.
-    *    Actual ACS changes (e.g., due to transactions) use their request counter as the tie-breaker, while other
-    *    updates (e.g., heartbeats) that only update the current time can set the tie-breaker to 0
-    * 2. after publish is first called within a participant's "crash-epoch" with timestamp `ts` and tie-breaker `tb`, all subsequent changes
-    *    to the ACS are also published (no gaps), and in the record order
-    * 3. on startup, [[publish]] is called for all changes that are later than the watermark returned by
-    *    [[com.digitalasset.canton.participant.store.IncrementalCommitmentStore.watermark]]. It may also be called for
-    *    changes that are earlier than this timestamp (these calls will be ignored).
+    *   1. [[publish]] is called with a strictly lexicographically increasing combination of
+    *      timestamp/tiebreaker within a "crash-epoch". I.e., the timestamp/tiebreaker combination
+    *      may only decrease across participant crashes/restarts. Note that the tie-breaker can
+    *      change non-monotonically between two calls to publish. The tie-breaker is introduced to
+    *      handle repair requests, as these may cause several changes to have the same timestamp.
+    *      Actual ACS changes (e.g., due to transactions) use their request counter as the
+    *      tie-breaker, while other updates (e.g., heartbeats) that only update the current time can
+    *      set the tie-breaker to 0
+    *   1. after publish is first called within a participant's "crash-epoch" with timestamp `ts`
+    *      and tie-breaker `tb`, all subsequent changes to the ACS are also published (no gaps), and
+    *      in the record order
+    *   1. on startup, [[publish]] is called for all changes that are later than the watermark
+    *      returned by
+    *      [[com.digitalasset.canton.participant.store.IncrementalCommitmentStore.watermark]]. It
+    *      may also be called for changes that are earlier than this timestamp (these calls will be
+    *      ignored).
     *
-    * Processing is implemented as a [[com.digitalasset.canton.util.SimpleExecutionQueue]] and driven by publish calls
-    * made by the RecordOrderPublisher.
+    * Processing is implemented as a [[com.digitalasset.canton.util.SimpleExecutionQueue]] and
+    * driven by publish calls made by the RecordOrderPublisher.
     *
-    * ACS commitments at a tick become computable once an event with a timestamp larger than the tick appears
+    * ACS commitments at a tick become computable once an event with a timestamp larger than the
+    * tick appears
     *
-    * *** Catch-up logic ***
+    * =Catch-up logic=
     *
-    * The participant maintains a [[catchUpToTimestamp]], which records the timestamp to which the participant is performing
-    * a catch-up. `catchUpToTimestamp` is strictly increasing, and never decreases. If the participant's timestamp is
-    * past `catchUpToTimestamp`, then no catch-up is in progress.
+    * The participant maintains a [[catchUpToTimestamp]], which records the timestamp to which the
+    * participant is performing a catch-up. `catchUpToTimestamp` is strictly increasing, and never
+    * decreases. If the participant's timestamp is past `catchUpToTimestamp`, then no catch-up is in
+    * progress.
     *
-    * In the beginning of the processing, the participant computes a catch-up timestamp in [[computeCatchUpTimestamp]].
-    * [[computeCatchUpTimestamp]] checks whether the incoming commitments queue has commitments with timestamps that
-    * are ahead the participant's end of period timestamp more than a threshold.
-    * The participant correspondingly updates `catchUpToTimestamp` if the computation finishes before processing this
-    * period. This means, either all period processing considers the catch-up active, or not.  as part of the main
-    * processing in [[publish]]. [[checkAndTriggerCatchUpMode]] checks whether the participant received commitments
-    * from a period that's significantly ahead the participant's current period.
+    * In the beginning of the processing, the participant computes a catch-up timestamp in
+    * [[computeCatchUpTimestamp]]. [[computeCatchUpTimestamp]] checks whether the incoming
+    * commitments queue has commitments with timestamps that are ahead the participant's end of
+    * period timestamp more than a threshold. The participant correspondingly updates
+    * `catchUpToTimestamp` if the computation finishes before processing this period. This means,
+    * either all period processing considers the catch-up active, or not. as part of the main
+    * processing in [[publish]]. [[checkAndTriggerCatchUpMode]] checks whether the participant
+    * received commitments from a period that's significantly ahead the participant's current
+    * period.
     *
-    * During catch-up mode, the participant computes, stores and sends commitments to counter-participants only at
-    * catch-up interval boundaries, instead of at each reconciliation tick. In case of a commitment mismatch during
-    * catch-up at a catch-up interval boundary, the participant sends out commitments for each reconciliation
-    * interval covered by the catch-up period to those counter-participants (configurable)
-    *        (a) whose catch-up interval boundary commitments do not match
-    *        (b) *** default *** whose catch-up interval boundary commitments do not match or who haven't sent a
-    *        catch-up interval boundary commitment yet
+    * During catch-up mode, the participant computes, stores and sends commitments to
+    * counter-participants only at catch-up interval boundaries, instead of at each reconciliation
+    * tick. In case of a commitment mismatch during catch-up at a catch-up interval boundary, the
+    * participant sends out commitments for each reconciliation interval covered by the catch-up
+    * period to those counter-participants (configurable)
+    *   a. whose catch-up interval boundary commitments do not match
+    *   a. *** default *** whose catch-up interval boundary commitments do not match or who haven't
+    *      sent a catch-up interval boundary commitment yet
     */
   private def publishTick(toc: RecordTime, acsChangeF: () => FutureUnlessShutdown[AcsChange])(
       implicit traceContext: TraceContext
@@ -868,21 +882,24 @@ class AcsCommitmentProcessor private (
 
   /** Process incoming commitments.
     *
-    * The caller(s) must jointly ensure that all incoming commitments are passed to this method, in their order
-    * of arrival. Upon startup, the method must be called on all incoming commitments whose processing hasn't
-    * finished yet, including those whose processing has been aborted due to shutdown.
+    * The caller(s) must jointly ensure that all incoming commitments are passed to this method, in
+    * their order of arrival. Upon startup, the method must be called on all incoming commitments
+    * whose processing hasn't finished yet, including those whose processing has been aborted due to
+    * shutdown.
     *
-    *    There is no special catch-up logic on the incoming queue, because processing was never a bottleneck here.
-    *    However, the incoming queue is important because it gives us the condition to initiate catch-up by allowing us
-    *    to look at the timestamp of received commitments.
-    *    Should processing of incoming commitments become a bottleneck, we can do the following:
-    *    - to quickly detect a possible catch-up condition, we validate incoming commitments (including signature) as they
-    *    come and store them; the catch-up condition looks at the timestamp of incoming commitments in the queue
-    *    - to enable match checks of local and remote commitments, in a separate thread continue processing the commitments
-    *    by checking matches and buffering them if needed.
-    *      - during catch-up, the processing order is first commitments at catch-up boundaries in increasing timestamp order,
-    *      then other commitments in increasing timestamp order
-    *      - outside catch-up, process commitments as they come
+    * There is no special catch-up logic on the incoming queue, because processing was never a
+    * bottleneck here. However, the incoming queue is important because it gives us the condition to
+    * initiate catch-up by allowing us to look at the timestamp of received commitments.
+    *
+    * Should processing of incoming commitments become a bottleneck, we can do the following:
+    *   - to quickly detect a possible catch-up condition, we validate incoming commitments
+    *     (including signature) as they come and store them; the catch-up condition looks at the
+    *     timestamp of incoming commitments in the queue
+    *   - to enable match checks of local and remote commitments, in a separate thread continue
+    *     processing the commitments by checking matches and buffering them if needed.
+    *     - during catch-up, the processing order is first commitments at catch-up boundaries in
+    *       increasing timestamp order, then other commitments in increasing timestamp order
+    *     - outside catch-up, process commitments as they come
     */
   def processBatchInternal(
       timestamp: CantonTimestamp,
@@ -1083,10 +1100,10 @@ class AcsCommitmentProcessor private (
       .update(res.recordTime, res.delta, res.deleted)
       .map(_ => logger.debug(s"Persisted ACS commitments at ${res.recordTime} with $res"))
 
-  /** Store special empty commitment to remember we were in catch-up mode,
-    *  with the current participant as the counter-participant.
-    *  Because the special commitment have the current participant as counter-participant, they do not conflict
-    *  with "normal operation" commitments, which have other participants as counter-participants.
+  /** Store special empty commitment to remember we were in catch-up mode, with the current
+    * participant as the counter-participant. Because the special commitment have the current
+    * participant as counter-participant, they do not conflict with "normal operation" commitments,
+    * which have other participants as counter-participants.
     */
   private def persistCatchUpPeriod(period: CommitmentPeriod)(implicit
       traceContext: TraceContext
@@ -1103,7 +1120,7 @@ class AcsCommitmentProcessor private (
     } yield {
       val response = possibleCatchUpCmts.nonEmpty &&
         possibleCatchUpCmts.forall { case (_period, commitment) =>
-          commitment == AcsCommitmentProcessor.emptyCommitment
+          commitment == AcsCommitmentProcessor.hashedEmptyCommitment
         }
       logger.debug(
         s"Period $period is a catch-up period $response with the computed catch-up commitments $possibleCatchUpCmts"
@@ -1251,7 +1268,7 @@ class AcsCommitmentProcessor private (
   /* Logs all necessary messages and returns whether the remote commitment matches the local ones */
   private def matches(
       remote: AcsCommitment,
-      local: Iterable[(CommitmentPeriod, AcsCommitment.CommitmentType)],
+      local: Iterable[(CommitmentPeriod, AcsCommitment.HashedCommitmentType)],
       lastPruningTime: Option[CantonTimestamp],
       possibleCatchUp: Boolean,
   )(implicit traceContext: TraceContext): Boolean =
@@ -1266,7 +1283,7 @@ class AcsCommitmentProcessor private (
         // It could, however, happen that a counter-participant, perhaps maliciously, sends a commitment despite
         // not having received a commitment from us; in this case, we simply reply with an empty commitment, but we
         // issue a mismatch only if the counter-commitment was not empty
-        if (remote.commitment != LtHash16().getByteString())
+        if (remote.commitment != hashedEmptyCommitment)
           Errors.MismatchError.NoSharedContracts.Mismatch(synchronizerId, remote).report()
 
         // Due to the condition of this branch, in catch-up mode we don't reply with an empty commitment in between
@@ -1318,13 +1335,15 @@ class AcsCommitmentProcessor private (
     }
   }
 
-  /** Checks whether at the end of `completedPeriod` the commitments with the counter-participants match. In case of
-    * mismatch, sends fine-grained commitments to enable fine-grained mismatch detection.
+  /** Checks whether at the end of `completedPeriod` the commitments with the counter-participants
+    * match. In case of mismatch, sends fine-grained commitments to enable fine-grained mismatch
+    * detection.
     *
-    * @param filterInJustMismatches If true, send fine-grained commitments only to counter-participants from whom we
-    *                               have mismatching cmts at the catch-up boundary. If false, send fine-grained
-    *                               commitments to all counter-participants from whom we don't have cmts, or cmts do
-    *                               not match at the catch-up boundary.
+    * @param filterInJustMismatches
+    *   If true, send fine-grained commitments only to counter-participants from whom we have
+    *   mismatching cmts at the catch-up boundary. If false, send fine-grained commitments to all
+    *   counter-participants from whom we don't have cmts, or cmts do not match at the catch-up
+    *   boundary.
     */
   private def checkMatchAndMarkSafeOrFixDuringCatchUp(
       lastSentCatchUpCommitmentTimestamp: Option[CantonTimestampSecond],
@@ -1473,13 +1492,14 @@ class AcsCommitmentProcessor private (
     }
   }
 
-  /** Checks whether a participant whose processing timestamp is the end of the given period lags too far behind
-    * a counter participant.
-    * Lagging "too far behind" means that a received counter-commitment has a timestamp ahead of the participant's
-    * current timestamp by at least reconciliation interval len * [[catchIpIntervalSkip]] * [[laggingBehindCatchUpTrigger]].
-    * If reconciliation intervals are dynamic, the reconciliation interval len represents the interval len at the time
-    * when the catch-up decision is taken.
-    * @return The catch-up timestamp, if the node needs to catch-up, otherwise None.
+  /** Checks whether a participant whose processing timestamp is the end of the given period lags
+    * too far behind a counter participant. Lagging "too far behind" means that a received
+    * counter-commitment has a timestamp ahead of the participant's current timestamp by at least
+    * reconciliation interval len * [[catchIpIntervalSkip]] * [[laggingBehindCatchUpTrigger]]. If
+    * reconciliation intervals are dynamic, the reconciliation interval len represents the interval
+    * len at the time when the catch-up decision is taken.
+    * @return
+    *   The catch-up timestamp, if the node needs to catch-up, otherwise None.
     */
   private def laggingTooFarBehind(
       completedPeriodTimestamp: CantonTimestamp,
@@ -1530,7 +1550,7 @@ class AcsCommitmentProcessor private (
       msgs: Map[ParticipantId, AcsCommitment]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val items = msgs.map { case (pid, msg) =>
-      AcsCommitmentStore.CommitmentData(pid, msg.period, msg.commitment)
+      AcsCommitmentStore.ParticipantCommitmentData(pid, msg.period, msg.commitment)
     }
     NonEmpty.from(items.toList).fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
   }
@@ -1606,15 +1626,15 @@ class AcsCommitmentProcessor private (
     }
   }
 
-  /** Computes and sends commitment messages to counter-participants for all (period,snapshot) pairs in
-    * [[runningCmtSnapshotsForCatchUp]] for the last catch-up interval.
-    * The counter-participants are by default all counter-participant at the end of each interval, to which we apply the
-    * filters `filterInParticipantId` and `filterOutParticipantId`.
-    * These snapshots should cover the last catch-up interval, namely between `fromExclusive` to `toInclusive`,
-    * otherwise we throw an [[IllegalStateException]].
-    * The caller should ensure that `fromExclusive` and `toInclusive` represent valid reconciliation ticks.
-    * If `fromExclusive` < `toInclusive`, we throw an [[IllegalStateException]].
-    * If `fromExclusive` and/or `toInclusive` are None, they get the value CantonTimestampSecond.MinValue.
+  /** Computes and sends commitment messages to counter-participants for all (period,snapshot) pairs
+    * in [[runningCmtSnapshotsForCatchUp]] for the last catch-up interval. The counter-participants
+    * are by default all counter-participant at the end of each interval, to which we apply the
+    * filters `filterInParticipantId` and `filterOutParticipantId`. These snapshots should cover the
+    * last catch-up interval, namely between `fromExclusive` to `toInclusive`, otherwise we throw an
+    * [[IllegalStateException]]. The caller should ensure that `fromExclusive` and `toInclusive`
+    * represent valid reconciliation ticks. If `fromExclusive` < `toInclusive`, we throw an
+    * [[IllegalStateException]]. If `fromExclusive` and/or `toInclusive` are None, they get the
+    * value CantonTimestampSecond.MinValue.
     */
   private def sendCommitmentMessagesInCatchUpInterval(
       fromExclusive: Option[CantonTimestampSecond],
@@ -1711,8 +1731,8 @@ class AcsCommitmentProcessor private (
       .sequence_
   }
 
-  /** takes a period and set of participants, handles splitting and conversion to NonEmpty
-    * does nothing if the period is non-valid or the participant set is empty.
+  /** takes a period and set of participants, handles splitting and conversion to NonEmpty does
+    * nothing if the period is non-valid or the participant set is empty.
     */
   private def MarkOutstandingIfNonEmpty(
       completedPeriod: CommitmentPeriod,
@@ -1734,7 +1754,7 @@ class AcsCommitmentProcessor private (
     } yield ()
   private def markPeriods(
       cmt: AcsCommitment,
-      commitments: Iterable[(CommitmentPeriod, CommitmentType)],
+      commitments: Iterable[(CommitmentPeriod, HashedCommitmentType)],
       lastPruningTime: Option[PruningStatus],
       possibleCatchUp: Boolean,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
@@ -1811,6 +1831,8 @@ object AcsCommitmentProcessor extends HasLoggerName {
     ) => FutureUnlessShutdown[Unit]
 
   val emptyCommitment: AcsCommitment.CommitmentType = LtHash16().getByteString()
+  val hashedEmptyCommitment: AcsCommitment.HashedCommitmentType =
+    AcsCommitment.hashCommitment(emptyCommitment)
 
   def apply(
       synchronizerId: SynchronizerId,
@@ -1924,10 +1946,15 @@ object AcsCommitmentProcessor extends HasLoggerName {
 
   /** A snapshot of ACS commitments per set of stakeholders
     *
-    * @param recordTime The timestamp and tie-breaker of the snapshot
-    * @param active     Maps stakeholders to the commitment to their shared ACS, if the shared ACS is not empty
-    * @param delta      A sub-map of active with those stakeholders whose commitments have changed since the last snapshot
-    * @param deleted    Stakeholder sets whose ACS has gone to empty since the last snapshot (no longer active)
+    * @param recordTime
+    *   The timestamp and tie-breaker of the snapshot
+    * @param active
+    *   Maps stakeholders to the commitment to their shared ACS, if the shared ACS is not empty
+    * @param delta
+    *   A sub-map of active with those stakeholders whose commitments have changed since the last
+    *   snapshot
+    * @param deleted
+    *   Stakeholder sets whose ACS has gone to empty since the last snapshot (no longer active)
     */
   final case class CommitmentSnapshot(
       recordTime: RecordTime,
@@ -1953,7 +1980,8 @@ object AcsCommitmentProcessor extends HasLoggerName {
     @volatile private var rt: RecordTime = initRt
     private val deltaB = Map.newBuilder[SortedSet[LfPartyId], LtHash16]
 
-    /** The latest (immutable) snapshot. Taking the snapshot also garbage collects empty commitments.
+    /** The latest (immutable) snapshot. Taking the snapshot also garbage collects empty
+      * commitments.
       */
     def snapshot(): CommitmentSnapshot = {
 
@@ -2043,14 +2071,15 @@ object AcsCommitmentProcessor extends HasLoggerName {
     def watermark: RecordTime = rt
   }
 
-  /** Caches the commitments per participant and the commitments per stakeholder group in a period, in order to optimize
-    * the computation of commitments for the subsequent period.
-    * It optimizes the computation of a counter-participant commitments when at most half of the stakeholder commitments
-    * shared with that participant change in the next period.
+  /** Caches the commitments per participant and the commitments per stakeholder group in a period,
+    * in order to optimize the computation of commitments for the subsequent period. It optimizes
+    * the computation of a counter-participant commitments when at most half of the stakeholder
+    * commitments shared with that participant change in the next period.
     *
-    * The class is thread-safe w.r.t. calling [[setCachedCommitments]] and [[computeCmtFromCached]]. However,
-    * for correct commitment computation, the caller needs to call [[setCachedCommitments]] before
-    * [[computeCmtFromCached]], because [[computeCmtFromCached]] uses the state set by [[setCachedCommitments]].
+    * The class is thread-safe w.r.t. calling [[setCachedCommitments]] and [[computeCmtFromCached]].
+    * However, for correct commitment computation, the caller needs to call [[setCachedCommitments]]
+    * before [[computeCmtFromCached]], because [[computeCmtFromCached]] uses the state set by
+    * [[setCachedCommitments]].
     */
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   class CachedCommitments(
@@ -2433,7 +2462,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
         final case class Mismatch(
             synchronizerId: SynchronizerId,
             remote: AcsCommitment,
-            local: Seq[(CommitmentPeriod, AcsCommitment.CommitmentType)],
+            local: Seq[(CommitmentPeriod, AcsCommitment.HashedCommitmentType)],
         ) extends Alarm(cause = "The local commitment does not match the remote commitment")
       }
 

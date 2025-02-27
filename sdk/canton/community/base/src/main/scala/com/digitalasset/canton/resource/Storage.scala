@@ -27,7 +27,6 @@ import com.digitalasset.canton.logging.{
   TracedLogger,
 }
 import com.digitalasset.canton.metrics.{DbQueueMetrics, DbStorageMetrics}
-import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.{LfContractId, LfGlobalKey, LfHash}
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
 import com.digitalasset.canton.resource.DbStorage.{DbAction, Profile}
@@ -40,6 +39,7 @@ import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.retry.RetryEither
 import com.digitalasset.canton.{LfPackageId, LfPartyId, RichGeneratedMessage}
+import com.digitalasset.daml.lf.data.Bytes
 import com.google.protobuf.ByteString
 import com.typesafe.config.{Config, ConfigValueFactory}
 import com.typesafe.scalalogging.Logger
@@ -69,8 +69,8 @@ import scala.language.implicitConversions
 
 /** Storage resources (e.g., a database connection pool) that must be released on shutdown.
   *
-  * The only common functionality defined is the shutdown through AutoCloseable.
-  * Using storage objects after shutdown is unsafe; thus, they should only be closed when they're ready for
+  * The only common functionality defined is the shutdown through AutoCloseable. Using storage
+  * objects after shutdown is unsafe; thus, they should only be closed when they're ready for
   * garbage collection.
   */
 sealed trait Storage extends CloseableHealthComponent with AtomicHealthComponent {
@@ -191,10 +191,9 @@ trait DbStorage extends Storage { self: NamedLogging =>
 
   object DbStorageConverters {
 
-    /** We use `bytea` in Postgres and `binary large object` in H2.
-      * The reason is that starting from version 2.0, H2 imposes a limit of 1M
-      * for the size of a `bytea`. Hence, depending on the profile, SetParameter
-      * and GetResult for `Array[Byte]` are different for H2 and Postgres.
+    /** We use `bytea` in Postgres and `binary large object` in H2. The reason is that starting from
+      * version 2.0, H2 imposes a limit of 1M for the size of a `bytea`. Hence, depending on the
+      * profile, SetParameter and GetResult for `Array[Byte]` are different for H2 and Postgres.
       */
     private lazy val byteArraysAreBlobs = profile match {
       case _: H2 => true
@@ -229,8 +228,8 @@ trait DbStorage extends Storage { self: NamedLogging =>
       if (bytes != null) new SerialBlob(bytes) else null
   }
 
-  /** Returns database specific limit [offset] clause.
-    * Safe to use in a select slick query with #$... interpolation
+  /** Returns database specific limit [offset] clause. Safe to use in a select slick query with
+    * #$... interpolation
     */
   def limit(numberOfItems: Int, skipItems: Long = 0L): String = profile match {
     case _ => s"limit $numberOfItems" + (if (skipItems != 0L) s" offset $skipItems" else "")
@@ -240,8 +239,8 @@ trait DbStorage extends Storage { self: NamedLogging =>
   def limitSql(numberOfItems: Int, skipItems: Long = 0L): SQLActionBuilder =
     sql" #${limit(numberOfItems, skipItems)} "
 
-  /** Runs the given `query` transactionally with synchronous commit replication if
-    * the database provides the ability to configure synchronous commits per transaction.
+  /** Runs the given `query` transactionally with synchronous commit replication if the database
+    * provides the ability to configure synchronous commits per transaction.
     *
     * Currently only Postgres supports this.
     */
@@ -333,11 +332,10 @@ trait DbStorage extends Storage { self: NamedLogging =>
 
   /** Write-only action, possibly transactional
     *
-    * The action must be idempotent because it may be retried multiple times.
-    * Only the result of the last retry will be reported.
-    * If the action reports the number of rows changed,
-    * this number may be lower than actual number of affected rows
-    * because updates from earlier retries are not accounted.
+    * The action must be idempotent because it may be retried multiple times. Only the result of the
+    * last retry will be reported. If the action reports the number of rows changed, this number may
+    * be lower than actual number of affected rows because updates from earlier retries are not
+    * accounted.
     */
   def update[A](
       action: DBIOAction[A, NoStream, Effect.Write with Effect.Transactional],
@@ -346,8 +344,8 @@ trait DbStorage extends Storage { self: NamedLogging =>
   )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A] =
     runWrite(action, operationName, maxRetries)
 
-  /** Write-only action, possibly transactional
-    * The action must be idempotent because it may be retried multiple times.
+  /** Write-only action, possibly transactional The action must be idempotent because it may be
+    * retried multiple times.
     */
   def update_(
       action: DBIOAction[_, NoStream, Effect.Write with Effect.Transactional],
@@ -358,14 +356,13 @@ trait DbStorage extends Storage { self: NamedLogging =>
 
   /** Query and update in a single action.
     *
-    * Note that the action is not transactional by default, but can be made so
-    * via using `queryAndUpdate(action.transactionally..withTransactionIsolation(Serializable), "name")`
+    * Note that the action is not transactional by default, but can be made so via using
+    * `queryAndUpdate(action.transactionally..withTransactionIsolation(Serializable), "name")`
     *
-    * The action must be idempotent because it may be retried multiple times.
-    * Only the result of the last retry will be reported.
-    * If the action reports the number of rows changed,
-    * this number may be lower than actual number of affected rows
-    * because updates from earlier retries are not accounted.
+    * The action must be idempotent because it may be retried multiple times. Only the result of the
+    * last retry will be reported. If the action reports the number of rows changed, this number may
+    * be lower than actual number of affected rows because updates from earlier retries are not
+    * accounted.
     */
   def queryAndUpdate[A](
       action: DBIOAction[A, NoStream, Effect.All],
@@ -420,9 +417,9 @@ object DbStorage {
     type WriteOnly[+A] = DBIOAction[A, NoStream, Effect.Write]
     type All[+A] = DBIOAction[A, NoStream, Effect.All]
 
-    /** Use `.andThen(unit)` instead of `.map(_ => ())` for DBIOActions
-      * because `andThen` doesn't need an execution context and can thus be executed more efficiently
-      * according to the slick documentation https://scala-slick.org/doc/3.3.3/dbio.html#sequential-execution
+    /** Use `.andThen(unit)` instead of `.map(_ => ())` for DBIOActions because `andThen` doesn't
+      * need an execution context and can thus be executed more efficiently according to the slick
+      * documentation https://scala-slick.org/doc/3.3.3/dbio.html#sequential-execution
       */
     val unit: DBIOAction[Unit, NoStream, Effect] = DBIOAction.successful(())
   }
@@ -465,12 +462,12 @@ object DbStorage {
     }
 
     implicit val absCoidGetResult: GetResult[LfContractId] = GetResult(r =>
-      ProtoConverter
-        .parseLfContractId(r.nextString())
-        .fold(err => throw new DbDeserializationException(err.toString), Predef.identity)
+      LfContractId
+        .fromBytes(Bytes.fromByteArray(r.nextBytes()))
+        .fold(err => throw new DbDeserializationException(err), Predef.identity)
     )
     implicit val absCoidSetParameter: SetParameter[LfContractId] =
-      (c, pp) => pp >> c.toLengthLimitedString
+      (c, pp) => pp.setBytes(c.toBytes.toByteArray)
 
     // We assume that the HexString of the hash of the global key will fit into 255 characters
     // Please consult the team, if you want to increase this limit
@@ -744,16 +741,17 @@ object DbStorage {
 
   }
 
-  /** Construct a bulk operation (e.g., insertion, deletion).
-    * The operation must not return a result set!
+  /** Construct a bulk operation (e.g., insertion, deletion). The operation must not return a result
+    * set!
     *
-    * The returned action will run as a single big database transaction. If the execution of the transaction results
-    * in deadlocks, you should order `values` according to some consistent order.
+    * The returned action will run as a single big database transaction. If the execution of the
+    * transaction results in deadlocks, you should order `values` according to some consistent
+    * order.
     *
-    * The returned update counts are merely lower bounds to the number of affected rows
-    * or SUCCESS_NO_INFO, because `Statement.executeBatch`
-    * reports partial execution of a batch as a `BatchUpdateException` with
-    * partial update counts therein and those update counts are not taken into consideration.
+    * The returned update counts are merely lower bounds to the number of affected rows or
+    * SUCCESS_NO_INFO, because `Statement.executeBatch` reports partial execution of a batch as a
+    * `BatchUpdateException` with partial update counts therein and those update counts are not
+    * taken into consideration.
     *
     * This operation is idempotent if the statement is idempotent for each value.
     */
@@ -825,7 +823,8 @@ object DbStorage {
 
   /** Construct an in clause for a given field.
     *
-    * @return An iterable of the grouped values and the in clause for the grouped values
+    * @return
+    *   An iterable of the grouped values and the in clause for the grouped values
     */
   def toInClause[T](
       field: String,

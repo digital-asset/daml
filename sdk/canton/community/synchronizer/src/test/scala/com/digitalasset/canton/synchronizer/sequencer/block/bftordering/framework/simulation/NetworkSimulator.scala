@@ -4,9 +4,13 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
+  P2PEndpoint,
+  PlainTextP2PEndpoint,
+}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.jdk.DurationConverters.ScalaDurationOps
 import scala.util.Random
@@ -129,6 +133,7 @@ class NetworkSimulator(
       fromPeer: SequencerId,
       toPeer: SequencerId,
       msg: Any,
+      traceContext: TraceContext,
   ): Unit = {
 
     if (canUseFaults && settings.packetLoss.flipCoin(random)) {
@@ -147,7 +152,7 @@ class NetworkSimulator(
       val delay = settings.oneWayDelay
         .generateRandomDuration(random)
       agenda.addOne(
-        ReceiveNetworkMessage(toPeer, msg),
+        ReceiveNetworkMessage(toPeer, msg, traceContext),
         delay,
       )
     }
@@ -156,8 +161,8 @@ class NetworkSimulator(
   def scheduleEstablishConnection(
       fromPeer: SequencerId,
       toPeer: SequencerId,
-      endpoint: Endpoint,
-      continuation: (Endpoint, SequencerId) => Unit,
+      endpoint: PlainTextP2PEndpoint,
+      continuation: (P2PEndpoint.Id, SequencerId) => Unit,
   ): Unit = {
     val delay = settings.establishConnectionDelay.generateRandomDuration(random)
     agenda.addOne(

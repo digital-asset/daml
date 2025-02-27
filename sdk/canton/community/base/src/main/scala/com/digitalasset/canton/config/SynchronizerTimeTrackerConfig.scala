@@ -11,21 +11,25 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
 /** Configuration for the synchronizer time tracker.
-  * @param observationLatency Even if the host and synchronizer clocks are perfectly synchronized there will always be some latency
-  *                           for an event to be delivered (storage, transmission, processing).
-  *                           If the current host time exceeds the next expected timestamp by this observation latency
-  *                           then we will request a time proof (unless we have received a recent event within the
-  *                           patience duration described below).
-  * @param patienceDuration We will only request a time proof if this given duration has elapsed since we last received
-  *                         an event (measured using the host clock). This prevents requesting timestamps when we
-  *                         are observing events from the synchronizer (particularly if the local node is catching up on
-  *                         old activity).
-  * @param minObservationDuration We will try to ensure that we receive a time at least once during this duration (measured
-  *                               using the host clock). This is practically useful if there is no other activity on
-  *                               the synchronizer as the sequencer client will then have an event to acknowledge allowing
-  *                               sequenced events to be pruned before this point. We may in the future use this to monitor
-  *                               clock skews between the host and synchronizer.
-  * @param timeRequest configuration for how we ask for a time proof.
+  * @param observationLatency
+  *   Even if the host and synchronizer clocks are perfectly synchronized there will always be some
+  *   latency for an event to be delivered (storage, transmission, processing). If the current host
+  *   time exceeds the next expected timestamp by this observation latency then we will request a
+  *   time proof (unless we have received a recent event within the patience duration described
+  *   below).
+  * @param patienceDuration
+  *   We will only request a time proof if this given duration has elapsed since we last received an
+  *   event (measured using the host clock). This prevents requesting timestamps when we are
+  *   observing events from the synchronizer (particularly if the local node is catching up on old
+  *   activity).
+  * @param minObservationDuration
+  *   We will try to ensure that we receive a time at least once during this duration (measured
+  *   using the host clock). This is practically useful if there is no other activity on the
+  *   synchronizer as the sequencer client will then have an event to acknowledge allowing sequenced
+  *   events to be pruned before this point. We may in the future use this to monitor clock skews
+  *   between the host and synchronizer.
+  * @param timeRequest
+  *   configuration for how we ask for a time proof.
   */
 final case class SynchronizerTimeTrackerConfig(
     observationLatency: NonNegativeFiniteDuration =

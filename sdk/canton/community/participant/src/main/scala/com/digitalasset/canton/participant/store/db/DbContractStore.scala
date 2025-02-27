@@ -163,7 +163,7 @@ class DbContractStore(
     storage.query(lookupQuery(ids), functionFullName)
 
   override def find(
-      filterId: Option[String],
+      exactId: Option[String],
       filterPackage: Option[String],
       filterTemplate: Option[String],
       limit: Int,
@@ -171,7 +171,7 @@ class DbContractStore(
 
     import DbStorage.Implicits.BuilderChain.*
 
-    // If filter is set returns a conjunctive (`and` prepended) constraint on attribute `name`.
+    // If filter is set: returns a conjunctive (`and` prepended) constraint on attribute `name`.
     // Otherwise empty sql action.
     def createConjunctiveFilter(
         name: String,
@@ -188,7 +188,10 @@ class DbContractStore(
 
     val pkgFilter = createConjunctiveFilter("package_id", filterPackage)
     val templateFilter = createConjunctiveFilter("template_id", filterTemplate)
-    val coidFilter = createConjunctiveFilter("contract_id", filterId)
+    val coidFilter: Option[SQLActionBuilderChain] = exactId.map { stringContractId =>
+      val lfContractId = LfContractId.assertFromString(stringContractId)
+      sql" contract_id = $lfContractId"
+    }
     val limitFilter = sql" #${storage.limit(limit)}"
 
     val whereClause =
@@ -282,7 +285,7 @@ class DbContractStore(
                  on conflict(contract_id) do nothing"""
             case _: DbStorage.Profile.H2 =>
               """merge into par_contracts c
-                 using (select cast(? as varchar) contract_id,
+                 using (select cast(? as binary varying) contract_id,
                                cast(? as binary large object) metadata,
                                cast(? as varchar) ledger_create_time,
                                cast(? as varchar) package_id,

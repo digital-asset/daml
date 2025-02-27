@@ -8,7 +8,11 @@ import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
+  P2PEndpoint,
+  PlainTextP2PEndpoint,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
   ModuleControl,
   SystemInitializer,
@@ -30,11 +34,12 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.{SequencerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.HexString
 import org.scalatest.Assertions.fail
 
 import scala.collection.mutable
 import scala.concurrent.duration.FiniteDuration
-import scala.util.Try
+import scala.util.{Random, Try}
 
 import SimulationModuleSystem.SimulationP2PNetworkManager.fakeSequencerId
 
@@ -45,8 +50,8 @@ object SimulationModuleSystem {
       collector: NodeCollector,
   ) extends ModuleRef[MessageT] {
 
-    override def asyncSend(msg: MessageT): Unit =
-      collector.addInternalEvent(name, ModuleControl.Send(msg))
+    override def asyncSendTraced(msg: MessageT)(implicit traceContext: TraceContext): Unit =
+      collector.addInternalEvent(name, ModuleControl.Send(msg, traceContext))
   }
 
   private[simulation] final case class SimulationP2PNetworkRef[P2PMessageT](
@@ -74,18 +79,23 @@ object SimulationModuleSystem {
 
     override def createNetworkRef[ActorContextT](
         _context: SimulationModuleContext[ActorContextT],
-        endpoint: Endpoint,
+        endpoint: P2PEndpoint,
     )(
-        onSequencerId: (Endpoint, SequencerId) => Unit
+        onSequencerId: (P2PEndpoint.Id, SequencerId) => Unit
     ): P2PNetworkRef[P2PMessageT] = {
       val sequencerId = fakeSequencerId(endpoint)
-      collector.addOpenConnection(sequencerId, endpoint, onSequencerId)
-      SimulationP2PNetworkRef(sequencerId, collector, timeouts, loggerFactory)
+      endpoint match {
+        case plaintextEndpoint: PlainTextP2PEndpoint =>
+          collector.addOpenConnection(sequencerId, plaintextEndpoint, onSequencerId)
+          SimulationP2PNetworkRef(sequencerId, collector, timeouts, loggerFactory)
+        case _: GrpcNetworking.TlsP2PEndpoint =>
+          throw new UnsupportedOperationException("TLS is not supported in simulation")
+      }
     }
   }
 
   object SimulationP2PNetworkManager {
-    def fakeSequencerId(peer: Endpoint): SequencerId =
+    def fakeSequencerId(peer: P2PEndpoint): SequencerId =
       SequencerId(UniqueIdentifier.tryCreate("ns", s"fake_$peer"))
   }
 
@@ -147,22 +157,33 @@ object SimulationModuleSystem {
     }
   }
 
+  final case class TraceContextGenerator(random: Random) {
+    private def genHexBytes(n: Int): String = HexString.toHexString(random.nextBytes(n))
+    def newTraceContext: TraceContext = {
+      val traceParent = s"00-${genHexBytes(16)}-${genHexBytes(8)}-01"
+      TraceContext.fromW3CTraceParent(traceParent)
+    }
+  }
+
   private[simulation] final case class SimulationModuleNodeContext[MessageT](
       to: ModuleName,
       collector: NodeCollector,
+      traceContextGenerator: TraceContextGenerator,
       override val loggerFactory: NamedLoggerFactory,
   ) extends SimulationModuleContext[MessageT] {
 
     override val self: SimulationModuleRef[MessageT] = SimulationModuleRef(to, collector)
 
     override def delayedEvent(delay: FiniteDuration, message: MessageT): CancellableEvent = {
-      val tickCounter = collector.addTickEvent(delay, to, ModuleControl.Send(message))
+      val tickCounter =
+        collector.addTickEvent(delay, to, ModuleControl.Send(message, TraceContext.empty))
       SimulationCancelable(collector, tickCounter)
     }
 
-    override def pipeToSelfInternal[X](futureUnlessShutdown: SimulationFuture[X])(
-        fun: Try[X] => Option[MessageT]
-    ): Unit = collector.addFuture(to, futureUnlessShutdown, fun)
+    override def pipeToSelfInternal[X](
+        futureUnlessShutdown: SimulationFuture[X]
+    )(fun: Try[X] => Option[MessageT])(implicit traceContext: TraceContext): Unit =
+      collector.addFuture(to, futureUnlessShutdown, fun)
 
     override def newModuleRef[NewModuleMessageT](
         moduleName: ModuleName
@@ -181,10 +202,13 @@ object SimulationModuleSystem {
     override def stop(onStop: () => Unit): Unit =
       collector.addInternalEvent(to, ModuleControl.Stop(onStop))
 
+    override def withNewTraceContext[A](fn: TraceContext => A): A =
+      fn(traceContextGenerator.newTraceContext)
   }
 
   private[simulation] final case class SimulationModuleClientContext[MessageT](
       collector: ClientCollector,
+      traceContextGenerator: TraceContextGenerator,
       override val loggerFactory: NamedLoggerFactory,
   ) extends SimulationModuleContext[MessageT] {
 
@@ -208,7 +232,7 @@ object SimulationModuleSystem {
 
     override def pipeToSelfInternal[X](futureUnlessShutdown: SimulationFuture[X])(
         fun: Try[X] => Option[MessageT]
-    ): Unit = unsupportedForClientModules()
+    )(implicit traceContext: TraceContext): Unit = unsupportedForClientModules()
 
     override def become(module: Module[SimulationEnv, MessageT]): Unit =
       unsupportedForClientModules()
@@ -216,8 +240,13 @@ object SimulationModuleSystem {
     override def stop(onStop: () => Unit): Unit =
       unsupportedForClientModules()
 
+    override def withNewTraceContext[A](fn: TraceContext => A): A = fn(
+      traceContextGenerator.newTraceContext
+    )
+
     private def unsupportedForClientModules(): Nothing =
       sys.error("Unsupported for client modules")
+
   }
 
   private[simulation] final class SimulationModuleSystemContext[MessageT](
@@ -243,7 +272,7 @@ object SimulationModuleSystem {
 
     override def pipeToSelfInternal[X](futureUnlessShutdown: SimulationFuture[X])(
         fun: Try[X] => Option[MessageT]
-    ): Unit = unsupportedForSystem()
+    )(implicit traceContext: TraceContext): Unit = unsupportedForSystem()
 
     private def unsupportedForSystem(): Nothing =
       sys.error("Unsupported for system object")
@@ -252,6 +281,7 @@ object SimulationModuleSystem {
 
     override def stop(onStop: () => Unit): Unit = unsupportedForSystem()
 
+    override def withNewTraceContext[A](fn: TraceContext => A): A = unsupportedForSystem()
   }
 
   final class SimulationEnv extends Env[SimulationEnv] {
@@ -282,7 +312,8 @@ object SimulationModuleSystem {
 
   private final case class SimulatedRefForClient[MessageT](collector: ClientCollector)
       extends ModuleRef[MessageT] {
-    override def asyncSend(msg: MessageT): Unit = collector.addClientRequest(msg)
+    override def asyncSendTraced(msg: MessageT)(implicit traceContext: TraceContext): Unit =
+      collector.addClientRequest(msg)
   }
 
   /** A simulation initializer comprises initializers for both the system and the client.
@@ -365,7 +396,7 @@ object SimulationModuleSystem {
 
   def apply[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, ClientMessageT](
       endpointsToInitializers: Map[
-        Endpoint,
+        PlainTextP2PEndpoint,
         SimulationInitializer[
           OnboardingDataT,
           SystemNetworkMessageT,
@@ -379,12 +410,13 @@ object SimulationModuleSystem {
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   ): Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, ClientMessageT] = {
+    val traceContextGenerator = TraceContextGenerator(new Random(config.localSettings.randomSeed))
     val machineInitializer = createMachineInitializer[
       OnboardingDataT,
       SystemNetworkMessageT,
       SystemInputMessageT,
       ClientMessageT,
-    ](onboardingDataProvider, timeouts, loggerFactory)
+    ](onboardingDataProvider, timeouts, loggerFactory, traceContextGenerator)
     val (initialSequencersToInitializers, laterOnboardedEndpointsToInitializers) =
       endpointsToInitializers.partition { case (_, initializer) =>
         initializer.initializeImmediately
@@ -404,6 +436,7 @@ object SimulationModuleSystem {
       machineInitializer,
       config,
       clock,
+      traceContextGenerator,
       loggerFactory,
     )()
   }
@@ -417,6 +450,7 @@ object SimulationModuleSystem {
       onboardingDataProvider: OnboardingDataProvider[OnboardingDataT],
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
+      traceContextGenerator: TraceContextGenerator,
   ) =
     new MachineInitializer[
       OnboardingDataT,
@@ -448,7 +482,7 @@ object SimulationModuleSystem {
           SimulatedRefForClient(clientCollector)
         )
         simulationInitializer.clientInitializer.init(
-          SimulationModuleClientContext(clientCollector, loggerFactory)
+          SimulationModuleClientContext(clientCollector, traceContextGenerator, loggerFactory)
         )
         val networkInModuleName = getSimulationName(resultFromInit.p2pNetworkInModuleRef)
         val networkOutModuleName = getSimulationName(resultFromInit.p2pNetworkOutAdminModuleRef)

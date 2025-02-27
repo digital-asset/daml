@@ -34,28 +34,37 @@ import io.grpc.stub.StreamObserver
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 
-/** The sequencer channel client endpoint encapsulates all client-side state needed for the lifetime of a
-  * sequencer channel and handles the interaction with:
-  * 1. the sequencer channel service to set up the channel by exchanging metadata,
-  * 2. the sequencer channel client (connectTo) member endpoint to establish a secure channel, and
-  * 3. the SequencerChannelProtocolProcessor provided by the SequencerChannelClient caller
+/** The sequencer channel client endpoint encapsulates all client-side state needed for the lifetime
+  * of a sequencer channel and handles the interaction with:
+  *   1. the sequencer channel service to set up the channel by exchanging metadata,
+  *   1. the sequencer channel client (connectTo) member endpoint to establish a secure channel, and
+  *   1. the SequencerChannelProtocolProcessor provided by the SequencerChannelClient caller
   *
-  * To that end, this channel endpoint transitions through several stages:
-  * Bootstrapping the channel which establishes unsecured member-to-member communication (the connected stage),
-  * followed by setting up a session key to secure it (the securely connected stage). Next, the sequencer channel
-  * client user such as the Online Party Replication can start exchanging their messages transparently and securely
-  * through the sequencer channel protocol processor.
+  * To that end, this channel endpoint transitions through several stages: Bootstrapping the channel
+  * which establishes unsecured member-to-member communication (the connected stage), followed by
+  * setting up a session key to secure it (the securely connected stage). Next, the sequencer
+  * channel client user such as the Online Party Replication can start exchanging their messages
+  * transparently and securely through the sequencer channel protocol processor.
   *
-  * @param channelId   Unique channel identifier known to both channel endpoints.
-  * @param member      Sequencer channel client member initiating the channel connection.
-  * @param connectTo   The member to interact with via the channel.
-  * @param processor   The processor provided by the SequencerChannelClient caller that interacts with the channel
-  *                    once this channel endpoint has finished setting up the channel.
-  * @param isSessionKeyOwner Whether this endpoint is responsible for generating the session key.
-  * @param synchronizerCryptoApi Provides the crypto API for symmetric and asymmetric encryption operations.
-  * @param protocolVersion Used for the proto messages versioning.
-  * @param timestamp   Determines the public key for asymmetric encryption.
-  * @param onSentMessage Message notification for testing purposes only; None for production.
+  * @param channelId
+  *   Unique channel identifier known to both channel endpoints.
+  * @param member
+  *   Sequencer channel client member initiating the channel connection.
+  * @param connectTo
+  *   The member to interact with via the channel.
+  * @param processor
+  *   The processor provided by the SequencerChannelClient caller that interacts with the channel
+  *   once this channel endpoint has finished setting up the channel.
+  * @param isSessionKeyOwner
+  *   Whether this endpoint is responsible for generating the session key.
+  * @param synchronizerCryptoApi
+  *   Provides the crypto API for symmetric and asymmetric encryption operations.
+  * @param protocolVersion
+  *   Used for the proto messages versioning.
+  * @param timestamp
+  *   Determines the public key for asymmetric encryption.
+  * @param onSentMessage
+  *   Message notification for testing purposes only; None for production.
   */
 private[channel] final class SequencerChannelClientEndpoint(
     val channelId: SequencerChannelId,
@@ -105,8 +114,8 @@ private[channel] final class SequencerChannelClientEndpoint(
         )
       )
 
-  /** Set the request observer for the channel that only becomes available after the channel client transport
-    * issues the GRPC request that connects to the sequencer channel.
+  /** Set the request observer for the channel that only becomes available after the channel client
+    * transport issues the GRPC request that connects to the sequencer channel.
     */
   private[channel] def setRequestObserver(
       observer: StreamObserver[v30.ConnectToSequencerChannelRequest]
@@ -150,13 +159,13 @@ private[channel] final class SequencerChannelClientEndpoint(
 
   /** This endpoint's receiving end of the channel – it handles response messages.
     *
-    * Forwards responses received via the channel to the processor, once the channel is connected and secured
-    * between the member endpoints.
+    * Forwards responses received via the channel to the processor, once the channel is connected
+    * and secured between the member endpoints.
     *
     * The actual message handling depends on this endpoint's channel stage.
     *
-    * This method is assumed to be thread-safe, meaning it is invoked once per message and completes fully.
-    * State that gets mutated through this method alone is supposed to be safe.
+    * This method is assumed to be thread-safe, meaning it is invoked once per message and completes
+    * fully. State that gets mutated through this method alone is supposed to be safe.
     */
   override protected def callHandler: Traced[v30.ConnectToSequencerChannelResponse] => EitherT[
     FutureUnlessShutdown,

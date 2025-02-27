@@ -3,17 +3,20 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation
 
-import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
+  P2PEndpoint,
+  PlainTextP2PEndpoint,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleName
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
 import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.blocking
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
-
-import SimulationModuleSystem.SimulationEnv
 
 abstract class Collector[E] {
 
@@ -59,16 +62,20 @@ class NodeCollector extends Collector[NodeCollector.Event] {
     newTickId
   }
 
-  def addNetworkEvent(peer: SequencerId, msg: Any): Unit =
-    add(NodeCollector.SendNetworkEvent(peer, msg))
+  def addNetworkEvent(peer: SequencerId, msg: Any)(implicit traceContext: TraceContext): Unit =
+    add(NodeCollector.SendNetworkEvent(peer, msg, traceContext))
 
-  def addFuture[X, T](to: ModuleName, future: SimulationFuture[X], fun: Try[X] => Option[T]): Unit =
-    add(NodeCollector.AddFuture(to, future, fun))
+  def addFuture[X, T](
+      to: ModuleName,
+      future: SimulationFuture[X],
+      fun: Try[X] => Option[T],
+  )(implicit traceContext: TraceContext): Unit =
+    add(NodeCollector.AddFuture(to, future, fun, traceContext))
 
   def addOpenConnection(
       to: SequencerId,
-      endpoint: Endpoint,
-      continuation: (Endpoint, SequencerId) => Unit,
+      endpoint: PlainTextP2PEndpoint,
+      continuation: (P2PEndpoint.Id, SequencerId) => Unit,
   ): Unit =
     add(NodeCollector.OpenConnection(to, endpoint, continuation))
 
@@ -85,16 +92,18 @@ object NodeCollector {
       to: ModuleName,
       msg: ModuleControl[SimulationEnv, ?],
   ) extends Event
-  final case class SendNetworkEvent(to: SequencerId, msg: Any) extends Event
+  final case class SendNetworkEvent(to: SequencerId, msg: Any, traceContext: TraceContext)
+      extends Event
   final case class AddFuture[X, T](
       to: ModuleName,
       future: SimulationFuture[X],
       fun: Try[X] => Option[T],
+      traceContext: TraceContext,
   ) extends Event
   final case class OpenConnection(
       to: SequencerId,
-      endpoint: Endpoint,
-      continuation: (Endpoint, SequencerId) => Unit,
+      endpoint: PlainTextP2PEndpoint,
+      continuation: (P2PEndpoint.Id, SequencerId) => Unit,
   ) extends Event
   final case class CancelTick(tickId: Int) extends Event
 }
@@ -106,8 +115,8 @@ class ClientCollector(to: ModuleName) extends Collector[ClientCollector.Event] {
     tickId
   }
 
-  def addClientRequest(msg: Any): Unit = add(
-    ClientCollector.ClientRequest(to, msg)
+  def addClientRequest(msg: Any)(implicit traceContext: TraceContext): Unit = add(
+    ClientCollector.ClientRequest(to, msg, traceContext)
   )
 
   override def addCancelTick(tickId: Int): Unit =
@@ -119,6 +128,6 @@ object ClientCollector {
 
   final case class TickEvent(duration: FiniteDuration, tickId: Int, msg: Any) extends Event
 
-  final case class ClientRequest(to: ModuleName, msg: Any) extends Event
+  final case class ClientRequest(to: ModuleName, msg: Any, traceContext: TraceContext) extends Event
   final case class CancelTick(tickId: Int) extends Event
 }

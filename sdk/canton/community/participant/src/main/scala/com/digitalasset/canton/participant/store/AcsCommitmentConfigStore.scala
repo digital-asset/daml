@@ -29,7 +29,8 @@ trait AcsCommitmentSlowCounterParticipantConfigStore {
     (Seq[ConfigForSlowCounterParticipants], Seq[ConfigForSynchronizerThresholds])
   ]
 
-  /** creates the configurations in the database, if they already exists they are instead updated with the new values.
+  /** creates the configurations in the database, if they already exists they are instead updated
+    * with the new values.
     */
   def createOrUpdateCounterParticipantConfigs(
       configs: Seq[ConfigForSlowCounterParticipants],
@@ -38,8 +39,8 @@ trait AcsCommitmentSlowCounterParticipantConfigStore {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
-  /** remove all slow configurations for the given synchronizers.
-    * if the sequence of synchronizers is empty, then everything is purged.
+  /** remove all slow configurations for the given synchronizers. if the sequence of synchronizers
+    * is empty, then everything is purged.
     */
   def clearSlowCounterParticipants(synchronizerIds: Seq[SynchronizerId])(implicit
       traceContext: TraceContext
@@ -54,10 +55,9 @@ trait AcsCommitmentNoWaitCounterParticipantConfigStore {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
-  /** removes given synchronizers and counter participants.
-    * if synchronizers are empty then given participants are removed from all synchronizers.
-    * if participants are empty then given synchronizers have all values removed.
-    * if both are empty then everything is removed.
+  /** removes given synchronizers and counter participants. if synchronizers are empty then given
+    * participants are removed from all synchronizers. if participants are empty then given
+    * synchronizers have all values removed. if both are empty then everything is removed.
     */
   def removeNoWaitCounterParticipant(
       synchronizers: Seq[SynchronizerId],
@@ -66,8 +66,8 @@ trait AcsCommitmentNoWaitCounterParticipantConfigStore {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
-  /** get all active no wait configurations, with possibility to filter by synchronizers and participants.
-    * if no filter is applied all active no waits are returned.
+  /** get all active no wait configurations, with possibility to filter by synchronizers and
+    * participants. if no filter is applied all active no waits are returned.
     */
   def getAllActiveNoWaitCounterParticipants(
       filterSynchronizers: Seq[SynchronizerId],

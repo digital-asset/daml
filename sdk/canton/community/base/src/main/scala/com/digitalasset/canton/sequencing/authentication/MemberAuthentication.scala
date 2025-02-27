@@ -141,8 +141,8 @@ object MemberAuthentication extends MemberAuthentication {
     } yield sig
   }
 
-  /** Hash the common fields of the nonce.
-    * Implementations of MemberAuthentication can then add their own fields as appropriate.
+  /** Hash the common fields of the nonce. Implementations of MemberAuthentication can then add
+    * their own fields as appropriate.
     */
   protected def commonNonce(
       pureApi: CryptoPureApi,

@@ -88,7 +88,7 @@ private[apiserver] final class ApiPackageManagementService private (
       logger.info(s"Uploading DAR file, ${loggingContext.serializeFiltered("submissionId")}.")
 
       packageSyncService
-        .uploadDar(request.darFile, submissionId)
+        .uploadDar(Seq(request.darFile), submissionId)
         .flatMap {
           case SubmissionResult.Acknowledged => Future.successful(UploadDarFileResponse())
           case err: SubmissionResult.SynchronousError => Future.failed(err.exception)

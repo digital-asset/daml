@@ -79,20 +79,21 @@ private object AuthorizationKeys {
   * NOT THREAD SAFE. Note that this class is not thread safe
   *
   * we check three things:
-  * (1) are the signatures valid
-  * (2) are the signatures properly authorized
-  *     a. load current set of authorized keys
-  *     b. for each transaction, verify that the authorization keys are valid. a key is a valid authorization if there
-  *        is a certificate chain that originates from the root certificate at the time when the
-  *        transaction is added (one by one).
-  *     c. if the transaction is a namespace or identifier delegation, update its impact on the authorization set
-  *        this means that if we add or remove a namespace delegation, then we need to perform a cascading
-  *        update that activates or deactivates states that depend on this delegation.
-  * (3) finally, what we compute as the "authorized graph" is then used to compute the derived table
-  *     of "namespace delegations"
+  *   1. are the signatures valid
+  *   1. are the signatures properly authorized
+  *      a. load current set of authorized keys
+  *      a. for each transaction, verify that the authorization keys are valid. a key is a valid
+  *         authorization if there is a certificate chain that originates from the root certificate
+  *         at the time when the transaction is added (one by one).
+  *      a. if the transaction is a namespace or identifier delegation, update its impact on the
+  *         authorization set this means that if we add or remove a namespace delegation, then we
+  *         need to perform a cascading update that activates or deactivates states that depend on
+  *         this delegation.
+  *   1. finally, what we compute as the "authorized graph" is then used to compute the derived
+  *      table of "namespace delegations"
   *
-  *     insecureIgnoreMissingExtraKeySignatures is needed to support legacy OTK and PTK that didn't sign the
-  * transaction with the newly added signing keys.
+  * insecureIgnoreMissingExtraKeySignatures is needed to support legacy OTK and PTK that didn't sign
+  * the transaction with the newly added signing keys.
   */
 class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     val pureCrypto: PureCrypto,
@@ -137,12 +138,13 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     }
 
   /** Validates a topology transaction as follows:
-    * <ol>
-    *   <li>check that the transaction has valid signatures and is sufficiently authorized. if not, reject.</li>
-    *   <li>if there are no missing authorizers, as is the case for proposals, we update internal caches for NSD, IDD, and DND</li>
-    *   <li>if this validation is run to determine a final verdict, as is the case for processing topology transactions coming from the synchronizer,
-    *   automatically clear the proposal flag for transactions with sufficent authorizing signatures.</li>
-    * </ol>
+    *   - check that the transaction has valid signatures and is sufficiently authorized. if not,
+    *     reject.
+    *   - if there are no missing authorizers, as is the case for proposals, we update internal
+    *     caches for NSD, IDD, and DND
+    *   - if this validation is run to determine a final verdict, as is the case for processing
+    *     topology transactions coming from the synchronizer, automatically clear the proposal flag
+    *     for transactions with sufficent authorizing signatures.
     */
   private def processTransaction(
       toValidate: GenericSignedTopologyTransaction,
@@ -151,7 +153,9 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
   )(implicit traceContext: TraceContext): GenericValidatedTopologyTransaction = {
     // See validateRootCertificate why we need to check the removal of a root certificate explicitly here.
     val signatureCheckResult = validateRootCertificate(toValidate)
-      .getOrElse(validateSignaturesAndDetermineMissingAuthorizers(toValidate, inStore))
+      .getOrElse(
+        validateSignaturesAndDetermineMissingAuthorizers(toValidate, inStore)
+      )
 
     signatureCheckResult match {
       // propagate the rejection reason
@@ -309,6 +313,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       keyIdsWithUsage = TopologyManager.assignExpectedUsageToKeys(
         txWithSignaturesToVerify.mapping,
         allKeyIdsUsedForAuthorizationNE,
+        forSigning = false,
       )
 
       _ <- txWithSignaturesToVerify.signatures.forgetNE.toList
@@ -426,10 +431,10 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     }
   }
 
-  /**  Validates the signature of the removal of a root certificate.
-    *  This check is done separately from the mechanism used for other topology transactions (ie isCurrentlyAuthorized),
-    *  because removing a root certificate removes it from the authorization graph and therefore
-    *  isCurrentlyAuthorized would not find the key to validate it.
+  /** Validates the signature of the removal of a root certificate. This check is done separately
+    * from the mechanism used for other topology transactions (ie isCurrentlyAuthorized), because
+    * removing a root certificate removes it from the authorization graph and therefore
+    * isCurrentlyAuthorized would not find the key to validate it.
     */
   private def validateRootCertificate(
       toValidate: GenericSignedTopologyTransaction
@@ -489,8 +494,8 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
 
   /** Process decentralized namespace definition
     *
-    * return whether decentralized namespace definition mapping is authorizable along with a "cache-update function" to be invoked
-    * by the caller once the mapping is to be committed.
+    * return whether decentralized namespace definition mapping is authorizable along with a
+    * "cache-update function" to be invoked by the caller once the mapping is to be committed.
     */
   private def processDecentralizedNamespaceDefinition(
       tx: AuthorizedDecentralizedNamespaceDefinition

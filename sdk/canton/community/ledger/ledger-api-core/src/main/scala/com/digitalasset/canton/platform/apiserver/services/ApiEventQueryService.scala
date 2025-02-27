@@ -42,7 +42,7 @@ final class ApiEventQueryService(
         request => {
           withEnrichedLoggingContext(
             logging.contractId(request.contractId),
-            logging.parties(request.requestingParties),
+            logging.eventFormat(request.eventFormat),
           ) { implicit loggingContext =>
             logger.info("Received request for events by contract ID")
           }
@@ -50,7 +50,7 @@ final class ApiEventQueryService(
           eventQueryService
             .getEventsByContractId(
               request.contractId,
-              request.requestingParties,
+              request.eventFormat,
             )
             .thereafter(logger.logErrorsOnCall[GetEventsByContractIdResponse])
         },

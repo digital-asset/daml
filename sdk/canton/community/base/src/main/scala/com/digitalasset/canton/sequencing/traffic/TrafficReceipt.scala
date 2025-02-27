@@ -11,11 +11,14 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.Member
 
-/** Traffic receipt sent with the deliver / deliver error receipt to the sender.
-  * Contains updated traffic information after the event has been sequenced.
-  * @param consumedCost cost consumed by the event
-  * @param extraTrafficConsumed extra traffic consumed at this sequencing timestamp
-  * @param baseTrafficRemainder base traffic remaining at this sequencing timestamp
+/** Traffic receipt sent with the deliver / deliver error receipt to the sender. Contains updated
+  * traffic information after the event has been sequenced.
+  * @param consumedCost
+  *   cost consumed by the event
+  * @param extraTrafficConsumed
+  *   extra traffic consumed at this sequencing timestamp
+  * @param baseTrafficRemainder
+  *   base traffic remaining at this sequencing timestamp
   */
 final case class TrafficReceipt(
     consumedCost: NonNegativeLong,

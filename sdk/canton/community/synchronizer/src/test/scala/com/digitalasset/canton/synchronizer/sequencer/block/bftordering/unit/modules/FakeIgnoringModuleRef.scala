@@ -4,7 +4,8 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules
 
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
+import com.digitalasset.canton.tracing.TraceContext
 
 class FakeIgnoringModuleRef[MessageT] extends ModuleRef[MessageT] {
-  override def asyncSend(msg: MessageT): Unit = ()
+  override def asyncSendTraced(msg: MessageT)(implicit traceContext: TraceContext): Unit = ()
 }

@@ -8,8 +8,8 @@ import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
 
 object ExtractUsedContractsFromRootViews {
 
-  /** Extract the input contracts for all unblinded [[com.digitalasset.canton.data.ViewParticipantData]] nodes
-    * in the `rootViews`.
+  /** Extract the input contracts for all unblinded
+    * [[com.digitalasset.canton.data.ViewParticipantData]] nodes in the `rootViews`.
     */
   def apply(
       rootViews: List[TransactionView]

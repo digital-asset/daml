@@ -8,6 +8,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.HasDelayedInit
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
@@ -42,7 +43,7 @@ final class PreIssConsensusModule[E <: Env[E]](
     override val dependencies: ConsensusModuleDependencies[E],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
-)(implicit mc: MetricsContext)
+)(implicit mc: MetricsContext, config: BftBlockOrderer.Config)
     extends Consensus[E]
     with HasDelayedInit[Consensus.Message[E]] {
 
@@ -161,8 +162,9 @@ final class PreIssConsensusModule[E <: Env[E]](
 
 object PreIssConsensusModule {
 
-  /** @return map from epoch number to a list of commit certificates sorted by block number,
-    *            for the last how many epochs from the latest completed epoch (inclusive).
+  /** @return
+    *   map from epoch number to a list of commit certificates sorted by block number, for the last
+    *   how many epochs from the latest completed epoch (inclusive).
     */
   @VisibleForTesting
   def loadPreviousEpochCommitCertificates[E <: Env[E]](epochStore: EpochStore[E])(

@@ -151,11 +151,12 @@ object ViewCommonData
 
 /** Stores the necessary information necessary to confirm a view.
   *
-  * @param informees list of all members ids that must be informed of this view.
-  * @param quorums multiple lists of confirmers => threshold (i.e., a quorum) that needs
-  *               to be met for the view to be approved. We make sure that the parties listed
-  *               in the quorums are informees of the view during
-  *               deserialization.
+  * @param informees
+  *   list of all members ids that must be informed of this view.
+  * @param quorums
+  *   multiple lists of confirmers => threshold (i.e., a quorum) that needs to be met for the view
+  *   to be approved. We make sure that the parties listed in the quorums are informees of the view
+  *   during deserialization.
   */
 final case class ViewConfirmationParameters private (
     informees: Set[LfPartyId],
@@ -177,14 +178,16 @@ object ViewConfirmationParameters {
   final case class InvalidViewConfirmationParameters(message: String)
       extends RuntimeException(message)
 
-  /** Creates a [[ViewConfirmationParameters]] with a single quorum consisting of all confirming parties and a given threshold.
+  /** Creates a [[ViewConfirmationParameters]] with a single quorum consisting of all confirming
+    * parties and a given threshold.
     *
-    * Informees are parties involved in the view and can have a weight indicating their confirmation role:
-    * - Non-confirming informees have a weight of 0.
-    * - Confirming informees have a positive weight (with a recommended value of 1).
+    * Informees are parties involved in the view and can have a weight indicating their confirmation
+    * role:
+    *   - Non-confirming informees have a weight of 0.
+    *   - Confirming informees have a positive weight (with a recommended value of 1).
     *
-    * The `threshold` parameter determines the minimum number of confirmers required to approve the view.
-    * Currently, only thresholds equal to the total weight of all confirmers are supported
+    * The `threshold` parameter determines the minimum number of confirmers required to approve the
+    * view. Currently, only thresholds equal to the total weight of all confirmers are supported
     * (i.e., threshold == sum of weights of all confirming informees).
     */
   def create(
@@ -203,8 +206,8 @@ object ViewConfirmationParameters {
       ),
     )
 
-  /** There can be multiple quorums/threshold. Therefore, we need to make sure those quorums confirmers
-    * are present in the list of informees.
+  /** There can be multiple quorums/threshold. Therefore, we need to make sure those quorums
+    * confirmers are present in the list of informees.
     */
   def create(
       informees: Set[LfPartyId],

@@ -8,7 +8,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.{LocalNodeConfig, TestingConfigInternal}
 import com.digitalasset.canton.crypto.kms.KmsFactory
-import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CryptoPrivateStoreFactory
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.StorageFactory

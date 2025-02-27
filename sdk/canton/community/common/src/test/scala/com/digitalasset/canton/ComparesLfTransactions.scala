@@ -17,15 +17,16 @@ import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.{
 }
 import org.scalatest.{Assertion, Suite}
 
-/** Test utility to compare actual and expected lf transactions using a human-readable, hierarchical serialization of lf
-  * nodes.
+/** Test utility to compare actual and expected lf transactions using a human-readable, hierarchical
+  * serialization of lf nodes.
   */
 trait ComparesLfTransactions {
 
   this: Suite =>
 
-  /** Main compare entry point of two lf transactions that asserts that the "nested" representations of lf transactions
-    * match relying on pretty-printing to produce a human-readable, multiline and hierarchical serialization.
+  /** Main compare entry point of two lf transactions that asserts that the "nested" representations
+    * of lf transactions match relying on pretty-printing to produce a human-readable, multiline and
+    * hierarchical serialization.
     */
   def assertTransactionsMatch(
       expectedTx: LfVersionedTransaction,
@@ -73,8 +74,8 @@ trait ComparesLfTransactions {
 
 object ComparesLfTransactions {
 
-  /** The TxTree class adds the ability to arrange LfTransaction nodes in a tree structure rather than the flat
-    * node-id-based arrangement.
+  /** The TxTree class adds the ability to arrange LfTransaction nodes in a tree structure rather
+    * than the flat node-id-based arrangement.
     */
   final case class TxTree(lfNode: LfNode, childNodes: TxTree*) extends PrettyPrinting {
     override lazy val pretty: Pretty[TxTree] = prettyOfClass(

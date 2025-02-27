@@ -73,7 +73,7 @@ create table common_crypto_public_keys (
 
 -- Stores the immutable contracts, however a creation of a contract can be rolled back.
 create table par_contracts (
-  contract_id varchar collate "C" not null,
+  contract_id bytea not null,
   -- The contract is serialized using the LF contract proto serializer.
   instance bytea not null,
   -- Metadata: signatories, stakeholders, keys
@@ -149,7 +149,7 @@ create type operation_type as enum ('create', 'add', 'assign', 'archive', 'purge
 create table par_active_contracts (
   -- As a participant can be connected to multiple synchronizers, the active contracts are stored under a synchronizer id.
   synchronizer_idx integer not null,
-  contract_id varchar collate "C" not null,
+  contract_id bytea not null,
   change change_type not null,
   operation operation_type not null,
   -- UTC timestamp of the time of change in microsecond precision relative to EPOCH
@@ -378,9 +378,8 @@ create table par_commitment_queue (
   -- UTC timestamp in microseconds relative to EPOCH
   to_inclusive bigint not null,
   commitment bytea not null,
-  commitment_hash varchar collate "C" not null, -- A shorter hash (SHA-256) of the commitment for the primary key instead of the bytea
   constraint check_nonempty_interval_queue check(to_inclusive > from_exclusive),
-  primary key (synchronizer_idx, sender, counter_participant, from_exclusive, to_inclusive, commitment_hash)
+  primary key (synchronizer_idx, sender, counter_participant, from_exclusive, to_inclusive, commitment)
 );
 
 create index idx_par_commitment_queue_by_time on par_commitment_queue (synchronizer_idx, to_inclusive);
@@ -893,9 +892,13 @@ create table ord_metadata_output_epochs (
 
 -- Stores P2P endpoints from the configuration or admin command
 create table ord_p2p_endpoints (
-  host varchar collate "C" not null,
+  address varchar collate "C" not null,
   port smallint not null,
-  primary key (host, port)
+  transport_security bool not null,
+  custom_server_trust_certificates bytea null, -- PEM string
+  client_certificate_chain bytea null, -- PEM string
+  client_private_key_file varchar collate "C" null, -- path to a file containing the client private key
+  primary key (address, port, transport_security)
 );
 
 -- Auto-vacuum settings for large sequencer tables: these are defaults set based on testing of CN CILR test deployment

@@ -247,8 +247,8 @@ class SequencerNodeBootstrap(
       ret
     }
 
-    /** if node is not initialized, create a dynamic synchronizer server such that we can serve a health end-point until
-      * we are initialised
+    /** if node is not initialized, create a dynamic synchronizer server such that we can serve a
+      * health end-point until we are initialised
       */
     private def initSequencerNodeServer(): Unit =
       if (nonInitializedSequencerNodeServer.get().isEmpty) {

@@ -13,8 +13,8 @@ import java.io.{File, OutputStream, StringWriter}
 import scala.io.Source
 import scala.util.control.NonFatal
 
-/** Result for exposing the process exit code.
-  * All logging is expected to take place inside of the runner.
+/** Result for exposing the process exit code. All logging is expected to take place inside of the
+  * runner.
   */
 trait Runner[E <: Environment] extends NamedLogging {
 

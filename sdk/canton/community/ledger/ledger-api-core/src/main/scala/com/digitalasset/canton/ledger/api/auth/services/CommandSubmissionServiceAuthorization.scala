@@ -7,6 +7,7 @@ import com.daml.ledger.api.v2.command_submission_service.*
 import com.daml.ledger.api.v2.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.ProxyCloseable
+import com.digitalasset.canton.ledger.api.auth.RequiredClaims
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator
 import io.grpc.ServerServiceDefinition
@@ -24,24 +25,25 @@ final class CommandSubmissionServiceAuthorization(
 
   override def submit(request: SubmitRequest): Future[SubmitResponse] = {
     val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
-    authorizer.requireActAndReadClaimsForParties(
-      actAs = effectiveSubmitters.actAs,
-      readAs = effectiveSubmitters.readAs,
-      applicationIdL = Lens.unit[SubmitRequest].commands.applicationId,
-      call = service.submit,
+    authorizer.rpc(service.submit)(
+      RequiredClaims.submissionClaims(
+        actAs = effectiveSubmitters.actAs,
+        readAs = effectiveSubmitters.readAs,
+        applicationIdL = Lens.unit[SubmitRequest].commands.applicationId,
+      )*
     )(request)
   }
 
   override def submitReassignment(
       request: SubmitReassignmentRequest
   ): Future[SubmitReassignmentResponse] =
-    authorizer
-      .requireActAndReadClaimsForParties(
+    authorizer.rpc(service.submitReassignment)(
+      RequiredClaims.submissionClaims(
         actAs = request.reassignmentCommand.map(_.submitter).toList.toSet,
         readAs = Set.empty,
         applicationIdL = Lens.unit[SubmitReassignmentRequest].reassignmentCommand.applicationId,
-        call = service.submitReassignment,
-      )(request)
+      )*
+    )(request)
 
   override def bindService(): ServerServiceDefinition =
     CommandSubmissionServiceGrpc.bindService(this, executionContext)

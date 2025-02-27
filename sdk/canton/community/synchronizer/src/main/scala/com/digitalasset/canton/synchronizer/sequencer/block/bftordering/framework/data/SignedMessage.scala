@@ -7,7 +7,7 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.version.v1.UntypedVersionedMessage
 import com.google.protobuf.ByteString
@@ -20,8 +20,8 @@ final case class SignedMessage[+MessageT <: ProtocolVersionedMemoizedEvidence & 
     message: MessageT,
     signature: Signature,
 ) {
-  def toProtoV1: v1.SignedMessage =
-    v1.SignedMessage.of(
+  def toProtoV1: v30.SignedMessage =
+    v30.SignedMessage.of(
       message.getCryptographicEvidence,
       message.from.toProtoPrimitive,
       signature = Some(signature.toProtoV30),
@@ -39,7 +39,7 @@ object SignedMessage {
   )(
       parse: Proto => ByteString => ParsingResult[MessageT]
   )(
-      proto: v1.SignedMessage
+      proto: v30.SignedMessage
   ): ParsingResult[SignedMessage[MessageT]] =
     fromProtoWithSequencerId(p)(_ => parse)(proto)
 
@@ -50,7 +50,7 @@ object SignedMessage {
       p: scalapb.GeneratedMessageCompanion[Proto]
   )(
       parse: SequencerId => Proto => ByteString => ParsingResult[A]
-  )(proto: v1.SignedMessage): ParsingResult[SignedMessage[A]] = for {
+  )(proto: v30.SignedMessage): ParsingResult[SignedMessage[A]] = for {
     from <- SequencerId.fromProtoPrimitive(proto.from, "from")
     versionedMessage <- ProtoConverter.protoParser(UntypedVersionedMessage.parseFrom)(proto.message)
     unVersionedBytes <- versionedMessage.wrapper.data.toRight(

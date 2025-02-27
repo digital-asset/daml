@@ -36,9 +36,10 @@ class TraceContext private[tracing] (val context: OpenTelemetryContext)
       Option(Span.fromContextOrNull(context)).getOrElse(Span.getInvalid),
     )
 
-  /** Java serialization method (despite looking unused, Java serialization will use this during our record/replay tests)
-    * Delegates to a proxy to do serialization and deserialization.
-    * Despite returning a specific type the signature must return `Object` to be picked up by the serialization routines.
+  /** Java serialization method (despite looking unused, Java serialization will use this during our
+    * record/replay tests) Delegates to a proxy to do serialization and deserialization. Despite
+    * returning a specific type the signature must return `Object` to be picked up by the
+    * serialization routines.
     */
   private def writeReplace(): Object =
     new TraceContext.JavaSerializedTraceContext(asW3CTraceContext)
@@ -117,9 +118,10 @@ object TraceContext {
   def withOpenTelemetryContext[A](context: OpenTelemetryContext)(fn: TraceContext => A): A =
     fn(TraceContext(context))
 
-  /** Where we use batching operations create a separate trace-context but mention this in a debug log statement
-    * linking it to the trace ids of the contained items. This will allow manual tracing via logs if ever needed.
-    * If all non-empty trace contexts in `items` are the same, this trace context will be reused and no log line emitted.
+  /** Where we use batching operations create a separate trace-context but mention this in a debug
+    * log statement linking it to the trace ids of the contained items. This will allow manual
+    * tracing via logs if ever needed. If all non-empty trace contexts in `items` are the same, this
+    * trace context will be reused and no log line emitted.
     */
   def ofBatch(items: IterableOnce[HasTraceContext])(logger: TracedLogger): TraceContext = {
     val validTraces = items.iterator.map(_.traceContext).filter(_.traceId.isDefined).toSeq.distinct
@@ -143,9 +145,9 @@ object TraceContext {
   private class JavaSerializedTraceContext(w3CTraceContextO: Option[W3CTraceContext])
       extends Serializable {
 
-    /** Java serialization method (not unused - used by record/replay tests).
-      * Despite returning a specific type the method must return a Object to be picked up by the Java
-      * serialization routines.
+    /** Java serialization method (not unused - used by record/replay tests). Despite returning a
+      * specific type the method must return a Object to be picked up by the Java serialization
+      * routines.
       */
     private def readResolve(): Object =
       w3CTraceContextO.map(_.toTraceContext).getOrElse(TraceContext.empty)

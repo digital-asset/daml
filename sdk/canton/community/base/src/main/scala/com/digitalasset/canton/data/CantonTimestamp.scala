@@ -21,7 +21,8 @@ import scala.concurrent.duration.*
 import scala.jdk.DurationConverters.ScalaDurationOps
 
 /** A timestamp implementation for canton, which currently uses a [[LfTimestamp]].
-  * @param underlying A [[LfTimestamp]], holding the value of this [[CantonTimestamp]].
+  * @param underlying
+  *   A [[LfTimestamp]], holding the value of this [[CantonTimestamp]].
   */
 final case class CantonTimestamp(underlying: LfTimestamp)
     extends Ordered[CantonTimestamp]
@@ -109,8 +110,8 @@ object CantonTimestamp {
 
   /** Get Instant.now (try to use clock.now instead!)
     *
-    *  Generally, try to use clock.now except for tests. Clock.now supports sim-clock such that
-    *  we can perform static time tests.
+    * Generally, try to use clock.now except for tests. Clock.now supports sim-clock such that we
+    * can perform static time tests.
     */
   def now(): CantonTimestamp = new CantonTimestamp(LfTimestamp.assertFromInstant(Instant.now()))
 

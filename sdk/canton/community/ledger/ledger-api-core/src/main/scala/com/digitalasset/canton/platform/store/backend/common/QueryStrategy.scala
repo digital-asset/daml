@@ -13,30 +13,35 @@ import java.sql.Connection
 
 object QueryStrategy {
 
-  /** This populates the following part of the query:
-    *   SELECT ... WHERE ... ORDER BY ... [THIS PART]
+  /** This populates the following part of the query: SELECT ... WHERE ... ORDER BY ... [THIS PART]
     *
-    * @param limit optional limit
-    * @return the composable SQL
+    * @param limit
+    *   optional limit
+    * @return
+    *   the composable SQL
     */
   def limitClause(limit: Option[Int]): CompositeSql =
     limit
       .map(to => cSQL"fetch next $to rows only")
       .getOrElse(cSQL"")
 
-  /** Would be used in column selectors in GROUP BY situations to see whether a boolean column had true
-    * Example: getting all groups and see wheter they have someone who had covid:
-    * SELECT group_name, booleanOrAggregationFunction(has_covid) GROUP BY group_name;
+  /** Would be used in column selectors in GROUP BY situations to see whether a boolean column had
+    * true Example: getting all groups and see wheter they have someone who had covid: SELECT
+    * group_name, booleanOrAggregationFunction(has_covid) GROUP BY group_name;
     *
-    * @return the function name
+    * @return
+    *   the function name
     */
   def booleanOrAggregationFunction: String = "bool_or"
 
   /** Select a singleton element from some column based on max value of another column
     *
-    * @param singletonColumn column whose value should be returned when the orderingColumn hits max
-    * @param orderingColumn  column used for sorting the input rows
-    * @return an sql clause to be composed into the sql query
+    * @param singletonColumn
+    *   column whose value should be returned when the orderingColumn hits max
+    * @param orderingColumn
+    *   column used for sorting the input rows
+    * @return
+    *   an sql clause to be composed into the sql query
     */
   def lastByProxyAggregateFuction(singletonColumn: String, orderingColumn: String): String =
     s"(array_agg($singletonColumn ORDER BY $orderingColumn DESC))[1]"
@@ -115,8 +120,8 @@ object QueryStrategy {
 
 trait QueryStrategy {
 
-  /** Predicate which tests if the element referenced by the `elementColumnName`
-    * is in the array from column `arrayColumnName`
+  /** Predicate which tests if the element referenced by the `elementColumnName` is in the array
+    * from column `arrayColumnName`
     */
   def arrayContains(arrayColumnName: String, elementColumnName: String): String
 
@@ -134,6 +139,14 @@ trait QueryStrategy {
     val stringArray: Array[String] =
       strings.toArray
     cSQL"= ANY($stringArray)"
+  }
+
+  /** ANY SQL clause generation for a number of Binary values
+    */
+  def anyOfBinary(binaries: Iterable[Array[Byte]]): CompositeSql = {
+    val binaryArray: Array[Array[Byte]] =
+      binaries.toArray
+    cSQL"= ANY($binaryArray)"
   }
 
   def analyzeTable(tableName: String): CompositeSql

@@ -42,6 +42,7 @@ import com.digitalasset.canton.participant.sync.{
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
+import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
@@ -52,7 +53,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** The synchronizer router routes transaction submissions from upstream to the right synchronizer.
   *
-  * Submitted transactions are inspected for which synchronizers are involved based on the location of the involved contracts.
+  * Submitted transactions are inspected for which synchronizers are involved based on the location
+  * of the involved contracts.
   */
 class SynchronizerRouter(
     contractsReassigner: ContractsReassigner,
@@ -168,6 +170,15 @@ class SynchronizerRouter(
         )
         .mapK(FutureUnlessShutdown.outcomeK)
       _ = logger.debug(s"Routing the transaction to the ${synchronizerRankTarget.synchronizerId}")
+
+      topologySnapshot <- EitherT
+        .fromEither[Future] {
+          synchronizerState.topologySnapshots
+            .get(synchronizerRankTarget.synchronizerId)
+            .toRight(UnableToQueryTopologySnapshot.Failed(synchronizerRankTarget.synchronizerId))
+        }
+        .mapK(FutureUnlessShutdown.outcomeK)
+
       transactionSubmittedF <- submit(synchronizerRankTarget.synchronizerId)(
         submitterInfo,
         transactionMeta,
@@ -175,6 +186,7 @@ class SynchronizerRouter(
         wfTransaction,
         traceContext,
         inputDisclosedContracts.view.map(sc => sc.contractId -> sc).toMap,
+        topologySnapshot,
       ).mapK(FutureUnlessShutdown.outcomeK)
     } yield transactionSubmittedF
 
@@ -206,11 +218,11 @@ class SynchronizerRouter(
       synchronizerRankTarget <- synchronizerSelector.forMultiSynchronizer
     } yield synchronizerRankTarget
 
-  /** We have a multi-synchronizer transaction if the input contracts are on more than one synchronizer,
-    * if the (single) input synchronizer does not host all informees
-    * or if the target synchronizer is different than the synchronizer of the input contracts
-    * (because we will need to reassign the contracts to a synchronizer that *does* host all informees.
-    * Transactions without input contracts are always single-synchronizer.
+  /** We have a multi-synchronizer transaction if the input contracts are on more than one
+    * synchronizer, if the (single) input synchronizer does not host all informees or if the target
+    * synchronizer is different than the synchronizer of the input contracts (because we will need
+    * to reassign the contracts to a synchronizer that *does* host all informees. Transactions
+    * without input contracts are always single-synchronizer.
     */
   private def isMultiSynchronizerTx(
       inputSynchronizers: Set[SynchronizerId],
@@ -273,9 +285,10 @@ class SynchronizerRouter(
     } yield ()
   }
 
-  /** We intentionally do not store the `keyResolver` in [[com.digitalasset.canton.protocol.WellFormedTransaction]]
-    * because we do not (yet) need to deal with merging the mappings
-    * in [[com.digitalasset.canton.protocol.WellFormedTransaction.merge]].
+  /** We intentionally do not store the `keyResolver` in
+    * [[com.digitalasset.canton.protocol.WellFormedTransaction]] because we do not (yet) need to
+    * deal with merging the mappings in
+    * [[com.digitalasset.canton.protocol.WellFormedTransaction.merge]].
     */
   private def submit(synchronizerId: SynchronizerId)(
       submitterInfo: SubmitterInfo,
@@ -284,6 +297,7 @@ class SynchronizerRouter(
       tx: WellFormedTransaction[WithoutSuffixes],
       traceContext: TraceContext,
       disclosedContracts: Map[LfContractId, SerializableContract],
+      topologySnapshot: TopologySnapshot,
   )(implicit
       ec: ExecutionContext
   ): EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmissionResult]] =
@@ -302,6 +316,7 @@ class SynchronizerRouter(
           keyResolver,
           tx,
           disclosedContracts,
+          topologySnapshot,
         )(traceContext)
       )
     } yield result

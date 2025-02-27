@@ -25,16 +25,16 @@ import org.apache.pekko.stream.scaladsl.Source
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 
-/** In-memory view of Daml-related package metadata
-  * (see [[com.digitalasset.canton.platform.store.packagemeta.PackageMetadata]])
-  * for all packages stored on the current participant.
+/** In-memory view of Daml-related package metadata (see
+  * [[com.digitalasset.canton.platform.store.packagemeta.PackageMetadata]]) for all packages stored
+  * on the current participant.
   */
 trait PackageMetadataView extends AutoCloseable {
   def getSnapshot(implicit contextualizedErrorLogger: ContextualizedErrorLogger): PackageMetadata
 }
 
-/** Exposes mutable accessors to the [[PackageMetadataView]] to be used
-  * only during state initialization and on new package uploads.
+/** Exposes mutable accessors to the [[PackageMetadataView]] to be used only during state
+  * initialization and on new package uploads.
   */
 trait MutablePackageMetadataView extends PackageMetadataView {
   def update(other: PackageMetadata)(implicit tc: TraceContext): Unit

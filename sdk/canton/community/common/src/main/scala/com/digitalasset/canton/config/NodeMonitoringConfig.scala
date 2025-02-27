@@ -9,7 +9,8 @@ import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import io.netty.handler.ssl.SslContext
 
 /** Configuration of the gRPC health server for a canton node.
-  * @param parallelism number of threads to be used in the gRPC server
+  * @param parallelism
+  *   number of threads to be used in the gRPC server
   */
 final case class GrpcHealthServerConfig(
     override val address: String = "0.0.0.0",
@@ -24,11 +25,11 @@ final case class GrpcHealthServerConfig(
   override def authServices: Seq[AuthServiceConfig] = Seq.empty
   override def adminToken: Option[String] = None
   override val sslContext: Option[SslContext] = None
-  override val serverCertChainFile: Option[RequireTypes.ExistingFile] = None
+  override val serverCertChainFile: Option[PemFileOrString] = None
   override def maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize
 
-  def toRemoteConfig: ClientConfig =
-    ClientConfig(address, port, keepAliveClient = keepAliveServer.map(_.clientConfigFor))
+  def toRemoteConfig: FullClientConfig =
+    FullClientConfig(address, port, keepAliveClient = keepAliveServer.map(_.clientConfigFor))
 }
 object GrpcHealthServerConfig {
   implicit val grpcHealthServerConfigCanontConfigValidator
@@ -51,8 +52,10 @@ object HttpHealthServerConfig {
 }
 
 /** Monitoring configuration for a canton node.
-  * @param grpcHealthServer Optional gRPC Health server configuration
-  * @param httpHealthServer Optional HTTP Health server configuration
+  * @param grpcHealthServer
+  *   Optional gRPC Health server configuration
+  * @param httpHealthServer
+  *   Optional HTTP Health server configuration
   */
 final case class NodeMonitoringConfig(
     grpcHealthServer: Option[GrpcHealthServerConfig] = None,

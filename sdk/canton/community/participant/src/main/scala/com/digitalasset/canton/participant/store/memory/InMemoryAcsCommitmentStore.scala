@@ -10,7 +10,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordTime
-import com.digitalasset.canton.participant.store.AcsCommitmentStore.CommitmentData
+import com.digitalasset.canton.participant.store.AcsCommitmentStore.ParticipantCommitmentData
 import com.digitalasset.canton.participant.store.{
   AcsCommitmentStore,
   AcsCounterParticipantConfigStore,
@@ -47,7 +47,8 @@ class InMemoryAcsCommitmentStore(
     with NamedLogging {
 
   private val computed
-      : TrieMap[ParticipantId, Map[CommitmentPeriod, AcsCommitment.CommitmentType]] = TrieMap.empty
+      : TrieMap[ParticipantId, Map[CommitmentPeriod, AcsCommitment.HashedCommitmentType]] =
+    TrieMap.empty
 
   private val received: TrieMap[ParticipantId, Set[SignedProtocolMessage[AcsCommitment]]] =
     TrieMap.empty
@@ -65,12 +66,12 @@ class InMemoryAcsCommitmentStore(
   override val queue = new InMemoryCommitmentQueue
 
   override def storeComputed(
-      items: NonEmpty[Seq[AcsCommitmentStore.CommitmentData]]
+      items: NonEmpty[Seq[AcsCommitmentStore.ParticipantCommitmentData]]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     blocking {
       computed.synchronized {
-        items.toList.foreach { item =>
-          val CommitmentData(counterParticipant, period, commitment) = item
+        items.toList.foreach { case item =>
+          val ParticipantCommitmentData(counterParticipant, period, commitment) = item
           val oldMap = computed.getOrElse(counterParticipant, Map.empty)
           val oldCommitment = oldMap.getOrElse(period, commitment)
           if (oldCommitment != commitment) {
@@ -90,7 +91,7 @@ class InMemoryAcsCommitmentStore(
 
   override def getComputed(period: CommitmentPeriod, counterParticipant: ParticipantId)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[List[(CommitmentPeriod, AcsCommitment.CommitmentType)]] =
+  ): FutureUnlessShutdown[List[(CommitmentPeriod, AcsCommitment.HashedCommitmentType)]] =
     FutureUnlessShutdown.pure(
       for {
         m <- computed.get(counterParticipant).toList
@@ -232,7 +233,7 @@ class InMemoryAcsCommitmentStore(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[
-    Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)]
+    Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.HashedCommitmentType)]
   ] = {
     val filteredByCounterParty =
       if (counterParticipant.isEmpty) computed

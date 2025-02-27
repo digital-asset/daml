@@ -33,7 +33,7 @@ class UpdateServiceRequestValidatorTest
 
   private val templateId = Identifier(packageId, includedModule, includedTemplate)
 
-  private def txReqBuilder(templateIdsForParty: Seq[Identifier]) = GetUpdatesRequest(
+  private def txReqBuilderLegacy(templateIdsForParty: Seq[Identifier]) = GetUpdatesRequest(
     beginExclusive = 0L,
     endInclusive = Some(offsetLong),
     filter = Some(
@@ -71,18 +71,346 @@ class UpdateServiceRequestValidatorTest
     ),
     verbose = verbose,
   )
-  private val txReq = txReqBuilder(Seq(templateId))
-  private val txReqWithPackageNameScoping = txReqBuilder(
+
+  private def getFiltersByParty(templateIdsForParty: Seq[Identifier]): Map[String, Filters] =
+    Map(
+      party ->
+        Filters(
+          templateIdsForParty
+            .map(tId =>
+              ProtoCumulativeFilter(
+                IdentifierFilter.TemplateFilter(ProtoTemplateFilter(Some(tId)))
+              )
+            )
+            ++
+              Seq(
+                ProtoCumulativeFilter(
+                  IdentifierFilter.InterfaceFilter(
+                    ProtoInterfaceFilter(
+                      interfaceId = Some(
+                        Identifier(
+                          packageId,
+                          moduleName = includedModule,
+                          entityName = includedTemplate,
+                        )
+                      ),
+                      includeInterfaceView = true,
+                      includeCreatedEventBlob = true,
+                    )
+                  )
+                )
+              )
+        )
+    )
+
+  private def updatesReqBuilder(
+      transactionTemplateIdsO: Option[Seq[Identifier]],
+      reassignmentsTemplateIdsO: Option[Seq[Identifier]] = None,
+  ) =
+    GetUpdatesRequest(
+      beginExclusive = 0L,
+      endInclusive = Some(offsetLong),
+      updateFormat = Some(
+        UpdateFormat(
+          includeTransactions = transactionTemplateIdsO
+            .map(getFiltersByParty)
+            .map(filtersByParty =>
+              TransactionFormat(
+                eventFormat = Some(
+                  EventFormat(
+                    filtersByParty = filtersByParty,
+                    verbose = verbose,
+                  )
+                ),
+                transactionShape = TransactionShape.TRANSACTION_SHAPE_ACS_DELTA,
+              )
+            ),
+          includeReassignments = reassignmentsTemplateIdsO
+            .map(getFiltersByParty)
+            .map(filtersByParty => EventFormat(filtersByParty = filtersByParty)),
+        )
+      ),
+    )
+
+  private val txReqLegacy = txReqBuilderLegacy(Seq(templateId))
+  private val txReqLegacyWithPackageNameScoping = txReqBuilderLegacy(
     Seq(templateId.copy(packageId = Ref.PackageRef.Name(packageName).toString))
   )
 
-  private val txByOffsetReq =
-    GetTransactionByOffsetRequest(offsetLong, Seq(party))
+  private val txReq = updatesReqBuilder(Some(Seq(templateId)))
+  private val reassignmentsReq = updatesReqBuilder(
+    transactionTemplateIdsO = None,
+    reassignmentsTemplateIdsO = Some(Seq(templateId)),
+  )
+  private val txReqWithPackageNameScoping = updatesReqBuilder(
+    Some(Seq(templateId.copy(packageId = Ref.PackageRef.Name(packageName).toString)))
+  )
 
-  private val txByIdReq =
+  private val txByOffsetReqLegacy =
+    GetTransactionByOffsetRequest(offsetLong, Seq(party))
+  private val txByOffsetReq =
+    GetTransactionByOffsetRequest(
+      offset = offsetLong,
+      transactionFormat = Some(
+        TransactionFormat(
+          eventFormat = Some(EventFormat(filtersByParty = Map(party -> Filters()))),
+          transactionShape = TransactionShape.TRANSACTION_SHAPE_ACS_DELTA,
+        )
+      ),
+    )
+
+  private val txByIdReqLegacy =
     GetTransactionByIdRequest(updateId, Seq(party))
+  private val txByIdReq =
+    GetTransactionByIdRequest(
+      updateId = updateId,
+      transactionFormat = Some(
+        TransactionFormat(
+          eventFormat = Some(EventFormat(filtersByParty = Map(party -> Filters()))),
+          transactionShape = TransactionShape.TRANSACTION_SHAPE_ACS_DELTA,
+        )
+      ),
+    )
 
   "UpdateRequestValidation" when {
+
+    // TODO(#23504) remove
+    "validating regular legacy requests" should {
+
+      "accept simple requests" in {
+        inside(UpdateServiceRequestValidator.validate(txReqLegacy, ledgerEnd)) { case Right(req) =>
+          req.startExclusive shouldBe None
+          req.endInclusive shouldBe offset
+          val filtersByParty =
+            req.updateFormat.includeTransactions.map(_.eventFormat.filtersByParty).value
+          filtersByParty should have size 1
+          hasExpectedFilters(req)
+          req.updateFormat.includeTransactions.value.eventFormat.verbose shouldEqual verbose
+        }
+
+      }
+
+      "return the correct error on missing filter" in {
+        requestMustFailWith(
+          UpdateServiceRequestValidator
+            .validateForTrees(txReqLegacy.update(_.optionalFilter := None), ledgerEnd),
+          code = INVALID_ARGUMENT,
+          description =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: filter",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error on missing filter/verbose and update_format" in {
+        requestMustFailWith(
+          UpdateServiceRequestValidator
+            .validate(txReqLegacy.update(_.optionalFilter := None), ledgerEnd),
+          code = INVALID_ARGUMENT,
+          description =
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Either filter/verbose or update_format is required. Please use either backwards compatible arguments (filter and verbose) or update_format, but not both.",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error on defining both filter and update_format" in {
+        requestMustFailWith(
+          UpdateServiceRequestValidator
+            .validate(
+              txReqLegacy.update(_.optionalUpdateFormat := txReq.updateFormat, _.verbose := false),
+              ledgerEnd,
+            ),
+          code = INVALID_ARGUMENT,
+          description =
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Both filter/verbose and update_format is specified. Please use either backwards compatible arguments (filter and verbose) or update_format, but not both.",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error on defining both verbose and update_format" in {
+        requestMustFailWith(
+          UpdateServiceRequestValidator
+            .validate(
+              txReq.update(_.verbose := true),
+              ledgerEnd,
+            ),
+          code = INVALID_ARGUMENT,
+          description =
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Both filter/verbose and update_format is specified. Please use either backwards compatible arguments (filter and verbose) or update_format, but not both.",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error on empty filter" in {
+        requestMustFailWith(
+          request = UpdateServiceRequestValidator.validate(
+            txReqLegacy.update(_.filter.filtersByParty := Map.empty),
+            ledgerEnd,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: filtersByParty and filtersForAnyParty cannot be empty simultaneously",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error on empty interfaceId in interfaceFilter" in {
+        requestMustFailWith(
+          request = UpdateServiceRequestValidator.validate(
+            txReqLegacy.update(_.filter.filtersByParty.modify(_.map { case (p, f) =>
+              p -> f.update(
+                _.cumulative := Seq(
+                  ProtoCumulativeFilter(
+                    IdentifierFilter.InterfaceFilter(ProtoInterfaceFilter(None, true))
+                  )
+                )
+              )
+            })),
+            ledgerEnd,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: interfaceId",
+          metadata = Map.empty,
+        )
+      }
+
+      "tolerate empty filters_inclusive" in {
+        inside(
+          UpdateServiceRequestValidator.validate(
+            txReqLegacy.update(_.filter.filtersByParty.modify(_.map { case (p, f) =>
+              p -> f.update(_.cumulative := Seq(ProtoCumulativeFilter.defaultInstance))
+            })),
+            ledgerEnd,
+          )
+        ) { case Right(req) =>
+          req.startExclusive shouldEqual None
+          req.endInclusive shouldEqual offset
+          val filtersByParty =
+            req.updateFormat.includeTransactions.map(_.eventFormat.filtersByParty).value
+          filtersByParty should have size 1
+          inside(filtersByParty.headOption.value) { case (p, filters) =>
+            p shouldEqual party
+            filters shouldEqual CumulativeFilter.templateWildcardFilter()
+          }
+          req.updateFormat.includeTransactions.value.eventFormat.verbose shouldEqual verbose
+        }
+      }
+
+      "tolerate missing filters_inclusive" in {
+        inside(
+          UpdateServiceRequestValidator.validate(
+            txReqLegacy.update(_.filter.filtersByParty.modify(_.map { case (p, f) =>
+              p -> f.update(_.cumulative := Seq())
+            })),
+            ledgerEnd,
+          )
+        ) { case Right(req) =>
+          req.startExclusive shouldEqual None
+          req.endInclusive shouldEqual offset
+          val filtersByParty =
+            req.updateFormat.includeTransactions.map(_.eventFormat.filtersByParty).value
+          filtersByParty should have size 1
+          inside(filtersByParty.headOption.value) { case (p, filters) =>
+            p shouldEqual party
+            filters shouldEqual CumulativeFilter.templateWildcardFilter()
+          }
+          req.updateFormat.includeTransactions.value.eventFormat.verbose shouldEqual verbose
+        }
+      }
+
+      "tolerate all fields filled out" in {
+        inside(UpdateServiceRequestValidator.validate(txReqLegacy, ledgerEnd)) { case Right(req) =>
+          req.startExclusive shouldEqual None
+          req.endInclusive shouldEqual offset
+          hasExpectedFilters(req)
+          req.updateFormat.includeTransactions.value.eventFormat.verbose shouldEqual verbose
+        }
+      }
+
+      "allow package-name scoped templates" in {
+        inside(
+          UpdateServiceRequestValidator.validate(txReqLegacyWithPackageNameScoping, ledgerEnd)
+        ) { case Right(req) =>
+          req.startExclusive shouldEqual None
+          req.endInclusive shouldEqual offset
+          hasExpectedFilters(
+            req,
+            expectedTemplates =
+              Set(Ref.TypeConRef(Ref.PackageRef.Name(packageName), templateQualifiedName)),
+          )
+          req.updateFormat.includeTransactions.value.eventFormat.verbose shouldEqual verbose
+        }
+      }
+
+      "still allow populated packageIds in templateIds (for backwards compatibility)" in {
+        inside(UpdateServiceRequestValidator.validate(txReqLegacy, ledgerEnd)) { case Right(req) =>
+          req.startExclusive shouldEqual None
+          req.endInclusive shouldEqual offset
+          hasExpectedFilters(req)
+          req.updateFormat.includeTransactions.value.eventFormat.verbose shouldEqual verbose
+        }
+      }
+
+      "current definition populate the right api request" in {
+        val result = UpdateServiceRequestValidator.validate(
+          txReqBuilderLegacy(Seq.empty).copy(
+            filter = Some(
+              TransactionFilter(
+                Map(
+                  party -> Filters(
+                    Seq(
+                      ProtoCumulativeFilter(
+                        IdentifierFilter.InterfaceFilter(
+                          ProtoInterfaceFilter(
+                            interfaceId = Some(templateId),
+                            includeInterfaceView = true,
+                            includeCreatedEventBlob = true,
+                          )
+                        )
+                      )
+                    )
+                      ++
+                        Seq(
+                          ProtoCumulativeFilter(
+                            IdentifierFilter.TemplateFilter(
+                              ProtoTemplateFilter(Some(templateId), true)
+                            )
+                          )
+                        )
+                  )
+                )
+              )
+            )
+          ),
+          ledgerEnd,
+        )
+        result.map(
+          _.updateFormat.includeTransactions.value.eventFormat.filtersByParty
+        ) shouldBe Right(
+          Map(
+            party ->
+              CumulativeFilter(
+                templateFilters = Set(
+                  TemplateFilter(
+                    TypeConRef.assertFromString("packageId:includedModule:includedTemplate"),
+                    true,
+                  )
+                ),
+                interfaceFilters = Set(
+                  InterfaceFilter(
+                    interfaceTypeRef = Ref.TypeConRef.assertFromString(
+                      "packageId:includedModule:includedTemplate"
+                    ),
+                    includeView = true,
+                    includeCreatedEventBlob = true,
+                  )
+                ),
+                templateWildcardFilter = None,
+              )
+          )
+        )
+      }
+    }
 
     "validating regular requests" should {
 
@@ -99,20 +427,40 @@ class UpdateServiceRequestValidatorTest
 
       }
 
-      "return the correct error on missing filter" in {
+      "accept simple requests for reassignments" in {
+        inside(UpdateServiceRequestValidator.validate(reassignmentsReq, ledgerEnd)) {
+          case Right(req) =>
+            req.startExclusive shouldBe None
+            req.endInclusive shouldBe offset
+            val filtersByParty =
+              req.updateFormat.includeReassignments.value.filtersByParty
+            filtersByParty should have size 1
+            req.updateFormat.includeReassignments.value.verbose shouldEqual verbose
+        }
+
+      }
+
+      "return the correct error without filters in the event format of transactions" in {
         requestMustFailWith(
-          UpdateServiceRequestValidator.validate(txReq.update(_.optionalFilter := None), ledgerEnd),
+          request = UpdateServiceRequestValidator.validate(
+            txReq.update(
+              _.updateFormat.includeTransactions.eventFormat.filtersByParty := Map.empty
+            ),
+            ledgerEnd,
+          ),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: filter",
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: filtersByParty and filtersForAnyParty cannot be empty simultaneously",
           metadata = Map.empty,
         )
       }
 
-      "return the correct error on empty filter" in {
+      "return the correct error without filters in the event format of reassignments" in {
         requestMustFailWith(
           request = UpdateServiceRequestValidator.validate(
-            txReq.update(_.filter.filtersByParty := Map.empty),
+            reassignmentsReq.update(
+              _.updateFormat.includeReassignments.filtersByParty := Map.empty
+            ),
             ledgerEnd,
           ),
           code = INVALID_ARGUMENT,
@@ -125,20 +473,100 @@ class UpdateServiceRequestValidatorTest
       "return the correct error on empty interfaceId in interfaceFilter" in {
         requestMustFailWith(
           request = UpdateServiceRequestValidator.validate(
-            txReq.update(_.filter.filtersByParty.modify(_.map { case (p, f) =>
-              p -> f.update(
-                _.cumulative := Seq(
-                  ProtoCumulativeFilter(
-                    IdentifierFilter.InterfaceFilter(ProtoInterfaceFilter(None, true))
+            txReq.update(
+              _.updateFormat.includeTransactions.eventFormat.filtersByParty.modify(_.map {
+                case (p, f) =>
+                  p -> f.update(
+                    _.cumulative := Seq(
+                      ProtoCumulativeFilter(
+                        IdentifierFilter.InterfaceFilter(
+                          ProtoInterfaceFilter(interfaceId = None, includeInterfaceView = true)
+                        )
+                      )
+                    )
                   )
-                )
-              )
-            })),
+              })
+            ),
             ledgerEnd,
           ),
           code = INVALID_ARGUMENT,
           description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: interfaceId",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error on empty templateId in templateFilter" in {
+        requestMustFailWith(
+          request = UpdateServiceRequestValidator.validate(
+            txReq.update(
+              _.updateFormat.includeTransactions.eventFormat.filtersByParty.modify(_.map {
+                case (p, f) =>
+                  p -> f.update(
+                    _.cumulative := Seq(
+                      ProtoCumulativeFilter(
+                        IdentifierFilter.TemplateFilter(
+                          ProtoTemplateFilter(templateId = None, includeCreatedEventBlob = true)
+                        )
+                      )
+                    )
+                  )
+              })
+            ),
+            ledgerEnd,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: templateId",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error on unspecified transaction shape" in {
+        requestMustFailWith(
+          request = UpdateServiceRequestValidator.validate(
+            txReq.update(
+              _.updateFormat.includeTransactions.transactionShape := TransactionShape.TRANSACTION_SHAPE_UNSPECIFIED
+            ),
+            ledgerEnd,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: transaction_shape",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error on unrecognized transaction shape" in {
+        requestMustFailWith(
+          request = UpdateServiceRequestValidator.validate(
+            txReq.update(
+              _.updateFormat.includeTransactions.transactionShape :=
+                TransactionShape.Unrecognized(unrecognizedValue = 4)
+            ),
+            ledgerEnd,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: transaction_shape is defined with invalid value 4",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error on invalid party for topology events" in {
+        requestMustFailWith(
+          request = UpdateServiceRequestValidator.validate(
+            txReq.update(
+              _.updateFormat.includeTopologyEvents.includeParticipantAuthorizationEvents.parties := Seq(
+                "notParseableString@"
+              )
+            ),
+            ledgerEnd,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field parties: non " +
+              "expected character 0x40 in Daml-LF Party \"notParseableString@\"",
           metadata = Map.empty,
         )
       }
@@ -231,9 +659,12 @@ class UpdateServiceRequestValidatorTest
       "tolerate empty filters_inclusive" in {
         inside(
           UpdateServiceRequestValidator.validate(
-            txReq.update(_.filter.filtersByParty.modify(_.map { case (p, f) =>
-              p -> f.update(_.cumulative := Seq(ProtoCumulativeFilter.defaultInstance))
-            })),
+            txReq.update(
+              _.updateFormat.includeTransactions.eventFormat.filtersByParty.modify(_.map {
+                case (p, f) =>
+                  p -> f.update(_.cumulative := Seq(ProtoCumulativeFilter.defaultInstance))
+              })
+            ),
             ledgerEnd,
           )
         ) { case Right(req) =>
@@ -253,9 +684,12 @@ class UpdateServiceRequestValidatorTest
       "tolerate missing filters_inclusive" in {
         inside(
           UpdateServiceRequestValidator.validate(
-            txReq.update(_.filter.filtersByParty.modify(_.map { case (p, f) =>
-              p -> f.update(_.cumulative := Seq())
-            })),
+            txReq.update(
+              _.updateFormat.includeTransactions.eventFormat.filtersByParty.modify(_.map {
+                case (p, f) =>
+                  p -> f.update(_.cumulative := Seq())
+              })
+            ),
             ledgerEnd,
           )
         ) { case Right(req) =>
@@ -282,16 +716,17 @@ class UpdateServiceRequestValidatorTest
       }
 
       "allow package-name scoped templates" in {
-        inside(UpdateServiceRequestValidator.validate(txReqWithPackageNameScoping, ledgerEnd)) {
-          case Right(req) =>
-            req.startExclusive shouldEqual None
-            req.endInclusive shouldEqual offset
-            hasExpectedFilters(
-              req,
-              expectedTemplates =
-                Set(Ref.TypeConRef(Ref.PackageRef.Name(packageName), templateQualifiedName)),
-            )
-            req.updateFormat.includeTransactions.value.eventFormat.verbose shouldEqual verbose
+        inside(
+          UpdateServiceRequestValidator.validate(txReqWithPackageNameScoping, ledgerEnd)
+        ) { case Right(req) =>
+          req.startExclusive shouldEqual None
+          req.endInclusive shouldEqual offset
+          hasExpectedFilters(
+            req,
+            expectedTemplates =
+              Set(Ref.TypeConRef(Ref.PackageRef.Name(packageName), templateQualifiedName)),
+          )
+          req.updateFormat.includeTransactions.value.eventFormat.verbose shouldEqual verbose
         }
       }
 
@@ -306,34 +741,31 @@ class UpdateServiceRequestValidatorTest
 
       "current definition populate the right api request" in {
         val result = UpdateServiceRequestValidator.validate(
-          txReqBuilder(Seq.empty).copy(
-            filter = Some(
-              TransactionFilter(
-                Map(
-                  party -> Filters(
-                    Seq(
-                      ProtoCumulativeFilter(
-                        IdentifierFilter.InterfaceFilter(
-                          ProtoInterfaceFilter(
-                            interfaceId = Some(templateId),
-                            includeInterfaceView = true,
-                            includeCreatedEventBlob = true,
-                          )
+          updatesReqBuilder(Some(Seq.empty)).update(
+            _.updateFormat.includeTransactions.eventFormat.filtersByParty :=
+              Map(
+                party -> Filters(
+                  Seq(
+                    ProtoCumulativeFilter(
+                      IdentifierFilter.InterfaceFilter(
+                        ProtoInterfaceFilter(
+                          interfaceId = Some(templateId),
+                          includeInterfaceView = true,
+                          includeCreatedEventBlob = true,
                         )
                       )
                     )
-                      ++
-                        Seq(
-                          ProtoCumulativeFilter(
-                            IdentifierFilter.TemplateFilter(
-                              ProtoTemplateFilter(Some(templateId), true)
-                            )
+                  )
+                    ++
+                      Seq(
+                        ProtoCumulativeFilter(
+                          IdentifierFilter.TemplateFilter(
+                            ProtoTemplateFilter(Some(templateId), true)
                           )
                         )
-                  )
+                      )
                 )
               )
-            )
           ),
           ledgerEnd,
         )
@@ -370,7 +802,36 @@ class UpdateServiceRequestValidatorTest
       "fail on empty transactionId" in {
         requestMustFailWith(
           request =
-            UpdateServiceRequestValidator.validateTransactionById(txByIdReq.withUpdateId("")),
+            UpdateServiceRequestValidator.validateTransactionById(txByIdReqLegacy.withUpdateId("")),
+          code = INVALID_ARGUMENT,
+          description =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: update_id",
+          metadata = Map.empty,
+        )
+      }
+
+      // TODO(#23504) enable the test
+//      "fail on empty transaction format" in {
+//        requestMustFailWith(
+//          request = UpdateServiceRequestValidator.validateTransactionById(
+//            txByIdReq.clearTransactionFormat
+//          ),
+//          code = INVALID_ARGUMENT,
+//          description =
+//            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: transaction_format",
+//          metadata = Map.empty,
+//        )
+//      }
+
+    }
+
+    // TODO(#23504) remove
+    "validating transaction by id legacy requests" should {
+
+      "fail on empty transactionId" in {
+        requestMustFailWith(
+          request =
+            UpdateServiceRequestValidator.validateTransactionById(txByIdReqLegacy.withUpdateId("")),
           code = INVALID_ARGUMENT,
           description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: update_id",
@@ -380,12 +841,42 @@ class UpdateServiceRequestValidatorTest
 
       "fail on empty requesting parties" in {
         requestMustFailWith(
-          request = UpdateServiceRequestValidator.validateTransactionById(
-            txByIdReq.withRequestingParties(Nil)
+          request = UpdateServiceRequestValidator.validateTransactionByIdForTrees(
+            txByIdReqLegacy.withRequestingParties(Nil)
           ),
           code = INVALID_ARGUMENT,
           description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: requesting_parties",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error on missing requesting parties and transaction_format" in {
+        requestMustFailWith(
+          UpdateServiceRequestValidator
+            .validateTransactionById(
+              txByIdReq.update(_.optionalTransactionFormat := None)
+            ),
+          code = INVALID_ARGUMENT,
+          description =
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Either requesting_parties or " +
+              "transaction_format is required. Please use either backwards compatible arguments (requesting_parties) or " +
+              "transaction_format, but not both.",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error on defining both requesting_parties and transaction_format" in {
+        requestMustFailWith(
+          UpdateServiceRequestValidator
+            .validateTransactionById(
+              txByIdReqLegacy.update(_.optionalTransactionFormat := txByIdReq.transactionFormat)
+            ),
+          code = INVALID_ARGUMENT,
+          description =
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Both requesting_parties and " +
+              "transaction_format are specified. Please use either backwards compatible arguments (requesting_parties) " +
+              "or transaction_format, but not both.",
           metadata = Map.empty,
         )
       }
@@ -396,8 +887,9 @@ class UpdateServiceRequestValidatorTest
 
       "fail on zero offset" in {
         requestMustFailWith(
-          request =
-            UpdateServiceRequestValidator.validateTransactionByOffset(txByOffsetReq.withOffset(0)),
+          request = UpdateServiceRequestValidator.validateTransactionByOffset(
+            txByOffsetReq.withOffset(0)
+          ),
           code = INVALID_ARGUMENT,
           description =
             "NON_POSITIVE_OFFSET(8,0): Offset 0 in offset is not a positive integer: the offset has to be a positive integer (>0)",
@@ -417,14 +909,64 @@ class UpdateServiceRequestValidatorTest
         )
       }
 
+      // TODO(#23504) enable the test
+//      "fail on empty transaction format" in {
+//        requestMustFailWith(
+//          request = UpdateServiceRequestValidator.validateTransactionByOffset(
+//            txByOffsetReq.clearTransactionFormat
+//          ),
+//          code = INVALID_ARGUMENT,
+//          description =
+//            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: transaction_format",
+//          metadata = Map.empty,
+//        )
+//      }
+
+    }
+
+    // TODO(#23504) remove
+    "validating transaction by offset legacy requests" should {
+
       "fail on empty requesting parties" in {
         requestMustFailWith(
-          request = UpdateServiceRequestValidator.validateTransactionByOffset(
-            txByOffsetReq.withRequestingParties(Nil)
+          request = UpdateServiceRequestValidator.validateTransactionByOffsetForTrees(
+            txByOffsetReqLegacy.withRequestingParties(Nil)
           ),
           code = INVALID_ARGUMENT,
           description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: requesting_parties",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error on missing requesting parties and transaction_format" in {
+        requestMustFailWith(
+          UpdateServiceRequestValidator
+            .validateTransactionByOffset(
+              txByOffsetReq.update(_.optionalTransactionFormat := None)
+            ),
+          code = INVALID_ARGUMENT,
+          description =
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Either requesting_parties or " +
+              "transaction_format is required. Please use either backwards compatible arguments (requesting_parties) or " +
+              "transaction_format, but not both.",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error on defining both requesting_parties and transaction_format" in {
+        requestMustFailWith(
+          UpdateServiceRequestValidator
+            .validateTransactionByOffset(
+              txByOffsetReqLegacy.update(
+                _.optionalTransactionFormat := txByOffsetReq.transactionFormat
+              )
+            ),
+          code = INVALID_ARGUMENT,
+          description =
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Both requesting_parties and " +
+              "transaction_format are specified. Please use either backwards compatible arguments (requesting_parties) " +
+              "or transaction_format, but not both.",
           metadata = Map.empty,
         )
       }

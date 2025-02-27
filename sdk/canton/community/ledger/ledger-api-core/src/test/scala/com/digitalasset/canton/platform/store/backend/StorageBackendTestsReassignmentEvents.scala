@@ -318,7 +318,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
               updateId = offset(1).toDecimalString,
               offset = 1,
               nodeId = 0,
-              contractId = hashCid("#1").coid,
+              contractId = hashCid("#1"),
               templateId = someTemplateId,
               packageName = somePackageName,
               packageVersion = Some(somePackageVersion),
@@ -356,7 +356,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
               updateId = offset(2).toDecimalString,
               offset = 2,
               nodeId = 0,
-              contractId = hashCid("#2").coid,
+              contractId = hashCid("#2"),
               templateId = someTemplateId,
               packageName = somePackageName,
               packageVersion = Some(somePackageVersion),
@@ -425,7 +425,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           unassignId = "123456789",
           submitter = Option(someParty),
           reassignmentCounter = 1000L,
-          contractId = hashCid("#1").coid,
+          contractId = hashCid("#1"),
           templateId = someTemplateId,
           packageName = somePackageName,
           witnessParties = Set("signatory"),
@@ -448,7 +448,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           unassignId = "123456789",
           submitter = Option(someParty),
           reassignmentCounter = 1000L,
-          contractId = hashCid("#2").coid,
+          contractId = hashCid("#2"),
           templateId = someTemplateId,
           packageName = somePackageName,
           witnessParties = Set("signatory"),
@@ -603,7 +603,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           updateId = offset(1).toDecimalString,
           offset = 1,
           nodeId = 0,
-          contractId = hashCid("#1").coid,
+          contractId = hashCid("#1"),
           templateId = someTemplateId,
           packageName = somePackageName,
           packageVersion = Some(somePackageVersion),
@@ -629,7 +629,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           updateId = offset(2).toDecimalString,
           offset = 2,
           nodeId = 0,
-          contractId = hashCid("#2").coid,
+          contractId = hashCid("#2"),
           templateId = someTemplateId,
           packageName = somePackageName,
           packageVersion = Some(somePackageVersion),
@@ -754,7 +754,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           updateId = offset(2).toDecimalString,
           offset = 2,
           nodeId = 0,
-          contractId = hashCid("#1").coid,
+          contractId = hashCid("#1"),
           templateId = someTemplateId,
           packageName = somePackageName,
           packageVersion = Some(somePackageVersion),
@@ -780,7 +780,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           updateId = offset(3).toDecimalString,
           offset = 3,
           nodeId = 0,
-          contractId = hashCid("#2").coid,
+          contractId = hashCid("#2"),
           templateId = someTemplateId,
           packageName = somePackageName,
           packageVersion = Some(somePackageVersion),
@@ -835,7 +835,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       tuple match {
         case (i: Int, synchronizerId: Int, seqId: Long) =>
           UnassignProperties(
-            contractId = hashCid(s"#$i").coid,
+            contractId = hashCid(s"#$i"),
             synchronizerId = s"x::synchronizer$synchronizerId",
             sequentialId = seqId,
           )
@@ -1001,7 +1001,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         List(
           1, // found at 1
           2, // found at 2
-        ).map(coid => hashCid(s"#$coid").coid)
+        ).map(coid => hashCid(s"#$coid"))
       )
     ) shouldBe Vector(1L, 2L)
   }

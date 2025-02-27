@@ -18,10 +18,12 @@ object EncryptedPrivateStoreConfig {
     CantonConfigValidatorDerivation[EncryptedPrivateStoreConfig]
 
   /** Configuration for a KMS encrypted private store
-    * @param wrapperKeyId defines key identifier for the wrapper key (e.g. ARN for AWS SDK). When it's None
-    *                     Canton will either create a new key or use a previous existent key
-    * @param reverted when true decrypts the stored private keys and stores them in clear, disabling the
-    *                 encrypted crypto private key store in the process
+    * @param wrapperKeyId
+    *   defines key identifier for the wrapper key (e.g. ARN for AWS SDK). When it's None Canton
+    *   will either create a new key or use a previous existent key
+    * @param reverted
+    *   when true decrypts the stored private keys and stores them in clear, disabling the encrypted
+    *   crypto private key store in the process
     */
   final case class Kms(
       wrapperKeyId: Option[KmsKeyId] = None,

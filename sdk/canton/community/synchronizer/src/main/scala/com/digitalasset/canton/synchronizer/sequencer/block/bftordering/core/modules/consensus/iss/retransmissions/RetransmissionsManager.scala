@@ -104,7 +104,8 @@ class RetransmissionsManager[E <: Env[E]](
           )
           None
         case Success(Left(errors)) =>
-          logger.warn(
+          // Info because it can also happen at epoch boundaries
+          logger.info(
             s"Verification of ${shortType(message.message)} from ${message.from} failed: $errors"
           )
           None

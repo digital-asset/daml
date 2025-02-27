@@ -9,8 +9,10 @@ import com.daml.ledger.api.v2.event_query_service.{
   GetEventsByContractIdRequest,
   GetEventsByContractIdResponse,
 }
-import com.digitalasset.canton.auth.Authorizer
+import com.digitalasset.canton.auth.{Authorizer, RequiredClaim}
 import com.digitalasset.canton.ledger.api.ProxyCloseable
+import com.digitalasset.canton.ledger.api.auth.RequiredClaims
+import com.digitalasset.canton.ledger.api.auth.services.EventQueryServiceAuthorization.getEventsByContractIdClaims
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import io.grpc.ServerServiceDefinition
 
@@ -27,11 +29,20 @@ final class EventQueryServiceAuthorization(
   override def getEventsByContractId(
       request: GetEventsByContractIdRequest
   ): Future[GetEventsByContractIdResponse] =
-    authorizer.requireReadClaimsForAllParties(
-      request.requestingParties,
-      service.getEventsByContractId,
+    authorizer.rpc(service.getEventsByContractId)(
+      getEventsByContractIdClaims(request)*
     )(request)
 
   override def bindService(): ServerServiceDefinition =
     EventQueryServiceGrpc.bindService(this, executionContext)
+}
+
+object EventQueryServiceAuthorization {
+  def getEventsByContractIdClaims(
+      request: GetEventsByContractIdRequest
+  ): List[RequiredClaim[GetEventsByContractIdRequest]] =
+    RequiredClaims.readAsForAllParties[GetEventsByContractIdRequest](request.requestingParties) :::
+      request.eventFormat.toList.flatMap(
+        RequiredClaims.eventFormatClaims[GetEventsByContractIdRequest]
+      )
 }

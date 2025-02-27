@@ -8,11 +8,17 @@ import com.digitalasset.canton.environment.{Environment, EnvironmentFactory}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 
 /** Definition of how a environment should be configured and setup.
-  * @param baseConfig the base config to use (typically loaded from a pre-canned config file or sample)
-  * @param testingConfig the testing specifics bits of the config
-  * @param setups a function to configure the environment before tests can be run.
-  * @param teardown a function to perform cleanup after the environment has been destroyed.
-  * @param configTransforms transforms to perform on the base configuration before starting the environment (typically making ports unique or some other specialization for the particular tests you're running)
+  * @param baseConfig
+  *   the base config to use (typically loaded from a pre-canned config file or sample)
+  * @param testingConfig
+  *   the testing specifics bits of the config
+  * @param setups
+  *   a function to configure the environment before tests can be run.
+  * @param teardown
+  *   a function to perform cleanup after the environment has been destroyed.
+  * @param configTransforms
+  *   transforms to perform on the base configuration before starting the environment (typically
+  *   making ports unique or some other specialization for the particular tests you're running)
   */
 abstract class BaseEnvironmentDefinition[E <: Environment, TCE <: TestConsoleEnvironment[E]](
     val baseConfig: E#Config,
@@ -22,9 +28,9 @@ abstract class BaseEnvironmentDefinition[E <: Environment, TCE <: TestConsoleEnv
     val configTransforms: Seq[E#Config => E#Config],
 ) {
 
-  /** Create a canton configuration by applying the configTransforms to the base config.
-    * Some transforms may have side-effects (such as incrementing the next available port number) so only do before
-    * constructing an environment.
+  /** Create a canton configuration by applying the configTransforms to the base config. Some
+    * transforms may have side-effects (such as incrementing the next available port number) so only
+    * do before constructing an environment.
     */
   def generateConfig: E#Config =
     configTransforms.foldLeft(baseConfig)((config, transform) => transform(config))

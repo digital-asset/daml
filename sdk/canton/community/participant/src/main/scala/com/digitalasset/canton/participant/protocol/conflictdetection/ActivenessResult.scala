@@ -7,11 +7,13 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.store.ActiveContractStore
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 
-/** The result of the activeness check for an [[ActivenessSet]].
-  * If all sets are empty, the activeness check was successful.
+/** The result of the activeness check for an [[ActivenessSet]]. If all sets are empty, the
+  * activeness check was successful.
   *
-  * @param contracts The contracts whose activeness check has failed
-  * @param inactiveReassignments The reassignments that shall be completed, but that are not active.
+  * @param contracts
+  *   The contracts whose activeness check has failed
+  * @param inactiveReassignments
+  *   The reassignments that shall be completed, but that are not active.
   */
 final case class ActivenessResult(
     contracts: ActivenessCheckResult[LfContractId, ActiveContractStore.Status],
@@ -28,17 +30,21 @@ final case class ActivenessResult(
     )
 }
 
-/** The result of the activeness check for an [[ActivenessCheck]].
-  * If all sets are empty, the activeness check was successful.
+/** The result of the activeness check for an [[ActivenessCheck]]. If all sets are empty, the
+  * activeness check was successful.
   *
-  * @param alreadyLocked The items that have already been locked at the activeness check.
-  * @param notFresh The items that are supposed to not exist, but do.
-  * @param notFree The items that shall be free, but are not.
-  * @param notActive The contracts that shall be active, but are not.
-  * @param priorStates The prior states for the items from [[ActivenessCheck.needPriorState]].
-  *                    Does not contain items that were already locked
-  *                    as the prior state of a locked item is not known during conflict detection.
-  *                    Mapped to [[scala.None$]] if the item is fresh.
+  * @param alreadyLocked
+  *   The items that have already been locked at the activeness check.
+  * @param notFresh
+  *   The items that are supposed to not exist, but do.
+  * @param notFree
+  *   The items that shall be free, but are not.
+  * @param notActive
+  *   The contracts that shall be active, but are not.
+  * @param priorStates
+  *   The prior states for the items from [[ActivenessCheck.needPriorState]]. Does not contain items
+  *   that were already locked as the prior state of a locked item is not known during conflict
+  *   detection. Mapped to [[scala.None$]] if the item is fresh.
   */
 private[conflictdetection] final case class ActivenessCheckResult[Key, Status <: PrettyPrinting](
     alreadyLocked: Set[Key],
@@ -52,7 +58,9 @@ private[conflictdetection] final case class ActivenessCheckResult[Key, Status <:
 
   private[conflictdetection] def isEmpty: Boolean = isSuccessful && priorStates.isEmpty
 
-  /** Returns whether all checks were successful. The caller must check the requested prior states separately. */
+  /** Returns whether all checks were successful. The caller must check the requested prior states
+    * separately.
+    */
   def isSuccessful: Boolean =
     alreadyLocked.isEmpty && notFresh.isEmpty && unknown.isEmpty && notFree.isEmpty && notActive.isEmpty
 

@@ -5,7 +5,9 @@ package com.digitalasset.canton.protocol.messages
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.daml.nonempty.NonEmptyUtil.instances.*
+import com.daml.nonempty.catsinstances.*
+import com.daml.nonempty.{NonEmpty, NonEmptyF}
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
@@ -24,11 +26,14 @@ import monocle.{Lens, PTraversal, Traversal}
 
 /** Payload of a response sent to the mediator in reaction to a confirmation request.
   *
-  * @param viewPositionO the view position of the underlying view.
-  *                      May be empty if the [[localVerdict]] is [[com.digitalasset.canton.protocol.LocalRejectError.Malformed]].
-  *                      Must be empty if the protoVersion is strictly lower than 2.
-  * @param localVerdict The participant's verdict on the request's view.
-  * @param confirmingParties   The set of confirming parties. Empty, if the verdict is malformed.
+  * @param viewPositionO
+  *   the view position of the underlying view. May be empty if the [[localVerdict]] is
+  *   [[com.digitalasset.canton.protocol.LocalRejectError.Malformed]]. Must be empty if the
+  *   protoVersion is strictly lower than 2.
+  * @param localVerdict
+  *   The participant's verdict on the request's view.
+  * @param confirmingParties
+  *   The set of confirming parties. Empty, if the verdict is malformed.
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
 case class ConfirmationResponse private (
@@ -152,13 +157,19 @@ object ConfirmationResponse {
   }
 }
 
-/** Aggregates multiple confirmation responses to be sent to the mediator in reaction to a confirmation request.
+/** Aggregates multiple confirmation responses to be sent to the mediator in reaction to a
+  * confirmation request.
   *
-  * @param requestId The unique identifier of the request.
-  * @param rootHash The root hash of the request.
-  * @param synchronizerId The synchronizer ID over which the request is sent.
-  * @param sender The identity of the sender.
-  * @param responses A list of confirmation responses.
+  * @param requestId
+  *   The unique identifier of the request.
+  * @param rootHash
+  *   The root hash of the request.
+  * @param synchronizerId
+  *   The synchronizer ID over which the request is sent.
+  * @param sender
+  *   The identity of the sender.
+  * @param responses
+  *   A list of confirmation responses.
   */
 final case class ConfirmationResponses private (
     requestId: RequestId,
@@ -251,11 +262,9 @@ object ConfirmationResponses extends VersioningCompanionMemoization[Confirmation
       responses,
     )(protocolVersionRepresentativeFor(protocolVersion), None)
 
-  private val responsesUnsafe =
-    Lens[ConfirmationResponses, Seq[ConfirmationResponse]](_.responses)(responses =>
-      confirmationResponses =>
-        confirmationResponses.copy(responses = NonEmptyUtil.fromUnsafe(responses))
-    ).andThen(Traversal.fromTraverse[Seq, ConfirmationResponse])
+  private val responsesUnsafe: Traversal[ConfirmationResponses, ConfirmationResponse] =
+    GenLens[ConfirmationResponses](_.responses).toNEF
+      .andThen(Traversal.fromTraverse[NonEmptyF[Seq, *], ConfirmationResponse])
 
   /** DO NOT USE IN PRODUCTION, as this does not necessarily check object invariants. */
   @VisibleForTesting

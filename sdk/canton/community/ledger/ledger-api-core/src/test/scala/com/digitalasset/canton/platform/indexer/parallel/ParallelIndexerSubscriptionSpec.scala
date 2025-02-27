@@ -39,6 +39,7 @@ import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{CommittedTransaction, VersionedTransaction}
+import com.digitalasset.daml.lf.value.Value.ContractId
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
@@ -96,6 +97,8 @@ class ParallelIndexerSubscriptionSpec
 
   private val metrics = LedgerApiServerMetrics.ForTesting
 
+  private def hashCid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))
+
   private val someEventCreated = DbDto.EventCreate(
     event_offset = 1,
     update_id = "",
@@ -105,7 +108,7 @@ class ParallelIndexerSubscriptionSpec
     application_id = None,
     submitters = None,
     node_id = 3,
-    contract_id = "1",
+    contract_id = hashCid("1").toBytes.toByteArray,
     template_id = "",
     package_name = "",
     package_version = None,
@@ -136,7 +139,7 @@ class ParallelIndexerSubscriptionSpec
     application_id = None,
     submitters = None,
     node_id = 3,
-    contract_id = "1",
+    contract_id = hashCid("1").toBytes.toByteArray,
     template_id = "",
     package_name = "",
     flat_event_witnesses = Set.empty,
@@ -162,7 +165,7 @@ class ParallelIndexerSubscriptionSpec
     command_id = None,
     workflow_id = None,
     submitter = None,
-    contract_id = "",
+    contract_id = hashCid("1").toBytes.toByteArray,
     template_id = "",
     package_name = "",
     package_version = None,
@@ -192,7 +195,7 @@ class ParallelIndexerSubscriptionSpec
     command_id = None,
     workflow_id = None,
     submitter = None,
-    contract_id = "",
+    contract_id = hashCid("1").toBytes.toByteArray,
     template_id = "",
     package_name = "",
     flat_event_witnesses = Set.empty,

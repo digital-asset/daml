@@ -17,9 +17,9 @@ import scala.annotation.tailrec
   */
 trait AdminCommandRunner {
 
-  /** Run a GRPC admin command and return its result.
-    * Most of the commands are only defined for the GRPC interface, so we default to showing an error message
-    * if the command is called for a node configured with an HTTP interface.
+  /** Run a GRPC admin command and return its result. Most of the commands are only defined for the
+    * GRPC interface, so we default to showing an error message if the command is called for a node
+    * configured with an HTTP interface.
     */
   protected[console] def adminCommand[Result](
       grpcCommand: GrpcAdminCommand[_, _, Result]

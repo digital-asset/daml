@@ -61,15 +61,25 @@ import scala.concurrent.ExecutionContext
 
 /** Declarative participant config
   *
-  * @param checkSelfConsistency if set to true (default), then after every sync operation we'll check again if it really succeeded
-  * @param fetchedDarDirectory temporary directory to store the dars to
-  * @param dars which dars should be uploaded
-  * @param parties which parties should be allocated
-  * @param removeParties if true, then any "excess party" found on the node will be deleted
-  * @param users which users should be allocated
-  * @param removeUsers if true, then any "excess user" found on the node will be deleted
-  * @param connections which connections should be configured
-  * @param removeConnections if true, then any excess connection will be disabled
+  * @param checkSelfConsistency
+  *   if set to true (default), then after every sync operation we'll check again if it really
+  *   succeeded
+  * @param fetchedDarDirectory
+  *   temporary directory to store the dars to
+  * @param dars
+  *   which dars should be uploaded
+  * @param parties
+  *   which parties should be allocated
+  * @param removeParties
+  *   if true, then any "excess party" found on the node will be deleted
+  * @param users
+  *   which users should be allocated
+  * @param removeUsers
+  *   if true, then any "excess user" found on the node will be deleted
+  * @param connections
+  *   which connections should be configured
+  * @param removeConnections
+  *   if true, then any excess connection will be disabled
   */
 final case class DeclarativeParticipantConfig(
     checkSelfConsistency: Boolean = true,
@@ -85,9 +95,12 @@ final case class DeclarativeParticipantConfig(
 
 /** Declarative dar definition
   *
-  * @param path the path (or URL) to the dar or dar directory
-  * @param requestHeaders optionally add additional request headers to download the dar
-  * @param expectedMainPackage which package id should be expected as the main package
+  * @param path
+  *   the path (or URL) to the dar or dar directory
+  * @param requestHeaders
+  *   optionally add additional request headers to download the dar
+  * @param expectedMainPackage
+  *   which package id should be expected as the main package
   */
 final case class DeclarativeDarConfig(
     path: String,
@@ -97,10 +110,14 @@ final case class DeclarativeDarConfig(
 
 /** Declarative party definition
   *
-  * @param id the prefix of the party
-  * @param namespace the namespace (defaults to the participants namespace)
-  * @param synchronizers if not empty, the party will be added to the selected synchronizers only, refered to by alias
-  * @param permission the permission of the hosting participant
+  * @param id
+  *   the prefix of the party
+  * @param namespace
+  *   the namespace (defaults to the participants namespace)
+  * @param synchronizers
+  *   if not empty, the party will be added to the selected synchronizers only, refered to by alias
+  * @param permission
+  *   the permission of the hosting participant
   */
 final case class DeclarativePartyConfig(
     id: String,
@@ -111,12 +128,17 @@ final case class DeclarativePartyConfig(
 
 /** Declarative user rights definition
   *
-  * @param actAs the name of the parties the user can act as. parties must exist. if they don't contain a namespace, then
-  *              the participants namespace will be used
-  * @param readAs the name of the parties the user can read as.
-  * @param readAsAnyParty if true then the user can read as any party
-  * @param participantAdmin if true then the user can act as a participant admin
-  * @param identityProviderAdmin if true, then the user can act as an identity provider admin
+  * @param actAs
+  *   the name of the parties the user can act as. parties must exist. if they don't contain a
+  *   namespace, then the participants namespace will be used
+  * @param readAs
+  *   the name of the parties the user can read as.
+  * @param readAsAnyParty
+  *   if true then the user can read as any party
+  * @param participantAdmin
+  *   if true then the user can act as a participant admin
+  * @param identityProviderAdmin
+  *   if true, then the user can act as an identity provider admin
   */
 final case class DeclarativeUserRightsConfig(
     actAs: Set[String] = Set(),
@@ -128,12 +150,18 @@ final case class DeclarativeUserRightsConfig(
 
 /** Declaratively control users
   *
-  * @param id the user id
-  * @param primaryParty the primary party that should be used for the user
-  * @param isDeactivated if true then the user is deactivatedd
-  * @param annotations a property bag of annotations that can be stored alongside the user
-  * @param identityProviderId the idp of the given user
-  * @param rights the rights granted to the party
+  * @param id
+  *   the user id
+  * @param primaryParty
+  *   the primary party that should be used for the user
+  * @param isDeactivated
+  *   if true then the user is deactivatedd
+  * @param annotations
+  *   a property bag of annotations that can be stored alongside the user
+  * @param identityProviderId
+  *   the idp of the given user
+  * @param rights
+  *   the rights granted to the party
   */
 final case class DeclarativeUserConfig(
     id: String,
@@ -162,10 +190,14 @@ final case class DeclarativeUserConfig(
 
 /** Declaratively define sequencer endpoints
   *
-  * @param endpoints the list of endpoints for the given sequencer. all endpoints must be of the same sequencer (same-id)
-  * @param transportSecurity if true then TLS will be used
-  * @param customTrustCertificates if the TLS certificate used cannot be validated against the JVMs trust store, then a
-  *                                trust store can be provided
+  * @param endpoints
+  *   the list of endpoints for the given sequencer. all endpoints must be of the same sequencer
+  *   (same-id)
+  * @param transportSecurity
+  *   if true then TLS will be used
+  * @param customTrustCertificates
+  *   if the TLS certificate used cannot be validated against the JVMs trust store, then a trust
+  *   store can be provided
   */
 final case class DeclarativeSequencerConnectionConfig(
     endpoints: NonEmpty[Seq[Endpoint]],
@@ -184,15 +216,21 @@ final case class DeclarativeSequencerConnectionConfig(
 
 /** Declarative synchronizer connection configuration
   *
-  * @param synchronizerAlias the alias to refer to this connection
-  * @param connections the list of sequencers with endpoints
-  * @param manualConnect if true then the connection should be manual and require explicitly operator action
-  * @param priority sets the priority of the connection. if a transaction can be sent to several synchronizers, it will
-  *                 use the one with the highest priority
-  * @param initializeFromTrustedSynchronizer if true then the participant assumes that the synchronizer trust certificate
-  *                                          of the participant is already issued
-  * @param trustThreshold from how many sequencers does the node have to receive a notification to trust that it was really
-  *                       observed
+  * @param synchronizerAlias
+  *   the alias to refer to this connection
+  * @param connections
+  *   the list of sequencers with endpoints
+  * @param manualConnect
+  *   if true then the connection should be manual and require explicitly operator action
+  * @param priority
+  *   sets the priority of the connection. if a transaction can be sent to several synchronizers, it
+  *   will use the one with the highest priority
+  * @param initializeFromTrustedSynchronizer
+  *   if true then the participant assumes that the synchronizer trust certificate of the
+  *   participant is already issued
+  * @param trustThreshold
+  *   from how many sequencers does the node have to receive a notification to trust that it was
+  *   really observed
   */
 final case class DeclarativeConnectionConfig(
     synchronizerAlias: SynchronizerAlias,
@@ -853,7 +891,7 @@ object DeclarativeParticipantApi {
       implicit val namespaceReader: ConfigReader[Namespace] = ConfigReader.fromString[Namespace] {
         str =>
           Fingerprint
-            .create(str)
+            .fromString(str)
             .map(Namespace(_))
             .leftMap(err => CannotConvert(str, "Namespace", err))
       }

@@ -27,8 +27,10 @@ private[auth] final class UserRightsChangeAsyncChecker(
 )(implicit ec: ExecutionContext) {
 
   /** Schedules an asynchronous and periodic task to check for user rights' state changes
-    * @param userClaimsMismatchCallback - called when user rights' state change has been detected.
-    * @return a function to cancel the scheduled task
+    * @param userClaimsMismatchCallback
+    *   called when user rights' state change has been detected.
+    * @return
+    *   a function to cancel the scheduled task
     */
   def schedule(
       userClaimsMismatchCallback: () => Unit

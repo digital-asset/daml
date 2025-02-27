@@ -24,8 +24,8 @@ object GraphExtensions extends NoTracing {
         new FlowShape(gs.in, gs.out0)
       }
 
-    /** Several of the graphs here have a second output guaranteed to deliver only one value.
-      * This turns such a graph into a flow with the value materialized.
+    /** Several of the graphs here have a second output guaranteed to deliver only one value. This
+      * turns such a graph into a flow with the value materialized.
       */
     def divertToHead(implicit noM: M <~< NotUsed): Flow[A, Y, Future[Z]] = {
       type CK[-T] = (T, Future[Z]) => Future[Z]

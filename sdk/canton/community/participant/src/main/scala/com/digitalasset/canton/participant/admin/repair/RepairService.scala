@@ -69,24 +69,25 @@ import scala.Ordered.orderingToOrdered
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Implements the repair commands.
-  * Repair commands work only if the participant has disconnected from the affected synchronizers. Additionally for repair
-  * commands, which change the Ledger API events: all synchronizers needs to be disconnected, and the indexer is switched
-  * to repair mode.
-  * Every individual repair command is executed transactionally, i.e., either all its effects are applied or none.
-  * This is achieved by the repair-indexer only changing the Synchronizer Indexes for the affected synchronizers after all previous
-  * operations were successful, and the emitted Update events are all persisted. In case of an error during repair,
-  * or crash during repair: on node and synchronizer recovery all the changes will be purged.
-  * During a repair operation (as synchronizers are disconnected) no new events are visible on the Ledger API, neither the
-  * ones added by the ongoing repair. As the repair operation successfully finished new events (if any) will become
-  * visible on the Ledger API - Ledger End and synchronizer indexes change, open tailing streams start emitting the repair
-  * events if applicable.
+/** Implements the repair commands. Repair commands work only if the participant has disconnected
+  * from the affected synchronizers. Additionally for repair commands, which change the Ledger API
+  * events: all synchronizers needs to be disconnected, and the indexer is switched to repair mode.
+  * Every individual repair command is executed transactionally, i.e., either all its effects are
+  * applied or none. This is achieved by the repair-indexer only changing the Synchronizer Indexes
+  * for the affected synchronizers after all previous operations were successful, and the emitted
+  * Update events are all persisted. In case of an error during repair, or crash during repair: on
+  * node and synchronizer recovery all the changes will be purged. During a repair operation (as
+  * synchronizers are disconnected) no new events are visible on the Ledger API, neither the ones
+  * added by the ongoing repair. As the repair operation successfully finished new events (if any)
+  * will become visible on the Ledger API - Ledger End and synchronizer indexes change, open tailing
+  * streams start emitting the repair events if applicable.
   *
-  * @param executionQueue Sequential execution queue on which repair actions must be run.
-  *                       This queue is shared with the CantonSyncService, which uses it for synchronizer connections.
-  *                       Sharing it ensures that we cannot connect to the synchronizer while a repair action is running and vice versa.
-  *                       It also ensure only one repair runs at a time. This ensures concurrent activity
-  *                       among repair operations does not corrupt state.
+  * @param executionQueue
+  *   Sequential execution queue on which repair actions must be run. This queue is shared with the
+  *   CantonSyncService, which uses it for synchronizer connections. Sharing it ensures that we
+  *   cannot connect to the synchronizer while a repair action is running and vice versa. It also
+  *   ensure only one repair runs at a time. This ensures concurrent activity among repair
+  *   operations does not corrupt state.
   */
 final class RepairService(
     participantId: ParticipantId,
@@ -201,9 +202,12 @@ final class RepairService(
   }
 
   /** Prepare contract for add, including re-computing metadata
-    * @param repairContract Contract to be added
-    * @param acsState If the contract is known, its status
-    * @param storedContract If the contract already exist in the ContractStore, the stored copy
+    * @param repairContract
+    *   Contract to be added
+    * @param acsState
+    *   If the contract is known, its status
+    * @param storedContract
+    *   If the contract already exist in the ContractStore, the stored copy
     */
   private def readRepairContractCurrentState(
       repairContract: RepairContract,
@@ -299,20 +303,26 @@ final class RepairService(
       startingPoints,
     )
 
-  /** Participant repair utility for manually adding contracts to a synchronizer in an offline fashion.
+  /** Participant repair utility for manually adding contracts to a synchronizer in an offline
+    * fashion.
     *
-    * @param synchronizerAlias  alias of synchronizer to add contracts to. The synchronizer needs to be configured, but disconnected
-    *                           to prevent race conditions.
-    * @param contracts          contracts to add. Relevant pieces of each contract: create-arguments (LfContractInst),
-    *                           template-id (LfContractInst), contractId, ledgerCreateTime, salt (to be added to
-    *                           SerializableContract), and witnesses, SerializableContract.metadata is only validated,
-    *                           but otherwise ignored as stakeholder and signatories can be recomputed from contracts.
-    * @param ignoreAlreadyAdded whether to ignore and skip over contracts already added/present in the synchronizer. Setting
-    *                           this to true (at least on retries) enables writing idempotent repair scripts.
-    * @param ignoreStakeholderCheck do not check for stakeholder presence for the given parties
-    * @param workflowIdPrefix   If present, each transaction generated for added contracts will have a workflow ID whose
-    *                           prefix is the one set and the suffix is a sequential number and the number of transactions
-    *                           generated as part of the addition (e.g. `import-foo-1-2`, `import-foo-2-2`)
+    * @param synchronizerAlias
+    *   alias of synchronizer to add contracts to. The synchronizer needs to be configured, but
+    *   disconnected to prevent race conditions.
+    * @param contracts
+    *   contracts to add. Relevant pieces of each contract: create-arguments (LfContractInst),
+    *   template-id (LfContractInst), contractId, ledgerCreateTime, salt (to be added to
+    *   SerializableContract), and witnesses, SerializableContract.metadata is only validated, but
+    *   otherwise ignored as stakeholder and signatories can be recomputed from contracts.
+    * @param ignoreAlreadyAdded
+    *   whether to ignore and skip over contracts already added/present in the synchronizer. Setting
+    *   this to true (at least on retries) enables writing idempotent repair scripts.
+    * @param ignoreStakeholderCheck
+    *   do not check for stakeholder presence for the given parties
+    * @param workflowIdPrefix
+    *   If present, each transaction generated for added contracts will have a workflow ID whose
+    *   prefix is the one set and the suffix is a sequential number and the number of transactions
+    *   generated as part of the addition (e.g. `import-foo-1-2`, `import-foo-2-2`)
     */
   def addContracts(
       synchronizerAlias: SynchronizerAlias,
@@ -450,10 +460,13 @@ final class RepairService(
 
   /** Participant repair utility for manually purging (archiving) contracts in an offline fashion.
     *
-    * @param synchronizerAlias   alias of synchronizer to purge contracts from. The synchronizer needs to be configured, but
-    *                            disconnected to prevent race conditions.
-    * @param contractIds         lf contract ids of contracts to purge
-    * @param ignoreAlreadyPurged whether to ignore already purged contracts.
+    * @param synchronizerAlias
+    *   alias of synchronizer to purge contracts from. The synchronizer needs to be configured, but
+    *   disconnected to prevent race conditions.
+    * @param contractIds
+    *   lf contract ids of contracts to purge
+    * @param ignoreAlreadyPurged
+    *   whether to ignore already purged contracts.
     */
   def purgeContracts(
       synchronizerAlias: SynchronizerAlias,
@@ -534,14 +547,17 @@ final class RepairService(
   /** Change the assignation of a contract from one synchronizer to another
     *
     * This function here allows us to manually insert a unassignment/assignment into the respective
-    * journals in order to change the assignation of a contract from one synchronizer to another. The procedure will result in
-    * a consistent state if and only if all the counter parties run the same command. Failure to do so,
-    * will results in participants reporting errors and possibly break.
+    * journals in order to change the assignation of a contract from one synchronizer to another.
+    * The procedure will result in a consistent state if and only if all the counter parties run the
+    * same command. Failure to do so, will results in participants reporting errors and possibly
+    * break.
     *
-    * @param contracts Contracts whose assignation should be changed.
-    *                  The reassignment counter is by default incremented by one. A non-empty reassignment counter
-    *                  allows to override the default behavior with the provided counter.
-    * @param skipInactive If true, then the migration will skip contracts in the contractId list that are inactive
+    * @param contracts
+    *   Contracts whose assignation should be changed. The reassignment counter is by default
+    *   incremented by one. A non-empty reassignment counter allows to override the default behavior
+    *   with the provided counter.
+    * @param skipInactive
+    *   If true, then the migration will skip contracts in the contractId list that are inactive
     */
   def changeAssignation(
       contracts: NonEmpty[Seq[(LfContractId, Option[ReassignmentCounter])]],
@@ -623,9 +639,10 @@ final class RepairService(
     )
   }
 
-  /** Rollback the Unassignment. The contract is re-assigned to the source synchronizer.
-    * The reassignment counter is increased by two. The contract is inserted into the contract store
-    * on the target synchronizer if it is not already there. Additionally, we publish the reassignment events.
+  /** Rollback the Unassignment. The contract is re-assigned to the source synchronizer. The
+    * reassignment counter is increased by two. The contract is inserted into the contract store on
+    * the target synchronizer if it is not already there. Additionally, we publish the reassignment
+    * events.
     */
   def rollbackUnassignment(
       reassignmentId: ReassignmentId,
@@ -753,7 +770,8 @@ final class RepairService(
     )
 
   /** Checks that the contracts can be added (packages known, stakeholders hosted, ...)
-    * @param allHostedStakeholders All parties that are a stakeholder of one of the contracts and are hosted locally
+    * @param allHostedStakeholders
+    *   All parties that are a stakeholder of one of the contracts and are hosted locally
     */
   private def addContractsCheck(
       repair: RepairRequest,
@@ -780,7 +798,8 @@ final class RepairService(
     } yield ()
 
   /** Checks that one contract can be added (stakeholders hosted, ...)
-    * @param allHostedStakeholders Relevant locally hosted parties
+    * @param allHostedStakeholders
+    *   Relevant locally hosted parties
     */
   private def addContractChecks(
       repair: RepairRequest,
@@ -835,9 +854,12 @@ final class RepairService(
     )
 
   /** Actual persistence work
-    * @param repair           Repair request
-    * @param contractsToAdd   Contracts to be added
-    * @param storedContracts  Contracts that already exists in the store
+    * @param repair
+    *   Repair request
+    * @param contractsToAdd
+    *   Contracts to be added
+    * @param storedContracts
+    *   Contracts that already exists in the store
     */
   private def persistAddContracts(
       repair: RepairRequest,
@@ -908,8 +930,10 @@ final class RepairService(
     } yield ()
 
   /** For the given contract, returns the operations (purge, assignment) to perform
-    * @param acsStatus Status of the contract
-    * @param storedContractO Instance of the contract
+    * @param acsStatus
+    *   Status of the contract
+    * @param storedContractO
+    *   Instance of the contract
     */
   private def computePurgeOperations(repair: RepairRequest, ignoreAlreadyPurged: Boolean)(
       cid: LfContractId,
@@ -1156,8 +1180,10 @@ final class RepairService(
 
   /** Repair commands are inserted where processing starts again upon reconnection.
     *
-    * @param synchronizerId The ID of the synchronizer for which the request is valid
-    * @param requestCountersToAllocate The number of request counters to allocate in order to fulfill the request
+    * @param synchronizerId
+    *   The ID of the synchronizer for which the request is valid
+    * @param requestCountersToAllocate
+    *   The number of request counters to allocate in order to fulfill the request
     */
   private def initRepairRequestAndVerifyPreconditions(
       synchronizerId: SynchronizerId,
@@ -1255,8 +1281,9 @@ final class RepairService(
     } yield ()
 
   /** Read the ACS state for each contract in cids
-    * @return The list of states or an error if one of the states cannot be read.
-    * Note that the returned Seq has same ordering and cardinality of cids
+    * @return
+    *   The list of states or an error if one of the states cannot be read. Note that the returned
+    *   Seq has same ordering and cardinality of cids
     */
   private def readContractAcsStates(
       persistentState: SyncPersistentState,

@@ -285,10 +285,9 @@ class SequencerInfoLoader(
     }
   }
 
-  /** Load sequencer endpoints in parallel up to the specified parallelism.
-    * If maybeThreshold is specified, potentially returns early if sufficiently many
-    * valid endpoints are encountered. Also returns early if a failed future is
-    * encountered.
+  /** Load sequencer endpoints in parallel up to the specified parallelism. If maybeThreshold is
+    * specified, potentially returns early if sufficiently many valid endpoints are encountered.
+    * Also returns early if a failed future is encountered.
     */
   @VisibleForTesting
   private[grpc] def loadSequencerEndpointsParallel(
@@ -456,7 +455,9 @@ object SequencerInfoLoader {
       SequencerInfoLoaderError.SynchronizerIsNotAvailableError(alias, message)
   }
 
-  /** Small utility function used to validate the sequencer connections whenever the configuration changes */
+  /** Small utility function used to validate the sequencer connections whenever the configuration
+    * changes
+    */
   def validateNewSequencerConnectionResults(
       expectedSynchronizerId: Option[SynchronizerId],
       sequencerConnectionValidation: SequencerConnectionValidation,
@@ -576,9 +577,9 @@ object SequencerInfoLoader {
   /** Aggregates the endpoint information into the actual connection
     *
     * Given a set of sequencer connections and attempts to get the sequencer-id and synchronizer id
-    * from each of them, we'll recompute the actual connections to be used.
-    * Note that this method here would require a bit more smartness as whether a sequencer
-    * is considered or not depends on whether it was up when we made the connection.
+    * from each of them, we'll recompute the actual connections to be used. Note that this method
+    * here would require a bit more smartness as whether a sequencer is considered or not depends on
+    * whether it was up when we made the connection.
     */
   @VisibleForTesting
   private[grpc] def aggregateBootstrapInfo(

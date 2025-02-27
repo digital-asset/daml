@@ -6,9 +6,8 @@ package com.digitalasset.canton.crypto
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import org.bouncycastle.crypto.digests.canton.Blake2bDigest
 
-/** Derives Blake2xb on top of Blake2b as defined in:
-  *  https://www.blake2.net/blake2x.pdf
-  * In particular, the parameters for Blake2b invocations are as specified in that document
+/** Derives Blake2xb on top of Blake2b as defined in: https://www.blake2.net/blake2x.pdf In
+  * particular, the parameters for Blake2b invocations are as specified in that document
   */
 object Blake2xb {
   private val MAX_2B_BYTES = 64

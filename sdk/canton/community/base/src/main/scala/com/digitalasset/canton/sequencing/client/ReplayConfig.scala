@@ -10,9 +10,11 @@ import java.nio.file.Path
 import scala.concurrent.{Future, Promise}
 
 /** Configuration for where to record sequencer sends and events to.
-  * @param directory Root directory for holding all recording files
-  * @param filename Filename that is initially empty and updated to a name based on the member-id at runtime.
-  *                 Use [[setFilename]] to ensure this can only be set once.
+  * @param directory
+  *   Root directory for holding all recording files
+  * @param filename
+  *   Filename that is initially empty and updated to a name based on the member-id at runtime. Use
+  *   [[setFilename]] to ensure this can only be set once.
   */
 final case class RecordingConfig(directory: Path, filename: Option[String] = None) {
   def setFilename(value: String): RecordingConfig = filename.fold(copy(filename = Some(value))) {
@@ -27,8 +29,10 @@ final case class RecordingConfig(directory: Path, filename: Option[String] = Non
 }
 
 /** Configuration for setting up a sequencer client to replay requests or received events.
-  * @param recordingConfig The path to where all recorded content is stored
-  * @param action What type of replay we'll be performing
+  * @param recordingConfig
+  *   The path to where all recorded content is stored
+  * @param action
+  *   What type of replay we'll be performing
   */
 final case class ReplayConfig(recordingConfig: RecordingConfig, action: ReplayAction)
 
@@ -44,9 +48,9 @@ object ReplayAction {
   /** Replay events received from the sequencer */
   case object SequencerEvents extends ReplayAction
 
-  /** Replay sends that were made to the sequencer.
-    * Tests can control the [[transports.replay.ReplayingSendsSequencerClientTransport]] once constructed
-    * by waiting for the `transport` future to be completed with the transport instance.
+  /** Replay sends that were made to the sequencer. Tests can control the
+    * [[transports.replay.ReplayingSendsSequencerClientTransport]] once constructed by waiting for
+    * the `transport` future to be completed with the transport instance.
     */
   final case class SequencerSends(
       sendTimeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.tryOfSeconds(20),

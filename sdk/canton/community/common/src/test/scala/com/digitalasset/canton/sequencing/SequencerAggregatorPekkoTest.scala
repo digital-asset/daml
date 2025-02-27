@@ -80,7 +80,7 @@ class SequencerAggregatorPekkoTest
   private def fakeSignatureFor(name: String): Signature =
     SymbolicCrypto.signature(
       ByteString.EMPTY,
-      Fingerprint.tryCreate(name),
+      Fingerprint.tryFromString(name),
     )
 
   // Sort the signatures by the fingerprint of the key to get a deterministic ordering

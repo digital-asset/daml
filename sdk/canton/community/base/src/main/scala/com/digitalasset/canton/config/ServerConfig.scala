@@ -5,24 +5,26 @@ package com.digitalasset.canton.config
 
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.metrics.grpc.GrpcServerMetrics
+import com.daml.nonempty.NonEmpty
 import com.daml.tls.{OcspProperties, ProtocolDisabler, TlsInfo, TlsVersion}
 import com.daml.tracing.Telemetry
+import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.AdminServerConfig.defaultAddress
-import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port}
-import com.digitalasset.canton.config.SequencerConnectionConfig.CertificateFile
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.{
   CantonCommunityServerInterceptors,
   CantonServerBuilder,
   CantonServerInterceptors,
 }
+import com.digitalasset.canton.sequencing.GrpcSequencerConnection
 import com.digitalasset.canton.tracing.TracingConfig
 import io.netty.handler.ssl.{ClientAuth, SslContext}
 import org.slf4j.LoggerFactory
 
-import java.io.File
 import scala.math.Ordering.Implicits.infixOrderingOps
 
 /** Configuration for hosting a server api */
@@ -31,31 +33,34 @@ trait ServerConfig extends Product with Serializable {
   /** The address of the interface to be listening on */
   val address: String
 
-  /** Port to be listening on (must be greater than 0). If the port is None, a default port will be assigned on startup.
+  /** Port to be listening on (must be greater than 0). If the port is None, a default port will be
+    * assigned on startup.
     *
-    * NOTE: If you rename this field, adapt the corresponding product hint for config reading. In the configuration the
-    * field is still called `port` for usability reasons.
+    * NOTE: If you rename this field, adapt the corresponding product hint for config reading. In
+    * the configuration the field is still called `port` for usability reasons.
     */
   protected val internalPort: Option[Port]
 
-  /** Returns the configured or the default port that must be assigned after config loading and before config usage.
+  /** Returns the configured or the default port that must be assigned after config loading and
+    * before config usage.
     *
-    * We split between `port` and `internalPort` to offer a clean API to users of the config in the form of `port`,
-    * which must always return a configured or default port, and the internal representation that may be None before
-    * being assigned a default port.
+    * We split between `port` and `internalPort` to offer a clean API to users of the config in the
+    * form of `port`, which must always return a configured or default port, and the internal
+    * representation that may be None before being assigned a default port.
     */
   def port: Port =
     internalPort.getOrElse(
       throw new IllegalStateException("Accessing server port before default was set")
     )
 
-  /** If defined, dictates to use TLS when connecting to this node through the given `address` and `port`.
-    * Server authentication is always enabled.
-    * Subclasses may decide whether to support client authentication.
+  /** If defined, dictates to use TLS when connecting to this node through the given `address` and
+    * `port`. Server authentication is always enabled. Subclasses may decide whether to support
+    * client authentication.
     */
   def sslContext: Option[SslContext]
 
-  /** If any defined, enforces token based authorization when accessing this node through the given `address` and `port`.
+  /** If any defined, enforces token based authorization when accessing this node through the given
+    * `address` and `port`.
     */
   def authServices: Seq[AuthServiceConfig]
 
@@ -63,7 +68,8 @@ trait ServerConfig extends Product with Serializable {
     */
   def jwtTimestampLeeway: Option[JwtTimestampLeeway]
 
-  /** If defined, the admin-token based authoriztion will be supported when accessing this node through the given `address` and `port`.
+  /** If defined, the admin-token based authoriztion will be supported when accessing this node
+    * through the given `address` and `port`.
     */
   def adminToken: Option[String]
 
@@ -71,20 +77,13 @@ trait ServerConfig extends Product with Serializable {
     *
     * Used for synchronizer internal GRPC sequencer connections
     */
-  def serverCertChainFile: Option[ExistingFile]
+  def serverCertChainFile: Option[PemFileOrString]
 
   /** server keep alive settings */
   def keepAliveServer: Option[KeepAliveServerConfig]
 
   /** maximum inbound message size in bytes on the ledger api and the admin api */
   def maxInboundMessageSize: NonNegativeInt
-  def toSequencerConnectionConfig: SequencerConnectionConfig.Grpc =
-    SequencerConnectionConfig.Grpc(
-      address,
-      port,
-      serverCertChainFile.isDefined,
-      serverCertChainFile.map(f => CertificateFile(f)),
-    )
 
   /** Use the configuration to instantiate the interceptors for this server */
   def instantiateServerInterceptors(
@@ -113,7 +112,8 @@ object ServerConfig {
   val defaultMaxInboundMessageSize: NonNegativeInt = NonNegativeInt.tryCreate(10 * 1024 * 1024)
 }
 
-/** A variant of [[ServerConfig]] that by default listens to connections only on the loopback interface.
+/** A variant of [[ServerConfig]] that by default listens to connections only on the loopback
+  * interface.
   */
 final case class AdminServerConfig(
     override val address: String = defaultAddress,
@@ -128,8 +128,8 @@ final case class AdminServerConfig(
     override val adminToken: Option[String] = None,
 ) extends ServerConfig
     with UniformCantonConfigValidation {
-  def clientConfig: ClientConfig =
-    ClientConfig(
+  def clientConfig: FullClientConfig =
+    FullClientConfig(
       address,
       port,
       tls = tls.map(_.clientConfig),
@@ -138,7 +138,7 @@ final case class AdminServerConfig(
 
   override def sslContext: Option[SslContext] = tls.map(CantonServerBuilder.sslContext(_))
 
-  override def serverCertChainFile: Option[ExistingFile] = tls.map(_.certChainFile)
+  override def serverCertChainFile: Option[PemFileOrString] = tls.map(_.certChainFile)
 }
 object AdminServerConfig {
   val defaultAddress: String = "127.0.0.1"
@@ -152,23 +152,27 @@ object AdminServerConfig {
 /** GRPC keep alive server configuration. */
 trait KeepAliveServerConfig {
 
-  /** time sets the time without read activity before sending a keepalive ping. Do not set to small numbers (default is 40s)
-    * Corresponds to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#keepAliveTime-long-java.util.concurrent.TimeUnit-]]
+  /** time sets the time without read activity before sending a keepalive ping. Do not set to small
+    * numbers (default is 40s) Corresponds to
+    * [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#keepAliveTime-long-java.util.concurrent.TimeUnit-]]
     */
   def time: NonNegativeFiniteDuration
 
-  /** timeout sets the time waiting for read activity after sending a keepalive ping (default is 20s)
-    * Corresponds to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#keepAliveTimeout-long-java.util.concurrent.TimeUnit-]]
+  /** timeout sets the time waiting for read activity after sending a keepalive ping (default is
+    * 20s) Corresponds to
+    * [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#keepAliveTimeout-long-java.util.concurrent.TimeUnit-]]
     */
   def timeout: NonNegativeFiniteDuration
 
-  /** permitKeepAliveTime sets the most aggressive keep-alive time that clients are permitted to configure (default is 20s)
-    * Corresponds to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#permitKeepAliveTime-long-java.util.concurrent.TimeUnit-]]
+  /** permitKeepAliveTime sets the most aggressive keep-alive time that clients are permitted to
+    * configure (default is 20s) Corresponds to
+    * [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#permitKeepAliveTime-long-java.util.concurrent.TimeUnit-]]
     */
   def permitKeepAliveTime: NonNegativeFiniteDuration
 
-  /** permitKeepAliveWithoutCalls allows the clients to send keep alive signals outside any ongoing grpc subscription (default false)
-    * Corresponds to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#permitKeepAliveTime-long-java.util.concurrent.TimeUnit-]]
+  /** permitKeepAliveWithoutCalls allows the clients to send keep alive signals outside any ongoing
+    * grpc subscription (default false) Corresponds to
+    * [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#permitKeepAliveTime-long-java.util.concurrent.TimeUnit-]]
     */
   def permitKeepAliveWithoutCalls: Boolean
 
@@ -202,10 +206,14 @@ final case class LedgerApiKeepAliveServerConfig(
 
 /** GRPC keep alive client configuration
   *
-  * Settings according to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/ManagedChannelBuilder.html#keepAliveTime-long-java.util.concurrent.TimeUnit-]]
+  * Settings according to
+  * [[https://grpc.github.io/grpc-java/javadoc/io/grpc/ManagedChannelBuilder.html#keepAliveTime-long-java.util.concurrent.TimeUnit-]]
   *
-  * @param time Sets the time without read activity before sending a keepalive ping. Do not set to small numbers (default is 40s)
-  * @param timeout Sets the time waiting for read activity after sending a keepalive ping (default is 20s)
+  * @param time
+  *   Sets the time without read activity before sending a keepalive ping. Do not set to small
+  *   numbers (default is 40s)
+  * @param timeout
+  *   Sets the time waiting for read activity after sending a keepalive ping (default is 20s)
   */
 final case class KeepAliveClientConfig(
     time: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(40),
@@ -218,25 +226,77 @@ object KeepAliveClientConfig {
     CantonConfigValidatorDerivation[KeepAliveClientConfig]
 }
 
-/** A client configuration to a corresponding server configuration */
-final case class ClientConfig(
-    address: String = "127.0.0.1",
-    port: Port,
-    tls: Option[TlsClientConfig] = None,
-    keepAliveClient: Option[KeepAliveClientConfig] = Some(KeepAliveClientConfig()),
-) extends UniformCantonConfigValidation {
+/** Base trait for Grpc transport client configuration classes, abstracts access to the configs */
+trait ClientConfig {
+  def address: String
+  def port: Port
+  def tlsConfig: Option[TlsClientConfig]
+  def keepAliveClient: Option[KeepAliveClientConfig]
   def endpointAsString: String = address + ":" + port.unwrap
 }
-object ClientConfig {
-  implicit val clientConfigCantonConfigValidator: CantonConfigValidator[ClientConfig] = {
+
+/** This trait is only there to force presence of `tls` field in the config classes */
+trait TlsField[A] {
+  def tls: Option[A]
+}
+
+/** A full feature complete client configuration to a corresponding server configuration, the class
+  * is aimed to be used in configs
+  */
+final case class FullClientConfig(
+    override val address: String = "127.0.0.1",
+    override val port: Port,
+    override val tls: Option[TlsClientConfig] = None,
+    override val keepAliveClient: Option[KeepAliveClientConfig] = Some(KeepAliveClientConfig()),
+) extends ClientConfig
+    with TlsField[TlsClientConfig]
+    with UniformCantonConfigValidation {
+  override def tlsConfig: Option[TlsClientConfig] = tls
+}
+object FullClientConfig {
+  implicit val clientConfigCantonConfigValidator: CantonConfigValidator[FullClientConfig] = {
     import CantonConfigValidatorInstances.*
-    CantonConfigValidatorDerivation[ClientConfig]
+    CantonConfigValidatorDerivation[FullClientConfig]
   }
 }
 
+/** A client configuration for a public server configuration, the class is aimed to be used in
+  * configs
+  */
+final case class SequencerApiClientConfig(
+    override val address: String,
+    override val port: Port,
+    override val tls: Option[TlsClientConfigOnlyTrustFile] = None,
+) extends ClientConfig
+    with TlsField[TlsClientConfigOnlyTrustFile]
+    with UniformCantonConfigValidation {
+
+  override def keepAliveClient: Option[KeepAliveClientConfig] = None
+
+  override def tlsConfig: Option[TlsClientConfig] = tls.map(_.toTlsClientConfig)
+
+  def asSequencerConnection(
+      sequencerAlias: SequencerAlias = SequencerAlias.Default
+  ): GrpcSequencerConnection = {
+    val endpoint = Endpoint(address, port)
+    GrpcSequencerConnection(
+      NonEmpty(Seq, endpoint),
+      tls.exists(_.enabled),
+      tls.flatMap(_.trustCollectionFile).map(_.pemBytes),
+      sequencerAlias,
+    )
+  }
+}
+
+object SequencerApiClientConfig {
+  implicit val sequencerApiClientConfigCantonConfigValidator
+      : CantonConfigValidator[SequencerApiClientConfig] =
+    CantonConfigValidator.validateAll
+}
+
 sealed trait BaseTlsArguments {
-  def certChainFile: ExistingFile
-  def privateKeyFile: ExistingFile
+  def certChainFile: PemFileOrString
+  def privateKeyFile: PemFile
   def minimumServerProtocolVersion: Option[String]
   def ciphers: Option[Seq[String]]
 
@@ -259,39 +319,41 @@ sealed trait BaseTlsArguments {
 
 /** A wrapper for TLS related server parameters supporting mutual authentication.
   *
-  * Certificates and keys must be provided in the PEM format.
-  * It is recommended to create them with OpenSSL.
-  * Other formats (such as GPG) may also work, but have not been tested.
+  * Certificates and keys must be provided in the PEM format. It is recommended to create them with
+  * OpenSSL. Other formats (such as GPG) may also work, but have not been tested.
   *
-  * @param certChainFile a file containing a certificate chain,
-  *                            containing the certificate chain from the server to the root CA.
-  *                            The certificate chain is used to authenticate the server.
-  *                            The order of certificates in the chain matters, i.e., it must start with the
-  *                            server certificate and end with the root certificate.
-  * @param privateKeyFile a file containing the server's private key.
-  *                             The key must not use a password.
-  * @param trustCollectionFile a file containing certificates of all nodes the server trusts.
-  *                            Used for client authentication.
-  *                            It depends on the enclosing configuration whether client authentication is mandatory,
-  *                            optional or unsupported.
-  *                            If client authentication is enabled and this parameter is absent,
-  *                            the certificates in the JVM trust store will be used instead.
-  * @param clientAuth indicates whether server requires, requests, or does not request auth from clients.
-  *                   Normally the ledger api server requires client auth under TLS, but using this setting this
-  *                   requirement can be loosened.
-  *                   See https://github.com/digital-asset/daml/commit/edd73384c427d9afe63bae9d03baa2a26f7b7f54
-  * @param minimumServerProtocolVersion minimum supported TLS protocol. Set None (or null in config file) to default to JVM settings.
-  * @param ciphers   supported ciphers. Set to None (or null in config file) to default to JVM settings.
-  * @param enableCertRevocationChecking whether to enable certificate revocation checking per
-  *                                     https://tersesystems.com/blog/2014/03/22/fixing-certificate-revocation/
-  *                                     TODO(#4881): implement cert-revocation at the participant and synchronizer admin endpoints
-  *                                     Ledger api server reference PR: https://github.com/digital-asset/daml/pull/7965
+  * @param certChainFile
+  *   a file containing a certificate chain, containing the certificate chain from the server to the
+  *   root CA. The certificate chain is used to authenticate the server. The order of certificates
+  *   in the chain matters, i.e., it must start with the server certificate and end with the root
+  *   certificate.
+  * @param privateKeyFile
+  *   a file containing the server's private key. The key must not use a password.
+  * @param trustCollectionFile
+  *   a file containing certificates of all nodes the server trusts. Used for client authentication.
+  *   It depends on the enclosing configuration whether client authentication is mandatory, optional
+  *   or unsupported. If client authentication is enabled and this parameter is absent, the
+  *   certificates in the JVM trust store will be used instead.
+  * @param clientAuth
+  *   indicates whether server requires, requests, or does not request auth from clients. Normally
+  *   the ledger api server requires client auth under TLS, but using this setting this requirement
+  *   can be loosened. See
+  *   https://github.com/digital-asset/daml/commit/edd73384c427d9afe63bae9d03baa2a26f7b7f54
+  * @param minimumServerProtocolVersion
+  *   minimum supported TLS protocol. Set None (or null in config file) to default to JVM settings.
+  * @param ciphers
+  *   supported ciphers. Set to None (or null in config file) to default to JVM settings.
+  * @param enableCertRevocationChecking
+  *   whether to enable certificate revocation checking per
+  *   https://tersesystems.com/blog/2014/03/22/fixing-certificate-revocation/ TODO(#4881): implement
+  *   cert-revocation at the participant and synchronizer admin endpoints Ledger api server
+  *   reference PR: https://github.com/digital-asset/daml/pull/7965
   */
 // Information in this ScalaDoc comment has been taken from https://grpc.io/docs/guides/auth/.
 final case class TlsServerConfig(
-    certChainFile: ExistingFile,
-    privateKeyFile: ExistingFile,
-    trustCollectionFile: Option[ExistingFile] = None,
+    certChainFile: PemFileOrString,
+    privateKeyFile: PemFile,
+    trustCollectionFile: Option[PemFileOrString] = None,
     clientAuth: ServerAuthRequirementConfig = ServerAuthRequirementConfig.Optional,
     minimumServerProtocolVersion: Option[String] = Some(
       TlsServerConfig.defaultMinimumServerProtocol
@@ -308,7 +370,9 @@ final case class TlsServerConfig(
     TlsClientConfig(trustCollectionFile = Some(certChainFile), clientCert = clientCert)
   }
 
-  /** This is a side-effecting method. It modifies JVM TLS properties according to the TLS configuration. */
+  /** This is a side-effecting method. It modifies JVM TLS properties according to the TLS
+    * configuration.
+    */
   def setJvmTlsProperties(): Unit = {
     if (enableCertRevocationChecking) OcspProperties.enableOcsp()
     ProtocolDisabler.disableSSLv2Hello()
@@ -331,10 +395,8 @@ final case class TlsServerConfig(
 }
 
 object TlsServerConfig {
-  implicit val tlsServerConfigCantonConfigValidator: CantonConfigValidator[TlsServerConfig] = {
-    import CantonConfigValidatorInstances.*
+  implicit val tlsServerConfigCantonConfigValidator: CantonConfigValidator[TlsServerConfig] =
     CantonConfigValidatorDerivation[TlsServerConfig]
-  }
 
   // default OWASP strong cipher set with broad compatibility (B list)
   // https://cheatsheetseries.owasp.org/cheatsheets/TLS_Cipher_String_Cheat_Sheet.html
@@ -383,9 +445,10 @@ object TlsServerConfig {
 
   val defaultMinimumServerProtocol = "TLSv1.2"
 
-  /** Netty incorrectly hardcodes the report that the SSLv2Hello protocol is enabled. There is no way
-    * to stop it from doing it, so we just filter the netty's erroneous claim. We also make sure that
-    * the SSLv2Hello protocol is knocked out completely at the JSSE level through the ProtocolDisabler
+  /** Netty incorrectly hardcodes the report that the SSLv2Hello protocol is enabled. There is no
+    * way to stop it from doing it, so we just filter the netty's erroneous claim. We also make sure
+    * that the SSLv2Hello protocol is knocked out completely at the JSSE level through the
+    * ProtocolDisabler
     */
   private def filterSSLv2Hello(protocols: Seq[String]): Seq[String] =
     protocols.filter(_ != ProtocolDisabler.sslV2Protocol)
@@ -429,8 +492,8 @@ object TlsServerConfig {
   * Same parameters as the more complete `TlsServerConfig`
   */
 final case class TlsBaseServerConfig(
-    certChainFile: ExistingFile,
-    privateKeyFile: ExistingFile,
+    certChainFile: PemFileOrString,
+    privateKeyFile: PemFile,
     minimumServerProtocolVersion: Option[String] = Some(
       TlsServerConfig.defaultMinimumServerProtocol
     ),
@@ -439,31 +502,63 @@ final case class TlsBaseServerConfig(
     with UniformCantonConfigValidation
 object TlsBaseServerConfig {
   implicit val tlsBaseServerConfigCantonConfigValidator
-      : CantonConfigValidator[TlsBaseServerConfig] = {
-    import CantonConfigValidatorInstances.*
+      : CantonConfigValidator[TlsBaseServerConfig] =
     CantonConfigValidatorDerivation[TlsBaseServerConfig]
-  }
 }
 
 /** A wrapper for TLS related client configurations
   *
-  * @param trustCollectionFile a file containing certificates of all nodes the client trusts. If none is specified, defaults to the JVM trust store
-  * @param clientCert the client certificate
+  * @param trustCollectionFile
+  *   a file containing certificates of all nodes the client trusts. If none is specified, defaults
+  *   to the JVM trust store
+  * @param clientCert
+  *   the client certificate
+  * @param enabled
+  *   allows enabling TLS without `trustCollectionFile` or `clientCert`
   */
 final case class TlsClientConfig(
-    trustCollectionFile: Option[ExistingFile],
+    trustCollectionFile: Option[PemFileOrString],
     clientCert: Option[TlsClientCertificate],
-) extends UniformCantonConfigValidation
+    enabled: Boolean = true,
+) extends UniformCantonConfigValidation {
+  def withoutClientCert: TlsClientConfigOnlyTrustFile =
+    TlsClientConfigOnlyTrustFile(
+      trustCollectionFile = trustCollectionFile,
+      enabled = enabled,
+    )
+}
 object TlsClientConfig {
-  implicit val tlsClientConfigCantonConfigValidator: CantonConfigValidator[TlsClientConfig] = {
-    import CantonConfigValidatorInstances.*
+  implicit val tlsClientConfigCantonConfigValidator: CantonConfigValidator[TlsClientConfig] =
     CantonConfigValidatorDerivation[TlsClientConfig]
-  }
 }
 
-/**
+/** A wrapper for TLS related client configurations without client auth support (currently public
+  * sequencer api)
+  *
+  * @param trustCollectionFile
+  *   a file containing certificates of all nodes the client trusts. If none is specified, defaults
+  *   to the JVM trust store
+  * @param enabled
+  *   allows enabling TLS without `trustCollectionFile`
   */
-final case class TlsClientCertificate(certChainFile: File, privateKeyFile: File)
+final case class TlsClientConfigOnlyTrustFile(
+    trustCollectionFile: Option[PemFileOrString],
+    enabled: Boolean = true,
+) {
+  def toTlsClientConfig: TlsClientConfig = TlsClientConfig(
+    trustCollectionFile = trustCollectionFile,
+    clientCert = None,
+    enabled = enabled,
+  )
+}
+
+object TlsClientConfigOnlyTrustFile {
+  implicit val tlsClientConfigOnlyTrustFileCantonConfigValidator
+      : CantonConfigValidator[TlsClientConfigOnlyTrustFile] = CantonConfigValidator.validateAll
+}
+
+/** */
+final case class TlsClientCertificate(certChainFile: PemFileOrString, privateKeyFile: PemFile)
     extends UniformCantonConfigValidation
 object TlsClientCertificate {
   implicit val tlsClientCertificateCantonConfigValidator
@@ -486,12 +581,16 @@ object ServerAuthRequirementConfig {
     val clientAuth = ClientAuth.REQUIRE
   }
 
-  /** A variant of [[ServerAuthRequirementConfig]] by which the server merely requests auth from clients */
+  /** A variant of [[ServerAuthRequirementConfig]] by which the server merely requests auth from
+    * clients
+    */
   case object Optional extends ServerAuthRequirementConfig {
     val clientAuth = ClientAuth.OPTIONAL
   }
 
-  /** A variant of [[ServerAuthRequirementConfig]] by which the server does not even request auth from clients */
+  /** A variant of [[ServerAuthRequirementConfig]] by which the server does not even request auth
+    * from clients
+    */
   case object None extends ServerAuthRequirementConfig {
     val clientAuth = ClientAuth.NONE
   }

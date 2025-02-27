@@ -31,8 +31,9 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-/** Aggregates all methods related to protocol signing and signature verification. These methods require a topology snapshot
-  * to ensure the correct signing keys are used, based on the current state (i.e., OwnerToKeyMappings).
+/** Aggregates all methods related to protocol signing and signature verification. These methods
+  * require a topology snapshot to ensure the correct signing keys are used, based on the current
+  * state (i.e., OwnerToKeyMappings).
   */
 trait SyncCryptoSigner {
 
@@ -46,7 +47,8 @@ trait SyncCryptoSigner {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature]
 
-  /** Verify a given signature using the currently active signing keys in the current topology state.
+  /** Verify a given signature using the currently active signing keys in the current topology
+    * state.
     */
   def verifySignature(
       topologySnapshot: TopologySnapshot,
@@ -56,7 +58,8 @@ trait SyncCryptoSigner {
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
 
-  /** Verifies multiple signatures using the currently active signing keys in the current topology state.
+  /** Verifies multiple signatures using the currently active signing keys in the current topology
+    * state.
     */
   def verifySignatures(
       topologySnapshot: TopologySnapshot,
@@ -66,10 +69,12 @@ trait SyncCryptoSigner {
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
 
-  /** Verifies multiple group signatures using the currently active signing keys of the different signers in
-    * the current topology state.
+  /** Verifies multiple group signatures using the currently active signing keys of the different
+    * signers in the current topology state.
     *
-    * @param threshold the number of valid signatures required for the overall verification to be considered correct.
+    * @param threshold
+    *   the number of valid signatures required for the overall verification to be considered
+    *   correct.
     */
   def verifyGroupSignatures(
       topologySnapshot: TopologySnapshot,

@@ -5,7 +5,10 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
+  P2PEndpoint,
+  PlainTextP2PEndpoint,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl.Send
@@ -17,6 +20,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SimulationInitializer,
   SimulationModuleSystem,
   SimulationP2PNetworkManager,
+  TraceContextGenerator,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.RunningFuture
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.OnboardingDataProvider
@@ -38,9 +42,12 @@ import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.util.Try
 
-/** @param clock Due to using the [[com.digitalasset.canton.time.SimClock]] and [[com.digitalasset.canton.data.CantonTimestamp]]s,
-  *              the time resolution needs to be at least microseconds. Otherwise, commands might be scheduled with timestamps that are the same
-  *              from the [[com.digitalasset.canton.time.SimClock]] point of view. It may result in executing commands in an incorrect order.
+/** @param clock
+  *   Due to using the [[com.digitalasset.canton.time.SimClock]] and
+  *   [[com.digitalasset.canton.data.CantonTimestamp]]s, the time resolution needs to be at least
+  *   microseconds. Otherwise, commands might be scheduled with timestamps that are the same from
+  *   the [[com.digitalasset.canton.time.SimClock]] point of view. It may result in executing
+  *   commands in an incorrect order.
   */
 class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, ClientMessageT](
     private var topology: Topology[
@@ -58,6 +65,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
     ],
     simSettings: SimulationSettings,
     clock: SimClock,
+    traceContextGenerator: TraceContextGenerator,
     loggerFactory: NamedLoggerFactory,
 )(val agenda: Agenda = new Agenda(clock)) {
 
@@ -66,7 +74,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
   // onboarding
   simSettings.peerOnboardingDelays
     .zip(topology.laterOnboardedEndpointsWithInitializers)
-    .foldLeft(Map[TopologyActivationTime, Seq[Endpoint]]()) {
+    .foldLeft(Map[TopologyActivationTime, Seq[PlainTextP2PEndpoint]]()) {
       case (acc, (onboardingDelay, (endpoint, _))) =>
         val activationTime = onboardingTime(simulationStageStart, onboardingDelay)
         acc.get(activationTime) match {
@@ -132,10 +140,10 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
         local.scheduleEvent(peer, sendTo, from, msg)
       case NodeCollector.TickEvent(duration, tickId, to, msg) =>
         local.scheduleTick(peer, to, tickId, duration, msg)
-      case NodeCollector.SendNetworkEvent(toPeer, msg) =>
-        network.scheduleNetworkEvent(fromPeer = peer, toPeer, msg)
-      case NodeCollector.AddFuture(to, future, errorMessage) =>
-        local.scheduleFuture(peer, to, clock.now, future, errorMessage)
+      case NodeCollector.SendNetworkEvent(toPeer, msg, traceContext) =>
+        network.scheduleNetworkEvent(fromPeer = peer, toPeer, msg, traceContext)
+      case NodeCollector.AddFuture(to, future, errorMessage, traceContext) =>
+        local.scheduleFuture(peer, to, clock.now, future, errorMessage, traceContext)
       case NodeCollector.CancelTick(tickCounter) =>
         agenda.removeInternalTick(peer, tickCounter)
       case NodeCollector.OpenConnection(sequencerId, endpoint, continuation) =>
@@ -146,8 +154,8 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
     collector.collect().foreach {
       case ClientCollector.TickEvent(duration, tickId, newMsg) =>
         local.scheduleClientTick(peer, tickId, duration, newMsg)
-      case ClientCollector.ClientRequest(to, msg) =>
-        local.scheduleEvent(peer, to, FromClient, ModuleControl.Send(msg))
+      case ClientCollector.ClientRequest(to, msg, traceContext) =>
+        local.scheduleEvent(peer, to, FromClient, ModuleControl.Send(msg, traceContext))
       case ClientCollector.CancelTick(tickCounter) =>
         agenda.removeClientTick(peer, tickCounter)
     }
@@ -162,14 +170,15 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
       SimulationModuleSystem.SimulationModuleNodeContext[MessageT](
         to,
         machine.nodeCollector,
+        traceContextGenerator,
         loggerFactory,
       )
     msg match {
 
-      case ModuleControl.Send(message) =>
+      case ModuleControl.Send(message, traceContext) =>
         tryGetReactor(peer, machine, to, msg).foreach { reactor =>
           val module = asModule[MessageT](reactor)
-          module.receive(message)(context, TraceContext.empty)
+          module.receive(message)(context, traceContext)
         }
 
       case ModuleControl.SetBehavior(module, ready) =>
@@ -194,17 +203,18 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
       name: ModuleName,
       future: RunningFuture[FutureT],
       fun: Try[FutureT] => Option[MessageT],
+      traceContext: TraceContext,
   ): Unit =
     future.resolveAllBelow(clock.now) match {
       case RunningFuture.Scheduled(nextTime, newFuture) =>
         agenda.addOne(
-          RunFuture(peer, name, newFuture, fun),
+          RunFuture(peer, name, newFuture, fun, traceContext),
           nextTime,
           ScheduledCommand.DefaultPriority,
         )
       case RunningFuture.Resolved(valueFromFuture) =>
         fun(valueFromFuture).foreach { msg =>
-          local.scheduleEvent(peer, name, FromFuture, ModuleControl.Send(msg))
+          local.scheduleEvent(peer, name, FromFuture, ModuleControl.Send(msg, traceContext))
         }
     }
 
@@ -213,7 +223,11 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
     asModule[M](machine.clientReactor)
       .receive(msg)(
         SimulationModuleSystem
-          .SimulationModuleClientContext(machine.clientCollector, loggerFactory),
+          .SimulationModuleClientContext(
+            machine.clientCollector,
+            traceContextGenerator,
+            loggerFactory,
+          ),
         TraceContext.empty,
       )
     runClientCollector(peer, machine.clientCollector)
@@ -226,7 +240,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
     runNodeCollector(peer, FromInit, machine.nodeCollector)
   }
 
-  private def onboardSequencers(endpoints: Seq[Endpoint]): Unit = {
+  private def onboardSequencers(endpoints: Seq[PlainTextP2PEndpoint]): Unit = {
     val endpointToSequencerId = endpoints.view
       .map(endpoint => endpoint -> SimulationP2PNetworkManager.fakeSequencerId(endpoint))
       .toMap
@@ -269,7 +283,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
     }
   }
 
-  private def addEndpoint(endpoint: Endpoint, to: SequencerId): Unit =
+  private def addEndpoint(endpoint: P2PEndpoint, to: SequencerId): Unit =
     executeEvent(
       to,
       tryGetMachine(to).networkOutReactor,
@@ -279,7 +293,8 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
           added =>
             if (!added)
               throw new IllegalStateException(s"Endpoint $endpoint has not been added to $to"),
-        )
+        ),
+        TraceContext.empty,
       ),
     )
 
@@ -301,7 +316,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
       case None =>
         msg match {
           // TODO(#23434) check if can be fixed differently
-          case Send(RetransmissionsMessage.StatusRequest(_)) =>
+          case Send(RetransmissionsMessage.StatusRequest(_), _) =>
             // We don't care about status requests after the module is gone
             None
           case _ =>
@@ -334,16 +349,16 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
             executeEvent(machineName, to, msg)
           case InternalTick(machineName, to, _, msg) =>
             executeEvent(machineName, to, msg)
-          case RunFuture(machine, to, toRun, fun) =>
+          case RunFuture(machine, to, toRun, fun, traceContext) =>
             logger.info(s"Future ${toRun.name} for $machine:$to completed")
-            executeFuture(machine, to, toRun, fun)
+            executeFuture(machine, to, toRun, fun, traceContext)
             verifier.aFutureHappened(machine)
-          case ReceiveNetworkMessage(machineName, msg) =>
+          case ReceiveNetworkMessage(machineName, msg, traceContext) =>
             local.scheduleEvent(
               machineName,
               tryGetMachine(machineName).networkInReactor,
               FromNetwork,
-              ModuleControl.Send(msg),
+              ModuleControl.Send(msg, traceContext),
             )
           case ClientTick(machine, _, msg) =>
             logger.info(s"Client for $machine ticks")
@@ -354,7 +369,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
             addEndpoint(endpoint, to)
           case EstablishConnection(fromPeer, toPeer, endpoint, continuation) =>
             logger.debug(s"Establish connection $fromPeer -> $toPeer via $endpoint")
-            continuation(endpoint, toPeer)
+            continuation(endpoint.id, toPeer)
             val machine = tryGetMachine(fromPeer)
             runNodeCollector(fromPeer, FromNetwork, machine.nodeCollector)
           case CrashRestartPeer(peer) =>
@@ -388,7 +403,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
       simulationSettings: SimulationSettings,
       onboardingDataProvider: OnboardingDataProvider[OnboardingDataT],
       newlyOnboardedEndpointsToInitializers: Map[
-        Endpoint,
+        PlainTextP2PEndpoint,
         SimulationInitializer[
           OnboardingDataT,
           SystemNetworkMessageT,
@@ -406,6 +421,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
         machineInitializer,
         simulationSettings,
         clock,
+        traceContextGenerator,
         loggerFactory,
       )(agenda)
     newSim
@@ -454,7 +470,7 @@ final case class Topology[
 ](
     activeSequencersToMachines: Map[SequencerId, Machine[?, ?]],
     laterOnboardedEndpointsWithInitializers: Map[
-      Endpoint,
+      PlainTextP2PEndpoint,
       SimulationInitializer[
         OnboardingDataT,
         SystemNetworkMessageT,

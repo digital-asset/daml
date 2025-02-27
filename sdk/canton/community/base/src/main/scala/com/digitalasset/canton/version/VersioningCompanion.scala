@@ -21,7 +21,8 @@ import scala.util.control.NonFatal
 
 /** This trait has the logic to store proto (de)serializers and retrieve them by protocol version.
   *
-  * Parameters and concepts are explained in [[https://github.com/DACH-NY/canton/blob/main/contributing/how-to-choose-BaseVersioningCompanion.md contributing guide]]
+  * Parameters and concepts are explained in
+  * [[https://github.com/DACH-NY/canton/blob/main/contributing/how-to-choose-BaseVersioningCompanion.md contributing guide]]
   */
 trait BaseVersioningCompanion[
     ValueClass <: HasRepresentativeProtocolVersion,
@@ -95,16 +96,20 @@ trait BaseVersioningCompanion[
   def protoVersionFor(protocolVersion: ProtocolVersion): ProtoVersion =
     versioningTable.protoVersionFor(protocolVersionRepresentativeFor(protocolVersion))
 
-  /** Proto versions that are supported by `fromByteString`
-    * See the helper `supportedProtoVersion` below to define a `Parser`.
+  /** Proto versions that are supported by `fromByteString` See the helper `supportedProtoVersion`
+    * below to define a `Parser`.
     */
   def versioningTable: VersioningTable
 
   /** Main deserialization method to parse a byte string
-    * @param expectedProtocolVersion Protocol version used by the synchronizer
-    * @param context                 Context for the deserialization (() if there is no context)
-    * @param bytes                   Byte string to be deserialized
-    * @return Deserialized value class (as a Right) or a [[ProtoDeserializationError]] (as a left)
+    * @param expectedProtocolVersion
+    *   Protocol version used by the synchronizer
+    * @param context
+    *   Context for the deserialization (() if there is no context)
+    * @param bytes
+    *   Byte string to be deserialized
+    * @return
+    *   Deserialized value class (as a Right) or a [[ProtoDeserializationError]] (as a left)
     *
     * Variants of this method (e.g., when Context=unit) are provided below for convenience.
     */
@@ -139,7 +144,8 @@ trait BaseVersioningCompanion[
   ): ParsingResult[DeserializedValueClass] =
     fromByteString(expectedProtocolVersion, ev.apply(()), bytes)
 
-  /** Alias of fromByteString that can be used when the Context is a [[com.digitalasset.canton.version.ProtocolVersion]].
+  /** Alias of fromByteString that can be used when the Context is a
+    * [[com.digitalasset.canton.version.ProtocolVersion]].
     */
   def fromByteStringPV(expectedProtocolVersion: ProtocolVersion, bytes: OriginalByteString)(implicit
       ev: ProtocolVersion =:= Context
@@ -150,7 +156,8 @@ trait BaseVersioningCompanion[
       bytes,
     )
 
-  /** Alias of fromByteString that can be used when the Context is a [[com.digitalasset.canton.version.ProtocolVersionValidation]].
+  /** Alias of fromByteString that can be used when the Context is a
+    * [[com.digitalasset.canton.version.ProtocolVersionValidation]].
     */
   def fromByteStringPVV(
       expectedProtocolVersion: ProtocolVersionValidation,
@@ -162,10 +169,12 @@ trait BaseVersioningCompanion[
 
   /** Deserializes the given bytes without validation.
     *
-    * '''Unsafe!''' Do NOT use this method unless you can justify that the given bytes originate from a trusted
-    * source. For example, this should be the case for deserialization of data that originates from a database.
+    * '''Unsafe!''' Do NOT use this method unless you can justify that the given bytes originate
+    * from a trusted source. For example, this should be the case for deserialization of data that
+    * originates from a database.
     *
-    * @param bytes trusted bytes with an embedded proto version
+    * @param bytes
+    *   trusted bytes with an embedded proto version
     */
   def fromTrustedByteString(
       context: Context
@@ -187,10 +196,12 @@ trait BaseVersioningCompanion[
 
   /** Deserializes the given bytes without validation.
     *
-    * '''Unsafe!''' Do NOT use this method unless you can justify that the given bytes originate from a trusted
-    * source. For example, this should be the case for deserialization of data that originates from a database.
+    * '''Unsafe!''' Do NOT use this method unless you can justify that the given bytes originate
+    * from a trusted source. For example, this should be the case for deserialization of data that
+    * originates from a database.
     *
-    * @param bytes trusted bytes with an embedded proto version
+    * @param bytes
+    *   trusted bytes with an embedded proto version
     */
   def fromTrustedByteArray(
       context: Context,
@@ -209,8 +220,8 @@ trait BaseVersioningCompanion[
 
   /** Deserializes the data from the given file without validation.
     *
-    * '''Unsafe!''' Do NOT use this method unless you can justify that the data originates from a trusted
-    * source.
+    * '''Unsafe!''' Do NOT use this method unless you can justify that the data originates from a
+    * trusted source.
     */
   def readFromTrustedFile(
       context: Context,
@@ -244,10 +255,10 @@ trait BaseVersioningCompanion[
   )(implicit ev: ProtocolVersionValidation =:= Context): Either[String, DeserializedValueClass] =
     readFromTrustedFile(ev.apply(ProtocolVersionValidation.NoValidation), inputFile)
 
-  /** Since dependency on the ProtocolVersionValidation is encoded in the context, one
-    * still has to provide `ProtocolVersionValidation.NoValidation` even when calling
-    * `fromTrustedByteString`, which is counterintuitive.
-    * This method allows a simpler call if the Context is a [[com.digitalasset.canton.version.ProtocolVersionValidation]]
+  /** Since dependency on the ProtocolVersionValidation is encoded in the context, one still has to
+    * provide `ProtocolVersionValidation.NoValidation` even when calling `fromTrustedByteString`,
+    * which is counterintuitive. This method allows a simpler call if the Context is a
+    * [[com.digitalasset.canton.version.ProtocolVersionValidation]]
     */
   def fromTrustedByteStringPVV(
       bytes: OriginalByteString
@@ -262,16 +273,18 @@ trait BaseVersioningCompanion[
     * source.
     *
     * This method works in conjunction with
-    *  [[com.digitalasset.canton.version.HasProtocolVersionedWrapper.writeDelimitedTo]] which should have been used to
-    *  serialize the message. It is useful for deserializing multiple messages from a single input stream through
-    *  repeated invocations.
+    * [[com.digitalasset.canton.version.HasProtocolVersionedWrapper.writeDelimitedTo]] which should
+    * have been used to serialize the message. It is useful for deserializing multiple messages from
+    * a single input stream through repeated invocations.
     *
     * Deserialization is only supported for [[com.digitalasset.canton.version.VersionedMessage]].
     *
-    * @param input the source from which a message is deserialized
-    * @return an Option that is None when there are no messages left anymore, otherwise it wraps an Either
-    *         where left represents a deserialization error (exception) and right represents the successfully
-    *         deserialized message
+    * @param input
+    *   the source from which a message is deserialized
+    * @return
+    *   an Option that is None when there are no messages left anymore, otherwise it wraps an Either
+    *   where left represents a deserialization error (exception) and right represents the
+    *   successfully deserialized message
     */
   def parseDelimitedFromTrusted(
       input: InputStream,
@@ -308,9 +321,12 @@ trait BaseVersioningCompanion[
     *
     * To skip this validation use [[ProtocolVersionValidation.NoValidation]].
     *
-    * @param expectedProtocolVersion the protocol version the synchronizer is running on
-    * @param deserializedRepresentativeProtocolVersion the representative protocol version which originates from a proto message version field
-    * @return Unit when the validation succeeds, parsing error otherwise
+    * @param expectedProtocolVersion
+    *   the protocol version the synchronizer is running on
+    * @param deserializedRepresentativeProtocolVersion
+    *   the representative protocol version which originates from a proto message version field
+    * @return
+    *   Unit when the validation succeeds, parsing error otherwise
     */
   private[version] def validateDeserialization(
       expectedProtocolVersion: ProtocolVersionValidation,
@@ -437,9 +453,9 @@ trait VersioningCompanionContext2[
       ProtoConverter.protoParser(p.parseFrom)(data).flatMap(fromProto(ctx, _))
 }
 
-/** For readability, replaces the deserialization methods for value classes that require
-  * the protocol version for the deserialization validation to be passed in as part of
-  * the deserialization context.
+/** For readability, replaces the deserialization methods for value classes that require the
+  * protocol version for the deserialization validation to be passed in as part of the
+  * deserialization context.
   *
   * Replaces `.fromByteString(protocolVersion)((context, protocolVersion))(bytes)` with
   * `.fromByteString(context, protocolVersion)(bytes)`.
@@ -458,8 +474,8 @@ trait VersioningCompanionContextPVValidation2[
     super.fromByteString(expectedProtocolVersion, (context, expectedProtocolVersion))(bytes)
 }
 
-/** Similar to [[VersioningCompanionContextPVValidation2]] but the deserialization
-  * context contains a Source or Target of [[com.digitalasset.canton.version.ProtocolVersion]] for validation.
+/** Similar to [[VersioningCompanionContextPVValidation2]] but the deserialization context contains
+  * a Source or Target of [[com.digitalasset.canton.version.ProtocolVersion]] for validation.
   */
 trait VersioningCompanionContextTaggedPVValidation2[
     ValueClass <: HasRepresentativeProtocolVersion,

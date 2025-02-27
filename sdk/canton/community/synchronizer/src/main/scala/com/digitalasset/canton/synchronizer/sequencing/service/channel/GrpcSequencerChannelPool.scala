@@ -29,10 +29,13 @@ import scala.util.control.NonFatal
 /** GrpcSequencerChannelPool tracks active sequencer channels.
   *
   * The dynamically changing channels are kept up to date in response to
-  * 1. sequencer-server initiated reasons such as sequencer shutdown or when a member's topology permissions are revoked and
-  * 2. reasons arising in the sequencer channel such as when the sequencer channel conversation completes.
+  *   1. sequencer-server initiated reasons such as sequencer shutdown or when a member's topology
+  *      permissions are revoked and
+  *   1. reasons arising in the sequencer channel such as when the sequencer channel conversation
+  *      completes.
   *
-  * As channels are initialized in a delayed fashion, the pool tracks initialized and uninitialized channels separately.
+  * As channels are initialized in a delayed fashion, the pool tracks initialized and uninitialized
+  * channels separately.
   */
 private[channel] final class GrpcSequencerChannelPool(
     clock: Clock,
@@ -50,10 +53,14 @@ private[channel] final class GrpcSequencerChannelPool(
   private val initializedChannels = TrieMap[SequencerChannelId, GrpcSequencerChannel]()
   private val uninitializedChannels = mutable.Buffer[UninitializedGrpcSequencerChannel]()
 
-  /** @param responseObserver    GRPC response observer for messages to the client
-    * @param authTokenExpiresAtO The member's sequencer token expiration time
-    * @param authenticationCheck Callback to use upon channel initialization
-    * @return GRPC request observer needed by GrpcSequencerChannelService
+  /** @param responseObserver
+    *   GRPC response observer for messages to the client
+    * @param authTokenExpiresAtO
+    *   The member's sequencer token expiration time
+    * @param authenticationCheck
+    *   Callback to use upon channel initialization
+    * @return
+    *   GRPC request observer needed by GrpcSequencerChannelService
     */
   def createUninitializedChannel(
       responseObserver: ServerCallStreamObserver[v30.ConnectToSequencerChannelResponse],
@@ -77,16 +84,23 @@ private[channel] final class GrpcSequencerChannelPool(
             loggerFactory,
           ) {
 
-            /** Transitions an uninitialized channel to a newly initialized channel or an existing channel already created by
-              * the "opposite" side/member.
+            /** Transitions an uninitialized channel to a newly initialized channel or an existing
+              * channel already created by the "opposite" side/member.
               *
               * Also schedules closing of the channel upon member token expiration.
               *
-              * @param metadata             Sequencer channel metadata that uniquely identifies the channel and includes the members.
-              * @param uninitializedChannel The uninitialized channel to initialize.
-              * @param tokenExpiresAt       Token expiration time
-              * @param createChannel        Helper to build the initialized channel from the metadata
-              * @return the newly created "first" or "second" member message handler (determined by the order in which the members connect)
+              * @param metadata
+              *   Sequencer channel metadata that uniquely identifies the channel and includes the
+              *   members.
+              * @param uninitializedChannel
+              *   The uninitialized channel to initialize.
+              * @param tokenExpiresAt
+              *   Token expiration time
+              * @param createChannel
+              *   Helper to build the initialized channel from the metadata
+              * @return
+              *   the newly created "first" or "second" member message handler (determined by the
+              *   order in which the members connect)
               */
             override protected def ensureChannelAndConnect(
                 metadata: SequencerChannelMetadata,

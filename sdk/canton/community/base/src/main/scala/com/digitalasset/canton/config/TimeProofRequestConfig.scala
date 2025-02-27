@@ -10,10 +10,13 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
-/** @param initialRetryDelay The initial retry delay if the request to send a sequenced event fails
-  * @param maxRetryDelay The max retry delay if the request to send a sequenced event fails
-  * @param maxSequencingDelay If our request for a sequenced event was successful, how long should we wait
-  *                                      to observe it from the sequencer before starting a new request.
+/** @param initialRetryDelay
+  *   The initial retry delay if the request to send a sequenced event fails
+  * @param maxRetryDelay
+  *   The max retry delay if the request to send a sequenced event fails
+  * @param maxSequencingDelay
+  *   If our request for a sequenced event was successful, how long should we wait to observe it
+  *   from the sequencer before starting a new request.
   */
 final case class TimeProofRequestConfig(
     initialRetryDelay: NonNegativeFiniteDuration = TimeProofRequestConfig.defaultInitialRetryDelay,

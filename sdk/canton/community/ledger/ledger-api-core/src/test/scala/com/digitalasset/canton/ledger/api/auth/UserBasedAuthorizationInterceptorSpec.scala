@@ -5,12 +5,10 @@ package com.digitalasset.canton.ledger.api.auth
 
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.auth.{AuthService, AuthorizationInterceptor, ClaimSet}
-import com.digitalasset.canton.ledger.api.auth.interceptor.{
-  IdentityProviderAwareAuthService,
-  UserBasedAuthorizationInterceptor,
-}
+import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, SuppressionRule}
+import com.digitalasset.canton.logging.SuppressionRule
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.protobuf.StatusProto
 import io.grpc.{Metadata, ServerCall, Status}
@@ -21,7 +19,6 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.slf4j.event.Level
 
-import java.util.concurrent.CompletableFuture
 import scala.concurrent.{Future, Promise}
 import scala.util.Success
 
@@ -59,12 +56,11 @@ class UserBasedAuthorizationInterceptorSpec
       assertRpcStatus: (Status, Metadata) => Assertion
   ): Future[Assertion] = {
     val authService = mock[AuthService]
-    val identityProviderAwareAuthService = mock[IdentityProviderAwareAuthService]
+    val identityProviderAwareAuthService = mock[AuthService]
     val userManagementService = mock[UserManagementStore]
     val serverCall = mock[ServerCall[Nothing, Nothing]]
-    val failedMetadataDecode = CompletableFuture.supplyAsync[ClaimSet](() =>
-      throw new RuntimeException("some internal failure")
-    )
+    val failedMetadataDecode =
+      Future.failed[ClaimSet](new RuntimeException("some internal failure"))
 
     val promise = Promise[Unit]()
     // Using a promise to ensure the verify call below happens after the expected call to `serverCall.close`
@@ -75,9 +71,8 @@ class UserBasedAuthorizationInterceptorSpec
 
     val authorizationInterceptor =
       new UserBasedAuthorizationInterceptor(
-        authService,
+        List(authService, identityProviderAwareAuthService),
         Some(userManagementService),
-        identityProviderAwareAuthService,
         NoOpTelemetry,
         loggerFactory,
         executionContext,
@@ -87,7 +82,7 @@ class UserBasedAuthorizationInterceptorSpec
     val metadataCaptor = ArgCaptor[Metadata]
 
     when(
-      identityProviderAwareAuthService.decodeMetadata(any[Metadata])(any[LoggingContextWithTrace])
+      identityProviderAwareAuthService.decodeMetadata(any[Metadata])(any[TraceContext])
     )
       .thenReturn(Future.successful(ClaimSet.Unauthenticated))
     when(authService.decodeMetadata(any[Metadata])(anyTraceContext))

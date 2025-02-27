@@ -13,13 +13,12 @@ import com.digitalasset.canton.crypto.{
   TestHash,
 }
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.pruning.{
   SortedReconciliationIntervalsHelpers,
   SortedReconciliationIntervalsProvider,
 }
-import com.digitalasset.canton.participant.store.AcsCommitmentStore.CommitmentData
+import com.digitalasset.canton.participant.store.AcsCommitmentStore.ParticipantCommitmentData
 import com.digitalasset.canton.protocol.ContractMetadata
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
@@ -123,11 +122,15 @@ trait CommitmentStoreBaseTest
     h.add("blah".getBytes())
     h.getByteString()
   }
+  lazy val hashedDummyCommitment: AcsCommitment.HashedCommitmentType =
+    AcsCommitment.hashCommitment(dummyCommitment)
   lazy val dummyCommitment2: AcsCommitment.CommitmentType = {
     val h = LtHash16()
     h.add("yah mon".getBytes())
     h.getByteString()
   }
+  lazy val hashedDummyCommitment2: AcsCommitment.HashedCommitmentType =
+    AcsCommitment.hashCommitment(dummyCommitment2)
 
   lazy val dummyCommitment3: AcsCommitment.CommitmentType = {
     val h = LtHash16()
@@ -149,7 +152,8 @@ trait CommitmentStoreBaseTest
 
   lazy val dummySignature: Signature =
     crypto.sign(
-      crypto.pureCrypto.digest(TestHash.testHashPurpose, dummyCommitment),
+      crypto.pureCrypto
+        .digest(TestHash.testHashPurpose, hashedDummyCommitment.getCryptographicEvidence),
       testKey.id,
       SigningKeyUsage.ProtocolOnly,
     )
@@ -190,20 +194,34 @@ trait AcsCommitmentStoreTest
       val store = mk()
 
       for {
-        _ <- NonEmpty
-          .from(List(CommitmentData(remoteId, deriveFullPeriod(periods(0, 1)), dummyCommitment)))
-          .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
-        _ <- NonEmpty
-          .from(List(CommitmentData(remoteId, deriveFullPeriod(periods(1, 2)), dummyCommitment)))
-          .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
+        _ <- store.storeComputed(
+          NonEmpty(
+            List,
+            ParticipantCommitmentData(
+              remoteId,
+              deriveFullPeriod(periods(0, 1)),
+              hashedDummyCommitment,
+            ),
+          )
+        )
+        _ <- store.storeComputed(
+          NonEmpty(
+            List,
+            ParticipantCommitmentData(
+              remoteId,
+              deriveFullPeriod(periods(1, 2)),
+              hashedDummyCommitment,
+            ),
+          )
+        )
         found1 <- store.getComputed(period(0, 1), remoteId)
         found2 <- store.getComputed(period(0, 2), remoteId)
         found3 <- store.getComputed(period(0, 1), remoteId2)
       } yield {
-        found1.toList shouldBe List(period(0, 1) -> dummyCommitment)
+        found1.toList shouldBe List(period(0, 1) -> hashedDummyCommitment)
         found2.toList shouldBe List(
-          period(0, 1) -> dummyCommitment,
-          period(1, 2) -> dummyCommitment,
+          period(0, 1) -> hashedDummyCommitment,
+          period(1, 2) -> hashedDummyCommitment,
         )
         found3.toList shouldBe empty
       }
@@ -531,37 +549,64 @@ trait AcsCommitmentStoreTest
       val store = mk()
 
       for {
-        _ <- NonEmpty
-          .from(List(CommitmentData(remoteId, deriveFullPeriod(periods(0, 1)), dummyCommitment)))
-          .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
-        _ <- NonEmpty
-          .from(List(CommitmentData(remoteId2, deriveFullPeriod(periods(1, 2)), dummyCommitment)))
-          .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
-        _ <- NonEmpty
-          .from(List(CommitmentData(remoteId, deriveFullPeriod(periods(1, 2)), dummyCommitment)))
-          .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
-        _ <- NonEmpty
-          .from(List(CommitmentData(remoteId, deriveFullPeriod(periods(2, 3)), dummyCommitment)))
-          .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
+        _ <- store.storeComputed(
+          NonEmpty(
+            List,
+            ParticipantCommitmentData(
+              remoteId,
+              deriveFullPeriod(periods(0, 1)),
+              hashedDummyCommitment,
+            ),
+          )
+        )
+        _ <- store.storeComputed(
+          NonEmpty(
+            List,
+            ParticipantCommitmentData(
+              remoteId2,
+              deriveFullPeriod(periods(1, 2)),
+              hashedDummyCommitment,
+            ),
+          )
+        )
+        _ <- store.storeComputed(
+          NonEmpty(
+            List,
+            ParticipantCommitmentData(
+              remoteId,
+              deriveFullPeriod(periods(1, 2)),
+              hashedDummyCommitment,
+            ),
+          )
+        )
+        _ <- store.storeComputed(
+          NonEmpty(
+            List,
+            ParticipantCommitmentData(
+              remoteId,
+              deriveFullPeriod(periods(2, 3)),
+              hashedDummyCommitment,
+            ),
+          )
+        )
         found1 <- store.searchComputedBetween(ts(0), ts(1), Seq(remoteId))
-
         found2 <- store.searchComputedBetween(ts(0), ts(2))
         found3 <- store.searchComputedBetween(ts(1), ts(1))
         found4 <- store.searchComputedBetween(ts(0), ts(0))
         found5 <- store.searchComputedBetween(ts(2), ts(2), Seq(remoteId, remoteId2))
 
       } yield {
-        found1.toSet shouldBe Set((period(0, 1), remoteId, dummyCommitment))
+        found1.toSet shouldBe Set((period(0, 1), remoteId, hashedDummyCommitment))
         found2.toSet shouldBe Set(
-          (period(0, 1), remoteId, dummyCommitment),
-          (period(1, 2), remoteId, dummyCommitment),
-          (period(1, 2), remoteId2, dummyCommitment),
+          (period(0, 1), remoteId, hashedDummyCommitment),
+          (period(1, 2), remoteId, hashedDummyCommitment),
+          (period(1, 2), remoteId2, hashedDummyCommitment),
         )
-        found3.toSet shouldBe Set((period(0, 1), remoteId, dummyCommitment))
+        found3.toSet shouldBe Set((period(0, 1), remoteId, hashedDummyCommitment))
         found4.toSet shouldBe Set.empty
         found5.toSet shouldBe Set(
-          (period(1, 2), remoteId, dummyCommitment),
-          (period(1, 2), remoteId2, dummyCommitment),
+          (period(1, 2), remoteId, hashedDummyCommitment),
+          (period(1, 2), remoteId2, hashedDummyCommitment),
         )
       }
     }
@@ -688,15 +733,29 @@ trait AcsCommitmentStoreTest
       val store = mk()
 
       for {
-        _ <- NonEmpty
-          .from(List(CommitmentData(remoteId, deriveFullPeriod(periods(0, 1)), dummyCommitment)))
-          .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
-        _ <- NonEmpty
-          .from(List(CommitmentData(remoteId, deriveFullPeriod(periods(0, 1)), dummyCommitment)))
-          .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
+        _ <- store.storeComputed(
+          NonEmpty(
+            List,
+            ParticipantCommitmentData(
+              remoteId,
+              deriveFullPeriod(periods(0, 1)),
+              hashedDummyCommitment,
+            ),
+          )
+        )
+        _ <- store.storeComputed(
+          NonEmpty(
+            List,
+            ParticipantCommitmentData(
+              remoteId,
+              deriveFullPeriod(periods(0, 1)),
+              hashedDummyCommitment,
+            ),
+          )
+        )
         found1 <- store.searchComputedBetween(ts(0), ts(1))
       } yield {
-        found1.toList shouldBe List((period(0, 1), remoteId, dummyCommitment))
+        found1.toList shouldBe List((period(0, 1), remoteId, hashedDummyCommitment))
       }
     }
 
@@ -706,16 +765,26 @@ trait AcsCommitmentStoreTest
       loggerFactory.suppressWarningsAndErrors {
         recoverToSucceededIf[Throwable] {
           (for {
-            _ <- NonEmpty
-              .from(
-                List(CommitmentData(remoteId, deriveFullPeriod(periods(0, 1)), dummyCommitment))
+            _ <- store.storeComputed(
+              NonEmpty(
+                List,
+                ParticipantCommitmentData(
+                  remoteId,
+                  deriveFullPeriod(periods(0, 1)),
+                  hashedDummyCommitment,
+                ),
               )
-              .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
-            _ <- NonEmpty
-              .from(
-                List(CommitmentData(remoteId, deriveFullPeriod(periods(0, 1)), dummyCommitment2))
+            )
+            _ <- store.storeComputed(
+              NonEmpty(
+                List,
+                ParticipantCommitmentData(
+                  remoteId,
+                  deriveFullPeriod(periods(0, 1)),
+                  hashedDummyCommitment2,
+                ),
               )
-              .fold(FutureUnlessShutdown.unit)(store.storeComputed(_))
+            )
           } yield ()).failOnShutdown
         }
       }

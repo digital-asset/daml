@@ -17,8 +17,8 @@ import com.digitalasset.canton.util.{MonadUtil, retry}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 
-/** This trait defines the interface for BlockSequencer's BlockUpdateGenerator to use on DatabaseSequencer
-  * in order to accept submissions and serve events from it
+/** This trait defines the interface for BlockSequencer's BlockUpdateGenerator to use on
+  * DatabaseSequencer in order to accept submissions and serve events from it
   */
 trait SequencerIntegration {
   def blockSequencerAcknowledge(acknowledgements: Map[Member, CantonTimestamp])(implicit

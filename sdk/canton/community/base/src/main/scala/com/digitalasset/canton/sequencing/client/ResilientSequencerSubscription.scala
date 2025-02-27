@@ -38,19 +38,19 @@ import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-/** Attempts to create a resilient [[SequencerSubscription]] for the [[SequencerClient]] by
-  * creating underlying subscriptions using the [[com.digitalasset.canton.sequencing.client.transports.SequencerClientTransport]]
-  * and then recreating them if they fail with a reason that is deemed retryable.
-  * If a subscription is closed or fails with a reason that is not retryable the failure will be passed upstream
-  * from this subscription.
-  * We determine whether an error is retryable by calling the supplied [[SubscriptionErrorRetryPolicy]].
-  * We also will delay recreating subscriptions by an interval determined by the
-  * [[com.digitalasset.canton.sequencing.client.SubscriptionRetryDelayRule]].
-  * As we have to know where to restart a subscription from when it is recreated
-  * we use a [[com.digitalasset.canton.sequencing.handlers.CounterCapture]] handler
-  * wrapper to keep track of the last event that was successfully provided by the provided handler, and use this value
-  * to restart new subscriptions from.
-  * For this subscription [[ResilientSequencerSubscription.start]] must be called for the underlying subscriptions to begin.
+/** Attempts to create a resilient [[SequencerSubscription]] for the [[SequencerClient]] by creating
+  * underlying subscriptions using the
+  * [[com.digitalasset.canton.sequencing.client.transports.SequencerClientTransport]] and then
+  * recreating them if they fail with a reason that is deemed retryable. If a subscription is closed
+  * or fails with a reason that is not retryable the failure will be passed upstream from this
+  * subscription. We determine whether an error is retryable by calling the supplied
+  * [[SubscriptionErrorRetryPolicy]]. We also will delay recreating subscriptions by an interval
+  * determined by the [[com.digitalasset.canton.sequencing.client.SubscriptionRetryDelayRule]]. As
+  * we have to know where to restart a subscription from when it is recreated we use a
+  * [[com.digitalasset.canton.sequencing.handlers.CounterCapture]] handler wrapper to keep track of
+  * the last event that was successfully provided by the provided handler, and use this value to
+  * restart new subscriptions from. For this subscription [[ResilientSequencerSubscription.start]]
+  * must be called for the underlying subscriptions to begin.
   */
 class ResilientSequencerSubscription[HandlerError](
     sequencerId: SequencerId,
@@ -77,7 +77,9 @@ class ResilientSequencerSubscription[HandlerError](
   def start(implicit traceContext: TraceContext): Unit = setupNewSubscription()
 
   /** Start a new subscription to the sequencer.
-    * @param delayOnRestart If this subscription fails with an error that can be retried, how long should we wait before starting a new subscription?
+    * @param delayOnRestart
+    *   If this subscription fails with an error that can be retried, how long should we wait before
+    *   starting a new subscription?
     */
   private def setupNewSubscription(
       delayOnRestart: FiniteDuration = retryDelayRule.initialDelay
@@ -245,10 +247,11 @@ class ResilientSequencerSubscription[HandlerError](
     close()
   }
 
-  /** Closes the current subscription with [[SubscriptionCloseReason.TransportChange]] and resubscribes
-    * using the `subscriptionFactory`, provided that there is currently a subscription.
+  /** Closes the current subscription with [[SubscriptionCloseReason.TransportChange]] and
+    * resubscribes using the `subscriptionFactory`, provided that there is currently a subscription.
     *
-    * @return The future completes after the old subscription has been closed.
+    * @return
+    *   The future completes after the old subscription has been closed.
     */
   def resubscribeOnTransportChange()(implicit traceContext: TraceContext): Future[Unit] =
     nextSubscriptionRef.get() match {
@@ -397,8 +400,9 @@ object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {
   */
 sealed trait SequencerSubscriptionCreationError extends SubscriptionCloseReason.SubscriptionError
 
-/** When a fatal error occurs on the creation of a sequencer subscription, the [[com.digitalasset.canton.sequencing.client.ResilientSequencerSubscription]]
-  * will not retry the subscription creation. Instead, the subscription will fail.
+/** When a fatal error occurs on the creation of a sequencer subscription, the
+  * [[com.digitalasset.canton.sequencing.client.ResilientSequencerSubscription]] will not retry the
+  * subscription creation. Instead, the subscription will fail.
   */
 final case class Fatal(msg: String) extends SequencerSubscriptionCreationError
 

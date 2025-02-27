@@ -55,11 +55,9 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContextExecutor, Promise}
 import scala.util.Try
 
-/** A clock returning the current time, but with a twist: it always
-  * returns unique timestamps. If two calls are made to the same clock
-  * instance at the same time (according to the resolution of this
-  * clock), one of the calls will block, until it can return a unique
-  * value.
+/** A clock returning the current time, but with a twist: it always returns unique timestamps. If
+  * two calls are made to the same clock instance at the same time (according to the resolution of
+  * this clock), one of the calls will block, until it can return a unique value.
   *
   * All public functions are thread-safe.
   */
@@ -92,13 +90,13 @@ abstract class Clock() extends TimeProvider with AutoCloseable with NamedLogging
 
   protected def addToQueue(queue: Queued[?]): Unit
 
-  /** thread safe weakly monotonic time: each timestamp will be either equal or increasing
-    * May go backwards across restarts.
+  /** thread safe weakly monotonic time: each timestamp will be either equal or increasing May go
+    * backwards across restarts.
     */
   final def monotonicTime(): CantonTimestamp = internalMonotonicTime(0)
 
-  /** thread safe strongly monotonic increasing time: each timestamp will be unique
-    * May go backwards across restarts.
+  /** thread safe strongly monotonic increasing time: each timestamp will be unique May go backwards
+    * across restarts.
     */
   final def uniqueTime(): CantonTimestamp = internalMonotonicTime(1)
 
@@ -145,14 +143,19 @@ abstract class Clock() extends TimeProvider with AutoCloseable with NamedLogging
   ): FutureUnlessShutdown[A] =
     scheduleAt(action, now.add(delta))
 
-  /** Thread-safely schedule an action to be executed in the future
-    * actions need not execute in the order of their timestamps.
+  /** Thread-safely schedule an action to be executed in the future actions need not execute in the
+    * order of their timestamps.
     *
-    * If the provided timestamp is before `now`, the action skips queueing and is executed immediately.
+    * If the provided timestamp is before `now`, the action skips queueing and is executed
+    * immediately.
     *
-    * @param action action to run at the given timestamp (passing in the timestamp for when the task was scheduled)
-    * @param timestamp timestamp when to run the task
-    * @return a future for the given task
+    * @param action
+    *   action to run at the given timestamp (passing in the timestamp for when the task was
+    *   scheduled)
+    * @param timestamp
+    *   timestamp when to run the task
+    * @return
+    *   a future for the given task
     */
   def scheduleAt[A](
       action: CantonTimestamp => A,
@@ -533,11 +536,13 @@ object RemoteClock {
     )
 }
 
-/** This implementation allows us to control many independent sim clocks at the same time.
-  * Possible race conditions that might happen with concurrent start/stop of clocks are not
-  * being addressed but are currently unlikely to happen.
-  * @param currentClocks a function that returns all current running sim clocks
-  * @param start start time of this clock
+/** This implementation allows us to control many independent sim clocks at the same time. Possible
+  * race conditions that might happen with concurrent start/stop of clocks are not being addressed
+  * but are currently unlikely to happen.
+  * @param currentClocks
+  *   a function that returns all current running sim clocks
+  * @param start
+  *   start time of this clock
   */
 class DelegatingSimClock(
     currentClocks: () => Seq[SimClock],

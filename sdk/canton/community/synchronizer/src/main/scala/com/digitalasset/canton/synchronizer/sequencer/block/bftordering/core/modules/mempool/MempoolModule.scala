@@ -23,8 +23,8 @@ import MempoolModuleMetrics.{emitRequestStats, emitStateStats}
 
 /** Simple, non-crash-fault-tolerant in-memory mempool implementation.
   *
-  * Crash fault-tolerance is not strictly needed because the sequencer client will re-send the requests if they
-  * are lost before being ordered.
+  * Crash fault-tolerance is not strictly needed because the sequencer client will re-send the
+  * requests if they are lost before being ordered.
   */
 class MempoolModule[E <: Env[E]](
     config: MempoolModuleConfig,
@@ -98,7 +98,7 @@ class MempoolModule[E <: Env[E]](
         emitStateStats(metrics, mempoolState)
 
       case Mempool.MempoolBatchCreationClockTick =>
-        logger.debug(
+        logger.trace(
           s"Mempool received batch creation clock tick (maxRequestsInBatch: ${config.maxRequestsInBatch})"
         )
         createAndSendBatches(messageType)
@@ -111,12 +111,14 @@ class MempoolModule[E <: Env[E]](
       traceContext: TraceContext,
   ): Unit = {
     val interval = config.maxBatchCreationInterval
-    logger.debug(s"Scheduling mempool batch creation clock tick in $interval")
+    logger.trace(s"Scheduling mempool batch creation clock tick in $interval")
     val _ = context.delayedEvent(interval, Mempool.MempoolBatchCreationClockTick)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.While"))
-  private def createAndSendBatches(messageType: String)(implicit traceContext: TraceContext): Unit =
+  private def createAndSendBatches(
+      messageType: String
+  )(implicit context: E#ActorContextT[Mempool.Message]): Unit =
     while (
       mempoolState.receivedOrderRequests.nonEmpty && mempoolState.toBeProvidedToAvailability > 0
     ) {
@@ -127,22 +129,24 @@ class MempoolModule[E <: Env[E]](
 
   private def createAndSendBatch(
       messageType: String
-  )(implicit traceContext: TraceContext): Unit = {
-    val batch = OrderingRequestBatch(
+  )(implicit context: E#ActorContextT[Mempool.Message]): Unit = {
+    val batch = OrderingRequestBatch.create(
       dequeueN(mempoolState.receivedOrderRequests, config.maxRequestsInBatch)
         .map(_.tx)
     )
     val batchId = BatchId.from(batch)
-    logger.debug(
-      s"$messageType: mempool sending batch with ID $batchId to local availability with the following tids ${batch.requests
-          .flatMap(_.traceContext.traceId)}"
-    )
-    availability.asyncSend(
-      Availability.LocalDissemination.LocalBatchCreated(
-        batchId,
-        batch,
+    context.withNewTraceContext { implicit traceContext =>
+      logger.debug(
+        s"$messageType: mempool sending batch with ID $batchId to local availability with the following tids ${batch.requests
+            .flatMap(_.traceContext.traceId)}"
       )
-    )
+      availability.asyncSendTraced(
+        Availability.LocalDissemination.LocalBatchCreated(
+          batchId,
+          batch,
+        )
+      )
+    }
     emitStateStats(metrics, mempoolState)
   }
 }

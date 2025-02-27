@@ -22,7 +22,7 @@ import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
-import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.{
   DependenciesHealthService,
@@ -82,7 +82,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig()
     override val nodeTypeName: String = "test-node"
     override def clientAdminApi = adminApi.clientConfig
-    override def withDefaults(ports: DefaultPorts): TestNodeConfig = this
+    override def withDefaults(ports: DefaultPorts, edition: CantonEdition): TestNodeConfig = this
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig()
     override val topology: TopologyConfig = TopologyConfig.NotUsed
     override def parameters: LocalNodeParametersConfig = new LocalNodeParametersConfig {
@@ -154,7 +154,8 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
   def arguments(config: TestNodeConfig) = factoryArguments(config)
     .toCantonNodeBootstrapCommonArguments(
       storageFactory = new CommunityStorageFactory(StorageConfig.Memory()),
-      cryptoPrivateStoreFactory = new CommunityCryptoPrivateStoreFactory,
+      cryptoPrivateStoreFactory =
+        CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
       kmsFactory = CommunityKmsFactory,
     )
     .value

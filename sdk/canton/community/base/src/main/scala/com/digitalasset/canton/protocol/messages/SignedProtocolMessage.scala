@@ -37,8 +37,8 @@ import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
 
-/** There can be any number of signatures.
-  * Every signature covers the serialization of the `typedMessage` and needs to be valid.
+/** There can be any number of signatures. Every signature covers the serialization of the
+  * `typedMessage` and needs to be valid.
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
 case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](

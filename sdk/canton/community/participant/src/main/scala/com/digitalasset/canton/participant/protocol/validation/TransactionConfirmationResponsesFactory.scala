@@ -32,7 +32,8 @@ class TransactionConfirmationResponsesFactory(
 
   import com.digitalasset.canton.util.ShowUtil.*
 
-  /** Takes a `transactionValidationResult` and computes the [[protocol.messages.ConfirmationResponses]], to be sent to the mediator.
+  /** Takes a `transactionValidationResult` and computes the
+    * [[protocol.messages.ConfirmationResponses]], to be sent to the mediator.
     */
   def createConfirmationResponses(
       requestId: RequestId,
@@ -266,19 +267,21 @@ class TransactionConfirmationResponsesFactory(
           }
         }
         .map(responses =>
-          NonEmpty
-            .from(responses)
-            .map(
-              ConfirmationResponses
-                .tryCreate(
-                  requestId,
-                  transactionValidationResult.transactionId.toRootHash,
-                  synchronizerId,
-                  participantId,
-                  _,
-                  protocolVersion,
-                )
-            )
+          checked(
+            NonEmpty
+              .from(responses)
+              .map(
+                ConfirmationResponses
+                  .tryCreate(
+                    requestId,
+                    transactionValidationResult.transactionId.toRootHash,
+                    synchronizerId,
+                    participantId,
+                    _,
+                    protocolVersion,
+                  )
+              )
+          )
         )
 
     if (malformedPayloads.nonEmpty) {

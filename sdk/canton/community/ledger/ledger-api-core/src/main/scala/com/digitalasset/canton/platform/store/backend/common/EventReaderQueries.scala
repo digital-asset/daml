@@ -28,7 +28,7 @@ class EventReaderQueries(stringInterning: StringInterning) {
 
   def fetchContractIdEvents(
       contractId: ContractId,
-      requestingParties: Set[Party],
+      requestingParties: Option[Set[Party]],
       endEventSequentialId: EventSequentialId,
   )(
       connection: Connection
@@ -63,7 +63,7 @@ class EventReaderQueries(stringInterning: StringInterning) {
               #$witnessesColumn as event_witnesses,
               command_id
             FROM #$tableName
-            WHERE contract_id = ${contractId.coid}
+            WHERE contract_id = ${contractId.toBytes.toByteArray}
             AND event_sequential_id <=$endEventSequentialId
             ORDER BY event_sequential_id
         ) x
@@ -126,7 +126,7 @@ class EventReaderQueries(stringInterning: StringInterning) {
     go(lastExclusiveSeqId, 1)
   }
 
-  private def selectArchivedEvent(contractId: String, intRequestingParties: Set[Int])(
+  private def selectArchivedEvent(contractId: Array[Byte], intRequestingParties: Set[Int])(
       conn: Connection
   ): Option[Entry[RawArchivedEvent]] = {
     val query =
@@ -161,17 +161,19 @@ class EventReaderQueries(stringInterning: StringInterning) {
       maxIterations,
     )(conn)
     val archivedEvent =
-      createEvent.flatMap(c => selectArchivedEvent(c.event.contractId, intRequestingParties)(conn))
+      createEvent.flatMap(c =>
+        selectArchivedEvent(c.event.contractId.toBytes.toByteArray, intRequestingParties)(conn)
+      )
 
     (createEvent.map(_.event), archivedEvent.map(_.event), continuationToken)
   }
 
   private def eventParser(
-      requestingParties: Set[Party]
+      requestingParties: Option[Set[Party]]
   ): RowParser[Entry[RawFlatEvent]] =
     rawAcsDeltaEventParser(
-      Some(
-        requestingParties.iterator
+      requestingParties.map(
+        _.iterator
           .map(stringInterning.party.tryInternalize)
           .flatMap(_.iterator)
           .toSet

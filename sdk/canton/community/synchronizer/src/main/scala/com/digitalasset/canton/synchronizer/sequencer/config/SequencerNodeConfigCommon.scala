@@ -30,7 +30,7 @@ abstract class SequencerNodeConfigCommon(
   def toRemoteConfig: RemoteSequencerConfig =
     RemoteSequencerConfig(
       adminApi.clientConfig,
-      publicApi.toSequencerConnectionConfig,
+      publicApi.clientConfig,
       monitoring.grpcHealthServer.map(_.toRemoteConfig),
     )
 }

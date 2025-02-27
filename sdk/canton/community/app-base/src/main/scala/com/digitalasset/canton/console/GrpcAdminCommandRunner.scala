@@ -36,8 +36,10 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContextExecutor, Future, blocking}
 
 /** Attempt to run a grpc admin-api command against whatever is pointed at in the config
-  * @param commandTimeouts callback for the timeouts to use for the commands, can be changed dynamically in console env
-  * @param apiName the name of the api to check against the grpc server-side
+  * @param commandTimeouts
+  *   callback for the timeouts to use for the commands, can be changed dynamically in console env
+  * @param apiName
+  *   the name of the api to check against the grpc server-side
   */
 class GrpcAdminCommandRunner(
     commandTimeouts: => ConsoleCommandTimeout,

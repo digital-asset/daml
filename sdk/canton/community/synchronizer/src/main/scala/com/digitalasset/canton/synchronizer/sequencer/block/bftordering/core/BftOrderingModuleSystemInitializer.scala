@@ -28,7 +28,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule.RequestInspector
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2pEndpointsStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2PEndpointsStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.{
   BftP2PNetworkIn,
   BftP2PNetworkOut,
@@ -53,7 +53,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Env,
   OrderingModuleSystemInitializer,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1.BftOrderingServiceReceiveRequest
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -83,6 +83,8 @@ object BftOrderingModuleSystemInitializer {
   )(implicit
       mc: MetricsContext
   ): SystemInitializer[E, BftOrderingServiceReceiveRequest, Mempool.Message] = {
+    implicit val c: BftBlockOrderer.Config = config
+
     val thisPeerFirstKnownAt =
       sequencerSnapshotAdditionalInfo.flatMap(_.peerActiveAt.get(bootstrapTopologyInfo.thisPeer))
     val firstBlockNumberInOnboardingEpoch = thisPeerFirstKnownAt.flatMap(_.firstBlockNumberInEpoch)
@@ -148,6 +150,7 @@ object BftOrderingModuleSystemInitializer {
             },
         availability = (mempoolRef, networkOutRef, consensusRef, outputRef) => {
           val cfg = AvailabilityModuleConfig(
+            config.maxRequestsInBatch,
             config.maxBatchesPerBlockProposal,
             config.outputFetchTimeout,
           )
@@ -219,7 +222,7 @@ object BftOrderingModuleSystemInitializer {
   }
 
   final case class BftOrderingStores[E <: Env[E]](
-      p2pEndpointsStore: P2pEndpointsStore[E],
+      p2pEndpointsStore: P2PEndpointsStore[E],
       availabilityStore: AvailabilityStore[E],
       epochStore: EpochStore[E],
       epochStoreReader: EpochStoreReader[E],

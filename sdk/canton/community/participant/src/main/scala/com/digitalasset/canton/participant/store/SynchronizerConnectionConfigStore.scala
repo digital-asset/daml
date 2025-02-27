@@ -32,22 +32,25 @@ final case class StoredSynchronizerConnectionConfig(
   */
 trait SynchronizerConnectionConfigStore extends AutoCloseable {
 
-  /** Stores a synchronizer connection config together with the status. Primary identifier is the synchronizer alias.
-    * Will return an [[SynchronizerConnectionConfigStore.AlreadyAddedForAlias]] error if a config for that alias already exists.
+  /** Stores a synchronizer connection config together with the status. Primary identifier is the
+    * synchronizer alias. Will return an [[SynchronizerConnectionConfigStore.AlreadyAddedForAlias]]
+    * error if a config for that alias already exists.
     */
   def put(config: SynchronizerConnectionConfig, status: SynchronizerConnectionConfigStore.Status)(
       implicit traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, AlreadyAddedForAlias, Unit]
 
-  /** Replaces the config for the given alias.
-    * Will return an [[SynchronizerConnectionConfigStore.MissingConfigForAlias]] error if there is no config for the alias.
+  /** Replaces the config for the given alias. Will return an
+    * [[SynchronizerConnectionConfigStore.MissingConfigForAlias]] error if there is no config for
+    * the alias.
     */
   def replace(config: SynchronizerConnectionConfig)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, MissingConfigForAlias, Unit]
 
-  /** Retrieves the config for a given alias.
-    * Will return an [[SynchronizerConnectionConfigStore.MissingConfigForAlias]] error if there is no config for the alias.
+  /** Retrieves the config for a given alias. Will return an
+    * [[SynchronizerConnectionConfigStore.MissingConfigForAlias]] error if there is no config for
+    * the alias.
     */
   def get(
       alias: SynchronizerAlias
@@ -57,8 +60,8 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
     */
   def getAll(): Seq[StoredSynchronizerConnectionConfig]
 
-  /** Dump and refresh all connection configs.
-    * Used when a warm participant replica becomes active to ensure it has accurate configs cached.
+  /** Dump and refresh all connection configs. Used when a warm participant replica becomes active
+    * to ensure it has accurate configs cached.
     */
   def refreshCache()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 

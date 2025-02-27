@@ -15,8 +15,8 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
-/** This class allows to query synchronizer parameters easily.
-  * Type parameter `P` is the type of the returned value.
+/** This class allows to query synchronizer parameters easily. Type parameter `P` is the type of the
+  * returned value.
   */
 class DynamicSynchronizerParametersLookup[P](
     projector: DynamicSynchronizerParameters => P,
@@ -28,8 +28,8 @@ class DynamicSynchronizerParametersLookup[P](
 
   /** Return one value, valid at the specified timestamp
     *
-    * @param warnOnUsingDefaults Log a warning if dynamic synchronizer parameters are not set
-    *                            and default value is used.
+    * @param warnOnUsingDefaults
+    *   Log a warning if dynamic synchronizer parameters are not set and default value is used.
     */
   def get(validAt: CantonTimestamp, warnOnUsingDefaults: Boolean = true)(implicit
       traceContext: TraceContext
@@ -40,8 +40,7 @@ class DynamicSynchronizerParametersLookup[P](
     )
     .map(projector)
 
-  /** Return the value of the topology snapshot approximation
-    * or the default value.
+  /** Return the value of the topology snapshot approximation or the default value.
     */
   def getApproximateOrDefaultValue(warnOnUsingDefaults: Boolean = true)(implicit
       traceContext: TraceContext
@@ -57,8 +56,8 @@ class DynamicSynchronizerParametersLookup[P](
       .findDynamicSynchronizerParameters()
       .map(_.map(p => projector(p.parameters)).toOption)
 
-  /** Return the approximate latest validity/freshness.
-    * Returned value is the approximate timestamp of the `TopologyClient`.
+  /** Return the approximate latest validity/freshness. Returned value is the approximate timestamp
+    * of the `TopologyClient`.
     */
   def approximateTimestamp: CantonTimestamp = topologyClient.approximateTimestamp
 }

@@ -14,7 +14,7 @@ import com.digitalasset.canton.admin.api.client.data.{
   StaticSynchronizerParameters as ConsoleStaticSynchronizerParameters,
 }
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.console.CommandErrors.NodeNotStarted
 import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.console.commands.*
@@ -25,7 +25,6 @@ import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.MetricValue
-import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.participant.config.{
   BaseParticipantConfig,
   LocalParticipantConfig,
@@ -38,13 +37,18 @@ import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerCon
 import com.digitalasset.canton.synchronizer.mediator.{
   MediatorNode,
   MediatorNodeBootstrap,
-  MediatorNodeConfigCommon,
+  MediatorNodeConfig,
   RemoteMediatorConfig,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.{
   OrderingTopology,
   PeerNetworkStatus,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.{
+  EndpointId,
+  P2PEndpointConfig,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.config.{
   RemoteSequencerConfig,
   SequencerNodeConfigCommon,
@@ -142,8 +146,8 @@ object InstanceReference {
   }
 }
 
-/** Pointer for a potentially running instance by instance type (sequencer/mediator/participant) and its id.
-  * These methods define the REPL interface for these instances (e.g. participant1 start)
+/** Pointer for a potentially running instance by instance type (sequencer/mediator/participant) and
+  * its id. These methods define the REPL interface for these instances (e.g. participant1 start)
   */
 trait LocalInstanceReference extends InstanceReference with NoTracing {
 
@@ -387,14 +391,18 @@ trait RemoteInstanceReference extends InstanceReference {
 
 /** Bare, Canton agnostic parts of the ledger-api client
   *
-  * This implementation allows to access any kind of ledger-api client, which does not need to be Canton based.
-  * However, this comes at some cost, as some of the synchronization between nodes during transaction submission
-  * is not supported
+  * This implementation allows to access any kind of ledger-api client, which does not need to be
+  * Canton based. However, this comes at some cost, as some of the synchronization between nodes
+  * during transaction submission is not supported
   *
-  * @param hostname the hostname of the ledger api server
-  * @param port the port of the ledger api server
-  * @param tls the tls config to use on the client
-  * @param token the jwt token to use on the client
+  * @param hostname
+  *   the hostname of the ledger api server
+  * @param port
+  *   the port of the ledger api server
+  * @param tls
+  *   the tls config to use on the client
+  * @param token
+  *   the jwt token to use on the client
   */
 class ExternalLedgerApiClient(
     hostname: String,
@@ -416,7 +424,7 @@ class ExternalLedgerApiClient(
       command: GrpcAdminCommand[?, ?, Result]
   ): ConsoleCommandResult[Result] =
     consoleEnvironment.grpcLedgerCommandRunner
-      .runCommand("sourceLedger", command, ClientConfig(hostname, port, tls), token)
+      .runCommand("sourceLedger", command, FullClientConfig(hostname, port, tls), token)
 
   override protected def optionallyAwait[Tx](
       tx: Tx,
@@ -428,37 +436,26 @@ class ExternalLedgerApiClient(
 }
 
 /** Allows to query the public api of a sequencer (e.g., sequencer connect service).
-  *
-  * @param trustCollectionFile a file containing certificates of all nodes the client trusts. If none is specified, defaults to the JVM trust store
   */
 class SequencerPublicApiClient(
-    sequencerConnection: GrpcSequencerConnection,
-    trustCollectionFile: Option[ExistingFile],
+    instanceName: String,
+    sequencerApiClientConfig: SequencerApiClientConfig,
 )(implicit val consoleEnvironment: ConsoleEnvironment)
     extends PublicApiCommandRunner
     with NamedLogging {
 
-  private val endpoint = sequencerConnection.endpoints.head1
-
-  private val name: String = endpoint.toString
-
   override val loggerFactory: NamedLoggerFactory =
-    consoleEnvironment.environment.loggerFactory.append("sequencer-public-api", name)
+    consoleEnvironment.environment.loggerFactory
+      .append("sequencer-public-api", sequencerApiClientConfig.endpointAsString)
 
   protected[console] def publicApiCommand[Result](
       command: GrpcAdminCommand[?, ?, Result]
   ): ConsoleCommandResult[Result] =
     consoleEnvironment.grpcSequencerCommandRunner
       .runCommand(
-        sequencerConnection.sequencerAlias.unwrap,
+        instanceName,
         command,
-        ClientConfig(
-          endpoint.host,
-          endpoint.port,
-          tls = trustCollectionFile.map(f =>
-            TlsClientConfig(trustCollectionFile = Some(f), clientCert = None)
-          ),
-        ),
+        sequencerApiClientConfig,
         token = None,
       )
 }
@@ -560,9 +557,10 @@ abstract class ParticipantReference(
   @Help.Group("Repair")
   def repair: ParticipantRepairAdministration = repair_
 
-  /** Waits until for every participant p (drawn from consoleEnvironment.participants.all) that is running and initialized
-    * and for each synchronizer to which both this participant and p are connected
-    * the vetted_package transactions in the authorized store are the same as in the synchronizer store.
+  /** Waits until for every participant p (drawn from consoleEnvironment.participants.all) that is
+    * running and initialized and for each synchronizer to which both this participant and p are
+    * connected the vetted_package transactions in the authorized store are the same as in the
+    * synchronizer store.
     */
   override protected def waitPackagesVetted(timeout: NonNegativeDuration): Unit = {
     val connected = synchronizers.list_connected().map(_.synchronizerId).toSet
@@ -1172,8 +1170,8 @@ abstract class SequencerReference(
   @Help.Summary("Methods used for repairing the node")
   object repair {
 
-    /** Disable the provided member at the sequencer preventing them from reading and writing, and allowing their
-      * data to be pruned.
+    /** Disable the provided member at the sequencer preventing them from reading and writing, and
+      * allowing their data to be pruned.
       */
     @Help.Summary(
       "Disable the provided member at the Sequencer that will allow any unread data for them to be removed"
@@ -1194,19 +1192,33 @@ abstract class SequencerReference(
   object bft {
 
     @Help.Summary("Add a new peer endpoint")
-    def add_peer_endpoint(endpoint: Endpoint): Unit = consoleEnvironment.run {
-      runner.adminCommand(SequencerBftAdminCommands.AddPeerEndpoint(endpoint))
-    }
+    def add_peer_endpoint(
+        endpointConfig: P2PEndpointConfig
+    ): Unit =
+      consoleEnvironment.run {
+        runner.adminCommand(
+          SequencerBftAdminCommands.AddPeerEndpoint(
+            P2PEndpoint.fromEndpointConfig(endpointConfig)
+          )
+        )
+      }
 
     @Help.Summary("Remove a peer endpoint")
-    def remove_peer_endpoint(endpoint: Endpoint): Unit = consoleEnvironment.run {
-      runner.adminCommand(SequencerBftAdminCommands.RemovePeerEndpoint(endpoint))
-    }
+    def remove_peer_endpoint(peerEndpointId: EndpointId): Unit =
+      consoleEnvironment.run {
+        runner.adminCommand(
+          SequencerBftAdminCommands.RemovePeerEndpoint(
+            toInternal(peerEndpointId)
+          )
+        )
+      }
 
     @Help.Summary("Get peer network status")
-    def get_peer_network_status(endpoints: Option[Iterable[Endpoint]]): PeerNetworkStatus =
+    def get_peer_network_status(endpoints: Option[Iterable[EndpointId]]): PeerNetworkStatus =
       consoleEnvironment.run {
-        runner.adminCommand(SequencerBftAdminCommands.GetPeerNetworkStatus(endpoints))
+        runner.adminCommand(
+          SequencerBftAdminCommands.GetPeerNetworkStatus(endpoints.map(_.map(toInternal)))
+        )
       }
 
     @Help.Summary("Get the currently active ordering topology")
@@ -1214,6 +1226,9 @@ abstract class SequencerReference(
       consoleEnvironment.run {
         runner.adminCommand(SequencerBftAdminCommands.GetOrderingTopology())
       }
+
+    private def toInternal(endpoint: EndpointId): P2PEndpoint.Id =
+      P2PEndpoint.Id(endpoint.address, endpoint.port, endpoint.tls)
   }
 }
 
@@ -1234,8 +1249,7 @@ class LocalSequencerReference(
     consoleEnvironment.environment.config.sequencersByString(name)
 
   override lazy val sequencerConnection: GrpcSequencerConnection =
-    config.publicApi.toSequencerConnectionConfig.toConnection
-      .fold(err => sys.error(s"Sequencer $name has invalid connection config: $err"), identity)
+    config.publicApi.clientConfig.asSequencerConnection()
 
   private[console] val nodes: SequencerNodes[?] =
     consoleEnvironment.environment.sequencers
@@ -1247,8 +1261,8 @@ class LocalSequencerReference(
     nodes.getStarting(name)
 
   protected lazy val publicApiClient: SequencerPublicApiClient = new SequencerPublicApiClient(
-    sequencerConnection = sequencerConnection,
-    trustCollectionFile = config.publicApi.tls.map(_.certChainFile),
+    name,
+    config.publicApi.clientConfig,
   )(consoleEnvironment)
 }
 
@@ -1266,12 +1280,11 @@ class RemoteSequencerReference(val environment: ConsoleEnvironment, val name: St
     environment.environment.config.remoteSequencersByString(name)
 
   override def sequencerConnection: GrpcSequencerConnection =
-    config.publicApi.toConnection
-      .fold(err => sys.error(s"Sequencer $name has invalid connection config: $err"), identity)
+    config.publicApi.asSequencerConnection()
 
   protected lazy val publicApiClient: SequencerPublicApiClient = new SequencerPublicApiClient(
-    sequencerConnection = sequencerConnection,
-    trustCollectionFile = config.publicApi.customTrustCertificates.map(_.pemFile),
+    name,
+    config.publicApi,
   )(consoleEnvironment)
 }
 
@@ -1363,10 +1376,10 @@ class LocalMediatorReference(consoleEnvironment: ConsoleEnvironment, val name: S
   override def adminToken: Option[String] = runningNode.flatMap(_.getAdminToken)
 
   @Help.Summary("Returns the mediator configuration")
-  override def config: MediatorNodeConfigCommon =
+  override def config: MediatorNodeConfig =
     consoleEnvironment.environment.config.mediatorsByString(name)
 
-  private[console] val nodes: MediatorNodes[?] = consoleEnvironment.environment.mediators
+  private[console] val nodes: MediatorNodes = consoleEnvironment.environment.mediators
 
   override protected[console] def runningNode: Option[MediatorNodeBootstrap] =
     nodes.getRunning(name)
@@ -1377,7 +1390,8 @@ class LocalMediatorReference(consoleEnvironment: ConsoleEnvironment, val name: S
 
 class RemoteMediatorReference(val environment: ConsoleEnvironment, val name: String)
     extends MediatorReference(environment, name)
-    with RemoteInstanceReference {
+    with RemoteInstanceReference
+    with SequencerConnectionAdministration {
 
   def adminToken: Option[String] = config.token
 

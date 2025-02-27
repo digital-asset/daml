@@ -51,8 +51,8 @@ class MessageRecorder(
     }
   }
 
-  /** Serializes and saves the provided message to the output stream.
-    * This method is synchronized as the write operations on the underlying [[java.io.ObjectOutputStream]] are not thread safe.
+  /** Serializes and saves the provided message to the output stream. This method is synchronized as
+    * the write operations on the underlying [[java.io.ObjectOutputStream]] are not thread safe.
     */
   def record(message: Serializable): Unit = blocking(synchronized {
     streamRef.get().foreach(_.writeObject(message))
@@ -75,11 +75,12 @@ object MessageRecorder {
 
   private val loader: ClassLoader = Thread.currentThread().getContextClassLoader
 
-  /** Yields a list containing all messages stored at `source`.
-    * Be aware that the method loads all messages into memory. This is tailored to performance testing,
-    * because it allows for loading messages before starting performance measurements.
+  /** Yields a list containing all messages stored at `source`. Be aware that the method loads all
+    * messages into memory. This is tailored to performance testing, because it allows for loading
+    * messages before starting performance measurements.
     *
-    * @throws java.lang.ClassCastException if a message is not of type `T`
+    * @throws java.lang.ClassCastException
+    *   if a message is not of type `T`
     */
   def load[T <: Serializable](source: Path, logger: TracedLogger)(implicit
       classTag: ClassTag[T],

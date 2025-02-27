@@ -70,7 +70,7 @@ create table common_crypto_public_keys (
 
 -- Stores the immutable contracts, however a creation of a contract can be rolled back.
 create table par_contracts (
-    contract_id varchar not null,
+    contract_id binary varying not null,
     -- The contract is serialized using the LF contract proto serializer.
     instance binary large object not null,
     contract_salt binary large object,
@@ -145,7 +145,7 @@ create type operation_type as enum ('create', 'add', 'assign', 'archive', 'purge
 create table par_active_contracts (
     -- As a participant can be connected to multiple synchronizers, the active contracts are stored per synchronizer.
     synchronizer_idx integer not null,
-    contract_id varchar not null,
+    contract_id binary varying not null,
     change change_type not null,
     operation operation_type not null,
     -- UTC timestamp of the time of change in microsecond precision relative to EPOCH
@@ -354,10 +354,9 @@ create table par_commitment_queue (
     from_exclusive bigint not null,
     -- UTC timestamp in microseconds relative to EPOCH
     to_inclusive bigint not null,
-    commitment binary large object not null,
-    commitment_hash varchar not null, -- A shorter hash (SHA-256) of the commitment for the primary key instead of the binary large object
+    commitment binary varying not null,
     constraint check_nonempty_interval_queue check(to_inclusive > from_exclusive),
-    primary key (synchronizer_idx, sender, counter_participant, from_exclusive, to_inclusive, commitment_hash)
+    primary key (synchronizer_idx, sender, counter_participant, from_exclusive, to_inclusive, commitment)
 );
 
 create index idx_par_commitment_queue_by_time on par_commitment_queue (synchronizer_idx, to_inclusive);
@@ -880,9 +879,13 @@ create table ord_metadata_output_epochs (
 
 -- Stores P2P endpoints from the configuration or admin command
 create table ord_p2p_endpoints (
-  host varchar not null,
+  address varchar not null,
   port smallint not null,
-  primary key (host, port)
+  transport_security bool not null,
+  custom_server_trust_certificates binary large object null, -- PEM string
+  client_certificate_chain binary large object null, -- PEM string
+  client_private_key_file varchar null, -- path to a file containing the client private key
+  primary key (address, port, transport_security)
 );
 
 -- Stores participants we should not wait for before pruning when handling ACS commitment

@@ -26,9 +26,10 @@ trait Scheduler extends StartStoppable with AutoCloseable {
   */
 trait PruningScheduler extends Scheduler {
 
-  /** Updates the pruning retention, i.e. the age of the newest piece of data to be pruned
-    * relative to the node's clock.
-    * @param retention retention as a duration
+  /** Updates the pruning retention, i.e. the age of the newest piece of data to be pruned relative
+    * to the node's clock.
+    * @param retention
+    *   retention as a duration
     */
   def updateRetention(retention: PositiveSeconds)(implicit
       traceContext: TraceContext

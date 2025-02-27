@@ -8,6 +8,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
+import com.digitalasset.canton.http.json.v2.Protocol.Protocol
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
@@ -88,7 +89,7 @@ trait Endpoints extends NamedLogging {
           )
         case _ =>
           val internalError =
-            LedgerApiErrors.InternalError.Generic(unhandled.getMessage, Some(unhandled.getCause))
+            LedgerApiErrors.InternalError.Generic(unhandled.getMessage, Some(unhandled))
 
           Success(
             Left(
@@ -121,7 +122,7 @@ trait Endpoints extends NamedLogging {
         Flow[I, Either[JsCantonError, O], Any],
         PekkoStreams & WebSockets,
       ],
-      service: CallerContext => TracedInput[HI] => Flow[I, O, Any],
+      service: (CallerContext, Protocol) => TracedInput[HI] => Flow[I, O, Any],
   ): Full[CallerContext, CallerContext, HI, JsCantonError, Flow[
     I,
     Either[JsCantonError, O],
@@ -135,7 +136,7 @@ trait Endpoints extends NamedLogging {
       // TODO(i19013)  decide if tracecontext headers on websockets are handled
       .serverLogicSuccess { jwt => i =>
         val errorHandlingService =
-          service(jwt)(TracedInput(i, TraceContext.empty))
+          service(jwt, Protocol.Websocket)(TracedInput(i, TraceContext.empty))
             .map(out =>
               Right[JsCantonError, O](out)
             ) // TODO(i19398): Try if it is practicable to deliver an error as CloseReason on websocket
@@ -156,7 +157,7 @@ trait Endpoints extends NamedLogging {
       endpoint: Endpoint[CallerContext, StreamList[INPUT], JsCantonError, Seq[
         OUTPUT
       ], R],
-      service: CallerContext => TracedInput[Unit] => Flow[INPUT, OUTPUT, Any],
+      service: (CallerContext, Protocol) => TracedInput[Unit] => Flow[INPUT, OUTPUT, Any],
       timeoutOpenEndedStream: Boolean = false,
   )(implicit wsConfig: WebsocketConfig, materializer: Materializer) =
     endpoint
@@ -165,7 +166,7 @@ trait Endpoints extends NamedLogging {
       .serverSecurityLogicSuccess(Future.successful)
       .serverLogic(caller =>
         (tracedInput: TracedInput[StreamList[INPUT]]) => {
-          val flow = service(caller)(tracedInput.copy(in = ()))
+          val flow = service(caller, Protocol.HTTP)(tracedInput.copy(in = ()))
           val limit = tracedInput.in.limit
           val idleWaitTime = tracedInput.in.waitTime
             .map(FiniteDuration.apply(_, TimeUnit.MILLISECONDS))
@@ -219,11 +220,13 @@ trait Endpoints extends NamedLogging {
   }
 
   /** Utility to prepare flow from a gRPC method with an observer.
-    * @param closeDelay  if true then server will close websocket after a delay when no new elements appear in stream
+    * @param closeDelay
+    *   if true then server will close websocket after a delay when no new elements appear in stream
     */
   protected def prepareSingleWsStream[REQ, RESP, JSRESP](
       stream: (REQ, StreamObserver[RESP]) => Unit,
       mapToJs: RESP => Future[JSRESP],
+      protocol: Protocol,
       withCloseDelay: Boolean = false,
   )(implicit
       esf: ExecutionSequencerFactory,
@@ -237,7 +240,7 @@ trait Endpoints extends NamedLogging {
             .serverStreaming(req, stream)
         }
 
-    if (withCloseDelay) {
+    if (withCloseDelay && protocol.isStreaming()) {
       flow
         .map(Some(_))
         .concat(
@@ -273,7 +276,7 @@ trait Endpoints extends NamedLogging {
       val internalError =
         LedgerApiErrors.InternalError.Generic(
           e.getMessage,
-          Some(e.getCause),
+          Some(e),
         )
       Left(
         JsCantonError.fromErrorCode(internalError)
@@ -393,3 +396,16 @@ trait DocumentationEndpoints {
 }
 
 final case class StreamList[INPUT](input: INPUT, limit: Option[Long], waitTime: Option[Long])
+
+object Protocol {
+
+  sealed trait Protocol {
+    def isStreaming() = false
+  }
+
+  case object Websocket extends Protocol {
+    override def isStreaming(): Boolean = true
+  }
+
+  case object HTTP extends Protocol
+}

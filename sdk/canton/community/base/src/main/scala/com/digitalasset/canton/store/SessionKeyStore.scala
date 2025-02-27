@@ -18,9 +18,9 @@ import scala.concurrent.ExecutionContext
 //TODO(#15057) Add stats on cache hits/misses
 sealed trait SessionKeyStore {
 
-  /** If the session store is set, we use it to store our session keys and reuse them across transactions.
-    * Otherwise, if the 'global' session store is disabled, we create a local cache that is valid only for a single
-    * transaction.
+  /** If the session store is set, we use it to store our session keys and reuse them across
+    * transactions. Otherwise, if the 'global' session store is disabled, we create a local cache
+    * that is valid only for a single transaction.
     */
   def convertStore(implicit
       executionContext: ExecutionContext
@@ -31,10 +31,10 @@ sealed trait SessionKeyStore {
     }
 }
 
-/** These session key stores are to be used during the processing of a confirmation request.
-  * They could either be used for a single transaction (i.e. SessionKeyStoreWithNoEviction) or
-  * for all transactions (i.e. SessionKeyStoreWithInMemoryCache). The latter, requires a size limit and
-  * an eviction policy to be specified.
+/** These session key stores are to be used during the processing of a confirmation request. They
+  * could either be used for a single transaction (i.e. SessionKeyStoreWithNoEviction) or for all
+  * transactions (i.e. SessionKeyStoreWithInMemoryCache). The latter, requires a size limit and an
+  * eviction policy to be specified.
   */
 sealed trait ConfirmationRequestSessionKeyStore {
 
@@ -100,32 +100,37 @@ final class SessionKeyStoreWithInMemoryCache(
 ) extends SessionKeyStore
     with ConfirmationRequestSessionKeyStore {
 
-  /** This cache keeps track of the session key information for each recipient tree, which is then used to encrypt
-    * the view messages.
+  /** This cache keeps track of the session key information for each recipient tree, which is then
+    * used to encrypt the view messages.
     *
     * This cache may create interesting eviction strategies during a key roll of a recipient.
     * Whether a key is considered revoked or not depends on the snapshot we're picking.
     *
     * So, consider two concurrent transaction submissions:
     *
-    * - tx1 and tx2 pick a snapshot where the key is still valid
-    * - tx3 and tx4 pick a snapshot where the key is invalid
+    *   - tx1 and tx2 pick a snapshot where the key is still valid
+    *   - tx3 and tx4 pick a snapshot where the key is invalid
     *
-    * However, due to concurrency, they interleave for the encrypted view message factory as tx1, tx3, tx2, tx4
-    * - tx1 populates the cache for the recipients' tree with a new session key;
-    * - tx3 notices that the key is no longer valid, produces a new session key and replaces the old one;
-    * - tx2 finds the session key from tx3, but considers it invalid because the key is not active. So create a new session key and evict the old on;
-    * - tx4 installs again a new session key
+    * However, due to concurrency, they interleave for the encrypted view message factory as tx1,
+    * tx3, tx2, tx4
+    *   - tx1 populates the cache for the recipients' tree with a new session key;
+    *   - tx3 notices that the key is no longer valid, produces a new session key and replaces the
+    *     old one;
+    *   - tx2 finds the session key from tx3, but considers it invalid because the key is not
+    *     active. So create a new session key and evict the old on;
+    *   - tx4 installs again a new session key
     *
-    * Since key rolls are rare and everything still remains consistent we accept this as an expected behavior.
+    * Since key rolls are rare and everything still remains consistent we accept this as an expected
+    * behavior.
     */
   override protected lazy val sessionKeysCacheSender: Cache[RecipientGroup, SessionKeyInfo] =
     sessionKeysCacheConfig.senderCache
       .buildScaffeine()
       .build()
 
-  /** This cache keeps track of the matching encrypted randomness for the session keys and their correspondent unencrypted value.
-    * This way we can save on the amount of asymmetric decryption operations.
+  /** This cache keeps track of the matching encrypted randomness for the session keys and their
+    * correspondent unencrypted value. This way we can save on the amount of asymmetric decryption
+    * operations.
     */
   override protected lazy val sessionKeysCacheReceiver
       : Cache[AsymmetricEncrypted[SecureRandomness], SecureRandomness] =
@@ -135,9 +140,10 @@ final class SessionKeyStoreWithInMemoryCache(
 
 }
 
-/** This cache stores session key information for each recipient tree, which is later used to encrypt view messages.
-  * However, in this implementation, the session keys have neither a size limit nor an eviction time.
-  * Therefore, this cache MUST only be used when it is local to each transaction and short-lived.
+/** This cache stores session key information for each recipient tree, which is later used to
+  * encrypt view messages. However, in this implementation, the session keys have neither a size
+  * limit nor an eviction time. Therefore, this cache MUST only be used when it is local to each
+  * transaction and short-lived.
   */
 final class SessionKeyStoreWithNoEviction(implicit executionContext: ExecutionContext)
     extends ConfirmationRequestSessionKeyStore {

@@ -65,8 +65,7 @@ trait MediatorReplicaManager extends NamedLogging with FlagCloseableAsync {
     .map(runtime => SyncCloseable("mediatorRuntime", runtime.close()))
 }
 
-/** Community version of the mediator replica manager.
-  * Does not support high-availability.
+/** Community version of the mediator replica manager. Does not support high-availability.
   */
 class CommunityMediatorReplicaManager(
     override protected val timeouts: ProcessingTimeout,

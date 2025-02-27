@@ -18,14 +18,13 @@ import scala.concurrent.ExecutionContext
 
 /** DB storage for a cursor prehead for a synchronizer
   *
-  * @param cursorTable The table name to store the cursor prehead.
-  *                    The table must define the following columns:
-  *                    <ul>
-  *                    <li>synchronizer_idx integer not null primary key</li>
-  *                      <li>prehead_counter bigint not null</li>
-  *                      <li>ts bigint not null</li>
-  *                    </ul>
-  * @param processingTime The metric to be used for DB queries
+  * @param cursorTable
+  *   The table name to store the cursor prehead. The table must define the following columns:
+  *   - synchronizer_idx integer not null primary key
+  *   - prehead_counter bigint not null
+  *   - ts bigint not null
+  * @param processingTime
+  *   The metric to be used for DB queries
   */
 class DbCursorPreheadStore[Discr](
     indexedSynchronizer: IndexedSynchronizer,

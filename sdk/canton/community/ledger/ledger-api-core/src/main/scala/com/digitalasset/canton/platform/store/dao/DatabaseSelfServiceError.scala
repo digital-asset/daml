@@ -11,14 +11,14 @@ import org.postgresql.util.PSQLException
 
 import java.sql.*
 
-/** Wraps SQLExceptions into transient and non-transient errors.
-  * Transience classification is done as follows:
+/** Wraps SQLExceptions into transient and non-transient errors. Transience classification is done
+  * as follows:
   *
-  * * Problems that are likely to be resolved with retries are transient errors. For example, network outages or db access
-  * serialization problems.
+  * * Problems that are likely to be resolved with retries are transient errors. For example,
+  * network outages or db access serialization problems.
   *
-  * * Problems that cannot be recovered from are non-transient. For example, an illegal argument exception inside a
-  * database transaction or a unique constraint violation.
+  * * Problems that cannot be recovered from are non-transient. For example, an illegal argument
+  * exception inside a database transaction or a unique constraint violation.
   */
 object DatabaseSelfServiceError {
   def apply(
