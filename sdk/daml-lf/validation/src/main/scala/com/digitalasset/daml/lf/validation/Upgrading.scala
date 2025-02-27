@@ -197,11 +197,6 @@ object UpgradeError {
       s"Implementation of interface $iface by template $tpl appears in package that is being upgraded, but does not appear in this package."
   }
 
-  final case class ForbiddenNewInstance(tpl: Ref.DottedName, iface: Ref.TypeConName) extends Error {
-    override def message: String =
-      s"Implementation of interface $iface by template $tpl appears in this package, but does not appear in package that is being upgraded."
-  }
-
   final case class DatatypeBecameUnserializable(origin: UpgradedRecordOrigin) extends Error {
     override def message: String =
       s"The upgraded $origin was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades."
@@ -492,9 +487,6 @@ case class TypecheckUpgrades(
         module.map(flattenInstances)
       )
       _ <- checkDeletedInstances(instanceDel)
-      _ <- checkAddedInstances(instanceNew.view.filterKeys { case (tyCon, _) =>
-        !newTemplates.contains(tyCon)
-      }.toMap)
 
       (existingDatatypes, _new) <- checkDeleted(
         unownedDts,
@@ -544,14 +536,6 @@ case class TypecheckUpgrades(
   ): Try[Unit] =
     deletedInstances.headOption match {
       case Some(((tpl, iface), _)) => fail(UpgradeError.MissingImplementation(tpl, iface))
-      case None => Success(())
-    }
-
-  private def checkAddedInstances(
-      newInstances: Map[(Ref.DottedName, TypeConName), (Ast.Template, Ast.TemplateImplements)]
-  ): Try[Unit] =
-    newInstances.headOption match {
-      case Some(((tpl, iface), _)) => fail(UpgradeError.ForbiddenNewInstance(tpl, iface))
       case None => Success(())
     }
 

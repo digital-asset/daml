@@ -23,7 +23,6 @@ import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
-import com.digitalasset.daml.lf.interpretation.{Error => IE}
 
 import scala.util.{Failure, Success, Try}
 
@@ -126,7 +125,7 @@ class SBuiltinInterfaceUpgradeTest extends AnyFreeSpec with Matchers with Inside
   )
 
   "fetch_interface" - {
-    "should reject inconsistent view upgrades" in {
+    "should not reject inconsistent view upgrades" in {
       inside(
         evalApp(
           e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid" (ifaceParserParams),
@@ -137,8 +136,8 @@ class SBuiltinInterfaceUpgradeTest extends AnyFreeSpec with Matchers with Inside
           compiledPackages = compiledPackages,
           committers = Set(alice),
         )
-      ) { case Success(Left(SErrorDamlException(IE.Upgrade(upgradeError)))) =>
-        upgradeError shouldBe a[IE.Upgrade.ViewMismatch]
+      ) { case Success(result) =>
+          result shouldBe a[Right[_, _]]
       }
     }
   }
@@ -157,8 +156,8 @@ class SBuiltinInterfaceUpgradeTest extends AnyFreeSpec with Matchers with Inside
           compiledPackages = compiledPackages,
           committers = Set(alice),
         )
-      ) { case Success(Left(SErrorDamlException(IE.Upgrade(upgradeError)))) =>
-        upgradeError shouldBe a[IE.Upgrade.ViewMismatch]
+      ) { case Success(result) =>
+          result shouldBe a[Right[_, _]]
       }
     }
   }

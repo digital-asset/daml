@@ -26,11 +26,6 @@ data UpgradeErrorType
   | DowngradeDropDefinedField with
         expectedType : Text
         fieldIndex : Int
-  | ViewMismatch with
-        coid : AnyContractId
-        iterfaceId : TemplateTypeRep
-        srcTemplateId : TemplateTypeRep
-        dstTemplateId : TemplateTypeRep
   | DowngradeFailed with
         expectedType : Text
 
@@ -205,7 +200,5 @@ instance Show UpgradeErrorType where
       "Validation failed for contract " <> show coid <> " (Signatories: " <> show signatories <> ", Observers: " <> show observers <> ")"
     DowngradeDropDefinedField expectedType rank ->
       "Cannot drop Some field at position " <> show rank <> " in record to downgrade to " <> show expectedType
-    ViewMismatch coid _iterfaceId _srcTemplateId _dstTemplateId ->
-      "Interface view mismatch between versions for contract " <> show coid
     DowngradeFailed expectedType ->
       "Could not downgrade from new variant/enum constructor to " <> show expectedType

@@ -506,7 +506,6 @@ checkModuleM upgradedPackageId module_ = do
     let (instanceDel, _instanceExisting, instanceNew) = extractDelExistNew (flattenInstances <$> module_)
     let notANewTemplate (tyCon, _) _ = not (HMS.member tyCon newTemplates)
     checkDeletedInstances (_present module_) instanceDel
-    checkAddedInstances (_present module_) (HMS.filterWithKey notANewTemplate instanceNew)
 
     checkUpgradedInterfacesAreUnused upgradedPackageId (_present module_) instanceNew
 
@@ -540,19 +539,6 @@ checkDeletedInstances module_ instances = throwIfNonEmpty handleError instances
     handleError (tpl, impl) =
         ( Just (ContextTemplate module_ tpl TPWhole)
         , EUpgradeMissingImplementation (NM.name tpl) (LF.qualObject (NM.name impl))
-        )
-
-checkAddedInstances ::
-    Module ->
-    HMS.HashMap (TypeConName, Qualified TypeConName) (Template, TemplateImplements) ->
-    TcUpgradeM ()
-checkAddedInstances module_ instances = throwIfNonEmpty handleError instances
-  where
-    handleError ::
-        (Template, TemplateImplements) -> (Maybe Context, UnwarnableError)
-    handleError (tpl, impl) =
-        ( Just (ContextTemplate module_ tpl TPWhole)
-        , EForbiddenNewImplementation (NM.name tpl) (LF.qualObject (NM.name impl))
         )
 
 -- It is always invalid to keep an interface in an upgrade

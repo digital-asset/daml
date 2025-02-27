@@ -1289,20 +1289,19 @@ private[lf] object SBuiltinFun {
                             checkContractUpgradable(coid, srcContract, dstContract) { () =>
                               executeExpression(machine, SEPreventCatch(dstView)) { dstViewValue =>
                                 if (srcViewValue != dstViewValue) {
-                                  Control.Error(
-                                    IE.Upgrade(
-                                      IE.Upgrade.ViewMismatch(
-                                        coid,
-                                        interfaceId,
-                                        srcTplId,
-                                        dstTplId,
-                                        srcView = srcViewValue.toUnnormalizedValue,
-                                        dstView = dstViewValue.toUnnormalizedValue,
-                                      )
-                                    )
-                                  )
-                                } else
-                                  k(SAny(Ast.TTyCon(dstTplId), dstArg))
+                                  machine.traceLog.add(
+                                    Pretty.prettyViewMismatch(
+                                      coid,
+                                      interfaceId,
+                                      srcTplId,
+                                      dstTplId,
+                                      srcViewValue = srcViewValue.toUnnormalizedValue,
+                                      dstViewValue = dstViewValue.toUnnormalizedValue,
+                                    ).render(10000),
+                                    machine.getLastLocation
+                                  )(machine.loggingContext)
+                                }
+                                k(SAny(Ast.TTyCon(dstTplId), dstArg))
                               }
                             }
                         }
