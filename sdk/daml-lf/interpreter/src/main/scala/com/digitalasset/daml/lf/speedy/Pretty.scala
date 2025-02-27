@@ -266,12 +266,12 @@ private[lf] object Pretty {
     }
 
   def prettyViewMismatch(
-    coid: ContractId,
-    iterfaceId: TypeConName,
-    srcTemplateId: TypeConName,
-    dstTemplateId: TypeConName,
-    srcViewValue: Value,
-    dstViewValue: Value,
+      coid: ContractId,
+      iterfaceId: TypeConName,
+      srcTemplateId: TypeConName,
+      dstTemplateId: TypeConName,
+      srcViewValue: Value,
+      dstViewValue: Value,
   ): Doc = {
     text("View mismatch when upgrading the contract") & prettyContractId(
       coid

@@ -1290,15 +1290,17 @@ private[lf] object SBuiltinFun {
                               executeExpression(machine, SEPreventCatch(dstView)) { dstViewValue =>
                                 if (srcViewValue != dstViewValue) {
                                   machine.traceLog.add(
-                                    Pretty.prettyViewMismatch(
-                                      coid,
-                                      interfaceId,
-                                      srcTplId,
-                                      dstTplId,
-                                      srcViewValue = srcViewValue.toUnnormalizedValue,
-                                      dstViewValue = dstViewValue.toUnnormalizedValue,
-                                    ).render(10000),
-                                    machine.getLastLocation
+                                    Pretty
+                                      .prettyViewMismatch(
+                                        coid,
+                                        interfaceId,
+                                        srcTplId,
+                                        dstTplId,
+                                        srcViewValue = srcViewValue.toUnnormalizedValue,
+                                        dstViewValue = dstViewValue.toUnnormalizedValue,
+                                      )
+                                      .render(10000),
+                                    machine.getLastLocation,
                                   )(machine.loggingContext)
                                 }
                                 k(SAny(Ast.TTyCon(dstTplId), dstArg))

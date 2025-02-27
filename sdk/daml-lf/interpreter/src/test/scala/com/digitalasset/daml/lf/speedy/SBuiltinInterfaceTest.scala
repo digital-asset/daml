@@ -137,7 +137,7 @@ class SBuiltinInterfaceUpgradeTest extends AnyFreeSpec with Matchers with Inside
           committers = Set(alice),
         )
       ) { case Success(result) =>
-          result shouldBe a[Right[_, _]]
+        result shouldBe a[Right[_, _]]
       }
     }
   }
@@ -157,7 +157,7 @@ class SBuiltinInterfaceUpgradeTest extends AnyFreeSpec with Matchers with Inside
           committers = Set(alice),
         )
       ) { case Success(result) =>
-          result shouldBe a[Right[_, _]]
+        result shouldBe a[Right[_, _]]
       }
     }
   }
