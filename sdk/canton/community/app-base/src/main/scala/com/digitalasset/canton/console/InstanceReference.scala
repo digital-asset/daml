@@ -51,7 +51,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.dri
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.config.{
   RemoteSequencerConfig,
-  SequencerNodeConfigCommon,
+  SequencerNodeConfig,
 }
 import com.digitalasset.canton.synchronizer.sequencer.{
   SequencerClients,
@@ -1245,13 +1245,13 @@ class LocalSequencerReference(
   override def adminToken: Option[String] = runningNode.flatMap(_.getAdminToken)
 
   @Help.Summary("Returns the sequencer configuration")
-  override def config: SequencerNodeConfigCommon =
+  override def config: SequencerNodeConfig =
     consoleEnvironment.environment.config.sequencersByString(name)
 
   override lazy val sequencerConnection: GrpcSequencerConnection =
     config.publicApi.clientConfig.asSequencerConnection()
 
-  private[console] val nodes: SequencerNodes[?] =
+  private[console] val nodes: SequencerNodes =
     consoleEnvironment.environment.sequencers
 
   override protected[console] def runningNode: Option[SequencerNodeBootstrap] =

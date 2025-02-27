@@ -346,11 +346,12 @@ object Module {
     *
     * Inputs are a module system and a network manager; the latter defines how peers connect.
     */
-  type SystemInitializer[E <: Env[E], P2PMessageT, InputMessageT] =
-    (
-        ModuleSystem[E],
-        ClientP2PNetworkManager[E, P2PMessageT],
-    ) => SystemInitializationResult[P2PMessageT, InputMessageT]
+  trait SystemInitializer[E <: Env[E], P2PMessageT, InputMessageT] {
+    def initialize(
+        moduleSystem: ModuleSystem[E],
+        networkManager: ClientP2PNetworkManager[E, P2PMessageT],
+    ): SystemInitializationResult[P2PMessageT, InputMessageT]
+  }
 
   /** The result of initializing a module system independent of the actor framework, to be used
     * during the actor framework-specific initialization.

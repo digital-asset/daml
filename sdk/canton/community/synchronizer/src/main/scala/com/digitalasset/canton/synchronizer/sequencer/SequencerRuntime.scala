@@ -413,6 +413,7 @@ class SequencerRuntime(
           staticSynchronizerParameters.protocolVersion,
           topologyClient,
           client,
+          timeTracker,
           clock,
           loggerFactory,
         )

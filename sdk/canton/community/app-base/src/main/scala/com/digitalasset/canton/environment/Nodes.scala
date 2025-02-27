@@ -26,7 +26,7 @@ import com.digitalasset.canton.synchronizer.mediator.{
   MediatorNodeParameters,
 }
 import com.digitalasset.canton.synchronizer.sequencer.config.{
-  SequencerNodeConfigCommon,
+  SequencerNodeConfig,
   SequencerNodeParameters,
 }
 import com.digitalasset.canton.synchronizer.sequencer.{SequencerNode, SequencerNodeBootstrap}
@@ -419,15 +419,20 @@ class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode](
       ),
     ) {}
 
-class SequencerNodes[SC <: SequencerNodeConfigCommon](
-    create: (String, SC) => SequencerNodeBootstrap,
+class SequencerNodes(
+    create: (String, SequencerNodeConfig) => SequencerNodeBootstrap,
     migrationsFactory: DbMigrationsFactory,
     timeouts: ProcessingTimeout,
-    configs: Map[String, SC],
+    configs: Map[String, SequencerNodeConfig],
     parameters: String => SequencerNodeParameters,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends ManagedNodes[SequencerNode, SC, SequencerNodeParameters, SequencerNodeBootstrap](
+    extends ManagedNodes[
+      SequencerNode,
+      SequencerNodeConfig,
+      SequencerNodeParameters,
+      SequencerNodeBootstrap,
+    ](
       create,
       migrationsFactory,
       timeouts,

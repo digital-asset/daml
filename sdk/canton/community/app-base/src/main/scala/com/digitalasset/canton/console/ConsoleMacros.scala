@@ -403,13 +403,14 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         metadata: ContractMetadata,
     ): ContractId.V1 = {
       val unicumGenerator = new UnicumGenerator(cryptoPureApi)
-      val cantonContractIdVersion = AuthenticatedContractIdVersionV10
+      val cantonContractIdVersion = AuthenticatedContractIdVersionV11
       val unicum = unicumGenerator
         .recomputeUnicum(
           contractSalt,
           LedgerCreateTime(createdAt),
           metadata,
           rawContract,
+          cantonContractIdVersion,
         )
         .valueOr(err => throw new RuntimeException(err))
       cantonContractIdVersion.fromDiscriminator(discriminator, unicum)

@@ -16,7 +16,7 @@ import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateErro
 import com.digitalasset.canton.crypto.SigningPublicKey.getDataForFingerprint
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPrivateStoreExtended}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
+import com.digitalasset.canton.error.{CantonBaseError, CantonErrorGroups}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -1534,7 +1534,7 @@ object SigningKeyGenerationError extends CantonErrorGroups.CommandErrorGroup {
         ErrorCategory.InvalidIndependentOfSystemState,
       ) {
     final case class Wrap(reason: SigningKeyGenerationError)
-        extends BaseCantonError.Impl(cause = "Unable to create signing key")
+        extends CantonBaseError.Impl(cause = "Unable to create signing key")
   }
 
   final case class GeneralError(error: Exception) extends SigningKeyGenerationError {

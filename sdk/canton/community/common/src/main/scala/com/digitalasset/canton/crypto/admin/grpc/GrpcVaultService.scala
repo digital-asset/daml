@@ -18,7 +18,7 @@ import com.digitalasset.canton.crypto.provider.kms.KmsPrivateCrypto
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError.WrapperKeyAlreadyInUse
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, EncryptedCryptoPrivateStore}
 import com.digitalasset.canton.crypto.{v30 as cryptoproto, *}
-import com.digitalasset.canton.error.{BaseCantonError, CantonError, CantonErrorGroups}
+import com.digitalasset.canton.error.{CantonBaseError, CantonError, CantonErrorGroups}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
@@ -133,7 +133,7 @@ class GrpcVaultService(
               for {
                 encrypted <- extended
                   .encrypted(pk.publicKey.id)
-                  .leftMap[BaseCantonError] { err =>
+                  .leftMap[CantonBaseError] { err =>
                     CryptoPrivateStoreError.ErrorCode.WrapStr(
                       s"Failed to retrieve encrypted status for key ${pk.publicKey.id}: $err"
                     )
@@ -145,7 +145,7 @@ class GrpcVaultService(
               crypto.cryptoPrivateStore
                 .queryKmsKeyId(pk.id)
                 .map(PrivateKeyMetadata(pk, None, _).toProtoV30)
-                .leftMap[BaseCantonError] { err =>
+                .leftMap[CantonBaseError] { err =>
                   CryptoPrivateStoreError.ErrorCode.WrapStr(
                     s"Failed to retrieve KMS key id for key ${pk.publicKey.id}: $err"
                   )
@@ -154,7 +154,7 @@ class GrpcVaultService(
         }
     } yield v30.ListMyKeysResponse(keysMetadata)
 
-    CantonGrpcUtil.mapErrNewEUS(result)
+    CantonGrpcUtil.mapErrNewEUS(result.leftMap(_.toCantonError))
   }
 
   // allows to import public keys into the key store
@@ -225,7 +225,7 @@ class GrpcVaultService(
       key <- CantonGrpcUtil.mapErrNewEUS(
         crypto
           .generateSigningKey(scheme, usage, name.emptyStringAsNone)
-          .leftMap(err => SigningKeyGenerationError.ErrorCode.Wrap(err))
+          .leftMap(err => SigningKeyGenerationError.ErrorCode.Wrap(err).toCantonError)
       )
     } yield v30.GenerateSigningKeyResponse(publicKey = Some(key.toProtoV30))
   }
@@ -252,7 +252,7 @@ class GrpcVaultService(
       key <- CantonGrpcUtil.mapErrNewEUS(
         crypto
           .generateEncryptionKey(scheme, name.emptyStringAsNone)
-          .leftMap(err => EncryptionKeyGenerationError.ErrorCode.Wrap(err))
+          .leftMap(err => EncryptionKeyGenerationError.ErrorCode.Wrap(err).toCantonError)
       )
     } yield v30.GenerateEncryptionKeyResponse(publicKey = Some(key.toProtoV30))
   }
@@ -280,8 +280,8 @@ class GrpcVaultService(
   private def registerKmsKey[A <: PublicKey](
       kmsKeyId: String,
       name: String,
-      registerFunc: (KmsKeyId, Option[KeyName]) => EitherT[FutureUnlessShutdown, BaseCantonError, A],
-  ): EitherT[FutureUnlessShutdown, BaseCantonError, A] = {
+      registerFunc: (KmsKeyId, Option[KeyName]) => EitherT[FutureUnlessShutdown, CantonBaseError, A],
+  ): EitherT[FutureUnlessShutdown, CantonBaseError, A] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       name <- EitherT.fromEither[FutureUnlessShutdown](
@@ -314,7 +314,7 @@ class GrpcVaultService(
             .fromEither[FutureUnlessShutdown](
               SigningKeyUsage
                 .fromProtoListWithoutDefault(request.usage)
-                .leftMap[BaseCantonError](ProtoDeserializationFailure.WrapNoLogging.apply)
+                .leftMap(ProtoDeserializationFailure.WrapNoLogging.apply)
             )
             .flatMap(usage =>
               kmsCrypto.registerSigningKey(key, usage, name).leftMap { err =>
@@ -324,6 +324,7 @@ class GrpcVaultService(
             )
         },
       ).map(key => v30.RegisterKmsSigningKeyResponse(publicKey = Some(key.toProtoV30)))
+        .leftMap(_.toCantonError)
     } yield pubKey
 
     CantonGrpcUtil.mapErrNewEUS(res)
@@ -344,6 +345,7 @@ class GrpcVaultService(
               .Failure(err.show)
           },
       ).map(key => v30.RegisterKmsEncryptionKeyResponse(publicKey = Some(key.toProtoV30)))
+        .leftMap(_.toCantonError)
     } yield pubKey
 
     CantonGrpcUtil.mapErrNewEUS(res)

@@ -30,7 +30,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.net
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.*
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.SystemInitializationResult
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
+  SystemInitializationResult,
+  SystemInitializer,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
   BatchId,
@@ -236,13 +239,11 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
       cryptoProvider: CryptoProvider[SimulationEnv],
       clock: Clock,
       store: mutable.Map[BatchId, OrderingRequestBatch] => AvailabilityStore[SimulationEnv],
-  )(
-      moduleSystem: ModuleSystem[SimulationEnv],
-      p2pNetworkManager: ClientP2PNetworkManager[SimulationEnv, BftOrderingServiceReceiveRequest],
-  ): SystemInitializationResult[
+  ): SystemInitializer[
+    SimulationEnv,
     BftOrderingServiceReceiveRequest,
     Availability.LocalDissemination.LocalBatchCreated,
-  ] = {
+  ] = (moduleSystem, p2pNetworkManager) => {
     val loggerFactoryWithSequencerId = loggerFactory.append("sequencerId", selfPeer.toString)
 
     val mempoolRef = moduleSystem.newModuleRef[Mempool.Message](ModuleName("mempool"))

@@ -4,11 +4,11 @@
 package com.digitalasset.canton.synchronizer.sequencer.errors
 
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
-import com.digitalasset.canton.error.BaseCantonError
+import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
 import com.digitalasset.canton.topology.Member
 
-sealed trait SequencerAdministrationError extends BaseCantonError
+sealed trait SequencerAdministrationError extends CantonBaseError
 
 object SequencerAdministrationError extends SequencerErrorGroup {
 
@@ -27,7 +27,7 @@ object SequencerAdministrationError extends SequencerErrorGroup {
         ErrorCategory.InvalidIndependentOfSystemState,
       ) {
     final case class Error(sequencerMember: Member)
-        extends BaseCantonError.Impl(
+        extends CantonBaseError.Impl(
           cause = s"Sequencer $sequencerMember cannot disable its local sequencer subscription"
         )
         with SequencerAdministrationError

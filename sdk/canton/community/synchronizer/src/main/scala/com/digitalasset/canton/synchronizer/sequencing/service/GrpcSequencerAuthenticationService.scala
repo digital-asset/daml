@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation}
 import com.digitalasset.canton.crypto.{Nonce, Signature}
 import com.digitalasset.canton.discard.Implicits.*
-import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
+import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError, ContextualizedCantonError}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcFUSExtended
@@ -230,7 +230,7 @@ object GrpcSequencerAuthenticationService extends GrpcSequencerAuthenticationErr
           cause =
             s"Challenge for $member rejected with ${response.getCode}/${response.getDescription}"
         )
-        with CantonError
+        with ContextualizedCantonError
 
     final case class AuthenticationFailure(member: String, response: Status)(implicit
         val loggingContext: ErrorLoggingContext
@@ -238,7 +238,7 @@ object GrpcSequencerAuthenticationService extends GrpcSequencerAuthenticationErr
           cause =
             s"Authentication for $member rejected with ${response.getCode}/${response.getDescription}"
         )
-        with CantonError
+        with ContextualizedCantonError
   }
 
   @Explanation(
@@ -260,7 +260,7 @@ object GrpcSequencerAuthenticationService extends GrpcSequencerAuthenticationErr
           cause =
             s"Faulty or malicious challenge for $member rejected with ${response.getCode}/${response.getDescription}"
         )
-        with CantonError
+        with ContextualizedCantonError
 
     final case class AuthenticationFailure(member: String, response: Status)(implicit
         override val loggingContext: ErrorLoggingContext
@@ -268,6 +268,6 @@ object GrpcSequencerAuthenticationService extends GrpcSequencerAuthenticationErr
           cause =
             s"Faulty or malicious authentication for $member rejected with ${response.getCode}/${response.getDescription}"
         )
-        with CantonError
+        with ContextualizedCantonError
   }
 }

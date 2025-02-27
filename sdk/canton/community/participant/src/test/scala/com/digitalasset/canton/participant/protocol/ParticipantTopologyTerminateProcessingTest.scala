@@ -136,6 +136,13 @@ class ParticipantTopologyTerminateProcessingTest
     )
   )
 
+  val trustCertificate: SignedTopologyTransaction[Replace, SynchronizerTrustCertificate] = mkAdd(
+    SynchronizerTrustCertificate(
+      DefaultTestIdentities.participant1,
+      DefaultTestIdentities.synchronizerId,
+    )
+  )
+
   def add(
       store: TopologyStore[TopologyStoreId.SynchronizerStore],
       timestamp: CantonTimestamp,
@@ -445,6 +452,7 @@ class ParticipantTopologyTerminateProcessingTest
         )
           .thenReturn(CantonTimestamp.ofEpochSecond(20))
         for {
+          _ <- add(store, cts.minusSeconds(2), cts.minusSeconds(1), List(trustCertificate))
           _ <- add(store, cts, cts2, List(partyParticipant1(parties.head))) // before
           _ <- add(store, cts2, cts4, List(partyParticipant1(parties(1)))) // before
           _ <- add(

@@ -128,7 +128,7 @@ object CommandErrors extends CommandErrorGroup {
       override val cause: String,
       override val throwableO: Option[Throwable] = None,
   )(implicit override val code: ErrorCode)
-      extends BaseCantonError
+      extends CantonBaseError
       with CommandError
 
   sealed abstract class CommandErrorCode(id: String, category: ErrorCategory)

@@ -311,5 +311,19 @@
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
+        <!-- Suppress ACS commitment processor catch-up degradation warnings in tests. When a participant falls behind,
+        the ACS commitment processor is catching up with commitments and emits a warning. Participants might fall behind
+        in long-running tests or in any test that runs collocated with a load test.
+
+        Canton integration tests already ignore the warning via the enterprise setup environment, and release tests
+        filter the warning from the output. The only test that seems to need this rewrite rule is the
+        DemoExampleReferenceIntegrationTest.
+        -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:DemoExampleReferenceIntegrationTest</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
    </appender>
 </included>

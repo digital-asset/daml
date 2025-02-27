@@ -5,7 +5,7 @@ package com.digitalasset.canton.error
 
 import com.daml.error.ErrorCode
 
-trait TransactionError extends BaseCantonError {
+trait TransactionError extends CantonBaseError {
 
   // Determines the value of the `definite_answer` key in the error details
   def definiteAnswer: Boolean = false

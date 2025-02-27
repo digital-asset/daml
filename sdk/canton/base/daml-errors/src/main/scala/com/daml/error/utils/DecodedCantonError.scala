@@ -36,7 +36,7 @@ final case class DecodedCantonError(
     override val resources: Seq[(ErrorResource, String)],
     override val definiteAnswerO: Option[Boolean] = None,
 ) extends BaseError {
-  def toRpcStatusWithForwardedRequestId: RpcStatus = super.rpcStatus(None)(
+  def toRpcStatusWithForwardedRequestId: RpcStatus = super.rpcStatus()(
     new NoLogging(properties = Map.empty, correlationId = correlationId, traceId = traceId)
   )
 

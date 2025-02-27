@@ -7,11 +7,10 @@ import com.digitalasset.canton.synchronizer.sequencer.DatabaseSequencerConfig.Se
 
 final case class TestDatabaseSequencerConfig(
     writer: SequencerWriterConfig = SequencerWriterConfig.LowLatency(),
-    reader: SequencerReaderConfig = CommunitySequencerReaderConfig(),
+    reader: SequencerReaderConfig = SequencerReaderConfig(),
     testingInterceptor: Option[DatabaseSequencerConfig.TestingInterceptor] = None,
     pruning: SequencerPruningConfig = SequencerPruningConfig(),
-) extends SequencerConfig
-    with DatabaseSequencerConfig {
+) extends DatabaseSequencerConfig {
 
   override def highAvailabilityEnabled: Boolean = false
 }

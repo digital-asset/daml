@@ -72,8 +72,6 @@ service UserManagementService {
 
 // Users are used to dynamically manage the rights given to Daml applications.
 // They are stored and managed per participant node.
-//
-// Read the :doc:`Authorization documentation </app-dev/authorization>` to learn more.
 message User {
   // The user identifier, which must be a non-empty string of at most 128
   // characters that are either alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:".

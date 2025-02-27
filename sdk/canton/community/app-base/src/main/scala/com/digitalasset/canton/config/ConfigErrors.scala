@@ -4,8 +4,8 @@
 package com.digitalasset.canton.config
 
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
-import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ConfigErrorGroup
+import com.digitalasset.canton.error.ContextualizedCantonError
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.typesafe.config.ConfigException
 import org.slf4j.event.Level
@@ -39,7 +39,7 @@ object ConfigErrors extends ConfigErrorGroup {
       override val cause: String,
       override val throwableO: Option[Throwable] = None,
   )(implicit override val code: ErrorCode)
-      extends CantonError {}
+      extends ContextualizedCantonError {}
 
   sealed abstract class ExceptionBasedConfigError(
       override val cause: String,

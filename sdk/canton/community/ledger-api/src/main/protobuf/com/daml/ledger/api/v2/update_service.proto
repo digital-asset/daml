@@ -143,9 +143,10 @@ message GetTransactionByOffsetRequest {
 
   // Must be unset for GetTransactionTreeByOffset request.
   // Optional for GetTransactionByOffset request for backwards compatibility: defaults to a TransactionFormat, where:
-  //   - event_format.filter will have wildcard filters for all the requesting_parties
-  //   - event_format.verbose = true
-  //   - transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
+  //
+  // - event_format.filter will have wildcard filters for all the requesting_parties
+  // - event_format.verbose = true
+  // - transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
   TransactionFormat transaction_format = 3;
 }
 
@@ -166,9 +167,10 @@ message GetTransactionByIdRequest {
 
   // Must be unset for GetTransactionTreeById request.
   // Optional for GetTransactionById request for backwards compatibility: defaults to a transaction_format, where:
-  //   - event_format.filter will have wildcard filters for all the requesting_parties
-  //   - event_format.verbose = true
-  //   - transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
+  //
+  // - event_format.filter will have wildcard filters for all the requesting_parties
+  // - event_format.verbose = true
+  // - transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
   TransactionFormat transaction_format = 3;
 }
 

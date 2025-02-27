@@ -489,11 +489,11 @@ class CantonSyncService(
       span.setAttribute("submission_id", submissionId)
       pruneInternally(pruneUpToInclusive)
         .fold(
-          err => PruningResult.NotPruned(ErrorCode.asGrpcStatus(err)),
+          err => PruningResult.NotPruned(err.asGrpcStatus),
           _ => PruningResult.ParticipantPruned,
         )
         .onShutdown(
-          PruningResult.NotPruned(GrpcErrors.AbortedDueToShutdown.Error().asGoogleGrpcStatus)
+          PruningResult.NotPruned(GrpcErrors.AbortedDueToShutdown.Error().asGrpcStatus)
         )
     }.asJava
 
@@ -662,7 +662,7 @@ class CantonSyncService(
           )
           .map(_ => SubmissionResult.Acknowledged)
           .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
-          .valueOr(err => SubmissionResult.SynchronousError(err.rpcStatus()))
+          .valueOr(err => SubmissionResult.SynchronousError(err.asGrpcStatus))
       }
     }
 
@@ -678,7 +678,7 @@ class CantonSyncService(
           .validateDar(dar, darName)
           .map(_ => SubmissionResult.Acknowledged)
           .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
-          .valueOr(err => SubmissionResult.SynchronousError(err.rpcStatus()))
+          .valueOr(err => SubmissionResult.SynchronousError(err.asGrpcStatus))
       }
     }
 
@@ -1289,7 +1289,7 @@ class CantonSyncService(
 
     def handleCloseDegradation(connectedSynchronizer: ConnectedSynchronizer, fatal: Boolean)(
         err: CantonError
-    ) =
+    ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
       if (fatal && parameters.exitOnFatalFailures) {
         FatalError.exitOnFatalError(err, logger)
       } else {
@@ -1744,7 +1744,7 @@ class CantonSyncService(
             .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
         } yield SubmissionResult.Acknowledged
       }
-        .leftMap(error => SubmissionResult.SynchronousError(error.rpcStatus()))
+        .leftMap(error => SubmissionResult.SynchronousError(error.asGrpcStatus))
         .merge
 
       def getProtocolVersion(synchronizerId: SynchronizerId): Future[ProtocolVersion] =

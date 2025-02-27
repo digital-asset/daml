@@ -51,7 +51,7 @@ object CreatedContract {
       rolledBack: Boolean,
   ): Either[String, CreatedContract] =
     CantonContractIdVersion
-      .ensureCantonContractId(contract.contractId)
+      .extractCantonContractIdVersion(contract.contractId)
       .leftMap(err => s"Encountered invalid Canton contract id: ${err.toString}")
       .flatMap { _ =>
         // Contracts created with the "authenticated" contract id prefix-of-suffix

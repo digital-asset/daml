@@ -9,11 +9,11 @@ import cats.syntax.functorFilter.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.db.DbCryptoPublicStore
 import com.digitalasset.canton.crypto.store.memory.InMemoryCryptoPublicStore
-import com.digitalasset.canton.crypto.{KeyName, *}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
+import com.digitalasset.canton.error.{CantonBaseError, CantonErrorGroups}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -325,10 +325,10 @@ object CryptoPublicStoreError extends CantonErrorGroups.CommandErrorGroup {
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Wrap(reason: CryptoPublicStoreError)
-        extends BaseCantonError.Impl(cause = "An error occurred with the public crypto store")
+        extends CantonBaseError.Impl(cause = "An error occurred with the public crypto store")
 
     final case class WrapStr(reason: String)
-        extends BaseCantonError.Impl(cause = "An error occurred with the public crypto store")
+        extends CantonBaseError.Impl(cause = "An error occurred with the public crypto store")
   }
 
   final case class FailedToInsertKey(keyId: Fingerprint, reason: String)

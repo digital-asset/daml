@@ -359,7 +359,7 @@ object PekkoModuleSystem {
           .supervise {
             Behaviors.setup[ModuleControl[PekkoEnv, Unit]] { actorContext =>
               val moduleSystem = new PekkoModuleSystem(actorContext, loggerFactory)
-              resultPromise.success(systemInitializer(moduleSystem, p2pManager))
+              resultPromise.success(systemInitializer.initialize(moduleSystem, p2pManager))
               Behaviors.same
             }
           }

@@ -532,8 +532,7 @@ final class AvailabilityModule[E <: Env[E]](
       return
     }
     if (proofOfAvailability.acks.isEmpty) {
-      // TODO(i14894) we should do more checks that the proof is valid
-      logger.warn(s"$messageType: proof of availability is missing, ignoring")
+      logger.error(s"$messageType: proof of availability is missing, ignoring")
       return
     }
     val (peer, remainingPeers) =

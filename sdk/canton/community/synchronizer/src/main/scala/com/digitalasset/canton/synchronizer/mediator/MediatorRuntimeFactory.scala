@@ -143,6 +143,7 @@ object MediatorRuntimeFactory {
       protocolVersion,
       topologyClient,
       sequencerClient,
+      timeTracker,
       clock,
       loggerFactory,
     )

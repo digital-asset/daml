@@ -40,14 +40,14 @@ sealed abstract class EnsureValidContractIds(
     as part a major upgrade for early mainnet), the `contract.protocolVersion` and the protocol
     version of the synchronizer will be different. Hence, we need to query it using the getter.
    */
-  protected def getExpectedContractIdVersion(
-      contract: ActiveContract
+  protected def getMaximumSupportedContractIdVersion(
+      synchronizerId: SynchronizerId
   )(implicit tc: TraceContext): Either[String, CantonContractIdVersion] =
-    protocolVersionGetter(Traced(contract.synchronizerId))
+    protocolVersionGetter(Traced(synchronizerId))
       .toRight(
-        s"Protocol version for synchronizer with ID ${contract.synchronizerId} cannot be resolved"
+        s"Protocol version for synchronizer with ID $synchronizerId cannot be resolved"
       )
-      .flatMap(CantonContractIdVersion.fromProtocolVersion)
+      .flatMap(CantonContractIdVersion.maximumSupportedVersion)
 }
 
 object EnsureValidContractIds {
@@ -65,13 +65,17 @@ object EnsureValidContractIds {
         contract: ActiveContract
     )(implicit tc: TraceContext): Either[String, ActiveContract] =
       for {
-        contractIdVersion <- getExpectedContractIdVersion(contract)
-        _ <- CantonContractIdVersion
-          .ensureCantonContractId(contract.contract.contractId)
+        maxSynchronizerVersion <- getMaximumSupportedContractIdVersion(contract.synchronizerId)
+        activeContractVersion <- CantonContractIdVersion
+          .extractCantonContractIdVersion(contract.contract.contractId)
           .leftMap(_.toString)
-          .ensureOr(actualVersion =>
-            s"Contract ID ${contract.contract.contractId} has version ${actualVersion.v} but synchronizer ${contract.synchronizerId.toProtoPrimitive} requires ${contractIdVersion.v}"
-          )(_ >= contractIdVersion)
+        _ <-
+          if (maxSynchronizerVersion >= activeContractVersion)
+            Either.unit
+          else
+            Left(
+              s"Contract ID ${contract.contract.contractId} has version ${activeContractVersion.v} but synchronizer ${contract.synchronizerId.toProtoPrimitive} only supports up to ${maxSynchronizerVersion.v}"
+            )
       } yield contract
 
     override def apply(contracts: Seq[ActiveContract])(implicit
@@ -163,6 +167,7 @@ object EnsureValidContractIds {
                 contract.ledgerCreateTime,
                 contract.metadata,
                 newRawContractInstance,
+                contractIdVersion,
               )
           }
         }
@@ -183,19 +188,19 @@ object EnsureValidContractIds {
         ec: ExecutionContext,
         tc: TraceContext,
     ): Eval[EitherT[Future, String, ActiveContract]] =
-      getExpectedContractIdVersion(contract).fold(
+      getMaximumSupportedContractIdVersion(contract.synchronizerId).fold(
         error => Eval.now(EitherT.leftT[Future, ActiveContract](error)),
-        contractIdVersion => {
+        maxContractIdVersion => {
           val contractId = contract.contract.contractId
           val valid = CantonContractIdVersion
-            .ensureCantonContractId(contractId)
-            .exists(_ >= contractIdVersion)
+            .extractCantonContractIdVersion(contractId)
+            .exists(_ <= maxContractIdVersion)
           if (valid) {
             logger.debug(s"Contract ID '${contractId.coid}' is already valid")
             Eval.now(EitherT.rightT[Future, String](contract))
           } else {
             logger.debug(s"Contract ID '${contractId.coid}' needs to be recomputed")
-            Eval.later(recomputeContractIdSuffix(contract, contractIdVersion))
+            Eval.later(recomputeContractIdSuffix(contract, maxContractIdVersion))
           }
         },
       )

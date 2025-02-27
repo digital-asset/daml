@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.admin
 
 import com.daml.error.*
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.PackageServiceErrorGroup
-import com.digitalasset.canton.error.{CantonError, ParentCantonError}
+import com.digitalasset.canton.error.{CantonError, ContextualizedCantonError, ParentCantonError}
 import com.digitalasset.canton.ledger.error.PackageServiceErrors
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.admin.PackageService.DarDescription
@@ -16,23 +16,21 @@ import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.value.Value.ContractId
 import io.grpc.StatusRuntimeException
 
-import scala.annotation.nowarn
-
 object CantonPackageServiceError extends PackageServiceErrorGroup {
-  @nowarn("msg=early initializers are deprecated")
   final case class IdentityManagerParentError(parent: ParticipantTopologyManagerError)(implicit
       val loggingContext: ErrorLoggingContext,
       override val code: ErrorCode,
-  ) extends {
-        override val cause: String = parent.cause
-      }
-      with DamlError(parent.cause)
-      with CantonError
+  ) extends ContextualizedDamlError(parent.cause)
+      with ContextualizedCantonError
       with ParentCantonError[ParticipantTopologyManagerError] {
+
+    override val cause: String = parent.cause
 
     override def logOnCreation: Boolean = false
 
     override def asGrpcError: StatusRuntimeException = parent.asGrpcError
+
+    override def asGrpcStatus: com.google.rpc.Status = ErrorCode.asGrpcStatus(this)(loggingContext)
 
     override def mixinContext: Map[String, String] = Map("action" -> "package-vetting")
   }
@@ -85,7 +83,7 @@ object CantonPackageServiceError extends PackageServiceErrorGroup {
 
     abstract class PackageRemovalError(override val cause: String)(
         override implicit val code: ErrorCode
-    ) extends CantonError
+    ) extends ContextualizedCantonError
 
     @Resolution(
       s"""To cleanly remove the package, you must archive all contracts from the package."""

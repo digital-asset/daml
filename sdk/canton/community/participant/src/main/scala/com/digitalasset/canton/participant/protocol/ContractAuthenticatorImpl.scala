@@ -6,25 +6,15 @@ package com.digitalasset.canton.participant.protocol
 import cats.implicits.toBifunctorOps
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
-import com.digitalasset.canton.protocol.{
-  AuthenticatedContractIdVersionV10,
-  CantonContractIdVersion,
-  ContractMetadata,
-  DriverContractMetadata,
-  LfContractId,
-  SerializableContract,
-  SerializableRawContractInstance,
-  UnicumGenerator,
-}
 import com.digitalasset.daml.lf.transaction.{FatContractInstance, Versioned}
 import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance}
 
 trait ContractAuthenticator {
 
   /** Authenticates the contract payload and metadata (consisted of ledger create time, contract
-    * instance and contract salt) against the contract id, iff the contract id has a
-    * [[com.digitalasset.canton.protocol.AuthenticatedContractIdVersionV10]] format.
+    * instance and contract salt) against the contract id,.
     *
     * @param contract
     *   the serializable contract
@@ -32,8 +22,7 @@ trait ContractAuthenticator {
   def authenticateSerializable(contract: SerializableContract): Either[String, Unit]
 
   /** Authenticates the contract payload and metadata (consisted of ledger create time, contract
-    * instance and contract salt) against the contract id, iff the contract id has a
-    * [[com.digitalasset.canton.protocol.AuthenticatedContractIdVersionV10]] format.
+    * instance and contract salt) against the contract id.
     *
     * @param contract
     *   the fat contract contract
@@ -130,9 +119,8 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
     val ContractId.V1(_, cantonContractSuffix) = contractId
     val optContractIdVersion = CantonContractIdVersion.fromContractSuffix(cantonContractSuffix)
     optContractIdVersion match {
-      case Right(AuthenticatedContractIdVersionV10) =>
+      case Right(contractIdVersion) =>
         for {
-          contractIdVersion <- optContractIdVersion
           salt <- contractSalt.toRight(
             s"Contract salt missing in serializable contract with authenticating contract id ($contractId)"
           )
@@ -142,6 +130,7 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
               ledgerCreateTime = ledgerTime,
               metadata = metadata,
               suffixedContractInstance = rawContractInstance,
+              cantonContractIdVersion = contractIdVersion,
             )
           recomputedSuffix = recomputedUnicum.toContractIdSuffix(contractIdVersion)
           _ <- Either.cond(

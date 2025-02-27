@@ -133,7 +133,7 @@ class PartyOps(
 
 }
 
-sealed trait ParticipantTopologyManagerError extends CantonError
+sealed trait ParticipantTopologyManagerError extends ContextualizedCantonError
 object ParticipantTopologyManagerError extends ParticipantErrorGroup {
 
   final case class IdentityManagerParentError(parent: TopologyManagerError)(implicit

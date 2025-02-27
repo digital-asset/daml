@@ -25,7 +25,7 @@ import com.digitalasset.canton.participant.store.SyncPersistentState
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError
 import com.digitalasset.canton.sequencing.client.SequencerClient
-import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
@@ -243,6 +243,7 @@ class ParticipantTopologyDispatcher(
       protocolVersion: ProtocolVersion,
       client: SynchronizerTopologyClientWithInit,
       sequencerClient: SequencerClient,
+      timeTracker: SynchronizerTimeTracker,
   ): ParticipantTopologyDispatcherHandle = {
     val synchronizerLoggerFactory = loggerFactory.append("synchronizerId", synchronizerId.toString)
     new ParticipantTopologyDispatcherHandle {
@@ -250,6 +251,7 @@ class ParticipantTopologyDispatcher(
         sequencerClient,
         synchronizerId,
         participantId,
+        timeTracker,
         clock,
         config.topology,
         protocolVersion,

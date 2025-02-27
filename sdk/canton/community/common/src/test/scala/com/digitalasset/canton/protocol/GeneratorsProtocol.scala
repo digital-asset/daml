@@ -174,12 +174,13 @@ final class GeneratorsProtocol(
     // If this pattern match is not exhaustive anymore, update the method below
     ((_: CantonContractIdVersion) match {
       case AuthenticatedContractIdVersionV10 => ()
+      case AuthenticatedContractIdVersionV11 => ()
     }).discard
   }
   def serializableContractArb(
       canHaveEmptyKey: Boolean
   ): Arbitrary[SerializableContract] = {
-    val contractIdVersion = AuthenticatedContractIdVersionV10
+    val contractIdVersion = AuthenticatedContractIdVersionV11
 
     Arbitrary(
       for {
@@ -203,6 +204,7 @@ final class GeneratorsProtocol(
           ledgerCreateTime = ledgerCreateTime,
           metadata = metadata,
           suffixedContractInstance = rawContractInstance,
+          cantonContractIdVersion = contractIdVersion,
         )
 
         index <- Gen.posNum[Int]
@@ -212,15 +214,12 @@ final class GeneratorsProtocol(
           contractIdDiscriminator,
           unicum,
         )
-
-        contractSalt = if (contractIdVersion.isAuthenticated) Some(computedSalt.unwrap) else None
-
       } yield SerializableContract(
         contractId,
         rawContractInstance,
         metadata,
         ledgerCreateTime,
-        contractSalt,
+        contractSalt = Some(computedSalt.unwrap),
       )
     )
   }

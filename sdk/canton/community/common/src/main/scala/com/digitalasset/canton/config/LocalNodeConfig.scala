@@ -12,7 +12,7 @@ trait NodeConfig {
 trait LocalNodeConfig extends NodeConfig {
 
   /** Human readable name for the type of node used for displaying config error messages */
-  val nodeTypeName: String
+  def nodeTypeName: String
 
   def init: InitConfigBase
   def adminApi: AdminServerConfig

@@ -75,7 +75,6 @@ genrule(
     srcs = glob(["source/**"]) + [
         "//compiler/damlc:daml-base-rst.tar.gz",
         "//daml-script/daml:daml-script-rst.tar.gz",
-        "//canton:ledger-api-docs",
         "//:LICENSE",
         "//:NOTICES",
     ],
@@ -94,9 +93,6 @@ genrule(
         tar xf $(location //daml-script/daml:daml-script-rst.tar.gz) \\
             --strip-components 1 \\
             -C source/daml-script/api/
-
-        # Copy in Protobufs
-        cp -rL $(location //canton:ledger-api-docs) source/app-dev/grpc/proto-docs.rst
 
         # Copy in License and Notices
         cp -L $(location //:LICENSE) source/LICENSE
@@ -118,7 +114,6 @@ genrule(
         "//templates:templates-tarball",
         "//compiler/damlc:daml-base-rst.tar.gz",
         "//daml-script/daml:daml-script-rst.tar.gz",
-        "//canton:ledger-api-docs",
         "//:LICENSE",
         "//:NOTICES",
     ],
@@ -139,7 +134,6 @@ genrule(
 
     cp $(location //compiler/damlc:daml-base-rst.tar.gz) $$DIR/deps/
     cp $(location //daml-script/daml:daml-script-rst.tar.gz) $$DIR/deps/
-    cp -L $(location //canton:ledger-api-docs) $$DIR/deps/
     cp -L $(location //:LICENSE) $$DIR/deps/
     cp -L $(location //:NOTICES) $$DIR/deps/
 

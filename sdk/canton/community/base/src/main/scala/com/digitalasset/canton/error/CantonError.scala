@@ -6,6 +6,7 @@ package com.digitalasset.canton.error
 import com.daml.error.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.google.rpc.Status
 import com.google.rpc.error_details.ErrorInfo
 import io.grpc.StatusRuntimeException
 
@@ -38,7 +39,7 @@ object ErrorCodeUtils {
 
 /** The main Canton error for everything that should be logged and notified
   *
-  * PREFER [[CantonError]] OVER [[BaseCantonError]] IN ORDER TO LOG THE ERROR IMMEDIATELY UPON
+  * PREFER [[CantonError]] OVER [[CantonBaseError]] IN ORDER TO LOG THE ERROR IMMEDIATELY UPON
   * CREATION TO ENSURE WE DON'T LOSE THE ERROR MESSAGE.
   *
   * In many cases, we return errors that are communicated to clients as a Left. For such cases, we
@@ -64,7 +65,7 @@ object ErrorCodeUtils {
   *   1. The context of the logger (e.g. participant=participant1, synchronizer=da)
   *   1. The trace id.
   */
-trait BaseCantonError extends BaseError {
+trait CantonBaseError extends BaseError {
 
   override def context: Map[String, String] =
     super.context ++ BaseError.extractContext(this)
@@ -85,17 +86,37 @@ trait BaseCantonError extends BaseError {
   def asGoogleGrpcStatus(implicit loggingContext: ErrorLoggingContext): com.google.rpc.Status =
     ErrorCode.asGrpcStatus(this)(loggingContext)
 
+  def toCantonError(implicit loggingContext: ErrorLoggingContext): CantonError = {
+    val base = this
+    GenericCantonError(
+      asGrpcError = base.asGrpcError(loggingContext),
+      cause = base.cause,
+      asGrpcStatus = base.asGoogleGrpcStatus,
+      code = base.code,
+      context = base.context,
+    )
+  }
+
 }
 
 /** [[CantonError]]s are logged immediately when they are created. Therefore, they usually expect an
   * implicit [[com.digitalasset.canton.logging.ErrorLoggingContext]] to be around when they are
   * created. If you are creating such an error in a class extending
   * [[com.digitalasset.canton.logging.NamedLogging]], then the implicit function will provide you
-  * with such a context. If you don't have that context, then you can also use [[BaseCantonError]]
+  * with such a context. If you don't have that context, then you can also use [[CantonBaseError]]
   * and invoke the logging yourself at a later point in time (which is what we do, for example, with
   * [[TransactionError]]).
   */
-trait CantonError extends BaseCantonError {
+
+trait CantonError {
+  def code: ErrorCode
+  def context: Map[String, String]
+  def cause: String
+  def asGrpcStatus: Status
+  def asGrpcError: StatusRuntimeException
+}
+
+trait ContextualizedCantonError extends CantonBaseError with CantonError {
 
   /** The logging context obtained when we created the error, usually passed in as implicit via
     * [[com.digitalasset.canton.logging.NamedLogging]]
@@ -115,6 +136,9 @@ trait CantonError extends BaseCantonError {
   def asGrpcError: StatusRuntimeException =
     ErrorCode.asGrpcError(this)(loggingContext)
 
+  def asGrpcStatus: com.google.rpc.Status =
+    ErrorCode.asGrpcStatus(this)(loggingContext)
+
   // automatically log the error on generation
   if (logOnCreation) {
     log()
@@ -122,12 +146,12 @@ trait CantonError extends BaseCantonError {
 
 }
 
-object BaseCantonError {
+object CantonBaseError {
   abstract class Impl(
       override val cause: String,
       override val throwableO: Option[Throwable] = None,
   )(implicit override val code: ErrorCode)
-      extends BaseCantonError {}
+      extends CantonBaseError
 
   /** Custom matcher to extract [[com.google.rpc.error_details.ErrorInfo]] from
     * [[com.google.protobuf.any.Any]]
@@ -164,11 +188,11 @@ object CantonError {
       override val cause: String,
       override val throwableO: Option[Throwable] = None,
   )(implicit override val code: ErrorCode)
-      extends CantonError {}
+      extends ContextualizedCantonError
 
-  def stringFromContext(error: BaseError)(implicit loggingContext: ErrorLoggingContext): String =
+  def stringFromContext(error: CantonError)(implicit loggingContext: ErrorLoggingContext): String =
     error match {
-      case error: CombinedError[_] =>
+      case error: CombinedError =>
         (if (error.errors.sizeIs > 1) error.cause + ": " else "") + error.orderedErrors
           .map(stringFromContext(_)(loggingContext))
           .toList
@@ -184,6 +208,18 @@ object CantonError {
           errorCodeMsg
         }
     }
+
+  def stringFromContext(error: DamlError)(implicit loggingContext: ErrorLoggingContext): String = {
+    val contextMap = error.context ++ loggingContext.properties
+    val errorCodeMsg =
+      error.code.toMsg(error.cause, loggingContext.traceContext.traceId, limit = None)
+    if (contextMap.nonEmpty) {
+      errorCodeMsg + "; " + ContextualizedErrorLogger.formatContextAsString(contextMap)
+    } else {
+      errorCodeMsg
+    }
+  }
+
 }
 
 /** Mixing trait for nested errors
@@ -191,9 +227,9 @@ object CantonError {
   * The classic situation when we re-wrap errors:
   *
   * {{{
-  * sealed trait CryptoError extends CantonError
+  * sealed trait CryptoError extends CantonErrorBuilder
   *
-  * sealed trait ProcessingError extends CantonError
+  * sealed trait ProcessingError extends CantonErrorBuilder
   *
   * // NOTE, this error is NOT created within an ErrorCode, as we just inherit the parent error
   * case class CryptoNoBueno(someArgs: String, parent: CryptoError) extends ProcessingError
@@ -213,7 +249,7 @@ object CantonError {
   * } yields ()
   * }}}
   */
-trait ParentCantonError[+T <: BaseCantonError] extends BaseCantonError {
+trait ParentCantonError[+T <: CantonBaseError] extends CantonBaseError {
 
   /** The parent error that we want to nest */
   def parent: T
@@ -235,17 +271,27 @@ trait ParentCantonError[+T <: BaseCantonError] extends BaseCantonError {
   * Useful for situations with [[com.digitalasset.canton.util.CheckedT]] collecting several user
   * errors.
   */
-trait CombinedError[+T <: BaseCantonError] {
-  this: BaseCantonError =>
+trait CombinedError extends CantonError {
 
   def loggingContext: ErrorLoggingContext
 
-  def errors: NonEmpty[Seq[T]]
+  def errors: NonEmpty[Seq[CantonError]]
 
-  lazy val orderedErrors: NonEmpty[Seq[T]] = errors.sortBy(_.code.category.rank)
+  lazy val orderedErrors: NonEmpty[Seq[CantonError]] = errors.sortBy(_.code.category.rank)
 
-  override def cause: String = s"A series of ${errors.length} failures occurred"
+  def cause: String = s"A series of ${errors.length} failures occurred"
 
-  override def code: ErrorCode = orderedErrors.head1.code
+  def code: ErrorCode = orderedErrors.head1.code
 
 }
+
+/** Generic canton error usually produced when an un-contextualized error want to return an error
+  * that has context
+  */
+final case class GenericCantonError(
+    code: ErrorCode,
+    context: Map[String, String],
+    cause: String,
+    asGrpcStatus: Status,
+    asGrpcError: StatusRuntimeException,
+) extends CantonError

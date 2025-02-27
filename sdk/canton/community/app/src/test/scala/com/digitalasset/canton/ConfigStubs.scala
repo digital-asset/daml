@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.{AdminServerConfig, CryptoConfig, StorageC
 import com.digitalasset.canton.participant.config.{LocalParticipantConfig, ParticipantInitConfig}
 import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeConfig
-import com.digitalasset.canton.synchronizer.sequencer.config.CommunitySequencerNodeConfig
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
 
 /** Utilities for creating config objects for tests
   */
@@ -25,8 +25,8 @@ object ConfigStubs {
       StorageConfig.Memory(),
     )
 
-  def sequencer: CommunitySequencerNodeConfig =
-    CommunitySequencerNodeConfig(adminApi = adminApi, publicApi = publicApi)
+  def sequencer: SequencerNodeConfig =
+    SequencerNodeConfig(adminApi = adminApi, publicApi = publicApi)
 
   def mediator: MediatorNodeConfig =
     MediatorNodeConfig(adminApi = adminApi)

@@ -33,7 +33,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PeerActiveAt,
   SequencerSnapshotAdditionalInfo,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopologyInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Mempool
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.{
@@ -278,6 +277,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
                 allSequencerIdsToStores.view.mapValues(stores => stores.outputStore).toMap,
                 allSequencerIdsToOnboardingTimes,
                 simSettings,
+                loggerFactory,
               )
             Some(simulation -> model)
 
@@ -357,53 +357,13 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
             )
           }
 
-        val genesisTopologyInfo = OrderingTopologyInfo(
-          thisPeer,
-          currentTopology = genesisTopology,
-          currentCryptoProvider = genesisCryptoProvider,
-          previousTopology = genesisTopology,
-          previousCryptoProvider = genesisCryptoProvider,
-        )
-        val bootstrapTopologyInfo =
-          if (genesisTopology.contains(thisPeer))
-            genesisTopologyInfo
-          else {
-            maybePeerActiveAt
-              .map { activeAt =>
-                val (initialOrderingTopology, initialCryptoProvider) =
-                  SimulationTopologyHelpers.resolveOrderingTopology(
-                    orderingTopologyProvider.getOrderingTopologyAt(activeAt.timestamp)
-                  )
-
-                val startEpochTopologyQueryTimestamp =
-                  activeAt.epochTopologyQueryTimestamp.getOrElse(
-                    fail(
-                      "Start epoch topology query timestamp is required when onboarding but it's empty"
-                    )
-                  )
-                val (previousOrderingTopology, previousCryptoProvider) =
-                  SimulationTopologyHelpers.resolveOrderingTopology(
-                    orderingTopologyProvider.getOrderingTopologyAt(startEpochTopologyQueryTimestamp)
-                  )
-
-                OrderingTopologyInfo(
-                  thisPeer,
-                  initialOrderingTopology,
-                  initialCryptoProvider,
-                  previousOrderingTopology,
-                  previousCryptoProvider,
-                )
-              }
-              .getOrElse(genesisTopologyInfo)
-          }
-
         // Forces always querying for an up-to-date topology, so that we simulate correctly topology changes.
         val requestInspector: RequestInspector =
           (_: OrderingRequest, _: ProtocolVersion, _: TracedLogger, _: TraceContext) => true
 
-        BftOrderingModuleSystemInitializer[SimulationEnv](
+        new BftOrderingModuleSystemInitializer[SimulationEnv](
           testedProtocolVersion,
-          bootstrapTopologyInfo,
+          thisPeer,
           BftBlockOrderer.Config(),
           initialApplicationHeight,
           IssConsensusModule.DefaultEpochLength,

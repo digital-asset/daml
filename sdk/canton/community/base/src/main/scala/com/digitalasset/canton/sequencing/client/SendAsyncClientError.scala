@@ -4,7 +4,7 @@
 package com.digitalasset.canton.sequencing.client
 
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
-import com.digitalasset.canton.error.BaseCantonError
+import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.protocol.SendAsyncError
@@ -27,7 +27,7 @@ object SendAsyncClientError extends SequencerErrorGroup {
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Wrap(reason: SendAsyncClientError)
-        extends BaseCantonError.Impl(cause = "Unable to send through the sequencer")
+        extends CantonBaseError.Impl(cause = "Unable to send through the sequencer")
   }
 
   /** The [[SequencerClient]] decided that the request is invalid so did not attempt to send it to

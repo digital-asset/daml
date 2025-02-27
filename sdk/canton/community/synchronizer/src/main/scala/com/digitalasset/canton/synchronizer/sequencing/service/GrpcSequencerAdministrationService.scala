@@ -10,7 +10,7 @@ import cats.syntax.functor.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.error.{BaseCantonError, CantonError}
+import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
@@ -128,7 +128,7 @@ class GrpcSequencerAdministrationService(
         ProtoConverter
           .parseRequired(CantonTimestamp.fromProtoTimestamp, "timestamp", request.timestamp)
       )
-      result <- sequencer.snapshot(timestamp).leftWiden[BaseCantonError]
+      result <- sequencer.snapshot(timestamp).leftMap(_.toCantonError)
     } yield result)
       .fold[v30.SnapshotResponse](
         error =>
@@ -185,6 +185,7 @@ class GrpcSequencerAdministrationService(
                   .toRight(
                     TopologyManagerError.MissingTopologyMapping
                       .Reject(Map(sequencerId -> Seq(SequencerSynchronizerState.code)))
+                      .toCantonError
                   )
               )
           )
@@ -216,18 +217,19 @@ class GrpcSequencerAdministrationService(
 
       sequencerSnapshot <- sequencer
         .snapshot(referenceEffective.value)
+        .leftMap(_.toCantonError)
 
       // wait for the snapshot's lastTs to be processed by the topology client,
       // which implies that all topology transactions will have been properly processed and stored.
       _ <- EitherT
-        .right(
+        .right[CantonError](
           topologyClient
             .awaitTimestamp(sequencerSnapshot.lastTs)
             .getOrElse(FutureUnlessShutdown.unit)
         )
 
       topologySnapshot <- EitherT
-        .right[BaseCantonError](
+        .right[CantonError](
           topologyStore.findEssentialStateAtSequencedTime(
             SequencedTime(sequencerSnapshot.lastTs),
             // we need to include the rejected transactions as well, because they might have an impact on the TopologyTimestampPlusEpsilonTracker

@@ -52,6 +52,20 @@ class TopologyTransactionDiffTest
     topologyFactory.mkTrans[Replace, PartyToParticipant](trans = tx)
   }
 
+  private def synchronizerTrustCertificate(
+      participantId: ParticipantId
+  ): SignedTopologyTransaction[Replace, SynchronizerTrustCertificate] = {
+
+    val tx: TopologyTransaction[Replace, SynchronizerTrustCertificate] = TopologyTransaction(
+      Replace,
+      PositiveInt.one,
+      SynchronizerTrustCertificate(participantId, synchronizerId),
+      testedProtocolVersion,
+    )
+
+    topologyFactory.mkTrans[Replace, SynchronizerTrustCertificate](trans = tx)
+  }
+
   "TopologyTransactionDiff" should {
 
     "compute adds and removes" in {
@@ -136,6 +150,16 @@ class TopologyTransactionDiffTest
         ) ++ initialTxs
       ).value.forgetNE should contain theSameElementsAs Set(
         PartyToParticipantAuthorization(donald.toLf, p1.toLf, Submission)
+      )
+
+      diffInitialWith(
+        List(
+          synchronizerTrustCertificate(p1), // new
+          synchronizerTrustCertificate(p2), // new
+        ) ++ initialTxs
+      ).value.forgetNE should contain theSameElementsAs Set(
+        PartyToParticipantAuthorization(p1.adminParty.toLf, p1.toLf, Submission),
+        PartyToParticipantAuthorization(p2.adminParty.toLf, p2.toLf, Submission),
       )
     }
 

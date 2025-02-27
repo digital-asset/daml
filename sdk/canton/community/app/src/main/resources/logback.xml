@@ -204,6 +204,9 @@
       <logger name="com.digitalasset.canton.crypto.kms.gcp.audit" level="${LOG_LEVEL_CANTON:-INFO}" additivity="false">
         <appender-ref ref="KMS-FILE"/>
       </logger>
+      <logger name="com.digitalasset.canton.crypto.kms.mock.audit" level="${LOG_LEVEL_CANTON:-INFO}" additivity="false">
+        <appender-ref ref="KMS-FILE"/>
+      </logger>
     </then>
   </if>
 

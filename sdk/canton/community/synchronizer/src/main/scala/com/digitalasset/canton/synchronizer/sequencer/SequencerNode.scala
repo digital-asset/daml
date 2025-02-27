@@ -58,7 +58,7 @@ import com.digitalasset.canton.synchronizer.sequencer.admin.grpc.{
   InitializeSequencerResponse,
 }
 import com.digitalasset.canton.synchronizer.sequencer.config.{
-  SequencerNodeConfigCommon,
+  SequencerNodeConfig,
   SequencerNodeParameters,
 }
 import com.digitalasset.canton.synchronizer.sequencer.store.{
@@ -104,10 +104,10 @@ import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.atomic.AtomicReference
 
 object SequencerNodeBootstrap {
-  trait Factory[C <: SequencerNodeConfigCommon] {
+  trait Factory {
     def create(
         arguments: NodeFactoryArguments[
-          C,
+          SequencerNodeConfig,
           SequencerNodeParameters,
           SequencerMetrics,
         ]
@@ -123,7 +123,7 @@ object SequencerNodeBootstrap {
 
 class SequencerNodeBootstrap(
     arguments: CantonNodeBootstrapCommonArguments[
-      SequencerNodeConfigCommon,
+      SequencerNodeConfig,
       SequencerNodeParameters,
       SequencerMetrics,
     ],
@@ -134,7 +134,7 @@ class SequencerNodeBootstrap(
     actorSystem: ActorSystem,
 ) extends CantonNodeBootstrapImpl[
       SequencerNode,
-      SequencerNodeConfigCommon,
+      SequencerNodeConfig,
       SequencerNodeParameters,
       SequencerMetrics,
     ](arguments) {
@@ -897,7 +897,7 @@ class SequencerNodeBootstrap(
 }
 
 class SequencerNode(
-    config: SequencerNodeConfigCommon,
+    config: SequencerNodeConfig,
     override protected val clock: Clock,
     val sequencer: SequencerRuntime,
     override val adminToken: CantonAdminToken,

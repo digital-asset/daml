@@ -102,7 +102,7 @@ import java.util.UUID
   * By the honesty assumption, the action seed is a random value to the third party, and so is the
   * [[ContractSalt]]. This entropy hides the contract details to the third party.
   */
-class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
+class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
 
   /** Creates the [[ContractSalt]] and [[Unicum]] for a create node.
     *
@@ -127,6 +127,8 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
     * @param suffixedContractInstance
     *   the serializable raw contract instance of the contract where contract IDs have already been
     *   suffixed.
+    * @param cantonContractIdVersion
+    *   the contract id versioning
     *
     * @see
     *   UnicumGenerator for the construction details and the security properties
@@ -141,6 +143,7 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
       ledgerCreateTime: LedgerCreateTime,
       metadata: ContractMetadata,
       suffixedContractInstance: SerializableRawContractInstance,
+      cantonContractIdVersion: CantonContractIdVersion,
   ): (ContractSalt, Unicum) = {
     val contractSalt =
       ContractSalt.create(cryptoOps)(
@@ -151,11 +154,12 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
         createIndex,
         viewPosition,
       )
-    val unicumHash = computeUnicumV3Hash(
+    val unicumHash = computeUnicumHash(
       ledgerCreateTime = ledgerCreateTime,
       metadata,
       suffixedContractInstance = suffixedContractInstance,
       contractSalt = contractSalt.unwrap,
+      cantonContractIdVersion.useUpgradeFriendlyHashing,
     )
 
     contractSalt -> Unicum(unicumHash)
@@ -173,6 +177,8 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
     * @param suffixedContractInstance
     *   the serializable raw contract instance of the contract where contract IDs have already been
     *   suffixed.
+    * @param cantonContractIdVersion
+    *   the contract id versioning
     * @return
     *   the unicum if successful or a failure if the contract salt size is mismatching the
     *   predefined size.
@@ -182,27 +188,30 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
       ledgerCreateTime: LedgerCreateTime,
       metadata: ContractMetadata,
       suffixedContractInstance: SerializableRawContractInstance,
+      cantonContractIdVersion: CantonContractIdVersion,
   ): Either[String, Unicum] = {
     val contractSaltSize = contractSalt.size
     Either.cond(
       contractSaltSize.toLong == cryptoOps.defaultHmacAlgorithm.hashAlgorithm.length,
       Unicum(
-        computeUnicumV3Hash(
+        computeUnicumHash(
           ledgerCreateTime,
           metadata,
           suffixedContractInstance,
           contractSalt,
+          cantonContractIdVersion.useUpgradeFriendlyHashing,
         )
       ),
       s"Invalid contract salt size ($contractSaltSize)",
     )
   }
 
-  private def computeUnicumV3Hash(
+  private def computeUnicumHash(
       ledgerCreateTime: LedgerCreateTime,
       metadata: ContractMetadata,
       suffixedContractInstance: SerializableRawContractInstance,
       contractSalt: Salt,
+      useUpgradeFriendlyHash: Boolean,
   ): Hash = {
     val nonSignatoryStakeholders = metadata.stakeholders -- metadata.signatories
 
@@ -239,7 +248,9 @@ class UnicumGenerator(cryptoOps: HashOps with HmacOps) {
         }
       )
       // The hash of the contract instance has a fixed length, so we do not need a length prefix
-      .addWithoutLengthPrefix(suffixedContractInstance.contractHash.bytes.toByteString)
+      .addWithoutLengthPrefix(
+        suffixedContractInstance.contractHash(useUpgradeFriendlyHash).bytes.toByteString
+      )
       .finish()
 
     hash

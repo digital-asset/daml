@@ -101,8 +101,7 @@ object DatabaseSequencer {
         loggerFactory,
       ),
       None,
-      // Dummy config which will be ignored anyway as `config.highAvailabilityEnabled` is false
-      OnlineSequencerCheckConfig(),
+      None,
       timeouts,
       storage,
       None,
@@ -127,7 +126,7 @@ class DatabaseSequencer(
     totalNodeCount: PositiveInt,
     eventSignaller: EventSignaller,
     keepAliveInterval: Option[NonNegativeFiniteDuration],
-    onlineSequencerCheckConfig: OnlineSequencerCheckConfig,
+    onlineSequencerCheckConfig: Option[OnlineSequencerCheckConfig],
     override protected val timeouts: ProcessingTimeout,
     storage: Storage,
     exclusiveStorage: Option[Storage],
@@ -274,11 +273,12 @@ class DatabaseSequencer(
     schedule()
   }
 
-  if (config.highAvailabilityEnabled)
+  onlineSequencerCheckConfig.foreach { config =>
     periodicallyMarkLaggingSequencersOffline(
-      onlineSequencerCheckConfig.onlineCheckInterval.toInternal,
-      onlineSequencerCheckConfig.offlineDuration.toInternal,
+      config.onlineCheckInterval.toInternal,
+      config.offlineDuration.toInternal,
     )
+  }
 
   private val reader =
     new SequencerReader(

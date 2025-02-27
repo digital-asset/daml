@@ -4,8 +4,8 @@
 package com.digitalasset.canton.ledger.error.groups
 
 import com.daml.error.{
+  ContextualizedDamlError,
   ContextualizedErrorLogger,
-  DamlError,
   DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorCode,
@@ -334,7 +334,7 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
         message: String,
     )(implicit
         val loggingContext: ContextualizedErrorLogger
-    ) extends DamlError(
+    ) extends ContextualizedDamlError(
           cause = s"Offset $offsetValue in $fieldName is not a positive integer: $message"
         )
   }
@@ -352,7 +352,7 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
         message: String,
     )(implicit
         val loggingContext: ContextualizedErrorLogger
-    ) extends DamlError(
+    ) extends ContextualizedDamlError(
           cause = s"Offset $offsetValue in $fieldName is a negative integer: $message"
         )
   }

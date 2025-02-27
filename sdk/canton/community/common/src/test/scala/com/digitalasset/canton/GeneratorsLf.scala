@@ -6,7 +6,7 @@ package com.digitalasset.canton
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.{
-  AuthenticatedContractIdVersionV10,
+  AuthenticatedContractIdVersionV11,
   ExampleTransactionFactory,
   LfContractId,
   LfGlobalKey,
@@ -57,7 +57,7 @@ object GeneratorsLf {
       contractIdSuffix = Unicum(
         Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).add(suffix).finish()
       )
-    } yield AuthenticatedContractIdVersionV10.fromDiscriminator(
+    } yield AuthenticatedContractIdVersionV11.fromDiscriminator(
       contractIdDiscriminator,
       contractIdSuffix,
     )

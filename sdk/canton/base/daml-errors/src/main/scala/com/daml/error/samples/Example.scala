@@ -3,7 +3,7 @@
 
 package com.daml.error.samples
 
-import com.daml.error.{DamlError, NoLogging}
+import com.daml.error.{ContextualizedDamlError, NoLogging}
 
 import scala.concurrent.duration.*
 
@@ -28,7 +28,7 @@ object DummmyServer {
       properties = Map.empty,
     )
 
-    final case class Error(message: String) extends DamlError(cause = message) {
+    final case class Error(message: String) extends ContextualizedDamlError(cause = message) {
 
       override def resources: Seq[(ErrorResource, String)] = Seq(
         ErrorResource.ContractId -> "someContractId"

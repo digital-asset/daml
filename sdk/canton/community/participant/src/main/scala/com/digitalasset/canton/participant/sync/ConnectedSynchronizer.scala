@@ -291,6 +291,7 @@ class ConnectedSynchronizer(
     staticSynchronizerParameters.protocolVersion,
     synchronizerHandle.topologyClient,
     sequencerClient,
+    ephemeral.timeTracker,
   )
 
   // MARK

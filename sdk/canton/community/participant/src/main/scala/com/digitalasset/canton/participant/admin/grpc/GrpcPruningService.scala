@@ -11,8 +11,8 @@ import com.digitalasset.canton.admin.grpc.{GrpcPruningScheduler, HasPruningSched
 import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.admin.pruning.v30
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
-import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.PruningServiceErrorGroup
+import com.digitalasset.canton.error.{CantonError, ContextualizedCantonError}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
@@ -321,7 +321,7 @@ class GrpcPruningService(
   }
 }
 
-sealed trait PruningServiceError extends CantonError
+sealed trait PruningServiceError extends ContextualizedCantonError
 object PruningServiceError extends PruningServiceErrorGroup {
 
   @Explanation(

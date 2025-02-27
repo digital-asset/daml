@@ -104,13 +104,21 @@ private[protocol] object TopologyTransactionDiff {
 
   private def partyToParticipant(
       state: PositiveSignedTopologyTransactions
-  ): Set[(LfPartyId, LedgerParticipantId)] =
-    SignedTopologyTransactions
+  ): Set[(LfPartyId, LedgerParticipantId)] = {
+    val fromPartyToParticipantMapping = SignedTopologyTransactions
       .collectOfMapping[TopologyChangeOp.Replace, PartyToParticipant](state)
       .view
       .map(_.mapping)
       .flatMap(m => m.participants.map(p => (m.partyId.toLf, p.participantId.toLf)))
+    val forAdminParties = SignedTopologyTransactions
+      .collectOfMapping[TopologyChangeOp.Replace, SynchronizerTrustCertificate](state)
+      .view
+      .map(_.mapping)
+      .map(m => m.participantId.adminParty.toLf -> m.participantId.toLf)
+    fromPartyToParticipantMapping
+      .++(forAdminParties)
       .toSet
+  }
 }
 
 private[protocol] final case class TopologyTransactionDiff(

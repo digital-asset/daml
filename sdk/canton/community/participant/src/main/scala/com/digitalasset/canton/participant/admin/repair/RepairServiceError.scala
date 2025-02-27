@@ -7,7 +7,7 @@ import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.RepairServiceErrorGroup
-import com.digitalasset.canton.error.{BaseCantonError, CantonError}
+import com.digitalasset.canton.error.{CantonBaseError, CantonError}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.participant.store.AcsInspectionError
 import com.digitalasset.canton.protocol.LfContractId
@@ -15,7 +15,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
-sealed trait RepairServiceError extends Product with Serializable with BaseCantonError
+sealed trait RepairServiceError extends Product with Serializable with CantonBaseError
 
 object RepairServiceError extends RepairServiceErrorGroup {
 

@@ -18,7 +18,7 @@ import com.digitalasset.canton.participant.sync.SyncServiceError
 import com.digitalasset.canton.participant.{ParticipantNode, ParticipantNodeBootstrap}
 import com.digitalasset.canton.synchronizer.mediator.{MediatorNodeBootstrap, MediatorNodeConfig}
 import com.digitalasset.canton.synchronizer.sequencer.SequencerNodeBootstrap
-import com.digitalasset.canton.synchronizer.sequencer.config.CommunitySequencerNodeConfig
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, ConfigStubs, HasExecutionContext}
 import monocle.macros.syntax.lens.*
@@ -58,7 +58,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
     private val createParticipantMock =
       mock[(String, LocalParticipantConfig) => ParticipantNodeBootstrap]
     private val createSequencerMock =
-      mock[(String, CommunitySequencerNodeConfig) => SequencerNodeBootstrap]
+      mock[(String, SequencerNodeConfig) => SequencerNodeBootstrap]
     private val createMediatorMock =
       mock[(String, MediatorNodeConfig) => MediatorNodeBootstrap]
 
@@ -113,7 +113,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
 
       override def createSequencer(
           name: String,
-          sequencerConfig: CommunitySequencerNodeConfig,
+          sequencerConfig: SequencerNodeConfig,
       ): SequencerNodeBootstrap =
         createSequencerMock(name, sequencerConfig)
 
@@ -137,7 +137,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
       when(createParticipantMock(idMatcher, any[LocalParticipantConfig])).thenAnswer(create)
 
     protected def setupSequencerFactory(id: String, create: => SequencerNodeBootstrap): Unit =
-      when(createSequencerMock(eqTo(id), any[CommunitySequencerNodeConfig])).thenAnswer(create)
+      when(createSequencerMock(eqTo(id), any[SequencerNodeConfig])).thenAnswer(create)
 
     protected def setupMediatorFactory(id: String, create: => MediatorNodeBootstrap): Unit =
       when(createMediatorMock(eqTo(id), any[MediatorNodeConfig])).thenAnswer(create)

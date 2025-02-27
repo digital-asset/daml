@@ -106,8 +106,8 @@ class OutputModule[E <: Env[E]](
     with HasDelayedInit[Message[E]] {
 
   private val lastAcknowledgedBlockNumber =
-    if (startupState.initialHeight == BlockNumber.First) None
-    else Some(BlockNumber(startupState.initialHeight - 1))
+    if (startupState.initialHeightToProvide == BlockNumber.First) None
+    else Some(BlockNumber(startupState.initialHeightToProvide - 1))
 
   // We use a Peano queue to ensure that we can process blocks in order and deterministically produce the correct
   //  BFT time, even if they arrive from Consensus, and/or we finish retrieving their data from availability,
@@ -123,7 +123,10 @@ class OutputModule[E <: Env[E]](
   @VisibleForTesting
   private[bftordering] val previousStoredBlock = new PreviousStoredBlock
   startupState.previousBftTimeForOnboarding.foreach { time =>
-    previousStoredBlock.update(BlockNumber(startupState.initialHeight - 1), time)
+    previousStoredBlock.update(
+      BlockNumber(startupState.initialHeightToProvide - 1),
+      time,
+    )
   }
 
   private var currentEpochOrderingTopology: OrderingTopology = startupState.initialOrderingTopology
@@ -152,6 +155,7 @@ class OutputModule[E <: Env[E]](
       case Start =>
         val lastStoredOutputBlockMetadata =
           context.blockingAwait(store.getLastConsecutiveBlock, DefaultDatabaseReadTimeout)
+        val lastStoredBlockNumber = lastStoredOutputBlockMetadata.map(_.blockNumber)
 
         // The logic to compute `recoverFromBlockNumber` takes into account the following scenarios:
         //
@@ -183,9 +187,14 @@ class OutputModule[E <: Env[E]](
         //
         val recoverFromBlockNumber =
           Seq(
-            lastAcknowledgedBlockNumber,
-            lastStoredOutputBlockMetadata.map(_.blockNumber),
-          ).flatten.minOption.getOrElse(BlockNumber.First)
+            lastAcknowledgedBlockNumber.getOrElse(BlockNumber.First),
+            lastStoredBlockNumber.getOrElse(BlockNumber.First),
+          ).min
+
+        logger.debug(
+          s"Output module bootstrap: last acknowledged block number = $lastAcknowledgedBlockNumber, " +
+            s"last stored block number = $lastStoredBlockNumber => recover from block number = $recoverFromBlockNumber"
+        )
 
         // If we are onboarding, rather than an initial node starting or restarting, there will be no actual blocks
         //  stored and the genesis will be returned, but we`ll have a truncated log and we`ll need to start from the
@@ -193,11 +202,24 @@ class OutputModule[E <: Env[E]](
         //  are expected to serve, not from the genesis height.
         maybeCompletedBlocksProcessingPeanoQueue = Some(
           new PeanoQueue(
-            if (startupState.previousBftTimeForOnboarding.isDefined) startupState.initialHeight
-            else recoverFromBlockNumber
+            if (startupState.previousBftTimeForOnboarding.isDefined) {
+              val initialHeight = startupState.initialHeightToProvide
+              logger.debug(
+                s"Output module bootstrap: onboarding, providing blocks from initial height $initialHeight"
+              )
+              initialHeight
+            } else {
+              logger.debug(
+                s"Output module bootstrap: [re-]starting, providing blocks from $recoverFromBlockNumber"
+              )
+              recoverFromBlockNumber
+            }
           )(abort)
         )
         if (startupState.previousBftTimeForOnboarding.isEmpty) {
+          logger.debug(
+            s"Output module bootstrap: [re-]starting, [re-]processing blocks from $recoverFromBlockNumber"
+          )
           val orderedBlocksToProcess =
             context.blockingAwait(
               epochStoreReader.loadOrderedBlocks(recoverFromBlockNumber),
@@ -664,7 +686,7 @@ class OutputModule[E <: Env[E]](
 object OutputModule {
 
   final case class StartupState[E <: Env[E]](
-      initialHeight: BlockNumber,
+      initialHeightToProvide: BlockNumber,
       previousBftTimeForOnboarding: Option[CantonTimestamp],
       onboardingEpochCouldAlterOrderingTopology: Boolean,
       initialCryptoProvider: CryptoProvider[E],

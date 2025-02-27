@@ -146,8 +146,8 @@ class SequencerReaderTest
     val instanceIndex: Int = 0
     // create a spy so we can add verifications on how many times methods were called
     val storeSpy: InMemorySequencerStore = spy[InMemorySequencerStore](store)
-    val testConfig: CommunitySequencerReaderConfig =
-      CommunitySequencerReaderConfig(
+    val testConfig: SequencerReaderConfig =
+      SequencerReaderConfig(
         readBatchSize = 10,
         checkpointInterval = config.NonNegativeFiniteDuration.ofMillis(800),
       )

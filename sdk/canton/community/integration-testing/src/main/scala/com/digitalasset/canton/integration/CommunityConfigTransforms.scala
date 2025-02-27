@@ -8,7 +8,7 @@ import com.digitalasset.canton.UniquePortGenerator
 import com.digitalasset.canton.config.{CantonCommunityConfig, DbConfig, StorageConfig}
 import com.digitalasset.canton.participant.config.LocalParticipantConfig
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeConfig
-import com.digitalasset.canton.synchronizer.sequencer.config.CommunitySequencerNodeConfig
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
 import com.digitalasset.canton.version.{ParticipantProtocolVersion, ProtocolVersion}
 import com.typesafe.config.{Config, ConfigValueFactory}
 import monocle.macros.syntax.lens.*
@@ -66,13 +66,13 @@ object CommunityConfigTransforms {
         .modify(_.map { case (pName, pConfig) => (pName, update(pName.unwrap, pConfig)) })
 
   def updateAllSequencerConfigs(
-      update: (String, CommunitySequencerNodeConfig) => CommunitySequencerNodeConfig
+      update: (String, SequencerNodeConfig) => SequencerNodeConfig
   ): CommunityConfigTransform =
     _.focus(_.sequencers)
       .modify(_.map { case (sName, sConfig) => (sName, update(sName.unwrap, sConfig)) })
 
   def updateAllSequencerConfigs_(
-      update: CommunitySequencerNodeConfig => CommunitySequencerNodeConfig
+      update: SequencerNodeConfig => SequencerNodeConfig
   ): CommunityConfigTransform =
     updateAllSequencerConfigs((_, config) => update(config))
 

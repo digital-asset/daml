@@ -385,7 +385,7 @@ class SynchronizerTimeTracker(
         if (updateBy <= now) updateNow()
         else {
           def updateCondition(current: Option[CantonTimestamp]): Boolean =
-            !current.exists(ts => ts > now && ts <= updateBy)
+            !current.exists(ts => now < ts && ts <= updateBy)
 
           val current = nextScheduledUpdate.getAndUpdate { current =>
             if (updateCondition(current)) updateBy.some else current

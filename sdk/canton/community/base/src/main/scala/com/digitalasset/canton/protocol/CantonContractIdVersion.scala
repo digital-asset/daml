@@ -15,16 +15,17 @@ import com.google.protobuf.ByteString
 object CantonContractIdVersion {
   val versionPrefixBytesSize = 2
 
-  def fromProtocolVersion(
+  /** Maximum contract-id-version supported in protocol-version */
+  def maximumSupportedVersion(
       protocolVersion: ProtocolVersion
   ): Either[String, CantonContractIdVersion] =
-    if (protocolVersion >= ProtocolVersion.v33) Right(AuthenticatedContractIdVersionV10)
+    if (protocolVersion >= ProtocolVersion.v33) Right(AuthenticatedContractIdVersionV11)
     else Left(s"No contract ID scheme found for ${protocolVersion.v}")
 
-  def ensureCantonContractId(
+  def extractCantonContractIdVersion(
       contractId: LfContractId
   ): Either[MalformedContractId, CantonContractIdVersion] = {
-    val LfContractId.V1(_discriminator, suffix) = contractId
+    val LfContractId.V1(_, suffix) = contractId
     for {
       versionedContractId <- CantonContractIdVersion
         .fromContractSuffix(suffix)
@@ -39,13 +40,13 @@ object CantonContractIdVersion {
   }
 
   def fromContractSuffix(contractSuffix: Bytes): Either[String, CantonContractIdVersion] =
-    if (contractSuffix.startsWith(AuthenticatedContractIdVersionV10.versionPrefixBytes)) {
+    if (contractSuffix.startsWith(AuthenticatedContractIdVersionV11.versionPrefixBytes)) {
+      Right(AuthenticatedContractIdVersionV11)
+    } else if (contractSuffix.startsWith(AuthenticatedContractIdVersionV10.versionPrefixBytes)) {
       Right(AuthenticatedContractIdVersionV10)
     } else {
       Left(
-        s"""Suffix ${contractSuffix.toHexString} does not start with one of the supported prefixes:
-            | ${AuthenticatedContractIdVersionV10.versionPrefixBytes}
-            |""".stripMargin.replaceAll("\r|\n", "")
+        s"Suffix ${contractSuffix.toHexString} is not a supported contract-id prefix"
       )
     }
 }
@@ -59,7 +60,8 @@ sealed abstract class CantonContractIdVersion(val v: NonNegativeInt)
     s"Version prefix of size ${versionPrefixBytes.length} should have size ${CantonContractIdVersion.versionPrefixBytesSize}",
   )
 
-  def isAuthenticated: Boolean
+  /** Set to true if upgrade friendly hashing should be used when constructing the contract hash */
+  def useUpgradeFriendlyHashing: Boolean
 
   def versionPrefixBytes: Bytes
 
@@ -72,10 +74,14 @@ sealed abstract class CantonContractIdVersion(val v: NonNegativeInt)
 
 case object AuthenticatedContractIdVersionV10
     extends CantonContractIdVersion(NonNegativeInt.tryCreate(10)) {
-  // The prefix for the suffix of Canton contract IDs for contracts that can be authenticated (created in Protocol V30+)
   lazy val versionPrefixBytes: Bytes = Bytes.fromByteArray(Array(0xca.toByte, 0x10.toByte))
+  override val useUpgradeFriendlyHashing: Boolean = false
+}
 
-  val isAuthenticated: Boolean = true
+case object AuthenticatedContractIdVersionV11
+    extends CantonContractIdVersion(NonNegativeInt.tryCreate(11)) {
+  lazy val versionPrefixBytes: Bytes = Bytes.fromByteArray(Array(0xca.toByte, 0x11.toByte))
+  override val useUpgradeFriendlyHashing: Boolean = true
 }
 
 object ContractIdSyntax {

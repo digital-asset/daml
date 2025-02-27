@@ -1846,33 +1846,3 @@ da_haskell_library(
     ],
     visibility = ["//visibility:public"],
 )
-
-proto_gen(
-    name = "ledger-api-docs-proto",
-    srcs = [":ledger_api_proto"],
-    plugin_exec = "@com_github_pseudomuto_protoc_gen_doc//cmd/protoc-gen-doc:protoc-gen-doc",
-    plugin_name = "doc",
-    plugin_options = [
-        ledger_api_root + "/docs/rst_mmd.tmpl",
-        "docs.rst",
-    ],
-    # this is _slightly_ hacky. we need to include the markdown template in the plugin_runfiles
-    # and refer to the file with a workspace relative path in plugin_options
-    plugin_runfiles = ["community/ledger-api/docs/rst_mmd.tmpl"],
-    visibility = [
-        "//visibility:public",
-    ],
-)
-
-genrule(
-    name = "ledger-api-docs",
-    srcs = [":ledger-api-docs-proto"],
-    outs = ["proto-docs.rst"],
-    cmd = """
-        unzip -q $(location :ledger-api-docs-proto)
-        $(location community/ledger-api/docs/post-process.sh)
-        mv docs.rst '$@'
-    """,
-    tools = ["community/ledger-api/docs/post-process.sh"],
-    visibility = ["//visibility:public"],
-)

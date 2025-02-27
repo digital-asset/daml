@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework
 
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.OrderingModuleSystemInitializer.ModuleFactories
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Availability,
   Consensus,
@@ -17,55 +18,12 @@ import Module.{SystemInitializationResult, SystemInitializer}
 
 /** A module system initializer for the general ordering system based on module factories.
   */
-object OrderingModuleSystemInitializer {
-
-  final case class ModuleFactories[
-      E <: Env[E]
-  ](
-      mempool: ModuleRef[Availability.Message[E]] => Mempool[E],
-      p2pNetworkIn: (
-          ModuleRef[Availability.Message[E]],
-          ModuleRef[Consensus.Message[E]],
-      ) => P2PNetworkIn[E],
-      p2pNetworkOut: (
-          ClientP2PNetworkManager[E, BftOrderingServiceReceiveRequest],
-          ModuleRef[BftOrderingServiceReceiveRequest],
-          ModuleRef[Mempool.Message],
-          ModuleRef[Availability.Message[E]],
-          ModuleRef[Consensus.Message[E]],
-          ModuleRef[Output.Message[E]],
-      ) => P2PNetworkOut[E],
-      availability: (
-          ModuleRef[Mempool.Message],
-          ModuleRef[P2PNetworkOut.Message],
-          ModuleRef[Consensus.Message[E]],
-          ModuleRef[Output.Message[E]],
-      ) => Availability[E],
-      consensus: (
-          ModuleRef[P2PNetworkOut.Message],
-          ModuleRef[Availability.Message[E]],
-          ModuleRef[Output.Message[E]],
-      ) => Consensus[E],
-      output: (
-          ModuleRef[Availability.Message[E]],
-          ModuleRef[Consensus.Message[E]],
-      ) => Output[E],
-  )
-
-  def apply[E <: Env[E]](
-      moduleFactories: ModuleFactories[E]
-  ): SystemInitializer[E, BftOrderingServiceReceiveRequest, Mempool.Message] =
-    initialize(moduleFactories)
-
-  private def initialize[E <: Env[E]](
-      moduleFactories: ModuleFactories[E]
-  )(
+class OrderingModuleSystemInitializer[E <: Env[E]](moduleFactories: ModuleFactories[E])
+    extends SystemInitializer[E, BftOrderingServiceReceiveRequest, Mempool.Message] {
+  override def initialize(
       moduleSystem: ModuleSystem[E],
       p2pNetworkManager: ClientP2PNetworkManager[E, BftOrderingServiceReceiveRequest],
-  ): SystemInitializationResult[
-    BftOrderingServiceReceiveRequest,
-    Mempool.Message,
-  ] = {
+  ): SystemInitializationResult[BftOrderingServiceReceiveRequest, Mempool.Message] = {
     val mempoolRef = moduleSystem.newModuleRef[Mempool.Message](ModuleName("mempool"))
     val p2pNetworkInRef =
       moduleSystem.newModuleRef[BftOrderingServiceReceiveRequest](ModuleName("p2pnetwork-in"))
@@ -118,4 +76,37 @@ object OrderingModuleSystemInitializer {
       outputRef,
     )
   }
+}
+
+object OrderingModuleSystemInitializer {
+  final case class ModuleFactories[E <: Env[E]](
+      mempool: ModuleRef[Availability.Message[E]] => Mempool[E],
+      p2pNetworkIn: (
+          ModuleRef[Availability.Message[E]],
+          ModuleRef[Consensus.Message[E]],
+      ) => P2PNetworkIn[E],
+      p2pNetworkOut: (
+          ClientP2PNetworkManager[E, BftOrderingServiceReceiveRequest],
+          ModuleRef[BftOrderingServiceReceiveRequest],
+          ModuleRef[Mempool.Message],
+          ModuleRef[Availability.Message[E]],
+          ModuleRef[Consensus.Message[E]],
+          ModuleRef[Output.Message[E]],
+      ) => P2PNetworkOut[E],
+      availability: (
+          ModuleRef[Mempool.Message],
+          ModuleRef[P2PNetworkOut.Message],
+          ModuleRef[Consensus.Message[E]],
+          ModuleRef[Output.Message[E]],
+      ) => Availability[E],
+      consensus: (
+          ModuleRef[P2PNetworkOut.Message],
+          ModuleRef[Availability.Message[E]],
+          ModuleRef[Output.Message[E]],
+      ) => Consensus[E],
+      output: (
+          ModuleRef[Availability.Message[E]],
+          ModuleRef[Consensus.Message[E]],
+      ) => Output[E],
+  )
 }

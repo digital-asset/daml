@@ -7,7 +7,7 @@ import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.logging.{NamedLoggerFactory, SuppressionRule}
+import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory, SuppressionRule}
 import com.digitalasset.canton.time.Clock.SystemClockRunningBackwards
 import com.digitalasset.canton.topology.admin.v30.IdentityInitializationServiceGrpc.IdentityInitializationService
 import com.digitalasset.canton.topology.admin.v30.{
@@ -272,7 +272,7 @@ class ClockTest extends AnyWordSpec with BaseTest with HasExecutionContext {
       }
 
       val ts = CantonTimestamp.ofEpochMilli(1)
-      loggerFactory.assertLogs(
+      loggerFactory.assertLoggedWarningsAndErrorsSeq(
         {
           val taskF = Future(env.clock.scheduleAt(_ => (), ts))
 
@@ -285,7 +285,11 @@ class ClockTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
           taskF.futureValue.futureValueUS
         },
-        _.warningMessage should include("DEADLINE_EXCEEDED"),
+        LogEntry.assertLogSeq(
+          Seq(
+            (_.warningMessage should include("DEADLINE_EXCEEDED"), "deadline exceeded")
+          )
+        ),
       )
 
       env.close()
