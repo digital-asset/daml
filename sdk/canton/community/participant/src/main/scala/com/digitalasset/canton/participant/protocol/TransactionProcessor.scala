@@ -21,7 +21,6 @@ import com.digitalasset.canton.ledger.participant.state.{ChangeId, SubmitterInfo
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, PromiseUnlessShutdownFactory}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
-import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.metrics.TransactionProcessingMetrics
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.WrapsProcessorError
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.ProcessorError
@@ -63,7 +62,6 @@ class TransactionProcessor(
     synchronizerId: SynchronizerId,
     damle: DAMLe,
     staticSynchronizerParameters: StaticSynchronizerParameters,
-    parameters: ParticipantNodeParameters,
     crypto: SynchronizerCryptoClient,
     sequencerClient: SequencerClient,
     inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
@@ -107,7 +105,7 @@ class TransactionProcessor(
         ContractAuthenticator(crypto.pureCrypto),
         damle.enrichTransaction,
         damle.enrichCreateNode,
-        new AuthorizationValidator(participantId, parameters.enableExternalAuthorization),
+        new AuthorizationValidator(participantId),
         new InternalConsistencyChecker(
           loggerFactory
         ),

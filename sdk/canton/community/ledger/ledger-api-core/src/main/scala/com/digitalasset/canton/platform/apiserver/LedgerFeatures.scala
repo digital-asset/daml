@@ -11,6 +11,5 @@ final case class LedgerFeatures(
     commandInspectionService: ExperimentalCommandInspectionService =
       ExperimentalCommandInspectionService(supported = true),
     offsetCheckpointFeature: OffsetCheckpointFeature = OffsetCheckpointFeature(),
-    interactiveSubmissionService: Boolean = false,
     partyTopologyEvents: Boolean = false,
 )

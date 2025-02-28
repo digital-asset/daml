@@ -61,17 +61,24 @@ class DbSequencerStateManagerStore(
   ] = {
     val aggregationsQ =
       sql"""
-            select seq_in_flight_aggregation.aggregation_id,
-                   seq_in_flight_aggregation.max_sequencing_time,
-                   seq_in_flight_aggregation.aggregation_rule,
-                   seq_in_flight_aggregated_sender.sender,
-                   seq_in_flight_aggregated_sender.sequencing_timestamp,
-                   seq_in_flight_aggregated_sender.signatures
-            from seq_in_flight_aggregation inner join seq_in_flight_aggregated_sender on seq_in_flight_aggregation.aggregation_id = seq_in_flight_aggregated_sender.aggregation_id
-            where seq_in_flight_aggregation.max_sequencing_time > $timestamp and seq_in_flight_aggregated_sender.sequencing_timestamp <= $timestamp
+            select aggregation.aggregation_id,
+                   aggregation.first_sequencing_timestamp,
+                   aggregation.max_sequencing_time,
+                   aggregation.aggregation_rule,
+                   sender.sender,
+                   sender.sequencing_timestamp,
+                   sender.signatures
+            from
+              seq_in_flight_aggregation aggregation inner join seq_in_flight_aggregated_sender sender
+                on aggregation.aggregation_id = sender.aggregation_id
+            where
+            -- Note: filter and field duplication on both tables are necessary to make the query efficient
+              aggregation.max_sequencing_time > $timestamp and aggregation.first_sequencing_timestamp <= $timestamp
+                and sender.max_sequencing_time > $timestamp and sender.sequencing_timestamp <= $timestamp
           """.as[
         (
             AggregationId,
+            CantonTimestamp,
             CantonTimestamp,
             AggregationRule,
             Member,
@@ -80,19 +87,24 @@ class DbSequencerStateManagerStore(
         )
       ]
     aggregationsQ.map { aggregations =>
-      val byAggregationId = aggregations.groupBy { case (aggregationId, _, _, _, _, _) =>
+      val byAggregationId = aggregations.groupBy { case (aggregationId, _, _, _, _, _, _) =>
         aggregationId
       }
       byAggregationId.fmap { aggregationsForId =>
         val aggregationsNE = NonEmptyUtil.fromUnsafe(aggregationsForId)
-        val (_, maxSequencingTimestamp, aggregationRule, _, _, _) =
+        val (_, firstSequencingTimestamp, maxSequencingTimestamp, aggregationRule, _, _, _) =
           aggregationsNE.head1
         val aggregatedSenders = aggregationsNE.map {
-          case (_, _, _, sender, sequencingTimestamp, signatures) =>
+          case (_, _, _, _, sender, sequencingTimestamp, signatures) =>
             sender -> AggregationBySender(sequencingTimestamp, signatures.signaturesByEnvelope)
         }.toMap
         InFlightAggregation
-          .create(aggregatedSenders, maxSequencingTimestamp, aggregationRule)
+          .create(
+            aggregatedSenders,
+            firstSequencingTimestamp,
+            maxSequencingTimestamp,
+            aggregationRule,
+          )
           .valueOr(err => throw new DbDeserializationException(err))
       }
     }
@@ -113,8 +125,8 @@ class DbSequencerStateManagerStore(
     // then add the information about the aggregated senders.
 
     val addAggregationIdsQ =
-      """insert into seq_in_flight_aggregation(aggregation_id, max_sequencing_time, aggregation_rule)
-         values (?, ?, ?)
+      """insert into seq_in_flight_aggregation(aggregation_id, first_sequencing_timestamp, max_sequencing_time, aggregation_rule)
+         values (?, ?, ?, ?)
          on conflict do nothing"""
     implicit val setParameterAggregationRule: SetParameter[AggregationRule] =
       AggregationRule.getVersionedSetParameter
@@ -126,15 +138,19 @@ class DbSequencerStateManagerStore(
     val addAggregationIdsDbio =
       DbStorage.bulkOperation_(addAggregationIdsQ, freshAggregations, storage.profile) {
         pp => agg =>
-          val (aggregationId, FreshInFlightAggregation(maxSequencingTimestamp, rule)) = agg
+          val (
+            aggregationId,
+            FreshInFlightAggregation(firstSequencingTimestamp, maxSequencingTimestamp, rule),
+          ) = agg
           pp.>>(aggregationId)
+          pp.>>(firstSequencingTimestamp)
           pp.>>(maxSequencingTimestamp)
           pp.>>(rule)
       }
 
     val addSendersQ =
-      """insert into seq_in_flight_aggregated_sender(aggregation_id, sender, sequencing_timestamp, signatures)
-         values (?, ?, ?, ?)
+      """insert into seq_in_flight_aggregated_sender(aggregation_id, sender, sequencing_timestamp, max_sequencing_time, signatures)
+         values (?, ?, ?, ?, ?)
          on conflict do nothing"""
     implicit val setParameterAggregatedSignaturesOfSender
         : SetParameter[AggregatedSignaturesOfSender] =
@@ -145,10 +161,11 @@ class DbSequencerStateManagerStore(
       }
     val addSendersDbIO = DbStorage.bulkOperation_(addSendersQ, aggregatedSenders, storage.profile) {
       pp => item =>
-        val (aggregationId, AggregatedSender(sender, aggregation)) = item
+        val (aggregationId, AggregatedSender(sender, maxSequencingTime, aggregation)) = item
         pp.>>(aggregationId)
         pp.>>(sender)
         pp.>>(aggregation.sequencingTimestamp)
+        pp.>>(maxSequencingTime)
         pp.>>(
           AggregatedSignaturesOfSender(aggregation.signatures)(
             AggregatedSignaturesOfSender.protocolVersionRepresentativeFor(protocolVersion)

@@ -470,7 +470,6 @@ class StartableStoppableLedgerApiServer(
         (config.serverConfig.indexService.offsetCheckpointCacheUpdateInterval + config.serverConfig.indexService.idleStreamOffsetCheckpointTimeout).toProtoPrimitive
       )
     ),
-    interactiveSubmissionService = config.serverConfig.interactiveSubmissionService.enabled,
     partyTopologyEvents = config.cantonParameterConfig.experimentalEnableTopologyEvents,
   )
 

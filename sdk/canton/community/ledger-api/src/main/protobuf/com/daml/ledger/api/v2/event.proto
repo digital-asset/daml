@@ -173,6 +173,12 @@ message ArchivedEvent {
   // The package name of the contract.
   // Required
   string package_name = 6;
+
+  // The interfaces implemented by the target template that have been
+  // matched from the interface filter query.
+  // Populated only in case interface filters with include_interface_view set.
+  // Optional
+  repeated Identifier implemented_interfaces = 7;
 }
 
 // Records that a choice has been exercised on a target contract.
@@ -248,4 +254,10 @@ message ExercisedEvent {
   // The package name of the contract.
   // Required
   string package_name = 13;
+
+  // If the event is consuming, the interfaces implemented by the target template that have been
+  // matched from the interface filter query.
+  // Populated only in case interface filters with include_interface_view set.
+  // Optional
+  repeated Identifier implemented_interfaces = 14;
 }

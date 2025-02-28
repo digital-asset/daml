@@ -307,7 +307,7 @@ private[events] object TransactionLogUpdatesConversions {
             requestingParties,
             exercisedEvent,
             internalTransactionFormat.transactionShape,
-            internalTransactionFormat.internalEventFormat.eventProjectionProperties.verbose,
+            internalTransactionFormat.internalEventFormat.eventProjectionProperties,
             lfValueTranslation,
           )
       }
@@ -317,7 +317,7 @@ private[events] object TransactionLogUpdatesConversions {
         requestingParties: Option[Set[Party]],
         exercisedEvent: ExercisedEvent,
         transactionShape: TransactionShape,
-        verbose: Boolean,
+        eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContextWithTrace,
@@ -332,6 +332,12 @@ private[events] object TransactionLogUpdatesConversions {
           )
 
         case AcsDelta =>
+          val witnessParties = requestingParties match {
+            case Some(parties) =>
+              parties.iterator.filter(exercisedEvent.flatEventWitnesses).toSeq
+            // party-wildcard
+            case None => exercisedEvent.flatEventWitnesses.toSeq
+          }
           Future.successful(
             apiEvent.Event(
               apiEvent.Event.Event.Archived(
@@ -341,12 +347,12 @@ private[events] object TransactionLogUpdatesConversions {
                   contractId = exercisedEvent.contractId.coid,
                   templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
                   packageName = exercisedEvent.packageName,
-                  witnessParties = requestingParties match {
-                    case Some(parties) =>
-                      parties.iterator.filter(exercisedEvent.flatEventWitnesses).toSeq
-                    // party-wildcard
-                    case None => exercisedEvent.flatEventWitnesses.toSeq
-                  },
+                  witnessParties = witnessParties,
+                  implementedInterfaces = lfValueTranslation.implementedInterfaces(
+                    eventProjectionProperties,
+                    witnessParties.toSet,
+                    exercisedEvent.templateId,
+                  ),
                 )
               )
             )
@@ -364,7 +370,7 @@ private[events] object TransactionLogUpdatesConversions {
 
           val eventualChoiceArgument = lfValueTranslation.toApiValue(
             exercisedEvent.exerciseArgument,
-            verbose,
+            eventProjectionProperties.verbose,
             "exercise argument",
             choiceArgumentEnricher,
           )
@@ -382,7 +388,7 @@ private[events] object TransactionLogUpdatesConversions {
               lfValueTranslation
                 .toApiValue(
                   value = exerciseResult,
-                  verbose = verbose,
+                  verbose = eventProjectionProperties.verbose,
                   attribute = "exercise result",
                   enrich = choiceResultEnricher,
                 )
@@ -393,6 +399,11 @@ private[events] object TransactionLogUpdatesConversions {
           for {
             choiceArgument <- eventualChoiceArgument
             maybeExerciseResult <- eventualExerciseResult
+            witnessParties = requestingParties
+              .fold(exercisedEvent.treeEventWitnesses)(
+                _.filter(exercisedEvent.treeEventWitnesses)
+              )
+              .toSeq
           } yield apiEvent.Event(
             apiEvent.Event.Event.Exercised(
               apiEvent.ExercisedEvent(
@@ -406,13 +417,17 @@ private[events] object TransactionLogUpdatesConversions {
                 choiceArgument = Some(choiceArgument),
                 actingParties = exercisedEvent.actingParties.toSeq,
                 consuming = exercisedEvent.consuming,
-                witnessParties = requestingParties
-                  .fold(exercisedEvent.treeEventWitnesses)(
-                    _.filter(exercisedEvent.treeEventWitnesses)
-                  )
-                  .toSeq,
+                witnessParties = witnessParties,
                 lastDescendantNodeId = exercisedEvent.lastDescendantNodeId,
                 exerciseResult = maybeExerciseResult,
+                implementedInterfaces =
+                  if (exercisedEvent.consuming)
+                    lfValueTranslation.implementedInterfaces(
+                      eventProjectionProperties,
+                      witnessParties.toSet,
+                      exercisedEvent.templateId,
+                    )
+                  else Nil,
               )
             )
           )
@@ -569,7 +584,7 @@ private[events] object TransactionLogUpdatesConversions {
         case exercisedEvent: TransactionLogUpdate.ExercisedEvent =>
           exercisedToTransactionTreeEvent(
             requestingParties,
-            eventProjectionProperties.verbose,
+            eventProjectionProperties,
             lfValueTranslation,
             exercisedEvent,
           )
@@ -577,7 +592,7 @@ private[events] object TransactionLogUpdatesConversions {
 
     private def exercisedToTransactionTreeEvent(
         requestingParties: Option[Set[Party]],
-        verbose: Boolean,
+        eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
         exercisedEvent: ExercisedEvent,
     )(implicit
@@ -595,7 +610,7 @@ private[events] object TransactionLogUpdatesConversions {
 
       val eventualChoiceArgument = lfValueTranslation.toApiValue(
         exercisedEvent.exerciseArgument,
-        verbose,
+        eventProjectionProperties.verbose,
         "exercise argument",
         choiceArgumentEnricher,
       )
@@ -613,7 +628,7 @@ private[events] object TransactionLogUpdatesConversions {
           lfValueTranslation
             .toApiValue(
               value = exerciseResult,
-              verbose = verbose,
+              verbose = eventProjectionProperties.verbose,
               attribute = "exercise result",
               enrich = choiceResultEnricher,
             )
@@ -624,6 +639,11 @@ private[events] object TransactionLogUpdatesConversions {
       for {
         choiceArgument <- eventualChoiceArgument
         maybeExerciseResult <- eventualExerciseResult
+        witnessParties = requestingParties
+          .fold(exercisedEvent.treeEventWitnesses)(
+            _.filter(exercisedEvent.treeEventWitnesses)
+          )
+          .toSeq
       } yield TreeEvent(
         TreeEvent.Kind.Exercised(
           apiEvent.ExercisedEvent(
@@ -637,13 +657,17 @@ private[events] object TransactionLogUpdatesConversions {
             choiceArgument = Some(choiceArgument),
             actingParties = exercisedEvent.actingParties.toSeq,
             consuming = exercisedEvent.consuming,
-            witnessParties = requestingParties
-              .fold(exercisedEvent.treeEventWitnesses)(
-                _.filter(exercisedEvent.treeEventWitnesses)
-              )
-              .toSeq,
+            witnessParties = witnessParties,
             lastDescendantNodeId = exercisedEvent.lastDescendantNodeId,
             exerciseResult = maybeExerciseResult,
+            implementedInterfaces =
+              if (exercisedEvent.consuming)
+                lfValueTranslation.implementedInterfaces(
+                  eventProjectionProperties,
+                  witnessParties.toSet,
+                  exercisedEvent.templateId,
+                )
+              else Nil,
           )
         )
       )

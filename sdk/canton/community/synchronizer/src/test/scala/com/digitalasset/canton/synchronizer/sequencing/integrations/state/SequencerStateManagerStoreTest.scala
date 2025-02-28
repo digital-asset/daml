@@ -102,18 +102,24 @@ trait SequencerStateManagerStoreTest
         )
 
         val inFlightAggregation1 = InFlightAggregation(
-          rule,
-          t4,
+          rule = rule,
+          firstSequencingTimestamp = t2,
+          maxSequencingTimestamp = t4,
           alice -> AggregationBySender(
             t2,
             Seq(Seq(signatureAlice1), Seq(signatureAlice2, signatureAlice3)),
           ),
           bob -> AggregationBySender(t3, Seq(Seq(signatureBob), Seq.empty)),
         )
-        val inFlightAggregation2 = InFlightAggregation(rule, t3)
+        val inFlightAggregation2 = InFlightAggregation(
+          rule = rule,
+          firstSequencingTimestamp = t2,
+          maxSequencingTimestamp = t3,
+        )
         val inFlightAggregation3 = InFlightAggregation(
-          rule,
-          t4,
+          rule = rule,
+          firstSequencingTimestamp = t2,
+          maxSequencingTimestamp = t4,
           alice -> AggregationBySender(
             t4.immediatePredecessor,
             Seq(Seq(signatureAlice1), Seq.empty, Seq(signatureAlice2)),
@@ -184,8 +190,9 @@ trait SequencerStateManagerStoreTest
         )
 
         val inFlightAggregation1 = InFlightAggregation(
-          rule,
-          t3,
+          rule = rule,
+          firstSequencingTimestamp = t2,
+          maxSequencingTimestamp = t3,
           alice -> AggregationBySender(
             t1,
             Seq(Seq(signatureAlice1), Seq(signatureAlice2, signatureAlice3)),
@@ -193,9 +200,10 @@ trait SequencerStateManagerStoreTest
           bob -> AggregationBySender(t2, Seq(Seq(signatureBob), Seq.empty)),
         )
         val inFlightAggregation2 = InFlightAggregation(
-          rule,
-          t3.immediateSuccessor,
-          alice -> AggregationBySender(t2, Seq.fill(3)(Seq.empty)),
+          rule = rule,
+          firstSequencingTimestamp = t2.immediatePredecessor,
+          maxSequencingTimestamp = t3.immediateSuccessor,
+          aggregatedSenders = alice -> AggregationBySender(t2, Seq.fill(3)(Seq.empty)),
         )
 
         (for {

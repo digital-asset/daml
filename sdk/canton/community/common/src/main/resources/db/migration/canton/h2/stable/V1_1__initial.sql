@@ -677,22 +677,28 @@ create table par_pruning_schedules (
 create table seq_in_flight_aggregation(
     aggregation_id varchar not null primary key,
     -- UTC timestamp in microseconds relative to EPOCH
+    first_sequencing_timestamp bigint not null,
+    -- UTC timestamp in microseconds relative to EPOCH
     max_sequencing_time bigint not null,
     -- serialized aggregation rule,
     aggregation_rule binary large object not null
 );
 
-create index idx_seq_in_flight_aggregation_max_sequencing_time on seq_in_flight_aggregation(max_sequencing_time);
+create index idx_seq_in_flight_aggregation_temporal on seq_in_flight_aggregation(first_sequencing_timestamp, max_sequencing_time);
 
 create table seq_in_flight_aggregated_sender(
     aggregation_id varchar not null,
     sender varchar not null,
     -- UTC timestamp in microseconds relative to EPOCH
     sequencing_timestamp bigint not null,
+    -- UTC timestamp in microseconds relative to EPOCH
+    max_sequencing_time bigint not null,
     signatures binary large object not null,
     primary key (aggregation_id, sender),
     constraint foreign_key_in_flight_aggregated_sender foreign key (aggregation_id) references seq_in_flight_aggregation(aggregation_id) on delete cascade
 );
+
+create index idx_seq_in_flight_aggregated_sender_temporal on seq_in_flight_aggregated_sender(sequencing_timestamp, max_sequencing_time);
 
 -- stores the topology-x state transactions
 create table common_topology_transactions (

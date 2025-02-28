@@ -19,6 +19,10 @@ data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface I where
     viewtype View
+    getOwner : Party
+    nonconsuming choice ChoiceI: ()
+      controller getOwner this
+      do pure ()
 
 interface I2 where
     viewtype View2
@@ -34,6 +38,7 @@ template T1
   where
     signatory p
     interface instance I for T1 where
+      getOwner = p
       view = View with
         a
         b = True
@@ -46,9 +51,13 @@ template T2
   where
     signatory p
     interface instance I for T2 where
+      getOwner = p
       view = View with
         a
         b = False
+    nonconsuming choice ChoiceT2: ()
+      controller p
+      do pure ()
 
 -- Template implementing interface "I", which is crashing.
 template T3
@@ -58,6 +67,7 @@ template T3
   where
     signatory p
     interface instance I for T3 where
+      getOwner = p
       view = error "view crashed"
 
 -- Template which is unrelated to any of the defined interfaces.
@@ -76,6 +86,7 @@ template T5
  where
    signatory p
    interface instance I for T5 where
+     getOwner = p
      view = View with
        a
        b = True
@@ -92,6 +103,7 @@ template T6
    signatory p1
    observer p1, p2
    interface instance I for T6 where
+     getOwner = p1
      view = View with
        a = 6
        b = True

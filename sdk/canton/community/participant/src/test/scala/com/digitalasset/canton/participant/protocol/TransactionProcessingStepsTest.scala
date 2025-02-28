@@ -54,7 +54,7 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
     },
     transactionEnricher = tx => _ => EitherT.pure(tx),
     createNodeEnricher = node => _ => EitherT.pure(node),
-    new AuthorizationValidator(participantId, true),
+    new AuthorizationValidator(participantId),
     new InternalConsistencyChecker(
       loggerFactory
     ),

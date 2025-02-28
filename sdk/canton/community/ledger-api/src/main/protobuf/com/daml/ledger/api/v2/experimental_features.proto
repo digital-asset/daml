@@ -18,7 +18,6 @@ option java_package = "com.daml.ledger.api.v2";
 message ExperimentalFeatures {
   ExperimentalStaticTime static_time = 1;
   ExperimentalCommandInspectionService command_inspection_service = 2;
-  ExperimentalInteractiveSubmissionService interactive_submission_service = 3;
   ExperimentalPartyTopologyEvents party_topology_events = 4;
 }
 
@@ -29,11 +28,6 @@ message ExperimentalStaticTime {
 
 // Whether the Ledger API supports command inspection service
 message ExperimentalCommandInspectionService {
-  bool supported = 1;
-}
-
-// Whether the Ledger API supports interactive submission service
-message ExperimentalInteractiveSubmissionService {
   bool supported = 1;
 }
 

@@ -104,6 +104,7 @@ object JsSchema {
         templateId: String,
         witnessParties: Seq[String],
         packageName: String,
+        implementedInterfaces: Seq[String],
     ) extends Event
 
     final case class ExercisedEvent(
@@ -120,6 +121,7 @@ object JsSchema {
         lastDescendantNodeId: Int,
         exerciseResult: Json,
         packageName: String,
+        implementedInterfaces: Seq[com.daml.ledger.api.v2.value.Identifier],
     ) extends Event
   }
 

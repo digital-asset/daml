@@ -37,6 +37,8 @@ public final class ExercisedEvent implements TreeEvent {
 
   private final Value exerciseResult;
 
+  private final List<Identifier> implementedInterfaces;
+
   public ExercisedEvent(
       @NonNull List<@NonNull String> witnessParties,
       @NonNull Long offset,
@@ -50,7 +52,8 @@ public final class ExercisedEvent implements TreeEvent {
       @NonNull List<@NonNull String> actingParties,
       boolean consuming,
       @NonNull Integer lastDescendantNodeId,
-      @NonNull Value exerciseResult) {
+      @NonNull Value exerciseResult,
+      @NonNull List<@NonNull Identifier> implementedInterfaces) {
     this.witnessParties = witnessParties;
     this.offset = offset;
     this.nodeId = nodeId;
@@ -64,6 +67,7 @@ public final class ExercisedEvent implements TreeEvent {
     this.consuming = consuming;
     this.lastDescendantNodeId = lastDescendantNodeId;
     this.exerciseResult = exerciseResult;
+    this.implementedInterfaces = implementedInterfaces;
   }
 
   @NonNull
@@ -135,6 +139,11 @@ public final class ExercisedEvent implements TreeEvent {
     return exerciseResult;
   }
 
+  @NonNull
+  public List<Identifier> getImplementedInterfaces() {
+    return implementedInterfaces;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -152,7 +161,8 @@ public final class ExercisedEvent implements TreeEvent {
         && Objects.equals(choiceArgument, that.choiceArgument)
         && Objects.equals(actingParties, that.actingParties)
         && Objects.equals(lastDescendantNodeId, that.lastDescendantNodeId)
-        && Objects.equals(exerciseResult, that.exerciseResult);
+        && Objects.equals(exerciseResult, that.exerciseResult)
+        && Objects.equals(implementedInterfaces, that.implementedInterfaces);
   }
 
   @Override
@@ -171,7 +181,8 @@ public final class ExercisedEvent implements TreeEvent {
         actingParties,
         lastDescendantNodeId,
         consuming,
-        exerciseResult);
+        exerciseResult,
+        implementedInterfaces);
   }
 
   @Override
@@ -205,24 +216,29 @@ public final class ExercisedEvent implements TreeEvent {
         + lastDescendantNodeId
         + ", exerciseResult="
         + exerciseResult
+        + ", implementedInterfaces='"
+        + implementedInterfaces
         + '}';
   }
 
   public EventOuterClass.@NonNull ExercisedEvent toProto() {
-    EventOuterClass.ExercisedEvent.Builder builder = EventOuterClass.ExercisedEvent.newBuilder();
-    builder.setOffset(getOffset());
-    builder.setNodeId(getNodeId());
-    builder.setChoice(getChoice());
-    builder.setChoiceArgument(getChoiceArgument().toProto());
-    builder.setConsuming(isConsuming());
-    builder.setContractId(getContractId());
-    builder.setTemplateId(getTemplateId().toProto());
-    builder.setPackageName(getPackageName());
+    EventOuterClass.ExercisedEvent.Builder builder =
+        EventOuterClass.ExercisedEvent.newBuilder()
+            .setOffset(getOffset())
+            .setNodeId(getNodeId())
+            .setChoice(getChoice())
+            .setChoiceArgument(getChoiceArgument().toProto())
+            .setConsuming(isConsuming())
+            .setContractId(getContractId())
+            .setTemplateId(getTemplateId().toProto())
+            .setPackageName(getPackageName())
+            .addAllActingParties(getActingParties())
+            .addAllWitnessParties(getWitnessParties())
+            .setLastDescendantNodeId(getLastDescendantNodeId())
+            .setExerciseResult(getExerciseResult().toProto())
+            .addAllImplementedInterfaces(
+                getImplementedInterfaces().stream().map(Identifier::toProto).toList());
     interfaceId.ifPresent(i -> builder.setInterfaceId(i.toProto()));
-    builder.addAllActingParties(getActingParties());
-    builder.addAllWitnessParties(getWitnessParties());
-    builder.setLastDescendantNodeId(getLastDescendantNodeId());
-    builder.setExerciseResult(getExerciseResult().toProto());
     return builder.build();
   }
 
@@ -242,6 +258,7 @@ public final class ExercisedEvent implements TreeEvent {
         exercisedEvent.getActingPartiesList(),
         exercisedEvent.getConsuming(),
         exercisedEvent.getLastDescendantNodeId(),
-        Value.fromProto(exercisedEvent.getExerciseResult()));
+        Value.fromProto(exercisedEvent.getExerciseResult()),
+        exercisedEvent.getImplementedInterfacesList().stream().map(Identifier::fromProto).toList());
   }
 }

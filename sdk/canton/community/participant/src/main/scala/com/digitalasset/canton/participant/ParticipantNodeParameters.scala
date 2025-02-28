@@ -31,7 +31,6 @@ final case class ParticipantNodeParameters(
     commandProgressTracking: CommandProgressTrackerConfig,
     unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig],
     experimentalEnableTopologyEvents: Boolean,
-    enableExternalAuthorization: Boolean,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def sessionSigningKeys: SessionSigningKeysConfig =
@@ -86,6 +85,5 @@ object ParticipantNodeParameters {
     commandProgressTracking = CommandProgressTrackerConfig(),
     unsafeOnlinePartyReplication = None,
     experimentalEnableTopologyEvents = true,
-    enableExternalAuthorization = false,
   )
 }

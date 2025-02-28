@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.store.dao.events
 import cats.implicits.toTraverseOps
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.event.{ArchivedEvent, CreatedEvent, ExercisedEvent, InterfaceView}
+import com.daml.ledger.api.v2.value
 import com.daml.ledger.api.v2.value.{Record as ApiRecord, Value as ApiValue}
 import com.daml.metrics.Timed
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
@@ -235,9 +236,8 @@ final class LfValueTranslation(
     )
 
   def deserializeRaw(
-      verbose: Boolean
-  )(
-      rawExercisedEvent: RawExercisedEvent
+      eventProjectionProperties: EventProjectionProperties,
+      rawExercisedEvent: RawExercisedEvent,
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
@@ -267,7 +267,7 @@ final class LfValueTranslation(
       // In verbose mode, this involves loading Daml-LF packages and filling in missing type information.
       choiceArgument <- toApiValue(
         value = exerciseArgument,
-        verbose = verbose,
+        verbose = eventProjectionProperties.verbose,
         attribute = "exercise argument",
         enrich = value =>
           enricher.enrichChoiceArgument(
@@ -281,7 +281,7 @@ final class LfValueTranslation(
         case Some(result) =>
           toApiValue(
             value = result,
-            verbose = verbose,
+            verbose = eventProjectionProperties.verbose,
             attribute = "exercise result",
             enrich = value =>
               enricher.enrichChoiceResult(
@@ -311,10 +311,19 @@ final class LfValueTranslation(
       lastDescendantNodeId = rawExercisedEvent.exerciseLastDescendantNodeId,
       exerciseResult = exerciseResult,
       packageName = rawExercisedEvent.packageName,
+      implementedInterfaces =
+        if (rawExercisedEvent.exerciseConsuming)
+          implementedInterfaces(
+            eventProjectionProperties,
+            rawExercisedEvent.witnessParties,
+            rawExercisedEvent.templateId,
+          )
+        else Nil,
     )
 
   def deserializeRaw(
-      rawArchivedEvent: RawArchivedEvent
+      eventProjectionProperties: EventProjectionProperties,
+      rawArchivedEvent: RawArchivedEvent,
   ): ArchivedEvent =
     ArchivedEvent(
       offset = rawArchivedEvent.offset,
@@ -325,12 +334,16 @@ final class LfValueTranslation(
       ),
       witnessParties = rawArchivedEvent.witnessParties.toSeq,
       packageName = rawArchivedEvent.packageName,
+      implementedInterfaces = implementedInterfaces(
+        eventProjectionProperties,
+        rawArchivedEvent.witnessParties,
+        rawArchivedEvent.templateId,
+      ),
     )
 
   def deserializeRaw(
-      eventProjectionProperties: EventProjectionProperties
-  )(
-      rawCreatedEvent: RawCreatedEvent
+      eventProjectionProperties: EventProjectionProperties,
+      rawCreatedEvent: RawCreatedEvent,
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
@@ -470,6 +483,17 @@ final class LfValueTranslation(
       interfaceViews = interfaceViews,
     )
   }
+
+  def implementedInterfaces(
+      eventProjectionProperties: EventProjectionProperties,
+      witnessParties: Set[String],
+      templateId: Identifier,
+  ): Seq[value.Identifier] = eventProjectionProperties
+    .render(witnessParties, templateId)
+    .interfaces
+    .view
+    .map(LfEngineToApi.toApiIdentifier)
+    .toSeq
 
   private def toInterfaceView(verbose: Boolean, interfaceId: Identifier)(
       result: Either[Status, Versioned[Value]]
