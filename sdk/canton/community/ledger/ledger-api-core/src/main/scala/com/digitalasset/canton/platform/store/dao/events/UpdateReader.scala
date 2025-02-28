@@ -328,13 +328,17 @@ private[dao] object UpdateReader {
   ): Future[Entry[Event]] = rawFlatEntry.event match {
     case rawCreated: RawCreatedEvent =>
       lfValueTranslation
-        .deserializeRaw(eventProjectionProperties)(rawCreated)
+        .deserializeRaw(eventProjectionProperties, rawCreated)
         .map(createdEvent => rawFlatEntry.copy(event = Event(Event.Event.Created(createdEvent))))
 
     case rawArchived: RawArchivedEvent =>
       Future.successful(
         rawFlatEntry.copy(
-          event = Event(Event.Event.Archived(lfValueTranslation.deserializeRaw(rawArchived)))
+          event = Event(
+            Event.Event.Archived(
+              lfValueTranslation.deserializeRaw(eventProjectionProperties, rawArchived)
+            )
+          )
         )
       )
   }
@@ -351,7 +355,7 @@ private[dao] object UpdateReader {
   ): Future[Entry[TreeEvent]] = rawTreeEntry.event match {
     case rawCreated: RawCreatedEvent =>
       lfValueTranslation
-        .deserializeRaw(eventProjectionProperties)(rawCreated)
+        .deserializeRaw(eventProjectionProperties, rawCreated)
         .map(createdEvent =>
           rawTreeEntry.copy(
             event = TreeEvent(TreeEvent.Kind.Created(createdEvent))
@@ -360,7 +364,7 @@ private[dao] object UpdateReader {
 
     case rawExercised: RawExercisedEvent =>
       lfValueTranslation
-        .deserializeRaw(eventProjectionProperties.verbose)(rawExercised)
+        .deserializeRaw(eventProjectionProperties, rawExercised)
         .map(exercisedEvent =>
           rawTreeEntry.copy(
             event = TreeEvent(TreeEvent.Kind.Exercised(exercisedEvent))
@@ -379,7 +383,7 @@ private[dao] object UpdateReader {
   ): Future[Entry[Event]] = rawTreeEntry.event match {
     case rawCreated: RawCreatedEvent =>
       lfValueTranslation
-        .deserializeRaw(eventProjectionProperties)(rawCreated)
+        .deserializeRaw(eventProjectionProperties, rawCreated)
         .map(createdEvent =>
           rawTreeEntry.copy(
             event = Event(Event.Event.Created(createdEvent))
@@ -388,7 +392,7 @@ private[dao] object UpdateReader {
 
     case rawExercised: RawExercisedEvent =>
       lfValueTranslation
-        .deserializeRaw(eventProjectionProperties.verbose)(rawExercised)
+        .deserializeRaw(eventProjectionProperties, rawExercised)
         .map(exercisedEvent =>
           rawTreeEntry.copy(
             event = Event(Event.Event.Exercised(exercisedEvent))

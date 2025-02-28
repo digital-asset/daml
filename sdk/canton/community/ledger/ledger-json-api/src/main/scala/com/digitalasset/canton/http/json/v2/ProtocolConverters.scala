@@ -694,6 +694,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       templateId = IdentifierConverter.toJson(e.getTemplateId),
       witnessParties = e.witnessParties,
       packageName = e.packageName,
+      implementedInterfaces = e.implementedInterfaces.map(IdentifierConverter.toJson),
     )
 
     def fromJson(ev: JsEvent.ArchivedEvent): lapi.event.ArchivedEvent = lapi.event.ArchivedEvent(
@@ -703,6 +704,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       templateId = Some(IdentifierConverter.fromJson(ev.templateId)),
       witnessParties = ev.witnessParties,
       packageName = ev.packageName,
+      implementedInterfaces = ev.implementedInterfaces.map(IdentifierConverter.fromJson),
     )
   }
 
@@ -824,6 +826,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         lastDescendantNodeId = exercised.lastDescendantNodeId,
         exerciseResult = exerciseResult,
         packageName = exercised.packageName,
+        implementedInterfaces = exercised.implementedInterfaces,
       )
 
     def fromJson(exericisedEvent: JsEvent.ExercisedEvent)(implicit
@@ -858,6 +861,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         lastDescendantNodeId = exericisedEvent.lastDescendantNodeId,
         exerciseResult = choiceResult,
         packageName = exericisedEvent.packageName,
+        implementedInterfaces = exericisedEvent.implementedInterfaces,
       )
 
   }

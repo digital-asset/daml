@@ -208,8 +208,9 @@ class ReassignmentStreamReader(
     Timed.future(
       future = Future.delegate(
         lfValueTranslation
-          .deserializeRaw(eventProjectionProperties)(
-            rawAssignEntry.event.rawCreatedEvent
+          .deserializeRaw(
+            eventProjectionProperties,
+            rawAssignEntry.event.rawCreatedEvent,
           )
           .map(createdEvent =>
             Reassignment(

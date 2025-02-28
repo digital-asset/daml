@@ -196,7 +196,6 @@ class ConnectedSynchronizer(
     synchronizerId,
     damle,
     staticSynchronizerParameters,
-    parameters,
     synchronizerCrypto,
     sequencerClient,
     ephemeral.inFlightSubmissionSynchronizerTracker,

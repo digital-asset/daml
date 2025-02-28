@@ -613,8 +613,9 @@ class ACSReader(
     Timed.future(
       future = Future.delegate(
         lfValueTranslation
-          .deserializeRaw(eventProjectionProperties)(
-            rawActiveContract.rawCreatedEvent
+          .deserializeRaw(
+            eventProjectionProperties,
+            rawActiveContract.rawCreatedEvent,
           )
           .map(createdEvent =>
             GetActiveContractsResponse(
@@ -638,8 +639,9 @@ class ACSReader(
     Timed.future(
       future = Future.delegate(
         lfValueTranslation
-          .deserializeRaw(eventProjectionProperties)(
-            rawAssignEntry.event.rawCreatedEvent
+          .deserializeRaw(
+            eventProjectionProperties,
+            rawAssignEntry.event.rawCreatedEvent,
           )
           .map(createdEvent =>
             rawAssignEntry.offset -> GetActiveContractsResponse(
@@ -663,7 +665,7 @@ class ACSReader(
     val (rawUnassignEntry, rawCreate) = rawUnassignEntryWithCreate
     Timed.future(
       future = lfValueTranslation
-        .deserializeRaw(eventProjectionProperties)(rawCreate)
+        .deserializeRaw(eventProjectionProperties, rawCreate)
         .map(createdEvent =>
           rawUnassignEntry.offset -> GetActiveContractsResponse(
             workflowId = rawUnassignEntry.workflowId.getOrElse(""),

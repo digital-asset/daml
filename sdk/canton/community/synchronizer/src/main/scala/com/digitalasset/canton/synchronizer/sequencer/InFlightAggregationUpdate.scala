@@ -44,17 +44,27 @@ object InFlightAggregationUpdate {
 
 /** The metadata for starting a fresh in-flight aggregation */
 final case class FreshInFlightAggregation(
+    firstSequencingTimestamp: CantonTimestamp,
     maxSequencingTimestamp: CantonTimestamp,
     rule: AggregationRule,
 )
 
-final case class AggregatedSender(sender: Member, aggregation: AggregationBySender)
+final case class AggregatedSender(
+    sender: Member,
+    maxSequencingTime: CantonTimestamp,
+    aggregation: AggregationBySender,
+)
 
 object AggregatedSender {
   def apply(
       sender: Member,
+      maxSequencingTime: CantonTimestamp,
       signatures: Seq[Seq[Signature]],
       sequencingTimestamp: CantonTimestamp,
   ): AggregatedSender =
-    AggregatedSender(sender, AggregationBySender(sequencingTimestamp, signatures))
+    AggregatedSender(
+      sender,
+      maxSequencingTime,
+      AggregationBySender(sequencingTimestamp, signatures),
+    )
 }

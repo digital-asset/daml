@@ -22,19 +22,23 @@ public final class ArchivedEvent implements Event {
 
   private final String contractId;
 
+  private final List<Identifier> implementedInterfaces;
+
   public ArchivedEvent(
       @NonNull List<@NonNull String> witnessParties,
       @NonNull Long offset,
       @NonNull Integer nodeId,
       @NonNull Identifier templateId,
       @NonNull String packageName,
-      @NonNull String contractId) {
+      @NonNull String contractId,
+      @NonNull List<@NonNull Identifier> implementedInterfaces) {
     this.witnessParties = witnessParties;
     this.offset = offset;
     this.nodeId = nodeId;
     this.templateId = templateId;
     this.packageName = packageName;
     this.contractId = contractId;
+    this.implementedInterfaces = implementedInterfaces;
   }
 
   @NonNull
@@ -73,6 +77,11 @@ public final class ArchivedEvent implements Event {
     return contractId;
   }
 
+  @NonNull
+  public List<Identifier> getImplementedInterfaces() {
+    return implementedInterfaces;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -83,12 +92,14 @@ public final class ArchivedEvent implements Event {
         && Objects.equals(nodeId, that.nodeId)
         && Objects.equals(templateId, that.templateId)
         && Objects.equals(packageName, that.packageName)
-        && Objects.equals(contractId, that.contractId);
+        && Objects.equals(contractId, that.contractId)
+        && Objects.equals(implementedInterfaces, that.implementedInterfaces);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(witnessParties, offset, nodeId, templateId, packageName, contractId);
+    return Objects.hash(
+        witnessParties, offset, nodeId, templateId, packageName, contractId, implementedInterfaces);
   }
 
   @Override
@@ -106,6 +117,8 @@ public final class ArchivedEvent implements Event {
         + templateId
         + ", contractId='"
         + contractId
+        + ", implementedInterfaces='"
+        + implementedInterfaces
         + '\''
         + '}';
   }
@@ -118,6 +131,8 @@ public final class ArchivedEvent implements Event {
         .setTemplateId(getTemplateId().toProto())
         .setPackageName(getPackageName())
         .addAllWitnessParties(getWitnessParties())
+        .addAllImplementedInterfaces(
+            getImplementedInterfaces().stream().map(Identifier::toProto).toList())
         .build();
   }
 
@@ -128,6 +143,7 @@ public final class ArchivedEvent implements Event {
         archivedEvent.getNodeId(),
         Identifier.fromProto(archivedEvent.getTemplateId()),
         archivedEvent.getPackageName(),
-        archivedEvent.getContractId());
+        archivedEvent.getContractId(),
+        archivedEvent.getImplementedInterfacesList().stream().map(Identifier::fromProto).toList());
   }
 }

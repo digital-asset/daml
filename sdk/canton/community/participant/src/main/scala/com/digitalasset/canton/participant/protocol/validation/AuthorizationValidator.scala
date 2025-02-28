@@ -16,8 +16,8 @@ import com.digitalasset.canton.util.ShowUtil.*
 
 import scala.concurrent.ExecutionContext
 
-class AuthorizationValidator(participantId: ParticipantId, enableExternalAuthorization: Boolean)(
-    implicit executionContext: ExecutionContext
+class AuthorizationValidator(participantId: ParticipantId)(implicit
+    executionContext: ExecutionContext
 ) {
 
   def checkAuthorization(
@@ -68,16 +68,8 @@ class AuthorizationValidator(participantId: ParticipantId, enableExternalAuthori
         ): FutureUnlessShutdown[Option[String]] =
           submitterMetadata.externalAuthorization match {
             case None => checkNonExternallySignedMetadata(submitterMetadata)
-            case Some(_) if enableExternalAuthorization =>
-              checkExternallySignedMetadata(submitterMetadata)
             case Some(_) =>
-              FutureUnlessShutdown.pure(
-                Some(
-                  err(
-                    "External authentication is not enabled (to enable set enable-external-authorization parameter)"
-                  )
-                )
-              )
+              checkExternallySignedMetadata(submitterMetadata)
           }
 
         def checkNonExternallySignedMetadata(

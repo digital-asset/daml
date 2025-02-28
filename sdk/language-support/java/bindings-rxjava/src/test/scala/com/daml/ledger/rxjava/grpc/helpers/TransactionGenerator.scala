@@ -284,6 +284,8 @@ object TransactionGenerator {
       javaTemplateId,
       pkgName,
       contractId,
+      // TODO(#20821): implement missing implemented_interfaces in the jave binding
+      Nil.asJava,
     ),
   )
 
@@ -335,6 +337,8 @@ object TransactionGenerator {
       consuming,
       nodeId,
       javaExerciseResult,
+      // TODO(#20821): implement missing implemented_interfaces in the jave binding
+      Nil.asJava,
     ),
   )
 

@@ -334,8 +334,6 @@ object TestingTimeServiceConfig {
   *   Initialization parameters for the package metadata in-memory store.
   * @param experimentalEnableTopologyEvents
   *   If true, topology events are propagated to the Ledger API clients
-  * @param enableExternalAuthorization
-  *   If true, external authentication is supported
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -369,7 +367,6 @@ final case class ParticipantNodeParameterConfig(
     commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),
     unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig] = None,
     experimentalEnableTopologyEvents: Boolean = false,
-    enableExternalAuthorization: Boolean = false,
 ) extends LocalNodeParametersConfig
     with UniformCantonConfigValidation
 

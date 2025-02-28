@@ -461,7 +461,6 @@ trait CantonConfig extends CantonConfigValidation {
         unsafeOnlinePartyReplication = participantParameters.unsafeOnlinePartyReplication,
         // TODO(i21341) Remove the flag before going to production
         experimentalEnableTopologyEvents = participantParameters.experimentalEnableTopologyEvents,
-        enableExternalAuthorization = participantParameters.enableExternalAuthorization,
       )
     }
 

@@ -695,22 +695,34 @@ create table common_pruning_schedules(
 create table seq_in_flight_aggregation(
   aggregation_id varchar collate "C" not null primary key,
   -- UTC timestamp in microseconds relative to EPOCH
+  first_sequencing_timestamp bigint not null,
+  -- UTC timestamp in microseconds relative to EPOCH
   max_sequencing_time bigint not null,
   -- serialized aggregation rule,
   aggregation_rule bytea not null
 );
 
-create index idx_seq_in_flight_aggregation_max_sequencing_time on seq_in_flight_aggregation(max_sequencing_time);
+-- NB: Do not add other indexes to this table, as this will confuse the planner to ignore the BRIN index
+create index idx_seq_in_flight_aggregation_temporal_brin
+    on seq_in_flight_aggregation
+    using brin (first_sequencing_timestamp, max_sequencing_time);
 
 create table seq_in_flight_aggregated_sender(
   aggregation_id varchar collate "C" not null,
   sender varchar collate "C" not null,
   -- UTC timestamp in microseconds relative to EPOCH
   sequencing_timestamp bigint not null,
+  -- UTC timestamp in microseconds relative to EPOCH
+  max_sequencing_time bigint not null,
   signatures bytea not null,
   primary key (aggregation_id, sender),
   constraint foreign_key_seq_in_flight_aggregated_sender foreign key (aggregation_id) references seq_in_flight_aggregation(aggregation_id) on delete cascade
 );
+
+-- NB: Do not add other indexes to this table, as this will confuse the planner to ignore the BRIN index
+create index idx_seq_in_flight_aggregated_sender_temporal_brin
+    on seq_in_flight_aggregated_sender
+        using brin (sequencing_timestamp, max_sequencing_time);
 
 -- stores the topology-x state transactions
 create table common_topology_transactions (

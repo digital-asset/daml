@@ -370,34 +370,33 @@ object ApiServices {
         loggerFactory = loggerFactory,
       )
 
-      val apiInteractiveSubmissionService =
-        Option.when(interactiveSubmissionServiceConfig.enabled) {
-          val interactiveSubmissionService =
-            InteractiveSubmissionServiceImpl.createApiService(
-              syncService,
-              timeProvider,
-              timeProviderType,
-              seedService,
-              commandExecutor,
-              metrics,
-              checkOverloaded,
-              lfValueTranslation,
-              interactiveSubmissionServiceConfig,
-              loggerFactory,
-            )
-
-          new ApiInteractiveSubmissionService(
-            commandsValidator = commandsValidator,
-            interactiveSubmissionService = interactiveSubmissionService,
-            currentLedgerTime = () => timeProvider.getCurrentTime,
-            currentUtcTime = () => Instant.now,
-            maxDeduplicationDuration = maxDeduplicationDuration.asJava,
-            submissionIdGenerator = SubmissionIdGenerator.Random,
-            metrics = metrics,
-            telemetry = telemetry,
-            loggerFactory = loggerFactory,
+      val apiInteractiveSubmissionService = {
+        val interactiveSubmissionService =
+          InteractiveSubmissionServiceImpl.createApiService(
+            syncService,
+            timeProvider,
+            timeProviderType,
+            seedService,
+            commandExecutor,
+            metrics,
+            checkOverloaded,
+            lfValueTranslation,
+            interactiveSubmissionServiceConfig,
+            loggerFactory,
           )
-        }
+
+        new ApiInteractiveSubmissionService(
+          commandsValidator = commandsValidator,
+          interactiveSubmissionService = interactiveSubmissionService,
+          currentLedgerTime = () => timeProvider.getCurrentTime,
+          currentUtcTime = () => Instant.now,
+          maxDeduplicationDuration = maxDeduplicationDuration.asJava,
+          submissionIdGenerator = SubmissionIdGenerator.Random,
+          metrics = metrics,
+          telemetry = telemetry,
+          loggerFactory = loggerFactory,
+        )
+      }
 
       List(
         new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),
@@ -405,8 +404,7 @@ object ApiServices {
         new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
         new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
         new ParticipantPruningServiceAuthorization(participantPruningService, authorizer),
-      ) ::: apiInteractiveSubmissionService.toList.map(
-        new InteractiveSubmissionServiceAuthorization(_, authorizer)
+        new InteractiveSubmissionServiceAuthorization(apiInteractiveSubmissionService, authorizer),
       )
     }
 
