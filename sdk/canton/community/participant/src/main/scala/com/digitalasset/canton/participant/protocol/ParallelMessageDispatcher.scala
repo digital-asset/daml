@@ -60,7 +60,6 @@ class ParallelMessageDispatcher(
     override protected val requestCounterAllocator: RequestCounterAllocator,
     override protected val recordOrderPublisher: RecordOrderPublisher,
     override protected val badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor,
-    override protected val repairProcessor: RepairProcessor,
     override protected val inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
     processAsyncronously: ViewType => Boolean,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -245,8 +244,8 @@ class ParallelMessageDispatcher(
               synchronizerId = synchronizerId,
               sequencerCounter = sc,
               recordTime = ts,
-              requestCounterO = None,
-            )
+            ),
+            rcO = None,
           )
         )
       } else {

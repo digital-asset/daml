@@ -311,9 +311,9 @@ object ReassignmentStore {
       reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
       assignmentTs: Option[CantonTimestamp],
   ) {
-    def reassignmentDataO: Option[UnassignmentData] = unassignmentRequest.map(
+    def unassignmentDataO: Option[UnassignmentData] = unassignmentRequest.map(
       UnassignmentData(
-        reassignmentId.unassignmentTs,
+        reassignmentId,
         _,
         unassignmentDecisionTime,
         unassignmentResult,
@@ -328,7 +328,7 @@ object ReassignmentStore {
         otherReassignmentData: UnassignmentData
     ): Checked[ReassignmentDataAlreadyExists, ReassignmentAlreadyCompleted, ReassignmentEntry] =
       for {
-        reassignmentData <- this.reassignmentDataO match {
+        reassignmentData <- this.unassignmentDataO match {
           case None => Checked.result(otherReassignmentData)
           case Some(oldReassignmentData) =>
             Checked.fromEither(
@@ -342,7 +342,7 @@ object ReassignmentStore {
     private[store] def addUnassignmentResult(
         unassignmentResult: DeliveredUnassignmentResult
     ): Either[UnassignmentResultAlreadyExists, ReassignmentEntry] = {
-      val reassignmentData = reassignmentDataO.getOrElse(
+      val reassignmentData = unassignmentDataO.getOrElse(
         throw new IllegalStateException("reassignment data should be inserted")
       )
       reassignmentData

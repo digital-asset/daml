@@ -4,7 +4,6 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.error.*
-import com.daml.error.ErrorCategory.GenericErrorCategory
 import com.daml.error.utils.DecodedCantonError
 import com.daml.ledger.api.v2.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v2.offset_checkpoint
@@ -17,14 +16,12 @@ import com.google.protobuf.util.JsonFormat
 import io.circe.generic.extras.Configuration
 import io.circe.generic.semiauto.deriveCodec
 import io.circe.{Codec, Decoder, Encoder, Json}
-import io.grpc.Status
-import org.slf4j.event.Level
 import sttp.tapir.CodecFormat.TextPlain
 import sttp.tapir.{DecodeResult, Schema, SchemaType}
 
 import java.time.Instant
 import java.util.Base64
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration.Duration
 import scala.util.Try
 
 /** JSON wrappers that do not belong to a particular service */
@@ -211,38 +208,6 @@ object JsSchema {
         definiteAnswer = decodedCantonError.definiteAnswerO,
       )
 
-    implicit val genericErrorClass: ErrorClass = ErrorClass(
-      List(Grouping("generic", "ErrorClass"))
-    )
-
-    private final case class GenericErrorCode(
-        override val id: String,
-        override val category: ErrorCategory,
-    ) extends ErrorCode(id, category)
-
-    def toDecodedCantonError(jsCantonError: JsCantonError): DecodedCantonError =
-      // TODO (i19398) revisit error handling code
-      new DecodedCantonError(
-        code = GenericErrorCode(
-          id = jsCantonError.code,
-          category = GenericErrorCategory(
-            grpcCode = jsCantonError.grpcCodeValue.map(Status.fromCodeValue).map(_.getCode),
-            logLevel = Level.INFO,
-            retryable = jsCantonError.retryInfo.map(duration =>
-              ErrorCategoryRetry(FiniteDuration(duration.length, duration.unit))
-            ),
-            redactDetails = false,
-            asInt = jsCantonError.errorCategory,
-            rank = 1,
-          ),
-        ),
-        cause = jsCantonError.cause,
-        correlationId = jsCantonError.correlationId,
-        traceId = jsCantonError.traceId,
-        context = jsCantonError.context,
-        resources = jsCantonError.resources.map { case (k, v) => (ErrorResource(k), v) },
-        definiteAnswerO = jsCantonError.definiteAnswer,
-      )
   }
   object DirectScalaPbRwImplicits {
     import sttp.tapir.generic.auto.*

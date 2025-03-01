@@ -193,10 +193,10 @@ object RepairServiceError extends RepairServiceErrorGroup {
       elc: ErrorLoggingContext,
   ): RepairServiceError =
     acsError match {
-      case AcsInspectionError.TimestampAfterCleanRequestIndex(synchronizerId, requested, clean) =>
+      case AcsInspectionError.RequestedAfterCleanTimeOfChange(synchronizerId, requested, clean) =>
         RepairServiceError.InvalidAcsSnapshotTimestamp.Error(
-          requested,
-          clean,
+          requested.timestamp,
+          clean.timestamp,
           synchronizerId,
         )
       case AcsInspectionError.TimestampBeforePruning(synchronizerId, requested, pruned) =>

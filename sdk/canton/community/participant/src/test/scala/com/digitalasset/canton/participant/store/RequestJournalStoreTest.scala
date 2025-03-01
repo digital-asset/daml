@@ -7,9 +7,9 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
-import com.digitalasset.canton.participant.admin.repair.RepairContext
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestData
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.*
+import com.digitalasset.canton.participant.util.TimeOfRequest
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, RequestCounter}
 import org.scalatest.wordspec.AsyncWordSpecLike
@@ -57,9 +57,9 @@ trait RequestJournalStoreTest extends FailOnShutdown {
       "find the first request by request counter whose commit time is after" in {
         val store = mk()
         val data0 = RequestData.initial(rc, ts)
-        val data1 = RequestData.clean(rc + 1L, ts, ts.plusSeconds(10))
+        val data1 = RequestData.clean(rc + 1L, ts.plusSeconds(1), ts.plusSeconds(10))
         val data2 = RequestData.clean(rc + 2L, ts.plusSeconds(2), ts.plusSeconds(4))
-        val data3 = RequestData.clean(rc + 3L, ts.plusSeconds(2), ts.plusSeconds(5))
+        val data3 = RequestData.clean(rc + 3L, ts.plusSeconds(3), ts.plusSeconds(5))
         val inserts = List(data0, data1, data2, data3)
         for {
           _ <- inserts.parTraverse(store.insert)
@@ -87,7 +87,7 @@ trait RequestJournalStoreTest extends FailOnShutdown {
 
     "inserting is idempotent" in {
       val store = mk()
-      val data = RequestData(rc, Pending, ts, Some(RepairContext.tryCreate("repair-trace-context")))
+      val data = RequestData(rc, Pending, ts)
       for {
         _ <- store.insert(data)
         _ <- store.insert(data)
@@ -105,29 +105,14 @@ trait RequestJournalStoreTest extends FailOnShutdown {
       } yield succeed
     }
 
-    "inserting repair request preserves repair context" in {
+    "inserting fails if inserting conflicting timestamps" in {
       val store = mk()
-      val firstRepair = RepairContext.tryCreate("first repair")
-      val secondRepair = RepairContext.tryCreate("second repair")
-      val data0 = RequestData(rc, Pending, ts)
-      val data1 = RequestData.clean(rc + 1L, ts, ts, Some(firstRepair))
-      val data2 = RequestData.clean(rc + 2L, ts, ts, Some(secondRepair))
+      val data = RequestData(rc, Pending, ts)
+      val data2 = RequestData(rc + 1, Pending, ts)
       for {
-        _regularRequest <- store.insert(data0)
-        _regularResult <-
-          store
-            .replace(rc, ts, Clean, Some(commitTime))
-            .valueOrFail(
-              s"relace $rc from $Pending to $Clean"
-            )
-        _firstRepair <- store.insert(data1)
-        _secondRepair <- store.insert(data2)
-        firstRepairResult <- store.query(rc + 1L).value
-        secondRepairResult <- store.query(rc + 2L).value
-      } yield {
-        firstRepairResult shouldBe Some(data1)
-        secondRepairResult shouldBe Some(data2)
-      }
+        _ <- store.insert(data)
+        _ <- loggerFactory.suppressWarningsAndErrors(store.insert(data2).failed)
+      } yield succeed
     }
 
     "replace state" in {
@@ -314,49 +299,6 @@ trait RequestJournalStoreTest extends FailOnShutdown {
       }
     }
 
-    "repairRequests" should {
-      "return the repair requests in ascending order" in {
-        val store = mk()
-        val requests = List(
-          RequestData(RequestCounter(0), Pending, tsWithSecs(0)),
-          RequestData(
-            RequestCounter(1),
-            Pending,
-            tsWithSecs(0),
-            repairContext = Some(RepairContext.tryCreate("repair1")),
-          ),
-          RequestData(
-            RequestCounter(2),
-            Pending,
-            tsWithSecs(0),
-            repairContext = Some(RepairContext.tryCreate("repair2")),
-          ),
-          RequestData(RequestCounter(3), Pending, tsWithSecs(3)),
-          RequestData(
-            RequestCounter(4),
-            Pending,
-            tsWithSecs(4),
-            repairContext = Some(RepairContext.tryCreate("repair3")),
-          ),
-          RequestData(RequestCounter(6), Pending, tsWithSecs(5)),
-        )
-        for {
-          empty <- store.repairRequests(RequestCounter.Genesis)
-          _ <- requests.parTraverse_(store.insert)
-          repair1 <- store.repairRequests(RequestCounter(1))
-          repair2 <- store.repairRequests(RequestCounter(2))
-          repair4 <- store.repairRequests(RequestCounter(4))
-          repair6 <- store.repairRequests(RequestCounter(6))
-        } yield {
-          empty shouldBe Seq.empty
-          repair1 shouldBe Seq(requests(1), requests(2), requests(4))
-          repair2 shouldBe Seq(requests(2), requests(4))
-          repair4 shouldBe Seq(requests(4))
-          repair6 shouldBe Seq.empty
-        }
-      }
-    }
-
     "totalDirtyRequests should count dirty requests" in {
       val store = mk()
       for {
@@ -381,17 +323,17 @@ trait RequestJournalStoreTest extends FailOnShutdown {
         val store = mk()
         for {
           _ <- setupRequests(store)
-          early <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(0))
-          firstAt <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(1))
-          firstAfter <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(2))
-          secondAt <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(3))
-          secondAfter <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(4))
+          early <- store.lastRequestTimeWithRequestTimestampBeforeOrAt(tsWithSecs(0))
+          firstAt <- store.lastRequestTimeWithRequestTimestampBeforeOrAt(tsWithSecs(1))
+          firstAfter <- store.lastRequestTimeWithRequestTimestampBeforeOrAt(tsWithSecs(2))
+          secondAt <- store.lastRequestTimeWithRequestTimestampBeforeOrAt(tsWithSecs(3))
+          secondAfter <- store.lastRequestTimeWithRequestTimestampBeforeOrAt(tsWithSecs(4))
         } yield {
           early shouldBe None
-          firstAt shouldBe Some(rc)
-          firstAfter shouldBe Some(rc)
-          secondAt shouldBe Some(rc + 2)
-          secondAfter shouldBe Some(rc + 2)
+          firstAt shouldBe Some(TimeOfRequest(rc, tsWithSecs(1)))
+          firstAfter shouldBe Some(TimeOfRequest(rc, tsWithSecs(1)))
+          secondAt shouldBe Some(TimeOfRequest(rc + 2, tsWithSecs(3)))
+          secondAfter shouldBe Some(TimeOfRequest(rc + 2, tsWithSecs(3)))
         }
       }
 
@@ -411,17 +353,17 @@ trait RequestJournalStoreTest extends FailOnShutdown {
           )(
             "replace2"
           )
-          early <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(0))
-          firstAt <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(1))
-          firstAfter <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(2))
-          secondAt <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(3))
-          secondAfter <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(4))
+          early <- store.lastRequestTimeWithRequestTimestampBeforeOrAt(tsWithSecs(0))
+          firstAt <- store.lastRequestTimeWithRequestTimestampBeforeOrAt(tsWithSecs(1))
+          firstAfter <- store.lastRequestTimeWithRequestTimestampBeforeOrAt(tsWithSecs(2))
+          secondAt <- store.lastRequestTimeWithRequestTimestampBeforeOrAt(tsWithSecs(3))
+          secondAfter <- store.lastRequestTimeWithRequestTimestampBeforeOrAt(tsWithSecs(4))
         } yield {
           early shouldBe None
-          firstAt shouldBe Some(rc)
-          firstAfter shouldBe Some(rc)
-          secondAt shouldBe Some(rc + 2)
-          secondAfter shouldBe Some(rc + 2)
+          firstAt shouldBe Some(TimeOfRequest(rc, tsWithSecs(1)))
+          firstAfter shouldBe Some(TimeOfRequest(rc, tsWithSecs(1)))
+          secondAt shouldBe Some(TimeOfRequest(rc + 2, tsWithSecs(3)))
+          secondAfter shouldBe Some(TimeOfRequest(rc + 2, tsWithSecs(3)))
         }
       }
     }

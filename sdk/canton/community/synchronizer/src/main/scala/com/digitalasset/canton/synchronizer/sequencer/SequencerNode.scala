@@ -843,7 +843,9 @@ class SequencerNodeBootstrap(
       timeouts,
       Seq(storage),
     )
-    val liveness = LivenessHealthService.alwaysAlive(logger, timeouts)
+    // We use the storage as a fatal dependency so that we transition liveness to NOT_SERVING if
+    // the storage fails continuously for longer than `failedToFatalDelay`.
+    val liveness = LivenessHealthService(logger, timeouts, fatalDependencies = Seq(storage))
     (readiness, liveness)
   }
 

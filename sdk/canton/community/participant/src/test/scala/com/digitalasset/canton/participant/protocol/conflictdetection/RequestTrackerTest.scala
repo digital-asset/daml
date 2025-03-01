@@ -13,7 +13,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDe
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker.*
 import com.digitalasset.canton.participant.store.ActiveContractStore
 import com.digitalasset.canton.participant.store.ActiveContractStore.*
-import com.digitalasset.canton.participant.util.TimeOfChange
+import com.digitalasset.canton.participant.util.{TimeOfChange, TimeOfRequest}
 import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
 import com.digitalasset.canton.{
   BaseTest,
@@ -325,12 +325,12 @@ private[conflictdetection] trait RequestTrackerTest extends InUS {
       val ts = ofEpochMilli(100)
       val timeout = ts.plusMillis(100)
       val actSet1 = mkActivenessSet(deact = Set(coid01, coid10))
-      val toc0 = TimeOfChange(RequestCounter(0), CantonTimestamp.Epoch)
+      val tor0 = TimeOfRequest(RequestCounter(0), CantonTimestamp.Epoch)
       for {
         acs <- mkAcs(
-          (coid00, toc0, active),
-          (coid01, toc0, active),
-          (coid10, toc0, active),
+          (coid00, tor0, active),
+          (coid01, tor0, active),
+          (coid10, tor0, active),
         )
         rt = mk(sc, CantonTimestamp.Epoch, acs)
 
@@ -377,16 +377,16 @@ private[conflictdetection] trait RequestTrackerTest extends InUS {
       val rc = RequestCounter(10)
       val sc = SequencerCounter(10)
       val ts = CantonTimestamp.assertFromInstant(Instant.parse("2050-10-11T00:00:10.00Z"))
-      val toc0 = TimeOfChange(RequestCounter(0), ts.minusMillis(10))
-      val toc1 = TimeOfChange(RequestCounter(1), ts.minusMillis(5))
-      val toc2 = TimeOfChange(RequestCounter(2), ts.minusMillis(1))
+      val tor0 = TimeOfRequest(RequestCounter(0), ts.minusMillis(10))
+      val tor1 = TimeOfRequest(RequestCounter(1), ts.minusMillis(5))
+      val tor2 = TimeOfRequest(RequestCounter(2), ts.minusMillis(1))
       for {
         acs <- mkAcs(
-          (coid00, toc0, active),
-          (coid01, toc0, active),
-          (coid01, toc1, Archived),
-          (coid10, toc2, active),
-          (coid11, toc2, active),
+          (coid00, tor0, active),
+          (coid01, tor0, active),
+          (coid01, tor1, Archived),
+          (coid10, tor2, active),
+          (coid11, tor2, active),
         )
         rt = mk(sc, ts.addMicros(-1), acs)
         activenessSet0 = mkActivenessSet(deact = Set(coid00, coid11), useOnly = Set(coid10))
@@ -441,9 +441,9 @@ private[conflictdetection] trait RequestTrackerTest extends InUS {
 
     "complain about invalid commit sets due to archivals" inUS {
       val ts = ofEpochMilli(1)
-      val toc0 = TimeOfChange(RequestCounter(0), CantonTimestamp.Epoch)
+      val tor0 = TimeOfRequest(RequestCounter(0), CantonTimestamp.Epoch)
       for {
-        acs <- mkAcs((coid00, toc0, active), (coid01, toc0, active))
+        acs <- mkAcs((coid00, tor0, active), (coid01, tor0, active))
         rt = mk(SequencerCounter(1), CantonTimestamp.Epoch, acs)
         activenessSet = mkActivenessSet(deact = Set(coid00, coid10), useOnly = Set(coid01))
         (cdF, toF) <- enterCR(
@@ -580,9 +580,9 @@ private[conflictdetection] trait RequestTrackerTest extends InUS {
       val rc = RequestCounter(10)
       val sc = SequencerCounter(10)
       val ts = CantonTimestamp.assertFromInstant(Instant.parse("2010-10-10T12:00:00.00Z"))
-      val tocN1 = TimeOfChange(rc - 1, ts.minusMillis(1))
+      val torN1 = TimeOfRequest(rc - 1, ts.minusMillis(1))
       for {
-        acs <- mkAcs((coid00, tocN1, active), (coid01, tocN1, active))
+        acs <- mkAcs((coid00, torN1, active), (coid01, torN1, active))
         rt = mk(sc, ts.minusMillis(1), acs)
 
         to1 = ts.plusMillis(2)
@@ -815,10 +815,10 @@ private[conflictdetection] trait RequestTrackerTest extends InUS {
       val rc = RequestCounter(0)
       val sc = SequencerCounter(0)
       val ts = ofEpochMilli(1000)
-      val tocN2 = TimeOfChange(rc - 2, ts.minusMillis(20))
-      val tocN1 = TimeOfChange(rc - 1, ts.minusMillis(10))
+      val torN2 = TimeOfRequest(rc - 2, ts.minusMillis(20))
+      val torN1 = TimeOfRequest(rc - 1, ts.minusMillis(10))
       for {
-        acs <- mkAcs((coid10, tocN2, active), (coid00, tocN1, active), (coid01, tocN1, active))
+        acs <- mkAcs((coid10, torN2, active), (coid00, torN1, active), (coid01, torN1, active))
         rt = mk(sc, CantonTimestamp.Epoch, acs)
         activenessSet0 = mkActivenessSet(deact = Set(coid00), useOnly = Set(coid01))
         (cdF0, toF0) <- enterCR(rt, rc, sc, ts, ts.plusMillis(100), activenessSet0)
@@ -1223,7 +1223,7 @@ private[conflictdetection] trait RequestTrackerTest extends InUS {
       coid: LfContractId,
       cs: (Status, RequestCounter, CantonTimestamp),
   )(clue: String): FutureUnlessShutdown[Assertion] =
-    checkContractState(acs, coid, Some(ContractState(cs._1, cs._2, cs._3)))(clue)
+    checkContractState(acs, coid, Some(ContractState(cs._1, TimeOfChange(cs._3))))(clue)
 
   protected def checkContractState(
       acs: ActiveContractStore,
@@ -1239,10 +1239,14 @@ private[conflictdetection] trait RequestTrackerTest extends InUS {
       acs: ActiveContractStore,
       ts: CantonTimestamp,
       expected: Map[LfContractId, (CantonTimestamp, ReassignmentCounter)],
-  ): FutureUnlessShutdown[Assertion] =
+  ): FutureUnlessShutdown[Assertion] = {
+    val expectedTor = expected.map { case (coid, (ts, counter)) =>
+      coid -> (TimeOfChange(ts), counter)
+    }
     acs
-      .snapshot(ts)
-      .map(snapshot => assert(snapshot == expected, s"ACS snapshot at time $ts correct"))
+      .snapshot(TimeOfChange(ts))
+      .map(snapshot => assert(snapshot == expectedTor, s"ACS snapshot at time $ts correct"))
+  }
 
   protected def singleCRwithTR(
       rt: RequestTracker,

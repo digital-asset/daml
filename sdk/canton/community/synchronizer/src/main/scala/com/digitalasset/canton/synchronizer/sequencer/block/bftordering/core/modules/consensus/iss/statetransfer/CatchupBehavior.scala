@@ -11,25 +11,21 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.dri
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.RetransmissionsManager
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.CatchupBehavior.InitialState
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopologyInfo
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PbftNetworkMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
-  Consensus,
-  ConsensusSegment,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleRef}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.mutable
-
-import CatchupBehavior.InitialState
 
 /** A catch-up behavior for [[IssConsensusModule]]. It reuses [[StateTransferManager]] and inherits
   * its logic and limitations. In particular, the topology at the catch-up starting epoch is assumed
@@ -84,7 +80,7 @@ final class CatchupBehavior[E <: Env[E]](
       case Consensus.CatchUpMessage.SegmentCancelledEpoch =>
         cancelled += 1
         if (epochState.epoch.segments.sizeIs == cancelled) {
-          if (stateTransferManager.inStateTransfer) {
+          if (stateTransferManager.inBlockTransfer) {
             abort(s"$messageType: state transfer cannot be already in progress during catch-up")
           }
           stateTransferManager.startStateTransfer(
@@ -135,12 +131,13 @@ final class CatchupBehavior[E <: Env[E]](
         abort(s"$messageType: internal inconsistency, need to catch-up but nothing to transfer")
 
       case StateTransferMessageResult.BlockTransferCompleted(
-            lastCompletedEpoch,
-            lastCompletedEpochStored,
+            endEpochNumber,
+            numberOfTransferredEpochs,
+            numberOfTransferredBlocks,
           ) =>
         logger.info(
-          s"$messageType: catch-up state transfer completed last epoch $lastCompletedEpoch, " +
-            s"stored epoch info = ${lastCompletedEpochStored.info}, transitioning back to consensus"
+          s"$messageType: catch-up block transfer completed at epoch $endEpochNumber with $numberOfTransferredEpochs " +
+            s"epochs ($numberOfTransferredBlocks blocks) transferred, transitioning back to consensus"
         )
 
         // Transition back to consensus but do not start it: the CFT code path is triggered, i.e., the consensus module
@@ -150,39 +147,11 @@ final class CatchupBehavior[E <: Env[E]](
         //  a topology is received from the output module, however we need to provide the full consensus initial state.
         //  TODO(#22849) refactor so that the consensus module can be constructed only with the needed info in case
         //   of crash recovery and catch-up
-        val cryptoProvider = initialState.topologyInfo.currentCryptoProvider
-
-        def segmentModuleRefPartial(
-            segmentState: SegmentState,
-            epochMetricsAccumulator: EpochMetricsAccumulator,
-        ): E#ModuleRefT[ConsensusSegment.Message] =
-          segmentModuleRefFactory(
-            context,
-            lastCompletedEpoch,
-            cryptoProvider,
-            lastCompletedEpochStored.lastBlockCommits,
-            epochInProgress = EpochStore.EpochInProgress(
-              completedBlocks = Seq.empty,
-              pbftMessagesForIncompleteBlocks = Seq.empty,
-            ),
-          )(segmentState, epochMetricsAccumulator)
-
-        val consensusInitialEpochState =
-          new EpochState[E](
-            lastCompletedEpoch,
-            clock,
-            abort,
-            metrics,
-            segmentModuleRefPartial,
-            completedBlocks = Seq.empty,
-            loggerFactory,
-            timeouts,
-          )
         val consensusInitialState =
           IssConsensusModule.InitialState(
             initialState.topologyInfo,
-            consensusInitialEpochState,
-            lastCompletedEpochStored,
+            initialState.epochState,
+            initialState.latestCompletedEpoch,
             sequencerSnapshotAdditionalInfo = None,
           )
         context.become(

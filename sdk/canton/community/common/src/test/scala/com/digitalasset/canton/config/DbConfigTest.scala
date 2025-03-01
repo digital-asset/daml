@@ -52,6 +52,9 @@ class DbConfigTest extends AnyWordSpec with BaseTest {
                                  |  user = "user"
                                  |  connectionTimeout = $connTimeout
                                  |  initializationFailTimeout = 1
+                                 |  properties = {
+                                 |    tcpKeepAlive = true
+                                 |  }
                                  |}
     """.stripMargin)
 

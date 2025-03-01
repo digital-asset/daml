@@ -23,9 +23,9 @@ import com.digitalasset.canton.crypto.{
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
+import com.digitalasset.canton.util.{DelayUtil, EitherTUtil}
 import com.google.protobuf.ByteString
 import io.opentelemetry.context.Context
 
@@ -44,9 +44,11 @@ class MockKmsDriver(
     override val supportedSigningAlgoSpecs: Set[SigningAlgoSpec],
     override val supportedEncryptionKeySpecs: Set[EncryptionKeySpec],
     override val supportedEncryptionAlgoSpecs: Set[EncryptionAlgoSpec],
+    override protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     ec: ExecutionContext
-) extends KmsDriver {
+) extends KmsDriver
+    with NamedLogging {
 
   private lazy val loggerKms =
     new MockKmsRequestResponseLogger(config.auditLogging, NamedLoggerFactory.root)
@@ -79,6 +81,33 @@ class MockKmsDriver(
         }
     }
 
+  private def applySigningLatency(
+      fingerprint: Fingerprint
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = for {
+    // Get the metadata for the public key
+    publicKey <- crypto.cryptoPublicStore
+      .signingKeyWithName(fingerprint)
+      .toRight(s"Signing key not found: $fingerprint")
+
+    // Find the latency based on the key's name
+    latencyO = publicKey.name.flatMap(config.signingLatencies.get)
+
+    _ = latencyO.foreach(latency =>
+      logger.debug(s"Applying signing latency $latency for key $fingerprint")
+    )
+
+    // Apply the latency by returning a delayed future
+    _ <- latencyO
+      .map { latency =>
+        EitherT.right[String] {
+          FutureUnlessShutdown.outcomeF {
+            DelayUtil.delay(latency.underlying)
+          }
+        }
+      }
+      .getOrElse(EitherTUtil.unitUS[String])
+  } yield ()
+
   override def health: Future[KmsDriverHealth] = Future.successful(Ok)
 
   override def generateSigningKeyPair(signingKeySpec: SigningKeySpec, keyName: Option[String])(
@@ -93,6 +122,7 @@ class MockKmsDriver(
           )
           keySpec = KmsDriverSpecsConverter.convertToCryptoSigningKeySpec(signingKeySpec)
           name <- keyName.traverse(KeyName.create).toEitherT[FutureUnlessShutdown]
+          // We do not have the concept of key usage in the KMS layer, so we use `All` by default for generation and signing
           publicKey <- crypto
             .generateSigningKey(keySpec, SigningKeyUsage.All, name)
             .leftMap(err => s"Generate signing key failed: $err")
@@ -149,6 +179,8 @@ class MockKmsDriver(
           )
           algo = KmsDriverSpecsConverter.convertToCryptoSigningAlgoSpec(algoSpec)
           fingerprint <- Fingerprint.fromString(keyId).toEitherT[FutureUnlessShutdown]
+          // For testing, we may apply a signing latency before actually signing with the key
+          _ <- applySigningLatency(fingerprint)
           signature <- crypto.privateCrypto
             .signBytes(ByteString.copyFrom(data), fingerprint, SigningKeyUsage.All, algo)
             .leftMap(err => s"Failed to sign with key $fingerprint: $err")

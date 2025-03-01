@@ -3,35 +3,29 @@
 
 package com.digitalasset.canton.participant.protocol.party
 
+import cats.Eval
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.RequestCounter
+import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{CryptoPureApi, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.{TransactionMeta, Update}
+import com.digitalasset.canton.ledger.participant.state.{Reassignment, ReassignmentInfo, Update}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.event.{
-  PublishesOnlinePartyReplicationEvents,
-  RecordOrderPublisher,
-}
-import com.digitalasset.canton.protocol.{
-  DriverContractMetadata,
-  LfCommittedTransaction,
-  LfNodeId,
-  SerializableContract,
-  TransactionId,
-}
+import com.digitalasset.canton.participant.admin.data.ActiveContract
+import com.digitalasset.canton.participant.store.ParticipantNodePersistentState
+import com.digitalasset.canton.participant.sync.ConnectedSynchronizer
+import com.digitalasset.canton.participant.util.TimeOfChange
+import com.digitalasset.canton.protocol.{SerializableContract, TransactionId}
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
+import com.digitalasset.canton.util.{EitherTUtil, ReassignmentTag}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.daml.lf.CantonOnly
-import com.digitalasset.daml.lf.data.{Bytes as LfBytes, ImmArray}
+import com.digitalasset.daml.lf.data.Bytes as LfBytes
 import com.google.protobuf.ByteString
 
 import java.util.concurrent.atomic.AtomicReference
@@ -64,7 +58,8 @@ class PartyReplicationTargetParticipantProcessor(
     partyId: PartyId,
     partyToParticipantEffectiveAt: CantonTimestamp,
     persistContracts: PersistsContracts,
-    recordOrderPublisher: PublishesOnlinePartyReplicationEvents,
+    participantNodePersistentState: Eval[ParticipantNodePersistentState],
+    connectedSynchronizer: ConnectedSynchronizer,
     pureCrypto: CryptoPureApi,
     protected val protocolVersion: ProtocolVersion,
     protected val timeouts: ProcessingTimeout,
@@ -92,7 +87,8 @@ class PartyReplicationTargetParticipantProcessor(
     */
   override def handlePayload(payload: ByteString)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Unit] =
+  ): EitherT[FutureUnlessShutdown, String, Unit] = {
+    val recordOrderPublisher = connectedSynchronizer.ephemeral.recordOrderPublisher
     for {
       acsChunkOrStatus <- EitherT.fromEither[FutureUnlessShutdown](
         PartyReplicationSourceMessage
@@ -107,13 +103,32 @@ class PartyReplicationTargetParticipantProcessor(
           logger.debug(
             s"Received chunk $chunkId with contracts ${contracts.map(_.contract.contractId).mkString(", ")}"
           )
-          // TODO(#23073): Preserve reassignment counters.
           val contractsToAdd = contracts.map(_.contract)
           for {
             _ <- persistContracts.persistIndexedContracts(chunkId, contractsToAdd)
+            _ <- EitherT.right(
+              participantNodePersistentState.value.contractStore.storeContracts(contractsToAdd)
+            )
+            repairCounter = RepairCounter(chunkId.unwrap)
+            toc = TimeOfChange(partyToParticipantEffectiveAt, Some(repairCounter))
+            missingAssignments = contracts.map {
+              case ActiveContract(synchronizerId, contract, reassignmentCounter) =>
+                (
+                  contract.contractId,
+                  ReassignmentTag.Source(synchronizerId),
+                  reassignmentCounter,
+                  toc,
+                )
+            }
+            _ <- connectedSynchronizer.synchronizerHandle.syncPersistentState.activeContractStore
+              .assignContracts(missingAssignments)
+              .toEitherTWithNonaborts
+              .leftMap(e =>
+                s"Failed to assign contracts $missingAssignments in ActiveContractStore: $e"
+              )
             _ <- EitherT.rightT[FutureUnlessShutdown, String](
               recordOrderPublisher.schedulePublishAddContracts(
-                repairEventFromSerializedContract(chunkId, contractsToAdd)
+                repairEventFromSerializedContract(repairCounter, contracts)
               )
             )
             chunkConsumedUpToExclusive = chunksConsumedExclusive.updateAndGet(_.map(_ + 1))
@@ -138,6 +153,7 @@ class PartyReplicationTargetParticipantProcessor(
           sendCompleted("completing in response to source participant notification of end of data")
       }
     } yield ()
+  }
 
   private def requestNextSetOfChunks()(implicit
       traceContext: TraceContext
@@ -157,55 +173,43 @@ class PartyReplicationTargetParticipantProcessor(
   }
 
   private def repairEventFromSerializedContract(
-      chunkId: NonNegativeInt,
-      contracts: NonEmpty[Seq[SerializableContract]],
+      repairCounter: RepairCounter,
+      activeContracts: NonEmpty[Seq[ActiveContract]],
   )(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Update.RepairTransactionAccepted = {
-    val nodeIds = LazyList.from(0).map(LfNodeId)
-    val txNodes = nodeIds.zip(contracts.map(_.toLf)).toMap
+  )(implicit traceContext: TraceContext): NonEmpty[Seq[Update.RepairReassignmentAccepted]] =
+    activeContracts.map { case ActiveContract(synchronizerId, contract, reassignmentCounter) =>
+      def uniqueUpdateId() = {
+        // Add the repairCounter and contract-id to the hash to arrive at unique per-OPR updateIds.
+        val hash = pureCrypto
+          .build(HashPurpose.OnlinePartyReplicationId)
+          .add(indexerUpdateIdBaseHash.unwrap)
+          .add(repairCounter.unwrap)
+          .add(contract.contractId.coid)
+          .finish()
+        TransactionId(hash).tryAsLedgerTransactionId
+      }
 
-    def uniqueUpdateId() = {
-      // Add the chunk-id to the hash to arrive at unique per-OPR updateIds.
-      val hash = pureCrypto
-        .build(HashPurpose.OnlinePartyReplicationId)
-        .add(indexerUpdateIdBaseHash.unwrap)
-        .add(chunkId.unwrap)
-        .finish()
-      TransactionId(hash).tryAsLedgerTransactionId
-    }
-
-    Update.RepairTransactionAccepted(
-      transactionMeta = TransactionMeta(
-        ledgerEffectiveTime = timestamp.toLf,
+      Update.RepairReassignmentAccepted(
         workflowId = None,
-        submissionTime = timestamp.toLf,
-        submissionSeed = Update.noOpSeed,
-        optUsedPackages = None,
-        optNodeSeeds = None,
-        optByKeyNodes = None,
-      ),
-      transaction = LfCommittedTransaction(
-        CantonOnly.lfVersionedTransaction(
-          nodes = txNodes,
-          roots = ImmArray.from(nodeIds.take(txNodes.size)),
-        )
-      ),
-      updateId = uniqueUpdateId(),
-      contractMetadata = contracts
-        .map(contract =>
-          contract.contractId ->
-            contract.contractSalt
-              .map(DriverContractMetadata(_).toLfBytes(protocolVersion))
-              .getOrElse(LfBytes.Empty)
-        )
-        .forgetNE
-        .toMap,
-      synchronizerId = synchronizerId,
-      requestCounter = RequestCounter(1L),
-      recordTime = timestamp,
-    )
-  }
+        updateId = uniqueUpdateId(),
+        reassignmentInfo = ReassignmentInfo(
+          sourceSynchronizer = ReassignmentTag.Source(synchronizerId),
+          targetSynchronizer = ReassignmentTag.Target(synchronizerId),
+          submitter = None,
+          reassignmentCounter = reassignmentCounter.v,
+          unassignId = timestamp, // artificial unassign has same timestamp as assign
+          isReassigningParticipant = false,
+        ),
+        reassignment = Reassignment.Assign(
+          ledgerEffectiveTime = contract.ledgerCreateTime.toLf,
+          createNode = contract.toLf,
+          contractMetadata = LfBytes.fromByteString(contract.metadata.toByteString(protocolVersion)),
+        ),
+        repairCounter = repairCounter,
+        recordTime = timestamp,
+      )
+    }
 
   override def onDisconnected(status: Either[String, Unit])(implicit
       traceContext: TraceContext
@@ -218,7 +222,8 @@ object PartyReplicationTargetParticipantProcessor {
       partyId: PartyId,
       partyToParticipantEffectiveAt: CantonTimestamp,
       persistContracts: PersistsContracts,
-      recordOrderPublisher: RecordOrderPublisher,
+      participantNodePersistentState: Eval[ParticipantNodePersistentState],
+      connectedSynchronizer: ConnectedSynchronizer,
       pureCrypto: CryptoPureApi,
       protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
@@ -229,7 +234,8 @@ object PartyReplicationTargetParticipantProcessor {
       partyId,
       partyToParticipantEffectiveAt,
       persistContracts,
-      recordOrderPublisher,
+      participantNodePersistentState,
+      connectedSynchronizer,
       pureCrypto,
       protocolVersion,
       timeouts,

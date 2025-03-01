@@ -89,7 +89,6 @@ import com.digitalasset.canton.topology.processing.{
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.engine.Engine
@@ -278,12 +277,6 @@ class ConnectedSynchronizer(
       loggerFactory,
     )
 
-  private val repairProcessor: RepairProcessor =
-    new RepairProcessor(
-      ephemeral.requestCounterAllocator,
-      loggerFactory,
-    )
-
   private val registerIdentityTransactionHandle = identityPusher.createHandler(
     synchronizerHandle.synchronizerAlias,
     synchronizerId,
@@ -309,7 +302,6 @@ class ConnectedSynchronizer(
       ephemeral.requestCounterAllocator,
       ephemeral.recordOrderPublisher,
       badRootHashMessagesRequestProcessor,
-      repairProcessor,
       ephemeral.inFlightSubmissionSynchronizerTracker,
       loggerFactory,
       metrics,
@@ -486,8 +478,9 @@ class ConnectedSynchronizer(
     }
 
     val startingPoints = ephemeral.startingPoints
-    val cleanHeadRc = startingPoints.processing.nextRequestCounter
-    val cleanHeadPrets = startingPoints.processing.lastSequencerTimestamp
+    val nextRequestCounter = startingPoints.processing.nextRequestCounter
+    val nextRepairCounter = startingPoints.processing.nextRepairCounter
+    val lastSequencerTimestamp = startingPoints.processing.lastSequencerTimestamp
 
     for {
       // Prepare missing key alerter
@@ -496,17 +489,8 @@ class ConnectedSynchronizer(
       // Phase 0: Initialise topology client at current clean head
       _ <- EitherT.right(initializeClientAtCleanHead())
 
-      // Phase 2: Initialize the repair processor
-      repairs <- EitherT
-        .right[ConnectedSynchronizerInitializationError](
-          persistent.requestJournalStore.repairRequests(
-            ephemeral.startingPoints.cleanReplay.nextRequestCounter
-          )
-        )
-      _ = logger.info(
-        show"Found ${repairs.size} repair requests at request counters ${repairs.map(_.rc)}"
-      )
-      _ = repairProcessor.setRemainingRepairRequests(repairs)
+      // Phase 2: Log so we know if any repairs have been applied.
+      _ = logger.info(s"The next repair counter would be $nextRepairCounter")
 
       // Phase 3: publish ACS changes from some suitable point up to clean head timestamp to the commitment processor.
       // The "suitable point" must ensure that the [[com.digitalasset.canton.participant.store.AcsSnapshotStore]]
@@ -519,14 +503,14 @@ class ConnectedSynchronizer(
       _ <- loadPendingEffectiveTimesFromTopologyStore(acsChangesReplayStartRt.timestamp)
       acsChangesToReplay <-
         if (
-          cleanHeadPrets >= acsChangesReplayStartRt.timestamp && cleanHeadRc > RequestCounter.Genesis
+          lastSequencerTimestamp >= acsChangesReplayStartRt.timestamp && (nextRequestCounter > RequestCounter.Genesis || nextRepairCounter > RepairCounter.Genesis)
         ) {
           logger.info(
-            s"Looking for ACS changes to replay between ${acsChangesReplayStartRt.timestamp} and $cleanHeadPrets"
+            s"Looking for ACS changes to replay between ${acsChangesReplayStartRt.timestamp} and $lastSequencerTimestamp"
           )
           replayAcsChanges(
             acsChangesReplayStartRt.toTimeOfChange,
-            TimeOfChange(cleanHeadRc, cleanHeadPrets),
+            TimeOfChange(lastSequencerTimestamp, Some(nextRepairCounter)),
           )
         } else
           EitherT.pure[FutureUnlessShutdown, ConnectedSynchronizerInitializationError](Seq.empty)

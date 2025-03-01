@@ -11,6 +11,16 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.BootstrapDetector.BootstrapKind
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.{
+  DefaultLeaderSelectionPolicy,
+  InitialState,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModuleMetrics.{
+  emitConsensusLatencyStats,
+  emitNonCompliance,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders.{
@@ -34,6 +44,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   EpochNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.OrderedBlockForOutput.Mode
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.{
   CommitCertificate,
@@ -71,11 +82,6 @@ import scala.collection.mutable
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.{Failure, Success}
 
-import EpochState.Epoch
-import IssConsensusModule.{DefaultLeaderSelectionPolicy, InitialState}
-import IssConsensusModuleMetrics.{emitConsensusLatencyStats, emitNonCompliance}
-import BootstrapDetector.BootstrapKind
-
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 final class IssConsensusModule[E <: Env[E]](
     private val epochLength: EpochLength, // TODO(#19289): support variable epoch lengths
@@ -88,6 +94,7 @@ final class IssConsensusModule[E <: Env[E]](
     override val dependencies: ConsensusModuleDependencies[E],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
+    // TODO(#23618): we cannot queue all messages (e.g., during state transfer) due to a potential OOM error
     private val futurePbftMessageQueue: mutable.Queue[SignedMessage[PbftNetworkMessage]] =
       new mutable.Queue(),
     private val queuedConsensusMessages: Seq[Consensus.Message[E]] = Seq.empty,
@@ -98,7 +105,8 @@ final class IssConsensusModule[E <: Env[E]](
     private var activeTopologyInfo: OrderingTopologyInfo[E] = initialState.topologyInfo,
 )(
     private var catchupDetector: CatchupDetector = new DefaultCatchupDetector(
-      activeTopologyInfo.currentMembership
+      activeTopologyInfo.currentMembership,
+      loggerFactory,
     ),
     // Only passed in tests
     private var newEpochTopology: Option[Consensus.NewEpochTopology[E]] = None,
@@ -165,17 +173,26 @@ final class IssConsensusModule[E <: Env[E]](
           activeTopologyInfo.currentMembership,
           latestCompletedEpoch,
         )(abort) match {
-          case BootstrapKind.Onboarding(startEpoch) =>
+          case BootstrapKind.Onboarding(startEpochInfo) =>
             logger.info(
-              s"Detected new node onboarding from epoch $startEpoch for sequencer snapshot additional " +
+              s"Detected new node onboarding from epoch ${startEpochInfo.number} for sequencer snapshot additional " +
                 s"info = $maybeSnapshotAdditionalInfo"
             )
-            onboardingAndServerStateTransferManager.startStateTransfer(
-              // Use the previous membership so that onboarding nodes are not part of it.
-              activeTopologyInfo.previousMembership,
+            // Other parameters are irrelevant for state transfer start.
+            latestCompletedEpoch = latestCompletedEpoch.copy(info =
+              startEpochInfo.copy(number = EpochNumber(startEpochInfo.number - 1))
+            )
+            // TODO(#22894) consider a separate epoch state class for state transfer
+            setNewEpochState(
+              startEpochInfo,
+              activeTopologyInfo.currentTopology,
               activeTopologyInfo.currentCryptoProvider,
-              latestCompletedEpoch,
-              startEpoch,
+            )
+            onboardingAndServerStateTransferManager.startStateTransfer(
+              activeTopologyInfo.currentMembership,
+              activeTopologyInfo.currentCryptoProvider,
+              initialState.latestCompletedEpoch,
+              startEpochInfo.number,
             )(abort)
           case BootstrapKind.RegularStartup =>
             logger.debug(
@@ -193,17 +210,35 @@ final class IssConsensusModule[E <: Env[E]](
 
       case message: Consensus.ProtocolMessage => handleProtocolMessage(message)
 
-      // Not received during state transfer, when consensus is inactive
       case newEpochTopologyMessage @ Consensus.NewEpochTopology(
             newEpochNumber,
             newOrderingTopology,
             cryptoProvider: CryptoProvider[E],
+            lastBlockFromPreviousEpochMode,
           ) =>
+        // Init is currently not complete during state transfer for onboarding
+        if (lastBlockFromPreviousEpochMode == Mode.StateTransfer.LastBlock) {
+          logger.info(
+            s"Received first epoch ($newEpochNumber) after state transfer, completing init"
+          )
+          // TODO(#24268) avoid perpetual catch-up and getting stuck
+          initCompleted(receiveInternal(_))
+        }
+        val epochInfo = epochState.epoch.info
+        // TODO(#23567) store and complete epochs from state transfer
+        if (lastBlockFromPreviousEpochMode.isStateTransfer) {
+          logger.info(s"Setting latest completed epoch $epochInfo from state transfer")
+          // Providing an empty commit message set, which results in using the BFT time monotonicity adjustment for
+          //  the first block produced by the state-transferred node as a leader.
+          val lastCommitSet = Seq.empty
+          latestCompletedEpoch = EpochStore.Epoch(epochInfo, lastCommitSet)
+        }
         // Don't process a NewEpochTopology from the Output module, that may start earlier, until init completes
         ifInitCompleted(newEpochTopologyMessage) { _ =>
           val latestCompletedEpochNumber = latestCompletedEpoch.info.number
+          val currentEpochNumber = epochInfo.number
+
           if (latestCompletedEpochNumber == newEpochNumber - 1) {
-            val currentEpochNumber = epochState.epoch.info.number
             if (currentEpochNumber == newEpochNumber) {
               // The output module may re-send the topology for the current epoch upon restart if it didn't store
               //  the first block metadata or if the subscribing sequencer runtime hasn't processed it yet.
@@ -211,7 +246,13 @@ final class IssConsensusModule[E <: Env[E]](
                 s"Received NewEpochTopology event for epoch $newEpochNumber, but the epoch has already started; ignoring it"
               )
             } else if (currentEpochNumber == newEpochNumber - 1) {
-              startNewEpochUnlessOffboarded(newEpochNumber, newOrderingTopology, cryptoProvider)
+              startNewEpochUnlessOffboarded(
+                newEpochNumber,
+                newOrderingTopology,
+                cryptoProvider,
+                epochFromStateTransfer =
+                  lastBlockFromPreviousEpochMode == Mode.StateTransfer.MiddleBlock,
+              )
             } else {
               abort(
                 s"Received NewEpochTopology event for epoch $newEpochNumber, " +
@@ -221,7 +262,7 @@ final class IssConsensusModule[E <: Env[E]](
           } else if (latestCompletedEpochNumber < newEpochNumber - 1) {
             logger.debug(
               s"Epoch (${newEpochNumber - 1}) has not yet been completed: remembering the topology and " +
-                s"waiting for the completed epoch to be stored"
+                s"waiting for the completed epoch to be stored; latest completed epoch is $latestCompletedEpochNumber"
             )
             // Upon epoch completion, a new epoch with this topology will be started.
             newEpochTopology = Some(newEpochTopologyMessage)
@@ -248,46 +289,7 @@ final class IssConsensusModule[E <: Env[E]](
           // Reset any topology remembered while waiting for the previous (completed) epoch to be stored.
           newEpochTopology = None
 
-          // Update the topology and start a new epoch.
-          val previousTopology = activeTopologyInfo.currentTopology
-          val previousCryptoProvider = activeTopologyInfo.currentCryptoProvider
-          activeTopologyInfo = OrderingTopologyInfo(
-            thisPeer,
-            newTopology,
-            newCryptoProvider,
-            previousTopology,
-            previousCryptoProvider,
-          )
-          val currentMembership = activeTopologyInfo.currentMembership
-          catchupDetector.updateMembership(currentMembership)
-
-          val newEpoch =
-            Epoch(
-              newEpochInfo,
-              currentMembership,
-              activeTopologyInfo.previousMembership,
-              DefaultLeaderSelectionPolicy,
-            )
-
-          epochState = new EpochState(
-            newEpoch,
-            clock,
-            abort,
-            metrics,
-            segmentModuleRefFactory = segmentModuleRefFactory(
-              context,
-              newEpoch,
-              activeTopologyInfo.currentCryptoProvider,
-              latestCompletedEpoch.lastBlockCommits,
-              epochInProgress = EpochStore.EpochInProgress(
-                completedBlocks = Seq.empty,
-                pbftMessagesForIncompleteBlocks = Seq.empty,
-              ),
-            ),
-            completedBlocks = Seq.empty,
-            loggerFactory = loggerFactory,
-            timeouts = timeouts,
-          )
+          setNewEpochState(newEpochInfo, newTopology, newCryptoProvider)
 
           startConsensusForCurrentEpoch()
           logger.debug(
@@ -328,52 +330,15 @@ final class IssConsensusModule[E <: Env[E]](
             // We can participate in consensus immediately
             startConsensusForCurrentEpoch()
             initCompleted(receiveInternal(_))
-          case BlockTransferCompleted(lastCompletedEpoch, lastCompletedEpochStored) =>
+          case BlockTransferCompleted(
+                endEpochNumber,
+                numberOfTransferredEpochs,
+                numberOfTransferredBlocks,
+              ) =>
             logger.info(
-              s"State transfer: completed last epoch $lastCompletedEpoch, stored epoch info = ${lastCompletedEpochStored.info}, updating"
+              s"State transfer: finishing block transfer at epoch $endEpochNumber with $numberOfTransferredEpochs " +
+                s"epochs ($numberOfTransferredBlocks blocks) transferred"
             )
-            val currentEpochNumber = epochState.epoch.info.number
-            val newEpochNumber = lastCompletedEpoch.info.number
-            if (newEpochNumber < currentEpochNumber)
-              abort("Should not state transfer to previously completed epoch")
-            else if (newEpochNumber > currentEpochNumber) {
-              // When onboarding, set the current topology to the previous one (where the onboarded node was not
-              //  present) so that canonical commit sets from other nodes can be properly validated.
-              //  For all state transfer instances, the previous topology is replaced by the current topology
-              //  once the next epoch after fetching all state-transferred blocks arrives.
-              // We don't care about the previous topology (as long as we don't store state-transferred epochs),
-              //  as it is supposed to be replaced quickly as described earlier.
-              // TODO(#23684) set right membership
-              if (!activeTopologyInfo.previousMembership.orderingTopology.contains(thisPeer)) {
-                activeTopologyInfo = activeTopologyInfo.copy(
-                  currentTopology = activeTopologyInfo.previousTopology,
-                  currentCryptoProvider = activeTopologyInfo.previousCryptoProvider,
-                )
-              }
-              latestCompletedEpoch = lastCompletedEpochStored
-              epochState.notifyEpochCompletionToSegments(epochState.epoch.info.number)
-              epochState.close()
-              epochState = new EpochState(
-                lastCompletedEpoch,
-                clock,
-                abort,
-                metrics,
-                segmentModuleRefFactory(
-                  context,
-                  lastCompletedEpoch,
-                  activeTopologyInfo.currentCryptoProvider,
-                  latestCompletedEpochLastCommits = lastCompletedEpochStored.lastBlockCommits,
-                  epochInProgress = EpochStore.EpochInProgress(
-                    completedBlocks = Seq.empty,
-                    pbftMessagesForIncompleteBlocks = Seq.empty,
-                  ),
-                ),
-                loggerFactory = loggerFactory,
-                timeouts = timeouts,
-              )
-              // Start processing events, including NewEpochTopology from Output that will start consensus
-              initCompleted(receiveInternal(_))
-            } // else it is equal, so we don't need to update the state
           case StateTransferMessageResult.Continue =>
         }
       case _ =>
@@ -537,8 +502,13 @@ final class IssConsensusModule[E <: Env[E]](
       latestCompletedEpoch = completeEpochSnapshot
 
       newEpochTopology match {
-        case Some(Consensus.NewEpochTopology(epochNumber, orderingTopology, cryptoProvider)) =>
-          startNewEpochUnlessOffboarded(epochNumber, orderingTopology, cryptoProvider)
+        case Some(Consensus.NewEpochTopology(epochNumber, orderingTopology, cryptoProvider, _)) =>
+          startNewEpochUnlessOffboarded(
+            epochNumber,
+            orderingTopology,
+            cryptoProvider,
+            epochFromStateTransfer = false,
+          )
         case None =>
           // We don't have the new topology for the new epoch yet: wait for it to arrive from the output module.
           ()
@@ -557,6 +527,7 @@ final class IssConsensusModule[E <: Env[E]](
           EpochNumber.First,
           activeTopologyInfo.currentTopology,
           activeTopologyInfo.currentCryptoProvider,
+          lastBlockFromPreviousEpochMode = Mode.FromConsensus,
         )
       )
     } else if (!epochState.epochCompletionStatus.isComplete) {
@@ -588,8 +559,9 @@ final class IssConsensusModule[E <: Env[E]](
       epochNumber: EpochNumber,
       orderingTopology: OrderingTopology,
       cryptoProvider: CryptoProvider[E],
+      epochFromStateTransfer: Boolean,
   )(implicit context: E#ActorContextT[Consensus.Message[E]], traceContext: TraceContext): Unit =
-    if (orderingTopology.contains(thisPeer)) {
+    if (orderingTopology.contains(thisPeer) || epochFromStateTransfer) {
       logger.debug(s"Starting new epoch $epochNumber from NewEpochTopology event")
 
       metrics.consensus.votes.cleanupVoteGauges(keepOnly = orderingTopology.peers)
@@ -598,10 +570,17 @@ final class IssConsensusModule[E <: Env[E]](
 
       val newEpochInfo = epochInfo.next(epochLength, orderingTopology.activationTime)
 
-      logger.debug(s"Storing new epoch ${newEpochInfo.number}")
-      pipeToSelf(epochStore.startEpoch(newEpochInfo)) {
-        case Failure(exception) => Consensus.ConsensusMessage.AsyncException(exception)
-        case Success(_) => Consensus.NewEpochStored(newEpochInfo, orderingTopology, cryptoProvider)
+      // TODO(#23567) store epochs from state transfer
+      if (epochFromStateTransfer) {
+        logger.debug(s"Setting new epoch ${newEpochInfo.number} during state transfer")
+        setNewEpochState(newEpochInfo, orderingTopology, cryptoProvider)
+      } else {
+        logger.debug(s"Storing new epoch ${newEpochInfo.number}")
+        pipeToSelf(epochStore.startEpoch(newEpochInfo)) {
+          case Failure(exception) => Consensus.ConsensusMessage.AsyncException(exception)
+          case Success(_) =>
+            Consensus.NewEpochStored(newEpochInfo, orderingTopology, cryptoProvider)
+        }
       }
     } else {
       logger.info(
@@ -609,6 +588,52 @@ final class IssConsensusModule[E <: Env[E]](
           "off-boarded): not starting consensus as this node is going to be shut down and decommissioned"
       )
     }
+
+  private def setNewEpochState(
+      newEpochInfo: EpochInfo,
+      newTopology: OrderingTopology,
+      newCryptoProvider: CryptoProvider[E],
+  )(implicit context: E#ActorContextT[Consensus.Message[E]], traceContext: TraceContext): Unit = {
+    val previousTopology = activeTopologyInfo.currentTopology
+    val previousCryptoProvider = activeTopologyInfo.currentCryptoProvider
+    activeTopologyInfo = OrderingTopologyInfo(
+      thisPeer,
+      newTopology,
+      newCryptoProvider,
+      previousTopology,
+      previousCryptoProvider,
+    )
+    val currentMembership = activeTopologyInfo.currentMembership
+    catchupDetector.updateMembership(currentMembership)
+
+    val newEpoch =
+      Epoch(
+        newEpochInfo,
+        currentMembership,
+        activeTopologyInfo.previousMembership,
+        DefaultLeaderSelectionPolicy,
+      )
+
+    epochState = new EpochState(
+      newEpoch,
+      clock,
+      abort,
+      metrics,
+      segmentModuleRefFactory = segmentModuleRefFactory(
+        context,
+        newEpoch,
+        activeTopologyInfo.currentCryptoProvider,
+        latestCompletedEpoch.lastBlockCommits,
+        epochInProgress = EpochStore.EpochInProgress(
+          completedBlocks = Seq.empty,
+          pbftMessagesForIncompleteBlocks = Seq.empty,
+        ),
+      ),
+      completedBlocks = Seq.empty,
+      loggerFactory = loggerFactory,
+      timeouts = timeouts,
+    )
+  }
 
   private def processPbftMessage(
       pbftMessage: SignedMessage[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
@@ -683,10 +708,7 @@ final class IssConsensusModule[E <: Env[E]](
       traceContext: TraceContext,
   ): Boolean = {
     val thisNodeEpochNumber = epochState.epoch.info.number
-    if (
-      updatedPeerEpoch &&
-      catchupDetector.shouldCatchUp(thisNodeEpochNumber)
-    ) {
+    if (updatedPeerEpoch && catchupDetector.shouldCatchUp(thisNodeEpochNumber)) {
       logger.debug(
         s"Switching to catch-up state transfer while in epoch $thisNodeEpochNumber; latestCompletedEpoch is "
           + s"${latestCompletedEpoch.info.number} and message epoch is $pbftMessageEpochNumber"
@@ -870,7 +892,6 @@ object IssConsensusModule {
         EpochLength,
         Option[SequencerSnapshotAdditionalInfo],
         OrderingTopologyInfo[?],
-        EpochInfo,
         mutable.Queue[SignedMessage[PbftNetworkMessage]],
         Seq[Consensus.Message[?]],
     )
@@ -880,7 +901,6 @@ object IssConsensusModule {
         issConsensusModule.epochLength,
         issConsensusModule.initialState.sequencerSnapshotAdditionalInfo,
         issConsensusModule.activeTopologyInfo,
-        issConsensusModule.initialState.epochState.epoch.info,
         issConsensusModule.futurePbftMessageQueue,
         issConsensusModule.queuedConsensusMessages,
       )

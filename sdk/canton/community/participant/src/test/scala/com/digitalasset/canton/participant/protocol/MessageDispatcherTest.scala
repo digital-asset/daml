@@ -111,7 +111,6 @@ trait MessageDispatcherTest {
       requestCounterAllocator: RequestCounterAllocator,
       recordOrderPublisher: RecordOrderPublisher,
       badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor,
-      repairProcessor: RepairProcessor,
       inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
   )
 
@@ -129,7 +128,6 @@ trait MessageDispatcherTest {
             RequestCounterAllocator,
             RecordOrderPublisher,
             BadRootHashMessagesRequestProcessor,
-            RepairProcessor,
             InFlightSubmissionSynchronizerTracker,
             NamedLoggerFactory,
             ConnectedSynchronizerMetrics,
@@ -200,7 +198,9 @@ trait MessageDispatcherTest {
         new RequestCounterAllocatorImpl(initRc, cleanReplaySequencerCounter, loggerFactory)
       val recordOrderPublisher = mock[RecordOrderPublisher]
       when(
-        recordOrderPublisher.tick(any[SequencedUpdate])(any[TraceContext])
+        recordOrderPublisher.tick(any[SequencedUpdate], any[Option[RequestCounter]])(
+          any[TraceContext]
+        )
       )
         .thenAnswer(Future.unit)
 
@@ -214,8 +214,6 @@ trait MessageDispatcherTest {
         )(anyTraceContext)
       )
         .thenReturn(badRootHashMessagesRequestProcessorF)
-
-      val repairProcessor = mock[RepairProcessor]
 
       val inFlightSubmissionSynchronizerTracker = mock[InFlightSubmissionSynchronizerTracker]
       when(
@@ -255,7 +253,6 @@ trait MessageDispatcherTest {
         requestCounterAllocator,
         recordOrderPublisher,
         badRootHashMessagesRequestProcessor,
-        repairProcessor,
         inFlightSubmissionSynchronizerTracker,
         loggerFactory,
         connectedSynchronizerMetrics,
@@ -272,7 +269,6 @@ trait MessageDispatcherTest {
         requestCounterAllocator,
         recordOrderPublisher,
         badRootHashMessagesRequestProcessor,
-        repairProcessor,
         inFlightSubmissionSynchronizerTracker,
       )
     }
@@ -373,7 +369,6 @@ trait MessageDispatcherTest {
           RequestCounterAllocator,
           RecordOrderPublisher,
           BadRootHashMessagesRequestProcessor,
-          RepairProcessor,
           InFlightSubmissionSynchronizerTracker,
           NamedLoggerFactory,
           ConnectedSynchronizerMetrics,
@@ -460,9 +455,9 @@ trait MessageDispatcherTest {
       verify(sut.recordOrderPublisher).tick(
         argThat[SequencedUpdate](event =>
           event.sequencerCounter == sc &&
-            event.recordTime == ts &&
-            event.requestCounterO == None
-        )
+            event.recordTime == ts
+        ),
+        argThat[Option[RequestCounter]](_.isEmpty),
       )(anyTraceContext)
       succeed
     }
