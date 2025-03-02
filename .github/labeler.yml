@@ -15,18 +15,4 @@ Standard-Change:
   - any-glob-to-any-file: '**.nix'
   - any-glob-to-any-file: '**.sh'
 
-'c:Standard-Change':
-- changed-files:
-  - any-glob-to-any-file: 'ci/**'
-  - any-glob-to-any-file: 'sdk/ci/**'
-  - any-glob-to-any-file: 'sdk/release/**'
-  - any-glob-to-any-file: 'sdk/build-scripts/**'
-  - any-glob-to-any-file: 'sdk/bazel_tools/**'
-  - any-glob-to-any-file: 'sdk/dev-env/**'
-  - any-glob-to-any-file: 'sdk/bin/**'
-  - any-glob-to-any-file: 'sdk/nix/**'
-  - any-glob-to-any-file: '**.bzl'
-  - any-glob-to-any-file: '**.bazel'
-  - any-glob-to-any-file: '**.nix'
-  - any-glob-to-any-file: '**.sh'
   
