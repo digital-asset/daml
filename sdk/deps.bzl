@@ -34,7 +34,7 @@ load("//:daml_finance_dep.bzl", "quickstart")
 rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
 rules_scala_sha256 = "6899cddf7407d09266dddcf6faf9f2a8b414de5e2b35ef8b294418f559172f28"
 
-rules_haskell_version = "15aba7bee8823264fb6a7e7a053b37e806d2cb5c"
+rules_haskell_version = "15aba7bee8823264fb6a7e7a053b37e806d2cb5c"  # 0.16
 rules_haskell_sha256 = "a4b5e11738a78cf177a65b0938b12b10f15746818a8afdfa9351d9b47fe7409b"
 rules_haskell_patches = [
     # This is a daml specific patch and not upstreamable.
@@ -43,22 +43,13 @@ rules_haskell_patches = [
     # Remove this patch once that's available.
     "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
 ]
-rules_nixpkgs_version = "9f08fb2322050991dead17c8d10d453650cf92b7"
-rules_nixpkgs_sha256 = "46aa0ca80b77848492aa1564e9201de9ed79588ca1284f8a4f76deb7a0eeccb9"
+rules_nixpkgs_version = "ff70910af286a19dbcc109fe36f2e3cb59da78ff"  # 0.10.0
+rules_nixpkgs_sha256 = "c269fa7f70069180e31aa5982313f5a26838db2a6e5f2e9ecbd5941c8c6ceed0"
 rules_nixpkgs_patches = [
 ]
 
 rules_nixpkgs_toolchain_patches = {
-    "java": [
-        # rules_nixpkgs passes a --patch-module=java.compiler=... option to
-        # jvm_opts which is no longer necessary nor compatible with jkd 17 (see
-        # https://github.com/bazelbuild/bazel/issues/14474#issuecomment-1001071398).
-        # This is fixed in rules_nixpkgs v0.10.0 (see
-        # https://github.com/tweag/rules_nixpkgs/commit/c2c5ffaf559a7ec08a7b4ac5ba0f0369650df970),
-        # but migrating to this version of rules_nixpkgs is a non-trivial piece
-        # of work. In the meantime we backport the relevant 2 lines of the fix.
-        "@com_github_digital_asset_daml//bazel_tools:jvm-opts.patch",
-    ],
+    "java": [],
     "cc": [],
     "python": [],
     "go": [],
@@ -68,14 +59,15 @@ rules_nixpkgs_toolchain_patches = {
 
 buildifier_version = "b163fcf72b7def638f364ed129c9b28032c1d39b"
 buildifier_sha256 = "c2399161fa569f7c815f8e27634035557a2e07a557996df579412ac73bf52c23"
+
 zlib_version = "1.2.11"
 zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
 rules_nodejs_version = "4.6.1"
 rules_nodejs_sha256 = "d63ecec7192394f5cc4ad95a115f8a6c9de55c60d56c1f08da79c306355e4654"
 rules_jvm_external_version = "4.4.2"
 rules_jvm_external_sha256 = "735602f50813eb2ea93ca3f5e43b1959bd80b213b836a07a62a29d757670b77b"
-rules_go_version = "0.29.0"
-rules_go_sha256 = "2b1641428dff9018f9e85c0384f03ec6c10660d935b750e3fa1492a281a53b0f"
+rules_go_version = "0.40.0"
+rules_go_sha256 = "bfc5ce70b9d1634ae54f4e7b495657a18a04e0d596785f672d35d5f505ab491a"
 bazel_gazelle_version = "67a3e22af6547f43bb9b8e4dd0bad5f354ad4e60"
 bazel_gazelle_sha256 = "c71b12d890d1e299e012bfa6f08dc3d9e57281a0955dc28a1e9c16769d556203"
 rules_bazel_common_version = "9e3880428c1837db9fb13335ed390b7e33e346a7"
@@ -151,6 +143,13 @@ def daml_deps():
             patch_args = ["-p2"],
         )
 
+        http_archive(
+            name = "rules_nixpkgs_nodejs",
+            strip_prefix = strip_prefix + "/toolchains/nodejs",
+            urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
+            sha256 = rules_nixpkgs_sha256,
+        )
+
         for toolchain in ["cc", "java", "python", "go", "rust", "posix"]:
             http_archive(
                 name = "rules_nixpkgs_" + toolchain,
@@ -175,13 +174,13 @@ def daml_deps():
         # This import of go_googleapis is taken from rules_go and extended with the status.proto patch.
         http_archive(
             name = "go_googleapis",
-            # master, as of 2021-10-06
+            # master, as of 2022-12-05
             urls = [
-                "https://mirror.bazel.build/github.com/googleapis/googleapis/archive/409e134ffaacc243052b08e6fb8e2d458014ed37.zip",
-                "https://github.com/googleapis/googleapis/archive/409e134ffaacc243052b08e6fb8e2d458014ed37.zip",
+                "https://mirror.bazel.build/github.com/googleapis/googleapis/archive/83c3605afb5a39952bf0a0809875d41cf2a558ca.zip",
+                "https://github.com/googleapis/googleapis/archive/83c3605afb5a39952bf0a0809875d41cf2a558ca.zip",
             ],
-            sha256 = "a85c6a00e9cf0f004992ebea1d10688e3beea9f8e1a5a04ee53f367e72ee85af",
-            strip_prefix = "googleapis-409e134ffaacc243052b08e6fb8e2d458014ed37",
+            sha256 = "ba694861340e792fd31cb77274eacaf6e4ca8bda97707898f41d8bebfd8a4984",
+            strip_prefix = "googleapis-83c3605afb5a39952bf0a0809875d41cf2a558ca",
             patches = [
                 # releaser:patch-cmd find . -name BUILD.bazel -delete
                 "@io_bazel_rules_go//third_party:go_googleapis-deletebuild.patch",
