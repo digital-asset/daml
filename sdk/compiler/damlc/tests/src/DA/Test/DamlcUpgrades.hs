@@ -54,6 +54,14 @@ tests damlc =
                   , warnBadInterfaceInstances = True
                   , ignoreUpgradesOwnDependency = True
                   }
+            , mkTest
+                "TemplateAddedInterfaceInstance"
+                (SucceedWithWarning ".*template-has-new-interface-instance.*")
+                testOptions
+                  { sharedDep = SharedDep
+                  , warnBadInterfaceInstances = True
+                  , templateHasNewInterfaceInstance = True
+                  }
             ] ++
             concat [
                 [ mkTest
@@ -570,7 +578,7 @@ tests damlc =
             handleExpectation expectation newDir newDar (doTypecheck && setUpgradeField) Nothing
       where
         projectFile version lfVersion name upgradedFile mbDep darDeps =
-          makeProjectFile name version lfVersion upgradedFile (maybeToList mbDep ++ darDeps) doTypecheck warnBadInterfaceInstances ignoreUpgradesOwnDependency
+          makeProjectFile name version lfVersion upgradedFile (maybeToList mbDep ++ darDeps) doTypecheck warnBadInterfaceInstances ignoreUpgradesOwnDependency templateHasNewInterfaceInstance
 
     handleExpectation :: Expectation -> FilePath -> FilePath -> Bool -> Maybe FilePath -> IO ()
     handleExpectation expectation dir dar shouldRunChecks expectedDiagFile =
@@ -619,9 +627,9 @@ tests damlc =
             let oldDir = dir </> "oldVersion"
             let newDar = newDir </> "out.dar"
             let oldDar = oldDir </> "old.dar"
-            writeFiles oldDir [makeProjectFile v1Name v1Version v1LfVersion Nothing [] True False False, ("daml/Main.daml", pure "module Main where")]
+            writeFiles oldDir [makeProjectFile v1Name v1Version v1LfVersion Nothing [] True False False False, ("daml/Main.daml", pure "module Main where")]
             callProcessSilent damlc ["build", "--project-root", oldDir, "-o", oldDar]
-            writeFiles newDir [makeProjectFile v2Name v2Version v2LfVersion (Just oldDar) [] True False False, ("daml/Main.daml", pure "module Main where")]
+            writeFiles newDir [makeProjectFile v2Name v2Version v2LfVersion (Just oldDar) [] True False False False, ("daml/Main.daml", pure "module Main where")]
             -- Metadata errors are reported on the daml.yaml file
             handleExpectation expectation newDir newDar True (Just $ toUnixPath $ newDir </> "daml.yaml")
 
@@ -630,8 +638,8 @@ tests damlc =
       '\\' -> '/'
       c -> c
 
-    makeProjectFile :: String -> String -> LF.Version -> Maybe FilePath -> [FilePath] -> Bool -> Bool -> Bool -> (FilePath, IO String)
-    makeProjectFile name version lfVersion upgradedFile deps doTypecheck warnBadInterfaceInstances ignoreUpgradesOwnDependency =
+    makeProjectFile :: String -> String -> LF.Version -> Maybe FilePath -> [FilePath] -> Bool -> Bool -> Bool -> Bool -> (FilePath, IO String)
+    makeProjectFile name version lfVersion upgradedFile deps doTypecheck warnBadInterfaceInstances ignoreUpgradesOwnDependency templateHasNewInterfaceInstance =
         ( "daml.yaml"
         , pure $ unlines $
           [ "sdk-version: " <> sdkVersion
@@ -647,6 +655,7 @@ tests damlc =
             ++ ["  - --typecheck-upgrades=no" | not doTypecheck]
             ++ ["  - -Wupgrade-interfaces" | warnBadInterfaceInstances ]
             ++ ["  - -Wupgrades-own-dependency" | ignoreUpgradesOwnDependency ]
+            ++ ["  - -Wtemplate-has-new-interface-instance" | templateHasNewInterfaceInstance ]
             ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
             ++ renderDataDeps deps
         )
@@ -669,6 +678,7 @@ data TestOptions = TestOptions
   , sharedDep :: Dependency
   , warnBadInterfaceInstances :: Bool
   , ignoreUpgradesOwnDependency :: Bool
+  , templateHasNewInterfaceInstance :: Bool
   , setUpgradeField :: Bool
   , doTypecheck :: Bool
   , additionalDarsV1 :: [String]
@@ -683,6 +693,7 @@ testOptions =
     , sharedDep = NoDependencies
     , warnBadInterfaceInstances = False
     , ignoreUpgradesOwnDependency = False
+    , templateHasNewInterfaceInstance = False
     , setUpgradeField = True
     , doTypecheck = True
     , additionalDarsV1 = []

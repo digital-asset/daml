@@ -258,6 +258,7 @@ data ErrorOrWarning
   | WETemplateInterfaceDependsOnScript !(PackageId, PackageMetadata)
     -- ^ We want to recommend not uploading daml-script to ledger, but it's not a strict requirement
     -- This we make it a warning on packages that define "engine entry points", i.e. templates or interfaces
+  | WEForbiddenNewImplementation !TypeConName !TypeConName
   deriving (Eq, Show)
 
 instance Pretty ErrorOrWarning where
@@ -316,6 +317,12 @@ instance Pretty ErrorOrWarning where
         , "It is recommended that scripts/tests are defined in a separate package to your templates, and that"
         , "you remove `" <> pprintDep dep <> "` from the dependencies in your daml.yaml"
         ]
+    WEForbiddenNewImplementation tpl iface ->
+      vcat
+        [ "Implementation of interface " <> pPrint iface <> " by template " <> pPrint tpl <> " appears in this package, but does not appear in package that is being upgraded."
+        , "New interface instances are supported, but should only be added to supersede a different existing interface."
+        , "Only turn off this error if you know what you're doing."
+        ]
     where
     withMismatchInfo :: [Mismatch UpgradeMismatchReason] -> Doc ann -> Doc ann
     withMismatchInfo [] doc = doc
@@ -345,6 +352,7 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       , (unusedDependencyName, unusedDependencyFlag)
       , (ownUpgradeDependencyName, ownUpgradeDependencyFlag)
       , (templateInterfaceDependsOnScriptName, templateInterfaceDependsOnScriptFlag)
+      , (templateHasNewInterfaceInstanceName, templateHasNewInterfaceInstanceFlag)
       ]
   , dwfpDefault = \case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
@@ -365,6 +373,7 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       WEUnusedDependency {} -> AsWarning
       WEOwnUpgradeDependency {} -> AsError
       WETemplateInterfaceDependsOnScript {} -> AsWarning
+      WEForbiddenNewImplementation {} -> AsError
   }
 
 filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
@@ -377,6 +386,7 @@ filterNameForErrorOrWarning err | couldNotExtractUpgradedExpressionFilter err = 
 filterNameForErrorOrWarning err | unusedDependencyFilter err = Just unusedDependencyName
 filterNameForErrorOrWarning err | ownUpgradeDependencyFilter err = Just ownUpgradeDependencyName
 filterNameForErrorOrWarning err | templateInterfaceDependsOnScriptFilter err = Just templateInterfaceDependsOnScriptName
+filterNameForErrorOrWarning err | templateHasNewInterfaceInstanceFilter err = Just templateHasNewInterfaceInstanceName
 filterNameForErrorOrWarning _ = Nothing
 
 upgradedTemplateChangedFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
@@ -494,6 +504,18 @@ templateInterfaceDependsOnScriptFilter :: ErrorOrWarning -> Bool
 templateInterfaceDependsOnScriptFilter =
     \case
         WETemplateInterfaceDependsOnScript {} -> True
+        _ -> False
+
+templateHasNewInterfaceInstanceFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+templateHasNewInterfaceInstanceFlag status = RawDamlWarningFlag templateHasNewInterfaceInstanceName status templateHasNewInterfaceInstanceFilter
+
+templateHasNewInterfaceInstanceName :: String
+templateHasNewInterfaceInstanceName = "template-has-new-interface-instance"
+
+templateHasNewInterfaceInstanceFilter :: ErrorOrWarning -> Bool
+templateHasNewInterfaceInstanceFilter =
+    \case
+        WEForbiddenNewImplementation {} -> True
         _ -> False
 
 data PackageUpgradeOrigin = UpgradingPackage | UpgradedPackage

@@ -407,7 +407,7 @@ throwIfNonEmpty handleError hm =
 
 checkModuleM :: LF.UpgradedPackageId -> Upgrading LF.Module -> TcUpgradeM ()
 checkModuleM upgradedPackageId module_ = do
-    (existingTemplates, _newTemplates) <- checkDeleted (EUpgradeMissingTemplate . NM.name) $ NM.toHashMap . moduleTemplates <$> module_
+    (existingTemplates, newTemplates) <- checkDeleted (EUpgradeMissingTemplate . NM.name) $ NM.toHashMap . moduleTemplates <$> module_
     forM_ existingTemplates $ \template ->
         withContextF
             present'
@@ -504,7 +504,9 @@ checkModuleM upgradedPackageId module_ = do
             , implementation <- NM.elems (tplImplements template)
             ]
     let (instanceDel, _instanceExisting, instanceNew) = extractDelExistNew (flattenInstances <$> module_)
+    let notANewTemplate (tyCon, _) _ = not (HMS.member tyCon newTemplates)
     checkDeletedInstances (_present module_) instanceDel
+    checkAddedInstances (_present module_) (HMS.filterWithKey notANewTemplate instanceNew)
 
     checkUpgradedInterfacesAreUnused upgradedPackageId (_present module_) instanceNew
 
@@ -538,6 +540,19 @@ checkDeletedInstances module_ instances = throwIfNonEmpty handleError instances
     handleError (tpl, impl) =
         ( Just (ContextTemplate module_ tpl TPWhole)
         , EUpgradeMissingImplementation (NM.name tpl) (LF.qualObject (NM.name impl))
+        )
+
+checkAddedInstances ::
+    Module ->
+    HMS.HashMap (TypeConName, Qualified TypeConName) (Template, TemplateImplements) ->
+    TcUpgradeM ()
+checkAddedInstances module_ instances = throwIfNonEmpty mkWarning instances
+  where
+    mkWarning ::
+        (Template, TemplateImplements) -> (Maybe Context, ErrorOrWarning)
+    mkWarning (tpl, impl) =
+        ( Just (ContextTemplate module_ tpl TPWhole)
+        , WEForbiddenNewImplementation (NM.name tpl) (LF.qualObject (NM.name impl))
         )
 
 -- It is always invalid to keep an interface in an upgrade

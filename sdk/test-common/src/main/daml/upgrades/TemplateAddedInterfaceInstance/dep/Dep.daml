@@ -1,0 +1,9 @@
+module Dep where
+
+data I1View = I1View { p: Party }
+interface I1 where
+  viewtype I1View
+
+data I2View = I2View { p: Party }
+interface I2 where
+  viewtype I2View
