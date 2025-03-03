@@ -546,13 +546,13 @@ checkAddedInstances ::
     Module ->
     HMS.HashMap (TypeConName, Qualified TypeConName) (Template, TemplateImplements) ->
     TcUpgradeM ()
-checkAddedInstances module_ instances = throwIfNonEmpty handleError instances
+checkAddedInstances module_ instances = throwIfNonEmpty mkWarning instances
   where
-    handleError ::
-        (Template, TemplateImplements) -> (Maybe Context, UnwarnableError)
-    handleError (tpl, impl) =
+    mkWarning ::
+        (Template, TemplateImplements) -> (Maybe Context, ErrorOrWarning)
+    mkWarning (tpl, impl) =
         ( Just (ContextTemplate module_ tpl TPWhole)
-        , EForbiddenNewImplementation (NM.name tpl) (LF.qualObject (NM.name impl))
+        , WEForbiddenNewImplementation (NM.name tpl) (LF.qualObject (NM.name impl))
         )
 
 -- It is always invalid to keep an interface in an upgrade

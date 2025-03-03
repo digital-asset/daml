@@ -164,15 +164,6 @@ object Error {
         actualValue: Value,
     ) extends Error
 
-    final case class ViewMismatch(
-        coid: ContractId,
-        iterfaceId: TypeConName,
-        srcTemplateId: TypeConName,
-        dstTemplateId: TypeConName,
-        srcView: Value,
-        dstView: Value,
-    ) extends Error
-
     final case class DowngradeFailed(expectedType: Ast.Type, actualValue: Value) extends Error
 
   }
