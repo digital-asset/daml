@@ -131,7 +131,10 @@ class SBuiltinInterfaceUpgradeImplementationTest extends AnyFreeSpec with Matche
     compilerConfig,
   )
 
-  def exerciseNewInstance(contractVersion: Int, preferredVersion: Int): Try[Either[SError, SValue]] = {
+  def exerciseNewInstance(
+      contractVersion: Int,
+      preferredVersion: Int,
+  ): Try[Either[SError, SValue]] = {
     // We prefer -implem-pkg-$preferredVersion
     val packagePreferences = Map(
       ifacePkgName -> ifacePkgId,
@@ -166,9 +169,12 @@ class SBuiltinInterfaceUpgradeImplementationTest extends AnyFreeSpec with Matche
     "when package preference points to old package without the new instance, new-versioned contracts miss the instance" in {
       inside(
         exerciseNewInstance(2, 1)
-      ) { case Success(Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(iface, _, tid)))) =>
-        iface shouldBe Ref.TypeConName.assertFromString(s"${ifacePkgId}:Mod:IfaceB")
-        tid shouldBe Ref.TypeConName.assertFromString(s"${implemPkgId(1)}:Mod:T")
+      ) {
+        case Success(
+              Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(iface, _, tid)))
+            ) =>
+          iface shouldBe Ref.TypeConName.assertFromString(s"${ifacePkgId}:Mod:IfaceB")
+          tid shouldBe Ref.TypeConName.assertFromString(s"${implemPkgId(1)}:Mod:T")
       }
     }
 
@@ -191,9 +197,12 @@ class SBuiltinInterfaceUpgradeImplementationTest extends AnyFreeSpec with Matche
     "when package preference points to old package without the new instance, old-versioned contracts miss the instance" in {
       inside(
         exerciseNewInstance(1, 1)
-      ) { case Success(Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(iface, _, tid)))) =>
-        iface shouldBe Ref.TypeConName.assertFromString(s"${ifacePkgId}:Mod:IfaceB")
-        tid shouldBe Ref.TypeConName.assertFromString(s"${implemPkgId(1)}:Mod:T")
+      ) {
+        case Success(
+              Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(iface, _, tid)))
+            ) =>
+          iface shouldBe Ref.TypeConName.assertFromString(s"${ifacePkgId}:Mod:IfaceB")
+          tid shouldBe Ref.TypeConName.assertFromString(s"${implemPkgId(1)}:Mod:T")
       }
     }
   }
