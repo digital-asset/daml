@@ -39,29 +39,30 @@ tests damlc =
                   { sharedDep = DependOnV1
                   , warnBadInterfaceInstances = True
                   }
-            , mkTest
-                "SucceedsWhenAnInstanceIsAddedSeparateDep"
-                Succeed
-                testOptions
-                  { sharedDep = SharedDep
-                  , warnBadInterfaceInstances = True
-                  }
-            , mkTest
-                "SucceedsWhenAnInstanceIsAddedUpgradedPackage"
-                Succeed
-                testOptions
-                  { sharedDep = DependOnV1
-                  , warnBadInterfaceInstances = True
-                  , ignoreUpgradesOwnDependency = True
-                  }
-            , mkTest
-                "TemplateAddedInterfaceInstance"
-                (SucceedWithWarning ".*template-has-new-interface-instance.*")
-                testOptions
-                  { sharedDep = SharedDep
-                  , warnBadInterfaceInstances = True
-                  , templateHasNewInterfaceInstance = True
-                  }
+            ] ++
+            concat [
+                [ mkTest
+                    (prefix <> "WhenAnInstanceIsAddedSeparateDep")
+                    (expectationWarningOrError templateHasNewInterfaceInstance "type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.\n  New interface instances are supported, but should only be added to supersede a different existing interface.\n  Only turn off this error if you know what you're doing..*template-has-new-interface-instance")
+                    testOptions
+                      { sharedDep = SharedDep
+                      , mbLocation = Just "SucceedsWhenAnInstanceIsAddedSeparateDep"
+                      , warnBadInterfaceInstances = True
+                      , templateHasNewInterfaceInstance = templateHasNewInterfaceInstance
+                      }
+                , mkTest
+                    (prefix <> "WhenAnInstanceIsAddedUpgradedPackage")
+                    (expectationWarningOrError templateHasNewInterfaceInstance "type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.\n  New interface instances are supported, but should only be added to supersede a different existing interface.\n  Only turn off this error if you know what you're doing..*template-has-new-interface-instance")
+                    testOptions
+                      { sharedDep = DependOnV1
+                      , mbLocation = Just "SucceedsWhenAnInstanceIsAddedUpgradedPackage"
+                      , warnBadInterfaceInstances = True
+                      , ignoreUpgradesOwnDependency = True
+                      , templateHasNewInterfaceInstance = templateHasNewInterfaceInstance
+                      }
+                ]
+            | templateHasNewInterfaceInstance <- [True, False]
+            , let prefix = if templateHasNewInterfaceInstance then "Succeeds" else "Fails"
             ] ++
             concat [
                 [ mkTest
@@ -350,7 +351,7 @@ tests damlc =
             concat [
                 [ mkTest
                       (prefix <> "WhenAnInterfaceAndATemplateAreDefinedInTheSamePackage")
-                      (expectation "type checking package:\n  This package defines both interfaces and templates.")
+                      (expectationWarningOrError warnBadInterfaceInstances "type checking package:\n  This package defines both interfaces and templates.")
                       testOptions
                         { mbLocation = Just "WarnsWhenAnInterfaceAndATemplateAreDefinedInTheSamePackage"
                         , warnBadInterfaceInstances = warnBadInterfaceInstances
@@ -358,7 +359,7 @@ tests damlc =
                         }
                 , mkTest
                       (prefix <> "WhenAnInterfaceIsUsedInThePackageThatItsDefinedIn")
-                      (expectation "type checking template Main.T interface instance Main.I for Main.T:\n  The interface I was defined in this package") -- TODO complete error
+                      (expectationWarningOrError warnBadInterfaceInstances "type checking template Main.T interface instance Main.I for Main.T:\n  The interface I was defined in this package") -- TODO complete error
                       testOptions
                         { mbLocation = Just "WarnsWhenAnInterfaceIsUsedInThePackageThatItsDefinedIn"
                         , warnBadInterfaceInstances = warnBadInterfaceInstances
@@ -367,10 +368,6 @@ tests damlc =
                 ]
             | warnBadInterfaceInstances <- [True, False]
             , let prefix = if warnBadInterfaceInstances then "Warns" else "Fail"
-            , let expectation msg =
-                      if warnBadInterfaceInstances
-                         then SucceedWithWarning ("\ESC\\[0;93mwarning while " <> msg)
-                         else FailWithError ("\ESC\\[0;91merror " <> msg)
             , doTypecheck <- [True, False]
             ] ++
             [ mkTest
@@ -453,6 +450,12 @@ tests damlc =
             ]
        )
   where
+    expectationWarningOrError :: Bool -> T.Text -> Expectation
+    expectationWarningOrError isWarning msg =
+        if isWarning
+           then SucceedWithWarning ("\ESC\\[0;93mwarning while " <> msg)
+           else FailWithError ("\ESC\\[0;91merror " <> msg)
+
     testUpgradeCheck
         :: String
         -> Expectation

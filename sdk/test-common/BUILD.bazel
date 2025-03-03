@@ -115,7 +115,6 @@ da_scala_dar_resources_library(
         "FailsWhenAnInstanceIsDropped",
         "SucceedsWhenAnInstanceIsAddedSeparateDep",
         "SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep",
-        "TemplateAddedInterfaceInstance",
     ]
 ]
 
@@ -419,11 +418,6 @@ da_scala_dar_resources_library(
             "FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface",
             {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-dep-name1.dar"]},
             {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-dep-name2.dar"]},
-        ),
-        (
-            "TemplateAddedInterfaceInstance",
-            {"data_dependencies": ["//test-common:upgrades-TemplateAddedInterfaceInstance-dep.dar"]},
-            {"data_dependencies": ["//test-common:upgrades-TemplateAddedInterfaceInstance-dep.dar"]},
         ),
     ]
 ]
