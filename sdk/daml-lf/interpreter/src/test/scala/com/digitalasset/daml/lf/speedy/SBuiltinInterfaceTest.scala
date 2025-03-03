@@ -23,6 +23,7 @@ import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
+import com.digitalasset.daml.lf.interpretation.{Error => IE}
 
 import scala.util.{Failure, Success, Try}
 
@@ -37,7 +38,168 @@ class SBuiltinInterfaceTestDevLf
       Compiler.Config.Dev(LanguageMajorVersion.V2),
     )
 
-class SBuiltinInterfaceUpgradeTest extends AnyFreeSpec with Matchers with Inside {
+class SBuiltinInterfaceUpgradeImplementationTest extends AnyFreeSpec with Matchers with Inside {
+
+  import EvalHelpers._
+
+  // TODO: revert to the default version and compiler config once they support upgrades
+  val languageVersion = LanguageVersion.Features.packageUpgrades
+  val compilerConfig = Compiler.Config.Dev(LanguageMajorVersion.V2)
+
+  val alice = Ref.Party.assertFromString("Alice")
+
+  // The following code defines a package -iface-pkg- that defines a single interface Iface.
+  val ifacePkgName = Ref.PackageName.assertFromString("-iface-pkg-")
+  val ifacePkgId = Ref.PackageId.assertFromString("-iface-pkg-id-")
+  val ifaceParserParams = ParserParameters(
+    defaultPackageId = ifacePkgId,
+    languageVersion = languageVersion,
+  )
+  val ifacePkg =
+    p"""metadata ( '$ifacePkgName' : '1.0.0' )
+            module Mod {
+              val mkParty : Text -> Party = \(t:Text) ->
+                case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;
+
+              record @serializable MyViewTypeA = { n : Int64 };
+              interface (this : IfaceA) = {
+                viewtype Mod:MyViewTypeA;
+                choice @nonConsuming MyChoiceA (self) (u: Unit): Unit
+                  , controllers (Cons @Party [Mod:mkParty "Alice"] Nil @Party)
+                  , observers (Nil @Party)
+                  to upure @Unit ();
+              };
+
+              record @serializable MyViewTypeB = { n : Int64 };
+              interface (this : IfaceB) = {
+                viewtype Mod:MyViewTypeB;
+                choice @nonConsuming MyChoiceB (self) (u: Unit): Unit
+                  , controllers (Cons @Party [Mod:mkParty "Alice"] Nil @Party)
+                  , observers (Nil @Party)
+                  to upure @Unit ();
+              };
+            }
+          """ (ifaceParserParams)
+
+  // The following code defines a family of packages -implem-pkg- versions 1.0.0, 2.0.0, ... that define a
+  // template T that implements Iface. The view function for version 1 of the package returns 1, the view function
+  // of version 2 of the package returns 2, etc.
+  val implemPkgName = Ref.PackageName.assertFromString("-implem-pkg-")
+  def implemPkgVersion(pkgVersion: Int) =
+    Ref.PackageVersion.assertFromString(s"${pkgVersion}.0.0")
+  def implemPkgId(pkgVersion: Int) =
+    Ref.PackageId.assertFromString(s"-implem-pkg-id-$pkgVersion-")
+  def implemParserParams(pkgVersion: Int) = ParserParameters(
+    defaultPackageId = implemPkgId(pkgVersion),
+    languageVersion = languageVersion,
+  )
+
+  def implV1 =
+    p"""metadata ( '$implemPkgName' : '${implemPkgVersion(1)}' )
+            module Mod {
+              record @serializable T = { p: Party };
+              template (this: T) = {
+                precondition True;
+                signatories Cons @Party [Mod:T {p} this] (Nil @Party);
+                observers Nil @Party;
+                implements '$ifacePkgId':Mod:IfaceA { view = '$ifacePkgId':Mod:MyViewTypeA { n = 1 }; };
+              };
+            }
+          """ (implemParserParams(1))
+
+  def implV2 =
+    p"""metadata ( '$implemPkgName' : '${implemPkgVersion(2)}' )
+            module Mod {
+              record @serializable T = { p: Party };
+              template (this: T) = {
+                precondition True;
+                signatories Cons @Party [Mod:T {p} this] (Nil @Party);
+                observers Nil @Party;
+                implements '$ifacePkgId':Mod:IfaceA { view = '$ifacePkgId':Mod:MyViewTypeA { n = 2 }; };
+                implements '$ifacePkgId':Mod:IfaceB { view = '$ifacePkgId':Mod:MyViewTypeB { n = 2 }; };
+              };
+            }
+          """ (implemParserParams(2))
+
+  // All three of -iface-package-id-, -implem-pkg-id-1-, and -implem-pkg-id-2- are made available to the interpreter.
+  val compiledPackages = PureCompiledPackages.assertBuild(
+    Map(
+      ifacePkgId -> ifacePkg,
+      implemPkgId(1) -> implV1,
+      implemPkgId(2) -> implV2,
+    ),
+    compilerConfig,
+  )
+
+  def exerciseNewInstance(contractVersion: Int, preferredVersion: Int): Try[Either[SError, SValue]] = {
+    // We prefer -implem-pkg-$preferredVersion
+    val packagePreferences = Map(
+      ifacePkgName -> ifacePkgId,
+      implemPkgName -> implemPkgId(preferredVersion),
+    )
+
+    // We assume one contract of type -implem-pkg-id-$contractVersion-:Mod:T on the ledger
+    val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
+    val Ast.TTyCon(tplId) = t"Mod:T" (implemParserParams(contractVersion))
+    val tplPayload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
+    val contracts = Map[Value.ContractId, Value.VersionedContractInstance](
+      cid -> Versioned(
+        TransactionVersion.StableVersions.max,
+        ContractInstance(implemPkgName, Some(implemPkgVersion(contractVersion)), tplId, tplPayload),
+      )
+    )
+
+    evalApp(
+      e"\(cid: ContractId Mod:IfaceB) -> exercise_interface @Mod:IfaceB MyChoiceB cid ()" (
+        ifaceParserParams
+      ),
+      Array(SContractId(cid), SToken),
+      packageResolution = packagePreferences,
+      getContract = contracts,
+      getPkg = PartialFunction.empty,
+      compiledPackages = compiledPackages,
+      committers = Set(alice),
+    )
+  }
+
+  "exercise_interface" - {
+    "when package preference points to old package without the new instance, new-versioned contracts miss the instance" in {
+      inside(
+        exerciseNewInstance(2, 1)
+      ) { case Success(Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(iface, _, tid)))) =>
+        iface shouldBe Ref.TypeConName.assertFromString(s"${ifacePkgId}:Mod:IfaceB")
+        tid shouldBe Ref.TypeConName.assertFromString(s"${implemPkgId(1)}:Mod:T")
+      }
+    }
+
+    "when package preference points to package with new instance, new-versioned contracts get the instance" in {
+      inside(
+        exerciseNewInstance(2, 2)
+      ) { case Success(result) =>
+        result shouldBe a[Right[_, _]]
+      }
+    }
+
+    "when package preference points to package with new instance, old-versioned contracts get the instance" in {
+      inside(
+        exerciseNewInstance(1, 2)
+      ) { case Success(result) =>
+        result shouldBe a[Right[_, _]]
+      }
+    }
+
+    "when package preference points to old package without the new instance, old-versioned contracts miss the instance" in {
+      inside(
+        exerciseNewInstance(1, 1)
+      ) { case Success(Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(iface, _, tid)))) =>
+        iface shouldBe Ref.TypeConName.assertFromString(s"${ifacePkgId}:Mod:IfaceB")
+        tid shouldBe Ref.TypeConName.assertFromString(s"${implemPkgId(1)}:Mod:T")
+      }
+    }
+  }
+}
+
+class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with Inside {
 
   import EvalHelpers._
 
