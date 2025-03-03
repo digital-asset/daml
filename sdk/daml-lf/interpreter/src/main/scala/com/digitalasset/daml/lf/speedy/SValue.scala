@@ -68,15 +68,19 @@ sealed abstract class SValue {
         case SBool(x) => V.ValueBool(x)
         case SUnit => V.ValueUnit
         case SDate(x) => V.ValueDate(x)
-        case r: SRecord =>
-          V.ValueRecord(
-            maybeEraseTypeInfo(r.id),
-            (r.fields.toSeq.view zip r.values.iterator().asScala)
-              .map { case (field, sv) =>
-                (maybeEraseTypeInfo(field), go(sv, nextMaxNesting))
-              }
-              .to(ImmArray),
-          )
+        case SRecord(id, names0, values0) =>
+          val n =
+            if (normalize)
+              // we drop trailing None fields
+              values0.asScala.reverseIterator.dropWhile(_ == SValue.SValue.None).size
+            else
+              values0.size()
+          val values = (names0.toSeq.view.take(n) zip values0.asScala)
+            .map { case (name, sv) =>
+              maybeEraseTypeInfo(name) -> go(sv, nextMaxNesting)
+            }
+            .to(ImmArray)
+          V.ValueRecord(maybeEraseTypeInfo(id), values)
         case SVariant(id, variant, _, sv) =>
           V.ValueVariant(maybeEraseTypeInfo(id), variant, go(sv, nextMaxNesting))
         case SEnum(id, constructor, _) =>
