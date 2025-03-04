@@ -5,12 +5,15 @@ package com.digitalasset.canton.ledger.client.services.commands
 
 import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandServiceStub
 import com.daml.ledger.api.v2.command_service.{
+  SubmitAndWaitForTransactionRequest,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitRequest,
   SubmitAndWaitResponse,
 }
 import com.daml.ledger.api.v2.commands.Commands
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
+import com.daml.ledger.api.v2.transaction_filter.{EventFormat, Filters, TransactionFormat}
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.client.services.commands.CommandServiceClient.statusFromThrowable
 import com.digitalasset.canton.tracing.TraceContext
@@ -44,7 +47,7 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
       token: Option[String] = None,
   )(implicit traceContext: TraceContext): Future[SubmitAndWaitForTransactionResponse] =
     serviceWithTokenAndDeadline(timeout, token).submitAndWaitForTransaction(
-      request
+      getSubmitAndWaitForTransactionRequest(request.commands)
     )
 
   def deprecatedSubmitAndWaitForTransactionTreeForJsonApi(
@@ -66,7 +69,7 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
     submitAndHandle(
       timeout,
       token,
-      _.submitAndWaitForTransaction(SubmitAndWaitRequest(commands = Some(commands))),
+      _.submitAndWaitForTransaction(getSubmitAndWaitForTransactionRequest(Some(commands))),
     )
 
   def submitAndWaitForTransactionTree(
@@ -119,6 +122,23 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
         case Success(value) => Future.successful(Right(value))
         case Failure(exception) => handleException(exception)
       }
+
+  private def getSubmitAndWaitForTransactionRequest(commands: Option[Commands]) =
+    SubmitAndWaitForTransactionRequest(
+      commands = commands,
+      transactionFormat = Some(
+        TransactionFormat(
+          eventFormat = Some(
+            EventFormat(
+              filtersByParty = commands.toList.flatMap(_.actAs).map(_ -> Filters()).toMap,
+              verbose = true,
+            )
+          ),
+          transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+        )
+      ),
+    )
+
 }
 
 object CommandServiceClient {

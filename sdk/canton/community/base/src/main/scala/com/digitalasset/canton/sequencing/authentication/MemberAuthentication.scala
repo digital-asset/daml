@@ -7,11 +7,16 @@ import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.AuthenticationError
+import com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationTokenManager
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
+import io.grpc.{Status, StatusRuntimeException}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 trait MemberAuthentication {
 
@@ -33,7 +38,6 @@ trait MemberAuthentication {
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, AuthenticationError, Signature]
-
 }
 
 object MemberAuthentication extends MemberAuthentication {
@@ -141,10 +145,54 @@ object MemberAuthentication extends MemberAuthentication {
     } yield sig
   }
 
+  /** Retrieves an authentication token through a
+    * [[com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationTokenManager]],
+    * converting shutdown events and any exception into a [[io.grpc.Status]].
+    */
+  def getToken(
+      tokenManager: AuthenticationTokenManager
+  )(implicit
+      ec: ExecutionContext,
+      errorLoggingContext: ErrorLoggingContext,
+      traceContext: TraceContext,
+  ): EitherT[Future, Status, AuthenticationToken] =
+    EitherT(
+      tokenManager.getToken
+        .leftMap(err =>
+          Status.PERMISSION_DENIED.withDescription(s"Authentication token refresh error: $err")
+        )
+        .value
+        .onShutdown(
+          Left(
+            CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
+              .Error()
+              .asGrpcError
+              .getStatus
+              .withDescription("Token refresh aborted due to shutdown")
+          )
+        )
+        .recover {
+          case grpcError: StatusRuntimeException =>
+            // if auth token refresh fails with a grpc error, pass along that status so that the grpc subscription retry
+            // mechanism can base the retry decision on it.
+            Left(
+              grpcError.getStatus
+                .withDescription("Authentication token refresh failed with grpc error")
+            )
+          case NonFatal(ex) =>
+            // otherwise indicate internal error
+            Left(
+              Status.INTERNAL
+                .withDescription("Authentication token refresh failed with exception")
+                .withCause(ex)
+            )
+        }
+    )
+
   /** Hash the common fields of the nonce. Implementations of MemberAuthentication can then add
     * their own fields as appropriate.
     */
-  protected def commonNonce(
+  private def commonNonce(
       pureApi: CryptoPureApi,
       nonce: Nonce,
       synchronizerId: SynchronizerId,
@@ -155,5 +203,4 @@ object MemberAuthentication extends MemberAuthentication {
         nonce.getCryptographicEvidence
       ) // Nonces have a fixed length so it's fine to not add a length prefix
       .add(synchronizerId.toProtoPrimitive)
-
 }

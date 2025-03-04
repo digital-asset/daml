@@ -17,7 +17,7 @@ import com.digitalasset.canton.version.ProtocolVersion
   * target synchronizer.
   */
 final case class UnassignmentData(
-    unassignmentTs: CantonTimestamp,
+    reassignmentId: ReassignmentId,
     unassignmentRequest: FullUnassignmentTree,
     unassignmentDecisionTime: CantonTimestamp,
     unassignmentResult: Option[DeliveredUnassignmentResult],
@@ -34,8 +34,7 @@ final case class UnassignmentData(
 
   def sourceSynchronizer: Source[SynchronizerId] = unassignmentRequest.sourceSynchronizer
 
-  def reassignmentId: ReassignmentId =
-    ReassignmentId(unassignmentRequest.sourceSynchronizer, unassignmentTs)
+  def unassignmentTs: CantonTimestamp = reassignmentId.unassignmentTs
 
   def sourceMediator: MediatorGroupRecipient = unassignmentRequest.mediator
 
@@ -49,7 +48,7 @@ final case class UnassignmentData(
     else
       other match {
         case UnassignmentData(
-              `unassignmentTs`,
+              `reassignmentId`,
               `unassignmentRequest`,
               `unassignmentDecisionTime`,
               otherResult,

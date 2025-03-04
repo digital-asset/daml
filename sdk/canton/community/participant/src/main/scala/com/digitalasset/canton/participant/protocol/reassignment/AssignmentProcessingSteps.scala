@@ -430,7 +430,7 @@ private[reassignment] class AssignmentProcessingSteps(
   ] = {
     val PendingAssignment(
       requestId,
-      requestCounter,
+      _requestCounter,
       requestSequencerCounter,
       assignmentValidationResult,
       _,
@@ -485,7 +485,6 @@ private[reassignment] class AssignmentProcessingSteps(
                 participantId,
                 targetProtocolVersion,
                 requestId.unwrap,
-                requestCounter,
                 requestSequencerCounter,
               )
             )

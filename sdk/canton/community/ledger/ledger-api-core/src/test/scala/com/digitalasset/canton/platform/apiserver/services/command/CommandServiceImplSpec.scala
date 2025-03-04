@@ -67,7 +67,8 @@ class CommandServiceImplSpec
           loggerFactory,
         )
       ).use { stub =>
-        val request = SubmitAndWaitRequest.of(Some(commands))
+        val request =
+          SubmitAndWaitRequest.of(Some(commands))
         stub.submitAndWait(request).map { response =>
           verify(submissionTracker).track(
             eqTo(expectedSubmissionKey),
@@ -134,7 +135,8 @@ class CommandServiceImplSpec
         .call { () =>
           service
             .submitAndWait(
-              SubmitAndWaitRequest.of(Some(commands.copy(submissionId = submissionId)))
+              SubmitAndWaitRequest
+                .of(Some(commands.copy(submissionId = submissionId)))
             )(
               LoggingContextWithTrace.ForTesting
             )

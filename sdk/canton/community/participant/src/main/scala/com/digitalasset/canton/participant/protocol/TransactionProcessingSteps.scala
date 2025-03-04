@@ -1060,7 +1060,6 @@ class TransactionProcessingSteps(
 
   override def eventAndSubmissionIdForRejectedCommand(
       ts: CantonTimestamp,
-      rc: RequestCounter,
       sc: SequencerCounter,
       submitterMetadata: ViewSubmitterMetadata,
       _rootHash: RootHash,
@@ -1076,7 +1075,6 @@ class TransactionProcessingSteps(
           completionInfo,
           rejection,
           synchronizerId,
-          rc,
           sc,
           ts,
         )
@@ -1119,7 +1117,6 @@ class TransactionProcessingSteps(
         info,
         rejection,
         synchronizerId,
-        requestCounter,
         requestSequencerCounter,
         requestTime,
       )
@@ -1209,7 +1206,6 @@ class TransactionProcessingSteps(
 
     computeCommitAndContractsAndEvent(
       requestTime = pendingRequestData.requestTime,
-      requestCounter = pendingRequestData.requestCounter,
       txId = txValidationResult.transactionId,
       workflowIdO = txValidationResult.workflowIdO,
       requestSequencerCounter = pendingRequestData.requestSequencerCounter,
@@ -1223,7 +1219,6 @@ class TransactionProcessingSteps(
 
   private def computeCommitAndContractsAndEvent(
       requestTime: CantonTimestamp,
-      requestCounter: RequestCounter,
       txId: TransactionId,
       workflowIdO: Option[WorkflowId],
       requestSequencerCounter: SequencerCounter,
@@ -1273,7 +1268,6 @@ class TransactionProcessingSteps(
           updateId = lfTxId,
           contractMetadata = contractMetadata,
           synchronizerId = synchronizerId,
-          requestCounter = requestCounter,
           sequencerCounter = requestSequencerCounter,
           recordTime = requestTime,
         )
@@ -1320,7 +1314,6 @@ class TransactionProcessingSteps(
 
       commitAndContractsAndEvent <- computeCommitAndContractsAndEvent(
         requestTime = pendingRequestData.requestTime,
-        requestCounter = pendingRequestData.requestCounter,
         txId = pendingRequestData.transactionValidationResult.transactionId,
         workflowIdO = pendingRequestData.transactionValidationResult.workflowIdO,
         requestSequencerCounter = pendingRequestData.requestSequencerCounter,

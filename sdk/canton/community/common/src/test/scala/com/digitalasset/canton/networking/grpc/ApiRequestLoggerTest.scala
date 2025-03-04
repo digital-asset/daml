@@ -168,6 +168,41 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
     capturingLogger.getLogger(classOf[ApiRequestLoggerTest])
   override protected val logger: TracedLogger = TracedLogger(noTracingLogger)
 
+  private def captureSpuriousMessageAfterErrorThrow(
+      throwable: Throwable,
+      createExpectedLogMessage: (String, Boolean) => String,
+  ): Unit = {
+    // since our latest gRPC upgrade (https://github.com/DACH-NY/canton/pull/15304),
+    // the client might log one additional "completed" message before or after the
+    // fatal error being logged by gRPC
+    val capturedComplete = new AtomicBoolean(false)
+    capturedComplete.set(
+      capturingLogger.tryToPollMessage(createExpectedLogMessage("completed", false), DEBUG)
+    )
+    capturingLogger.assertNextMessageIs(
+      s"A fatal error has occurred in $executionContextName. Terminating thread.",
+      ERROR,
+      throwable,
+    )
+    if (!capturedComplete.get()) {
+      // The last "completed" message can appear spuriously
+      // so wait a bit to ensure it's captured here and not in the subsequent assertNoMoreEvents
+      //
+      // It is fine to poll here since this test does not expect subsequent events
+      Option(capturingLogger.eventQueue.poll(100L, TimeUnit.MILLISECONDS))
+        .foreach {
+          case event
+              if capturingLogger.eventMatches(
+                event,
+                createExpectedLogMessage("completed", false),
+                DEBUG,
+              ) =>
+          case other =>
+            fail(s"Unexpected event $other")
+        }
+    }
+  }
+
   class Env(logMessagePayloads: Boolean, maxStringLength: Int, maxMetadataSize: Int) {
     val service: HelloService = mock[HelloService]
 
@@ -386,35 +421,7 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
             case NonFatal(_) =>
               capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), DEBUG)
             case _: Throwable =>
-              // since our latest gRPC upgrade (https://github.com/DACH-NY/canton/pull/15304),
-              // the client might log one additional "completed" message before or after the
-              // fatal error being logged by gRPC
-              val capturedComplete = new AtomicBoolean(false)
-              capturedComplete.set(
-                capturingLogger.tryToPollMessage(createExpectedLogMessage("completed"), DEBUG)
-              )
-              capturingLogger.assertNextMessageIs(
-                s"A fatal error has occurred in $executionContextName. Terminating thread.",
-                ERROR,
-                throwable,
-              )
-              if (!capturedComplete.get()) {
-                // The last "completed" message can appear spuriously
-                // so wait a bit to ensure it's captured here and not in the subsequent assertNoMoreEvents
-                //
-                // It is fine to poll here since this test does not expect subsequent events
-                Option(capturingLogger.eventQueue.poll(100L, TimeUnit.MILLISECONDS))
-                  .foreach {
-                    case event
-                        if capturingLogger.eventMatches(
-                          event,
-                          createExpectedLogMessage("completed"),
-                          DEBUG,
-                        ) =>
-                    case other =>
-                      fail(s"Unexpected event $other")
-                  }
-              }
+              captureSpuriousMessageAfterErrorThrow(throwable, createExpectedLogMessage)
           }
         }
       }
@@ -654,24 +661,7 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
             case NonFatal(_) =>
               capturingLogger.assertNextMessageIs(createExpectedLogMessage("completed"), DEBUG)
             case _: Throwable =>
-              // since our latest gRPC upgrade (https://github.com/DACH-NY/canton/pull/15304),
-              // the client might log one additional "completed" message before or after the
-              // fatal error being logged by gRPC
-              val capturedCompletedMessages = new AtomicInteger(0)
-              if (capturingLogger.tryToPollMessage(createExpectedLogMessage("completed"), DEBUG)) {
-                capturedCompletedMessages.getAndIncrement()
-              }
-              capturingLogger.assertNextMessageIs(
-                s"A fatal error has occurred in $executionContextName. Terminating thread.",
-                ERROR,
-                throwable,
-              )
-              if (capturingLogger.tryToPollMessage(createExpectedLogMessage("completed"), DEBUG)) {
-                capturedCompletedMessages.getAndIncrement()
-              }
-              withClue("the 'completed' message should appear at most once:") {
-                capturedCompletedMessages.get() should be <= 1
-              }
+              captureSpuriousMessageAfterErrorThrow(throwable, createExpectedLogMessage)
           }
         }
       }

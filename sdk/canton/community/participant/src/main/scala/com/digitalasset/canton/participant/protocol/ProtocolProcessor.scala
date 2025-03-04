@@ -939,7 +939,6 @@ abstract class ProtocolProcessor[
         .map { submitterMetadata =>
           steps.eventAndSubmissionIdForRejectedCommand(
             ts,
-            rc,
             sc,
             submitterMetadata,
             rootHash,

@@ -15,7 +15,7 @@ import CatchupDetectorTest.{membership, mySequencerId, otherSequencerId}
 class CatchupDetectorTest extends AnyWordSpec with BftSequencerBaseTest {
 
   "track the latest epoch for active peers and determine if the node needs to switch to catch-up mode" in {
-    val catchupDetector = new DefaultCatchupDetector(membership)
+    val catchupDetector = new DefaultCatchupDetector(membership, loggerFactory)
 
     catchupDetector.updateLatestKnownPeerEpoch(otherSequencerId, EpochNumber.First) shouldBe true
     catchupDetector.updateLatestKnownPeerEpoch(otherSequencerId, EpochNumber.First) shouldBe false

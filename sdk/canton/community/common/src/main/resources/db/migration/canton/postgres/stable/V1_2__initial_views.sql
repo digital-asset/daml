@@ -219,7 +219,7 @@ create or replace view debug.par_active_contracts as
     lower(encode(contract_id, 'hex')) as contract_id,
     change, operation,
     debug.canton_timestamp(ts) as ts,
-    request_counter,
+    repair_counter,
     debug.resolve_common_static_string(remote_synchronizer_idx) as remote_synchronizer_idx,
     reassignment_counter
   from par_active_contracts;
@@ -289,7 +289,6 @@ create or replace view debug.par_reassignments as
     unassignment_global_offset,
     assignment_global_offset,
     debug.canton_timestamp(unassignment_timestamp) as unassignment_timestamp,
-    source_synchronizer_id,
     unassignment_request,
     debug.canton_timestamp(unassignment_decision_time) as unassignment_decision_time,
     unassignment_result,
@@ -304,8 +303,7 @@ create or replace view debug.par_journal_requests as
     request_counter,
     request_state_index,
     debug.canton_timestamp(request_timestamp) as request_timestamp,
-    debug.canton_timestamp(commit_time) as commit_time,
-    repair_context
+    debug.canton_timestamp(commit_time) as commit_time
   from par_journal_requests;
 
 create or replace view debug.par_computed_acs_commitments as
@@ -403,14 +401,6 @@ create or replace view debug.par_commitment_pruning as
     debug.canton_timestamp(ts) as ts,
     debug.canton_timestamp(succeeded) as succeeded
   from par_commitment_pruning;
-
-create or replace view debug.par_contract_key_pruning as
-  select
-    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
-    phase,
-    debug.canton_timestamp(ts) as ts,
-    debug.canton_timestamp(succeeded) as succeeded
-  from par_contract_key_pruning;
 
 create or replace view debug.common_sequenced_event_store_pruning as
   select
@@ -638,6 +628,7 @@ create or replace view debug.ord_epochs as
     start_block_number,
     epoch_length,
     debug.canton_timestamp(topology_ts) as topology_ts,
+    debug.canton_timestamp(previous_epoch_max_ts) as previous_epoch_max_ts,
     in_progress
   from ord_epochs;
 

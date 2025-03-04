@@ -36,6 +36,7 @@ import com.digitalasset.canton.sequencing.protocol.{DeliverError, MessageId}
 import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.MonadUtil
 
 import java.util.UUID
 import scala.collection.mutable
@@ -138,29 +139,33 @@ class InFlightSubmissionTracker(
         )
       }
       // Recover internal state: store unsequencedInFlights in unsequencedSubmissionMap, and schedule the rejection
-      _ = unsequencedInFlights.foreach { unsequencedInFlight =>
-        val submissionTraceContext = unsequencedInFlight.submissionTraceContext
-        unsequencedSubmissionMap.pushIfNotExists(
-          unsequencedInFlight.messageUuid,
-          unsequencedInFlight.sequencingInfo.trackingData,
-          submissionTraceContext,
-          unsequencedInFlight.rootHashO,
-        )
-        recordOrderPublisher
-          .scheduleFloatingEventPublication( // first try to schedule with the recovered timeout
-            timestamp = unsequencedInFlight.sequencingInfo.timeout,
-            eventFactory = pullTimelyRejectEvent(unsequencedInFlight.messageId, _),
-          )(submissionTraceContext)
-          .valueOr { ropIsAlreadyAt =>
-            logger.debug(
-              s"Unsequenced Inflight Submission's sequencing timeout ${unsequencedInFlight.sequencingInfo.timeout} is expired: record time is already at $ropIsAlreadyAt, scheduling timely rejection as soon as possible at synchronizer startup. [message ID: ${unsequencedInFlight.messageId}]"
-            )
-            recordOrderPublisher
-              .scheduleFloatingEventPublicationImmediately( // if the first try fails (timeout already expired), scheduling immediately
-                eventFactory = pullTimelyRejectEvent(unsequencedInFlight.messageId, _)
-              )(submissionTraceContext)
-              .discard
-          }
+      _ <- FutureUnlessShutdown.lift {
+        MonadUtil.sequentialTraverse(unsequencedInFlights) { unsequencedInFlight =>
+          val submissionTraceContext = unsequencedInFlight.submissionTraceContext
+          unsequencedSubmissionMap.pushIfNotExists(
+            unsequencedInFlight.messageUuid,
+            unsequencedInFlight.sequencingInfo.trackingData,
+            submissionTraceContext,
+            unsequencedInFlight.rootHashO,
+          )
+          recordOrderPublisher
+            .scheduleFloatingEventPublication( // first try to schedule with the recovered timeout
+              timestamp = unsequencedInFlight.sequencingInfo.timeout,
+              eventFactory = pullTimelyRejectEvent(unsequencedInFlight.messageId, _),
+            )(submissionTraceContext)
+            .map {
+              _.valueOr { ropIsAlreadyAt =>
+                logger.debug(
+                  s"Unsequenced Inflight Submission's sequencing timeout ${unsequencedInFlight.sequencingInfo.timeout} is expired: record time is already at $ropIsAlreadyAt, scheduling timely rejection as soon as possible at synchronizer startup. [message ID: ${unsequencedInFlight.messageId}]"
+                )
+                recordOrderPublisher
+                  .scheduleFloatingEventPublicationImmediately( // if the first try fails (timeout already expired), scheduling immediately
+                    eventFactory = pullTimelyRejectEvent(unsequencedInFlight.messageId, _)
+                  )(submissionTraceContext)
+                  .discard
+              }
+            }
+        }
       }
     } yield new InFlightSubmissionSynchronizerTracker(
       synchronizerId = synchronizerId,
@@ -201,41 +206,40 @@ class InFlightSubmissionSynchronizerTracker(
   ]] = {
     implicit val traceContext: TraceContext = submission.submissionTraceContext
     for {
-      _ <- recordOrderPublisher.scheduleFloatingEventPublication(
-        timestamp = submission.sequencingInfo.timeout,
-        eventFactory = pullTimelyRejectEvent(submission.messageId, _),
-        onScheduled = { () =>
-          store.value
-            .register(submission)
-            .map(_ =>
-              // if the submission successfully registered, we also add the entry in the unsequencedSubmissionMap
-              // - without this entry nothing will happen if the scheduled task is executing, as pullTimelyRejectEvent
-              //   will be empty
-              // - we are waiting for this to happen before executing the scheduled task, because onScheduled will complete
-              //   after this, and scheduleFloatingEventPublication ensures that the onScheduled task is waited for
-              //   before executing.
-              //   This is important to not have a race between the persistent .register and the publishing of the timeout
-              //   CommandRejected event - which at post-processing will try to remove the registered event from persistence
-              unsequencedSubmissionMap.pushIfNotExists(
-                submission.messageUuid,
-                submission.sequencingInfo.trackingData,
-                submission.submissionTraceContext,
-                None,
+      _ <- EitherT(
+        recordOrderPublisher.scheduleFloatingEventPublication(
+          timestamp = submission.sequencingInfo.timeout,
+          eventFactory = pullTimelyRejectEvent(submission.messageId, _),
+          onScheduled = { () =>
+            store.value
+              .register(submission)
+              .map(_ =>
+                // if the submission successfully registered, we also add the entry in the unsequencedSubmissionMap
+                // - without this entry nothing will happen if the scheduled task is executing, as pullTimelyRejectEvent
+                //   will be empty
+                // - we are waiting for this to happen before executing the scheduled task, because onScheduled will complete
+                //   after this, and scheduleFloatingEventPublication ensures that the onScheduled task is waited for
+                //   before executing.
+                //   This is important to not have a race between the persistent .register and the publishing of the timeout
+                //   CommandRejected event - which at post-processing will try to remove the registered event from persistence
+                unsequencedSubmissionMap.pushIfNotExists(
+                  submission.messageUuid,
+                  submission.sequencingInfo.trackingData,
+                  submission.submissionTraceContext,
+                  None,
+                )
               )
-            )
-            .value
-        },
-      ) match {
-        case Left(markTooLow) =>
-          EitherT.leftT[FutureUnlessShutdown, Unit](
-            TimeoutTooLow(submission, markTooLow): InFlightSubmissionTrackerError
-          )
-
-        case Right(eitherTValue) =>
-          EitherT(eitherTValue)
-            .leftMap(SubmissionAlreadyInFlight(submission, _))
+              .value
+          },
+        )
+      )
+        .mapK(FutureUnlessShutdown.liftK)
+        .leftMap(TimeoutTooLow(submission, _): InFlightSubmissionTrackerError)
+        .map(EitherT(_))
+        .flatMap(
+          _.leftMap(SubmissionAlreadyInFlight(submission, _))
             .leftWiden[InFlightSubmissionTrackerError]
-      }
+        )
       // It is safe to request a tick only after persisting the in-flight submission
       // because if we crash in between, crash recovery will request the tick.
       _ = timeTracker.requestTick(submission.sequencingInfo.timeout)
@@ -370,23 +374,26 @@ class InFlightSubmissionSynchronizerTracker(
         _ <- toUpdateO.traverse_ { case (changeIdHash, newTrackingData, submissionTraceContext) =>
           store.value
             .updateUnsequenced(changeIdHash, synchronizerId, messageId, newTrackingData)
-            .map { _ =>
+            .flatMap { _ =>
               unsequencedSubmissionMap.changeIfExists(
                 key = messageId,
                 trackingData = newTrackingData.trackingData,
               )
-              recordOrderPublisher
-                .scheduleFloatingEventPublication(
-                  timestamp =
-                    newTrackingData.timeout, // this is the delivery error's timeout, we publish before ticking this sequencer counter + timestamp (no need to request a tick)
-                  eventFactory = pullTimelyRejectEvent(messageId, _),
-                )(submissionTraceContext)
-                .leftMap(ropIsAlreadyAt =>
-                  throw new IllegalStateException(
-                    s"RecordOrderPublisher is already at $ropIsAlreadyAt, cannot schedule rejection event (at ${newTrackingData.timeout})"
+              FutureUnlessShutdown.lift(
+                recordOrderPublisher
+                  .scheduleFloatingEventPublication(
+                    timestamp =
+                      newTrackingData.timeout, // this is the delivery error's timeout, we publish before ticking this sequencer counter + timestamp (no need to request a tick)
+                    eventFactory = pullTimelyRejectEvent(messageId, _),
+                  )(submissionTraceContext)
+                  .map(
+                    _.leftMap(ropIsAlreadyAt =>
+                      throw new IllegalStateException(
+                        s"RecordOrderPublisher is already at $ropIsAlreadyAt, cannot schedule rejection event (at ${newTrackingData.timeout})"
+                      )
+                    ).merge
                   )
-                )
-                .merge
+              )
             }
         }
       } yield ()

@@ -133,7 +133,7 @@ class DeliveredUnassignmentResultValidationTest
   ): Either[DeliveredUnassignmentResultValidation.Error, Unit] =
     DeliveredUnassignmentResultValidation(
       unassignmentRequest = reassignmentData.unassignmentRequest,
-      unassignmentRequestTs = requestId.unwrap,
+      reassignmentId = reassignmentData.reassignmentId,
       unassignmentDecisionTime = decisionTime,
       sourceTopology = Source(cryptoSnapshot),
       targetTopologyTargetTs = Target(cryptoSnapshot.ipsSnapshot),
@@ -354,7 +354,7 @@ class DeliveredUnassignmentResultValidationTest
 
       def validate(targetTopology: TopologySnapshot) = DeliveredUnassignmentResultValidation(
         unassignmentRequest = reassignmentData.unassignmentRequest,
-        unassignmentRequestTs = requestId.unwrap,
+        reassignmentId = reassignmentData.reassignmentId,
         unassignmentDecisionTime = decisionTime,
         sourceTopology = Source(cryptoSnapshot),
         targetTopologyTargetTs = Target(targetTopology),

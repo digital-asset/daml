@@ -200,7 +200,7 @@ object ConsensusSegment {
           .add(blockMetadata.blockNumber)
           .add(blockMetadata.epochNumber)
           .add(localTimestamp.toMicros)
-          .add(from.toString)
+          .add(from.toProtoPrimitive)
           .add(block.proofs.size)
           .add(canonicalCommitSet.sortedCommits.size)
 
@@ -209,7 +209,7 @@ object ConsensusSegment {
             builder.add(proof.batchId.hash.getCryptographicEvidence)
             builder.add(proof.acks.size)
             proof.acks.foreach { ack =>
-              builder.add(ack.from.toString)
+              builder.add(ack.from.toProtoPrimitive)
               // TODO(#17337): We should probably not rely on Protobuf when calculating hashes (due to a potential non-determinism).
               builder.add(ack.signature.toByteString(ProtocolVersion.dev))
             }

@@ -507,15 +507,15 @@ class PruningProcessor(
               _.filter(synchronizerOffset => Option(synchronizerOffset.offset) > pruneFromExclusive)
                 .map(synchronizerOffset =>
                   state.requestJournalStore
-                    .lastRequestCounterWithRequestTimestampBeforeOrAt(
+                    .lastRequestTimeWithRequestTimestampBeforeOrAt(
                       CantonTimestamp(synchronizerOffset.recordTime)
                     )
-                    .map(requestCounterO =>
+                    .map(timeOfRequestO =>
                       Some(
                         PruningCutoffs.SynchronizerOffset(
                           state = state,
                           lastTimestamp = CantonTimestamp(synchronizerOffset.recordTime),
-                          lastRequestCounter = requestCounterO,
+                          lastRequestCounter = timeOfRequestO.map(_.rc),
                         )
                       )
                     )

@@ -21,6 +21,8 @@ object ParticipantErrorGroup extends ErrorGroup()(ErrorClass.root()) {
       abstract class IdentityProviderConfigServiceErrorGroup extends ErrorGroup()
     }
 
+    abstract class JsonApiErrorGroup extends ErrorGroup()
+
     abstract class CommandExecutionErrorGroup extends ErrorGroup()
 
     abstract class ConsistencyErrorGroup extends ErrorGroup()

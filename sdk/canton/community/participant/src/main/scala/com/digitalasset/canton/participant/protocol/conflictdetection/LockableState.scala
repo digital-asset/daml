@@ -9,7 +9,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.LockableSt
   PendingActivenessCheckCounter,
   PendingWriteCounter,
 }
-import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
+import com.digitalasset.canton.participant.util.StateChange
 import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.atomic.AtomicReference
@@ -205,7 +205,7 @@ private[conflictdetection] class MutableLockableState[Status <: PrettyPrinting](
     *   [[scala.None$]] if the state is unknown. The caller must fetch the latest state from the
     *   store and signal it with [[provideFetchedState]]. [[scala.Some$]] a future that completes
     *   after the state has become available (via [[provideFetchedState]] or
-    *   [[setStatusPendingWrite]])
+    *   [[setStatePendingWrite]])
     *
     * @throws IllegalConflictDetectionStateException
     *   if `2^32 - 1` pending activeness checks have already been registered.
@@ -264,10 +264,10 @@ private[conflictdetection] class MutableLockableState[Status <: PrettyPrinting](
     * @throws IllegalConflictDetectionStateException
     *   if no lock is held or there are already `2^32-1` pending writes.
     */
-  def setStatusPendingWrite(newStatus: Status, toc: TimeOfChange): Unit = {
+  def setStatePendingWrite(newState: StateChange[Status]): Unit = {
     unlock()
     pendingWritesVar = PendingWriteCounter.acquire(pendingWritesVar)
-    updateStateIfNew(Some(StateChange(newStatus, toc)))
+    updateStateIfNew(Some(newState))
   }
 
   /** Signal that one of the contract's pending state changes has been written to the persistent

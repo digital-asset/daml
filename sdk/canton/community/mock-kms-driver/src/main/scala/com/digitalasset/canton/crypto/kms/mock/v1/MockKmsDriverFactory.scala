@@ -7,7 +7,9 @@ import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.buildinfo.BuildInfo
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.{CryptoConfig, CryptoProvider, ProcessingTimeout}
+import com.digitalasset.canton.crypto.KeyName
 import com.digitalasset.canton.crypto.kms.driver.api.v1.KmsDriverFactory
 import com.digitalasset.canton.crypto.kms.driver.v1.KmsDriverSpecsConverter
 import com.digitalasset.canton.crypto.provider.jce.JceCrypto
@@ -18,6 +20,8 @@ import com.digitalasset.canton.crypto.store.memory.{
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import org.slf4j.Logger
+import pureconfig.configurable.{genericMapReader, genericMapWriter}
+import pureconfig.error.CannotConvert
 import pureconfig.{ConfigReader, ConfigWriter}
 
 import scala.concurrent.ExecutionContext
@@ -33,11 +37,22 @@ class MockKmsDriverFactory extends KmsDriverFactory {
 
   override def configReader: ConfigReader[MockKmsDriverConfig] = {
     import pureconfig.generic.semiauto.*
+
+    implicit val mapReader = genericMapReader[KeyName, config.NonNegativeFiniteDuration] { str =>
+      KeyName
+        .fromProtoPrimitive(str)
+        .leftMap(err => CannotConvert(str, KeyName.getClass.getName, s"Invalid key name: $err"))
+    }
+
     deriveReader[MockKmsDriverConfig]
   }
 
   override def configWriter(confidential: Boolean): ConfigWriter[MockKmsDriverConfig] = {
     import pureconfig.generic.semiauto.*
+
+    implicit val mapWriter =
+      genericMapWriter[KeyName, config.NonNegativeFiniteDuration](_.toProtoPrimitive)
+
     deriveWriter[MockKmsDriverConfig]
   }
 
@@ -56,15 +71,16 @@ class MockKmsDriverFactory extends KmsDriverFactory {
 
     implicit val ec = executionContext
 
-    val loggerFactory = NamedLoggerFactory.root
+    // We use the Canton logging infrastructure to create a logger for the driver
+    val namedLoggerFactory = NamedLoggerFactory.root
     val timeouts = ProcessingTimeout()
 
     val cryptoConfig = CryptoConfig(provider = CryptoProvider.Jce)
 
     val cryptoPrivateStore =
-      new InMemoryCryptoPrivateStore(ReleaseProtocolVersion.latest, loggerFactory)
+      new InMemoryCryptoPrivateStore(ReleaseProtocolVersion.latest, namedLoggerFactory)
 
-    val cryptoPublicStore = new InMemoryCryptoPublicStore(loggerFactory)
+    val cryptoPublicStore = new InMemoryCryptoPublicStore(namedLoggerFactory)
 
     val driverE = for {
       crypto <- JceCrypto
@@ -73,7 +89,7 @@ class MockKmsDriverFactory extends KmsDriverFactory {
           cryptoPrivateStore,
           cryptoPublicStore,
           timeouts,
-          loggerFactory,
+          namedLoggerFactory,
         )
 
       supportedSigningKeySpecs = convertSpec(
@@ -102,6 +118,7 @@ class MockKmsDriverFactory extends KmsDriverFactory {
       supportedSigningAlgoSpecs,
       supportedEncryptionKeySpecs,
       supportedEncryptionAlgoSpecs,
+      namedLoggerFactory,
     )
 
     driverE.valueOr { err =>

@@ -30,6 +30,8 @@ trait KmsDriverTest extends AsyncWordSpec with BaseTest with HasExecutionContext
 
   protected val predefinedSymmetricKey: Option[String] = None
 
+  protected lazy val emptyContext = Context.root()
+
   /** Create a new specific KMS Driver instance */
   protected def newKmsDriver(): KmsDriver
 
@@ -61,7 +63,6 @@ trait KmsDriverTest extends AsyncWordSpec with BaseTest with HasExecutionContext
           driver.supportedEncryptionAlgoSpecs,
         )
 
-      val emptyContext = Context.root()
       val testData = "test".getBytes
 
       "report health eventually as ok" in {

@@ -23,7 +23,7 @@ import com.digitalasset.canton.participant.store.{
   ReassignmentStore,
   ReassignmentStoreTest,
 }
-import com.digitalasset.canton.participant.util.TimeOfChange
+import com.digitalasset.canton.participant.util.{TimeOfChange, TimeOfRequest}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
@@ -57,10 +57,13 @@ private[protocol] trait ConflictDetectionHelpers {
     )
 
   def mkAcs(
-      entries: (LfContractId, TimeOfChange, ActiveContractStore.Status)*
+      entries: (LfContractId, TimeOfRequest, ActiveContractStore.Status)*
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ActiveContractStore] = {
     val acs = mkEmptyAcs()
-    insertEntriesAcs(acs, entries).map(_ => acs)
+    insertEntriesAcs(
+      acs,
+      entries.map { case (cid, tor, status) => (cid, TimeOfChange(tor.timestamp), status) },
+    ).map(_ => acs)
   }
 
   def mkReassignmentCache(
@@ -99,14 +102,14 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
   )(implicit ec: ExecutionContext, traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     MonadUtil
       .sequentialTraverse(entries) {
-        case (coid, toc, Active(_reassignmentCounter)) =>
-          acs.markContractCreated(coid -> initialReassignmentCounter, toc)
-        case (coid, toc, Archived) =>
-          acs.archiveContract(coid, toc)
-        case (coid, toc, Purged) =>
-          acs.purgeContracts(Seq((coid, toc)))
-        case (coid, toc, ReassignedAway(targetSynchronizer, reassignmentCounter)) =>
-          acs.unassignContracts(coid, toc, targetSynchronizer, reassignmentCounter)
+        case (coid, tor, Active(_reassignmentCounter)) =>
+          acs.markContractCreated(coid -> initialReassignmentCounter, tor)
+        case (coid, tor, Archived) =>
+          acs.archiveContract(coid, tor)
+        case (coid, tor, Purged) =>
+          acs.purgeContracts(Seq((coid, tor)))
+        case (coid, tor, ReassignedAway(targetSynchronizer, reassignmentCounter)) =>
+          acs.unassignContracts(coid, tor, targetSynchronizer, reassignmentCounter)
       }
       .value
       .map(_.void)

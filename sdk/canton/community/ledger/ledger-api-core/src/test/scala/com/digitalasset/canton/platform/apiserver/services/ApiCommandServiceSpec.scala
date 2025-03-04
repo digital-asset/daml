@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.apiserver.services
 
 import com.daml.ledger.api.v2.command_service.{
+  SubmitAndWaitForTransactionRequest,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitRequest,
@@ -62,26 +63,37 @@ class ApiCommandServiceSpec
 
       for {
         _ <- grpcCommandService.submitAndWait(aSubmitAndWaitRequestWithNoSubmissionId)
-        _ <- grpcCommandService.submitAndWaitForTransaction(aSubmitAndWaitRequestWithNoSubmissionId)
+        _ <- grpcCommandService.submitAndWaitForTransaction(
+          aSubmitAndWaitForTransactionRequestWithNoSubmissionId
+        )
         _ <- grpcCommandService.submitAndWaitForTransactionTree(
           aSubmitAndWaitRequestWithNoSubmissionId
         )
       } yield {
         def expectedSubmitAndWaitRequest(submissionIdSuffix: String): SubmitAndWaitRequest =
-          aSubmitAndWaitRequestWithNoSubmissionId.copy(commands =
-            aSubmitAndWaitRequestWithNoSubmissionId.commands
-              .map(_.copy(submissionId = s"$submissionIdPrefix$submissionIdSuffix"))
+          aSubmitAndWaitRequestWithNoSubmissionId.update(
+            _.commands.submissionId := s"$submissionIdPrefix$submissionIdSuffix"
+          )
+        def expectedSubmitAndWaitForTransactionRequest(
+            submissionIdSuffix: String
+        ): SubmitAndWaitForTransactionRequest =
+          aSubmitAndWaitForTransactionRequestWithNoSubmissionId.update(
+            _.commands.submissionId := s"$submissionIdPrefix$submissionIdSuffix"
           )
         val requestCaptorSubmitAndWait = ArgCaptor[SubmitAndWaitRequest]
+        val requestCaptorSubmitAndWaitForTransaction = ArgCaptor[SubmitAndWaitForTransactionRequest]
 
         verify(mockCommandService).submitAndWait(requestCaptorSubmitAndWait.capture)(
           any[LoggingContextWithTrace]
         )
         requestCaptorSubmitAndWait.value shouldBe expectedSubmitAndWaitRequest("1")
-        verify(mockCommandService).submitAndWaitForTransaction(requestCaptorSubmitAndWait.capture)(
+        verify(mockCommandService).submitAndWaitForTransaction(
+          requestCaptorSubmitAndWaitForTransaction.capture
+        )(
           any[LoggingContextWithTrace]
         )
-        requestCaptorSubmitAndWait.value shouldBe expectedSubmitAndWaitRequest("2")
+        requestCaptorSubmitAndWaitForTransaction.value shouldBe
+          expectedSubmitAndWaitForTransactionRequest("2")
         verify(mockCommandService).submitAndWaitForTransactionTree(
           requestCaptorSubmitAndWait.capture
         )(any[LoggingContextWithTrace])
@@ -107,9 +119,16 @@ class ApiCommandServiceSpec
         _.commands.disclosedContracts.set(Seq(DisclosedContractCreator.disclosedContract))
       )
 
+      val submissionWithDisclosedContractsForTransaction =
+        aSubmitAndWaitForTransactionRequestWithNoSubmissionId.update(
+          _.commands.disclosedContracts.set(Seq(DisclosedContractCreator.disclosedContract))
+        )
+
       for {
         _ <- grpcCommandService.submitAndWait(submissionWithDisclosedContracts)
-        _ <- grpcCommandService.submitAndWaitForTransaction(submissionWithDisclosedContracts)
+        _ <- grpcCommandService.submitAndWaitForTransaction(
+          submissionWithDisclosedContractsForTransaction
+        )
         _ <- grpcCommandService.submitAndWaitForTransactionTree(submissionWithDisclosedContracts)
       } yield {
         succeed
@@ -134,9 +153,13 @@ object ApiCommandServiceSpec {
     )
   )
 
-  private val aSubmitAndWaitRequestWithNoSubmissionId = submitAndWaitRequest.copy(
-    commands = Some(commands.copy(commands = Seq(aCommand), submissionId = ""))
-  )
+  private val aSubmitAndWaitRequestWithNoSubmissionId =
+    submitAndWaitRequest.update(_.commands.commands := Seq(aCommand), _.commands.submissionId := "")
+  private val aSubmitAndWaitForTransactionRequestWithNoSubmissionId =
+    submitAndWaitForTransactionRequest.update(
+      _.commands.commands := Seq(aCommand),
+      _.commands.submissionId := "",
+    )
 
   private val submissionIdPrefix = "submissionId-"
 
@@ -154,7 +177,7 @@ object ApiCommandServiceSpec {
     )
       .thenReturn(Future.successful(SubmitAndWaitResponse.defaultInstance))
     when(
-      mockCommandService.submitAndWaitForTransaction(any[SubmitAndWaitRequest])(
+      mockCommandService.submitAndWaitForTransaction(any[SubmitAndWaitForTransactionRequest])(
         any[LoggingContextWithTrace]
       )
     )

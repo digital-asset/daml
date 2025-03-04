@@ -82,7 +82,8 @@ class EpochState[E <: Env[E]](
     commitCertificates.toList.sequence
       .fold[EpochState.EpochCompletionStatus](EpochState.Incomplete)(EpochState.Complete(_))
 
-  private val segmentModules: Map[SequencerId, E#ModuleRefT[ConsensusSegment.Message]] =
+  // Segment module references are lazy so that the segment module factory is not triggered on object creation
+  private lazy val segmentModules: Map[SequencerId, E#ModuleRefT[ConsensusSegment.Message]] =
     ListMap.from(epoch.segments.view.map { segment =>
       segment.originalLeader -> segmentModuleRefFactory(
         new SegmentState(
@@ -98,10 +99,11 @@ class EpochState[E <: Env[E]](
       )
     })
 
-  private val mySegmentModule = segmentModules.get(epoch.currentMembership.myId)
+  private lazy val mySegmentModule = segmentModules.get(epoch.currentMembership.myId)
   private val mySegment = epoch.segments.find(_.originalLeader == epoch.currentMembership.myId)
 
-  private val blockToSegmentModule: Map[BlockNumber, E#ModuleRefT[ConsensusSegment.Message]] = {
+  private lazy val blockToSegmentModule
+      : Map[BlockNumber, E#ModuleRefT[ConsensusSegment.Message]] = {
     val blockToLeader = (for {
       segment <- epoch.segments
       number <- segment.slotNumbers

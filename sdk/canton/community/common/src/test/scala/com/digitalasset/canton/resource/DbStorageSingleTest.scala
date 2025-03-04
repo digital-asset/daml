@@ -10,10 +10,14 @@ import com.digitalasset.canton.metrics.CommonMockMetrics
 import com.digitalasset.canton.store.db.DbStorageSetup
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.{BaseTest, CloseableTest}
+import com.digitalasset.canton.{BaseTest, CloseableTest, HasExecutionContext}
 import org.scalatest.wordspec.AsyncWordSpec
 
-trait DbStorageSingleTest extends AsyncWordSpec with BaseTest with CloseableTest {
+trait DbStorageSingleTest
+    extends AsyncWordSpec
+    with BaseTest
+    with HasExecutionContext
+    with CloseableTest {
 
   def baseConfig: DbConfig
   def modifyUser(user: String): DbConfig

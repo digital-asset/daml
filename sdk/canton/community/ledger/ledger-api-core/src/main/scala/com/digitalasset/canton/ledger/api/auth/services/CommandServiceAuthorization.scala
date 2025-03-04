@@ -5,9 +5,10 @@ package com.digitalasset.canton.ledger.api.auth.services
 
 import com.daml.ledger.api.v2.command_service.*
 import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandService
-import com.digitalasset.canton.auth.Authorizer
+import com.digitalasset.canton.auth.{Authorizer, RequiredClaim}
 import com.digitalasset.canton.ledger.api.ProxyCloseable
 import com.digitalasset.canton.ledger.api.auth.RequiredClaims
+import com.digitalasset.canton.ledger.api.auth.services.CommandServiceAuthorization.getSubmitAndWaitForTransactionClaims
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator
 import io.grpc.ServerServiceDefinition
@@ -28,17 +29,11 @@ final class CommandServiceAuthorization(
     with GrpcApiService {
 
   override def submitAndWaitForTransaction(
-      request: SubmitAndWaitRequest
-  ): Future[SubmitAndWaitForTransactionResponse] = {
-    val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
+      request: SubmitAndWaitForTransactionRequest
+  ): Future[SubmitAndWaitForTransactionResponse] =
     authorizer.rpc(service.submitAndWaitForTransaction)(
-      RequiredClaims.submissionClaims(
-        actAs = effectiveSubmitters.actAs,
-        readAs = effectiveSubmitters.readAs,
-        applicationIdL = Lens.unit[SubmitAndWaitRequest].commands.applicationId,
-      )*
+      getSubmitAndWaitForTransactionClaims(request)*
     )(request)
-  }
 
   override def submitAndWait(
       request: SubmitAndWaitRequest
@@ -68,4 +63,27 @@ final class CommandServiceAuthorization(
 
   override def bindService(): ServerServiceDefinition =
     CommandServiceGrpc.bindService(this, executionContext)
+}
+
+object CommandServiceAuthorization {
+  def getSubmitAndWaitForTransactionClaims(
+      request: SubmitAndWaitForTransactionRequest
+  ): List[RequiredClaim[SubmitAndWaitForTransactionRequest]] = {
+    val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
+    (RequiredClaims.submissionClaims(
+      actAs = effectiveSubmitters.actAs,
+      readAs = effectiveSubmitters.readAs,
+      applicationIdL = applicationIdForTransactionL,
+    ) ::: request.transactionFormat.toList
+      .flatMap(
+        RequiredClaims.transactionFormatClaims[SubmitAndWaitForTransactionRequest]
+      )).distinct
+  }
+
+  val applicationIdL: Lens[SubmitAndWaitRequest, String] =
+    Lens.unit[SubmitAndWaitRequest].commands.applicationId
+
+  val applicationIdForTransactionL: Lens[SubmitAndWaitForTransactionRequest, String] =
+    Lens.unit[SubmitAndWaitForTransactionRequest].commands.applicationId
+
 }

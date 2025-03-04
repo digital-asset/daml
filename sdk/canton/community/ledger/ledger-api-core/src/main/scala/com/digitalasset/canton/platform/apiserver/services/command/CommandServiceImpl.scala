@@ -71,7 +71,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
       request: SubmitAndWaitRequest
   )(loggingContext: LoggingContextWithTrace): Future[SubmitAndWaitResponse] =
     withCommandsLoggingContext(request.getCommands, loggingContext) { (errorLogger, traceContext) =>
-      submitAndWaitInternal(request)(errorLogger, traceContext).map { response =>
+      submitAndWaitInternal(request.commands)(errorLogger, traceContext).map { response =>
         SubmitAndWaitResponse.of(
           updateId = response.completion.updateId,
           completionOffset = response.completion.offset,
@@ -80,15 +80,14 @@ private[apiserver] final class CommandServiceImpl private[services] (
     }
 
   def submitAndWaitForTransaction(
-      request: SubmitAndWaitRequest
+      request: SubmitAndWaitForTransactionRequest
   )(loggingContext: LoggingContextWithTrace): Future[SubmitAndWaitForTransactionResponse] =
     withCommandsLoggingContext(request.getCommands, loggingContext) { (errorLogger, traceContext) =>
-      submitAndWaitInternal(request)(errorLogger, traceContext).flatMap { resp =>
+      submitAndWaitInternal(request.commands)(errorLogger, traceContext).flatMap { resp =>
         val updateId = resp.completion.updateId
-        val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
         val txRequest = GetTransactionByIdRequest(
           updateId = updateId,
-          requestingParties = effectiveActAs.toList,
+          transactionFormat = request.transactionFormat,
         )
         transactionServices
           .getTransactionById(txRequest)
@@ -97,19 +96,19 @@ private[apiserver] final class CommandServiceImpl private[services] (
                 if e.getStatus.getCode == Status.Code.NOT_FOUND
                   && e.getStatus.getDescription.contains(
                     RequestValidationErrors.NotFound.Transaction.id
-                  )
-                // TODO(#23504) fallback to ledger effect only if acs delta had been requested
-                // && request.transactionFormat.map(_.transactionShape).fold(false)(_ == TRANSACTION_SHAPE_ACS_DELTA) =>
-                =>
+                  ) =>
               logger.debug(
-                s"Transaction not found in AcsDelta transaction lookup for updateId $updateId, falling back to LedgerEffects lookup."
+                s"Transaction not found in transaction lookup for updateId $updateId, falling back to LedgerEffects lookup without events."
               )(traceContext)
               // When a command submission completes successfully,
-              // the submitters can end up getting a TRANSACTION_NOT_FOUND when querying its corresponding AcsDelta transaction that either:
+              // the submitters can end up getting a TRANSACTION_NOT_FOUND when querying its corresponding AcsDelta
+              // transaction that either:
               // * has only non-consuming events
               // * has only events of contracts which have stakeholders that are not amongst the requesting parties
-              // In these situations, we fallback to a LedgerEffects transaction lookup and populate the AcsDelta transaction response
-              // with its details but no events.
+              // or in general when filters defined in the transactionFormat exclude all the events from the
+              // transaction.
+              // In these situations, we fallback to a LedgerEffects transaction lookup with a wildcard filter and
+              // populate the transaction response  with its details but no events.
               transactionServices
                 .getTransactionById(
                   txRequest
@@ -135,7 +134,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
       request: SubmitAndWaitRequest
   )(loggingContext: LoggingContextWithTrace): Future[SubmitAndWaitForTransactionTreeResponse] =
     withCommandsLoggingContext(request.getCommands, loggingContext) { (errorLogger, traceContext) =>
-      submitAndWaitInternal(request)(errorLogger, traceContext).flatMap { resp =>
+      submitAndWaitInternal(request.commands)(errorLogger, traceContext).flatMap { resp =>
         val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
         val txRequest = GetTransactionByIdRequest(
           updateId = resp.completion.updateId,
@@ -148,7 +147,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
     }
 
   private def submitAndWaitInternal(
-      request: SubmitAndWaitRequest
+      commands: Option[Commands]
   )(implicit
       errorLogger: ContextualizedErrorLogger,
       traceContext: TraceContext,
@@ -161,7 +160,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
       else Future.unit
 
     def ensureCommandsPopulated: Commands =
-      request.commands.getOrElse(
+      commands.getOrElse(
         throw new IllegalArgumentException("Missing commands field in request")
       )
 

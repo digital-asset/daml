@@ -4,8 +4,11 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
+import com.daml.ledger.api.v2.command_service.SubmitAndWaitForTransactionRequest
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod as DeduplicationPeriodProto
 import com.daml.ledger.api.v2.commands.{Command, Commands, CreateCommand, PrefetchContractKey}
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
+import com.daml.ledger.api.v2.transaction_filter.{EventFormat, Filters, TransactionFormat}
 import com.daml.ledger.api.v2.value.Value.Sum
 import com.daml.ledger.api.v2.value.{
   List as ApiList,
@@ -20,6 +23,7 @@ import com.digitalasset.canton.ledger.api.ApiMocks.{
   submissionId,
   workflowId,
 }
+import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.api.{ApiMocks, Commands as ApiCommands, DisclosedContract}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
@@ -213,9 +217,74 @@ class SubmitRequestValidatorTest
     )
   }
 
+  private val testedSubmitAndWaitRequestValidator = new SubmitAndWaitRequestValidator(
+    testedCommandValidator
+  )
+
   private val testedValueValidator = ValueValidator
 
   "CommandSubmissionRequestValidator" when {
+    "validating SubmitAndWaitRequestValidator" should {
+      "validate a request with transaction format" in {
+        testedSubmitAndWaitRequestValidator.validate(
+          req = SubmitAndWaitForTransactionRequest(
+            commands = Some(api.commands),
+            transactionFormat = Some(
+              TransactionFormat(
+                eventFormat = Some(EventFormat(filtersForAnyParty = Some(Filters()))),
+                transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+              )
+            ),
+          ),
+          currentLedgerTime = internal.ledgerTime,
+          currentUtcTime = internal.submittedAt,
+          maxDeduplicationDuration = internal.maxDeduplicationDuration,
+        ) shouldEqual Right(SubmitRequest(internal.emptyCommands))
+      }
+
+      "validate a request with empty by party and any party filters" in {
+        requestMustFailWith(
+          testedSubmitAndWaitRequestValidator.validate(
+            req = SubmitAndWaitForTransactionRequest(
+              commands = Some(api.commands),
+              transactionFormat = Some(
+                TransactionFormat(
+                  eventFormat = Some(EventFormat()),
+                  transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+                )
+              ),
+            ),
+            currentLedgerTime = internal.ledgerTime,
+            currentUtcTime = internal.submittedAt,
+            maxDeduplicationDuration = internal.maxDeduplicationDuration,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: filtersByParty and filtersForAnyParty " +
+              "cannot be empty simultaneously",
+          metadata = Map.empty,
+        )
+      }
+
+      "reject a request without transaction format" in {
+        requestMustFailWith(
+          testedSubmitAndWaitRequestValidator.validate(
+            req = SubmitAndWaitForTransactionRequest(
+              commands = Some(api.commands),
+              transactionFormat = None,
+            ),
+            currentLedgerTime = internal.ledgerTime,
+            currentUtcTime = internal.submittedAt,
+            maxDeduplicationDuration = internal.maxDeduplicationDuration,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: transaction_format",
+          metadata = Map.empty,
+        )
+      }
+    }
+
     "validating command submission requests" should {
       "validate a complete request" in {
         testedCommandValidator.validateCommands(

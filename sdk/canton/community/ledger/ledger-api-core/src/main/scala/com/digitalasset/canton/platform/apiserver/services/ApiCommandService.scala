@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.apiserver.services
 
 import com.daml.ledger.api.v2.command_service.*
 import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandService as CommandServiceGrpc
+import com.daml.ledger.api.v2.commands.Commands
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.services.CommandService
@@ -42,17 +43,19 @@ class ApiCommandService(
   private[this] val validator = new SubmitAndWaitRequestValidator(commandsValidator)
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[SubmitAndWaitResponse] =
-    enrichRequestAndSubmit(request)(service.submitAndWait)
+    enrichRequestAndSubmit(request = request)(service.submitAndWait)
 
   override def submitAndWaitForTransaction(
-      request: SubmitAndWaitRequest
+      request: SubmitAndWaitForTransactionRequest
   ): Future[SubmitAndWaitForTransactionResponse] =
-    enrichRequestAndSubmit(request)(service.submitAndWaitForTransaction)
+    enrichRequestAndSubmit(request = request)(service.submitAndWaitForTransaction)
 
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionTreeResponse] =
-    enrichRequestAndSubmit(request)(service.submitAndWaitForTransactionTree)
+    enrichRequestAndSubmit(request = request)(
+      service.submitAndWaitForTransactionTree
+    )
 
   override def bindService(): ServerServiceDefinition =
     CommandServiceGrpc.bindService(this, executionContext)
@@ -63,10 +66,11 @@ class ApiCommandService(
     val traceContext = getAnnotedCommandTraceContext(request.commands, telemetry)
     implicit val loggingContext: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory)(traceContext)
-    val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
+    val requestWithSubmissionId =
+      request.update(_.optionalCommands.modify(generateSubmissionIdIfEmpty))
     validator
       .validate(
-        requestWithSubmissionId, // it is enough to validate V1 only, since at submission the SubmitRequest will be validated again (and the synchronizerId as well)
+        requestWithSubmissionId,
         currentLedgerTime(),
         currentUtcTime(),
         maxDeduplicationDuration,
@@ -78,16 +82,43 @@ class ApiCommandService(
       )
   }
 
-  private def generateSubmissionIdIfEmpty(request: SubmitAndWaitRequest): SubmitAndWaitRequest =
-    if (request.commands.exists(_.submissionId.isEmpty)) {
-      val commandsWithSubmissionId =
-        request.commands.map(_.copy(submissionId = generateSubmissionId.generate()))
-      request.copy(commands = commandsWithSubmissionId)
+  private def enrichRequestAndSubmit[T](
+      request: SubmitAndWaitForTransactionRequest
+  )(
+      submit: SubmitAndWaitForTransactionRequest => LoggingContextWithTrace => Future[T]
+  ): Future[T] = {
+    val traceContext = getAnnotedCommandTraceContext(request.commands, telemetry)
+    implicit val loggingContext: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory)(traceContext)
+    val requestWithSubmissionId =
+      request.update(_.optionalCommands.modify(generateSubmissionIdIfEmpty))
+    validator
+      .validate(
+        requestWithSubmissionId,
+        currentLedgerTime(),
+        currentUtcTime(),
+        maxDeduplicationDuration,
+      )(contextualizedErrorLogger(requestWithSubmissionId))
+      .fold(
+        t =>
+          Future.failed(ValidationLogger.logFailureWithTrace(logger, requestWithSubmissionId, t)),
+        _ => submit(requestWithSubmissionId)(loggingContext),
+      )
+  }
+
+  private def generateSubmissionIdIfEmpty(commands: Option[Commands]): Option[Commands] =
+    if (commands.exists(_.submissionId.isEmpty)) {
+      commands.map(_.copy(submissionId = generateSubmissionId.generate()))
     } else {
-      request
+      commands
     }
 
   private def contextualizedErrorLogger(request: SubmitAndWaitRequest)(implicit
+      loggingContext: LoggingContextWithTrace
+  ) =
+    ErrorLoggingContext.fromOption(logger, loggingContext, request.commands.map(_.submissionId))
+
+  private def contextualizedErrorLogger(request: SubmitAndWaitForTransactionRequest)(implicit
       loggingContext: LoggingContextWithTrace
   ) =
     ErrorLoggingContext.fromOption(logger, loggingContext, request.commands.map(_.submissionId))

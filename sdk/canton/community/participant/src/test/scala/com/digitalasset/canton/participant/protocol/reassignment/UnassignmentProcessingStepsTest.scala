@@ -666,7 +666,7 @@ final class UnassignmentProcessingStepsTest
         _ <- persistentState.activeContractStore
           .markContractsCreated(
             Seq(contractId -> initialReassignmentCounter),
-            TimeOfChange(RequestCounter(1), timeProof.timestamp),
+            TimeOfChange(timeProof.timestamp),
           )
           .value
         _ <-

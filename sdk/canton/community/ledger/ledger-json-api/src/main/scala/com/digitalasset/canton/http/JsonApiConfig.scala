@@ -15,8 +15,7 @@ import scala.concurrent.duration.*
 final case class JsonApiConfig(
     server: HttpServerConfig,
     allowInsecureTokens: Boolean = false,
-    websocketConfig: Option[WebsocketConfig] =
-      None, // TODO (i22224) Use this in new JSON API (if applies)
+    websocketConfig: Option[WebsocketConfig] = None,
     debugLoggingOfHttpBodies: Boolean = false,
     damlDefinitionsServiceEnabled: Boolean = false,
     userManagementWithoutAuthorization: Boolean = false,

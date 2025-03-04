@@ -218,7 +218,7 @@ class InMemoryReassignmentStore(
           .get(reassignmentId)
           .toRight(UnknownReassignmentId(reassignmentId))
         _ <- entry.assignmentTs.map(ReassignmentCompleted(reassignmentId, _)).toLeft(())
-        data <- entry.reassignmentDataO.toRight(
+        data <- entry.unassignmentDataO.toRight(
           AssignmentStartingBeforeUnassignment(reassignmentId)
         )
       } yield data
@@ -272,14 +272,14 @@ class InMemoryReassignmentStore(
         requestAfter.forall { case (ts, sourceSynchronizerID) =>
           (
             entry.unassignmentTs,
-            entry.reassignmentDataO.map(_.sourceSynchronizer),
+            entry.unassignmentDataO.map(_.sourceSynchronizer),
           ) > (ts, Some(sourceSynchronizerID))
         }
 
     reassignmentEntryMap.values
       .to(LazyList)
       .filter(filter)
-      .flatMap(_.reassignmentDataO)
+      .flatMap(_.unassignmentDataO)
       .sortBy(t => (t.reassignmentId.unassignmentTs, t.reassignmentId.sourceSynchronizer.unwrap))(
         // Explicitly use the standard ordering on two-tuples here
         // As Scala does not seem to infer the right implicits to use here
@@ -390,7 +390,7 @@ class InMemoryReassignmentStore(
               .map(_.contract.contractId)
               .exists(contractIds.contains) &&
             sourceSynchronizer.forall(source =>
-              entry.reassignmentDataO.exists(_.sourceSynchronizer == source)
+              entry.unassignmentDataO.exists(_.sourceSynchronizer == source)
             ) &&
             unassignmentTs.forall(
               _ == entry.unassignmentTs

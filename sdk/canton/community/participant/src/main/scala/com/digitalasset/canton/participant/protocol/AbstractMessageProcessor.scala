@@ -57,18 +57,16 @@ abstract class AbstractMessageProcessor(
         requestTimestamp,
         commitTime,
       )
-      _ <- FutureUnlessShutdown.outcomeF(
-        ephemeral.recordOrderPublisher.tick(
-          // providing directly a SequencerIndexMoved with RequestCounter for the non-submitting participant rejections
-          eventO.getOrElse(
-            SequencerIndexMoved(
-              synchronizerId = synchronizerId,
-              requestCounterO = Some(requestCounter),
-              sequencerCounter = requestSequencerCounter,
-              recordTime = requestTimestamp,
-            )
+      _ <- ephemeral.recordOrderPublisher.tick(
+        // providing directly a SequencerIndexMoved with RequestCounter for the non-submitting participant rejections
+        eventO.getOrElse(
+          SequencerIndexMoved(
+            synchronizerId = synchronizerId,
+            sequencerCounter = requestSequencerCounter,
+            recordTime = requestTimestamp,
           )
-        )
+        ),
+        Some(requestCounter),
       )
     } yield ()
 

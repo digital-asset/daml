@@ -273,7 +273,6 @@ trait ReassignmentProcessingSteps[
 
   override def eventAndSubmissionIdForRejectedCommand(
       ts: CantonTimestamp,
-      rc: RequestCounter,
       sc: SequencerCounter,
       submitterMetadata: ViewSubmitterMetadata,
       rootHash: RootHash,
@@ -297,7 +296,6 @@ trait ReassignmentProcessingSteps[
         completionInfo,
         rejection,
         synchronizerId.unwrap,
-        rc,
         sc,
         ts,
       )
@@ -330,7 +328,6 @@ trait ReassignmentProcessingSteps[
         info,
         rejection,
         synchronizerId.unwrap,
-        pendingReassignment.requestCounter,
         pendingReassignment.requestSequencerCounter,
         pendingReassignment.requestId.unwrap,
       )

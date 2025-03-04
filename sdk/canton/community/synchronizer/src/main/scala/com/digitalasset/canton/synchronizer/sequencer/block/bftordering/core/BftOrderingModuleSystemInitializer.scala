@@ -34,7 +34,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.net
   BftP2PNetworkIn,
   BftP2PNetworkOut,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.OrderingTopologyProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
+  OrderingTopologyProvider,
+  TopologyActivationTime,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
   SystemInitializationResult,
   SystemInitializer,
@@ -235,78 +238,85 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
   }
 
   private def fetchBootstrapTopologyInfo(moduleSystem: ModuleSystem[E]): OrderingTopologyInfo[E] = {
-    implicit val traceContext: TraceContext = TraceContext.empty
+    import TraceContext.Implicits.Empty.*
 
-    // This timestamp is always known by the topology client, even when it is equal to `lastTs` from the onboarding state.
-    val thisPeerActiveAt = sequencerSnapshotAdditionalInfo.flatMap(snapshotAdditionalInfo =>
-      snapshotAdditionalInfo.peerActiveAt.get(sequencerId)
-    )
+    val (initialTopologyQueryTimestamp, previousTopologyQueryTimestamp, onboarding) =
+      getInitialAndPreviousTopologyQueryTimestamps(moduleSystem)
 
-    // We assume that, if a sequencer snapshot has been provided, then we're onboarding; in that case, we use
-    //  topology information from the sequencer snapshot, else we fetch the latest topology from the DB.
-    val initialTopologyQueryTimestamp = thisPeerActiveAt
-      .map(_.timestamp)
-      .getOrElse {
-        val latestEpoch =
-          awaitFuture(
-            moduleSystem,
-            stores.epochStore.latestEpoch(includeInProgress = true),
-            "fetch latest epoch",
-          )
-        latestEpoch.info.topologyActivationTime
-      }
+    val (initialTopology, initialCryptoProvider) =
+      getOrderingTopologyAt(moduleSystem, initialTopologyQueryTimestamp, "initial")
 
-    val (initialTopology, initialCryptoProvider) = awaitFuture(
-      moduleSystem,
-      orderingTopologyProvider.getOrderingTopologyAt(initialTopologyQueryTimestamp),
-      "fetch initial ordering topology",
-    )
-      .getOrElse {
-        val msg = "Failed to fetch initial ordering topology"
-        logger.error(msg)
-        sys.error(msg)
-      }
-
-    // Get the previous topology for validating data (e.g., canonical commit sets) from the previous epoch
-    val previousTopologyQueryTimestamp = thisPeerActiveAt
-      // Use the start epoch topology query timestamp when onboarding (sequencer snapshot is provided)
-      .map { activeAt =>
-        activeAt.epochTopologyQueryTimestamp.getOrElse {
-          val msg =
-            "Start epoch topology query timestamp is required when onboarding but it's empty"
-          logger.error(msg)
-          sys.error(msg)
-        }
-      }
-      // Or last completed epoch's activation timestamp
-      .getOrElse {
-        val latestCompletedEpoch =
-          awaitFuture(
-            moduleSystem,
-            stores.epochStore.latestEpoch(includeInProgress = false),
-            "fetch latest completed epoch",
-          )
-        latestCompletedEpoch.info.topologyActivationTime
-      }
-
-    val (previousTopology, previousCryptoProvider) = awaitFuture(
-      moduleSystem,
-      orderingTopologyProvider.getOrderingTopologyAt(previousTopologyQueryTimestamp),
-      "fetch previous ordering topology for bootstrap",
-    )
-      .getOrElse {
-        val msg = "Failed to fetch previous ordering topology"
-        logger.error(msg)
-        sys.error(msg)
-      }
+    val (previousTopology, previousCryptoProvider) =
+      getOrderingTopologyAt(moduleSystem, previousTopologyQueryTimestamp, "previous")
 
     OrderingTopologyInfo(
       sequencerId,
-      initialTopology,
+      // Use the previous topology (not containing this peer) as current topology when onboarding.
+      //  This prevents relying on newly onboarded peers for state transfer.
+      currentTopology = if (onboarding) previousTopology else initialTopology,
       initialCryptoProvider,
       previousTopology,
       previousCryptoProvider,
     )
+  }
+
+  private def getInitialAndPreviousTopologyQueryTimestamps(
+      moduleSystem: ModuleSystem[E]
+  )(implicit traceContext: TraceContext) =
+    sequencerSnapshotAdditionalInfo match {
+      case Some(additionalInfo) =>
+        // We assume that, if a sequencer snapshot has been provided, then we're onboarding; in that case, we use
+        //  topology information from the sequencer snapshot, else we fetch the latest topology from the DB.
+        val thisPeerActiveAt = additionalInfo.peerActiveAt.getOrElse(
+          sequencerId,
+          failBootstrap("Peer activation information is required when onboarding but it's empty"),
+        )
+        val initialTopologyQueryTimestamp = thisPeerActiveAt.timestamp
+        val previousTopologyQueryTimestamp =
+          thisPeerActiveAt.epochTopologyQueryTimestamp.getOrElse(
+            failBootstrap(
+              "Start epoch topology query timestamp is required when onboarding but it's empty"
+            )
+          )
+        (initialTopologyQueryTimestamp, previousTopologyQueryTimestamp, true)
+
+      case _ =>
+        // Regular (i.e., non-onboarding) start
+        val initialTopologyQueryTimestamp = {
+          val latestEpoch = fetchLatestEpoch(moduleSystem, includeInProgress = true)
+          latestEpoch.info.topologyActivationTime
+        }
+        // TODO(#24262) if restarted just after completing an epoch, the previous and initial topology might be the same
+        val previousTopologyQueryTimestamp = {
+          val latestCompletedEpoch = fetchLatestEpoch(moduleSystem, includeInProgress = false)
+          latestCompletedEpoch.info.topologyActivationTime
+        }
+        (initialTopologyQueryTimestamp, previousTopologyQueryTimestamp, false)
+    }
+
+  private def getOrderingTopologyAt(
+      moduleSystem: ModuleSystem[E],
+      topologyQueryTimestamp: TopologyActivationTime,
+      topologyDesignation: String,
+  )(implicit traceContext: TraceContext) =
+    awaitFuture(
+      moduleSystem,
+      orderingTopologyProvider.getOrderingTopologyAt(topologyQueryTimestamp),
+      s"fetch $topologyDesignation ordering topology for bootstrap",
+    ).getOrElse(failBootstrap(s"Failed to fetch $topologyDesignation ordering topology"))
+
+  private def fetchLatestEpoch(moduleSystem: ModuleSystem[E], includeInProgress: Boolean)(implicit
+      traceContext: TraceContext
+  ) =
+    awaitFuture(
+      moduleSystem,
+      stores.epochStore.latestEpoch(includeInProgress),
+      s"fetch latest${if (includeInProgress) " in-progress " else " "}epoch",
+    )
+
+  private def failBootstrap(msg: String)(implicit traceContext: TraceContext) = {
+    logger.error(msg)
+    sys.error(msg)
   }
 
   private def awaitFuture[X](
@@ -323,6 +333,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
 }
 
 object BftOrderingModuleSystemInitializer {
+
   final case class BftOrderingStores[E <: Env[E]](
       p2pEndpointsStore: P2PEndpointsStore[E],
       availabilityStore: AvailabilityStore[E],

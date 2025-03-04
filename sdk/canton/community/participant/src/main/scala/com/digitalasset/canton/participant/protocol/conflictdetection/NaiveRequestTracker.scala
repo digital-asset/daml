@@ -15,7 +15,7 @@ import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.ActiveContractStore.ContractState
-import com.digitalasset.canton.participant.util.TimeOfChange
+import com.digitalasset.canton.participant.util.TimeOfRequest
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
@@ -317,7 +317,7 @@ private[participant] class NaiveRequestTracker(
     if (!requests.contains(rc))
       throw new FatalRequestTrackerException(withRC(rc, s"No entry found in request table"))
     conflictDetector
-      .finalizeRequest(CommitSet.empty, TimeOfChange(rc, requestTimestamp))
+      .finalizeRequest(CommitSet.empty, TimeOfRequest(rc, requestTimestamp))
       .map { acsFuture =>
         FutureUtil.doNotAwait(
           acsFuture.onShutdown(logger.debug(s"Rollback of request $rc aborted due to shutdown")),
@@ -468,7 +468,7 @@ private[participant] class NaiveRequestTracker(
           case Success(UnlessShutdown.Outcome(commitSet)) =>
             logger.debug(withRC(rc, s"Finalizing at $commitTime"))
             conflictDetector
-              .finalizeRequest(commitSet, TimeOfChange(rc, requestTimestamp))
+              .finalizeRequest(commitSet, TimeOfRequest(rc, requestTimestamp))
               .transform {
                 case Success(UnlessShutdown.Outcome(storeFuture)) =>
                   // The finalization is complete when the conflict detection stores have been updated

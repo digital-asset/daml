@@ -47,6 +47,7 @@ trait SequencerFactory extends FlagCloseable with HasCloseContext {
       trafficConfig: SequencerTrafficConfig,
       runtimeReady: FutureUnlessShutdown[Unit],
       sequencerSnapshot: Option[SequencerSnapshot],
+      authenticationServices: Option[AuthenticationServices],
   )(implicit
       traceContext: TraceContext,
       tracer: Tracer,
@@ -121,6 +122,7 @@ class CommunityDatabaseSequencerFactory(
       trafficConfig: SequencerTrafficConfig,
       runtimeReady: FutureUnlessShutdown[Unit],
       sequencerSnapshot: Option[SequencerSnapshot],
+      authenticationServices: Option[AuthenticationServices],
   )(implicit
       traceContext: TraceContext,
       tracer: Tracer,

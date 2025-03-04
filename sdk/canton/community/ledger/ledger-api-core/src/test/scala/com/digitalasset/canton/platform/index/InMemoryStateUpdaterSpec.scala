@@ -46,7 +46,6 @@ import com.digitalasset.canton.util.ReassignmentTag
 import com.digitalasset.canton.{
   BaseTest,
   HasExecutorServiceGeneric,
-  RequestCounter,
   SequencerCounter,
   TestEssentials,
   data,
@@ -763,7 +762,6 @@ object InMemoryStateUpdaterSpec {
         synchronizerId = SynchronizerId.tryFromString("x::synchronizer"),
         sequencerCounter = SequencerCounter(15L),
         recordTime = CantonTimestamp(recordTime),
-        requestCounterO = None,
       )
 
   private val metadataChangedUpdate = rawMetadataChangedUpdate(offset(12L), Timestamp.Epoch)
@@ -775,7 +773,6 @@ object InMemoryStateUpdaterSpec {
       updateId = txId2,
       contractMetadata = Map.empty,
       synchronizerId = SynchronizerId.tryFromString("da::default"),
-      requestCounter = RequestCounter(1),
       sequencerCounter = SequencerCounter(1),
       recordTime = CantonTimestamp.MinValue,
     )
@@ -929,7 +926,6 @@ object InMemoryStateUpdaterSpec {
       updateId = txId1,
       contractMetadata = Map.empty,
       synchronizerId = synchronizerId,
-      requestCounter = RequestCounter(1),
       sequencerCounter = SequencerCounter(1),
       recordTime = CantonTimestamp(Timestamp(t)),
     )
@@ -956,7 +952,6 @@ object InMemoryStateUpdaterSpec {
         createNode = someCreateNode,
         contractMetadata = someContractMetadataBytes,
       ),
-      requestCounter = RequestCounter(1),
       sequencerCounter = SequencerCounter(1),
       recordTime = CantonTimestamp(Timestamp(t)),
     )
@@ -985,7 +980,6 @@ object InMemoryStateUpdaterSpec {
         stakeholders = List(party2),
         assignmentExclusivity = Some(Timestamp.assertFromLong(123456L)),
       ),
-      requestCounter = RequestCounter(1),
       sequencerCounter = SequencerCounter(1),
       recordTime = CantonTimestamp(Timestamp(t)),
     )
@@ -1001,7 +995,6 @@ object InMemoryStateUpdaterSpec {
       ),
       reasonTemplate = FinalReason(new Status()),
       synchronizerId = synchronizerId,
-      requestCounter = RequestCounter(1),
       sequencerCounter = SequencerCounter(1),
       recordTime = CantonTimestamp.assertFromLong(t),
     )
@@ -1014,7 +1007,6 @@ object InMemoryStateUpdaterSpec {
       synchronizerId = synchronizerId,
       sequencerCounter = SequencerCounter(1),
       recordTime = CantonTimestamp.assertFromLong(t),
-      requestCounterO = None,
     )
 
   private def topologyTransactionEffective(

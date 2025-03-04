@@ -126,6 +126,8 @@ package object canton {
   type RequestCounterDiscriminator
   type RequestCounter = Counter[RequestCounterDiscriminator]
 
+  object RequestCounter extends CounterCompanion[RequestCounterDiscriminator]
+
   /** The counter assigned to a contract to count the number of its reassignments */
   type ReassignmentDiscriminator
   type ReassignmentCounter = Counter[ReassignmentDiscriminator]
@@ -136,7 +138,13 @@ package object canton {
     )
   }
 
-  object RequestCounter extends CounterCompanion[RequestCounterDiscriminator]
+  /** The counter assigned to a contract to track different repair changes. The counter is relative
+    * to a sequenced request timestamp.
+    */
+  type RepairCounterDiscriminator
+  type RepairCounter = Counter[RepairCounterDiscriminator]
+
+  object RepairCounter extends CounterCompanion[RepairCounterDiscriminator]
 
   /** Wrap a method call with this method to document that the caller is sure that the callee's
     * preconditions are met.

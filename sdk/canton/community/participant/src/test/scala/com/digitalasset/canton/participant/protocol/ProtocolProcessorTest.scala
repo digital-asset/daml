@@ -83,6 +83,7 @@ import com.digitalasset.canton.{
   BaseTest,
   DefaultDamlValues,
   HasExecutionContext,
+  RepairCounter,
   RequestCounter,
   SequencerCounter,
 }
@@ -608,6 +609,7 @@ class ProtocolProcessorTest
               requestSc + 1,
               CantonTimestamp.Epoch.minusSeconds(10),
               CantonTimestamp.Epoch.minusSeconds(10),
+              RepairCounter.Genesis,
             ),
           ),
         )
@@ -1098,6 +1100,7 @@ class ProtocolProcessorTest
             requestSc + 10,
             CantonTimestamp.Epoch.plusSeconds(30),
             CantonTimestamp.Epoch.plusSeconds(30),
+            RepairCounter.Genesis,
           ),
         )
       )

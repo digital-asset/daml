@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.store
 
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
+import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String36}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -20,20 +21,19 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, CheckedT}
-import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import slick.jdbc.{GetResult, SetParameter}
 
 import scala.collection.immutable.SortedMap
 import scala.concurrent.ExecutionContext
 
-/** The active contract store (ACS) stores for every contract ID whether it is inexistent,
+/** The active contract store (ACS) stores for every contract ID whether it is
   * [[ActiveContractStore.Active]], [[ActiveContractStore.Archived]], or
   * [[ActiveContractStore.ReassignedAway]], along with the timestamp of the latest change. Every
-  * change is associated with the timestamp and request counter of the request that triggered the
-  * change. The changes are ordered first by timestamp, then by request counter, and finally by
-  * change type (activations before deactivations). Implementations must be thread-safe. Updates
-  * must be idempotent.
+  * change is associated with the timestamp and the optional repair counter of the operation (e.g.
+  * transaction, repair) that triggered the change. The changes are ordered first by timestamp, then
+  * by repair counter, and finally by change type (activations before deactivations).
+  * Implementations must be thread-safe. Updates must be idempotent.
   *
   * Creations, reassignments, and archivals can be mixed arbitrarily. A contract may be assigned and
   * unassigned several times during its lifetime. It becomes active with every assignment and
@@ -85,8 +85,11 @@ trait ActiveContractStore
     *   - [[ActiveContractStore.ChangeAfterArchival]] if this creation is later than the earliest
     *     archival of the contract.
     */
-  def markContractsCreated(contracts: Seq[(LfContractId, ReassignmentCounter)], toc: TimeOfChange)(
-      implicit traceContext: TraceContext
+  def markContractsCreated(
+      contracts: Seq[(LfContractId, ReassignmentCounter)],
+      toc: TimeOfChange,
+  )(implicit
+      traceContext: TraceContext
   ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] =
     markContractsCreatedOrAdded(
       contracts.map { case (cid, tc) => (cid, tc, toc) },
@@ -109,8 +112,8 @@ trait ActiveContractStore
 
   /** Marks the given contracts as active from `timestamp` (inclusive) onwards.
     *
-    * Unlike creation, add can be done several times in the life of a contract. It is intended to
-    * use from the repair service.
+    * Unlike creation, add can be done several times in the life of a contract. It is intended to be
+    * used for ACS import and purges (e.g. repair service and party replication).
     */
   def markContractsAdded(contracts: Seq[(LfContractId, ReassignmentCounter, TimeOfChange)])(implicit
       traceContext: TraceContext
@@ -173,7 +176,7 @@ trait ActiveContractStore
   /** Marks the given contracts as inactive from `timestamp` (inclusive) onwards.
     *
     * Unlike archival, purge can be done several times in the life of a contract. It is intended to
-    * use from the repair service.
+    * be used by the repair service.
     */
   def purgeContracts(contractIds: Seq[(LfContractId, TimeOfChange)])(implicit
       traceContext: TraceContext
@@ -264,7 +267,9 @@ trait ActiveContractStore
     *     not increase monotonically.
     */
   def unassignContracts(
-      unassignments: Seq[(LfContractId, Target[SynchronizerId], ReassignmentCounter, TimeOfChange)]
+      unassignments: Seq[
+        (LfContractId, Target[SynchronizerId], ReassignmentCounter, TimeOfChange)
+      ]
   )(implicit traceContext: TraceContext): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit]
 
   def unassignContracts(
@@ -289,18 +294,18 @@ trait ActiveContractStore
       traceContext: TraceContext
   ): FutureUnlessShutdown[Int]
 
-  /** Deletes all activeness changes from requests whose request counter is at least the given one.
+  /** Deletes all activeness changes from requests whose time of change is at least the given one.
     * This method must not be called concurrently with creating, archiving, or reassigning
     * contracts.
     *
     * Therefore, this method need not be linearizable w.r.t. creating, archiving, or reassigning
-    * contracts. For example, if a request `rc1` creates a contract `c` and another request `rc2`
-    * archives it while [[deleteSince]] is running for some `rc <= rc1, rc2`, then there are no
-    * guarantees which of the effects of `rc1` and `rc2` remain. For example, `c` could end up being
-    * inexistent, active, or archived but never created, even if the writes for `rc1` and `rc2` are
-    * successful.
+    * contracts. For example, if a request at `toc1` creates a contract `c` and another request at
+    * `toc2` archives it while [[deleteSince]] is running for some `toc <= toc1, toc2`, then there
+    * are no guarantees which of the effects of the requests remain. For example, `c` could end up
+    * being nonexistent, active, or archived but never created, even if the writes for the requests
+    * are successful.
     */
-  def deleteSince(criterion: RequestCounter)(implicit
+  def deleteSince(criterion: TimeOfChange)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
@@ -782,11 +787,11 @@ object ActiveContractStore {
 /** Provides snapshotting for active contracts. */
 trait ActiveContractSnapshot {
 
-  /** Returns all contracts that were active right after the given timestamp, and when the contract
-    * became active for the last time before or at the given timestamp.
+  /** Returns all contracts that were active right after the given time of change, and when the
+    * contract became active for the last time before or at the given time of change.
     *
-    * @param timestamp
-    *   The timestamp at which the snapshot shall be taken. Must be before the timestamp that
+    * @param timeOfChange
+    *   The time of change at which the snapshot shall be taken. Must be before the timestamp that
     *   corresponds to the head cursor in the
     *   [[com.digitalasset.canton.participant.protocol.RequestJournal]] for the state
     *   [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.Clean]]. If this
@@ -795,38 +800,15 @@ trait ActiveContractSnapshot {
     *   contracts that were actually [[ActiveContractStore.Archived]] or
     *   [[ActiveContractStore.ReassignedAway]].
     * @return
-    *   A map from contracts to the latest timestamp (no later than the given `timestamp`) when they
-    *   became active again. It contains exactly those contracts that were active right after the
-    *   given timestamp. If a contract is created or assigned and archived or unassigned at the same
-    *   timestamp, it does not show up in any snapshot. The map is sorted by
+    *   A map from contracts to the latest timestamp (no later than the given `timeOfChange`) when
+    *   they became active again. It contains exactly those contracts that were active right after
+    *   the given time of change. If a contract is created or assigned and archived or unassigned at
+    *   the same time of change, it does not show up in any snapshot. The map is sorted by
     *   [[cats.kernel.Order]]`[`[[com.digitalasset.canton.protocol.LfContractId]]`]`.
     */
-  def snapshot(timestamp: CantonTimestamp)(implicit
+  def snapshot(timeOfChange: TimeOfChange)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]]
-
-  /** Returns all contracts that were active right after the given request counter, and when the
-    * contract became active for the last time before or at the given request counter.
-    *
-    * @param rc
-    *   The request counter at which the snapshot shall be taken. Must be before the request counter
-    *   that corresponds to the head cursor in the
-    *   [[com.digitalasset.canton.participant.protocol.RequestJournal]] for the state
-    *   [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.Clean]]. If this
-    *   precondition is violated, the returned snapshot may be inconsistent, i.e., it may omit some
-    *   contracts that were [[ActiveContractStore.Active]] at the given counter and it may include
-    *   contracts that were actually [[ActiveContractStore.Archived]] or
-    *   [[ActiveContractStore.ReassignedAway]].
-    * @return
-    *   A map from contracts to the latest request counter (no later than the given `rc`) when they
-    *   became active again. It contains exactly those contracts that were active right after the
-    *   given request counter. If a contract is created or assigned and archived or unassigned at
-    *   the same request counter, it does not show up in any snapshot. The map is sorted by
-    *   [[cats.kernel.Order]]`[`[[com.digitalasset.canton.protocol.LfContractId]]`]`.
-    */
-  def snapshot(rc: RequestCounter)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[SortedMap[LfContractId, (RequestCounter, ReassignmentCounter)]]
+  ): FutureUnlessShutdown[SortedMap[LfContractId, (TimeOfChange, ReassignmentCounter)]]
 
   /** Returns the states of contracts at the given timestamp.
     *
@@ -850,12 +832,13 @@ trait ActiveContractSnapshot {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(LfContractId)]]
 
-  /** Returns a map to the timestamp when the contract became active for the last time before or at
-    * the given timestamp. Omits contracts that not active right after the given timestamp.
+  /** Returns a map to the time of change when the contract became active for the last time before
+    * or at the given time of change. Omits contracts that not active right after the given time of
+    * change.
     *
-    * @param timestamp
-    *   The timestamp at which the activeness of the contracts shall be determined. Must be before
-    *   the timestamp that corresponds to the head cursor in the
+    * @param timeOfChange
+    *   The time of change at which the activeness of the contracts shall be determined. Must be
+    *   before the timestamp that corresponds to the head cursor in the
     *   [[com.digitalasset.canton.participant.protocol.RequestJournal]] for the state
     *   [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.Clean]]. If this
     *   precondition is violated, the returned snapshot may be inconsistent, i.e., it may omit some
@@ -863,26 +846,21 @@ trait ActiveContractSnapshot {
     *   contracts that were actually [[ActiveContractStore.Archived]] or
     *   [[ActiveContractStore.ReassignedAway]].
     */
-  def contractSnapshot(contractIds: Set[LfContractId], timestamp: CantonTimestamp)(implicit
+  def contractSnapshot(contractIds: Set[LfContractId], timeOfChange: TimeOfChange)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[LfContractId, CantonTimestamp]]
+  ): FutureUnlessShutdown[Map[LfContractId, TimeOfChange]]
 
-  /** Returns a map to the latest reassignment counter of the contract before the given request
-    * counter. Fails if not all given contract ids are active in the ACS, or if the ACS does not
-    * have defined their latest reassignment counter.
-    *
-    * @param requestCounter
-    *   The request counter *immediately before* which the state of the contracts shall be
-    *   determined.
+  /** Returns a map to the latest reassignment counter of the contracts before the given timestamp.
+    * Fails if not all given contract ids are active in the ACS, or if the ACS has not defined their
+    * latest reassignment counter.
     *
     * @throws java.lang.IllegalArgumentException
-    *   if `requestCounter` is equal to RequestCounter.MinValue`, if not all given contract ids are
-    *   active in the ACS, if the ACS does not contain the latest reassignment counter for each
-    *   given contract id.
+    *   if not all given contract ids are active in the ACS, if the ACS does not contain the latest
+    *   reassignment counter for each given contract id.
     */
-  def bulkContractsReassignmentCounterSnapshot(
+  def contractsReassignmentCounterSnapshotBefore(
       contractIds: Set[LfContractId],
-      requestCounter: RequestCounter,
+      timestampExclusive: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[LfContractId, ReassignmentCounter]]
