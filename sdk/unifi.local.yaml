@@ -1,6 +1,10 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 sdk-version: 3.2.0
 # add components or override ones provided by the chosen sdk.
 # (This object has same schema as .spec.components of assembly.yaml)
 override-components:
   damlc:
     version: 0.0.2
+
