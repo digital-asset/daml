@@ -28,7 +28,6 @@ object AvailabilityAck {
       HashAlgorithm.Sha256,
     )
     .add(batchId.getCryptographicEvidence)
-    .add(from.toString.length)
-    .add(from.toString)
+    .add(from.toProtoPrimitive)
     .finish()
 }

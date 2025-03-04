@@ -7,6 +7,7 @@ package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v2/commands.proto";
 import "com/daml/ledger/api/v2/transaction.proto";
+import "com/daml/ledger/api/v2/transaction_filter.proto";
 
 option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "CommandServiceOuterClass";
@@ -24,18 +25,29 @@ service CommandService {
 
   // Submits a single composite command, waits for its result, and returns the transaction.
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.
-  rpc SubmitAndWaitForTransaction(SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionResponse);
+  rpc SubmitAndWaitForTransaction(SubmitAndWaitForTransactionRequest) returns (SubmitAndWaitForTransactionResponse);
 
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
   // Submits a single composite command, waits for its result, and returns the transaction tree.
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.
   rpc SubmitAndWaitForTransactionTree(SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionTreeResponse);
 }
 
-// These commands are atomic, and will become transactions.
+// These commands are executed as a single atomic transaction.
 message SubmitAndWaitRequest {
   // The commands to be submitted.
   // Required
   Commands commands = 1;
+}
+
+// These commands are executed as a single atomic transaction.
+message SubmitAndWaitForTransactionRequest {
+  // The commands to be submitted.
+  // Required
+  Commands commands = 1;
+
+  // Required
+  TransactionFormat transaction_format = 2;
 }
 
 message SubmitAndWaitResponse {
@@ -50,13 +62,16 @@ message SubmitAndWaitResponse {
 }
 
 message SubmitAndWaitForTransactionResponse {
-  // The flat transaction that resulted from the submitted command.
+  // The transaction that resulted from the submitted command.
+  // The transaction might contain no events (request conditions result in filtering out all of them).
   // Required
   Transaction transaction = 1;
 }
 
+// TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
 message SubmitAndWaitForTransactionTreeResponse {
   // The transaction tree that resulted from the submitted command.
+  // The transaction might contain no events (request conditions result in filtering out all of them).
   // Required
   TransactionTree transaction = 1;
 }

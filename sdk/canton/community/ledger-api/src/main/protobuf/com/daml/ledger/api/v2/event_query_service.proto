@@ -28,7 +28,8 @@ message GetEventsByContractIdRequest {
   // Format of the events in the result, the presentation will be of TRANSACTION_SHAPE_ACS_DELTA.
   // Optional for backwards compatibility, defaults to an EventFormat where:
   //
-  // - filter is a wildcard filter for  all requesting_parties
+  // - filters_by_party is a template-wildcard filter for all requesting_parties
+  // - filters_for_any_party is unset
   // - verbose is set
   EventFormat event_format = 3;
 }

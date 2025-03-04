@@ -18,6 +18,7 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.DatabaseSequencerConfig.TestingInterceptor
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.synchronizer.sequencer.{
+  AuthenticationServices,
   BlockSequencerConfig,
   SequencerHealthConfig,
   SequencerSnapshot,
@@ -84,6 +85,7 @@ class DriverBlockSequencerFactory[C](
       orderingTimeFixMode: OrderingTimeFixMode,
       initialBlockHeight: Option[Long],
       sequencerSnapshot: Option[SequencerSnapshot],
+      authenticationServices: Option[AuthenticationServices],
       synchronizerLoggerFactory: NamedLoggerFactory,
       runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit

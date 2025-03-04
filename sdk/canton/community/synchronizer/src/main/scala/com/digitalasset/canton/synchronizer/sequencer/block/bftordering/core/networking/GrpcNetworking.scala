@@ -402,7 +402,6 @@ object GrpcNetworking {
       )
 
     // TODO(#23926): currently used to build fake sequencer IDs in tests, can be removed once unit/sim-tests switch to symbolic endpoints
-    // TODO(#23911): got collisions between fake sequencer IDs when using a unified endpoint class and including the protocol
     override def toString: String = s"$address:$port"
   }
 

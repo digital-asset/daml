@@ -45,48 +45,11 @@ trait Endpoints extends NamedLogging {
   protected def handleErrorResponse[R](implicit
       traceContext: TraceContext
   ): Try[Either[JsCantonError, R]] => Try[Either[JsCantonError, R]] = {
-    case Failure(sre: StatusRuntimeException) =>
-      val error = JsCantonError.fromDecodedCantonError(
-        DecodedCantonError
-          .fromStatusRuntimeException(sre)
-          .getOrElse(
-            throw new RuntimeException(
-              s"Failed to convert response to JsCantonError from ${sre.getMessage}",
-              sre,
-            ) // TODO (i19398) improve error handling in JSON (repeated code)
-          )
-      )
-      Success(
-        Left(error)
-      )
     case Success(value) => Success(value)
+    case Failure(t: Throwable) if handleError.isDefinedAt(t) =>
+      Success(handleError(traceContext)(t))
     case Failure(unhandled) =>
       unhandled match {
-        case unexpected: UnexpectedFieldsException =>
-          Success(
-            Left(
-              JsCantonError.fromErrorCode(
-                InvalidArgument.Reject(
-                  s"Unexpected fields: ${unexpected.unexpectedFields.mkString}"
-                )
-              )
-            )
-          )
-        case fieldMissing: MissingFieldException =>
-          Success(
-            Left(
-              JsCantonError.fromErrorCode(
-                CommandExecutionErrors.Preprocessing.PreprocessingFailed.Reject(
-                  // TODO (i19398) introduce JsonSpecific error subgroup
-                  Preprocessing.TypeMismatch(
-                    TVar(Ref.Name.assertFromString("unknown")),
-                    ValueUnit,
-                    s"Missing non-optional field: ${fieldMissing.missingField}",
-                  )
-                )
-              )
-            )
-          )
         case _ =>
           val internalError =
             LedgerApiErrors.InternalError.Generic(unhandled.getMessage, Some(unhandled))
@@ -110,7 +73,8 @@ trait Endpoints extends NamedLogging {
       .out(jsonBody[R])
       .serverLogic(callerContext =>
         i =>
-          service(callerContext)(i)
+          Future
+            .delegate(service(callerContext)(i))(ExecutionContext.parasitic)
             .transform(handleErrorResponse(i.traceContext))(ExecutionContext.parasitic)
       )
 
@@ -132,15 +96,15 @@ trait Endpoints extends NamedLogging {
       // .in(header(wsSubprotocol))  We send wsSubprotocol header, but we do not enforce it
       .out(header(wsSubprotocol))
       .serverSecurityLogicSuccess(Future.successful)
-      // TODO(i19398): Handle error result
-      // TODO(i19013)  decide if tracecontext headers on websockets are handled
       .serverLogicSuccess { jwt => i =>
         val errorHandlingService =
-          service(jwt, Protocol.Websocket)(TracedInput(i, TraceContext.empty))
-            .map(out =>
-              Right[JsCantonError, O](out)
-            ) // TODO(i19398): Try if it is practicable to deliver an error as CloseReason on websocket
-            .recover(handleError)
+          service(jwt, Protocol.Websocket)(
+            TracedInput(i, TraceContext.empty)
+          ) // We do not pass traceheaders on Websockets
+            .map(out => Right[JsCantonError, O](out))
+            .recover(handleError(TraceContext.empty))
+        // According to tapir documentation pekko-http does not expose control frames (Ping, Pong and Close)
+        //  We cannot send error as close frame
         Future.successful(errorHandlingService)
       }
 
@@ -200,9 +164,11 @@ trait Endpoints extends NamedLogging {
       .mapIn(traceHeadersMapping[INPUT]())
       .serverSecurityLogicSuccess(Future.successful)
       .serverLogic(caller =>
-        tracedInput =>
-          service(caller)(tracedInput)
+        tracedInput => {
+          Future
+            .delegate(service(caller)(tracedInput))(ExecutionContext.parasitic)
             .transform(handleErrorResponse(tracedInput.traceContext))(ExecutionContext.parasitic)
+        }
       )
 
   protected def withTraceHeaders[P, E](
@@ -257,7 +223,9 @@ trait Endpoints extends NamedLogging {
     }
   }
 
-  private def handleError[T]: PartialFunction[Throwable, Either[JsCantonError, T]] = {
+  private def handleError[T](implicit
+      traceContext: TraceContext
+  ): PartialFunction[Throwable, Either[JsCantonError, T]] = {
     case sre: StatusRuntimeException =>
       Left(
         JsCantonError.fromDecodedCantonError(
@@ -270,13 +238,37 @@ trait Endpoints extends NamedLogging {
             )
         )
       )
-    case NonFatal(e) =>
-      // TODO(i19013)  decide if tracecontext headers on websockets are handled
-      implicit val tc = TraceContext.empty
+    case unexpected: UnexpectedFieldsException =>
+      Left(
+        JsCantonError.fromErrorCode(
+          InvalidArgument.Reject(
+            s"Unexpected fields: ${unexpected.unexpectedFields.mkString}"
+          )
+        )
+      )
+    case fieldMissing: MissingFieldException =>
+      Left(
+        JsCantonError.fromErrorCode(
+          CommandExecutionErrors.Preprocessing.PreprocessingFailed.Reject(
+            Preprocessing.TypeMismatch(
+              TVar(Ref.Name.assertFromString("unknown")),
+              ValueUnit,
+              s"Missing non-optional field: ${fieldMissing.missingField}",
+            )
+          )
+        )
+      )
+    case illegalArgument: IllegalArgumentException =>
+      Left(
+        JsCantonError.fromErrorCode(
+          InvalidArgument.Reject(illegalArgument.getMessage)
+        )
+      )
+    case NonFatal(error) =>
       val internalError =
         LedgerApiErrors.InternalError.Generic(
-          e.getMessage,
-          Some(e),
+          error.getMessage,
+          Some(error),
         )
       Left(
         JsCantonError.fromErrorCode(internalError)

@@ -110,6 +110,7 @@ abstract class BlockSequencerFactory(
       orderingTimeFixMode: OrderingTimeFixMode,
       initialBlockHeight: Option[Long],
       sequencerSnapshot: Option[SequencerSnapshot],
+      authenticationServices: Option[AuthenticationServices],
       synchronizerLoggerFactory: NamedLoggerFactory,
       runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
@@ -181,6 +182,7 @@ abstract class BlockSequencerFactory(
       trafficConfig: SequencerTrafficConfig,
       runtimeReady: FutureUnlessShutdown[Unit],
       sequencerSnapshot: Option[SequencerSnapshot] = None,
+      authenticationServices: Option[AuthenticationServices] = None,
   )(implicit
       traceContext: TraceContext,
       tracer: trace.Tracer,
@@ -260,6 +262,7 @@ abstract class BlockSequencerFactory(
         orderingTimeFixMode,
         initialBlockHeight,
         sequencerSnapshot,
+        authenticationServices,
         synchronizerLoggerFactory,
         runtimeReady,
       )

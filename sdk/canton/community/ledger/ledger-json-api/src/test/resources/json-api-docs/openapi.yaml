@@ -37,7 +37,7 @@ paths:
       - apiKeyAuth: []
   /v2/commands/submit-and-wait-for-transaction:
     post:
-      description: Submit a batch of commands and wait for the flat transactions response
+      description: Submit a batch of commands and wait for the transactions response
       operationId: postV2CommandsSubmit-and-wait-for-transaction
       requestBody:
         content:
