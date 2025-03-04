@@ -365,6 +365,9 @@ da_scala_test(
     tags = [
         "cpu:4",
     ],
+    runtime_deps = [
+        ":test-utils",
+    ],
     deps = [
         "//:sdk-version-scala-lib",
         "//canton:community_ledger_ledger-common",
@@ -374,8 +377,8 @@ da_scala_test(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive/encoder",
         "//daml-lf/data",
-        "//daml-lf/engine:upgrade-test",
         "//daml-lf/engine",
+        "//daml-lf/engine:upgrade-test",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/stable-packages",
@@ -388,9 +391,6 @@ da_scala_test(
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/testing-utils",
         "//test-common/canton/it-lib",
-    ],
-    runtime_deps = [
-        ":test-utils",
     ],
 )
 

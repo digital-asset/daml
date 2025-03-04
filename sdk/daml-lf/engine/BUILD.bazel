@@ -213,11 +213,12 @@ da_scala_test(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
+    visibility = ["//daml-script:__subpackages__"],
     deps = [
         ":engine",
-        "//daml-lf/encoder",
         "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/data",
+        "//daml-lf/encoder",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/parser",
@@ -228,5 +229,4 @@ da_scala_test(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
-    visibility = ["//daml-script:__subpackages__"],
 )
