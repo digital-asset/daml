@@ -1255,7 +1255,7 @@ private[lf] object SBuiltinFun {
       coid: V.ContractId,
       interfaceId: TypeConName,
   )(k: SAny => Control[Question.Update]): Control[Question.Update] = {
-    hardFetchTemplate(machine, coid) { srcContract =>
+    fetchTemplateViaPkgId(machine, interfaceId.packageId, coid) { srcContract =>
       val pkgName = srcContract.packageName
       val srcTplId = srcContract.templateId
       val srcArg = srcContract.value.asInstanceOf[SRecord]
@@ -2318,7 +2318,23 @@ private[lf] object SBuiltinFun {
       dstTmplId: TypeConName,
       coid: V.ContractId,
   )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
-    def importContract(srcContract: ContractInfo) = {
+    fetchTemplateG(machine, Right(dstTmplId), coid)((info: ContractInfo) => f(info.value))
+  }
+
+  private def fetchTemplateViaPkgId(
+      machine: UpdateMachine,
+      dstPkgId: PackageId,
+      coid: V.ContractId,
+  )(f: ContractInfo => Control[Question.Update]): Control[Question.Update] = {
+    fetchTemplateG(machine, Left(dstPkgId), coid)(f)
+  }
+
+  private def fetchTemplateG(
+      machine: UpdateMachine,
+      dstPkgIdOrTmplId: Either[PackageId, TypeConName],
+      coid: V.ContractId,
+  )(f: ContractInfo => Control[Question.Update]): Control[Question.Update] = {
+    def importContract(dstTmplId: TypeConName, srcContract: ContractInfo) = {
       val srcTmplId = srcContract.templateId
       if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
         Control.Error(
@@ -2349,16 +2365,22 @@ private[lf] object SBuiltinFun {
                   machine.validating || srcTmplId.packageId != dstTmplId.packageId
                 if (needValidationCall) {
                   checkContractUpgradable(coid, srcContract, dstContract) { () =>
-                    f(dstContract.value)
+                    f(dstContract)
                   }
                 } else {
-                  f(dstContract.value)
+                  f(dstContract)
                 }
               }
             }
           }
         }
     }
+
+    def getDstTmplId(contractInfo: ContractInfo) =
+      dstPkgIdOrTmplId match {
+        case Left(pkgId) => Identifier(pkgId, contractInfo.templateId.qualifiedName)
+        case Right(tcn) => tcn
+      }
 
     machine.getIfLocalContract(coid) match {
       case Some((srcTmplId, templateArg)) =>
@@ -2369,13 +2391,14 @@ private[lf] object SBuiltinFun {
             srcTmplId,
             templateArg,
             allowCatchingContractInfoErrors = false,
-          ) { contract =>
+          ) { contractInfo =>
+            val dstTmplId = getDstTmplId(contractInfo)
             // If the local contract has the same package ID as the target template ID, then we don't need to
             // import its value and validate its contract info again.
             if (srcTmplId == dstTmplId)
-              f(templateArg)
+              f(contractInfo)
             else
-              importContract(contract)
+              importContract(dstTmplId, contractInfo)
           }
         }
       case None =>
@@ -2391,7 +2414,7 @@ private[lf] object SBuiltinFun {
                 coinst.template,
                 templateArg,
                 allowCatchingContractInfoErrors = false,
-              )(importContract)
+              )((info: ContractInfo) => importContract(getDstTmplId(info), info))
             }
           }
         )
@@ -2441,6 +2464,7 @@ private[lf] object SBuiltinFun {
   /** A version of [[fetchTemplate]] without a destination template type. The template type of the contract on ledger
     * is used for importing its value, and is returned alongside the value.
     */
+  @nowarn
   private def hardFetchTemplate(
       machine: UpdateMachine,
       coid: V.ContractId,
