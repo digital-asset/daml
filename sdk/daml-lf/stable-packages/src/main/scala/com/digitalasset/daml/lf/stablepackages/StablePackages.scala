@@ -6,7 +6,8 @@ package stablepackages
 
 import com.digitalasset.daml.lf.VersionRange
 import com.digitalasset.daml.lf.archive
-import com.digitalasset.daml.lf.archive.ArchiveDecoder
+import com.digitalasset.daml.lf.archive.DamlLf.Archive
+import com.digitalasset.daml.lf.archive.{ArchiveParser, Reader, Decode}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.{
   Ast,
@@ -69,24 +70,36 @@ private[daml] sealed class StablePackagesImpl(
 
   /** All stable packages, indexed by module name. */
   private lazy val allPackagesByName: Map[String, StablePackage] =
+    allPackagesWithArchives.map { case (sp, _) => sp.moduleName.dottedName -> sp }.toMap
+
+  private lazy val allPackagesWithArchives: Seq[(StablePackage, Archive)] =
     scala.io.Source
       .fromResource(manifestResourcePath)
       .getLines()
       .map(decodeDalfResource)
-      .map((toStablePackage _).tupled)
-      .map(pkg => pkg.moduleName.dottedName -> pkg)
-      .toMap
+      .map { case (pkgId, pkg, archive) => (toStablePackage(pkgId, pkg), archive) }
+      .toSeq
+
+  /** Dalf name and archive of a [[StablePackage]] */
+  lazy val allArchivesByPkgId: Map[Ref.PackageId, (String, Archive)] =
+    allPackagesWithArchives.map { case (sp, archive) =>
+      sp.packageId -> (s"${sp.name}-${sp.packageId}.dalf", archive)
+    }.toMap
 
   /** Loads and decodes a dalf embedded as a resource.
     */
   @throws[IllegalArgumentException]("if the resource cannot be found")
   @throws[archive.Error]("if the dalf cannot be decoded")
-  private def decodeDalfResource(path: String): (Ref.PackageId, Ast.Package) = {
+  private def decodeDalfResource(path: String): (Ref.PackageId, Ast.Package, Archive) = {
     val inputStream = getClass.getClassLoader.getResourceAsStream(path)
     require(inputStream != null, s"Resource not found: $path")
-    ArchiveDecoder
-      .fromInputStream(getClass.getClassLoader.getResourceAsStream(path))
-      .fold(throw _, identity)
+    val res = for {
+      archive <- ArchiveParser
+        .fromInputStream(getClass.getClassLoader.getResourceAsStream(path))
+      archivePayload <- Reader.readArchive(archive)
+      pkgData <- Decode.decodeArchivePayload(archivePayload)
+    } yield (pkgData._1, pkgData._2, archive)
+    res.fold(throw _, identity)
   }
 
   /** Converts a decoded package to a [[StablePackage]] */

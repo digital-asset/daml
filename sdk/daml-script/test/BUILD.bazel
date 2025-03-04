@@ -266,6 +266,7 @@ da_scala_test_suite(
         exclude = [
             "src/main/scala/**/*Dev*.scala",
             "src/main/scala/com/digitalasset/daml/lf/engine/script/test/UpgradesIT.scala",
+            "src/main/scala/com/digitalasset/daml/lf/engine/script/test/UpgradesMatrixIT.scala",
             "src/main/scala/com/digitalasset/daml/lf/engine/script/test/DamlScriptUtilityPackage.scala",
         ],
     ),
@@ -350,6 +351,48 @@ da_scala_test(
     ],
 ) if not is_windows else None
 # skipping windows for now, it doesn't seem to like the filegroup `:upgrade-test-files`
+
+da_scala_test(
+    name = "upgrade-matrix-integration",
+    size = "large",
+    srcs = ["src/main/scala/com/digitalasset/daml/lf/engine/script/test/UpgradesMatrixIT.scala"],
+    resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    tags = [
+        "cpu:4",
+    ],
+    deps = [
+        "//:sdk-version-scala-lib",
+        "//canton:community_ledger_ledger-common",
+        "//canton:community_util-logging",
+        "//canton:ledger_api_proto_scala",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive/encoder",
+        "//daml-lf/data",
+        "//daml-lf/engine:upgrade-test",
+        "//daml-lf/engine",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/stable-packages",
+        "//daml-lf/transaction",
+        "//daml-script/runner:script-runner-lib",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/ledger-resources",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/testing-utils",
+        "//test-common/canton/it-lib",
+    ],
+    runtime_deps = [
+        ":test-utils",
+    ],
+)
 
 da_scala_test(
     name = "utility-package-test",

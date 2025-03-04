@@ -5,6 +5,8 @@ package com.digitalasset.daml.lf
 package engine
 
 import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.archive.DamlLf._
+import com.digitalasset.daml.lf.archive.testing.Encode
 import com.digitalasset.daml.lf.command.{ApiCommand, ApiCommands}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
@@ -14,18 +16,19 @@ import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVer
 import com.digitalasset.daml.lf.speedy.SExpr.SEImportValue
 import com.digitalasset.daml.lf.speedy.Speedy.Machine
 import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.testing.parser.{AstRewriter, ParserParameters}
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 import org.scalatest.Inside.inside
-import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, ParallelTestExecution}
 
 import scala.annotation.nowarn
 import scala.collection.immutable
+import scala.concurrent.Future
 import scala.language.implicitConversions
 
 /** A test suite for smart contract upgrades.
@@ -60,11 +63,119 @@ import scala.language.implicitConversions
   * Finally, some definitions need to be shared between v1 and v2 templates: key and interface definitions, gobal
   * parties. These are defined in [[commonDefsPkg]].
   */
-class UpgradeTest extends AnyFreeSpec with Matchers with ParallelTestExecution {
+class UpgradeTestUnit
+    extends UpgradeTest[Error, (SubmittedTransaction, Transaction.Metadata)]
+    with ParallelTestExecution {
+  def toContractId(s: String): ContractId =
+    ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), Bytes.assertFromString("00"))
 
-  import UpgradeTest._
+  override def setup(testHelper: TestHelper): Future[SetupData] = Future.successful(
+    SetupData(
+      alice = Party.assertFromString("Alice"),
+      bob = Party.assertFromString("Bob"),
+      clientContractId = toContractId("client"),
+      globalContractId = toContractId("1"),
+    )
+  )
 
-  def assertResultMatchesExpectedOutcome(
+  def normalize(value: Value, typ: Ast.Type): Value = {
+    Machine.fromPureSExpr(compiledPackages, SEImportValue(typ, value)).runPure() match {
+      case Left(err) => throw new RuntimeException(s"Normalization failed: $err")
+      case Right(sValue) => sValue.toNormalizedValue(languageVersion)
+    }
+  }
+
+  def newEngine() = new Engine(engineConfig)
+
+  override def execute(
+      setupData: SetupData,
+      testHelper: TestHelper,
+      apiCommands: ImmArray[ApiCommand],
+      contractOrigin: ContractOrigin,
+  ): Future[Either[Error, (SubmittedTransaction, Transaction.Metadata)]] = Future {
+    val clientContract: VersionedContractInstance = assertAsVersionedContract(
+      ContractInstance(
+        clientPkg.pkgName,
+        Some(clientPkg.metadata.version),
+        testHelper.clientTplId,
+        testHelper.clientContractArg(setupData.alice, setupData.bob),
+      )
+    )
+
+    val globalContract: VersionedContractInstance = assertAsVersionedContract(
+      ContractInstance(
+        templateDefsV1Pkg.pkgName,
+        Some(templateDefsV1Pkg.metadata.version),
+        testHelper.v1TplId,
+        testHelper.globalContractArg(setupData.alice, setupData.bob),
+      )
+    )
+
+    val globalContractDisclosure: FatContractInstance = FatContractInstanceImpl(
+      version = languageVersion,
+      contractId = setupData.globalContractId,
+      packageName = templateDefsPkgName,
+      packageVersion = None,
+      templateId = testHelper.v1TplId,
+      createArg = normalize(
+        testHelper.globalContractArg(setupData.alice, setupData.bob),
+        Ast.TTyCon(testHelper.v1TplId),
+      ),
+      signatories = immutable.TreeSet(setupData.alice),
+      stakeholders = immutable.TreeSet(setupData.alice),
+      contractKeyWithMaintainers = Some(testHelper.globalContractKeyWithMaintainers(setupData)),
+      createdAt = Time.Timestamp.Epoch,
+      cantonData = Bytes.assertFromString("00"),
+    )
+
+    val participant = ParticipantId.assertFromString("participant")
+    val submissionSeed = crypto.Hash.hashPrivateKey("command")
+    val submitters = Set(setupData.alice)
+    val readAs = Set.empty[Party]
+
+    val disclosures = contractOrigin match {
+      case Disclosed => ImmArray(globalContractDisclosure)
+      case _ => ImmArray.empty
+    }
+    val lookupContractById = contractOrigin match {
+      case Global =>
+        Map(
+          setupData.clientContractId -> clientContract,
+          setupData.globalContractId -> globalContract,
+        )
+      case _ => Map(setupData.clientContractId -> clientContract)
+    }
+    val lookupContractByKey = contractOrigin match {
+      case Global =>
+        val keyMap = Map(
+          testHelper
+            .globalContractKeyWithMaintainers(setupData)
+            .globalKey -> setupData.globalContractId
+        )
+        ((kwm: GlobalKeyWithMaintainers) => keyMap.get(kwm.globalKey)).unlift
+      case _ => PartialFunction.empty
+    }
+
+    newEngine()
+      .submit(
+        packageMap = packageMap,
+        packagePreference = Set(commonDefsPkgId, templateDefsV2PkgId, clientPkgId),
+        submitters = submitters,
+        readAs = readAs,
+        cmds = ApiCommands(apiCommands, Time.Timestamp.Epoch, "test"),
+        disclosures = disclosures,
+        participantId = participant,
+        submissionSeed = submissionSeed,
+        prefetchKeys = Seq.empty,
+      )
+      .consume(
+        pcs = lookupContractById,
+        pkgs = lookupPackage,
+        keys = lookupContractByKey,
+      )
+  }
+
+  override def assertResultMatchesExpectedOutcome(
       result: Either[Error, (SubmittedTransaction, Transaction.Metadata)],
       expectedOutcome: ExpectedOutcome,
   ): Assertion = {
@@ -93,6 +204,24 @@ class UpgradeTest extends AnyFreeSpec with Matchers with ParallelTestExecution {
         }
     }
   }
+}
+
+abstract class UpgradeTest[Err, Res] extends AsyncFreeSpec with Matchers with UpgradeTestCases {
+  implicit val logContext: LoggingContext = LoggingContext.ForTesting
+
+  def execute(
+      setupData: SetupData,
+      testHelper: TestHelper,
+      apiCommands: ImmArray[ApiCommand],
+      contractOrigin: ContractOrigin,
+  ): Future[Either[Err, Res]]
+
+  def setup(testHelper: TestHelper): Future[SetupData]
+
+  def assertResultMatchesExpectedOutcome(
+      result: Either[Err, Res],
+      expectedOutcome: ExpectedOutcome,
+  ): Assertion
 
   // This is the main loop of the test: for every combination of test case, operation, catch behavior, entry point, and
   // contract origin, we generate an API command, execute it, and check that the result matches the expected outcome.
@@ -114,10 +243,14 @@ class UpgradeTest extends AnyFreeSpec with Matchers with ParallelTestExecution {
                           entryPoint,
                           contractOrigin,
                         )
-                        .foreach { apiCommands =>
+                        .foreach { getApiCommands =>
                           testCase.expectedOutcome.description in {
-                            assertResultMatchesExpectedOutcome(
-                              testHelper.execute(apiCommands, contractOrigin),
+                            for {
+                              setupData <- setup(testHelper)
+                              apiCommands = getApiCommands(setupData)
+                              outcome <- execute(setupData, testHelper, apiCommands, contractOrigin)
+                            } yield assertResultMatchesExpectedOutcome(
+                              outcome,
                               testCase.expectedOutcome,
                             )
                           }
@@ -132,9 +265,9 @@ class UpgradeTest extends AnyFreeSpec with Matchers with ParallelTestExecution {
     }
 }
 
-object UpgradeTest {
+trait UpgradeTestCases {
 
-  val languageVersion: LanguageVersion =
+  lazy val languageVersion: LanguageVersion =
     LanguageVersion.StableVersions(LanguageMajorVersion.V2).max
 
   private[this] implicit def parserParameters(implicit
@@ -144,6 +277,18 @@ object UpgradeTest {
       pkgId,
       languageVersion = languageVersion,
     )
+
+  def encodeDalfArchive(
+      pkgId: PackageId,
+      pkg: Ast.Package,
+      lfVersion: LanguageVersion = languageVersion,
+  ): (String, Archive, Ast.Package, PackageId) = {
+    val archive = Encode.encodeArchive(pkgId -> pkg, lfVersion)
+    val computedPkgId = PackageId.assertFromString(archive.getHash)
+    val dalfName = s"${pkg.metadata.name}-${pkg.metadata.version}-$computedPkgId.dalf"
+    val updatedPkg = (new AstRewriter(packageIdRule = { case `pkgId` => computedPkgId })).apply(pkg)
+    (dalfName, archive, updatedPkg, computedPkgId)
+  }
 
   // implicit conversions from strings to names and qualified names
   implicit def toName(s: String): Name = Name.assertFromString(s)
@@ -159,8 +304,8 @@ object UpgradeTest {
 
   // A package that defines an interface, a key type, an exception, and a party to be used by
   // the packages defined below.
-  val commonDefsPkgId = PackageId.assertFromString("-common-defs-id-")
-  val commonDefsPkg =
+  val compilingCommonDefsPkgId = PackageId.assertFromString("-common-defs-id-")
+  val compilingCommonDefsPkg =
     p"""metadata ( '-common-defs-' : '1.0.0' )
           module Mod {
             record @serializable MyView = { value : Int64 };
@@ -180,12 +325,10 @@ object UpgradeTest {
             exception Ex = {
               message \(e: Mod:Ex) -> Mod:Ex {message} e
             };
-
-            val mkParty : Text -> Party = \(t:Text) -> case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;
-            val alice : Party = Mod:mkParty "Alice";
-            val bob : Party = Mod:mkParty "Bob";
           }
-      """ (parserParameters(commonDefsPkgId))
+      """ (parserParameters(compilingCommonDefsPkgId))
+  val (commonDefsDalfName, commonDefsDalf, commonDefsPkg, commonDefsPkgId) =
+    encodeDalfArchive(compilingCommonDefsPkgId, compilingCommonDefsPkg)
 
   sealed abstract class ExpectedOutcome(val description: String)
   case object ExpectSuccess extends ExpectedOutcome("should succeed")
@@ -349,11 +492,10 @@ object UpgradeTest {
     )
 
     def clientChoices(
-        clientPkgId: PackageId,
         v1PkgId: PackageId,
         v2PkgId: PackageId,
     ): String = {
-      val clientTplQualifiedName = s"'$clientPkgId':Mod:Client"
+      val clientTplQualifiedName = "Mod:Client"
       val v1TplQualifiedName = s"'$v1PkgId':Mod:$templateName"
       val v2TplQualifiedName = s"'$v2PkgId':Mod:$templateName"
       val ifaceQualifiedName = s"'$commonDefsPkgId':Mod:Iface"
@@ -361,12 +503,15 @@ object UpgradeTest {
       val v2KeyTypeQualifiedName = s"'$v2PkgId':Mod:${templateName}Key"
       val v2ChoiceArgTypeQualifiedName = s"'$v2PkgId':Mod:${templateName}ChoiceArgType"
 
+      // change `p` on Client to alice, add bob
+      // update Mod:alice and Mod:bob to index that instead
+      // drop alice and bob from common defs
       val createV1ContractExpr =
         s""" create
            |    @$v1TplQualifiedName
            |    ($v1TplQualifiedName
-           |        { p1 = '$commonDefsPkgId':Mod:alice
-           |        , p2 = '$commonDefsPkgId':Mod:bob
+           |        { p1 = Mod:Client {alice} this
+           |        , p2 = Mod:Client {bob} this
            |        ${additionalCreateArgsLf(v1PkgId)}
            |        })
            |""".stripMargin
@@ -374,7 +519,7 @@ object UpgradeTest {
       val v2KeyExpr =
         s""" ($v2KeyTypeQualifiedName
            |     { label = "test-key"
-           |     , maintainers = (Cons @Party ['$commonDefsPkgId':Mod:alice] (Nil @Party))
+           |     , maintainers = (Cons @Party [Mod:Client {alice} this] (Nil @Party))
            |     ${additionalv2KeyArgsLf(v2PkgId)}
            |     })""".stripMargin
 
@@ -382,7 +527,7 @@ object UpgradeTest {
 
       s"""
          |  choice @nonConsuming ExerciseNoCatchLocal${templateName} (self) (u: Unit): Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
          |       in exercise
@@ -392,16 +537,16 @@ object UpgradeTest {
          |            $choiceArgExpr;
          |
          |  choice @nonConsuming ExerciseAttemptCatchLocal${templateName} (self) (u: Unit): Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseNoCatchLocal${templateName} self ()
+         |         ubind __:Text <- exercise @$clientTplQualifiedName ExerciseNoCatchLocal${templateName} self ()
          |         in upure @Text "no exception was caught"
          |       catch
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
          |
          |  choice @nonConsuming ExerciseNoCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName): Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to exercise
          |         @$v2TplQualifiedName
@@ -413,16 +558,16 @@ object UpgradeTest {
          |        (self)
          |        (cid: ContractId $v1TplQualifiedName)
          |        : Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseNoCatchGlobal${templateName} self cid
+         |         ubind __:Text <- exercise @$clientTplQualifiedName ExerciseNoCatchGlobal${templateName} self cid
          |         in upure @Text "no exception was caught"
          |       catch
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
          |
          |  choice @nonConsuming ExerciseInterfaceNoCatchLocal${templateName} (self) (u: Unit): Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
          |       in exercise_interface
@@ -432,10 +577,10 @@ object UpgradeTest {
          |            ();
          |
          |  choice @nonConsuming ExerciseInterfaceAttemptCatchLocal${templateName} (self) (u: Unit): Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseInterfaceNoCatchLocal${templateName} self ()
+         |         ubind __:Text <- exercise @$clientTplQualifiedName ExerciseInterfaceNoCatchLocal${templateName} self ()
          |         in upure @Text "no exception was caught"
          |       catch
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
@@ -444,7 +589,7 @@ object UpgradeTest {
          |        (self)
          |        (cid: ContractId $v1TplQualifiedName)
          |        : Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to exercise_interface
          |         @$ifaceQualifiedName
@@ -456,16 +601,16 @@ object UpgradeTest {
          |        (self)
          |        (cid: ContractId $v1TplQualifiedName)
          |        : Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseInterfaceNoCatchGlobal${templateName} self cid
+         |         ubind __:Text <- exercise @$clientTplQualifiedName ExerciseInterfaceNoCatchGlobal${templateName} self cid
          |         in upure @Text "no exception was caught"
          |       catch
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
          |
          |  choice @nonConsuming ExerciseByKeyNoCatchLocal${templateName} (self) (u: Unit): Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
          |       in exercise_by_key
@@ -475,16 +620,16 @@ object UpgradeTest {
          |            $choiceArgExpr;
          |
          |  choice @nonConsuming ExerciseByKeyAttemptCatchLocal${templateName} (self) (u: Unit): Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseByKeyNoCatchLocal${templateName} self ()
+         |         ubind __:Text <- exercise @$clientTplQualifiedName ExerciseByKeyNoCatchLocal${templateName} self ()
          |         in upure @Text "no exception was caught"
          |       catch
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
          |
          |  choice @nonConsuming ExerciseByKeyNoCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName): Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to exercise_by_key
          |         @$v2TplQualifiedName
@@ -494,16 +639,16 @@ object UpgradeTest {
          |
          |  choice @nonConsuming ExerciseByKeyAttemptCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
          |        : Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseByKeyNoCatchGlobal${templateName} self key
+         |         ubind __:Text <- exercise @$clientTplQualifiedName ExerciseByKeyNoCatchGlobal${templateName} self key
          |         in upure @Text "no exception was caught"
          |       catch
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
          |
          |  choice @nonConsuming FetchNoCatchLocal${templateName} (self) (u: Unit): $v2TplQualifiedName
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
          |       in fetch_template
@@ -511,10 +656,10 @@ object UpgradeTest {
          |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid);
          |
          |  choice @nonConsuming FetchAttemptCatchLocal${templateName} (self) (u: Unit): Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind _:$v2TplQualifiedName <-
+         |         ubind __:$v2TplQualifiedName <-
          |             exercise @$clientTplQualifiedName FetchNoCatchLocal${templateName} self ()
          |         in upure @Text "no exception was caught"
          |       catch
@@ -522,24 +667,24 @@ object UpgradeTest {
          |
          |  choice @nonConsuming FetchNoCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName)
          |        : $v2TplQualifiedName
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to fetch_template
          |         @$v2TplQualifiedName
          |         (COERCE_CONTRACT_ID @$v1TplQualifiedName @$v2TplQualifiedName cid);
          |
          |  choice @nonConsuming FetchAttemptCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName): Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind _:$v2TplQualifiedName <-
+         |         ubind __:$v2TplQualifiedName <-
          |             exercise @$clientTplQualifiedName FetchNoCatchGlobal${templateName} self cid
          |         in upure @Text "no exception was caught"
          |       catch
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
          |
          |  choice @nonConsuming FetchByKeyNoCatchLocal${templateName} (self) (u: Unit): $v2TplQualifiedName
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
          |       in ubind pair:$tuple2TyCon (ContractId $v2TplQualifiedName) $v2TplQualifiedName <-
@@ -549,10 +694,10 @@ object UpgradeTest {
          |          in upure @$v2TplQualifiedName ($tuple2TyCon @(ContractId $v2TplQualifiedName) @$v2TplQualifiedName {_2} pair);
          |
          |  choice @nonConsuming FetchByKeyAttemptCatchLocal${templateName} (self) (u: Unit): Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind _:$v2TplQualifiedName <-
+         |         ubind __:$v2TplQualifiedName <-
          |             exercise @$clientTplQualifiedName FetchByKeyNoCatchLocal${templateName} self ()
          |         in upure @Text "no exception was caught"
          |       catch
@@ -560,7 +705,7 @@ object UpgradeTest {
          |
          |  choice @nonConsuming FetchByKeyNoCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
          |        : $v2TplQualifiedName
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to ubind pair:$tuple2TyCon (ContractId $v2TplQualifiedName) $v2TplQualifiedName <-
          |          fetch_by_key
@@ -570,17 +715,17 @@ object UpgradeTest {
          |
          |  choice @nonConsuming FetchByKeyAttemptCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
          |        : Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind _:$v2TplQualifiedName <-
+         |         ubind __:$v2TplQualifiedName <-
          |             exercise @$clientTplQualifiedName FetchByKeyNoCatchGlobal${templateName} self key
          |         in upure @Text "no exception was caught"
          |       catch
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
          |
          |  choice @nonConsuming FetchInterfaceNoCatchLocal${templateName} (self) (u: Unit): $viewQualifiedName
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to ubind
          |         cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr;
@@ -590,10 +735,10 @@ object UpgradeTest {
          |         in upure @$viewQualifiedName (view_interface @$ifaceQualifiedName iface);
          |
          |  choice @nonConsuming FetchInterfaceAttemptCatchLocal${templateName} (self) (u: Unit): Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind _:$viewQualifiedName <-
+         |         ubind __:$viewQualifiedName <-
          |             exercise @$clientTplQualifiedName FetchInterfaceNoCatchLocal${templateName} self ()
          |         in upure @Text "no exception was caught"
          |       catch
@@ -601,7 +746,7 @@ object UpgradeTest {
          |
          |  choice @nonConsuming FetchInterfaceNoCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName)
          |        : $viewQualifiedName
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to ubind iface: $ifaceQualifiedName <- fetch_interface
          |         @$ifaceQualifiedName
@@ -609,17 +754,17 @@ object UpgradeTest {
          |       in upure @$viewQualifiedName (view_interface @$ifaceQualifiedName iface);
          |
          |  choice @nonConsuming FetchInterfaceAttemptCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName): Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind _:$viewQualifiedName <-
+         |         ubind __:$viewQualifiedName <-
          |             exercise @$clientTplQualifiedName FetchInterfaceNoCatchGlobal${templateName} self cid
          |         in upure @Text "no exception was caught"
          |       catch
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
          |
          |  choice @nonConsuming LookupByKeyNoCatchLocal${templateName} (self) (u: Unit): Option (ContractId $v2TplQualifiedName)
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
          |       in lookup_by_key
@@ -627,10 +772,10 @@ object UpgradeTest {
          |            $v2KeyExpr;
          |
          |  choice @nonConsuming LookupByKeyAttemptCatchLocal${templateName} (self) (u: Unit): Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind _:Option (ContractId $v2TplQualifiedName) <-
+         |         ubind __:Option (ContractId $v2TplQualifiedName) <-
          |             exercise @$clientTplQualifiedName LookupByKeyNoCatchLocal${templateName} self ()
          |         in upure @Text "no exception was caught"
          |       catch
@@ -638,7 +783,7 @@ object UpgradeTest {
          |
          |  choice @nonConsuming LookupByKeyNoCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
          |        : Option (ContractId $v2TplQualifiedName)
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to lookup_by_key
          |         @$v2TplQualifiedName
@@ -646,10 +791,10 @@ object UpgradeTest {
          |
          |  choice @nonConsuming LookupByKeyAttemptCatchGlobal${templateName} (self) (key: $v2KeyTypeQualifiedName)
          |        : Text
-         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind _:Option (ContractId $v2TplQualifiedName) <-
+         |         ubind __:Option (ContractId $v2TplQualifiedName) <-
          |             exercise @$clientTplQualifiedName LookupByKeyNoCatchGlobal${templateName} self key
          |         in upure @Text "no exception was caught"
          |       catch
@@ -818,7 +963,7 @@ object UpgradeTest {
       additionalv1KeyArgsValue(pkgId)
     // Used for looking up contracts by key in choice bodies
     override def additionalv2KeyArgsLf(v2PkgId: PackageId) =
-      s", maintainers2 = (Cons @Party ['$commonDefsPkgId':Mod:bob] (Nil @Party))"
+      s", maintainers2 = (Cons @Party [Mod:Client {bob} this] (Nil @Party))"
 
     override def v1Maintainers =
       s"\\(key: Mod:${templateName}Key) -> (Mod:${templateName}Key {maintainers} key)"
@@ -1620,40 +1765,44 @@ object UpgradeTest {
   /** A package that defines templates called Precondition, Signatories, ... whose metadata should evaluate without
     * throwing exceptions.
     */
-  val templateDefsV1PkgId = PackageId.assertFromString("-template-defs-v1-id-")
-  val templateDefsV1ParserParams = parserParameters(templateDefsV1PkgId)
-  val templateDefsV1Pkg =
+  val compilingTemplateDefsV1PkgId = PackageId.assertFromString("-template-defs-v1-id-")
+  val templateDefsV1ParserParams = parserParameters(compilingTemplateDefsV1PkgId)
+  val compilingTemplateDefsV1Pkg =
     p"""metadata ( '$templateDefsPkgName' : '1.0.0' )
           module Mod {
             ${testCases.map(_.v1TemplateDefinition).mkString("\n")}
           }
       """ (templateDefsV1ParserParams)
+  val (templateDefsV1DalfName, templateDefsV1Dalf, templateDefsV1Pkg, templateDefsV1PkgId) =
+    encodeDalfArchive(compilingTemplateDefsV1PkgId, compilingTemplateDefsV1Pkg)
 
   /** Version 2 of the package above. It upgrades the previously defined templates such that:
     *   - the precondition in the Precondition template is changed to throw an exception
     *   - the signatories in the Signatories template is changed to throw an exception
     *   - etc.
     */
-  val templateDefsV2PkgId = PackageId.assertFromString("-template-defs-v2-id-")
-  val templateDefsV2ParserParams = parserParameters(templateDefsV2PkgId)
-  val templateDefsV2Pkg =
+  val compilingTemplateDefsV2PkgId = PackageId.assertFromString("-template-defs-v2-id-")
+  val templateDefsV2ParserParams = parserParameters(compilingTemplateDefsV2PkgId)
+  val compilingTemplateDefsV2Pkg =
     p"""metadata ( '$templateDefsPkgName' : '2.0.0' )
           module Mod {
             ${testCases.map(_.v2TemplateDefinition).mkString("\n")}
           }
       """ (templateDefsV2ParserParams)
+  val (templateDefsV2DalfName, templateDefsV2Dalf, templateDefsV2Pkg, templateDefsV2PkgId) =
+    encodeDalfArchive(compilingTemplateDefsV2PkgId, compilingTemplateDefsV2Pkg)
 
-  val clientPkgId = PackageId.assertFromString("-client-id-")
-  val clientParserParams = parserParameters(clientPkgId)
-  val clientPkg = {
+  val compilingClientPkgId = PackageId.assertFromString("-client-id-")
+  val clientParserParams = parserParameters(compilingClientPkgId)
+  val compilingClientPkg = {
     val choices = commandAndChoiceTestCases
-      .map(_.clientChoices(clientPkgId, templateDefsV1PkgId, templateDefsV2PkgId))
+      .map(_.clientChoices(templateDefsV1PkgId, templateDefsV2PkgId))
     p"""metadata ( '-client-' : '1.0.0' )
             module Mod {
-              record @serializable Client = { p: Party };
+              record @serializable Client = { alice: Party, bob: Party };
               template (this: Client) = {
                 precondition True;
-                signatories Cons @Party [Mod:Client {p} this] (Nil @Party);
+                signatories Cons @Party [Mod:Client {alice} this] (Nil @Party);
                 observers Nil @Party;
 
                 ${choices.mkString("\n")}
@@ -1661,6 +1810,8 @@ object UpgradeTest {
             }
         """ (clientParserParams)
   }
+  val (clientDalfName, clientDalf, clientPkg, clientPkgId) =
+    encodeDalfArchive(compilingClientPkgId, compilingClientPkg)
 
   val lookupPackage: Map[PackageId, Ast.Package] = Map(
     stablePackages.Tuple2.packageId -> stablePackages.packagesMap(stablePackages.Tuple2.packageId),
@@ -1719,6 +1870,13 @@ object UpgradeTest {
 
   val contractOrigins: List[ContractOrigin] = List(Global, Disclosed, Local)
 
+  case class SetupData(
+      alice: Party,
+      bob: Party,
+      clientContractId: ContractId,
+      globalContractId: ContractId,
+  )
+
   /** A class that defines all the "global" variables shared by tests for a given template name: the template ID of the
     * v1 template, the template ID of the v2 template, the ID of the v1 contract, etc. It exposes two methods:
     * - [[makeApiCommands]], which generates an API command for a given operation, catch behavior, entry point,
@@ -1726,13 +1884,7 @@ object UpgradeTest {
     * - [[execute]], which executes a command against a fresh engine seeded with the v1 contract.
     */
   class TestHelper(testCase: TestCase) {
-
-    implicit val logContext: LoggingContext = LoggingContext.ForTesting
-
     val templateName = testCase.templateName
-
-    val alice: Party = Party.assertFromString("Alice")
-    val bob: Party = Party.assertFromString("Bob")
 
     val clientTplId: Identifier = Identifier(clientPkgId, "Mod:Client")
     val ifaceId: Identifier = Identifier(commonDefsPkgId, "Mod:Iface")
@@ -1740,24 +1892,15 @@ object UpgradeTest {
     val tplRef: TypeConRef = TypeConRef.assertFromString(s"#$templateDefsPkgName:Mod:$templateName")
     val v1TplId: Identifier = Identifier(templateDefsV1PkgId, tplQualifiedName)
 
-    val clientContractId: ContractId = toContractId("client")
-    val globalContractId: ContractId = toContractId("1")
-
-    val clientContract: VersionedContractInstance = assertAsVersionedContract(
-      ContractInstance(
-        clientPkg.pkgName,
-        Some(clientPkg.metadata.version),
-        clientTplId,
-        ValueRecord(
-          Some(clientTplId),
-          ImmArray(
-            Some("p": Name) -> ValueParty(alice)
-          ),
-        ),
-      )
+    def clientContractArg(alice: Party, bob: Party): ValueRecord = ValueRecord(
+      Some(clientTplId),
+      ImmArray(
+        Some("alice": Name) -> ValueParty(alice),
+        Some("bob": Name) -> ValueParty(bob),
+      ),
     )
 
-    val globalContractArg: ValueRecord = ValueRecord(
+    def globalContractArg(alice: Party, bob: Party): ValueRecord = ValueRecord(
       Some(v1TplId),
       ImmArray(
         Some("p1": Name) -> ValueParty(alice),
@@ -1765,69 +1908,36 @@ object UpgradeTest {
       ).slowAppend(testCase.additionalCreateArgsValue(templateDefsV1PkgId)),
     )
 
-    val globalContract: VersionedContractInstance = assertAsVersionedContract(
-      ContractInstance(
-        templateDefsV1Pkg.pkgName,
-        Some(templateDefsV1Pkg.metadata.version),
-        v1TplId,
-        globalContractArg,
-      )
-    )
-
-    val globalContractv1Key: ValueRecord = ValueRecord(
+    def globalContractv1Key(setupData: SetupData): ValueRecord = ValueRecord(
       None,
       ImmArray(
         Some("label": Name) -> ValueText("test-key"),
-        Some("maintainers": Name) -> ValueList(FrontStack(ValueParty(alice))),
+        Some("maintainers": Name) -> ValueList(FrontStack(ValueParty(setupData.alice))),
       ).slowAppend(testCase.additionalv1KeyArgsValue(templateDefsV1PkgId)),
     )
 
-    val globalContractv2Key: ValueRecord = ValueRecord(
+    def globalContractv2Key(setupData: SetupData): ValueRecord = ValueRecord(
       None,
       ImmArray(
         Some("label": Name) -> ValueText("test-key"),
-        Some("maintainers": Name) -> ValueList(FrontStack(ValueParty(alice))),
+        Some("maintainers": Name) -> ValueList(FrontStack(ValueParty(setupData.alice))),
       ).slowAppend(testCase.additionalv2KeyArgsValue(templateDefsV2PkgId)),
     )
 
-    val globalContractKeyWithMaintainers: GlobalKeyWithMaintainers =
+    def globalContractKeyWithMaintainers(setupData: SetupData): GlobalKeyWithMaintainers =
       GlobalKeyWithMaintainers.assertBuild(
         v1TplId,
-        globalContractv1Key,
-        Set(alice),
+        globalContractv1Key(setupData),
+        Set(setupData.alice),
         templateDefsPkgName,
       )
-
-    def normalize(value: Value, typ: Ast.Type): Value = {
-      Machine.fromPureSExpr(compiledPackages, SEImportValue(typ, value)).runPure() match {
-        case Left(err) => throw new RuntimeException(s"Normalization failed: $err")
-        case Right(sValue) => sValue.toNormalizedValue(languageVersion)
-      }
-    }
-
-    val globalContractDisclosure: FatContractInstance = FatContractInstanceImpl(
-      version = languageVersion,
-      contractId = globalContractId,
-      packageName = templateDefsPkgName,
-      packageVersion = None,
-      templateId = v1TplId,
-      createArg = normalize(globalContractArg, Ast.TTyCon(v1TplId)),
-      signatories = immutable.TreeSet(alice),
-      stakeholders = immutable.TreeSet(alice),
-      contractKeyWithMaintainers = Some(globalContractKeyWithMaintainers),
-      createdAt = Time.Timestamp.Epoch,
-      cantonData = Bytes.assertFromString("00"),
-    )
-
-    def toContractId(s: String): ContractId =
-      ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), Bytes.assertFromString("00"))
 
     def makeApiCommands(
         operation: Operation,
         catchBehavior: CatchBehavior,
         entryPoint: EntryPoint,
         contractOrigin: ContractOrigin,
-    ): Option[ImmArray[ApiCommand]] = {
+    ): Option[SetupData => ImmArray[ApiCommand]] = {
 
       val choiceArg = ValueRecord(
         None,
@@ -1891,77 +2001,77 @@ object UpgradeTest {
         case (ThrowingView, Fetch | FetchByKey | LookupByKey | Exercise | ExerciseByKey, _, _, _) =>
           None // ThrowingView only makes sense for *Interface operations
         case (_, Exercise, _, Command, Global | Disclosed) =>
-          Some(
+          Some(setupData =>
             ImmArray(
               ApiCommand.Exercise(
                 tplRef, // we let package preference select v2
-                globalContractId,
+                setupData.globalContractId,
                 ChoiceName.assertFromString("TemplateChoice"),
                 choiceArg,
               )
             )
           )
         case (_, ExerciseInterface, _, Command, Global | Disclosed) =>
-          Some(
+          Some(setupData =>
             ImmArray(
               ApiCommand.Exercise(
                 ifaceId,
-                globalContractId,
+                setupData.globalContractId,
                 ChoiceName.assertFromString("InterfaceChoice"),
                 ValueUnit,
               )
             )
           )
         case (_, ExerciseByKey, _, Command, Global | Disclosed) =>
-          Some(
+          Some(setupData =>
             ImmArray(
               ApiCommand.ExerciseByKey(
                 tplRef, // we let package preference select v2
-                globalContractv2Key,
+                globalContractv2Key(setupData),
                 ChoiceName.assertFromString("TemplateChoice"),
                 choiceArg,
               )
             )
           )
         case (_, ExerciseByKey, _, Command, Local) =>
-          Some(
+          Some(setupData =>
             ImmArray(
               ApiCommand.Create(
                 v1TplId,
-                globalContractArg,
+                globalContractArg(setupData.alice, setupData.bob),
               ),
               ApiCommand.ExerciseByKey(
                 tplRef, // we let package preference select v2
-                globalContractv2Key,
+                globalContractv2Key(setupData),
                 ChoiceName.assertFromString("TemplateChoice"),
                 choiceArg,
               ),
             )
           )
         case (_, _, _, ChoiceBody, Global | Disclosed) =>
-          Some(
+          Some(setupData =>
             ImmArray(
               ApiCommand.Exercise(
                 clientTplId,
-                clientContractId,
+                setupData.clientContractId,
                 ChoiceName.assertFromString(
                   s"${operation.name}${catchBehavior.name}Global${templateName}"
                 ),
                 operation match {
                   case Fetch | FetchInterface | Exercise | ExerciseInterface =>
-                    ValueContractId(globalContractId)
+                    ValueContractId(setupData.globalContractId)
                   case FetchByKey | LookupByKey | ExerciseByKey =>
-                    globalContractv2Key
+                    globalContractv2Key(setupData)
                 },
               )
             )
           )
         case (_, _, _, ChoiceBody, Local) =>
-          Some(
+          Some(setupData =>
             ImmArray(
               ApiCommand.Exercise(
                 clientTplId,
-                clientContractId,
+                setupData.clientContractId,
                 ChoiceName.assertFromString(
                   s"${operation.name}${catchBehavior.name}Local${templateName}"
                 ),
@@ -1970,52 +2080,6 @@ object UpgradeTest {
             )
           )
       }
-    }
-
-    def newEngine() = new Engine(engineConfig)
-
-    def execute(
-        apiCommands: ImmArray[ApiCommand],
-        contractOrigin: ContractOrigin,
-    ): Either[Error, (SubmittedTransaction, Transaction.Metadata)] = {
-
-      val participant = ParticipantId.assertFromString("participant")
-      val submissionSeed = crypto.Hash.hashPrivateKey("command")
-      val submitters = Set(alice)
-      val readAs = Set.empty[Party]
-
-      val disclosures = contractOrigin match {
-        case Disclosed => ImmArray(globalContractDisclosure)
-        case _ => ImmArray.empty
-      }
-      val lookupContractById = contractOrigin match {
-        case Global => Map(clientContractId -> clientContract, globalContractId -> globalContract)
-        case _ => Map(clientContractId -> clientContract)
-      }
-      val lookupContractByKey = contractOrigin match {
-        case Global =>
-          val keyMap = Map(globalContractKeyWithMaintainers.globalKey -> globalContractId)
-          ((kwm: GlobalKeyWithMaintainers) => keyMap.get(kwm.globalKey)).unlift
-        case _ => PartialFunction.empty
-      }
-
-      newEngine()
-        .submit(
-          packageMap = packageMap,
-          packagePreference = Set(commonDefsPkgId, templateDefsV2PkgId, clientPkgId),
-          submitters = submitters,
-          readAs = readAs,
-          cmds = ApiCommands(apiCommands, Time.Timestamp.Epoch, "test"),
-          disclosures = disclosures,
-          participantId = participant,
-          submissionSeed = submissionSeed,
-          prefetchKeys = Seq.empty,
-        )
-        .consume(
-          pcs = lookupContractById,
-          pkgs = lookupPackage,
-          keys = lookupContractByKey,
-        )
     }
   }
 }
