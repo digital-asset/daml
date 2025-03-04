@@ -1,0 +1,10 @@
+# $schema: https://raw.githubusercontent.com/DACH-NY/daml-assistant/refs/heads/json-schema/schema/component.schema.json
+# Edit as needed!
+
+spec:
+  commands:
+    - path: damlc
+      name: build
+      desc: Daml Compiler
+      exec-args: ['build']
+      aliases: ['build']
