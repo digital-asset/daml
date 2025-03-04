@@ -1255,62 +1255,57 @@ private[lf] object SBuiltinFun {
       coid: V.ContractId,
       interfaceId: TypeConName,
   )(k: SAny => Control[Question.Update]): Control[Question.Update] = {
-    fetchTemplateViaPkgId(machine, interfaceId.packageId, coid) { srcContract =>
+    hardFetchTemplate(machine, coid) { srcContract =>
       val pkgName = srcContract.packageName
       val srcTplId = srcContract.templateId
       val srcArg = srcContract.value.asInstanceOf[SRecord]
-      ensureTemplateImplementsInterface(machine, interfaceId, coid, srcTplId) {
-        viewInterface(machine, interfaceId, srcTplId, srcArg) { srcView =>
-          resolvePackageName(machine, pkgName) { pkgId =>
-            val dstTplId = srcTplId.copy(packageId = pkgId)
-            machine.ensurePackageIsLoaded(
-              dstTplId.packageId,
-              language.Reference.Template(dstTplId),
-            ) { () =>
-              ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTplId) {
-                fromInterface(machine, srcTplId, srcArg, dstTplId) {
-                  case None =>
-                    Control.Error(IE.WronglyTypedContract(coid, dstTplId, srcTplId))
-                  case Some(dstArg) =>
-                    viewInterface(machine, interfaceId, dstTplId, dstArg) { dstView =>
-                      executeExpression(machine, SEPreventCatch(srcView)) { srcViewValue =>
-                        getContractInfo(
-                          machine,
-                          coid,
-                          dstTplId,
-                          dstArg,
-                          allowCatchingContractInfoErrors = false,
-                        ) { dstContract =>
-                          // If the destination and src templates are the same, we skip the computation
-                          // of the destination template's view and the validation of the contract info.
-                          if (dstTplId == srcTplId)
-                            k(SAny(Ast.TTyCon(dstTplId), dstArg))
-                          else
-                            checkContractUpgradable(coid, srcContract, dstContract) { () =>
-                              executeExpression(machine, SEPreventCatch(dstView)) { dstViewValue =>
-                                if (srcViewValue != dstViewValue) {
-                                  machine.traceLog.add(
-                                    Pretty
-                                      .prettyViewMismatch(
-                                        coid,
-                                        interfaceId,
-                                        srcTplId,
-                                        dstTplId,
-                                        srcViewValue = srcViewValue.toUnnormalizedValue,
-                                        dstViewValue = dstViewValue.toUnnormalizedValue,
-                                      )
-                                      .render(10000),
-                                    machine.getLastLocation,
-                                  )(machine.loggingContext)
-                                }
-                                k(SAny(Ast.TTyCon(dstTplId), dstArg))
-                              }
-                            }
+      resolvePackageName(machine, pkgName) { pkgId =>
+        val dstTplId = srcTplId.copy(packageId = pkgId)
+        machine.ensurePackageIsLoaded(
+          dstTplId.packageId,
+          language.Reference.Template(dstTplId),
+        ) { () =>
+          ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTplId) {
+            fromInterface(machine, srcTplId, srcArg, dstTplId) {
+              case None =>
+                Control.Error(IE.WronglyTypedContract(coid, dstTplId, srcTplId))
+              case Some(dstArg) =>
+                viewInterface(machine, interfaceId, dstTplId, dstArg) { dstView =>
+                  getContractInfo(
+                    machine,
+                    coid,
+                    dstTplId,
+                    dstArg,
+                    allowCatchingContractInfoErrors = false,
+                  ) { dstContract =>
+                    // If the destination and src templates are the same, we skip the computation
+                    // of the destination template's view and the validation of the contract info.
+                    if (dstTplId == srcTplId)
+                      k(SAny(Ast.TTyCon(dstTplId), dstArg))
+                    else
+                      checkContractUpgradable(coid, srcContract, dstContract) { () =>
+                        executeExpression(machine, SEPreventCatch(dstView)) { dstViewValue =>
+                          //if (srcViewValue != dstViewValue) {
+                          //  machine.traceLog.add(
+                          //    Pretty
+                          //      .prettyViewMismatch(
+                          //        coid,
+                          //        interfaceId,
+                          //        srcTplId,
+                          //        dstTplId,
+                          //        srcViewValue = srcViewValue.toUnnormalizedValue,
+                          //        dstViewValue = dstViewValue.toUnnormalizedValue,
+                          //      )
+                          //      .render(10000),
+                          //    machine.getLastLocation,
+                          //  )(machine.loggingContext)
+                          //}
+                          val _ = dstViewValue
+                          k(SAny(Ast.TTyCon(dstTplId), dstArg))
                         }
                       }
-                    }
+                  }
                 }
-              }
             }
           }
         }
@@ -2321,6 +2316,7 @@ private[lf] object SBuiltinFun {
     fetchTemplateG(machine, Right(dstTmplId), coid)((info: ContractInfo) => f(info.value))
   }
 
+  @nowarn
   private def fetchTemplateViaPkgId(
       machine: UpdateMachine,
       dstPkgId: PackageId,
@@ -2464,7 +2460,6 @@ private[lf] object SBuiltinFun {
   /** A version of [[fetchTemplate]] without a destination template type. The template type of the contract on ledger
     * is used for importing its value, and is returned alongside the value.
     */
-  @nowarn
   private def hardFetchTemplate(
       machine: UpdateMachine,
       coid: V.ContractId,
