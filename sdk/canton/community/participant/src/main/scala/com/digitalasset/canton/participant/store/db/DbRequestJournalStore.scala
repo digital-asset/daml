@@ -14,10 +14,10 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
-import com.digitalasset.canton.participant.admin.repair.RepairContext
 import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData, RequestState}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.db.DbRequestJournalStore.ReplaceRequest
+import com.digitalasset.canton.participant.util.TimeOfRequest
 import com.digitalasset.canton.resource.DbStorage.DbAction.ReadOnly
 import com.digitalasset.canton.resource.DbStorage.{DbAction, Profile}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
@@ -61,7 +61,6 @@ class DbRequestJournalStore(
       getResultRequestState(r),
       GetResult[CantonTimestamp].apply(r),
       GetResult[Option[CantonTimestamp]].apply(r),
-      GetResult[Option[RepairContext]].apply(r),
     )
   )
 
@@ -88,18 +87,17 @@ class DbRequestJournalStore(
           batchTraceContext: TraceContext
       ): DBIOAction[Array[Int], NoStream, Effect.All] = {
         def setData(pp: PositionedParameters)(item: RequestData): Unit = {
-          val RequestData(rc, state, requestTimestamp, commitTime, repairContext) = item
+          val RequestData(rc, state, requestTimestamp, commitTime) = item
           pp >> indexedSynchronizer
           pp >> rc
           pp >> state
           pp >> requestTimestamp
           pp >> commitTime
-          pp >> repairContext
         }
 
         val query =
-          """insert into par_journal_requests(synchronizer_idx, request_counter, request_state_index, request_timestamp, commit_time, repair_context)
-             values (?, ?, ?, ?, ?, ?)
+          """insert into par_journal_requests(synchronizer_idx, request_counter, request_state_index, request_timestamp, commit_time)
+             values (?, ?, ?, ?, ?)
              on conflict do nothing"""
         DbStorage.bulkOperation(query, items.map(_.value).toList, storage.profile)(setData)
 
@@ -146,7 +144,7 @@ class DbRequestJournalStore(
       rc: RequestCounter
   )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, RequestData] = {
     val query =
-      sql"""select request_counter, request_state_index, request_timestamp, commit_time, repair_context
+      sql"""select request_counter, request_state_index, request_timestamp, commit_time
               from par_journal_requests where request_counter = $rc and synchronizer_idx = $indexedSynchronizer"""
         .as[RequestData]
     OptionT(storage.query(query.headOption, functionFullName))
@@ -157,7 +155,7 @@ class DbRequestJournalStore(
   ): DbAction.ReadOnly[immutable.Iterable[RequestData]] = {
     import DbStorage.Implicits.BuilderChain.*
     val query =
-      sql"""select request_counter, request_state_index, request_timestamp, commit_time, repair_context
+      sql"""select request_counter, request_state_index, request_timestamp, commit_time
               from par_journal_requests where synchronizer_idx = $indexedSynchronizer and """ ++ DbStorage
         .toInClause(
           "request_counter",
@@ -190,7 +188,7 @@ class DbRequestJournalStore(
           )(rc =>
             storage.query(
               sql"""
-                    select request_counter, request_state_index, request_timestamp, commit_time, repair_context
+                    select request_counter, request_state_index, request_timestamp, commit_time
                     from par_journal_requests
                     where synchronizer_idx = $indexedSynchronizer and request_counter = $rc
                 """.as[RequestData].headOption,
@@ -201,7 +199,7 @@ class DbRequestJournalStore(
       case _: Profile.H2 =>
         storage.query(
           sql"""
-                select request_counter, request_state_index, request_timestamp, commit_time, repair_context
+                select request_counter, request_state_index, request_timestamp, commit_time
                 from par_journal_requests where synchronizer_idx = $indexedSynchronizer and commit_time > $commitTimeExclusive
                 order by request_counter #${storage.limit(1)}
             """.as[RequestData].headOption,
@@ -358,18 +356,6 @@ class DbRequestJournalStore(
     storage.update_(statement, functionFullName)
   }
 
-  override def repairRequests(
-      fromInclusive: RequestCounter
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[RequestData]] = {
-    val statement =
-      sql"""
-        select request_counter, request_state_index, request_timestamp, commit_time, repair_context
-        from par_journal_requests where synchronizer_idx = $indexedSynchronizer and request_counter >= $fromInclusive and repair_context is not null
-        order by request_counter
-        """.as[RequestData]
-    storage.query(statement, functionFullName)
-  }
-
   override def totalDirtyRequests()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[NonNegativeInt] = {
@@ -381,17 +367,17 @@ class DbRequestJournalStore(
     storage.query(statement, functionFullName).map(NonNegativeInt.tryCreate)
   }
 
-  override def lastRequestCounterWithRequestTimestampBeforeOrAt(requestTimestamp: CantonTimestamp)(
+  override def lastRequestTimeWithRequestTimestampBeforeOrAt(requestTimestamp: CantonTimestamp)(
       implicit traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[RequestCounter]] =
+  ): FutureUnlessShutdown[Option[TimeOfRequest]] =
     storage.query(
       sql"""
-        select request_counter
+        select request_timestamp, request_counter
         from par_journal_requests
         where synchronizer_idx = $indexedSynchronizer and request_timestamp <= $requestTimestamp
         order by (synchronizer_idx, request_timestamp) desc
         #${storage.limit(1)}
-        """.as[RequestCounter].headOption,
+        """.as[TimeOfRequest].headOption,
       functionFullName,
     )
 }

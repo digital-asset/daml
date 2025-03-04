@@ -190,7 +190,6 @@ class RequestJournalTest
               if (rc == transitRc) Clean else Pending,
               timestamp,
               Option.when(rc == transitRc)(timestamp.plusSeconds(1)),
-              None,
             )
           )
           _ <- assertAbsent(rj, nonInserts)
@@ -317,7 +316,7 @@ class RequestJournalTest
               rj.query(rc)
                 .value
                 .map(result =>
-                  assert(result.contains(new RequestData(rc, target, timestamp, commitTime, None)))
+                  assert(result.contains(new RequestData(rc, target, timestamp, commitTime)))
                 )
           })
         } yield rj.numberOfDirtyRequests shouldBe 2

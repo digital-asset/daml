@@ -30,6 +30,14 @@ import scala.jdk.CollectionConverters.*
   *   servers (e.g. Postgres).
   * @param connectionTimeout
   *   How long to wait for acquiring a database connection
+  * @param failedToFatalDelay
+  *   Delay after which, if the storage is continuously in a Failed state, it will escalate to
+  *   Fatal. The default value is 5 minutes. Components that use the storage as a health dependency
+  *   can then determine how to react. Currently, the sequencer declares it as a fatal dependency
+  *   for its liveness health, which means it will transition to NOT_SERVING if this delay is
+  *   exceeded, allowing a monitoring infrastructure to restart it. **NOTE**: Currently this only
+  *   applies to [[com.digitalasset.canton.resource.DbStorageSingle]], which is only used by the
+  *   sequencer. TODO(i24240): Apply the same behavior to `DbStorageMulti`
   * @param warnOnSlowQuery
   *   Optional time when we start logging a query as slow.
   * @param warnOnSlowQueryInterval
@@ -45,7 +53,7 @@ import scala.jdk.CollectionConverters.*
   *   migrate for non-empty schemas, { @code false} if not. (default: { @code false})
   * @param migrateAndStart
   *   if true, db migrations will be applied to the database (default is to abort start if db
-  *   migrates are pending to force an explicit updgrade)
+  *   migrates are pending to force an explicit upgrade)
   */
 final case class DbParametersConfig(
     maxConnections: Option[Int] = None,
@@ -53,6 +61,7 @@ final case class DbParametersConfig(
     failFastOnStartup: Boolean = true,
     migrationsPaths: Seq[String] = Seq.empty,
     connectionTimeout: NonNegativeFiniteDuration = DbConfig.defaultConnectionTimeout,
+    failedToFatalDelay: NonNegativeFiniteDuration = DbConfig.defaultFailedToFatalDelay,
     warnOnSlowQuery: Option[PositiveFiniteDuration] = None,
     warnOnSlowQueryInterval: PositiveFiniteDuration =
       DbParametersConfig.defaultWarnOnSlowQueryInterval,
@@ -73,7 +82,11 @@ final case class DbParametersConfig(
       paramIfDefined("maxConnections", _.maxConnections),
       param("connectionAllocation", _.connectionAllocation),
       param("failFast", _.failFastOnStartup),
+      paramIfNonEmpty("migrationPaths", _.migrationsPaths.map(_.unquoted)),
+      param("connectionTimeout", _.connectionTimeout),
+      param("failedToFatalDelay", _.failedToFatalDelay),
       paramIfDefined("warnOnSlowQuery", _.warnOnSlowQuery),
+      param("migrateAndStart", _.migrateAndStart),
     )
 }
 
@@ -395,9 +408,15 @@ object DbConfig {
         CantonConfigValidator.validateAll
       CantonConfigValidatorDerivation[Postgres]
     }
+
+    // We enable `tcpKeepAlive` in the Postgres JDBC driver in order to improve detection of
+    // failed connections in the Hikari connection pool.
+    // See https://github.com/brettwooldridge/HikariCP/wiki/Setting-Driver-or-OS-TCP-Keepalive
+    val defaultConfig: Config = DbConfig.toConfig(Map("properties.tcpKeepAlive" -> true))
   }
 
   val defaultConnectionTimeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(5)
+  val defaultFailedToFatalDelay: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMinutes(5)
 
   private val stableDir = "stable"
   private val devDir = "dev"
@@ -466,7 +485,7 @@ object DbConfig {
         enforceDelayClose(
           enforcePgMode(enforceSingleConnection(writeH2UrlIfNotSet(h2.config)))
         ).withFallback(H2.defaultConfig)
-      case postgres: Postgres => postgres.config
+      case postgres: Postgres => postgres.config.withFallback(Postgres.defaultConfig)
       case other => other.config
     }).withFallback(commonDefaults)
   }

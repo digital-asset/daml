@@ -210,13 +210,13 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
 
         def peerInitializer(
             endpoint: P2PEndpoint,
-            store: BftOrderingStores[SimulationEnv],
+            stores: BftOrderingStores[SimulationEnv],
             initializeImmediately: Boolean,
         ) =
           newPeerInitializer(
             endpoint,
             () => getAllEndpointsToTopologyData,
-            store,
+            stores,
             sendQueue,
             clock,
             availabilityRandom,
@@ -225,10 +225,10 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
           )
 
         val newlyOnboardedTopologyInitializers =
-          newlyOnboardedPeersWithStores.map { case (endpoint, store) =>
+          newlyOnboardedPeersWithStores.map { case (endpoint, stores) =>
             endpoint -> peerInitializer(
               endpoint,
-              store,
+              stores,
               initializeImmediately = false,
             )
           }.toMap
@@ -338,7 +338,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
         loggerFactory,
       )
 
-    val (genesisTopology, genesisCryptoProvider) =
+    val (genesisTopology, _) =
       SimulationTopologyHelpers.resolveOrderingTopology(
         orderingTopologyProvider.getOrderingTopologyAt(TopologyActivationTime(SimulationStartTime))
       )
@@ -421,11 +421,9 @@ class BftOrderingSimulationTest1NodeNoFaults extends BftOrderingSimulationTest {
 class BftOrderingSimulationTestWithProgressiveOnboardingAndDelayNoFaults
     extends BftOrderingSimulationTest {
 
-  override val numberOfRuns: Int = 3
+  override val numberOfRuns: Int = 2
 
   override val numberOfInitialPeers: Int = 1
-
-  private val numberOfRandomlyOnboardedPeers = 1
 
   private val durationOfFirstPhaseWithFaults = 1.minute
   private val durationOfSecondPhaseWithoutFaults = 1.minute
@@ -434,14 +432,14 @@ class BftOrderingSimulationTestWithProgressiveOnboardingAndDelayNoFaults
     new Random(4) // Manually remove the seed for fully randomized local runs.
 
   override def generateStages(): Seq[SimulationTestStage] = {
-    val stagesCount = 4 // 1 -> 2, 2 -> 3, 3 -> 4, 4 -> 5 with catchup
+    val stagesCount = 4 // 1 -> 2, 2 -> 3, 3 -> 4, 4 -> 5 with delay
     for (i <- 1 to stagesCount) yield {
       val stage = generateStage()
       if (i < stagesCount) {
         stage
       } else {
-        // Let the last stage have some delay after onboarding to test both onboarding and catching up
-        //  from at least 1 onboarded node.
+        // Let the last stage have some delay after onboarding to test onboarding with more epochs to transfer,
+        //  i.e, higher end epoch calculated.
         stage.copy(
           simulationSettings = stage.simulationSettings.copy(
             becomingOnlineAfterOnboardingDelay =
@@ -463,10 +461,7 @@ class BftOrderingSimulationTestWithProgressiveOnboardingAndDelayNoFaults
         ),
         durationOfFirstPhaseWithFaults,
         durationOfSecondPhaseWithoutFaults,
-        peerOnboardingDelays =
-          LazyList.iterate(newOnboardingDelay(), numberOfRandomlyOnboardedPeers)(_ =>
-            newOnboardingDelay()
-          ),
+        peerOnboardingDelays = List(newOnboardingDelay()),
         // Delay of zero doesn't make the test rely on catch-up, as onboarded nodes will buffer all messages since
         //  the activation, and thus won't fall behind.
         becomingOnlineAfterOnboardingDelay = 0.seconds,

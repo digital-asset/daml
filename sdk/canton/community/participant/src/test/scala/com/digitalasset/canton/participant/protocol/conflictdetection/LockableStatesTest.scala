@@ -14,13 +14,14 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.LockableSt
   PendingWriteCounter,
 }
 import com.digitalasset.canton.participant.store.{ConflictDetectionStore, HasPrunable}
-import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
+import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange, TimeOfRequest}
 import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutorService, RequestCounter}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.language.implicitConversions
 
 class LockableStatesTest extends AsyncWordSpec with BaseTest with HasExecutorService {
   import ConflictDetectionHelpers.*
@@ -28,11 +29,11 @@ class LockableStatesTest extends AsyncWordSpec with BaseTest with HasExecutorSer
 
   implicit val prettyString: Pretty[String] = PrettyUtil.prettyOfString(Predef.identity)
 
-  private val toc0 = TimeOfChange(RequestCounter(0), CantonTimestamp.Epoch)
-  private val toc1 = TimeOfChange(RequestCounter(1), CantonTimestamp.ofEpochSecond(1))
-  private val toc2 = TimeOfChange(RequestCounter(2), CantonTimestamp.ofEpochSecond(2))
-  private val toc3 = TimeOfChange(RequestCounter(3), CantonTimestamp.ofEpochSecond(3))
-  private val tocEarly = TimeOfChange(RequestCounter(0), CantonTimestamp.ofEpochSecond(-1))
+  private val tor0 = TimeOfRequest(RequestCounter(0), CantonTimestamp.Epoch)
+  private val tor1 = TimeOfRequest(RequestCounter(1), CantonTimestamp.ofEpochSecond(1))
+  private val tor2 = TimeOfRequest(RequestCounter(2), CantonTimestamp.ofEpochSecond(2))
+  private val tor3 = TimeOfRequest(RequestCounter(3), CantonTimestamp.ofEpochSecond(3))
+  private val torEarly = TimeOfRequest(RequestCounter(0), CantonTimestamp.ofEpochSecond(-1))
 
   private val freshId = "FRESH"
   private val fresh2Id = "FRESH2"
@@ -45,13 +46,13 @@ class LockableStatesTest extends AsyncWordSpec with BaseTest with HasExecutorSer
   private val evictableActive2Id = "EVICTABLE_ACTIVE2"
   private val freeNotEvictableId = "FREE_NOT_EVICTABLE"
   private lazy val preload = Map(
-    neitherFreeNorActiveId -> StateChange(Status.neitherFreeNorActive, toc0),
-    freeId -> StateChange(Status.free, toc0),
-    free2Id -> StateChange(Status(-1), toc1),
-    activeId -> StateChange(Status.active, toc0),
-    evictableActiveId -> StateChange(Status.evictableActive, toc0),
-    evictableActive2Id -> StateChange(Status.evictableActive, toc1),
-    freeNotEvictableId -> StateChange(Status.freeNotEvictable, toc1),
+    neitherFreeNorActiveId -> StateChange(Status.neitherFreeNorActive, tor0),
+    freeId -> StateChange(Status.free, tor0),
+    free2Id -> StateChange(Status(-1), tor1),
+    activeId -> StateChange(Status.active, tor0),
+    evictableActiveId -> StateChange(Status.evictableActive, tor0),
+    evictableActive2Id -> StateChange(Status.evictableActive, tor1),
+    freeNotEvictableId -> StateChange(Status.freeNotEvictable, tor1),
   )
 
   private def mkSut(
@@ -241,11 +242,14 @@ class LockableStatesTest extends AsyncWordSpec with BaseTest with HasExecutorSer
             mkState(state = preload.get(id), locks = expectedLockCount)
           )
         }
-        toBeLocked2.foreach(sut.setStatusPendingWrite(_, Status.neitherFreeNorActive, toc3))
+        val stateChange = StateChange(Status.neitherFreeNorActive, tor3)
+        toBeLocked2.foreach(
+          sut.setStatePendingWrite(tor3.rc, _, stateChange)
+        )
         forEvery(toBeLocked1) { id =>
           val expectedWriteCount = if (toBeLocked2.contains(id)) 1 else 0
           val expectedStatus =
-            if (toBeLocked2.contains(id)) Some(StateChange(Status.neitherFreeNorActive, toc3))
+            if (toBeLocked2.contains(id)) Some(stateChange)
             else preload.get(id)
           sut.getInternalState(id) should contain(
             mkState(state = expectedStatus, locks = 1, writes = expectedWriteCount)
@@ -356,16 +360,16 @@ class LockableStatesTest extends AsyncWordSpec with BaseTest with HasExecutorSer
       val sut = mkSut(preload)
       val lock = Map(freshId -> Status(0), freeId -> Status(100), activeId -> Status(-100))
       val check = mkActivenessCheck(lock = lock.keySet)
-      val rc = toc2.rc
+      val rc = tor2.rc
       for {
         _ <- pendingAndCheck(sut, rc, check)
         _ = lock.foreach { case (id, newState) =>
-          sut.setStatusPendingWrite(id, newState, toc2)
+          sut.setStatePendingWrite(tor2.rc, id, StateChange(newState, tor2))
         }
       } yield {
         forEvery(lock) { case (id, newState) =>
           sut.getInternalState(id) should contain(
-            mkState(state = Some(StateChange(newState, toc2)), writes = 1)
+            mkState(state = Some(StateChange(newState, tor2)), writes = 1)
           )
         }
       }
@@ -374,7 +378,7 @@ class LockableStatesTest extends AsyncWordSpec with BaseTest with HasExecutorSer
     "complain about missing locks" in {
       val sut = mkSut()
       a[IllegalConflictDetectionStateException] shouldBe thrownBy(
-        sut.setStatusPendingWrite(freshId, Status(0), toc0)
+        sut.setStatePendingWrite(tor0.rc, freshId, StateChange(Status(0), tor0))
       )
     }
 
@@ -387,12 +391,13 @@ class LockableStatesTest extends AsyncWordSpec with BaseTest with HasExecutorSer
         active = Set(activeId, evictableActiveId),
         lock = all,
       )
+      val stateChange = StateChange(Status(0), torEarly)
       for {
-        _ <- pendingAndCheck(sut, tocEarly.rc, check)
-        _ = all.foreach(id => sut.setStatusPendingWrite(id, Status(0), tocEarly))
+        _ <- pendingAndCheck(sut, torEarly.rc, check)
+        _ = all.foreach(id => sut.setStatePendingWrite(torEarly.rc, id, stateChange))
       } yield {
         forEvery(all) { id =>
-          val expectedState = preload.getOrElse(id, StateChange(Status(0), tocEarly))
+          val expectedState = preload.getOrElse(id, stateChange)
           sut.getInternalState(id) should contain(mkState(state = Some(expectedState), writes = 1))
         }
       }
@@ -402,16 +407,18 @@ class LockableStatesTest extends AsyncWordSpec with BaseTest with HasExecutorSer
       val sut = mkSut(preload)
       val check1 = mkActivenessCheck(lock = Set(freeId))
       for {
-        _ <- pendingAndCheck(sut, toc1.rc, check1)
-        _ <- pendingAndCheck(sut, toc2.rc, check1)
-        _ = sut.setStatusPendingWrite(freeId, Status(0), toc1)
+        _ <- pendingAndCheck(sut, tor1.rc, check1)
+        _ <- pendingAndCheck(sut, tor2.rc, check1)
+        stateChange1 = StateChange(Status(0), tor1)
+        _ = sut.setStatePendingWrite(tor1.rc, freeId, stateChange1)
         _ = sut.getInternalState(freeId) should contain(
-          mkState(state = Some(StateChange(Status(0), toc1)), locks = 1, writes = 1)
+          mkState(state = Some(stateChange1), locks = 1, writes = 1)
         )
-        _ = sut.setStatusPendingWrite(freeId, Status(0), toc2)
+        stateChange2 = StateChange(Status(0), tor2)
+        _ = sut.setStatePendingWrite(tor2.rc, freeId, stateChange2)
       } yield {
         sut.getInternalState(freeId) should contain(
-          mkState(state = Some(StateChange(Status(0), toc2)), writes = 2)
+          mkState(state = Some(stateChange2), writes = 2)
         )
       }
     }
@@ -427,18 +434,18 @@ class LockableStatesTest extends AsyncWordSpec with BaseTest with HasExecutorSer
         evictableActiveId -> Status.free,
       )
       for {
-        _ <- pendingAndCheck(sut, toc2.rc, mkActivenessCheck(lock = lock.keySet))
+        _ <- pendingAndCheck(sut, tor2.rc, mkActivenessCheck(lock = lock.keySet))
         _ = lock.foreach { case (id, newStatus) =>
-          sut.setStatusPendingWrite(id, newStatus, toc2)
+          sut.setStatePendingWrite(tor2.rc, id, StateChange(newStatus, tor2))
         }
-        _ = lock.keys.foreach(id => sut.signalWriteAndTryEvict(toc2.rc, id))
+        _ = lock.keys.foreach(id => sut.signalWriteAndTryEvict(tor2.rc, id))
       } yield {
         forEvery(lock) { case (id, newStatus) =>
           if (LockableStatus[Status].shouldEvict(newStatus)) {
             sut.getInternalState(id) shouldBe None
           } else {
             sut.getInternalState(id) should contain(
-              mkState(state = Some(StateChange(newStatus, toc2)))
+              mkState(state = Some(StateChange(newStatus, tor2)))
             )
           }
         }
@@ -448,20 +455,20 @@ class LockableStatesTest extends AsyncWordSpec with BaseTest with HasExecutorSer
     "fail if there is no pending write" in {
       val sut = mkSut()
       for {
-        _ <- pendingAndCheck(sut, toc2.rc, mkActivenessCheck(lock = Set(freeId)))
+        _ <- pendingAndCheck(sut, tor2.rc, mkActivenessCheck(lock = Set(freeId)))
       } yield {
         a[IllegalConflictDetectionStateException] should be thrownBy sut.signalWriteAndTryEvict(
-          toc2.rc,
+          tor2.rc,
           freeId,
         )
         a[IllegalConflictDetectionStateException] should be thrownBy sut.signalWriteAndTryEvict(
-          toc2.rc,
+          tor2.rc,
           activeId,
         )
-        sut.setStatusPendingWrite(freeId, Status.freeNotEvictable, toc2)
-        sut.signalWriteAndTryEvict(toc2.rc, freeId)
+        sut.setStatePendingWrite(tor2.rc, freeId, StateChange(Status.freeNotEvictable, tor2))
+        sut.signalWriteAndTryEvict(tor2.rc, freeId)
         a[IllegalConflictDetectionStateException] should be thrownBy sut.signalWriteAndTryEvict(
-          toc2.rc,
+          tor2.rc,
           freeId,
         )
       }
@@ -471,18 +478,20 @@ class LockableStatesTest extends AsyncWordSpec with BaseTest with HasExecutorSer
       val sut = mkSut(preload)
       val lock = Set(freeId, free2Id)
       for {
-        _ <- pendingAndCheck(sut, toc2.rc, mkActivenessCheck(lock = lock))
-        _ = sut.setStatusPendingWrite(freeId, Status.evictableActive, toc2)
-        _ = sut.setStatusPendingWrite(free2Id, Status.evictableActive, toc2)
-        _ <- pendingAndCheck(sut, toc3.rc, mkActivenessCheck(lock = Set(freeId, free2Id)))
-        _ = sut.setStatusPendingWrite(freeId, Status.evictableActive, toc3)
-        _ = lock.foreach(id => sut.signalWriteAndTryEvict(toc2.rc, id))
+        _ <- pendingAndCheck(sut, tor2.rc, mkActivenessCheck(lock = lock))
+        stateChange2 = StateChange(Status.evictableActive, tor2)
+        _ = sut.setStatePendingWrite(tor2.rc, freeId, stateChange2)
+        _ = sut.setStatePendingWrite(tor2.rc, free2Id, stateChange2)
+        _ <- pendingAndCheck(sut, tor3.rc, mkActivenessCheck(lock = Set(freeId, free2Id)))
+        stateChange3 = StateChange(Status.evictableActive, tor3)
+        _ = sut.setStatePendingWrite(tor3.rc, freeId, stateChange3)
+        _ = lock.foreach(id => sut.signalWriteAndTryEvict(tor2.rc, id))
       } yield {
         sut.getInternalState(freeId) should contain(
-          mkState(state = Some(StateChange(Status.evictableActive, toc3)), writes = 1)
+          mkState(state = Some(stateChange3), writes = 1)
         )
         sut.getInternalState(free2Id) should contain(
-          mkState(state = Some(StateChange(Status.evictableActive, toc2)), locks = 1)
+          mkState(state = Some(stateChange2), locks = 1)
         )
       }
     }
@@ -504,10 +513,10 @@ class LockableStatesTest extends AsyncWordSpec with BaseTest with HasExecutorSer
         )
       val lock2 = Set(freeId, freshId, activeId, evictableActiveId)
       for {
-        _ <- pendingAndCheck(sut, toc2.rc, mkActivenessCheck(lock = lock1))
-        _ <- pendingAndCheck(sut, toc3.rc, mkActivenessCheck(lock = lock2))
+        _ <- pendingAndCheck(sut, tor2.rc, mkActivenessCheck(lock = lock1))
+        _ <- pendingAndCheck(sut, tor3.rc, mkActivenessCheck(lock = lock2))
       } yield {
-        lock1.foreach(sut.releaseLock(toc2.rc, _))
+        lock1.foreach(sut.releaseLock(tor2.rc, _))
         forEvery(lock2) { id =>
           sut.getInternalState(id) should contain(mkState(state = preload.get(id), locks = 1))
         }
@@ -578,4 +587,7 @@ object LockableStatesTest {
     override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
       FutureUnlessShutdown.unit
   }
+
+  private implicit def convertTimeOfRequestToTimeOfChange(tor: TimeOfRequest): TimeOfChange =
+    TimeOfChange(tor.timestamp)
 }

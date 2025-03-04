@@ -10,7 +10,6 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.admin.repair.RepairContext
 import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.Clean
 import com.digitalasset.canton.participant.store.*
@@ -284,8 +283,6 @@ object RequestJournal {
     *   The timestamp on the request message
     * @param commitTime
     *   The commit time of the request. May be set only for state [[RequestState.Clean]].
-    * @param repairContext
-    *   The repair context to mark if the request originated from a repair command.
     * @throws java.lang.IllegalArgumentException
     *   if the `commitTime` is specified and `state` is not [[RequestState.Clean]]. or if the
     *   `commitTime` is before the `requestTimestamp`
@@ -295,7 +292,6 @@ object RequestJournal {
       state: RequestState,
       requestTimestamp: CantonTimestamp,
       commitTime: Option[CantonTimestamp],
-      repairContext: Option[RepairContext], // only populated for repair requests
   ) extends PrettyPrinting
       with NoCopy {
 
@@ -313,7 +309,6 @@ object RequestJournal {
       param("state", _.state),
       param("requestTimestamp", _.requestTimestamp),
       paramIfDefined("commitTime", _.commitTime),
-      paramIfDefined(name = "repairContext", _.repairContext),
     )
 
     /** Sets the `newState`, and the `commitTime` unless the commit time has previously been set.
@@ -322,7 +317,7 @@ object RequestJournal {
       *   [[RequestState.Clean]], or if the `commitTime` is before [[requestTimestamp]].
       */
     def tryAdvance(newState: RequestState, commitTime: Option[CantonTimestamp]): RequestData =
-      new RequestData(rc, newState, requestTimestamp, commitTime.orElse(commitTime), repairContext)
+      new RequestData(rc, newState, requestTimestamp, commitTime.orElse(commitTime))
   }
 
   object RequestData {
@@ -330,9 +325,8 @@ object RequestJournal {
         requestCounter: RequestCounter,
         state: RequestState,
         requestTimestamp: CantonTimestamp,
-        repairContext: Option[RepairContext] = None,
     ): RequestData =
-      new RequestData(requestCounter, state, requestTimestamp, None, repairContext)
+      new RequestData(requestCounter, state, requestTimestamp, None)
 
     def initial(requestCounter: RequestCounter, requestTimestamp: CantonTimestamp): RequestData =
       RequestData(requestCounter, RequestState.Pending, requestTimestamp)
@@ -341,9 +335,8 @@ object RequestJournal {
         requestCounter: RequestCounter,
         requestTimestamp: CantonTimestamp,
         commitTime: CantonTimestamp,
-        repairContext: Option[RepairContext] = None,
     ): RequestData =
-      new RequestData(requestCounter, Clean, requestTimestamp, Some(commitTime), repairContext)
+      new RequestData(requestCounter, Clean, requestTimestamp, Some(commitTime))
   }
 }
 

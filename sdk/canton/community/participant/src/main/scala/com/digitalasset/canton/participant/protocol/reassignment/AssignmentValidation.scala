@@ -249,13 +249,11 @@ private[reassignment] class AssignmentValidation(
     // TODO(i12926): Validate that the unassignment result received matches the unassignment result in reassignmentData
 
     val UnassignmentData(
-      unassignmentTs,
+      reassignmentId,
       unassignmentRequest,
       unassignmentDecisionTime,
       _unassignmentResult,
     ) = unassignmentData
-
-    val reassignmentId = assignmentRequest.unassignmentResultEvent.reassignmentId
 
     val reassigningParticipants = Validated.condNec(
       unassignmentRequest.reassigningParticipants == assignmentRequest.reassigningParticipants,
@@ -296,8 +294,8 @@ private[reassignment] class AssignmentValidation(
 
     for {
       deliveredUnassignmentResult <- DeliveredUnassignmentResultValidation(
+        reassignmentId = reassignmentId,
         unassignmentRequest = unassignmentRequest,
-        unassignmentRequestTs = unassignmentTs,
         unassignmentDecisionTime = unassignmentDecisionTime,
         sourceTopology = sourceTopology,
         targetTopologyTargetTs = targetTopologyTargetTs,

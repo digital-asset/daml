@@ -109,13 +109,7 @@ private[events] class BufferedUpdateReader(
         endInclusive = endInclusive,
         persistenceFetchArgs = (requestingParties, eventProjectionProperties),
         bufferFilter = ToTransactionTree
-          .filter(requestingParties)
-          .andThen {
-            case Some(TransactionLogUpdate.TopologyTransactionEffective(_, _, _, _, _))
-                if !experimentalEnableTopologyEvents =>
-              None
-            case something => something
-          },
+          .filter(requestingParties),
         toApiResponse = ToTransactionTree
           .toGetTransactionTreesResponse(
             requestingParties,

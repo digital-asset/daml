@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.event
 
 import cats.implicits.catsSyntaxOptionId
-import com.digitalasset.canton.SequencerCounter
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.{CantonTimestamp, TaskScheduler, TaskSchedulerMetrics}
@@ -20,6 +20,7 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
+import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
@@ -29,8 +30,8 @@ import scala.util.{Failure, Success}
   * [[RecordOrderPublisher]] for documentation.
   */
 sealed trait PublishesOnlinePartyReplicationEvents {
-  def schedulePublishAddContracts(buildEventAtRecordTime: CantonTimestamp => Update)(implicit
-      traceContext: TraceContext
+  def schedulePublishAddContracts(buildEventAtRecordTime: CantonTimestamp => NonEmpty[Seq[Update]])(
+      implicit traceContext: TraceContext
   ): Unit
 
   def publishBufferedEvents()(implicit traceContext: TraceContext): Unit
@@ -113,18 +114,22 @@ class RecordOrderPublisher(
     *
     * @param event
     *   The update event to be published.
+    * @param rcO
+    *   The optional request counter for logging as RCs are more human-readable than timestamps.
     */
-  def tick(event: SequencedUpdate)(implicit traceContext: TraceContext): Future[Unit] =
+  def tick(event: SequencedUpdate, rcO: Option[RequestCounter])(implicit
+      traceContext: TraceContext
+  ): Future[Unit] =
     ifNotClosedYet {
       if (event.recordTime > initTimestamp) {
-        event.requestCounterO
+        rcO
           .foreach(requestCounter =>
             logger.debug(s"Schedule publication for request counter $requestCounter")
           )
         onlyForTestingRecordAcceptedTransactions(event)
         taskScheduler.scheduleTask(EventPublicationTask(event))
         logger.debug(
-          s"Observing time ${event.recordTime} for sequencer counter ${event.sequencerCounter} for publishing (with event:$event, requestCounterO:${event.requestCounterO})"
+          s"Observing time ${event.recordTime} for sequencer counter ${event.sequencerCounter} for publishing (with event:$event, requestCounterO:$rcO)"
         )
         taskScheduler.addTick(event.sequencerCounter, event.recordTime)
         // this adds backpressure from indexer queue to protocol processing:
@@ -277,7 +282,7 @@ class RecordOrderPublisher(
     * [[publishBufferedEvents]] calls.
     */
   def schedulePublishAddContracts(
-      buildEventAtRecordTime: CantonTimestamp => Update
+      buildEventAtRecordTime: CantonTimestamp => NonEmpty[Seq[Update]]
   )(implicit traceContext: TraceContext): Unit =
     scheduleBufferingEventTaskImmediately { timestamp =>
       logger.debug(s"Publish add contracts at $timestamp")
@@ -287,8 +292,12 @@ class RecordOrderPublisher(
             "Buffering of LedgerApiIndexer events should be started before adding contracts"
           )
         case Some(buffer) =>
-          val event = buffer.markEventWithRecordTime(buildEventAtRecordTime)
-          publishLedgerApiIndexerEvent(event)
+          val events = buffer.markEventsWithRecordTime(buildEventAtRecordTime)
+          MonadUtil
+            .sequentialTraverse_(events) { event =>
+              logger.debug(s"Publishing contract add $event")
+              publishLedgerApiIndexerEvent(event)
+            }
       }
     }
 

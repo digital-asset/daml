@@ -4,9 +4,11 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer
 
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.mutable
 
@@ -17,12 +19,14 @@ sealed trait CatchupDetector {
       peer: SequencerId,
       epochNumber: EpochNumber,
   ): Boolean
-  def shouldCatchUp(localEpoch: EpochNumber): Boolean
+  def shouldCatchUp(localEpoch: EpochNumber)(implicit traceContext: TraceContext): Boolean
 }
 
 final class DefaultCatchupDetector(
-    initialMembership: Membership
-) extends CatchupDetector {
+    initialMembership: Membership,
+    override val loggerFactory: NamedLoggerFactory,
+) extends CatchupDetector
+    with NamedLogging {
 
   import DefaultCatchupDetector.*
 
@@ -74,11 +78,19 @@ final class DefaultCatchupDetector(
     updated
   }
 
-  override def shouldCatchUp(localEpoch: EpochNumber): Boolean = {
+  override def shouldCatchUp(
+      localEpoch: EpochNumber
+  )(implicit traceContext: TraceContext): Boolean = {
     val behindEnoughPeers =
       latestKnownPeerEpochs.count { case (_, peerEpoch) =>
         peerEpoch >= localEpoch + MinimumEpochDeltaToTriggerCatchUp
       } >= membership.orderingTopology.weakQuorum
+
+    if (behindEnoughPeers) {
+      logger.debug(
+        s"Detected need for catch-up state transfer while in epoch $localEpoch; peer epochs are $latestKnownPeerEpochs"
+      )
+    }
 
     behindEnoughPeers
   }

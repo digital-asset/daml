@@ -1601,7 +1601,6 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
       synchronizerId = SynchronizerId.tryFromString("x::synchronizer"),
       sequencerCounter = SequencerCounter(15L),
       recordTime = CantonTimestamp.now(),
-      requestCounterO = None,
     )
 
   def repairUpdate: RepairUpdate = mock[RepairUpdate]

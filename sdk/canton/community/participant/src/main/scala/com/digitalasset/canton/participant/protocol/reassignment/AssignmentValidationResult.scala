@@ -32,7 +32,7 @@ import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{LfPartyId, ReassignmentCounter, RequestCounter, SequencerCounter}
+import com.digitalasset.canton.{LfPartyId, ReassignmentCounter, SequencerCounter}
 import com.digitalasset.daml.lf.data.Bytes
 
 import scala.concurrent.ExecutionContext
@@ -79,7 +79,6 @@ final case class AssignmentValidationResult(
       participantId: ParticipantId,
       targetProtocolVersion: Target[ProtocolVersion],
       recordTime: CantonTimestamp,
-      requestCounter: RequestCounter,
       requestSequencerCounter: SequencerCounter,
   )(implicit
       traceContext: TraceContext
@@ -136,7 +135,6 @@ final case class AssignmentValidationResult(
         createNode = createNode,
         contractMetadata = driverContractMetadata,
       ),
-      requestCounter = requestCounter,
       sequencerCounter = requestSequencerCounter,
       recordTime = recordTime,
     )

@@ -12,7 +12,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.{ConflictDetectionStore, HasPrunable}
-import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
+import com.digitalasset.canton.participant.util.StateChange
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.google.common.annotations.VisibleForTesting
@@ -404,9 +404,13 @@ private[conflictdetection] class LockableStates[
   }
 
   /** Must not be called concurrently with other methods of this class unless stated otherwise. */
-  def setStatusPendingWrite(id: Key, newState: Status, toc: TimeOfChange): Unit = {
-    val cs = getLockedState(toc.rc, id)
-    cs.setStatusPendingWrite(newState, toc)
+  def setStatePendingWrite(
+      rc: RequestCounter,
+      id: Key,
+      newState: StateChange[Status],
+  ): Unit = {
+    val cs = getLockedState(rc, id)
+    cs.setStatePendingWrite(newState)
   }
 
   /** Evicts the given state if it is not locked The state `expectedState` must be what `stores`

@@ -3,7 +3,11 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss
 
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisTopologyActivationTime
+import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.{
+  GenesisPreviousEpochMaxBftTime,
+  GenesisTopologyActivationTime,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
@@ -17,17 +21,24 @@ final case class EpochInfo(
     startBlockNumber: BlockNumber,
     length: EpochLength,
     topologyActivationTime: TopologyActivationTime,
+    previousEpochMaxBftTime: CantonTimestamp,
 ) {
 
   def relativeBlockIndex(blockNumber: BlockNumber): Int =
     (blockNumber - startBlockNumber).toInt
 
-  def next(length: EpochLength, topologyActivationTime: TopologyActivationTime): EpochInfo =
+  def next(
+      length: EpochLength,
+      topologyActivationTime: TopologyActivationTime,
+      // TODO(#23297): set next epoch's previousEpochMaxBftTime based on message from output module
+      previousEpochMaxBftTime: CantonTimestamp = GenesisPreviousEpochMaxBftTime,
+  ): EpochInfo =
     copy(
       EpochNumber(number + 1),
       startOfNextEpochBlockNumber,
       length,
       topologyActivationTime,
+      previousEpochMaxBftTime,
     )
 
   def startOfNextEpochBlockNumber: BlockNumber =
@@ -45,11 +56,13 @@ object EpochInfo {
       startBlockNumber: Long,
       length: Long,
       topologyActivationTime: TopologyActivationTime = GenesisTopologyActivationTime,
+      previousEpochMaxBftTime: CantonTimestamp = GenesisPreviousEpochMaxBftTime,
   ): EpochInfo =
     apply(
       EpochNumber(number),
       BlockNumber(startBlockNumber),
       EpochLength(length),
       topologyActivationTime,
+      previousEpochMaxBftTime,
     )
 }

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.ledger.api
 
-import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.Update.EmptyAcsPublicationRequired
 import com.digitalasset.canton.ledger.participant.state.{CommitSetUpdate, Update}
@@ -25,7 +24,7 @@ class AcsCommitmentPublicationPostProcessor(
     def publishAcsCommitment(
         synchronizerId: SynchronizerId,
         sequencerTimestamp: CantonTimestamp,
-        requestCounterCommitSetPairO: Option[(RequestCounter, CommitSet)],
+        commitSetO: Option[CommitSet],
     ): Unit =
       connectedSynchronizersLookupContainer
         // not publishing if no synchronizer active: it means subsequent crash recovery will establish consistency again
@@ -34,7 +33,7 @@ class AcsCommitmentPublicationPostProcessor(
         .foreach(
           _.acsCommitmentProcessor.publish(
             sequencerTimestamp,
-            requestCounterCommitSetPairO,
+            commitSetO,
           )(
             // The trace context is deliberately generated here instead of continuing the one for the Update
             // to unlink the asynchronous acs commitment processing from message processing trace.
@@ -47,8 +46,8 @@ class AcsCommitmentPublicationPostProcessor(
         publishAcsCommitment(
           synchronizerId = withCommitSet.synchronizerId,
           sequencerTimestamp = withCommitSet.recordTime,
-          requestCounterCommitSetPairO = withCommitSet.commitSet match {
-            case commitSet: CommitSet => Some(withCommitSet.requestCounter -> commitSet)
+          commitSetO = withCommitSet.commitSet match {
+            case commitSet: CommitSet => Some(commitSet)
             case unexpectedCommitSet =>
               ErrorUtil.invalidState(
                 s"Unexpected CommitSet of type ${unexpectedCommitSet.getClass.getName} $unexpectedCommitSet"
@@ -60,7 +59,7 @@ class AcsCommitmentPublicationPostProcessor(
         publishAcsCommitment(
           synchronizerId = emptyAcsPublicationRequired.synchronizerId,
           sequencerTimestamp = emptyAcsPublicationRequired.recordTime,
-          requestCounterCommitSetPairO = None,
+          commitSetO = None,
         )
 
       // not publishing otherwise

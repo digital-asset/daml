@@ -448,9 +448,8 @@ create or replace view debug.lapi_ledger_end_synchronizer_index as
     debug.resolve_lapi_interned_string(synchronizer_id) as synchronizer_id,
     sequencer_counter,
     debug.canton_timestamp(sequencer_timestamp) as sequencer_timestamp,
-    request_counter,
-    debug.canton_timestamp(request_timestamp) as request_timestamp,
-    request_sequencer_counter,
+    debug.canton_timestamp(repair_timestamp) as repair_timestamp,
+    repair_counter,
     debug.canton_timestamp(record_time) as record_time
   from lapi_ledger_end_synchronizer_index;
 

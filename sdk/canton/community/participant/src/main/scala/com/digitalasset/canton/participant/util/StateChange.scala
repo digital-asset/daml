@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.participant.util
 
-import com.digitalasset.canton.RequestCounter
+import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.participant.util.TimeOfChange
 import slick.jdbc.GetResult
 
 /** A status and when it became effective.
@@ -18,8 +19,6 @@ import slick.jdbc.GetResult
 final case class StateChange[+Status <: PrettyPrinting](status: Status, asOf: TimeOfChange)
     extends PrettyPrinting {
 
-  def rc: RequestCounter = asOf.rc
-
   def timestamp: CantonTimestamp = asOf.timestamp
 
   override protected def pretty: Pretty[StateChange.this.type] = prettyOfClass(
@@ -31,10 +30,10 @@ final case class StateChange[+Status <: PrettyPrinting](status: Status, asOf: Ti
 object StateChange {
   def apply[Status <: PrettyPrinting](
       status: Status,
-      rc: RequestCounter,
       timestamp: CantonTimestamp,
+      repairCounterO: Option[RepairCounter],
   ): StateChange[Status] =
-    StateChange[Status](status, TimeOfChange(rc, timestamp))
+    StateChange[Status](status, TimeOfChange(timestamp, repairCounterO))
 
   implicit def stateChangeGetResult[A <: PrettyPrinting](implicit
       getResultStatus: GetResult[A]

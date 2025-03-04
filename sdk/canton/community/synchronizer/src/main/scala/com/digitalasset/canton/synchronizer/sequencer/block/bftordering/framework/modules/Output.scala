@@ -41,14 +41,14 @@ object Output {
   ) extends Message[Nothing]
 
   final case class TopologyFetched[E <: Env[E]](
-      sendToConsensus: Boolean,
+      lastBlockFromPreviousEpochMode: OrderedBlockForOutput.Mode,
       newEpochNumber: EpochNumber,
       orderingTopology: OrderingTopology,
       cryptoProvider: CryptoProvider[E],
   ) extends Message[E]
 
   final case class MetadataStoredForNewEpoch[E <: Env[E]](
-      sendTopologyToConsensus: Boolean,
+      lastBlockFromPreviousEpochMode: OrderedBlockForOutput.Mode,
       newEpochNumber: EpochNumber,
       orderingTopology: OrderingTopology,
       cryptoProvider: CryptoProvider[E],

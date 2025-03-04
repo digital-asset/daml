@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.event
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update
@@ -47,14 +48,14 @@ private[event] final class EventBuffer(
 
   /** Mark the OPR ACS chunk event with the buffer begin timestamp as record time.
     */
-  def markEventWithRecordTime(eventWithRecordTime: CantonTimestamp => Update)(implicit
-      traceContext: TraceContext
-  ): Update = {
+  def markEventsWithRecordTime(buildEventsWithRecordTime: CantonTimestamp => NonEmpty[Seq[Update]])(
+      implicit traceContext: TraceContext
+  ): NonEmpty[Seq[Update]] = {
     val queueRecordTime = recordTimeBufferBegin
     logger.debug(
       s"Marking replicated contracts indexer event with record time ${queueRecordTime.toMicros}"
     )
-    eventWithRecordTime(queueRecordTime)
+    buildEventsWithRecordTime(queueRecordTime)
   }
 
   /** Extracts and clear the buffered events. This is meant to be called before closing the buffer.

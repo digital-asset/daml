@@ -104,8 +104,7 @@ final class StateTransferMessageSender[E <: Env[E]](
   def sendBlockToOutput(prePrepare: PrePrepare, endEpoch: EpochNumber): Unit = {
     val blockMetadata = prePrepare.blockMetadata
     // TODO(#19289) support variable epoch lengths
-    val isLastInEpoch =
-      (blockMetadata.blockNumber + 1) % epochLength == 0 // As blocks are 0-indexed
+    val isLastInEpoch = (blockMetadata.blockNumber + 1) % epochLength == 0
     val isLastStateTransferred =
       blockMetadata.blockNumber == (endEpoch * epochLength) + epochLength - 1
 

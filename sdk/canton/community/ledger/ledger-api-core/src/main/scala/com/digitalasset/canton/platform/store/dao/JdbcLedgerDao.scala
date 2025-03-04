@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.logging.entries.LoggingEntry
+import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
@@ -30,7 +31,6 @@ import com.digitalasset.canton.platform.store.utils.QueueBasedConcurrencyLimiter
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.transaction.CommittedTransaction
@@ -155,7 +155,6 @@ private class JdbcLedgerDao(
               completionInfo = info,
               reasonTemplate = reason,
               synchronizerId = SynchronizerId.tryFromString("invalid::deadbeef"),
-              requestCounter = RequestCounter(1),
               sequencerCounter = SequencerCounter(1),
             )
           ),
@@ -367,7 +366,6 @@ private class JdbcLedgerDao(
     lfValueTranslation = translation,
     metrics = metrics,
     tracer = tracer,
-    topologyTransactionsStreamReader = topologyTransactionsStreamReader,
     reassignmentStreamReader = reassignmentStreamReader,
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
@@ -479,7 +477,6 @@ private class JdbcLedgerDao(
                 override def iterator: Iterator[(ContractId, Bytes)] = Iterator.empty
               }, // only for tests
               synchronizerId = SynchronizerId.tryFromString("invalid::deadbeef"),
-              requestCounter = RequestCounter(1),
               sequencerCounter = SequencerCounter(1),
               recordTime = CantonTimestamp(recordTime),
             )

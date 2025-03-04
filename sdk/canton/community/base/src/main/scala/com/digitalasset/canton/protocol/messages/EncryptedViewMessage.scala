@@ -203,9 +203,9 @@ object EncryptedView {
   * @param sessionKeys
   *   a sequence of encrypted random values to each recipient of the view. These values are
   *   encrypted and are used to derive the symmetric session key for the view. Instead of sending a
-  *   <SymmetricKey>, which could cause formatting issues (e.g. different participants with
+  *   [[crypto.SymmetricKey]], which could cause formatting issues (e.g. different participants with
   *   different providers and, therefore, different key formats), we send an encrypted
-  *   <SecureRandomness>.
+  *   [[crypto.SecureRandomness]].
   */
 final case class EncryptedViewMessage[+VT <: ViewType](
     submittingParticipantSignature: Option[Signature],

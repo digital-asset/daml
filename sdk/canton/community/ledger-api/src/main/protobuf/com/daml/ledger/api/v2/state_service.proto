@@ -59,7 +59,8 @@ message GetActiveContractsRequest {
   // TRANSACTION_SHAPE_ACS_DELTA.
   // Optional for backwards compatibility, defaults to an EventFormat where:
   //
-  //   - filter is the filter field from this request
+  //   - filters_by_party is the filter.filters_by_party from this request
+  //   - filters_for_any_party is the filter.filters_for_any_party from this request
   //   - verbose is the verbose field from this request
   EventFormat event_format = 4;
 }

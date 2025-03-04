@@ -45,6 +45,7 @@ import org.apache.pekko.{Done, NotUsed}
 import java.sql.Connection
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.Future
+import scala.math.Ordered.orderingToOrdered
 import scala.util.chaining.*
 
 private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
@@ -125,7 +126,9 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
         inclusive = true,
       )
       .map { case (longOffset, update) => Offset.tryFromLong(longOffset) -> update }
-      .via(monotonicOffsetValidator)
+      .via(
+        monotonicityValidator(Map.empty[SynchronizerId, SynchronizerIndex], tryAddSynchronizerIndex)
+      )
       .via(
         BatchingParallelIngestionPipe(
           submissionBatchSize = submissionBatchSize,
@@ -296,17 +299,60 @@ object ParallelIndexerSubscription {
       CantonTimestamp.MinValue, // this is a property of interest in the zero element: sets the lower bound for publication time, we start at MinValue
   )
 
-  def monotonicOffsetValidator[T]: Flow[(Offset, T), (Offset, T), NotUsed] =
-    Flow[(Offset, T)].statefulMap[Option[Offset], (Offset, T)](() => None)(
-      { case (prevO, (curr, upd)) =>
+  def monotonicityValidator[T, S](
+      emptyState: S,
+      tryAdd: (S, T, Offset) => S,
+  ): Flow[(Offset, T), (Offset, T), NotUsed] =
+    Flow[(Offset, T)].statefulMap[(Option[Offset], S), (Offset, T)](() => (None, emptyState))(
+      { case ((prevO, map), (curr, upd)) =>
         assert(
           prevO < Some(curr),
           s"Monotonic Offset violation detected from ${prevO.getOrElse("participant begin")} to $curr",
         )
-        (Some(curr), (curr, upd))
+        val updatedState = tryAdd(map, upd, curr)
+        ((Some(curr), updatedState), (curr, upd))
       },
       _ => None,
     )
+
+  def tryAddSynchronizerIndex(
+      indexMap: Map[SynchronizerId, SynchronizerIndex],
+      update: Update,
+      offset: Offset,
+  ): Map[SynchronizerId, SynchronizerIndex] =
+    update match {
+      case siu: SynchronizerIndexUpdate =>
+        val currIndex = siu.synchronizerIndex._2
+        indexMap.updatedWith(siu.synchronizerId) {
+          case None => Some(currIndex)
+          case Some(prevIndex) =>
+            def err(where: String, fromTo: String): String =
+              s"Monotonicity violation detected: $where decreases $fromTo at offset $offset and synchronizer ${siu.synchronizerId}"
+            assert(
+              prevIndex.recordTime <= currIndex.recordTime,
+              err("record time", s"from ${prevIndex.recordTime} to ${currIndex.recordTime}"),
+            )
+            prevIndex.sequencerIndex.zip(currIndex.sequencerIndex).foreach {
+              case (prevSeqIndex, currSeqIndex) =>
+                assert(
+                  prevSeqIndex.counter <= currSeqIndex.counter,
+                  err(
+                    "sequencer counter",
+                    s"from ${prevSeqIndex.counter} to ${currSeqIndex.counter}",
+                  ),
+                )
+            }
+            prevIndex.repairIndex.zip(currIndex.repairIndex).foreach {
+              case (prevRepairIndex, currRepairIndex) =>
+                assert(
+                  prevRepairIndex <= currRepairIndex,
+                  err("repair index", s"from $prevRepairIndex to $currRepairIndex"),
+                )
+            }
+            Some(prevIndex max currIndex)
+        }
+      case _ => indexMap
+    }
 
   def inputMapper(
       metrics: LedgerApiServerMetrics,

@@ -15,7 +15,7 @@ import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Transac
 import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{RequestCounter, SequencerCounter}
+import com.digitalasset.canton.{RepairCounter, SequencerCounter}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.transaction.CommittedTransaction
@@ -72,7 +72,6 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
         updateId = updateId,
         contractMetadata = Map.empty,
         synchronizerId = synchronizerId,
-        requestCounter = RequestCounter(65),
         sequencerCounter = SequencerCounter(11),
         recordTime = cantonTime2,
       )(TraceContext.empty),
@@ -106,7 +105,6 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
         updateId = updateId,
         contractMetadata = Map.empty,
         synchronizerId = synchronizerId,
-        requestCounter = RequestCounter(65),
         sequencerCounter = SequencerCounter(11),
         recordTime = cantonTime2,
       )(TraceContext.empty),
@@ -123,7 +121,7 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
         updateId = updateId,
         contractMetadata = Map.empty,
         synchronizerId = synchronizerId,
-        requestCounter = RequestCounter(65),
+        repairCounter = RepairCounter(65),
         recordTime = cantonTime2,
       )(TraceContext.empty),
       offset = offset,
@@ -143,7 +141,6 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
         ),
         reasonTemplate = FinalReason(status),
         synchronizerId = synchronizerId,
-        requestCounter = RequestCounter(65),
         sequencerCounter = SequencerCounter(11),
         recordTime = cantonTime2,
       )(TraceContext.empty),

@@ -342,9 +342,8 @@ class OutputModule[E <: Env[E]](
             //  in this module due to the generic Peano queue type needed for simulation testing support.
             if (lastAcknowledgedBlockNumber.forall(orderedBlockNumber > _)) {
               val isBlockLastInEpoch = orderedBlockData.orderedBlockForOutput.isLastInEpoch
-              // We tick the topology even during state transfer; this is not needed by the Output module,
-              //  because during state transfer we don't query the topology (as consensus is not active),
-              //  but it ensures that the newly onboarded sequencer sequences (and stores) the same events
+              // We tick the topology even during state transfer;
+              //  it ensures that the newly onboarded sequencer sequences (and stores) the same events
               //  as the other sequencers, which in turn makes counters (and snapshots) consistent,
               //  avoiding possible future problems e.g. with pruning and/or BFT onboarding from multiple
               //  sequencer snapshots.
@@ -372,7 +371,7 @@ class OutputModule[E <: Env[E]](
             }
 
           case TopologyFetched(
-                sendTopologyToConsensus,
+                lastBlockFromPreviousEpochMode,
                 newEpochNumber,
                 orderingTopology,
                 cryptoProvider,
@@ -391,7 +390,7 @@ class OutputModule[E <: Env[E]](
                   abort(s"Failed to store $outputEpochMetadata", exception)
                 case Success(_) =>
                   MetadataStoredForNewEpoch(
-                    sendTopologyToConsensus,
+                    lastBlockFromPreviousEpochMode,
                     newEpochNumber,
                     orderingTopology,
                     cryptoProvider,
@@ -401,13 +400,13 @@ class OutputModule[E <: Env[E]](
               setupNewEpoch(
                 newEpochNumber,
                 Some(orderingTopology -> cryptoProvider),
-                sendTopologyToConsensus,
+                lastBlockFromPreviousEpochMode,
                 epochMetadataStored = false,
               )
             }
 
           case MetadataStoredForNewEpoch(
-                sendTopologyToConsensus,
+                lastBlockFromPreviousEpochMode,
                 newEpochNumber,
                 orderingTopology,
                 cryptoProvider,
@@ -418,7 +417,7 @@ class OutputModule[E <: Env[E]](
             setupNewEpoch(
               newEpochNumber,
               Some(orderingTopology -> cryptoProvider),
-              sendTopologyToConsensus,
+              lastBlockFromPreviousEpochMode,
               epochMetadataStored = true,
             )
 
@@ -608,7 +607,7 @@ class OutputModule[E <: Env[E]](
         case Failure(exception) => AsyncException(exception)
         case Success(Some((orderingTopology, cryptoProvider))) =>
           TopologyFetched(
-            lastBlockMode.mustSendTopologyToConsensus,
+            lastBlockMode,
             EpochNumber(completedEpochNumber + 1),
             orderingTopology,
             cryptoProvider,
@@ -621,7 +620,7 @@ class OutputModule[E <: Env[E]](
       setupNewEpoch(
         EpochNumber(completedEpochNumber + 1),
         None,
-        lastBlockMode.mustSendTopologyToConsensus,
+        lastBlockMode,
         epochMetadataStored = false,
       )
     }
@@ -630,7 +629,7 @@ class OutputModule[E <: Env[E]](
   private def setupNewEpoch(
       newEpochNumber: EpochNumber,
       newOrderingTopologyAndCryptoProvider: Option[(OrderingTopology, CryptoProvider[E])],
-      sendTopologyToConsensus: Boolean,
+      lastBlockFromPreviousEpochMode: OrderedBlockForOutput.Mode,
       epochMetadataStored: Boolean,
   )(implicit
       context: E#ActorContextT[Message[E]],
@@ -655,19 +654,18 @@ class OutputModule[E <: Env[E]](
       currentEpochCouldAlterOrderingTopology = pendingTopologyChanges
     }
 
-    if (sendTopologyToConsensus) {
-      metrics.topology.validators.updateValue(currentEpochOrderingTopology.peers.size)
-      logger.debug(
-        s"Sending topology $currentEpochOrderingTopology of new epoch $newEpochNumber to consensus"
+    metrics.topology.validators.updateValue(currentEpochOrderingTopology.peers.size)
+    logger.debug(
+      s"Sending topology $currentEpochOrderingTopology of new epoch $newEpochNumber to consensus"
+    )
+    consensus.asyncSend(
+      Consensus.NewEpochTopology(
+        newEpochNumber,
+        currentEpochOrderingTopology,
+        currentEpochCryptoProvider,
+        lastBlockFromPreviousEpochMode,
       )
-      consensus.asyncSend(
-        Consensus.NewEpochTopology(
-          newEpochNumber,
-          currentEpochOrderingTopology,
-          currentEpochCryptoProvider,
-        )
-      )
-    }
+    )
 
     processFetchedBlocks()
   }

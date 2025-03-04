@@ -86,7 +86,7 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
         val epochStateMock = mock[EpochState[ProgrammableUnitTestEnv]]
         when(epochStateMock.epoch) thenReturn anEpoch
         val stateTransferManagerMock = mock[StateTransferManager[ProgrammableUnitTestEnv]]
-        when(stateTransferManagerMock.inStateTransfer) thenReturn false
+        when(stateTransferManagerMock.inBlockTransfer) thenReturn false
         val epochStoreMock = mock[EpochStore[ProgrammableUnitTestEnv]]
         when(
           epochStoreMock.latestEpoch(includeInProgress = eqTo(false))(any[TraceContext])
@@ -182,7 +182,11 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
 
         catchupBehavior.handleStasteTransferMessageResult(
           "aMessageType",
-          StateTransferMessageResult.BlockTransferCompleted(anEpoch, anEpochStoreEpoch),
+          StateTransferMessageResult.BlockTransferCompleted(
+            endEpochNumber = EpochNumber(1L),
+            numberOfTransferredEpochs = 1L,
+            numberOfTransferredBlocks = 1L,
+          ),
         )
 
         context.extractBecomes() should matchPattern {
@@ -191,7 +195,6 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
                   `DefaultEpochLength`,
                   None, // snapshotAdditionalInfo
                   `aTopologyInfo`,
-                  `anEpochInfo`,
                   futurePbftMessageQueue,
                   Seq(), // queuedConsensusMessages
                 )
@@ -272,7 +275,9 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
       initialEpochState,
       latestCompletedEpochFromStore,
       pbftMessageQueue,
-      maybeCatchupDetector.getOrElse(new DefaultCatchupDetector(topologyInfo.currentMembership)),
+      maybeCatchupDetector.getOrElse(
+        new DefaultCatchupDetector(topologyInfo.currentMembership, loggerFactory)
+      ),
     )
     val moduleRefFactory = createSegmentModuleRefFactory(segmentModuleFactoryFunction)
 
@@ -314,6 +319,7 @@ object CatchupBehaviorTest {
     BlockNumber(1),
     EpochLength(20),
     TopologyActivationTime(CantonTimestamp.Epoch),
+    CantonTimestamp.MinValue,
   )
   private val aMembership = Membership(selfId, otherPeers = Set(fakeSequencerId("other")))
   private val anEpoch = EpochState.Epoch(

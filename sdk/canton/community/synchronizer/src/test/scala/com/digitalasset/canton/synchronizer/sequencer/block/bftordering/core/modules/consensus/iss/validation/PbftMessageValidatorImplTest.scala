@@ -47,6 +47,8 @@ import com.digitalasset.canton.topology.SequencerId
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.time.Instant
+
 class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest {
 
   import PbftMessageValidatorImplTest.*
@@ -296,7 +298,9 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           aSegment,
           aMembership,
           Membership(myId, Set(otherId)),
-          Left("Canonical commit set has size 1 which is below the strong quorum of 2"),
+          Left(
+            "Canonical commit set for block BlockMetadata(1,12) has size 1 which is below the strong quorum of 2"
+          ),
         ),
         // positive: canonical commits (from the previous epoch) make a strong quorum
         (
@@ -331,7 +335,9 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           Segment(myId, NonEmpty(Seq, BlockNumber(12L), BlockNumber(13L))),
           aMembership,
           Membership(myId, Set(otherId)),
-          Left("Canonical commit set has size 1 which is below the strong quorum of 2"),
+          Left(
+            "Canonical commit set for block BlockMetadata(1,13) has size 1 which is below the strong quorum of 2"
+          ),
         ),
         // positive: canonical commits (from the current epoch) make a strong quorum
         (
@@ -378,7 +384,8 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           aMembership,
           Membership(myId, Set(otherId)),
           Left(
-            "Canonical commits contain duplicate senders: List(SEQ::ns::fake_otherId, SEQ::ns::fake_otherId)"
+            "Canonical commits for block BlockMetadata(1,13) contain duplicate senders: " +
+              "List(SEQ::ns::fake_otherId, SEQ::ns::fake_otherId)"
           ),
         ),
         // negative: non-empty block needs availability acks
@@ -393,6 +400,46 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           Left(
             "PrePrepare for block BlockMetadata(1,12) with proof of availability have only 0 acks but should have at least 1"
           ),
+        ),
+        // negative: don't allow an expired poa
+        (
+          createPrePrepare(
+            OrderingBlock(
+              Seq(
+                ProofOfAvailability(
+                  BatchId.createForTesting("test"),
+                  Seq(createAck(myId)),
+                  previousEpochMaxBftTime,
+                )
+              )
+            ),
+            CanonicalCommitSet(Set(createCommit())),
+          ),
+          aSegment,
+          aMembership,
+          aMembership,
+          Left(
+            "PrePrepare for block BlockMetadata(1,12) has expired proof of availability at 2024-03-08T12:00:00Z, (current time is 2024-03-08T12:00:00Z)"
+          ),
+        ),
+        // positive: poa with expiration time immediately after the considered current time is good
+        (
+          createPrePrepare(
+            OrderingBlock(
+              Seq(
+                ProofOfAvailability(
+                  BatchId.createForTesting("test"),
+                  Seq(createAck(myId)),
+                  previousEpochMaxBftTime.immediateSuccessor,
+                )
+              )
+            ),
+            CanonicalCommitSet(Set(createCommit())),
+          ),
+          aSegment,
+          aMembership,
+          aMembership,
+          Right(()),
         ),
         // negative: don't allow same sequencer to have multiple acks
         (
@@ -451,6 +498,9 @@ object PbftMessageValidatorImplTest {
 
   private val acksWithMeOnly = Seq(createAck(myId))
 
+  private val previousEpochMaxBftTime =
+    CantonTimestamp.assertFromInstant(Instant.parse("2024-03-08T12:00:00.000Z"))
+
   private def createCommit(
       blockMetadata: BlockMetadata = aPreviousBlockInSegmentMetadata,
       from: SequencerId = myId,
@@ -496,6 +546,7 @@ object PbftMessageValidatorImplTest {
         startBlockNumber,
         DefaultEpochLength, // ignored
         GenesisTopologyActivationTime, // ignored
+        previousEpochMaxBftTime,
       ),
       currentMembership,
       previousMembership,

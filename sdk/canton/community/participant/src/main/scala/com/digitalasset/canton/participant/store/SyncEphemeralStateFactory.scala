@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import cats.Eval
+import cats.syntax.traverse.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, SessionEncryptionKeyCacheConfig}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -14,6 +15,7 @@ import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.protocol.*
+import com.digitalasset.canton.participant.util.TimeOfRequest
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.store.SequencedEventStore.ByTimestamp
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
@@ -21,7 +23,7 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{RequestCounter, SequencerCounter}
+import com.digitalasset.canton.{RepairCounter, RequestCounter, SequencerCounter}
 
 import scala.concurrent.ExecutionContext
 
@@ -163,24 +165,34 @@ object SyncEphemeralStateFactory {
       loggingContext: ErrorLoggingContext,
   ): FutureUnlessShutdown[ProcessingStartingPoints] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
-    val messageProcessingStartingPoint = MessageProcessingStartingPoint(
-      nextRequestCounter = synchronizerIndexO
-        .flatMap(_.requestIndex)
-        .map(_.counter + 1)
-        .getOrElse(RequestCounter.Genesis),
-      nextSequencerCounter = synchronizerIndexO
-        .flatMap(_.sequencerIndex)
-        .map(_.counter + 1)
-        .getOrElse(SequencerCounter.Genesis),
-      lastSequencerTimestamp = synchronizerIndexO
-        .flatMap(_.sequencerIndex)
-        .map(_.timestamp)
-        .getOrElse(CantonTimestamp.MinValue),
-      currentRecordTime = synchronizerIndexO
-        .map(_.recordTime)
-        .getOrElse(CantonTimestamp.MinValue),
-    )
     for {
+      requestCounterO <- synchronizerIndexO
+        .flatTraverse(si =>
+          requestJournalStore.lastRequestTimeWithRequestTimestampBeforeOrAt(si.recordTime)
+        )
+      messageProcessingStartingPoint = MessageProcessingStartingPoint(
+        nextRequestCounter = requestCounterO.map(_.rc + 1).getOrElse(RequestCounter.Genesis),
+        nextSequencerCounter = synchronizerIndexO
+          .flatMap(_.sequencerIndex)
+          .map(_.counter + 1)
+          .getOrElse(SequencerCounter.Genesis),
+        lastSequencerTimestamp = synchronizerIndexO
+          .flatMap(_.sequencerIndex)
+          .map(_.timestamp)
+          .getOrElse(CantonTimestamp.MinValue),
+        currentRecordTime = synchronizerIndexO
+          .map(_.recordTime)
+          .getOrElse(CantonTimestamp.MinValue),
+        nextRepairCounter = synchronizerIndexO
+          .flatMap(si =>
+            si.repairIndex.collect {
+              // Filter out repairs that are not at the record time, as the repair counter
+              // is relative to its associated timestamp and restarts are genesis on new timestamps.
+              case ri if ri.timestamp == si.recordTime => ri.counter + 1
+            }
+          )
+          .getOrElse(RepairCounter.Genesis),
+      )
       replayOpt <- requestJournalStore
         .firstRequestWithCommitTimeAfter(
           // We need to follow the repair requests which might come between sequencer timestamps hence we
@@ -248,13 +260,19 @@ object SyncEphemeralStateFactory {
     // * The first request whose commit time is after the clean synchronizer index timestamp
     // * The clean sequencer counter prehead timestamp
     for {
-      requestReplayTs <- cleanSynchronizerIndexO.flatMap(_.requestIndex) match {
+      cleanTimeOfRequest <- cleanSynchronizerIndexO
+        .fold[FutureUnlessShutdown[Option[TimeOfRequest]]](FutureUnlessShutdown.pure(None))(
+          synchronizerIndex =>
+            requestJournalStore
+              .lastRequestTimeWithRequestTimestampBeforeOrAt(synchronizerIndex.recordTime)
+        )
+      requestReplayTs <- cleanTimeOfRequest match {
         case None =>
           // No request is known to be clean, nothing can be pruned
           FutureUnlessShutdown.pure(CantonTimestamp.MinValue)
-        case Some(requestIndex) =>
-          requestJournalStore.firstRequestWithCommitTimeAfter(requestIndex.timestamp).map { res =>
-            val ts = res.fold(requestIndex.timestamp)(_.requestTimestamp)
+        case Some(timeOfRequest) =>
+          requestJournalStore.firstRequestWithCommitTimeAfter(timeOfRequest.timestamp).map { res =>
+            val ts = res.fold(timeOfRequest.timestamp)(_.requestTimestamp)
             // If the only processed requests so far are repair requests, it can happen that `ts == CantonTimestamp.MinValue`.
             // Taking the predecessor throws an exception.
             if (ts == CantonTimestamp.MinValue) ts else ts.immediatePredecessor
@@ -282,10 +300,7 @@ object SyncEphemeralStateFactory {
         processingStartingPoint.nextRequestCounter
       )
       _ = logger.debug("Deleting contract activeness changes")
-      _ <-
-        persistentState.activeContractStore.deleteSince(
-          processingStartingPoint.nextRequestCounter
-        )
+      _ <- persistentState.activeContractStore.deleteSince(processingStartingPoint.timeOfChange)
       _ = logger.debug("Deleting reassignment completions")
       nextSequencerTimestamp = processingStartingPoint.lastSequencerTimestamp.immediateSuccessor
       _ <- persistentState.reassignmentStore.deleteCompletionsSince(nextSequencerTimestamp)
