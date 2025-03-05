@@ -422,7 +422,7 @@ class UnassignmentProcessingSteps(
         .leftMap(ReassignmentParametersError(synchronizerId.unwrap, _))
 
       reassignmentData = UnassignmentData(
-        unassignmentTs = requestTimestamp,
+        reassignmentId = ReassignmentId(synchronizerId, requestTimestamp),
         unassignmentRequest = fullTree,
         unassignmentDecisionTime = unassignmentDecisionTime,
         unassignmentResult = None,
@@ -492,7 +492,7 @@ class UnassignmentProcessingSteps(
   ] = {
     val PendingUnassignment(
       requestId,
-      requestCounter,
+      _requestCounter,
       requestSequencerCounter,
       unassignmentValidationResult,
       _mediatorId,
@@ -554,7 +554,6 @@ class UnassignmentProcessingSteps(
             reassignmentAccepted <- EitherT.fromEither[FutureUnlessShutdown](
               unassignmentValidationResult.createReassignmentAccepted(
                 participantId,
-                requestCounter,
                 requestSequencerCounter,
               )
             )

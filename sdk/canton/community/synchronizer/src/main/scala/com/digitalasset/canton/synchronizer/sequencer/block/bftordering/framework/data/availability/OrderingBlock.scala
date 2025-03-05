@@ -20,6 +20,7 @@ final case class OrderingBlock(proofs: Seq[ProofOfAvailability]) {
             Some(ack.signature.toProtoV30),
           )
         },
+        proof.expirationTime.toMicros,
       )
     })
 }

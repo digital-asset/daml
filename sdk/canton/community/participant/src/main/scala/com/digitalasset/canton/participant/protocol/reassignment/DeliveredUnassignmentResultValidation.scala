@@ -17,7 +17,7 @@ import com.digitalasset.canton.protocol.messages.{
   ConfirmationResultMessage,
   DeliveredUnassignmentResult,
 }
-import com.digitalasset.canton.protocol.{RequestId, RootHash}
+import com.digitalasset.canton.protocol.{ReassignmentId, RequestId, RootHash}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
@@ -27,8 +27,8 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import scala.concurrent.ExecutionContext
 
 private[reassignment] final case class DeliveredUnassignmentResultValidation(
+    reassignmentId: ReassignmentId,
     unassignmentRequest: FullUnassignmentTree,
-    unassignmentRequestTs: CantonTimestamp,
     unassignmentDecisionTime: CantonTimestamp,
     sourceTopology: Source[SyncCryptoApi],
     targetTopologyTargetTs: Target[TopologySnapshot],
@@ -81,7 +81,7 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
     )
 
   private def validateRequestId: EitherT[FutureUnlessShutdown, Error, Unit] = {
-    val expectedRequestId = RequestId(unassignmentRequestTs)
+    val expectedRequestId = RequestId(reassignmentId.unassignmentTs)
 
     EitherTUtil.condUnitET[FutureUnlessShutdown](
       result.requestId == expectedRequestId,

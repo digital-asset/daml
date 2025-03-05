@@ -325,7 +325,7 @@ class TestingIdentityFactory(
       ips(availableUpToInclusive, currentSnapshotApproximationTimestamp),
       crypto,
       sessionSigningKeysConfig,
-      BatchingConfig().parallelism.unwrap,
+      BatchingConfig().parallelism,
       DefaultProcessingTimeouts.testing,
       FutureSupervisor.Noop,
       loggerFactory,

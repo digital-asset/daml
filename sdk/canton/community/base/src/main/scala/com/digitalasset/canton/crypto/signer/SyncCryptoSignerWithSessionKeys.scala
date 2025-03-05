@@ -24,7 +24,7 @@ import scala.annotation.nowarn
 @nowarn("cat=unused")
 class SyncCryptoSignerWithSessionKeys(
     signPublicApi: SigningOps,
-    verificationParallelismLimit: Int,
+    verificationParallelismLimit: PositiveInt,
 ) extends SyncCryptoSigner {
 
   // TODO(#22362): to be implemented

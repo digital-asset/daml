@@ -15,7 +15,11 @@ import com.digitalasset.canton.ledger.participant.state.PackageDescription
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.PackageService
-import com.digitalasset.canton.participant.admin.PackageService.{Dar, DarDescription, DarId}
+import com.digitalasset.canton.participant.admin.PackageService.{
+  Dar,
+  DarDescription,
+  DarMainPackageId,
+}
 import com.digitalasset.canton.participant.store.db.DbDamlPackageStore.DamlPackage
 import com.digitalasset.canton.participant.store.{DamlPackageStore, PackageInfo}
 import com.digitalasset.canton.resource.DbStorage.DbAction
@@ -92,7 +96,7 @@ class DbDamlPackageStore(
             |    nothing""".stripMargin
 
       DbStorage.bulkOperation_(sql, pkgs, storage.profile) { pp => pkg =>
-        pp >> (dar.darId.mainPackageId)
+        pp >> dar.mainPackageId.value
         pp >> pkg.packageId
       }
     }
@@ -176,7 +180,7 @@ class DbDamlPackageStore(
 
   private def packagesNotInAnyOtherDarsQuery(
       nonEmptyPackages: NonEmpty[Seq[PackageId]],
-      darId: DarId,
+      mainPackageId: DarMainPackageId,
       limit: Option[Int],
   )(implicit traceContext: TraceContext) = {
     import DbStorage.Implicits.BuilderChain.*
@@ -194,7 +198,7 @@ class DbDamlPackageStore(
                  from par_dar_packages other_dars
                  where
                    remove_candidates.package_id = other_dars.package_id
-                   and main_package_id != ${darId.mainPackageId}
+                   and main_package_id != ${mainPackageId.value}
                )""" ++ limitClause).as[LfPackageId]
     }
 
@@ -208,7 +212,8 @@ class DbDamlPackageStore(
       .from(packages)
       .fold(OptionT.none[FutureUnlessShutdown, PackageId])(pkgs =>
         OptionT(
-          packagesNotInAnyOtherDarsQuery(pkgs, removeDar.darId, limit = Some(1)).map(_.headOption)
+          packagesNotInAnyOtherDarsQuery(pkgs, removeDar.mainPackageId, limit = Some(1))
+            .map(_.headOption)
         )
       )
 
@@ -221,16 +226,16 @@ class DbDamlPackageStore(
     NonEmpty
       .from(packages)
       .fold(FutureUnlessShutdown.pure(Seq.empty[PackageId]))(
-        packagesNotInAnyOtherDarsQuery(_, dar.darId, limit = None)
+        packagesNotInAnyOtherDarsQuery(_, dar.mainPackageId, limit = None)
       )
 
   override def getDar(
-      darId: DarId
+      mainPackageId: DarMainPackageId
   )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, Dar] =
-    storage.querySingle(existing(darId), functionFullName)
+    storage.querySingle(existing(mainPackageId), functionFullName)
 
   override def getPackageDescriptionsOfDar(
-      darId: DarId
+      mainPackageId: DarMainPackageId
   )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, Seq[PackageDescription]] =
     OptionT(
       storage
@@ -238,7 +243,7 @@ class DbDamlPackageStore(
           sql"""select p.package_id, p.name, p.version, p.uploaded_at, p.package_size
               from par_daml_packages p, par_dar_packages r
               where p.package_id = r.package_id
-                and r.main_package_id = ${darId.mainPackageId.str}"""
+                and r.main_package_id = ${mainPackageId.str}"""
             .as[PackageDescription],
           functionFullName,
         )
@@ -271,13 +276,13 @@ class DbDamlPackageStore(
     storage.query(query, functionFullName)
   }
 
-  private def existing(darId: DarId): DbAction.ReadOnly[Option[Dar]] =
-    sql"select main_package_id, description, name, version, data from par_dars where main_package_id = ${darId.mainPackageId.str}"
+  private def existing(mainPackageId: DarMainPackageId): DbAction.ReadOnly[Option[Dar]] =
+    sql"select main_package_id, description, name, version, data from par_dars where main_package_id = ${mainPackageId.str}"
       .as[Dar]
       .headOption
 
   private def insertOrUpdateDar(dar: Dar): DbAction.WriteOnly[Int] = {
-    val pkgId = dar.descriptor.darId.mainPackageId
+    val pkgId = dar.descriptor.mainPackageId.unwrap
     val data = dar.bytes
     val description = dar.descriptor.description
     val name = dar.descriptor.name
@@ -292,11 +297,11 @@ class DbDamlPackageStore(
   }
 
   override def removeDar(
-      darId: DarId
+      mainPackageId: DarMainPackageId
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     writeQueue.executeUS(
       storage.update_(
-        sqlu"""delete from par_dars where main_package_id = ${darId.mainPackageId.str}""",
+        sqlu"""delete from par_dars where main_package_id = ${mainPackageId.str}""",
         functionFullName,
       ),
       functionFullName,

@@ -280,14 +280,14 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
     }
   }
 
-  private def loadFile(resourcePath: String): Either[CantonConfigError, CantonCommunityConfig] =
+  private def loadFile(resourcePath: String): Either[CantonConfigError, CantonConfig] =
     loadFiles(Seq(resourcePath))
 
   private def loadFiles(
       resourcePaths: Seq[String]
-  ): Either[CantonConfigError, CantonCommunityConfig] = {
+  ): Either[CantonConfigError, CantonConfig] = {
     val files = resourcePaths.map(r => (baseDir.toString / r).toJava)
-    CantonCommunityConfig.parseAndLoad(files)
+    CantonConfig.parseAndLoad(files, CommunityCantonEdition)
   }
 
   private lazy val baseDir: File = "community" / "app" / "src" / "test" / "resources"

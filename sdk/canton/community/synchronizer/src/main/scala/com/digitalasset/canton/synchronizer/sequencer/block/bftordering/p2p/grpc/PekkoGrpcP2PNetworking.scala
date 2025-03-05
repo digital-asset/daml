@@ -60,7 +60,7 @@ object PekkoGrpcP2PNetworking {
   private val SendRetryDelay = 2.seconds
 
   final class PekkoClientP2PNetworkManager[P2PMessageT](
-      getServerEndpointOrStartConnection: P2PEndpoint => Option[
+      getServerHandleOrStartConnection: P2PEndpoint => Option[
         (SequencerId, StreamObserver[P2PMessageT])
       ],
       closeConnection: P2PEndpoint => Unit,
@@ -85,7 +85,7 @@ object PekkoGrpcP2PNetworking {
         context.underlying.spawn(
           createGrpcConnectionManagerPekkoBehavior(
             endpoint,
-            getServerEndpointOrStartConnection,
+            getServerHandleOrStartConnection,
             closeConnection,
             onSequencerId,
             loggerFactory,
@@ -98,33 +98,33 @@ object PekkoGrpcP2PNetworking {
     }
   }
 
-  def tryCreateServerEndpoint[P2PMessageT](
+  def tryCreateServerHandle[P2PMessageT](
       sequencerId: SequencerId,
       inputModule: ModuleRef[P2PMessageT],
-      clientEndpoint: StreamObserver[BftOrderingServiceReceiveResponse],
-      cleanupClientEndpoint: StreamObserver[BftOrderingServiceReceiveResponse] => Unit,
+      clientHandle: StreamObserver[BftOrderingServiceReceiveResponse],
+      cleanupClientHandle: StreamObserver[BftOrderingServiceReceiveResponse] => Unit,
       loggerFactory: NamedLoggerFactory,
   ): StreamObserver[P2PMessageT] =
     Try(
-      clientEndpoint.onNext(
+      clientHandle.onNext(
         BftOrderingServiceReceiveResponse.of(sequencerId.uid.toProtoPrimitive)
       )
     ) match {
       case Failure(exception) =>
-        clientEndpoint.onError(exception) // Required by the gRPC streaming API
+        clientHandle.onError(exception) // Required by the gRPC streaming API
         throw exception // gRPC requires onError to be the last event, so it doesn't make sense to return a handler
       case Success(_) =>
-        new GrpcServerEndpoint[P2PMessageT](
+        new GrpcServerHandle[P2PMessageT](
           inputModule,
-          clientEndpoint,
-          cleanupClientEndpoint,
+          clientHandle,
+          cleanupClientHandle,
           loggerFactory,
         )
     }
 
   private def createGrpcConnectionManagerPekkoBehavior[P2PMessageT](
       endpoint: P2PEndpoint,
-      getServerPeerEndpoint: P2PEndpoint => Option[
+      getServerPeerHandle: P2PEndpoint => Option[
         (SequencerId, StreamObserver[P2PMessageT])
       ],
       closeConnection: P2PEndpoint => Unit,
@@ -139,11 +139,11 @@ object PekkoGrpcP2PNetworking {
     )(whenConnected: StreamObserver[P2PMessageT] => Unit)(implicit
         context: ActorContext[PekkoGrpcConnectionManagerActorMessage[P2PMessageT]]
     ): Behavior[PekkoGrpcConnectionManagerActorMessage[P2PMessageT]] = {
-      getServerPeerEndpoint(endpoint) match {
-        case Some((sequencerId, serverPeerEndpoint)) =>
+      getServerPeerHandle(endpoint) match {
+        case Some((sequencerId, serverPeerHandle)) =>
           // Connection available
           onSequencerId(endpointId, sequencerId)
-          whenConnected(serverPeerEndpoint)
+          whenConnected(serverPeerHandle)
         case _ =>
           logger.info(
             s"Connection-managing actor for peer in server role $endpointId " +

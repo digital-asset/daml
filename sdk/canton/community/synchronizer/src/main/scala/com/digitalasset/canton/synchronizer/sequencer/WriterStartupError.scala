@@ -36,10 +36,10 @@ object WriterStartupError {
   }
 
   /** We have a upper limit of how many instances can run concurrently (this is defined by how many
-    * [[resource.DbLockCounters.MAX_SEQUENCER_WRITERS_AVAILABLE]] are allocated). We can not start a
-    * new sequencer instance if locks for all of these counters are allocated and appear online.
-    * However we can keep retrying starting on the chance that one of these will eventually go
-    * offline.
+    * [[com.digitalasset.canton.config.DbLockConfig.MAX_SEQUENCER_WRITERS_AVAILABLE]] are
+    * allocated). We can not start a new sequencer instance if locks for all of these counters are
+    * allocated and appear online. However we can keep retrying starting on the chance that one of
+    * these will eventually go offline.
     */
   final case class AllInstanceIndexesInUse(message: String) extends WriterStartupError {
     override val retryable = true

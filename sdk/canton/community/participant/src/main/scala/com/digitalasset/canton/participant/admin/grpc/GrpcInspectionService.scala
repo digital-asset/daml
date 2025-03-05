@@ -23,6 +23,7 @@ import com.digitalasset.canton.participant.pruning.{
   CommitmentInspectContract,
 }
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
+import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriodState,
@@ -555,7 +556,7 @@ class GrpcInspectionService(
           .fromFuture(
             syncStateInspection.activeContractsStakeholdersFilter(
               synchronizerId,
-              cantonTickTs,
+              TimeOfChange(cantonTickTs),
               counterParticipantParties.map(_.toLf),
             ),
             err => InspectionServiceError.InternalServerError.Error(err.toString),

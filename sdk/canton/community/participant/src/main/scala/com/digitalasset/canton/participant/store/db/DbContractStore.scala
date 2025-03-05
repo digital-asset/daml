@@ -59,7 +59,7 @@ class DbContractStore(
     val contractInstance = r.<<[SerializableRawContractInstance]
     val metadata = r.<<[ContractMetadata]
     val ledgerCreateTime = r.<<[CantonTimestamp]
-    val contractSalt = r.<<[Option[Salt]]
+    val contractSalt = r.<<[Salt]
 
     SerializableContract(
       contractId,
@@ -257,7 +257,7 @@ class DbContractStore(
             instance: SerializableRawContractInstance,
             metadata: ContractMetadata,
             ledgerCreateTime: LedgerCreateTime,
-            contractSalt: Option[Salt],
+            contractSalt: Salt,
           ) = contract
 
           val template = instance.contractInstance.unversioned.template

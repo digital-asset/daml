@@ -84,7 +84,7 @@ sealed trait SequencerWriterConfig {
         eventWriteMaxConcurrency: Int,
         commitModeValidation: Option[CommitMode],
         checkpointInterval: NonNegativeFiniteDuration,
-        checkpointBackfillParallelism: Int,
+        checkpointBackfillParallelism: PositiveInt,
         bufferedEventsMaxMemory: BytesUnit,
         bufferedEventsPreloadBatchSize: PositiveInt,
     ): SequencerWriterConfig
@@ -102,7 +102,7 @@ sealed trait SequencerWriterConfig {
 
   /** how frequently to generate counter checkpoints for all members */
   val checkpointInterval: NonNegativeFiniteDuration
-  val checkpointBackfillParallelism: Int
+  val checkpointBackfillParallelism: PositiveInt
 
   def modify(
       payloadQueueSize: Int = this.payloadQueueSize,
@@ -113,7 +113,7 @@ sealed trait SequencerWriterConfig {
       eventWriteMaxConcurrency: Int = this.eventWriteMaxConcurrency,
       commitModeValidation: Option[CommitMode] = this.commitModeValidation,
       checkpointInterval: NonNegativeFiniteDuration = this.checkpointInterval,
-      checkpointBackfillParallelism: Int = this.checkpointBackfillParallelism,
+      checkpointBackfillParallelism: PositiveInt = this.checkpointBackfillParallelism,
       bufferedEventsMaxMemory: BytesUnit = this.bufferedEventsMaxMemory,
       bufferedEventsPreloadBatchSize: PositiveInt = this.bufferedEventsPreloadBatchSize,
   ): SequencerWriterConfig =
@@ -149,7 +149,7 @@ object SequencerWriterConfig {
   val DefaultCheckpointInterval: config.NonNegativeFiniteDuration =
     config.NonNegativeFiniteDuration.ofSeconds(30)
 
-  val DefaultCheckpointBackfillParallelism: Int = 2
+  val DefaultCheckpointBackfillParallelism: PositiveInt = PositiveInt.two
 
   val DefaultBufferedEventsMaxMemory: BytesUnit = BytesUnit.MB(2L)
   val DefaultBufferedEventsPreloadBatchSize: PositiveInt = PositiveInt.tryCreate(50)
@@ -166,7 +166,8 @@ object SequencerWriterConfig {
       override val eventWriteMaxConcurrency: Int = 1,
       override val commitModeValidation: Option[CommitMode] = CommitMode.Default.some,
       override val checkpointInterval: NonNegativeFiniteDuration = DefaultCheckpointInterval,
-      override val checkpointBackfillParallelism: Int = DefaultCheckpointBackfillParallelism,
+      override val checkpointBackfillParallelism: PositiveInt =
+        DefaultCheckpointBackfillParallelism,
       override val bufferedEventsMaxMemory: BytesUnit = DefaultBufferedEventsMaxMemory,
       override val bufferedEventsPreloadBatchSize: PositiveInt =
         DefaultBufferedEventsPreloadBatchSize,
@@ -187,7 +188,8 @@ object SequencerWriterConfig {
       override val eventWriteMaxConcurrency: Int = 1,
       override val commitModeValidation: Option[CommitMode] = CommitMode.Default.some,
       override val checkpointInterval: NonNegativeFiniteDuration = DefaultCheckpointInterval,
-      override val checkpointBackfillParallelism: Int = DefaultCheckpointBackfillParallelism,
+      override val checkpointBackfillParallelism: PositiveInt =
+        DefaultCheckpointBackfillParallelism,
       override val bufferedEventsMaxMemory: BytesUnit = DefaultBufferedEventsMaxMemory,
       override val bufferedEventsPreloadBatchSize: PositiveInt =
         DefaultBufferedEventsPreloadBatchSize,

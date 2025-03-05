@@ -225,7 +225,10 @@ class MemberAuthenticationService(
           Either.cond(_, (), MemberAccessDisabled(mediator))
         })
       case sequencer: SequencerId =>
-        EitherT.leftT(AuthenticationNotSupportedForMember(sequencer))
+        // TODO(#24306) allow sequencer-sequencer authentication only for BFT sequencers on P2P endpoints
+        EitherT(isSequencerActive(sequencer).map {
+          Either.cond(_, (), MemberAccessDisabled(sequencer))
+        })
     }
 
   private def correctSynchronizer(
@@ -256,6 +259,10 @@ class MemberAuthenticationService(
   protected def isMediatorActive(mediator: MediatorId)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean] = isMemberActive(_.isMediatorActive(mediator))
+
+  protected def isSequencerActive(sequencer: SequencerId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Boolean] = isMemberActive(_.isSequencerActive(sequencer))
 
   protected def invalidateAndExpire[T <: Member](
       isActiveCheck: T => FutureUnlessShutdown[Boolean]

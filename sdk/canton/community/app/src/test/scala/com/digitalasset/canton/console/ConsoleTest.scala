@@ -12,7 +12,7 @@ import com.digitalasset.canton.admin.api.client.commands.{
 }
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.{CantonCommunityConfig, ClientConfig, TestingConfigInternal}
+import com.digitalasset.canton.config.{CantonConfig, ClientConfig, TestingConfigInternal}
 import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.console.HeadlessConsole.{
   CompileError,
@@ -40,7 +40,7 @@ import java.nio.file.Paths
 
 class ConsoleTest extends AnyWordSpec with BaseTest {
 
-  lazy val DefaultConfig: CantonCommunityConfig = CantonCommunityConfig(
+  lazy val DefaultConfig: CantonConfig = CantonConfig(
     sequencers = Map(
       InstanceName.tryCreate("s1") -> ConfigStubs.sequencer,
       InstanceName.tryCreate("s2") -> ConfigStubs.sequencer,
@@ -60,7 +60,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     ),
   )
 
-  lazy val NameClashConfig: CantonCommunityConfig = CantonCommunityConfig(
+  lazy val NameClashConfig: CantonConfig = CantonConfig(
     participants = Map(
       // Reserved keyword
       InstanceName.tryCreate("participants") -> ConfigStubs.participant,
@@ -72,7 +72,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     ),
   )
 
-  abstract class TestEnvironment(val config: CantonCommunityConfig = DefaultConfig) {
+  abstract class TestEnvironment(val config: CantonConfig = DefaultConfig) {
     val environment: CommunityEnvironment = mock[CommunityEnvironment]
     val participants: ParticipantNodes[ParticipantNodeBootstrap, ParticipantNode] =
       mock[ParticipantNodes[ParticipantNodeBootstrap, ParticipantNode]]

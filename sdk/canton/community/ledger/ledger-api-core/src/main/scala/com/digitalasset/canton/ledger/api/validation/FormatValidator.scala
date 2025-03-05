@@ -62,23 +62,11 @@ object FormatValidator {
   ): Either[StatusRuntimeException, UpdateFormat] =
     for {
       eventFormat <- FormatValidator.validate(txFilter, verbose)
-      filterPartiesO = eventFormat.filtersForAnyParty match {
-        case Some(_) => None // wildcard
-        case None => Some(eventFormat.filtersByParty.keySet)
-      }
     } yield UpdateFormat(
       includeTransactions =
         Some(TransactionFormat(eventFormat = eventFormat, transactionShape = AcsDelta)),
       includeReassignments = Some(eventFormat),
-      includeTopologyEvents = Some(
-        TopologyFormat(
-          Some(
-            ParticipantAuthorizationFormat(
-              filterPartiesO
-            )
-          )
-        )
-      ),
+      includeTopologyEvents = None,
     )
 
   // TODO(i23504) Cleanup

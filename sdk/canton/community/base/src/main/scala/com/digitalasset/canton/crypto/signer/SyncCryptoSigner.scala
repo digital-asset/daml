@@ -96,7 +96,7 @@ object SyncCryptoSigner {
       pureCrypto: SynchronizerCryptoPureApi,
       privateCrypto: CryptoPrivateApi,
       cryptoPrivateStore: CryptoPrivateStore,
-      verificationParallelismLimit: Int,
+      verificationParallelismLimit: PositiveInt,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext) =
     new SyncCryptoSignerDefault(
@@ -115,7 +115,7 @@ object SyncCryptoSigner {
       privateCrypto: CryptoPrivateApi,
       cryptoPrivateStore: CryptoPrivateStore,
       sessionSigningKeysConfig: SessionSigningKeysConfig,
-      verificationParallelismLimit: Int,
+      verificationParallelismLimit: PositiveInt,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): SyncCryptoSigner =
     if (sessionSigningKeysConfig.enabled) {

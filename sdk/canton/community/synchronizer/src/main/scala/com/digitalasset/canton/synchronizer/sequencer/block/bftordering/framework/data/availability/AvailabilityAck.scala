@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability
 
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose, Signature, v30}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.AvailabilityAck as ProtoAvailabilityAck
 import com.digitalasset.canton.topology.{SequencerId, UniqueIdentifier}
@@ -22,13 +23,13 @@ object AvailabilityAck {
         .map(SequencerId(_))
     } yield AvailabilityAck(originatingSequencerId, sig)
 
-  def hashFor(batchId: BatchId, from: SequencerId): Hash = Hash
+  def hashFor(batchId: BatchId, expirationTime: CantonTimestamp, from: SequencerId): Hash = Hash
     .build(
       HashPurpose.BftAvailabilityAck,
       HashAlgorithm.Sha256,
     )
     .add(batchId.getCryptographicEvidence)
-    .add(from.toString.length)
-    .add(from.toString)
+    .add(from.toProtoPrimitive)
+    .add(expirationTime.toMicros)
     .finish()
 }

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.multisynchronizer
 
-import com.digitalasset.canton.RequestCounter
+import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.{Reassignment, ReassignmentInfo, Update}
 import com.digitalasset.canton.platform.IndexComponentTest
@@ -49,7 +49,7 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
           createNode = createNode,
           contractMetadata = Bytes.Empty,
         ),
-        requestCounter = RequestCounter(0),
+        repairCounter = RepairCounter.Genesis,
         recordTime = CantonTimestamp(recordTime),
       )
     )

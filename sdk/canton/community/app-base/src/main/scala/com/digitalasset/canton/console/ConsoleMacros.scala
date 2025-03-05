@@ -354,9 +354,6 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
             )
 
         val LfContractId.V1(discriminator, _) = contract.contractId
-        val contractSalt = contract.contractSalt.getOrElse(
-          throw new IllegalArgumentException("Missing contract salt")
-        )
         val pureCrypto = participant.underlying
           .map(_.cryptoPureApi)
           .getOrElse(sys.error("where is my crypto?"))
@@ -368,7 +365,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
             rawContract = contractInstanceWithUpdatedContractIdReferences,
             createdAt = contract.ledgerCreateTime.ts,
             discriminator = discriminator,
-            contractSalt = contractSalt,
+            contractSalt = contract.contractSalt,
             metadata = contract.metadata,
           )
 

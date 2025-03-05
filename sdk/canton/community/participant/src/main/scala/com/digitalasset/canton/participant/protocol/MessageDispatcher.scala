@@ -89,7 +89,6 @@ trait MessageDispatcher { this: NamedLogging =>
   protected def requestCounterAllocator: RequestCounterAllocator
   protected def recordOrderPublisher: RecordOrderPublisher
   protected def badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor
-  protected def repairProcessor: RepairProcessor
   protected def inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker
   protected def metrics: ConnectedSynchronizerMetrics
 
@@ -115,11 +114,16 @@ trait MessageDispatcher { this: NamedLogging =>
       // It is nevertheless OK to schedule the empty ACS change
       // because we use a different tie breaker for the empty ACS commitment.
       // This is also why we must not tick the record order publisher here.
-      recordOrderPublisher.scheduleEmptyAcsChangePublication(sc, ts)
-      doProcess(AcsCommitment { () =>
-        logger.debug(s"Processing ACS commitments for timestamp $ts")
-        acsCommitmentProcessor(ts, Traced(acsCommitments))
-      })
+      FutureUnlessShutdown
+        .lift(
+          recordOrderPublisher.scheduleEmptyAcsChangePublication(sc, ts)
+        )
+        .flatMap(_ =>
+          doProcess(AcsCommitment { () =>
+            logger.debug(s"Processing ACS commitments for timestamp $ts")
+            acsCommitmentProcessor(ts, Traced(acsCommitments))
+          })
+        )
     } else pureProcessingResult
   }
 
@@ -195,14 +199,6 @@ trait MessageDispatcher { this: NamedLogging =>
         sc,
         ts,
       )
-      // Make room for the repair requests that have been inserted before the current timestamp.
-      //
-      // Some sequenced events do not take this code path (e.g. deliver errors),
-      // but repair requests may still be tagged to their timestamp.
-      // We therefore wedge all of them in now before we possibly allocate a request counter for the current event.
-      // It is safe to not wedge repair requests with the sequenced events they're tagged to
-      // because wedging affects only request counter allocation.
-      repairProcessorResult <- repairProcessorWedging(ts)
       transactionReassignmentResult <- processTransactionAndReassignmentMessages(
         eventE,
         sc,
@@ -214,7 +210,6 @@ trait MessageDispatcher { this: NamedLogging =>
         identityResult,
         trafficResult,
         acsCommitmentResult,
-        repairProcessorResult,
         transactionReassignmentResult,
       )
     )
@@ -566,17 +561,6 @@ trait MessageDispatcher { this: NamedLogging =>
     badEncryptedViewsC.flatMap((_: Unit) => goodEncryptedViewsC)
   }
 
-  protected def repairProcessorWedging(
-      upToExclusive: CantonTimestamp
-  )(implicit traceContext: TraceContext): ProcessingResult =
-    doProcess(
-      UnspecifiedMessageKind(() =>
-        FutureUnlessShutdown.pure(
-          repairProcessor.wedgeRepairRequests(upToExclusive)
-        )
-      )
-    )
-
   protected def observeSequencing(
       events: Seq[RawProtocolEvent]
   )(implicit traceContext: TraceContext): ProcessingResult = {
@@ -786,7 +770,6 @@ private[participant] object MessageDispatcher {
         requestCounterAllocator: RequestCounterAllocator,
         recordOrderPublisher: RecordOrderPublisher,
         badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor,
-        repairProcessor: RepairProcessor,
         inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
         loggerFactory: NamedLoggerFactory,
         metrics: ConnectedSynchronizerMetrics,
@@ -806,7 +789,6 @@ private[participant] object MessageDispatcher {
         requestCounterAllocator: RequestCounterAllocator,
         recordOrderPublisher: RecordOrderPublisher,
         badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor,
-        repairProcessor: RepairProcessor,
         inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
         loggerFactory: NamedLoggerFactory,
         metrics: ConnectedSynchronizerMetrics,
@@ -833,7 +815,6 @@ private[participant] object MessageDispatcher {
         requestCounterAllocator,
         recordOrderPublisher,
         badRootHashMessagesRequestProcessor,
-        repairProcessor,
         inFlightSubmissionSynchronizerTracker,
         loggerFactory,
         metrics,

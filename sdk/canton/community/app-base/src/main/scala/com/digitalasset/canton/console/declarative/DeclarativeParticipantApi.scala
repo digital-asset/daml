@@ -836,7 +836,7 @@ class DeclarativeParticipantApi(
     def fetchDars(limit: PositiveInt): Either[String, Seq[(String, String)]] =
       for {
         dars <- queryAdminApi(ParticipantAdminCommands.Package.ListDars(filterName = "", limit))
-      } yield dars.map(_.main).map((_, "<ignored string>"))
+      } yield dars.map(_.mainPackageId).map((_, "<ignored string>"))
     run[String, String](
       "dars",
       removeExcess = false,

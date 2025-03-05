@@ -3,10 +3,12 @@
 
 package com.digitalasset.canton.ledger.participant.state.metrics
 
+import cats.data.EitherT
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.metrics.Timed
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{Offset, ProcessedDisclosedContract}
+import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.ledger.participant.state.SyncService.{
@@ -16,6 +18,7 @@ import com.digitalasset.canton.ledger.participant.state.SyncService.{
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.protocol.{LfContractId, LfSubmittedTransaction}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -172,5 +175,25 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
     Timed.future(
       metrics.services.read.validateDar,
       delegate.validateDar(dar, darName),
+    )
+
+  // TODO(#23334): Time the operation
+  override def selectRoutingSynchronizer(
+      submitterInfo: SubmitterInfo,
+      transaction: LfSubmittedTransaction,
+      transactionMeta: TransactionMeta,
+      disclosedContractIds: List[LfContractId],
+      optSynchronizerId: Option[SynchronizerId],
+      transactionUsedForExternalSigning: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CantonBaseError, SynchronizerRank] =
+    delegate.selectRoutingSynchronizer(
+      submitterInfo,
+      transaction,
+      transactionMeta,
+      disclosedContractIds,
+      optSynchronizerId,
+      transactionUsedForExternalSigning,
     )
 }

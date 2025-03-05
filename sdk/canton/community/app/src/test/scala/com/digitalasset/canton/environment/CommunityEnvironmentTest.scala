@@ -9,7 +9,7 @@ import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.{HistogramInventory, MetricName}
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.Port
-import com.digitalasset.canton.config.{CantonCommunityConfig, TestingConfigInternal}
+import com.digitalasset.canton.config.{CantonConfig, TestingConfigInternal}
 import com.digitalasset.canton.integration.CommunityConfigTransforms
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.participant.config.*
@@ -33,7 +33,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
   lazy val participant1Config: LocalParticipantConfig = ConfigStubs.participant
   lazy val participant2Config: LocalParticipantConfig = ConfigStubs.participant
 
-  lazy val sampleConfig: CantonCommunityConfig = CantonCommunityConfig(
+  lazy val sampleConfig: CantonConfig = CantonConfig(
     sequencers = Map(
       InstanceName.tryCreate("s1") -> ConfigStubs.sequencer,
       InstanceName.tryCreate("s2") -> ConfigStubs.sequencer,
@@ -53,7 +53,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
   }
 
   trait TestEnvironment {
-    def config: CantonCommunityConfig = sampleConfig
+    def config: CantonConfig = sampleConfig
 
     private val createParticipantMock =
       mock[(String, LocalParticipantConfig) => ParticipantNodeBootstrap]
@@ -163,7 +163,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
 
       "write ports file if desired" in new TestEnvironment {
 
-        override def config: CantonCommunityConfig = {
+        override def config: CantonConfig = {
           val tmp = sampleConfig.focus(_.parameters.portsFile).replace(Some("my-ports.txt"))
           (CommunityConfigTransforms.updateAllParticipantConfigs { case (_, config) =>
             config
@@ -191,7 +191,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
       }
 
       "not start if manual start is desired" in new TestEnvironment {
-        override def config: CantonCommunityConfig =
+        override def config: CantonConfig =
           sampleConfig.focus(_.parameters.manualStart).replace(true)
 
         // These would throw on start, as all methods return null.

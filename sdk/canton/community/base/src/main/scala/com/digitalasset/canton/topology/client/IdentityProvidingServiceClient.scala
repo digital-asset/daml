@@ -502,6 +502,16 @@ trait SequencerSynchronizerStateClient {
   def sequencerGroup()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[SequencerGroup]]
+
+  /** Returns true if <ul> <li>the sequencer is a member of the sequencer group</li> <li>the
+    * sequencer has an OwnerToKeyMapping with at least 1 signing key</li> </ul>
+    */
+  def isSequencerActive(sequencerId: SequencerId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Boolean] =
+    sequencerGroup().map(_.exists { group =>
+      group.active.contains(sequencerId)
+    })
 }
 
 trait VettedPackagesSnapshotClient {

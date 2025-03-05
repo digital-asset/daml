@@ -112,20 +112,20 @@ object MonadUtil {
 
   /** Parallel traverse with limited parallelism
     */
-  def parTraverseWithLimit[X, M[_], S](parallelism: Int)(
+  def parTraverseWithLimit[X, M[_], S](parallelism: PositiveInt)(
       xs: Seq[X]
   )(processElement: X => M[S])(implicit M: Parallel[M]): M[Seq[S]] =
     M.monad.map(
-      sequentialTraverse(xs.grouped(parallelism).toSeq)(
+      sequentialTraverse(xs.grouped(parallelism.value).toSeq)(
         _.parTraverse(processElement)
       )(M.monad)
     )(_.flatten)
 
-  def parTraverseWithLimit_[X, M[_], S](parallelism: Int)(
+  def parTraverseWithLimit_[X, M[_], S](parallelism: PositiveInt)(
       xs: Seq[X]
   )(processElement: X => M[S])(implicit M: Parallel[M]): M[Unit] =
     M.monad.void(
-      sequentialTraverse(xs.grouped(parallelism).toSeq)(
+      sequentialTraverse(xs.grouped(parallelism.value).toSeq)(
         _.parTraverse(processElement)
       )(M.monad)
     )

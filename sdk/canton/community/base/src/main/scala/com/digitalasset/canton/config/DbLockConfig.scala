@@ -28,6 +28,11 @@ object DbLockConfig {
     PartialFunction.cond(config) { case _: DbConfig.Postgres =>
       true
     }
+
+  // we need to preallocate a range of lock counters for concurrently running sequencer writers
+  // this actually sets the limit of the number of concurrent sequencers that we allow
+  val MAX_SEQUENCER_WRITERS_AVAILABLE = 32
+
 }
 
 /** Configuration of a DB-locked connection, i.e., a database connection with an associated DB lock.

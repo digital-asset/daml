@@ -13,6 +13,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.participant.store.AcsInspection
+import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -45,9 +46,9 @@ import scala.concurrent.ExecutionContext
   *   The synchronizer id of the synchronizer to replicate active contracts within.
   * @param partyId
   *   The party id of the party to replicate active contracts for.
-  * @param activeAt
-  *   The timestamp on which the ACS snapshot is based, i.e. the time at which the contract to be
-  *   send are active.
+  * @param activeAfter
+  *   The timestamp immediately after which the ACS snapshot is based, i.e. the time immediately
+  *   after which the contract to be sent are active.
   * @param acsInspection
   *   Interface to inspect the ACS.
   * @param protocolVersion
@@ -57,7 +58,7 @@ import scala.concurrent.ExecutionContext
 class PartyReplicationSourceParticipantProcessor private (
     synchronizerId: SynchronizerId,
     partyId: PartyId,
-    activeAt: CantonTimestamp,
+    activeAfter: CantonTimestamp,
     acsInspection: AcsInspection, // TODO(#18525): Stream the ACS via the Ledger Api instead.
     protected val protocolVersion: ProtocolVersion,
     protected val timeouts: ProcessingTimeout,
@@ -136,12 +137,15 @@ class PartyReplicationSourceParticipantProcessor private (
       s"Read ACS from ${newChunkToConsumerFrom.unwrap} to $newChunkToConsumeTo"
     )(
       acsInspection
-        .forEachVisibleActiveContract(synchronizerId, Set(partyId.toLf), Some(activeAt)) {
-          case (contract, reassignmentCounter) =>
-            contracts += ActiveContract.create(synchronizerId, contract, reassignmentCounter)(
-              protocolVersion
-            )
-            Right(())
+        .forEachVisibleActiveContract(
+          synchronizerId,
+          Set(partyId.toLf),
+          Some(TimeOfChange(activeAfter.immediateSuccessor)),
+        ) { case (contract, reassignmentCounter) =>
+          contracts += ActiveContract.create(synchronizerId, contract, reassignmentCounter)(
+            protocolVersion
+          )
+          Right(())
         }(traceContext, executionContext)
         .bimap(
           _.toString,

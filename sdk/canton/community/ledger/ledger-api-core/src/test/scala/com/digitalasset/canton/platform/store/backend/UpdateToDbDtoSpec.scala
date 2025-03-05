@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.daml.metrics.api.MetricsContext
 import com.daml.platform.v1.index.StatusDetails
+import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state
@@ -24,7 +25,6 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.emptyTraceContext
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.transaction.GlobalKey
@@ -111,7 +111,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         completionInfo,
         state.Update.CommandRejected.FinalReason(status),
         someSynchronizerId1,
-        RequestCounter(11),
         SequencerCounter(15),
         CantonTimestamp.ofEpochMicro(1234567),
       )
@@ -207,7 +206,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = updateId,
         contractMetadata = Map(contractId -> someContractDriverMetadata),
         synchronizerId = someSynchronizerId1,
-        requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
         recordTime = someRecordTime,
       )
@@ -321,7 +319,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = updateId,
         contractMetadata = Map.empty,
         synchronizerId = someSynchronizerId1,
-        requestCounter = RequestCounter(100),
         sequencerCounter = SequencerCounter(110),
         recordTime = CantonTimestamp.ofEpochMicro(120),
       )
@@ -432,7 +429,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = updateId,
         contractMetadata = Map.empty,
         synchronizerId = someSynchronizerId1,
-        requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
         recordTime = someRecordTime,
       )
@@ -576,7 +572,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = updateId,
         contractMetadata = Map.empty,
         synchronizerId = someSynchronizerId1,
-        requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
         recordTime = someRecordTime,
       )
@@ -792,7 +787,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = updateId,
         contractMetadata = Map.empty,
         synchronizerId = someSynchronizerId1,
-        requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
         recordTime = someRecordTime,
       )
@@ -867,7 +861,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = updateId,
         contractMetadata = Map.empty,
         synchronizerId = someSynchronizerId1,
-        requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
         recordTime = someRecordTime,
       )
@@ -986,7 +979,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = updateId,
         contractMetadata = Map(contractId -> someContractDriverMetadata),
         synchronizerId = someSynchronizerId1,
-        requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
         recordTime = someRecordTime,
       )
@@ -1140,7 +1132,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = updateId,
         contractMetadata = Map.empty,
         synchronizerId = someSynchronizerId1,
-        requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
         recordTime = someRecordTime,
       )
@@ -1202,7 +1193,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = Ref.TransactionId.assertFromString("UpdateId"),
         contractMetadata = Map(contractId -> someContractDriverMetadata),
         synchronizerId = someSynchronizerId1,
-        requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
         recordTime = someRecordTime,
       )
@@ -1280,7 +1270,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             completionInfo,
             state.Update.CommandRejected.FinalReason(status),
             someSynchronizerId1,
-            RequestCounter(10),
             SequencerCounter(10),
             someRecordTime,
           )
@@ -1341,7 +1330,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             updateId = updateId,
             contractMetadata = Map(contractId -> someContractDriverMetadata),
             synchronizerId = someSynchronizerId1,
-            requestCounter = someRequestCounter,
             sequencerCounter = someSequencerCounter,
             recordTime = someRecordTime,
           )
@@ -1444,7 +1432,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           createNode = createNode,
           contractMetadata = someContractDriverMetadata,
         ),
-        requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
         recordTime = someRecordTime,
       )
@@ -1551,7 +1538,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             List("signatory12", "observer23", "asdasdasd").map(Ref.Party.assertFromString),
           assignmentExclusivity = Some(Time.Timestamp.assertFromLong(123456)),
         ),
-        requestCounter = RequestCounter(100),
         sequencerCounter = SequencerCounter(110),
         recordTime = CantonTimestamp.ofEpochMicro(120),
       )
@@ -1682,7 +1668,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         synchronizerId = someSynchronizerId1,
         sequencerCounter = SequencerCounter(1000),
         recordTime = CantonTimestamp.ofEpochMicro(2000),
-        requestCounterO = None,
       )
       val dtos = updateToDtos(update)
 
@@ -1750,7 +1735,6 @@ object UpdateToDbDtoSpec {
     CantonTimestamp(
       Time.Timestamp.assertFromInstant(Instant.parse(("2000-01-01T00:00:00.000000Z")))
     )
-  private val someRequestCounter = RequestCounter(10)
   private val someSequencerCounter = SequencerCounter(10)
   private val someApplicationId =
     Ref.ApplicationId.assertFromString("UpdateToDbDtoSpecApplicationId")

@@ -34,7 +34,7 @@ class SyncCryptoSignerDefault(
     signPublicApi: SynchronizerCryptoPureApi,
     signPrivateApi: SigningPrivateOps,
     cryptoPrivateStore: CryptoPrivateStore,
-    verificationParallelismLimit: Int,
+    verificationParallelismLimit: PositiveInt,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends SyncCryptoSigner
@@ -47,8 +47,7 @@ class SyncCryptoSignerDefault(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Fingerprint] =
     for {
-      signingKeys <- EitherT
-        .right(topologySnapshot.signingKeys(member, usage))
+      signingKeys <- EitherT.right(topologySnapshot.signingKeys(member, usage))
       existingKeys <- signingKeys.toList
         .parFilterA(pk => cryptoPrivateStore.existsSigningKey(pk.fingerprint))
         .leftMap[SyncCryptoError](SyncCryptoError.StoreError.apply)

@@ -12,13 +12,14 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData, RequestState}
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.util.TimeOfRequest
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MapsUtil
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.util.{Failure, Try}
 
 class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactory)
     extends RequestJournalStore
@@ -31,10 +32,24 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
 
   override def insert(
       data: RequestData
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    FutureUnlessShutdown.outcomeF(
-      Future.fromTry(Try(MapsUtil.tryPutIdempotent(requestTable, data.rc, data)))
-    )
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    val result: Try[Unit] = blocking {
+      this.synchronized({
+        val isInvalidChange = requestTable.values
+          .exists(rd => rd.rc != data.rc && rd.requestTimestamp == data.requestTimestamp)
+        if (isInvalidChange) {
+          Failure(
+            new IllegalStateException(
+              s"Different request with same timestamp ${data.requestTimestamp} already exists in the request journal"
+            )
+          )
+        } else {
+          Try(MapsUtil.tryPutIdempotent(requestTable, data.rc, data))
+        }
+      })
+    }
+    FutureUnlessShutdown.outcomeF(Future.fromTry(result))
+  }
 
   override def query(rc: RequestCounter)(implicit
       traceContext: TraceContext
@@ -129,24 +144,15 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
   ): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.pure(requestTable.filterInPlace((rc, _) => rc < fromInclusive))
 
-  override def repairRequests(
-      fromInclusive: RequestCounter
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[RequestData]] =
-    FutureUnlessShutdown.pure {
-      requestTable.values.iterator
-        .filter(data => data.rc >= fromInclusive && data.repairContext.nonEmpty)
-        .toSeq
-        .sortBy(_.rc)
-    }
-
-  override def lastRequestCounterWithRequestTimestampBeforeOrAt(requestTimestamp: CantonTimestamp)(
+  override def lastRequestTimeWithRequestTimestampBeforeOrAt(requestTimestamp: CantonTimestamp)(
       implicit traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[RequestCounter]] =
+  ): FutureUnlessShutdown[Option[TimeOfRequest]] =
     FutureUnlessShutdown.pure {
-      requestTable.values.foldLeft(Option.empty[RequestCounter]) {
+      requestTable.values.foldLeft(Option.empty[TimeOfRequest]) {
         (maxSoFar, queryResult: RequestData) =>
           if (queryResult.requestTimestamp > requestTimestamp) maxSoFar
-          else if (maxSoFar.forall(_ < queryResult.rc)) Some(queryResult.rc)
+          else if (maxSoFar.forall(_.rc < queryResult.rc))
+            Some(TimeOfRequest(queryResult.rc, queryResult.requestTimestamp))
           else maxSoFar
       }
     }

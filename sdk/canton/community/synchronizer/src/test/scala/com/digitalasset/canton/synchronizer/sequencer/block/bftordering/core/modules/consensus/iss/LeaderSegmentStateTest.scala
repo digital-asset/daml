@@ -17,7 +17,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpoch
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
@@ -142,7 +141,7 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
     }
 
     "tell when this node is blocking progress" in {
-      val membership = Membership(myId, otherPeers)
+      val membership = Membership.forTesting(myId, otherPeers)
       val epoch = Epoch(
         EpochInfo.mk(
           number = EpochNumber.First,
@@ -151,7 +150,6 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         ),
         currentMembership = membership,
         previousMembership = membership, // Not relevant for the test
-        SimpleLeaderSelectionPolicy,
       )
       val mySegment =
         epoch.segments.find(_.originalLeader == myId).getOrElse(fail("myId should have a segment"))
@@ -241,13 +239,12 @@ object LeaderSegmentStateTest {
   private val otherPeers: Set[SequencerId] = (1 to 3).map { index =>
     fakeSequencerId(s"peer$index")
   }.toSet
-  private val currentMembership = Membership(myId, otherPeers)
+  private val currentMembership = Membership.forTesting(myId, otherPeers)
   private val epoch =
     Epoch(
       EpochInfo.mk(EpochNumber.First, startBlockNumber = BlockNumber.First, 7),
       currentMembership,
       previousMembership = currentMembership, // not relevant
-      SimpleLeaderSelectionPolicy,
     )
 
   private val commits = (otherPeers + myId)

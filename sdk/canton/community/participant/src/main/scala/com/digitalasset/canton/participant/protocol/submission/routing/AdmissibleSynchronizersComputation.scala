@@ -27,7 +27,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.concurrent.ExecutionContext
 import scala.math.Ordered.orderingToOrdered
 
-private[routing] final class AdmissibleSynchronizers(
+final class AdmissibleSynchronizersComputation(
     localParticipantId: ParticipantId,
     protected val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {

@@ -48,7 +48,7 @@ class SegmentState(
     extends NamedLogging {
 
   private val membership = epoch.currentMembership
-  private val eligibleLeaders = epoch.leaders
+  private val eligibleLeaders = membership.leaders
   private val originalLeaderIndex = eligibleLeaders.indexOf(segment.originalLeader)
   private val epochNumber = epoch.info.number
   private val viewChangeBlockMetadata = BlockMetadata(epochNumber, segment.slotNumbers.head1)

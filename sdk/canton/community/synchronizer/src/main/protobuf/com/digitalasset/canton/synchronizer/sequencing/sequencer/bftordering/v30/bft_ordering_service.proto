@@ -243,6 +243,7 @@ message OrderingBlock {
 message ProofOfAvailability {
   bytes batch_id = 1;
   repeated AvailabilityAck acks = 2;
+  int64 expiration_time = 3;
 }
 
 message AvailabilityAck {

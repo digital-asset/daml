@@ -107,7 +107,7 @@ message ValidateDarRequest {
 }
 
 message ValidateDarResponse {
-  string dar_id = 1;
+  string main_package_id = 1;
 }
 
 message UploadDarRequest {
@@ -129,13 +129,13 @@ message UploadDarResponse {
 }
 
 message RemoveDarRequest {
-  string dar_id = 1;
+  string main_package_id = 1;
 }
 
 message RemoveDarResponse {}
 
 message GetDarRequest {
-  string dar_id = 1;
+  string main_package_id = 1;
 }
 
 message DarDescription {
@@ -160,7 +160,7 @@ message ListDarsResponse {
 }
 
 message GetDarContentsRequest {
-  string dar_id = 1;
+  string main_package_id = 1;
 }
 
 message GetDarContentsResponse {
@@ -169,7 +169,7 @@ message GetDarContentsResponse {
 }
 
 message VetDarRequest {
-  string dar_id = 1;
+  string main_package_id = 1;
   // if set to true, the API call waits until the vetting transaction has been
   // observed by this participant on all connected synchronizers.
   bool synchronize = 2;
@@ -178,7 +178,7 @@ message VetDarRequest {
 message VetDarResponse {}
 
 message UnvetDarRequest {
-  string dar_id = 1;
+  string main_package_id = 1;
 }
 
 message UnvetDarResponse {}

@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mo
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.BootstrapDetector
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Epoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.{
   EpochStore,
@@ -51,7 +52,7 @@ class BootstrapDetectorTest extends AnyWordSpec with BftSequencerBaseTest {
         // Only 1 node
         (
           Some(aSequencerSnapshot),
-          Membership(mySequencerId),
+          Membership.forTesting(mySequencerId),
           Genesis.GenesisEpoch,
           BootstrapKind.RegularStartup,
         ),
@@ -65,6 +66,7 @@ class BootstrapDetectorTest extends AnyWordSpec with BftSequencerBaseTest {
               BlockNumber(70L),
               EpochLength(10L),
               Genesis.GenesisTopologyActivationTime,
+              Genesis.GenesisPreviousEpochMaxBftTime,
             ),
             lastBlockCommits = Seq.empty,
           ),
@@ -75,7 +77,15 @@ class BootstrapDetectorTest extends AnyWordSpec with BftSequencerBaseTest {
           Some(aSequencerSnapshot),
           aMembershipWith2Nodes,
           Genesis.GenesisEpoch,
-          BootstrapKind.Onboarding(EpochNumber(1500L)),
+          BootstrapKind.Onboarding(
+            EpochInfo(
+              EpochNumber(1500L),
+              BlockNumber(15000L),
+              DefaultEpochLength,
+              topologyActivationTime = TopologyActivationTime(CantonTimestamp.MinValue),
+              Genesis.GenesisPreviousEpochMaxBftTime,
+            )
+          ),
         ),
       )
     ) { (snapshotAdditionalInfo, membership, latestCompletedEpoch, expectedShouldStateTransfer) =>
@@ -102,15 +112,16 @@ object BootstrapDetectorTest {
 
   private val mySequencerId = fakeSequencerId("self")
   private val otherSequencerId = fakeSequencerId("other")
-  private val aMembershipWith2Nodes = Membership(mySequencerId, Set(otherSequencerId))
+  private val aMembershipWith2Nodes =
+    Membership.forTesting(mySequencerId, Set(otherSequencerId))
   private val aSequencerSnapshot = SequencerSnapshotAdditionalInfo(
     // Minimal data required for the test
     Map(
       mySequencerId -> PeerActiveAt(
         TopologyActivationTime(CantonTimestamp.Epoch),
         Some(EpochNumber(1500L)),
-        firstBlockNumberInEpoch = None,
-        epochTopologyQueryTimestamp = None,
+        firstBlockNumberInEpoch = Some(BlockNumber(15000L)),
+        epochTopologyQueryTimestamp = Some(TopologyActivationTime(CantonTimestamp.MinValue)),
         epochCouldAlterOrderingTopology = None,
         previousBftTime = None,
       )

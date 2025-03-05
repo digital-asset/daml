@@ -15,7 +15,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   Segment,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
@@ -128,13 +127,12 @@ object BlockedProgressDetectorTest {
 
   private val myId = fakeSequencerId("self")
   private val otherId = fakeSequencerId("otherId")
-  private val membership = Membership(myId, Set(otherId))
+  private val membership = Membership.forTesting(myId, Set(otherId))
   private val epochNumber = EpochNumber.First
   private val epoch = Epoch(
     EpochInfo.mk(epochNumber, startBlockNumber = BlockNumber.First, 7L),
     currentMembership = membership,
     previousMembership = membership, // Not relevant for the test
-    SimpleLeaderSelectionPolicy,
   )
 
   private def completedBlock(blockNumber: BlockNumber) =

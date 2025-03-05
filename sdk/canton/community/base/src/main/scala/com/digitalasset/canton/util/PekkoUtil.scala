@@ -139,7 +139,7 @@ object PekkoUtil extends HasLoggerName {
   ): ExecutionSequencerFactory =
     new PekkoExecutionSequencerPool(
       namePrefix + "-execution-sequencer",
-      actorCount = Threading.detectNumberOfThreads(logger),
+      actorCount = Threading.detectNumberOfThreads(logger).value,
     )
 
   /** Remembers the last `memory` many elements that have already been emitted previously. Passes

@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Epoch
@@ -18,8 +19,9 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.{
   CommitCertificate,
   OrderedBlock,
+  OrderedBlockForOutput,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
   MessageFrom,
   SignedMessage,
@@ -436,13 +438,15 @@ object Consensus {
 
   final case class NewEpochTopology[E <: Env[E]](
       epochNumber: EpochNumber,
-      orderingTopology: OrderingTopology,
+      membership: Membership,
       cryptoProvider: CryptoProvider[E],
+      previousEpochMaxBftTime: CantonTimestamp,
+      lastBlockFromPreviousEpochMode: OrderedBlockForOutput.Mode,
   ) extends Message[E]
 
   final case class NewEpochStored[E <: Env[E]](
       newEpochInfo: EpochInfo,
-      orderingTopology: OrderingTopology,
+      membership: Membership,
       cryptoProvider: CryptoProvider[E],
   ) extends Message[E]
 
