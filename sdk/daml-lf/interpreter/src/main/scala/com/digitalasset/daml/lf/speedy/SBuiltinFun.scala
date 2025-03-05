@@ -2334,24 +2334,7 @@ private[lf] object SBuiltinFun {
       dstTmplId: TypeConName,
       coid: V.ContractId,
   )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
-    fetchTemplateG(machine, Right(dstTmplId), coid)((info: ContractInfo) => f(info.value))
-  }
-
-  @nowarn
-  private def fetchTemplateViaPkgId(
-      machine: UpdateMachine,
-      dstPkgId: PackageId,
-      coid: V.ContractId,
-  )(f: ContractInfo => Control[Question.Update]): Control[Question.Update] = {
-    fetchTemplateG(machine, Left(dstPkgId), coid)(f)
-  }
-
-  private def fetchTemplateG(
-      machine: UpdateMachine,
-      dstPkgIdOrTmplId: Either[PackageId, TypeConName],
-      coid: V.ContractId,
-  )(f: ContractInfo => Control[Question.Update]): Control[Question.Update] = {
-    def importContract(dstTmplId: TypeConName, srcContract: ContractInfo) = {
+    def importContract(srcContract: ContractInfo) = {
       val srcTmplId = srcContract.templateId
       if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
         Control.Error(
@@ -2382,22 +2365,16 @@ private[lf] object SBuiltinFun {
                   machine.validating || srcTmplId.packageId != dstTmplId.packageId
                 if (needValidationCall) {
                   checkContractUpgradable(coid, srcContract, dstContract) { () =>
-                    f(dstContract)
+                    f(dstContract.value)
                   }
                 } else {
-                  f(dstContract)
+                  f(dstContract.value)
                 }
               }
             }
           }
         }
     }
-
-    def getDstTmplId(contractInfo: ContractInfo) =
-      dstPkgIdOrTmplId match {
-        case Left(pkgId) => Identifier(pkgId, contractInfo.templateId.qualifiedName)
-        case Right(tcn) => tcn
-      }
 
     machine.getIfLocalContract(coid) match {
       case Some((srcTmplId, templateArg)) =>
@@ -2409,13 +2386,12 @@ private[lf] object SBuiltinFun {
             templateArg,
             allowCatchingContractInfoErrors = false,
           ) { contractInfo =>
-            val dstTmplId = getDstTmplId(contractInfo)
             // If the local contract has the same package ID as the target template ID, then we don't need to
             // import its value and validate its contract info again.
             if (srcTmplId == dstTmplId)
-              f(contractInfo)
+              f(templateArg)
             else
-              importContract(dstTmplId, contractInfo)
+              importContract(contractInfo)
           }
         }
       case None =>
@@ -2431,7 +2407,7 @@ private[lf] object SBuiltinFun {
                 coinst.template,
                 templateArg,
                 allowCatchingContractInfoErrors = false,
-              )((info: ContractInfo) => importContract(getDstTmplId(info), info))
+              )(importContract)
             }
           }
         )
