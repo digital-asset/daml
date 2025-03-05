@@ -122,6 +122,8 @@ jobs:
 - template: blackduck.yml
 
 - job: Windows
+  # Temporarily disable windows as Bazel fails to install
+  condition: false
   dependsOn:
     - check_for_release
   variables:
