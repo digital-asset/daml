@@ -40,6 +40,17 @@ contents: |
       controller (view this).owner
       do
         pure $ getVersion this
+
+  data INewV = INewV with
+    owner : Party
+
+  interface INew where
+    viewtype INewV
+
+    nonconsuming choice GetNew : Text
+      controller (view this).owner
+      do
+        pure "GetNew"
 -}
 
 -- Another fixed package containing a helper template for exercising the interface in a choice
@@ -66,6 +77,12 @@ contents: |
       controller party
       do
         exercise icid GetVersion
+
+    choice CallNewInterface : Text with
+        icid : ContractId INew
+      controller party
+      do
+        exercise icid GetNew
 -}
 
 -- The versioned/upgraded package
@@ -94,6 +111,9 @@ contents: |
       view = IV party payload  -- @V  2
       getVersion = "V1"        -- @V 1
       getVersion = "V2"        -- @V  2
+
+    interface instance INew for FITemplate where -- @V  2
+      view = INewV party                         -- @V  2
 
     -- Following two choices exist here for convenience. They could be in a separate package which depends on this,
     -- but additional unnecessary packages simply wastes time.
@@ -163,16 +183,28 @@ main = tests
   , ("Multiple interface exercises use their respective package preference entries at choice body level", multipleInterfaceChoicePackagePreferenceUpdate)
   , ("queryInterfaceContractId works as intended in the presence of upgraded packages", queryInterfaceUpgrades)
   , ("fetchFromInterface works as intended in the presence of upgraded packages", fetchFromInterfaceUpgrades)
+  , ("Calling a new interface choice uses the highest version implementation at command level by default", defaultHighestVersionChoiceImplementationForNewInterfaceCommand)
+  , ("Calling a new interface choice uses the highest version implementation at choice body level by default", defaultHighestVersionChoiceImplementationForNewInterfaceUpdate)
+  , ("Package map preference is used for new interface implementation selection at command level", newInterfaceChoicePackagePreferenceCommand)
+  , ("Package map preference is used for new interface implementation selection at choice body level", newInterfaceChoicePackagePreferenceUpdate)
   -- IDE Ledger doesn't support unvetting
   -- Can't unvet old version of package on 3x, even though v2 exists.
   , broken ("Can fetch interface from V1 contract when V1 unvetted", fetchWithoutV1)
   ]
 
-setupAliceAndInterface : Script (Party, ContractId I)
-setupAliceAndInterface = do
+setupAliceAndTemplate : Script (Party, ContractId V1.FITemplate)
+setupAliceAndTemplate = do
   alice <- allocateParty "alice"
   cid <- alice `submit` createExactCmd V1.FITemplate with party = alice
-  pure (alice, toInterfaceContractId @I cid)
+  pure (alice, cid)
+
+setupAliceAndInterface : Script (Party, ContractId I)
+setupAliceAndInterface =
+  (fmap . fmap) (toInterfaceContractId @I) setupAliceAndTemplate
+
+setupAliceAndNewInterface : Script (Party, ContractId INew)
+setupAliceAndNewInterface = do
+  (fmap . fmap) (coerceContractId @V1.FITemplate @INew) setupAliceAndTemplate
 
 defaultHighestVersionChoiceImplementationCommand : Test
 defaultHighestVersionChoiceImplementationCommand = test $ do
@@ -185,6 +217,52 @@ defaultHighestVersionChoiceImplementationUpdate = test $ do
   (alice, icid) <- setupAliceAndInterface
   res <- alice `submit` createAndExerciseCmd (Caller with party = alice) (CallInterface with icid = icid)
   res === "V2"
+
+defaultHighestVersionChoiceImplementationForNewInterfaceCommand : Test
+defaultHighestVersionChoiceImplementationForNewInterfaceCommand = test $ do
+  (alice, icid) <- setupAliceAndNewInterface
+  res <- alice `submit` exerciseCmd icid GetNew
+  res === "GetNew"
+
+defaultHighestVersionChoiceImplementationForNewInterfaceUpdate : Test
+defaultHighestVersionChoiceImplementationForNewInterfaceUpdate = test $ do
+  (alice, icid) <- setupAliceAndNewInterface
+  res <- alice `submit` createAndExerciseCmd (Caller with party = alice) (CallNewInterface with icid = icid)
+  res === "GetNew"
+
+newInterfaceChoicePackagePreferenceCommand : Test
+newInterfaceChoicePackagePreferenceCommand = test $ do
+  (alice, icid) <- setupAliceAndNewInterface
+  resOrErr <-
+    trySubmit
+      (actAs alice <> packagePreference [interfacesV1])
+      (exerciseCmd icid GetNew)
+  case resOrErr of
+    Left (ContractDoesNotImplementInterface {}) -> pure ()
+    Left err -> assertFail $ "Failure, expected V1 submit of new interface to fail with an ContractDoesNotImplementInterface error, failed with the following error instead: " <> show err
+    Right res -> assertFail $ "Failure, expected V1 submit of new interface to fail, succeeded with the following result instead: " <> show res
+  res <-
+    submitWithOptions
+      (actAs alice <> packagePreference [interfacesV2])
+      (exerciseCmd icid GetNew)
+  res === "GetNew"
+
+newInterfaceChoicePackagePreferenceUpdate : Test
+newInterfaceChoicePackagePreferenceUpdate = test $ do
+  (alice, icid) <- setupAliceAndNewInterface
+  resOrErr <-
+    trySubmit
+      (actAs alice <> packagePreference [interfacesV1])
+      (createAndExerciseCmd (Caller with party = alice) (CallNewInterface with icid = icid))
+  case resOrErr of
+    Left (ContractDoesNotImplementInterface {}) -> pure ()
+    Left err -> assertFail $ "Failure, expected V1 submit of new interface to fail with an ContractDoesNotImplementInterface error, failed with the following error instead: " <> show err
+    Right res -> assertFail $ "Failure, expected V1 submit of new interface to fail, succeeded with the following result instead: " <> show res
+  res <-
+    submitWithOptions
+      (actAs alice <> packagePreference [interfacesV2])
+      (createAndExerciseCmd (Caller with party = alice) (CallNewInterface with icid = icid))
+  res === "GetNew"
 
 interfaceChoicePackagePreferenceCommand : Test
 interfaceChoicePackagePreferenceCommand = test $ do
