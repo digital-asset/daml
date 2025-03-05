@@ -1313,7 +1313,10 @@ private[lf] object SBuiltinFun {
                     }
                     mbSrcView match {
                       case None => withViewValue(None)
-                      case Some(srcView) => executeExpression(machine, SEPreventCatch(srcView))(x => withViewValue(Some(x)))
+                      case Some(srcView) =>
+                        executeExpression(machine, SEPreventCatch(srcView))(x =>
+                          withViewValue(Some(x))
+                        )
                     }
                   }
               }
@@ -1626,7 +1629,9 @@ private[lf] object SBuiltinFun {
       templateId: TypeConName,
       record: SValue,
   )(k: Option[SExpr] => Control[Q]): Control[Q] = {
-    val ref = getInterfaceInstance(machine, ifaceId, templateId).map(iiRef => InterfaceInstanceViewDefRef(iiRef))
+    val ref = getInterfaceInstance(machine, ifaceId, templateId).map(iiRef =>
+      InterfaceInstanceViewDefRef(iiRef)
+    )
     k(ref.map(x => SEApp(SEVal(x), Array(record))))
   }
 
