@@ -337,13 +337,10 @@ final case class JsGetUpdateTreesResponse(
 )
 
 object JsUpdateServiceCodecs {
-  import JsCommandServiceCodecs.*
-  import JsStateServiceCodecs.*
+  import JsSchema.JsServicesCommonCodecs.*
 
   implicit val participantAuthorizationTopologyFormatRW
       : Codec[ParticipantAuthorizationTopologyFormat] = deriveCodec
-  implicit val transactionShapeFormatRW: Codec[transaction_filter.TransactionShape] = deriveCodec
-  implicit val transactionFormatRW: Codec[transaction_filter.TransactionFormat] = deriveCodec
   implicit val topologyFormatRW: Codec[transaction_filter.TopologyFormat] = deriveCodec
   implicit val updateFormatRW: Codec[transaction_filter.UpdateFormat] = deriveCodec
   implicit val getUpdatesRequest: Codec[update_service.GetUpdatesRequest] = deriveCodec

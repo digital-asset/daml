@@ -85,11 +85,9 @@ object UpdateServiceAuthorization {
   def getTransactionByOffsetClaims(
       request: GetTransactionByOffsetRequest
   ): List[RequiredClaim[GetTransactionByOffsetRequest]] =
-    request.transactionFormat
-      .flatMap(_.eventFormat)
-      .toList
+    request.transactionFormat.toList
       .flatMap(
-        RequiredClaims.eventFormatClaims[GetTransactionByOffsetRequest]
+        RequiredClaims.transactionFormatClaims[GetTransactionByOffsetRequest]
       ) ::: RequiredClaims.readAsForAllParties[GetTransactionByOffsetRequest](
       request.requestingParties
     )
@@ -97,11 +95,9 @@ object UpdateServiceAuthorization {
   def getTransactionByIdClaims(
       request: GetTransactionByIdRequest
   ): List[RequiredClaim[GetTransactionByIdRequest]] =
-    request.transactionFormat
-      .flatMap(_.eventFormat)
-      .toList
+    request.transactionFormat.toList
       .flatMap(
-        RequiredClaims.eventFormatClaims[GetTransactionByIdRequest]
+        RequiredClaims.transactionFormatClaims[GetTransactionByIdRequest]
       ) ::: RequiredClaims.readAsForAllParties[GetTransactionByIdRequest](
       request.requestingParties
     )

@@ -7,8 +7,9 @@ import com.daml.error.*
 import com.daml.error.ErrorCategory.GenericErrorCategory
 import com.daml.error.utils.DecodedCantonError
 import com.daml.ledger.api.v2.admin.object_meta.ObjectMeta
-import com.daml.ledger.api.v2.offset_checkpoint
 import com.daml.ledger.api.v2.trace_context.TraceContext
+import com.daml.ledger.api.v2.{offset_checkpoint, reassignment, transaction_filter}
+import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsEvent.CreatedEvent
 import com.google.protobuf
 import com.google.protobuf.field_mask.FieldMask
@@ -20,6 +21,7 @@ import io.circe.{Codec, Decoder, Encoder, Json}
 import io.grpc.Status
 import org.slf4j.event.Level
 import sttp.tapir.CodecFormat.TextPlain
+import sttp.tapir.generic.auto.*
 import sttp.tapir.{DecodeResult, Schema, SchemaType}
 
 import java.time.Instant
@@ -77,6 +79,31 @@ object JsSchema {
       viewStatus: JsStatus,
       viewValue: Option[Json],
   )
+
+  object JsServicesCommonCodecs {
+    implicit val jsTransactionRW: Codec[JsTransaction] = deriveCodec
+
+    implicit val unassignedEventRW: Codec[reassignment.UnassignedEvent] = deriveCodec
+
+    implicit val identifierFilterSchema
+        : Schema[transaction_filter.CumulativeFilter.IdentifierFilter] =
+      Schema.oneOfWrapped
+    implicit val filtersRW: Codec[transaction_filter.Filters] = deriveCodec
+    implicit val cumulativeFilterRW: Codec[transaction_filter.CumulativeFilter] = deriveCodec
+    implicit val identifierFilterRW: Codec[transaction_filter.CumulativeFilter.IdentifierFilter] =
+      deriveCodec
+    implicit val wildcardFilterRW: Codec[transaction_filter.WildcardFilter] =
+      deriveCodec
+    implicit val templateFilterRW: Codec[transaction_filter.TemplateFilter] =
+      deriveCodec
+    implicit val interfaceFilterRW: Codec[transaction_filter.InterfaceFilter] =
+      deriveCodec
+    implicit val transactionFilterRW: Codec[transaction_filter.TransactionFilter] = deriveCodec
+    implicit val eventFormatRW: Codec[transaction_filter.EventFormat] = deriveCodec
+    implicit val transactionShapeRW: Codec[transaction_filter.TransactionShape] = deriveCodec
+    implicit val transactionFormatRW: Codec[transaction_filter.TransactionFormat] = deriveCodec
+
+  }
 
   object JsEvent {
     sealed trait Event

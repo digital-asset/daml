@@ -632,6 +632,42 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       )
   }
 
+  object SubmitAndWaitForTransactionRequest
+      extends ProtocolConverter[
+        lapi.command_service.SubmitAndWaitRequest,
+        JsSubmitAndWaitForTransactionRequest,
+      ] {
+
+    def toJson(
+        request: lapi.command_service.SubmitAndWaitForTransactionRequest
+    )(implicit
+        token: Option[String],
+        contextualizedErrorLogger: ContextualizedErrorLogger,
+    ): Future[JsSubmitAndWaitForTransactionRequest] =
+      Commands
+        .toJson(request.getCommands)
+        .map(commands =>
+          JsSubmitAndWaitForTransactionRequest(
+            commands = commands,
+            transactionFormat = request.getTransactionFormat,
+          )
+        )
+
+    def fromJson(
+        jsRequest: JsSubmitAndWaitForTransactionRequest
+    )(implicit
+        token: Option[String],
+        contextualizedErrorLogger: ContextualizedErrorLogger,
+    ): Future[lapi.command_service.SubmitAndWaitForTransactionRequest] = Commands
+      .fromJson(jsRequest.commands)
+      .map(commands =>
+        lapi.command_service.SubmitAndWaitForTransactionRequest(
+          commands = Some(commands),
+          transactionFormat = Some(jsRequest.transactionFormat),
+        )
+      )
+  }
+
   object GetEventsByContractIdResponse
       extends ProtocolConverter[
         lapi.event_query_service.GetEventsByContractIdResponse,

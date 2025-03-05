@@ -3,9 +3,14 @@
 
 package com.digitalasset.canton.ledger.api
 
-import com.daml.ledger.api.v2.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v2.command_service.{
+  SubmitAndWaitForTransactionRequest,
+  SubmitAndWaitRequest,
+}
 import com.daml.ledger.api.v2.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v2.commands.Commands
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
+import com.daml.ledger.api.v2.transaction_filter.{EventFormat, Filters, TransactionFormat}
 import com.google.protobuf.timestamp.Timestamp
 
 object MockMessages {
@@ -22,6 +27,18 @@ object MockMessages {
 
   val submitRequest: SubmitRequest = SubmitRequest(Some(commands))
 
+  private val transactionFormat = TransactionFormat(
+    eventFormat = Some(
+      EventFormat(
+        filtersByParty = Map(party -> Filters()),
+        verbose = true,
+      )
+    ),
+    transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+  )
+
   val submitAndWaitRequest: SubmitAndWaitRequest = SubmitAndWaitRequest(Some(commands))
+  val submitAndWaitForTransactionRequest: SubmitAndWaitForTransactionRequest =
+    SubmitAndWaitForTransactionRequest(Some(commands), Some(transactionFormat))
 
 }

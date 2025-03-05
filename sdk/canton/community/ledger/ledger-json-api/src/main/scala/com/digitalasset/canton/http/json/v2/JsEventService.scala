@@ -83,7 +83,8 @@ object JsEventService extends DocumentationEndpoints {
   )
 }
 object JsEventServiceCodecs {
-  import JsStateServiceCodecs.eventFormatRW
+  import JsSchema.JsServicesCommonCodecs.eventFormatRW
+
   implicit val jsCreatedRW: Codec[JsCreated] = deriveCodec
   implicit val jsArchivedRW: Codec[JsArchived] = deriveCodec
   implicit val jsGetEventsByContractIdResponseRW: Codec[JsGetEventsByContractIdResponse] =
