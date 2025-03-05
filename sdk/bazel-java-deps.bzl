@@ -62,6 +62,8 @@ opentelemetry_version = "1.36.0"
 opentelemetry_instrumentation_version = "2.1.0-alpha"
 prometheus_version = "0.16.0"
 
+protostuff_version = "3.1.40"
+
 # group libraries controlled by the same org
 circe_version = "0.14.2"
 
@@ -208,6 +210,8 @@ def install_java_deps():
             "io.prometheus:simpleclient:{}".format(prometheus_version),
             "io.prometheus:simpleclient_httpserver:{}".format(prometheus_version),
             "io.prometheus:simpleclient_servlet:{}".format(prometheus_version),
+            "io.protostuff:protostuff-compiler:{}".format(protostuff_version),
+            "io.protostuff:protostuff-parser:{}".format(protostuff_version),
             "io.reactivex.rxjava2:rxjava:2.2.21",
             "io.scalaland:chimney_{}:1.4.0".format(scala_major_version),
             "io.scalaland:chimney-macro-commons_{}:1.4.0".format(scala_major_version),
