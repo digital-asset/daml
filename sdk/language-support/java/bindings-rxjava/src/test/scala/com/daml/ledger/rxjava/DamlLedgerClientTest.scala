@@ -139,7 +139,7 @@ class DamlLedgerClientTest
         .timeout(1L, TimeUnit.SECONDS)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
-      commandServiceImpl.getLastRequest.value.getCommands.synchronizerId shouldBe synchronizerId
+      commandServiceImpl.getLastCommands.value.synchronizerId shouldBe synchronizerId
     }
   }
 

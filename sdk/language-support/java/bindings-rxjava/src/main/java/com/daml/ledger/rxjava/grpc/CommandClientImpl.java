@@ -39,9 +39,10 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public Single<Transaction> submitAndWaitForTransaction(CommandsSubmission submission) {
-    CommandServiceOuterClass.SubmitAndWaitRequest request =
-        SubmitAndWaitRequest.toProto(submission);
+  public Single<Transaction> submitAndWaitForTransaction(
+      CommandsSubmission submission, TransactionFormat transactionFormat) {
+    CommandServiceOuterClass.SubmitAndWaitForTransactionRequest request =
+        SubmitAndWaitForTransactionRequest.toProto(submission, transactionFormat);
 
     return Single.fromFuture(
             StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
@@ -63,14 +64,17 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public <U> Single<U> submitAndWaitForResult(@NonNull UpdateSubmission<U> submission) {
+  public <U> Single<U> submitAndWaitForResult(
+      @NonNull UpdateSubmission<U> submission, TransactionFormat transactionFormat) {
     return submission
         .getUpdate()
         .foldUpdate(
             new Update.FoldUpdate<>() {
               @Override
               public <CtId> Single<U> created(Update.CreateUpdate<CtId, U> create) {
-                var transaction = submitAndWaitForTransaction(submission.toCommandsSubmission());
+                var transaction =
+                    submitAndWaitForTransaction(
+                        submission.toCommandsSubmission(), transactionFormat);
                 return transaction.map(
                     tx -> {
                       var createdEvent = singleCreatedEvent(tx.getEvents());

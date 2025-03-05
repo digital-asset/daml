@@ -5,6 +5,7 @@ package com.daml.ledger.rxjava.grpc.helpers
 
 import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.CommandServiceAuthorization
+import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v2.command_service._
 import io.grpc.ServerServiceDefinition
@@ -18,28 +19,28 @@ final class CommandServiceImpl(
 ) extends CommandService
     with FakeAutoCloseable {
 
-  private var lastRequest: Option[SubmitAndWaitRequest] = None
+  private var lastCommands: Option[Commands] = None
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[SubmitAndWaitResponse] = {
-    this.lastRequest = Some(request)
+    this.lastCommands = Some(request.getCommands)
     submitAndWaitResponse
   }
 
   override def submitAndWaitForTransaction(
-      request: SubmitAndWaitRequest
+      request: SubmitAndWaitForTransactionRequest
   ): Future[SubmitAndWaitForTransactionResponse] = {
-    this.lastRequest = Some(request)
+    this.lastCommands = Some(request.getCommands)
     submitAndWaitForTransactionResponse
   }
 
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionTreeResponse] = {
-    this.lastRequest = Some(request)
+    this.lastCommands = Some(request.getCommands)
     submitAndWaitForTransactionTreeResponse
   }
 
-  def getLastRequest: Option[SubmitAndWaitRequest] = this.lastRequest
+  def getLastCommands: Option[Commands] = this.lastCommands
 }
 
 object CommandServiceImpl {
