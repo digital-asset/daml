@@ -134,6 +134,18 @@ public class IouMain {
     var updateSubmission =
         UpdateSubmission.create(APP_ID, randomUUID().toString(), update).withActAs(party);
 
-    return client.getCommandClient().submitAndWaitForResult(updateSubmission).blockingGet();
+    Map<String, Filter> partyFilters =
+        Map.of(
+            party,
+            new CumulativeFilter(
+                Map.of(), Map.of(), Optional.of(Filter.Wildcard.HIDE_CREATED_EVENT_BLOB)));
+    EventFormat eventFormat = new EventFormat(partyFilters, Optional.empty(), true);
+    TransactionFormat transactionFormat =
+        new TransactionFormat(eventFormat, TransactionShape.ACS_DELTA);
+
+    return client
+        .getCommandClient()
+        .submitAndWaitForResult(updateSubmission, transactionFormat)
+        .blockingGet();
   }
 }

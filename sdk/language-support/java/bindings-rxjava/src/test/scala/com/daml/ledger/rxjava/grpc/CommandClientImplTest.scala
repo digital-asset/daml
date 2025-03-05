@@ -14,7 +14,10 @@ import com.daml.ledger.javaapi.data.{
   CommandsSubmission,
   CreateCommand,
   DamlRecord,
+  EventFormat,
   Identifier,
+  TransactionFormat,
+  TransactionShape,
 }
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
@@ -65,7 +68,7 @@ class CommandClientImplTest
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
 
-      service.getLastRequest.value.getCommands.commands shouldBe empty
+      service.getLastCommands.value.commands shouldBe empty
     }
   }
 
@@ -86,22 +89,22 @@ class CommandClientImplTest
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
 
-      service.getLastRequest.value.getCommands.applicationId shouldBe params.getApplicationId
-      service.getLastRequest.value.getCommands.commandId shouldBe params.getCommandId
-      service.getLastRequest.value.getCommands.actAs shouldBe params.getActAs.asScala
-      service.getLastRequest.value.getCommands.readAs shouldBe params.getReadAs.asScala
-      service.getLastRequest.value.getCommands.workflowId shouldBe params.getWorkflowId.get()
-      service.getLastRequest.value.getCommands.synchronizerId shouldBe synchronizerId
-      service.getLastRequest.value.getCommands.minLedgerTimeRel
+      service.getLastCommands.value.applicationId shouldBe params.getApplicationId
+      service.getLastCommands.value.commandId shouldBe params.getCommandId
+      service.getLastCommands.value.actAs shouldBe params.getActAs.asScala
+      service.getLastCommands.value.readAs shouldBe params.getReadAs.asScala
+      service.getLastCommands.value.workflowId shouldBe params.getWorkflowId.get()
+      service.getLastCommands.value.synchronizerId shouldBe synchronizerId
+      service.getLastCommands.value.minLedgerTimeRel
         .map(_.seconds) shouldBe params.getMinLedgerTimeRel.asScala.map(_.getSeconds)
-      service.getLastRequest.value.getCommands.minLedgerTimeRel
+      service.getLastCommands.value.minLedgerTimeRel
         .map(_.nanos) shouldBe params.getMinLedgerTimeRel.asScala.map(_.getNano)
-      service.getLastRequest.value.getCommands.minLedgerTimeAbs
+      service.getLastCommands.value.minLedgerTimeAbs
         .map(_.seconds) shouldBe params.getMinLedgerTimeAbs.asScala.map(_.getEpochSecond)
-      service.getLastRequest.value.getCommands.minLedgerTimeAbs
+      service.getLastCommands.value.minLedgerTimeAbs
         .map(_.nanos) shouldBe params.getMinLedgerTimeAbs.asScala.map(_.getNano)
-      service.getLastRequest.value.getCommands.commands should have size 1
-      val receivedCommand = service.getLastRequest.value.getCommands.commands.head.command
+      service.getLastCommands.value.commands should have size 1
+      val receivedCommand = service.getLastCommands.value.commands.head.command
       receivedCommand.isCreate shouldBe true
       receivedCommand.isExercise shouldBe false
       receivedCommand.create.value.getTemplateId.packageId shouldBe command.getTemplateId.getPackageId
@@ -142,8 +145,13 @@ class CommandClientImplTest
   private def submitAndWait(client: CommandClient) =
     submitAndWaitFor(client.submitAndWait) _
 
-  private def submitAndWaitForTransaction(client: CommandClient) =
-    submitAndWaitFor(client.submitAndWaitForTransaction) _
+  private def submitAndWaitForTransaction(client: CommandClient) = {
+    val transactionFormat = new TransactionFormat(
+      new EventFormat(Map.empty.asJava, Optional.empty(), false),
+      TransactionShape.ACS_DELTA,
+    )
+    submitAndWaitFor(commands => client.submitAndWaitForTransaction(commands, transactionFormat)) _
+  }
 
   private def submitAndWaitForTransactionTree(client: CommandClient) =
     submitAndWaitFor(client.submitAndWaitForTransactionTree) _

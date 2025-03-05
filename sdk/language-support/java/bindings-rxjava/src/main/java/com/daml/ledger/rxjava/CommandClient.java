@@ -5,6 +5,7 @@ package com.daml.ledger.rxjava;
 
 import com.daml.ledger.javaapi.data.CommandsSubmission;
 import com.daml.ledger.javaapi.data.Transaction;
+import com.daml.ledger.javaapi.data.TransactionFormat;
 import com.daml.ledger.javaapi.data.TransactionTree;
 import com.daml.ledger.javaapi.data.UpdateSubmission;
 import io.reactivex.Single;
@@ -14,9 +15,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 public interface CommandClient {
   Single<String> submitAndWait(CommandsSubmission submission);
 
-  Single<Transaction> submitAndWaitForTransaction(CommandsSubmission submission);
+  Single<Transaction> submitAndWaitForTransaction(
+      CommandsSubmission submission, TransactionFormat transactionFormat);
 
   Single<TransactionTree> submitAndWaitForTransactionTree(CommandsSubmission submission);
 
-  <U> Single<U> submitAndWaitForResult(@NonNull UpdateSubmission<U> submission);
+  <U> Single<U> submitAndWaitForResult(
+      @NonNull UpdateSubmission<U> submission, TransactionFormat transactionFormat);
 }
