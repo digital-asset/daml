@@ -29,7 +29,7 @@ import com.digitalasset.canton.participant.store.ReassignmentStore.{
   UnknownReassignmentId,
 }
 import com.digitalasset.canton.participant.store.memory.ReassignmentCache
-import com.digitalasset.canton.participant.util.TimeOfChange
+import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange, TimeOfRequest}
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
@@ -316,7 +316,7 @@ private[participant] class ConflictDetector(
   }
 
   /** Updates the states for the in-flight request
-    * `toc.`[[com.digitalasset.canton.participant.util.TimeOfChange.rc rc]] according to the
+    * `tor.`[[com.digitalasset.canton.participant.util.TimeOfRequest.rc rc]] according to the
     * `commitSet`. All states in the [[CommitSet]] must have been declared as
     * [[ActivenessCheck.lock]] in the [[ActivenessSet]].
     *
@@ -351,14 +351,14 @@ private[participant] class ConflictDetector(
     *   treated like passing [[CommitSet.empty]].</li> <li>[[java.lang.IllegalArgumentException]] if
     *   the request is not in-flight.</li> </ul>
     */
-  def finalizeRequest(commitSet: CommitSet, toc: TimeOfChange)(implicit
+  def finalizeRequest(commitSet: CommitSet, tor: TimeOfRequest)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[
     FutureUnlessShutdown[Either[NonEmptyChain[RequestTrackerStoreError], Unit]]
   ] =
-    runSequentially(s"finalize request ${toc.rc}") {
+    runSequentially(s"finalize request ${tor.rc}") {
       checkInvariant()
-      val rc = toc.rc
+      val rc = tor.rc
 
       logger.trace(withRC(rc, "Updating contract and key states in the conflict detector"))
 
@@ -394,6 +394,7 @@ private[participant] class ConflictDetector(
         FutureUnlessShutdown.failed(InvalidCommitSet(rc, commitSet, locked))
       } else {
         val pendingContractWrites = new mutable.ArrayDeque[LfContractId]
+        val toc = TimeOfChange(tor.timestamp)
 
         lockedContracts.foreach { coid =>
           val isActivation = creations.contains(coid) || assignments.contains(coid)
@@ -411,7 +412,11 @@ private[participant] class ConflictDetector(
                 unassignment.reassignmentCounter,
               )
             }
-            contractStates.setStatusPendingWrite(coid, newStatus, toc)
+            contractStates.setStatePendingWrite(
+              tor.rc,
+              coid,
+              StateChange(newStatus, toc),
+            )
             pendingContractWrites += coid
           } else if (isActivation) {
             val reassignmentCounter = assignments.get(coid) match {
@@ -430,10 +435,10 @@ private[participant] class ConflictDetector(
             }
 
             logger.trace(withRC(rc, s"Activating contract $coid."))
-            contractStates.setStatusPendingWrite(
+            contractStates.setStatePendingWrite(
+              tor.rc,
               coid,
-              Active(reassignmentCounter),
-              toc,
+              StateChange(Active(reassignmentCounter), toc),
             )
             pendingContractWrites += coid
           } else {
@@ -453,7 +458,7 @@ private[participant] class ConflictDetector(
         // Writes to the ReassignmentStore are still asynchronous.
         val pendingReassignmentWrites =
           reassignmentsToComplete.toList.map(t =>
-            reassignmentCache.completeReassignment(t.reassignmentId, toc.timestamp)
+            reassignmentCache.completeReassignment(t.reassignmentId, tor.timestamp)
           )
 
         pendingEvictions

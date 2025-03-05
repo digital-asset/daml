@@ -16,9 +16,24 @@ final case class OrderingTopologyInfo[E <: Env[E]](
     thisPeer: SequencerId,
     currentTopology: OrderingTopology,
     currentCryptoProvider: CryptoProvider[E],
+    currentLeaders: Seq[SequencerId],
     previousTopology: OrderingTopology,
     previousCryptoProvider: CryptoProvider[E],
+    previousLeaders: Seq[SequencerId],
 ) {
-  lazy val currentMembership: Membership = Membership(thisPeer, currentTopology)
-  lazy val previousMembership: Membership = Membership(thisPeer, previousTopology)
+  lazy val currentMembership: Membership = Membership(thisPeer, currentTopology, currentLeaders)
+  lazy val previousMembership: Membership = Membership(thisPeer, previousTopology, previousLeaders)
+
+  def updateMembership(
+      newMembership: Membership,
+      newCryptoProvider: CryptoProvider[E],
+  ): OrderingTopologyInfo[E] = OrderingTopologyInfo(
+    thisPeer,
+    newMembership.orderingTopology,
+    newCryptoProvider,
+    newMembership.leaders,
+    previousTopology = currentTopology,
+    previousCryptoProvider = currentCryptoProvider,
+    previousLeaders = currentLeaders,
+  )
 }

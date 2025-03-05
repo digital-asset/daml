@@ -85,7 +85,7 @@ object BlockTransferResponseQuorumBuilderTest {
 
   // f = 1; f + 1 = 2
   private val membership =
-    Membership(
+    Membership.forTesting(
       aSequencerId,
       Set(
         anotherSequencerId,

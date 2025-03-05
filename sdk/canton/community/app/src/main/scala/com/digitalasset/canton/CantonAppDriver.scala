@@ -37,7 +37,8 @@ abstract class CantonAppDriver[E <: Environment] extends App with NamedLogging w
 
   protected def environmentFactory: EnvironmentFactory[E]
 
-  protected def withManualStart(config: E#Config): E#Config
+  protected def withManualStart(config: CantonConfig): CantonConfig =
+    config.copy(parameters = config.parameters.copy(manualStart = true))
 
   protected def additionalVersions: Map[String, String] = Map.empty
 
@@ -126,7 +127,7 @@ abstract class CantonAppDriver[E <: Environment] extends App with NamedLogging w
   }))
   logger.debug("Registered shutdown-hook.")
 
-  val cantonConfig: E#Config = {
+  val cantonConfig: CantonConfig = {
     val mergedUserConfigsE = NonEmpty.from(cliOptions.configFiles) match {
       case None if cliOptions.configMap.isEmpty =>
         Left(ConfigErrors.NoConfigFiles.Error())
@@ -222,7 +223,7 @@ abstract class CantonAppDriver[E <: Environment] extends App with NamedLogging w
 
   runner.run(environment)
 
-  def loadConfig(config: Config): Either[CantonConfigError, E#Config]
+  def loadConfig(config: Config): Either[CantonConfigError, CantonConfig]
 
 }
 

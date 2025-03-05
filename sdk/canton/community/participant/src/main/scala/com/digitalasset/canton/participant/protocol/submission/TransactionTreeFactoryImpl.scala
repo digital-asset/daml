@@ -523,7 +523,7 @@ class TransactionTreeFactoryImpl(
       rawContractInstance = serializedCantonContractInst,
       metadata = contractMetadata,
       ledgerCreateTime = LedgerCreateTime(state.ledgerTime),
-      contractSalt = Some(contractSalt.unwrap),
+      contractSalt = contractSalt.unwrap,
     )
     state.setCreatedContractInfo(contractId, createdInfo)
 

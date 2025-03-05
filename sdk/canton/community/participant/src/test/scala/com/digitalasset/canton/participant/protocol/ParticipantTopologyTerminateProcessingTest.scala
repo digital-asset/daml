@@ -10,6 +10,7 @@ import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransacti
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.TopologyEvent.PartyToParticipantAuthorization
 import com.digitalasset.canton.ledger.participant.state.{FloatingUpdate, Update}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.UnlessShutdown.Outcome
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.topology.*
@@ -75,7 +76,7 @@ class ParticipantTopologyTerminateProcessingTest
         eventCaptor.capture(),
       )(any[TraceContext])
     )
-      .thenReturn(Right(()))
+      .thenReturn(Outcome(Right(())))
 
     val proc = new ParticipantTopologyTerminateProcessing(
       DefaultTestIdentities.synchronizerId,
@@ -374,7 +375,7 @@ class ParticipantTopologyTerminateProcessingTest
             any[CantonTimestamp => Option[FloatingUpdate]],
           )(any[TraceContext])
         )
-          .thenReturn(Left(CantonTimestamp.ofEpochSecond(15)))
+          .thenReturn(Outcome(Left(CantonTimestamp.ofEpochSecond(15))))
 
         for {
           _ <- add(store, cts, txs)
@@ -437,10 +438,12 @@ class ParticipantTopologyTerminateProcessingTest
             eventCaptor.capture(),
           )(any[TraceContext])
         ).thenAnswer { (timestamp: CantonTimestamp, _: CantonTimestamp => Option[Update]) =>
-          if (timestamp == CantonTimestamp.ofEpochSecond(20))
-            Left(CantonTimestamp.ofEpochSecond(20))
-          else
-            Right(())
+          Outcome(
+            if (timestamp == CantonTimestamp.ofEpochSecond(20))
+              Left(CantonTimestamp.ofEpochSecond(20))
+            else
+              Right(())
+          )
         }
 
         val immediateEventCaptor: ArgumentCaptor[CantonTimestamp => Option[FloatingUpdate]] =
@@ -450,7 +453,7 @@ class ParticipantTopologyTerminateProcessingTest
             immediateEventCaptor.capture()
           )(any[TraceContext])
         )
-          .thenReturn(CantonTimestamp.ofEpochSecond(20))
+          .thenReturn(Outcome(CantonTimestamp.ofEpochSecond(20)))
         for {
           _ <- add(store, cts.minusSeconds(2), cts.minusSeconds(1), List(trustCertificate))
           _ <- add(store, cts, cts2, List(partyParticipant1(parties.head))) // before
@@ -486,7 +489,7 @@ class ParticipantTopologyTerminateProcessingTest
           _ <- proc.scheduleMissingTopologyEventsAtInitialization(
             topologyEventPublishedOnInitialRecordTime = true,
             traceContextLookup,
-            2,
+            PositiveInt.two,
           )
           _ = {
             verify(rop, times(3)).scheduleFloatingEventPublication(
@@ -509,7 +512,7 @@ class ParticipantTopologyTerminateProcessingTest
           _ <- proc.scheduleMissingTopologyEventsAtInitialization(
             topologyEventPublishedOnInitialRecordTime = false,
             traceContextLookup,
-            2,
+            PositiveInt.two,
           )
         } yield {
           verify(rop, times(6)).scheduleFloatingEventPublication(

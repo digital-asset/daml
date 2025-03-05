@@ -11,7 +11,7 @@ import com.daml.tracing
 import com.daml.tracing.Spans
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.{ParticipantAuthorizationFormat, TraceIdentifiers}
+import com.digitalasset.canton.ledger.api.TraceIdentifiers
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -25,7 +25,6 @@ import com.digitalasset.canton.platform.store.backend.common.{
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.IdPaginationState
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions
 import com.digitalasset.canton.platform.store.dao.events.ReassignmentStreamReader.ReassignmentStreamQueryParams
-import com.digitalasset.canton.platform.store.dao.events.TopologyTransactionsStreamReader.TopologyTransactionsStreamQueryParams
 import com.digitalasset.canton.platform.store.dao.{
   DbDispatcher,
   EventProjectionProperties,
@@ -58,7 +57,6 @@ class TransactionsTreeStreamReader(
     metrics: LedgerApiServerMetrics,
     tracer: Tracer,
     reassignmentStreamReader: ReassignmentStreamReader,
-    topologyTransactionsStreamReader: TopologyTransactionsStreamReader,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
@@ -310,29 +308,6 @@ class TransactionsTreeStreamReader(
         responses.map { case (offset, response) => Offset.tryFromLong(offset) -> response }
       }
 
-    val participantAuthorizationFormat =
-      ParticipantAuthorizationFormat(parties = requestingParties)
-
-    val topologyTransactions =
-      topologyTransactionsStreamReader
-        .streamTopologyTransactions(
-          TopologyTransactionsStreamQueryParams(
-            queryRange = queryRange,
-            payloadQueriesLimiter = payloadQueriesLimiter,
-            idPageSizing = idPageSizing,
-            participantAuthorizationFormat = participantAuthorizationFormat,
-            maxParallelIdQueries = maxParallelIdTopologyEventsQueries,
-            maxPagesPerIdPagesBuffer = maxPayloadsPerPayloadsPage,
-            maxPayloadsPerPayloadsPage = maxParallelPayloadTopologyEventsQueries,
-            maxParallelPayloadQueries = transactionsProcessingParallelism,
-          )
-        )
-        .map { case (offset, topologyTransaction) =>
-          offset -> GetUpdateTreesResponse(
-            GetUpdateTreesResponse.Update.TopologyTransaction(topologyTransaction)
-          )
-        }
-
     val reassignments =
       reassignmentStreamReader
         .streamReassignments(
@@ -363,9 +338,6 @@ class TransactionsTreeStreamReader(
         }
 
     sourceOfTreeTransactions
-      .mergeSorted(topologyTransactions.map { case (offset, response) =>
-        offset -> response
-      })(Ordering.by(_._1))
       .mergeSorted(reassignments.map { case (offset, response) =>
         offset -> response
       })(Ordering.by(_._1))

@@ -24,7 +24,7 @@ import scala.concurrent.{ExecutionContext, Future}
 /** Sequencer channel service supporting the creation of bidirectional, GRPC-based sequencer
   * channels.
   */
-private[channel] final class GrpcSequencerChannelService(
+private[synchronizer] final class GrpcSequencerChannelService(
     authenticationCheck: AuthenticationCheck,
     channelPool: GrpcSequencerChannelPool,
     protected val timeouts: ProcessingTimeout,

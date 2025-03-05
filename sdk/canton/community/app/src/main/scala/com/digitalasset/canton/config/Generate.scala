@@ -5,7 +5,6 @@ package com.digitalasset.canton.config
 
 import better.files.File as BFile
 import com.digitalasset.canton.cli.Command
-import com.digitalasset.canton.environment.Environment
 import pureconfig.ConfigWriter
 
 object Generate {
@@ -22,7 +21,7 @@ object Generate {
       )
   }
 
-  def process[E <: Environment](command: Command.Generate.Target, config: E#Config): Unit =
+  def process(command: Command.Generate.Target, config: CantonConfig): Unit =
     command match {
       case Command.Generate.RemoteConfig =>
         val writers = new CantonConfig.ConfigWriters(confidential = false)

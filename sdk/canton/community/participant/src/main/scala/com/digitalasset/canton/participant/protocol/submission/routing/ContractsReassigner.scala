@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.submission.routing
 import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.digitalasset.canton.data.ReassignmentSubmitterMetadata
-import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
+import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, SynchronizerRank}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.AutomaticReassignmentForTransactionFailure

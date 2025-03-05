@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration
 
 import cats.syntax.option.*
 import com.digitalasset.canton.UniquePortGenerator
-import com.digitalasset.canton.config.{CantonCommunityConfig, DbConfig, StorageConfig}
+import com.digitalasset.canton.config.{CantonConfig, DbConfig, StorageConfig}
 import com.digitalasset.canton.participant.config.LocalParticipantConfig
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeConfig
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
@@ -17,7 +17,7 @@ import scala.util.Random
 
 object CommunityConfigTransforms {
 
-  type CommunityConfigTransform = CantonCommunityConfig => CantonCommunityConfig
+  type CommunityConfigTransform = CantonConfig => CantonConfig
 
   /** Parameterized version to allow specifying community or enterprise versions */
   def withUniqueDbName[SC <: StorageConfig](

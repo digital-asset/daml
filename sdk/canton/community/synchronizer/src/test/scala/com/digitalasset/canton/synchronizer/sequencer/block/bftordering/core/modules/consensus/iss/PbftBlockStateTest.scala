@@ -166,7 +166,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
             s"peer$index"
           )
         }.toSet
-        val membership = Membership(myId, peers)
+        val membership = Membership.forTesting(myId, peers)
         val blockState = createBlockState(peers)
 
         // PrePrepare from leader (self)
@@ -244,7 +244,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           fakeSequencerId(s"peer$index")
         }
         val leader = peers.head
-        val membership = Membership(myId, peers.toSet)
+        val membership = Membership.forTesting(myId, peers.toSet)
         val blockState = createBlockState(peers.toSet, leader)
 
         // PrePrepare from leader (peer1)
@@ -743,7 +743,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           s"peer$index"
         )
       }.toSet
-      val membership = Membership(myId, peers)
+      val membership = Membership.forTesting(myId, peers)
       val blockState = createBlockState(peers)
       val strongQuorum = membership.orderingTopology.strongQuorum
       val noProgressBlockStatus = ConsensusStatus.BlockStatus.InProgress(
@@ -853,7 +853,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       viewNumber: ViewNumber = ViewNumber.First,
   ) =
     new PbftBlockState(
-      Membership(myId, otherPeers),
+      Membership.forTesting(myId, otherPeers),
       clock,
       pbftMessageValidator,
       leader,

@@ -10,7 +10,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.wordspec.AnyWordSpec
 
 class DbConfigTest extends AnyWordSpec with BaseTest {
-  def pgConfig(url: String = "jdbc:postgresql://0.0.0.0:0/dbName") =
+  private def pgConfig(url: String = "jdbc:postgresql://0.0.0.0:0/dbName") =
     Postgres(ConfigFactory.parseString(s"""
                                           |{
                                           |  url = "$url"
@@ -20,7 +20,7 @@ class DbConfigTest extends AnyWordSpec with BaseTest {
                                           |}
     """.stripMargin))
 
-  lazy val h2ConfigWithoutRequiredOptions =
+  private lazy val h2ConfigWithoutRequiredOptions =
     H2(ConfigFactory.parseString(s"""
                                     |{
                                     |  url = "jdbc:h2:mem:dbName"
@@ -29,7 +29,7 @@ class DbConfigTest extends AnyWordSpec with BaseTest {
                                     |}
     """.stripMargin))
 
-  lazy val h2ConfigWithRequiredOptions =
+  private lazy val h2ConfigWithRequiredOptions =
     H2(ConfigFactory.parseString(s"""
                                     |{
                                     |  url = "jdbc:h2:mem:dbName;MODE=PostgreSQL;DB_CLOSE_DELAY=-1"
@@ -38,11 +38,11 @@ class DbConfigTest extends AnyWordSpec with BaseTest {
                                     |}
     """.stripMargin))
 
-  lazy val numCores = Threading.detectNumberOfThreads(noTracingLogger)
-  lazy val numThreads = Math.max(1, numCores / 2)
-  lazy val connTimeout = DbConfig.defaultConnectionTimeout.unwrap.toMillis
+  private lazy val numCores = Threading.detectNumberOfThreads(noTracingLogger).unwrap
+  private lazy val numThreads = Math.max(1, numCores / 2)
+  private lazy val connTimeout = DbConfig.defaultConnectionTimeout.unwrap.toMillis
 
-  def pgExpectedConfig(expectedNumThreads: Int): Config =
+  private def pgExpectedConfig(expectedNumThreads: Int): Config =
     ConfigFactory.parseString(s"""{
                                  |  driver = org.postgresql.Driver
                                  |  numThreads = $expectedNumThreads
@@ -52,6 +52,9 @@ class DbConfigTest extends AnyWordSpec with BaseTest {
                                  |  user = "user"
                                  |  connectionTimeout = $connTimeout
                                  |  initializationFailTimeout = 1
+                                 |  properties = {
+                                 |    tcpKeepAlive = true
+                                 |  }
                                  |}
     """.stripMargin)
 

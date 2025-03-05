@@ -15,7 +15,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   Epoch,
   Segment,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.PbftBlockState.{
   SignPbftMessage,
   *,
@@ -1570,14 +1569,13 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       completedBlocks: Seq[Block] = Seq.empty,
   ) = {
     implicit val config: BftBlockOrderer.Config = BftBlockOrderer.Config()
-    val membership = Membership(myId, otherPeers.toSet)
+    val membership = Membership.forTesting(myId, otherPeers.toSet)
     new SegmentState(
       Segment(originalLeader, slotNumbers),
       Epoch(
         epochInfo,
         currentMembership = membership,
         previousMembership = membership, // not relevant
-        DefaultLeaderSelectionPolicy,
       ),
       clock,
       completedBlocks,
@@ -1597,7 +1595,7 @@ object SegmentStateTest {
       s"peer$index"
     )
   }
-  val fullMembership: Membership = Membership(myId, otherPeers.toSet)
+  val fullMembership: Membership = Membership.forTesting(myId, otherPeers.toSet)
   val otherPeer1: SequencerId = otherPeers.head
   val otherPeer2: SequencerId = otherPeers(1)
   val otherPeer3: SequencerId = otherPeers(2)

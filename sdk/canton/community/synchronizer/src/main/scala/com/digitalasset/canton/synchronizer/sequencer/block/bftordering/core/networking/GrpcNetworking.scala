@@ -4,8 +4,10 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking
 
 import cats.data.OptionT
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.config.{ProcessingTimeout, TlsClientConfig}
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
@@ -15,7 +17,10 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder.createChannelBuilder
+import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
+import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.P2PEndpointConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
   InitialConnectRetryDelay,
@@ -23,19 +28,20 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.net
   MaxConnectionAttemptsBeforeWarning,
   P2PEndpoint,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.p2p.grpc.GrpcClientEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.p2p.grpc.GrpcClientHandle
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.{
   BftOrderingServiceGrpc,
   BftOrderingServiceReceiveRequest,
   BftOrderingServiceReceiveResponse,
   PingRequest,
 }
-import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
+import com.digitalasset.canton.topology.{SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.DelayUtil
+import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.ManagedChannel
-import io.grpc.stub.StreamObserver
+import io.grpc.stub.{AbstractStub, StreamObserver}
 import org.slf4j.event.Level
 
 import java.time.Duration
@@ -48,6 +54,7 @@ import scala.util.{Failure, Success, Try}
 
 final class GrpcNetworking(
     servers: List[UnlessShutdown[LifeCycle.CloseableServer]],
+    authentication: Option[GrpcNetworking.Authentication],
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -70,7 +77,7 @@ final class GrpcNetworking(
     private val channels = mutable.Map[P2PEndpoint, ManagedChannel]()
 
     // Called by the client network manager when establishing a connection to a peer
-    def getServerEndpointOrStartConnection(
+    def getServerHandleOrStartConnection(
         serverPeer: P2PEndpoint
     ): Option[(SequencerId, StreamObserver[BftOrderingServiceReceiveRequest])] =
       mutex(this) {
@@ -90,7 +97,7 @@ final class GrpcNetworking(
     def closeConnection(serverPeer: P2PEndpoint): Unit = {
       logger.info(s"Closing connection to peer in server role $serverPeer")
       mutex(this) {
-        serverEndpoints.remove(serverPeer).map(_._2).foreach(completeEndpoint)
+        serverEndpoints.remove(serverPeer).map(_._2).foreach(completeHandle)
         val _ = connectWorkers.remove(serverPeer) // Signals "stop" to the connect worker
         channels.remove(serverPeer)
       }.foreach(shutdownGrpcChannel(serverPeer, _))
@@ -124,8 +131,8 @@ final class GrpcNetworking(
     private def connect(serverPeer: P2PEndpoint): FutureUnlessShutdown[Unit] =
       performUnlessClosingF("p2p-connect") {
         logger.debug(s"Creating a gRPC channel and connecting to peer in server role $serverPeer")
-        val (channel, stub) = openGrpcChannel(serverPeer)
-        createServerEndpoint(serverPeer, channel, stub)
+        val (channel, asyncStub, blockingStub) = openGrpcChannel(serverPeer)
+        createServerHandle(serverPeer, channel, asyncStub, blockingStub)
           .map { case (sequencerId, streamFromServer) =>
             logger.info(
               s"Successfully connected to peer in server role $serverPeer with sequencer ID $sequencerId"
@@ -145,21 +152,50 @@ final class GrpcNetworking(
 
     private def openGrpcChannel(
         serverPeer: P2PEndpoint
-    ): (ManagedChannel, BftOrderingServiceGrpc.BftOrderingServiceStub) = {
+    ): (
+        ManagedChannel,
+        BftOrderingServiceGrpc.BftOrderingServiceStub,
+        BftOrderingServiceGrpc.BftOrderingServiceBlockingStub,
+    ) = {
       implicit val executor: Executor = (command: Runnable) => executionContext.execute(command)
       val channel = createChannelBuilder(serverPeer.endpointConfig).build()
+      val grpcSequencerClientAuth =
+        authentication.map(auth =>
+          new GrpcSequencerClientAuth(
+            auth.synchronizerId,
+            member = auth.sequencerId,
+            crypto = auth.syncCrypto.crypto,
+            channelPerEndpoint =
+              NonEmpty(Map, Endpoint(serverPeer.address, serverPeer.port) -> channel),
+            supportedProtocolVersions = Seq(auth.protocolVersion),
+            // TODO(#20668) make it configurable
+            tokenManagerConfig = AuthenticationTokenManagerConfig(),
+            clock = auth.clock,
+            timeouts = timeouts,
+            loggerFactory = loggerFactory,
+          )
+        )
       mutex(this) {
         val _ = channels.put(serverPeer, channel)
         logger.debug(s"Created gRPC channel to peer in server role $serverPeer")
       }
-      (channel, BftOrderingServiceGrpc.stub(channel))
+
+      def authenticateStub[S <: AbstractStub[S]](stub: S) =
+        grpcSequencerClientAuth.fold(stub)(_.apply(stub))
+
+      (
+        channel,
+        authenticateStub(BftOrderingServiceGrpc.stub(channel)),
+        authenticateStub(BftOrderingServiceGrpc.blockingStub(channel)),
+      )
     }
 
     @SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
-    private def createServerEndpoint(
+    private def createServerHandle(
         serverPeer: P2PEndpoint,
         channel: ManagedChannel,
-        stub: BftOrderingServiceGrpc.BftOrderingServiceStub,
+        asyncStub: BftOrderingServiceGrpc.BftOrderingServiceStub,
+        blockingStub: BftOrderingServiceGrpc.BftOrderingServiceBlockingStub,
         connectRetryDelay: NonNegativeFiniteDuration = InitialConnectRetryDelay,
         attemptNumber: Int = 1,
     ): OptionT[Future, (SequencerId, StreamObserver[BftOrderingServiceReceiveRequest])] = {
@@ -190,10 +226,11 @@ final class GrpcNetworking(
                 connectWorkers.contains(serverPeer)
               }
             ) {
-              createServerEndpoint(
+              createServerHandle(
                 serverPeer,
                 channel,
-                stub,
+                asyncStub,
+                blockingStub,
                 retryDelay,
                 attemptNumber,
               ) // Async-trampolined
@@ -211,10 +248,10 @@ final class GrpcNetworking(
       Try {
         // Unfortunately the async client fails asynchronously, so a synchronous ping comes in useful to check that
         //  at least the initial connection can be established.
-        val _ = BftOrderingServiceGrpc.blockingStub(channel).ping(PingRequest.defaultInstance)
+        val _ = blockingStub.ping(PingRequest.defaultInstance)
         val sequencerIdPromise = Promise[SequencerId]()
-        val streamFromServer = stub.receive(
-          new GrpcClientEndpoint(
+        val streamFromServer = asyncStub.receive(
+          new GrpcClientHandle(
             serverPeer,
             sequencerIdPromise,
             closeConnection,
@@ -273,17 +310,17 @@ final class GrpcNetworking(
       servers.foreach(_.foreach(_.server.start().discard))
 
     // Called by the gRPC server when receiving a connection
-    def addClientEndpoint(clientEndpoint: StreamObserver[BftOrderingServiceReceiveResponse]): Unit =
+    def addClientHandle(clientEndpoint: StreamObserver[BftOrderingServiceReceiveResponse]): Unit =
       mutex(this) {
         val _ = clientEndpoints.add(clientEndpoint)
       }
 
     // Called by the gRPC server endpoint when receiving an error or a completion from a client
-    def cleanupClientEndpoint(
+    def cleanupClientHandle(
         clientEndpoint: StreamObserver[BftOrderingServiceReceiveResponse]
     ): Unit = {
       logger.debug("Completing and removing client endpoint")
-      completeEndpoint(clientEndpoint)
+      completeHandle(clientEndpoint)
       mutex(this) {
         val _ = clientEndpoints.remove(clientEndpoint)
       }
@@ -291,7 +328,7 @@ final class GrpcNetworking(
 
     def close(): Unit = {
       logger.debug("Closing P2P networking (server role)")
-      clientEndpoints.foreach(cleanupClientEndpoint)
+      clientEndpoints.foreach(cleanupClientHandle)
       shutdownGrpcServers()
       logger.debug("Closed P2P networking (server role)")
     }
@@ -316,7 +353,7 @@ final class GrpcNetworking(
     serverRole.close()
   }
 
-  private def completeEndpoint(endpoint: StreamObserver[?]): Unit =
+  private def completeHandle(endpoint: StreamObserver[?]): Unit =
     try {
       endpoint.onCompleted()
     } catch {
@@ -402,7 +439,6 @@ object GrpcNetworking {
       )
 
     // TODO(#23926): currently used to build fake sequencer IDs in tests, can be removed once unit/sim-tests switch to symbolic endpoints
-    // TODO(#23911): got collisions between fake sequencer IDs when using a unified endpoint class and including the protocol
     override def toString: String = s"$address:$port"
   }
 
@@ -428,4 +464,12 @@ object GrpcNetworking {
     private[networking] def fromEndpointConfig(endpointConfig: P2PEndpointConfig): TlsP2PEndpoint =
       TlsP2PEndpoint(endpointConfig)
   }
+
+  private[bftordering] final case class Authentication(
+      protocolVersion: ProtocolVersion,
+      synchronizerId: SynchronizerId,
+      sequencerId: SequencerId,
+      syncCrypto: SynchronizerCryptoClient,
+      clock: Clock,
+  )
 }

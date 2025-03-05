@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.p2p.grp
 
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.p2p.grpc.GrpcClientEndpoint.AuthenticationTimeout
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.p2p.grpc.GrpcClientHandle.AuthenticationTimeout
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveResponse
 import com.digitalasset.canton.topology.{SequencerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
@@ -16,7 +16,7 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Promise}
 import scala.util.{Failure, Success}
 
-final class GrpcClientEndpoint(
+final class GrpcClientHandle(
     server: P2PEndpoint,
     sequencerIdPromise: Promise[SequencerId],
     cleanupClientConnectionToServer: P2PEndpoint => Unit,
@@ -72,6 +72,6 @@ final class GrpcClientEndpoint(
   }
 }
 
-object GrpcClientEndpoint {
+object GrpcClientHandle {
   private val AuthenticationTimeout: FiniteDuration = 5.seconds
 }

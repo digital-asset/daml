@@ -92,6 +92,11 @@ trait CryptoPublicStore extends AutoCloseable { this: NamedLogging =>
   def signingKey(signingKeyId: Fingerprint)(implicit
       traceContext: TraceContext
   ): OptionT[FutureUnlessShutdown, SigningPublicKey] =
+    signingKeyWithName(signingKeyId).map(_.publicKey)
+
+  def signingKeyWithName(signingKeyId: Fingerprint)(implicit
+      traceContext: TraceContext
+  ): OptionT[FutureUnlessShutdown, SigningPublicKeyWithName] =
     retrieveKeyAndUpdateCache(signingKeyMap, readSigningKey(_))(signingKeyId)
 
   protected def readSigningKey(signingKeyId: Fingerprint)(implicit
@@ -113,6 +118,11 @@ trait CryptoPublicStore extends AutoCloseable { this: NamedLogging =>
   def encryptionKey(encryptionKeyId: Fingerprint)(implicit
       traceContext: TraceContext
   ): OptionT[FutureUnlessShutdown, EncryptionPublicKey] =
+    encryptionKeyWithName(encryptionKeyId).map(_.publicKey)
+
+  def encryptionKeyWithName(encryptionKeyId: Fingerprint)(implicit
+      traceContext: TraceContext
+  ): OptionT[FutureUnlessShutdown, EncryptionPublicKeyWithName] =
     retrieveKeyAndUpdateCache(encryptionKeyMap, readEncryptionKey(_))(encryptionKeyId)
 
   protected def readEncryptionKey(encryptionKeyId: Fingerprint)(implicit
@@ -147,13 +157,13 @@ trait CryptoPublicStore extends AutoCloseable { this: NamedLogging =>
   private def retrieveKeyAndUpdateCache[KN <: PublicKeyWithName](
       cache: TrieMap[Fingerprint, KN],
       readKey: Fingerprint => OptionT[FutureUnlessShutdown, KN],
-  )(keyId: Fingerprint): OptionT[FutureUnlessShutdown, KN#PK] =
+  )(keyId: Fingerprint): OptionT[FutureUnlessShutdown, KN] =
     cache.get(keyId) match {
-      case Some(key) => OptionT.some(key.publicKey)
+      case Some(key) => OptionT.some(key)
       case None =>
         readKey(keyId).map { key =>
           cache.putIfAbsent(keyId, key).discard
-          key.publicKey
+          key
         }
     }
 

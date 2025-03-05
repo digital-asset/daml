@@ -417,8 +417,6 @@ trait ProcessingSteps[
     *
     * @param ts
     *   The timestamp of the request
-    * @param rc
-    *   The [[com.digitalasset.canton.RequestCounter]] of the request
     * @param sc
     *   The [[com.digitalasset.canton.SequencerCounter]] of the request
     * @param submitterMetadata
@@ -437,7 +435,6 @@ trait ProcessingSteps[
     */
   def eventAndSubmissionIdForRejectedCommand(
       ts: CantonTimestamp,
-      rc: RequestCounter,
       sc: SequencerCounter,
       submitterMetadata: ViewSubmitterMetadata,
       rootHash: RootHash,

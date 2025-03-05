@@ -1,10 +1,9 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders
+package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
 import com.digitalasset.canton.topology.SequencerId
@@ -90,7 +89,7 @@ class SimpleLeaderSelectionPolicyTest extends AsyncWordSpec with BaseTest {
         }
         val selectedLeaders = SimpleLeaderSelectionPolicy.selectLeaders(peers)
         val rotatedLeaders =
-          SimpleLeaderSelectionPolicy.rotateLeaders(selectedLeaders, EpochNumber(epochNumber))
+          LeaderSelectionPolicy.rotateLeaders(selectedLeaders, EpochNumber(epochNumber))
 
         rotatedLeaders should contain theSameElementsInOrderAs expectedRotatedLeaders
       }

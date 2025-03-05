@@ -421,7 +421,7 @@ class ParticipantTab(
         MetaInfo(Seq(), "", "")
       } else {
         val currentDars =
-          participant.dars.list().map(x => DarData(x.main, x.name, x.version))
+          participant.dars.list().map(x => DarData(x.mainPackageId, x.name, x.version))
         val hosted = participant.parties
           .hosted()
           .map(_.party.identifier.unwrap)

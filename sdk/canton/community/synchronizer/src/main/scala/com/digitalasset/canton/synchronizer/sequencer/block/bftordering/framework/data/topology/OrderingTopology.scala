@@ -31,6 +31,8 @@ final case class OrderingTopology(
 
   lazy val peers: Set[SequencerId] = peersActiveAt.keySet
 
+  lazy val sortedPeers: Seq[SequencerId] = peers.toList.sorted
+
   lazy val weakQuorum: Int = weakQuorumSize(peers.size)
 
   lazy val strongQuorum: Int = strongQuorumSize(peers.size)

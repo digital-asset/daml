@@ -72,7 +72,7 @@ object CryptoProvider {
   ): Hash =
     Hash
       .build(hashPurpose, Sha256)
-      .add(from.toString)
+      .add(from.toProtoPrimitive)
       .add(messageT.getCryptographicEvidence)
       .finish()
 }

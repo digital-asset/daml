@@ -43,7 +43,7 @@ import org.scalatest.wordspec.AnyWordSpec
 class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTest {
   private val myId = fakeSequencerId("self")
   private val otherId = fakeSequencerId("otherId")
-  private val membership = Membership(myId, Set(otherId))
+  private val membership = Membership.forTesting(myId, Set(otherId))
   private val epochNumber = EpochNumber(0L)
   private val blockNumbers = NonEmpty(Seq, 1L, 3L, 5L).map(BlockNumber(_))
   private val wrongHash = Hash.digest(
@@ -192,7 +192,8 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
     }
 
     "successfully validate message with good certificates" in {
-      val validator = new ViewChangeMessageValidator(Membership(myId), blockNumbers)
+      val validator =
+        new ViewChangeMessageValidator(Membership.forTesting(myId), blockNumbers)
 
       val pp1 = prePrepare(epochNumber, 1L, view0)
       val pp3 = prePrepare(epochNumber, 3L, view0)
@@ -533,7 +534,8 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
     }
 
     "successfully validate new-view with correctly picked pre-prepares from certificates" in {
-      val validator = new ViewChangeMessageValidator(Membership(myId), blockNumbers)
+      val validator =
+        new ViewChangeMessageValidator(Membership.forTesting(myId), blockNumbers)
 
       val pp1 = prePrepare(epochNumber, 1L, view0)
       val pp3 = prePrepare(epochNumber, 3L, view0)
@@ -556,7 +558,7 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
   }
 
   "error when pre-prepares don't match the ones from the certificates" in {
-    val validator = new ViewChangeMessageValidator(Membership(myId), blockNumbers)
+    val validator = new ViewChangeMessageValidator(Membership.forTesting(myId), blockNumbers)
 
     val pp1 = prePrepare(epochNumber, 1L, view0)
     val pp3 = prePrepare(epochNumber, 3L, view0)
@@ -584,7 +586,7 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
   }
 
   "error when bottom pre-prepares don't match expectations of what they should look like" in {
-    val validator = new ViewChangeMessageValidator(Membership(myId), blockNumbers)
+    val validator = new ViewChangeMessageValidator(Membership.forTesting(myId), blockNumbers)
 
     val newView = newViewMessage(
       view1,
@@ -597,8 +599,15 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
           epochNumber,
           3L,
           view1,
-          block =
-            OrderingBlock(Seq(ProofOfAvailability(BatchId.createForTesting("hash"), Seq.empty))),
+          block = OrderingBlock(
+            Seq(
+              ProofOfAvailability(
+                BatchId.createForTesting("hash"),
+                Seq.empty,
+                CantonTimestamp.MaxValue,
+              )
+            )
+          ),
         ),
         prePrepare(epochNumber, 5L, view1),
       ),

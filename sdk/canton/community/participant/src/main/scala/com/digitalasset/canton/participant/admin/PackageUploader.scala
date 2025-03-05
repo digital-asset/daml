@@ -22,7 +22,7 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.participant.admin.PackageService.{
   Dar,
   DarDescription,
-  DarId,
+  DarMainPackageId,
   catchUpstreamErrors,
 }
 import com.digitalasset.canton.participant.store.PackageInfo
@@ -75,7 +75,9 @@ class PackageUploader(
   def validateDar(
       payload: ByteString,
       darName: String,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, DarId] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, DamlError, DarMainPackageId] =
     performUnlessClosingEitherUSF("validate DAR") {
       val stream = new ZipInputStream(payload.newInput())
       for {
@@ -86,7 +88,7 @@ class PackageUploader(
           catchUpstreamErrors(Decode.decodeArchive(archive))
         )
         _ <- validatePackages(mainPackage :: dependencies)
-      } yield DarId.tryCreate(mainPackage._1)
+      } yield DarMainPackageId.tryCreate(mainPackage._1)
     }
 
   /** Uploads dar into dar store
@@ -152,7 +154,9 @@ class PackageUploader(
       dependencies: List[(DamlLf.Archive, (LfPackageId, Ast.Package))],
       description: Option[String255],
       submissionId: LedgerSubmissionId,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, DarId] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, DamlError, DarMainPackageId] = {
     val allPackages = mainPackage +: dependencies
     def persist(
         dar: Dar,
@@ -176,9 +180,9 @@ class PackageUploader(
       } yield ()
 
     val uploadTime = clock.monotonicTime()
-    val darId = DarId.tryCreate(mainPackage._2._1)
+    val mainPackageId = DarMainPackageId.tryCreate(mainPackage._2._1)
     val persistedDescription =
-      description.getOrElse(String255.tryCreate(s"DAR_$darId"))
+      description.getOrElse(String255.tryCreate(s"DAR_$mainPackageId"))
 
     def parseMetadata(
         pkg: (DamlLf.Archive, (LfPackageId, Ast.Package))
@@ -196,7 +200,7 @@ class PackageUploader(
       mainInfo <- EitherT.fromEither[FutureUnlessShutdown](parseMetadata(mainPackage))
       darDescriptor =
         Dar(
-          DarDescription(darId, persistedDescription, mainInfo.name, mainInfo.version),
+          DarDescription(mainPackageId, persistedDescription, mainInfo.name, mainInfo.version),
           darPayload.toByteArray,
         )
       _ <- validatePackages(allPackages.map(_._2))
@@ -206,7 +210,7 @@ class PackageUploader(
       _ <- EitherT.right[DamlError](
         handleUploadResult(persist(darDescriptor, toUpload, uploadTime), submissionId)
       )
-    } yield darId
+    } yield mainPackageId
   }
 
   private def handleUploadResult(

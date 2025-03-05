@@ -17,7 +17,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   EpochStore,
   Genesis,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.{
   EpochMetricsAccumulator,
   IssSegmentModule,
@@ -107,6 +106,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
     BlockNumber(10L),
     DefaultEpochLength,
     Genesis.GenesisTopologyActivationTime,
+    Genesis.GenesisPreviousEpochMaxBftTime,
   )
   private val block9Commits1Node = Seq(
     Commit
@@ -1726,19 +1726,21 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
       epochStore: EpochStore[E] = new InMemoryUnitTestEpochStore[E](),
       epochInProgress: EpochStore.EpochInProgress = EpochStore.EpochInProgress(),
   )(
-      epochInfo: EpochInfo =
-        GenesisEpoch.info.next(epochLength, Genesis.GenesisTopologyActivationTime)
+      epochInfo: EpochInfo = GenesisEpoch.info.next(
+        epochLength,
+        Genesis.GenesisTopologyActivationTime,
+        Genesis.GenesisPreviousEpochMaxBftTime,
+      )
   ): IssSegmentModule[E] = {
     implicit val metricsContext: MetricsContext = MetricsContext.Empty
     implicit val config: BftBlockOrderer.Config = BftBlockOrderer.Config()
 
     val epoch = {
-      val membership = Membership(selfId, otherPeers = otherPeers)
+      val membership = Membership.forTesting(selfId, otherPeers = otherPeers)
       Epoch(
         epochInfo,
         currentMembership = membership,
         previousMembership = membership,
-        SimpleLeaderSelectionPolicy,
       )
     }
     val segmentState = {
@@ -1789,10 +1791,22 @@ private object IssSegmentModuleTest {
   private val fullTopology = OrderingTopology(allPeers.toSet)
   private val aBatchId = BatchId.createForTesting("A batch id")
   private val oneRequestOrderingBlock1Ack = OrderingBlock(
-    Seq(ProofOfAvailability(aBatchId, Seq(AvailabilityAck(selfId, Signature.noSignature))))
+    Seq(
+      ProofOfAvailability(
+        aBatchId,
+        Seq(AvailabilityAck(selfId, Signature.noSignature)),
+        CantonTimestamp.MaxValue,
+      )
+    )
   )
   private val oneRequestOrderingBlock3Ack = OrderingBlock(
-    Seq(ProofOfAvailability(aBatchId, otherPeers.map(AvailabilityAck(_, Signature.noSignature))))
+    Seq(
+      ProofOfAvailability(
+        aBatchId,
+        otherPeers.map(AvailabilityAck(_, Signature.noSignature)),
+        CantonTimestamp.MaxValue,
+      )
+    )
   )
 
   def prepareFromPrePrepare(prePrepare: PrePrepare)(

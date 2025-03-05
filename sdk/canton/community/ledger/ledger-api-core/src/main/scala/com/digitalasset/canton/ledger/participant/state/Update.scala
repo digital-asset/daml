@@ -13,7 +13,7 @@ import com.digitalasset.canton.protocol.LfHash
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
 import com.digitalasset.canton.util.ErrorUtil
-import com.digitalasset.canton.{RequestCounter, SequencerCounter, data}
+import com.digitalasset.canton.{RepairCounter, SequencerCounter, data}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.engine.Blinding
@@ -72,46 +72,46 @@ sealed trait SynchronizerUpdate extends Update {
   * ahead.
   */
 sealed trait SynchronizerIndexUpdate extends SynchronizerUpdate {
-  def requestCounterO: Option[RequestCounter]
+  def repairCounterO: Option[RepairCounter]
 
   def sequencerCounterO: Option[SequencerCounter]
 
-  final def requestIndexO: Option[RequestIndex] =
-    requestCounterO.map(RequestIndex(_, sequencerCounterO, recordTime))
+  private final def repairIndexO: Option[RepairIndex] =
+    repairCounterO.map(RepairIndex(recordTime, _))
 
-  final def sequencerIndexO: Option[SequencerIndex] =
+  private final def sequencerIndexO: Option[SequencerIndex] =
     sequencerCounterO.map(SequencerIndex(_, recordTime))
 
   final def synchronizerIndex: (SynchronizerId, SynchronizerIndex) =
-    synchronizerId -> SynchronizerIndex(requestIndexO, sequencerIndexO, recordTime)
+    synchronizerId -> SynchronizerIndex(repairIndexO, sequencerIndexO, recordTime)
 }
 
 sealed trait SequencedUpdate extends SynchronizerIndexUpdate {
   def sequencerCounter: SequencerCounter
 
   final override def sequencerCounterO: Option[SequencerCounter] = Some(sequencerCounter)
-}
 
-sealed trait RequestUpdate extends SynchronizerIndexUpdate {
-  def requestCounter: RequestCounter
-
-  final override def requestCounterO: Option[RequestCounter] = Some(requestCounter)
+  final override def repairCounterO: Option[RepairCounter] = None
 }
 
 sealed trait FloatingUpdate extends SynchronizerIndexUpdate {
 
-  final override def requestCounterO: Option[RequestCounter] = None
-
   final override def sequencerCounterO: Option[SequencerCounter] = None
+
+  final override def repairCounterO: Option[RepairCounter] = None
 }
 
-sealed trait RepairUpdate extends RequestUpdate {
+sealed trait RepairUpdate extends SynchronizerIndexUpdate {
+  def repairCounter: RepairCounter
+
+  final override def repairCounterO: Option[RepairCounter] = Some(repairCounter)
+
   final override def sequencerCounterO: Option[SequencerCounter] = None
 }
 
 trait LapiCommitSet
 
-sealed trait CommitSetUpdate extends RequestUpdate with SequencedUpdate {
+sealed trait CommitSetUpdate extends SequencedUpdate {
   protected def commitSetO: Option[LapiCommitSet]
 
   /** Expected to be set already when accessed
@@ -243,7 +243,7 @@ object Update {
 
   /** Signal the acceptance of a transaction.
     */
-  trait TransactionAccepted extends RequestUpdate {
+  trait TransactionAccepted extends SynchronizerIndexUpdate {
 
     /** The information provided by the submitter of the command that created this transaction. It
       * must be provided if this participant hosts one of the [[SubmitterInfo.actAs]] parties and
@@ -315,7 +315,6 @@ object Update {
       updateId: data.UpdateId,
       contractMetadata: Map[Value.ContractId, Bytes],
       synchronizerId: SynchronizerId,
-      requestCounter: RequestCounter,
       sequencerCounter: SequencerCounter,
       recordTime: CantonTimestamp,
       commitSetO: Option[LapiCommitSet] = None,
@@ -333,7 +332,7 @@ object Update {
       updateId: data.UpdateId,
       contractMetadata: Map[Value.ContractId, Bytes],
       synchronizerId: SynchronizerId,
-      requestCounter: RequestCounter,
+      repairCounter: RepairCounter,
       recordTime: CantonTimestamp,
   )(implicit override val traceContext: TraceContext)
       extends TransactionAccepted
@@ -342,7 +341,7 @@ object Update {
     override def completionInfoO: Option[CompletionInfo] = None
   }
 
-  trait ReassignmentAccepted extends RequestUpdate {
+  trait ReassignmentAccepted extends SynchronizerIndexUpdate {
 
     /** The information provided by the submitter of the command that created this reassignment. It
       * must be provided if this participant hosts the submitter and shall output a completion event
@@ -389,7 +388,6 @@ object Update {
       updateId: data.UpdateId,
       reassignmentInfo: ReassignmentInfo,
       reassignment: Reassignment,
-      requestCounter: RequestCounter,
       sequencerCounter: SequencerCounter,
       recordTime: CantonTimestamp,
       commitSetO: Option[LapiCommitSet] = None,
@@ -406,7 +404,7 @@ object Update {
       updateId: data.UpdateId,
       reassignmentInfo: ReassignmentInfo,
       reassignment: Reassignment,
-      requestCounter: RequestCounter,
+      repairCounter: RepairCounter,
       recordTime: CantonTimestamp,
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
@@ -459,13 +457,11 @@ object Update {
       completionInfo: CompletionInfo,
       reasonTemplate: RejectionReasonTemplate,
       synchronizerId: SynchronizerId,
-      requestCounter: RequestCounter,
       sequencerCounter: SequencerCounter,
       recordTime: CantonTimestamp,
   )(implicit override val traceContext: TraceContext)
       extends CommandRejected
       with SequencedUpdate
-      with RequestUpdate
 
   final case class UnSequencedCommandRejected(
       completionInfo: CompletionInfo,
@@ -536,7 +532,6 @@ object Update {
       synchronizerId: SynchronizerId,
       sequencerCounter: SequencerCounter,
       recordTime: CantonTimestamp,
-      requestCounterO: Option[RequestCounter],
   )(implicit override val traceContext: TraceContext)
       extends SequencedUpdate {
     override protected def pretty: Pretty[SequencerIndexMoved] =
@@ -544,7 +539,6 @@ object Update {
         param("synchronizerId", _.synchronizerId.uid),
         param("sequencerCounter", _.sequencerCounter),
         param("sequencerTimestamp", _.recordTime),
-        paramIfDefined("requestCounter", _.requestCounterO),
       )
   }
 

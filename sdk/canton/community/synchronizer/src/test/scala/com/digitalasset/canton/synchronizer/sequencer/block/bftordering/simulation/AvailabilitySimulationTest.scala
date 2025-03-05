@@ -302,7 +302,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
     val peerSequencerIds = config.initialNetwork.toList
       .flatMap(_.peerEndpoints.map(P2PEndpoint.fromEndpointConfig))
       .map(SimulationP2PNetworkManager.fakeSequencerId)
-    val membership = Membership(selfPeer, peerSequencerIds.toSet)
+    val membership = Membership.forTesting(selfPeer, peerSequencerIds.toSet)
     val availabilityStore = store(simulationModel.availabilityStorage)
     val availabilityConfig = AvailabilityModuleConfig(
       config.maxRequestsInBatch,

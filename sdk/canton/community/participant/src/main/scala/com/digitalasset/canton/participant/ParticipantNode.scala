@@ -341,7 +341,7 @@ class ParticipantNodeBootstrap(
           // TODO(#22362): Enable correct config
           // parameters.sessionSigningKeys
           SessionSigningKeysConfig.disabled,
-          parameters.batchingConfig.parallelism.unwrap,
+          parameters.batchingConfig.parallelism,
           timeouts,
           futureSupervisor,
           loggerFactory,

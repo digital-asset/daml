@@ -48,7 +48,7 @@ abstract class UseReferenceBlockSequencerBase[
   }
 
   protected def driverConfigs(
-      config: EnvT#Config,
+      config: CantonConfig,
       storageConfigs: Map[InstanceName, StorageConfigT],
   ): Map[InstanceName, SequencerConfigT]
 }

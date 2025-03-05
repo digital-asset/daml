@@ -115,15 +115,15 @@ private[console] object ParticipantCommands {
             )
         )
         .flatMap {
-          case Seq(darId) =>
-            CommandSuccessful(darId)
+          case Seq(mainPackageId) =>
+            CommandSuccessful(mainPackageId)
           case Seq() =>
             GenericCommandError(
-              "Uploading the DAR unexpectedly did not return a DAR ID"
+              "Uploading the DAR unexpectedly did not return a DAR main package ID"
             )
           case many =>
             GenericCommandError(
-              s"Uploading the DAR unexpectedly returned multiple DAR IDs: $many"
+              s"Uploading the DAR unexpectedly returned multiple DAR main package IDs: $many"
             )
         }
 
@@ -1459,9 +1459,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |If synchronizeVetting is true (default), then the command will block until the participant has observed the vetting transactions to be registered with the synchronizer.
         |"""
     )
-    def remove(darId: String, synchronizeVetting: Boolean = true): Unit = {
+    def remove(mainPackageId: String, synchronizeVetting: Boolean = true): Unit = {
       check(FeatureFlag.Preview)(consoleEnvironment.run {
-        adminCommand(ParticipantAdminCommands.Package.RemoveDar(darId))
+        adminCommand(ParticipantAdminCommands.Package.RemoveDar(mainPackageId))
       })
       if (synchronizeVetting) {
         packages.synchronize_vetting()
@@ -1487,9 +1487,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         .filter(_.description.startsWith(filterDescription))
 
     @Help.Summary("List contents of DAR files")
-    def get_contents(darId: String): DarContents = consoleEnvironment.run {
+    def get_contents(mainPackageId: String): DarContents = consoleEnvironment.run {
       adminCommand(
-        ParticipantAdminCommands.Package.GetDarContents(darId)
+        ParticipantAdminCommands.Package.GetDarContents(mainPackageId)
       )
     }
 
@@ -1525,7 +1525,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     ): String = {
       val res = consoleEnvironment.runE {
         for {
-          darId <- ParticipantCommands.dars
+          mainPackageId <- ParticipantCommands.dars
             .upload(
               runner,
               path = path,
@@ -1537,7 +1537,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
               logger,
             )
             .toEither
-        } yield darId
+        } yield mainPackageId
       }
       if (synchronizeVetting && vetAllPackages) {
         packages.synchronize_vetting()
@@ -1575,7 +1575,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     ): Seq[String] = {
       val res = consoleEnvironment.runE {
         for {
-          darId <- ParticipantCommands.dars
+          mainPackageId <- ParticipantCommands.dars
             .upload_many(
               runner,
               paths,
@@ -1585,7 +1585,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
               logger,
             )
             .toEither
-        } yield darId
+        } yield mainPackageId
       }
       if (synchronizeVetting && vetAllPackages) {
         packages.synchronize_vetting()
@@ -1607,11 +1607,11 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         } yield hash
       }
 
-    @Help.Summary("Downloads the DAR file with the given hash to the given directory")
-    def download(darId: String, directory: String): Unit = {
+    @Help.Summary("Downloads the DAR file with the provided main package-id to the given directory")
+    def download(mainPackageId: String, directory: String): Unit = {
       val _ = consoleEnvironment.run {
         adminCommand(
-          ParticipantAdminCommands.Package.GetDar(darId, directory, logger)
+          ParticipantAdminCommands.Package.GetDar(mainPackageId, directory, logger)
         )
       }
     }
@@ -1620,23 +1620,23 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     @Help.Group("Vetting")
     object vetting extends Helpful {
       @Help.Summary(
-        "Vet all packages contained in the DAR archive identified by the provided DAR hash."
+        "Vet all packages contained in the DAR archive identified by the provided main package-id."
       )
-      def enable(darId: String, synchronize: Boolean = true): Unit =
+      def enable(mainPackageId: String, synchronize: Boolean = true): Unit =
         check(FeatureFlag.Preview)(consoleEnvironment.run {
-          adminCommand(ParticipantAdminCommands.Package.VetDar(darId, synchronize))
+          adminCommand(ParticipantAdminCommands.Package.VetDar(mainPackageId, synchronize))
         })
 
       @Help.Summary(
-        "Revoke vetting for all packages contained in the DAR archive identified by the provided DAR hash."
+        "Revoke vetting for all packages contained in the DAR archive identified by the provided main package-id."
       )
       @Help.Description("""This command succeeds if the vetting command used to vet the DAR's packages
           |was symmetric and resulted in a single vetting topology transaction for all the packages in the DAR.
           |This command is potentially dangerous and misuse
           |can lead the participant to fail in processing transactions""")
-      def disable(darId: String): Unit =
+      def disable(mainPackageId: String): Unit =
         check(FeatureFlag.Preview)(consoleEnvironment.run {
-          adminCommand(ParticipantAdminCommands.Package.UnvetDar(darId))
+          adminCommand(ParticipantAdminCommands.Package.UnvetDar(mainPackageId))
         })
     }
 

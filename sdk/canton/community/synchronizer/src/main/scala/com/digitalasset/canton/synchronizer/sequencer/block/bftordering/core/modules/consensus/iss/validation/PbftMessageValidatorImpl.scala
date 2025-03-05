@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation
 
+import cats.syntax.traverse.*
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
@@ -77,6 +78,13 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
 
       for {
         _ <- Either.cond(
+          poa.expirationTime > epoch.info.previousEpochMaxBftTime,
+          (), {
+            emitNonComplianceMetrics(prePrepare)
+            s"PrePrepare for block ${prePrepare.blockMetadata} has expired proof of availability at ${poa.expirationTime}, (current time is ${epoch.info.previousEpochMaxBftTime})"
+          },
+        )
+        _ <- Either.cond(
           fromSequencers.sizeIs == fromSequencers.distinct.size,
           (), {
             emitNonComplianceMetrics(prePrepare)
@@ -120,7 +128,7 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
         senderIds.distinct.sizeIs == canonicalCommitSet.size,
         (), {
           emitNonComplianceMetrics(prePrepare)
-          s"Canonical commits contain duplicate senders: $senderIds"
+          s"Canonical commits for block ${prePrepare.blockMetadata} contain duplicate senders: $senderIds"
         },
       )
 
@@ -207,7 +215,8 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
       .map { canonicalCommitSetEpoch =>
         val previousEpochNumber = epochNumber - 1
         val messagePrefix =
-          s"Canonical commit set has size ${canonicalCommitSet.size} which is below the strong quorum of"
+          s"Canonical commit set for block ${prePrepare.blockMetadata} has size ${canonicalCommitSet.size} " +
+            "which is below the strong quorum of"
         if (canonicalCommitSetEpoch == epochNumber) {
           val topology = epoch.currentMembership.orderingTopology
           Either.cond(
@@ -252,11 +261,6 @@ object PbftMessageValidatorImpl {
 
   private def forallEither[X](
       xs: Seq[X]
-  )(predicate: X => Either[String, Unit]): Either[String, Unit] = {
-    val (errors, _) = xs.view.map(predicate).partitionMap(identity)
-    errors.headOption match {
-      case Some(error) => Left(error)
-      case None => Right(())
-    }
-  }
+  )(predicate: X => Either[String, Unit]): Either[String, Unit] =
+    xs.traverse(predicate).map(_ => ())
 }

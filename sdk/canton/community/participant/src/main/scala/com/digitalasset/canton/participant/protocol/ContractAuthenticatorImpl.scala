@@ -80,7 +80,7 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
         .leftMap(_.toString)
       _ <- authenticate(
         contract.contractId,
-        Some(driverMetadata.salt),
+        driverMetadata.salt,
         LedgerCreateTime(createTime),
         metadata,
         contractInstance,
@@ -111,7 +111,7 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
 
   def authenticate(
       contractId: LfContractId,
-      contractSalt: Option[Salt],
+      contractSalt: Salt,
       ledgerTime: LedgerCreateTime,
       metadata: ContractMetadata,
       rawContractInstance: SerializableRawContractInstance,
@@ -121,12 +121,9 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
     optContractIdVersion match {
       case Right(contractIdVersion) =>
         for {
-          salt <- contractSalt.toRight(
-            s"Contract salt missing in serializable contract with authenticating contract id ($contractId)"
-          )
           recomputedUnicum <- unicumGenerator
             .recomputeUnicum(
-              contractSalt = salt,
+              contractSalt = contractSalt,
               ledgerCreateTime = ledgerTime,
               metadata = metadata,
               suffixedContractInstance = rawContractInstance,

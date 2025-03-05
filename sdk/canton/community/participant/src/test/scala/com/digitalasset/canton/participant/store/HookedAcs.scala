@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.store
 
+import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
@@ -21,7 +22,6 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{CheckedT, ReassignmentTag}
-import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import java.util.concurrent.atomic.AtomicReference
@@ -148,28 +148,23 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   ): FutureUnlessShutdown[Map[LfContractId, StateChange[ActiveContractStore.Status]]] =
     acs.fetchStatesForInvariantChecking(ids)
 
-  override def snapshot(timestamp: CantonTimestamp)(implicit
+  override def snapshot(toc: TimeOfChange)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]] =
-    acs.snapshot(timestamp)
+  ): FutureUnlessShutdown[SortedMap[LfContractId, (TimeOfChange, ReassignmentCounter)]] =
+    acs.snapshot(toc)
 
-  override def snapshot(rc: RequestCounter)(implicit
+  override def contractSnapshot(contractIds: Set[LfContractId], toc: TimeOfChange)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[SortedMap[LfContractId, (RequestCounter, ReassignmentCounter)]] =
-    acs.snapshot(rc)
+  ): FutureUnlessShutdown[Map[LfContractId, TimeOfChange]] =
+    acs.contractSnapshot(contractIds, toc)
 
-  override def contractSnapshot(contractIds: Set[LfContractId], timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[LfContractId, CantonTimestamp]] =
-    acs.contractSnapshot(contractIds, timestamp)
-
-  override def bulkContractsReassignmentCounterSnapshot(
+  override def contractsReassignmentCounterSnapshotBefore(
       contractIds: Set[LfContractId],
-      requestCounter: RequestCounter,
+      timestampExclusive: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[LfContractId, ReassignmentCounter]] =
-    acs.bulkContractsReassignmentCounterSnapshot(contractIds, requestCounter)
+    acs.contractsReassignmentCounterSnapshotBefore(contractIds, timestampExclusive)
 
   override def doPrune(beforeAndIncluding: CantonTimestamp, lastPruning: Option[CantonTimestamp])(
       implicit traceContext: TraceContext
@@ -190,7 +185,7 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   ): FutureUnlessShutdown[Option[PruningStatus]] =
     acs.pruningStatus
 
-  override def deleteSince(criterion: RequestCounter)(implicit
+  override def deleteSince(criterion: TimeOfChange)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     acs.deleteSince(criterion)

@@ -6,7 +6,12 @@ package com.digitalasset.canton.integration
 import better.files.{File, Resource}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
-import com.digitalasset.canton.config.{CantonCommunityConfig, CryptoConfig, TestingConfigInternal}
+import com.digitalasset.canton.config.{
+  CantonConfig,
+  CommunityCantonEdition,
+  CryptoConfig,
+  TestingConfigInternal,
+}
 import com.digitalasset.canton.console.TestConsoleOutput
 import com.digitalasset.canton.environment.{
   CommunityConsoleEnvironment,
@@ -20,11 +25,11 @@ import com.typesafe.config.ConfigFactory
 import monocle.macros.syntax.lens.*
 
 final case class CommunityEnvironmentDefinition(
-    override val baseConfig: CantonCommunityConfig,
+    override val baseConfig: CantonConfig,
     override val testingConfig: TestingConfigInternal,
     override val setups: List[CommunityTestConsoleEnvironment => Unit] = Nil,
     override val teardown: Unit => Unit = _ => (),
-    override val configTransforms: Seq[CantonCommunityConfig => CantonCommunityConfig],
+    override val configTransforms: Seq[CantonConfig => CantonConfig],
 ) extends BaseEnvironmentDefinition[CommunityEnvironment, CommunityTestConsoleEnvironment](
       baseConfig,
       testingConfig,
@@ -39,11 +44,11 @@ final case class CommunityEnvironmentDefinition(
     copy(setups = setups :+ setup)
   def clearConfigTransforms(): CommunityEnvironmentDefinition = copy(configTransforms = Seq())
   def addConfigTransforms(
-      transforms: CantonCommunityConfig => CantonCommunityConfig*
+      transforms: CantonConfig => CantonConfig*
   ): CommunityEnvironmentDefinition =
     transforms.foldLeft(this)((ed, ct) => ed.addConfigTransform(ct))
   def addConfigTransform(
-      transform: CantonCommunityConfig => CantonCommunityConfig
+      transform: CantonConfig => CantonConfig
   ): CommunityEnvironmentDefinition =
     copy(configTransforms = this.configTransforms :+ transform)
 
@@ -58,7 +63,7 @@ final case class CommunityEnvironmentDefinition(
       environment,
       new TestConsoleOutput(loggerFactory),
     ) with TestEnvironment[CommunityEnvironment] {
-      override val actualConfig: CantonCommunityConfig = this.environment.config
+      override val actualConfig: CantonConfig = this.environment.config
     }
 }
 
@@ -75,7 +80,8 @@ object CommunityEnvironmentDefinition {
     * include with fromResource)
     */
   def fromFiles(files: File*): CommunityEnvironmentDefinition = {
-    val config = CantonCommunityConfig.parseAndLoadOrExit(files.map(_.toJava))
+    val config =
+      CantonConfig.parseAndLoadOrExit(files.map(_.toJava), CommunityCantonEdition)
     CommunityEnvironmentDefinition(
       baseConfig = config,
       configTransforms = Seq(),
@@ -92,8 +98,8 @@ object CommunityEnvironmentDefinition {
       configTransforms = Seq(),
     )
 
-  private def loadConfigFromResource(path: String): CantonCommunityConfig = {
+  private def loadConfigFromResource(path: String): CantonConfig = {
     val rawConfig = ConfigFactory.parseString(Resource.getAsString(path))
-    CantonCommunityConfig.loadOrExit(rawConfig)
+    CantonConfig.loadOrExit(rawConfig, CommunityCantonEdition)
   }
 }

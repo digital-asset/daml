@@ -5,6 +5,7 @@ package com.digitalasset.canton.integration
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
+import com.digitalasset.canton.config.CantonConfig
 import com.digitalasset.canton.console.{
   ConsoleEnvironment,
   ConsoleEnvironmentTestHelpers,
@@ -20,7 +21,7 @@ trait TestEnvironment[+E <: Environment]
     with CommonTestAliases[E#Console]
     with ConsoleEnvironment.Implicits {
   this: E#Console =>
-  val actualConfig: E#Config
+  val actualConfig: CantonConfig
 
   implicit val executionContext: ExecutionContextIdlenessExecutorService =
     environment.executionContext

@@ -128,7 +128,7 @@ object ExampleTransactionFactory {
       contractInstance = instance,
       metadata = metadata,
       ledgerTime = ledgerTime,
-      contractSalt = Some(contractSalt.unwrap),
+      contractSalt = contractSalt.unwrap,
     ).value
   }
 
@@ -351,7 +351,7 @@ object ExampleTransactionFactory {
       asSerializableRaw(contractInstance),
       metadata,
       LedgerCreateTime(ledgerTime),
-      Some(salt),
+      salt,
     )
 
   private def serializableFromCreate(

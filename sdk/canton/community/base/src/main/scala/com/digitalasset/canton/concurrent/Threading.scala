@@ -4,6 +4,8 @@
 package com.digitalasset.canton.concurrent
 
 import cats.syntax.either.*
+import com.digitalasset.canton.checked
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.lifecycle.ClosingException
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
@@ -11,9 +13,10 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.typesafe.scalalogging.Logger
 
 import java.util.concurrent.*
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import java.util.function.Predicate
 import scala.concurrent.{ExecutionContextExecutor, blocking}
+import scala.util.chaining.*
 
 /** Factories and utilities for dealing with threading.
   */
@@ -142,8 +145,8 @@ object Threading {
   def newExecutionContext(
       name: String,
       logger: Logger,
-      parallelism: Int,
-      maxExtraThreads: Int = 256,
+      parallelism: PositiveInt,
+      maxExtraThreads: PositiveInt = PositiveInt.tryCreate(256),
       exitOnFatal: Boolean = true,
   ): ExecutionContextIdlenessExecutorService = {
     val reporter = createReporter(name, logger, exitOnFatal)(_)
@@ -159,7 +162,7 @@ object Threading {
       )
     threadFactoryConstructor.setAccessible(true)
     val threadFactory = threadFactoryConstructor
-      .newInstance(Boolean.box(true), Int.box(maxExtraThreads), name, handler)
+      .newInstance(Boolean.box(true), Int.box(maxExtraThreads.value), name, handler)
       .asInstanceOf[ForkJoinPool.ForkJoinWorkerThreadFactory]
 
     val forkJoinPool = createForkJoinPool(parallelism, threadFactory, handler, logger)
@@ -170,11 +173,11 @@ object Threading {
   /** Minimum parallelism of ForkJoinPool. Currently greater than one to work around a bug that
     * prevents creation of new threads to compensate blocking tasks.
     */
-  val minParallelismForForkJoinPool = 3
+  val minParallelismForForkJoinPool: PositiveInt = PositiveInt.tryCreate(3)
 
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
   private def createForkJoinPool(
-      parallelism: Int,
+      parallelism: PositiveInt,
       threadFactory: ForkJoinPool.ForkJoinWorkerThreadFactory,
       handler: Thread.UncaughtExceptionHandler,
       logger: Logger,
@@ -206,16 +209,16 @@ object Threading {
       )
 
       java11ForkJoinPoolConstructor.newInstance(
-        Int.box(tunedParallelism),
+        Int.box(tunedParallelism.unwrap),
         threadFactory,
         handler,
         Boolean.box(true),
-        Int.box(tunedParallelism),
+        Int.box(tunedParallelism.unwrap),
         Int.box(Int.MaxValue),
         //
         // Choosing tunedParallelism here instead of the default of 1.
         // With the default, we would get only 1 running thread in the presence of blocking calls.
-        Int.box(tunedParallelism),
+        Int.box(tunedParallelism.unwrap),
         null,
         Long.box(60),
         TimeUnit.SECONDS,
@@ -227,7 +230,7 @@ object Threading {
             "Using fallback instead, which has been tested less than the default one. " +
             "Do not use this setting in production."
         )
-        new ForkJoinPool(tunedParallelism, threadFactory, handler, true)
+        new ForkJoinPool(tunedParallelism.unwrap, threadFactory, handler, true)
     }
   }
 
@@ -235,7 +238,8 @@ object Threading {
     logger
   )
 
-  private val detectedNumberOfThreads = new AtomicInteger(-1)
+  // None only when detection code was never run
+  private val detectedNumberOfThreads = new AtomicReference[Option[PositiveInt]](None)
 
   /** Detects the number of threads the same way as `scala.concurrent.impl.ExecutionContextImpl`,
     * except that system property values like 'x2' are not supported.
@@ -243,68 +247,70 @@ object Threading {
     * This will run once and cache the results
     */
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  def detectNumberOfThreads(logger: Logger): Int = if (detectedNumberOfThreads.get() > 0)
-    detectedNumberOfThreads.get()
-  else {
-    def getIntProperty(name: String): Option[Int] =
-      for {
-        strProperty <- Option(System.getProperty(name))
-        parsedValue <- Either
-          .catchOnly[NumberFormatException](strProperty.toInt)
-          .leftMap(_ =>
-            logger.warn(
-              show"Unable to parse '-D${strProperty.singleQuoted}' as value of ${name.unquoted}. Ignoring value."
-            )
-          )
-          .toOption
-        value <-
-          if (parsedValue >= 1) Some(parsedValue)
-          else {
-            logger.warn(
-              show"The value $parsedValue of '-D${name.unquoted}' is less than 1. Ignoring value."
-            )
-            None
-          }
-      } yield value
-
-    var numThreads = getIntProperty(numThreadsProp) match {
-      case Some(n) =>
-        logger.info(s"Deriving $n as number of threads from '-D$numThreadsProp'.")
-        n
+  def detectNumberOfThreads(logger: Logger): PositiveInt =
+    detectedNumberOfThreads.get() match {
+      case Some(numberOfThreads) => numberOfThreads
       case None =>
-        val n = sys.runtime.availableProcessors()
-        logger.info(
-          s"Deriving $n as number of threads from 'sys.runtime.availableProcessors()'. " +
-            s"Please use '-D$numThreadsProp' to override."
-        )
-        n
+        def getIntProperty(name: String): Option[PositiveInt] =
+          for {
+            strProperty <- Option(System.getProperty(name))
+            parsedValue <- Either
+              .catchOnly[NumberFormatException](strProperty.toInt)
+              .leftMap(_ =>
+                logger.warn(
+                  show"Unable to parse '-D${strProperty.singleQuoted}' as value of ${name.unquoted}. Ignoring value."
+                )
+              )
+              .toOption
+            value <-
+              if (parsedValue >= 1) Some(PositiveInt.tryCreate(parsedValue))
+              else {
+                logger.warn(
+                  show"The value $parsedValue of '-D${name.unquoted}' is less than 1. Ignoring value."
+                )
+                None
+              }
+          } yield value
+
+        var numThreads = getIntProperty(numThreadsProp) match {
+          case Some(n) =>
+            logger.info(s"Deriving $n as number of threads from '-D$numThreadsProp'.")
+            n
+          case None =>
+            // Guaranteed to be postiive: https://docs.oracle.com/javase/8/docs/api/java/lang/Runtime.html#availableProcessors--
+            PositiveInt.tryCreate(checked(sys.runtime.availableProcessors())).tap { n =>
+              logger.info(
+                s"Deriving $n as number of threads from 'sys.runtime.availableProcessors()'. " +
+                  s"Please use '-D$numThreadsProp' to override."
+              )
+            }
+        }
+
+        getIntProperty(minThreadsProp).foreach { minThreads =>
+          if (numThreads < minThreads) {
+            logger.info(
+              s"Applying '-D$minThreadsProp' to increase number of threads from $numThreads to $minThreads."
+            )
+            numThreads = minThreads
+          }
+        }
+
+        getIntProperty(maxThreadsProp).foreach { maxThreads =>
+          if (numThreads > maxThreads) {
+            logger.info(
+              s"Applying '-D$maxThreadsProp' to decrease number of threads from $numThreads to $maxThreads."
+            )
+            numThreads = maxThreads
+          }
+        }
+        detectedNumberOfThreads.set(Some(numThreads))
+        numThreads
     }
 
-    getIntProperty(minThreadsProp).foreach { minThreads =>
-      if (numThreads < minThreads) {
-        logger.info(
-          s"Applying '-D$minThreadsProp' to increase number of threads from $numThreads to $minThreads."
-        )
-        numThreads = minThreads
-      }
-    }
-
-    getIntProperty(maxThreadsProp).foreach { maxThreads =>
-      if (numThreads > maxThreads) {
-        logger.info(
-          s"Applying '-D$maxThreadsProp' to decrease number of threads from $numThreads to $maxThreads."
-        )
-        numThreads = maxThreads
-      }
-    }
-    detectedNumberOfThreads.set(numThreads)
-    numThreads
-  }
-
-  val numThreadsProp = "scala.concurrent.context.numThreads"
-  val minThreadsProp = "scala.concurrent.context.minThreads"
-  val maxThreadsProp = "scala.concurrent.context.maxThreads"
-  val threadingProps = List(numThreadsProp, minThreadsProp, maxThreadsProp)
+  private val numThreadsProp = "scala.concurrent.context.numThreads"
+  private val minThreadsProp = "scala.concurrent.context.minThreads"
+  private val maxThreadsProp = "scala.concurrent.context.maxThreads"
+  val threadingProps: List[String] = List(numThreadsProp, minThreadsProp, maxThreadsProp)
 
   @SuppressWarnings(Array("com.digitalasset.canton.RequireBlocking"))
   def sleep(millis: Long, nanos: Int = 0): Unit = blocking(Thread.sleep(millis, nanos))
