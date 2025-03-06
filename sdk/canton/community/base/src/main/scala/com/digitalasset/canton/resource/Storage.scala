@@ -505,27 +505,32 @@ object DbStorage {
     implicit val getResultByteStringOption: GetResult[Option[ByteString]] =
       GetResult(r => r.nextBytesOption().map(ByteString.copyFrom))
 
-    implicit val setContractSalt: SetParameter[Option[Salt]] =
+    implicit val setContractSaltOption: SetParameter[Option[Salt]] =
       (c, pp) => pp >> c.map(_.toProtoV30.checkedToByteString)
 
-    implicit val getContractSalt: GetResult[Option[Salt]] =
-      implicitly[GetResult[Option[ByteString]]] andThen {
-        _.map(byteString =>
-          ProtoConverter
-            .parse(
-              // Even though it is versioned, the Salt is considered static
-              // as it's used for authenticating contract ids which are immutable
-              com.digitalasset.canton.crypto.v30.Salt.parseFrom,
-              Salt.fromProtoV30,
-              byteString,
-            )
-            .valueOr(err =>
-              throw new DbDeserializationException(
-                s"Failed to deserialize contract salt: $err"
-              )
-            )
+    implicit val setContractSalt: SetParameter[Salt] =
+      (c, pp) => pp >> c.toProtoV30.checkedToByteString
+
+    private val parseSalt: ByteString => Salt = bytes =>
+      ProtoConverter
+        .parse(
+          // Even though it is versioned, the Salt is considered static
+          // as it's used for authenticating contract ids which are immutable
+          com.digitalasset.canton.crypto.v30.Salt.parseFrom,
+          Salt.fromProtoV30,
+          bytes,
         )
-      }
+        .valueOr(err =>
+          throw new DbDeserializationException(
+            s"Failed to deserialize contract salt: $err"
+          )
+        )
+
+    implicit val getContractSaltOption: GetResult[Option[Salt]] =
+      implicitly[GetResult[Option[ByteString]]] andThen { _.map(parseSalt) }
+
+    implicit val getContractSalt: GetResult[Salt] =
+      implicitly[GetResult[ByteString]] andThen { parseSalt }
 
     object BuilderChain {
 

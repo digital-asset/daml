@@ -39,18 +39,19 @@ object CantonPackageServiceError extends PackageServiceErrorGroup {
   object Fetching extends ErrorGroup {
 
     @Explanation(
-      """The id specified in the request does not match a DAR stored on the participant."""
+      """The id specified in the request does not match the main package-id of a DAR stored on the participant."""
     )
-    @Resolution("""Check the provided DAR ID and re-try the operation.""")
+    @Resolution("""Check the provided package ID and re-try the operation.""")
     object DarNotFound
         extends ErrorCode(
           id = "DAR_NOT_FOUND",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
-      final case class Reject(operation: String, darId: String)(implicit
+      final case class Reject(operation: String, mainPackageId: String)(implicit
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
-            cause = s"$operation operation failed due to non-existent DAR archive $darId"
+            cause =
+              s"$operation operation failed due to non-existent DAR archive with main package-id $mainPackageId"
           )
     }
 

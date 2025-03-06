@@ -5,7 +5,12 @@ package com.digitalasset.canton.integration
 
 import com.digitalasset.canton.CloseableTest
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{DefaultPorts, TestingConfigInternal}
+import com.digitalasset.canton.config.{
+  CantonConfig,
+  CantonEdition,
+  DefaultPorts,
+  TestingConfigInternal,
+}
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.logging.{LogEntry, NamedLogging, SuppressingLogger}
 import com.digitalasset.canton.metrics.{MetricsFactoryType, ScopedInMemoryMetricsFactory}
@@ -23,6 +28,8 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
   this: Suite with HasEnvironmentDefinition[E, TCE] with NamedLogging =>
 
   private lazy val envDef = environmentDefinition
+
+  val edition: CantonEdition
 
   // plugins are registered during construction from a single thread
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
@@ -76,8 +83,8 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
     *   a new test console environment
     */
   protected def manualCreateEnvironment(
-      initialConfig: E#Config = envDef.generateConfig,
-      configTransform: E#Config => E#Config = identity,
+      initialConfig: CantonConfig = envDef.generateConfig,
+      configTransform: CantonConfig => CantonConfig = identity,
       runPlugins: EnvironmentSetupPlugin[E, TCE] => Boolean = _ => true,
       testConfigTransform: TestingConfigInternal => TestingConfigInternal = identity,
   ): TCE = {
@@ -93,7 +100,7 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
 
     // Once all the plugins and config transformation is done apply the defaults
     val finalConfig =
-      configTransform(pluginConfig).withDefaults(new DefaultPorts(), pluginConfig.edition)
+      configTransform(pluginConfig).withDefaults(new DefaultPorts(), edition)
 
     val scopedMetricsFactory = new ScopedInMemoryMetricsFactory
     val environmentFixture =

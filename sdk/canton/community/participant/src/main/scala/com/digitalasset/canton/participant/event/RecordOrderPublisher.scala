@@ -4,7 +4,8 @@
 package com.digitalasset.canton.participant.event
 
 import cats.implicits.catsSyntaxOptionId
-import com.digitalasset.canton.SequencerCounter
+import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.{CantonTimestamp, TaskScheduler, TaskSchedulerMetrics}
@@ -20,6 +21,7 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
+import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
@@ -29,11 +31,11 @@ import scala.util.{Failure, Success}
   * [[RecordOrderPublisher]] for documentation.
   */
 sealed trait PublishesOnlinePartyReplicationEvents {
-  def schedulePublishAddContracts(buildEventAtRecordTime: CantonTimestamp => Update)(implicit
-      traceContext: TraceContext
-  ): Unit
+  def schedulePublishAddContracts(buildEventAtRecordTime: CantonTimestamp => NonEmpty[Seq[Update]])(
+      implicit traceContext: TraceContext
+  ): UnlessShutdown[Unit]
 
-  def publishBufferedEvents()(implicit traceContext: TraceContext): Unit
+  def publishBufferedEvents()(implicit traceContext: TraceContext): UnlessShutdown[Unit]
 }
 
 /** Publishes upstream events and active contract set changes in the order of their record time.
@@ -113,18 +115,22 @@ class RecordOrderPublisher(
     *
     * @param event
     *   The update event to be published.
+    * @param rcO
+    *   The optional request counter for logging as RCs are more human-readable than timestamps.
     */
-  def tick(event: SequencedUpdate)(implicit traceContext: TraceContext): Future[Unit] =
-    ifNotClosedYet {
+  def tick(event: SequencedUpdate, rcO: Option[RequestCounter])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    performUnlessClosingF(functionFullName) {
       if (event.recordTime > initTimestamp) {
-        event.requestCounterO
+        rcO
           .foreach(requestCounter =>
             logger.debug(s"Schedule publication for request counter $requestCounter")
           )
         onlyForTestingRecordAcceptedTransactions(event)
         taskScheduler.scheduleTask(EventPublicationTask(event))
         logger.debug(
-          s"Observing time ${event.recordTime} for sequencer counter ${event.sequencerCounter} for publishing (with event:$event, requestCounterO:${event.requestCounterO})"
+          s"Observing time ${event.recordTime} for sequencer counter ${event.sequencerCounter} for publishing (with event:$event, requestCounterO:$rcO)"
         )
         taskScheduler.addTick(event.sequencerCounter, event.recordTime)
         // this adds backpressure from indexer queue to protocol processing:
@@ -163,8 +169,10 @@ class RecordOrderPublisher(
       timestamp: CantonTimestamp,
       eventFactory: CantonTimestamp => Option[FloatingUpdate],
       onScheduled: () => FutureUnlessShutdown[T], // perform will wait for this to complete
-  )(implicit traceContext: TraceContext): Either[CantonTimestamp, FutureUnlessShutdown[T]] =
-    ifNotClosedYet {
+  )(implicit
+      traceContext: TraceContext
+  ): UnlessShutdown[Either[CantonTimestamp, FutureUnlessShutdown[T]]] =
+    performUnlessClosing(functionFullName) {
       taskScheduler
         .scheduleTaskIfLater(
           desiredTimestamp = timestamp,
@@ -195,12 +203,12 @@ class RecordOrderPublisher(
   def scheduleFloatingEventPublication(
       timestamp: CantonTimestamp,
       eventFactory: CantonTimestamp => Option[FloatingUpdate],
-  )(implicit traceContext: TraceContext): Either[CantonTimestamp, Unit] =
+  )(implicit traceContext: TraceContext): UnlessShutdown[Either[CantonTimestamp, Unit]] =
     scheduleFloatingEventPublication(
       timestamp = timestamp,
       eventFactory = eventFactory,
       onScheduled = () => FutureUnlessShutdown.unit,
-    ).map(_ => ())
+    ).map(_.map(_ => ()))
 
   /** Schedule a floating event immediately: with the synchronizer time of the last published event.
     * @param eventFactory
@@ -214,43 +222,47 @@ class RecordOrderPublisher(
     */
   def scheduleFloatingEventPublicationImmediately(
       eventFactory: CantonTimestamp => Option[FloatingUpdate]
-  )(implicit traceContext: TraceContext): CantonTimestamp = ifNotClosedYet {
-    taskScheduler
-      .scheduleTaskImmediately(
-        taskFactory = immediateTimestamp =>
-          eventFactory(immediateTimestamp) match {
-            case Some(event) =>
-              publishOrBuffer(
-                event,
-                s"floating event immediately with timestamp $immediateTimestamp",
-              )
-            case None =>
-              logger.debug(
-                s"Skip publish-immediately floating event with timestamp $immediateTimestamp: nothing to publish"
-              )
-              FutureUnlessShutdown.unit
-          },
-        taskTraceContext = traceContext,
-      )
-  }
+  )(implicit traceContext: TraceContext): UnlessShutdown[CantonTimestamp] =
+    performUnlessClosing(functionFullName) {
+      taskScheduler
+        .scheduleTaskImmediately(
+          taskFactory = immediateTimestamp =>
+            eventFactory(immediateTimestamp) match {
+              case Some(event) =>
+                publishOrBuffer(
+                  event,
+                  s"floating event immediately with timestamp $immediateTimestamp",
+                )
+              case None =>
+                logger.debug(
+                  s"Skip publish-immediately floating event with timestamp $immediateTimestamp: nothing to publish"
+                )
+                FutureUnlessShutdown.unit
+            },
+          taskTraceContext = traceContext,
+        )
+    }
 
   /** Schedules an empty acs change publication task to be published to the `acsChangeListener`.
     */
   def scheduleEmptyAcsChangePublication(
       sequencerCounter: SequencerCounter,
       timestamp: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Unit = ifNotClosedYet {
-    if (sequencerCounter >= initSc) {
-      scheduleFloatingEventPublication(
-        timestamp = timestamp,
-        eventFactory = EmptyAcsPublicationRequired(synchronizerId, _).some,
-      ).toOption.getOrElse(
-        ErrorUtil.invalidState(
-          "Trying to schedule empty ACS change publication too late: the specified timestamp is already ticked."
+  )(implicit traceContext: TraceContext): UnlessShutdown[Unit] =
+    performUnlessClosing(functionFullName) {
+      if (sequencerCounter >= initSc) {
+        scheduleFloatingEventPublication(
+          timestamp = timestamp,
+          eventFactory = EmptyAcsPublicationRequired(synchronizerId, _).some,
+        ).foreach(
+          _.toOption.getOrElse(
+            ErrorUtil.invalidState(
+              "Trying to schedule empty ACS change publication too late: the specified timestamp is already ticked."
+            )
+          )
         )
-      )
+      }
     }
-  }
 
   /** Schedules the beginning of buffering of Ledger API Indexer event publishing for Online Party
     * Replication.
@@ -260,16 +272,17 @@ class RecordOrderPublisher(
     */
   def scheduleEventBuffering(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Either[CantonTimestamp, Unit] = ifNotClosedYet {
-    taskScheduler
-      .scheduleTaskIfLater(
-        desiredTimestamp = timestamp,
-        taskFactory = _ => {
-          FloatingBufferEventsPublicationTask(timestamp = timestamp)
-        },
-      )
-      .map(_ => ())
-  }
+  )(implicit traceContext: TraceContext): UnlessShutdown[Either[CantonTimestamp, Unit]] =
+    performUnlessClosing(functionFullName) {
+      taskScheduler
+        .scheduleTaskIfLater(
+          desiredTimestamp = timestamp,
+          taskFactory = _ => {
+            FloatingBufferEventsPublicationTask(timestamp = timestamp)
+          },
+        )
+        .map(_ => ())
+    }
 
   /** Schedules publishing of an Online Party Replication ACS chunk as soon as possible.
     *
@@ -277,8 +290,8 @@ class RecordOrderPublisher(
     * [[publishBufferedEvents]] calls.
     */
   def schedulePublishAddContracts(
-      buildEventAtRecordTime: CantonTimestamp => Update
-  )(implicit traceContext: TraceContext): Unit =
+      buildEventAtRecordTime: CantonTimestamp => NonEmpty[Seq[Update]]
+  )(implicit traceContext: TraceContext): UnlessShutdown[Unit] =
     scheduleBufferingEventTaskImmediately { timestamp =>
       logger.debug(s"Publish add contracts at $timestamp")
       ledgerApiIndexerBuffer.get() match {
@@ -287,8 +300,12 @@ class RecordOrderPublisher(
             "Buffering of LedgerApiIndexer events should be started before adding contracts"
           )
         case Some(buffer) =>
-          val event = buffer.markEventWithRecordTime(buildEventAtRecordTime)
-          publishLedgerApiIndexerEvent(event)
+          val events = buffer.markEventsWithRecordTime(buildEventAtRecordTime)
+          MonadUtil
+            .sequentialTraverse_(events) { event =>
+              logger.debug(s"Publishing contract add $event")
+              publishLedgerApiIndexerEvent(event)
+            }
       }
     }
 
@@ -297,7 +314,7 @@ class RecordOrderPublisher(
     *
     * Meant to be called once Online Party Replication has succeeded.
     */
-  def publishBufferedEvents()(implicit traceContext: TraceContext): Unit =
+  def publishBufferedEvents()(implicit traceContext: TraceContext): UnlessShutdown[Unit] =
     scheduleBufferingEventTaskImmediately { timestamp =>
       ledgerApiIndexerBuffer.getAndSet(None) match {
         case None => FutureUnlessShutdown.unit
@@ -316,15 +333,12 @@ class RecordOrderPublisher(
 
   private def scheduleBufferingEventTaskImmediately(
       perform: CantonTimestamp => FutureUnlessShutdown[Unit]
-  )(implicit traceContext: TraceContext): Unit = ifNotClosedYet(
-    taskScheduler
-      .scheduleTaskImmediately(taskFactory = perform, taskTraceContext = traceContext)
-      .discard
-  )
-
-  private def ifNotClosedYet[T](t: => T)(implicit traceContext: TraceContext): T =
-    if (isClosing) ErrorUtil.invalidState("RecordOrderPublisher should not be used after closed")
-    else t
+  )(implicit traceContext: TraceContext): UnlessShutdown[Unit] =
+    performUnlessClosing(functionFullName)(
+      taskScheduler
+        .scheduleTaskImmediately(taskFactory = perform, taskTraceContext = traceContext)
+        .discard
+    )
 
   private sealed trait PublicationTask extends TaskScheduler.TimedTask
 

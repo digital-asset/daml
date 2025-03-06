@@ -9,32 +9,18 @@ import com.daml.jwt.JwtTimestampLeeway
 import com.daml.metrics.api.MetricsContext
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-import com.digitalasset.canton.config.{
-  AuthServiceConfig,
-  BasicKeepAliveServerConfig,
-  CantonConfigValidator,
-  CantonConfigValidatorInstances,
-  ClientConfig,
-  FullClientConfig,
-  KeepAliveClientConfig,
-  PemFileOrString,
-  ProcessingTimeout,
-  QueryCostMonitoringConfig,
-  ServerConfig,
-  StorageConfig,
-  TlsClientConfig,
-  TlsServerConfig,
-  UniformCantonConfigValidation,
-}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.resource.{Storage, StorageSetup}
 import com.digitalasset.canton.sequencer.admin.v30
+import com.digitalasset.canton.sequencer.api.v30.SequencerAuthenticationServiceGrpc
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.block.BlockFormat.{AcknowledgeTag, SendTag}
 import com.digitalasset.canton.synchronizer.block.{
@@ -47,7 +33,6 @@ import com.digitalasset.canton.synchronizer.sequencer.Sequencer.{
   SignedOrderingRequest,
   SignedOrderingRequestOps,
 }
-import com.digitalasset.canton.synchronizer.sequencer.SequencerSnapshot
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.BftOrderingSequencerAdminService
@@ -92,18 +77,19 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.p2p.grpc
   PekkoGrpcP2PNetworking,
 }
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
+import com.digitalasset.canton.synchronizer.sequencer.{AuthenticationServices, SequencerSnapshot}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.{
   BftOrderingServiceGrpc,
   BftOrderingServiceReceiveRequest,
   BftOrderingServiceReceiveResponse,
 }
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{Member, SequencerId}
+import com.digitalasset.canton.topology.{Member, SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
-import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
+import io.grpc.{ServerInterceptors, ServerServiceDefinition}
 import io.netty.handler.ssl.SslContext
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.stream.{KillSwitch, Materializer}
@@ -117,10 +103,14 @@ import scala.util.Random
 final class BftBlockOrderer(
     config: Config,
     sharedLocalStorage: Storage,
+    synchronizerId: SynchronizerId,
     sequencerId: SequencerId,
     protocolVersion: ProtocolVersion,
     clock: Clock,
     orderingTopologyProvider: OrderingTopologyProvider[PekkoEnv],
+    maybeAuthenticationServices: Option[
+      AuthenticationServices
+    ], // Owned and managed by the sequencer runtime, absent in some tests
     nodeParameters: CantonNodeParameters,
     sequencerSubscriptionInitialHeight: Long,
     override val orderingTimeFixMode: OrderingTimeFixMode,
@@ -182,14 +172,33 @@ final class BftBlockOrderer(
       noTracingLogger,
     )
 
-  private val p2pGrpcNetworking =
-    new GrpcNetworking(
-      servers = config.initialNetwork.toList.map { case P2PNetworkConfig(serverEndpoint, _, _) =>
+  private val authenticationServices: Option[AuthenticationServices] =
+    Option
+      .when(config.initialNetwork.exists(_.endpointAuthentication))(maybeAuthenticationServices)
+      .flatten
+
+  private val p2pGrpcNetworking = {
+    val servers =
+      config.initialNetwork.toList.map { case P2PNetworkConfig(serverEndpoint, _, _, _) =>
         createServer(serverEndpoint)
-      },
+      }
+    val maybeGrpcNetworkingAuthenticationInitialState = authenticationServices
+      .map { as =>
+        GrpcNetworking.AuthenticationInitialState(
+          protocolVersion,
+          synchronizerId,
+          sequencerId,
+          as,
+          clock,
+        )
+      }
+    new GrpcNetworking(
+      servers,
+      maybeGrpcNetworkingAuthenticationInitialState,
       timeouts,
       loggerFactory,
     )
+  }
 
   private val localStorage = {
     implicit val traceContext: TraceContext = TraceContext.empty
@@ -331,7 +340,7 @@ final class BftBlockOrderer(
 
   private def createClientNetworkManager() =
     new PekkoGrpcP2PNetworking.PekkoClientP2PNetworkManager(
-      p2pGrpcNetworking.clientRole.getServerEndpointOrStartConnection,
+      p2pGrpcNetworking.clientRole.getServerHandleOrStartConnection,
       p2pGrpcNetworking.clientRole.closeConnection,
       timeouts,
       loggerFactory,
@@ -340,12 +349,12 @@ final class BftBlockOrderer(
   private def tryCreateServerEndpoint(
       clientEndpoint: StreamObserver[BftOrderingServiceReceiveResponse]
   ): StreamObserver[BftOrderingServiceReceiveRequest] = {
-    p2pGrpcNetworking.serverRole.addClientEndpoint(clientEndpoint)
-    PekkoGrpcP2PNetworking.tryCreateServerEndpoint(
+    p2pGrpcNetworking.serverRole.addClientHandle(clientEndpoint)
+    PekkoGrpcP2PNetworking.tryCreateServerHandle(
       sequencerId,
       p2pNetworkInModuleRef,
       clientEndpoint,
-      p2pGrpcNetworking.serverRole.cleanupClientEndpoint,
+      p2pGrpcNetworking.serverRole.cleanupClientHandle,
       loggerFactory,
     )
   }
@@ -356,30 +365,46 @@ final class BftBlockOrderer(
     implicit val traceContext: TraceContext = TraceContext.empty
     performUnlessClosing("start-P2P-server") {
 
-      val activeServer = CantonServerBuilder
-        .forConfig(
-          config = serverConfig,
-          None,
-          executor = p2pServerGrpcExecutor,
-          loggerFactory = loggerFactory,
-          apiLoggingConfig = nodeParameters.loggingConfig.api,
-          tracing = nodeParameters.tracing,
-          grpcMetrics = metrics.grpcMetrics,
-          NoOpTelemetry,
-        )
-        .addService(
-          BftOrderingServiceGrpc.bindService(
-            new GrpcBftOrderingService(
-              tryCreateServerEndpoint,
-              loggerFactory,
-            ),
-            executionContext,
+      import scala.jdk.CollectionConverters.*
+      val activeServerBuilder =
+        CantonServerBuilder
+          .forConfig(
+            config = serverConfig,
+            adminToken = None,
+            executor = p2pServerGrpcExecutor,
+            loggerFactory = loggerFactory,
+            apiLoggingConfig = nodeParameters.loggingConfig.api,
+            tracing = nodeParameters.tracing,
+            grpcMetrics = metrics.grpcMetrics,
+            NoOpTelemetry,
           )
-        )
-        .build
+          .addService(
+            ServerInterceptors.intercept(
+              BftOrderingServiceGrpc.bindService(
+                new GrpcBftOrderingService(
+                  tryCreateServerEndpoint,
+                  loggerFactory,
+                ),
+                executionContext,
+              ),
+              authenticationServices.map(_.authenticationServerInterceptor).toList.asJava,
+            )
+          )
+      // Also offer the authentication service on BFT P2P endpoints, so that the BFT orderers don't have to also know the sequencer API endpoints
+      authenticationServices.fold(logger.info("P2P authentication disabled")) { as =>
+        logger.info("P2P authentication enabled")
+        activeServerBuilder
+          .addService(
+            SequencerAuthenticationServiceGrpc.bindService(
+              as.sequencerAuthenticationService,
+              executionContext,
+            )
+          )
+          .discard
+      }
       logger
         .info(s"successfully bound P2P endpoint ${serverConfig.address}:${serverConfig.port}")
-      LifeCycle.toCloseableServer(activeServer, logger, "P2PServer")
+      LifeCycle.toCloseableServer(activeServerBuilder.build, logger, "P2PServer")
     }
   }
 
@@ -587,6 +612,8 @@ object BftBlockOrderer {
       serverEndpoint: P2PServerConfig,
       peerEndpoints: Seq[P2PEndpointConfig],
       overwriteStoredEndpoints: Boolean = false,
+      // TODO(#20668): implement the server sending authentication credentials and enable authentication by default
+      endpointAuthentication: Boolean = false,
   ) extends UniformCantonConfigValidation
   object P2PNetworkConfig {
     implicit val bftNetworkCanonConfigValidator: CantonConfigValidator[P2PNetworkConfig] =

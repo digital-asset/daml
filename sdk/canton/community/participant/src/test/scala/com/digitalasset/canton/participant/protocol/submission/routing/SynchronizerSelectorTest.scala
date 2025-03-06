@@ -6,6 +6,8 @@ package com.digitalasset.canton.participant.protocol.submission.routing
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.error.TransactionRoutingError
+import com.digitalasset.canton.ledger.participant.state.{RoutingSynchronizerState, SynchronizerRank}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, SuppressingLogger}
 import com.digitalasset.canton.participant.protocol.submission.SynchronizerSelectionFixture.*
@@ -17,11 +19,6 @@ import com.digitalasset.canton.participant.protocol.submission.UsableSynchronize
   UnknownPackage,
   UnsupportedMinimumProtocolVersion,
 }
-import com.digitalasset.canton.participant.sync.TransactionRoutingError
-import com.digitalasset.canton.participant.sync.TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
-import com.digitalasset.canton.participant.sync.TransactionRoutingError.RoutingInternalError.InputContractsOnDifferentSynchronizers
-import com.digitalasset.canton.participant.sync.TransactionRoutingError.TopologyErrors.NoSynchronizerForSubmission
-import com.digitalasset.canton.participant.sync.TransactionRoutingError.UnableToQueryTopologySnapshot
 import com.digitalasset.canton.protocol.{
   LfContractId,
   LfLanguageVersion,
@@ -38,6 +35,11 @@ import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.*
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.{ExecutionContext, Future}
+
+import TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
+import TransactionRoutingError.RoutingInternalError.InputContractsOnDifferentSynchronizers
+import TransactionRoutingError.TopologyErrors.NoSynchronizerForSubmission
+import TransactionRoutingError.UnableToQueryTopologySnapshot
 
 class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   implicit class RichEitherT[A](val e: EitherT[Future, TransactionRoutingError, A]) {

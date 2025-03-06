@@ -7,8 +7,9 @@ import cats.Eval
 import cats.data.OptionT
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.crypto.TestSalt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.{RequestIndex, SynchronizerIndex}
+import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.admin.inspection.AcsInspectionTest.{
   FakeSynchronizerId,
@@ -23,6 +24,7 @@ import com.digitalasset.canton.participant.store.{
   RequestJournalStore,
   SyncPersistentState,
 }
+import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.ContractIdSyntax.orderingLfContractId
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{
@@ -35,14 +37,7 @@ import com.digitalasset.canton.protocol.{
 import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{
-  BaseTest,
-  LfPartyId,
-  LfValue,
-  LfVersioned,
-  ReassignmentCounter,
-  RequestCounter,
-}
+import com.digitalasset.canton.{BaseTest, LfPartyId, LfValue, LfVersioned, ReassignmentCounter}
 import com.digitalasset.daml.lf.data.Ref
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.EitherValues
@@ -148,13 +143,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
   private val FakeSynchronizerId = SynchronizerId.tryFromString(s"acme::${"0" * 68}")
 
   private val MaxSynchronizerIndex: SynchronizerIndex =
-    SynchronizerIndex.of(
-      RequestIndex(
-        counter = RequestCounter(0),
-        sequencerCounter = None,
-        timestamp = CantonTimestamp.MaxValue,
-      )
-    )
+    SynchronizerIndex.of(CantonTimestamp.MaxValue)
 
   private val MockedSerializableRawContractInstance =
     SerializableRawContractInstance
@@ -180,7 +169,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
       MockedSerializableRawContractInstance,
       metadata,
       LedgerCreateTime(CantonTimestamp.Epoch),
-      None,
+      TestSalt.generateSalt(3),
     )
   }
 
@@ -192,10 +181,13 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
 
     val allContractIds = contracts.keys ++ missingContracts
 
-    val snapshot = allContractIds.map(_ -> (CantonTimestamp.Epoch, ReassignmentCounter.Genesis))
+    val snapshot =
+      allContractIds.map(
+        _ -> (TimeOfChange(CantonTimestamp.Epoch), ReassignmentCounter.Genesis)
+      )
 
     val acs = mock[ActiveContractStore]
-    when(acs.snapshot(any[CantonTimestamp])(mockedTraceContext))
+    when(acs.snapshot(any[TimeOfChange])(mockedTraceContext))
       .thenAnswer(FutureUnlessShutdown.pure(SortedMap.from(snapshot)))
 
     val cs = mock[ContractStore]
@@ -246,7 +238,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
         .forEachVisibleActiveContract(
           FakeSynchronizerId,
           parties,
-          timestamp = None,
+          timeOfSnapshotO = None,
         ) { case (contract, _) =>
           builder += contract
           Either.unit

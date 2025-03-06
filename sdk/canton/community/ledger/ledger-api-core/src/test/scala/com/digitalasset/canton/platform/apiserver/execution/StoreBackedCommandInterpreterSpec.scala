@@ -50,7 +50,7 @@ import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.Future
 
-class StoreBackedCommandExecutorSpec
+class StoreBackedCommandInterpreterSpec
     extends AsyncWordSpec
     with MockitoSugar
     with ArgumentMatchersSugar
@@ -171,7 +171,7 @@ class StoreBackedCommandExecutorSpec
   private val submissionSeed = Hash.hashPrivateKey("a key")
 
   private def mkSut(tolerance: NonNegativeFiniteDuration, engine: Engine) =
-    new StoreBackedCommandExecutor(
+    new StoreBackedCommandInterpreter(
       engine = engine,
       participant = Ref.ParticipantId.assertFromString("anId"),
       packageSyncService = mock[SyncService],
@@ -206,7 +206,7 @@ class StoreBackedCommandExecutorSpec
       val sut = mkSut(NonNegativeFiniteDuration.Zero, mockEngine)
 
       sut
-        .execute(commands, submissionSeed)(
+        .interpret(commands, submissionSeed)(
           LoggingContextWithTrace(loggerFactory),
           executionContext,
         )
@@ -230,7 +230,7 @@ class StoreBackedCommandExecutorSpec
       val commands = mkCommands(let)
 
       sut
-        .execute(commands, submissionSeed)(
+        .interpret(commands, submissionSeed)(
           LoggingContextWithTrace(loggerFactory),
           executionContext,
         )
@@ -251,7 +251,7 @@ class StoreBackedCommandExecutorSpec
       val commands = mkCommands(let)
 
       sut
-        .execute(commands, submissionSeed)(
+        .interpret(commands, submissionSeed)(
           LoggingContextWithTrace(loggerFactory),
           executionContext,
         )
@@ -371,7 +371,7 @@ class StoreBackedCommandExecutorSpec
         )
       ).thenReturn(Future.successful(ContractState.Archived))
 
-      val sut = new StoreBackedCommandExecutor(
+      val sut = new StoreBackedCommandInterpreter(
         mockEngine,
         Ref.ParticipantId.assertFromString("anId"),
         mock[SyncService],
@@ -386,7 +386,7 @@ class StoreBackedCommandExecutorSpec
 
       val commandsWithDisclosedContracts = commands
       sut
-        .execute(
+        .interpret(
           commands = commandsWithDisclosedContracts,
           submissionSeed = submissionSeed,
         )(LoggingContextWithTrace(loggerFactory), executionContext)
@@ -459,14 +459,14 @@ class StoreBackedCommandExecutorSpec
 
     "not influence the prescribed synchronizer id if no disclosed contracts are attached" in {
       val result = for {
-        synchronizerId_from_no_prescribed_no_disclosed <- StoreBackedCommandExecutor
+        synchronizerId_from_no_prescribed_no_disclosed <- StoreBackedCommandInterpreter
           .considerDisclosedContractsSynchronizerId(
             prescribedSynchronizerIdO = None,
             disclosedContractsUsedInInterpretation = ImmArray.empty,
             logger,
           )
         synchronizerId_from_prescribed_no_disclosed <-
-          StoreBackedCommandExecutor.considerDisclosedContractsSynchronizerId(
+          StoreBackedCommandInterpreter.considerDisclosedContractsSynchronizerId(
             prescribedSynchronizerIdO = Some(synchronizerId1),
             disclosedContractsUsedInInterpretation = ImmArray.empty,
             logger,
@@ -480,7 +480,7 @@ class StoreBackedCommandExecutorSpec
     }
 
     "use the disclosed contracts synchronizer id" in {
-      StoreBackedCommandExecutor
+      StoreBackedCommandInterpreter
         .considerDisclosedContractsSynchronizerId(
           prescribedSynchronizerIdO = None,
           disclosedContractsUsedInInterpretation = ImmArray(
@@ -496,7 +496,7 @@ class StoreBackedCommandExecutorSpec
     "return an error if synchronizer ids of disclosed contracts mismatch" in {
       def test(prescribedSynchronizerIdO: Option[SynchronizerId]) =
         inside(
-          StoreBackedCommandExecutor
+          StoreBackedCommandInterpreter
             .considerDisclosedContractsSynchronizerId(
               prescribedSynchronizerIdO = prescribedSynchronizerIdO,
               disclosedContractsUsedInInterpretation = ImmArray(
@@ -521,7 +521,7 @@ class StoreBackedCommandExecutorSpec
       val prescribedSynchronizerId = synchronizerId2
 
       inside(
-        StoreBackedCommandExecutor
+        StoreBackedCommandInterpreter
           .considerDisclosedContractsSynchronizerId(
             prescribedSynchronizerIdO = Some(prescribedSynchronizerId),
             disclosedContractsUsedInInterpretation = ImmArray(

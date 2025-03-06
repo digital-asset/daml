@@ -13,7 +13,11 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageService
-import com.digitalasset.canton.participant.admin.PackageService.{Dar, DarDescription, DarId}
+import com.digitalasset.canton.participant.admin.PackageService.{
+  Dar,
+  DarDescription,
+  DarMainPackageId,
+}
 import com.digitalasset.canton.participant.store.db.DbDamlPackageStore
 import com.digitalasset.canton.participant.store.memory.InMemoryDamlPackageStore
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
@@ -85,22 +89,24 @@ trait DamlPackageStore extends AutoCloseable { this: NamedLogging =>
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[PackageDescription]]
 
-  /** Get Dar by ID
-    * @param darId
-    *   The dar-id of the DAR file
+  /** Get DAR by its main package ID
+    * @param mainPackageId
+    *   The main package-id of the DAR archive
     * @return
-    *   Future that will contain an empty option if the DAR with the given DAR ID could not be found
-    *   or an option with the DAR if it could be found.
+    *   Future that will contain an empty option if the DAR with the given package ID could not be
+    *   found or an option with the DAR if it could be found.
     */
-  def getDar(darId: DarId)(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, Dar]
+  def getDar(mainPackageId: DarMainPackageId)(implicit
+      traceContext: TraceContext
+  ): OptionT[FutureUnlessShutdown, Dar]
 
-  /** Get the packages in the DAR by ID
-    * @param darId
-    *   The DAR ID of the DAR file, which is the main package id
+  /** Get the packages in the DAR by its main package ID
+    * @param mainPackageId
+    *   The main package ID of the DAR file
     * @return
     *   The package description of the given dar
     */
-  def getPackageDescriptionsOfDar(darId: DarId)(implicit
+  def getPackageDescriptionsOfDar(mainPackageId: DarMainPackageId)(implicit
       traceContext: TraceContext
   ): OptionT[FutureUnlessShutdown, Seq[PackageDescription]]
 
@@ -109,8 +115,10 @@ trait DamlPackageStore extends AutoCloseable { this: NamedLogging =>
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[DarDescription]]
 
-  /** Remove the DAR with ID from the store */
-  def removeDar(darId: DarId)(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
+  /** Remove the DAR with the main package ID from the store */
+  def removeDar(mainPackageId: DarMainPackageId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit]
 
   /** @return
     *   Future with sequence of DAR descriptors (ID and name)

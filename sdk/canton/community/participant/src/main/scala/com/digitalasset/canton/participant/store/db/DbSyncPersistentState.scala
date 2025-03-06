@@ -184,6 +184,18 @@ class DbSyncPersistentState(
         forceFlags,
         acsInspections = () => Map(indexedSynchronizer.synchronizerId -> acsInspection),
       )
+
+    override def checkInsufficientParticipantPermissionForSignatoryParty(
+        partyId: PartyId,
+        forceFlags: ForceFlags,
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
+      checkInsufficientParticipantPermissionForSignatoryParty(
+        partyId,
+        forceFlags,
+        acsInspections = () => Map(indexedSynchronizer.synchronizerId -> acsInspection),
+      )
   }
 
   override def close(): Unit =

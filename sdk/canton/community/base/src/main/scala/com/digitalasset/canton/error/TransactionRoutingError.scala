@@ -1,14 +1,12 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.participant.sync
+package com.digitalasset.canton.error
 
 import com.daml.error.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.error.*
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.RoutingErrorGroup
-import com.digitalasset.canton.participant.protocol.TransactionProcessor.TransactionSubmissionError
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.SynchronizerId
 
@@ -22,10 +20,10 @@ sealed trait TransactionRoutingErrorWithSynchronizer extends TransactionRoutingE
   */
 object TransactionRoutingError extends RoutingErrorGroup {
 
-  final case class SubmissionError(
+  final case class SubmissionError[PARENT <: TransactionError](
       synchronizerId: SynchronizerId,
-      parent: TransactionSubmissionError,
-  ) extends TransactionParentError[TransactionSubmissionError]
+      parent: PARENT,
+  ) extends TransactionParentError[PARENT]
       with TransactionRoutingError {
 
     override def mixinContext: Map[String, String] = Map(
@@ -72,7 +70,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
             cause = "Trying to submit to a disconnected or not configured synchronizer."
           )
           with TransactionRoutingError
-          with TransactionSubmissionError
+          with TransactionErrorPrettyPrinting
     }
 
     object InvalidPrescribedSynchronizerId

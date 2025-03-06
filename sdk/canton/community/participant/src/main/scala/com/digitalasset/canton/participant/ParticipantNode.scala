@@ -233,6 +233,18 @@ class ParticipantNodeBootstrap(
           () => acsInspectionPerSynchronizer(),
         )
 
+      override def checkInsufficientParticipantPermissionForSignatoryParty(
+          party: PartyId,
+          forceFlags: ForceFlags,
+      )(implicit
+          traceContext: TraceContext
+      ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
+        checkInsufficientParticipantPermissionForSignatoryParty(
+          party,
+          forceFlags,
+          () => acsInspectionPerSynchronizer(),
+        )
+
     }
     topologyManager
   }
@@ -341,7 +353,7 @@ class ParticipantNodeBootstrap(
           // TODO(#22362): Enable correct config
           // parameters.sessionSigningKeys
           SessionSigningKeysConfig.disabled,
-          parameters.batchingConfig.parallelism.unwrap,
+          parameters.batchingConfig.parallelism,
           timeouts,
           futureSupervisor,
           loggerFactory,

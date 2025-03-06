@@ -3,13 +3,16 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
+import cats.data.EitherT
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.ledger.participant.state.SyncService.{
   ConnectedSynchronizerRequest,
   ConnectedSynchronizerResponse,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.protocol.{LfContractId, LfSubmittedTransaction}
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -76,6 +79,45 @@ trait SyncService
     val _ = traceContext
     FutureUnlessShutdown.pure(Vector.empty)
   }
+
+  // temporary implementation, will be removed with the refactoring of the SyncService interface
+  /** Computes the best synchronizer for a submitted transaction by checking the submitted
+    * transaction against the topology of the connected synchronizers and ranking the admissible
+    * ones using the synchronizer ranking (by priority, minimum number of reassignments and
+    * synchronizer-id).
+    *
+    * @param submitterInfo
+    *   The submitter info
+    * @param transaction
+    *   The submitted transaction
+    * @param transactionMeta
+    *   The transaction metadata
+    * @param disclosedContractIds
+    *   The list of disclosed contracts used in command interpretation
+    * @param optSynchronizerId
+    *   If provided, only this synchronizer id is considered as a candidate for routing
+    * @param transactionUsedForExternalSigning
+    *   If true, the topology checks do not required that the submitters of the transaction have
+    *   submission rights on the local participant since they are supposed to externally sign the
+    *   transaction.
+    * @return
+    *   The rank of the routing synchronizer coupled with the synchronizer state that it was
+    *   computed with
+    */
+  def selectRoutingSynchronizer(
+      submitterInfo: SubmitterInfo,
+      transaction: LfSubmittedTransaction,
+      transactionMeta: TransactionMeta,
+      disclosedContractIds: List[LfContractId],
+      optSynchronizerId: Option[SynchronizerId],
+      transactionUsedForExternalSigning: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[
+    FutureUnlessShutdown,
+    TransactionError,
+    (SynchronizerRank, RoutingSynchronizerState),
+  ]
 }
 
 object SyncService {

@@ -10,8 +10,26 @@ import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.CryptoPureApi
-import com.digitalasset.canton.data.ProcessedDisclosedContract
-import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, TransactionMeta}
+import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
+import com.digitalasset.canton.error.TransactionRoutingError
+import com.digitalasset.canton.error.TransactionRoutingError.ConfigurationErrors.{
+  MultiSynchronizerSupportNotEnabled,
+  SubmissionSynchronizerNotReady,
+}
+import com.digitalasset.canton.error.TransactionRoutingError.TopologyErrors.{
+  NotConnectedToAllContractSynchronizers,
+  SubmitterAlwaysStakeholder,
+}
+import com.digitalasset.canton.error.TransactionRoutingError.{
+  MalformedInputErrors,
+  UnableToQueryTopologySnapshot,
+}
+import com.digitalasset.canton.ledger.participant.state.{
+  RoutingSynchronizerState,
+  SubmitterInfo,
+  SynchronizerRank,
+  TransactionMeta,
+}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
@@ -20,43 +38,26 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmissionError,
   TransactionSubmissionResult,
 }
-import com.digitalasset.canton.participant.protocol.submission.routing.SynchronizerRouter.inputContractsStakeholders
+import com.digitalasset.canton.participant.protocol.submission.routing.TransactionRoutingProcessor.inputContractsStakeholders
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
-import com.digitalasset.canton.participant.sync.TransactionRoutingError.ConfigurationErrors.{
-  MultiSynchronizerSupportNotEnabled,
-  SubmissionSynchronizerNotReady,
-}
-import com.digitalasset.canton.participant.sync.TransactionRoutingError.TopologyErrors.{
-  NotConnectedToAllContractSynchronizers,
-  SubmitterAlwaysStakeholder,
-}
-import com.digitalasset.canton.participant.sync.TransactionRoutingError.{
-  MalformedInputErrors,
-  RoutingInternalError,
-  UnableToQueryTopologySnapshot,
-}
-import com.digitalasset.canton.participant.sync.{
-  ConnectedSynchronizersLookup,
-  TransactionRoutingError,
-}
+import com.digitalasset.canton.participant.sync.ConnectedSynchronizersLookup
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
-import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.{LfKeyResolver, LfPartyId, checked}
 import com.digitalasset.daml.lf.data.ImmArray
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** The synchronizer router routes transaction submissions from upstream to the right synchronizer.
   *
   * Submitted transactions are inspected for which synchronizers are involved based on the location
   * of the involved contracts.
   */
-class SynchronizerRouter(
+class TransactionRoutingProcessor(
     contractsReassigner: ContractsReassigner,
     connectedSynchronizersLookup: ConnectedSynchronizersLookup,
     serializableContractAuthenticator: ContractAuthenticator,
@@ -70,27 +71,29 @@ class SynchronizerRouter(
 
   import com.digitalasset.canton.util.ShowUtil.*
 
-  def submitTransaction(
+  /** Reassigns the necessary transaction input contracts to the target synchronizer based on the
+    * provided synchronizer rank, and then submits the transaction to the specified synchronizer.
+    */
+  final def submitTransaction(
       submitterInfo: SubmitterInfo,
-      optSynchronizerId: Option[SynchronizerId],
+      synchronizerRankTarget: SynchronizerRank,
+      synchronizerState: RoutingSynchronizerState,
+      wfTransaction: WellFormedTransaction[WithoutSuffixes],
       transactionMeta: TransactionMeta,
       keyResolver: LfKeyResolver,
-      transaction: LfSubmittedTransaction,
       explicitlyDisclosedContracts: ImmArray[ProcessedDisclosedContract],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, FutureUnlessShutdown[
     TransactionSubmissionResult
-  ]] =
-    for {
-      // do some sanity checks for invalid inputs (to not conflate these with broken nodes)
-      _ <- EitherT.fromEither[FutureUnlessShutdown](
-        WellFormedTransaction.sanityCheckInputs(transaction).leftMap {
-          case WellFormedTransaction.InvalidInput.InvalidParty(err) =>
-            MalformedInputErrors.InvalidPartyIdentifier.Error(err)
-        }
-      )
+  ]] = {
+    val synchronizerId = synchronizerRankTarget.synchronizerId
 
+    logger.debug(s"Routing the transaction to synchronizer $synchronizerId")
+
+    for {
+      // TODO(#23334) Not needed anymore if we just authenticate all before interpretation
+      //          and ensure we just forward the payload
       inputDisclosedContracts <- EitherT
         .fromEither[FutureUnlessShutdown](
           for {
@@ -103,48 +106,99 @@ class SynchronizerRouter(
               .leftMap(MalformedInputErrors.DisclosedContractAuthenticationFailed.Error.apply)
           } yield inputDisclosedContracts
         )
+      _ <- contractsReassigner
+        .reassign(synchronizerRankTarget, submitterInfo)
+        .mapK(FutureUnlessShutdown.outcomeK)
 
-      metadata <- EitherT
-        .fromEither[FutureUnlessShutdown](
-          TransactionMetadata.fromTransactionMeta(
-            metaLedgerEffectiveTime = transactionMeta.ledgerEffectiveTime,
-            metaSubmissionTime = transactionMeta.submissionTime,
-            metaOptNodeSeeds = transactionMeta.optNodeSeeds,
+      topologySnapshot <- EitherT
+        .fromEither[FutureUnlessShutdown] {
+          synchronizerState.topologySnapshots
+            .get(synchronizerRankTarget.synchronizerId)
+            .toRight(UnableToQueryTopologySnapshot.Failed(synchronizerRankTarget.synchronizerId))
+        }
+
+      synchronizer <- EitherT.fromEither[FutureUnlessShutdown](
+        connectedSynchronizersLookup
+          .get(synchronizerId)
+          .toRight[TransactionRoutingError](
+            SubmissionSynchronizerNotReady.Error(synchronizerId)
           )
+      )
+      _ <- EitherT
+        .cond[FutureUnlessShutdown](
+          synchronizer.ready,
+          (),
+          SubmissionSynchronizerNotReady.Error(synchronizerId),
         )
-        .leftMap(RoutingInternalError.IllformedTransaction.apply)
+      transactionSubmittedF <- wrapSubmissionError(synchronizer.synchronizerId)(
+        synchronizer
+          .submitTransaction(
+            submitterInfo,
+            transactionMeta,
+            keyResolver,
+            wfTransaction,
+            inputDisclosedContracts.view.map(sc => sc.contractId -> sc).toMap,
+            topologySnapshot,
+          )(traceContext)
+          .mapK(FutureUnlessShutdown.outcomeK)
+      )
+    } yield transactionSubmittedF
+  }
 
-      wfTransaction <- EitherT.fromEither[FutureUnlessShutdown](
-        WellFormedTransaction
-          .normalizeAndCheck(transaction, metadata, WithoutSuffixes)
-          .leftMap(RoutingInternalError.IllformedTransaction.apply)
+  /** Computes the best synchronizer for a submitted transaction by checking the submitted
+    * transaction against the topology of the connected synchronizers and ranking the admissible
+    * ones.
+    */
+  def selectRoutingSynchronizer(
+      submitterInfo: SubmitterInfo,
+      transaction: LfSubmittedTransaction,
+      synchronizerState: RoutingSynchronizerState,
+      ledgerTime: CantonTimestamp,
+      disclosedContractIds: List[LfContractId],
+      optSynchronizerId: Option[SynchronizerId],
+      transactionUsedForExternalSigning: Boolean,
+  )(implicit traceContext: TraceContext): EitherT[
+    FutureUnlessShutdown,
+    TransactionRoutingError,
+    SynchronizerRank,
+  ] =
+    for {
+      contractsStakeholders <- EitherT.rightT[FutureUnlessShutdown, TransactionRoutingError](
+        inputContractsStakeholders(transaction)
       )
 
-      contractsStakeholders = inputContractsStakeholders(wfTransaction.unwrap)
-
-      synchronizerState = RoutingSynchronizerState(connectedSynchronizersLookup)
       transactionData <- TransactionData.create(
-        submitterInfo,
-        transaction,
-        metadata.ledgerTime,
-        synchronizerState,
-        contractsStakeholders,
-        inputDisclosedContracts.map(_.contractId),
-        optSynchronizerId,
+        submitterInfo = submitterInfo,
+        transaction = transaction,
+        ledgerTime = ledgerTime,
+        synchronizerState = synchronizerState,
+        inputContractStakeholders = contractsStakeholders,
+        disclosedContracts = disclosedContractIds,
+        prescribedSynchronizerO = optSynchronizerId,
       )
 
-      synchronizerSelector <- synchronizerSelectorFactory
-        .create(transactionData, synchronizerState)
-      inputSynchronizers = transactionData.inputContractsSynchronizerData.synchronizers
+      locallyHostedSubmitters = Option
+        .unless(transactionUsedForExternalSigning)(
+          transactionData.actAs -- transactionData.externallySignedSubmissionO.fold(
+            Set.empty[LfPartyId]
+          )(_.signatures.keys.map(_.toLf).toSet)
+        )
+        .getOrElse(Set.empty)
+
+      synchronizerSelector <- synchronizerSelectorFactory.create(
+        transactionData = transactionData,
+        synchronizerState = synchronizerState,
+        submitters = locallyHostedSubmitters,
+      )
 
       isMultiSynchronizerTx <- isMultiSynchronizerTx(
-        inputSynchronizers,
-        transactionData.informees,
-        synchronizerState,
-        optSynchronizerId,
+        inputSynchronizers = transactionData.inputContractsSynchronizerData.synchronizers,
+        informees = transactionData.informees,
+        synchronizerState = synchronizerState,
+        optSynchronizerId = optSynchronizerId,
       )
 
-      synchronizerRankTarget <- {
+      synchronizerRankTarget <-
         if (!isMultiSynchronizerTx) {
           logger.debug(
             s"Choosing the synchronizer as single-synchronizer workflow for ${submitterInfo.commandId}"
@@ -155,40 +209,13 @@ class SynchronizerRouter(
             s"Choosing the synchronizer as multi-synchronizer workflow for ${submitterInfo.commandId}"
           )
           chooseSynchronizerForMultiSynchronizer(synchronizerSelector)
-        } else {
+        } else
           EitherT.leftT[FutureUnlessShutdown, SynchronizerRank](
             MultiSynchronizerSupportNotEnabled.Error(
               transactionData.inputContractsSynchronizerData.synchronizers
             ): TransactionRoutingError
           )
-        }
-      }
-      _ <- contractsReassigner
-        .reassign(
-          synchronizerRankTarget,
-          submitterInfo,
-        )
-        .mapK(FutureUnlessShutdown.outcomeK)
-      _ = logger.debug(s"Routing the transaction to the ${synchronizerRankTarget.synchronizerId}")
-
-      topologySnapshot <- EitherT
-        .fromEither[Future] {
-          synchronizerState.topologySnapshots
-            .get(synchronizerRankTarget.synchronizerId)
-            .toRight(UnableToQueryTopologySnapshot.Failed(synchronizerRankTarget.synchronizerId))
-        }
-        .mapK(FutureUnlessShutdown.outcomeK)
-
-      transactionSubmittedF <- submit(synchronizerRankTarget.synchronizerId)(
-        submitterInfo,
-        transactionMeta,
-        keyResolver,
-        wfTransaction,
-        traceContext,
-        inputDisclosedContracts.view.map(sc => sc.contractId -> sc).toMap,
-        topologySnapshot,
-      ).mapK(FutureUnlessShutdown.outcomeK)
-    } yield transactionSubmittedF
+    } yield synchronizerRankTarget
 
   private def allInformeesOnSynchronizer(
       informees: Set[LfPartyId],
@@ -285,50 +312,14 @@ class SynchronizerRouter(
     } yield ()
   }
 
-  /** We intentionally do not store the `keyResolver` in
-    * [[com.digitalasset.canton.protocol.WellFormedTransaction]] because we do not (yet) need to
-    * deal with merging the mappings in
-    * [[com.digitalasset.canton.protocol.WellFormedTransaction.merge]].
-    */
-  private def submit(synchronizerId: SynchronizerId)(
-      submitterInfo: SubmitterInfo,
-      transactionMeta: TransactionMeta,
-      keyResolver: LfKeyResolver,
-      tx: WellFormedTransaction[WithoutSuffixes],
-      traceContext: TraceContext,
-      disclosedContracts: Map[LfContractId, SerializableContract],
-      topologySnapshot: TopologySnapshot,
-  )(implicit
-      ec: ExecutionContext
-  ): EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmissionResult]] =
-    for {
-      synchronizer <- EitherT.fromEither[Future](
-        connectedSynchronizersLookup
-          .get(synchronizerId)
-          .toRight[TransactionRoutingError](SubmissionSynchronizerNotReady.Error(synchronizerId))
-      )
-      _ <- EitherT
-        .cond[Future](synchronizer.ready, (), SubmissionSynchronizerNotReady.Error(synchronizerId))
-      result <- wrapSubmissionError(synchronizer.synchronizerId)(
-        synchronizer.submitTransaction(
-          submitterInfo,
-          transactionMeta,
-          keyResolver,
-          tx,
-          disclosedContracts,
-          topologySnapshot,
-        )(traceContext)
-      )
-    } yield result
-
   private def wrapSubmissionError[T](synchronizerId: SynchronizerId)(
-      eitherT: EitherT[Future, TransactionSubmissionError, T]
-  )(implicit ec: ExecutionContext): EitherT[Future, TransactionRoutingError, T] =
+      eitherT: EitherT[FutureUnlessShutdown, TransactionSubmissionError, T]
+  )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, TransactionRoutingError, T] =
     eitherT.leftMap(subm => TransactionRoutingError.SubmissionError(synchronizerId, subm))
 
 }
 
-object SynchronizerRouter {
+object TransactionRoutingProcessor {
   def apply(
       connectedSynchronizersLookup: ConnectedSynchronizersLookup,
       synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,
@@ -337,7 +328,7 @@ object SynchronizerRouter {
       participantId: ParticipantId,
       parameters: ParticipantNodeParameters,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): SynchronizerRouter = {
+  )(implicit ec: ExecutionContext): TransactionRoutingProcessor = {
 
     val reassigner =
       new ContractsReassigner(
@@ -354,7 +345,8 @@ object SynchronizerRouter {
     )
 
     val synchronizerSelectorFactory = new SynchronizerSelectorFactory(
-      admissibleSynchronizers = new AdmissibleSynchronizers(participantId, loggerFactory),
+      admissibleSynchronizersComputation =
+        new AdmissibleSynchronizersComputation(participantId, loggerFactory),
       priorityOfSynchronizer =
         priorityOfSynchronizer(synchronizerConnectionConfigStore, synchronizerAliasManager),
       synchronizerRankComputation = synchronizerRankComputation,
@@ -363,7 +355,7 @@ object SynchronizerRouter {
 
     val serializableContractAuthenticator = ContractAuthenticator(cryptoPureApi)
 
-    new SynchronizerRouter(
+    new TransactionRoutingProcessor(
       reassigner,
       connectedSynchronizersLookup,
       serializableContractAuthenticator,

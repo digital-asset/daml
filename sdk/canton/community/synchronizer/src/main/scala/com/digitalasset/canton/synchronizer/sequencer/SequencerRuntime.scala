@@ -15,12 +15,7 @@ import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
-import com.digitalasset.canton.protocol.SynchronizerParametersLookup.SequencerSynchronizerParameters
-import com.digitalasset.canton.protocol.{
-  DynamicSynchronizerParametersLookup,
-  StaticSynchronizerParameters,
-  SynchronizerParametersLookup,
-}
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencer.admin.v30.{
   SequencerAdministrationServiceGrpc,
@@ -35,22 +30,13 @@ import com.digitalasset.canton.sequencing.handlers.{
 }
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.store.{IndexedSynchronizer, SequencerCounterTrackerStore}
-import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.admin.data.{
   SequencerAdminStatus,
   SequencerHealthStatus,
 }
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameters
-import com.digitalasset.canton.synchronizer.sequencing.authentication.grpc.{
-  SequencerAuthenticationServerInterceptor,
-  SequencerConnectServerInterceptor,
-}
-import com.digitalasset.canton.synchronizer.sequencing.authentication.{
-  MemberAuthenticationService,
-  MemberAuthenticationServiceFactory,
-  MemberAuthenticationStore,
-}
+import com.digitalasset.canton.synchronizer.sequencing.authentication.grpc.SequencerConnectServerInterceptor
 import com.digitalasset.canton.synchronizer.sequencing.service.*
 import com.digitalasset.canton.synchronizer.sequencing.service.channel.GrpcSequencerChannelService
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
@@ -62,20 +48,19 @@ import com.digitalasset.canton.topology.processing.{
   TopologyTransactionProcessingSubscriber,
   TopologyTransactionProcessor,
 }
+import com.digitalasset.canton.topology.store.TopologyStore
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
-import com.digitalasset.canton.topology.store.{TopologyStateForInitializationService, TopologyStore}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.{
   MediatorSynchronizerState,
   SequencerSynchronizerState,
   SynchronizerTrustCertificate,
 }
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
 import com.digitalasset.canton.{SequencerCounter, config}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.{ServerInterceptors, ServerServiceDefinition}
-import org.apache.pekko.actor.ActorSystem
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -93,8 +78,6 @@ object SequencerAuthenticationConfig {
 
 /** Run a sequencer and its supporting services.
   *
-  * @param authenticationConfig
-  *   Authentication setup if supported, otherwise none.
   * @param staticSynchronizerParameters
   *   The set of members to register on startup statically.
   * @param syncCrypto
@@ -111,7 +94,6 @@ class SequencerRuntime(
     client: SequencerClient,
     staticSynchronizerParameters: StaticSynchronizerParameters,
     localNodeParameters: SequencerNodeParameters,
-    publicServerConfig: PublicServerConfig,
     timeTracker: SynchronizerTimeTracker,
     val metrics: SequencerMetrics,
     indexedSynchronizer: IndexedSynchronizer,
@@ -124,16 +106,15 @@ class SequencerRuntime(
     topologyManagerStatusO: Option[TopologyManagerStatus],
     storage: Storage,
     clock: Clock,
-    authenticationConfig: SequencerAuthenticationConfig,
     staticMembersToRegister: Seq[Member],
-    memberAuthenticationServiceFactory: MemberAuthenticationServiceFactory,
-    topologyStateForInitializationService: TopologyStateForInitializationService,
+    authenticationServices: AuthenticationServices,
+    sequencerService: GrpcSequencerService,
+    sequencerChannelServiceO: Option[GrpcSequencerChannelService],
     maybeSynchronizerOutboxFactory: Option[SynchronizerOutboxFactorySingleCreate],
     protected val loggerFactory: NamedLoggerFactory,
     runtimeReadyPromise: PromiseUnlessShutdown[Unit],
 )(implicit
     executionContext: ExecutionContext,
-    actorSystem: ActorSystem,
     traceContext: TraceContext,
 ) extends FlagCloseable
     with HasCloseContext
@@ -186,39 +167,6 @@ class SequencerRuntime(
     } yield ()
   }
 
-  private val sequencerSynchronizerParamsLookup
-      : DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters] =
-    SynchronizerParametersLookup.forSequencerSynchronizerParameters(
-      staticSynchronizerParameters,
-      publicServerConfig.overrideMaxRequestSize,
-      topologyClient,
-      loggerFactory,
-    )
-
-  private val sequencerService = GrpcSequencerService(
-    sequencer,
-    metrics,
-    authenticationConfig.check,
-    clock,
-    sequencerSynchronizerParamsLookup,
-    localNodeParameters,
-    staticSynchronizerParameters.protocolVersion,
-    topologyStateForInitializationService,
-    loggerFactory,
-  )
-
-  private val sequencerChannelServiceO = Option.when(
-    localNodeParameters.unsafeEnableOnlinePartyReplication
-  )(
-    GrpcSequencerChannelService(
-      authenticationConfig.check,
-      clock,
-      staticSynchronizerParameters.protocolVersion,
-      localNodeParameters.processingTimeouts,
-      loggerFactory,
-    )
-  )
-
   sequencer
     .registerOnHealthChange(new HealthListener {
       override def name: String = "SequencerRuntime"
@@ -246,46 +194,6 @@ class SequencerRuntime(
       }
     })
     .discard[Boolean]
-
-  private case class AuthenticationServices(
-      memberAuthenticationService: MemberAuthenticationService,
-      sequencerAuthenticationService: GrpcSequencerAuthenticationService,
-      authenticationInterceptor: SequencerAuthenticationServerInterceptor,
-  )
-
-  private val authenticationServices = {
-    val authenticationService = memberAuthenticationServiceFactory.createAndSubscribe(
-      syncCryptoForAuthentication,
-      new MemberAuthenticationStore(),
-      // closing the subscription when the token expires will force the client to try to reconnect
-      // immediately and notice it is unauthenticated, which will cause it to also start re-authenticating
-      // it's important to disconnect the member AFTER we expired the token, as otherwise, the member
-      // can still re-subscribe with the token just before we removed it
-      Traced.lift { case (member, tc) =>
-        sequencerService.disconnectMember(member)(tc)
-        sequencerChannelServiceO.foreach(_.disconnectMember(member)(tc))
-      },
-      runtimeReadyPromise.futureUS.map(_ =>
-        ()
-      ), // on shutdown, MemberAuthenticationStore will be closed via closeContext
-    )
-
-    val sequencerAuthenticationService =
-      new GrpcSequencerAuthenticationService(
-        authenticationService,
-        staticSynchronizerParameters.protocolVersion,
-        loggerFactory,
-      )
-
-    val sequencerAuthInterceptor =
-      new SequencerAuthenticationServerInterceptor(authenticationService, loggerFactory)
-
-    AuthenticationServices(
-      authenticationService,
-      sequencerAuthenticationService,
-      sequencerAuthInterceptor,
-    )
-  }
 
   def health: SequencerHealthStatus = sequencer.getState
 
@@ -332,7 +240,7 @@ class SequencerRuntime(
       import scala.jdk.CollectionConverters.*
 
       // use the auth service interceptor if available
-      val interceptors = List(authenticationServices.authenticationInterceptor).asJava
+      val interceptors = List(authenticationServices.authenticationServerInterceptor).asJava
 
       ServerInterceptors.intercept(svcDef, interceptors)
     }

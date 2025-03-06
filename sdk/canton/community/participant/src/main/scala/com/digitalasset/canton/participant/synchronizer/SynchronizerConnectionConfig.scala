@@ -44,8 +44,8 @@ import java.net.URI
   * @param priority
   *   the priority of this synchronizer connection. if there are more than one synchronizer
   *   connections, the
-  *   [[com.digitalasset.canton.participant.protocol.submission.routing.SynchronizerRouter]] will
-  *   pick the synchronizer connection with the highest priority if possible.
+  *   [[com.digitalasset.canton.participant.protocol.submission.routing.TransactionRoutingProcessor]]
+  *   will pick the synchronizer connection with the highest priority if possible.
   * @param initialRetryDelay
   *   synchronizer connections are "resilient". i.e. if a connection is lost, the system will keep
   *   trying to reconnect to a synchronizer.

@@ -36,7 +36,9 @@ import com.daml.ledger.api.v2.transaction_filter.{
   CumulativeFilter,
   EventFormat,
   Filters,
+  ParticipantAuthorizationTopologyFormat,
   TemplateFilter,
+  TopologyFormat,
   TransactionFilter as TransactionFilterProto,
   UpdateFormat,
 }
@@ -301,7 +303,12 @@ trait BaseLedgerApiAdministration extends NoTracing {
         val resultFilterWithSynchronizer = synchronizerFilter match {
           case Some(synchronizerId) =>
             (update: UpdateWrapper) =>
-              resultFilter(update) && update.synchronizerId == synchronizerId.toProtoPrimitive
+              update match {
+                case _: ReassignmentWrapper =>
+                  resultFilter(update) && update.synchronizerId == synchronizerId.toProtoPrimitive
+
+                case _ => false
+              }
           case None => resultFilter
         }
 
@@ -336,6 +343,67 @@ trait BaseLedgerApiAdministration extends NoTracing {
           observer,
           timeout,
         ).collect { case reassignment: ReassignmentWrapper => reassignment }
+      })
+
+      @Help.Summary("Get topology transactions", FeatureFlag.Testing)
+      @Help.Description(
+        """This function connects to the update stream for the given parties and collects topology transaction
+          |events until either `completeAfter` updates have been received or `timeout` has elapsed.
+          |If the party ids seq is empty then the topology transactions for all the parties will be fetched.
+          |The returned updates can be filtered to be between the given offsets (default: no filtering).
+          |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
+          |this command fails with a `NOT_FOUND` error.
+          |If the beginOffset is zero then the participant begin is taken as beginning offset.
+          |If the endOffset is None then a continuous stream is returned."""
+      )
+      def topology_transactions(
+          completeAfter: Int,
+          partyIds: Seq[PartyId] = Seq.empty,
+          beginOffsetExclusive: Long = 0L,
+          endOffsetInclusive: Option[Long] = None,
+          timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+          resultFilter: UpdateWrapper => Boolean = _ => true,
+          synchronizerFilter: Option[SynchronizerId] = None,
+      ): Seq[TopologyTransactionWrapper] = check(FeatureFlag.Testing)({
+
+        val resultFilterWithSynchronizer = synchronizerFilter match {
+          case Some(synchronizerId) =>
+            (update: UpdateWrapper) =>
+              update match {
+                case _: TopologyTransactionWrapper =>
+                  resultFilter(update) && update.synchronizerId == synchronizerId.toProtoPrimitive
+
+                case _ => false
+              }
+
+          case None => resultFilter
+        }
+
+        val observer =
+          new RecordingStreamObserver[UpdateWrapper](completeAfter, resultFilterWithSynchronizer)
+        val updateFormat = UpdateFormat(
+          includeTopologyEvents = Some(
+            TopologyFormat(
+              includeParticipantAuthorizationEvents = Some(
+                ParticipantAuthorizationTopologyFormat(
+                  parties = partyIds.map(_.toLf)
+                )
+              )
+            )
+          )
+        )
+
+        mkResult(
+          subscribe_updates(
+            observer = observer,
+            updateFormat = updateFormat,
+            beginOffsetExclusive = beginOffsetExclusive,
+            endOffsetInclusive = endOffsetInclusive,
+          ),
+          "getUpdates",
+          observer,
+          timeout,
+        ).collect { case wrapper: TopologyTransactionWrapper => wrapper }
       })
 
       @Help.Summary("Get flat updates", FeatureFlag.Testing)
@@ -461,8 +529,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
                   transactionTree.rootNodeIds().size.toLong -> transactionTree.serializedSize
                 case reassignmentWrapper: ReassignmentWrapper =>
                   1L -> reassignmentWrapper.reassignment.serializedSize
-                case TopologyTransactionWrapper(topologyTransaction) =>
-                  topologyTransaction.events.size.toLong -> topologyTransaction.serializedSize
               }
               consoleMetrics.metric.mark(s)
               consoleMetrics.nodeCount.update(s)
@@ -2322,12 +2388,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 reassignment.reassignment
                   .pipe(ReassignmentProto.toJavaProto)
                   .pipe(Reassignment.fromProto)
-                  .pipe(new GetUpdateTreesResponse(_))
-
-              case tt: TopologyTransactionWrapper =>
-                tt.topologyTransaction
-                  .pipe(TopoplogyTransactionProto.toJavaProto)
-                  .pipe(TopologyTransaction.fromProto)
                   .pipe(new GetUpdateTreesResponse(_))
             }
         )

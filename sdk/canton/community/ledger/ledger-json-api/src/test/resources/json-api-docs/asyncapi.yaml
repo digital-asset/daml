@@ -117,12 +117,28 @@ components:
       - beginExclusive
       properties:
         applicationId:
+          description: |-
+            Only completions of commands submitted with the same application_id will be visible in the stream.
+            Must be a valid ApplicationIdString (as described in ``value.proto``).
+            Required unless authentication is used with a user token or a custom token specifying an application-id.
+            In that case, the token's user-id, respectively application-id, will be used for the request's application_id.
           type: string
         parties:
+          description: |-
+            Non-empty list of parties whose data should be included.
+            Only completions of commands for which at least one of the ``act_as`` parties is in the given set of parties
+            will be visible in the stream.
+            Must be a valid PartyIdString (as described in ``value.proto``).
+            Required
           type: array
           items:
             type: string
         beginExclusive:
+          description: |-
+            This field indicates the minimum offset for completions. This can be used to resume an earlier completion stream.
+            Optional, if not set the ledger uses the ledger begin offset instead.
+            If specified, it must be a valid absolute offset (positive integer) or zero (ledger begin offset).
+            If the ledger has been pruned, this parameter must be specified and greater than the pruning offset.
           type: integer
           format: int64
     Either_JsCantonError_CompletionStreamResponse:
@@ -166,6 +182,8 @@ components:
             $ref: '#/components/schemas/OffsetCheckpoint'
     Completion:
       title: Completion
+      description: 'A completion represents the status of a submitted command on the
+        ledger: it can be successful or failed.'
       type: object
       required:
       - value
@@ -174,6 +192,8 @@ components:
           $ref: '#/components/schemas/Completion1'
     Completion1:
       title: Completion
+      description: 'A completion represents the status of a submitted command on the
+        ledger: it can be successful or failed.'
       type: object
       required:
       - commandId
@@ -184,28 +204,77 @@ components:
       - offset
       properties:
         commandId:
+          description: |-
+            The ID of the succeeded or failed command.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Required
           type: string
         status:
           $ref: '#/components/schemas/Status'
+          description: |-
+            Identifies the exact type of the error.
+            It uses the same format of conveying error details as it is used for the RPC responses of the APIs.
+            Optional
         updateId:
+          description: |-
+            The update_id of the transaction or reassignment that resulted from the command with command_id.
+            Only set for successfully executed commands.
+            Must be a valid LedgerString (as described in ``value.proto``).
           type: string
         applicationId:
+          description: |-
+            The application-id or user-id that was used for the submission, as described in ``commands.proto``.
+            Must be a valid ApplicationIdString (as described in ``value.proto``).
+            Optional for historic completions where this data is not available.
           type: string
         actAs:
+          description: |-
+            The set of parties on whose behalf the commands were executed.
+            Contains the ``act_as`` parties from ``commands.proto``
+            filtered to the requesting parties in CompletionStreamRequest.
+            The order of the parties need not be the same as in the submission.
+            Each element must be a valid PartyIdString (as described in ``value.proto``).
+            Optional for historic completions where this data is not available.
           type: array
           items:
             type: string
         submissionId:
+          description: |-
+            The submission ID this completion refers to, as described in ``commands.proto``.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Optional
           type: string
         deduplicationPeriod:
           $ref: '#/components/schemas/DeduplicationPeriod'
         traceContext:
           $ref: '#/components/schemas/TraceContext'
+          description: |-
+            Optional; ledger api trace context
+
+            The trace context transported in this message corresponds to the trace context supplied
+            by the client application in a HTTP2 header of the original command submission.
+            We typically use a header to transfer this type of information. Here we use message
+            body, because it is used in gRPC streams which do not support per message headers.
+            This field will be populated with the trace context contained in the original submission.
+            If that was not provided, a unique ledger-api-server generated trace context will be used
+            instead.
         offset:
+          description: |-
+            May be used in a subsequent CompletionStreamRequest to resume the consumption of this stream at a later time.
+            Required, must be a valid absolute offset (positive integer).
           type: integer
           format: int64
         synchronizerTime:
           $ref: '#/components/schemas/SynchronizerTime'
+          description: |-
+            The synchronizer along with its record time.
+            The synchronizer id provided, in case of
+
+              - successful/failed transactions: identifies the synchronizer of the transaction
+              - for successful/failed unassign commands: identifies the source synchronizer
+              - for successful/failed assign commands: identifies the target synchronizer
+
+            Required
     Status:
       title: Status
       type: object
@@ -241,6 +310,9 @@ components:
           type: string
     DeduplicationPeriod:
       title: DeduplicationPeriod
+      description: |-
+        Specifies the deduplication period for the change ID.
+        If omitted, the participant will assume the configured maximum deduplication time.
       oneOf:
       - type: object
         required:
@@ -301,6 +373,7 @@ components:
       type: object
       properties:
         traceparent:
+          description: https://www.w3.org/TR/trace-context/
           type: string
         tracestate:
           type: string
@@ -311,9 +384,15 @@ components:
       - synchronizerId
       properties:
         synchronizerId:
+          description: |-
+            The id of the synchronizer.
+            Required
           type: string
         recordTime:
           $ref: '#/components/schemas/Timestamp'
+          description: |-
+            All commands with a maximum record time below this value MUST be considered lost if their completion has not arrived before this checkpoint.
+            Required
     Timestamp:
       title: Timestamp
       type: object
@@ -335,6 +414,11 @@ components:
       type: object
     OffsetCheckpoint:
       title: OffsetCheckpoint
+      description: |-
+        OffsetCheckpoints may be used to:
+
+        * detect time out of commands.
+        * provide an offset which can be used to restart consumption.
       type: object
       required:
       - value
@@ -343,11 +427,19 @@ components:
           $ref: '#/components/schemas/OffsetCheckpoint1'
     OffsetCheckpoint1:
       title: OffsetCheckpoint
+      description: |-
+        OffsetCheckpoints may be used to:
+
+        * detect time out of commands.
+        * provide an offset which can be used to restart consumption.
       type: object
       required:
       - offset
       properties:
         offset:
+          description: |-
+            The participant's offset, the details of the offset field are described in ``community/ledger-api/README.md``.
+            Required, must be a valid absolute offset (positive integer).
           type: integer
           format: int64
         synchronizerTimes:
@@ -356,6 +448,11 @@ components:
             $ref: '#/components/schemas/SynchronizerTime'
     GetActiveContractsRequest:
       title: GetActiveContractsRequest
+      description: |-
+        If the given offset is different than the ledger end, and there are (un)assignments in-flight at the given offset,
+        the snapshot may fail with "FAILED_PRECONDITION/PARTICIPANT_PRUNED_DATA_ACCESSED".
+        Note that it is ok to request acs snapshots for party migration with offsets other than ledger end, because party
+        migration is not concerned with incomplete (un)assignments.
       type: object
       required:
       - verbose
@@ -363,21 +460,66 @@ components:
       properties:
         filter:
           $ref: '#/components/schemas/TransactionFilter'
+          description: |-
+            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Templates to include in the served snapshot, per party.
+            Optional, if specified event_format must be unset, if not specified event_format must be set.
         verbose:
+          description: |-
+            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
+            In particular, setting the verbose flag to true triggers the ledger to include labels for record fields.
+            Optional, if specified event_format must be unset.
           type: boolean
         activeAtOffset:
+          description: |-
+            The offset at which the snapshot of the active contracts will be computed.
+            Must be no greater than the current ledger end offset.
+            Must be greater than or equal to the last pruning offset.
+            Required, must be a valid absolute offset (positive integer) or ledger begin offset (zero).
+            If zero, the empty set will be returned.
           type: integer
           format: int64
+        eventFormat:
+          $ref: '#/components/schemas/EventFormat'
+          description: |-
+            Format of the contract_entries in the result. In case of CreatedEvent the presentation will be of
+            TRANSACTION_SHAPE_ACS_DELTA.
+            Optional for backwards compatibility, defaults to an EventFormat where:
+
+              - filters_by_party is the filter.filters_by_party from this request
+              - filters_for_any_party is the filter.filters_for_any_party from this request
+              - verbose is the verbose field from this request
     TransactionFilter:
       title: TransactionFilter
+      description: |-
+        TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+        Used both for filtering create and archive events as well as for filtering transaction trees.
       type: object
       required:
       - filtersByParty
       properties:
         filtersByParty:
           $ref: '#/components/schemas/Map_Filters'
+          description: |-
+            Each key must be a valid PartyIdString (as described in ``value.proto``).
+            The interpretation of the filter depends on the transaction-shape being filtered:
+
+            1. For **transaction trees** (used in GetUpdateTreesResponse for backwards compatibility) all party keys used as
+                wildcard filters, and all subtrees whose root has one of the listed parties as an informee are returned.
+                If there are ``CumulativeFilter``s, those will control returned ``CreatedEvent`` fields where applicable, but will
+                not be used for template/interface filtering.
+            2. For **ledger-effects** create and exercise events are returned, for which the witnesses include at least one of
+                the listed parties and match the per-party filter.
+            3. For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
+                stakeholders include at least one of the listed parties and match the per-party filter.
+
+            Required
         filtersForAnyParty:
           $ref: '#/components/schemas/Filters'
+          description: |-
+            Wildcard filters that apply to all the parties existing on the participant. The interpretation of the filters is the same
+            with the per-party filter as described above.
     Map_Filters:
       title: Map_Filters
       type: object
@@ -385,14 +527,28 @@ components:
         $ref: '#/components/schemas/Filters'
     Filters:
       title: Filters
+      description: The union of a set of template filters, interface filters, or a
+        wildcard.
       type: object
       properties:
         cumulative:
+          description: |-
+            Every filter in the cumulative list expands the scope of the resulting stream. Each interface,
+            template or wildcard filter means additional events that will match the query.
+            The impact of include_interface_view and include_created_event_blob fields in the filters will
+            also be accumulated.
+            At least one cumulative filter MUST be specified.
+            A template or an interface SHOULD NOT appear twice in the accumulative field.
+            A wildcard filter SHOULD NOT be defined more than once in the accumulative field.
+            Optional
           type: array
           items:
             $ref: '#/components/schemas/CumulativeFilter'
     CumulativeFilter:
       title: CumulativeFilter
+      description: |-
+        A filter that matches all contracts that are either an instance of one of
+        the ``template_filters`` or that match one of the ``interface_filters``.
       type: object
       required:
       - identifierFilter
@@ -402,35 +558,16 @@ components:
     IdentifierFilter:
       title: IdentifierFilter
       oneOf:
-      - type: object
-        required:
-        - Empty
-        properties:
-          Empty:
-            $ref: '#/components/schemas/Empty2'
-      - type: object
-        required:
-        - InterfaceFilter
-        properties:
-          InterfaceFilter:
-            $ref: '#/components/schemas/InterfaceFilter'
-      - type: object
-        required:
-        - TemplateFilter
-        properties:
-          TemplateFilter:
-            $ref: '#/components/schemas/TemplateFilter'
-      - type: object
-        required:
-        - WildcardFilter
-        properties:
-          WildcardFilter:
-            $ref: '#/components/schemas/WildcardFilter'
+      - $ref: '#/components/schemas/Empty2'
+      - $ref: '#/components/schemas/InterfaceFilter'
+      - $ref: '#/components/schemas/TemplateFilter'
+      - $ref: '#/components/schemas/WildcardFilter'
     Empty2:
       title: Empty
       type: object
     InterfaceFilter:
       title: InterfaceFilter
+      description: This filter matches contracts that implement a specific interface.
       type: object
       required:
       - value
@@ -439,19 +576,35 @@ components:
           $ref: '#/components/schemas/InterfaceFilter1'
     InterfaceFilter1:
       title: InterfaceFilter
+      description: This filter matches contracts that implement a specific interface.
       type: object
       required:
       - includeInterfaceView
       - includeCreatedEventBlob
       properties:
         interfaceId:
+          description: |-
+            The interface that a matching contract must implement.
+            The ``interface_id`` needs to be valid: corresponding interface should be defined in
+            one of the available packages at the time of the query.
+            Required
           type: string
         includeInterfaceView:
+          description: |-
+            Whether to include the interface view on the contract in the returned ``CreatedEvent``.
+            Use this to access contract data in a uniform manner in your API client.
+            Optional
           type: boolean
         includeCreatedEventBlob:
+          description: |-
+            Whether to include a ``created_event_blob`` in the returned ``CreatedEvent``.
+            Use this to access the contract create event payload in your API client
+            for submitting it as a disclosed contract with future commands.
+            Optional
           type: boolean
     TemplateFilter:
       title: TemplateFilter
+      description: This filter matches contracts of a specific template.
       type: object
       required:
       - value
@@ -460,16 +613,28 @@ components:
           $ref: '#/components/schemas/TemplateFilter1'
     TemplateFilter1:
       title: TemplateFilter
+      description: This filter matches contracts of a specific template.
       type: object
       required:
       - includeCreatedEventBlob
       properties:
         templateId:
+          description: |-
+            A template for which the payload should be included in the response.
+            The ``template_id`` needs to be valid: corresponding template should be defined in
+            one of the available packages at the time of the query.
+            Required
           type: string
         includeCreatedEventBlob:
+          description: |-
+            Whether to include a ``created_event_blob`` in the returned ``CreatedEvent``.
+            Use this to access the contract event payload in your API client
+            for submitting it as a disclosed contract with future commands.
+            Optional
           type: boolean
     WildcardFilter:
       title: WildcardFilter
+      description: This filter matches all templates.
       type: object
       required:
       - value
@@ -478,11 +643,54 @@ components:
           $ref: '#/components/schemas/WildcardFilter1'
     WildcardFilter1:
       title: WildcardFilter
+      description: This filter matches all templates.
       type: object
       required:
       - includeCreatedEventBlob
       properties:
         includeCreatedEventBlob:
+          description: |-
+            Whether to include a ``created_event_blob`` in the returned ``CreatedEvent``.
+            Use this to access the contract create event payload in your API client
+            for submitting it as a disclosed contract with future commands.
+            Optional
+          type: boolean
+    EventFormat:
+      title: EventFormat
+      description: |-
+        A format for events which defines both which events should be included
+        and what data should be computed and included for them.
+
+        Note that some of the filtering behavior depends on the `TransactionShape`,
+        which is expected to be specified alongside usages of `EventFormat`.
+      type: object
+      required:
+      - filtersByParty
+      - verbose
+      properties:
+        filtersByParty:
+          $ref: '#/components/schemas/Map_Filters'
+          description: |-
+            Each key must be a valid PartyIdString (as described in ``value.proto``).
+            The interpretation of the filter depends on the transaction-shape being filtered:
+
+            1. For **ledger-effects** create and exercise events are returned, for which the witnesses include at least one of
+                the listed parties and match the per-party filter.
+            2. For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
+                stakeholders include at least one of the listed parties and match the per-party filter.
+
+            Optional
+        filtersForAnyParty:
+          $ref: '#/components/schemas/Filters'
+          description: |-
+            Wildcard filters that apply to all the parties existing on the participant. The interpretation of the filters is the same
+            with the per-party filter as described above.
+            Optional
+        verbose:
+          description: |-
+            If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
+            In particular, setting the verbose flag to true triggers the ledger to include labels for record fields.
+            Optional
           type: boolean
     Either_JsCantonError_JsGetActiveContractsResponse:
       title: Either_JsCantonError_JsGetActiveContractsResponse
@@ -497,11 +705,22 @@ components:
       - contractEntry
       properties:
         workflowId:
+          description: |-
+            The workflow ID used in command submission which corresponds to the contract_entry. Only set if
+            the ``workflow_id`` for the command was set.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Optional
           type: string
         contractEntry:
           $ref: '#/components/schemas/JsContractEntry'
     JsContractEntry:
       title: JsContractEntry
+      description: |-
+        For a contract there could be multiple contract_entry-s in the entire snapshot. These together define
+        the state of one contract in the snapshot.
+        A contract_entry is included in the result, if and only if there is at least one stakeholder party of the contract
+        that is hosted on the synchronizer at the time of the event and the party satisfies the
+        ``TransactionFilter`` in the query.
       oneOf:
       - type: object
         required:
@@ -537,13 +756,32 @@ components:
       properties:
         createdEvent:
           $ref: '#/components/schemas/CreatedEvent'
+          description: |-
+            Required
+            The event as it appeared in the context of its last update (i.e. daml transaction or
+            reassignment). In particular, the last offset, node_id pair is preserved.
+            The last update is the most recent update created or assigned this contract on synchronizer_id synchronizer.
+            The offset of the CreatedEvent might point to an already pruned update, therefore it cannot necessarily be used
+            for lookups.
         synchronizerId:
+          description: |-
+            A valid synchronizer id
+            Required
           type: string
         reassignmentCounter:
+          description: |-
+            Each corresponding assigned and unassigned event has the same reassignment_counter. This strictly increases
+            with each unassign command for the same contract. Creation of the contract corresponds to reassignment_counter
+            equals zero.
+            This field will be the reassignment_counter of the latest observable activation event on this synchronizer, which is
+            before the active_at_offset.
+            Required
           type: integer
           format: int64
     CreatedEvent:
       title: CreatedEvent
+      description: Records that a contract has been created, and choices may now be
+        exercised on it.
       type: object
       required:
       - offset
@@ -555,51 +793,126 @@ components:
       - packageName
       properties:
         offset:
+          description: |-
+            The offset of origin, which has contextual meaning, please see description at usage.
+            Offsets are managed by the participant nodes.
+            Transactions can thus NOT be assumed to have the same offsets on different participant nodes.
+            Required, it is a valid absolute offset (positive integer)
           type: integer
           format: int64
         nodeId:
+          description: |-
+            The position of this event in the originating transaction or reassignment.
+            The origin has contextual meaning, please see description at usage.
+            Node ids are not necessarily equal across participants,
+            as these may see different projections/parts of transactions.
+            Required, must be valid node ID (non-negative integer)
           type: integer
           format: int32
         contractId:
+          description: |-
+            The ID of the created contract.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Required
           type: string
         templateId:
+          description: |-
+            The template of the created contract.
+            Required
           type: string
-        contractKey: {}
+        contractKey:
+          description: |-
+            The key of the created contract.
+            This will be set if and only if ``create_arguments`` is set and ``template_id`` defines a contract key.
+            Optional
         createArgument: {}
         createdEventBlob:
+          description: |-
+            Opaque representation of contract create event payload intended for forwarding
+            to an API server as a contract disclosed as part of a command
+            submission.
+            Optional
           type: string
         interfaceViews:
+          description: |-
+            Interface views specified in the transaction filter.
+            Includes an ``InterfaceView`` for each interface for which there is a ``InterfaceFilter`` with
+
+              - its party in the ``witness_parties`` of this event,
+              - and which is implemented by the template of this event,
+              - and which has ``include_interface_view`` set.
+
+            Optional
           type: array
           items:
             $ref: '#/components/schemas/JsInterfaceView'
         witnessParties:
+          description: |-
+            The parties that are notified of this event. When a ``CreatedEvent``
+            is returned as part of a transaction tree or ledger-effects transaction, this will include all
+            the parties specified in the ``TransactionFilter`` that are informees
+            of the event. If served as part of a ACS delta transaction those will
+            be limited to all parties specified in the ``TransactionFilter`` that
+            are stakeholders of the contract (i.e. either signatories or observers).
+            If the ``CreatedEvent`` is returned as part of an AssignedEvent,
+            ActiveContract or IncompleteUnassigned (so the event is related to
+            an assignment or unassignment): this will include all parties of the
+            ``TransactionFilter`` that are stakeholders of the contract.
+            Required
           type: array
           items:
             type: string
         signatories:
+          description: |-
+            The signatories for this contract as specified by the template.
+            Required
           type: array
           items:
             type: string
         observers:
+          description: |-
+            The observers for this contract as specified explicitly by the template or implicitly as choice controllers.
+            This field never contains parties that are signatories.
+            Required
           type: array
           items:
             type: string
         createdAt:
           $ref: '#/components/schemas/Timestamp'
+          description: |-
+            Ledger effective time of the transaction that created the contract.
+            Required
         packageName:
+          description: |-
+            The package name of the created contract.
+            Required
           type: string
     JsInterfaceView:
       title: JsInterfaceView
+      description: View of a create event matched by an interface filter.
       type: object
       required:
       - interfaceId
       - viewStatus
       properties:
         interfaceId:
+          description: |-
+            The interface implemented by the matched event.
+            Required
           type: string
         viewStatus:
           $ref: '#/components/schemas/JsStatus'
-        viewValue: {}
+          description: |-
+            Whether the view was successfully computed, and if not,
+            the reason for the error. The error is reported using the same rules
+            for error codes and messages as the errors returned for API requests.
+            Required
+        viewValue:
+          description: |-
+            The value of the interface's view method on this event.
+            Set if it was requested in the ``InterfaceFilter`` and it could be
+            sucessfully computed.
+            Optional
     JsStatus:
       title: JsStatus
       type: object
@@ -627,8 +940,11 @@ components:
       properties:
         assignedEvent:
           $ref: '#/components/schemas/JsAssignedEvent'
+          description: Required
     JsAssignedEvent:
       title: JsAssignedEvent
+      description: Records that a contract has been assigned, and it can be used on
+        the target synchronizer.
       type: object
       required:
       - source
@@ -639,18 +955,45 @@ components:
       - createdEvent
       properties:
         source:
+          description: |-
+            The ID of the source synchronizer.
+            Must be a valid synchronizer id.
+            Required
           type: string
         target:
+          description: |-
+            The ID of the target synchronizer.
+            Must be a valid synchronizer id.
+            Required
           type: string
         unassignId:
+          description: |-
+            The ID from the unassigned event.
+            For correlation capabilities.
+            For one contract the (unassign_id, source synchronizer) pair is unique.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Required
           type: string
         submitter:
+          description: |-
+            Party on whose behalf the assign command was executed.
+            Empty if the assignment happened offline via the repair service.
+            Must be a valid PartyIdString (as described in ``value.proto``).
+            Optional
           type: string
         reassignmentCounter:
+          description: |-
+            Each corresponding assigned and unassigned event has the same reassignment_counter. This strictly increases
+            with each unassign command for the same contract. Creation of the contract corresponds to reassignment_counter
+            equals zero.
+            Required
           type: integer
           format: int64
         createdEvent:
           $ref: '#/components/schemas/CreatedEvent'
+          description: |-
+            Required
+            The offset of the emitted event refers to the offset of this assignment, while the node_id is always set to 0.
     JsIncompleteUnassigned:
       title: JsIncompleteUnassigned
       type: object
@@ -660,10 +1003,21 @@ components:
       properties:
         createdEvent:
           $ref: '#/components/schemas/CreatedEvent'
+          description: |-
+            Required
+            The event as it appeared in the context of its last activation update (i.e. daml transaction or
+            reassignment). In particular, the last activation offset, node_id pair is preserved.
+            The last activation update is the most recent update created or assigned this contract on synchronizer_id synchronizer before
+            the unassigned_event.
+            The offset of the CreatedEvent might point to an already pruned update, therefore it cannot necessarily be used
+            for lookups.
         unassignedEvent:
           $ref: '#/components/schemas/UnassignedEvent'
+          description: Required
     UnassignedEvent:
       title: UnassignedEvent
+      description: Records that a contract has been unassigned, and it becomes unusable
+        on the source synchronizer
       type: object
       required:
       - unassignId
@@ -675,27 +1029,68 @@ components:
       - packageName
       properties:
         unassignId:
+          description: |-
+            The ID of the unassignment. This needs to be used as an input for a assign ReassignmentCommand.
+            For one contract the (unassign_id, source synchronizer) pair is unique.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Required
           type: string
         contractId:
+          description: |-
+            The ID of the reassigned contract.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Required
           type: string
         templateId:
+          description: |-
+            The template of the reassigned contract.
+            Required
           type: string
         source:
+          description: |-
+            The ID of the source synchronizer
+            Must be a valid synchronizer id
+            Required
           type: string
         target:
+          description: |-
+            The ID of the target synchronizer
+            Must be a valid synchronizer id
+            Required
           type: string
         submitter:
+          description: |-
+            Party on whose behalf the unassign command was executed.
+            Empty if the unassignment happened offline via the repair service.
+            Must be a valid PartyIdString (as described in ``value.proto``).
+            Optional
           type: string
         reassignmentCounter:
+          description: |-
+            Each corresponding assigned and unassigned event has the same reassignment_counter. This strictly increases
+            with each unassign command for the same contract. Creation of the contract corresponds to reassignment_counter
+            equals zero.
+            Required
           type: integer
           format: int64
         assignmentExclusivity:
           $ref: '#/components/schemas/Timestamp'
+          description: |-
+            Assignment exclusivity
+            Before this time (measured on the target synchronizer), only the submitter of the unassignment can initiate the assignment
+            Defined for reassigning participants.
+            Optional
         witnessParties:
+          description: |-
+            The parties that are notified of this event.
+            Required
           type: array
           items:
             type: string
         packageName:
+          description: |-
+            The package name of the contract.
+            Required
           type: string
     GetUpdatesRequest:
       title: GetUpdatesRequest
@@ -705,15 +1100,137 @@ components:
       - verbose
       properties:
         beginExclusive:
+          description: |-
+            Beginning of the requested ledger section (non-negative integer).
+            The response will only contain transactions whose offset is strictly greater than this.
+            If zero, the stream will start from the beginning of the ledger.
+            If positive, the streaming will start after this absolute offset.
+            If the ledger has been pruned, this parameter must be specified and be greater than the pruning offset.
           type: integer
           format: int64
         endInclusive:
+          description: |-
+            End of the requested ledger section.
+            The response will only contain transactions whose offset is less than or equal to this.
+            Optional, if empty, the stream will not terminate.
+            If specified, the stream will terminate after this absolute offset (positive integer) is reached.
           type: integer
           format: int64
         filter:
           $ref: '#/components/schemas/TransactionFilter'
+          description: |-
+            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Requesting parties with template filters.
+            Template filters must be empty for GetUpdateTrees requests.
+            Optional for backwards compatibility, if defined update_format must be unset
         verbose:
+          description: |-
+            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
+            In particular, setting the verbose flag to true triggers the ledger to include labels, record and variant type ids
+            for record fields.
+            Optional for backwards compatibility, if defined update_format must be unset
           type: boolean
+        updateFormat:
+          $ref: '#/components/schemas/UpdateFormat'
+          description: |-
+            Must be unset for GetUpdateTrees request.
+            Optional for backwards compatibility for GetUpdates request: defaults to an UpdateFormat where:
+
+              - include_transactions.event_format.filters_by_party = the filter.filters_by_party on this request
+              - include_transactions.event_format.filters_for_any_party = the filter.filters_for_any_party on this request
+              - include_transactions.event_format.verbose = the same flag specified on this request
+              - include_transactions.transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
+              - include_reassignments.filter = the same filter specified on this request
+              - include_reassignments.verbose = the same flag specified on this request
+              - include_topology_events.include_participant_authorization_events.parties = all the parties specified in filter
+    UpdateFormat:
+      title: UpdateFormat
+      description: A format specifying what updates to include and how to render them.
+      type: object
+      properties:
+        includeTransactions:
+          $ref: '#/components/schemas/TransactionFormat'
+          description: |-
+            Include daml transactions in streams.
+            Optional, if unset, no transactions are emitted in the stream.
+        includeReassignments:
+          $ref: '#/components/schemas/EventFormat'
+          description: |-
+            Include (un)assignments in the stream.
+            The events in the result, will take shape TRANSACTION_SHAPE_ACS_DELTA.
+            Optional, if unset, no (un)assignments are emitted in the stream.
+        includeTopologyEvents:
+          $ref: '#/components/schemas/TopologyFormat'
+          description: |-
+            Include topology events in streams.
+            Optional, if unset no topology events are emitted in the stream.
+    TransactionFormat:
+      title: TransactionFormat
+      description: |-
+        A format that specifies what events to include in Daml transactions
+        and what data to compute and include for them.
+      type: object
+      required:
+      - transactionShape
+      properties:
+        eventFormat:
+          $ref: '#/components/schemas/EventFormat'
+          description: Required
+        transactionShape:
+          $ref: '#/components/schemas/TransactionShape'
+          description: |-
+            What transaction shape to use for interpreting the filters of the event format.
+            Required
+    TransactionShape:
+      title: TransactionShape
+      oneOf:
+      - $ref: '#/components/schemas/TRANSACTION_SHAPE_ACS_DELTA'
+      - $ref: '#/components/schemas/TRANSACTION_SHAPE_LEDGER_EFFECTS'
+      - $ref: '#/components/schemas/TRANSACTION_SHAPE_UNSPECIFIED'
+      - $ref: '#/components/schemas/Unrecognized'
+    TRANSACTION_SHAPE_ACS_DELTA:
+      title: TRANSACTION_SHAPE_ACS_DELTA
+      type: object
+    TRANSACTION_SHAPE_LEDGER_EFFECTS:
+      title: TRANSACTION_SHAPE_LEDGER_EFFECTS
+      type: object
+    TRANSACTION_SHAPE_UNSPECIFIED:
+      title: TRANSACTION_SHAPE_UNSPECIFIED
+      type: object
+    Unrecognized:
+      title: Unrecognized
+      type: object
+      required:
+      - unrecognizedValue
+      properties:
+        unrecognizedValue:
+          type: integer
+          format: int32
+    TopologyFormat:
+      title: TopologyFormat
+      description: A format specifying which topology transactions to include and
+        how to render them.
+      type: object
+      properties:
+        includeParticipantAuthorizationEvents:
+          $ref: '#/components/schemas/ParticipantAuthorizationTopologyFormat'
+          description: |-
+            Include participant authorization topology events in streams.
+            Optional, if unset no participant authorization topology events are emitted in the stream.
+    ParticipantAuthorizationTopologyFormat:
+      title: ParticipantAuthorizationTopologyFormat
+      description: A format specifying which participant authorization topology transactions
+        to include and how to render them.
+      type: object
+      properties:
+        parties:
+          description: |-
+            List of parties for which the topology transactions should be sent.
+            Empty means: for all parties.
+          type: array
+          items:
+            type: string
     Either_JsCantonError_JsGetUpdatesResponse:
       title: Either_JsCantonError_JsGetUpdatesResponse
       oneOf:
@@ -729,6 +1246,7 @@ components:
           $ref: '#/components/schemas/Update'
     Update:
       title: Update
+      description: The update that matches the filter in the request.
       oneOf:
       - type: object
         required:
@@ -756,6 +1274,11 @@ components:
             $ref: '#/components/schemas/Transaction'
     OffsetCheckpoint2:
       title: OffsetCheckpoint
+      description: |-
+        OffsetCheckpoints may be used to:
+
+        * detect time out of commands.
+        * provide an offset which can be used to restart consumption.
       type: object
       required:
       - value
@@ -764,6 +1287,7 @@ components:
           $ref: '#/components/schemas/OffsetCheckpoint1'
     Reassignment:
       title: Reassignment
+      description: Complete view of an on-ledger reassignment.
       type: object
       required:
       - value
@@ -772,6 +1296,7 @@ components:
           $ref: '#/components/schemas/JsReassignment'
     JsReassignment:
       title: JsReassignment
+      description: Complete view of an on-ledger reassignment.
       type: object
       required:
       - updateId
@@ -782,20 +1307,49 @@ components:
       - recordTime
       properties:
         updateId:
+          description: |-
+            Assigned by the server. Useful for correlating logs.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Required
           type: string
         commandId:
+          description: |-
+            The ID of the command which resulted in this reassignment. Missing for everyone except the submitting party on the submitting participant.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Optional
           type: string
         workflowId:
+          description: |-
+            The workflow ID used in reassignment command submission. Only set if the ``workflow_id`` for the command was set.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Optional
           type: string
         offset:
+          description: |-
+            The participant's offset. The details of this field are described in ``community/ledger-api/README.md``.
+            Required, must be a valid absolute offset (positive integer).
           type: integer
           format: int64
         event:
           $ref: '#/components/schemas/JsReassignmentEvent'
         traceContext:
           $ref: '#/components/schemas/TraceContext'
+          description: |-
+            Optional; ledger api trace context
+
+            The trace context transported in this message corresponds to the trace context supplied
+            by the client application in a HTTP2 header of the original command submission.
+            We typically use a header to transfer this type of information. Here we use message
+            body, because it is used in gRPC streams which do not support per message headers.
+            This field will be populated with the trace context contained in the original submission.
+            If that was not provided, a unique ledger-api-server generated trace context will be used
+            instead.
         recordTime:
           $ref: '#/components/schemas/Timestamp'
+          description: |-
+            The time at which the reassignment was recorded. The record time refers to the source/target
+            synchronizer for an unassign/assign event respectively.
+            Required
     JsReassignmentEvent:
       title: JsReassignmentEvent
       oneOf:
@@ -837,6 +1391,8 @@ components:
           $ref: '#/components/schemas/CreatedEvent'
     JsUnassignedEvent:
       title: JsUnassignedEvent
+      description: Records that a contract has been unassigned, and it becomes unusable
+        on the source synchronizer
       type: object
       required:
       - value
@@ -861,22 +1417,60 @@ components:
       - recordTime
       properties:
         updateId:
+          description: |-
+            Assigned by the server. Useful for correlating logs.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Required
           type: string
         events:
+          description: |-
+            A non-empty list of topology events.
+            Required
           type: array
           items:
             $ref: '#/components/schemas/Event'
         offset:
+          description: |-
+            The absolute offset. The details of this field are described in ``community/ledger-api/README.md``.
+            Required, it is a valid absolute offset (positive integer).
           type: integer
           format: int64
         synchronizerId:
+          description: |-
+            A valid synchronizer id.
+            Identifies the synchronizer that synchronized the topology transaction.
+            Required
           type: string
         traceContext:
           $ref: '#/components/schemas/TraceContext'
+          description: |-
+            Optional; ledger api trace context
+
+            The trace context transported in this message corresponds to the trace context supplied
+            by the client application in a HTTP2 header of the original command submission.
+            We typically use a header to transfer this type of information. Here we use message
+            body, because it is used in gRPC streams which do not support per message headers.
+            This field will be populated with the trace context contained in the original submission.
+            If that was not provided, a unique ledger-api-server generated trace context will be used
+            instead.
         recordTime:
           $ref: '#/components/schemas/Timestamp'
+          description: |-
+            The time at which the changes in the topology transaction become effective. There is a small delay between a
+            topology transaction being sequenced and the changes it contains becoming effective. Topology transactions appear
+            in order relative to a synchronizer based on their effective time rather than their sequencing time.
+            Required
     Event:
       title: Event
+      description: |-
+        Events in transactions can have two primary shapes:
+          - ACS delta: events can be CreatedEvent or ArchivedEvent
+          - ledger effects: events can be CreatedEvent or ExercisedEvent
+        In the update service the events are restricted to the events
+        visible for the parties specified in the transaction filter. Each
+        event message type below contains a ``witness_parties`` field which
+        indicates the subset of the requested parties that can see the event
+        in question.
       oneOf:
       - $ref: '#/components/schemas/ParticipantAuthorizationChanged'
       - $ref: '#/components/schemas/ParticipantAuthorizationRevoked'
@@ -889,10 +1483,13 @@ components:
       - participantPermission
       properties:
         partyId:
+          description: Required
           type: string
         participantId:
+          description: Required
           type: string
         participantPermission:
+          description: Required
           type: integer
           format: int32
     ParticipantAuthorizationRevoked:
@@ -903,11 +1500,15 @@ components:
       - participantId
       properties:
         partyId:
+          description: Required
           type: string
         participantId:
+          description: Required
           type: string
     Transaction:
       title: Transaction
+      description: Filtered view of an on-ledger transaction's create and archive
+        events.
       type: object
       required:
       - value
@@ -916,6 +1517,8 @@ components:
           $ref: '#/components/schemas/JsTransaction'
     JsTransaction:
       title: JsTransaction
+      description: Filtered view of an on-ledger transaction's create and archive
+        events.
       type: object
       required:
       - updateId
@@ -927,28 +1530,82 @@ components:
       - recordTime
       properties:
         updateId:
+          description: |-
+            Assigned by the server. Useful for correlating logs.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Required
           type: string
         commandId:
+          description: |-
+            The ID of the command which resulted in this transaction. Missing for everyone except the submitting party.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Optional
           type: string
         workflowId:
+          description: |-
+            The workflow ID used in command submission.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Optional
           type: string
         effectiveAt:
           $ref: '#/components/schemas/Timestamp'
+          description: |-
+            Ledger effective time.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Required
         events:
+          description: |-
+            The collection of events.
+            Contains:
+
+              - ``CreatedEvent`` or ``ArchivedEvent`` in case of ACS_DELTA transaction shape
+              - ``CreatedEvent`` or ``ExercisedEvent`` in case of LEDGER_EFFECTS transaction shape
+
+            Required
           type: array
           items:
             $ref: '#/components/schemas/Event1'
         offset:
+          description: |-
+            The absolute offset. The details of this field are described in ``community/ledger-api/README.md``.
+            Required, it is a valid absolute offset (positive integer).
           type: integer
           format: int64
         synchronizerId:
+          description: |-
+            A valid synchronizer id.
+            Identifies the synchronizer that synchronized the transaction.
+            Required
           type: string
         traceContext:
           $ref: '#/components/schemas/TraceContext'
+          description: |-
+            Optional; ledger api trace context
+
+            The trace context transported in this message corresponds to the trace context supplied
+            by the client application in a HTTP2 header of the original command submission.
+            We typically use a header to transfer this type of information. Here we use message
+            body, because it is used in gRPC streams which do not support per message headers.
+            This field will be populated with the trace context contained in the original submission.
+            If that was not provided, a unique ledger-api-server generated trace context will be used
+            instead.
         recordTime:
           $ref: '#/components/schemas/Timestamp'
+          description: |-
+            The time at which the transaction was recorded. The record time refers to the synchronizer
+            which synchronized the transaction.
+            Required
     Event1:
       title: Event
+      description: |-
+        Events in transactions can have two primary shapes:
+          - ACS delta: events can be CreatedEvent or ArchivedEvent
+          - ledger effects: events can be CreatedEvent or ExercisedEvent
+        In the update service the events are restricted to the events
+        visible for the parties specified in the transaction filter. Each
+        event message type below contains a ``witness_parties`` field which
+        indicates the subset of the requested parties that can see the event
+        in question.
       oneOf:
       - type: object
         required:
@@ -962,8 +1619,16 @@ components:
         properties:
           CreatedEvent:
             $ref: '#/components/schemas/CreatedEvent'
+      - type: object
+        required:
+        - ExercisedEvent
+        properties:
+          ExercisedEvent:
+            $ref: '#/components/schemas/ExercisedEvent'
     ArchivedEvent:
       title: ArchivedEvent
+      description: Records that a contract has been archived, and choices may no longer
+        be exercised on it.
       type: object
       required:
       - offset
@@ -973,21 +1638,174 @@ components:
       - packageName
       properties:
         offset:
+          description: |-
+            The offset of origin.
+            Offsets are managed by the participant nodes.
+            Transactions can thus NOT be assumed to have the same offsets on different participant nodes.
+            Required, it is a valid absolute offset (positive integer)
           type: integer
           format: int64
         nodeId:
+          description: |-
+            The position of this event in the originating transaction or reassignment.
+            Node ids are not necessarily equal across participants,
+            as these may see different projections/parts of transactions.
+            Required, must be valid node ID (non-negative integer)
           type: integer
           format: int32
         contractId:
+          description: |-
+            The ID of the archived contract.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Required
           type: string
         templateId:
+          description: |-
+            The template of the archived contract.
+            Required
           type: string
         witnessParties:
+          description: |-
+            The parties that are notified of this event. For an ``ArchivedEvent``,
+            these are the intersection of the stakeholders of the contract in
+            question and the parties specified in the ``TransactionFilter``. The
+            stakeholders are the union of the signatories and the observers of
+            the contract.
+            Each one of its elements must be a valid PartyIdString (as described
+            in ``value.proto``).
+            Required
           type: array
           items:
             type: string
         packageName:
+          description: |-
+            The package name of the contract.
+            Required
           type: string
+        implementedInterfaces:
+          description: |-
+            The interfaces implemented by the target template that have been
+            matched from the interface filter query.
+            Populated only in case interface filters with include_interface_view set.
+            Optional
+          type: array
+          items:
+            type: string
+    ExercisedEvent:
+      title: ExercisedEvent
+      description: Records that a choice has been exercised on a target contract.
+      type: object
+      required:
+      - offset
+      - nodeId
+      - contractId
+      - templateId
+      - choice
+      - choiceArgument
+      - consuming
+      - lastDescendantNodeId
+      - exerciseResult
+      - packageName
+      properties:
+        offset:
+          description: |-
+            The offset of origin.
+            Offsets are managed by the participant nodes.
+            Transactions can thus NOT be assumed to have the same offsets on different participant nodes.
+            Required, it is a valid absolute offset (positive integer)
+          type: integer
+          format: int64
+        nodeId:
+          description: |-
+            The position of this event in the originating transaction or reassignment.
+            Node ids are not necessarily equal across participants,
+            as these may see different projections/parts of transactions.
+            Required, must be valid node ID (non-negative integer)
+          type: integer
+          format: int32
+        contractId:
+          description: |-
+            The ID of the target contract.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Required
+          type: string
+        templateId:
+          description: |-
+            The template of the target contract.
+            Required
+          type: string
+        interfaceId:
+          description: |-
+            The interface where the choice is defined, if inherited.
+            Optional
+          type: string
+        choice:
+          description: |-
+            The choice that was exercised on the target contract.
+            Must be a valid NameString (as described in ``value.proto``).
+            Required
+          type: string
+        choiceArgument:
+          description: |-
+            The argument of the exercised choice.
+            Required
+        actingParties:
+          description: |-
+            The parties that exercised the choice.
+            Each element must be a valid PartyIdString (as described in ``value.proto``).
+            Required
+          type: array
+          items:
+            type: string
+        consuming:
+          description: |-
+            If true, the target contract may no longer be exercised.
+            Required
+          type: boolean
+        witnessParties:
+          description: |-
+            The parties that are notified of this event. The witnesses of an exercise
+            node will depend on whether the exercise was consuming or not.
+            If consuming, the witnesses are the union of the stakeholders and
+            the actors.
+            If not consuming, the witnesses are the union of the signatories and
+            the actors. Note that the actors might not necessarily be observers
+            and thus signatories. This is the case when the controllers of a
+            choice are specified using "flexible controllers", using the
+            ``choice ... controller`` syntax, and said controllers are not
+            explicitly marked as observers.
+            Each element must be a valid PartyIdString (as described in ``value.proto``).
+            Required
+          type: array
+          items:
+            type: string
+        lastDescendantNodeId:
+          description: |-
+            Specifies the upper boundary of the node ids of the events in the same transaction that appeared as a result of
+            this ``ExercisedEvent``. This allows unambiguous identification of all the members of the subtree rooted at this
+            node. A full subtree can be constructed when all descendant nodes are present in the stream. If nodes are heavily
+            filtered, it is only possible to determine if a node is in a consequent subtree or not.
+            Required
+          type: integer
+          format: int32
+        exerciseResult:
+          description: |-
+            The result of exercising the choice.
+            Required
+        packageName:
+          description: |-
+            The package name of the contract.
+            Required
+          type: string
+        implementedInterfaces:
+          description: |-
+            If the event is consuming, the interfaces implemented by the target template that have been
+            matched from the interface filter query.
+            Populated only in case interface filters with include_interface_view set.
+            Optional
+          type: array
+          items:
+            type: string
     Either_JsCantonError_JsGetUpdateTreesResponse:
       title: Either_JsCantonError_JsGetUpdateTreesResponse
       oneOf:
@@ -995,6 +1813,8 @@ components:
       - $ref: '#/components/schemas/JsGetUpdateTreesResponse'
     JsGetUpdateTreesResponse:
       title: JsGetUpdateTreesResponse
+      description: TODO(i23504) Provided for backwards compatibility, it will be removed
+        in the final version.
       type: object
       required:
       - update
@@ -1003,6 +1823,7 @@ components:
           $ref: '#/components/schemas/Update1'
     Update1:
       title: Update
+      description: The update that matches the filter in the request.
       oneOf:
       - type: object
         required:
@@ -1030,6 +1851,11 @@ components:
             $ref: '#/components/schemas/TransactionTree'
     OffsetCheckpoint3:
       title: OffsetCheckpoint
+      description: |-
+        OffsetCheckpoints may be used to:
+
+        * detect time out of commands.
+        * provide an offset which can be used to restart consumption.
       type: object
       required:
       - value
@@ -1038,6 +1864,7 @@ components:
           $ref: '#/components/schemas/OffsetCheckpoint1'
     Reassignment1:
       title: Reassignment
+      description: Complete view of an on-ledger reassignment.
       type: object
       required:
       - value
@@ -1054,6 +1881,9 @@ components:
           $ref: '#/components/schemas/JsTopologyTransaction'
     TransactionTree:
       title: TransactionTree
+      description: |-
+        TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+        Complete view of an on-ledger transaction.
       type: object
       required:
       - value
@@ -1062,6 +1892,9 @@ components:
           $ref: '#/components/schemas/JsTransactionTree'
     JsTransactionTree:
       title: JsTransactionTree
+      description: |-
+        TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+        Complete view of an on-ledger transaction.
       type: object
       required:
       - updateId
@@ -1073,26 +1906,75 @@ components:
       - recordTime
       properties:
         updateId:
+          description: |-
+            Assigned by the server. Useful for correlating logs.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Required
           type: string
         commandId:
+          description: |-
+            The ID of the command which resulted in this transaction. Missing for everyone except the submitting party.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Optional
           type: string
         workflowId:
+          description: |-
+            The workflow ID used in command submission. Only set if the ``workflow_id`` for the command was set.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Optional
           type: string
         effectiveAt:
           $ref: '#/components/schemas/Timestamp'
+          description: |-
+            Ledger effective time.
+            Required
         offset:
+          description: |-
+            The absolute offset. The details of this field are described in ``community/ledger-api/README.md``.
+            Required, it is a valid absolute offset (positive integer).
           type: integer
           format: int64
         eventsById:
           $ref: '#/components/schemas/Map_K_V'
+          description: |-
+            Changes to the ledger that were caused by this transaction. Nodes of the transaction tree.
+            Each key must be a valid node ID (non-negative integer).
+            Required
         synchronizerId:
+          description: |-
+            A valid synchronizer id.
+            Identifies the synchronizer that synchronized the transaction.
+            Required
           type: string
         traceContext:
           $ref: '#/components/schemas/TraceContext'
+          description: |-
+            Optional; ledger api trace context
+
+            The trace context transported in this message corresponds to the trace context supplied
+            by the client application in a HTTP2 header of the original command submission.
+            We typically use a header to transfer this type of information. Here we use message
+            body, because it is used in gRPC streams which do not support per message headers.
+            This field will be populated with the trace context contained in the original submission.
+            If that was not provided, a unique ledger-api-server generated trace context will be used
+            instead.
         recordTime:
           $ref: '#/components/schemas/Timestamp'
+          description: |-
+            The time at which the transaction was recorded. The record time refers to the synchronizer
+            which synchronized the transaction.
+            Required
     TreeEvent:
       title: TreeEvent
+      description: |-
+        TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+        Each tree event message type below contains a ``witness_parties`` field which
+        indicates the subset of the requested parties that can see the event
+        in question.
+
+        Note that transaction trees might contain events with
+        _no_ witness parties, which were included simply because they were
+        children of events which have witnesses.
       oneOf:
       - type: object
         required:

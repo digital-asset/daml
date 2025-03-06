@@ -614,6 +614,9 @@ object SigningKeyUsage {
       .find(sku => sku.dbType == dbTypeInt.toByte)
       .getOrElse(throw new DbDeserializationException(s"Unknown key usage id: $dbTypeInt"))
 
+  def fromIdentifier(identifier: String): Option[SigningKeyUsage] =
+    All.find(_.identifier == identifier)
+
   case object Namespace extends SigningKeyUsage {
     override val identifier: String = "namespace"
     override val dbType: Byte = 0

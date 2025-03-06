@@ -94,11 +94,12 @@ message GetUpdatesRequest {
   // Must be unset for GetUpdateTrees request.
   // Optional for backwards compatibility for GetUpdates request: defaults to an UpdateFormat where:
   //
-  //   - include_transactions.event_format.filter = the same filter specified on the request
-  //   - include_transactions.event_format.verbose = the same flag specified on the request
+  //   - include_transactions.event_format.filters_by_party = the filter.filters_by_party on this request
+  //   - include_transactions.event_format.filters_for_any_party = the filter.filters_for_any_party on this request
+  //   - include_transactions.event_format.verbose = the same flag specified on this request
   //   - include_transactions.transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
-  //   - include_reassignments.filter = the same filter specified on the request
-  //   - include_reassignments.verbose = the same flag specified on the request
+  //   - include_reassignments.filter = the same filter specified on this request
+  //   - include_reassignments.verbose = the same flag specified on this request
   //   - include_topology_events.include_participant_authorization_events.parties = all the parties specified in filter
   UpdateFormat update_format = 5;
 }
@@ -121,8 +122,6 @@ message GetUpdateTreesResponse {
     TransactionTree transaction_tree = 1;
     Reassignment reassignment = 2;
     OffsetCheckpoint offset_checkpoint = 3;
-    // Message returned only when the experimental feature is turned on
-    TopologyTransaction topology_transaction = 4;
   }
 }
 
@@ -144,7 +143,8 @@ message GetTransactionByOffsetRequest {
   // Must be unset for GetTransactionTreeByOffset request.
   // Optional for GetTransactionByOffset request for backwards compatibility: defaults to a TransactionFormat, where:
   //
-  // - event_format.filter will have wildcard filters for all the requesting_parties
+  // - event_format.filters_by_party will have template-wildcard filters for all the requesting_parties
+  // - event_format.filters_for_any_party is unset
   // - event_format.verbose = true
   // - transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
   TransactionFormat transaction_format = 3;
@@ -168,7 +168,8 @@ message GetTransactionByIdRequest {
   // Must be unset for GetTransactionTreeById request.
   // Optional for GetTransactionById request for backwards compatibility: defaults to a transaction_format, where:
   //
-  // - event_format.filter will have wildcard filters for all the requesting_parties
+  // - event_format.filters_by_party will have template-wildcard filters for all the requesting_parties
+  // - event_format.filters_for_any_party is unset
   // - event_format.verbose = true
   // - transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
   TransactionFormat transaction_format = 3;

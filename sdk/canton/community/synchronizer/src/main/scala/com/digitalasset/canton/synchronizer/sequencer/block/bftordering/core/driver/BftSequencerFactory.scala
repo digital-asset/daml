@@ -17,6 +17,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactor
 import com.digitalasset.canton.synchronizer.sequencer.block.{BlockSequencer, BlockSequencerFactory}
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.synchronizer.sequencer.{
+  AuthenticationServices,
   BlockSequencerConfig,
   SequencerHealthConfig,
   SequencerSnapshot,
@@ -80,6 +81,7 @@ class BftSequencerFactory(
       orderingTimeFixMode: OrderingTimeFixMode,
       initialBlockHeight: Option[Long],
       sequencerSnapshot: Option[SequencerSnapshot],
+      authenticationServices: Option[AuthenticationServices],
       synchronizerLoggerFactory: NamedLoggerFactory,
       runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
@@ -92,10 +94,12 @@ class BftSequencerFactory(
       new BftBlockOrderer(
         config,
         storage,
+        synchronizerId,
         sequencerId,
         protocolVersion,
         driverClock,
         new CantonOrderingTopologyProvider(cryptoApi, loggerFactory),
+        authenticationServices,
         nodeParameters,
         initialHeight,
         orderingTimeFixMode,

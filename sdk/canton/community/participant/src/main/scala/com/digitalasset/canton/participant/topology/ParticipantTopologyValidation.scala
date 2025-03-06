@@ -20,6 +20,7 @@ import com.digitalasset.canton.topology.{
   TopologyManagerError,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import scala.concurrent.ExecutionContext
@@ -50,6 +51,38 @@ trait ParticipantTopologyValidation extends NamedLogging {
     } yield ()
   }
 
+  def checkInsufficientParticipantPermissionForSignatoryParty(
+      party: PartyId,
+      forceFlags: ForceFlags,
+      acsInspections: () => Map[SynchronizerId, AcsInspection],
+  )(implicit
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
+    MonadUtil.sequentialTraverse_(acsInspections().toList) { case (synchronizerId, acsInspection) =>
+      EitherT(
+        acsInspection
+          .isSignatoryOnActiveContracts(party)
+          .map {
+            case true
+                if !forceFlags
+                  .permits(ForceFlag.AllowInsufficientParticipantPermissionForSignatoryParty) =>
+              Left(
+                TopologyManagerError.ParticipantTopologyManagerError.InsufficientParticipantPermissionForSignatoryParty
+                  .Reject(party, synchronizerId): TopologyManagerError
+              )
+            case true =>
+              logger.info(
+                s"Allow changing the permission of $party to a pure observer with active contracts on $synchronizerId, " +
+                  s"where it is a signatory, because the force flag ${ForceFlag.AllowInsufficientParticipantPermissionForSignatoryParty} is set."
+              )
+              Either.unit
+            case false =>
+              Either.unit
+          }
+      )
+    }
+
   def checkCannotDisablePartyWithActiveContracts(
       party: PartyId,
       forceFlags: ForceFlags,
@@ -58,27 +91,26 @@ trait ParticipantTopologyValidation extends NamedLogging {
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
-    acsInspections().toList
-      .parTraverse_ { case (synchronizerId, acsInspection) =>
-        EitherT(
-          acsInspection
-            .hasActiveContracts(party)
-            .map {
-              case true if !forceFlags.permits(ForceFlag.DisablePartyWithActiveContracts) =>
-                Left(
-                  TopologyManagerError.ParticipantTopologyManagerError.DisablePartyWithActiveContractsRequiresForce
-                    .Reject(party, synchronizerId): TopologyManagerError
-                )
-              case true =>
-                logger.debug(
-                  s"Allow to disable $PartyId with active contracts on $synchronizerId because force flag ${ForceFlag.DisablePartyWithActiveContracts} is set."
-                )
-                Either.unit
-              case false =>
-                Either.unit
-            }
-        )
-      }
+    MonadUtil.sequentialTraverse_(acsInspections().toList) { case (synchronizerId, acsInspection) =>
+      EitherT(
+        acsInspection
+          .hasActiveContracts(party)
+          .map {
+            case true if !forceFlags.permits(ForceFlag.DisablePartyWithActiveContracts) =>
+              Left(
+                TopologyManagerError.ParticipantTopologyManagerError.DisablePartyWithActiveContractsRequiresForce
+                  .Reject(party, synchronizerId): TopologyManagerError
+              )
+            case true =>
+              logger.debug(
+                s"Allow to disable $party with active contracts on $synchronizerId because force flag ${ForceFlag.DisablePartyWithActiveContracts} is set."
+              )
+              Either.unit
+            case false =>
+              Either.unit
+          }
+      )
+    }
 
   private def checkPackageDependencies(
       currentlyVettedPackages: Set[LfPackageId],

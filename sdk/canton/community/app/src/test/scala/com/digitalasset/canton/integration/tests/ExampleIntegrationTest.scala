@@ -8,7 +8,7 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.Prepare
 import com.digitalasset.canton.ConsoleScriptRunner
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.StorageConfig.Memory
-import com.digitalasset.canton.config.{CantonCommunityConfig, DbConfig}
+import com.digitalasset.canton.config.{CantonConfig, DbConfig}
 import com.digitalasset.canton.crypto.InteractiveSubmission
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.Environment
@@ -23,7 +23,7 @@ import com.digitalasset.canton.integration.{
   CommunityEnvironmentDefinition,
 }
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLogging}
-import com.digitalasset.canton.platform.apiserver.execution.CommandExecutionResult
+import com.digitalasset.canton.platform.apiserver.execution.CommandInterpretationResult
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionEncoder
 import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.topology.SynchronizerId
@@ -44,7 +44,7 @@ abstract class ExampleIntegrationTest(configPaths: File*)
     with IsolatedCommunityEnvironments
     with HasConsoleScriptRunner {
 
-  protected def additionalConfigTransform: Seq[CantonCommunityConfig => CantonCommunityConfig] =
+  protected def additionalConfigTransform: Seq[CantonConfig => CantonConfig] =
     Seq.empty
 
   override lazy val environmentDefinition: CommunityEnvironmentDefinition =
@@ -128,8 +128,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
   private val encoder = new PreparedTransactionEncoder(loggerFactory)
   private val portsFiles =
     (interactiveSubmissionV1Folder / "canton_ports.json").deleteOnExit()
-  override protected def additionalConfigTransform
-      : Seq[CantonCommunityConfig => CantonCommunityConfig] = Seq(
+  override protected def additionalConfigTransform: Seq[CantonConfig => CantonConfig] = Seq(
     _.focus(_.parameters.portsFile).replace(Some(portsFiles.pathAsString))
   )
   private val processLogger = new ConcurrentBufferedLogger {
@@ -208,7 +207,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
   }
 
   def buildV1Hash(
-      commandExecutionResult: CommandExecutionResult,
+      commandExecutionResult: CommandInterpretationResult,
       transactionUUID: UUID,
       mediatorGroup: PositiveInt,
       synchronizerId: SynchronizerId,
@@ -241,7 +240,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
     import env.*
     forAll {
       (
-          commandExecutionResult: CommandExecutionResult,
+          commandExecutionResult: CommandInterpretationResult,
           synchronizerId: SynchronizerId,
           transactionUUID: UUID,
           mediatorGroup: PositiveInt,
@@ -256,7 +255,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
         )
 
         val result = for {
-          encoded <- encoder.serializeCommandExecutionResult(
+          encoded <- encoder.serializeCommandInterpretationResult(
             commandExecutionResult,
             synchronizerId,
             transactionUUID,

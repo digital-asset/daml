@@ -6,7 +6,7 @@ package com.digitalasset.canton.integration.plugins
 import com.digitalasset.canton
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.{
-  CantonCommunityConfig,
+  CantonConfig,
   CantonRequireTypes,
   DbConfig,
   DbParametersConfig,
@@ -48,7 +48,7 @@ class UseCommunityReferenceBlockSequencer[S <: StorageConfig](
   private val driverFactory = new CommunityReferenceSequencerDriverFactory
 
   override def driverConfigs(
-      config: CantonCommunityConfig,
+      config: CantonConfig,
       storageConfigs: Map[CantonRequireTypes.InstanceName, S],
   ): Map[InstanceName, SequencerConfig] = {
     implicit val errorLoggingContext: ErrorLoggingContext =
@@ -76,7 +76,7 @@ class UseCommunityReferenceBlockSequencer[S <: StorageConfig](
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  override def beforeEnvironmentCreated(config: CantonCommunityConfig): CantonCommunityConfig = {
+  override def beforeEnvironmentCreated(config: CantonConfig): CantonConfig = {
     // in H2 we need to make db name unique, but it has to be matching for all sequencers, so we cache it
     lazy val dbNamesH2: Map[String, String] = dbNames.forgetNE.map { dbName =>
       dbName -> generateUniqueH2DatabaseName(dbName)

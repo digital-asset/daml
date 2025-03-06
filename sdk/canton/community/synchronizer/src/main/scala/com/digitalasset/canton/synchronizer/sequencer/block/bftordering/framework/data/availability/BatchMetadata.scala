@@ -3,12 +3,17 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability
 
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequestBatchStats
 
-final case class InProgressBatchMetadata(batchId: BatchId, stats: OrderingRequestBatchStats) {
+final case class InProgressBatchMetadata(
+    batchId: BatchId,
+    stats: OrderingRequestBatchStats,
+    expirationTime: CantonTimestamp,
+) {
 
   def complete(acks: Seq[AvailabilityAck]): DisseminatedBatchMetadata =
-    DisseminatedBatchMetadata(ProofOfAvailability(batchId, acks), stats)
+    DisseminatedBatchMetadata(ProofOfAvailability(batchId, acks, expirationTime), stats)
 }
 
 final case class DisseminatedBatchMetadata(

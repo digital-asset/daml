@@ -49,7 +49,7 @@ final class PartyReplicator(
     syncService: CantonSyncService,
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
-    pingParallelism: Int = 4,
+    pingParallelism: PositiveInt = PositiveInt.tryCreate(4),
 )(implicit
     executionContext: ExecutionContext
 ) extends FlagCloseable

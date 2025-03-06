@@ -329,7 +329,6 @@ object JsUpdateTree {
   final case class OffsetCheckpoint(value: offset_checkpoint.OffsetCheckpoint) extends Update
   final case class Reassignment(value: JsReassignment) extends Update
   final case class TransactionTree(value: JsTransactionTree) extends Update
-  final case class TopologyTransaction(value: JsTopologyTransaction) extends Update
 }
 
 final case class JsGetUpdateTreesResponse(
@@ -337,13 +336,10 @@ final case class JsGetUpdateTreesResponse(
 )
 
 object JsUpdateServiceCodecs {
-  import JsCommandServiceCodecs.*
-  import JsStateServiceCodecs.*
+  import JsSchema.JsServicesCommonCodecs.*
 
   implicit val participantAuthorizationTopologyFormatRW
       : Codec[ParticipantAuthorizationTopologyFormat] = deriveCodec
-  implicit val transactionShapeFormatRW: Codec[transaction_filter.TransactionShape] = deriveCodec
-  implicit val transactionFormatRW: Codec[transaction_filter.TransactionFormat] = deriveCodec
   implicit val topologyFormatRW: Codec[transaction_filter.TopologyFormat] = deriveCodec
   implicit val updateFormatRW: Codec[transaction_filter.UpdateFormat] = deriveCodec
   implicit val getUpdatesRequest: Codec[update_service.GetUpdatesRequest] = deriveCodec
@@ -380,8 +376,6 @@ object JsUpdateServiceCodecs {
   implicit val jsUpdateTree: Codec[JsUpdateTree.Update] = deriveCodec
   implicit val jsUpdateTreeReassignment: Codec[JsUpdateTree.Reassignment] = deriveCodec
   implicit val jsUpdateTreeTransaction: Codec[JsUpdateTree.TransactionTree] = deriveCodec
-  implicit val jsUpdateTreeTopologyTransaction: Codec[JsUpdateTree.TopologyTransaction] =
-    deriveCodec
 
   // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))

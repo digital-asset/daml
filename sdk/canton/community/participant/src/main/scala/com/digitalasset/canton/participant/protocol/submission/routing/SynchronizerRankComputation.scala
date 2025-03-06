@@ -3,28 +3,30 @@
 
 package com.digitalasset.canton.participant.protocol.submission.routing
 
-import cats.Order.*
 import cats.data.{Chain, EitherT}
 import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.ReassignmentRef
+import com.digitalasset.canton.error.TransactionRoutingError
+import com.digitalasset.canton.ledger.participant.state.{RoutingSynchronizerState, SynchronizerRank}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.reassignment.{
   ReassigningParticipantsComputation,
   ReassignmentValidation,
   ReassignmentValidationError,
 }
-import com.digitalasset.canton.participant.sync.TransactionRoutingError
-import com.digitalasset.canton.participant.sync.TransactionRoutingError.AutomaticReassignmentForTransactionFailure
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 
 import scala.concurrent.{ExecutionContext, Future}
+
+import TransactionRoutingError.AutomaticReassignmentForTransactionFailure
 
 private[routing] class SynchronizerRankComputation(
     participantId: ParticipantId,
@@ -33,6 +35,39 @@ private[routing] class SynchronizerRankComputation(
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
   import com.digitalasset.canton.util.ShowUtil.*
+
+  def computeBestSynchronizerRank(
+      synchronizerState: RoutingSynchronizerState,
+      contracts: Seq[ContractData],
+      readers: Set[LfPartyId],
+      synchronizerIds: NonEmpty[Set[SynchronizerId]],
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerRank] =
+    EitherT {
+      for {
+        rankedSynchronizers <- synchronizerIds.forgetNE.toList
+          .parTraverseFilter(targetSynchronizer =>
+            compute(
+              contracts,
+              Target(targetSynchronizer),
+              readers,
+              synchronizerState,
+            )
+              // TODO(#23334): The resulting error is discarded in toOption. Consider forwarding it instead
+              .toOption.value
+          )
+        // Priority of synchronizer
+        // Number of reassignments if we use this synchronizer
+        // pick according to the least amount of reassignments
+      } yield rankedSynchronizers.minOption
+        .toRight(
+          // TODO(#23334): Revisit this reported error as it can be misleading
+          TransactionRoutingError.AutomaticReassignmentForTransactionFailure.Failed(
+            s"None of the following $synchronizerIds is suitable for automatic reassignment."
+          )
+        )
+    }
 
   // Includes check that submitting party has a participant with submission rights on source and target synchronizer
   def compute(
@@ -43,14 +78,17 @@ private[routing] class SynchronizerRankComputation(
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, TransactionRoutingError, SynchronizerRank] = {
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerRank] = {
     // (contract id, (reassignment submitter, target synchronizer id))
     type SingleReassignment = (LfContractId, (LfPartyId, SynchronizerId))
 
     val targetSnapshotET =
-      EitherT.fromEither[Future](synchronizerState.getTopologySnapshotFor(targetSynchronizer))
+      EitherT.fromEither[FutureUnlessShutdown](
+        synchronizerState.getTopologySnapshotFor(targetSynchronizer)
+      )
 
-    val reassignmentsET: EitherT[Future, TransactionRoutingError, Chain[SingleReassignment]] =
+    val reassignmentsET
+        : EitherT[FutureUnlessShutdown, TransactionRoutingError, Chain[SingleReassignment]] =
       Chain.fromSeq(contracts).parFlatTraverse { c =>
         val contractAssignation = c.synchronizerId
 
@@ -58,7 +96,9 @@ private[routing] class SynchronizerRankComputation(
         else {
           for {
             sourceSnapshot <- EitherT
-              .fromEither[Future](synchronizerState.getTopologySnapshotFor(contractAssignation))
+              .fromEither[FutureUnlessShutdown](
+                synchronizerState.getTopologySnapshotFor(contractAssignation)
+              )
               .map(Source(_))
             targetSnapshot <- targetSnapshotET
             submitter <- findReaderThatCanReassignContract(
@@ -68,7 +108,7 @@ private[routing] class SynchronizerRankComputation(
               targetSynchronizerId = targetSynchronizer,
               contract = c,
               readers = readers,
-            )
+            ).mapK(FutureUnlessShutdown.outcomeK)
           } yield Chain(c.id -> (submitter, contractAssignation))
         }
       }
@@ -134,19 +174,4 @@ private[routing] class SynchronizerRankComputation(
       AutomaticReassignmentForTransactionFailure.Failed(errors)
     )
   }
-}
-
-private[routing] final case class SynchronizerRank(
-    reassignments: Map[
-      LfContractId,
-      (LfPartyId, SynchronizerId),
-    ], // (cid, (submitter, current synchronizer))
-    priority: Int,
-    synchronizerId: SynchronizerId, // synchronizer for submission
-)
-
-private[routing] object SynchronizerRank {
-  // The highest priority synchronizer should be picked first, so negate the priority
-  implicit val synchronizerRanking: Ordering[SynchronizerRank] =
-    Ordering.by(x => (-x.priority, x.reassignments.size, x.synchronizerId))
 }

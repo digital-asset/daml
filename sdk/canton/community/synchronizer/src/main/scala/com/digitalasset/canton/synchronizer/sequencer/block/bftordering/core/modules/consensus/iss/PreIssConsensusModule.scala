@@ -11,7 +11,6 @@ import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.HasDelayedInit
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.RetransmissionsManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   EpochLength,
@@ -138,7 +137,6 @@ final class PreIssConsensusModule[E <: Env[E]](
       latestEpochFromStore.info,
       bootstrapTopologyInfo.currentMembership,
       bootstrapTopologyInfo.previousMembership,
-      SimpleLeaderSelectionPolicy,
     )
 
     new EpochState(

@@ -10,6 +10,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData, RequestState}
+import com.digitalasset.canton.participant.util.TimeOfRequest
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
@@ -38,10 +39,10 @@ trait RequestJournalStore { this: NamedLogging =>
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[RequestData]]
 
-  /** Finds the highest request counter with request time before or equal to the given timestamp */
-  def lastRequestCounterWithRequestTimestampBeforeOrAt(requestTimestamp: CantonTimestamp)(implicit
+  /** Finds the highest request time before or equal to the given timestamp */
+  def lastRequestTimeWithRequestTimestampBeforeOrAt(requestTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[RequestCounter]]
+  ): FutureUnlessShutdown[Option[TimeOfRequest]]
 
   /** Replaces the state of the request. The operation will only succeed if the current state is
     * equal to the given `oldState` and the provided `requestTimestamp` matches the stored
@@ -104,13 +105,6 @@ trait RequestJournalStore { this: NamedLogging =>
   def deleteSince(fromInclusive: RequestCounter)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
-
-  /** Returns all repair requests at or after `fromInclusive` in ascending order. This method must
-    * not be called concurrently with other methods of the store.
-    */
-  def repairRequests(fromInclusive: RequestCounter)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[RequestData]]
 
   /** Returns the number of dirty requests.
     */

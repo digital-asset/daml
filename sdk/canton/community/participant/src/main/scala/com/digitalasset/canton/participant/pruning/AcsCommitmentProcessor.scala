@@ -43,6 +43,7 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.MismatchError.AcsCommitmentAlarm
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.RunningCommitments
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.messages.AcsCommitment.{
   CommitmentType,
@@ -75,12 +76,7 @@ import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{
-  LfPartyId,
-  ProtoDeserializationError,
-  ReassignmentCounter,
-  RequestCounter,
-}
+import com.digitalasset.canton.{LfPartyId, ProtoDeserializationError, ReassignmentCounter}
 import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.atomic.AtomicReference
@@ -225,7 +221,7 @@ class AcsCommitmentProcessor private (
   private val threadCount: PositiveNumeric[Int] = {
     val count = Threading.detectNumberOfThreads(noTracingLogger)
     noTracingLogger.info(s"Will use parallelism $count when computing ACS commitments")
-    PositiveNumeric.tryCreate(count)
+    count
   }
 
   // used to generate randomized commitment sending delays
@@ -443,28 +439,25 @@ class AcsCommitmentProcessor private (
 
   override def publish(
       sequencerTimestamp: CantonTimestamp,
-      requestCounterCommitSetPairO: Option[(RequestCounter, CommitSet)],
+      commitSetO: Option[CommitSet],
   )(implicit
       traceContext: TraceContext
   ): Unit = {
     val toc = RecordTime(
       sequencerTimestamp,
-      requestCounterCommitSetPairO.map(_._1.unwrap).getOrElse(RecordTime.lowestTiebreaker),
+      RecordTime.lowestTiebreaker,
     )
     publishInternal(
       toc,
-      () => computeAcsChange(requestCounterCommitSetPairO),
+      () => computeAcsChange(sequencerTimestamp, commitSetO),
     )
   }
 
-  private def computeAcsChange(requestCounterCommitSetPairO: Option[(RequestCounter, CommitSet)])(
+  private def computeAcsChange(sequencerTimestamp: CantonTimestamp, commitSetO: Option[CommitSet])(
       implicit traceContext: TraceContext
   ): FutureUnlessShutdown[AcsChange] = {
-    // If the requestCounterCommitSetPairO is not set, then by default the commit set is empty, and
-    // the request counter is the smallest possible value that does not throw an exception in
-    // ActiveContractStore.bulkContractsReassignmentCounterSnapshot, i.e., Genesis
-    val (requestCounter, commitSet) =
-      requestCounterCommitSetPairO.getOrElse((RequestCounter.Genesis, CommitSet.empty))
+    // If the commitSetO is not set, then by default the commit set is empty
+    val commitSet = commitSetO.getOrElse(CommitSet.empty)
     // Augments the commit set with the updated reassignment counters for archive events,
     // computes the acs change and publishes it
     logger.trace(
@@ -479,9 +472,9 @@ class AcsCommitmentProcessor private (
       for {
         // Retrieves the reassignment counters of the archived contracts from the latest state in the active contract store
         archivalsWithReassignmentCountersOnly <- activeContractStore
-          .bulkContractsReassignmentCounterSnapshot(
+          .contractsReassignmentCounterSnapshotBefore(
             commitSet.archivals.keySet -- transientArchivals.keySet,
-            requestCounter,
+            sequencerTimestamp,
           )
 
       } yield {
@@ -1366,7 +1359,7 @@ class AcsCommitmentProcessor private (
         completedPeriod.toInclusive.forgetRefinement,
       )
 
-      _ <- MonadUtil.parTraverseWithLimit_(threadCount.value)(computed.toList) {
+      _ <- MonadUtil.parTraverseWithLimit_(threadCount)(computed.toList) {
         case (period, counterParticipant, cmt) =>
           logger.debug(
             s"Processing own commitment $cmt for period $period and counter-participant $counterParticipant"
@@ -2368,7 +2361,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
 
     if (enableAdditionalConsistencyChecks) {
       for {
-        activeContracts <- activeContractStore.snapshot(toInclusive)(
+        activeContracts <- activeContractStore.snapshot(TimeOfChange(toInclusive))(
           namedLoggingContext.traceContext
         )
         activations = activeContracts.map { case (cid, (_toc, reassignmentCounter)) =>

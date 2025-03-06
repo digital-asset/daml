@@ -10,13 +10,10 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.error.TransactionRoutingError
+import com.digitalasset.canton.ledger.participant.state.RoutingSynchronizerState
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.sync.TransactionRoutingError
-import com.digitalasset.canton.participant.sync.TransactionRoutingError.{
-  TopologyErrors,
-  UnableToQueryTopologySnapshot,
-}
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.transaction.ParticipantAttributes
@@ -27,7 +24,9 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.concurrent.ExecutionContext
 import scala.math.Ordered.orderingToOrdered
 
-private[routing] final class AdmissibleSynchronizers(
+import TransactionRoutingError.{TopologyErrors, UnableToQueryTopologySnapshot}
+
+final class AdmissibleSynchronizersComputation(
     localParticipantId: ParticipantId,
     protected val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {

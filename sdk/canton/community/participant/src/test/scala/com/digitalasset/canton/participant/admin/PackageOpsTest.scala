@@ -12,7 +12,7 @@ import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTime
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
-import com.digitalasset.canton.participant.admin.PackageService.{DarDescription, DarId}
+import com.digitalasset.canton.participant.admin.PackageService.{DarDescription, DarMainPackageId}
 import com.digitalasset.canton.participant.store.{
   ActiveContractStore,
   ContractStore,
@@ -148,7 +148,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
     when(activeContractStore.packageUsage(eqTo(pkgId1), eqTo(contractStore))(anyTraceContext))
       .thenReturn(FutureUnlessShutdown.pure(None))
 
-    val darId = DarId.tryCreate("darhash")
+    val mainPackageId = DarMainPackageId.tryCreate("darhash")
 
     def unvettedPackagesForSnapshots(
         unvettedForAuthorizedSnapshot: Set[LfPackageId],
@@ -230,7 +230,7 @@ class PackageOpsTest extends PackageOpsTestBase {
           .revokeVettingForPackages(
             pkgId1,
             List(pkgId1, pkgId2),
-            DarDescription(darId, str, str, str),
+            DarDescription(mainPackageId, str, str, str),
           )
           .value
           .unwrap
@@ -249,7 +249,7 @@ class PackageOpsTest extends PackageOpsTestBase {
           .revokeVettingForPackages(
             pkgId3,
             List(pkgId3),
-            DarDescription(darId, str, str, str),
+            DarDescription(mainPackageId, str, str, str),
           )
           .value
           .unwrap

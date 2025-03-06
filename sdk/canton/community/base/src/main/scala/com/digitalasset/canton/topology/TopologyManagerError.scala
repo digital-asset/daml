@@ -850,5 +850,31 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           )
           with TopologyManagerError
     }
+
+    @Explanation(
+      """This error indicates that a request to change a participant permission to observer was rejected.
+        |If the command is run and the party is still a signatory on active contracts,
+        |then this transition prevents it from using the contracts.
+        |"""
+    )
+    @Resolution(
+      "Set the ForceFlag.AllowInsufficientParticipantPermissionForSignatoryParty if you really know what you are doing."
+    )
+    object InsufficientParticipantPermissionForSignatoryParty
+        extends ErrorCode(
+          id = "TOPOLOGY_INSUFFICIENT_PERMISSION_FOR_SIGNATORY_PARTY",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      final case class Reject(partyId: PartyId, synchronizerId: SynchronizerId)(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
+            cause =
+              s"Changing participant permission of $partyId to observer failed because it is still a signatory on active contracts on synchronizer $synchronizerId. " +
+                s"It may also be a signatory on contracts across other synchronizers. " +
+                s"Set the ForceFlag.AllowInsufficientParticipantPermissionForSignatoryParty if you really know what you are doing."
+          )
+          with TopologyManagerError
+    }
+
   }
 }

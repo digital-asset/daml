@@ -158,7 +158,7 @@ object LedgerApiTypeWrappers {
       signatories: Set[String],
       observers: Set[String],
       inheritedContractId: LfContractId,
-      contractSalt: Option[Salt],
+      contractSalt: Salt,
       ledgerCreateTime: Option[Time.Timestamp],
   )
 

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.store.db
 
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DbConfig, DbParametersConfig}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
@@ -216,7 +217,9 @@ class DatabaseDeadlockTestPostgres extends DatabaseDeadlockTest with PostgresTes
   override def mkDbConfig(basicConfig: DbBasicConfig): DbConfig.Postgres = {
     // Enforce 8 connections. If there is only one connection, the test will fail to produce deadlocks.
     val defaultDbConfig = super.mkDbConfig(basicConfig)
-    defaultDbConfig.copy(parameters = DbParametersConfig(maxConnections = Some(8)))
+    defaultDbConfig.copy(parameters =
+      DbParametersConfig(maxConnections = Some(PositiveInt.tryCreate(8)))
+    )
   }
 
   override lazy val createTableAction: SqlAction[Int, NoStream, Effect.Write] =

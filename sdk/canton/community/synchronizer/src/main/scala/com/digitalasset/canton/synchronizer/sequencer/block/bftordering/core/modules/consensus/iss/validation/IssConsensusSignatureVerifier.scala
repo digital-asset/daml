@@ -97,7 +97,11 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
       traceContext: TraceContext,
   ): VerificationResult = collectFutures[SignatureCheckError] {
     proofOfAvailability.acks.map { ack =>
-      val hash = AvailabilityAck.hashFor(proofOfAvailability.batchId, ack.from)
+      val hash = AvailabilityAck.hashFor(
+        proofOfAvailability.batchId,
+        proofOfAvailability.expirationTime,
+        ack.from,
+      )
       cryptoProvider.verifySignature(hash, ack.from, ack.signature, SigningKeyUsage.ProtocolOnly)
     }
   }

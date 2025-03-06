@@ -24,7 +24,7 @@ final case class DisseminationProgress(
 
   def proofOfAvailability(): Option[ProofOfAvailability] =
     if (AvailabilityModule.hasQuorum(orderingTopology, votes.size))
-      Some(ProofOfAvailability(batchMetadata.batchId, votes.toSeq))
+      Some(ProofOfAvailability(batchMetadata.batchId, votes.toSeq, batchMetadata.expirationTime))
     else
       None
 }

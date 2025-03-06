@@ -316,7 +316,7 @@ object ParticipantAdminCommands {
     }
 
     final case class GetDar(
-        darId: String,
+        mainPackageId: String,
         destinationDirectory: String,
         logger: TracedLogger,
     ) extends PackageCommand[v30.GetDarRequest, v30.GetDarResponse, Path] {
@@ -333,7 +333,11 @@ object ParticipantAdminCommands {
             (),
             s"$destinationDirectory is not a writable directory",
           )
-          hash <- Either.cond(darId.nonEmpty, darId, "DAR id not provided")
+          hash <- Either.cond(
+            mainPackageId.nonEmpty,
+            mainPackageId,
+            "The main package-id not provided",
+          )
         } yield v30.GetDarRequest(hash)
 
       override protected def submitRequest(
@@ -368,9 +372,9 @@ object ParticipantAdminCommands {
 
     }
 
-    final case class GetDarContents(darId: String)
+    final case class GetDarContents(mainPackageId: String)
         extends PackageCommand[v30.GetDarContentsRequest, v30.GetDarContentsResponse, DarContents] {
-      override protected def createRequest() = Right(v30.GetDarContentsRequest(darId))
+      override protected def createRequest() = Right(v30.GetDarContentsRequest(mainPackageId))
 
       override protected def submitRequest(
           service: PackageServiceStub,
@@ -422,11 +426,11 @@ object ParticipantAdminCommands {
 
     // TODO(#14432): Add `synchronize` flag which makes the call block until the unvetting operation
     //               is observed by the participant on all connected synchronizers.
-    final case class UnvetDar(darId: String)
+    final case class UnvetDar(mainPackageId: String)
         extends PackageCommand[v30.UnvetDarRequest, v30.UnvetDarResponse, Unit] {
 
       override protected def createRequest(): Either[String, v30.UnvetDarRequest] = Right(
-        v30.UnvetDarRequest(darId)
+        v30.UnvetDarRequest(mainPackageId)
       )
 
       override protected def submitRequest(

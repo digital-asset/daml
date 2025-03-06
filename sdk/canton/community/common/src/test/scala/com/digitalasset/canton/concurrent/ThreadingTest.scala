@@ -6,6 +6,7 @@ package com.digitalasset.canton.concurrent
 import cats.syntax.parallel.*
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{LazyValWithContext, ResourceUtil}
 import org.scalatest.wordspec.AnyWordSpec
@@ -17,13 +18,15 @@ import scala.concurrent.{ExecutionContext, Future, blocking}
 @SuppressWarnings(Array("com.digitalasset.canton.GlobalExecutionContext"))
 class ThreadingTest extends AnyWordSpec with BaseTest {
 
-  lazy val configuredNumerOfThreads: Int = Threading.detectNumberOfThreads(noTracingLogger)
-  lazy val expectedNumberOfParallelTasks: Int =
-    configuredNumerOfThreads max Threading.minParallelismForForkJoinPool
-  val expectedNumberOfParallelTasksWrappedInBlocking: Int = 200
-  val numberOfTasksToMakeExecutionContextBusy: Int = 200
+  private lazy val configuredNumerOfThreads: PositiveInt =
+    Threading.detectNumberOfThreads(noTracingLogger)
+  private lazy val expectedNumberOfParallelTasks: PositiveInt =
+    configuredNumerOfThreads.max(Threading.minParallelismForForkJoinPool)
+  private val expectedNumberOfParallelTasksWrappedInBlocking: PositiveInt =
+    PositiveInt.tryCreate(200)
+  private val numberOfTasksToMakeExecutionContextBusy: PositiveInt = PositiveInt.tryCreate(200)
 
-  val numberOfExtraTasks: Int = 20
+  private val numberOfExtraTasks: Int = 20
 
   "A new execution context" when {
 
@@ -119,7 +122,7 @@ class ThreadingTest extends AnyWordSpec with BaseTest {
       }
     }
 
-    def withTaskRunnerOnNewEc(numberOfTasksToRun: Int, wrapInBlocking: Boolean)(
+    def withTaskRunnerOnNewEc(numberOfTasksToRun: PositiveInt, wrapInBlocking: Boolean)(
         body: TaskRunner => Unit
     ): Unit =
       withNewExecutionContext { ec =>
@@ -130,13 +133,13 @@ class ThreadingTest extends AnyWordSpec with BaseTest {
 
     def withTaskRunner(
         description: String,
-        numberOfTasksToRun: Int,
+        numberOfTasksToRun: PositiveInt,
         wrapInBlocking: Boolean,
         ec: ExecutionContext,
     )(
         body: TaskRunner => Unit
     ): Unit = ResourceUtil.withResource(
-      new TaskRunner(description, numberOfTasksToRun, wrapInBlocking)(ec)
+      new TaskRunner(description, numberOfTasksToRun.value, wrapInBlocking)(ec)
     )(body)
 
     class TaskRunner(
@@ -276,7 +279,7 @@ class ThreadingTest extends AnyWordSpec with BaseTest {
         val lvt = new LazyValTest(semaphore)
 
         // Use a few more threads to avoid flakes
-        val concurrentInitializationThreads = expectedNumberOfParallelTasks + 1
+        val concurrentInitializationThreads = expectedNumberOfParallelTasks.unwrap + 1
         val futures = ((1 to (concurrentInitializationThreads)): Seq[Int]).parTraverse_ { _ =>
           Future(lvt.blocker)
         }
@@ -310,7 +313,7 @@ class ThreadingTest extends AnyWordSpec with BaseTest {
         val lvt = new LazyValTest(semaphore)
 
         // Use a few more threads to avoid flakes
-        val concurrentInitializationThreads = expectedNumberOfParallelTasks + 1
+        val concurrentInitializationThreads = expectedNumberOfParallelTasks.unwrap + 1
         val futures = ((1 to (concurrentInitializationThreads)): Seq[Int]).parTraverse_ { _ =>
           Future(lvt.blockerWithContext)
         }

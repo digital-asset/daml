@@ -47,7 +47,7 @@ private[iss] object IssConsensusModuleMetrics {
       totalConsensusStageVotesInEpoch(
         prevEpoch.currentMembership.orderingTopology.peers.size,
         prevEpoch.info.length,
-        prevEpoch.leaders.size,
+        prevEpoch.currentMembership.leaders.size,
         prevEpochViewsCount,
       )
 

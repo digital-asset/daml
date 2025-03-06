@@ -8,11 +8,12 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisPreviousEpochMaxBftTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.{
   EpochStatusBuilder,
   RetransmissionsManager,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders.SimpleLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
   CryptoProvider,
   TopologyActivationTime,
@@ -51,7 +52,7 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
   val other1 = fakeSequencerId("other1")
   val otherPeers = Set(other1)
 
-  val membership = Membership.apply(self, otherPeers)
+  val membership = Membership.forTesting(self, otherPeers)
   val leaderSelectionPolicy = SimpleLeaderSelectionPolicy
   val epoch = EpochState.Epoch(
     EpochInfo(
@@ -59,10 +60,10 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       BlockNumber.First,
       EpochLength(10),
       TopologyActivationTime(CantonTimestamp.Epoch),
+      GenesisPreviousEpochMaxBftTime,
     ),
     membership,
     membership,
-    leaderSelectionPolicy,
   )
 
   val segmentStatus0 = Consensus.RetransmissionsMessage.SegmentStatus(
