@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.admin.inspection
 
 import cats.Eval
-import cats.data.EitherT
+import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
@@ -14,7 +14,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong}
 import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond, Offset}
-import com.digitalasset.canton.ledger.participant.state.{RequestIndex, SynchronizerIndex}
+import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcUSExtended
@@ -31,6 +31,7 @@ import com.digitalasset.canton.participant.sync.{
   ConnectedSynchronizersLookup,
   SyncPersistentStateManager,
 }
+import com.digitalasset.canton.participant.util.{TimeOfChange, TimeOfRequest}
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SynchronizerOffset
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.CommitmentPeriodState.{
@@ -140,7 +141,7 @@ final class SyncStateInspection(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncStateInspectionError, Map[
     LfContractId,
-    (CantonTimestamp, ReassignmentCounter),
+    (TimeOfChange, ReassignmentCounter),
   ]] =
     for {
       state <- EitherT.fromEither[FutureUnlessShutdown](
@@ -150,7 +151,7 @@ final class SyncStateInspection(
       )
 
       snapshotO <- EitherT.right(state.acsInspection.getCurrentSnapshot().map(_.map(_.snapshot)))
-    } yield snapshotO.fold(Map.empty[LfContractId, (CantonTimestamp, ReassignmentCounter)])(
+    } yield snapshotO.fold(Map.empty[LfContractId, (TimeOfChange, ReassignmentCounter)])(
       _.toMap
     )
 
@@ -284,14 +285,14 @@ final class SyncStateInspection(
                 (synchronizerId, state.staticSynchronizerParameters.protocolVersion),
               )
             val acsInspection = state.acsInspection
-
+            val timeOfSnapshotO = timestamp.map(TimeOfChange.apply)
             val ret = for {
               result <- acsInspection
                 .forEachVisibleActiveContract(
                   synchronizerId,
                   parties,
-                  timestamp,
-                  skipCleanTimestampCheck = skipCleanTimestampCheck,
+                  timeOfSnapshotO,
+                  skipCleanTocCheck = skipCleanTimestampCheck,
                 ) { case (contract, reassignmentCounter) =>
                   val activeContract =
                     ActiveContract.create(synchronizerIdForExport, contract, reassignmentCounter)(
@@ -314,7 +315,7 @@ final class SyncStateInspection(
                 }
 
               _ <- result match {
-                case Some((allStakeholders, snapshotTs)) if partiesOffboarding =>
+                case Some((allStakeholders, snapshotToc)) if partiesOffboarding =>
                   for {
                     connectedSynchronizer <- EitherT.fromOption[FutureUnlessShutdown](
                       connectedSynchronizersLookup.get(synchronizerId),
@@ -328,7 +329,7 @@ final class SyncStateInspection(
                       participantId,
                       offboardedParties = parties,
                       allStakeholders = allStakeholders,
-                      snapshotTs = snapshotTs,
+                      snapshotToc = snapshotToc,
                       topologyClient = connectedSynchronizer.topologyClient,
                     )
                   } yield ()
@@ -374,7 +375,7 @@ final class SyncStateInspection(
 
   def activeContractsStakeholdersFilter(
       synchronizerId: SynchronizerId,
-      timestamp: CantonTimestamp,
+      toc: TimeOfChange,
       parties: Set[LfPartyId],
   )(implicit
       traceContext: TraceContext
@@ -388,16 +389,16 @@ final class SyncStateInspection(
           )
       )
 
-      snapshot <- state.activeContractStore.snapshot(timestamp)
+      snapshot <- state.activeContractStore.snapshot(toc)
 
       // check that the active contract store has not been pruned up to timestamp, otherwise the snapshot is inconsistent.
       pruningStatus <- state.activeContractStore.pruningStatus
       _ <-
-        if (pruningStatus.exists(_.timestamp > timestamp)) {
+        if (pruningStatus.exists(_.timestamp > toc.timestamp)) {
           FutureUnlessShutdown.failed(
             new IllegalStateException(
               s"Active contract store for synchronizer $synchronizerId has been pruned up to ${pruningStatus
-                  .map(_.lastSuccess)}, which is after the requested timestamp $timestamp"
+                  .map(_.lastSuccess)}, which is after the requested time of change $toc"
             )
           )
         } else FutureUnlessShutdown.unit
@@ -721,11 +722,26 @@ final class SyncStateInspection(
     )
   }.asGrpcResponse
 
-  def lookupCleanRequestIndex(synchronizerAlias: SynchronizerAlias)(implicit
+  /** Returns the last clean time of request of the specified synchronizer from the indexer's point
+    * of view.
+    */
+  @VisibleForTesting
+  def lookupCleanTimeOfRequest(synchronizerAlias: SynchronizerAlias)(implicit
       traceContext: TraceContext
-  ): Either[String, FutureUnlessShutdown[Option[RequestIndex]]] =
-    lookupCleanSynchronizerIndex(synchronizerAlias)
-      .map(_.map(_.flatMap(_.requestIndex)))
+  ): Either[String, FutureUnlessShutdown[Option[TimeOfRequest]]] =
+    getPersistentStateE(synchronizerAlias)
+      .map(state =>
+        (for {
+          cleanTs <- OptionT(
+            participantNodePersistentState.value.ledgerApiStore
+              .cleanSynchronizerIndex(state.indexedSynchronizer.synchronizerId)
+              .map(_.map(_.recordTime))
+          )
+          cleanTimeOfRequest <- OptionT(
+            state.requestJournalStore.lastRequestTimeWithRequestTimestampBeforeOrAt(cleanTs)
+          )
+        } yield cleanTimeOfRequest).value
+      )
 
   def lookupCleanSynchronizerIndex(synchronizerAlias: SynchronizerAlias)(implicit
       traceContext: TraceContext

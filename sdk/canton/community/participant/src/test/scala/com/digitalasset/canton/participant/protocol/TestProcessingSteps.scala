@@ -272,7 +272,6 @@ class TestProcessingSteps(
 
   override def eventAndSubmissionIdForRejectedCommand(
       ts: CantonTimestamp,
-      rc: RequestCounter,
       sc: SequencerCounter,
       submitterMetadata: ViewSubmitterMetadata,
       rootHash: RootHash,

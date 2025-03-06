@@ -141,7 +141,7 @@ class BlockSequencerTest
         defaultStaticSynchronizerParameters,
         topologyTransactionFactory.cryptoApi.crypto.pureCrypto,
       ),
-      BatchingConfig().parallelism.unwrap,
+      BatchingConfig().parallelism,
       DefaultProcessingTimeouts.testing,
       FutureSupervisor.Noop,
       loggerFactory,

@@ -11,7 +11,7 @@ import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{LfPartyId, ReassignmentCounter, RequestCounter}
+import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 
 /** Components that need to keep a running snapshot of ACS.
   */
@@ -31,7 +31,7 @@ trait AcsChangeListener {
 
   def publish(
       sequencerTimestamp: CantonTimestamp,
-      requestCounterCommitSetPairO: Option[(RequestCounter, CommitSet)],
+      commitSetO: Option[CommitSet],
   )(implicit
       traceContext: TraceContext
   ): Unit

@@ -9,7 +9,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   Epoch,
   Segment,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
@@ -32,7 +31,7 @@ class EpochTest extends AsyncWordSpec with BftSequencerBaseTest {
 
   "Epoch.segments" should {
     "support single leader" in {
-      val membership = Membership(myId)
+      val membership = Membership.forTesting(myId)
       val epoch =
         Epoch(
           EpochInfo.mk(
@@ -42,7 +41,6 @@ class EpochTest extends AsyncWordSpec with BftSequencerBaseTest {
           ),
           currentMembership = membership,
           previousMembership = membership, // not relevant for this test
-          SimpleLeaderSelectionPolicy,
         )
       epoch.segments should contain only Segment(
         myId,
@@ -57,9 +55,8 @@ class EpochTest extends AsyncWordSpec with BftSequencerBaseTest {
           startBlockNumber = BlockNumber.First,
           length = 11,
         ),
-        currentMembership = Membership(myId, otherPeers),
-        previousMembership = Membership(myId),
-        SimpleLeaderSelectionPolicy,
+        currentMembership = Membership.forTesting(myId, otherPeers),
+        previousMembership = Membership.forTesting(myId),
       )
 
       epoch.segments should contain theSameElementsInOrderAs List(
@@ -75,7 +72,7 @@ class EpochTest extends AsyncWordSpec with BftSequencerBaseTest {
 
     "handle nodes without a segment" in {
       val leaderWithoutSegment = sortedLeaders(3)
-      val membership = Membership(leaderWithoutSegment, sortedLeaders.init.toSet)
+      val membership = Membership.forTesting(leaderWithoutSegment, sortedLeaders.init.toSet)
       val epoch = Epoch(
         EpochInfo.mk(
           number = EpochNumber.First,
@@ -84,7 +81,6 @@ class EpochTest extends AsyncWordSpec with BftSequencerBaseTest {
         ),
         currentMembership = membership,
         previousMembership = membership, // not relevant for this test
-        SimpleLeaderSelectionPolicy,
       )
       // the last leader has no segment assigned to it
       epoch.segments.find(_.originalLeader == leaderWithoutSegment) shouldBe None

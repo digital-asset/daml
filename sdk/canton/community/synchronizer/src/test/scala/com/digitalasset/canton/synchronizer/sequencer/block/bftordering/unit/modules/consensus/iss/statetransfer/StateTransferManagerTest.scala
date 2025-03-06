@@ -6,8 +6,6 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mo
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.{
   EpochStore,
   Genesis,
@@ -68,7 +66,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
           p2pNetworkOutModuleRef = p2pNetworkOutRef
         )
 
-      stateTransferManager.inStateTransfer shouldBe false
+      stateTransferManager.inBlockTransfer shouldBe false
 
       val startEpoch = EpochNumber(7L)
       stateTransferManager.startStateTransfer(
@@ -79,7 +77,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       )(abort = fail(_))
       context.runPipedMessages()
 
-      stateTransferManager.inStateTransfer shouldBe true
+      stateTransferManager.inBlockTransfer shouldBe true
 
       val blockTransferRequest = StateTransferMessage.BlockTransferRequest
         .create(
@@ -300,8 +298,10 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       mySequencerId,
       membership.orderingTopology,
       ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+      membership.leaders,
       previousTopology = membershipBeforeOnboarding.orderingTopology,
       previousCryptoProvider = fakeCryptoProvider,
+      membershipBeforeOnboarding.leaders,
     )
     stateTransferManager.handleStateTransferMessage(
       VerifiedStateTransferMessage(blockTransferResponse),
@@ -324,17 +324,11 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       latestCompletedEpochLocally,
     )(fail(_))
 
-    // Should have completed the block transfer and returned a new epoch state to the Consensus module.
-    val latestStateTransferredEpochInfo = latestCompletedEpochRemotely.info
-      .copy(topologyActivationTime = membership.orderingTopology.activationTime)
+    // Should have completed the block transfer.
     result shouldBe StateTransferMessageResult.BlockTransferCompleted(
-      EpochState.Epoch(
-        latestStateTransferredEpochInfo,
-        currentMembership = membership,
-        previousMembership = membershipBeforeOnboarding,
-        DefaultLeaderSelectionPolicy,
-      ),
-      latestCompletedEpochRemotely.copy(info = latestStateTransferredEpochInfo),
+      endEpochNumber = EpochNumber.First,
+      numberOfTransferredEpochs = 1L,
+      numberOfTransferredBlocks = 1L,
     )
 
     // Should have sent an ordered block to the Output module.
@@ -487,15 +481,21 @@ object StateTransferManagerTest {
 
   private val mySequencerId = fakeSequencerId("self")
   private val otherSequencerId = fakeSequencerId("other")
-  private val membership = Membership(mySequencerId, Set(otherSequencerId))
+  private val membership = Membership.forTesting(mySequencerId, Set(otherSequencerId))
   private val membershipBeforeOnboarding =
-    Membership(mySequencerId, OrderingTopology(Set(otherSequencerId), SequencingParameters.Default))
+    Membership(
+      mySequencerId,
+      OrderingTopology(Set(otherSequencerId), SequencingParameters.Default),
+      Seq(otherSequencerId),
+    )
   private val aTopologyInfo = OrderingTopologyInfo[ProgrammableUnitTestEnv](
     mySequencerId,
     membership.orderingTopology,
     ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+    membership.leaders,
     previousTopology = membership.orderingTopology,
     previousCryptoProvider = fakeCryptoProvider,
+    membership.leaders,
   )
 
   private def aPrePrepare(

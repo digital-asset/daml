@@ -219,7 +219,7 @@ final class GeneratorsProtocol(
         rawContractInstance,
         metadata,
         ledgerCreateTime,
-        contractSalt = Some(computedSalt.unwrap),
+        contractSalt = computedSalt.unwrap,
       )
     )
   }

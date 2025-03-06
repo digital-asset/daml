@@ -8,7 +8,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt}
+import com.digitalasset.canton.crypto.{HashOps, HmacOps}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.data.ActiveContract
@@ -95,7 +95,6 @@ object EnsureValidContractIds {
   /** Recompute the contract IDs of all contracts using the provided cryptoOps. The whole
     * preprocessing will fail if any of the following conditions apply to any contract:
     *   - the contract ID discriminator version is unknown
-    *   - the contract salt is missing
     *   - any contract ID referenced in a payload is missing from the import
     *   - any contract is referenced by two different IDs (e.g. the ID in the payload is fine but
     *     the one in the contract is not)
@@ -119,9 +118,6 @@ object EnsureValidContractIds {
           Left(s"Unknown LF contract ID version, cannot recompute contract ID ${c.contractId.coid}")
       }
 
-    private def getSalt(c: SerializableContract): Either[String, Salt] =
-      c.contractSalt.toRight(s"Missing salt, cannot recompute contract ID ${c.contractId.coid}")
-
     // Recompute the contract ID of a single contract. Any dependency is taken from the `fullRemapping`,
     // which is pre-populated with a lazy reference to the contract ID recomputed here. The evaluation
     // of the `Eval` as part of resolving the (recomputed) contract ID for dependencies will cause the
@@ -138,7 +134,6 @@ object EnsureValidContractIds {
 
       for {
         discriminator <- EitherT.fromEither[Future](getDiscriminator(contract))
-        salt <- EitherT.fromEither[Future](getSalt(contract))
         depsRemapping <- contract.contractInstance.unversioned.cids.toSeq
           .parTraverse { contractId =>
             fullRemapping
@@ -163,7 +158,7 @@ object EnsureValidContractIds {
           Future.successful {
             unicumGenerator
               .recomputeUnicum(
-                salt,
+                contract.contractSalt,
                 contract.ledgerCreateTime,
                 contract.metadata,
                 newRawContractInstance,

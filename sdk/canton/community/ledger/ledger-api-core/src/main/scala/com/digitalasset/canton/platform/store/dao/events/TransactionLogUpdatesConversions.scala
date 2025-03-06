@@ -451,12 +451,7 @@ private[events] object TransactionLogUpdatesConversions {
         Option.when(
           requestingParties.fold(true)(u.stakeholders.exists(_))
         )(u)
-      case u: TransactionLogUpdate.TopologyTransactionEffective =>
-        val filteredEvents =
-          u.events.filter(event => matchPartyInSet(event.party)(requestingParties))
-        Option.when(filteredEvents.nonEmpty)(
-          u.copy(events = filteredEvents)(u.traceContext)
-        )
+      case _: TransactionLogUpdate.TopologyTransactionEffective => None
     }
 
     def toGetTransactionResponse(

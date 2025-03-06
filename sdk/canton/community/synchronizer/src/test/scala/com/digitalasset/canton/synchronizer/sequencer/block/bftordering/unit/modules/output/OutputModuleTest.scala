@@ -14,6 +14,7 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStoreReader
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisPreviousEpochMaxBftTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.memory.GenericInMemoryEpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule.{
   DefaultRequestInspector,
@@ -49,6 +50,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   OrderedBlockForOutput,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
+  Membership,
   OrderingTopology,
   SequencingParameters,
 }
@@ -624,7 +626,7 @@ class OutputModuleTest
             val consensusRef = mock[ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]]]
             val newOrderingTopology =
               OrderingTopology(
-                peers = Set.empty,
+                peers = Set(fakeSequencerId("peer1")),
                 SequencingParameters.Default,
                 topologyActivationTime,
                 areTherePendingCantonTopologyChanges = pendingChanges,
@@ -688,11 +690,11 @@ class OutputModuleTest
               OutputEpochMetadata(EpochNumber.First, couldAlterOrderingTopology = true)
             )
 
-            val shouldSendTopologyToConsensus = lastBlockMode.mustSendTopologyToConsensus
             val piped3 = context.runPipedMessages()
             piped3 should contain only Output.TopologyFetched(
-              shouldSendTopologyToConsensus,
+              lastBlockMode,
               EpochNumber(1L), // Epoch number
+              anotherTimestamp,
               newOrderingTopology,
               newCryptoProvider,
             )
@@ -716,8 +718,9 @@ class OutputModuleTest
               piped4 should matchPattern {
                 case Seq(
                       Output.MetadataStoredForNewEpoch(
-                        `shouldSendTopologyToConsensus`,
+                        `lastBlockMode`,
                         1L, // Epoch number
+                        _,
                         `newOrderingTopology`,
                         _, // A fake crypto provider instance
                       )
@@ -735,22 +738,15 @@ class OutputModuleTest
               piped5 should be(empty)
             }
 
-            // We should send a new ordering topology to consensus only during consensus
-            //  and when finishing state transfer, never in the middle of state transfer
-            //  as consensus is inactive then.
-            if (lastBlockMode.mustSendTopologyToConsensus) {
-              verify(consensusRef, times(1)).asyncSend(
-                Consensus.NewEpochTopology(
-                  secondEpochNumber,
-                  newOrderingTopology,
-                  any[CryptoProvider[ProgrammableUnitTestEnv]],
-                )
+            verify(consensusRef, times(1)).asyncSend(
+              Consensus.NewEpochTopology(
+                secondEpochNumber,
+                Membership(fakeSequencerId("peer1"), newOrderingTopology, Seq.empty),
+                any[CryptoProvider[ProgrammableUnitTestEnv]],
+                GenesisPreviousEpochMaxBftTime,
+                lastBlockMode,
               )
-            } else {
-              verify(consensusRef, never).asyncSend(
-                any[Consensus.ConsensusMessage]
-              )
-            }
+            )
 
             succeed
           }
@@ -815,6 +811,7 @@ class OutputModuleTest
           spy(new FakeOrderingTopologyProvider[ProgrammableUnitTestEnv])
         val consensusRef = mock[ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]]]
         val output = createOutputModule[ProgrammableUnitTestEnv](
+          initialOrderingTopology = OrderingTopology(Set(fakeSequencerId("peer1"))),
           orderingTopologyProvider = topologyProviderSpy,
           consensusRef = consensusRef,
           requestInspector = (_, _, _, _) => false, // No request is for all members of synchronizer
@@ -826,6 +823,7 @@ class OutputModuleTest
         output.receive(Output.Start)
         output.receive(Output.BlockDataFetched(blockData))
         output.currentEpochCouldAlterOrderingTopology shouldBe false
+
         context.runPipedMessages().foreach(output.receive) // Fetch the topology
 
         verify(topologyProviderSpy, never).getOrderingTopologyAt(any[TopologyActivationTime])(
@@ -834,8 +832,10 @@ class OutputModuleTest
         verify(consensusRef, times(1)).asyncSend(
           Consensus.NewEpochTopology(
             secondEpochNumber,
-            OrderingTopology(peers = Set.empty),
+            Membership.forTesting(fakeSequencerId("peer1")),
             any[CryptoProvider[ProgrammableUnitTestEnv]],
+            GenesisPreviousEpochMaxBftTime,
+            OrderedBlockForOutput.Mode.FromConsensus,
           )
         )
         succeed
@@ -879,6 +879,7 @@ class OutputModuleTest
             BlockNumber.First,
             DefaultEpochLength,
             topologyActivationTime,
+            GenesisPreviousEpochMaxBftTime,
           )
         )
         .apply()
@@ -1048,6 +1049,7 @@ class OutputModuleTest
   ): OutputModule[E] = {
     val startupState =
       StartupState[E](
+        fakeSequencerId("peer1"),
         BlockNumber(initialHeight),
         previousBftTimeForOnboarding,
         areTherePendingTopologyChangesInOnboardingEpoch,

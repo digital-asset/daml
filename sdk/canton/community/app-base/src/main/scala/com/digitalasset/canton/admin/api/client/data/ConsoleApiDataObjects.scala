@@ -42,22 +42,32 @@ object ListConnectedSynchronizersResult {
   }
 }
 
-final case class DarDescription(main: String, name: String, version: String, description: String) {
-  def darId: String = main
-}
+final case class DarDescription(
+    mainPackageId: String,
+    name: String,
+    version: String,
+    description: String,
+)
 object DarDescription extends LazyLogging {
 
   def fromProtoV30(
       value: participantAdminV30.DarDescription
   ): ParsingResult[DarDescription] = {
     val participantAdminV30.DarDescription(
-      main,
+      mainPackageId,
       name,
       version,
       description,
     ) =
       value
-    Right(DarDescription(main = main, name = name, version = version, description = description))
+    Right(
+      DarDescription(
+        mainPackageId = mainPackageId,
+        name = name,
+        version = version,
+        description = description,
+      )
+    )
   }
 }
 
@@ -66,13 +76,16 @@ final case class DarContents(
     packages: Seq[PackageDescription],
 ) extends PrettyPrinting {
   override protected def pretty: Pretty[DarContents] = prettyOfClass(
-    param("main", _.description.main.readableHash),
+    param("main", _.description.mainPackageId.readableHash),
     param("name", _.description.description.unquoted),
     param("version", _.description.version.unquoted),
     param("description", _.description.description.unquoted),
     param(
       "packages",
-      x => x.packages.filter(y => y.packageId != x.description.main).map(_.packageId.readableHash),
+      x =>
+        x.packages
+          .filter(y => y.packageId != x.description.mainPackageId)
+          .map(_.packageId.readableHash),
     ),
   )
 }

@@ -60,6 +60,7 @@ import com.daml.ledger.api.v2.command_completion_service.{
 import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandServiceStub
 import com.daml.ledger.api.v2.command_service.{
   CommandServiceGrpc,
+  SubmitAndWaitForTransactionRequest,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitRequest,
@@ -120,11 +121,14 @@ import com.daml.ledger.api.v2.testing.time_service.{
 import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
 import com.daml.ledger.api.v2.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
 import com.daml.ledger.api.v2.transaction_filter.{
   CumulativeFilter,
+  EventFormat,
   Filters,
   TemplateFilter,
   TransactionFilter,
+  TransactionFormat,
   UpdateFormat,
 }
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.UpdateServiceStub
@@ -1646,11 +1650,31 @@ object LedgerApiCommands {
         override val applicationId: String,
         override val packageIdSelectionPreference: Seq[LfPackageId],
     ) extends SubmitCommand
-        with BaseCommand[SubmitAndWaitRequest, SubmitAndWaitForTransactionResponse, Transaction] {
+        with BaseCommand[
+          SubmitAndWaitForTransactionRequest,
+          SubmitAndWaitForTransactionResponse,
+          Transaction,
+        ] {
 
-      override protected def createRequest(): Either[String, SubmitAndWaitRequest] =
+      override protected def createRequest(): Either[String, SubmitAndWaitForTransactionRequest] =
         try {
-          Right(SubmitAndWaitRequest(commands = Some(mkCommand)))
+          Right(
+            SubmitAndWaitForTransactionRequest(
+              commands = Some(mkCommand),
+              // TODO(#23504) add transactionFormat argument for the console command
+              transactionFormat = Some(
+                TransactionFormat(
+                  eventFormat = Some(
+                    EventFormat(
+                      filtersByParty = actAs.map(_ -> Filters()).toMap,
+                      verbose = true,
+                    )
+                  ),
+                  transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+                )
+              ),
+            )
+          )
         } catch {
           case t: Throwable =>
             Left(t.getMessage)
@@ -1658,7 +1682,7 @@ object LedgerApiCommands {
 
       override protected def submitRequest(
           service: CommandServiceStub,
-          request: SubmitAndWaitRequest,
+          request: SubmitAndWaitForTransactionRequest,
       ): Future[SubmitAndWaitForTransactionResponse] =
         service.submitAndWaitForTransaction(request)
 

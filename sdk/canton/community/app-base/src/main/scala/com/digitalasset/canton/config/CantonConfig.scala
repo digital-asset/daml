@@ -46,7 +46,7 @@ import com.digitalasset.canton.ledger.runner.common.PureConfigReaderWriter.Secur
   partyManagementServiceConfigConvert,
   userManagementServiceConfigConvert,
 }
-import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.{MetricsConfig, MetricsReporterConfig}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
@@ -91,7 +91,7 @@ import com.digitalasset.canton.synchronizer.sequencer.config.{
   SequencerNodeParameters,
 }
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerTrafficConfig
-import com.digitalasset.canton.tracing.TracingConfig
+import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.BytesUnit
 import com.typesafe.config.ConfigException.UnresolvedSubstitution
 import com.typesafe.config.{
@@ -106,7 +106,9 @@ import com.typesafe.config.{
   ConfigValueFactory,
 }
 import com.typesafe.scalalogging.LazyLogging
+import monocle.macros.syntax.lens.*
 import org.apache.pekko.stream.ThrottleMode
+import org.slf4j.{Logger, LoggerFactory}
 import pureconfig.*
 import pureconfig.ConfigReader.Result
 import pureconfig.error.{CannotConvert, ConfigReaderFailures, ConvertFailure}
@@ -115,7 +117,6 @@ import pureconfig.generic.{FieldCoproductHint, ProductHint}
 import java.io.File
 import scala.annotation.nowarn
 import scala.concurrent.duration.*
-import scala.reflect.ClassTag
 import scala.util.Try
 
 /** Deadlock detection configuration
@@ -319,8 +320,8 @@ final case class CantonParameters(
       ReportingLevel.Warn
     ),
 ) extends UniformCantonConfigValidation {
-  def getStartupParallelism(numThreads: Int): Int =
-    startupParallelism.fold(numThreads)(_.value)
+  def getStartupParallelism(numThreads: PositiveInt): PositiveInt =
+    startupParallelism.getOrElse(numThreads)
 }
 object CantonParameters {
   implicit val cantonParametersCantonConfigValidator: CantonConfigValidator[CantonParameters] = {
@@ -355,19 +356,42 @@ object CantonFeatures {
     CantonConfigValidatorDerivation[CantonFeatures]
 }
 
-/** Root configuration parameters for a single Canton process. */
-trait CantonConfig extends CantonConfigValidation {
-
-  def edition: CantonEdition
+/** Root configuration parameters for a single Canton process.
+  *
+  * @param participants
+  *   All locally running participants that this Canton process can connect and operate on.
+  * @param remoteParticipants
+  *   All remotely running participants to which the console can connect and operate on.
+  * @param sequencers
+  *   All locally running sequencers that this Canton process can connect and operate on.
+  * @param remoteSequencers
+  *   All remotely running sequencers that this Canton process can connect and operate on.
+  * @param mediators
+  *   All locally running mediators that this Canton process can connect and operate on.
+  * @param remoteMediators
+  *   All remotely running mediators that this Canton process can connect and operate on.
+  * @param monitoring
+  *   determines how this Canton process can be monitored
+  * @param parameters
+  *   per-environment parameters to control enabled features and set testing parameters
+  * @param features
+  *   control which features are enabled
+  */
+final case class CantonConfig(
+    sequencers: Map[InstanceName, SequencerNodeConfig] = Map.empty,
+    mediators: Map[InstanceName, MediatorNodeConfig] = Map.empty,
+    participants: Map[InstanceName, LocalParticipantConfig] = Map.empty,
+    remoteSequencers: Map[InstanceName, RemoteSequencerConfig] = Map.empty,
+    remoteMediators: Map[InstanceName, RemoteMediatorConfig] = Map.empty,
+    remoteParticipants: Map[InstanceName, RemoteParticipantConfig] = Map.empty,
+    monitoring: MonitoringConfig = MonitoringConfig(),
+    parameters: CantonParameters = CantonParameters(),
+    features: CantonFeatures = CantonFeatures(),
+) extends UniformCantonConfigValidation
+    with ConfigDefaults[DefaultPorts, CantonConfig] {
 
   def allNodes: Map[InstanceName, LocalNodeConfig] =
     (participants: Map[InstanceName, LocalNodeConfig]) ++ sequencers ++ mediators
-
-  /** all participants that this Canton process can operate or connect to
-    *
-    * participants are grouped by their local name
-    */
-  def participants: Map[InstanceName, LocalParticipantConfig]
 
   /** Use `participants` instead!
     */
@@ -375,15 +399,11 @@ trait CantonConfig extends CantonConfigValidation {
     n.unwrap -> c
   }
 
-  def sequencers: Map[InstanceName, SequencerNodeConfig]
-
   /** Use `sequencers` instead!
     */
   def sequencersByString: Map[String, SequencerNodeConfig] = sequencers.map { case (n, c) =>
     n.unwrap -> c
   }
-
-  def remoteSequencers: Map[InstanceName, RemoteSequencerConfig]
 
   /** Use `remoteSequencers` instead!
     */
@@ -392,15 +412,11 @@ trait CantonConfig extends CantonConfigValidation {
       n.unwrap -> c
   }
 
-  def mediators: Map[InstanceName, MediatorNodeConfig]
-
   /** Use `mediators` instead!
     */
   def mediatorsByString: Map[String, MediatorNodeConfig] = mediators.map { case (n, c) =>
     n.unwrap -> c
   }
-
-  def remoteMediators: Map[InstanceName, RemoteMediatorConfig]
 
   /** Use `remoteMediators` instead!
     */
@@ -409,9 +425,6 @@ trait CantonConfig extends CantonConfigValidation {
       n.unwrap -> c
   }
 
-  /** all remotely running participants to which the console can connect and operate on */
-  def remoteParticipants: Map[InstanceName, RemoteParticipantConfig]
-
   /** Use `remoteParticipants` instead!
     */
   def remoteParticipantsByString: Map[String, RemoteParticipantConfig] = remoteParticipants.map {
@@ -419,20 +432,20 @@ trait CantonConfig extends CantonConfigValidation {
       n.unwrap -> c
   }
 
-  /** determines how this Canton process can be monitored */
-  def monitoring: MonitoringConfig
-
-  /** per-environment parameters to control enabled features and set testing parameters */
-  def parameters: CantonParameters
-
-  /** control which features are enabled */
-  def features: CantonFeatures
-
   /** dump config to string (without sensitive data) */
-  def dumpString: String
+  /** renders the config as a string (used for dumping config for diagnostic purposes) */
+  def dumpString: String = CantonConfig.makeConfidentialString(this)
 
   /** run a validation on the current config and return possible warning messages */
-  def validate: Validated[NonEmpty[Seq[String]], Unit]
+  def validate(edition: CantonEdition): Validated[NonEmpty[Seq[String]], Unit] = {
+    val validator = edition match {
+      case CommunityCantonEdition =>
+        CommunityConfigValidations
+      case EnterpriseCantonEdition =>
+        EnterpriseConfigValidations
+    }
+    validator.validate(this, edition)
+  }
 
   private lazy val participantNodeParameters_ : Map[InstanceName, ParticipantNodeParameters] =
     participants.fmap { participantConfig =>
@@ -526,7 +539,7 @@ trait CantonConfig extends CantonConfigValidation {
     */
   lazy val portDescription: String = mkPortDescription
 
-  protected def mkPortDescription: String = {
+  private def mkPortDescription: String = {
     def participant(config: LocalParticipantConfig): Seq[String] =
       portDescriptionFromConfig(config)(Seq(("admin-api", _.adminApi), ("ledger-api", _.ledgerApi)))
 
@@ -567,6 +580,33 @@ trait CantonConfig extends CantonConfigValidation {
       .getOrElse(Seq.empty)
       .flatMap(_.toList)
   }
+
+  /** reduces the configuration into a single node configuration (used for external testing) */
+  def asSingleNode(instanceName: InstanceName): CantonConfig =
+    // based on the assumption that clashing instance names would clash in the console
+    // environment, we can just filter.
+    copy(
+      participants = participants.filter(_._1 == instanceName),
+      sequencers = sequencers.filter(_._1 == instanceName),
+      mediators = mediators.filter(_._1 == instanceName),
+    )
+
+  override def withDefaults(
+      defaults: DefaultPorts,
+      edition: CantonEdition,
+  ): CantonConfig = {
+    def mapWithDefaults[K, V](m: Map[K, V with ConfigDefaults[DefaultPorts, V]]): Map[K, V] =
+      m.fmap(_.withDefaults(defaults, edition))
+
+    this
+      .focus(_.participants)
+      .modify(mapWithDefaults)
+      .focus(_.sequencers)
+      .modify(mapWithDefaults)
+      .focus(_.mediators)
+      .modify(mapWithDefaults)
+  }
+
 }
 
 private[canton] object CantonNodeParameterConverter {
@@ -600,6 +640,8 @@ private[canton] object CantonNodeParameterConverter {
 }
 
 object CantonConfig {
+  implicit val cantonConfigCantonConfigValidator: CantonConfigValidator[CantonConfig] =
+    CantonConfigValidatorDerivation[CantonConfig]
 
   // the great ux of pureconfig expects you to provide this ProductHint such that the created derivedReader fails on
   // unknown keys
@@ -1188,6 +1230,13 @@ object CantonConfig {
       deriveReader[SequencerNodeConfig]
   }
 
+  private implicit lazy val cantonConfigReader: ConfigReader[CantonConfig] = {
+    // memoize it so we get the same instance every time
+    import ConfigReaders.*
+
+    deriveReader[CantonConfig]
+  }
+
   /** writers
     * @param confidential
     *   if set to true, confidential data which should not be shared for support purposes is blinded
@@ -1750,6 +1799,22 @@ object CantonConfig {
       deriveWriter[SequencerNodeConfig]
   }
 
+  private def makeWriter(confidential: Boolean): ConfigWriter[CantonConfig] = {
+    val writers = new CantonConfig.ConfigWriters(confidential)
+    import writers.*
+
+    deriveWriter[CantonConfig]
+  }
+  private lazy val nonConfidentialWriter: ConfigWriter[CantonConfig] =
+    makeWriter(confidential = false)
+  private lazy val confidentialConfigWriter: ConfigWriter[CantonConfig] =
+    makeWriter(confidential = true)
+
+  def makeConfidentialString(config: CantonConfig): String =
+    "canton " + confidentialConfigWriter
+      .to(config)
+      .render(CantonConfig.defaultConfigRenderer)
+
   /** Parses and merges the provided configuration files into a single
     * [[com.typesafe.config.Config]]. Also loads and merges the default config (as defined by the
     * Lightbend config library) with the provided configuration files. Unless you know that you
@@ -1888,37 +1953,33 @@ object CantonConfig {
     * @param files
     *   config files to read, parse and merge
     * @return
-    *   [[scala.Right]] of type `ConfClass` (e.g. [[CantonCommunityConfig]])) if parsing was
-    *   successful.
+    *   [[scala.Right]] of type `ConfClass` (e.g. [[CantonConfig]])) if parsing was successful.
     */
-  def parseAndLoad[
-      ConfClass <: CantonConfig & ConfigDefaults[DefaultPorts, ConfClass]: ClassTag: ConfigReader
-  ](
-      files: Seq[File]
-  )(implicit elc: ErrorLoggingContext): Either[CantonConfigError, ConfClass] =
+  def parseAndLoad(
+      files: Seq[File],
+      edition: CantonEdition,
+  )(implicit elc: ErrorLoggingContext): Either[CantonConfigError, CantonConfig] =
     for {
       nonEmpty <- NonEmpty.from(files).toRight(NoConfigFiles.Error())
       parsedAndMerged <- parseAndMergeConfigs(nonEmpty)
-      loaded <- loadAndValidate[ConfClass](parsedAndMerged)
+      loaded <- loadAndValidate(parsedAndMerged, edition)
     } yield loaded
 
   /** Parses the provided files to generate a [[com.typesafe.config.Config]], then attempts to load
     * the [[com.typesafe.config.Config]] based on the given ClassTag. Will log the error and exit
     * with code 1, if any error is encountered. *
+    *
     * @param files
     *   config files to read - must be a non-empty Seq
     * @throws java.lang.IllegalArgumentException
     *   if `files` is empty
     * @return
-    *   [[scala.Right]] of type `ClassTag` (e.g. [[CantonCommunityConfig]])) if parsing was
-    *   successful.
+    *   [[scala.Right]] of type `ClassTag` (e.g. [[CantonConfig]])) if parsing was successful.
     */
-  def parseAndLoadOrExit[
-      ConfClass <: CantonConfig & ConfigDefaults[DefaultPorts, ConfClass]: ClassTag: ConfigReader
-  ](files: Seq[File])(implicit
-      elc: ErrorLoggingContext
-  ): ConfClass = {
-    val result = parseAndLoad[ConfClass](files)
+  def parseAndLoadOrExit(files: Seq[File], edition: CantonEdition)(implicit
+      elc: ErrorLoggingContext = elc
+  ): CantonConfig = {
+    val result = parseAndLoad(files, edition)
     configOrExit(result)
   }
 
@@ -1926,25 +1987,24 @@ object CantonConfig {
     * Any configuration errors encountered will be returned (but not logged).
     *
     * @return
-    *   [[scala.Right]] of type `CantonConfig` (e.g. [[CantonCommunityConfig]])) if parsing was
-    *   successful.
+    *   [[scala.Right]] of type [[CantonConfig]] if parsing was successful.
     */
-  def loadAndValidate[ConfClass <: CantonConfig & ConfigDefaults[
-    DefaultPorts,
-    ConfClass,
-  ]: ClassTag: ConfigReader](
-      config: Config
-  )(implicit elc: ErrorLoggingContext): Either[CantonConfigError, ConfClass] = {
+  def loadAndValidate(
+      config: Config,
+      edition: CantonEdition,
+  )(implicit elc: ErrorLoggingContext = elc): Either[CantonConfigError, CantonConfig] = {
     // config.resolve forces any substitutions to be resolved (typically referenced environment variables or system properties).
     // this normally would happen by default during ConfigFactory.load(),
     // however we have to manually as we've merged in individual files.
     val result = Either.catchOnly[UnresolvedSubstitution](config.resolve())
     result match {
       case Right(resolvedConfig) =>
-        loadRawConfig[ConfClass](resolvedConfig)
+        loadRawConfig(resolvedConfig)
           .flatMap { conf =>
-            val confWithDefaults = conf.withDefaults(new DefaultPorts(), conf.edition)
-            confWithDefaults.validate.toEither
+            val confWithDefaults = conf.withDefaults(new DefaultPorts(), edition)
+            confWithDefaults
+              .validate(edition)
+              .toEither
               .map(_ => confWithDefaults)
               .leftMap(causes => ConfigErrors.ValidationError.Error(causes.toList))
           }
@@ -1952,30 +2012,59 @@ object CantonConfig {
     }
   }
 
-  /** Will load a case class configuration (defined by template args) from the configuration object.
-    * If any configuration errors are encountered, they will be logged and the thread will exit with
-    * code 1.
-    *
-    * @return
-    *   [[scala.Right]] of type `ClassTag` (e.g. [[CantonCommunityConfig]])) if parsing was
-    *   successful.
-    */
-  def loadOrExit[
-      ConfClass <: CantonConfig & ConfigDefaults[DefaultPorts, ConfClass]: ClassTag: ConfigReader
-  ](
-      config: Config
-  )(implicit elc: ErrorLoggingContext): ConfClass =
-    loadAndValidate[ConfClass](config).valueOr(_ => sys.exit(1))
+  private val logger: Logger = LoggerFactory.getLogger(classOf[CantonConfig])
+  private val elc = ErrorLoggingContext(
+    TracedLogger(logger),
+    NamedLoggerFactory.root.properties,
+    TraceContext.empty,
+  )
 
-  private[config] def loadRawConfig[ConfClass <: CantonConfig: ClassTag: ConfigReader](
+  /** Will load a case class configuration (defined by template args) from the configuration object.
+    * If any configuration errors are encountered, they will be logged and the JVM will exit with
+    * code 1.
+    */
+  def loadOrExit(
+      config: Config,
+      edition: CantonEdition,
+  )(implicit elc: ErrorLoggingContext = elc): CantonConfig =
+    loadAndValidate(config, edition).valueOr(_ => sys.exit(1))
+
+  private[config] def loadRawConfig(
       rawConfig: Config
-  )(implicit elc: ErrorLoggingContext): Either[CantonConfigError, ConfClass] =
+  )(implicit elc: ErrorLoggingContext): Either[CantonConfigError, CantonConfig] =
     pureconfig.ConfigSource
       .fromConfig(rawConfig)
       .at("canton")
-      .load[ConfClass]
-      .leftMap(failures => GenericConfigError.Error(ConfigErrors.getMessage[ConfClass](failures)))
+      .load[CantonConfig]
+      .leftMap(failures =>
+        GenericConfigError.Error(ConfigErrors.getMessage[CantonConfig](failures))
+      )
 
   lazy val defaultConfigRenderer: ConfigRenderOptions =
     ConfigRenderOptions.defaults().setOriginComments(false).setComments(false).setJson(false)
+
+  def save(
+      config: CantonConfig,
+      filename: String,
+      removeConfigPaths: Set[(String, Option[(String, Any)])] = Set.empty,
+  ): Unit = {
+    import better.files.File as BFile
+    val unfiltered = nonConfidentialWriter.to(config)
+    val value = unfiltered match {
+      case o: ConfigObject =>
+        removeConfigPaths
+          .foldLeft(o.toConfig) {
+            case (v, (p, None)) => v.withoutPath(p)
+            case (v, (p, Some((replacementPath, value)))) =>
+              if (v.hasPath(p))
+                v.withoutPath(p).withValue(replacementPath, ConfigValueFactory.fromAnyRef(value))
+              else v.withoutPath(p)
+          }
+          .root()
+      case _ => unfiltered
+    }
+    val _ =
+      BFile(filename).write(value.atKey("canton").root().render(CantonConfig.defaultConfigRenderer))
+  }
+
 }

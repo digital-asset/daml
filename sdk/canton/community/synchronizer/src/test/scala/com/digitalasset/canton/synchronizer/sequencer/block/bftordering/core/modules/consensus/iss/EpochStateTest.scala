@@ -12,7 +12,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
@@ -59,13 +58,12 @@ class EpochStateTest extends AsyncWordSpec with BaseTest {
             startBlockNumber = BlockNumber.First,
             length = 7,
           )
-        val membership = Membership(myId, otherPeers)
+        val membership = Membership.forTesting(myId, otherPeers)
         val epoch =
           Epoch(
             epochInfo,
             currentMembership = membership,
             previousMembership = membership, // Not relevant for the test
-            SimpleLeaderSelectionPolicy,
           )
         val epochState =
           new EpochState[SelfEnv](
@@ -96,13 +94,12 @@ class EpochStateTest extends AsyncWordSpec with BaseTest {
           startBlockNumber = BlockNumber.First,
           length = 7,
         )
-      val membership = Membership(myId, otherPeers)
+      val membership = Membership.forTesting(myId, otherPeers)
       val epoch =
         Epoch(
           epochInfo,
           currentMembership = membership,
           previousMembership = membership, // Not relevant for the test
-          SimpleLeaderSelectionPolicy,
         )
 
       val epochState =

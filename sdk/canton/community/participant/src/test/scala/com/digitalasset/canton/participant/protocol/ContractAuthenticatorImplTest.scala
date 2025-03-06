@@ -70,7 +70,7 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
                 contractInstance = baseInstance.map(_.copy(arg = unNormalizedArg)),
                 metadata = contractMetadata,
                 ledgerTime = ledgerTime,
-                contractSalt = Some(contractSalt.unwrap),
+                contractSalt = contractSalt.unwrap,
               ).valueOrFail("Failed creating serializable contract instance")
 
               contractAuthenticator.authenticateSerializable(
@@ -100,20 +100,8 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
           ) {
             val changedSalt = TestSalt.generateSalt(1337)
             testFailedAuthentication(
-              _.copy(contractSalt = Some(changedSalt)),
+              _.copy(contractSalt = changedSalt),
               testedSalt = changedSalt,
-            )
-          }
-        }
-
-        "using a contract with a missing salt" should {
-          "fail authentication" in new WithContractAuthenticator(
-            authContractIdVersion
-          ) {
-            contractAuthenticator.authenticateSerializable(
-              contract.copy(contractSalt = None)
-            ) shouldBe Left(
-              s"Contract salt missing in serializable contract with authenticating contract id ($contractId)"
             )
           }
         }
@@ -350,7 +338,7 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
       contractInstance = contractInstance,
       metadata = contractMetadata,
       ledgerTime = ledgerTime,
-      contractSalt = Some(contractSalt.unwrap),
+      contractSalt = contractSalt.unwrap,
     ).valueOrFail("Failed creating serializable contract instance")
 
   protected def testFailedAuthentication(

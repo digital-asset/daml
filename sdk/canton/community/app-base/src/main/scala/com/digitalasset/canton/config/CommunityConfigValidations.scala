@@ -18,8 +18,8 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 import java.net.URI
 
-private[config] trait ConfigValidations[C <: CantonConfig] {
-  final def validate[T >: C](config: C, edition: CantonEdition)(implicit
+private[config] trait ConfigValidations {
+  final def validate[T >: CantonConfig](config: CantonConfig, edition: CantonEdition)(implicit
       validator: CantonConfigValidator[T]
   ): Validated[NonEmpty[Seq[String]], Unit] =
     config
@@ -28,7 +28,9 @@ private[config] trait ConfigValidations[C <: CantonConfig] {
       .leftMap(_.map(_.toString))
       .combine(validations.traverse_(_(config)))
 
-  protected val validations: List[C => Validated[NonEmpty[Seq[String]], Unit]]
+  type Validation = CantonConfig => Validated[NonEmpty[Seq[String]], Unit]
+
+  protected val validations: List[Validation]
 
   protected def toValidated(errors: Seq[String]): Validated[NonEmpty[Seq[String]], Unit] = NonEmpty
     .from(errors)
@@ -36,9 +38,7 @@ private[config] trait ConfigValidations[C <: CantonConfig] {
     .getOrElse(Validated.Valid(()))
 }
 
-object CommunityConfigValidations
-    extends ConfigValidations[CantonCommunityConfig]
-    with NamedLogging {
+object CommunityConfigValidations extends ConfigValidations with NamedLogging {
   import TraceContext.Implicits.Empty.*
   override protected def loggerFactory: NamedLoggerFactory = NamedLoggerFactory.root
 
@@ -62,11 +62,9 @@ object CommunityConfigValidations
       s"DbAccess($urlNoPassword, $user)"
   }
 
-  type Validation = CantonCommunityConfig => Validated[NonEmpty[Seq[String]], Unit]
-
   override protected val validations: List[Validation] =
     List[Validation](noDuplicateStorage, atLeastOneNode) ++
-      genericValidations[CantonCommunityConfig]
+      genericValidations[CantonConfig]
 
   /** Validations applied to all community and enterprise Canton configurations. */
   private[config] def genericValidations[C <: CantonConfig]
@@ -140,7 +138,7 @@ object CommunityConfigValidations
 
   /** Validate the config that the storage configuration is not shared between nodes. */
   private def noDuplicateStorage(
-      config: CantonCommunityConfig
+      config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
     val dbAccessToNodes =
       extractNormalizedDbAccess(
@@ -160,9 +158,9 @@ object CommunityConfigValidations
 
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   private def atLeastOneNode(
-      config: CantonCommunityConfig
+      config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
-    val CantonCommunityConfig(
+    val CantonConfig(
       participants,
       sequencers,
       mediators,

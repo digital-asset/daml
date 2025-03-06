@@ -8,6 +8,8 @@ import com.daml.ledger.api.v2.admin.party_management_service.{
   UpdatePartyDetailsRequest,
 }
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRequest
+import com.daml.ledger.api.v2.command_service.SubmitAndWaitForTransactionRequest
+import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdRequest
 import com.daml.ledger.api.v2.state_service.GetActiveContractsRequest
 import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
@@ -24,6 +26,7 @@ import com.daml.ledger.api.v2.update_service.GetUpdatesRequest
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.auth.RequiredClaim
 import com.digitalasset.canton.ledger.api.auth.RequiredClaims
+import com.digitalasset.canton.ledger.api.auth.services.ApiServicesRequiredClaimSpec.submitAndWaitForTransactionRequest
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import scalapb.lenses.Lens
@@ -313,6 +316,106 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
         ),
       )
     ) shouldBe Nil
+  }
+
+  behavior of "CommandServiceAuthorization.getSubmitAndWaitForTransactionClaims"
+
+  it should "compute the correct claims in the happy path" in {
+    CommandServiceAuthorization.getSubmitAndWaitForTransactionClaims(
+      submitAndWaitForTransactionRequest
+    ) should contain theSameElementsAs RequiredClaims[SubmitAndWaitForTransactionRequest](
+      RequiredClaim.ActAs("1"),
+      RequiredClaim.ActAs("2"),
+      RequiredClaim.ReadAs("a"),
+      RequiredClaim.ReadAs("b"),
+      RequiredClaim.ReadAs("i"),
+      RequiredClaim.ReadAs("ii"),
+      RequiredClaim.ReadAsAnyParty(),
+      RequiredClaim.MatchApplicationId(CommandServiceAuthorization.applicationIdForTransactionL),
+    )
+  }
+
+  it should "compute the correct claims if no filtersForAnyParty" in {
+    CommandServiceAuthorization.getSubmitAndWaitForTransactionClaims(
+      submitAndWaitForTransactionRequest.update(
+        _.transactionFormat.eventFormat.modify(_.clearFiltersForAnyParty)
+      )
+    ) should contain theSameElementsAs RequiredClaims[SubmitAndWaitForTransactionRequest](
+      RequiredClaim.ActAs("1"),
+      RequiredClaim.ActAs("2"),
+      RequiredClaim.ReadAs("a"),
+      RequiredClaim.ReadAs("b"),
+      RequiredClaim.ReadAs("i"),
+      RequiredClaim.ReadAs("ii"),
+      RequiredClaim.MatchApplicationId(CommandServiceAuthorization.applicationIdForTransactionL),
+    )
+  }
+
+  it should "compute the correct claims if no filtersByParty" in {
+    CommandServiceAuthorization.getSubmitAndWaitForTransactionClaims(
+      submitAndWaitForTransactionRequest.update(
+        _.transactionFormat.eventFormat.modify(_.clearFiltersByParty)
+      )
+    ) should contain theSameElementsAs RequiredClaims[SubmitAndWaitForTransactionRequest](
+      RequiredClaim.ActAs("1"),
+      RequiredClaim.ActAs("2"),
+      RequiredClaim.ReadAs("a"),
+      RequiredClaim.ReadAs("b"),
+      RequiredClaim.ReadAsAnyParty(),
+      RequiredClaim.MatchApplicationId(CommandServiceAuthorization.applicationIdForTransactionL),
+    )
+  }
+
+  it should "compute the correct claims if no transactionFormat" in {
+    CommandServiceAuthorization.getSubmitAndWaitForTransactionClaims(
+      submitAndWaitForTransactionRequest.clearTransactionFormat
+    ) should contain theSameElementsAs RequiredClaims[SubmitAndWaitForTransactionRequest](
+      RequiredClaim.ActAs("1"),
+      RequiredClaim.ActAs("2"),
+      RequiredClaim.ReadAs("a"),
+      RequiredClaim.ReadAs("b"),
+      RequiredClaim.MatchApplicationId(CommandServiceAuthorization.applicationIdForTransactionL),
+    )
+  }
+
+  it should "compute the correct claims if no actAs" in {
+    CommandServiceAuthorization.getSubmitAndWaitForTransactionClaims(
+      submitAndWaitForTransactionRequest.update(_.commands.modify(_.clearActAs))
+    ) should contain theSameElementsAs RequiredClaims[SubmitAndWaitForTransactionRequest](
+      RequiredClaim.ReadAs("a"),
+      RequiredClaim.ReadAs("b"),
+      RequiredClaim.ReadAs("i"),
+      RequiredClaim.ReadAs("ii"),
+      RequiredClaim.ReadAsAnyParty(),
+      RequiredClaim.MatchApplicationId(CommandServiceAuthorization.applicationIdForTransactionL),
+    )
+  }
+
+  it should "compute the correct claims if no readAs" in {
+    CommandServiceAuthorization.getSubmitAndWaitForTransactionClaims(
+      submitAndWaitForTransactionRequest.update(_.commands.modify(_.clearReadAs))
+    ) should contain theSameElementsAs RequiredClaims[SubmitAndWaitForTransactionRequest](
+      RequiredClaim.ActAs("1"),
+      RequiredClaim.ActAs("2"),
+      RequiredClaim.ReadAs("i"),
+      RequiredClaim.ReadAs("ii"),
+      RequiredClaim.ReadAsAnyParty(),
+      RequiredClaim.MatchApplicationId(CommandServiceAuthorization.applicationIdForTransactionL),
+    )
+  }
+
+  it should "compute the correct claims if no actAs and no readAs" in {
+    CommandServiceAuthorization.getSubmitAndWaitForTransactionClaims(
+      submitAndWaitForTransactionRequest.update(
+        _.commands.modify(_.clearReadAs),
+        _.commands.modify(_.clearActAs),
+      )
+    ) should contain theSameElementsAs RequiredClaims[SubmitAndWaitForTransactionRequest](
+      RequiredClaim.ReadAs("i"),
+      RequiredClaim.ReadAs("ii"),
+      RequiredClaim.ReadAsAnyParty(),
+      RequiredClaim.MatchApplicationId(CommandServiceAuthorization.applicationIdForTransactionL),
+    )
   }
 
   behavior of "UpdateServiceAuthorization.getUpdatesClaims"
@@ -724,4 +827,32 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
     case matchIdentityProviderId: RequiredClaim.MatchIdentityProviderId[Req] =>
       matchIdentityProviderId
   }
+}
+object ApiServicesRequiredClaimSpec {
+  val submitAndWaitForTransactionRequest =
+    SubmitAndWaitForTransactionRequest(
+      commands = Some(
+        Commands(
+          actAs = Seq("1", "2"),
+          readAs = Seq("a", "b"),
+          applicationId = "appId",
+        )
+      ),
+      transactionFormat = Some(
+        TransactionFormat(
+          eventFormat = Some(
+            EventFormat(
+              filtersByParty = Map(
+                "i" -> Filters(),
+                "ii" -> Filters(),
+              ),
+              filtersForAnyParty = Some(Filters()),
+              verbose = true,
+            )
+          ),
+          transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+        )
+      ),
+    )
+
 }

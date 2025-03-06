@@ -6,19 +6,27 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 import com.digitalasset.canton.topology.SequencerId
 import com.google.common.annotations.VisibleForTesting
 
-final case class Membership(myId: SequencerId, orderingTopology: OrderingTopology) {
+final case class Membership(
+    myId: SequencerId,
+    orderingTopology: OrderingTopology,
+    leaders: Seq[SequencerId],
+) {
   val otherPeers: Set[SequencerId] = orderingTopology.peers - myId
-  val sortedPeers = orderingTopology.peers.toList.sorted
+  lazy val sortedPeers: Seq[SequencerId] = orderingTopology.sortedPeers
 }
 
 object Membership {
 
   /** A simple constructor for tests so that we don't have to provide a full ordering topology. */
   @VisibleForTesting
-  def apply(
+  def forTesting(
       myId: SequencerId,
       otherPeers: Set[SequencerId] = Set.empty,
       sequencingParameters: SequencingParameters = SequencingParameters.Default,
-  ): Membership =
-    Membership(myId, OrderingTopology(otherPeers + myId, sequencingParameters))
+      leaders: Option[Seq[SequencerId]] = None,
+  ): Membership = {
+    val orderingTopology = OrderingTopology(otherPeers + myId, sequencingParameters)
+    val peers = orderingTopology.sortedPeers
+    Membership(myId, orderingTopology, leaders.getOrElse(peers))
+  }
 }

@@ -42,7 +42,6 @@ import com.digitalasset.canton.participant.admin.repair.RepairService.{
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
-import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.participant.topology.TopologyComponentFactory
@@ -392,7 +391,7 @@ final class RepairService(
                   for {
                     repair <- initRepairRequestAndVerifyPreconditions(
                       synchronizer = synchronizer,
-                      requestCountersToAllocate = groupCount,
+                      repairCountersToAllocate = groupCount,
                     )
 
                     allStakeholders = filteredContracts
@@ -412,12 +411,12 @@ final class RepairService(
                       filteredContracts,
                     )
 
-                    contractsToAdd = repair.timesOfChange.zip(contractsByCreation)
+                    contractsToAdd = repair.timesOfRepair.zip(contractsByCreation)
 
                     _ = logger.debug(s"Publishing ${filteredContracts.size} added contracts")
 
-                    contractsWithTimeOfChange = contractsToAdd.flatMap { case (toc, (_, cs)) =>
-                      cs.map(_ -> toc)
+                    contractsWithTimeOfChange = contractsToAdd.flatMap { case (tor, (_, cs)) =>
+                      cs.map(_ -> tor.toToc)
                     }
 
                     _ <- persistAddContracts(
@@ -426,9 +425,7 @@ final class RepairService(
                       storedContracts = storedContracts,
                     )
 
-                    _ <- cleanRepairRequests(repair)
-
-                    // Publish added contracts upstream as created via the ledger api.
+                    // Commit and publish added contracts via the indexer to the ledger api.
                     _ <- EitherT.right[String](
                       writeContractsAddedEvents(
                         repair,
@@ -533,9 +530,7 @@ final class RepairService(
               )
             )
 
-          _ <- cleanRepairRequests(repair)
-
-          // Publish purged contracts upstream as archived via the ledger api.
+          // Commit and publish purged contracts via the indexer to the ledger api.
           _ <- EitherTUtil.rightUS[String, Unit](
             writeContractsPurgedEvent(contractsToPublishUpstream, repair, repairIndexer)
           )
@@ -601,8 +596,6 @@ final class RepairService(
           changeAssignationData <- EitherT.fromEither[FutureUnlessShutdown](
             ChangeAssignation.Data.from(contracts.forgetNE, changeAssignation)
           )
-
-          _ <- cleanRepairRequests(repairTarget.unwrap, repairSource.unwrap)
 
           // Note the following purposely fails if any contract fails which results in not all contracts being processed.
           _ <- MonadUtil
@@ -686,7 +679,7 @@ final class RepairService(
               reassignmentData.contract.contractId,
               changeAssignationBack,
             )
-            .incrementRequestCounter
+            .incrementRepairCounter
         )
         _ <- changeAssignationBack.changeAssignation(
           Seq(contractIdData.map((_, None))),
@@ -951,7 +944,7 @@ final class RepairService(
         ),
       )
 
-    val toc = repair.tryExactlyOneTimeOfChange
+    val toc = repair.tryExactlyOneTimeOfRepair.toToc
 
     // Not checking that the participant hosts a stakeholder as we might be cleaning up contracts
     // on behalf of stakeholders no longer around.
@@ -1037,7 +1030,7 @@ final class RepairService(
       updateId = repair.transactionId.tryAsLedgerTransactionId,
       contractMetadata = Map.empty,
       synchronizerId = repair.synchronizer.id,
-      requestCounter = repair.tryExactlyOneRequestCounter,
+      repairCounter = repair.tryExactlyOneRepairCounter,
       recordTime = repair.timestamp,
     )
     // not waiting for Update.persisted, since CommitRepair anyway will be waited for at the end
@@ -1046,7 +1039,7 @@ final class RepairService(
 
   private def prepareAddedEvents(
       repair: RepairRequest,
-      requestCounter: RequestCounter,
+      repairCounter: RepairCounter,
       ledgerCreateTime: LedgerCreateTime,
       contractsAdded: Seq[ContractToAdd],
       workflowIdProvider: () => Option[LfWorkflowId],
@@ -1077,14 +1070,14 @@ final class RepairService(
       updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
       contractMetadata = contractMetadata,
       synchronizerId = repair.synchronizer.id,
-      requestCounter = requestCounter,
+      repairCounter = repairCounter,
       recordTime = repair.timestamp,
     )
   }
 
   private def writeContractsAddedEvents(
       repair: RepairRequest,
-      contractsAdded: Seq[(TimeOfChange, (LedgerCreateTime, Seq[ContractToAdd]))],
+      contractsAdded: Seq[(TimeOfRepair, (LedgerCreateTime, Seq[ContractToAdd]))],
       workflowIds: Iterator[Option[LfWorkflowId]],
       repairIndexer: FutureQueue[RepairUpdate],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
@@ -1095,7 +1088,7 @@ final class RepairService(
           .offer(
             prepareAddedEvents(
               repair,
-              timeOfChange.rc,
+              timeOfChange.repairCounter,
               timestamp,
               contractsToAdd,
               () => workflowIds.next(),
@@ -1167,10 +1160,10 @@ final class RepairService(
       }
   }
 
-  private def requestCounterSequence(
-      fromInclusive: RequestCounter,
+  private def repairCounterSequence(
+      fromInclusive: RepairCounter,
       length: PositiveInt,
-  ): Either[String, NonEmpty[Seq[RequestCounter]]] =
+  ): Either[String, NonEmpty[Seq[RepairCounter]]] =
     for {
       rcs <- Seq
         .iterate(fromInclusive.asRight[String], length.value)(_.flatMap(_.increment))
@@ -1183,11 +1176,11 @@ final class RepairService(
     * @param synchronizerId
     *   The ID of the synchronizer for which the request is valid
     * @param requestCountersToAllocate
-    *   The number of request counters to allocate in order to fulfill the request
+    *   The number of repair counters to allocate in order to fulfill the request
     */
   private def initRepairRequestAndVerifyPreconditions(
       synchronizerId: SynchronizerId,
-      requestCountersToAllocate: PositiveInt = PositiveInt.one,
+      repairCountersToAllocate: PositiveInt = PositiveInt.one,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, RepairRequest] =
     for {
       synchronizerAlias <- EitherT.fromEither[FutureUnlessShutdown](
@@ -1198,18 +1191,18 @@ final class RepairService(
       synchronizerData <- readSynchronizerData(synchronizerId, synchronizerAlias)
       repairRequest <- initRepairRequestAndVerifyPreconditions(
         synchronizerData,
-        requestCountersToAllocate,
+        repairCountersToAllocate,
       )
     } yield repairRequest
 
   private def initRepairRequestAndVerifyPreconditions(
       synchronizer: RepairRequest.SynchronizerData,
-      requestCountersToAllocate: PositiveInt,
+      repairCountersToAllocate: PositiveInt,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, RepairRequest] = {
     val rtRepair = RecordTime.fromTimeOfChange(
       TimeOfChange(
-        synchronizer.startingPoints.processing.nextRequestCounter,
         synchronizer.startingPoints.processing.currentRecordTime,
+        Some(synchronizer.startingPoints.processing.nextRepairCounter),
       )
     )
     logger
@@ -1235,50 +1228,14 @@ final class RepairService(
              |Reconnect to the synchronizer to reprocess inflight validation requests and retry repair afterwards.""".stripMargin
         ),
       )
-      requestCounters <- EitherT.fromEither[FutureUnlessShutdown](
-        requestCounterSequence(
-          synchronizer.startingPoints.processing.nextRequestCounter,
-          requestCountersToAllocate,
+      repairCounters <- EitherT.fromEither[FutureUnlessShutdown](
+        repairCounterSequence(
+          synchronizer.startingPoints.processing.nextRepairCounter,
+          repairCountersToAllocate,
         )
       )
-      repair = RepairRequest(
-        synchronizer,
-        randomTransactionId(syncCrypto),
-        requestCounters,
-        RepairContext.tryFromTraceContext,
-      )
-
-      // Mark the repair request as pending in the request journal store
-      _ <- EitherT
-        .right[String](
-          repair.requestData.parTraverse_(synchronizer.persistentState.requestJournalStore.insert)
-        )
-
-    } yield repair
+    } yield RepairRequest(synchronizer, randomTransactionId(syncCrypto), repairCounters)
   }
-
-  private def markClean(
-      repair: RepairRequest
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
-    repair.requestCounters.forgetNE
-      .parTraverse_(
-        repair.synchronizer.persistentState.requestJournalStore.replace(
-          _,
-          repair.timestamp,
-          RequestState.Clean,
-          Some(repair.timestamp),
-        )
-      )
-      .leftMap(t =>
-        log(s"Failed to update request journal store on ${repair.synchronizer.alias}: $t")
-      )
-
-  private def cleanRepairRequests(
-      repairs: RepairRequest*
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
-    for {
-      _ <- repairs.parTraverse_(markClean)
-    } yield ()
 
   /** Read the ACS state for each contract in cids
     * @return
@@ -1380,7 +1337,7 @@ object RepairService {
         observers: Set[String],
         lfContractId: LfContractId,
         ledgerTime: Instant,
-        contractSalt: Option[Salt],
+        contractSalt: Salt,
     )(implicit namedLoggingContext: NamedLoggingContext): Either[String, SerializableContract] =
       for {
         template <- LedgerApiValueValidator.validateIdentifier(templateId).leftMap(_.getMessage)
@@ -1433,7 +1390,7 @@ object RepairService {
           Set[String],
           Set[String],
           LfContractId,
-          Option[Salt],
+          Salt,
           LedgerCreateTime,
       ),
     ] = {
@@ -1470,9 +1427,7 @@ object RepairService {
     def cid: LfContractId = contract.contractId
 
     def driverMetadata(protocolVersion: ProtocolVersion): Bytes =
-      contract.contractSalt
-        .map(DriverContractMetadata(_).toLfBytes(protocolVersion))
-        .getOrElse(Bytes.Empty)
+      DriverContractMetadata(contract.contractSalt).toLfBytes(protocolVersion)
   }
 
   trait SynchronizerLookup {

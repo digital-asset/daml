@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.Signature
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.BatchesRequest
@@ -85,8 +86,11 @@ object Availability {
         signature: Signature,
     ) extends LocalDissemination
 
-    final case class RemoteBatchStored(batchId: BatchId, from: SequencerId)
-        extends LocalDissemination
+    final case class RemoteBatchStored(
+        batchId: BatchId,
+        expirationTime: CantonTimestamp,
+        from: SequencerId,
+    ) extends LocalDissemination
 
     final case class RemoteBatchStoredSigned(
         batchId: BatchId,

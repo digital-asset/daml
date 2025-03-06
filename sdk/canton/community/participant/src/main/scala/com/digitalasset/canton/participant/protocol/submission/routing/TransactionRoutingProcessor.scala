@@ -10,8 +10,12 @@ import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.CryptoPureApi
-import com.digitalasset.canton.data.ProcessedDisclosedContract
-import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, TransactionMeta}
+import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
+import com.digitalasset.canton.ledger.participant.state.{
+  SubmitterInfo,
+  SynchronizerRank,
+  TransactionMeta,
+}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
@@ -20,7 +24,7 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmissionError,
   TransactionSubmissionResult,
 }
-import com.digitalasset.canton.participant.protocol.submission.routing.SynchronizerRouter.inputContractsStakeholders
+import com.digitalasset.canton.participant.protocol.submission.routing.TransactionRoutingProcessor.inputContractsStakeholders
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.ConfigurationErrors.{
   MultiSynchronizerSupportNotEnabled,
@@ -56,7 +60,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * Submitted transactions are inspected for which synchronizers are involved based on the location
   * of the involved contracts.
   */
-class SynchronizerRouter(
+class TransactionRoutingProcessor(
     contractsReassigner: ContractsReassigner,
     connectedSynchronizersLookup: ConnectedSynchronizersLookup,
     serializableContractAuthenticator: ContractAuthenticator,
@@ -120,49 +124,16 @@ class SynchronizerRouter(
           .leftMap(RoutingInternalError.IllformedTransaction.apply)
       )
 
-      contractsStakeholders = inputContractsStakeholders(wfTransaction.unwrap)
-
       synchronizerState = RoutingSynchronizerState(connectedSynchronizersLookup)
-      transactionData <- TransactionData.create(
+
+      synchronizerRankTarget <- selectRoutingSynchronizer(
         submitterInfo,
         transaction,
-        metadata.ledgerTime,
         synchronizerState,
-        contractsStakeholders,
+        metadata.ledgerTime,
         inputDisclosedContracts.map(_.contractId),
         optSynchronizerId,
       )
-
-      synchronizerSelector <- synchronizerSelectorFactory
-        .create(transactionData, synchronizerState)
-      inputSynchronizers = transactionData.inputContractsSynchronizerData.synchronizers
-
-      isMultiSynchronizerTx <- isMultiSynchronizerTx(
-        inputSynchronizers,
-        transactionData.informees,
-        synchronizerState,
-        optSynchronizerId,
-      )
-
-      synchronizerRankTarget <- {
-        if (!isMultiSynchronizerTx) {
-          logger.debug(
-            s"Choosing the synchronizer as single-synchronizer workflow for ${submitterInfo.commandId}"
-          )
-          synchronizerSelector.forSingleSynchronizer
-        } else if (enableAutomaticReassignments) {
-          logger.debug(
-            s"Choosing the synchronizer as multi-synchronizer workflow for ${submitterInfo.commandId}"
-          )
-          chooseSynchronizerForMultiSynchronizer(synchronizerSelector)
-        } else {
-          EitherT.leftT[FutureUnlessShutdown, SynchronizerRank](
-            MultiSynchronizerSupportNotEnabled.Error(
-              transactionData.inputContractsSynchronizerData.synchronizers
-            ): TransactionRoutingError
-          )
-        }
-      }
       _ <- contractsReassigner
         .reassign(
           synchronizerRankTarget,
@@ -189,6 +160,74 @@ class SynchronizerRouter(
         topologySnapshot,
       ).mapK(FutureUnlessShutdown.outcomeK)
     } yield transactionSubmittedF
+
+  /** Computes the best synchronizer for a submitted transaction by checking the submitted
+    * transaction against the topology of the connected synchronizers and ranking the admissible
+    * ones.
+    */
+  def selectRoutingSynchronizer(
+      submitterInfo: SubmitterInfo,
+      transaction: LfSubmittedTransaction,
+      synchronizerState: RoutingSynchronizerState,
+      ledgerTime: CantonTimestamp,
+      disclosedContractIds: List[LfContractId],
+      optSynchronizerId: Option[SynchronizerId],
+  )(implicit traceContext: TraceContext): EitherT[
+    FutureUnlessShutdown,
+    TransactionRoutingError,
+    SynchronizerRank,
+  ] =
+    for {
+      contractsStakeholders <- EitherT.rightT[FutureUnlessShutdown, TransactionRoutingError](
+        inputContractsStakeholders(transaction)
+      )
+
+      transactionData <- TransactionData.create(
+        submitterInfo = submitterInfo,
+        transaction = transaction,
+        ledgerTime = ledgerTime,
+        synchronizerState = synchronizerState,
+        inputContractStakeholders = contractsStakeholders,
+        disclosedContracts = disclosedContractIds,
+        prescribedSynchronizerO = optSynchronizerId,
+      )
+
+      locallyHostedSubmitters =
+        transactionData.actAs -- transactionData.externallySignedSubmissionO.fold(
+          Set.empty[LfPartyId]
+        )(_.signatures.keys.map(_.toLf).toSet)
+
+      synchronizerSelector <- synchronizerSelectorFactory.create(
+        transactionData = transactionData,
+        synchronizerState = synchronizerState,
+        submitters = locallyHostedSubmitters,
+      )
+
+      isMultiSynchronizerTx <- isMultiSynchronizerTx(
+        inputSynchronizers = transactionData.inputContractsSynchronizerData.synchronizers,
+        informees = transactionData.informees,
+        synchronizerState = synchronizerState,
+        optSynchronizerId = optSynchronizerId,
+      )
+
+      synchronizerRankTarget <-
+        if (!isMultiSynchronizerTx) {
+          logger.debug(
+            s"Choosing the synchronizer as single-synchronizer workflow for ${submitterInfo.commandId}"
+          )
+          synchronizerSelector.forSingleSynchronizer
+        } else if (enableAutomaticReassignments) {
+          logger.debug(
+            s"Choosing the synchronizer as multi-synchronizer workflow for ${submitterInfo.commandId}"
+          )
+          chooseSynchronizerForMultiSynchronizer(synchronizerSelector)
+        } else
+          EitherT.leftT[FutureUnlessShutdown, SynchronizerRank](
+            MultiSynchronizerSupportNotEnabled.Error(
+              transactionData.inputContractsSynchronizerData.synchronizers
+            ): TransactionRoutingError
+          )
+    } yield synchronizerRankTarget
 
   private def allInformeesOnSynchronizer(
       informees: Set[LfPartyId],
@@ -328,7 +367,7 @@ class SynchronizerRouter(
 
 }
 
-object SynchronizerRouter {
+object TransactionRoutingProcessor {
   def apply(
       connectedSynchronizersLookup: ConnectedSynchronizersLookup,
       synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,
@@ -337,7 +376,7 @@ object SynchronizerRouter {
       participantId: ParticipantId,
       parameters: ParticipantNodeParameters,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): SynchronizerRouter = {
+  )(implicit ec: ExecutionContext): TransactionRoutingProcessor = {
 
     val reassigner =
       new ContractsReassigner(
@@ -354,7 +393,8 @@ object SynchronizerRouter {
     )
 
     val synchronizerSelectorFactory = new SynchronizerSelectorFactory(
-      admissibleSynchronizers = new AdmissibleSynchronizers(participantId, loggerFactory),
+      admissibleSynchronizersComputation =
+        new AdmissibleSynchronizersComputation(participantId, loggerFactory),
       priorityOfSynchronizer =
         priorityOfSynchronizer(synchronizerConnectionConfigStore, synchronizerAliasManager),
       synchronizerRankComputation = synchronizerRankComputation,
@@ -363,7 +403,7 @@ object SynchronizerRouter {
 
     val serializableContractAuthenticator = ContractAuthenticator(cryptoPureApi)
 
-    new SynchronizerRouter(
+    new TransactionRoutingProcessor(
       reassigner,
       connectedSynchronizersLookup,
       serializableContractAuthenticator,

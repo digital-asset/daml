@@ -64,6 +64,7 @@ object StateTransferMessageValidatorTest {
 
   private val mySequencerId = fakeSequencerId("self")
   private val otherSequencerId = fakeSequencerId("other")
-  private val aMembershipWithOnlySelf = Membership(mySequencerId)
-  private val aMembershipWith2Nodes = Membership(mySequencerId, Set(otherSequencerId))
+  private val aMembershipWithOnlySelf = Membership.forTesting(mySequencerId)
+  private val aMembershipWith2Nodes =
+    Membership.forTesting(mySequencerId, Set(otherSequencerId))
 }

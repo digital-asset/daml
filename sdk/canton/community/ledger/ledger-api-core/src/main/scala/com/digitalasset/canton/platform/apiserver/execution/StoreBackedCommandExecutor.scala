@@ -512,7 +512,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           contractInstance = contractInstance,
           metadata = recomputedMetadata,
           ledgerTime = ledgerTime,
-          contractSalt = Some(salt),
+          contractSalt = salt,
         ).left.map(e => s"Failed to construct SerializableContract($e)")
       } yield contract
 

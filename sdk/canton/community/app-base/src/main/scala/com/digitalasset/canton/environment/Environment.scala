@@ -58,10 +58,9 @@ import scala.util.control.NonFatal
   */
 trait Environment extends NamedLogging with AutoCloseable with NoTracing {
 
-  type Config <: CantonConfig & ConfigDefaults[DefaultPorts, Config]
   type Console <: ConsoleEnvironment
 
-  val config: Config
+  val config: CantonConfig
   val testingConfig: TestingConfigInternal
 
   val loggerFactory: NamedLoggerFactory
@@ -558,7 +557,7 @@ object Environment {
 
 trait EnvironmentFactory[E <: Environment] {
   def create(
-      config: E#Config,
+      config: CantonConfig,
       loggerFactory: NamedLoggerFactory,
       testingConfigInternal: TestingConfigInternal = TestingConfigInternal(),
   ): E

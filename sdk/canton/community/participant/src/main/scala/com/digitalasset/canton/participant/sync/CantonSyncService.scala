@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.sync
 
 import cats.Eval
 import cats.data.EitherT
+import cats.implicits.toBifunctorOps
 import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
@@ -57,7 +58,10 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
 }
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentCoordination
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
-import com.digitalasset.canton.participant.protocol.submission.routing.SynchronizerRouter
+import com.digitalasset.canton.participant.protocol.submission.routing.{
+  RoutingSynchronizerState,
+  TransactionRoutingProcessor,
+}
 import com.digitalasset.canton.participant.pruning.{AcsCommitmentProcessor, PruningProcessor}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.MissingConfigForAlias
@@ -285,16 +289,15 @@ class CantonSyncService(
   ): Option[ConnectedSynchronizer] =
     aliasManager.synchronizerIdForAlias(alias).flatMap(connectedSynchronizersMap.get)
 
-  private val synchronizerRouter =
-    SynchronizerRouter(
-      connectedSynchronizersLookup,
-      synchronizerConnectionConfigStore,
-      aliasManager,
-      syncCrypto.pureCrypto,
-      participantId,
-      parameters,
-      loggerFactory,
-    )(ec)
+  private val transactionRoutingProcessor = TransactionRoutingProcessor(
+    connectedSynchronizersLookup = connectedSynchronizersLookup,
+    cryptoPureApi = syncCrypto.pureCrypto,
+    synchronizerConnectionConfigStore = synchronizerConnectionConfigStore,
+    synchronizerAliasManager = aliasManager,
+    participantId = participantId,
+    parameters = parameters,
+    loggerFactory = loggerFactory,
+  )(ec)
 
   private val reassignmentCoordination: ReassignmentCoordination =
     ReassignmentCoordination(
@@ -576,7 +579,7 @@ class CantonSyncService(
         processSubmissionError(SyncServiceInjectionError.NotConnectedToAnySynchronizer.Error())
       )
     } else {
-      val submittedFF = synchronizerRouter.submitTransaction(
+      val submittedFF = transactionRoutingProcessor.submitTransaction(
         submitterInfo,
         optSynchronizerId,
         transactionMeta,
@@ -1684,7 +1687,7 @@ class CantonSyncService(
       repairService,
       pruningProcessor,
     ) ++ partyReplicatorO.toList ++ syncCrypto.ips.allSynchronizers.toSeq ++ connectedSynchronizersMap.values.toSeq ++ Seq(
-      synchronizerRouter,
+      transactionRoutingProcessor,
       synchronizerRegistry,
       synchronizerConnectionConfigStore,
       syncPersistentStateManager,
@@ -1862,6 +1865,34 @@ class CantonSyncService(
         _.flatten
           .map(_.reassignmentEventGlobalOffset.globalOffset)
           .toVector
+      )
+
+  override def selectRoutingSynchronizer(
+      submitterInfo: SubmitterInfo,
+      transaction: LfSubmittedTransaction,
+      transactionMeta: TransactionMeta,
+      disclosedContractIds: List[LfContractId],
+      optSynchronizerId: Option[SynchronizerId],
+      // TODO(#23334): Wire-up in topology-aware package selection roll-out
+      _transactionUsedForExternalSigning: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CantonBaseError, SynchronizerRank] =
+    if (existsReadySynchronizer) {
+      val synchronizerState = RoutingSynchronizerState(connectedSynchronizersLookup)
+      transactionRoutingProcessor
+        .selectRoutingSynchronizer(
+          submitterInfo,
+          transaction,
+          synchronizerState,
+          CantonTimestamp(transactionMeta.ledgerEffectiveTime),
+          disclosedContractIds,
+          optSynchronizerId,
+        )
+        .leftWiden[CantonBaseError]
+    } else
+      EitherT.leftT[FutureUnlessShutdown, SynchronizerRank](
+        SyncServiceInjectionError.NotConnectedToAnySynchronizer.Error()
       )
 }
 

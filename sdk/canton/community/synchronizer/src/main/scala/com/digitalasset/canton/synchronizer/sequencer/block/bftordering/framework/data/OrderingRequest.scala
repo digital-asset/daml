@@ -4,6 +4,8 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data
 
 import com.digitalasset.canton.crypto.HashBuilder
+import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data
@@ -26,12 +28,16 @@ final case class OrderingRequest(
     payload: ByteString,
     orderingStartInstant: Option[Instant] =
       None, // Used for metrics support only, unset in unit and simulation tests
+    // TODO(#23297): actually set
+    maxSequencingTime: CantonTimestamp = CantonTimestamp.MaxValue,
 ) {
-  def addToHashBuilder(hashBuilder: HashBuilder): Unit = {
-    hashBuilder.add(payload)
-    hashBuilder.add(tag)
-    hashBuilder.add(orderingStartInstant.toString)
-  }
+  def addToHashBuilder(hashBuilder: HashBuilder): Unit =
+    hashBuilder
+      .add(payload)
+      .add(tag)
+      .add(orderingStartInstant.toString)
+      .add(maxSequencingTime.toMicros)
+      .discard
 }
 
 final case class OrderingRequestBatchStats(requests: Int, bytes: Int)
@@ -44,6 +50,9 @@ final case class OrderingRequestBatch private (requests: Seq[Traced[OrderingRequ
       data.OrderingRequestBatch.type
     ]
 ) extends HasProtocolVersionedWrapper[OrderingRequestBatch] {
+
+  lazy val expirationTime: CantonTimestamp =
+    requests.map(_.value.maxSequencingTime).maxOption.getOrElse(CantonTimestamp.MaxValue)
 
   def addToHashBuilder(hashBuilder: HashBuilder): Unit =
     requests.foreach { request =>

@@ -112,7 +112,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
             .value,
           metadata = ContractMetadata.tryCreate(Set(alice), Set(alice), None),
           ledgerCreateTime = LedgerCreateTime(CantonTimestamp(createdAt)),
-          contractSalt = Some(contractSalt),
+          contractSalt = contractSalt,
         )
       }
     }

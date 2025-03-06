@@ -92,7 +92,7 @@ object IndexServiceConfig {
     NonNegativeFiniteDuration.ofMinutes(1)
 
   def DefaultQueryServicesThreadPoolSize(logger: Logger): Int = {
-    val numberOfThreads = Threading.detectNumberOfThreads(logger)
+    val numberOfThreads = Threading.detectNumberOfThreads(logger).value
     numberOfThreads / 4 + 1
   }
 }

@@ -188,7 +188,7 @@ final class AvailabilityModule[E <: Env[E]](
         logger.debug(s"$messageType: persisted local batch $batchId, now signing")
         pipeToSelf(
           activeCryptoProvider.sign(
-            AvailabilityAck.hashFor(batchId, activeMembership.myId),
+            AvailabilityAck.hashFor(batchId, batch.expirationTime, activeMembership.myId),
             SigningKeyUsage.ProtocolOnly,
           )
         )(handleFailure(s"Can't sign batch $batchId") { signature =>
@@ -201,7 +201,7 @@ final class AvailabilityModule[E <: Env[E]](
           batchId,
           DisseminationProgress(
             activeMembership.orderingTopology,
-            InProgressBatchMetadata(batchId, batch.stats),
+            InProgressBatchMetadata(batchId, batch.stats, batch.expirationTime),
             Set(AvailabilityAck(thisPeer, signature)),
           ),
         )
@@ -226,11 +226,11 @@ final class AvailabilityModule[E <: Env[E]](
           )
         }
 
-      case Availability.LocalDissemination.RemoteBatchStored(batchId, from) =>
+      case Availability.LocalDissemination.RemoteBatchStored(batchId, expirationTime, from) =>
         logger.debug(s"$messageType: local store persisted $batchId from $from, signing")
         pipeToSelf(
           activeCryptoProvider.sign(
-            AvailabilityAck.hashFor(batchId, activeMembership.myId),
+            AvailabilityAck.hashFor(batchId, expirationTime, activeMembership.myId),
             SigningKeyUsage.ProtocolOnly,
           )
         )(handleFailure(s"Failed to sign $batchId") { signature =>
@@ -287,32 +287,44 @@ final class AvailabilityModule[E <: Env[E]](
                 abort(s"Failed to add batch $batchId", exception)
 
               case Success(_) =>
-                Availability.LocalDissemination.RemoteBatchStored(batchId, from)
+                Availability.LocalDissemination
+                  .RemoteBatchStored(batchId, batch.expirationTime, from)
             },
         )
       case Availability.RemoteDissemination.RemoteBatchAcknowledged(batchId, from, signature) =>
-        pipeToSelf(
-          activeCryptoProvider
-            .verifySignature(
-              AvailabilityAck.hashFor(batchId, from),
-              from,
-              signature,
-              SigningKeyUsage.ProtocolOnly,
+        disseminationProtocolState.disseminationProgress
+          .get(batchId)
+          .map(_.batchMetadata.expirationTime) match {
+          case Some(expirationTime) =>
+            pipeToSelf(
+              activeCryptoProvider
+                .verifySignature(
+                  AvailabilityAck.hashFor(batchId, expirationTime, from),
+                  from,
+                  signature,
+                  SigningKeyUsage.ProtocolOnly,
+                )
+            ) {
+              case Failure(exception) =>
+                abort(s"Failed to verify $batchId from $from signature: $signature", exception)
+              case Success(Left(exception)) =>
+                emitInvalidMessage(metrics, from)
+                logger.warn(
+                  s"$messageType: $from sent invalid ACK for batch $batchId " +
+                    s"(signature $signature doesn't match), ignoring",
+                  exception,
+                )
+                Availability.NoOp
+              case Success(Right(())) =>
+                LocalDissemination.RemoteBatchAcknowledgeVerified(batchId, from, signature)
+            }
+          case None =>
+            logger.info(
+              s"$messageType: got a remote ack for batch $batchId from $from " +
+                "but the batch is unknown (potentially already proposed), ignoring"
             )
-        ) {
-          case Failure(exception) =>
-            abort(s"Failed to verify $batchId from $from signature: $signature", exception)
-          case Success(Left(exception)) =>
-            emitInvalidMessage(metrics, from)
-            logger.warn(
-              s"$messageType: $from sent invalid ACK for batch $batchId " +
-                s"(signature $signature doesn't match), ignoring",
-              exception,
-            )
-            Availability.NoOp
-          case Success(Right(())) =>
-            LocalDissemination.RemoteBatchAcknowledgeVerified(batchId, from, signature)
         }
+
     }
   }
 
@@ -762,7 +774,10 @@ final class AvailabilityModule[E <: Env[E]](
       // Dissemination completed: remove it now from the progress to avoids clashes with delayed / unneeded ACKs
       disseminationProtocolState.disseminationProgress.remove(batchId).discard
       disseminationProtocolState.batchesReadyForOrdering
-        .put(batchId, disseminationProgress.batchMetadata.complete(proof.acks))
+        .put(
+          batchId,
+          disseminationProgress.batchMetadata.complete(proof.acks),
+        )
         .discard
       true
     }

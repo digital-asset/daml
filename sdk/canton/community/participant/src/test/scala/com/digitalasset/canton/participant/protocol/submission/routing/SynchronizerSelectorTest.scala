@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.protocol.submission.routing
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.ledger.participant.state.SynchronizerRank
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, SuppressingLogger}
 import com.digitalasset.canton.participant.protocol.submission.SynchronizerSelectionFixture.*

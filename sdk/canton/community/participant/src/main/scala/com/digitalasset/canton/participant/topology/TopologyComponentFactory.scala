@@ -90,7 +90,7 @@ class TopologyComponentFactory(
           _ <- participantTerminateProcessing.scheduleMissingTopologyEventsAtInitialization(
             topologyEventPublishedOnInitialRecordTime = topologyEventPublishedOnInitialRecordTime,
             traceContextForSequencedEvent = sequencedEventStore.traceContext(_),
-            parallelism = batching.parallelism.value,
+            parallelism = batching.parallelism,
           )
         } yield participantTerminateProcessing
 

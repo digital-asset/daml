@@ -356,7 +356,7 @@ object SequencerId {
   }
 
   implicit val sequencerIdOrdering: Ordering[SequencerId] =
-    Ordering.by(_.toString)
+    Ordering.by(_.toProtoPrimitive)
 
   def tryCreate(identifier: String, namespace: Namespace): SequencerId =
     SequencerId(UniqueIdentifier.tryCreate(identifier, namespace))

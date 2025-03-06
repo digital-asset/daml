@@ -5,10 +5,10 @@ package com.digitalasset.canton.participant.protocol.submission.routing
 
 import cats.data.EitherT
 import cats.syntax.alternative.*
-import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyColl.*
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.ledger.participant.state.SynchronizerRank
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.UsableSynchronizers
@@ -18,28 +18,27 @@ import com.digitalasset.canton.participant.sync.TransactionRoutingError.Topology
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.Target
 
 import scala.concurrent.ExecutionContext
 
 private[routing] class SynchronizerSelectorFactory(
-    admissibleSynchronizers: AdmissibleSynchronizers,
+    admissibleSynchronizersComputation: AdmissibleSynchronizersComputation,
     priorityOfSynchronizer: SynchronizerId => Int,
     synchronizerRankComputation: SynchronizerRankComputation,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext) {
+
   def create(
       transactionData: TransactionData,
       synchronizerState: RoutingSynchronizerState,
+      submitters: Set[LfPartyId],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerSelector] =
     for {
-      admissibleSynchronizers <- admissibleSynchronizers.forParties(
-        submitters = transactionData.actAs -- transactionData.externallySignedSubmissionO.fold(
-          Set.empty[LfPartyId]
-        )(_.signatures.keys.map(_.toLf).toSet),
+      admissibleSynchronizers <- admissibleSynchronizersComputation.forParties(
+        submitters = submitters,
         informees = transactionData.informees,
         synchronizerState = synchronizerState,
       )
@@ -81,6 +80,7 @@ private[routing] class SynchronizerSelector(
 
   /** Choose the appropriate synchronizer for a transaction. The synchronizer is chosen as follows:
     *   1. synchronizer whose id equals `transactionData.prescribedSynchronizerO` (if non-empty)
+    *
     *   1. The synchronizer with the smaller number of reassignments on which all informees have
     *      active participants
     */
@@ -100,15 +100,16 @@ private[routing] class SynchronizerSelector(
               transactionData.readers,
               synchronizerState,
             )
-            .mapK(FutureUnlessShutdown.outcomeK)
         } yield synchronizerRank
 
       case None =>
         for {
           admissibleSynchronizers <- filterSynchronizers(admissibleSynchronizers)
-          synchronizerRank <- pickSynchronizerIdAndComputeReassignments(
-            contracts,
-            admissibleSynchronizers,
+          synchronizerRank <- synchronizerRankComputation.computeBestSynchronizerRank(
+            synchronizerState = synchronizerState,
+            contracts = contracts,
+            readers = transactionData.readers,
+            synchronizerIds = admissibleSynchronizers,
           )
         } yield synchronizerRank
     }
@@ -169,7 +170,7 @@ private[routing] class SynchronizerSelector(
       }.separate
 
     for {
-      synchronizers <- EitherT.right(
+      synchronizers <- EitherT.right[TransactionRoutingError](
         UsableSynchronizers.check(
           synchronizers = synchronizerStates,
           transaction = transactionData.transaction,
@@ -271,39 +272,6 @@ private[routing] class SynchronizerSelector(
         }
 
     } yield ()
-
-  private def pickSynchronizerIdAndComputeReassignments(
-      contracts: Seq[ContractData],
-      synchronizers: NonEmpty[Set[SynchronizerId]],
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerRank] = {
-    val rankedSynchronizerOpt = FutureUnlessShutdown.outcomeF {
-      for {
-        rankedSynchronizers <- synchronizers.forgetNE.toList
-          .parTraverseFilter(targetSynchronizer =>
-            synchronizerRankComputation
-              .compute(
-                contracts,
-                Target(targetSynchronizer),
-                transactionData.readers,
-                synchronizerState,
-              )
-              .toOption
-              .value
-          )
-        // Priority of synchronizer
-        // Number of reassignments if we use this synchronizer
-        // pick according to the least amount of reassignments
-      } yield rankedSynchronizers.minOption
-        .toRight(
-          TransactionRoutingError.AutomaticReassignmentForTransactionFailure.Failed(
-            s"None of the following $synchronizers is suitable for automatic reassignment."
-          )
-        )
-    }
-    EitherT(rankedSynchronizerOpt)
-  }
 
   private def getSynchronizerOfInputContracts
       : EitherT[FutureUnlessShutdown, TransactionRoutingError, Option[SynchronizerId]] = {
