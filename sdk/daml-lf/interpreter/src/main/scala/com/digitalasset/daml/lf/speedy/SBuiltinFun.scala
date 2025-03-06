@@ -1259,67 +1259,37 @@ private[lf] object SBuiltinFun {
       val pkgName = srcContract.packageName
       val srcTplId = srcContract.templateId
       val srcArg = srcContract.value.asInstanceOf[SRecord]
-      viewInterfaceSafe(machine, interfaceId, srcTplId, srcArg) { mbSrcView =>
-        resolvePackageName(machine, pkgName) { pkgId =>
-          val dstTplId = srcTplId.copy(packageId = pkgId)
-          machine.ensurePackageIsLoaded(
-            dstTplId.packageId,
-            language.Reference.Template(dstTplId),
-          ) { () =>
-            ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTplId) {
-              fromInterface(machine, srcTplId, srcArg, dstTplId) {
-                case None =>
-                  Control.Error(IE.WronglyTypedContract(coid, dstTplId, srcTplId))
-                case Some(dstArg) =>
-                  viewInterface(machine, interfaceId, dstTplId, dstArg) { dstView =>
-                    def withViewValue(mbSrcViewValue: Option[SValue]): Control[Question.Update] = {
-                      getContractInfo(
-                        machine,
-                        coid,
-                        dstTplId,
-                        dstArg,
-                        allowCatchingContractInfoErrors = false,
-                      ) { dstContract =>
-                        // If the destination and src templates are the same, we skip the computation
-                        // of the destination template's view and the validation of the contract info.
-                        if (dstTplId == srcTplId)
+      resolvePackageName(machine, pkgName) { pkgId =>
+        val dstTplId = srcTplId.copy(packageId = pkgId)
+        machine.ensurePackageIsLoaded(
+          dstTplId.packageId,
+          language.Reference.Template(dstTplId),
+        ) { () =>
+          ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTplId) {
+            fromInterface(machine, srcTplId, srcArg, dstTplId) {
+              case None =>
+                Control.Error(IE.WronglyTypedContract(coid, dstTplId, srcTplId))
+              case Some(dstArg) =>
+                viewInterface(machine, interfaceId, dstTplId, dstArg) { dstView =>
+                  getContractInfo(
+                    machine,
+                    coid,
+                    dstTplId,
+                    dstArg,
+                    allowCatchingContractInfoErrors = false,
+                  ) { dstContract =>
+                    // If the destination and src templates are the same, we skip the computation
+                    // of the destination template's view and the validation of the contract info.
+                    if (dstTplId == srcTplId)
+                      k(SAny(Ast.TTyCon(dstTplId), dstArg))
+                    else
+                      checkContractUpgradable(coid, srcContract, dstContract) { () =>
+                        executeExpression(machine, SEPreventCatch(dstView)) { _ =>
                           k(SAny(Ast.TTyCon(dstTplId), dstArg))
-                        else
-                          checkContractUpgradable(coid, srcContract, dstContract) { () =>
-                            executeExpression(machine, SEPreventCatch(dstView)) { dstViewValue =>
-                              mbSrcViewValue match {
-                                case None => ()
-                                case Some(srcViewValue) =>
-                                  if (srcViewValue != dstViewValue) {
-                                    machine.traceLog.add(
-                                      Pretty
-                                        .prettyViewMismatch(
-                                          coid,
-                                          interfaceId,
-                                          srcTplId,
-                                          dstTplId,
-                                          srcViewValue = srcViewValue.toUnnormalizedValue,
-                                          dstViewValue = dstViewValue.toUnnormalizedValue,
-                                        )
-                                        .render(10000),
-                                      machine.getLastLocation,
-                                    )(machine.loggingContext)
-                                  }
-                              }
-                              k(SAny(Ast.TTyCon(dstTplId), dstArg))
-                            }
-                          }
+                        }
                       }
-                    }
-                    mbSrcView match {
-                      case None => withViewValue(None)
-                      case Some(srcView) =>
-                        executeExpression(machine, SEPreventCatch(srcView))(x =>
-                          withViewValue(Some(x))
-                        )
-                    }
                   }
-              }
+                }
             }
           }
         }
@@ -1621,18 +1591,6 @@ private[lf] object SBuiltinFun {
       val (templateId, record) = getSAnyContract(args, 0)
       viewInterface(machine, ifaceId, templateId, record)(Control.Expression)
     }
-  }
-
-  private[this] def viewInterfaceSafe[Q](
-      machine: Machine[_],
-      ifaceId: TypeConName,
-      templateId: TypeConName,
-      record: SValue,
-  )(k: Option[SExpr] => Control[Q]): Control[Q] = {
-    val ref = getInterfaceInstance(machine, ifaceId, templateId).map(iiRef =>
-      InterfaceInstanceViewDefRef(iiRef)
-    )
-    k(ref.map(x => SEApp(SEVal(x), Array(record))))
   }
 
   private[this] def viewInterface[Q](

@@ -320,7 +320,6 @@ instance Pretty ErrorOrWarning where
     WEForbiddenNewImplementation tpl iface ->
       vcat
         [ "Implementation of interface " <> pPrint iface <> " by template " <> pPrint tpl <> " appears in this package, but does not appear in package that is being upgraded."
-        , "New interface instances are supported, but should only be added to supersede a different existing interface."
         , "Only turn off this error if you know what you're doing."
         ]
     where
