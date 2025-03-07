@@ -7,6 +7,7 @@ import com.digitalasset.canton.ledger.api.{CumulativeFilter, EventFormat, Templa
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
 import com.digitalasset.daml.lf.data.Ref.*
 
+import com.daml.error.{ContextualizedErrorLogger}
 import scala.collection.View
 
 /** This class encapsulates the logic of how contract arguments and interface views are being
@@ -52,7 +53,7 @@ final case class EventProjectionProperties(
 object EventProjectionProperties {
 
   final case class Projection(
-      interfaces: Set[Identifier] = Set.empty,
+      interfaces: Set[(Identifier, Identifier)] = Set.empty,
       createdEventBlob: Boolean = false,
       contractArguments: Boolean = false,
   ) {
@@ -75,10 +76,10 @@ object EventProjectionProperties {
     */
   def apply(
       eventFormat: EventFormat,
-      interfaceImplementedBy: Identifier => Set[Identifier],
+      interfaceImplementedBy: Identifier => Set[(Identifier, Identifier)],
       resolveTypeConRef: TypeConRef => Set[Identifier],
       alwaysPopulateArguments: Boolean,
-  ): EventProjectionProperties =
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): EventProjectionProperties = {
     EventProjectionProperties(
       verbose = eventFormat.verbose,
       templateWildcardWitnesses = templateWildcardWitnesses(eventFormat, alwaysPopulateArguments),
@@ -90,6 +91,7 @@ object EventProjectionProperties {
         resolveTypeConRef,
       ),
     )
+  }
 
   private def templateWildcardWitnesses(
       apiTransactionFilter: EventFormat,
@@ -141,9 +143,9 @@ object EventProjectionProperties {
 
   private def witnessTemplateProjections(
       apiEventFormat: EventFormat,
-      interfaceImplementedBy: Identifier => Set[Identifier],
+      interfaceImplementedBy: Identifier => Set[(Identifier, Identifier)],
       resolveTypeConRef: TypeConRef => Set[Identifier],
-  ): Map[Option[String], Map[Identifier, Projection]] = {
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Map[Option[String], Map[Identifier, Projection]] = {
     val partyFilterPairs =
       apiEventFormat.filtersByParty.view.map { case (p, f) =>
         (Some(p), f)
@@ -154,10 +156,13 @@ object EventProjectionProperties {
     } yield {
       val interfaceFilterProjections = for {
         interfaceFilter <- cumulativeFilter.interfaceFilters.view
+        _ = contextualizedErrorLogger.warn(s"INTERFACE FILTER: $interfaceFilter")
         interfaceId <- resolveTypeConRef(interfaceFilter.interfaceTypeRef)
-        implementor <- interfaceImplementedBy(interfaceId).view
+        _ = contextualizedErrorLogger.warn(s"INTERFACE ID: $interfaceId")
+        (originalImplementor, implementor) <- interfaceImplementedBy(interfaceId).view
+        _ = contextualizedErrorLogger.warn(s"IMPLEMENTOR: $implementor")
       } yield implementor -> Projection(
-        interfaces = if (interfaceFilter.includeView) Set(interfaceId) else Set.empty,
+        interfaces = if (interfaceFilter.includeView) Set((originalImplementor, interfaceId)) else Set.empty,
         createdEventBlob = interfaceFilter.includeCreatedEventBlob,
         contractArguments = false,
       )
