@@ -1259,57 +1259,33 @@ private[lf] object SBuiltinFun {
       val pkgName = srcContract.packageName
       val srcTplId = srcContract.templateId
       val srcArg = srcContract.value.asInstanceOf[SRecord]
-      ensureTemplateImplementsInterface(machine, interfaceId, coid, srcTplId) {
-        viewInterface(machine, interfaceId, srcTplId, srcArg) { srcView =>
-          resolvePackageName(machine, pkgName) { pkgId =>
-            val dstTplId = srcTplId.copy(packageId = pkgId)
-            machine.ensurePackageIsLoaded(
-              dstTplId.packageId,
-              language.Reference.Template(dstTplId),
-            ) { () =>
-              ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTplId) {
-                fromInterface(machine, srcTplId, srcArg, dstTplId) {
-                  case None =>
-                    Control.Error(IE.WronglyTypedContract(coid, dstTplId, srcTplId))
-                  case Some(dstArg) =>
-                    viewInterface(machine, interfaceId, dstTplId, dstArg) { dstView =>
-                      executeExpression(machine, SEPreventCatch(srcView)) { srcViewValue =>
-                        getContractInfo(
-                          machine,
-                          coid,
-                          dstTplId,
-                          dstArg,
-                          allowCatchingContractInfoErrors = false,
-                        ) { dstContract =>
-                          // If the destination and src templates are the same, we skip the computation
-                          // of the destination template's view and the validation of the contract info.
-                          if (dstTplId == srcTplId)
-                            k(SAny(Ast.TTyCon(dstTplId), dstArg))
-                          else
-                            checkContractUpgradable(coid, srcContract, dstContract) { () =>
-                              executeExpression(machine, SEPreventCatch(dstView)) { dstViewValue =>
-                                if (srcViewValue != dstViewValue) {
-                                  Control.Error(
-                                    IE.Upgrade(
-                                      IE.Upgrade.ViewMismatch(
-                                        coid,
-                                        interfaceId,
-                                        srcTplId,
-                                        dstTplId,
-                                        srcView = srcViewValue.toUnnormalizedValue,
-                                        dstView = dstViewValue.toUnnormalizedValue,
-                                      )
-                                    )
-                                  )
-                                } else
-                                  k(SAny(Ast.TTyCon(dstTplId), dstArg))
-                              }
-                            }
-                        }
-                      }
+      resolvePackageName(machine, pkgName) { pkgId =>
+        val dstTplId = srcTplId.copy(packageId = pkgId)
+        machine.ensurePackageIsLoaded(
+          dstTplId.packageId,
+          language.Reference.Template(dstTplId),
+        ) { () =>
+          ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTplId) {
+            fromInterface(machine, srcTplId, srcArg, dstTplId) {
+              case None =>
+                Control.Error(IE.WronglyTypedContract(coid, dstTplId, srcTplId))
+              case Some(dstArg) =>
+                getContractInfo(
+                  machine,
+                  coid,
+                  dstTplId,
+                  dstArg,
+                  allowCatchingContractInfoErrors = false,
+                ) { dstContract =>
+                  // If the destination and src templates are the same, we skip the computation
+                  // of the destination template's view and the validation of the contract info.
+                  if (dstTplId == srcTplId)
+                    k(SAny(Ast.TTyCon(dstTplId), dstArg))
+                  else
+                    checkContractUpgradable(coid, srcContract, dstContract) { () =>
+                      k(SAny(Ast.TTyCon(dstTplId), dstArg))
                     }
                 }
-              }
             }
           }
         }
@@ -2368,13 +2344,13 @@ private[lf] object SBuiltinFun {
             srcTmplId,
             templateArg,
             allowCatchingContractInfoErrors = false,
-          ) { contract =>
+          ) { contractInfo =>
             // If the local contract has the same package ID as the target template ID, then we don't need to
             // import its value and validate its contract info again.
             if (srcTmplId == dstTmplId)
               f(templateArg)
             else
-              importContract(contract)
+              importContract(contractInfo)
           }
         }
       case None =>

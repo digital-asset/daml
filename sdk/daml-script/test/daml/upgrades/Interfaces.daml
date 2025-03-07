@@ -12,6 +12,7 @@ import qualified V1.Interfaces as V1
 import qualified V1.InterfacesAlt as V1
 import qualified V2.Interfaces as V2
 import qualified V2.InterfacesAlt as V2
+import qualified V3.Interfaces as V3
 import PackageIds
 import DA.Foldable
 import DA.Optional
@@ -40,13 +41,30 @@ contents: |
       controller (view this).owner
       do
         pure $ getVersion this
+
+  data INewV = INewV with
+    owner : Party
+    version : Text
+
+  interface INew where
+    viewtype INewV
+
+    getNewVersion : Text
+    nonconsuming choice GetNewVersion : Text
+      controller (view this).owner
+      do
+        pure (getNewVersion this)
 -}
 
 -- Another fixed package containing a helper template for exercising the interface in a choice
 {- PACKAGE
 name: fixed-interface-caller
 versions: 1
-depends: fixed-interface-1.0.0
+depends: |
+  fixed-interface-1.0.0
+  interfaces-1.0.0
+  interfaces-2.0.0
+  interfaces-3.0.0
 -}
 
 {- MODULE
@@ -55,6 +73,10 @@ contents: |
   module FixedInterfaceCaller where
 
   import FixedInterface
+  import qualified V1.Interfaces as V1
+  import qualified V2.Interfaces as V2
+  import qualified V3.Interfaces as V3
+  import DA.Optional
 
   template Caller with
       party : Party
@@ -66,12 +88,34 @@ contents: |
       controller party
       do
         exercise icid GetVersion
+
+    choice CallNewInterface : Text with
+        icid : ContractId INew
+      controller party
+      do
+        exercise icid GetNewVersion
+
+    choice FetchFromV2NewInterface : Text with
+        icid : ContractId INew
+      controller party
+      do
+        (_, res) <- fromSomeNote "Failed to fetch contract" <$> fetchFromInterface @V2.FITemplate icid
+        let v = view $ toInterface @INew res
+        pure v.version
+
+    choice FetchFromV3NewInterface : Text with
+        icid : ContractId INew
+      controller party
+      do
+        (_, res) <- fromSomeNote "Failed to fetch contract" <$> fetchFromInterface @V3.FITemplate icid
+        let v = view $ toInterface @INew res
+        pure v.version
 -}
 
 -- The versioned/upgraded package
 {- PACKAGE
 name: interfaces
-versions: 2
+versions: 3
 depends: fixed-interface-1.0.0
 -}
 
@@ -85,17 +129,22 @@ contents: |
 
   template FITemplate with
       party : Party
-      payload : Optional Int   -- @V  2
+      payload : Optional Int   -- @V  2 3
     where
     signatory party
 
     interface instance I for FITemplate where
       view = IV party None     -- @V 1
-      view = IV party payload  -- @V  2
+      view = IV party payload  -- @V  2 3
       getVersion = "V1"        -- @V 1
-      getVersion = "V2"        -- @V  2
+      getVersion = "V2"        -- @V  2 3
 
-    -- Following two choices exist here for convenience. They could be in a separate package which depends on this,
+    interface instance INew for FITemplate where            -- @V  2 3
+      view = INewV party (getNewVersion (toInterface this)) -- @V  2 3
+      getNewVersion = "GetNewVersionV2"                     -- @V  2
+      getNewVersion = "GetNewVersionV3"                     -- @V    3
+
+    -- Following three choices exist here for convenience. They could be in a separate package which depends on this,
     -- but additional unnecessary packages simply wastes time.
     choice FetchFromInterface : Optional Int with
         icid : ContractId I
@@ -152,6 +201,9 @@ interfacesV2 = getPackageId "interfaces-2.0.0"
 interfacesAltV2 : PackageId
 interfacesAltV2 = getPackageId "interfaces-alt-2.0.0"
 
+interfacesV3 : PackageId
+interfacesV3 = getPackageId "interfaces-3.0.0"
+
 -- cant upgrade contracts in interface choice argument - i dont think this is possible in daml-script
 main : TestTree
 main = tests
@@ -163,6 +215,12 @@ main = tests
   , ("Multiple interface exercises use their respective package preference entries at choice body level", multipleInterfaceChoicePackagePreferenceUpdate)
   , ("queryInterfaceContractId works as intended in the presence of upgraded packages", queryInterfaceUpgrades)
   , ("fetchFromInterface works as intended in the presence of upgraded packages", fetchFromInterfaceUpgrades)
+  , ("Calling a new interface choice uses the highest version implementation at command level by default", defaultHighestVersionChoiceImplementationForNewInterfaceCommand)
+  , ("Calling a new interface choice uses the highest version implementation at choice body level by default", defaultHighestVersionChoiceImplementationForNewInterfaceUpdate)
+  , ("Package map preference is used for new interface implementation selection at command level", newInterfaceChoicePackagePreferenceCommand)
+  , ("Package map preference is used for new interface implementation selection at choice body level", newInterfaceChoicePackagePreferenceUpdate)
+  , broken ("queryInterfaceContractId works as intended in the presence of upgraded packages with new interface instances", queryNewInterfaceUpgrades)
+  , ("fetchFromInterface works as intended in the presence of upgraded packages with new interface instances", fetchFromNewInterfaceUpgrades)
   -- IDE Ledger doesn't support unvetting
   -- Can't unvet old version of package on 3x, even though v2 exists.
   , broken ("Can fetch interface from V1 contract when V1 unvetted", fetchWithoutV1)
@@ -173,6 +231,31 @@ setupAliceAndInterface = do
   alice <- allocateParty "alice"
   cid <- alice `submit` createExactCmd V1.FITemplate with party = alice
   pure (alice, toInterfaceContractId @I cid)
+
+setupAliceAndV1NewInterface : Script (Party, ContractId INew)
+setupAliceAndV1NewInterface = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createExactCmd V1.FITemplate with party = alice
+  pure (alice, coerceContractId @V1.FITemplate @INew cid)
+
+setupAliceAndV2NewInterface : Script (Party, ContractId INew)
+setupAliceAndV2NewInterface = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createExactCmd V2.FITemplate with party = alice, payload = None
+  pure (alice, coerceContractId @V2.FITemplate @INew cid)
+
+setupAliceAndV3NewInterface : Script (Party, ContractId INew)
+setupAliceAndV3NewInterface = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createExactCmd V3.FITemplate with party = alice, payload = None
+  pure (alice, coerceContractId @V3.FITemplate @INew cid)
+
+setupAliceAndNewInterfaceFunctions : [Script (Party, ContractId INew)]
+setupAliceAndNewInterfaceFunctions =
+  [ setupAliceAndV1NewInterface
+  , setupAliceAndV2NewInterface
+  , setupAliceAndV3NewInterface
+  ]
 
 defaultHighestVersionChoiceImplementationCommand : Test
 defaultHighestVersionChoiceImplementationCommand = test $ do
@@ -185,6 +268,66 @@ defaultHighestVersionChoiceImplementationUpdate = test $ do
   (alice, icid) <- setupAliceAndInterface
   res <- alice `submit` createAndExerciseCmd (Caller with party = alice) (CallInterface with icid = icid)
   res === "V2"
+
+defaultHighestVersionChoiceImplementationForNewInterfaceCommand : Test
+defaultHighestVersionChoiceImplementationForNewInterfaceCommand = test $ do
+  forM_ setupAliceAndNewInterfaceFunctions $ \setupAliceAndNewInterface -> do
+    (alice, icid) <- setupAliceAndNewInterface
+    res <- alice `submit` exerciseCmd icid GetNewVersion
+    res === "GetNewVersionV3"
+
+defaultHighestVersionChoiceImplementationForNewInterfaceUpdate : Test
+defaultHighestVersionChoiceImplementationForNewInterfaceUpdate = test $ do
+  forM_ setupAliceAndNewInterfaceFunctions $ \setupAliceAndNewInterface -> do
+    (alice, icid) <- setupAliceAndNewInterface
+    res <- alice `submit` createAndExerciseCmd (Caller with party = alice) (CallNewInterface with icid = icid)
+    res === "GetNewVersionV3"
+
+newInterfaceChoicePackagePreferenceCommand : Test
+newInterfaceChoicePackagePreferenceCommand = test $ do
+  forM_ setupAliceAndNewInterfaceFunctions $ \setupAliceAndNewInterface -> do
+    (alice, icid) <- setupAliceAndNewInterface
+    resOrErr <-
+      trySubmit
+        (actAs alice <> packagePreference [interfacesV1])
+        (exerciseCmd icid GetNewVersion)
+    case resOrErr of
+      Left (ContractDoesNotImplementInterface {}) -> pure ()
+      Left err -> assertFail $ "Failure, expected V1 submit of new interface to fail with an ContractDoesNotImplementInterface error, failed with the following error instead: " <> show err
+      Right res -> assertFail $ "Failure, expected V1 submit of new interface to fail, succeeded with the following result instead: " <> show res
+    res <-
+      submitWithOptions
+        (actAs alice <> packagePreference [interfacesV2])
+        (exerciseCmd icid GetNewVersion)
+    res === "GetNewVersionV2"
+    res <-
+      submitWithOptions
+        (actAs alice <> packagePreference [interfacesV3])
+        (exerciseCmd icid GetNewVersion)
+    res === "GetNewVersionV3"
+
+newInterfaceChoicePackagePreferenceUpdate : Test
+newInterfaceChoicePackagePreferenceUpdate = test $ do
+  forM_ setupAliceAndNewInterfaceFunctions $ \setupAliceAndNewInterface -> do
+    (alice, icid) <- setupAliceAndNewInterface
+    resOrErr <-
+      trySubmit
+        (actAs alice <> packagePreference [interfacesV1])
+        (createAndExerciseCmd (Caller with party = alice) (CallNewInterface with icid = icid))
+    case resOrErr of
+      Left (ContractDoesNotImplementInterface {}) -> pure ()
+      Left err -> assertFail $ "Failure, expected V1 submit of new interface to fail with an ContractDoesNotImplementInterface error, failed with the following error instead: " <> show err
+      Right res -> assertFail $ "Failure, expected V1 submit of new interface to fail, succeeded with the following result instead: " <> show res
+    res <-
+      submitWithOptions
+        (actAs alice <> packagePreference [interfacesV2])
+        (createAndExerciseCmd (Caller with party = alice) (CallNewInterface with icid = icid))
+    res === "GetNewVersionV2"
+    res <-
+      submitWithOptions
+        (actAs alice <> packagePreference [interfacesV3])
+        (createAndExerciseCmd (Caller with party = alice) (CallNewInterface with icid = icid))
+    res === "GetNewVersionV3"
 
 interfaceChoicePackagePreferenceCommand : Test
 interfaceChoicePackagePreferenceCommand = test $ do
@@ -243,6 +386,12 @@ queryInterfaceUpgrades = test $ do
   res <- fromSomeNote "Failed to find contract" <$> alice `queryInterfaceContractId` icid
   res.payload === None
 
+queryNewInterfaceUpgrades : Test
+queryNewInterfaceUpgrades = test $ do
+  (alice, icid) <- setupAliceAndV1NewInterface
+  res <- fromSomeNote "Failed to find contract" <$> alice `queryInterfaceContractId` icid
+  res.owner === alice
+
 fetchFromInterfaceUpgrades : Test
 fetchFromInterfaceUpgrades = test $ do
   (alice, icid) <- setupAliceAndInterface
@@ -250,6 +399,15 @@ fetchFromInterfaceUpgrades = test $ do
   resV1 === None
   resV2 <- alice `submit` createAndExerciseExactCmd (V2.FITemplate with party = alice, payload = None) (V2.FetchFromInterface with icid = icid)
   resV2 === None
+
+fetchFromNewInterfaceUpgrades : Test
+fetchFromNewInterfaceUpgrades = test $ do
+  forM_ setupAliceAndNewInterfaceFunctions $ \setupAliceAndNewInterface -> do
+    (alice, icid) <- setupAliceAndNewInterface
+    res <- alice `submit` createAndExerciseExactCmd (Caller with party = alice) (FetchFromV2NewInterface with icid = icid)
+    res === "GetNewVersionV2"
+    res <- alice `submit` createAndExerciseExactCmd (Caller with party = alice) (FetchFromV3NewInterface with icid = icid)
+    res === "GetNewVersionV3"
 
 fetchWithoutV1 : Test
 fetchWithoutV1 = test $ do

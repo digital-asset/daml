@@ -315,22 +315,6 @@ object GrpcErrorParser {
               message,
             )
         }
-      case "INTERPRETATION_UPGRADE_ERROR_VIEW_MISMATCH" =>
-        caseErr {
-          case Seq(
-                (ErrorResource.ContractId, coid),
-                (ErrorResource.InterfaceId, iterfaceId),
-                (ErrorResource.TemplateId, srcTemplateId),
-                (ErrorResource.TemplateId, dstTemplateId),
-              ) =>
-            SubmitError.UpgradeError.ViewMismatch(
-              ContractId.assertFromString(coid),
-              Identifier.assertFromString(iterfaceId),
-              Identifier.assertFromString(srcTemplateId),
-              Identifier.assertFromString(dstTemplateId),
-              message,
-            )
-        }
 
       case "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_FAILED" =>
         caseErr {

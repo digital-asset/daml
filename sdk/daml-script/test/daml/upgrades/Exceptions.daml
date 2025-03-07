@@ -14,7 +14,6 @@ main : TestTree
 main = tests
   [ ("Can't catch ValidationFailed", cantCatchValidationFailed)
   , ("Can't catch DowngradeDropDefinedField", cantCatchDowngradeDropDefinedField)
-  , ("Can't catch ViewMismatch", cantCatchViewMismatch)
   , ("Can catch common errors across version (via interface)", canCatchCommonErrors)
   , ("Can catch changing errors (using AnyException) across version (via interface)", canCatchChangingErrors)
   , ("Can catch changing new error (using AnyException) across version (via interface)", canCatchNewError)
@@ -232,16 +231,6 @@ cantCatchDowngradeDropDefinedField = test $ do
   cidV2 <- alice `submit` createExactCmd V2.ExceptionsTemplate with v1Sigs = [alice], v2Sigs = [alice], v1ViewText = "view", v2ViewText = "view", v2NewField = Some "Hello"
   let cidV1 = coerceContractId @V2.ExceptionsTemplate @V1.ExceptionsTemplate cidV2
   res <- alice `trySubmit` exerciseExactCmd helperCid GetTextHelperV1 with cid = cidV1
-  assertIsUpgradeError res
-
--- TEST_EVIDENCE: Integrity: Smart Contract Upgrade: Cannot catch ViewMismatch upgrade exceptions within Update
-cantCatchViewMismatch : Test
-cantCatchViewMismatch = test $ do
-  alice <- allocateParty "alice"
-  helperCid <- alice `submit` createExactCmd ExceptionsHelper with owner = alice
-  cidV1 <- alice `submit` createExactCmd V1.ExceptionsTemplate with v1Sigs = [alice], v2Sigs = [alice], v1ViewText = "view", v2ViewText = "changed view"
-  let iid = toInterfaceContractId @ExceptionsInterface cidV1
-  res <- alice `trySubmit` exerciseExactCmd helperCid GetTextHelperInterface with iid = iid
   assertIsUpgradeError res
 
 exceptionsTemplateV1 : PackageId
