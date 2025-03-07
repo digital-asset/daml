@@ -30,7 +30,7 @@ applications in production, but they differ in terms of enterprise and non-funct
    * - Capability
      - Enterprise
      - Open Source
-   * - `Sub-Transaction Privacy <https://docs.daml.com/concepts/ledger-model/ledger-privacy.html>`_
+   * - :doc:`Sub-Transaction Privacy </concepts/ledger-model/ledger-privacy>`
      - Yes
      - Yes
    * - `Transaction Processing <https://docs.daml.com/canton/architecture/overview.html#node-scaling>`_
@@ -66,7 +66,7 @@ applications in production, but they differ in terms of enterprise and non-funct
    * - :doc:`Profiler </tools/profiler>`
      - Yes
      - No
-   * - `Non-repudiation Middleware <https://docs.daml.com/tools/non-repudiation.html>`_
+   * - :doc:`Non-repudiation Middleware </tools/non-repudiation>`
      - Yes (early access)
      - No
 
