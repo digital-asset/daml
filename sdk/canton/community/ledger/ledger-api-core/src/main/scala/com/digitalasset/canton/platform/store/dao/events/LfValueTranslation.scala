@@ -450,13 +450,13 @@ final class LfValueTranslation(
         .map(toContractKeyApi(verbose))
     )
     def asyncInterfaceViews =
-      MonadUtil.sequentialTraverse(renderResult.interfaces.toList)(interfaceId =>
+      MonadUtil.sequentialTraverse(renderResult.interfaces.toList)({ case (originalImplementorTemplateId, interfaceId) =>
         computeInterfaceView(
-          templateId,
+          originalImplementorTemplateId,
           value.unversioned,
           interfaceId,
         ).flatMap(toInterfaceView(eventProjectionProperties.verbose, interfaceId))
-      )
+      })
 
     def asyncCreatedEventBlob = condFuture(renderResult.createdEventBlob) {
       (for {

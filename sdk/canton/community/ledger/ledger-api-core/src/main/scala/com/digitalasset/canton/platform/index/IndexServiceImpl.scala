@@ -37,6 +37,7 @@ import com.digitalasset.canton.logging.{
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
+  TracedLogger,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
@@ -344,6 +345,7 @@ private[index] class IndexServiceImpl(
               alwaysPopulateArguments = false,
             ).toList
           ).flatMapConcat { case InternalEventFormat(templateFilter, eventProjectionProperties) =>
+            //logger.warn(s"$templateFilter")
             ledgerDao.updateReader
               .getActiveContracts(
                 activeAt = activeAt,
@@ -800,7 +802,8 @@ object IndexServiceImpl {
       eventFormat: EventFormat,
       alwaysPopulateArguments: Boolean,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      contextualizedErrorLogger: ContextualizedErrorLogger,
+      loggingContext: LoggingContextWithTrace
   ): () => Option[(TemplatePartiesFilter, EventProjectionProperties)] = {
     @volatile var metadata: PackageMetadata = null
     @volatile var filters: Option[(TemplatePartiesFilter, EventProjectionProperties)] = None
@@ -823,7 +826,7 @@ object IndexServiceImpl {
       eventFormat: EventFormat,
       metadata: PackageMetadata,
       alwaysPopulateArguments: Boolean,
-  ): Option[InternalEventFormat] = {
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Option[InternalEventFormat] = {
     val templateFilter: Map[Identifier, Option[Set[Party]]] =
       IndexServiceImpl.templateFilter(metadata, eventFormat)
 
@@ -836,7 +839,8 @@ object IndexServiceImpl {
       val eventProjectionProperties = EventProjectionProperties(
         eventFormat = eventFormat,
         interfaceImplementedBy =
-          interfaceId => metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty),
+          //interfaceId => metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty),
+          interfaceId => interfacesImplementedByWithUpgrades(metadata, interfaceId),
         resolveTypeConRef = metadata.resolveTypeConRef,
         alwaysPopulateArguments = alwaysPopulateArguments,
       )
@@ -852,27 +856,41 @@ object IndexServiceImpl {
     }
   }
 
+  private def interfacesImplementedByWithUpgrades(metadata: PackageMetadata, interfaceId: Ref.Identifier)(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Set[(Ref.Identifier, Ref.Identifier)] =
+    for {
+      originalImplementor <- metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty)
+      _ = contextualizedErrorLogger.warn(s"ORIGINAL IMPLEMENTOR: $originalImplementor")
+      (packageName, _) <- metadata.packageIdVersionMap.get(originalImplementor.packageId).toSet
+      _ = contextualizedErrorLogger.warn(s"PACKAGE NAME: $packageName")
+      implementor <- metadata.resolveTypeConRef(Ref.TypeConRef(Ref.PackageRef.Name(packageName), originalImplementor.qualifiedName))
+      _ = contextualizedErrorLogger.warn(s"IMPLEMENTOR: $implementor")
+    } yield (originalImplementor, implementor)
+
+
   private def templateIds(
       metadata: PackageMetadata,
       cumulativeFilter: CumulativeFilter,
-  ): Set[Identifier] = {
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Set[Identifier] = {
+    contextualizedErrorLogger.warn(s"Start templateIds")
     val fromInterfacesDefs = cumulativeFilter.interfaceFilters.view
       .map(_.interfaceTypeRef)
       .flatMap(metadata.resolveTypeConRef(_))
-      .flatMap(metadata.interfacesImplementedBy.getOrElse(_, Set.empty).view)
+      .flatMap(interfacesImplementedByWithUpgrades(metadata, _).map(_._2).view)
       .toSet
 
     val fromTemplateDefs = cumulativeFilter.templateFilters.view
       .map(_.templateTypeRef)
       .flatMap(metadata.resolveTypeConRef(_))
 
-    fromInterfacesDefs ++ fromTemplateDefs
+    val result = fromInterfacesDefs ++ fromTemplateDefs
+    contextualizedErrorLogger.warn(s"End templateIds: $result")
+    result
   }
 
   private[index] def templateFilter(
       metadata: PackageMetadata,
       eventFormat: EventFormat,
-  ): Map[Identifier, Option[Set[Party]]] = {
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Map[Identifier, Option[Set[Party]]] = {
     val templatesFilterByParty =
       eventFormat.filtersByParty.view.foldLeft(Map.empty[Identifier, Option[Set[Party]]]) {
         case (acc, (party, cumulativeFilter)) =>
@@ -898,7 +916,7 @@ object IndexServiceImpl {
   // template-wildcard for the parties or party-wildcards of the filter given
   private[index] def wildcardFilter(
       eventFormat: EventFormat
-  ): Option[Set[Party]] = {
+  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Option[Set[Party]] = {
     val emptyFiltersMessage =
       "Found transaction filter with both template and interface filters being empty, but the" +
         "request should have already been rejected in validation"
