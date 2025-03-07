@@ -1270,25 +1270,21 @@ private[lf] object SBuiltinFun {
               case None =>
                 Control.Error(IE.WronglyTypedContract(coid, dstTplId, srcTplId))
               case Some(dstArg) =>
-                viewInterface(machine, interfaceId, dstTplId, dstArg) { dstView =>
-                  getContractInfo(
-                    machine,
-                    coid,
-                    dstTplId,
-                    dstArg,
-                    allowCatchingContractInfoErrors = false,
-                  ) { dstContract =>
-                    // If the destination and src templates are the same, we skip the computation
-                    // of the destination template's view and the validation of the contract info.
-                    if (dstTplId == srcTplId)
+                getContractInfo(
+                  machine,
+                  coid,
+                  dstTplId,
+                  dstArg,
+                  allowCatchingContractInfoErrors = false,
+                ) { dstContract =>
+                  // If the destination and src templates are the same, we skip the computation
+                  // of the destination template's view and the validation of the contract info.
+                  if (dstTplId == srcTplId)
+                    k(SAny(Ast.TTyCon(dstTplId), dstArg))
+                  else
+                    checkContractUpgradable(coid, srcContract, dstContract) { () =>
                       k(SAny(Ast.TTyCon(dstTplId), dstArg))
-                    else
-                      checkContractUpgradable(coid, srcContract, dstContract) { () =>
-                        executeExpression(machine, SEPreventCatch(dstView)) { _ =>
-                          k(SAny(Ast.TTyCon(dstTplId), dstArg))
-                        }
-                      }
-                  }
+                    }
                 }
             }
           }
