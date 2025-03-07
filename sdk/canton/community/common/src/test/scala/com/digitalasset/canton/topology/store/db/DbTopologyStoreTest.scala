@@ -82,7 +82,7 @@ trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
           .valueOrFail("topology bootstrap")
 
         maxTimestamp <- store
-          .maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
+          .maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
       } yield {
         val lastSequenced = transactions.last.sequenced
         val lastEffective = transactions.last.validFrom

@@ -62,11 +62,23 @@ class ExtendedContractLookup(
   // used anywhere
   override def lookupStakeholders(ids: Set[LfContractId])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] = {
+  ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] =
+    lookupMetadata(ids).map(_.view.mapValues(_.stakeholders).toMap)
+
+  // This lookup is fairly inefficient in the additional signatories, but this function is currently not really
+  // used anywhere
+  override def lookupSignatories(ids: Set[LfContractId])(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] =
+    lookupMetadata(ids).map(_.view.mapValues(_.signatories).toMap)
+
+  private def lookupMetadata(
+      ids: Set[LfContractId]
+  ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, ContractMetadata]] = {
     val (unknown, known) = ids.partitionMap(id => contracts.get(id).toRight(id))
 
     if (unknown.isEmpty)
-      EitherT.pure(known.map(c => c.contractId -> c.metadata.stakeholders).toMap)
+      EitherT.pure(known.map(c => c.contractId -> c.metadata).toMap)
     else
       EitherT.leftT(UnknownContracts(unknown))
   }

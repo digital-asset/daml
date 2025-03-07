@@ -240,7 +240,7 @@ class SequencerRuntime(
       import scala.jdk.CollectionConverters.*
 
       // use the auth service interceptor if available
-      val interceptors = List(authenticationServices.authenticationInterceptor).asJava
+      val interceptors = List(authenticationServices.authenticationServerInterceptor).asJava
 
       ServerInterceptors.intercept(svcDef, interceptors)
     }

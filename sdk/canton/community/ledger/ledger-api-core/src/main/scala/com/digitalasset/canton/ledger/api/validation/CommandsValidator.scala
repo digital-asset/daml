@@ -42,6 +42,7 @@ import scala.collection.immutable
 final class CommandsValidator(
     validateDisclosedContracts: ValidateDisclosedContracts,
     validateUpgradingPackageResolutions: ValidateUpgradingPackageResolutions,
+    topologyAwarePackageSelectionEnabled: Boolean = false,
 ) {
 
   import FieldValidator.*
@@ -105,7 +106,12 @@ final class CommandsValidator(
       disclosedContracts = validatedDisclosedContracts,
       synchronizerId = Some(synchronizerId),
       packageMap = packageResolutions.packageMap,
-      packagePreferenceSet = packageResolutions.packagePreferenceSet,
+      packagePreferenceSet =
+        if (topologyAwarePackageSelectionEnabled) {
+          // TODO(#23334): move the decision point into the TopologyAwareCommandExecutor
+          prepareRequest.packageIdSelectionPreference.map(Ref.PackageId.assertFromString).toSet
+        } else
+          packageResolutions.packagePreferenceSet,
       prefetchKeys = prefetchKeys,
     )
 
@@ -167,7 +173,12 @@ final class CommandsValidator(
       disclosedContracts = validatedDisclosedContracts,
       synchronizerId = synchronizerId,
       packageMap = packageResolutions.packageMap,
-      packagePreferenceSet = packageResolutions.packagePreferenceSet,
+      packagePreferenceSet =
+        if (topologyAwarePackageSelectionEnabled) {
+          // TODO(#23334): move the decision point into the TopologyAwareCommandExecutor
+          commands.packageIdSelectionPreference.map(Ref.PackageId.assertFromString).toSet
+        } else
+          packageResolutions.packagePreferenceSet,
       prefetchKeys = prefetchKeys,
     )
 

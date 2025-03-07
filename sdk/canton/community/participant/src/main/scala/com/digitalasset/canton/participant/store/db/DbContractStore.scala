@@ -25,7 +25,7 @@ import com.digitalasset.canton.store.db.DbBulkUpdateProcessor
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherUtil.RichEitherIterable
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{BatchAggregator, ErrorUtil}
+import com.digitalasset.canton.util.{BatchAggregator, ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import com.digitalasset.canton.{LfPartyId, checked}
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
@@ -387,19 +387,31 @@ class DbContractStore(
   override def lookupStakeholders(ids: Set[LfContractId])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] =
+    lookupMetadata(ids).map(_.view.mapValues(_.stakeholders).toMap)
+
+  override def lookupSignatories(ids: Set[LfContractId])(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] =
+    lookupMetadata(ids).map(_.view.mapValues(_.signatories).toMap)
+
+  def lookupMetadata(ids: Set[LfContractId])(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, ContractMetadata]] =
     NonEmpty.from(ids) match {
       case None => EitherT.rightT(Map.empty)
 
       case Some(idsNel) =>
         EitherT(
-          idsNel.forgetNE.toSeq
-            .parTraverse(id => lookupContract(id).toRight(id).value)
+          MonadUtil
+            .parTraverseWithLimit(BatchAggregatorConfig.defaultMaximumInFlight)(
+              idsNel.forgetNE.toSeq
+            )(id => lookupContract(id).toRight(id).value)
             .map(_.collectRight)
             .map { contracts =>
               Either.cond(
                 contracts.sizeCompare(ids) == 0,
                 contracts
-                  .map(contract => contract.contractId -> contract.metadata.stakeholders)
+                  .map(contract => contract.contractId -> contract.metadata)
                   .toMap,
                 UnknownContracts(ids -- contracts.map(_.contractId).toSet),
               )

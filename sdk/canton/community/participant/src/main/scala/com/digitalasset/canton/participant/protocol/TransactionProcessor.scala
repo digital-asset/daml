@@ -244,18 +244,10 @@ object TransactionProcessor {
     override def underlyingProcessorError(): Option[ProcessorError] = None
   }
 
-  trait TransactionSubmissionError extends TransactionProcessorError with TransactionError {
-    override protected def pretty: Pretty[TransactionSubmissionError] =
-      this.prettyOfString(_ =>
-        this.code.toMsg(
-          cause,
-          correlationId = None,
-          limit = None,
-        ) + "; " + ContextualizedErrorLogger.formatContextAsString(
-          context
-        )
-      )
-  }
+  trait TransactionSubmissionError
+      extends TransactionProcessorError
+      with TransactionError
+      with TransactionErrorPrettyPrinting
 
   object SubmissionErrors extends SubmissionErrorGroup {
 

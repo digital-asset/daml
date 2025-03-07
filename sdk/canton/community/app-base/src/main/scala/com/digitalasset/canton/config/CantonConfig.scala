@@ -58,7 +58,10 @@ import com.digitalasset.canton.platform.apiserver.configuration.{
   EngineLoggingConfig,
   RateLimitingConfig,
 }
-import com.digitalasset.canton.platform.config.InteractiveSubmissionServiceConfig
+import com.digitalasset.canton.platform.config.{
+  InteractiveSubmissionServiceConfig,
+  TopologyAwarePackageSelectionConfig,
+}
 import com.digitalasset.canton.pureconfigutils.SharedConfigReaders.catchConvertError
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
@@ -893,6 +896,11 @@ object CantonConfig {
       implicit val ledgerApiInteractiveSubmissionServiceConfigReader
           : ConfigReader[InteractiveSubmissionServiceConfig] =
         deriveReader[InteractiveSubmissionServiceConfig]
+
+      implicit val ledgerApiTopologyAwarePackageSelectionConfigReader
+          : ConfigReader[TopologyAwarePackageSelectionConfig] =
+        deriveReader[TopologyAwarePackageSelectionConfig]
+
       deriveReader[LedgerApiServerConfig]
     }
 
@@ -1478,6 +1486,11 @@ object CantonConfig {
       implicit val ledgerApiInteractiveSubmissionServiceConfigWriter
           : ConfigWriter[InteractiveSubmissionServiceConfig] =
         deriveWriter[InteractiveSubmissionServiceConfig]
+
+      implicit val ledgerApiTopologyAwarePackageSelectionConfigWriter
+          : ConfigWriter[TopologyAwarePackageSelectionConfig] =
+        deriveWriter[TopologyAwarePackageSelectionConfig]
+
       deriveWriter[LedgerApiServerConfig]
     }
     lazy implicit final val sequencerTrafficConfigWriter: ConfigWriter[SequencerTrafficConfig] =

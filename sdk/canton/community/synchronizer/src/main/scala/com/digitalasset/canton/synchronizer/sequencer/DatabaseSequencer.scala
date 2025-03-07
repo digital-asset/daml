@@ -17,7 +17,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.MetricsHelper
-import com.digitalasset.canton.resource.Storage
+import com.digitalasset.canton.resource.{DbExceptionRetryPolicy, Storage}
 import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.*
@@ -51,6 +51,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.util.FutureUtil.doNotAwait
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.retry.Pause
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, LoggerUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -460,21 +461,48 @@ class DatabaseSequencer(
       safeWatermarkO <- EitherT.right(sequencerStore.safeWatermark)
       // we check if watermark is after the requested timestamp to avoid snapshotting the sequencer
       // at a timestamp that is not yet safe to read
-      _ <- {
-        safeWatermarkO match {
-          case Some(safeWatermark) =>
-            EitherTUtil.condUnitET[FutureUnlessShutdown](
-              timestamp <= safeWatermark,
-              SnapshotNotFound.Error(timestamp, safeWatermark),
-            )
-          case None =>
-            EitherT.leftT[FutureUnlessShutdown, Unit](
-              SnapshotNotFound.MissingSafeWatermark(topologyClientMember)
-            )
-        }
-      }
+      _ <- checkWatermarkIsAfterTimestamp(safeWatermarkO, timestamp)
       snapshot <- EitherT.right[SequencerError](sequencerStore.readStateAtTimestamp(timestamp))
     } yield snapshot
+
+  private def checkWatermarkIsAfterTimestamp(
+      safeWatermarkO: Option[CantonTimestamp],
+      timestamp: CantonTimestamp,
+  ): EitherT[FutureUnlessShutdown, SequencerError, Unit] =
+    safeWatermarkO match {
+      case Some(safeWatermark) =>
+        EitherTUtil.condUnitET[FutureUnlessShutdown](
+          timestamp <= safeWatermark,
+          SnapshotNotFound.Error(timestamp, safeWatermark),
+        )
+      case None =>
+        EitherT.leftT[FutureUnlessShutdown, Unit](
+          SnapshotNotFound.MissingSafeWatermark(topologyClientMember)
+        )
+    }
+
+  override def awaitSnapshot(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerError, SequencerSnapshot] = {
+    val delay = 1.second
+    val waitForWatermarkToPassTimestamp = EitherT(
+      Pause(
+        logger,
+        this,
+        maxRetries = (timeouts.default.duration / delay).toInt,
+        delay,
+        s"$functionFullName($timestamp)",
+      )
+        .unlessShutdown(
+          sequencerStore.safeWatermark.flatMap(checkWatermarkIsAfterTimestamp(_, timestamp).value),
+          DbExceptionRetryPolicy,
+        )
+    )
+    waitForWatermarkToPassTimestamp
+      .flatMap { _ =>
+        snapshot(timestamp)
+      }
+  }
 
   override private[sequencer] def firstSequencerCounterServeableForSequencer(implicit
       traceContext: TraceContext

@@ -48,11 +48,22 @@ import java.util.concurrent.atomic.AtomicLong
 import scala.collection.View
 import scala.concurrent.{ExecutionContext, Future}
 
+private[apiserver] trait CommandInterpreter {
+
+  def interpret(
+      commands: ApiCommands,
+      submissionSeed: crypto.Hash,
+  )(implicit
+      loggingContext: LoggingContextWithTrace,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Either[ErrorCause, CommandInterpretationResult]]
+}
+
 /** @param ec
   *   [[scala.concurrent.ExecutionContext]] that will be used for scheduling CPU-intensive
   *   computations performed by an [[com.digitalasset.daml.lf.engine.Engine]].
   */
-private[apiserver] final class StoreBackedCommandExecutor(
+private[apiserver] final class StoreBackedCommandInterpreter(
     engine: Engine,
     participant: Ref.ParticipantId,
     packageSyncService: PackageSyncService,
@@ -65,19 +76,19 @@ private[apiserver] final class StoreBackedCommandExecutor(
     timeProvider: TimeProvider,
 )(implicit
     ec: ExecutionContext
-) extends CommandExecutor
+) extends CommandInterpreter
     with NamedLogging {
   private[this] val packageLoader = new DeduplicatingPackageLoader()
   // By unused here we mean that the TX version is not used by the verification
   private val unusedTxVersion = LanguageVersion.StableVersions(LanguageVersion.Major.V2).max
 
-  override def execute(
+  override def interpret(
       commands: ApiCommands,
       submissionSeed: crypto.Hash,
   )(implicit
       loggingContext: LoggingContextWithTrace,
       ec: ExecutionContext,
-  ): FutureUnlessShutdown[Either[ErrorCause, CommandExecutionResult]] = {
+  ): FutureUnlessShutdown[Either[ErrorCause, CommandInterpretationResult]] = {
     val interpretationTimeNanos = new AtomicLong(0L)
     val start = System.nanoTime()
     for {
@@ -107,7 +118,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
 
     } yield submission.flatMap { case (updateTx, meta) =>
       val interpretationTimeNanos = System.nanoTime() - start
-      commandExecutionResult(
+      commandInterpretationResult(
         commands,
         submissionSeed,
         updateTx,
@@ -117,7 +128,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
     }
   }
 
-  private def commandExecutionResult(
+  private def commandInterpretationResult(
       commands: ApiCommands,
       submissionSeed: crypto.Hash,
       updateTx: SubmittedTransaction,
@@ -125,7 +136,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       interpretationTimeNanos: Long,
   )(implicit
       tc: TraceContext
-  ): Either[ErrorCause.DisclosedContractsSynchronizerIdMismatch, CommandExecutionResult] = {
+  ): Either[ErrorCause.DisclosedContractsSynchronizerIdMismatch, CommandInterpretationResult] = {
     val disclosedContractsMap =
       commands.disclosedContracts.iterator.map(d => d.fatContractInstance.contractId -> d).toMap
 
@@ -139,7 +150,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         ) -> disclosedContract.synchronizerIdO
       }
 
-    StoreBackedCommandExecutor
+    StoreBackedCommandInterpreter
       .considerDisclosedContractsSynchronizerId(
         commands.synchronizerId,
         processedDisclosedContractsSynchronizers.map { case (disclosed, synchronizerIdO) =>
@@ -148,7 +159,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         logger,
       )
       .map { prescribedSynchronizerIdO =>
-        CommandExecutionResult(
+        CommandInterpretationResult(
           submitterInfo = state.SubmitterInfo(
             commands.actAs.toList,
             commands.readAs.toList,
@@ -607,7 +618,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
   }
 }
 
-object StoreBackedCommandExecutor {
+object StoreBackedCommandInterpreter {
 
   def considerDisclosedContractsSynchronizerId(
       prescribedSynchronizerIdO: Option[SynchronizerId],

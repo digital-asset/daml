@@ -1280,8 +1280,6 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           TransactionTree.toJson(value).map(JsUpdateTree.TransactionTree.apply)
         case lapi.update_service.GetUpdateTreesResponse.Update.Reassignment(value) =>
           Reassignment.toJson(value).map(JsUpdateTree.Reassignment.apply)
-        case lapi.update_service.GetUpdateTreesResponse.Update.TopologyTransaction(value) =>
-          TopologyTransaction.toJson(value).map(JsUpdateTree.TopologyTransaction.apply)
       }): Future[JsUpdateTree.Update]).map(update => JsGetUpdateTreesResponse(update))
 
     def fromJson(
@@ -1303,10 +1301,6 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           TransactionTree
             .fromJson(value)
             .map(lapi.update_service.GetUpdateTreesResponse.Update.TransactionTree.apply)
-        case JsUpdateTree.TopologyTransaction(value) =>
-          TopologyTransaction
-            .fromJson(value)
-            .map(lapi.update_service.GetUpdateTreesResponse.Update.TopologyTransaction.apply)
       }).map(lapi.update_service.GetUpdateTreesResponse(_))
   }
 

@@ -247,7 +247,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
 
     logger.info(s"Onboarding new sequencers ${endpointToSequencerId.values} at ${clock.now}")
 
-    // add endpoints to existing peers
+    // connect existing peers to new peers
     endpoints.foreach { endpoint =>
       topology.foreach { case (peerId, _) =>
         addEndpoint(endpoint, peerId)
@@ -267,14 +267,19 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
       runNodeCollector(sequencerId, FromInit, machine.nodeCollector)
     }
 
-    // add endpoints to new peers
-    endpoints.foreach { endpoint1 =>
-      endpoints.foreach { endpoint2 =>
-        if (endpoint1 != endpoint2) {
-          val sequencerId = endpointToSequencerId(endpoint1)
+    // connect new peers (currently onboarding in this stage) to all active non-initial peers.
+    // note that connections from new peers to initial peers were already established during stage setup
+    // (i.e., `new SimulationP2PEndpointsStore`) in BftOrderingSimulationTest.
+    topology.activeNonInitialEndpoints.foreach { activeNonInitialEndpoint =>
+      endpoints.foreach { newNodeEndpoint =>
+        if (activeNonInitialEndpoint != newNodeEndpoint) {
+          val newSequencerId = endpointToSequencerId(newNodeEndpoint)
+          logger.debug(
+            s"scheduling execution of addEndpoint for $newSequencerId -> $activeNonInitialEndpoint"
+          )
           // needs to happen after handling init messages (setting behaviors for modules)
           agenda.addOne(
-            AddEndpoint(endpoint2, sequencerId),
+            AddEndpoint(activeNonInitialEndpoint, newSequencerId),
             duration = 1.microsecond,
             ScheduledCommand.DefaultPriority,
           )
@@ -283,7 +288,8 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
     }
   }
 
-  private def addEndpoint(endpoint: P2PEndpoint, to: SequencerId): Unit =
+  private def addEndpoint(endpoint: P2PEndpoint, to: SequencerId): Unit = {
+    logger.debug(s"immediately executing addEndpoint for $to -> $endpoint")
     executeEvent(
       to,
       tryGetMachine(to).networkOutReactor,
@@ -297,6 +303,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
         TraceContext.empty,
       ),
     )
+  }
 
   // Fills in the message type; for documentation purposes only, due to generics erasure.
   private def asModule[M](reactor: Reactor[?]): Module[SimulationEnv, M] =
@@ -478,6 +485,15 @@ final case class Topology[
       ],
     ],
 ) {
+  lazy val activeNonInitialEndpoints: Seq[PlainTextP2PEndpoint] =
+    laterOnboardedEndpointsWithInitializers
+      .filter { case (endpoint, _) =>
+        val sequencerId = SimulationP2PNetworkManager.fakeSequencerId(endpoint)
+        activeSequencersToMachines.contains(sequencerId)
+      }
+      .keys
+      .toSeq
+
   def getMachine(peer: SequencerId): Option[Machine[?, ?]] = activeSequencersToMachines.get(peer)
   def foreach(f: (SequencerId, Machine[?, ?]) => Unit): Unit =
     activeSequencersToMachines.foreach(f.tupled)

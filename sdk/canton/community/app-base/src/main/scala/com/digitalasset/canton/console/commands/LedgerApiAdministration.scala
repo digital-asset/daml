@@ -529,8 +529,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
                   transactionTree.rootNodeIds().size.toLong -> transactionTree.serializedSize
                 case reassignmentWrapper: ReassignmentWrapper =>
                   1L -> reassignmentWrapper.reassignment.serializedSize
-                case TopologyTransactionWrapper(topologyTransaction) =>
-                  topologyTransaction.events.size.toLong -> topologyTransaction.serializedSize
               }
               consoleMetrics.metric.mark(s)
               consoleMetrics.nodeCount.update(s)
@@ -2390,12 +2388,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 reassignment.reassignment
                   .pipe(ReassignmentProto.toJavaProto)
                   .pipe(Reassignment.fromProto)
-                  .pipe(new GetUpdateTreesResponse(_))
-
-              case tt: TopologyTransactionWrapper =>
-                tt.topologyTransaction
-                  .pipe(TopoplogyTransactionProto.toJavaProto)
-                  .pipe(TopologyTransaction.fromProto)
                   .pipe(new GetUpdateTreesResponse(_))
             }
         )

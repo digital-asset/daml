@@ -478,13 +478,13 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       operation = functionFullName,
     ).map(_.result.mapFilter(TopologyStore.Change.selectTopologyDelay))
 
-  override def maxTimestamp(sequencedTime: CantonTimestamp, includeRejected: Boolean)(implicit
+  override def maxTimestamp(sequencedTime: SequencedTime, includeRejected: Boolean)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] = {
     logger.debug(s"Querying max timestamp")
 
     queryForTransactions(
-      sql" AND sequenced < $sequencedTime ",
+      sql" AND sequenced <= ${sequencedTime.value} ",
       includeRejected = includeRejected,
       limit = storage.limit(1),
       orderBy = " ORDER BY valid_from DESC",
