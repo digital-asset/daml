@@ -734,6 +734,14 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           b.setInterfaceExpr(expr)
           b.setMethodInternedName(stringsTable.insert(methodName))
           builder.setCallInterface(b)
+
+        case EViewInterface(iface, expr) =>
+          builder.setViewInterface(
+            PLF.Expr.ViewInterface
+              .newBuilder()
+              .setInterface(iface)
+              .setExpr(expr)
+          )
       }
       builder
     }
