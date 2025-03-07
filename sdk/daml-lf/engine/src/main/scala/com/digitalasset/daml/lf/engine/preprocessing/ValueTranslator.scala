@@ -95,6 +95,16 @@ private[lf] final class ValueTranslator(
               )
           )
 
+        /*
+
+        data V = C1 Int | C2 Text
+
+        value = C1 42
+
+        minimal type is: V = C1 Int
+
+         */
+
         (destruct(ty0), value0) match {
           case (UnitF, ValueUnit) =>
             SValue.SUnit

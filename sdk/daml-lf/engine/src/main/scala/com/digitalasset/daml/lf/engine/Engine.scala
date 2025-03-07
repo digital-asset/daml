@@ -294,6 +294,15 @@ class Engine(val config: EngineConfig) {
     preprocessor.buildGlobalKey(templateId: Identifier, key: Value)
   }
 
+  def minimalTypeHash(
+      queryPackage: PackageId => Option[Package],
+      arg: Value,
+      templateId: Identifier,
+  ): Either[PackageId, crypto.Hash] = {
+    // do something like translateValue
+    ???
+  }
+
   private[engine] def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] =
     ResultNeedPackage(
       pkgId,

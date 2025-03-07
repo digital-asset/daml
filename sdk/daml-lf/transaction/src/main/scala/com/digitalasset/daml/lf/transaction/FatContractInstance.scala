@@ -23,6 +23,7 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
   val contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers]
   val createdAt: Time.Timestamp
   val cantonData: Bytes
+  val minimalHash: Option[crypto.Hash] = None
   private[lf] def toImplementation: FatContractInstanceImpl =
     this.asInstanceOf[FatContractInstanceImpl]
   final lazy val maintainers: TreeSet[Ref.Party] =

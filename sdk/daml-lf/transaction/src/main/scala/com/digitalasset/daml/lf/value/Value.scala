@@ -154,6 +154,7 @@ object Value {
       packageVersion: Option[Ref.PackageVersion] = None,
       template: Identifier,
       arg: Value,
+      minimalHash: Option[crypto.Hash] = None,
   ) extends CidContainer[ContractInstance] {
 
     override protected def self: this.type = this
