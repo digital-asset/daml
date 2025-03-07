@@ -4,8 +4,9 @@
 package com.digitalasset.canton.ledger.participant.state
 
 import cats.data.EitherT
-import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.error.CantonBaseError
+import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.error.{TransactionError, TransactionRoutingError}
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.ledger.participant.state.SyncService.{
   ConnectedSynchronizerRequest,
@@ -17,7 +18,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{LfPartyId, SynchronizerAlias}
+import com.digitalasset.canton.{LfPackageId, LfPartyId, SynchronizerAlias}
 
 /** An interface to change a ledger via a participant. '''Please note that this interface is
   * unstable and may significantly change.'''
@@ -80,6 +81,59 @@ trait SyncService
     FutureUnlessShutdown.pure(Vector.empty)
   }
 
+  // temporary implementation, will be removed with the refactoring of the SyncService interface
+  /** Computes a SynchronizerId -> PartyId -> PackageId relation that describes:
+    *   - for each synchronizer that hosts all the provided `submitters` that can submit. The
+    *     provided `submitters` can be empty (for externally signed transactions), in which case
+    *     synchronizers are not restricted by parties with submission rights on the local
+    *     participant
+    *   - which package-ids can be accepted (i.e. they are vetting-valid) in a transaction by each
+    *     of the informees provided
+    *   - if the prescribed synchronizer is provided, only that one is considered
+    */
+  def packageMapFor(
+      submitters: Set[LfPartyId],
+      informees: Set[LfPartyId],
+      vettingValidityTimestamp: CantonTimestamp,
+      prescribedSynchronizer: Option[SynchronizerId],
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[SynchronizerId, Map[LfPartyId, Set[LfPackageId]]]]
+
+  // temporary implementation, will be removed with the refactoring of the SyncService interface
+  /** Computes the highest ranked synchronizer from the given admissible synchronizers without
+    * performing topology checks.
+    *
+    * This method is used internally in command processing to pre-select a synchronizer for
+    * determining the package preference set used in command interpretation.
+    *
+    * For the definitive synchronizer selection to be used for routing of a submitted transaction,
+    * use [[selectRoutingSynchronizer]].
+    *
+    * @param submitterInfo
+    *   The submitter info
+    * @param transaction
+    *   The submitted transaction
+    * @param transactionMeta
+    *   The transaction metadata
+    * @param admissibleSynchronizers
+    *   The list of synchronizers from which the best one should be selected
+    * @param disclosedContractIds
+    *   The list of disclosed contracts used in command interpretation
+    * @return
+    *   The ID of the best ranked synchronizer
+    */
+  def computeHighestRankedSynchronizerFromAdmissible(
+      submitterInfo: SubmitterInfo,
+      transaction: LfSubmittedTransaction,
+      transactionMeta: TransactionMeta,
+      admissibleSynchronizers: NonEmpty[Set[SynchronizerId]],
+      disclosedContractIds: List[LfContractId],
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerId]
+
+  // temporary implementation, will be removed with the refactoring of the SyncService interface
   /** Computes the best synchronizer for a submitted transaction by checking the submitted
     * transaction against the topology of the connected synchronizers and ranking the admissible
     * ones using the synchronizer ranking (by priority, minimum number of reassignments and
@@ -100,7 +154,8 @@ trait SyncService
     *   submission rights on the local participant since they are supposed to externally sign the
     *   transaction.
     * @return
-    *   The rank of the routing synchronizer
+    *   The rank of the routing synchronizer coupled with the synchronizer state that it was
+    *   computed with
     */
   def selectRoutingSynchronizer(
       submitterInfo: SubmitterInfo,
@@ -111,7 +166,11 @@ trait SyncService
       transactionUsedForExternalSigning: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonBaseError, SynchronizerRank]
+  ): EitherT[
+    FutureUnlessShutdown,
+    TransactionError,
+    (SynchronizerRank, RoutingSynchronizerState),
+  ]
 }
 
 object SyncService {

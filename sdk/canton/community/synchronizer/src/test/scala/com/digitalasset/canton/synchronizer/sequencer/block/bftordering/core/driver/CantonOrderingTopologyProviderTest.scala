@@ -68,16 +68,18 @@ class CantonOrderingTopologyProviderTest
         //  a valid topology transaction is the last sequenced event and topology change delay is 0, then
         //  no topology changes are pending because the last topology change is already active at the topology
         //  snapshot query time.
-        (CantonTimestamp.MinValue.immediateSuccessor, CantonTimestamp.MinValue, false),
+        (aTimestamp.immediateSuccessor, aTimestamp, false),
         // Case 2: the topology snapshot query timestamp equals the maximum effective timestamp,
         //  i.e., the maximum activation timestamp is 1 microsecond later than the topology snapshot query timestamp;
         //  e.g., a valid topology transaction is the last sequenced event and topology change delay is 1 microsecond,
         //  then the corresponding topology change is pending because it is not already active at the topology
         //  snapshot query time.
-        (CantonTimestamp.MinValue, CantonTimestamp.MinValue, true),
+        (aTimestamp, aTimestamp, true),
       ).forEvery {
         case (activationTimestamp, maxEffectiveTimestamp, expectedPendingTopologyChangesFlag) =>
-          when(cryptoApiMock.awaitMaxTimestamp(activationTimestamp))
+          when(
+            cryptoApiMock.awaitMaxTimestamp(SequencedTime(activationTimestamp.immediatePredecessor))
+          )
             .thenReturn(
               FutureUnlessShutdown.pure(
                 Some((SequencedTime(aTimestamp), EffectiveTime(maxEffectiveTimestamp)))
@@ -98,7 +100,7 @@ class CantonOrderingTopologyProviderTest
 
 object CantonOrderingTopologyProviderTest {
 
-  private val aTimestamp = CantonTimestamp.MinValue
+  private val aTimestamp = CantonTimestamp.Epoch
   private val someSequencerIds = Seq(fakeSequencerId("1"), fakeSequencerId("2"))
   private val someDynamicSequencingParameters =
     DynamicSequencingParametersWithValidity(

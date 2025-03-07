@@ -1254,7 +1254,7 @@ abstract class ProtocolProcessor[
     val ts = content.timestamp
     val sc = content.counter
 
-    val processedET = performUnlessClosingEitherUSF(
+    val processedET = performUnlessClosingEitherUSFAsync(
       s"ProtocolProcess.processResult(sc=$sc, traceId=${traceContext.traceId}"
     ) {
       val resultEnvelopes =
@@ -1273,7 +1273,7 @@ abstract class ProtocolProcessor[
       )
 
       processResultInternal1(event, result, requestId, ts, sc)
-    }
+    }(_.value)
 
     handlerResultForConfirmationResult(ts, processedET)
   }

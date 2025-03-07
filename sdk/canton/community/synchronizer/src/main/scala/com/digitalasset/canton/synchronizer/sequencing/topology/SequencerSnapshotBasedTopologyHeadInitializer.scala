@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.synchronizer.sequencing.topology
 
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.synchronizer.sequencer.SequencerSnapshot
 import com.digitalasset.canton.topology.client.{
@@ -34,7 +33,7 @@ final class SequencerSnapshotBasedTopologyHeadInitializer(
       traceContext: TraceContext,
   ): FutureUnlessShutdown[SynchronizerTopologyClientWithInit] =
     topologyStore
-      .maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
+      .maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
       .map { maxTopologyStoreTimestamp =>
         val snapshotLastTsEffective = EffectiveTime(snapshot.lastTs)
         // Use the highest possible effective time.

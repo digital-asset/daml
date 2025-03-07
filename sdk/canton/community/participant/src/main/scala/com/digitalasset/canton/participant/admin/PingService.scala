@@ -20,6 +20,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.error.TransactionRoutingError.TopologyErrors
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes.WorkflowId
 import com.digitalasset.canton.ledger.client.{LedgerClient, LedgerClientUtils}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
@@ -41,7 +42,6 @@ import com.digitalasset.canton.participant.ledger.api.client.{
   CommandSubmitterWithRetry,
   LedgerConnection,
 }
-import com.digitalasset.canton.participant.sync.TransactionRoutingError.TopologyErrors
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}

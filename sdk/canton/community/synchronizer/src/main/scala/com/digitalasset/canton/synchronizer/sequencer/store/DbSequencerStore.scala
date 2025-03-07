@@ -667,44 +667,34 @@ class DbSequencerStore(
   override def resetWatermark(instanceIndex: Int, ts: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SaveWatermarkError, Unit] = {
-    import SaveWatermarkError.*
 
-    def save: DBIOAction[Int, NoStream, Effect.Write with Effect.Transactional] =
+    def updateAction(): DBIOAction[Int, NoStream, Effect.Write & Effect.Transactional] =
       profile match {
         case _: Postgres =>
-          sqlu"""insert into sequencer_watermarks (node_index, watermark_ts, sequencer_online)
-               values ($instanceIndex, $ts, false)
-               on conflict (node_index) do
-                 update set watermark_ts = $ts, sequencer_online = ${false}
-                 where sequencer_watermarks.watermark_ts >= $ts
+          sqlu"""update sequencer_watermarks
+                  set watermark_ts = $ts, sequencer_online = ${false}
+                  where
+                    node_index = $instanceIndex and
+                    watermark_ts >= $ts
                """
         case _: H2 =>
           sqlu"""merge into sequencer_watermarks using dual
                   on (node_index = $instanceIndex)
                   when matched and watermark_ts >= $ts then
                     update set watermark_ts = $ts, sequencer_online = ${false}
-                  when not matched then
-                    insert (node_index, watermark_ts, sequencer_online) values ($instanceIndex, $ts, ${false})
                 """
       }
 
     for {
-      _ <- EitherT.right(storage.update(save, functionFullName))
+      _ <- EitherT.right(storage.update(updateAction(), functionFullName))
       updatedWatermarkO <- EitherT.right(fetchWatermark(instanceIndex))
-      // we should have just inserted or updated a watermark, so should certainly exist
-      updatedWatermark <- EitherT.fromEither[FutureUnlessShutdown](
-        updatedWatermarkO.toRight(
-          WatermarkUnexpectedlyChanged("The watermark we should have written has been removed")
+    } yield {
+      if (updatedWatermarkO.forall(w => w.online || w.timestamp != ts)) {
+        logger.debug(
+          s"Watermark was not reset to $ts as it is already set to an earlier date, kept $updatedWatermarkO"
         )
-      ): EitherT[FutureUnlessShutdown, SaveWatermarkError, Watermark]
-      _ = {
-        if (updatedWatermark.online || updatedWatermark.timestamp != ts) {
-          logger.debug(
-            s"Watermark was not reset to $ts as it is already set to an earlier date, kept $updatedWatermark"
-          )
-        }
       }
-    } yield ()
+    }
   }
 
   override def saveWatermark(instanceIndex: Int, ts: CantonTimestamp)(implicit
@@ -712,7 +702,7 @@ class DbSequencerStore(
   ): EitherT[FutureUnlessShutdown, SaveWatermarkError, Unit] = {
     import SaveWatermarkError.*
 
-    def save: DBIOAction[Int, NoStream, Effect.Write with Effect.Transactional] =
+    def save: DBIOAction[Int, NoStream, Effect.Write & Effect.Transactional] =
       profile match {
         case _: Postgres =>
           sqlu"""insert into sequencer_watermarks (node_index, watermark_ts, sequencer_online)
@@ -1374,7 +1364,7 @@ class DbSequencerStore(
     }
   }
 
-  override def deleteEventsPastWatermark(
+  override def deleteEventsAndCheckpointsPastWatermark(
       instanceIndex: Int
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[CantonTimestamp]] =
     for {
@@ -1394,9 +1384,17 @@ class DbSequencerStore(
            """,
         functionFullName,
       )
+      checkpointsRemoved <- storage.update(
+        sqlu"""
+          delete from sequencer_counter_checkpoints
+          where ts > $watermark
+          """,
+        functionFullName,
+      )
     } yield {
       logger.debug(
-        s"Removed at least $eventsRemoved that were past the last watermark ($watermarkO) for this sequencer"
+        s"Removed at least $eventsRemoved events and at least $checkpointsRemoved checkpoints " +
+          s"that were past the last watermark ($watermarkO) for this sequencer"
       )
       watermarkO
     }

@@ -276,6 +276,7 @@ def install_java_deps():
             "org.typelevel:kind-projector_{}:0.13.2".format(scala_version),
             "org.typelevel:paiges-core_{}:0.4.2".format(scala_major_version),
             "org.wartremover:wartremover_{}:2.4.21".format(scala_version),
+            "dev.optics:monocle-macro_{}:3.2.0".format(scala_major_version),
             "org.xerial:sqlite-jdbc:3.36.0.1",
             maven.artifact("com.github.pureconfig", "pureconfig-macros_2.12", "0.14.0", neverlink = True),
         ],

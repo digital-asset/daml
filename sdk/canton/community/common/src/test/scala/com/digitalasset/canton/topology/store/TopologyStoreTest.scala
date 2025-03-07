@@ -226,13 +226,13 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
           watermarkStore1 <- store1.currentDispatchingWatermark
           maxTimestampStore1 <- store1.maxTimestamp(
-            CantonTimestamp.MaxValue,
+            SequencedTime.MaxValue,
             includeRejected = true,
           )
 
           watermarkStore2 <- store2.currentDispatchingWatermark
           maxTimestampStore2 <- store2.maxTimestamp(
-            CantonTimestamp.MaxValue,
+            SequencedTime.MaxValue,
             includeRejected = true,
           )
 
@@ -255,7 +255,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
             _ <- update(store, ts5, add = Seq(dtc_p2_synchronizer1))
             _ <- update(store, ts6, add = Seq(mds_med1_synchronizer1))
 
-            maxTs <- store.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
+            maxTs <- store.maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
             retrievedTx <- store.findStored(CantonTimestamp.MaxValue, nsd_p1)
             txProtocolVersion <- store.findStoredForVersion(
               CantonTimestamp.MaxValue,

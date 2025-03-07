@@ -17,33 +17,25 @@ public final class GetUpdateTreesResponse {
 
   @NonNull private final Optional<OffsetCheckpoint> offsetCheckpoint;
 
-  @NonNull private final Optional<TopologyTransaction> topologyTransaction;
-
   private GetUpdateTreesResponse(
       @NonNull Optional<TransactionTree> transactionTree,
       @NonNull Optional<Reassignment> reassignment,
-      @NonNull Optional<OffsetCheckpoint> offsetCheckpoint,
-      @NonNull Optional<TopologyTransaction> topologyTransaction) {
+      @NonNull Optional<OffsetCheckpoint> offsetCheckpoint) {
     this.transactionTree = transactionTree;
     this.reassignment = reassignment;
     this.offsetCheckpoint = offsetCheckpoint;
-    this.topologyTransaction = topologyTransaction;
   }
 
   public GetUpdateTreesResponse(@NonNull TransactionTree transactionTree) {
-    this(Optional.of(transactionTree), Optional.empty(), Optional.empty(), Optional.empty());
+    this(Optional.of(transactionTree), Optional.empty(), Optional.empty());
   }
 
   public GetUpdateTreesResponse(@NonNull Reassignment reassignment) {
-    this(Optional.empty(), Optional.of(reassignment), Optional.empty(), Optional.empty());
+    this(Optional.empty(), Optional.of(reassignment), Optional.empty());
   }
 
   public GetUpdateTreesResponse(@NonNull OffsetCheckpoint offsetCheckpoint) {
-    this(Optional.empty(), Optional.empty(), Optional.of(offsetCheckpoint), Optional.empty());
-  }
-
-  public GetUpdateTreesResponse(@NonNull TopologyTransaction topologyTransaction) {
-    this(Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(topologyTransaction));
+    this(Optional.empty(), Optional.empty(), Optional.of(offsetCheckpoint));
   }
 
   @NonNull
@@ -61,11 +53,6 @@ public final class GetUpdateTreesResponse {
     return offsetCheckpoint;
   }
 
-  @NonNull
-  public Optional<TopologyTransaction> getTopologyTransaction() {
-    return topologyTransaction;
-  }
-
   public static GetUpdateTreesResponse fromProto(
       UpdateServiceOuterClass.GetUpdateTreesResponse response) {
     return new GetUpdateTreesResponse(
@@ -77,9 +64,6 @@ public final class GetUpdateTreesResponse {
             : Optional.empty(),
         response.hasOffsetCheckpoint()
             ? Optional.of(OffsetCheckpoint.fromProto(response.getOffsetCheckpoint()))
-            : Optional.empty(),
-        response.hasTopologyTransaction()
-            ? Optional.of(TopologyTransaction.fromProto(response.getTopologyTransaction()))
             : Optional.empty());
   }
 
@@ -88,7 +72,6 @@ public final class GetUpdateTreesResponse {
     transactionTree.ifPresent(t -> builder.setTransactionTree(t.toProto()));
     reassignment.ifPresent(r -> builder.setReassignment(r.toProto()));
     offsetCheckpoint.ifPresent(c -> builder.setOffsetCheckpoint(c.toProto()));
-    topologyTransaction.ifPresent(t -> builder.setTopologyTransaction(t.toProto()));
     return builder.build();
   }
 
@@ -101,8 +84,6 @@ public final class GetUpdateTreesResponse {
         + reassignment
         + ", offsetCheckpoint="
         + offsetCheckpoint
-        + ", topologyTransaction="
-        + topologyTransaction
         + '}';
   }
 
@@ -113,12 +94,11 @@ public final class GetUpdateTreesResponse {
     GetUpdateTreesResponse that = (GetUpdateTreesResponse) o;
     return Objects.equals(transactionTree, that.transactionTree)
         && Objects.equals(reassignment, that.reassignment)
-        && Objects.equals(offsetCheckpoint, that.offsetCheckpoint)
-        && Objects.equals(topologyTransaction, that.topologyTransaction);
+        && Objects.equals(offsetCheckpoint, that.offsetCheckpoint);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(transactionTree, reassignment, offsetCheckpoint, topologyTransaction);
+    return Objects.hash(transactionTree, reassignment, offsetCheckpoint);
   }
 }

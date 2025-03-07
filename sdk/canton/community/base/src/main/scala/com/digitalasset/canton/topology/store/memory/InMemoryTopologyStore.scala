@@ -520,14 +520,14 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       }
     }
 
-  override def maxTimestamp(sequencedTime: CantonTimestamp, includeRejected: Boolean)(implicit
+  override def maxTimestamp(sequencedTime: SequencedTime, includeRejected: Boolean)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] = FutureUnlessShutdown.wrap {
     blocking {
       synchronized {
         topologyTransactionStore
           .findLast(entry =>
-            entry.sequenced.value < sequencedTime && (includeRejected || entry.rejected.isEmpty)
+            entry.sequenced <= sequencedTime && (includeRejected || entry.rejected.isEmpty)
           )
           .map(x => (x.sequenced, x.from))
       }

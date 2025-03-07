@@ -9,25 +9,9 @@ import com.daml.jwt.JwtTimestampLeeway
 import com.daml.metrics.api.MetricsContext
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-import com.digitalasset.canton.config.{
-  AuthServiceConfig,
-  BasicKeepAliveServerConfig,
-  CantonConfigValidator,
-  CantonConfigValidatorInstances,
-  ClientConfig,
-  FullClientConfig,
-  KeepAliveClientConfig,
-  PemFileOrString,
-  ProcessingTimeout,
-  QueryCostMonitoringConfig,
-  ServerConfig,
-  StorageConfig,
-  TlsClientConfig,
-  TlsServerConfig,
-  UniformCantonConfigValidation,
-}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
@@ -124,7 +108,7 @@ final class BftBlockOrderer(
     protocolVersion: ProtocolVersion,
     clock: Clock,
     orderingTopologyProvider: OrderingTopologyProvider[PekkoEnv],
-    authenticationServices: Option[
+    maybeAuthenticationServices: Option[
       AuthenticationServices
     ], // Owned and managed by the sequencer runtime, absent in some tests
     nodeParameters: CantonNodeParameters,
@@ -188,23 +172,33 @@ final class BftBlockOrderer(
       noTracingLogger,
     )
 
-  private val p2pGrpcNetworking =
-    new GrpcNetworking(
-      servers = config.initialNetwork.toList.map { case P2PNetworkConfig(serverEndpoint, _, _) =>
+  private val authenticationServices: Option[AuthenticationServices] =
+    Option
+      .when(config.initialNetwork.exists(_.endpointAuthentication))(maybeAuthenticationServices)
+      .flatten
+
+  private val p2pGrpcNetworking = {
+    val servers =
+      config.initialNetwork.toList.map { case P2PNetworkConfig(serverEndpoint, _, _, _) =>
         createServer(serverEndpoint)
-      },
-      authenticationServices.map { as =>
-        GrpcNetworking.Authentication(
+      }
+    val maybeGrpcNetworkingAuthenticationInitialState = authenticationServices
+      .map { as =>
+        GrpcNetworking.AuthenticationInitialState(
           protocolVersion,
           synchronizerId,
           sequencerId,
-          as.syncCryptoForAuthentication,
+          as,
           clock,
         )
-      },
+      }
+    new GrpcNetworking(
+      servers,
+      maybeGrpcNetworkingAuthenticationInitialState,
       timeouts,
       loggerFactory,
     )
+  }
 
   private val localStorage = {
     implicit val traceContext: TraceContext = TraceContext.empty
@@ -393,7 +387,7 @@ final class BftBlockOrderer(
                 ),
                 executionContext,
               ),
-              authenticationServices.map(_.authenticationInterceptor).toList.asJava,
+              authenticationServices.map(_.authenticationServerInterceptor).toList.asJava,
             )
           )
       // Also offer the authentication service on BFT P2P endpoints, so that the BFT orderers don't have to also know the sequencer API endpoints
@@ -618,6 +612,8 @@ object BftBlockOrderer {
       serverEndpoint: P2PServerConfig,
       peerEndpoints: Seq[P2PEndpointConfig],
       overwriteStoredEndpoints: Boolean = false,
+      // TODO(#20668): implement the server sending authentication credentials and enable authentication by default
+      endpointAuthentication: Boolean = false,
   ) extends UniformCantonConfigValidation
   object P2PNetworkConfig {
     implicit val bftNetworkCanonConfigValidator: CantonConfigValidator[P2PNetworkConfig] =

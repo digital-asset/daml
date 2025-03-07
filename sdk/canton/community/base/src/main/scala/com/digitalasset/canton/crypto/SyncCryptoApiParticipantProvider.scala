@@ -371,6 +371,10 @@ class SynchronizerCryptoClient private (
   ): Option[FutureUnlessShutdown[Unit]] =
     ips.awaitTimestamp(timestamp)
 
+  override def awaitSequencedTimestamp(timestampInclusive: SequencedTime)(implicit
+      traceContext: TraceContext
+  ): Option[FutureUnlessShutdown[Unit]] = ips.awaitSequencedTimestamp(timestampInclusive)
+
   override def currentSnapshotApproximation(implicit
       traceContext: TraceContext
   ): SynchronizerSnapshotSyncCryptoApi =
@@ -383,7 +387,7 @@ class SynchronizerCryptoClient private (
   override def onClosed(): Unit =
     LifeCycle.close(ips)(logger)
 
-  override def awaitMaxTimestamp(sequencedTime: CantonTimestamp)(implicit
+  override def awaitMaxTimestamp(sequencedTime: SequencedTime)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
     ips.awaitMaxTimestamp(sequencedTime)

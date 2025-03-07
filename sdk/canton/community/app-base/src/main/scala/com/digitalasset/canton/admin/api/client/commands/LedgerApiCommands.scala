@@ -1046,8 +1046,7 @@ object LedgerApiCommands {
       override def synchronizerId: String = transaction.synchronizerId
     }
     final case class TopologyTransactionWrapper(topologyTransaction: TopologyTransaction)
-        extends UpdateTreeWrapper
-        with UpdateWrapper {
+        extends UpdateWrapper {
       override def updateId: String = topologyTransaction.updateId
       override def isUnassignment: Boolean = false
 
@@ -1143,7 +1142,6 @@ object LedgerApiCommands {
         response.update.transactionTree
           .map[UpdateTreeWrapper](TransactionTreeWrapper.apply)
           .orElse(response.update.reassignment.map(ReassignmentWrapper(_)))
-          .orElse(response.update.topologyTransaction.map(TopologyTransactionWrapper(_)))
     }
 
     final case class SubscribeFlat(

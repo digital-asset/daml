@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.services.command
 
+import cats.data.EitherT
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
@@ -10,8 +11,10 @@ import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.{CommandId, Commands, DisclosedContract}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.{
+  RoutingSynchronizerState,
   SubmissionResult,
   SubmitterInfo,
+  SynchronizerRank,
   TransactionMeta,
 }
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
@@ -21,6 +24,7 @@ import com.digitalasset.canton.platform.apiserver.SeedService
 import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutionResult,
   CommandExecutor,
+  CommandInterpretationResult,
 }
 import com.digitalasset.canton.platform.apiserver.services.{ErrorCause, TimeProviderType}
 import com.digitalasset.canton.topology.SynchronizerId
@@ -53,7 +57,6 @@ import org.scalatest.matchers.should.Matchers
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.CompletableFuture
-import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
 class CommandSubmissionServiceImplSpec
@@ -167,8 +170,13 @@ class CommandSubmissionServiceImplSpec
               commandExecutor.execute(
                 eqTo(commands),
                 any[Hash],
-              )(any[LoggingContextWithTrace], any[ExecutionContext])
-            ).thenReturn(FutureUnlessShutdown.pure(Left(error)))
+                anyBoolean,
+              )(any[LoggingContextWithTrace])
+            ).thenReturn(
+              EitherT[FutureUnlessShutdown, ErrorCause, CommandExecutionResult](
+                FutureUnlessShutdown.pure(Left(error))
+              )
+            )
 
             apiSubmissionService()
               .submit(SubmitRequest(commands))
@@ -286,7 +294,7 @@ class CommandSubmissionServiceImplSpec
     )
     val estimatedInterpretationCost = 5L
     val processedDisclosedContracts = ImmArray(processedDisclosedContract)
-    val commandExecutionResult = CommandExecutionResult(
+    val commandInterpretationResult = CommandInterpretationResult(
       submitterInfo = submitterInfo,
       optSynchronizerId = None,
       transactionMeta = transactionMeta,
@@ -296,20 +304,31 @@ class CommandSubmissionServiceImplSpec
       globalKeyMapping = Map.empty,
       processedDisclosedContracts = processedDisclosedContracts,
     )
+    val synchronizerRank = SynchronizerRank.single(SynchronizerId.tryFromString("da::test"))
+    val routingSynchronizerState = mock[RoutingSynchronizerState]
+    val commandExecutionResult = CommandExecutionResult(
+      commandInterpretationResult = commandInterpretationResult,
+      synchronizerRank = synchronizerRank,
+      routingSynchronizerState = routingSynchronizerState,
+    )
 
     when(
-      commandExecutor.execute(eqTo(commands), any[Hash])(
-        any[LoggingContextWithTrace],
-        any[ExecutionContext],
+      commandExecutor.execute(eqTo(commands), any[Hash], anyBoolean)(
+        any[LoggingContextWithTrace]
       )
     )
-      .thenReturn(FutureUnlessShutdown.pure(Right(commandExecutionResult)))
+      .thenReturn(
+        EitherT[FutureUnlessShutdown, ErrorCause, CommandExecutionResult](
+          FutureUnlessShutdown.pure(Right(commandExecutionResult))
+        )
+      )
     when(
       syncService.submitTransaction(
-        eqTo(submitterInfo),
-        eqTo(None),
-        eqTo(transactionMeta),
         eqTo(transaction),
+        eqTo(synchronizerRank),
+        eqTo(routingSynchronizerState),
+        eqTo(submitterInfo),
+        eqTo(transactionMeta),
         eqTo(estimatedInterpretationCost),
         eqTo(Map.empty),
         eqTo(processedDisclosedContracts),

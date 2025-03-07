@@ -1056,9 +1056,6 @@ object Generators {
         offsetCheckpointGen.map(checkpoint =>
           (b: Response.Builder) => b.setOffsetCheckpoint(checkpoint)
         ),
-        topologyTransactionGen.map(topologyTransaction =>
-          (b: Response.Builder) => b.setTopologyTransaction(topologyTransaction)
-        ),
       )
     } yield Response
       .newBuilder()

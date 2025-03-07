@@ -7,7 +7,6 @@ import cats.data.OptionT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.config.{ProcessingTimeout, TlsClientConfig}
-import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
@@ -21,13 +20,10 @@ import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder.createChannelBuilder
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth
+import com.digitalasset.canton.synchronizer.sequencer.AuthenticationServices
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.P2PEndpointConfig
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
-  InitialConnectRetryDelay,
-  MaxConnectRetryDelay,
-  MaxConnectionAttemptsBeforeWarning,
-  P2PEndpoint,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.*
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.authentication.AuthenticateServerClientInterceptor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.p2p.grpc.GrpcClientHandle
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.{
   BftOrderingServiceGrpc,
@@ -40,21 +36,22 @@ import com.digitalasset.canton.topology.{SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.DelayUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import io.grpc.ManagedChannel
 import io.grpc.stub.{AbstractStub, StreamObserver}
+import io.grpc.{Channel, ClientInterceptors, ManagedChannel}
 import org.slf4j.event.Level
 
 import java.time.Duration
 import java.util.concurrent.{Executor, Executors}
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
+import scala.jdk.CollectionConverters.*
 import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 final class GrpcNetworking(
     servers: List[UnlessShutdown[LifeCycle.CloseableServer]],
-    authentication: Option[GrpcNetworking.Authentication],
+    authenticationInitialState: Option[AuthenticationInitialState],
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -131,40 +128,67 @@ final class GrpcNetworking(
     private def connect(serverPeer: P2PEndpoint): FutureUnlessShutdown[Unit] =
       performUnlessClosingF("p2p-connect") {
         logger.debug(s"Creating a gRPC channel and connecting to peer in server role $serverPeer")
-        val (channel, asyncStub, blockingStub) = openGrpcChannel(serverPeer)
-        createServerHandle(serverPeer, channel, asyncStub, blockingStub)
-          .map { case (sequencerId, streamFromServer) =>
-            logger.info(
-              s"Successfully connected to peer in server role $serverPeer with sequencer ID $sequencerId"
-            )
-            // Peer streams are unidirectional: two of them (one per direction) are needed for a full-duplex P2P link.
-            //  We avoid bidirectional streaming because client TLS certificate authentication is not well-supported
-            //  by all network infrastructure, but we still want to be able to authenticate both ends with TLS.
-            //  TLS support is however only about transport security; message-level authentication relies on
-            //  signatures with keys registered in the Canton topology, that are unrelated to the TLS certificates.
-            mutex(this) {
-              val _ = serverEndpoints.put(serverPeer, sequencerId -> streamFromServer)
+        val OpenChannel(
+          channel,
+          maybeSequencerIdFromAuthenticationFuture,
+          asyncStub,
+          blockingStub,
+        ) =
+          openGrpcChannel(serverPeer)
+
+        val serverHandleOptionT = createServerHandle(serverPeer, channel, asyncStub, blockingStub)
+        maybeSequencerIdFromAuthenticationFuture match {
+          case Some(sequencerIdFromAuthenticationFuture) =>
+            sequencerIdFromAuthenticationFuture.flatMap { sequencerIdFromAuthentication =>
+              toUnitFuture(
+                serverHandleOptionT
+                  .map { case (_, streamFromServer) =>
+                    // We don't care about the communicated sequencer ID if authentication is enabled
+                    logger.info(
+                      s"Successfully connected to peer in server role $serverPeer " +
+                        s"authenticated as sequencer with ID $sequencerIdFromAuthentication"
+                    )
+                    addServerPeer(serverPeer, sequencerIdFromAuthentication, streamFromServer)
+                  }
+              )
             }
-          }
-          .value
-          .map(_ => ())
+          case _ =>
+            toUnitFuture(
+              serverHandleOptionT
+                .map { case (communicatedSequencerId, streamFromServer) =>
+                  logger.info(
+                    s"Successfully connected to peer in server role $serverPeer " +
+                      s"claiming to be sequencer with ID $communicatedSequencerId (authentication is disabled)"
+                  )
+                  addServerPeer(serverPeer, communicatedSequencerId, streamFromServer)
+                }
+            )
+        }
       }(connectExecutionContext, TraceContext.empty)
 
-    private def openGrpcChannel(
-        serverPeer: P2PEndpoint
-    ): (
-        ManagedChannel,
-        BftOrderingServiceGrpc.BftOrderingServiceStub,
-        BftOrderingServiceGrpc.BftOrderingServiceBlockingStub,
-    ) = {
+    private def addServerPeer(
+        serverPeer: P2PEndpoint,
+        sequencerId: SequencerId,
+        streamFromServer: StreamObserver[BftOrderingServiceReceiveRequest],
+    ): Unit =
+      // Peer streams are unidirectional: two of them (one per direction) are needed for a full-duplex P2P link.
+      //  We avoid bidirectional streaming because client TLS certificate authentication is not well-supported
+      //  by all network infrastructure, but we still want to be able to authenticate both ends with TLS.
+      //  TLS support is however only about transport security; message-level authentication relies on
+      //  signatures with keys registered in the Canton topology, that are unrelated to the TLS certificates.
+      mutex(this) {
+        val _ = serverEndpoints.put(serverPeer, sequencerId -> streamFromServer)
+      }
+
+    private def openGrpcChannel(serverPeer: P2PEndpoint): OpenChannel = {
       implicit val executor: Executor = (command: Runnable) => executionContext.execute(command)
       val channel = createChannelBuilder(serverPeer.endpointConfig).build()
       val grpcSequencerClientAuth =
-        authentication.map(auth =>
+        authenticationInitialState.map(auth =>
           new GrpcSequencerClientAuth(
             auth.synchronizerId,
             member = auth.sequencerId,
-            crypto = auth.syncCrypto.crypto,
+            crypto = auth.authenticationServices.syncCryptoForAuthentication.crypto,
             channelPerEndpoint =
               NonEmpty(Map, Endpoint(serverPeer.address, serverPeer.port) -> channel),
             supportedProtocolVersions = Seq(auth.protocolVersion),
@@ -183,12 +207,33 @@ final class GrpcNetworking(
       def authenticateStub[S <: AbstractStub[S]](stub: S) =
         grpcSequencerClientAuth.fold(stub)(_.apply(stub))
 
-      (
+      val (checkedChannel, maybeSequencerIdFromAuthenticationPromise) =
+        checkServerAuthentication(channel)
+
+      OpenChannel(
         channel,
-        authenticateStub(BftOrderingServiceGrpc.stub(channel)),
-        authenticateStub(BftOrderingServiceGrpc.blockingStub(channel)),
+        maybeSequencerIdFromAuthenticationPromise.map(_.future),
+        authenticateStub(BftOrderingServiceGrpc.stub(checkedChannel)),
+        authenticateStub(BftOrderingServiceGrpc.blockingStub(checkedChannel)),
       )
     }
+
+    private def checkServerAuthentication(
+        channel: Channel
+    ): (Channel, Option[Promise[SequencerId]]) =
+      authenticationInitialState.fold[(Channel, Option[Promise[SequencerId]])](channel -> None) {
+        auth =>
+          val memberAuthenticationService = auth.authenticationServices.memberAuthenticationService
+          val sequencerIdFromAuthenticationPromise = Promise[SequencerId]()
+          val interceptor =
+            new AuthenticateServerClientInterceptor(
+              memberAuthenticationService,
+              sequencerIdFromAuthenticationPromise,
+            )
+          ClientInterceptors.intercept(channel, List(interceptor).asJava) -> Some(
+            sequencerIdFromAuthenticationPromise
+          )
+      }
 
     @SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
     private def createServerHandle(
@@ -255,6 +300,7 @@ final class GrpcNetworking(
             serverPeer,
             sequencerIdPromise,
             closeConnection,
+            authenticationEnabled = authenticationInitialState.isDefined,
             loggerFactory,
           )
         )
@@ -381,10 +427,10 @@ object GrpcNetworking {
   // TODO(#23926): generalize further to insulate internals from details and add simple string-typed endpoint for tests
   /** The BFT orderer's internal representation of a P2P endpoint */
   sealed trait P2PEndpoint extends Product {
+
     def address: String
     def port: Port
     def transportSecurity: Boolean
-
     def endpointConfig: P2PEndpointConfig
 
     final lazy val id: P2PEndpoint.Id = P2PEndpoint.Id(address, port, transportSecurity)
@@ -425,8 +471,8 @@ object GrpcNetworking {
   }
 
   final case class PlainTextP2PEndpoint(
-      address: String,
-      port: Port,
+      override val address: String,
+      override val port: Port,
   ) extends P2PEndpoint {
 
     override val transportSecurity: Boolean = false
@@ -465,11 +511,23 @@ object GrpcNetworking {
       TlsP2PEndpoint(endpointConfig)
   }
 
-  private[bftordering] final case class Authentication(
+  private[bftordering] final case class AuthenticationInitialState(
       protocolVersion: ProtocolVersion,
       synchronizerId: SynchronizerId,
       sequencerId: SequencerId,
-      syncCrypto: SynchronizerCryptoClient,
+      authenticationServices: AuthenticationServices,
       clock: Clock,
   )
+
+  private final case class OpenChannel(
+      channel: ManagedChannel,
+      maybeSequencerIdFromAuthenticationFuture: Option[Future[SequencerId]],
+      asyncStub: BftOrderingServiceGrpc.BftOrderingServiceStub,
+      blockingStub: BftOrderingServiceGrpc.BftOrderingServiceBlockingStub,
+  )
+
+  private def toUnitFuture[X](optionT: OptionT[Future, X])(implicit
+      ec: ExecutionContext
+  ): Future[Unit] =
+    optionT.value.map(_ => ())
 }

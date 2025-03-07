@@ -118,6 +118,12 @@ trait Sequencer
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerError, SequencerSnapshot]
 
+  /** Wait for and return the sequencer snapshot that contains the provided timestamp.
+    */
+  def awaitSnapshot(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerError, SequencerSnapshot]
+
   /** Disable the provided member. Should prevent them from reading or writing in the future
     * (although they can still be addressed). Their unread data can also be pruned. Effectively
     * disables all instances of this member.

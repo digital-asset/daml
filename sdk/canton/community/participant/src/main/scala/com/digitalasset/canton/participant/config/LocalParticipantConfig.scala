@@ -23,6 +23,7 @@ import com.digitalasset.canton.platform.config.{
   IndexServiceConfig as LedgerIndexServiceConfig,
   InteractiveSubmissionServiceConfig,
   PartyManagementServiceConfig,
+  TopologyAwarePackageSelectionConfig,
   UserManagementServiceConfig,
 }
 import com.digitalasset.canton.platform.indexer.IndexerConfig
@@ -232,6 +233,8 @@ final case class LedgerApiServerConfig(
       LedgerApiServerConfig.DefaultIdentityProviderManagementConfig,
     interactiveSubmissionService: InteractiveSubmissionServiceConfig =
       InteractiveSubmissionServiceConfig.Default,
+    topologyAwarePackageSelection: TopologyAwarePackageSelectionConfig =
+      TopologyAwarePackageSelectionConfig.Default,
 ) extends ServerConfig // We can't currently expose enterprise server features at the ledger api anyway
     {
 

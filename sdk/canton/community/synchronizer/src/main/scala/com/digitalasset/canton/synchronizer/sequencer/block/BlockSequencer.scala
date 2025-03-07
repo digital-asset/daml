@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.foldable.*
+import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.RichGeneratedMessage
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -15,7 +16,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.resource.Storage
+import com.digitalasset.canton.resource.{DbExceptionRetryPolicy, Storage}
 import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficControlError
@@ -33,6 +34,7 @@ import com.digitalasset.canton.synchronizer.sequencer.PruningError.UnsafePruning
 import com.digitalasset.canton.synchronizer.sequencer.Sequencer.SignedOrderingRequest
 import com.digitalasset.canton.synchronizer.sequencer.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
+import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError.BlockNotFound
 import com.digitalasset.canton.synchronizer.sequencer.store.SequencerStore
 import com.digitalasset.canton.synchronizer.sequencer.traffic.TimestampSelector.*
 import com.digitalasset.canton.synchronizer.sequencer.traffic.{
@@ -45,6 +47,7 @@ import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
+import com.digitalasset.canton.util.retry.Pause
 import com.digitalasset.canton.util.{EitherTUtil, PekkoUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.ServerServiceDefinition
@@ -54,6 +57,7 @@ import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.slf4j.event.Level
 
 import scala.collection.concurrent.TrieMap
+import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
@@ -355,6 +359,36 @@ class BlockSequencer(
       _ <- FutureUnlessShutdown.outcomeF(blockOrderer.acknowledge(signedAcknowledgeRequest))
       _ <- FutureUnlessShutdown.outcomeF(waitForAcknowledgementF)
     } yield ()
+  }
+
+  override def awaitSnapshot(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerError, SequencerSnapshot] = {
+    val delay = 1.second
+    val waitForBlockContainingTimestamp = EitherT.right(
+      Pause(
+        logger,
+        this,
+        maxRetries = (timeouts.default.duration / delay).toInt,
+        delay,
+        s"$functionFullName($timestamp)",
+      )
+        .unlessShutdown(
+          FutureUnlessShutdown.pure(timestamp <= stateManager.getHeadState.block.lastTs),
+          DbExceptionRetryPolicy,
+        )
+    )
+
+    waitForBlockContainingTimestamp.flatMap { foundBlock =>
+      if (foundBlock) {
+        // if we found a block, now also await for the underlying DatabaseSequencer's snapshot to be ready.
+        // since it uses a different, watermark-based mechanism to determine how far in time it has progressed.
+        super[DatabaseSequencer].awaitSnapshot(timestamp).flatMap(_ => snapshot(timestamp))
+      } else
+        EitherT.leftT[FutureUnlessShutdown, SequencerSnapshot](
+          BlockNotFound.InvalidTimestamp(timestamp): SequencerError
+        )
+    }
   }
 
   override def snapshot(

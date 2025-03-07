@@ -138,7 +138,7 @@ class InMemorySequencerStore(
   ): EitherT[FutureUnlessShutdown, SaveWatermarkError, Unit] =
     EitherT.pure[FutureUnlessShutdown, SaveWatermarkError] {
       watermark.getAndUpdate {
-        case None => Some(Watermark(ts, online = false))
+        case None => None
         case Some(current) if ts <= current.timestamp => Some(Watermark(ts, online = false))
         case Some(current) => Some(current)
       }.discard
@@ -246,7 +246,7 @@ class InMemorySequencerStore(
     }
 
   /** No implementation as only required for crash recovery */
-  override def deleteEventsPastWatermark(instanceIndex: Int)(implicit
+  override def deleteEventsAndCheckpointsPastWatermark(instanceIndex: Int)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]] =
     FutureUnlessShutdown.pure(watermark.get().map(_.timestamp))

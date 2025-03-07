@@ -98,15 +98,15 @@ trait SequencerWriterStore extends AutoCloseable {
   ): FutureUnlessShutdown[Unit] =
     store.goOffline(instanceIndex)
 
-  /** Delete all events that are ahead of the watermark of this sequencer. These events will not
-    * have been read and should be removed before returning the sequencer online. Should not be
-    * called alongside updating the watermark for this sequencer and only while the sequencer is
-    * offline. Returns the watermark that was used for the deletion.
+  /** Delete all events and checkpoints that are ahead of the watermark of this sequencer. These
+    * events will not have been read and should be removed before returning the sequencer online.
+    * Should not be called alongside updating the watermark for this sequencer and only while the
+    * sequencer is offline. Returns the watermark that was used for the deletion.
     */
-  def deleteEventsPastWatermark()(implicit
+  def deleteEventsAndCheckpointsPastWatermark()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]] =
-    store.deleteEventsPastWatermark(instanceIndex)
+    store.deleteEventsAndCheckpointsPastWatermark(instanceIndex)
 
   /** Record a counter checkpoints for all members at the given timestamp.
     */

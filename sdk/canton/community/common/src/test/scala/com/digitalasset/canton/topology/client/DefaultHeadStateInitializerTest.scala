@@ -28,7 +28,7 @@ class DefaultHeadStateInitializerTest
       val maxSequencedTimestamp =
         CantonTimestamp.assertFromInstant(Instant.parse("2024-11-19T12:00:00.000Z"))
       val maxEffectiveTimestamp = maxSequencedTimestamp.plusMillis(250)
-      when(topologyStoreMock.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true))
+      when(topologyStoreMock.maxTimestamp(SequencedTime.MaxValue, includeRejected = true))
         .thenReturn(
           FutureUnlessShutdown.pure(
             Some(SequencedTime(maxSequencedTimestamp) -> EffectiveTime(maxEffectiveTimestamp))
@@ -51,7 +51,7 @@ class DefaultHeadStateInitializerTest
     "not initialize when the topology store is empty" in {
       val topologyClientMock = mock[SynchronizerTopologyClientWithInit]
       val topologyStoreMock = mock[TopologyStore[TopologyStoreId.SynchronizerStore]]
-      when(topologyStoreMock.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true))
+      when(topologyStoreMock.maxTimestamp(SequencedTime.MaxValue, includeRejected = true))
         .thenReturn(FutureUnlessShutdown.pure(None))
       val initializer = new DefaultHeadStateInitializer(topologyStoreMock)
 
