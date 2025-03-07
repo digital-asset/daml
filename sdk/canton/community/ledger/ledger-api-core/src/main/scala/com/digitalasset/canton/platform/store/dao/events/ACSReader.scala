@@ -111,10 +111,6 @@ class ACSReader(
       eventProjectionProperties,
     )
       .watchTermination()(endSpanOnTermination(span))
-      .map(response => {
-        logger.warn(s"STREAMING RESPONSE: $response")
-        response
-      })
   }
 
   private def doStreamActiveContracts(
