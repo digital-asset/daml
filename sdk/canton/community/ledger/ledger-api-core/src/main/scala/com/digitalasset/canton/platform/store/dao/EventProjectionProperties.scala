@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
@@ -7,7 +7,6 @@ import com.digitalasset.canton.ledger.api.{CumulativeFilter, EventFormat, Templa
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
 import com.digitalasset.daml.lf.data.Ref.*
 
-import com.daml.error.{ContextualizedErrorLogger}
 import scala.collection.View
 
 /** This class encapsulates the logic of how contract arguments and interface views are being
@@ -79,7 +78,7 @@ object EventProjectionProperties {
       interfaceImplementedBy: Identifier => Set[(Identifier, Identifier)],
       resolveTypeConRef: TypeConRef => Set[Identifier],
       alwaysPopulateArguments: Boolean,
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): EventProjectionProperties = {
+  ): EventProjectionProperties = {
     EventProjectionProperties(
       verbose = eventFormat.verbose,
       templateWildcardWitnesses = templateWildcardWitnesses(eventFormat, alwaysPopulateArguments),
@@ -145,7 +144,7 @@ object EventProjectionProperties {
       apiEventFormat: EventFormat,
       interfaceImplementedBy: Identifier => Set[(Identifier, Identifier)],
       resolveTypeConRef: TypeConRef => Set[Identifier],
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Map[Option[String], Map[Identifier, Projection]] = {
+  ): Map[Option[String], Map[Identifier, Projection]] = {
     val partyFilterPairs =
       apiEventFormat.filtersByParty.view.map { case (p, f) =>
         (Some(p), f)
@@ -156,11 +155,8 @@ object EventProjectionProperties {
     } yield {
       val interfaceFilterProjections = for {
         interfaceFilter <- cumulativeFilter.interfaceFilters.view
-        _ = contextualizedErrorLogger.warn(s"INTERFACE FILTER: $interfaceFilter")
         interfaceId <- resolveTypeConRef(interfaceFilter.interfaceTypeRef)
-        _ = contextualizedErrorLogger.warn(s"INTERFACE ID: $interfaceId")
         (originalImplementor, implementor) <- interfaceImplementedBy(interfaceId).view
-        _ = contextualizedErrorLogger.warn(s"IMPLEMENTOR: $implementor")
       } yield implementor -> Projection(
         interfaces = if (interfaceFilter.includeView) Set((originalImplementor, interfaceId)) else Set.empty,
         createdEventBlob = interfaceFilter.includeCreatedEventBlob,
