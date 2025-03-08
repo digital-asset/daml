@@ -40,7 +40,7 @@ import com.digitalasset.canton.topology.{
   UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils}
+import com.digitalasset.canton.util.GrpcStreamingUtils
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 
@@ -193,12 +193,7 @@ class GrpcSequencerAdministrationService(
           EitherT.rightT[FutureUnlessShutdown, CantonError](EffectiveTime(timestamp))
       }
 
-      _ <- synchronizerTimeTracker
-        .awaitTick(referenceEffective.value)
-        .map(EitherT.right[CantonError](_).mapK(FutureUnlessShutdown.outcomeK).void)
-        .getOrElse(EitherTUtil.unitUS[CantonError])
-
-      /* find the sequencer snapshot that contains a sequenced timestamp that is >= to the reference/onboarding effective time
+      /* wait for the sequencer snapshot that contains a sequenced timestamp that is >= the reference/onboarding effective time
        if we take the sequencing time here, we might miss out topology transactions between sequencerSnapshot.lastTs and effectiveTime
        in the following scenario:
         t0: onboarding sequenced time
@@ -214,24 +209,25 @@ class GrpcSequencerAdministrationService(
         c) the sequencer snapshot will contain the correct counter for the onboarding sequencer
         d) the onboarding sequencer will properly subscribe from its own minimum counter that it gets initialized with from the sequencer snapshot
        */
-
       sequencerSnapshot <- sequencer
-        .snapshot(referenceEffective.value)
+        .awaitSnapshot(referenceEffective.value)
         .leftMap(_.toCantonError)
 
-      // wait for the snapshot's lastTs to be processed by the topology client,
-      // which implies that all topology transactions will have been properly processed and stored.
+      // wait for the sequencer snapshot's lastTs to be observed by the topology client,
+      // which implies that all topology transactions with a sequenced time up to including the
+      // sequencer snapshot's lastTs will have been properly processed and stored (albeit maybe not yet effective,
+      // but that's not relevent for the purpose of the topology snapshot to export).
       _ <- EitherT
         .right[CantonError](
           topologyClient
-            .awaitTimestamp(sequencerSnapshot.lastTs)
+            .awaitSequencedTimestamp(SequencedTime(sequencerSnapshot.lastTs))
             .getOrElse(FutureUnlessShutdown.unit)
         )
 
       topologySnapshot <- EitherT
         .right[CantonError](
           topologyStore.findEssentialStateAtSequencedTime(
-            SequencedTime(sequencerSnapshot.lastTs),
+            asOfInclusive = SequencedTime(sequencerSnapshot.lastTs),
             // we need to include the rejected transactions as well, because they might have an impact on the TopologyTimestampPlusEpsilonTracker
             includeRejected = true,
           )

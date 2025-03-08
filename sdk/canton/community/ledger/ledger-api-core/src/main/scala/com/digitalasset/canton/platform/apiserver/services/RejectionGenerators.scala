@@ -3,7 +3,13 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.error.{ContextualizedErrorLogger, DamlError}
+import com.daml.error.{
+  BaseError,
+  ContextualizedErrorLogger,
+  DamlError,
+  DamlErrorWithDefiniteAnswer,
+  NoLogging,
+}
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.{
   CommandExecutionErrors,
@@ -38,6 +44,8 @@ object ErrorCause {
       tolerance: NonNegativeFiniteDuration,
       transactionTrace: Option[String],
   ) extends ErrorCause
+
+  final case class RoutingFailed(err: BaseError) extends ErrorCause
 }
 
 object RejectionGenerators {
@@ -217,6 +225,13 @@ object RejectionGenerators {
           disclosedContractsWithSynchronizerId,
           synchronizerIdOfDisclosedContracts.toProtoPrimitive,
           commandsSynchronizerId.toProtoPrimitive,
+        )
+      case ErrorCause.RoutingFailed(baseError) =>
+        // TODO(#23334) Streamline ErrorCause usage
+        // TODO(#23334) This is logged again on this creation
+        new DamlErrorWithDefiniteAnswer(baseError.cause, baseError.throwableO)(
+          baseError.code,
+          NoLogging,
         )
     }
   }

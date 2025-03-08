@@ -6,9 +6,9 @@ package com.digitalasset.canton.ledger.participant.state.metrics
 import cats.data.EitherT
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.metrics.Timed
-import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.data.{Offset, ProcessedDisclosedContract}
-import com.digitalasset.canton.error.CantonBaseError
+import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.data.{CantonTimestamp, Offset, ProcessedDisclosedContract}
+import com.digitalasset.canton.error.{TransactionError, TransactionRoutingError}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.ledger.participant.state.SyncService.{
@@ -22,11 +22,11 @@ import com.digitalasset.canton.protocol.{LfContractId, LfSubmittedTransaction}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{LfKeyResolver, LfPartyId}
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.transaction.SubmittedTransaction
 import com.google.protobuf.ByteString
 
 import java.util.concurrent.CompletionStage
@@ -36,12 +36,14 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
     extends SyncService {
 
   override def submitTransaction(
-      submitterInfo: SubmitterInfo,
-      optSynchronizerId: Option[SynchronizerId],
-      transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
-      estimatedInterpretationCost: Long,
-      globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
+      synchronizerRank: SynchronizerRank,
+      routingSynchronizerState: RoutingSynchronizerState,
+      submitterInfo: SubmitterInfo,
+      transactionMeta: TransactionMeta,
+      // Currently, the estimated interpretation cost is not used
+      _estimatedInterpretationCost: Long,
+      keyResolver: LfKeyResolver,
       processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
   )(implicit
       traceContext: TraceContext
@@ -50,12 +52,13 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       metrics.services.write.submitTransaction,
       metrics.services.write.submitTransactionRunning,
       delegate.submitTransaction(
-        submitterInfo,
-        optSynchronizerId,
-        transactionMeta,
         transaction,
-        estimatedInterpretationCost,
-        globalKeyMapping,
+        synchronizerRank,
+        routingSynchronizerState,
+        submitterInfo,
+        transactionMeta,
+        _estimatedInterpretationCost,
+        keyResolver,
         processedDisclosedContracts,
       ),
     )
@@ -178,6 +181,40 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
     )
 
   // TODO(#23334): Time the operation
+  override def packageMapFor(
+      submitters: Set[LfPartyId],
+      informees: Set[LfPartyId],
+      vettingValidityTimestamp: CantonTimestamp,
+      prescribedSynchronizer: Option[SynchronizerId],
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[SynchronizerId, Map[LfPartyId, Set[PackageId]]]] =
+    delegate.packageMapFor(
+      submitters,
+      informees,
+      vettingValidityTimestamp,
+      prescribedSynchronizer,
+    )
+
+  // TODO(#23334): Time the operation
+  override def computeHighestRankedSynchronizerFromAdmissible(
+      submitterInfo: SubmitterInfo,
+      transaction: LfSubmittedTransaction,
+      transactionMeta: TransactionMeta,
+      admissibleSynchronizers: NonEmpty[Set[SynchronizerId]],
+      disclosedContractIds: List[LfContractId],
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerId] =
+    delegate.computeHighestRankedSynchronizerFromAdmissible(
+      submitterInfo,
+      transaction,
+      transactionMeta,
+      admissibleSynchronizers,
+      disclosedContractIds,
+    )
+
+  // TODO(#23334): Time the operation
   override def selectRoutingSynchronizer(
       submitterInfo: SubmitterInfo,
       transaction: LfSubmittedTransaction,
@@ -187,7 +224,11 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       transactionUsedForExternalSigning: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonBaseError, SynchronizerRank] =
+  ): EitherT[
+    FutureUnlessShutdown,
+    TransactionError,
+    (SynchronizerRank, RoutingSynchronizerState),
+  ] =
     delegate.selectRoutingSynchronizer(
       submitterInfo,
       transaction,

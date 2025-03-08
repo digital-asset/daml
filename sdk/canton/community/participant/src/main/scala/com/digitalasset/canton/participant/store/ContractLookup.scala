@@ -62,6 +62,10 @@ trait ContractLookup {
   def lookupStakeholders(ids: Set[LfContractId])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]]
+
+  def lookupSignatories(ids: Set[LfContractId])(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]]
 }
 
 trait ContractAndKeyLookup extends ContractLookup {
@@ -114,6 +118,11 @@ object ContractLookupAndVerification {
         OptionT.pure[FutureUnlessShutdown](None)
 
       override def lookupStakeholders(ids: Set[LfContractId])(implicit
+          traceContext: TraceContext
+      ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] =
+        EitherT.cond(ids.isEmpty, Map.empty, UnknownContracts(ids))
+
+      override def lookupSignatories(ids: Set[LfContractId])(implicit
           traceContext: TraceContext
       ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] =
         EitherT.cond(ids.isEmpty, Map.empty, UnknownContracts(ids))

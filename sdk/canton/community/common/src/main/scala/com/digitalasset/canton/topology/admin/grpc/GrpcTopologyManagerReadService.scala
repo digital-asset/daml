@@ -787,7 +787,7 @@ class GrpcTopologyManagerReadService(
           case Some(value) => EitherT.rightT[FutureUnlessShutdown, CantonError](value)
           case None =>
             val sequencedTimeF = synchronizerTopologyStore
-              .maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
+              .maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
               .map {
                 case Some((sequencedTime, _)) =>
                   Right(sequencedTime.value)

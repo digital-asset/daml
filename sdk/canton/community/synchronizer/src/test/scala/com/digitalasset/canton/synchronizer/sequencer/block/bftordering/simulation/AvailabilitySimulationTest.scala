@@ -125,7 +125,9 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
               Traced(
                 OrderingRequest(
                   "tx",
-                  ByteString.copyFromUtf8(f"$selfPeer-request-${simulationModel.requestIndex}"),
+                  ByteString.copyFromUtf8(
+                    f"${selfPeer.toProtoPrimitive}-request-${simulationModel.requestIndex}"
+                  ),
                 )
               )(
                 TraceContext.empty
@@ -393,8 +395,13 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
           BftBlockOrderer.Config(
             initialNetwork = Some(
               P2PNetworkConfig(
-                P2PServerConfig(peer.address, Some(peer.port)),
-                peerEndpoints.filterNot(_ == peer),
+                P2PServerConfig(
+                  address = peer.address,
+                  internalPort = Some(peer.port),
+                  externalAddress = peer.address,
+                  externalPort = peer.port,
+                ),
+                peerEndpoints = peerEndpoints.filterNot(_ == peer),
               )
             ),
             maxRequestsInBatch = MaxRequestsInBatch,

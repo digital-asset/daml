@@ -185,6 +185,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
         val newlyOnboardedPeersWithStores = newlyOnboardedPeerEndpoints.map { endpoint =>
           val simulationEpochStore = new SimulationEpochStore()
           val stores = BftOrderingStores(
+            // Creates a one-way connection from each new peer to already onboarded peer endpoints
             new SimulationP2PEndpointsStore(alreadyOnboardedPeerEndpoints.toSet),
             new SimulationAvailabilityStore(),
             simulationEpochStore,
@@ -476,12 +477,9 @@ class BftOrderingSimulationTestWithProgressiveOnboardingAndDelayNoFaults
 }
 
 class BftOrderingSimulationTestWithConcurrentOnboardingsNoFaults extends BftOrderingSimulationTest {
-
   override val numberOfRuns: Int = 3
-
   override val numberOfInitialPeers: Int = 1 // f = 0
-
-  private val numberOfOnboardedPeers = 3 // n = 4, f = 1
+  private val numberOfOnboardedPeers = 6 // n = 7, f = 2
 
   private val randomSourceToCreateSettings: Random =
     new Random(4) // Manually remove the seed for fully randomized local runs.

@@ -8,6 +8,7 @@ import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
   P2PEndpoint,
@@ -32,7 +33,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PureFun,
 }
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.{SequencerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.HexString
 import org.scalatest.Assertions.fail
@@ -96,7 +97,7 @@ object SimulationModuleSystem {
 
   object SimulationP2PNetworkManager {
     def fakeSequencerId(peer: P2PEndpoint): SequencerId =
-      SequencerId(UniqueIdentifier.tryCreate("ns", s"fake_$peer"))
+      bftordering.fakeSequencerId(peer.id.url)
   }
 
   private[simulation] trait SimulationModuleContext[MessageT]

@@ -9,7 +9,8 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.ReassignmentRef
-import com.digitalasset.canton.ledger.participant.state.SynchronizerRank
+import com.digitalasset.canton.error.TransactionRoutingError
+import com.digitalasset.canton.ledger.participant.state.{RoutingSynchronizerState, SynchronizerRank}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.reassignment.{
@@ -17,8 +18,6 @@ import com.digitalasset.canton.participant.protocol.reassignment.{
   ReassignmentValidation,
   ReassignmentValidationError,
 }
-import com.digitalasset.canton.participant.sync.TransactionRoutingError
-import com.digitalasset.canton.participant.sync.TransactionRoutingError.AutomaticReassignmentForTransactionFailure
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
@@ -26,6 +25,8 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 
 import scala.concurrent.{ExecutionContext, Future}
+
+import TransactionRoutingError.AutomaticReassignmentForTransactionFailure
 
 private[routing] class SynchronizerRankComputation(
     participantId: ParticipantId,

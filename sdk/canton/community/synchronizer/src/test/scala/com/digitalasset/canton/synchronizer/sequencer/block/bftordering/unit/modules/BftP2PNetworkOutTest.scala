@@ -80,7 +80,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
           context.selfMessages should contain only P2PNetworkOut.Network
             .Authenticated(
               otherInitialEndpointsTupled._1.id,
-              fakeSequencerId(otherInitialEndpointsTupled._1.toString),
+              fakeSequencerId(otherInitialEndpointsTupled._1.id.url),
             )
           context.extractSelfMessages().foreach(module.receive)
           initialPeersConnecting shouldBe true
@@ -95,7 +95,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
           authenticate(clientP2PNetworkManager, otherInitialEndpointsTupled._2)
           context.selfMessages should contain only P2PNetworkOut.Network.Authenticated(
             otherInitialEndpointsTupled._2.id,
-            fakeSequencerId(otherInitialEndpointsTupled._2.toString),
+            fakeSequencerId(otherInitialEndpointsTupled._2.id.url),
           )
           context.extractSelfMessages().foreach(module.receive)
           initialPeersConnecting shouldBe true
@@ -153,7 +153,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
           authenticate(
             clientP2PNetworkManager,
             otherInitialEndpointsTupled._3,
-            Some(fakeSequencerId(otherInitialEndpointsTupled._2.toString)),
+            Some(fakeSequencerId(otherInitialEndpointsTupled._2.id.url)),
           )
           context.selfMessages.foreach(module.receive) // Perform all authentications
         }
@@ -187,7 +187,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
 
           val authenticatedEndpoints =
             Set(otherInitialEndpointsTupled._1, otherInitialEndpointsTupled._2)
-          val sequencerIds = authenticatedEndpoints.map(e => fakeSequencerId(e.toString))
+          val sequencerIds = authenticatedEndpoints.map(e => fakeSequencerId(e.id.url))
 
           val networkMessageBody = BftOrderingMessageBody(BftOrderingMessageBody.Message.Empty)
           module.receive(
@@ -225,7 +225,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
           )
           context.extractSelfMessages().foreach(module.receive) // Authenticate all peers
 
-          val sequencerId = fakeSequencerId(otherInitialEndpointsTupled._1.toString)
+          val sequencerId = fakeSequencerId(otherInitialEndpointsTupled._1.id.url)
 
           val networkMessageBody = BftOrderingMessageBody(BftOrderingMessageBody.Message.Empty)
           module.receive(
@@ -624,7 +624,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
   ): Unit =
     fakeClientP2PNetworkManager.onSequencerIdActions(endpoint)(
       endpoint.id,
-      customSequencerId.getOrElse(fakeSequencerId(endpoint.toString)),
+      customSequencerId.getOrElse(fakeSequencerId(endpoint.id.url)),
     )
 
   private class FakeClientP2PNetworkManager(

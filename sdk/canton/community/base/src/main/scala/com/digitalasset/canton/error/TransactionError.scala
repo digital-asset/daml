@@ -3,7 +3,8 @@
 
 package com.digitalasset.canton.error
 
-import com.daml.error.ErrorCode
+import com.daml.error.{ContextualizedErrorLogger, ErrorCode}
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 
 trait TransactionError extends CantonBaseError {
 
@@ -14,6 +15,19 @@ trait TransactionError extends CantonBaseError {
     * for the time being.
     */
   final override def definiteAnswerO: Option[Boolean] = Some(definiteAnswer)
+}
+
+trait TransactionErrorPrettyPrinting extends TransactionError with PrettyPrinting {
+  override protected def pretty: Pretty[this.type] =
+    this.prettyOfString(_ =>
+      this.code.toMsg(
+        cause,
+        correlationId = None,
+        limit = None,
+      ) + "; " + ContextualizedErrorLogger.formatContextAsString(
+        context
+      )
+    )
 }
 
 /** Transaction errors are derived from BaseCantonError and need to be logged explicitly */

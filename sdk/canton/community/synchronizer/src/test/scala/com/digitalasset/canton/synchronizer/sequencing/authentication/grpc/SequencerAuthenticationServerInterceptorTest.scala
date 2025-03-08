@@ -21,6 +21,7 @@ import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationToken,
   AuthenticationTokenManagerConfig,
 }
+import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth.TokenFetcher
 import com.digitalasset.canton.synchronizer.sequencing.authentication.{
   MemberAuthenticationService,
   MemberAuthenticationStore,
@@ -137,11 +138,7 @@ class SequencerAuthenticationServerInterceptorTest
           Seq,
           (
             Endpoint("localhost", Port.tryCreate(10)),
-            (_ => EitherT.pure[FutureUnlessShutdown, Status](token)): TraceContext => EitherT[
-              FutureUnlessShutdown,
-              Status,
-              AuthenticationTokenWithExpiry,
-            ],
+            ((_: TraceContext) => EitherT.pure[FutureUnlessShutdown, Status](token)): TokenFetcher,
           ),
         )
         .toMap
@@ -173,12 +170,8 @@ class SequencerAuthenticationServerInterceptorTest
           (
             Endpoint("localhost", Port.tryCreate(10)),
             (
-                _ => EitherT.pure[FutureUnlessShutdown, Status](incorrectToken)
-            ): TraceContext => EitherT[
-              FutureUnlessShutdown,
-              Status,
-              AuthenticationTokenWithExpiry,
-            ],
+                (_: TraceContext) => EitherT.pure[FutureUnlessShutdown, Status](incorrectToken)
+            ): TokenFetcher,
           ),
         )
         .toMap

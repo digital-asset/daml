@@ -25,20 +25,6 @@ import com.digitalasset.canton.store.db.DbTest
 import com.digitalasset.canton.synchronizer.sequencer.*
 import com.digitalasset.canton.synchronizer.sequencer.SynchronizerSequencingTestUtils.deliverStoreEventWithPayloadWithDefaults
 import com.digitalasset.canton.synchronizer.sequencer.store.SaveLowerBoundError.BoundLowerThanExisting
-import com.digitalasset.canton.synchronizer.sequencer.store.{
-  CounterCheckpoint,
-  DeliverErrorStoreEvent,
-  DeliverStoreEvent,
-  PayloadId,
-  ReceiptStoreEvent,
-  RegisteredMember,
-  SavePayloadsError,
-  SaveWatermarkError,
-  Sequenced,
-  SequencerMemberId,
-  SequencerStore,
-  Watermark,
-}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{DefaultTestIdentities, Member, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -1323,12 +1309,15 @@ trait SequencerStoreTest
         val env = Env()
         import env.*
         for {
+          _ <- resetWatermark(ts(3)).valueOrFail("resetWatermark=3 failed")
+          watermark0 <- store.fetchWatermark(0)
           _ <- saveWatermark(ts(5)).valueOrFail("saveWatermark=5 failed")
           _ <- resetWatermark(ts(7)).valueOrFail("resetWatermark=7 failed")
           watermark1 <- store.fetchWatermark(0)
           _ <- resetWatermark(ts(4)).valueOrFail("resetWatermark=4 failed")
           watermark2 <- store.fetchWatermark(0)
         } yield {
+          watermark0 shouldBe None // unchanged
           watermark1 shouldBe Some(
             Watermark(ts(5), online = true)
           ) // ts(5) was not touched and still online
@@ -1345,7 +1334,7 @@ trait SequencerStoreTest
 
         for {
           _ <- saveWatermark(testWatermark).valueOrFail("saveWatermark")
-          watermark <- store.deleteEventsPastWatermark(0)
+          watermark <- store.deleteEventsAndCheckpointsPastWatermark(0)
         } yield {
           watermark shouldBe Some(testWatermark)
         }

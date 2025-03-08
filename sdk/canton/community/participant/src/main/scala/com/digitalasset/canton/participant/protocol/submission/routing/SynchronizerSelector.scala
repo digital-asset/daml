@@ -8,19 +8,20 @@ import cats.syntax.alternative.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyColl.*
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.ledger.participant.state.SynchronizerRank
+import com.digitalasset.canton.error.TransactionRoutingError
+import com.digitalasset.canton.ledger.participant.state.{RoutingSynchronizerState, SynchronizerRank}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.UsableSynchronizers
-import com.digitalasset.canton.participant.sync.TransactionRoutingError
-import com.digitalasset.canton.participant.sync.TransactionRoutingError.RoutingInternalError
-import com.digitalasset.canton.participant.sync.TransactionRoutingError.TopologyErrors.NoSynchronizerForSubmission
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ReassignmentTag.Target
 
 import scala.concurrent.ExecutionContext
+
+import TransactionRoutingError.RoutingInternalError
+import TransactionRoutingError.TopologyErrors.NoSynchronizerForSubmission
 
 private[routing] class SynchronizerSelectorFactory(
     admissibleSynchronizersComputation: AdmissibleSynchronizersComputation,
