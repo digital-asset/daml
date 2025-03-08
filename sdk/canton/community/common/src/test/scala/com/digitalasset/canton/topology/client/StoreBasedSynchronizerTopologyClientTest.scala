@@ -154,11 +154,11 @@ trait StoreBasedTopologySnapshotTest
         val fixture = new Fixture()
         import fixture.*
         val awaitSequencedTimestampF =
-          client.awaitSequencedTimestampUS(ts2).getOrElse(fail("expected future"))
+          client.awaitSequencedTimestamp(ts2).getOrElse(fail("expected future"))
 
         observed(SequencedTime(ts1), EffectiveTime(ts1))
         awaitSequencedTimestampF.isCompleted shouldBe false
-        observed(SequencedTime(ts2.immediatePredecessor), EffectiveTime(ts1))
+        observed(SequencedTime(ts2), EffectiveTime(ts1))
         awaitSequencedTimestampF.isCompleted shouldBe true
       }
 
@@ -167,7 +167,7 @@ trait StoreBasedTopologySnapshotTest
           val fixture = new Fixture()
           import fixture.*
           val awaitSequencedTimestampF =
-            client.awaitSequencedTimestampUS(ts2).getOrElse(fail("expected future"))
+            client.awaitSequencedTimestamp(ts2).getOrElse(fail("expected future"))
 
           updateHead(
             SequencedTime(ts1),
@@ -177,7 +177,7 @@ trait StoreBasedTopologySnapshotTest
           )
           awaitSequencedTimestampF.isCompleted shouldBe false
           updateHead(
-            SequencedTime(ts2.immediatePredecessor),
+            SequencedTime(ts2),
             EffectiveTime(ts1),
             ApproximateTime(ts1),
             potentialTopologyChange,
@@ -190,7 +190,7 @@ trait StoreBasedTopologySnapshotTest
         val fixture = new Fixture()
         import fixture.*
         observed(SequencedTime(ts1), EffectiveTime(CantonTimestamp.MinValue))
-        client.awaitSequencedTimestampUS(ts1) shouldBe None
+        client.awaitSequencedTimestamp(ts1) shouldBe None
       }
     }
 

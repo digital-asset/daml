@@ -233,6 +233,18 @@ class ParticipantNodeBootstrap(
           () => acsInspectionPerSynchronizer(),
         )
 
+      override def checkInsufficientParticipantPermissionForSignatoryParty(
+          party: PartyId,
+          forceFlags: ForceFlags,
+      )(implicit
+          traceContext: TraceContext
+      ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
+        checkInsufficientParticipantPermissionForSignatoryParty(
+          party,
+          forceFlags,
+          () => acsInspectionPerSynchronizer(),
+        )
+
     }
     topologyManager
   }

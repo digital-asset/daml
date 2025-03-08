@@ -4,8 +4,9 @@
 package com.digitalasset.canton.participant.protocol.submission.routing
 
 import cats.syntax.foldable.*
+import com.digitalasset.canton.error.TransactionRoutingError.UnableToQueryTopologySnapshot
+import com.digitalasset.canton.ledger.participant.state.RoutingSynchronizerState
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.sync.TransactionRoutingError.UnableToQueryTopologySnapshot
 import com.digitalasset.canton.participant.sync.{
   ConnectedSynchronizer,
   ConnectedSynchronizersLookup,
@@ -14,43 +15,12 @@ import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
-/** Provides state information about a synchronizer. */
-trait RoutingSynchronizerState {
-
-  val topologySnapshots: Map[SynchronizerId, TopologySnapshot]
-
-  /** Returns an either rather than an option since failure comes from disconnected synchronizers
-    * and we assume the participant to be connected to all synchronizers in `connectedSynchronizers`
-    */
-  def getTopologySnapshotAndPVFor(
-      synchronizerId: SynchronizerId
-  ): Either[UnableToQueryTopologySnapshot.Failed, (TopologySnapshot, ProtocolVersion)]
-
-  def getTopologySnapshotFor(
-      synchronizerId: SynchronizerId
-  ): Either[UnableToQueryTopologySnapshot.Failed, TopologySnapshot] =
-    getTopologySnapshotAndPVFor(synchronizerId).map(_._1)
-
-  def getTopologySnapshotFor(
-      synchronizerId: Target[SynchronizerId]
-  ): Either[UnableToQueryTopologySnapshot.Failed, Target[TopologySnapshot]] =
-    getTopologySnapshotAndPVFor(synchronizerId.unwrap).map(_._1).map(Target(_))
-
-  def getSynchronizersOfContracts(
-      coids: Seq[LfContractId]
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): FutureUnlessShutdown[Map[LfContractId, SynchronizerId]]
-}
-
-object RoutingSynchronizerState {
-  def apply(connectedSynchronizers: ConnectedSynchronizersLookup)(implicit
+object RoutingSynchronizerStateFactory {
+  def create(connectedSynchronizers: ConnectedSynchronizersLookup)(implicit
       traceContext: TraceContext
   ) = new RoutingSynchronizerStateImpl(connectedSynchronizers.snapshot.toMap)
 }

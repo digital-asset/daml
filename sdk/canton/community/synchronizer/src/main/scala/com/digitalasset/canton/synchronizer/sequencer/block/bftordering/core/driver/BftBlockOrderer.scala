@@ -9,25 +9,9 @@ import com.daml.jwt.JwtTimestampLeeway
 import com.daml.metrics.api.MetricsContext
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-import com.digitalasset.canton.config.{
-  AuthServiceConfig,
-  BasicKeepAliveServerConfig,
-  CantonConfigValidator,
-  CantonConfigValidatorInstances,
-  ClientConfig,
-  FullClientConfig,
-  KeepAliveClientConfig,
-  PemFileOrString,
-  ProcessingTimeout,
-  QueryCostMonitoringConfig,
-  ServerConfig,
-  StorageConfig,
-  TlsClientConfig,
-  TlsServerConfig,
-  UniformCantonConfigValidation,
-}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
@@ -37,6 +21,7 @@ import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.resource.{Storage, StorageSetup}
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.sequencer.api.v30.SequencerAuthenticationServiceGrpc
+import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.block.BlockFormat.{AcknowledgeTag, SendTag}
 import com.digitalasset.canton.synchronizer.block.{
@@ -53,7 +38,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.BftOrderingSequencerAdminService
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.Config
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.{
+  Config,
+  DefaultAuthenticationTokenManagerConfig,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.AvailabilityModuleConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule
@@ -64,6 +52,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.time.BftTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.authentication.ServerAuthenticatingServerFilter
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2PEndpointsStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.OrderingTopologyProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.{
@@ -124,7 +113,7 @@ final class BftBlockOrderer(
     protocolVersion: ProtocolVersion,
     clock: Clock,
     orderingTopologyProvider: OrderingTopologyProvider[PekkoEnv],
-    authenticationServices: Option[
+    authenticationServicesO: Option[
       AuthenticationServices
     ], // Owned and managed by the sequencer runtime, absent in some tests
     nodeParameters: CantonNodeParameters,
@@ -139,8 +128,6 @@ final class BftBlockOrderer(
     extends BlockOrderer
     with NamedLogging
     with FlagCloseableAsync {
-
-  import BftBlockOrderer.*
 
   require(
     sequencerSubscriptionInitialHeight >= BlockNumber.First,
@@ -188,23 +175,53 @@ final class BftBlockOrderer(
       noTracingLogger,
     )
 
-  private val p2pGrpcNetworking =
-    new GrpcNetworking(
-      servers = config.initialNetwork.toList.map { case P2PNetworkConfig(serverEndpoint, _, _) =>
-        createServer(serverEndpoint)
-      },
-      authenticationServices.map { as =>
-        GrpcNetworking.Authentication(
+  private val maybeAuthenticationServices =
+    Option
+      .when(config.initialNetwork.exists(_.endpointAuthentication.enabled))(
+        authenticationServicesO
+      )
+      .flatten
+
+  private val authenticationTokenManagerConfig =
+    config.initialNetwork
+      .map(_.endpointAuthentication.authToken)
+      .getOrElse(DefaultAuthenticationTokenManagerConfig)
+
+  private val maybeServerAuthenticatingFilter =
+    maybeAuthenticationServices.map { authenticationServices =>
+      new ServerAuthenticatingServerFilter(
+        synchronizerId,
+        sequencerId,
+        authenticationServices.syncCryptoForAuthentication.crypto,
+        Seq(protocolVersion),
+        authenticationTokenManagerConfig,
+        timeouts,
+        loggerFactory,
+      )
+    }
+
+  private val p2pGrpcNetworking = {
+    val maybeGrpcNetworkingAuthenticationInitialState =
+      maybeAuthenticationServices.map { authenticationServices =>
+        GrpcNetworking.AuthenticationInitialState(
           protocolVersion,
           synchronizerId,
           sequencerId,
-          as.syncCryptoForAuthentication,
+          authenticationServices,
+          authenticationTokenManagerConfig,
+          serverEndpoint = config.initialNetwork.map { initialNetwork =>
+            P2PEndpoint.fromEndpointConfig(initialNetwork.serverEndpoint.clientConfig)
+          },
           clock,
         )
-      },
+      }
+    new GrpcNetworking(
+      config.initialNetwork.map(_.serverEndpoint).map(createServer),
+      maybeGrpcNetworkingAuthenticationInitialState,
       timeouts,
       loggerFactory,
     )
+  }
 
   private val localStorage = {
     implicit val traceContext: TraceContext = TraceContext.empty
@@ -257,10 +274,10 @@ final class BftBlockOrderer(
     ),
   ) = createModuleSystem()
 
-  // Start the gRPC servers only now because they need the modules to be available before serving requests,
-  //  else tryCreateServerEndpoint could end up with a null input module. However, we still need
+  // Start the gRPC server only now because they need the modules to be available before serving requests,
+  //  else `tryCreateServerEndpoint` could end up with a `null` input module. However, we still need
   //  to create the networking component first because the modules depend on it.
-  p2pGrpcNetworking.serverRole.startServers()
+  p2pGrpcNetworking.serverRole.startServer()
 
   private def createModuleSystem() =
     PekkoModuleSystem.tryCreate(
@@ -393,16 +410,23 @@ final class BftBlockOrderer(
                 ),
                 executionContext,
               ),
-              authenticationServices.map(_.authenticationInterceptor).toList.asJava,
+              List( // Filters are applied in reverse order
+                maybeServerAuthenticatingFilter,
+                maybeAuthenticationServices.map(
+                  _.authenticationServerInterceptor
+                ),
+              ).flatten.asJava,
             )
           )
       // Also offer the authentication service on BFT P2P endpoints, so that the BFT orderers don't have to also know the sequencer API endpoints
-      authenticationServices.fold(logger.info("P2P authentication disabled")) { as =>
+      maybeAuthenticationServices.fold(
+        logger.info("P2P authentication disabled")
+      ) { authenticationServices =>
         logger.info("P2P authentication enabled")
         activeServerBuilder
           .addService(
             SequencerAuthenticationServiceGrpc.bindService(
-              as.sequencerAuthenticationService,
+              authenticationServices.sequencerAuthenticationService,
               executionContext,
             )
           )
@@ -453,16 +477,17 @@ final class BftBlockOrderer(
     blockSubscription.subscription().map(BlockFormat.blockOrdererBlockToRawLedgerBlock(logger))
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
-    Seq[AsyncOrSyncCloseable](
-      SyncCloseable("p2pGrpcNetworking.close()", p2pGrpcNetworking.close()),
-      SyncCloseable("p2pServerGrpcExecutor.shutdown()", p2pServerGrpcExecutor.shutdown()),
-      SyncCloseable("blockSubscription.close()", blockSubscription.close()),
-      SyncCloseable("epochStore.close()", epochStore.close()),
-      SyncCloseable("outputStore.close()", outputStore.close()),
-      SyncCloseable("availabilityStore.close()", availabilityStore.close()),
-      SyncCloseable("p2pEndpointsStore.close()", p2pEndpointsStore.close()),
-      SyncCloseable("shutdownPekkoActorSystem()", shutdownPekkoActorSystem()),
-    ) ++
+    maybeServerAuthenticatingFilter.map(_.closeAsync()).getOrElse(Seq.empty) ++
+      Seq[AsyncOrSyncCloseable](
+        SyncCloseable("p2pGrpcNetworking.close()", p2pGrpcNetworking.close()),
+        SyncCloseable("p2pServerGrpcExecutor.shutdown()", p2pServerGrpcExecutor.shutdown()),
+        SyncCloseable("blockSubscription.close()", blockSubscription.close()),
+        SyncCloseable("epochStore.close()", epochStore.close()),
+        SyncCloseable("outputStore.close()", outputStore.close()),
+        SyncCloseable("availabilityStore.close()", availabilityStore.close()),
+        SyncCloseable("p2pEndpointsStore.close()", p2pEndpointsStore.close()),
+        SyncCloseable("shutdownPekkoActorSystem()", shutdownPekkoActorSystem()),
+      ) ++
       Seq[Option[AsyncOrSyncCloseable]](
         Option.when(localStorage != sharedLocalStorage)(
           SyncCloseable("dedicatedLocalStorage.close()", localStorage.close())
@@ -614,19 +639,39 @@ object BftBlockOrderer {
       CantonConfigValidatorDerivation[Config]
   }
 
+  private val DefaultAuthenticationTokenManagerConfig: AuthenticationTokenManagerConfig =
+    AuthenticationTokenManagerConfig()
+
   final case class P2PNetworkConfig(
       serverEndpoint: P2PServerConfig,
-      peerEndpoints: Seq[P2PEndpointConfig],
+      endpointAuthentication: P2PNetworkAuthenticationConfig = P2PNetworkAuthenticationConfig(),
+      peerEndpoints: Seq[P2PEndpointConfig] = Seq.empty,
       overwriteStoredEndpoints: Boolean = false,
   ) extends UniformCantonConfigValidation
   object P2PNetworkConfig {
-    implicit val bftNetworkCanonConfigValidator: CantonConfigValidator[P2PNetworkConfig] =
+    implicit val p2pNetworkCantonConfigValidator: CantonConfigValidator[P2PNetworkConfig] =
       CantonConfigValidatorDerivation[P2PNetworkConfig]
   }
 
+  final case class P2PNetworkAuthenticationConfig(
+      authToken: AuthenticationTokenManagerConfig = DefaultAuthenticationTokenManagerConfig,
+      enabled: Boolean = true,
+  ) extends UniformCantonConfigValidation
+  object P2PNetworkAuthenticationConfig {
+    implicit val bftNetworAuthenticationCantonConfigValidator
+        : CantonConfigValidator[P2PNetworkAuthenticationConfig] =
+      CantonConfigValidatorDerivation[P2PNetworkAuthenticationConfig]
+  }
+
+  /** If [[externalAddress]] and [[externalPort]] must be configured correctly for the client to
+    * correctly authenticate the server, as the client tells the server its endpoint for
+    * authentication based on this information.
+    */
   final case class P2PServerConfig(
       override val address: String,
       override val internalPort: Option[Port] = None,
+      externalAddress: String,
+      externalPort: Port,
       tls: Option[TlsServerConfig] = None,
       override val maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
   ) extends ServerConfig
@@ -641,13 +686,8 @@ object BftBlockOrderer {
 
     override def serverCertChainFile: Option[PemFileOrString] = tls.map(_.certChainFile)
 
-    def clientConfig: FullClientConfig =
-      FullClientConfig(
-        address,
-        port,
-        tls = tls.map(_.clientConfig),
-        keepAliveClient = None,
-      )
+    def clientConfig: P2PEndpointConfig =
+      P2PEndpointConfig(externalAddress, externalPort, tls.map(_.clientConfig))
   }
   object P2PServerConfig {
     implicit val adminServerConfigCantonConfigValidator: CantonConfigValidator[P2PServerConfig] = {

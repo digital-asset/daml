@@ -353,7 +353,7 @@ class StoreBasedSynchronizerOutbox(
   private def maxAuthorizedStoreTimestamp()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
-    authorizedStore.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
+    authorizedStore.maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
 
   override protected def onClosed(): Unit = {
     val closeables = maybeObserverCloseable.toList ++ List(handle)

@@ -17,6 +17,7 @@ import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationToken,
   AuthenticationTokenManagerConfig,
 }
+import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth.TokenFetcher
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -37,11 +38,7 @@ final case class AuthenticationTokenWithExpiry(
   * ...]` but if a token is already available will be completed immediately with that token.
   */
 class AuthenticationTokenManager(
-    obtainToken: TraceContext => EitherT[
-      FutureUnlessShutdown,
-      Status,
-      AuthenticationTokenWithExpiry,
-    ],
+    obtainToken: TokenFetcher,
     isClosed: => Boolean,
     config: AuthenticationTokenManagerConfig,
     clock: Clock,

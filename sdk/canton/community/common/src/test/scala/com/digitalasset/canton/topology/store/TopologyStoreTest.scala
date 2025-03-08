@@ -226,13 +226,13 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
           watermarkStore1 <- store1.currentDispatchingWatermark
           maxTimestampStore1 <- store1.maxTimestamp(
-            CantonTimestamp.MaxValue,
+            SequencedTime.MaxValue,
             includeRejected = true,
           )
 
           watermarkStore2 <- store2.currentDispatchingWatermark
           maxTimestampStore2 <- store2.maxTimestamp(
-            CantonTimestamp.MaxValue,
+            SequencedTime.MaxValue,
             includeRejected = true,
           )
 
@@ -253,9 +253,33 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
             _ <- update(store, ts1, add = Seq(nsd_p1, dop_synchronizer1_proposal))
             _ <- update(store, ts2, add = Seq(otk_p1))
             _ <- update(store, ts5, add = Seq(dtc_p2_synchronizer1))
-            _ <- update(store, ts6, add = Seq(mds_med1_synchronizer1))
+            // in the following updates to the store, we add the same onboarding transaction twice
+            // for each type of node (participant, mediator, sequencer), to test that
+            // findFirstTrustCertificateForParticipant (and respectively for mediator and sequencer)
+            // really finds the onboarding transaction with the lowest serial and lowest effective time.
+            _ <- update(
+              store,
+              ts6,
+              add = Seq(mds_med1_synchronizer1, dtc_p2_synchronizer1),
+              removeMapping =
+                Map(dtc_p2_synchronizer1.mapping.uniqueKey -> dtc_p2_synchronizer1.serial),
+            )
+            _ <- update(
+              store,
+              ts7,
+              add = Seq(mds_med1_synchronizer1, sds_seq1_synchronizer1),
+              removeMapping =
+                Map(mds_med1_synchronizer1.mapping.uniqueKey -> mds_med1_synchronizer1.serial),
+            )
+            _ <- update(
+              store,
+              ts8,
+              add = Seq(sds_seq1_synchronizer1),
+              removeMapping =
+                Map(sds_seq1_synchronizer1.mapping.uniqueKey -> sds_seq1_synchronizer1.serial),
+            )
 
-            maxTs <- store.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
+            maxTs <- store.maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
             retrievedTx <- store.findStored(CantonTimestamp.MaxValue, nsd_p1)
             txProtocolVersion <- store.findStoredForVersion(
               CantonTimestamp.MaxValue,
@@ -314,8 +338,11 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
             dtsTx <- store.findFirstTrustCertificateForParticipant(
               dtc_p2_synchronizer1.mapping.participantId
             )
+            sdsTx <- store.findFirstSequencerStateForSequencer(
+              sds_seq1_synchronizer1.mapping.active.headOption.getOrElse(fail())
+            )
           } yield {
-            assert(maxTs.contains((SequencedTime(ts6), EffectiveTime(ts6))))
+            assert(maxTs.contains((SequencedTime(ts8), EffectiveTime(ts8))))
             retrievedTx.map(_.transaction) shouldBe Some(nsd_p1)
             txProtocolVersion.map(_.transaction) shouldBe Some(nsd_p1)
 
@@ -345,9 +372,14 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
             removedByMappingHash.flatMap(_.validUntil) shouldBe Some(EffectiveTime(ts4))
             removedByTxHash.flatMap(_.validUntil) shouldBe Some(EffectiveTime(ts4))
 
-            mdsTx.map(_.transaction) shouldBe Some(mds_med1_synchronizer1)
+            dtsTx.value.transaction shouldBe dtc_p2_synchronizer1
+            dtsTx.value.validFrom.value shouldBe ts5
 
-            dtsTx.map(_.transaction) shouldBe Some(dtc_p2_synchronizer1)
+            mdsTx.value.transaction shouldBe mds_med1_synchronizer1
+            mdsTx.value.validFrom.value shouldBe ts6
+
+            sdsTx.value.transaction shouldBe sds_seq1_synchronizer1
+            sdsTx.value.validFrom.value shouldBe ts7
           }
         }
         "able to filter with inspect" in {

@@ -17,6 +17,7 @@ import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationTokenManagerConfig,
 }
 import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.Status
 import org.mockito.ArgumentMatchersSugar
@@ -179,7 +180,7 @@ class AuthenticationTokenManagerTest extends AnyWordSpec with BaseTest with HasE
     val mck = new ObtainTokenMock
     val clock = clockO.getOrElse(AuthenticationTokenManagerTest.mockClock)
     val tokenManager = new AuthenticationTokenManager(
-      _ => mck.obtain(),
+      (_: TraceContext) => mck.obtain(),
       false,
       AuthenticationTokenManagerConfig(),
       clock,

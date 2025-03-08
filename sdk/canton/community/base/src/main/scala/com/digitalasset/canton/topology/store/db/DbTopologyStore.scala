@@ -371,7 +371,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       sql" AND is_proposal = false" ++
         sql" AND operation = ${TopologyChangeOp.Replace}" ++
         sql" AND transaction_type = ${SequencerSynchronizerState.code}",
-      orderBy = " ORDER BY serial_counter ",
+      orderBy = " ORDER BY serial_counter, valid_from ",
       operation = "firstSequencerState",
     ).map(
       _.collectOfMapping[SequencerSynchronizerState]
@@ -395,7 +395,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       sql" AND is_proposal = false" ++
         sql" AND operation = ${TopologyChangeOp.Replace}" ++
         sql" AND transaction_type = ${MediatorSynchronizerState.code}",
-      orderBy = " ORDER BY serial_counter ",
+      orderBy = " ORDER BY serial_counter, valid_from ",
       operation = "firstMediatorState",
     ).map(
       _.collectOfMapping[MediatorSynchronizerState]
@@ -421,7 +421,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
         sql" AND transaction_type = ${SynchronizerTrustCertificate.code}" ++
         sql" AND identifier = ${participant.identifier} AND namespace = ${participant.namespace}",
       limit = storage.limit(1),
-      orderBy = " ORDER BY serial_counter ",
+      orderBy = " ORDER BY serial_counter, valid_from ",
       operation = "participantFirstTrustCertificate",
     ).map(
       _.collectOfMapping[SynchronizerTrustCertificate]
@@ -478,13 +478,13 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       operation = functionFullName,
     ).map(_.result.mapFilter(TopologyStore.Change.selectTopologyDelay))
 
-  override def maxTimestamp(sequencedTime: CantonTimestamp, includeRejected: Boolean)(implicit
+  override def maxTimestamp(sequencedTime: SequencedTime, includeRejected: Boolean)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] = {
     logger.debug(s"Querying max timestamp")
 
     queryForTransactions(
-      sql" AND sequenced < $sequencedTime ",
+      sql" AND sequenced <= ${sequencedTime.value} ",
       includeRejected = includeRejected,
       limit = storage.limit(1),
       orderBy = " ORDER BY valid_from DESC",

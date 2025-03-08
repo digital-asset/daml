@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.crypto.provider.symbolic
 
-import cats.data.{EitherT, OptionT}
+import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -43,11 +43,6 @@ class SymbolicCrypto(
   )(fn: TraceContext => EitherT[FutureUnlessShutdown, E, A]): A =
     process(description)(fn(_).valueOr(err => sys.error(s"Failed operation $description: $err")))
 
-  private def processO[A](
-      description: String
-  )(fn: TraceContext => OptionT[FutureUnlessShutdown, A]): Option[A] =
-    process(description)(fn(_).value)
-
   private def process[A](description: String)(fn: TraceContext => FutureUnlessShutdown[A]): A =
     TraceContext.withNewTraceContext { implicit traceContext =>
       timeouts.default.await(description) {
@@ -55,21 +50,6 @@ class SymbolicCrypto(
           .onShutdown(sys.error("aborted due to shutdown"))
       }
     }
-
-  def getOrGenerateSymbolicSigningKey(
-      name: String,
-      usage: NonEmpty[Set[SigningKeyUsage]],
-  ): SigningPublicKey =
-    processO("get or generate symbolic signing key") { implicit traceContext =>
-      cryptoPublicStore
-        .findSigningKeyIdByName(KeyName.tryCreate(name))
-    }.getOrElse(generateSymbolicSigningKey(Some(name), usage))
-
-  def getOrGenerateSymbolicEncryptionKey(name: String): EncryptionPublicKey =
-    processO("get or generate symbolic encryption key") { implicit traceContext =>
-      cryptoPublicStore
-        .findEncryptionKeyIdByName(KeyName.tryCreate(name))
-    }.getOrElse(generateSymbolicEncryptionKey(Some(name)))
 
   /** Generates a new symbolic signing keypair and stores the public key in the public store */
   def generateSymbolicSigningKey(

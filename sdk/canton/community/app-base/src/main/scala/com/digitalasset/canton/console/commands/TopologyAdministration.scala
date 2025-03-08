@@ -1486,7 +1486,7 @@ class TopologyAdministrationGroup(
         ),
         mustFullyAuthorize: Boolean = false,
         store: TopologyStoreId = TopologyStoreId.Authorized,
-        force: ForceFlags = ForceFlags.none,
+        forceFlags: ForceFlags = ForceFlags.none,
     ): SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant] = {
 
       val currentO = findCurrent(party, store)
@@ -1532,7 +1532,7 @@ class TopologyAdministrationGroup(
           synchronize = synchronize,
           mustFullyAuthorize = mustFullyAuthorize,
           store = store,
-          forceFlags = force,
+          forceFlags = forceFlags,
         )
       } else {
         // we would remove the last participant, therefore we issue a REMOVE
@@ -1547,7 +1547,7 @@ class TopologyAdministrationGroup(
           synchronize = synchronize,
           mustFullyAuthorize = mustFullyAuthorize,
           store = store,
-          forceFlags = force,
+          forceFlags = forceFlags,
         )
 
       }

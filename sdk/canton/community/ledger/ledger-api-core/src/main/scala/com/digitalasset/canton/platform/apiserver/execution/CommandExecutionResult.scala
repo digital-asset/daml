@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 
 import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.{RoutingSynchronizerState, SynchronizerRank}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
@@ -37,13 +38,37 @@ import com.digitalasset.daml.lf.value.Value
   *   of the `disclosed_contracts` provided as part of the command submission by the client, as
   *   superfluously-provided contracts are discarded by the Daml engine.
   */
-private[canton] final case class CommandExecutionResult(
+private[canton] final case class CommandInterpretationResult(
     submitterInfo: state.SubmitterInfo,
-    optSynchronizerId: Option[SynchronizerId],
     transactionMeta: state.TransactionMeta,
     transaction: SubmittedTransaction,
     dependsOnLedgerTime: Boolean,
     interpretationTimeNanos: Long,
     globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
     processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+    // TODO(#23334): Consider removing the prescribed synchronizer decision from command interpreter
+    //               and factor this field out of here as well.
+    optSynchronizerId: Option[SynchronizerId],
+) {
+  def toCommandExecutionResult(
+      synchronizerRank: SynchronizerRank,
+      routingSynchronizerState: RoutingSynchronizerState,
+  ): CommandExecutionResult =
+    CommandExecutionResult(this, synchronizerRank, routingSynchronizerState)
+}
+
+/** The result of command execution.
+  *
+  * @param commandInterpretationResult
+  *   The result of command interpretation
+  * @param synchronizerRank
+  *   The rank of the synchronizer that should be used for routing
+  * @param routingSynchronizerState
+  *   the synchronizer state that was used for computing the synchronizer rank and should be used
+  *   for the rest of phase 1 of the transaction protocol.
+  */
+private[apiserver] final case class CommandExecutionResult(
+    commandInterpretationResult: CommandInterpretationResult,
+    synchronizerRank: SynchronizerRank,
+    routingSynchronizerState: RoutingSynchronizerState,
 )

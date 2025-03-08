@@ -64,8 +64,8 @@ public abstract class InterfaceCompanion<I, Id, View>
       Set<String> signatories,
       Set<String> observers)
       throws IllegalArgumentException {
-    Optional<DamlRecord> maybeRecord = Optional.ofNullable(interfaceViews.get(TEMPLATE_ID));
-    Optional<DamlRecord> maybeFailedRecord = Optional.ofNullable(interfaceViews.get(TEMPLATE_ID));
+    Optional<DamlRecord> maybeRecord =
+        Optional.ofNullable(interfaceViews.get(TEMPLATE_ID_WITH_PACKAGE_ID));
     Id id = newContractId.apply(contractId);
 
     return maybeRecord
@@ -76,15 +76,8 @@ public abstract class InterfaceCompanion<I, Id, View>
             })
         .orElseThrow(
             () ->
-                maybeFailedRecord
-                    .map(
-                        record ->
-                            new IllegalArgumentException(
-                                "Failed interface view for " + TEMPLATE_ID))
-                    .orElseThrow(
-                        () ->
-                            new IllegalArgumentException(
-                                "interface view of " + TEMPLATE_ID + " not found.")));
+                new IllegalArgumentException(
+                    "interface view of " + TEMPLATE_ID_WITH_PACKAGE_ID + " not found."));
   }
 
   @Override

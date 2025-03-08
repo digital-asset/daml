@@ -471,6 +471,7 @@ class StartableStoppableLedgerApiServer(
       )
     ),
     partyTopologyEvents = config.cantonParameterConfig.experimentalEnableTopologyEvents,
+    topologyAwarePackageSelection = config.serverConfig.topologyAwarePackageSelection.enabled,
   )
 
   private def startHttpApiIfEnabled(packageSyncService: PackageSyncService): ResourceOwner[Unit] =

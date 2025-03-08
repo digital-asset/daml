@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.topology.client
 
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.topology.processing.SequencedTime
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -32,7 +32,7 @@ final class DefaultHeadStateInitializer(store: TopologyStore[TopologyStoreId.Syn
       traceContext: TraceContext,
   ): FutureUnlessShutdown[SynchronizerTopologyClientWithInit] =
     store
-      .maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
+      .maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
       .map { maxTimestamp =>
         maxTimestamp.foreach { case (sequenced, effective) =>
           client.updateHead(

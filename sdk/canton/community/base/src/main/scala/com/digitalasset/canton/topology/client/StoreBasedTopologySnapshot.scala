@@ -63,7 +63,7 @@ class StoreBasedTopologySnapshot(
         filterNamespace,
       )
 
-  override private[client] def loadVettedPackages(
+  override def loadVettedPackages(
       participant: ParticipantId
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[PackageId, VettedPackage]] =
     findTransactions(

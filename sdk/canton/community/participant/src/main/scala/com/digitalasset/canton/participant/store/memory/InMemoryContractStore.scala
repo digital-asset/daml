@@ -126,6 +126,15 @@ class InMemoryContractStore(
     EitherT.cond(res.sizeCompare(ids) == 0, res.toMap, UnknownContracts(ids -- res.keySet))
   }
 
+  override def lookupSignatories(ids: Set[LfContractId])(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] = {
+    val res = contracts.filter { case (cid, _) => ids.contains(cid) }.map { case (cid, c) =>
+      (cid, c.metadata.signatories)
+    }
+    EitherT.cond(res.sizeCompare(ids) == 0, res.toMap, UnknownContracts(ids -- res.keySet))
+  }
+
   override def contractCount()(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
     FutureUnlessShutdown.pure(contracts.size)
 }

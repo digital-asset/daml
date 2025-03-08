@@ -13,6 +13,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModuleMetrics.emitNonCompliance
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
 
 trait PbftMessageValidator {
@@ -209,32 +210,40 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
     val canonicalCommitSet = prePrepare.canonicalCommitSet.sortedCommits
     val epochNumber = epoch.info.number
 
+    def validate(topology: OrderingTopology) =
+      for {
+        _ <- Either.cond(
+          topology.hasStrongQuorum(canonicalCommitSet.size),
+          (), {
+            emitNonComplianceMetrics(prePrepare)
+            s"Canonical commit set for block ${prePrepare.blockMetadata} has size ${canonicalCommitSet.size} " +
+              s"which is below the strong quorum of ${topology.strongQuorum}"
+          },
+        )
+        _ <- canonicalCommitSet.traverse(commit =>
+          Either.cond(
+            topology.contains(commit.from),
+            (), {
+              emitNonComplianceMetrics(prePrepare)
+              s"Canonical commit set for block ${prePrepare.blockMetadata} contains commit from ${commit.from} " +
+                s"that is not part of current topology ${topology.peers}"
+            },
+          )
+        )
+      } yield ()
+
     canonicalCommitSet
       .map(_.message.blockMetadata.epochNumber)
       .headOption
       .map { canonicalCommitSetEpoch =>
         val previousEpochNumber = epochNumber - 1
-        val messagePrefix =
-          s"Canonical commit set for block ${prePrepare.blockMetadata} has size ${canonicalCommitSet.size} " +
-            "which is below the strong quorum of"
+
         if (canonicalCommitSetEpoch == epochNumber) {
           val topology = epoch.currentMembership.orderingTopology
-          Either.cond(
-            topology.hasStrongQuorum(canonicalCommitSet.size),
-            (), {
-              emitNonComplianceMetrics(prePrepare)
-              s"$messagePrefix ${topology.strongQuorum}"
-            },
-          )
+          validate(topology)
         } else if (canonicalCommitSetEpoch == previousEpochNumber) {
           val topology = epoch.previousMembership.orderingTopology
-          Either.cond(
-            topology.hasStrongQuorum(canonicalCommitSet.size),
-            (), {
-              emitNonComplianceMetrics(prePrepare)
-              s"$messagePrefix ${topology.strongQuorum}"
-            },
-          )
+          validate(topology)
         } else {
           emitNonComplianceMetrics(prePrepare)
           Left(

@@ -64,11 +64,11 @@ final class CachingSynchronizerTopologyClient(
 
   private val maxTimestampCache: TracedAsyncLoadingCache[
     FutureUnlessShutdown,
-    CantonTimestamp,
+    SequencedTime,
     Option[(SequencedTime, EffectiveTime)],
   ] = ScaffeineCache.buildTracedAsync[
     FutureUnlessShutdown,
-    CantonTimestamp,
+    SequencedTime,
     Option[(SequencedTime, EffectiveTime)],
   ](
     cache = cachingConfigs.synchronizerClientMaxTimestamp.buildScaffeine(),
@@ -164,6 +164,10 @@ final class CachingSynchronizerTopologyClient(
   )(implicit traceContext: TraceContext): Option[FutureUnlessShutdown[Unit]] =
     delegate.awaitTimestamp(timestamp)
 
+  override def awaitSequencedTimestamp(timestampInclusive: SequencedTime)(implicit
+      traceContext: TraceContext
+  ): Option[FutureUnlessShutdown[Unit]] = delegate.awaitSequencedTimestamp(timestampInclusive)
+
   override def approximateTimestamp: CantonTimestamp = delegate.approximateTimestamp
 
   override def currentSnapshotApproximation(implicit
@@ -224,7 +228,7 @@ final class CachingSynchronizerTopologyClient(
     super.setSynchronizerTimeTracker(tracker)
   }
 
-  override def awaitMaxTimestamp(sequencedTime: CantonTimestamp)(implicit
+  override def awaitMaxTimestamp(sequencedTime: SequencedTime)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
     maxTimestampCache.get(sequencedTime)
@@ -315,7 +319,7 @@ private class ForwardingTopologySnapshotClient(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PartyId]] =
     parent.inspectKnownParties(filterParty, filterParticipant)
 
-  override private[client] def loadVettedPackages(participant: ParticipantId)(implicit
+  override def loadVettedPackages(participant: ParticipantId)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[PackageId, VettedPackage]] = parent.loadVettedPackages(participant)
 
@@ -545,7 +549,7 @@ class CachingTopologySnapshot(
   ): FutureUnlessShutdown[Map[ParticipantId, ParticipantAttributes]] =
     participantCache.getAll(participants).map(_.collect { case (k, Some(v)) => (k, v) })
 
-  override private[client] def loadVettedPackages(participant: ParticipantId)(implicit
+  override def loadVettedPackages(participant: ParticipantId)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[PackageId, VettedPackage]] =
     packageVettingCache.get(participant)

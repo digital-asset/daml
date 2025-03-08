@@ -3,18 +3,20 @@
 
 package com.digitalasset.canton.sequencing.authentication.grpc
 
-import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.getToken
-import com.digitalasset.canton.sequencing.authentication.grpc.SequencerClientTokenAuthentication.ReauthorizationClientInterceptor
+import com.digitalasset.canton.sequencing.authentication.grpc.SequencerClientTokenAuthentication.{
+  ReauthorizationClientInterceptor,
+  authenticationMetadata,
+}
 import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationToken,
   AuthenticationTokenManagerConfig,
 }
+import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth.TokenFetcher
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -75,27 +77,25 @@ private[grpc] class SequencerClientTokenAuthentication(
         )
         endpoint <- Option(clientEagAttrs.get(Endpoint.ATTR_ENDPOINT))
       } yield endpoint
+
+      logger.debug(s"Detected client endpoint $maybeEndpoint")(TraceContext.empty)
       val tokenManager = getTokenManager(maybeEndpoint)
 
       implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
       getToken(tokenManager)
         .fold(
           applier.fail,
-          token => applier.apply(generateMetadata(token, maybeEndpoint)),
+          token =>
+            applier.apply(
+              authenticationMetadata(
+                synchronizerId,
+                member,
+                token,
+                maybeEndpoint,
+              )
+            ),
         )
         .discard
-    }
-
-    private def generateMetadata(
-        token: AuthenticationToken,
-        maybeEndpoint: Option[Endpoint],
-    ): Metadata = {
-      val metadata = new Metadata()
-      metadata.put(Constant.MEMBER_ID_METADATA_KEY, member.toProtoPrimitive)
-      metadata.put(Constant.AUTH_TOKEN_METADATA_KEY, token)
-      metadata.put(Constant.SYNCHRONIZER_ID_METADATA_KEY, synchronizerId.toProtoPrimitive)
-      maybeEndpoint.foreach(endpoint => metadata.put(Constant.ENDPOINT_METADATA_KEY, endpoint))
-      metadata
     }
   }
 }
@@ -105,12 +105,7 @@ object SequencerClientTokenAuthentication {
   def apply(
       synchronizerId: SynchronizerId,
       member: Member,
-      obtainTokenPerEndpoint: NonEmpty[
-        Map[
-          Endpoint,
-          TraceContext => EitherT[FutureUnlessShutdown, Status, AuthenticationTokenWithExpiry],
-        ]
-      ],
+      obtainTokenPerEndpoint: NonEmpty[Map[Endpoint, TokenFetcher]],
       isClosed: => Boolean,
       tokenManagerConfig: AuthenticationTokenManagerConfig,
       clock: Clock,
@@ -173,5 +168,19 @@ object SequencerClientTokenAuthentication {
         }
       }
     }
+  }
+
+  def authenticationMetadata(
+      synchronizerId: SynchronizerId,
+      member: Member,
+      token: AuthenticationToken,
+      maybeEndpoint: Option[Endpoint] = None,
+      into: Metadata = new Metadata(),
+  ): Metadata = {
+    into.put(Constant.SYNCHRONIZER_ID_METADATA_KEY, synchronizerId.toProtoPrimitive)
+    into.put(Constant.MEMBER_ID_METADATA_KEY, member.toProtoPrimitive)
+    into.put(Constant.AUTH_TOKEN_METADATA_KEY, token)
+    maybeEndpoint.foreach(endpoint => into.put(Constant.ENDPOINT_METADATA_KEY, endpoint))
+    into
   }
 }
