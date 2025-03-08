@@ -23,7 +23,7 @@ import com.digitalasset.canton.integration.{
   CommunityEnvironmentDefinition,
 }
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLogging}
-import com.digitalasset.canton.platform.apiserver.execution.CommandExecutionResult
+import com.digitalasset.canton.platform.apiserver.execution.CommandInterpretationResult
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionEncoder
 import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.topology.SynchronizerId
@@ -207,7 +207,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
   }
 
   def buildV1Hash(
-      commandExecutionResult: CommandExecutionResult,
+      commandExecutionResult: CommandInterpretationResult,
       transactionUUID: UUID,
       mediatorGroup: PositiveInt,
       synchronizerId: SynchronizerId,
@@ -240,7 +240,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
     import env.*
     forAll {
       (
-          commandExecutionResult: CommandExecutionResult,
+          commandExecutionResult: CommandInterpretationResult,
           synchronizerId: SynchronizerId,
           transactionUUID: UUID,
           mediatorGroup: PositiveInt,
@@ -255,7 +255,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
         )
 
         val result = for {
-          encoded <- encoder.serializeCommandExecutionResult(
+          encoded <- encoder.serializeCommandInterpretationResult(
             commandExecutionResult,
             synchronizerId,
             transactionUUID,

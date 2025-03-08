@@ -22,7 +22,8 @@ final class GrpcServerHandle[NetworkMessage](
 
   override def onError(t: Throwable): Unit = {
     logger.info(
-      s"a client errored (${t.getMessage}), connection severed, cleaning up client handle"
+      s"a client errored (${t.getMessage}): connection severed, cleaning up client handle",
+      t,
     )(TraceContext.empty)
     cleanupClientHandle(clientHandle)
   }

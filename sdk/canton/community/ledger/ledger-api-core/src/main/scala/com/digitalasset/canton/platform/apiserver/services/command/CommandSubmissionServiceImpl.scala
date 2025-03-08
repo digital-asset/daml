@@ -13,6 +13,7 @@ import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.{Commands as ApiCommands, SubmissionId}
 import com.digitalasset.canton.ledger.configuration.LedgerTimeModel
 import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.SubmissionResult
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
@@ -51,7 +52,7 @@ import scala.util.{Failure, Success, Try}
 private[apiserver] object CommandSubmissionServiceImpl {
 
   def createApiService(
-      submissionSyncService: state.SubmissionSyncService,
+      syncService: state.SyncService,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
       seedService: SeedService,
@@ -63,7 +64,7 @@ private[apiserver] object CommandSubmissionServiceImpl {
       executionContext: ExecutionContext,
       tracer: Tracer,
   ): CommandSubmissionService & AutoCloseable = new CommandSubmissionServiceImpl(
-    submissionSyncService,
+    syncService,
     timeProvider,
     timeProviderType,
     seedService,
@@ -72,7 +73,6 @@ private[apiserver] object CommandSubmissionServiceImpl {
     metrics,
     loggerFactory,
   )
-
 }
 
 private[apiserver] final class CommandSubmissionServiceImpl private[services] (
@@ -151,20 +151,6 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
     }
   }
 
-  private def handleCommandExecutionResult(
-      result: Either[ErrorCause, CommandExecutionResult]
-  )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): FutureUnlessShutdown[CommandExecutionResult] =
-    result.fold(
-      error =>
-        FutureUnlessShutdown.outcomeF {
-          metrics.commands.failedCommandInterpretations.mark()
-          failedOnCommandExecution(error)
-        },
-      FutureUnlessShutdown.pure,
-    )
-
   private def evaluateAndSubmit(
       submissionSeed: crypto.Hash,
       commands: ApiCommands,
@@ -172,22 +158,21 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
       loggingContext: LoggingContextWithTrace,
       errorLoggingContext: ContextualizedErrorLogger,
   ): FutureUnlessShutdown[state.SubmissionResult] =
-    checkOverloaded(loggingContext.traceContext) match {
-      case Some(submissionResult) => FutureUnlessShutdown.pure(submissionResult)
-      case None =>
-        for {
-          result <- withSpan("ApiSubmissionService.evaluate") { _ => _ =>
-            commandExecutor.execute(commands, submissionSeed)
+    checkOverloaded(loggingContext.traceContext)
+      .map(FutureUnlessShutdown.pure)
+      .getOrElse(
+        withSpan("ApiSubmissionService.evaluate") { _ => _ =>
+          commandExecutor.execute(commands, submissionSeed, forExternallySigned = false)
+        }
+          .semiflatMap(submitTransactionWithDelay)
+          .valueOrF { error =>
+            metrics.commands.failedCommandInterpretations.mark()
+            failedOnCommandProcessing(error)
           }
-          transactionInfo <- handleCommandExecutionResult(result)
-          submissionResult <- submitTransactionWithDelay(
-            transactionInfo
-          )
-        } yield submissionResult
-    }
+      )
 
   private def submitTransactionWithDelay(
-      transactionInfo: CommandExecutionResult
+      commandExecutionResult: CommandExecutionResult
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): FutureUnlessShutdown[state.SubmissionResult] = FutureUnlessShutdown.outcomeF {
@@ -196,20 +181,21 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
         // Submit transactions such that they arrive at the ledger sequencer exactly when record time equals ledger time.
         // If the ledger time of the transaction is far in the future (farther than the expected latency),
         // the submission to the SyncService is delayed.
-        val submitAt = transactionInfo.transactionMeta.ledgerEffectiveTime.toInstant
-          .minus(LedgerTimeModel.maximumToleranceTimeModel.avgTransactionLatency)
+        val submitAt =
+          commandExecutionResult.commandInterpretationResult.transactionMeta.ledgerEffectiveTime.toInstant
+            .minus(LedgerTimeModel.maximumToleranceTimeModel.avgTransactionLatency)
         val submissionDelay = Duration.between(timeProvider.getCurrentTime, submitAt)
         if (submissionDelay.isNegative)
-          submitTransaction(transactionInfo)
+          submitTransaction(commandExecutionResult)
         else {
           logger.info(s"Delaying submission by $submissionDelay")
           metrics.commands.delayedSubmissions.mark()
           val scalaDelay = scala.concurrent.duration.Duration.fromNanos(submissionDelay.toNanos)
-          Delayed.Future.by(scalaDelay)(submitTransaction(transactionInfo))
+          Delayed.Future.by(scalaDelay)(submitTransaction(commandExecutionResult))
         }
       case TimeProviderType.Static =>
         // In static time mode, record time is always equal to ledger time
-        submitTransaction(transactionInfo)
+        submitTransaction(commandExecutionResult)
     }
   }
 
@@ -222,21 +208,25 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
     logger.trace("Submitting transaction to ledger.")
     submissionSyncService
       .submitTransaction(
-        result.submitterInfo,
-        result.optSynchronizerId,
-        result.transactionMeta,
-        result.transaction,
-        result.interpretationTimeNanos,
-        result.globalKeyMapping,
-        result.processedDisclosedContracts,
+        result.commandInterpretationResult.transaction,
+        result.synchronizerRank,
+        result.routingSynchronizerState,
+        result.commandInterpretationResult.submitterInfo,
+        result.commandInterpretationResult.transactionMeta,
+        result.commandInterpretationResult.interpretationTimeNanos,
+        result.commandInterpretationResult.globalKeyMapping,
+        result.commandInterpretationResult.processedDisclosedContracts,
       )
       .toScalaUnwrapped
   }
 
-  private def failedOnCommandExecution(
+  // TODO(#23334): Deduplicate with same logic from InteractiveSubmissionService
+  private def failedOnCommandProcessing(
       error: ErrorCause
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Future[CommandExecutionResult] =
-    Future.failed(
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): FutureUnlessShutdown[SubmissionResult] =
+    FutureUnlessShutdown.failed(
       RejectionGenerators
         .commandExecutorError(error)
         .asGrpcError

@@ -338,7 +338,7 @@ class SequencerWriter(
       resetWatermarkTo: ResetWatermark,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[CantonTimestamp] =
     for {
-      pastWatermarkO <- store.deleteEventsPastWatermark()
+      pastWatermarkO <- store.deleteEventsAndCheckpointsPastWatermark()
       goOnlineAt = resetWatermarkTo match {
         case SequencerWriter.ResetWatermarkToClockNow =>
           clock.now

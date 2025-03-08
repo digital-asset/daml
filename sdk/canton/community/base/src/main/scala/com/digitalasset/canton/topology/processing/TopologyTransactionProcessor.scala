@@ -404,7 +404,7 @@ class TopologyTransactionProcessor(
   private def maxTimestampFromStore()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
-    store.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
+    store.maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
 
   /** @return
     *   A tuple with list of envelopes with invalid recipients and a list of topology broadcasts to

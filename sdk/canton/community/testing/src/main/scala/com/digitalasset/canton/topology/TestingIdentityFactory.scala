@@ -46,7 +46,7 @@ import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Remove
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.{ErrorUtil, MapsUtil}
-import com.digitalasset.canton.{BaseTest, LfPackageId, LfPartyId}
+import com.digitalasset.canton.{BaseTest, FutureHelpers, LfPackageId, LfPartyId}
 
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -236,7 +236,7 @@ final case class TestingTopology(
     )
 
   def build(
-      crypto: SymbolicCrypto,
+      crypto: Crypto,
       loggerFactory: NamedLoggerFactory,
   ): TestingIdentityFactory =
     new TestingIdentityFactory(
@@ -305,13 +305,14 @@ object TestingTopology {
 
 class TestingIdentityFactory(
     topology: TestingTopology,
-    crypto: SymbolicCrypto,
+    crypto: Crypto,
     override protected val loggerFactory: NamedLoggerFactory,
     dynamicSynchronizerParameters: List[
       SynchronizerParameters.WithValidity[DynamicSynchronizerParameters]
     ],
     sessionSigningKeysConfig: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
-) extends NamedLogging {
+) extends NamedLogging
+    with FutureHelpers {
   protected implicit val directExecutionContext: ExecutionContext =
     DirectExecutionContext(noTracingLogger)
 
@@ -394,6 +395,18 @@ class TestingIdentityFactory(
         override def snapshotAvailable(timestamp: CantonTimestamp): Boolean =
           timestamp <= upToInclusive
 
+        override def awaitSequencedTimestamp(timestampInclusive: SequencedTime)(implicit
+            traceContext: TraceContext
+        ): Option[FutureUnlessShutdown[Unit]] =
+          Option.when(timestampInclusive.value > upToInclusive) {
+            ErrorUtil.internalErrorAsyncShutdown(
+              new IllegalArgumentException(
+                s"Attempt to wait for observing the sequenced time $timestampInclusive that will never be available"
+              )
+            )
+
+          }
+
         override def awaitTimestamp(timestamp: CantonTimestamp)(implicit
             traceContext: TraceContext
         ): Option[FutureUnlessShutdown[Unit]] =
@@ -421,7 +434,7 @@ class TestingIdentityFactory(
             traceContext: TraceContext
         ): FutureUnlessShutdown[TopologySnapshot] = awaitSnapshot(timestamp)
 
-        override def awaitMaxTimestamp(sequencedTime: CantonTimestamp)(implicit
+        override def awaitMaxTimestamp(sequencedTime: SequencedTime)(implicit
             traceContext: TraceContext
         ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
           FutureUnlessShutdown.pure(None)
@@ -568,53 +581,104 @@ class TestingIdentityFactory(
   private def genKeyCollection(
       owner: Member
   ): Seq[SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]] = {
+    implicit val traceContext: TraceContext = TraceContext.empty
+
     val keyPurposes = topology.keyPurposes
     val keyName = owner.toProtoPrimitive
 
-    val authKeyName = s"$keyName-${SigningKeyUsage.SequencerAuthentication}"
-    val sigKeyName = s"$keyName-${SigningKeyUsage.Protocol}"
+    val authName = s"$keyName-${SigningKeyUsage.SequencerAuthentication}"
+    val sigName = s"$keyName-${SigningKeyUsage.Protocol}"
+
+    def getOrGenerateSigningKey(
+        keyName: KeyName,
+        usage: NonEmpty[Set[SigningKeyUsage]],
+    ) =
+      crypto.cryptoPublicStore
+        .findSigningKeyIdByName(keyName)
+        .value
+        .futureValueUS
+        .getOrElse(
+          crypto
+            .generateSigningKey(name = Some(keyName), usage = usage)
+            .valueOrFail("generate signing key")
+            .futureValueUS
+        )
+
+    def getOrGenerateEncryptionKey(keyName: KeyName) =
+      crypto.cryptoPublicStore
+        .findEncryptionKeyIdByName(keyName)
+        .value
+        .futureValueUS
+        .getOrElse(
+          crypto
+            .generateEncryptionKey(name = Some(keyName))
+            .valueOrFail("generate signing key")
+            .futureValueUS
+        )
+
+    if (topology.freshKeys)
+      crypto match {
+        case crypto: SymbolicCrypto =>
+          crypto.setRandomKeysFlag(true)
+        case _ =>
+      }
 
     val sigKeys =
       if (keyPurposes.contains(KeyPurpose.Signing)) {
-        if (topology.freshKeys) {
-          crypto.setRandomKeysFlag(true)
-          val keys = Seq(
-            crypto
-              .generateSymbolicSigningKey(
-                Some(authKeyName),
-                SigningKeyUsage.SequencerAuthenticationOnly,
-              ),
-            crypto.generateSymbolicSigningKey(
-              Some(sigKeyName),
-              SigningKeyUsage.ProtocolOnly,
-            ),
-          )
-          crypto.setRandomKeysFlag(false)
-          keys
-        } else
+        val authKeyName = KeyName.tryCreate(authName)
+        val sigKeyName = KeyName.tryCreate(sigName)
+
+        if (topology.freshKeys)
           Seq(
             crypto
-              .getOrGenerateSymbolicSigningKey(
-                authKeyName,
-                SigningKeyUsage.SequencerAuthenticationOnly,
-              ),
-            crypto.getOrGenerateSymbolicSigningKey(
-              sigKeyName,
-              SigningKeyUsage.ProtocolOnly,
+              .generateSigningKey(
+                name = Some(authKeyName),
+                usage = SigningKeyUsage.SequencerAuthenticationOnly,
+              )
+              .valueOrFail("generate sequencer authentication signing key")
+              .futureValueUS,
+            crypto
+              .generateSigningKey(
+                name = Some(sigKeyName),
+                usage = SigningKeyUsage.ProtocolOnly,
+              )
+              .valueOrFail("generate protocol signing key")
+              .futureValueUS,
+          )
+        else
+          Seq(
+            getOrGenerateSigningKey(
+              keyName = authKeyName,
+              usage = SigningKeyUsage.SequencerAuthenticationOnly,
+            ),
+            getOrGenerateSigningKey(
+              keyName = sigKeyName,
+              usage = SigningKeyUsage.ProtocolOnly,
             ),
           )
-      } else Seq()
+      } else Nil
 
     val encKey =
       if (keyPurposes.contains(KeyPurpose.Encryption)) {
-        if (topology.freshKeys) {
-          crypto.setRandomKeysFlag(true)
-          val key = Seq(crypto.generateSymbolicEncryptionKey(Some(keyName)))
+        val encKeyName = KeyName.tryCreate(keyName)
+
+        if (topology.freshKeys)
+          Seq(
+            crypto
+              .generateEncryptionKey(name = Some(encKeyName))
+              .valueOrFail("generate encryption key")
+              .futureValueUS
+          )
+        else
+          Seq(getOrGenerateEncryptionKey(keyName = encKeyName))
+      } else Nil
+
+    if (topology.freshKeys)
+      crypto match {
+        case crypto: SymbolicCrypto =>
           crypto.setRandomKeysFlag(false)
-          key
-        } else
-          Seq(crypto.getOrGenerateSymbolicEncryptionKey(keyName))
-      } else Seq()
+        case _ =>
+      }
 
     NonEmpty
       .from(sigKeys ++ encKey)

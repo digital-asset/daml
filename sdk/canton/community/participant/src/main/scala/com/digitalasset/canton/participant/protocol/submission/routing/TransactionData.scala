@@ -7,11 +7,10 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
+import com.digitalasset.canton.error.TransactionRoutingError
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo.ExternallySignedSubmission
+import com.digitalasset.canton.ledger.participant.state.{RoutingSynchronizerState, SubmitterInfo}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.sync.TransactionRoutingError
-import com.digitalasset.canton.participant.sync.TransactionRoutingError.MalformedInputErrors
 import com.digitalasset.canton.protocol.{
   LfContractId,
   LfLanguageVersion,
@@ -26,6 +25,8 @@ import com.digitalasset.daml.lf.data.Ref.IdString
 import com.digitalasset.daml.lf.engine.Blinding
 
 import scala.concurrent.ExecutionContext
+
+import TransactionRoutingError.MalformedInputErrors
 
 /** Bundle together some data needed to route the transaction.
   *

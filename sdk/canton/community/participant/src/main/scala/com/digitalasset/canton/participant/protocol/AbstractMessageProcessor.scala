@@ -123,7 +123,7 @@ abstract class AbstractMessageProcessor(
           )
           .valueOr {
             // Swallow Left errors to avoid stopping request processing, as sending response could fail for arbitrary reasons
-            // if the sequencer rejects them (e.g max sequencing time has elapsed)
+            // if the sequencer rejects them (e.g. max sequencing time has elapsed)
             err =>
               logger.warn(s"Request $requestId: Failed to send responses: ${err.show}")
           }

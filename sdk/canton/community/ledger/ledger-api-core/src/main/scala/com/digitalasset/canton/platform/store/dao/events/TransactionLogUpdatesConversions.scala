@@ -511,12 +511,6 @@ private[events] object TransactionLogUpdatesConversions {
               .withPrecomputedSerializedSize()
           )
 
-      case topologyTransaction: TransactionLogUpdate.TopologyTransactionEffective =>
-        toTopologyTransaction(topologyTransaction).map(transaction =>
-          GetUpdateTreesResponse(GetUpdateTreesResponse.Update.TopologyTransaction(transaction))
-            .withPrecomputedSerializedSize()
-        )
-
       case illegal => throw new IllegalStateException(s"$illegal is not expected here")
     }
 

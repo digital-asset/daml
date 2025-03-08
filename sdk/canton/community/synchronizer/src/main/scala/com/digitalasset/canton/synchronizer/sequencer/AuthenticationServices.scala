@@ -12,5 +12,5 @@ final case class AuthenticationServices(
     syncCryptoForAuthentication: SynchronizerCryptoClient,
     memberAuthenticationService: MemberAuthenticationService,
     sequencerAuthenticationService: GrpcSequencerAuthenticationService,
-    authenticationInterceptor: SequencerAuthenticationServerInterceptor,
+    authenticationServerInterceptor: SequencerAuthenticationServerInterceptor,
 )

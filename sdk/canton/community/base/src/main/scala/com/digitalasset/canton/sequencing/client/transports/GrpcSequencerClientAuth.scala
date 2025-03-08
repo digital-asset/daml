@@ -13,11 +13,15 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.{GrpcClient, GrpcManagedChannel}
 import com.digitalasset.canton.sequencer.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationServiceStub
-import com.digitalasset.canton.sequencing.authentication.grpc.SequencerClientTokenAuthentication
+import com.digitalasset.canton.sequencing.authentication.grpc.{
+  AuthenticationTokenWithExpiry,
+  SequencerClientTokenAuthentication,
+}
 import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationTokenManagerConfig,
   AuthenticationTokenProvider,
 }
+import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth.ChannelTokenFetcher
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -74,23 +78,46 @@ class GrpcSequencerClientAuth(
 
   /** Wrap a grpc client with components to appropriately perform authentication */
   def apply[S <: AbstractStub[S]](client: S): S = {
-    val obtainTokenPerEndpoint = grpcChannelPerEndpoint.transform { (_, channel) =>
-      val authenticationClient =
-        GrpcClient.create(channel, new SequencerAuthenticationServiceStub(_))
-      implicit tc: TraceContext => tokenProvider.generateToken(authenticationClient)
-    }
-    val clientAuthentication = SequencerClientTokenAuthentication(
-      synchronizerId,
-      member,
-      obtainTokenPerEndpoint,
-      tokenProvider.isClosing,
-      tokenManagerConfig,
-      clock,
-      loggerFactory,
-    )
+    val obtainTokenPerEndpoint =
+      grpcChannelPerEndpoint.transform { (_, channel) =>
+        new ChannelTokenFetcher(tokenProvider, channel)
+      }
+    val clientAuthentication =
+      SequencerClientTokenAuthentication(
+        synchronizerId,
+        member,
+        obtainTokenPerEndpoint,
+        tokenProvider.isClosing,
+        tokenManagerConfig,
+        clock,
+        loggerFactory,
+      )
     clientAuthentication(client)
   }
 
   override protected def onClosed(): Unit =
     LifeCycle.close(tokenProvider)(logger)
+}
+
+object GrpcSequencerClientAuth {
+
+  trait TokenFetcher {
+    def apply(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, Status, AuthenticationTokenWithExpiry]
+  }
+
+  final class ChannelTokenFetcher(
+      tokenProvider: AuthenticationTokenProvider,
+      channel: GrpcManagedChannel,
+  ) extends TokenFetcher {
+
+    override def apply(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, Status, AuthenticationTokenWithExpiry] = {
+      val authenticationClient =
+        GrpcClient.create(channel, new SequencerAuthenticationServiceStub(_))
+      tokenProvider.generateToken(authenticationClient)
+    }
+  }
 }

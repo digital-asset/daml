@@ -328,13 +328,13 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[TopologyStore.Change.TopologyDelay]]
 
-  /** Finds the transaction with maximum effective time that has been sequenced before
+  /** Finds the transaction with maximum effective time that has been sequenced at or before
     * `sequencedTime` and yields the sequenced / effective time of that transaction.
     *
     * @param includeRejected
     *   whether to include rejected transactions
     */
-  def maxTimestamp(sequencedTime: CantonTimestamp, includeRejected: Boolean)(implicit
+  def maxTimestamp(sequencedTime: SequencedTime, includeRejected: Boolean)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]]
 

@@ -130,10 +130,14 @@ class TopologyTimestampPlusEpsilonTracker(
     currentAndUpcomingChangeDelays <- store.findCurrentAndUpcomingChangeDelays(sequencedTime.value)
     currentChangeDelay = currentAndUpcomingChangeDelays.last1
 
-    // Find the maximum stored effective time for initialization of maximumEffectiveTime.
+    // Find the maximum stored effective time for the last processed sequenced time BEFORE `sequencedTime`
+    // for initialization of maximumEffectiveTime.
     // Note that this must include rejections and proposals,
     // as trackAndComputeEffectiveTime may change maximumEffectiveTime based on proposals / rejections.
-    maximumTimestampInStoreO <- store.maxTimestamp(sequencedTime.value, includeRejected = true)
+    maximumTimestampInStoreO <- store.maxTimestamp(
+      sequencedTime.immediatePredecessor,
+      includeRejected = true,
+    )
     maximumEffectiveTimeInStore = maximumTimestampInStoreO
       .map { case (_, effective) => effective }
       .getOrElse(EffectiveTime.MinValue)

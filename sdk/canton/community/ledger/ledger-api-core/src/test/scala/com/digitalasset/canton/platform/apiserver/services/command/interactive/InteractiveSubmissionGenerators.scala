@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.PositiveFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveLong
 import com.digitalasset.canton.data.{DeduplicationPeriod, Offset, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, TransactionMeta}
-import com.digitalasset.canton.platform.apiserver.execution.CommandExecutionResult
+import com.digitalasset.canton.platform.apiserver.execution.CommandInterpretationResult
 import com.digitalasset.canton.topology.GeneratorsTopology.*
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.{LfApplicationId, LfPackageId, LfPartyId}
@@ -181,27 +181,27 @@ object InteractiveSubmissionGenerators {
     driverMetadata <- Arbitrary.arbitrary[Array[Byte]].map(Bytes.fromByteArray)
   } yield ProcessedDisclosedContract(create, createdAt, driverMetadata)
 
-  private val commandExecutionResultGen: Gen[CommandExecutionResult] = for {
+  private val commandExecutionResultGen: Gen[CommandInterpretationResult] = for {
     submitterInfo <- submitterInfoGen
-    domainIdO <- Gen.option(Arbitrary.arbitrary[SynchronizerId])
+    synchronizerIdO <- Gen.option(Arbitrary.arbitrary[SynchronizerId])
     transaction <- versionedTransactionGenerator.map(SubmittedTransaction(_))
     transactionMeta <- transactionMetaGen(transaction)
     dependsOnLedgerTime <- Arbitrary.arbBool.arbitrary
     interpretationTimeNanos <- Gen.long
     globalKeyMapping <- globalKeyMappingGen
     processedDisclosedContracts <- Gen.listOfN(1, processedDisclosedContractGen).map(ImmArray.from)
-  } yield CommandExecutionResult(
+  } yield CommandInterpretationResult(
     submitterInfo,
-    domainIdO,
     transactionMeta,
     transaction,
     dependsOnLedgerTime,
     interpretationTimeNanos,
     globalKeyMapping,
     processedDisclosedContracts,
+    synchronizerIdO,
   )
 
-  implicit val commandExecutionResultArb: Arbitrary[CommandExecutionResult] = Arbitrary(
+  implicit val commandExecutionResultArb: Arbitrary[CommandInterpretationResult] = Arbitrary(
     commandExecutionResultGen
   )
 }

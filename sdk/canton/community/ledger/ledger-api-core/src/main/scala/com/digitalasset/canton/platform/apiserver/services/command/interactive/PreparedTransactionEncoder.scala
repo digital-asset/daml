@@ -17,7 +17,7 @@ import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.platform.apiserver.execution.CommandExecutionResult
+import com.digitalasset.canton.platform.apiserver.execution.CommandInterpretationResult
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionCodec.*
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
@@ -299,9 +299,9 @@ final class PreparedTransactionEncoder(
       synchronizerId: SynchronizerId,
       transactionUUID: UUID,
       mediatorGroup: Int,
-  ): PartialTransformer[CommandExecutionResult, iss.Metadata] =
+  ): PartialTransformer[CommandInterpretationResult, iss.Metadata] =
     Transformer
-      .definePartial[CommandExecutionResult, iss.Metadata]
+      .definePartial[CommandInterpretationResult, iss.Metadata]
       .withFieldComputed(_.submissionTime, _.transactionMeta.submissionTime.transformInto[Long])
       .withFieldComputed(
         _.ledgerEffectiveTime,
@@ -344,8 +344,8 @@ final class PreparedTransactionEncoder(
       .toFutureWithLoggedFailures("Failed to serialize prepared transaction", logger)
   }
 
-  def serializeCommandExecutionResult(
-      result: CommandExecutionResult,
+  def serializeCommandInterpretationResult(
+      result: CommandInterpretationResult,
       synchronizerId: SynchronizerId,
       transactionUUID: UUID,
       mediatorGroup: Int,
@@ -355,7 +355,7 @@ final class PreparedTransactionEncoder(
       errorLoggingContext: ContextualizedErrorLogger,
   ): Future[iss.PreparedTransaction] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
-    implicit val metadataTransformer: PartialTransformer[CommandExecutionResult, Metadata] =
+    implicit val metadataTransformer: PartialTransformer[CommandInterpretationResult, Metadata] =
       resultToMetadataTransformer(synchronizerId, transactionUUID, mediatorGroup)
     val versionedTransaction = lf.transaction.VersionedTransaction(
       result.transaction.version,
