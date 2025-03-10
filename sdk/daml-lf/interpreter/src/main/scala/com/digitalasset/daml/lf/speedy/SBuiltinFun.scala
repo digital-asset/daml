@@ -1264,14 +1264,15 @@ private[lf] object SBuiltinFun {
         machine.ensurePackageIsLoaded(
           dstTmplId.packageId,
           language.Reference.Template(dstTmplId),
-        ){ () =>
+        ) { () =>
           ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTmplId) {
             fromInterface(machine, srcTmplId, srcArg, dstTmplId) {
               case None =>
                 Control.Error(IE.WronglyTypedContract(coid, dstTmplId, srcTmplId))
               case Some(dstArg) =>
-                fetchValidateDstContract(machine, coid, srcTmplId, srcContract, dstTmplId, dstArg)({ case (dstTmplId, dstArg, _) =>
-                  k(SAny(Ast.TTyCon(dstTmplId), dstArg))
+                fetchValidateDstContract(machine, coid, srcTmplId, srcContract, dstTmplId, dstArg)({
+                  case (dstTmplId, dstArg, _) =>
+                    k(SAny(Ast.TTyCon(dstTmplId), dstArg))
                 })
             }
           }
@@ -2296,27 +2297,29 @@ private[lf] object SBuiltinFun {
             machine.ensurePackageIsLoaded(
               dstTmplId.packageId,
               language.Reference.Template(dstTmplId),
-            ){ () =>
+            ) { () =>
               importValue(
                 machine,
                 dstTmplId,
-                srcContract.arg
+                srcContract.arg,
               )(dstArg =>
-                fetchValidateDstContract(machine, coid, srcTmplId, srcContract, dstTmplId, dstArg)({ case (_, _, dstContract) =>
-                  f(dstContract.value)
-              }))
+                fetchValidateDstContract(machine, coid, srcTmplId, srcContract, dstTmplId, dstArg)({
+                  case (_, _, dstContract) =>
+                    f(dstContract.value)
+                })
+              )
             }
       }
     }
   }
 
   private def fetchValidateDstContract(
-    machine: UpdateMachine,
-    coid: V.ContractId,
-    srcTmplId: TypeConName,
-    srcContract: ContractInfo,
-    dstTmplId: TypeConName,
-    dstTmplArg: SValue
+      machine: UpdateMachine,
+      coid: V.ContractId,
+      srcTmplId: TypeConName,
+      srcContract: ContractInfo,
+      dstTmplId: TypeConName,
+      dstTmplArg: SValue,
   )(k: (TypeConName, SValue, ContractInfo) => Control[Question.Update]): Control[Question.Update] =
     getContractInfo(
       machine,
