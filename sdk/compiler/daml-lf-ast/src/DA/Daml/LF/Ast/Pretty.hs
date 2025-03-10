@@ -149,6 +149,7 @@ instance Pretty BuiltinType where
     BTUnit -> "Unit"
     BTBool -> "Bool"
     BTList -> "List"
+    BTBytes -> "Bytes"
     BTUpdate -> "Update"
     BTDate           -> "Date"
     BTContractId -> "ContractId"

@@ -266,6 +266,7 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTList -> P.BuiltinTypeLIST
     BTUpdate -> P.BuiltinTypeUPDATE
     BTDate -> P.BuiltinTypeDATE
+    BTBytes -> P.BuiltinTypeBYTES
     BTContractId -> P.BuiltinTypeCONTRACT_ID
     BTOptional -> P.BuiltinTypeOPTIONAL
     BTTextMap -> P.BuiltinTypeTEXTMAP

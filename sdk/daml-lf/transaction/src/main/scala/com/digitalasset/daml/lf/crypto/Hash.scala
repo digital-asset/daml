@@ -20,7 +20,7 @@ import com.digitalasset.daml.lf.data.{
 import com.digitalasset.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.crypto.HashUtils.{HashTracer, formatByteToHexString}
-import com.digitalasset.daml.lf.data.Ref.Name
+import com.digitalasset.daml.lf.data.Ref.{HexString, Name}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -692,6 +692,8 @@ object Hash {
           addString(v)
         case Value.ValueText(v) =>
           addString(v)
+        case Value.ValueBytes(v) =>
+          addBytes(v, HexString.encode(v))
         case Value.ValueContractId(cid) =>
           addBytes(cid2Bytes(cid), s"${cid.coid} (contractId)")
         case Value.ValueOptional(opt) =>
@@ -805,6 +807,8 @@ object Hash {
           addString(v)
         case Value.ValueText(v) =>
           addString(v)
+        case Value.ValueBytes(v) =>
+          addBytes(v, HexString.encode(v))
         case Value.ValueContractId(cid) =>
           addCid(cid)
         case Value.ValueOptional(opt) =>
@@ -872,6 +876,8 @@ object Hash {
               case Value.ValueBool(value) =>
                 if (value)
                   discard(addField.addByte(1.toByte, s"true (bool)"))
+              case Value.ValueBytes(value) =>
+                discard(addField.addBytes(value, HexString.encode(value)))
               case Value.ValueUnit =>
               // We never write unit
             }
