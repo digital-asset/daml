@@ -47,6 +47,7 @@ allV2StablePackages =
       , daActionStateType version2_1 (encodePackageHash (daTypes version2_1))
       , daRandomTypes version2_1
       , daStackTypes version2_1
+      , daInternalFail version2_1 (encodePackageHash (daTypes version2_1))
       ]
 
 allStablePackages :: MS.Map PackageId Package
@@ -832,3 +833,38 @@ emptyModule name = Module
   , moduleExceptions = NM.empty
   , moduleInterfaces = NM.empty
   }
+
+daInternalFail :: Version -> PackageId -> Package
+daInternalFail version daTypesPackageId = Package
+  { packageLfVersion = version
+  , packageModules = NM.singleton (emptyModule modName)
+    { moduleDataTypes = types
+    , moduleValues = values
+    }
+  , packageMetadata = PackageMetadata
+      { packageName = PackageName "daml-stdlib-DA-Internal-Fail"
+      , packageVersion = PackageVersion "1.0.0"
+      , upgradedPackageId = Nothing
+      }
+  }
+  where
+    modName = mkModName ["DA", "Internal", "Fail"]
+    tuple2QualTyCon = Qualified
+      { qualPackage = ImportedPackageId daTypesPackageId
+      , qualModule = mkModName ["DA", "Types"]
+      , qualObject = mkTypeCon ["Tuple2"]
+      }
+    failureStatusTyCon = mkTypeCon ["FailureStatus"]
+    types = NM.fromList
+      [ DefDataType Nothing failureStatusTyCon (IsSerializable False) [] $
+          DataRecord fields
+      ]
+    values = NM.fromList $
+      mkWorkerDef modName failureStatusTyCon [] fields
+        : (uncurry (mkSelectorDef modName failureStatusTyCon []) <$> fields)
+    fields =
+      [ (mkField "errorId", TText)
+      , (mkField "category", TFailureCategory)
+      , (mkField "message", TText)
+      , (mkField "meta", TList $ TCon tuple2QualTyCon `TApp` TText `TApp` TText)
+      ]

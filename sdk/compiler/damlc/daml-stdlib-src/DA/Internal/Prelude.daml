@@ -12,6 +12,9 @@ module DA.Internal.Prelude
   , module GHC
   , Down(..)
   , FailureCategory (..)
+  , -- Do not export the `message` field until exceptions have been removed (in 3.4)
+    -- Explicit import of DA.Fail required to use field accessor
+    FailureStatus (errorId, category, meta)
   ) where
 
 import Control.Exception.Base ()
