@@ -4,7 +4,26 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 
 -- | MOVE DA.Fail
-module DA.Internal.Fail (FailureCategory(..)) where
+module DA.Internal.Fail (FailureCategory(..), FailureStatus(..)) where
+
+import GHC.Types (Text)
+
+data FailureStatus = FailureStatus with
+    errorId : Text
+      -- ^ Unambiguous identifier of the error.
+      -- SHOULD be prefixed with the DNS name identifying the app provider
+      -- or the API standard defining the error. For example,
+      -- `splice.lfdecentralizedtrust.org/insufficient-funds` could be used for
+      -- reporting an out of funds error in the context of the CN token standards. 
+    category : FailureCategory
+      -- ^ Category of the failure, which determines how clients are expected to handle the error.
+    message : Text
+      -- ^ Developer-facing error message, which should be in English.
+    meta : [(Text, Text)]
+      -- ^ Machine-readable metadata about the error in a key-value format.
+      -- Use this to provide extra context to clients for errors.
+      --
+      -- SHOULD be less than < 512 characters as it MAY be truncated otherwise.
 
 -- | The category of the failure, which determines the status code and log
 -- level of the failure. Maps 1-1 to the Canton error categories documented

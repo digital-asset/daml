@@ -30,6 +30,7 @@ STABLE_PACKAGES = {
     "DA.Action.State.Type": "lf-v{major}/daml-stdlib/DA-Action-State-Type.dalf",
     "DA.Random.Types": "lf-v{major}/daml-stdlib/DA-Random-Types.dalf",
     "DA.Stack.Types": "lf-v{major}/daml-stdlib/DA-Stack-Types.dalf",
+    "DA.Internal.Fail": "lf-v{major}/daml-stdlib/DA-Internal-Fail.dalf",
 }
 
 def stable_packages(majorVersion):
