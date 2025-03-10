@@ -43,7 +43,7 @@ tests damlc =
             concat [
                 [ mkTest
                     (prefix <> "WhenAnInstanceIsAddedSeparateDep")
-                    (expectationWarningOrError templateHasNewInterfaceInstance "type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.\n  New interface instances are supported, but should only be added to supersede a different existing interface.\n  Only turn off this error if you know what you're doing..*template-has-new-interface-instance")
+                    (expectationWarningOrError templateHasNewInterfaceInstance "type checking template Main.T :\n  Implementation of interface I by template T is defined in this package, but not in the package that is being upgraded.\n  Only turn off this error if you know what you're doing..*template-has-new-interface-instance")
                     testOptions
                       { sharedDep = SharedDep
                       , mbLocation = Just "SucceedsWhenAnInstanceIsAddedSeparateDep"
@@ -52,7 +52,7 @@ tests damlc =
                       }
                 , mkTest
                     (prefix <> "WhenAnInstanceIsAddedUpgradedPackage")
-                    (expectationWarningOrError templateHasNewInterfaceInstance "type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.\n  New interface instances are supported, but should only be added to supersede a different existing interface.\n  Only turn off this error if you know what you're doing..*template-has-new-interface-instance")
+                    (expectationWarningOrError templateHasNewInterfaceInstance "type checking template Main.T :\n  Implementation of interface I by template T is defined in this package, but not in the package that is being upgraded.\n  Only turn off this error if you know what you're doing..*template-has-new-interface-instance")
                     testOptions
                       { sharedDep = DependOnV1
                       , mbLocation = Just "SucceedsWhenAnInstanceIsAddedUpgradedPackage"
