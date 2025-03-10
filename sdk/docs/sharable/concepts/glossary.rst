@@ -163,6 +163,8 @@ Choice Observer
 
 A **choice observer** is a `party <#party>`__ on a `choice <#choice>`__. Choice observers are guaranteed to see the choice being exercised and all its consequences with it.
 
+.. _stakeholder:
+
 Stakeholder
 -----------
 
@@ -437,7 +439,7 @@ validation, such that users don't have to deal with cryptographic primitives but
 Sub-transaction Privacy
 =======================
 
-Sub-transaction privacy is where participants in a transaction only `learn about the subset of the transaction <https://docs.daml.com/concepts/ledger-model/ledger-privacy.html>`__ they are
+Sub-transaction privacy means that participants in a transaction only :doc:`learn about the subset of the transaction <ledger-model/ledger-privacy>` they are
 directly involved in, but not about any other part of the transaction. This applies to both the content of the transaction as well as other involved participants.
 
 .. _daml-lf:
