@@ -69,7 +69,7 @@ private[validation] object Typing {
 
   private def kindOfBuiltin(bType: BuiltinType): Kind = bType match {
     case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAny | BTTypeRep |
-        BTAnyException | BTRoundingMode | BTBigNumeric =>
+        BTAnyException | BTRoundingMode | BTBigNumeric | BTFailureCategory =>
       KStar
     case BTNumeric => KArrow(KNat, KStar)
     case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTTextMap =>
@@ -84,6 +84,7 @@ private[validation] object Typing {
     case BLTimestamp(_) => TTimestamp
     case BLDate(_) => TDate
     case BLRoundingMode(_) => TRoundingMode
+    case BLFailureCategory(_) => TFailureCategory
   }
 
   private def tBinop(typ: Type): Type = typ ->: typ ->: typ

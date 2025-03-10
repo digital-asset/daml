@@ -89,6 +89,7 @@ safetyStep = \case
       BEUnit              -> Safe 0
       BEBool _            -> Safe 0
       BERoundingMode _    -> Safe 0
+      BEFailureCategory _ -> Safe 0
       BEError             -> Safe 0
       BEAnyExceptionMessage -> Safe 0 -- evaluates user-defined code which may throw
       BEEqual      -> Safe 1 -- may crash if values are incomparable

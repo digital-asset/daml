@@ -277,6 +277,7 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTRoundingMode -> P.BuiltinTypeROUNDING_MODE
     BTBigNumeric -> P.BuiltinTypeBIGNUMERIC
     BTAnyException -> P.BuiltinTypeANY_EXCEPTION
+    BTFailureCategory -> P.BuiltinTypeFAILURE_CATEGORY
 
 encodeType' :: Type -> Encode P.Type
 encodeType' typ = do
@@ -369,6 +370,12 @@ encodeBuiltinExpr = \case
       LitRoundingHalfDown -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeHALF_DOWN
       LitRoundingHalfEven -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeHALF_EVEN
       LitRoundingUnnecessary -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeUNNECESSARY
+
+    BEFailureCategory fc -> case fc of
+      LitInvalidGivenCurrentSystemStateOther -> pureLit $ P.BuiltinLitSumFailureCategory $ P.Enumerated $ Right P.BuiltinLit_FailureCategoryINVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER
+      LitInvalidIndependentOfSystemState -> pureLit $ P.BuiltinLitSumFailureCategory $ P.Enumerated $ Right P.BuiltinLit_FailureCategoryINVALID_INDEPENDENT_OF_SYSTEM_STATE
+      LitInternalUnsupportedOperation -> pureLit $ P.BuiltinLitSumFailureCategory $ P.Enumerated $ Right P.BuiltinLit_FailureCategoryINTERNAL_UNSUPPORTED_OPERATION
+      LitSystemInternalAssumptionViolated -> pureLit $ P.BuiltinLitSumFailureCategory $ P.Enumerated $ Right P.BuiltinLit_FailureCategorySYSTEM_INTERNAL_ASSUMPTION_VIOLATED
 
     BEEqual -> builtin P.BuiltinFunctionEQUAL
     BELess -> builtin P.BuiltinFunctionLESS

@@ -161,6 +161,7 @@ instance Pretty BuiltinType where
     BTRoundingMode -> "RoundingMode"
     BTBigNumeric -> "BigNumeric"
     BTAnyException -> "AnyException"
+    BTFailureCategory -> "FailureCategory"
 
 pPrintRecord :: Pretty a => PrettyLevel -> Doc ann -> [(FieldName, a)] -> Doc ann
 pPrintRecord lvl sept fields =
@@ -218,6 +219,13 @@ prettyRounding = \case
   LitRoundingHalfEven -> "ROUNDING_HALF_EVEN"
   LitRoundingUnnecessary -> "ROUNDING_UNNECESSARY"
 
+prettyFailureCategory :: FailureCategoryLiteral -> String
+prettyFailureCategory = \case
+  LitInvalidGivenCurrentSystemStateOther -> "INVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER"
+  LitInvalidIndependentOfSystemState -> "INVALID_INDEPENDENT_OF_SYSTEM_STATE"
+  LitInternalUnsupportedOperation -> "INTERNAL_UNSUPPORTED_OPERATION"
+  LitSystemInternalAssumptionViolated -> "SYSTEM_INTERNAL_ASSUMPTION_VIOLATED"
+
 instance Pretty BuiltinExpr where
   pPrintPrec lvl prec = \case
     BEInt64 n -> integer (toInteger n)
@@ -226,6 +234,7 @@ instance Pretty BuiltinExpr where
     BEUnit -> keyword_ "unit"
     BEBool b -> keyword_ $ case b of { False -> "false"; True -> "true" }
     BERoundingMode r -> keyword_ $ prettyRounding r
+    BEFailureCategory r -> keyword_ $ prettyFailureCategory r
     BEError -> "ERROR"
     BEAnyExceptionMessage -> "ANY_EXCEPTION_MESSAGE"
     BEEqual -> "EQUAL"
