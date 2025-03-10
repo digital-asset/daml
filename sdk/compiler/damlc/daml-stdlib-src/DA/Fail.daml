@@ -1,0 +1,43 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | Fail, for FailureStatus
+module DA.Fail (FailureStatus (..), FailureCategory (..)) where
+
+import DA.Internal.Fail
+import GHC.Types (primitive)
+
+instance Eq FailureCategory where
+  (==) = primitive @"BEEqual"
+
+instance Ord FailureCategory where
+  (<)  = primitive @"BELess"
+  (<=) = primitive @"BELessEq"
+  (>=) = primitive @"BEGreaterEq"
+  (>)  = primitive @"BEGreater"
+
+instance Show FailureCategory where
+  show InvalidGivenCurrentSystemStateOther = "InvalidGivenCurrentSystemStateOther"
+  show InvalidIndependentOfSystemState = "InvalidIndependentOfSystemState"
+  show InternalUnsupportedOperation = "InternalUnsupportedOperation"
+  show SystemInternalAssumptionViolated = "SystemInternalAssumptionViolated"
+
+deriving instance Eq FailureStatus
+deriving instance Ord FailureStatus
+deriving instance Show FailureStatus
+
+-- | Alternative name for `InvalidIndependentOfSystemState`.
+invalidArgument : FailureCategory
+invalidArgument = InvalidIndependentOfSystemState
+
+-- | Alternative name for `SystemInternalAssumptionViolated`.
+internalError : FailureCategory
+internalError = SystemInternalAssumptionViolated
+
+-- | Alternative name for `InvalidGivenCurrentSystemStateOther`.
+failedPrecondition : FailureCategory
+failedPrecondition = InvalidGivenCurrentSystemStateOther
+
+-- | Alternative name for `InternalUnsupportedOperation`. 
+unimplemented : FailureCategory
+unimplemented = InternalUnsupportedOperation
