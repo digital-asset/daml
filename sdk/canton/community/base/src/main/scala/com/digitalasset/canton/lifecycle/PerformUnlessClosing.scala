@@ -103,6 +103,33 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
       fut
     }
 
+  /** Use this method if closing/shutdown of the object should wait for asynchronous computation to
+    * finish too.
+    *
+    * @param f
+    *   closing of this object will wait for all such spawned Futures to finish
+    * @param asyncResultToWaitForF
+    *   closing of this object will wait also wait for all such asynchronous Futures to finish too
+    * @return
+    *   the future spawned by f
+    */
+  def performUnlessClosingUSFAsync[A](name: String)(
+      f: => FutureUnlessShutdown[A]
+  )(
+      asyncResultToWaitForF: A => FutureUnlessShutdown[?]
+  )(implicit ec: ExecutionContext, traceContext: TraceContext): FutureUnlessShutdown[A] =
+    if (isClosing || !addReader(name)) {
+      logger.debug(s"Won't schedule the future '$name' as this object is closing")
+      FutureUnlessShutdown.abortedDueToShutdown
+    } else {
+      val fut = Try(f).fold(FutureUnlessShutdown.failed[A], identity)
+      val asyncF = fut
+        .flatMap(asyncResultToWaitForF)
+        .thereafter(_ => removeReader(name))
+      trackFuture(asyncF.unwrap)
+      fut
+    }
+
   /** Performs the EitherT[Future] given by `etf` unless a shutdown has been initiated, in which
     * case the provided error is returned instead. Both `etf` and the error are lazy; `etf` is only
     * evaluated if there is no shutdown, the error only if we're shutting down. The shutdown will
@@ -136,6 +163,30 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, E, R] =
     EitherT(performUnlessClosingUSF(name)(etf.value))
+
+  /** Use this method if closing/shutdown of the object should wait for asynchronous computation to
+    * finish too.
+    *
+    * @param etf
+    *   closing of this object will wait for all such spawned Futures to finish
+    * @param asyncResultToWaitForF
+    *   closing of this object will wait also wait for all such asynchronous Futures to finish too
+    * @return
+    *   the future spawned by etf
+    */
+  def performUnlessClosingEitherUSFAsync[E, R](name: String)(
+      etf: => EitherT[FutureUnlessShutdown, E, R]
+  )(
+      asyncResultToWaitForF: R => FutureUnlessShutdown[?]
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, E, R] =
+    EitherT(
+      performUnlessClosingUSFAsync(name)(etf.value)(
+        _.map(asyncResultToWaitForF).getOrElse(FutureUnlessShutdown.unit)
+      )
+    )
 
   def performUnlessClosingCheckedT[A, N, R](name: String, onClosing: => Checked[A, N, R])(
       etf: => CheckedT[Future, A, N, R]

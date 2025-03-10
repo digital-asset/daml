@@ -268,27 +268,35 @@ object ApiServices {
 
     val writeServices = {
       implicit val ec: ExecutionContext = commandExecutionContext
-      val commandExecutor = new TimedCommandExecutor(
-        new LedgerTimeAwareCommandExecutor(
-          new StoreBackedCommandExecutor(
-            engine = engine,
-            participant = participantId,
-            packageSyncService = syncService,
-            contractStore = contractStore,
-            authenticateSerializableContract = authenticateSerializableContract,
-            metrics = metrics,
-            config = engineLoggingConfig,
-            loggerFactory = loggerFactory,
-            dynParamGetter = dynParamGetter,
-            timeProvider = timeProvider,
+      val commandInterpreter =
+        new StoreBackedCommandInterpreter(
+          engine = engine,
+          participant = participantId,
+          packageSyncService = syncService,
+          contractStore = contractStore,
+          authenticateSerializableContract = authenticateSerializableContract,
+          metrics = metrics,
+          config = engineLoggingConfig,
+          loggerFactory = loggerFactory,
+          dynParamGetter = dynParamGetter,
+          timeProvider = timeProvider,
+        )
+
+      val commandExecutor =
+        new TimedCommandExecutor(
+          new LedgerTimeAwareCommandExecutor(
+            delegate = CommandExecutor(
+              syncService = syncService,
+              commandInterpreter = commandInterpreter,
+              loggerFactory = loggerFactory,
+            ),
+            new ResolveMaximumLedgerTime(maximumLedgerTimeService, loggerFactory),
+            maxRetries = 3,
+            metrics,
+            loggerFactory,
           ),
-          new ResolveMaximumLedgerTime(maximumLedgerTimeService, loggerFactory),
-          maxRetries = 3,
           metrics,
-          loggerFactory,
-        ),
-        metrics,
-      )
+        )
 
       val validateUpgradingPackageResolutions =
         new ValidateUpgradingPackageResolutionsImpl(
@@ -298,6 +306,7 @@ object ApiServices {
         validateDisclosedContracts =
           new ValidateDisclosedContracts(authenticateFatContractInstance),
         validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
+        topologyAwarePackageSelectionEnabled = ledgerFeatures.topologyAwarePackageSelection,
       )
       val commandSubmissionService =
         CommandSubmissionServiceImpl.createApiService(

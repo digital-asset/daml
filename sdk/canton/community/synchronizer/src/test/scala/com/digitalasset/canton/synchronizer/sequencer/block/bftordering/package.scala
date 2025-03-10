@@ -13,5 +13,5 @@ package object bftordering {
     .viaMat(KillSwitches.single)(Keep.right)
 
   def fakeSequencerId(name: String): SequencerId =
-    SequencerId(UniqueIdentifier.tryCreate("ns", s"fake_$name"))
+    SequencerId(UniqueIdentifier.tryCreate("ns", s"fake_$name".replace("/", "_")))
 }

@@ -122,8 +122,6 @@ message GetUpdateTreesResponse {
     TransactionTree transaction_tree = 1;
     Reassignment reassignment = 2;
     OffsetCheckpoint offset_checkpoint = 3;
-    // Message returned only when the experimental feature is turned on
-    TopologyTransaction topology_transaction = 4;
   }
 }
 

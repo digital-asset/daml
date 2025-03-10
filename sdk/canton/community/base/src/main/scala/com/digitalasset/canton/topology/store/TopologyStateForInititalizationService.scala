@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.topology.store
 
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.processing.SequencedTime
@@ -92,7 +91,7 @@ final class StoreBasedTopologyStateForInitializationService(
         }
         .getOrElse(
           synchronizerTopologyStore
-            .maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
+            .maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
             .flatMap { maxTimestamp =>
               FutureUnlessShutdown.failed(
                 Status.FAILED_PRECONDITION

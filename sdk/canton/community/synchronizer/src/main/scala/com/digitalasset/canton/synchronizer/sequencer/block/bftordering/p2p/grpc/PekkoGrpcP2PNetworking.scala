@@ -5,7 +5,10 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.p2p.grp
 
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
+  P2PEndpoint,
+  ServerHandleInfo,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   ClientP2PNetworkManager,
@@ -60,9 +63,7 @@ object PekkoGrpcP2PNetworking {
   private val SendRetryDelay = 2.seconds
 
   final class PekkoClientP2PNetworkManager[P2PMessageT](
-      getServerHandleOrStartConnection: P2PEndpoint => Option[
-        (SequencerId, StreamObserver[P2PMessageT])
-      ],
+      getServerHandleOrStartConnection: P2PEndpoint => Option[ServerHandleInfo[P2PMessageT]],
       closeConnection: P2PEndpoint => Unit,
       timeouts: ProcessingTimeout,
       override val loggerFactory: NamedLoggerFactory,
@@ -124,9 +125,7 @@ object PekkoGrpcP2PNetworking {
 
   private def createGrpcConnectionManagerPekkoBehavior[P2PMessageT](
       endpoint: P2PEndpoint,
-      getServerPeerHandle: P2PEndpoint => Option[
-        (SequencerId, StreamObserver[P2PMessageT])
-      ],
+      getServerPeerHandle: P2PEndpoint => Option[ServerHandleInfo[P2PMessageT]],
       closeConnection: P2PEndpoint => Unit,
       onSequencerId: (P2PEndpoint.Id, SequencerId) => Unit,
       loggerFactory: NamedLoggerFactory,
@@ -140,9 +139,10 @@ object PekkoGrpcP2PNetworking {
         context: ActorContext[PekkoGrpcConnectionManagerActorMessage[P2PMessageT]]
     ): Behavior[PekkoGrpcConnectionManagerActorMessage[P2PMessageT]] = {
       getServerPeerHandle(endpoint) match {
-        case Some((sequencerId, serverPeerHandle)) =>
+        case Some(ServerHandleInfo(sequencerId, serverPeerHandle, isNewlyConnected)) =>
           // Connection available
-          onSequencerId(endpointId, sequencerId)
+          if (isNewlyConnected)
+            onSequencerId(endpointId, sequencerId)
           whenConnected(serverPeerHandle)
         case _ =>
           logger.info(

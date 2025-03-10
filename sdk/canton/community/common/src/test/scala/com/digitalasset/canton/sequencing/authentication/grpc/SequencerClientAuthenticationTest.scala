@@ -17,6 +17,7 @@ import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationTokenManagerConfig,
 }
 import com.digitalasset.canton.topology.{DefaultTestIdentities, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, protobuf}
 import io.grpc.*
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
@@ -58,7 +59,7 @@ class SequencerClientAuthenticationTest extends FixtureAsyncWordSpec with BaseTe
     val authServerInterceptor = new AuthServerInterceptor(serverExpectedToken.get)
     val tokenManager =
       new AuthenticationTokenManager(
-        _ =>
+        (_: TraceContext) =>
           EitherT.pure[FutureUnlessShutdown, Status](
             AuthenticationTokenWithExpiry(clientNextTokenRefresh.get(), CantonTimestamp.Epoch)
           ),

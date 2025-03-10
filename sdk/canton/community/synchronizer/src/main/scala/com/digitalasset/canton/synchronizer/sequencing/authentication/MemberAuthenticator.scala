@@ -6,7 +6,9 @@ package com.digitalasset.canton.synchronizer.sequencing.authentication
 import cats.implicits.*
 import com.digitalasset.canton.sequencing.authentication.AuthenticationToken
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.AuthenticationError
+import com.digitalasset.canton.sequencing.authentication.grpc.Constant
 import com.digitalasset.canton.topology.{Member, SynchronizerId, UniqueIdentifier}
+import io.grpc.Metadata
 
 object MemberAuthenticator {
 
@@ -29,6 +31,17 @@ object MemberAuthenticator {
       member: String,
       intendedSynchronizer: String,
   )
+
+  def extractAuthenticationCredentials(headers: Metadata): Option[AuthenticationCredentials] =
+    for {
+      member <- Option(headers.get(Constant.MEMBER_ID_METADATA_KEY))
+      intendedSynchronizer <- Option(headers.get(Constant.SYNCHRONIZER_ID_METADATA_KEY))
+      token <- Option(headers.get(Constant.AUTH_TOKEN_METADATA_KEY))
+    } yield AuthenticationCredentials(
+      token,
+      member,
+      intendedSynchronizer,
+    )
 
   /** Parses and authenticates the [[AuthenticationCredentials]] using the provided
     * [[MemberAuthenticationService]].

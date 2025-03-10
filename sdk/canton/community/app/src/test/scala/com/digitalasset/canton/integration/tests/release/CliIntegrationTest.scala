@@ -238,7 +238,9 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
         Some(new java.io.File(cantonDir)),
       ) ! processLogger
       logger.debug(s"The process has ended now with $exitCode")
-      val out = processLogger.output()
+      // slow participants might activate ACS commitment catch-up mode, and we want to filter out the resulting
+      // ACS commitment degradation warnings, otherwise the CI complains
+      val out = processLogger.output().replace(commitmentCatchUpWarning, "")
       logger.debug("Stdout is\n" + out)
       exitCode shouldBe 0
       out should include(successMsg)

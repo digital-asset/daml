@@ -28,7 +28,6 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.google.common.annotations.VisibleForTesting
 
 import java.time.Duration as JDuration
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
@@ -138,7 +137,8 @@ class StoreBasedSynchronizerTopologyClient(
 
   private val sequencedTimeAwaiter =
     new TimeAwaiter(
-      getCurrentKnownTime = () => head.get().sequencedTimestamp.value.immediateSuccessor,
+      // waiting for a sequenced time has "inclusive" semantics
+      getCurrentKnownTime = () => head.get().sequencedTimestamp.value,
       timeouts,
       loggerFactory,
     )
@@ -185,7 +185,8 @@ class StoreBasedSynchronizerTopologyClient(
     )
     val curHead =
       head.updateAndGet(_.update(sequencedTimestamp, effectiveTimestamp, approximateTimestamp))
-    sequencedTimeAwaiter.notifyAwaitedFutures(curHead.sequencedTimestamp.value.immediateSuccessor)
+    // waiting for a sequenced time has "inclusive" semantics
+    sequencedTimeAwaiter.notifyAwaitedFutures(curHead.sequencedTimestamp.value)
     // now notify the futures that wait for this update here. as the update is active at t+epsilon, (see most recent timestamp),
     // we'll need to notify accordingly
     effectiveTimeAwaiter.notifyAwaitedFutures(curHead.effectiveTimestamp.value.immediateSuccessor)
@@ -283,6 +284,10 @@ class StoreBasedSynchronizerTopologyClient(
     )
   }
 
+  /** @return
+    *   the timestamp as of which the latest known effective time will be valid, i.e.
+    *   latestKnownEffectiveTimestamp.immediateSuccessor
+    */
   override def topologyKnownUntilTimestamp: CantonTimestamp =
     head.get().effectiveTimestamp.value.immediateSuccessor
 
@@ -290,7 +295,7 @@ class StoreBasedSynchronizerTopologyClient(
     *
     * whenever we get an update, we do set the approximate timestamp first to the sequencer time and
     * use the synchronizer time tracker to advance the approximate time to the effective time after
-    * the time difference elapsed.
+    * a timestamp greater than the effective time was received from the sequencer.
     */
   override def approximateTimestamp: CantonTimestamp =
     head.get().approximateTimestamp.value.immediateSuccessor
@@ -298,20 +303,19 @@ class StoreBasedSynchronizerTopologyClient(
   override def awaitTimestamp(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Option[FutureUnlessShutdown[Unit]] =
-    effectiveTimeAwaiter.awaitKnownTimestampUS(timestamp)
+    effectiveTimeAwaiter.awaitKnownTimestamp(timestamp)
 
-  @VisibleForTesting
-  private[client] def awaitSequencedTimestampUS(timestamp: CantonTimestamp)(implicit
+  override def awaitSequencedTimestamp(timestampInclusive: SequencedTime)(implicit
       traceContext: TraceContext
   ): Option[FutureUnlessShutdown[Unit]] =
-    sequencedTimeAwaiter.awaitKnownTimestampUS(timestamp)
+    sequencedTimeAwaiter.awaitKnownTimestamp(timestampInclusive.value)
 
-  override def awaitMaxTimestamp(sequencedTime: CantonTimestamp)(implicit
+  override def awaitMaxTimestamp(sequencedTime: SequencedTime)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
     for {
       // We wait for the sequenced time to be processed to ensure that `maxTimestamp`'s output is stable.
-      _ <- awaitSequencedTimestampUS(sequencedTime).getOrElse(
+      _ <- awaitSequencedTimestamp(sequencedTime).getOrElse(
         FutureUnlessShutdown.unit
       )
       maxTimestamp <-

@@ -304,6 +304,23 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
             "Canonical commit set for block BlockMetadata(1,13) has size 1 which is below the strong quorum of 2"
           ),
         ),
+        // negative: canonical commits contain a commit from a wrong node
+        (
+          createPrePrepare(
+            OrderingBlock(Seq(createPoa())),
+            CanonicalCommitSet(
+              Set(createCommit(BlockMetadata(EpochNumber(1L), BlockNumber(12L)), from = otherId))
+            ),
+            BlockMetadata(EpochNumber(1L), BlockNumber(13L)),
+          ),
+          Segment(myId, NonEmpty(Seq, BlockNumber(12L), BlockNumber(13L))),
+          aMembership,
+          Membership.forTesting(myId),
+          Left(
+            "Canonical commit set for block BlockMetadata(1,13) contains commit from SEQ::ns::fake_otherId " +
+              "that is not part of current topology Set(SEQ::ns::fake_self)"
+          ),
+        ),
         // positive: canonical commits (from the current epoch) make a strong quorum
         (
           createPrePrepare(

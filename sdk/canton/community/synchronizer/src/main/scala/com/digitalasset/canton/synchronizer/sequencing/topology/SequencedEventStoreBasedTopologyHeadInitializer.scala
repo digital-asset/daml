@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.synchronizer.sequencing.topology
 
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.store.SequencedEventStore.SearchCriterion
@@ -37,7 +36,7 @@ final class SequencedEventStoreBasedTopologyHeadInitializer(
         .map(Some(_))
         .getOrElse(None)
       maxTopologyStoreTimestamp <- topologyStore.maxTimestamp(
-        CantonTimestamp.MaxValue,
+        SequencedTime.MaxValue,
         includeRejected = true,
       )
     } yield {

@@ -13,7 +13,7 @@ import com.digitalasset.canton.util.ErrorUtil
 
 import java.util.{ConcurrentModificationException, PriorityQueue}
 import scala.annotation.tailrec
-import scala.concurrent.{Future, Promise, blocking}
+import scala.concurrent.{Promise, blocking}
 import scala.jdk.CollectionConverters.*
 
 /** Utility to implement a time awaiter
@@ -25,21 +25,13 @@ final class TimeAwaiter(
 ) extends FlagCloseable
     with NamedLogging {
 
-  private abstract class Awaiting[T] {
-    val promise: Promise[T] = Promise[T]()
-    def shutdown(): Boolean
-    def success(): Unit
-  }
-  private class General extends Awaiting[Unit] {
-    override def shutdown(): Boolean = false
-    override def success(): Unit = promise.success(())
-  }
-  private class ShutdownAware extends Awaiting[UnlessShutdown[Unit]] {
-    override def shutdown(): Boolean = {
+  private class ShutdownAwareAwaiting {
+    val promise: Promise[UnlessShutdown[Unit]] = Promise[UnlessShutdown[Unit]]()
+    def shutdown(): Boolean = {
       promise.trySuccess(UnlessShutdown.AbortedDueToShutdown).discard
       true
     }
-    override def success(): Unit = promise.trySuccess(UnlessShutdown.unit).discard
+    def success(): Unit = promise.trySuccess(UnlessShutdown.unit).discard
   }
 
   override def onClosed(): Unit =
@@ -49,49 +41,40 @@ final class TimeAwaiter(
 
   def awaitKnownTimestamp(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Option[Future[Unit]] =
-    awaitKnownTimestampGen(timestamp, new General()).map(_.promise.future)
-
-  def awaitKnownTimestampUS(
-      timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Option[FutureUnlessShutdown[Unit]] = {
     val current = getCurrentKnownTime()
     if (current >= timestamp) None
     else
       performUnlessClosing(s"await known timestamp at $timestamp") {
-        awaitKnownTimestampGen(timestamp, new ShutdownAware())
-      }.map(_.map(awaiter => FutureUnlessShutdown(awaiter.promise.future)))
+        logger.debug(
+          s"Starting time awaiter for timestamp $timestamp. Current known time is $current."
+        )
+        awaitKnownTimestampGen(timestamp, new ShutdownAwareAwaiting())
+      }.map(awaiter => Some(FutureUnlessShutdown(awaiter.promise.future)))
         .onShutdown(Some(FutureUnlessShutdown.abortedDueToShutdown))
   }
 
   private def awaitKnownTimestampGen[T](
       timestamp: CantonTimestamp,
-      create: => Awaiting[T],
-  )(implicit traceContext: TraceContext): Option[Awaiting[T]] = {
-    val current = getCurrentKnownTime()
-    if (current >= timestamp) None
-    else {
-      logger.debug(
-        s"Starting time awaiter for timestamp $timestamp. Current known time is $current."
-      )
-      val awaiter = create
-      blocking(awaitTimestampFuturesLock.synchronized {
-        awaitTimestampFutures.offer(timestamp -> awaiter).discard
-      })
-      // If the timestamp has been advanced while we're inserting into the priority queue,
-      // make sure that we're completing the future.
-      val newCurrent = getCurrentKnownTime()
-      if (newCurrent >= timestamp) notifyAwaitedFutures(newCurrent)
-      Some(awaiter)
-    }
+      create: => ShutdownAwareAwaiting,
+  )(implicit traceContext: TraceContext): ShutdownAwareAwaiting = {
+    val awaiter = create
+    blocking(awaitTimestampFuturesLock.synchronized {
+      awaitTimestampFutures.offer(timestamp -> awaiter).discard
+    })
+    // If the timestamp has been advanced while we're inserting into the priority queue,
+    // make sure that we're completing the future.
+    val newCurrent = getCurrentKnownTime()
+    if (newCurrent >= timestamp) notifyAwaitedFutures(newCurrent)
+    awaiter
   }
 
   /** Queue of timestamps that are being awaited on, ordered by timestamp. Access is synchronized
     * via [[awaitTimestampFuturesLock]].
     */
-  private val awaitTimestampFutures: PriorityQueue[(CantonTimestamp, Awaiting[?])] =
-    new PriorityQueue[(CantonTimestamp, Awaiting[?])](
-      Ordering.by[(CantonTimestamp, Awaiting[?]), CantonTimestamp](_._1)
+  private val awaitTimestampFutures: PriorityQueue[(CantonTimestamp, ShutdownAwareAwaiting)] =
+    new PriorityQueue[(CantonTimestamp, ShutdownAwareAwaiting)](
+      Ordering.by[(CantonTimestamp, ShutdownAwareAwaiting), CantonTimestamp](_._1)
     )
   private val awaitTimestampFuturesLock: AnyRef = new Object()
 

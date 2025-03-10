@@ -113,46 +113,9 @@ trait TestEssentials
   lazy val directExecutionContext: ExecutionContext = DirectExecutionContext(noTracingLogger)
 }
 
-/** Base traits for tests. Makes syntactic sugar and logging available.
-  */
-trait BaseTest
-    extends TestEssentials
-    with Matchers
-    with Inspectors
-    with LoneElement
-    with TableDrivenPropertyChecks
-    with Inside
-    with EitherValues
-    with OptionValues
-    with TryValues
-    with AppendedClues { self =>
+trait FutureHelpers extends Assertions with ScalaFuturesWithPatience { self =>
 
   import scala.language.implicitConversions
-
-  /** A metrics factory constructed from an OpenTelemetryOnDemandMetricsReader which allows to make
-    * assertion on the content of the metrics registry.
-    */
-  def testableMetricsFactory(
-      testName: String,
-      onDemandMetricsReader: OpenTelemetryOnDemandMetricsReader,
-      histograms: Set[String],
-  ): OpenTelemetryMetricsFactory = {
-    val sdkBuilder = OpenTelemetrySdk.builder()
-    val meterProvider = SdkMeterProvider.builder()
-    meterProvider.registerMetricReader(onDemandMetricsReader)
-    sdkBuilder.setMeterProvider(meterProvider.build())
-    val openTelemetry = ConfiguredOpenTelemetry(
-      sdkBuilder.build(),
-      SdkTracerProvider.builder(),
-      onDemandMetricsReader,
-    )
-    new OpenTelemetryMetricsFactory(
-      openTelemetry.openTelemetry.meterBuilder(testName).build(),
-      histograms,
-      None,
-      MetricsContext.Empty,
-    )
-  }
 
   /** Allows for invoking `myEitherT.futureValue` when `myEitherT: EitherT[Future, _, _]`.
     */
@@ -160,50 +123,6 @@ trait BaseTest
       ec: ExecutionContext
   ): FutureConcept[B] =
     eitherTFuture.valueOr(err => fail(s"Unexpected left value $err"))
-
-  def clue[T](message: String)(expr: => T): T = {
-    logger.debug(s"Running clue: $message")
-    Try(expr) match {
-      case Success(value) =>
-        logger.debug(s"Finished clue: $message")
-        value
-      case Failure(ex) =>
-        logger.error(s"Failed clue: $message", ex)
-        throw ex
-    }
-  }
-  def clueF[T](message: String)(expr: => Future[T])(implicit ec: ExecutionContext): Future[T] = {
-    logger.debug(s"Running clue: $message")
-    Try(expr) match {
-      case Success(value) =>
-        value.onComplete {
-          case Success(_) =>
-            logger.debug(s"Finished clue: $message")
-          case Failure(ex) =>
-            logger.error(s"Failed clue: $message", ex)
-        }
-        value
-      case Failure(ex) =>
-        throw ex
-    }
-  }
-  def clueFUS[T](
-      message: String
-  )(expr: => FutureUnlessShutdown[T])(implicit ec: ExecutionContext): FutureUnlessShutdown[T] = {
-    logger.debug(s"Running clue: $message")
-    Try(expr) match {
-      case Success(value) =>
-        value.onComplete {
-          case Success(_) =>
-            logger.debug(s"Finished clue: $message")
-          case Failure(ex) =>
-            logger.error(s"Failed clue: $message", ex)
-        }
-        value
-      case Failure(ex) =>
-        throw ex
-    }
-  }
 
   /** Allows for returning an `EitherT[Future, _, Assertion]` instead of `Future[Assertion]` in
     * asynchronous test suites.
@@ -220,37 +139,6 @@ trait BaseTest
       optionTAssertion: OptionT[Future, Assertion]
   )(implicit ec: ExecutionContext, pos: source.Position): Future[Assertion] =
     optionTAssertion.getOrElse(fail(s"Unexpected None value"))
-
-  def eventually[T](
-      timeUntilSuccess: FiniteDuration = 20.seconds,
-      maxPollInterval: FiniteDuration = 5.seconds,
-      retryOnTestFailuresOnly: Boolean = true,
-  )(testCode: => T): T =
-    BaseTest.eventually(
-      timeUntilSuccess,
-      maxPollInterval,
-      retryOnTestFailuresOnly = retryOnTestFailuresOnly,
-    )(testCode)
-
-  /** Keeps evaluating `testCode` until it fails or a timeout occurs.
-    * @return
-    *   the result the last evaluation of `testCode`
-    * @throws java.lang.Throwable
-    *   if `testCode` terminates with a throwable
-    * @throws java.lang.IllegalArgumentException
-    *   if `timeout` or `pollIntervalMs` is negative
-    */
-  @SuppressWarnings(Array("org.wartremover.warts.While"))
-  def always[T](durationOfSuccess: FiniteDuration = 2.seconds, pollIntervalMs: Long = 10)(
-      testCode: => T
-  ): T = BaseTest.always(durationOfSuccess, pollIntervalMs)(testCode)
-
-  def eventuallyForever[T](
-      timeUntilSuccess: FiniteDuration = 2.seconds,
-      durationOfSuccess: FiniteDuration = 2.seconds,
-      pollIntervalMs: Long = 10,
-  )(testCode: => T): T =
-    BaseTest.eventuallyForever(timeUntilSuccess, durationOfSuccess, pollIntervalMs)(testCode)
 
   /** Converts an EitherT into a Future, failing in case of a [[scala.Left$]]. */
   def valueOrFail[F[_], A, B](e: EitherT[F, A, B])(
@@ -314,10 +202,6 @@ trait BaseTest
   /** Converts an Either into an A value, failing in a case of a [[scala.Right$]] */
   def leftOrFail[A, B](e: Either[A, B])(clue: String)(implicit position: Position): A =
     valueOrFail(e.swap)(clue)
-
-  @SuppressWarnings(Array("org.wartremover.warts.TryPartial"))
-  def withClueF[A](clue: String)(sut: => Future[A])(implicit ec: ExecutionContext): Future[A] =
-    withClue(clue)(sut.transform(outcome => Try(withClue(clue)(outcome.get))))
 
   // Syntax extensions for valueOrFail
   implicit class OptionTestSyntax[A](option: Option[A]) {
@@ -391,6 +275,127 @@ trait BaseTest
     def failOnShutdown(implicit pos: Position): A =
       us.onShutdown(fail(s"Unexpected shutdown"))
   }
+
+}
+
+/** Base traits for tests. Makes syntactic sugar and logging available.
+  */
+trait BaseTest
+    extends TestEssentials
+    with Matchers
+    with Inspectors
+    with LoneElement
+    with TableDrivenPropertyChecks
+    with Inside
+    with EitherValues
+    with OptionValues
+    with TryValues
+    with AppendedClues
+    with FutureHelpers { self =>
+
+  /** A metrics factory constructed from an OpenTelemetryOnDemandMetricsReader which allows to make
+    * assertion on the content of the metrics registry.
+    */
+  def testableMetricsFactory(
+      testName: String,
+      onDemandMetricsReader: OpenTelemetryOnDemandMetricsReader,
+      histograms: Set[String],
+  ): OpenTelemetryMetricsFactory = {
+    val sdkBuilder = OpenTelemetrySdk.builder()
+    val meterProvider = SdkMeterProvider.builder()
+    meterProvider.registerMetricReader(onDemandMetricsReader)
+    sdkBuilder.setMeterProvider(meterProvider.build())
+    val openTelemetry = ConfiguredOpenTelemetry(
+      sdkBuilder.build(),
+      SdkTracerProvider.builder(),
+      onDemandMetricsReader,
+    )
+    new OpenTelemetryMetricsFactory(
+      openTelemetry.openTelemetry.meterBuilder(testName).build(),
+      histograms,
+      None,
+      MetricsContext.Empty,
+    )
+  }
+
+  def clue[T](message: String)(expr: => T): T = {
+    logger.debug(s"Running clue: $message")
+    Try(expr) match {
+      case Success(value) =>
+        logger.debug(s"Finished clue: $message")
+        value
+      case Failure(ex) =>
+        logger.error(s"Failed clue: $message", ex)
+        throw ex
+    }
+  }
+  def clueF[T](message: String)(expr: => Future[T])(implicit ec: ExecutionContext): Future[T] = {
+    logger.debug(s"Running clue: $message")
+    Try(expr) match {
+      case Success(value) =>
+        value.onComplete {
+          case Success(_) =>
+            logger.debug(s"Finished clue: $message")
+          case Failure(ex) =>
+            logger.error(s"Failed clue: $message", ex)
+        }
+        value
+      case Failure(ex) =>
+        throw ex
+    }
+  }
+  def clueFUS[T](
+      message: String
+  )(expr: => FutureUnlessShutdown[T])(implicit ec: ExecutionContext): FutureUnlessShutdown[T] = {
+    logger.debug(s"Running clue: $message")
+    Try(expr) match {
+      case Success(value) =>
+        value.onComplete {
+          case Success(_) =>
+            logger.debug(s"Finished clue: $message")
+          case Failure(ex) =>
+            logger.error(s"Failed clue: $message", ex)
+        }
+        value
+      case Failure(ex) =>
+        throw ex
+    }
+  }
+
+  def eventually[T](
+      timeUntilSuccess: FiniteDuration = 20.seconds,
+      maxPollInterval: FiniteDuration = 5.seconds,
+      retryOnTestFailuresOnly: Boolean = true,
+  )(testCode: => T): T =
+    BaseTest.eventually(
+      timeUntilSuccess,
+      maxPollInterval,
+      retryOnTestFailuresOnly = retryOnTestFailuresOnly,
+    )(testCode)
+
+  /** Keeps evaluating `testCode` until it fails or a timeout occurs.
+    * @return
+    *   the result the last evaluation of `testCode`
+    * @throws java.lang.Throwable
+    *   if `testCode` terminates with a throwable
+    * @throws java.lang.IllegalArgumentException
+    *   if `timeout` or `pollIntervalMs` is negative
+    */
+  @SuppressWarnings(Array("org.wartremover.warts.While"))
+  def always[T](durationOfSuccess: FiniteDuration = 2.seconds, pollIntervalMs: Long = 10)(
+      testCode: => T
+  ): T = BaseTest.always(durationOfSuccess, pollIntervalMs)(testCode)
+
+  def eventuallyForever[T](
+      timeUntilSuccess: FiniteDuration = 2.seconds,
+      durationOfSuccess: FiniteDuration = 2.seconds,
+      pollIntervalMs: Long = 10,
+  )(testCode: => T): T =
+    BaseTest.eventuallyForever(timeUntilSuccess, durationOfSuccess, pollIntervalMs)(testCode)
+
+  @SuppressWarnings(Array("org.wartremover.warts.TryPartial"))
+  def withClueF[A](clue: String)(sut: => Future[A])(implicit ec: ExecutionContext): Future[A] =
+    withClue(clue)(sut.transform(outcome => Try(withClue(clue)(outcome.get))))
 
   def forEveryParallel[A](inputs: Seq[A])(
       body: A => Assertion

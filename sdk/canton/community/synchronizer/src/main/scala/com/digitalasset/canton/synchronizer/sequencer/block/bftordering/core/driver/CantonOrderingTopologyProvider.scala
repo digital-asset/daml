@@ -22,6 +22,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.processing.SequencedTime
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
@@ -55,13 +56,14 @@ private[driver] final class CantonOrderingTopologyProvider(
 
     logger.debug(s"Awaiting max timestamp for snapshot at activation time $activationTime")
     val maxTimestampF =
-      // `awaitMaxTimestampUS` is exclusive on its input, so we call it on `activationTime.value`
-      //   rather than on `activationTime.value.immediatePredecessor`.
-      cryptoApi.awaitMaxTimestamp(activationTime.value).map { maxTimestamp =>
-        logger.debug(
-          s"Max timestamp $maxTimestamp awaited successfully for snapshot at activation time $activationTime"
-        )
-        maxTimestamp
+      // `awaitMaxTimestamp` is inclusive on its input, but `activationTime` already reflects the timestamp
+      // that we needs to be observed to retrieve the correct topology snapshot.
+      cryptoApi.awaitMaxTimestamp(SequencedTime(activationTime.value.immediatePredecessor)).map {
+        maxTimestamp =>
+          logger.debug(
+            s"Max timestamp $maxTimestamp awaited successfully for snapshot at activation time $activationTime"
+          )
+          maxTimestamp
       }
 
     logger.debug(s"Querying topology snapshot for activation time $activationTime")

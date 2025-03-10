@@ -46,6 +46,7 @@ import com.digitalasset.canton.topology.store.{
   ValidatedTopologyTransaction,
 }
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.topology.transaction.ParticipantPermission.Observation
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.RequiredAuth
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
@@ -293,6 +294,16 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = {
     traceContext.discard
     EitherT.rightT(())
+  }
+
+  def checkInsufficientParticipantPermissionForSignatoryParty(
+      @unused party: PartyId,
+      @unused forceFlags: ForceFlags,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = {
+    traceContext.discard
+    EitherTUtil.unitUS
   }
 
   /** Authorizes a new topology transaction by signing it and adding it to the topology state
@@ -873,39 +884,53 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = {
-    val removedParticipantIds = operation match {
-      case TopologyChangeOp.Replace =>
-        store
-          .findPositiveTransactions(
-            asOf = CantonTimestamp.MaxValue,
-            asOfInclusive = false,
-            isProposal = false,
-            types = Seq(PartyToParticipant.code),
-            filterUid = Some(Seq(partyId.uid)),
-            filterNamespace = None,
-          )
-          .map {
-            _.collectOfMapping[PartyToParticipant].collectLatestByUniqueKey.toTopologyState
-              .collectFirst { case PartyToParticipant(_, _, currentHostingParticipants) =>
-                currentHostingParticipants.map(_.participantId.uid).toSet -- nextParticipants.map(
-                  _.participantId.uid
-                )
-              }
-              .getOrElse(Set.empty)
-          }
-      case TopologyChangeOp.Remove =>
-        FutureUnlessShutdown.pure(
-          nextParticipants.map(_.participantId.uid).toSet
+    val currentHostingParticipants =
+      store
+        .findPositiveTransactions(
+          asOf = CantonTimestamp.MaxValue,
+          asOfInclusive = false,
+          isProposal = false,
+          types = Seq(PartyToParticipant.code),
+          filterUid = Some(Seq(partyId.uid)),
+          filterNamespace = None,
         )
-    }
+        .map {
+          _.collectOfMapping[PartyToParticipant].collectLatestByUniqueKey.toTopologyState
+            .collectFirst { case PartyToParticipant(_, _, currentHostingParticipants) =>
+              currentHostingParticipants
+            }
+            .getOrElse(Nil)
+        }
 
     for {
-      removed <- EitherT.right(removedParticipantIds)
+      currentHostingParticipants <- EitherT.right(currentHostingParticipants)
+
+      removed = operation match {
+        case TopologyChangeOp.Replace =>
+          currentHostingParticipants.map(_.participantId.uid).toSet -- nextParticipants.map(
+            _.participantId.uid
+          )
+        case TopologyChangeOp.Remove => currentHostingParticipants.map(_.participantId.uid).toSet
+
+      }
+
+      isAlreadyPureObserver = currentHostingParticipants.forall(_.permission == Observation)
+      isBecomingPureObserver = nextParticipants.forall(_.permission == Observation)
+      isTransitionToPureObserver = !isAlreadyPureObserver && isBecomingPureObserver
+
       _ <-
         if (removed.contains(nodeId)) {
           checkCannotDisablePartyWithActiveContracts(partyId, forceChanges: ForceFlags)
         } else EitherT.rightT[FutureUnlessShutdown, TopologyManagerError](())
 
+      _ <-
+        if (
+          isTransitionToPureObserver && currentHostingParticipants.exists(
+            _.participantId.uid == nodeId
+          )
+        ) {
+          checkInsufficientParticipantPermissionForSignatoryParty(partyId, forceChanges: ForceFlags)
+        } else EitherT.rightT[FutureUnlessShutdown, TopologyManagerError](())
     } yield ()
   }
 

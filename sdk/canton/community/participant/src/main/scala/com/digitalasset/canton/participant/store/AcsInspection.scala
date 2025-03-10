@@ -73,6 +73,17 @@ class AcsInspection(
       )
     } yield res
 
+  def isSignatoryOnActiveContracts(partyId: PartyId)(implicit
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Boolean] =
+    for {
+      acsSnapshotO <- getCurrentSnapshot()
+      res <- acsSnapshotO.fold(FutureUnlessShutdown.pure(false))(acsSnapshot =>
+        contractStore.isSignatoryOnActiveContracts(partyId, acsSnapshot.snapshot.keysIterator)
+      )
+    } yield res
+
   /** Get the current snapshot
     *
     * @return

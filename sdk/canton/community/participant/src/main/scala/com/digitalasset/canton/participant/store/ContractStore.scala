@@ -86,6 +86,27 @@ trait ContractStore extends ContractLookup with Purgeable with FlagCloseable {
       )
       .map(_.nonEmpty)
   }
+
+  def isSignatoryOnActiveContracts(
+      partyId: PartyId,
+      contractIds: Iterator[LfContractId],
+      batchSize: Int = 10,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Boolean] = {
+    val lfParty = partyId.toLf
+    contractIds
+      .grouped(batchSize)
+      .toList
+      .findM(cids =>
+        lookupSignatories(cids.toSet).value.map {
+          case Right(x) =>
+            x.exists { case (_, listParties) => listParties.contains(lfParty) }
+          case Left(_) => false
+        }
+      )
+      .map(_.nonEmpty)
+  }
 }
 
 object ContractStore {

@@ -145,6 +145,9 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, SequencerError, SequencerSnapshot] =
       ???
+    override def awaitSnapshot(timestamp: CantonTimestamp)(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, SequencerError, SequencerSnapshot] = ???
     override protected val localSequencerMember: Member = sequencerId
     override protected def disableMemberInternal(member: Member)(implicit
         traceContext: TraceContext

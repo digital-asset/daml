@@ -11,10 +11,10 @@ import com.digitalasset.canton.synchronizer.sequencing.authentication.MemberAuth
 import com.digitalasset.canton.synchronizer.sequencing.authentication.MemberAuthenticator.{
   AuthenticationCredentials,
   authenticate,
+  extractAuthenticationCredentials,
 }
 import com.digitalasset.canton.synchronizer.sequencing.authentication.grpc.SequencerAuthenticationServerInterceptor.{
   InterceptorListener,
-  extractAuthenticationHeaders,
   failVerification,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -32,7 +32,7 @@ class SequencerAuthenticationServerInterceptor(
       next: ServerCallHandler[ReqT, RespT],
   ): ServerCall.Listener[ReqT] = {
     import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.*
-    extractAuthenticationHeaders(headers)
+    extractAuthenticationCredentials(headers)
       .fold[ServerCall.Listener[ReqT]] {
         logger.debug("Authentication headers are missing for member or synchronizer id")
         failVerification("Authentication headers are not set", serverCall, headers)
@@ -120,15 +120,4 @@ object SequencerAuthenticationServerInterceptor {
     serverCall.close(status.withDescription(msg), headers)
     new ServerCall.Listener[ReqT]() {}
   }
-
-  private def extractAuthenticationHeaders(headers: Metadata): Option[AuthenticationCredentials] =
-    for {
-      member <- Option(headers.get(Constant.MEMBER_ID_METADATA_KEY))
-      intendedSynchronizer <- Option(headers.get(Constant.SYNCHRONIZER_ID_METADATA_KEY))
-      token <- Option(headers.get(Constant.AUTH_TOKEN_METADATA_KEY))
-    } yield AuthenticationCredentials(
-      token,
-      member,
-      intendedSynchronizer,
-    )
 }
