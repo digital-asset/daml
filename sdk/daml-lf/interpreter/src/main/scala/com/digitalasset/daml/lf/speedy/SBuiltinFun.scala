@@ -1255,81 +1255,29 @@ private[lf] object SBuiltinFun {
       coid: V.ContractId,
       interfaceId: TypeConName,
   )(k: SAny => Control[Question.Update]): Control[Question.Update] = {
-    def importContract(srcContract: ContractInfo) = {
+    fetchSourceContractId(machine, coid)({ case (_, srcContract) =>
+      val srcTmplId = srcContract.templateId
       val pkgName = srcContract.packageName
-      val srcTplId = srcContract.templateId
       val srcArg = srcContract.value.asInstanceOf[SRecord]
       resolvePackageName(machine, pkgName) { pkgId =>
-        val dstTplId = srcTplId.copy(packageId = pkgId)
+        val dstTmplId = srcTmplId.copy(packageId = pkgId)
         machine.ensurePackageIsLoaded(
-          dstTplId.packageId,
-          language.Reference.Template(dstTplId),
-        ) { () =>
-          ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTplId) {
-            fromInterface(machine, srcTplId, srcArg, dstTplId) {
+          dstTmplId.packageId,
+          language.Reference.Template(dstTmplId),
+        ){ () =>
+          ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTmplId) {
+            fromInterface(machine, srcTmplId, srcArg, dstTmplId) {
               case None =>
-                Control.Error(IE.WronglyTypedContract(coid, dstTplId, srcTplId))
+                Control.Error(IE.WronglyTypedContract(coid, dstTmplId, srcTmplId))
               case Some(dstArg) =>
-                getContractInfo(
-                  machine,
-                  coid,
-                  dstTplId,
-                  dstArg,
-                  allowCatchingContractInfoErrors = false,
-                ) { dstContract =>
-                  // In Validation mode, we always call validateContractInfo
-                  // In Submission mode, we only call validateContractInfo when src != dest
-                  val needValidationCall: Boolean =
-                    machine.validating || srcTplId.packageId != dstTplId.packageId
-                  if (needValidationCall)
-                    k(SAny(Ast.TTyCon(dstTplId), dstArg))
-                  else
-                    checkContractUpgradable(coid, srcContract, dstContract) { () =>
-                      k(SAny(Ast.TTyCon(dstTplId), dstArg))
-                    }
-                }
+                fetchValidateDstContract(machine, coid, srcTmplId, srcContract, dstTmplId, dstArg)({ case (dstTmplId, dstArg, _) =>
+                  k(SAny(Ast.TTyCon(dstTmplId), dstArg))
+                })
             }
           }
         }
       }
-    }
-
-    machine.getIfLocalContract(coid) match {
-      case Some((templateId, templateArg)) =>
-        ensureContractActive(machine, coid, templateId) {
-          getContractInfo(
-            machine,
-            coid,
-            templateId,
-            templateArg,
-            allowCatchingContractInfoErrors = false,
-          )(importContract)
-        }
-      case None =>
-        machine.lookupContract(coid) { case V.ContractInstance(_, _, srcTmplId, coinstArg) =>
-          machine.ensurePackageIsLoaded(
-            srcTmplId.packageId,
-            language.Reference.Template(srcTmplId),
-          ) { () =>
-            importValue(machine, srcTmplId, coinstArg) { templateArg =>
-              getContractInfo(
-                machine,
-                coid,
-                srcTmplId,
-                templateArg,
-                allowCatchingContractInfoErrors = false,
-              ) { contract =>
-                ensureContractActive(machine, coid, contract.templateId) {
-                  machine.checkContractVisibility(coid, contract)
-                  machine.enforceLimitAddInputContract()
-                  machine.enforceLimitSignatoriesAndObservers(coid, contract)
-                  importContract(contract)
-                }
-              }
-            }
-          }
-        }
-    }
+    })
   }
 
   private[this] def resolvePackageName[Q](machine: UpdateMachine, pkgName: Ref.PackageName)(
@@ -2332,48 +2280,73 @@ private[lf] object SBuiltinFun {
       dstTmplId: TypeConName,
       coid: V.ContractId,
   )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
-    def importContract(srcContract: ContractInfo) = {
+    fetchSourceContractId(machine, coid) { case (localTemplateArg, srcContract) =>
       val srcTmplId = srcContract.templateId
-      if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
-        Control.Error(
-          IE.WronglyTypedContract(coid, dstTmplId, srcTmplId)
-        )
-      else
-        machine.ensurePackageIsLoaded(
-          dstTmplId.packageId,
-          language.Reference.Template(dstTmplId),
-        ) { () =>
-          importValue(machine, dstTmplId, srcContract.arg) { templateArg =>
-            getContractInfo(
-              machine,
-              coid,
-              dstTmplId,
-              templateArg,
-              allowCatchingContractInfoErrors = false,
-            ) { dstContract =>
-              ensureContractActive(machine, coid, dstContract.templateId) {
-
-                machine.checkContractVisibility(coid, dstContract)
-                machine.enforceLimitAddInputContract()
-                machine.enforceLimitSignatoriesAndObservers(coid, dstContract)
-
-                // In Validation mode, we always call validateContractInfo
-                // In Submission mode, we only call validateContractInfo when src != dest
-                val needValidationCall: Boolean =
-                  machine.validating || srcTmplId.packageId != dstTmplId.packageId
-                if (needValidationCall) {
-                  checkContractUpgradable(coid, srcContract, dstContract) { () =>
-                    f(dstContract.value)
-                  }
-                } else {
+      localTemplateArg match {
+        // If the local contract has the same package ID as the target template ID, then we don't need to
+        // import its value and validate its contract info again.
+        case Some(localTemplateArg) if (srcTmplId == dstTmplId) =>
+          f(localTemplateArg)
+        case _ =>
+          if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
+            Control.Error(
+              IE.WronglyTypedContract(coid, dstTmplId, srcTmplId)
+            )
+          else
+            machine.ensurePackageIsLoaded(
+              dstTmplId.packageId,
+              language.Reference.Template(dstTmplId),
+            ){ () =>
+              importValue(
+                machine,
+                dstTmplId,
+                srcContract.arg
+              )(dstArg =>
+                fetchValidateDstContract(machine, coid, srcTmplId, srcContract, dstTmplId, dstArg)({ case (_, _, dstContract) =>
                   f(dstContract.value)
-                }
-              }
+              }))
             }
+      }
+    }
+  }
+
+  private def fetchValidateDstContract(
+    machine: UpdateMachine,
+    coid: V.ContractId,
+    srcTmplId: TypeConName,
+    srcContract: ContractInfo,
+    dstTmplId: TypeConName,
+    dstTmplArg: SValue
+  )(k: (TypeConName, SValue, ContractInfo) => Control[Question.Update]): Control[Question.Update] =
+    getContractInfo(
+      machine,
+      coid,
+      dstTmplId,
+      dstTmplArg,
+      allowCatchingContractInfoErrors = false,
+    ) { dstContract =>
+      ensureContractActive(machine, coid, dstContract.templateId) {
+        machine.checkContractVisibility(coid, dstContract)
+        machine.enforceLimitAddInputContract()
+        machine.enforceLimitSignatoriesAndObservers(coid, dstContract)
+        // In Validation mode, we always call validateContractInfo
+        // In Submission mode, we only call validateContractInfo when src != dest
+        val needValidationCall: Boolean =
+          machine.validating || srcTmplId.packageId != dstTmplId.packageId
+        if (needValidationCall) {
+          checkContractUpgradable(coid, srcContract, dstContract) { () =>
+            k(dstTmplId, dstTmplArg, dstContract)
           }
+        } else {
+          k(dstTmplId, dstTmplArg, dstContract)
         }
+      }
     }
 
+  private def fetchSourceContractId(
+      machine: UpdateMachine,
+      coid: V.ContractId,
+  )(f: (Option[SValue], ContractInfo) => Control[Question.Update]): Control[Question.Update] = {
     machine.getIfLocalContract(coid) match {
       case Some((srcTmplId, templateArg)) =>
         ensureContractActive(machine, coid, srcTmplId) {
@@ -2383,14 +2356,7 @@ private[lf] object SBuiltinFun {
             srcTmplId,
             templateArg,
             allowCatchingContractInfoErrors = false,
-          ) { contractInfo =>
-            // If the local contract has the same package ID as the target template ID, then we don't need to
-            // import its value and validate its contract info again.
-            if (srcTmplId == dstTmplId)
-              f(templateArg)
-            else
-              importContract(contractInfo)
-          }
+          )(f(Some(templateArg), _))
         }
       case None =>
         machine.lookupContract(coid)(coinst =>
@@ -2405,7 +2371,7 @@ private[lf] object SBuiltinFun {
                 coinst.template,
                 templateArg,
                 allowCatchingContractInfoErrors = false,
-              )(importContract)
+              )(f(None, _))
             }
           }
         )
