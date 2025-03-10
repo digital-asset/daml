@@ -6,7 +6,7 @@
 Explicit Contract Disclosure
 ####################################
 
-In Daml, you must specify up front who can view data using :ref:`stakeholder <stakeholder>` annotations in template definitions.
+In Daml, you must specify who can view data using :ref:`stakeholder <stakeholder>` annotations in your template definitions.
 To change who can see the data, you would typically need to recreate a contract with a template that computes different stakeholder parties.
 
 Explicit contract disclosure allows you to delegate contract read rights to non-stakeholders using off-ledger data distribution.

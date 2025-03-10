@@ -7,7 +7,7 @@
 App Architecture
 ****************
 
-In this section we'll look at the different components of the social network app we created in  :doc:`Building Your App <index>`. The goal is to familiarize yourself with the basics of Daml architecture enough to feel comfortable extending the code with a new feature in the next section. There are two main components:
+In this section we look at the different components of the social network app we created in  :doc:`Building Your App <index>`. The goal is to familiarize yourself with the basics of Daml architecture enough to feel comfortable extending the code with a new feature in the next section. There are two main components:
 
   * the Daml model
   * the React/TypeScript frontend
