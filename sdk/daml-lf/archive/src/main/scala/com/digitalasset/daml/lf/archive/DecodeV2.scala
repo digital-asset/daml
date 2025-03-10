@@ -1450,6 +1450,15 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         case PLF.BuiltinLit.SumCase.ROUNDING_MODE =>
           assertSince(LV.Features.bigNumeric, "Expr.rounding_mode")
           BLRoundingMode(java.math.RoundingMode.valueOf(lfBuiltinLit.getRoundingModeValue))
+        case PLF.BuiltinLit.SumCase.FAILURE_CATEGORY =>
+          BLFailureCategory(lfBuiltinLit.getFailureCategory match {
+            case PLF.BuiltinLit.FailureCategory.INVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER => FCInvalidGivenCurrentSystemStateOther
+            case PLF.BuiltinLit.FailureCategory.INVALID_INDEPENDENT_OF_SYSTEM_STATE => FCInvalidIndependentOfSystemState
+            case PLF.BuiltinLit.FailureCategory.INTERNAL_UNSUPPORTED_OPERATION => FCInternalUnsupportedOperation
+            case PLF.BuiltinLit.FailureCategory.SYSTEM_INTERNAL_ASSUMPTION_VIOLATED => FCSystemInternalAssumptionViolated
+            case PLF.BuiltinLit.FailureCategory.UNRECOGNIZED =>
+              throw Error.Parsing("BuiltinLitFailureCategory.UNRECOGNIZED")
+          })
         case PLF.BuiltinLit.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("BuiltinLit.SUM_NOT_SET")
       }
@@ -1531,6 +1540,7 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = LV.Features.bigNumeric),
       BuiltinTypeInfo(ROUNDING_MODE, BTRoundingMode, minVersion = LV.Features.bigNumeric),
       BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException, minVersion = LV.Features.exceptions),
+      BuiltinTypeInfo(FAILURE_CATEGORY, BTFailureCategory),
     )
   }
 

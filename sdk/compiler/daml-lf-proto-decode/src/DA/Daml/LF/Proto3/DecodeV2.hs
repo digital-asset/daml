@@ -713,6 +713,13 @@ decodeBuiltinLit (LF2.BuiltinLit mbSum) = mayDecode "builtinLitSum" mbSum $ \cas
        LF2.BuiltinLit_RoundingModeHALF_EVEN -> BERoundingMode LitRoundingHalfEven
        LF2.BuiltinLit_RoundingModeUNNECESSARY -> BERoundingMode LitRoundingUnnecessary
     Proto.Enumerated (Left idx) -> throwError (UnknownEnum "BuiltinLitSumRoundingMode" idx)
+  LF2.BuiltinLitSumFailureCategory enum -> case enum of
+    Proto.Enumerated (Right mode) -> pure $ case mode of
+       LF2.BuiltinLit_FailureCategoryINVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER -> BEFailureCategory LitInvalidGivenCurrentSystemStateOther
+       LF2.BuiltinLit_FailureCategoryINVALID_INDEPENDENT_OF_SYSTEM_STATE -> BEFailureCategory LitInvalidIndependentOfSystemState
+       LF2.BuiltinLit_FailureCategoryINTERNAL_UNSUPPORTED_OPERATION -> BEFailureCategory LitInternalUnsupportedOperation
+       LF2.BuiltinLit_FailureCategorySYSTEM_INTERNAL_ASSUMPTION_VIOLATED -> BEFailureCategory LitSystemInternalAssumptionViolated
+    Proto.Enumerated (Left idx) -> throwError (UnknownEnum "BuiltinLitSumFailureCategory" idx)
 
 decodeNumericLit :: T.Text -> Decode BuiltinExpr
 decodeNumericLit (T.unpack -> str) = case readMaybe str of
@@ -750,6 +757,7 @@ decodeBuiltin = \case
   LF2.BuiltinTypeROUNDING_MODE -> pure BTRoundingMode
   LF2.BuiltinTypeBIGNUMERIC -> pure BTBigNumeric
   LF2.BuiltinTypeANY_EXCEPTION -> pure BTAnyException
+  LF2.BuiltinTypeFAILURE_CATEGORY -> pure BTFailureCategory
 
 decodeTypeLevelNat :: Integer -> Decode TypeLevelNat
 decodeTypeLevelNat m =

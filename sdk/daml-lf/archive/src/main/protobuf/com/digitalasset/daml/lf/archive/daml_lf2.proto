@@ -180,6 +180,8 @@ enum BuiltinType {
   ARROW = 16;
   // Builtin type 'Update'
   UPDATE = 17;
+  // Builtin type for FailureCategory
+  FAILURE_CATEGORY = 18;
 
   // Builtin type 'TTextMap`
   // *Available in versions >= 2.dev*
@@ -391,6 +393,13 @@ message BuiltinLit {
     UNNECESSARY = 7;
   }
 
+  enum FailureCategory {
+    INVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER = 0;
+    INVALID_INDEPENDENT_OF_SYSTEM_STATE = 1;
+    INTERNAL_UNSUPPORTED_OPERATION = 2;
+    SYSTEM_INTERNAL_ASSUMPTION_VIOLATED = 3;
+  }
+
   oneof Sum {
     //  64-bit integer literal ('LitInt64')
     sint64 int64 = 1;
@@ -402,6 +411,8 @@ message BuiltinLit {
     int32 text_interned_str = 4;
     // *Must be a valid date*
     int32 date = 5;
+    // *Failure category for failWithStatus*
+    FailureCategory failure_category = 6;
     // rounding mode for arithmetic operation
     // *Available in versions >= 2.dev*
     RoundingMode rounding_mode = 1001;

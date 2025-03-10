@@ -83,6 +83,7 @@ preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
     , "DA.NonEmpty.Types"
     , "DA.Monoid.Types"
     , "DA.Set.Types"
+    , "DA.Internal.Fail"
 
     -- This module needs to use the PatternSynonyms extension.
     , "DA.Maybe"

@@ -501,6 +501,7 @@ private[lf] final class PhaseOne(
       case BLTimestamp(ts) => STimestamp(ts)
       case BLDate(d) => SDate(d)
       case BLRoundingMode(roundingMode) => SInt64(roundingMode.ordinal.toLong)
+      case BLFailureCategory(failureCategory) => SInt64(failureCategory.cantonCategoryId.toLong)
     })
 
   // ERecUpd(_, f2, ERecUpd(_, f1, e0, e1), e2) => (e0, [f1, f2], [e1, e2])
