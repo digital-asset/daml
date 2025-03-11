@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.error.generator
 
-import com.daml.error.*
-import com.daml.error.ErrorCategory.TransientServerFailure
+import com.digitalasset.base.error.ErrorCategory.TransientServerFailure
+import com.digitalasset.base.error.{ErrorClass, Explanation, Grouping, Resolution}
 import com.digitalasset.canton.error.generator.ErrorCodeDocumentationGenerator.DeprecatedItem
 import com.digitalasset.canton.error.testpackage.subpackage.MildErrorsParent
 import com.digitalasset.canton.error.testpackage.subpackage.MildErrorsParent.MildErrors

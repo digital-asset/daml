@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.index
 
-import com.daml.error.{ContextualizedErrorLogger, DamlErrorWithDefiniteAnswer}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
@@ -15,6 +14,7 @@ import com.daml.ledger.api.v2.update_service.{
 }
 import com.daml.metrics.InstrumentedGraph.*
 import com.daml.tracing.{Event, SpanAttribute, Spans}
+import com.digitalasset.base.error.{ContextualizedErrorLogger, DamlErrorWithDefiniteAnswer}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.Offset

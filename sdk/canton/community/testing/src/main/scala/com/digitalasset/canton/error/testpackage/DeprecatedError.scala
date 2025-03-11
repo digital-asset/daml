@@ -3,8 +3,15 @@
 
 package com.digitalasset.canton.error.testpackage
 
-import com.daml.error.{BaseError, ErrorCategory, ErrorClass, ErrorCode, Explanation, Resolution}
 import com.daml.logging.LoggingContext
+import com.digitalasset.base.error.{
+  BaseError,
+  ErrorCategory,
+  ErrorClass,
+  ErrorCode,
+  Explanation,
+  Resolution,
+}
 
 @deprecated(since = "since now", message = "This is deprecated")
 @Resolution("Turn it off and on again.")

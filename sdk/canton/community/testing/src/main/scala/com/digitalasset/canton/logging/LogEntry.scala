@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.logging
 
-import com.daml.error.ErrorCode
+import com.digitalasset.base.error.ErrorCode
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
@@ -76,7 +76,7 @@ final case class LogEntry(
       loggerAssertion: String => Assertion = _ => succeed,
   )(implicit pos: source.Position): Assertion = {
     // Decompose the log entry's message
-    // NOTE: The format is defined by code in `com.daml.error.ErrorCode`
+    // NOTE: The format is defined by code in `ErrorCode`
     val (msgCode, msgDesc) = message match {
       case s"$a: $b" => (a, b)
       case _ => fail("Malformed log entry message")

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import com.daml.error.*
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, OtherError}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30

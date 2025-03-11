@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.sequencing.protocol
 
-import com.daml.error.*
+import com.digitalasset.base.error.{ErrorCategory, ErrorClass, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup

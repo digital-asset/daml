@@ -3,7 +3,15 @@
 
 package com.digitalasset.canton.ledger.error
 
-import com.daml.error.*
+import com.digitalasset.base.error.{
+  ContextualizedDamlError,
+  ContextualizedErrorLogger,
+  ErrorCategory,
+  ErrorCode,
+  ErrorGroup,
+  Explanation,
+  Resolution,
+}
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.daml.lf.archive.Error as LfArchiveError
 import com.digitalasset.daml.lf.data.Ref

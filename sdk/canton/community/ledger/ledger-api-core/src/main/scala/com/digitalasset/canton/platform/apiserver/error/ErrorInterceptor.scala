@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.error
 
-import com.daml.error.{BaseError, NoLogging}
+import com.digitalasset.base.error.{BaseError, NoLogging}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.logging.*
@@ -47,8 +47,8 @@ final class ErrorInterceptor(val loggerFactory: NamedLoggerFactory)
         *
         * We assume that we don't need to deal with a) but need to detect and deal with b). Knowing
         * that Status.INTERNAL is used only by
-        * [[com.daml.error.ErrorCategory.SystemInternalAssumptionViolated]], which is marked a
-        * security sensitive, we have the following heuristic: check whether gRPC status is
+        * [[com.digitalasset.base.error.ErrorCategory.SystemInternalAssumptionViolated]], which is
+        * marked a security sensitive, we have the following heuristic: check whether gRPC status is
         * Status.INTERNAL and gRPC status description is not security sanitized.
         *
         * Handling of Status.UNKNOWN: We do not have an error category that uses UNKNOWN so there is

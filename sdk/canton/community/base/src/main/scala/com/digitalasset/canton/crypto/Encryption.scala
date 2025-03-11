@@ -7,8 +7,8 @@ import cats.Order
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}

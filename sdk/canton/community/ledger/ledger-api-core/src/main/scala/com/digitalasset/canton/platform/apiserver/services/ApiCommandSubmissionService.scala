@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.error.ContextualizedErrorLogger
-import com.daml.error.ErrorCode.LoggedApiException
 import com.daml.ledger.api.v2.command_submission_service.{
   CommandSubmissionServiceGrpc,
   SubmitReassignmentRequest,
@@ -16,6 +14,8 @@ import com.daml.ledger.api.v2.commands.Commands
 import com.daml.metrics.Timed
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.tracing.{SpanAttribute, Telemetry, TelemetryContext}
+import com.digitalasset.base.error.ContextualizedErrorLogger
+import com.digitalasset.base.error.ErrorCode.LoggedApiException
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
 import com.digitalasset.canton.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}

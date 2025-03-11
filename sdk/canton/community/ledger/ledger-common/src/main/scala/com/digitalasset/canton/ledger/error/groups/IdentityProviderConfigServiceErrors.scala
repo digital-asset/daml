@@ -3,7 +3,16 @@
 
 package com.digitalasset.canton.ledger.error.groups
 
-import com.daml.error.*
+import com.digitalasset.base.error.{
+  ContextualizedDamlError,
+  ContextualizedErrorLogger,
+  DamlErrorWithDefiniteAnswer,
+  ErrorCategory,
+  ErrorCode,
+  ErrorResource,
+  Explanation,
+  Resolution,
+}
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.AdminServicesErrorGroup.IdentityProviderConfigServiceErrorGroup
 
 object IdentityProviderConfigServiceErrors extends IdentityProviderConfigServiceErrorGroup {

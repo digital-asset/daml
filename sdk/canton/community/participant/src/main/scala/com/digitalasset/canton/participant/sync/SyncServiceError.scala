@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.participant.sync
 
-import com.daml.error.{ErrorCategory, ErrorCode, ErrorGroup, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.base.error.{ErrorCategory, ErrorCode, ErrorGroup, Explanation, Resolution}
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader.LoadSequencerEndpointInformationResult
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.SyncServiceErrorGroup

@@ -5,7 +5,7 @@ package com.digitalasset.canton.time
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.{ClientConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp

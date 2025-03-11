@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services.command
 
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.grpc.RpcProtoExtractors
 import com.daml.ledger.api.v2.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.daml.ledger.api.v2.command_submission_service.{SubmitRequest, SubmitResponse}
@@ -12,6 +11,7 @@ import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.tracing.DefaultOpenTelemetry
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.api.validation.{
   CommandsValidator,
   ValidateDisclosedContracts,

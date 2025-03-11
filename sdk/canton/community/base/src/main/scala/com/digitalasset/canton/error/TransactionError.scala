@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.error
 
-import com.daml.error.{ContextualizedErrorLogger, ErrorCode}
+import com.digitalasset.base.error.{ContextualizedErrorLogger, ErrorCode}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 
 trait TransactionError extends CantonBaseError {

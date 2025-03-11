@@ -4,8 +4,8 @@
 package com.digitalasset.canton.ledger.api.auth
 
 import com.daml.clock.AdjustableClock
-import com.daml.error.ErrorsAssertions
 import com.daml.jwt.JwtTimestampLeeway
+import com.digitalasset.base.error.ErrorsAssertions
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.auth.AuthorizationError.Expired
 import com.digitalasset.canton.auth.{AuthorizationChecksErrors, ClaimSet}

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import cats.implicits.{toBifunctorOps, toTraverseOps}
-import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.daml.ledger.api.v2.command_submission_service.{SubmitReassignmentRequest, SubmitRequest}
 import com.daml.ledger.api.v2.interactive.interactive_submission_service as iss
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
@@ -15,6 +14,7 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   SinglePartySignatures,
 }
 import com.daml.ledger.api.v2.reassignment_command.ReassignmentCommand
+import com.digitalasset.base.error.{ContextualizedErrorLogger, DamlError}
 import com.digitalasset.canton.crypto.{
   Fingerprint,
   Signature,

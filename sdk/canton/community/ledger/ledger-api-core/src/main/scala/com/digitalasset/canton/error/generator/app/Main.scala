@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.error.generator.app
 
-import com.daml.error.Grouping
+import com.digitalasset.base.error.Grouping
 import com.digitalasset.canton.error.generator.ErrorCodeDocumentationGenerator.DeprecatedItem
 import com.digitalasset.canton.error.generator.{
   ErrorCodeDocItem,

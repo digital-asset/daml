@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services.command
 
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.command_service.*
 import com.daml.ledger.api.v2.command_submission_service.{SubmitRequest, SubmitResponse}
 import com.daml.ledger.api.v2.commands.Commands
@@ -15,6 +14,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetTransactionTreeResponse,
 }
 import com.daml.tracing.Telemetry
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.config
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService

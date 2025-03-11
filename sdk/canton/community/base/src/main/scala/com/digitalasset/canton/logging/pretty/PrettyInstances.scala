@@ -4,8 +4,8 @@
 package com.digitalasset.canton.logging.pretty
 
 import cats.Show.Shown
-import com.daml.error.utils.DecodedCantonError
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.config.RequireTypes.{Port, RefinedNumeric}
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.protocol.*

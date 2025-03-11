@@ -3,7 +3,14 @@
 
 package com.digitalasset.canton.error.testpackage
 
-import com.daml.error.{BaseError, ErrorCategory, ErrorClass, ErrorCode, Explanation, Resolution}
+import com.digitalasset.base.error.{
+  BaseError,
+  ErrorCategory,
+  ErrorClass,
+  ErrorCode,
+  Explanation,
+  Resolution,
+}
 
 @Explanation("Things happen.")
 @Resolution("Turn it off and on again.")

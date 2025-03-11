@@ -3,8 +3,16 @@
 
 package com.digitalasset.canton.ledger.error
 
-import com.daml.error.*
-import com.daml.error.ErrorCode.LoggedApiException
+import com.digitalasset.base.error.ErrorCode.LoggedApiException
+import com.digitalasset.base.error.{
+  ContextualizedErrorLogger,
+  DamlErrorWithDefiniteAnswer,
+  ErrorCategory,
+  ErrorCode,
+  ErrorGroup,
+  Explanation,
+  Resolution,
+}
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.IndexErrorGroup
 
 @Explanation("Errors raised by the Participant Index persistence layer.")

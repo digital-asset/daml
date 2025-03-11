@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.error
 
-import com.daml.error.{ErrorClass, ErrorGroup}
+import com.digitalasset.base.error.{ErrorClass, ErrorGroup}
 
 object CantonErrorGroups {
 

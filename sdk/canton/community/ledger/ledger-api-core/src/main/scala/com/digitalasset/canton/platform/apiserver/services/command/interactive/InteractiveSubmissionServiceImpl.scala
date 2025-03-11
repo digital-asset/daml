@@ -6,11 +6,11 @@ package com.digitalasset.canton.platform.apiserver.services.command.interactive
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.parallel.*
-import com.daml.error.ErrorCode.LoggedApiException
-import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.*
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.timer.Delayed
+import com.digitalasset.base.error.ErrorCode.LoggedApiException
+import com.digitalasset.base.error.{ContextualizedErrorLogger, DamlError}
 import com.digitalasset.canton.crypto.InteractiveSubmission
 import com.digitalasset.canton.crypto.InteractiveSubmission.TransactionMetadataForHashing
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService
@@ -24,11 +24,7 @@ import com.digitalasset.canton.ledger.configuration.LedgerTimeModel
 import com.digitalasset.canton.ledger.error.CommonErrors.ServerIsShuttingDown
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.{
-  RoutingSynchronizerState,
-  SubmissionResult,
-  SynchronizerRank,
-}
+import com.digitalasset.canton.ledger.participant.state.{SubmissionResult, SynchronizerRank}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.*
 import com.digitalasset.canton.logging.{
@@ -174,10 +170,12 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
   ): FutureUnlessShutdown[PrepareSubmissionResponse] = {
     val result: EitherT[FutureUnlessShutdown, DamlError, PrepareSubmissionResponse] = for {
       commandExecutionResult <- withSpan("InteractiveSubmissionService.evaluate") { _ => _ =>
+        val synchronizerState = syncService.getRoutingSynchronizerState
         commandExecutor
           .execute(
             commands = commands,
             submissionSeed = submissionSeed,
+            routingSynchronizerState = synchronizerState,
             forExternallySigned = true,
           )
           .leftFlatMap { errCause =>
@@ -318,7 +316,11 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       loggingContext: LoggingContextWithTrace
   ): Future[state.SubmissionResult] = {
     metrics.commands.validSubmissions.mark()
+
     logger.trace("Submitting transaction to ledger.")
+
+    val routingSynchronizerState = syncService.getRoutingSynchronizerState
+
     syncService
       .selectRoutingSynchronizer(
         submitterInfo = commandInterpretationResult.submitterInfo,
@@ -328,20 +330,19 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         disclosedContractIds =
           commandInterpretationResult.processedDisclosedContracts.map(_.contractId).toList,
         transactionUsedForExternalSigning = true,
+        routingSynchronizerState = routingSynchronizerState,
       )
       .map(FutureUnlessShutdown.pure)
-      .leftMap(err =>
-        FutureUnlessShutdown.failed[(SynchronizerRank, RoutingSynchronizerState)](err.asGrpcError)
-      )
+      .leftMap(err => FutureUnlessShutdown.failed[SynchronizerRank](err.asGrpcError))
       .merge
       .flatten
       .failOnShutdownTo(ServerIsShuttingDown.Reject().asGrpcError)
-      .flatMap { case (synchronizerRank, synchronizerState) =>
+      .flatMap { synchronizerRank =>
         syncService
           .submitTransaction(
             transaction = commandInterpretationResult.transaction,
             synchronizerRank = synchronizerRank,
-            routingSynchronizerState = synchronizerState,
+            routingSynchronizerState = routingSynchronizerState,
             submitterInfo = commandInterpretationResult.submitterInfo,
             transactionMeta = commandInterpretationResult.transactionMeta,
             _estimatedInterpretationCost = commandInterpretationResult.interpretationTimeNanos,

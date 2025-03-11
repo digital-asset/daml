@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import cats.syntax.traverse.*
-import com.daml.error.ContextualizedErrorLogger
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.api.validation.ValidateUpgradingPackageResolutions.ValidatedCommandPackageResolutionsSnapshot
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata

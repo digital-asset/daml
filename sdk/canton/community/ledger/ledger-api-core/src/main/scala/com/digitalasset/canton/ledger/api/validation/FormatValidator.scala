@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
 import com.daml.ledger.api.v2.transaction_filter.{
   CumulativeFilter as ProtoCumulativeFilter,
@@ -19,6 +18,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
   UpdateFormat as ProtoUpdateFormat,
   WildcardFilter,
 }
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.api.TransactionShape.AcsDelta
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.api.{

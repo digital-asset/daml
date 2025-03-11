@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.http.json.v2
 
-import com.daml.error.*
-import com.daml.error.utils.DecodedCantonError
 import com.daml.ledger.api.v2.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v2.trace_context.TraceContext
 import com.daml.ledger.api.v2.{offset_checkpoint, reassignment, transaction_filter}
+import com.digitalasset.base.error.utils.DecodedCantonError
+import com.digitalasset.base.error.{DamlError, DamlErrorWithDefiniteAnswer}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsEvent.CreatedEvent
 import com.google.protobuf

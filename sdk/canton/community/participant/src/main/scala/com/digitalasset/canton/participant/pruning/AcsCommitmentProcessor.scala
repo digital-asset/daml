@@ -9,10 +9,10 @@ import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import cats.syntax.validated.*
-import com.daml.error.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.digitalasset.base.error.{ErrorCategory, ErrorCode, ErrorGroup, Explanation, Resolution}
 import com.digitalasset.canton.admin.participant.v30.{ReceivedCommitmentState, SentCommitmentState}
 import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
 import com.digitalasset.canton.config.RequireTypes.{
@@ -248,7 +248,7 @@ class AcsCommitmentProcessor private (
     * commitments. It's accessed only through chained futures, such that all accesses are
     * synchronized
     */
-  @volatile private[this] var endOfLastProcessedPeriod: Option[CantonTimestampSecond] =
+  @volatile private[pruning] var endOfLastProcessedPeriod: Option[CantonTimestampSecond] =
     endLastProcessedPeriod
 
   /** In contrast to `endOfLastProcessedPeriod`, during catch-up, a period is considered processed
@@ -256,7 +256,8 @@ class AcsCommitmentProcessor private (
     * `endOfLastProcessedPeriodDuringCatchUp`. Used in `processCompletedPeriod` to compute the
     * correct reconciliation interval to be processed.
     */
-  @volatile private[this] var endOfLastProcessedPeriodDuringCatchUp: Option[CantonTimestampSecond] =
+  @volatile private[pruning] var endOfLastProcessedPeriodDuringCatchUp
+      : Option[CantonTimestampSecond] =
     None
 
   /** During a coarse-grained catch-up interval, [[runningCmtSnapshotsForCatchUp]] stores in memory

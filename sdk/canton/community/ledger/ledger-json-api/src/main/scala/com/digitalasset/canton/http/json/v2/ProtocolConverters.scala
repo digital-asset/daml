@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.http.json.v2
 
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2 as lapi
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.http.json.v2.JsContractEntry.JsContractEntry
 import com.digitalasset.canton.http.json.v2.JsPrepareSubmissionRequest
 import com.digitalasset.canton.http.json.v2.JsReassignmentEvent.JsReassignmentEvent

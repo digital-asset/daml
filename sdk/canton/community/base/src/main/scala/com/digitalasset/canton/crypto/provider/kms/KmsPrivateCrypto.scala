@@ -10,7 +10,12 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.{CryptoProvider, ProcessingTimeout}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.kms.driver.v1.DriverKms
-import com.digitalasset.canton.crypto.kms.{Kms, KmsKeyId}
+import com.digitalasset.canton.crypto.kms.{
+  Kms,
+  KmsEncryptionPublicKey,
+  KmsKeyId,
+  KmsSigningPublicKey,
+}
 import com.digitalasset.canton.crypto.store.KmsMetadataStore.KmsMetadata
 import com.digitalasset.canton.crypto.store.{CryptoPublicStore, KmsCryptoPrivateStore}
 import com.digitalasset.canton.health.{
@@ -55,7 +60,7 @@ class KmsPrivateCrypto(
       keyId: KmsKeyId
   )(implicit
       tc: TraceContext
-  ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningPublicKey] =
+  ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, KmsSigningPublicKey] =
     kms
       .getPublicSigningKey(keyId)
       .leftMap[SigningKeyGenerationError](err =>
@@ -75,9 +80,13 @@ class KmsPrivateCrypto(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningPublicKey] =
     for {
-      publicKeyWithoutUsage <- getPublicSigningKey(keyId)
-      publicKey = publicKeyWithoutUsage
-        .copy(usage = SigningKeyUsage.addProofOfOwnership(usage))(publicKeyWithoutUsage.migrated)
+      publicKeyForKms <- getPublicSigningKey(keyId)
+      publicKey <- publicKeyForKms
+        .convertToSigningPublicKey(usage)
+        .leftMap[SigningKeyGenerationError](err =>
+          SigningKeyGenerationError.GeneralKmsError(err.show)
+        )
+        .toEitherT[FutureUnlessShutdown]
       _ <- EitherT.right(publicStore.storeSigningKey(publicKey, keyName))
       _ = privateStore.storeKeyMetadata(
         KmsMetadata(publicKey.id, keyId, KeyPurpose.Signing, Some(publicKey.usage))
@@ -102,13 +111,13 @@ class KmsPrivateCrypto(
         .leftMap[SigningKeyGenerationError](err =>
           SigningKeyGenerationError.GeneralKmsError(err.show)
         )
-      publicKeyWithoutUsage <- kms
-        .getPublicSigningKey(keyId)
+      publicKeyForKms <- getPublicSigningKey(keyId)
+      publicKey <- publicKeyForKms
+        .convertToSigningPublicKey(usage)
         .leftMap[SigningKeyGenerationError](err =>
           SigningKeyGenerationError.GeneralKmsError(err.show)
         )
-      publicKey = publicKeyWithoutUsage
-        .copy(usage = SigningKeyUsage.addProofOfOwnership(usage))(publicKeyWithoutUsage.migrated)
+        .toEitherT[FutureUnlessShutdown]
       _ = privateStore.storeKeyMetadata(
         KmsMetadata(publicKey.id, keyId, KeyPurpose.Signing, Some(publicKey.usage))
       )
@@ -172,7 +181,7 @@ class KmsPrivateCrypto(
       keyId: KmsKeyId
   )(implicit
       tc: TraceContext
-  ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionPublicKey] =
+  ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, KmsEncryptionPublicKey] =
     kms
       .getPublicEncryptionKey(keyId)
       .leftMap[EncryptionKeyGenerationError](err =>
@@ -186,7 +195,12 @@ class KmsPrivateCrypto(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionPublicKey] =
     for {
-      publicKey <- getPublicEncryptionKey(keyId)
+      kmsPublicKey <- getPublicEncryptionKey(keyId)
+      publicKey <- kmsPublicKey.convertToEncryptionPublicKey
+        .leftMap[EncryptionKeyGenerationError](err =>
+          EncryptionKeyGenerationError.GeneralKmsError(err.show)
+        )
+        .toEitherT[FutureUnlessShutdown]
       _ <- EitherT.right(publicStore.storeEncryptionKey(publicKey, keyName))
       _ = privateStore.storeKeyMetadata(KmsMetadata(publicKey.id, keyId, KeyPurpose.Encryption))
     } yield publicKey
@@ -208,11 +222,12 @@ class KmsPrivateCrypto(
         .leftMap[EncryptionKeyGenerationError](err =>
           EncryptionKeyGenerationError.GeneralKmsError(err.show)
         )
-      publicKey <- kms
-        .getPublicEncryptionKey(keyId)
+      kmsPublicKey <- getPublicEncryptionKey(keyId)
+      publicKey <- kmsPublicKey.convertToEncryptionPublicKey
         .leftMap[EncryptionKeyGenerationError](err =>
           EncryptionKeyGenerationError.GeneralKmsError(err.show)
         )
+        .toEitherT[FutureUnlessShutdown]
       _ = privateStore.storeKeyMetadata(KmsMetadata(publicKey.id, keyId, KeyPurpose.Encryption))
     } yield publicKey
 

@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.ledger.api.grpc
 
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.pekko.ServerAdapter
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.logging.NamedLogging

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.resource
 
-import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.StorageErrorGroup
 import com.digitalasset.canton.logging.ErrorLoggingContext

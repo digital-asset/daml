@@ -4,7 +4,6 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import cats.syntax.traverse.*
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.commands.Command.Command.{
   Create as ProtoCreate,
   CreateAndExercise as ProtoCreateAndExercise,
@@ -17,6 +16,7 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionRequest,
   PrepareSubmissionRequest,
 }
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator.{

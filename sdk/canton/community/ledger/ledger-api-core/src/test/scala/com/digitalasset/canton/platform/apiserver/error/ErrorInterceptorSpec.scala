@@ -3,11 +3,19 @@
 
 package com.digitalasset.canton.platform.apiserver.error
 
-import com.daml.error.*
-import com.daml.error.utils.ErrorDetails
 import com.daml.grpc.test.StreamConsumer
 import com.daml.ledger.api.testing.utils.{PekkoBeforeAndAfterAll, TestingServerInterceptors}
 import com.daml.ledger.resources.ResourceOwner
+import com.digitalasset.base.error.utils.ErrorDetails
+import com.digitalasset.base.error.{
+  BaseError,
+  ContextualizedDamlError,
+  ContextualizedErrorLogger,
+  ErrorCategory,
+  ErrorClass,
+  ErrorCode,
+  ErrorsAssertions,
+}
 import com.digitalasset.canton.grpc.sampleservice.HelloServiceReferenceImplementation
 import com.digitalasset.canton.ledger.api.grpc.StreamingServiceLifecycleManagement
 import com.digitalasset.canton.ledger.error.CommonErrors

@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.participant.ledger.api.client
 
-import com.daml.error.{BaseError, ErrorCategory, ErrorClass, ErrorCode}
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.command_service.SubmitAndWaitResponse
 import com.daml.ledger.api.v2.commands.Commands
+import com.digitalasset.base.error.{BaseError, ErrorCategory, ErrorClass, ErrorCode}
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.ledger.client.services.commands.CommandServiceClient

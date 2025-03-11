@@ -4,9 +4,9 @@
 package com.digitalasset.canton.version
 
 import cats.syntax.either.*
-import com.daml.error.ErrorCategory.SecurityAlert
-import com.daml.error.{ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.base.error.ErrorCategory.SecurityAlert
+import com.digitalasset.base.error.{ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}

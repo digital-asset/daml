@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.error
 
-import com.daml.error.{BaseError, ErrorCategory, ErrorClass, ErrorCode}
+import com.digitalasset.base.error.{BaseError, ErrorCategory, ErrorClass, ErrorCode}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.error.testpackage.SeriousError
 import com.digitalasset.canton.logging.ErrorLoggingContext

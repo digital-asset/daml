@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.http
 
-import com.daml.error.utils.ErrorDetails
-import com.daml.error.utils.ErrorDetails.ErrorDetail
 import com.daml.jwt.{
   AuthServiceJWTCodec,
   AuthServiceJWTPayload,
@@ -13,6 +11,8 @@ import com.daml.jwt.{
   StandardJWTPayload,
 }
 import com.daml.logging.LoggingContextOf
+import com.digitalasset.base.error.utils.ErrorDetails
+import com.digitalasset.base.error.utils.ErrorDetails.ErrorDetail
 import com.digitalasset.canton.http.json.SprayJson
 import com.digitalasset.canton.http.util.Logging.{
   InstanceUUID,

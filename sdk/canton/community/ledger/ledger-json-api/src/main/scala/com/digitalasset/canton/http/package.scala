@@ -788,7 +788,8 @@ package http {
   final case class RequestInfoDetail(correlationId: String) extends ErrorDetail
 
   object ErrorDetail {
-    import com.daml.error.utils.ErrorDetails
+
+    import com.digitalasset.base.error.utils.ErrorDetails
     def fromErrorUtils(errorDetail: ErrorDetails.ErrorDetail): http.ErrorDetail =
       errorDetail match {
         case ErrorDetails.ResourceInfoDetail(name, typ) => http.ResourceInfoDetail(name, typ)

@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.http.json.v2
 
-import com.daml.error.utils.DecodedCantonError
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
+import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.http.json.v2.Protocol.Protocol

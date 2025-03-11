@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.admin.command_inspection_service.GetCommandStatusRequest
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidField
 import com.digitalasset.daml.lf.data.Ref
 import io.grpc.StatusRuntimeException

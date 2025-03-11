@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.error.{
+import com.digitalasset.base.error.{
   BaseError,
   ContextualizedErrorLogger,
   DamlError,

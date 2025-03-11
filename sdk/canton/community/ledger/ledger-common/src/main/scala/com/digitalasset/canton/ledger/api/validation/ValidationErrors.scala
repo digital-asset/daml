@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
-import com.daml.error.ContextualizedErrorLogger
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import io.grpc.StatusRuntimeException
 

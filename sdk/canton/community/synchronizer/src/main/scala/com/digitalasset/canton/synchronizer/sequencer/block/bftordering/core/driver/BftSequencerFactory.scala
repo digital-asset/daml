@@ -33,7 +33,7 @@ import org.apache.pekko.stream.Materializer
 import scala.concurrent.ExecutionContext
 
 class BftSequencerFactory(
-    config: BftBlockOrderer.Config,
+    config: BftBlockOrdererConfig,
     blockSequencerConfig: BlockSequencerConfig,
     health: Option[SequencerHealthConfig],
     storage: Storage,

@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mo
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
@@ -232,7 +232,7 @@ class StateTransferBehaviorTest extends AsyncWordSpec with BaseTest with HasExec
     implicit val context: ContextType = new ProgrammableUnitTestContext
 
     implicit val metricsContext: MetricsContext = MetricsContext.Empty
-    implicit val config: BftBlockOrderer.Config = BftBlockOrderer.Config()
+    implicit val config: BftBlockOrdererConfig = BftBlockOrdererConfig()
 
     val dependencies = ConsensusModuleDependencies[ProgrammableUnitTestEnv](
       availabilityModuleRef,

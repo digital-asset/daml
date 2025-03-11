@@ -232,6 +232,7 @@ class TransactionRoutingProcessor(
       transactionMeta: TransactionMeta,
       admissibleSynchronizerIds: NonEmpty[Set[SynchronizerId]],
       disclosedContractIds: List[LfContractId],
+      routingSynchronizerState: RoutingSynchronizerState,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerId] =
@@ -245,16 +246,12 @@ class TransactionRoutingProcessor(
       )
       .leftMap(RoutingInternalError.IllformedTransaction.apply)
       .flatMap { metadata =>
-        val synchronizerState: RoutingSynchronizerState =
-          // TODO(#23334): Use a single synchronizer state snapshot throughout a submission
-          RoutingSynchronizerStateFactory.create(connectedSynchronizersLookup)
-
         TransactionData
           .create(
             submitterInfo = submitterInfo,
             transaction = transaction,
             ledgerTime = metadata.ledgerTime,
-            synchronizerState = synchronizerState,
+            synchronizerState = routingSynchronizerState,
             inputContractStakeholders = inputContractsStakeholders(transaction),
             disclosedContracts = disclosedContractIds,
             prescribedSynchronizerO = None, // Not used here
@@ -262,7 +259,7 @@ class TransactionRoutingProcessor(
           .flatMap(transactionData =>
             synchronizerRankComputation
               .computeBestSynchronizerRank(
-                synchronizerState = synchronizerState,
+                synchronizerState = routingSynchronizerState,
                 contracts = transactionData.inputContractsSynchronizerData.contractsData,
                 readers = transactionData.readers,
                 synchronizerIds = admissibleSynchronizerIds,

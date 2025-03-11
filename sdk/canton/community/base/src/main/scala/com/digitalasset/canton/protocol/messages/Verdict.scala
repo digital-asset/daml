@@ -4,9 +4,9 @@
 package com.digitalasset.canton.protocol.messages
 
 import cats.syntax.traverse.*
-import com.daml.error.ContextualizedErrorLogger
-import com.daml.error.utils.DecodedCantonError
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.base.error.ContextualizedErrorLogger
+import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.{InvariantViolation, OtherError}
 import com.digitalasset.canton.error.*
@@ -158,7 +158,8 @@ object Verdict
       )
     }
 
-    /** Returns the rejection reason with the highest [[com.daml.error.ErrorCategory]] */
+    /** Returns the rejection reason with the highest [[com.digitalasset.base.error.ErrorCategory]]
+      */
     def keyEvent(implicit loggingContext: ErrorLoggingContext): LocalReject = {
       if (reasons.lengthCompare(1) > 0) {
         val message = show"Request was rejected with multiple reasons. $reasons"

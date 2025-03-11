@@ -21,7 +21,7 @@ import com.digitalasset.canton.synchronizer.sequencer.DatabaseSequencerConfig.{
   SequencerPruningConfig,
   TestingInterceptor,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.{
   CommunityReferenceSequencerDriverFactory,
   ReferenceSequencerDriver,
@@ -78,7 +78,7 @@ object SequencerConfig {
       block: BlockSequencerConfig =
         // To avoid having to include an empty "block" config element if defaults are fine
         BlockSequencerConfig(),
-      config: BftBlockOrderer.Config,
+      config: BftBlockOrdererConfig,
   ) extends SequencerConfig
       with UniformCantonConfigValidation {
     override def supportsReplicas: Boolean = false

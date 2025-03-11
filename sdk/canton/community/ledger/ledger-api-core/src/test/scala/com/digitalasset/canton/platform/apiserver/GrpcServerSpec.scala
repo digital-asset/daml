@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.platform.apiserver
 
-import com.daml.error.{DamlError, ErrorGenerator}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import com.daml.metrics.api.{HistogramInventory, MetricName}
+import com.digitalasset.base.error.{DamlError, ErrorGenerator}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.grpc.sampleservice.HelloServiceReferenceImplementation
 import com.digitalasset.canton.ledger.client.GrpcChannel

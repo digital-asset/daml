@@ -9,7 +9,7 @@ import java.util.Objects;
 import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public final class ExercisedEvent implements TreeEvent {
+public final class ExercisedEvent implements TreeEvent, Event {
 
   private final List<String> witnessParties;
 

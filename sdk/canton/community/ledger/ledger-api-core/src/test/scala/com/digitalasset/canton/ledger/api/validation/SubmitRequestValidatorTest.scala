@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
-import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.v2.command_service.SubmitAndWaitForTransactionRequest
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod as DeduplicationPeriodProto
 import com.daml.ledger.api.v2.commands.{Command, Commands, CreateCommand, PrefetchContractKey}
@@ -16,6 +15,7 @@ import com.daml.ledger.api.v2.value.{
   TextMap as ApiTextMap,
   *,
 }
+import com.digitalasset.base.error.{ContextualizedErrorLogger, NoLogging}
 import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.api.ApiMocks.{
   applicationId,

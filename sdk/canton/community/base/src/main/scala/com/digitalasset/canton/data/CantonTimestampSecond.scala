@@ -77,6 +77,12 @@ object CantonTimestampSecond {
 
   def MinValue = CantonTimestampSecond(LfTimestamp.MinValue)
 
+  def MaxValue = {
+    val nanos = LfTimestamp.MaxValue.toInstant.getNano
+    val micros = nanos / 1000L
+    CantonTimestampSecond(LfTimestamp.MaxValue.addMicros(-1 * micros))
+  }
+
   def fromProtoTimestamp(
       ts: ProtoTimestamp,
       field: String,

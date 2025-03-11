@@ -242,6 +242,7 @@ object ProtocolVersion {
       ProtocolVersion(6),
       ProtocolVersion(30),
       ProtocolVersion(31),
+      ProtocolVersion(32),
     )
 
   val alpha: NonEmpty[List[ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha]]] =

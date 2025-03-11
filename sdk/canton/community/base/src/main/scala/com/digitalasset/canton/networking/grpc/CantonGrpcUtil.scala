@@ -6,8 +6,14 @@ package com.digitalasset.canton.networking.grpc
 import cats.Functor
 import cats.data.EitherT
 import cats.implicits.*
-import com.daml.error.{ErrorCategory, ErrorCategoryRetry, ErrorCode, Explanation, Resolution}
 import com.daml.grpc.AuthCallCredentials
+import com.digitalasset.base.error.{
+  ErrorCategory,
+  ErrorCategoryRetry,
+  ErrorCode,
+  Explanation,
+  Resolution,
+}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.connection.v30.{ApiInfoServiceGrpc, GetApiInfoRequest}
 import com.digitalasset.canton.error.CantonError

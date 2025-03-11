@@ -3,18 +3,18 @@
 
 package com.digitalasset.canton.error.generator
 
-import com.daml.error.{ErrorClass, Explanation, Resolution}
+import com.digitalasset.base.error.{ErrorClass, Explanation, Resolution}
 import com.digitalasset.canton.error.generator.ErrorCodeDocumentationGenerator.DeprecatedItem
 
 /** Contains error presentation data to be used for documentation rendering on the website.
   *
   * @param errorCodeClassName
-  *   The error class name (see [[com.daml.error.ErrorCode]]).
+  *   The error class name (see [[com.digitalasset.base.error.ErrorCode]]).
   * @param category
-  *   The error code category (see [[com.daml.error.ErrorCategory]]).
+  *   The error code category (see [[com.digitalasset.base.error.ErrorCategory]]).
   * @param hierarchicalGrouping
-  *   The hierarchical code grouping (see [[com.daml.error.ErrorClass]] and
-  *   [[com.daml.error.ErrorGroup]]).
+  *   The hierarchical code grouping (see [[com.digitalasset.base.error.ErrorClass]] and
+  *   [[com.digitalasset.base.error.ErrorGroup]]).
   * @param conveyance
   *   Provides a statement about the form this error will be returned to the user.
   * @param code

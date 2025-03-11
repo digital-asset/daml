@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.error
 
-import com.daml.error.{BaseError, ContextualizedErrorLogger}
+import com.digitalasset.base.error.{BaseError, ContextualizedErrorLogger}
 
 trait LogOnCreation { self: BaseError =>
 

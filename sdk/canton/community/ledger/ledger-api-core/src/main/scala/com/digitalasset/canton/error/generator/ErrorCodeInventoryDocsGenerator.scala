@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.error.generator
 
-import com.daml.error.{ErrorClass, Grouping}
+import com.digitalasset.base.error.{ErrorClass, Grouping}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 
 import scala.collection.mutable

@@ -4,8 +4,8 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import cats.implicits.toBifunctorOps
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.value.Identifier
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator.{
   AnnotationsSizeExceededError,
   EmptyAnnotationsValueError,

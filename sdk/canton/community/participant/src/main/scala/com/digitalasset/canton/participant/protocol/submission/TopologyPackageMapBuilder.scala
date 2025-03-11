@@ -8,17 +8,11 @@ import com.digitalasset.canton
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.TransactionRoutingError.UnableToQueryTopologySnapshot
+import com.digitalasset.canton.ledger.participant.state.RoutingSynchronizerState
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.protocol.submission.routing.{
-  AdmissibleSynchronizersComputation,
-  RoutingSynchronizerStateFactory,
-}
-import com.digitalasset.canton.participant.sync.SyncServiceInjectionError.NotConnectedToAnySynchronizer
-import com.digitalasset.canton.participant.sync.{
-  ConnectedSynchronizersLookup,
-  SyncServiceInjectionError,
-}
+import com.digitalasset.canton.participant.protocol.submission.routing.AdmissibleSynchronizersComputation
+import com.digitalasset.canton.participant.sync.SyncServiceInjectionError
 import com.digitalasset.canton.topology.client.TopologySnapshotLoader
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -29,7 +23,6 @@ import scala.concurrent.ExecutionContext
 
 final class TopologyPackageMapBuilder(
     admissibleSynchronizersComputation: AdmissibleSynchronizersComputation,
-    connectedSynchronizersLookup: ConnectedSynchronizersLookup,
     protected val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
@@ -40,8 +33,6 @@ final class TopologyPackageMapBuilder(
   //     in a transaction by each of the informees provided
   //   - if the prescribed synchronizer is provided, only that one is considered
   // TODO(#23334): Deduplicate with logic from SynchronizerSelector
-  // TODO(#23334): Refactor to take as input the topology snapshots, so it goes in the direction of
-  //                      using consistent snapshots during phase 1
   // TODO(#23334): Split the functionality in two phases: first restricts the synchronizers
   //                      based on the input submitters and informees; second computes the package maps
   def packageMapFor(
@@ -49,6 +40,7 @@ final class TopologyPackageMapBuilder(
       informees: Set[LfPartyId],
       vettingValidityTimestamp: CantonTimestamp,
       prescribedSynchronizerIdO: Option[SynchronizerId],
+      synchronizerState: RoutingSynchronizerState,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -62,14 +54,9 @@ final class TopologyPackageMapBuilder(
           )
         )
 
-    // TODO(#23334): Deduplicate logic with computeAdmissibleSynchronizers
     def validateAnySynchronizerReady: FutureUnlessShutdown[Unit] =
-      if (
-        connectedSynchronizersLookup.snapshot
-          .exists { case (_synchronizerId, synchronizer) => synchronizer.ready }
-      ) {
-        FutureUnlessShutdown.unit
-      } else
+      if (synchronizerState.existsReadySynchronizer()) FutureUnlessShutdown.unit
+      else
         FutureUnlessShutdown.failed(
           SyncServiceInjectionError.NotConnectedToAnySynchronizer.Error().asGrpcError
         )
@@ -96,20 +83,14 @@ final class TopologyPackageMapBuilder(
         }
         .map(participantVettedPackages => synchronizerId -> participantVettedPackages.toMap)
 
-    // TODO(#23334): Use a single synchronizer state snapshot throughout a submission
-    val synchronizerState = RoutingSynchronizerStateFactory.create(connectedSynchronizersLookup)
     def computeAdmissibleSynchronizers
         : FutureUnlessShutdown[Map[SynchronizerId, TopologySnapshotLoader]] =
       prescribedSynchronizerIdO
         .map(syncId =>
           // Only consider the target synchronizer, if provided
-          connectedSynchronizersLookup
+          synchronizerState.topologySnapshots
             .get(syncId)
-            .map(connectedSynchronizer =>
-              Map(
-                connectedSynchronizer.synchronizerId -> connectedSynchronizer.topologyClient.currentSnapshotApproximation
-              )
-            )
+            .map(topologySnapshotLoader => Map(syncId -> topologySnapshotLoader))
             .map(FutureUnlessShutdown.pure)
             .getOrElse(
               FutureUnlessShutdown
@@ -124,16 +105,17 @@ final class TopologyPackageMapBuilder(
             .flatMap(synchronizers =>
               synchronizers.forgetNE.toSeq
                 .parTraverse(syncId =>
-                  connectedSynchronizersLookup
+                  synchronizerState.topologySnapshots
                     .get(syncId)
                     .toRight(
-                      // TODO(#23334): This error is misleading but will be solved with using
-                      //               a single synchronizer state snapshot
-                      FutureUnlessShutdown.failed(NotConnectedToAnySynchronizer.Error().asGrpcError)
+                      // syncId was computed based on the synchronizer state, so it must be present in the enclosed topology snapshots
+                      FutureUnlessShutdown.failed(
+                        new IllegalStateException(s"Topology snapshot for $syncId not found")
+                      )
                     )
                     .map(FutureUnlessShutdown.pure)
                     .merge
-                    .map(sync => syncId -> sync.topologyClient.currentSnapshotApproximation)
+                    .map(topologySnapshotLoader => syncId -> topologySnapshotLoader)
                 )
                 .map(_.toMap)
             )

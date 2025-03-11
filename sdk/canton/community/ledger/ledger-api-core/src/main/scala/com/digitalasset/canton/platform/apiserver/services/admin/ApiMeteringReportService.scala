@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.admin.metering_report_service.*
 import com.daml.ledger.api.v2.admin.metering_report_service.MeteringReportServiceGrpc.MeteringReportService
 import com.daml.tracing.Telemetry
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors

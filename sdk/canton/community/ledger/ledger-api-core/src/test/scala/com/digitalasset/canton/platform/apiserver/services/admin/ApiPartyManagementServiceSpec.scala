@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import com.daml.error.ErrorsAssertions
-import com.daml.error.utils.ErrorDetails
-import com.daml.error.utils.ErrorDetails.RetryInfoDetail
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.admin.party_management_service.{
   AllocatePartyRequest,
@@ -13,6 +10,9 @@ import com.daml.ledger.api.v2.admin.party_management_service.{
 }
 import com.daml.tracing.TelemetrySpecBase.*
 import com.daml.tracing.{DefaultOpenTelemetry, NoOpTelemetry}
+import com.digitalasset.base.error.ErrorsAssertions
+import com.digitalasset.base.error.utils.ErrorDetails
+import com.digitalasset.base.error.utils.ErrorDetails.RetryInfoDetail
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.ledger.api.{IdentityProviderId, ObjectMeta}

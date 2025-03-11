@@ -5,7 +5,6 @@ package com.digitalasset.canton.platform.apiserver.services.command.interactive
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.DamlTransaction.Node.VersionedNode
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.Metadata
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.Metadata.ProcessedDisclosedContract.Contract
@@ -15,6 +14,7 @@ import com.daml.ledger.api.v2.interactive.{
   interactive_submission_service as iss,
 }
 import com.daml.ledger.api.v2.value as lapiValue
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.ExecuteRequest
 import com.digitalasset.canton.ledger.api.validation.StricterValueValidator

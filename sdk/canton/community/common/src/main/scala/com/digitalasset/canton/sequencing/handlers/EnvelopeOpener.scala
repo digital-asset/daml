@@ -4,7 +4,7 @@
 package com.digitalasset.canton.sequencing.handlers
 
 import cats.instances.either.*
-import com.daml.error.{ContextualizedErrorLogger, Explanation, Resolution}
+import com.digitalasset.base.error.{ContextualizedErrorLogger, Explanation, Resolution}
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup

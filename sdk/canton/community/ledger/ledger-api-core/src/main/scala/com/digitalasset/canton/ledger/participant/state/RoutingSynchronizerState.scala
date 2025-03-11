@@ -7,7 +7,7 @@ import com.digitalasset.canton.error.TransactionRoutingError.UnableToQueryTopolo
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.client.TopologySnapshotLoader
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.ProtocolVersion
@@ -17,7 +17,7 @@ import scala.concurrent.ExecutionContext
 /** Provides state information about a synchronizer. */
 trait RoutingSynchronizerState {
 
-  val topologySnapshots: Map[SynchronizerId, TopologySnapshot]
+  val topologySnapshots: Map[SynchronizerId, TopologySnapshotLoader]
 
   /** @return
     *   Right containing the topology snapshot and protocol version for the given
@@ -25,16 +25,21 @@ trait RoutingSynchronizerState {
     */
   def getTopologySnapshotAndPVFor(
       synchronizerId: SynchronizerId
-  ): Either[UnableToQueryTopologySnapshot.Failed, (TopologySnapshot, ProtocolVersion)]
+  ): Either[UnableToQueryTopologySnapshot.Failed, (TopologySnapshotLoader, ProtocolVersion)]
+
+  /** @return
+    *   true if there is at least a ready connected synchronizer, false otherwise
+    */
+  def existsReadySynchronizer(): Boolean
 
   def getTopologySnapshotFor(
       synchronizerId: SynchronizerId
-  ): Either[UnableToQueryTopologySnapshot.Failed, TopologySnapshot] =
+  ): Either[UnableToQueryTopologySnapshot.Failed, TopologySnapshotLoader] =
     getTopologySnapshotAndPVFor(synchronizerId).map(_._1)
 
   def getTopologySnapshotFor(
       synchronizerId: Target[SynchronizerId]
-  ): Either[UnableToQueryTopologySnapshot.Failed, Target[TopologySnapshot]] =
+  ): Either[UnableToQueryTopologySnapshot.Failed, Target[TopologySnapshotLoader]] =
     getTopologySnapshotAndPVFor(synchronizerId.unwrap).map(_._1).map(Target(_))
 
   def getSynchronizersOfContracts(

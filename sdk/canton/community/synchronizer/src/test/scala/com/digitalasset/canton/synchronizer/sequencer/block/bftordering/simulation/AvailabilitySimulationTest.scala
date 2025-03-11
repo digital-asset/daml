@@ -9,8 +9,8 @@ import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{ProcessingTimeout, TlsClientConfig}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.{
   P2PEndpointConfig,
   P2PNetworkConfig,
   P2PServerConfig,
@@ -235,7 +235,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
 
   private def availabilityOnlySystemInitializer(
       selfPeer: SequencerId,
-      config: BftBlockOrderer.Config,
+      config: BftBlockOrdererConfig,
       random: Random,
       simulationModel: SimulationModel,
       cryptoProvider: CryptoProvider[SimulationEnv],
@@ -392,7 +392,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
       )
       val configs =
         peerEndpoints.map { peer =>
-          BftBlockOrderer.Config(
+          BftBlockOrdererConfig(
             initialNetwork = Some(
               P2PNetworkConfig(
                 P2PServerConfig(

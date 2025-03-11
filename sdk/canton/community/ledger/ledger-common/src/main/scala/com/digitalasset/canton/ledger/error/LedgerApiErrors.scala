@@ -3,8 +3,15 @@
 
 package com.digitalasset.canton.ledger.error
 
-import com.daml.error.*
 import com.daml.metrics.ExecutorServiceMetrics
+import com.digitalasset.base.error.{
+  ContextualizedErrorLogger,
+  DamlErrorWithDefiniteAnswer,
+  ErrorCategory,
+  ErrorCode,
+  Explanation,
+  Resolution,
+}
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.engine.Error.Validation.ReplayMismatch

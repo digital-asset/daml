@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.error.groups
 
-import com.daml.error.{
+import com.digitalasset.base.error.{
   ContextualizedErrorLogger,
   DamlErrorWithDefiniteAnswer,
   ErrorCategory,
@@ -19,7 +19,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Reference}
 import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion}
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.{Value, ValueCoder}
@@ -884,5 +884,51 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
           )
       }
     }
+  }
+
+  // TODO(#23334): Consider moving in dedicated error group
+  @Explanation(
+    """This error is a catch-all for errors thrown by topology-aware package selection in command processing."""
+  )
+  @Resolution(
+    "Inspect the error message and adjust the topology state to ensure successful submissions"
+  )
+  object PackageSelectionFailed
+      extends ErrorCode(
+        id = "PACKAGE_SELECTION_FAILED",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+
+    final case class Reject(
+        override val cause: String
+    )(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = cause
+        ) {}
+  }
+
+  @Explanation(
+    "A package-name required in command interpretation was discarded in topology-aware package selection."
+  )
+  @Resolution(
+    "Revisit the command submission and ensure it conforms with the vetted topology state of the submitters and informees."
+  )
+  object PackageNameDiscarded
+      extends ErrorCode(
+        id = "PACKAGE_NAME_DISCARDED",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+      ) {
+
+    final case class Reject(
+        pkgName: Ref.PackageName,
+        reference: Reference,
+    )(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause =
+            // TODO(#23334): Improve error reporting for package-name discarded errors
+            s"Command interpretation failed due to the required $pkgName being discarded in package selection: $reference."
+        )
   }
 }

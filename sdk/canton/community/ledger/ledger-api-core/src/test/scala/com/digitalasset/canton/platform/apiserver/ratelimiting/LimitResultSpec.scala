@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.ratelimiting
 
-import com.daml.error.NoLogging
+import com.digitalasset.base.error.NoLogging
 import com.digitalasset.canton.ledger.error.LedgerApiErrors.MaximumNumberOfStreams
 import com.digitalasset.canton.platform.apiserver.ratelimiting.LimitResult.{OverLimit, UnderLimit}
 import org.scalatest.flatspec.AnyFlatSpec

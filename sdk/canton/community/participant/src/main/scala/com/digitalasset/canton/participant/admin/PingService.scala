@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.admin
 
 import cats.implicits.{toBifunctorOps, toFunctorFilterOps}
-import com.daml.error.utils.DecodedCantonError
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod.DeduplicationDuration
 import com.daml.ledger.api.v2.event.CreatedEvent as ScalaCreatedEvent
@@ -15,6 +14,7 @@ import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.daml.ledger.javaapi.data.{Command, CreatedEvent as JavaCreatedEvent, Identifier}
+import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt

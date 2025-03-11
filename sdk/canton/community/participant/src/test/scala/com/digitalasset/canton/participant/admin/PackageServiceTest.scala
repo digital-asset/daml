@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.admin
 
 import better.files.*
 import cats.data.EitherT
-import com.daml.error.DamlError
+import com.digitalasset.base.error.DamlError
 import com.digitalasset.canton.BaseTest.getResourcePath
 import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.concurrent.FutureSupervisor

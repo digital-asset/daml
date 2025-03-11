@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 
 import cats.data.EitherT
 import com.digitalasset.canton.ledger.api.Commands
+import com.digitalasset.canton.ledger.participant.state.RoutingSynchronizerState
 import com.digitalasset.canton.ledger.participant.state.index.MaximumLedgerTime
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -38,22 +39,32 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
   override def execute(
       commands: Commands,
       submissionSeed: crypto.Hash,
+      routingSynchronizerState: RoutingSynchronizerState,
       usedForExternallySigningTransaction: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): EitherT[FutureUnlessShutdown, ErrorCause, CommandExecutionResult] =
-    EitherT(loop(commands, submissionSeed, maxRetries, usedForExternallySigningTransaction))
+    EitherT(
+      loop(
+        commands = commands,
+        submissionSeed = submissionSeed,
+        routingSynchronizerState = routingSynchronizerState,
+        retriesLeft = maxRetries,
+        forExternallySigned = usedForExternallySigningTransaction,
+      )
+    )
 
   private[this] def loop(
       commands: Commands,
       submissionSeed: crypto.Hash,
+      routingSynchronizerState: RoutingSynchronizerState,
       retriesLeft: Int,
       forExternallySigned: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): FutureUnlessShutdown[Either[ErrorCause, CommandExecutionResult]] =
     delegate
-      .execute(commands, submissionSeed, forExternallySigned)
+      .execute(commands, submissionSeed, routingSynchronizerState, forExternallySigned)
       .value
       .flatMap {
         case e @ Left(_) =>
@@ -73,7 +84,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
             FutureUnlessShutdown.pure(Right(c))
           def retry(c: Commands) = {
             metrics.execution.retry.mark()
-            loop(c, submissionSeed, retriesLeft - 1, forExternallySigned)
+            loop(c, submissionSeed, routingSynchronizerState, retriesLeft - 1, forExternallySigned)
           }
 
           resolveMaximumLedgerTime(

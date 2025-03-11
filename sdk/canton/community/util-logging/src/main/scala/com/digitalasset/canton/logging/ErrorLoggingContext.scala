@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.logging
 
-import com.daml.error.{BaseError, ContextualizedErrorLogger}
+import com.digitalasset.base.error.{BaseError, ContextualizedErrorLogger}
 import com.digitalasset.canton.tracing.TraceContext
 import com.typesafe.scalalogging.Logger
 import org.slf4j.MDC

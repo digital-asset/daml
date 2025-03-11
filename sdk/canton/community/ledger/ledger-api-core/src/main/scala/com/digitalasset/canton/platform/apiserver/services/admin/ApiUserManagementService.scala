@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.admin.user_management_service as proto
 import com.daml.ledger.api.v2.admin.user_management_service.{
   CreateUserResponse,
@@ -15,6 +14,7 @@ import com.daml.ledger.api.v2.admin.user_management_service.{
 }
 import com.daml.platform.v1.page_tokens.ListUsersPageTokenPayload
 import com.daml.tracing.Telemetry
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.auth.ClaimSet.Claims
 import com.digitalasset.canton.auth.{
   AuthorizationChecksErrors,

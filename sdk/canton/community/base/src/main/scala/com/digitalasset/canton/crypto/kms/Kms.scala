@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.implicits.showInterpolator
 import cats.syntax.either.*
 import cats.syntax.functor.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.{CantonConfigValidator, KmsConfig}
 import com.digitalasset.canton.crypto.*
@@ -20,6 +21,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.util.retry.{Jitter, NoExceptionRetryPolicy, Success}
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import pureconfig.ConfigReader
 import slick.jdbc.{GetResult, SetParameter}
@@ -151,9 +153,13 @@ trait Kms extends FlagCloseable with CloseableAtomicHealthComponent {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, PublicKey] =
-    getPublicSigningKeyInternal(keyId)
-      .leftFlatMap(_ => getPublicEncryptionKeyInternal(keyId).widen[PublicKey])
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsPublicKey] =
+    withRetries(
+      s"get public key for $keyId"
+    )(
+      getPublicSigningKeyInternal(keyId)
+        .leftFlatMap(_ => getPublicEncryptionKeyInternal(keyId).widen[KmsPublicKey])
+    )
 
   /** Get public key for signing from KMS given a KMS key identifier.
     *
@@ -167,7 +173,7 @@ trait Kms extends FlagCloseable with CloseableAtomicHealthComponent {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, SigningPublicKey] =
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsSigningPublicKey] =
     withRetries(show"get signing public key for $keyId")(
       getPublicSigningKeyInternal(keyId)
     )
@@ -177,7 +183,7 @@ trait Kms extends FlagCloseable with CloseableAtomicHealthComponent {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, SigningPublicKey]
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsSigningPublicKey]
 
   /** Get public key for encryption from KMS given a KMS key identifier.
     *
@@ -191,7 +197,7 @@ trait Kms extends FlagCloseable with CloseableAtomicHealthComponent {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, EncryptionPublicKey] =
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsEncryptionPublicKey] =
     withRetries(show"get encryption public key for $keyId")(
       getPublicEncryptionKeyInternal(keyId)
     )
@@ -201,7 +207,7 @@ trait Kms extends FlagCloseable with CloseableAtomicHealthComponent {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, EncryptionPublicKey]
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsEncryptionPublicKey]
 
   /** Checks that a key identified by keyId exists in the KMS and is not deleted or disabled, and
     * therefore can be used.
@@ -432,6 +438,109 @@ trait Kms extends FlagCloseable with CloseableAtomicHealthComponent {
   }
 }
 
+/** A KMS public key where only its raw byte representation and key specification are stored.
+  * Additional internal information related to this key is added later, after which it is converted
+  * into a [[crypto.SigningPublicKey]]. This extra information includes its format (which must be
+  * `DerX509Spki`) and its intended usage.
+  */
+sealed trait KmsPublicKey
+
+final case class KmsSigningPublicKey private[crypto] (
+    key: ByteString,
+    keySpec: SigningKeySpec,
+) extends KmsPublicKey {
+
+  private[crypto] def convertToSigningPublicKey(
+      usage: NonEmpty[Set[SigningKeyUsage]]
+  ): Either[KmsError, SigningPublicKey] =
+    // This may fail if, for example, the assigned usage is invalid.
+    SigningPublicKey
+      .create(CryptoKeyFormat.DerX509Spki, this.key, this.keySpec, usage)
+      .leftMap(err => KmsError.KmsFailedConversionError(KeyPurpose.Signing, err.toString))
+
+  @VisibleForTesting
+  private[crypto] def convertToSymbolicSigningPublicKey(
+      usage: NonEmpty[Set[SigningKeyUsage]]
+  ): Either[KmsError, SigningPublicKey] =
+    SigningPublicKey
+      .create(CryptoKeyFormat.Symbolic, this.key, this.keySpec, usage)
+      .leftMap(err => KmsError.KmsFailedConversionError(KeyPurpose.Signing, err.toString))
+
+}
+
+object KmsSigningPublicKey {
+
+  /** Creates a [[KmsSigningPublicKey]] from the given public key bytes.
+    *
+    * @param key
+    *   The public signing key, which must be encoded in DER X.509 Subject Public Key Info (SPKI)
+    *   format.
+    */
+  private[crypto] def create(
+      key: ByteString,
+      keySpec: SigningKeySpec,
+  ): Either[String, KmsSigningPublicKey] =
+    // make sure public key is in DER-encoded X.509 SPKI format
+    CryptoKeyFormat
+      .extractPublicKeyFromX509Spki(key)
+      .map(_ => new KmsSigningPublicKey(key, keySpec))
+      .leftMap(err => s"The signing public key is not in DerX509Spki format: ${err.toString}")
+
+  @VisibleForTesting
+  private[crypto] def createSymbolic(
+      key: ByteString,
+      keySpec: SigningKeySpec,
+  ) =
+    // only used for testing with symbolic keys so we do not enforce the key to be in DER-encoded X.509 SPKI format
+    new KmsSigningPublicKey(key, keySpec)
+
+}
+
+final case class KmsEncryptionPublicKey private[crypto] (
+    key: ByteString,
+    keySpec: EncryptionKeySpec,
+) extends KmsPublicKey {
+
+  private[crypto] def convertToEncryptionPublicKey: Either[KmsError, EncryptionPublicKey] =
+    EncryptionPublicKey
+      .create(CryptoKeyFormat.DerX509Spki, this.key, this.keySpec)
+      .leftMap(err => KmsError.KmsFailedConversionError(KeyPurpose.Encryption, err.toString))
+
+  @VisibleForTesting
+  private[crypto] def convertToSymbolicEncryptionPublicKey: Either[KmsError, EncryptionPublicKey] =
+    EncryptionPublicKey
+      .create(CryptoKeyFormat.Symbolic, this.key, this.keySpec)
+      .leftMap(err => KmsError.KmsFailedConversionError(KeyPurpose.Encryption, err.toString))
+}
+
+object KmsEncryptionPublicKey {
+
+  /** Creates a [[KmsEncryptionPublicKey]] from the given public key bytes.
+    *
+    * @param key
+    *   The public encryption key, which must be encoded in DER X.509 Subject Public Key Info (SPKI)
+    *   format.
+    */
+  private[crypto] def create(
+      key: ByteString,
+      keySpec: EncryptionKeySpec,
+  ): Either[String, KmsEncryptionPublicKey] =
+    // make sure public key is in DER-encoded X.509 SPKI format
+    CryptoKeyFormat
+      .extractPublicKeyFromX509Spki(key)
+      .map(_ => new KmsEncryptionPublicKey(key, keySpec))
+      .leftMap(err => s"The encryption public key is not in DerX509Spki format: ${err.toString}")
+
+  @VisibleForTesting
+  private[crypto] def createSymbolic(
+      key: ByteString,
+      keySpec: EncryptionKeySpec,
+  ) =
+    // only used for testing with symbolic keys so we do not enforce the key to be in DER-encoded X.509 SPKI format
+    new KmsEncryptionPublicKey(key, keySpec)
+
+}
+
 sealed trait KmsError extends Product with Serializable with PrettyPrinting {
   def retryable: Boolean = false
 }
@@ -557,6 +666,11 @@ object KmsError {
   final case class KmsInvalidConfigError(reason: String) extends KmsError {
     override protected def pretty: Pretty[KmsInvalidConfigError] =
       prettyOfClass(param("reason", _.reason.unquoted))
+  }
+
+  final case class KmsFailedConversionError(purpose: KeyPurpose, reason: String) extends KmsError {
+    override protected def pretty: Pretty[KmsFailedConversionError] =
+      prettyOfClass(param("purpose", _.purpose), param("reason", _.reason.unquoted))
   }
 
 }

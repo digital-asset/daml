@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.platform.apiserver.services.tracking
 
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.api.MetricsContext
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.ledger.error.CommonErrors

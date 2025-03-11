@@ -13,7 +13,13 @@ import com.digitalasset.canton.crypto
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.kms.driver.api
 import com.digitalasset.canton.crypto.kms.driver.api.v1.KmsDriverHealth
-import com.digitalasset.canton.crypto.kms.{Kms, KmsError, KmsKeyId}
+import com.digitalasset.canton.crypto.kms.{
+  Kms,
+  KmsEncryptionPublicKey,
+  KmsError,
+  KmsKeyId,
+  KmsSigningPublicKey,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.driver.v1.{DriverFactoryLoader, DriverLoader}
 import com.digitalasset.canton.health.{CloseableAtomicHealthComponent, ComponentHealthState}
@@ -177,7 +183,7 @@ class DriverKms(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, crypto.SigningPublicKey] =
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsSigningPublicKey] =
     for {
       publicKey <- monitor("get-public-key", KmsError.KmsGetPublicKeyError(keyId, _, _)) {
         driver.getPublicKey(keyId.unwrap)
@@ -200,18 +206,16 @@ class DriverKms(
             .leftWiden[KmsError]
       }
       pubKeyRaw = ByteString.copyFrom(publicKey.key)
-      // key usage is initially set to `All` and then, before the key is stored, the correct usage is selected
-      // TODO(#23935): Separate signing public key class without usage to be used by the KMS
-      key <- crypto.SigningPublicKey
-        .create(crypto.CryptoKeyFormat.DerX509Spki, pubKeyRaw, spec, SigningKeyUsage.All)
-        .toEitherT[FutureUnlessShutdown]
+      pubKey <- KmsSigningPublicKey
+        .create(pubKeyRaw, spec)
         .leftMap[KmsError](err => KmsError.KmsGetPublicKeyError(keyId, err.toString))
-    } yield key
+        .toEitherT[FutureUnlessShutdown]
+    } yield pubKey
 
   override protected def getPublicEncryptionKeyInternal(keyId: KmsKeyId)(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, crypto.EncryptionPublicKey] =
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsEncryptionPublicKey] =
     for {
       publicKey <- monitor("get-public-key", KmsError.KmsGetPublicKeyError(keyId, _, _)) {
         driver.getPublicKey(keyId.unwrap)
@@ -233,8 +237,12 @@ class DriverKms(
             )
             .leftWiden[KmsError]
       }
-      key = ByteString.copyFrom(publicKey.key)
-    } yield crypto.EncryptionPublicKey(crypto.CryptoKeyFormat.DerX509Spki, key, spec)()
+      pubKeyRaw = ByteString.copyFrom(publicKey.key)
+      pubKey <- KmsEncryptionPublicKey
+        .create(pubKeyRaw, spec)
+        .leftMap[KmsError](err => KmsError.KmsGetPublicKeyError(keyId, err))
+        .toEitherT[FutureUnlessShutdown]
+    } yield pubKey
 
   override protected def keyExistsAndIsActiveInternal(
       keyId: KmsKeyId

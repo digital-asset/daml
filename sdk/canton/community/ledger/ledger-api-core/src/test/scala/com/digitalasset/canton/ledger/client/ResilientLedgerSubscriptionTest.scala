@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.ledger.client
 
-import com.daml.error.NoLogging
 import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.javaapi.data.Party
+import com.digitalasset.base.error.NoLogging
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.client.ResilientLedgerSubscriptionTest.SubscriptionState
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.ParticipantPrunedDataAccessed

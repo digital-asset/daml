@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 import cats.syntax.traverse.*
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.{
   Epoch,
   Segment,
@@ -22,7 +22,7 @@ trait PbftMessageValidator {
 
 final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: BftOrderingMetrics)(
     abort: String => Nothing
-)(implicit mc: MetricsContext, config: BftBlockOrderer.Config)
+)(implicit mc: MetricsContext, config: BftBlockOrdererConfig)
     extends PbftMessageValidator {
 
   import PbftMessageValidatorImpl.*

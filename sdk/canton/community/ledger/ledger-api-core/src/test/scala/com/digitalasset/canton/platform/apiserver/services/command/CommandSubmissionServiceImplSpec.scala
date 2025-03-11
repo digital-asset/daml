@@ -170,6 +170,7 @@ class CommandSubmissionServiceImplSpec
               commandExecutor.execute(
                 eqTo(commands),
                 any[Hash],
+                eqTo(routingSynchronizerState),
                 anyBoolean,
               )(any[LoggingContextWithTrace])
             ).thenReturn(
@@ -312,8 +313,15 @@ class CommandSubmissionServiceImplSpec
       routingSynchronizerState = routingSynchronizerState,
     )
 
+    when(syncService.getRoutingSynchronizerState(traceContext)).thenReturn(routingSynchronizerState)
+
     when(
-      commandExecutor.execute(eqTo(commands), any[Hash], anyBoolean)(
+      commandExecutor.execute(
+        eqTo(commands),
+        any[Hash],
+        eqTo(routingSynchronizerState),
+        anyBoolean,
+      )(
         any[LoggingContextWithTrace]
       )
     )
@@ -338,7 +346,7 @@ class CommandSubmissionServiceImplSpec
     def apiSubmissionService(
         checkOverloaded: TraceContext => Option[state.SubmissionResult] = _ => None
     ) = new CommandSubmissionServiceImpl(
-      submissionSyncService = syncService,
+      syncService = syncService,
       timeProviderType = timeProviderType,
       timeProvider = timeProvider,
       seedService = seedService,

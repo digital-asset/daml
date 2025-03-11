@@ -6,6 +6,7 @@ package com.daml.ledger.javaapi.data;
 import com.daml.ledger.api.v2.CommandServiceOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
+// TODO(#24401) add fromProto and constructors
 public final class SubmitAndWaitForTransactionRequest {
 
   public static CommandServiceOuterClass.SubmitAndWaitForTransactionRequest toProto(
@@ -15,5 +16,4 @@ public final class SubmitAndWaitForTransactionRequest {
         .setTransactionFormat(transactionFormat.toProto())
         .build();
   }
-
 }

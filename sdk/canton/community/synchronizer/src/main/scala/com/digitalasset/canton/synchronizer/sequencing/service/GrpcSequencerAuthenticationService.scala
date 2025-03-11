@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencing.service
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.daml.error.{ErrorCategory, ErrorCode, Explanation}
+import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation}
 import com.digitalasset.canton.crypto.{Nonce, Signature}
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError, ContextualizedCantonError}

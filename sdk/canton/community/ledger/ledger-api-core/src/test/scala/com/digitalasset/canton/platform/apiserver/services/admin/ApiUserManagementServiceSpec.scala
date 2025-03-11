@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import com.daml.error.ErrorsAssertions
 import com.daml.platform.v1.page_tokens.ListUsersPageTokenPayload
+import com.digitalasset.base.error.ErrorsAssertions
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.daml.lf.data.Ref

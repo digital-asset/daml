@@ -3,7 +3,15 @@
 
 package com.digitalasset.canton.error.generator
 
-import com.daml.error.*
+import com.digitalasset.base.error.{
+  Description,
+  ErrorCategory,
+  ErrorCode,
+  ErrorGroup,
+  Explanation,
+  Resolution,
+  RetryStrategy,
+}
 import org.reflections.Reflections
 
 import scala.jdk.CollectionConverters.*

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.executors.InstrumentedExecutors
 import com.daml.executors.executors.{
   NamedExecutor,
@@ -15,6 +14,7 @@ import com.daml.logging.entries.LoggingEntry
 import com.daml.metrics.DatabaseMetrics
 import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.metrics.api.MetricName
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{

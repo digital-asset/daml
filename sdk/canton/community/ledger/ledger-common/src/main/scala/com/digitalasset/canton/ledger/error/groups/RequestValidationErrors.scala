@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.error.groups
 
-import com.daml.error.{
+import com.digitalasset.base.error.{
   ContextualizedDamlError,
   ContextualizedErrorLogger,
   DamlErrorWithDefiniteAnswer,

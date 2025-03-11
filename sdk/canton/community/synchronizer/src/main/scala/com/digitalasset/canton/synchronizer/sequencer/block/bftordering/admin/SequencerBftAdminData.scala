@@ -21,7 +21,7 @@ import com.digitalasset.canton.sequencer.admin.v30.{
   TlsClientCertificate as ProtoTlsClientCertificate,
   TlsPeerEndpoint as ProtoTlsPeerEndpoint,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.P2PEndpointConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.P2PEndpointConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.topology.SequencerId

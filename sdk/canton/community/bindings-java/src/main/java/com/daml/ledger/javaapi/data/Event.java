@@ -12,6 +12,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  *
  * @see CreatedEvent
  * @see ArchivedEvent
+ * @see ExercisedEvent
  * @see Transaction
  */
 public interface Event {
@@ -42,6 +43,9 @@ public interface Event {
     } else if (this instanceof CreatedEvent) {
       CreatedEvent event = (CreatedEvent) this;
       eventBuilder.setCreated(event.toProto());
+    } else if (this instanceof ExercisedEvent) {
+      ExercisedEvent event = (ExercisedEvent) this;
+      eventBuilder.setExercised(event.toProto());
     } else {
       throw new RuntimeException(
           "this should be ArchivedEvent or CreatedEvent or ExercisedEvent, found "
@@ -55,6 +59,8 @@ public interface Event {
       return CreatedEvent.fromProto(event.getCreated());
     } else if (event.hasArchived()) {
       return ArchivedEvent.fromProto(event.getArchived());
+    } else if (event.hasExercised()) {
+      return ExercisedEvent.fromProto(event.getExercised());
     } else {
       throw new UnsupportedEventTypeException(event.toString());
     }

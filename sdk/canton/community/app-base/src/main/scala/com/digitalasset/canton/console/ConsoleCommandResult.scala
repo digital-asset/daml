@@ -5,7 +5,7 @@ package com.digitalasset.canton.console
 
 import cats.Monad
 import cats.syntax.alternative.*
-import com.daml.error.{ErrorCategory, ErrorCode}
+import com.digitalasset.base.error.{ErrorCategory, ErrorCode}
 import com.digitalasset.canton.console.CommandErrors.{CommandError, GenericCommandError}
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.error.CantonErrorGroups.CommandErrorGroup

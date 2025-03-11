@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol.submission
 
 import com.digitalasset.canton.protocol.{LfContractId, LfLanguageVersion, LfVersionedTransaction}
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.client.TopologySnapshotLoader
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
 import com.digitalasset.canton.version.DamlLfVersionToProtocolVersions
@@ -66,7 +66,7 @@ private[submission] object SynchronizerSelectionFixture extends TestIdFactory {
     def defaultTestingIdentityFactory(
         topology: Map[LfPartyId, List[ParticipantId]],
         packages: Seq[VettedPackage] = Seq(),
-    ): TopologySnapshot = {
+    ): TopologySnapshotLoader = {
       val participants = topology.values.flatten
       val testingIdentityFactory = TestingTopology
         .from(
