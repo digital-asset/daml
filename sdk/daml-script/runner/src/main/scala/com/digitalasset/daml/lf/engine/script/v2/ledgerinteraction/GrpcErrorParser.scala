@@ -37,8 +37,8 @@ object GrpcErrorParser {
 
   // Converts a given SubmitError into a SubmitError. Wraps in an UnknownError if its not what we expect, wraps in a TruncatedError if we're missing resources
   def convertStatusRuntimeException(status: Status): SubmitError = {
-    import com.daml.error.utils.ErrorDetails._
-    import com.daml.error.ErrorResource
+    import com.digitalasset.base.error.utils.ErrorDetails._
+    import com.digitalasset.base.error.ErrorResource
 
     val details = from(status.details.map(Any.toJavaProto))
     val message = status.message

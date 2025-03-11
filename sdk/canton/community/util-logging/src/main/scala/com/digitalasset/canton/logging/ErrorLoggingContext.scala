@@ -15,7 +15,7 @@ import org.slf4j.event.Level
   * properties are fixed when this object is created, which typically happens at a call site further
   * up via [[NamedLogging.errorLoggingContext]].
   *
-  * This class is primarily used with the `com.daml.error` framework for logging an error when it is
+  * This class is primarily used with the `com.digitalasset.base.error` framework for logging an error when it is
   * created.
   *
   * @see
