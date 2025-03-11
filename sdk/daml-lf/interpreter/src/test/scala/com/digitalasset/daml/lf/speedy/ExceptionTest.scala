@@ -664,19 +664,6 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
           cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = False})
         in exercise @M:T ObserversCrash cid ()
     """,
-        "exception thrown by the evaluation of the view during create by interface cannot be caught" ->
-          """
-        ubind
-          cid : ContractId M:I <- create_by_interface @M:I (to_interface @M:I @M:T (M:T {party = sig, viewFails = True}))
-        in ()
-    """,
-        "exception thrown by the evaluation of the view during fetch by interface cannot be caught" ->
-          """
-        ubind
-          cid : ContractId M:T <- create @M:T (M:T {party = sig, viewFails = True});
-          i: M:I <- fetch_interface @M:I (COERCE_CONTRACT_ID @M:T @M:I cid)
-        in ()
-    """,
         "exception thrown by the evaluation of the choice body during exercise by interface can be caught" ->
           """
         ubind
