@@ -1274,9 +1274,15 @@ private[lf] object SBuiltinFun {
                 case None =>
                   Control.Error(IE.WronglyTypedContract(coid, dstTmplId, srcTmplId))
                 case Some(dstArg) =>
-                  fetchValidateDstContract(machine, coid, srcTmplId, srcContract, dstTmplId, dstArg)({
-                    case (dstTmplId, dstArg, _) =>
-                      k(SAny(Ast.TTyCon(dstTmplId), dstArg))
+                  fetchValidateDstContract(
+                    machine,
+                    coid,
+                    srcTmplId,
+                    srcContract,
+                    dstTmplId,
+                    dstArg,
+                  )({ case (dstTmplId, dstArg, _) =>
+                    k(SAny(Ast.TTyCon(dstTmplId), dstArg))
                   })
               }
             }
