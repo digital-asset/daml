@@ -352,8 +352,11 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
             compiledPackages = compiledPackages,
             committers = Set(alice),
           )
-        ) { case Success(Right(SRecord(`ifaceViewTypeId`, _, ArrayList(SInt64(`preferredVersion`))))) =>
-          succeed
+        ) {
+          case Success(
+                Right(SRecord(`ifaceViewTypeId`, _, ArrayList(SInt64(`preferredVersion`))))
+              ) =>
+            succeed
         }
       }
     )
