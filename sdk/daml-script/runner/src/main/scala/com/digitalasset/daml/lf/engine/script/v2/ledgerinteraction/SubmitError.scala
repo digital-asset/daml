@@ -477,38 +477,12 @@ object SubmitError {
       }
     }
 
-    sealed case class ViewMismatch(
-        coid: ContractId,
-        interfaceId: Identifier,
-        srcTemplateId: Identifier,
-        dstTemplateId: Identifier,
-        message: String,
-    ) extends SubmitError {
-      override def toDamlSubmitError(env: Env): SValue = {
-        val upgradeErrorType = damlScriptUpgradeErrorType(
-          env,
-          "ViewMismatch",
-          2,
-          ("coid", fromAnyContractId(env.scriptIds, toApiIdentifier(srcTemplateId), coid)),
-          ("interfaceId", fromTemplateTypeRep(interfaceId)),
-          ("srcTemplateId", fromTemplateTypeRep(srcTemplateId)),
-          ("dstTemplateId", fromTemplateTypeRep(dstTemplateId)),
-        )
-        SubmitErrorConverters(env).damlScriptError(
-          "UpgradeError",
-          20,
-          ("errorType", upgradeErrorType),
-          ("errorMessage", SText(message)),
-        )
-      }
-    }
-
     sealed case class DowngradeFailed(expectedType: String, message: String) extends SubmitError {
       override def toDamlSubmitError(env: Env): SValue = {
         val upgradeErrorType = damlScriptUpgradeErrorType(
           env,
           "DowngradeFailed",
-          3,
+          2,
           ("expectedType", SText(expectedType)),
         )
         SubmitErrorConverters(env).damlScriptError(

@@ -160,9 +160,6 @@ object RejectionGenerators {
             ) =>
           CommandExecutionErrors.Interpreter.UpgradeError.DowngradeDropDefinedField
             .Reject(renderedMessage, error)
-        case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.ViewMismatch) =>
-          CommandExecutionErrors.Interpreter.UpgradeError.ViewMismatch
-            .Reject(renderedMessage, error)
         case LfInterpretationError.Upgrade(
               error: LfInterpretationError.Upgrade.DowngradeFailed
             ) =>

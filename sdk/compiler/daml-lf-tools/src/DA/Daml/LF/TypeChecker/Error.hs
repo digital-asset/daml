@@ -225,7 +225,6 @@ data UnwarnableError
   | EUpgradeTemplateAddedKey !TypeConName !TemplateKey
   | EUpgradeTriedToUpgradeIface !TypeConName
   | EUpgradeMissingImplementation !TypeConName !TypeConName
-  | EForbiddenNewImplementation !TypeConName !TypeConName
   | EUpgradeDependenciesFormACycle ![(PackageId, PackageMetadata)]
   | EUpgradeMultiplePackagesWithSameNameAndVersion !PackageName !RawPackageVersion ![PackageId]
   | EUpgradeTriedToUpgradeException !TypeConName
@@ -259,6 +258,7 @@ data ErrorOrWarning
   | WETemplateInterfaceDependsOnScript !(PackageId, PackageMetadata)
     -- ^ We want to recommend not uploading daml-script to ledger, but it's not a strict requirement
     -- This we make it a warning on packages that define "engine entry points", i.e. templates or interfaces
+  | WEForbiddenNewImplementation !TypeConName !TypeConName
   deriving (Eq, Show)
 
 instance Pretty ErrorOrWarning where
@@ -317,6 +317,11 @@ instance Pretty ErrorOrWarning where
         , "It is recommended that scripts/tests are defined in a separate package to your templates, and that"
         , "you remove `" <> pprintDep dep <> "` from the dependencies in your daml.yaml"
         ]
+    WEForbiddenNewImplementation tpl iface ->
+      vcat
+        [ "Implementation of interface " <> pPrint iface <> " by template " <> pPrint tpl <> " is defined in this package, but not in the package that is being upgraded."
+        , "Only turn off this error if you know what you're doing."
+        ]
     where
     withMismatchInfo :: [Mismatch UpgradeMismatchReason] -> Doc ann -> Doc ann
     withMismatchInfo [] doc = doc
@@ -346,6 +351,7 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       , (unusedDependencyName, unusedDependencyFlag)
       , (ownUpgradeDependencyName, ownUpgradeDependencyFlag)
       , (templateInterfaceDependsOnScriptName, templateInterfaceDependsOnScriptFlag)
+      , (templateHasNewInterfaceInstanceName, templateHasNewInterfaceInstanceFlag)
       ]
   , dwfpDefault = \case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
@@ -366,6 +372,7 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       WEUnusedDependency {} -> AsWarning
       WEOwnUpgradeDependency {} -> AsError
       WETemplateInterfaceDependsOnScript {} -> AsWarning
+      WEForbiddenNewImplementation {} -> AsError
   }
 
 filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
@@ -378,6 +385,7 @@ filterNameForErrorOrWarning err | couldNotExtractUpgradedExpressionFilter err = 
 filterNameForErrorOrWarning err | unusedDependencyFilter err = Just unusedDependencyName
 filterNameForErrorOrWarning err | ownUpgradeDependencyFilter err = Just ownUpgradeDependencyName
 filterNameForErrorOrWarning err | templateInterfaceDependsOnScriptFilter err = Just templateInterfaceDependsOnScriptName
+filterNameForErrorOrWarning err | templateHasNewInterfaceInstanceFilter err = Just templateHasNewInterfaceInstanceName
 filterNameForErrorOrWarning _ = Nothing
 
 upgradedTemplateChangedFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
@@ -495,6 +503,18 @@ templateInterfaceDependsOnScriptFilter :: ErrorOrWarning -> Bool
 templateInterfaceDependsOnScriptFilter =
     \case
         WETemplateInterfaceDependsOnScript {} -> True
+        _ -> False
+
+templateHasNewInterfaceInstanceFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+templateHasNewInterfaceInstanceFlag status = RawDamlWarningFlag templateHasNewInterfaceInstanceName status templateHasNewInterfaceInstanceFilter
+
+templateHasNewInterfaceInstanceName :: String
+templateHasNewInterfaceInstanceName = "template-has-new-interface-instance"
+
+templateHasNewInterfaceInstanceFilter :: ErrorOrWarning -> Bool
+templateHasNewInterfaceInstanceFilter =
+    \case
+        WEForbiddenNewImplementation {} -> True
         _ -> False
 
 data PackageUpgradeOrigin = UpgradingPackage | UpgradedPackage
@@ -935,7 +955,6 @@ instance Pretty UnwarnableError where
     EUpgradeTemplateAddedKey template _key -> "The upgraded template " <> pPrint template <> " cannot add a key where it didn't have one previously."
     EUpgradeTriedToUpgradeIface iface -> "Tried to upgrade interface " <> pPrint iface <> ", but interfaces cannot be upgraded. They should be removed whenever a package is being upgraded."
     EUpgradeMissingImplementation tpl iface -> "Implementation of interface " <> pPrint iface <> " by template " <> pPrint tpl <> " appears in package that is being upgraded, but does not appear in this package."
-    EForbiddenNewImplementation tpl iface -> "Implementation of interface " <> pPrint iface <> " by template " <> pPrint tpl <> " appears in this package, but does not appear in package that is being upgraded."
     EUpgradeDependenciesFormACycle deps ->
       vcat
         [ "Dependencies from the `upgrades:` field and dependencies defined on the current package form a cycle:"

@@ -375,14 +375,6 @@ class IdeLedgerClient(
           innerError.expectedType.pretty,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
-      case e @ Upgrade(innerError: Upgrade.ViewMismatch) =>
-        SubmitError.UpgradeError.ViewMismatch(
-          innerError.coid,
-          innerError.iterfaceId,
-          innerError.srcTemplateId,
-          innerError.dstTemplateId,
-          Pretty.prettyDamlException(e).renderWideStream.mkString,
-        )
       case e @ Dev(_, innerError) =>
         SubmitError.DevError(
           innerError.getClass.getSimpleName,

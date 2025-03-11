@@ -42,6 +42,30 @@ tests damlc =
             ] ++
             concat [
                 [ mkTest
+                    (prefix <> "WhenAnInstanceIsAddedSeparateDep")
+                    (expectationWarningOrError templateHasNewInterfaceInstance "type checking template Main.T :\n  Implementation of interface I by template T is defined in this package, but not in the package that is being upgraded.\n  Only turn off this error if you know what you're doing..*template-has-new-interface-instance")
+                    testOptions
+                      { sharedDep = SharedDep
+                      , mbLocation = Just "SucceedsWhenAnInstanceIsAddedSeparateDep"
+                      , warnBadInterfaceInstances = True
+                      , templateHasNewInterfaceInstance = templateHasNewInterfaceInstance
+                      }
+                , mkTest
+                    (prefix <> "WhenAnInstanceIsAddedUpgradedPackage")
+                    (expectationWarningOrError templateHasNewInterfaceInstance "type checking template Main.T :\n  Implementation of interface I by template T is defined in this package, but not in the package that is being upgraded.\n  Only turn off this error if you know what you're doing..*template-has-new-interface-instance")
+                    testOptions
+                      { sharedDep = DependOnV1
+                      , mbLocation = Just "SucceedsWhenAnInstanceIsAddedUpgradedPackage"
+                      , warnBadInterfaceInstances = True
+                      , ignoreUpgradesOwnDependency = True
+                      , templateHasNewInterfaceInstance = templateHasNewInterfaceInstance
+                      }
+                ]
+            | templateHasNewInterfaceInstance <- [True, False]
+            , let prefix = if templateHasNewInterfaceInstance then "Succeeds" else "Fails"
+            ] ++
+            concat [
+                [ mkTest
                       "ValidUpgrade"
                       Succeed
                       testOptions { setUpgradeField = setUpgradeField }
@@ -260,12 +284,6 @@ tests damlc =
                   "FailsWhenAnInstanceIsDropped"
                   (FailWithError "error type checking template Main.T :\n  Implementation of interface I by template T appears in package that is being upgraded, but does not appear in this package.")
             , testUpgradeCheck
-                  "FailsWhenAnInstanceIsAddedSeparateDep"
-                  (FailWithError "error type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
-            , testUpgradeCheck
-                  "FailsWhenAnInstanceIsAddedUpgradedPackage"
-                  (FailWithError "error type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
-            , testUpgradeCheck
                   "FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface"
                   (FailWithError "error type checking template Main.T :\n  Implementation of interface I by template T appears in package that is being upgraded, but does not appear in this package.")
             , testUpgradeCheck
@@ -333,7 +351,7 @@ tests damlc =
             concat [
                 [ mkTest
                       (prefix <> "WhenAnInterfaceAndATemplateAreDefinedInTheSamePackage")
-                      (expectation "type checking package:\n  This package defines both interfaces and templates.")
+                      (expectationWarningOrError warnBadInterfaceInstances "type checking package:\n  This package defines both interfaces and templates.")
                       testOptions
                         { mbLocation = Just "WarnsWhenAnInterfaceAndATemplateAreDefinedInTheSamePackage"
                         , warnBadInterfaceInstances = warnBadInterfaceInstances
@@ -341,7 +359,7 @@ tests damlc =
                         }
                 , mkTest
                       (prefix <> "WhenAnInterfaceIsUsedInThePackageThatItsDefinedIn")
-                      (expectation "type checking template Main.T interface instance Main.I for Main.T:\n  The interface I was defined in this package") -- TODO complete error
+                      (expectationWarningOrError warnBadInterfaceInstances "type checking template Main.T interface instance Main.I for Main.T:\n  The interface I was defined in this package") -- TODO complete error
                       testOptions
                         { mbLocation = Just "WarnsWhenAnInterfaceIsUsedInThePackageThatItsDefinedIn"
                         , warnBadInterfaceInstances = warnBadInterfaceInstances
@@ -350,10 +368,6 @@ tests damlc =
                 ]
             | warnBadInterfaceInstances <- [True, False]
             , let prefix = if warnBadInterfaceInstances then "Warns" else "Fail"
-            , let expectation msg =
-                      if warnBadInterfaceInstances
-                         then SucceedWithWarning ("\ESC\\[0;93mwarning while " <> msg)
-                         else FailWithError ("\ESC\\[0;91merror " <> msg)
             , doTypecheck <- [True, False]
             ] ++
             [ mkTest
@@ -436,6 +450,12 @@ tests damlc =
             ]
        )
   where
+    expectationWarningOrError :: Bool -> T.Text -> Expectation
+    expectationWarningOrError isWarning msg =
+        if isWarning
+           then SucceedWithWarning ("\ESC\\[0;93mwarning while " <> msg)
+           else FailWithError ("\ESC\\[0;91merror " <> msg)
+
     testUpgradeCheck
         :: String
         -> Expectation
@@ -561,7 +581,7 @@ tests damlc =
             handleExpectation expectation newDir newDar (doTypecheck && setUpgradeField) Nothing
       where
         projectFile version lfVersion name upgradedFile mbDep darDeps =
-          makeProjectFile name version lfVersion upgradedFile (maybeToList mbDep ++ darDeps) doTypecheck warnBadInterfaceInstances
+          makeProjectFile name version lfVersion upgradedFile (maybeToList mbDep ++ darDeps) doTypecheck warnBadInterfaceInstances ignoreUpgradesOwnDependency templateHasNewInterfaceInstance
 
     handleExpectation :: Expectation -> FilePath -> FilePath -> Bool -> Maybe FilePath -> IO ()
     handleExpectation expectation dir dar shouldRunChecks expectedDiagFile =
@@ -610,9 +630,9 @@ tests damlc =
             let oldDir = dir </> "oldVersion"
             let newDar = newDir </> "out.dar"
             let oldDar = oldDir </> "old.dar"
-            writeFiles oldDir [makeProjectFile v1Name v1Version v1LfVersion Nothing [] True False, ("daml/Main.daml", pure "module Main where")]
+            writeFiles oldDir [makeProjectFile v1Name v1Version v1LfVersion Nothing [] True False False False, ("daml/Main.daml", pure "module Main where")]
             callProcessSilent damlc ["build", "--project-root", oldDir, "-o", oldDar]
-            writeFiles newDir [makeProjectFile v2Name v2Version v2LfVersion (Just oldDar) [] True False, ("daml/Main.daml", pure "module Main where")]
+            writeFiles newDir [makeProjectFile v2Name v2Version v2LfVersion (Just oldDar) [] True False False False, ("daml/Main.daml", pure "module Main where")]
             -- Metadata errors are reported on the daml.yaml file
             handleExpectation expectation newDir newDar True (Just $ toUnixPath $ newDir </> "daml.yaml")
 
@@ -621,8 +641,8 @@ tests damlc =
       '\\' -> '/'
       c -> c
 
-    makeProjectFile :: String -> String -> LF.Version -> Maybe FilePath -> [FilePath] -> Bool -> Bool -> (FilePath, IO String)
-    makeProjectFile name version lfVersion upgradedFile deps doTypecheck warnBadInterfaceInstances =
+    makeProjectFile :: String -> String -> LF.Version -> Maybe FilePath -> [FilePath] -> Bool -> Bool -> Bool -> Bool -> (FilePath, IO String)
+    makeProjectFile name version lfVersion upgradedFile deps doTypecheck warnBadInterfaceInstances ignoreUpgradesOwnDependency templateHasNewInterfaceInstance =
         ( "daml.yaml"
         , pure $ unlines $
           [ "sdk-version: " <> sdkVersion
@@ -637,6 +657,8 @@ tests damlc =
           ]
             ++ ["  - --typecheck-upgrades=no" | not doTypecheck]
             ++ ["  - -Wupgrade-interfaces" | warnBadInterfaceInstances ]
+            ++ ["  - -Wupgrades-own-dependency" | ignoreUpgradesOwnDependency ]
+            ++ ["  - -Wtemplate-has-new-interface-instance" | templateHasNewInterfaceInstance ]
             ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
             ++ renderDataDeps deps
         )
@@ -658,6 +680,8 @@ data TestOptions = TestOptions
   , lfVersion :: VersionPair
   , sharedDep :: Dependency
   , warnBadInterfaceInstances :: Bool
+  , ignoreUpgradesOwnDependency :: Bool
+  , templateHasNewInterfaceInstance :: Bool
   , setUpgradeField :: Bool
   , doTypecheck :: Bool
   , additionalDarsV1 :: [String]
@@ -671,6 +695,8 @@ testOptions =
     , lfVersion = versionPairs versionDefault
     , sharedDep = NoDependencies
     , warnBadInterfaceInstances = False
+    , ignoreUpgradesOwnDependency = False
+    , templateHasNewInterfaceInstance = False
     , setUpgradeField = True
     , doTypecheck = True
     , additionalDarsV1 = []

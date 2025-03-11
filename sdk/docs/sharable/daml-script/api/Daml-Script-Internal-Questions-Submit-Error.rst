@@ -674,30 +674,6 @@ Data Types
          - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
          -
 
-  .. _constr-daml-script-internal-questions-submit-error-viewmismatch-75035:
-
-  `ViewMismatch <constr-daml-script-internal-questions-submit-error-viewmismatch-75035_>`_
-
-    .. list-table::
-       :widths: 15 10 30
-       :header-rows: 1
-
-       * - Field
-         - Type
-         - Description
-       * - coid
-         - :ref:`AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399>`
-         -
-       * - iterfaceId
-         - `TemplateTypeRep <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
-         -
-       * - srcTemplateId
-         - `TemplateTypeRep <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
-         -
-       * - dstTemplateId
-         - `TemplateTypeRep <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
-         -
-
   .. _constr-daml-script-internal-questions-submit-error-downgradefailed-38019:
 
   `DowngradeFailed <constr-daml-script-internal-questions-submit-error-downgradefailed-38019_>`_
@@ -725,8 +701,6 @@ Data Types
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"fieldIndex\" `UpgradeErrorType <type-daml-script-internal-questions-submit-error-upgradeerrortype-94779_>`_ `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
 
-  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"iterfaceId\" `UpgradeErrorType <type-daml-script-internal-questions-submit-error-upgradeerrortype-94779_>`_ `TemplateTypeRep <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
-
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"keyOpt\" `UpgradeErrorType <type-daml-script-internal-questions-submit-error-upgradeerrortype-94779_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ (`AnyContractKey <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_, \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]))
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"observers\" `UpgradeErrorType <type-daml-script-internal-questions-submit-error-upgradeerrortype-94779_>`_ \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
@@ -744,8 +718,6 @@ Data Types
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"expectedType\" `UpgradeErrorType <type-daml-script-internal-questions-submit-error-upgradeerrortype-94779_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"fieldIndex\" `UpgradeErrorType <type-daml-script-internal-questions-submit-error-upgradeerrortype-94779_>`_ `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
-
-  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"iterfaceId\" `UpgradeErrorType <type-daml-script-internal-questions-submit-error-upgradeerrortype-94779_>`_ `TemplateTypeRep <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"keyOpt\" `UpgradeErrorType <type-daml-script-internal-questions-submit-error-upgradeerrortype-94779_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ (`AnyContractKey <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_, \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]))
 
