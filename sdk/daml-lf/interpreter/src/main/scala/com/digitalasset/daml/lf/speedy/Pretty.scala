@@ -265,30 +265,6 @@ private[lf] object Pretty {
         )
     }
 
-  def prettyViewMismatch(
-      coid: ContractId,
-      iterfaceId: TypeConName,
-      srcTemplateId: TypeConName,
-      dstTemplateId: TypeConName,
-      srcViewValue: Value,
-      dstViewValue: Value,
-  ): Doc = {
-    text("View mismatch when upgrading the contract") & prettyContractId(
-      coid
-    ) & text("from") & prettyTypeConName(srcTemplateId) & text(
-      "to"
-    ) & prettyTypeConName(
-      dstTemplateId
-    ) & text("during a fetch or exercise by interface") /
-      text("Verify that the views of the contract have not changed") /
-      text("computed view for") & prettyTypeConName(iterfaceId) & text(
-        "in the source contract is"
-      ) & prettyValue(false)(srcViewValue) /
-      text("computed view for") & prettyTypeConName(iterfaceId) & text(
-        "in the destination contract is"
-      ) & prettyValue(false)(dstViewValue)
-  }
-
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
   def prettyPartialTransactionNode(node: Node): Doc =
     node match {
