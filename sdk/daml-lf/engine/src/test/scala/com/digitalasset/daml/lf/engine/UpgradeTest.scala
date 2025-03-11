@@ -357,7 +357,6 @@ object UpgradeTest {
       val v1TplQualifiedName = s"'$v1PkgId':Mod:$templateName"
       val v2TplQualifiedName = s"'$v2PkgId':Mod:$templateName"
       val ifaceQualifiedName = s"'$commonDefsPkgId':Mod:Iface"
-      val viewQualifiedName = s"'$commonDefsPkgId':Mod:MyView"
       val v2KeyTypeQualifiedName = s"'$v2PkgId':Mod:${templateName}Key"
       val v2ChoiceArgTypeQualifiedName = s"'$v2PkgId':Mod:${templateName}ChoiceArgType"
 
@@ -579,7 +578,7 @@ object UpgradeTest {
          |       catch
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
          |
-         |  choice @nonConsuming FetchInterfaceNoCatchLocal${templateName} (self) (u: Unit): $viewQualifiedName
+         |  choice @nonConsuming FetchInterfaceNoCatchLocal${templateName} (self) (u: Unit): Text
          |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to ubind
@@ -587,32 +586,32 @@ object UpgradeTest {
          |         iface: $ifaceQualifiedName <- fetch_interface
          |            @$ifaceQualifiedName
          |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$ifaceQualifiedName cid)
-         |         in upure @$viewQualifiedName (view_interface @$ifaceQualifiedName iface);
+         |         in upure @Text "no exception was caught";
          |
          |  choice @nonConsuming FetchInterfaceAttemptCatchLocal${templateName} (self) (u: Unit): Text
          |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind _:$viewQualifiedName <-
+         |         ubind _:Text <-
          |             exercise @$clientTplQualifiedName FetchInterfaceNoCatchLocal${templateName} self ()
          |         in upure @Text "no exception was caught"
          |       catch
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
          |
          |  choice @nonConsuming FetchInterfaceNoCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName)
-         |        : $viewQualifiedName
+         |        : Text
          |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to ubind iface: $ifaceQualifiedName <- fetch_interface
          |         @$ifaceQualifiedName
          |         (COERCE_CONTRACT_ID @$v1TplQualifiedName @$ifaceQualifiedName cid)
-         |       in upure @$viewQualifiedName (view_interface @$ifaceQualifiedName iface);
+         |       in upure @Text "no exception was caught";
          |
          |  choice @nonConsuming FetchInterfaceAttemptCatchGlobal${templateName} (self) (cid: ContractId $v1TplQualifiedName): Text
          |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind _:$viewQualifiedName <-
+         |         ubind _:Text <-
          |             exercise @$clientTplQualifiedName FetchInterfaceNoCatchGlobal${templateName} self cid
          |         in upure @Text "no exception was caught"
          |       catch
@@ -1213,8 +1212,8 @@ object UpgradeTest {
       s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "InterfaceChoiceObservers"})"""
   }
 
-  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: errors thrown by interface view cannot be caught
-  case object ThrowingView extends TestCase("ThrowingView", ExpectUnhandledException) {
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: interface views are not calculated during fetches and exercises
+  case object ThrowingView extends TestCase("ThrowingView", ExpectSuccess) {
     override def v1View = s"'$commonDefsPkgId':Mod:MyView { value = 0 }"
     override def v2View =
       s"""throw @'$commonDefsPkgId':Mod:MyView @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "View"})"""
