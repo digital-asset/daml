@@ -7,9 +7,9 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
-import com.daml.error.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
+import com.digitalasset.base.error.{DamlError, ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout

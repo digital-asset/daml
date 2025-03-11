@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
-import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.v2.event_query_service
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
 import com.daml.ledger.api.v2.transaction_filter.{Filters, WildcardFilter}
+import com.digitalasset.base.error.{ContextualizedErrorLogger, NoLogging}
 import com.digitalasset.canton.ledger.api.messages.event
 import com.digitalasset.canton.ledger.api.{CumulativeFilter, EventFormat, TemplateWildcardFilter}
 import io.grpc.Status.Code.*

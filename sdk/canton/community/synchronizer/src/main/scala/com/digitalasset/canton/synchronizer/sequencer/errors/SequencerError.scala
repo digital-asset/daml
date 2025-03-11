@@ -3,7 +3,13 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.errors
 
-import com.daml.error.{ContextualizedErrorLogger, ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.digitalasset.base.error.{
+  ContextualizedErrorLogger,
+  ErrorCategory,
+  ErrorCode,
+  Explanation,
+  Resolution,
+}
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.SignatureCheckError
 import com.digitalasset.canton.data.CantonTimestamp

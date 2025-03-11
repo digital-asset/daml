@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.update
 
-import com.daml.error.ErrorsAssertions
+import com.digitalasset.base.error.ErrorsAssertions
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{EitherValues, OptionValues}

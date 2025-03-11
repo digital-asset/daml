@@ -124,7 +124,7 @@ class LedgerTimeAwareCommandExecutorSpec
 
     val mockExecutor = mock[CommandExecutor]
     when(
-      mockExecutor.execute(any[Commands], any[Hash], anyBoolean)(
+      mockExecutor.execute(any[Commands], any[Hash], eqTo(routingSynchronizerState), anyBoolean)(
         any[LoggingContextWithTrace]
       )
     )
@@ -182,6 +182,7 @@ class LedgerTimeAwareCommandExecutorSpec
         commands,
         submissionSeed,
         usedForExternallySigningTransaction = usedForExternalSigning,
+        routingSynchronizerState = routingSynchronizerState,
       )(loggingContext)
       .value
       .map { actual =>
@@ -221,6 +222,7 @@ class LedgerTimeAwareCommandExecutorSpec
         verify(mockExecutor, times(resolveMaximumLedgerTimeResults.size)).execute(
           any[Commands],
           any[Hash],
+          eqTo(routingSynchronizerState),
           eqTo(usedForExternalSigning),
         )(any[LoggingContextWithTrace])
 

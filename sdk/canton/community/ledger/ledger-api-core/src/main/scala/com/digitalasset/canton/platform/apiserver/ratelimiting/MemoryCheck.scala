@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.ratelimiting
 
-import com.daml.error.ContextualizedErrorLogger
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.error.LedgerApiErrors.HeapMemoryOverLimit
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig

@@ -44,10 +44,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.Se
   OrderingTopology,
   PeerNetworkStatus,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.{
-  EndpointId,
-  P2PEndpointConfig,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.config.{
   RemoteSequencerConfig,
@@ -1193,7 +1190,7 @@ abstract class SequencerReference(
 
     @Help.Summary("Add a new peer endpoint")
     def add_peer_endpoint(
-        endpointConfig: P2PEndpointConfig
+        endpointConfig: BftBlockOrdererConfig.P2PEndpointConfig
     ): Unit =
       consoleEnvironment.run {
         runner.adminCommand(
@@ -1204,7 +1201,7 @@ abstract class SequencerReference(
       }
 
     @Help.Summary("Remove a peer endpoint")
-    def remove_peer_endpoint(peerEndpointId: EndpointId): Unit =
+    def remove_peer_endpoint(peerEndpointId: BftBlockOrdererConfig.EndpointId): Unit =
       consoleEnvironment.run {
         runner.adminCommand(
           SequencerBftAdminCommands.RemovePeerEndpoint(
@@ -1214,7 +1211,9 @@ abstract class SequencerReference(
       }
 
     @Help.Summary("Get peer network status")
-    def get_peer_network_status(endpoints: Option[Iterable[EndpointId]]): PeerNetworkStatus =
+    def get_peer_network_status(
+        endpoints: Option[Iterable[BftBlockOrdererConfig.EndpointId]]
+    ): PeerNetworkStatus =
       consoleEnvironment.run {
         runner.adminCommand(
           SequencerBftAdminCommands.GetPeerNetworkStatus(endpoints.map(_.map(toInternal)))
@@ -1227,7 +1226,7 @@ abstract class SequencerReference(
         runner.adminCommand(SequencerBftAdminCommands.GetOrderingTopology())
       }
 
-    private def toInternal(endpoint: EndpointId): P2PEndpoint.Id =
+    private def toInternal(endpoint: BftBlockOrdererConfig.EndpointId): P2PEndpoint.Id =
       P2PEndpoint.Id(endpoint.address, endpoint.port, endpoint.tls)
   }
 }

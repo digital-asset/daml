@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.error
 
-import com.daml.error.*
-import com.daml.error.utils.DecodedCantonError
+import com.digitalasset.base.error.utils.DecodedCantonError
+import com.digitalasset.base.error.{ErrorCategory, ErrorClass, ErrorCode, ErrorGroup}
 import com.digitalasset.canton.BaseTestWordSpec
 import com.digitalasset.canton.error.TestGroup.NestedGroup.MyCode.MyError
 import com.digitalasset.canton.error.TestGroup.NestedGroup.{MyCode, TestAlarmErrorCode}

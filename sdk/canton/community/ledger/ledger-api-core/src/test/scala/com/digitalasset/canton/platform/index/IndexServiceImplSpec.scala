@@ -4,8 +4,8 @@
 package com.digitalasset.canton.platform.index
 
 import cats.syntax.either.*
-import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.base.error.{ContextualizedErrorLogger, NoLogging}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.TransactionShape.AcsDelta
 import com.digitalasset.canton.ledger.api.{

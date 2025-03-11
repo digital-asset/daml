@@ -26,7 +26,7 @@ import com.digitalasset.canton.protocol.{
   Stakeholders,
 }
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.client.TopologySnapshotLoader
 import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{DamlLfVersionToProtocolVersions, ProtocolVersion}
@@ -556,7 +556,7 @@ private[routing] object SynchronizerSelectorTest {
       object TestSynchronizerState$ extends RoutingSynchronizerState {
         override def getTopologySnapshotAndPVFor(
             synchronizerId: SynchronizerId
-        ): Either[UnableToQueryTopologySnapshot.Failed, (TopologySnapshot, ProtocolVersion)] =
+        ): Either[UnableToQueryTopologySnapshot.Failed, (TopologySnapshotLoader, ProtocolVersion)] =
           Either
             .cond(
               connectedSynchronizers.contains(synchronizerId),
@@ -575,6 +575,10 @@ private[routing] object SynchronizerSelectorTest {
           FutureUnlessShutdown.pure(synchronizerOfContracts(coids))
 
         override val topologySnapshots = Map.empty
+
+        override def existsReadySynchronizer(): Boolean =
+          // Not used in this test
+          false
       }
 
       private val synchronizerRankComputation = new SynchronizerRankComputation(

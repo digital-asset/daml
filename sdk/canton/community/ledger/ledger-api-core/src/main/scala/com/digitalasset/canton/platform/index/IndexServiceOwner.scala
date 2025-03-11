@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.platform.index
 
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.error.IndexErrors.IndexDbException

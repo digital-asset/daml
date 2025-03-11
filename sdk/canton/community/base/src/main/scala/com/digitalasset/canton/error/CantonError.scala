@@ -3,8 +3,15 @@
 
 package com.digitalasset.canton.error
 
-import com.daml.error.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.base.error.{
+  BaseError,
+  ContextualizedErrorLogger,
+  DamlError,
+  ErrorCategory,
+  ErrorCode,
+  NoLogging,
+}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.google.rpc.Status
 import com.google.rpc.error_details.ErrorInfo

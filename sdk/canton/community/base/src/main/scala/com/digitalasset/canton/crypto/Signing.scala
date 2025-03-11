@@ -7,8 +7,8 @@ import cats.Order
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
@@ -1202,15 +1202,9 @@ object SigningPublicKey
     (format, keySpec) match {
       case (CryptoKeyFormat.DerX509Spki, SigningKeySpec.EcCurve25519) =>
         // To be backward-compatible, the hash for the fingerprint must apply only to the "raw" public key
-        for {
-          publicKeyData <- Either
-            .catchOnly[IllegalArgumentException] {
-              val subjectPublicKeyInfo = SubjectPublicKeyInfo.getInstance(key.toByteArray)
-              subjectPublicKeyInfo.getPublicKeyData.getBytes
-            }
-            .leftMap(err => KeyParseAndValidateError(s"Failed to parse public key: $err"))
-        } yield Some(ByteString.copyFrom(publicKeyData))
-
+        CryptoKeyFormat
+          .extractPublicKeyFromX509Spki(key)
+          .map(keyData => Some(ByteString.copyFrom(keyData)))
       case _ => Right(None)
     }
 

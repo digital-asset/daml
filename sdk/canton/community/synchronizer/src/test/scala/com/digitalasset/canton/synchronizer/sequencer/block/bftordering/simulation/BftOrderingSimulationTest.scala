@@ -12,7 +12,7 @@ import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.AvailabilityModuleConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.memory.SimulationAvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule
@@ -365,7 +365,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
         new BftOrderingModuleSystemInitializer[SimulationEnv](
           testedProtocolVersion,
           thisPeer,
-          BftBlockOrderer.Config(),
+          BftBlockOrdererConfig(),
           initialApplicationHeight,
           IssConsensusModule.DefaultEpochLength,
           stores,
@@ -636,7 +636,7 @@ class BftOrderingSimulationTest2NodesLargeRequests extends BftOrderingSimulation
         clientRequestApproximateByteSize =
           // -100 to account for tags and payloads' prefixes
           // Exceeding the default size results in warning logs and dropping messages in Mempool
-          Some(PositiveInt.tryCreate(BftBlockOrderer.DefaultMaxRequestPayloadBytes - 100)),
+          Some(PositiveInt.tryCreate(BftBlockOrdererConfig.DefaultMaxRequestPayloadBytes - 100)),
       )
     )
   )

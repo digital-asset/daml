@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.error.generator
 
-import com.daml.error.{ErrorClass, Explanation}
+import com.digitalasset.base.error.{ErrorClass, Explanation}
 
 /** Contains error presentation data to be used for documentation rendering on the website.
   *
   * @param className
-  *   The group class name (see [[com.daml.error.ErrorGroup]]).
+  *   The group class name (see [[com.digitalasset.base.error.ErrorGroup]]).
   * @param explanation
   *   The detailed error explanation.
   * @param errorClass

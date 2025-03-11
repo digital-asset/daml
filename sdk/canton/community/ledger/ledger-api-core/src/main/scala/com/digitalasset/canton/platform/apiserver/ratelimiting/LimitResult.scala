@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.ratelimiting
 
-import com.daml.error.DamlError
+import com.digitalasset.base.error.DamlError
 
 import scala.annotation.tailrec
 

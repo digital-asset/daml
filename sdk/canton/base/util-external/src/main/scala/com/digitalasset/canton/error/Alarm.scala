@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.error
 
-import com.daml.error.ErrorCategory.{SecurityAlert, UnredactedSecurityAlert}
-import com.daml.error.{BaseError, ContextualizedErrorLogger, ErrorClass, ErrorCode}
+import com.digitalasset.base.error.ErrorCategory.{SecurityAlert, UnredactedSecurityAlert}
+import com.digitalasset.base.error.{BaseError, ContextualizedErrorLogger, ErrorClass, ErrorCode}
 import io.grpc.StatusRuntimeException
 
 /** An alarm indicates that a different node is behaving maliciously. Alarms include situations

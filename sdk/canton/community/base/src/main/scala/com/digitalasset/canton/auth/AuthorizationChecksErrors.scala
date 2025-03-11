@@ -3,7 +3,15 @@
 
 package com.digitalasset.canton.auth
 
-import com.daml.error.*
+import com.digitalasset.base.error.{
+  ContextualizedErrorLogger,
+  DamlErrorWithDefiniteAnswer,
+  ErrorCategory,
+  ErrorCategoryRetry,
+  ErrorCode,
+  Explanation,
+  Resolution,
+}
 import com.digitalasset.canton.error.CantonErrorGroups
 
 import scala.concurrent.duration.*

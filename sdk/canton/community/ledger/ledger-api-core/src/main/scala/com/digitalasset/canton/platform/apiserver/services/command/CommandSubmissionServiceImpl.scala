@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.platform.apiserver.services.command
 
-import com.daml.error.ContextualizedErrorLogger
-import com.daml.error.ErrorCode.LoggedApiException
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.timer.Delayed
+import com.digitalasset.base.error.ContextualizedErrorLogger
+import com.digitalasset.base.error.ErrorCode.LoggedApiException
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
 import com.digitalasset.canton.ledger.api.util.TimeProvider
@@ -76,7 +76,7 @@ private[apiserver] object CommandSubmissionServiceImpl {
 }
 
 private[apiserver] final class CommandSubmissionServiceImpl private[services] (
-    submissionSyncService: state.SubmissionSyncService,
+    syncService: state.SyncService,
     timeProvider: TimeProvider,
     timeProviderType: TimeProviderType,
     seedService: SeedService,
@@ -162,7 +162,13 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
       .map(FutureUnlessShutdown.pure)
       .getOrElse(
         withSpan("ApiSubmissionService.evaluate") { _ => _ =>
-          commandExecutor.execute(commands, submissionSeed, forExternallySigned = false)
+          val synchronizerState = syncService.getRoutingSynchronizerState
+          commandExecutor.execute(
+            commands = commands,
+            submissionSeed = submissionSeed,
+            routingSynchronizerState = synchronizerState,
+            forExternallySigned = false,
+          )
         }
           .semiflatMap(submitTransactionWithDelay)
           .valueOrF { error =>
@@ -206,7 +212,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
   ): Future[state.SubmissionResult] = {
     metrics.commands.validSubmissions.mark()
     logger.trace("Submitting transaction to ledger.")
-    submissionSyncService
+    syncService
       .submitTransaction(
         result.commandInterpretationResult.transaction,
         result.synchronizerRank,

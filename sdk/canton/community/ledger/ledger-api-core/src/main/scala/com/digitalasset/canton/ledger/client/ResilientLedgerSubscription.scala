@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.ledger.client
 
-import com.daml.error.utils.DecodedCantonError
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse.Update
+import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors

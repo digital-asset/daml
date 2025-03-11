@@ -14,7 +14,7 @@ import com.digitalasset.canton.ledger.participant.state.ChangeId
 object CommandDeduplicationError extends InjectionErrorGroup {
   final case class DuplicateCommandReject(
       changeId: ChangeId,
-      // use the same field name as defined in com.daml.error.GrpcStatuses.CompletionOffsetKey
+      // use the same field name as defined in GrpcStatuses.CompletionOffsetKey
       // use a Long instead of LedgerSyncOffset so that we don't get the pretty printer in the way
       completion_offset: Long,
       accepted: Boolean,

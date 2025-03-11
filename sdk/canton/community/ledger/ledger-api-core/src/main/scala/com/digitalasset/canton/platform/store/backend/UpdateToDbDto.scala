@@ -206,7 +206,7 @@ object UpdateToDbDto {
     val events = topologyTransaction.events.iterator.flatMap {
       case TopologyEvent.PartyToParticipantAuthorization(party, participant, level) =>
         import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
-        Seq(
+        val eventPartyToParticipant = Iterator(
           DbDto.EventPartyToParticipant(
             event_sequential_id = 0, // this is filled later
             event_offset = offset.unwrap,
@@ -217,18 +217,23 @@ object UpdateToDbDto {
             synchronizer_id = topologyTransaction.synchronizerId.toProtoPrimitive,
             record_time = topologyTransaction.recordTime.toMicros,
             trace_context = serializedTraceContext,
-          ),
-          DbDto.PartyEntry(
-            ledger_offset = offset.unwrap,
-            recorded_at = topologyTransaction.recordTime.toMicros,
-            submission_id =
-              Some(PartyAllocation.TrackerKey.of(party, participant, level).submissionId),
-            party = Some(party),
-            typ = JdbcLedgerDao.acceptType,
-            rejection_reason = None,
-            is_local = Some(participant == participantId),
-          ),
+          )
         )
+        val partyEntry = Option
+          .when(level != TopologyTransactionEffective.AuthorizationLevel.Revoked)(
+            DbDto.PartyEntry(
+              ledger_offset = offset.unwrap,
+              recorded_at = topologyTransaction.recordTime.toMicros,
+              submission_id =
+                Some(PartyAllocation.TrackerKey.of(party, participant, level).submissionId),
+              party = Some(party),
+              typ = JdbcLedgerDao.acceptType,
+              rejection_reason = None,
+              is_local = Some(participant == participantId),
+            )
+          )
+          .iterator
+        eventPartyToParticipant ++ partyEntry
     }
 
     // TransactionMeta DTO must come last in this sequence

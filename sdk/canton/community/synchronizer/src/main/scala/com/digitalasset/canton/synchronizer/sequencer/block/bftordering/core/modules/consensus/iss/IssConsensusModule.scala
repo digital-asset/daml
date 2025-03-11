@@ -10,7 +10,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.BootstrapDetector.BootstrapKind
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.InitialState
@@ -108,7 +108,7 @@ final class IssConsensusModule[E <: Env[E]](
     ),
     // Only passed in tests
     private var newEpochTopology: Option[Consensus.NewEpochTopology[E]] = None,
-)(implicit mc: MetricsContext, config: BftBlockOrderer.Config)
+)(implicit mc: MetricsContext, config: BftBlockOrdererConfig)
     extends Consensus[E]
     with HasDelayedInit[Consensus.Message[E]] {
 

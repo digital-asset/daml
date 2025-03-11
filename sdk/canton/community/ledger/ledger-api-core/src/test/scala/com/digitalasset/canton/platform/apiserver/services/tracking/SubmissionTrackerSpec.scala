@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.apiserver.services.tracking
 
-import com.daml.error.{ContextualizedErrorLogger, ErrorsAssertions}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
+import com.digitalasset.base.error.{ContextualizedErrorLogger, ErrorsAssertions}
 import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors
 import com.digitalasset.canton.ledger.error.{CommonErrors, LedgerApiErrors}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown

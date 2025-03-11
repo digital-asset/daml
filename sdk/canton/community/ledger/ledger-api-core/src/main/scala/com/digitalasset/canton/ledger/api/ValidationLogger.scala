@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api
 
-import com.daml.error.ErrorCode.LoggedApiException
+import com.digitalasset.base.error.ErrorCode.LoggedApiException
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, TracedLogger}
 

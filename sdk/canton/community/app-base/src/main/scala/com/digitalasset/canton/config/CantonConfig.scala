@@ -81,9 +81,8 @@ import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig.{
   SequencerHighAvailabilityConfig,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.DriverBlockSequencerFactory
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.P2PServerConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.{
-  BftBlockOrderer,
+  BftBlockOrdererConfig,
   BftSequencerFactory,
 }
 import com.digitalasset.canton.synchronizer.sequencer.config.{
@@ -963,19 +962,19 @@ object CantonConfig {
       deriveReader[DbLockedConnectionPoolConfig]
 
     lazy implicit val bftBlockOrdererP2PServerConfigReader
-        : ConfigReader[BftBlockOrderer.P2PServerConfig] =
-      deriveReader[BftBlockOrderer.P2PServerConfig]
+        : ConfigReader[BftBlockOrdererConfig.P2PServerConfig] =
+      deriveReader[BftBlockOrdererConfig.P2PServerConfig]
     lazy implicit val bftBlockOrdererP2PEndpointConfigReader
-        : ConfigReader[BftBlockOrderer.P2PEndpointConfig] =
-      deriveReader[BftBlockOrderer.P2PEndpointConfig]
+        : ConfigReader[BftBlockOrdererConfig.P2PEndpointConfig] =
+      deriveReader[BftBlockOrdererConfig.P2PEndpointConfig]
     lazy implicit val bftBlockOrdererP2PNetworkAuthenticationConfigReader
-        : ConfigReader[BftBlockOrderer.P2PNetworkAuthenticationConfig] =
-      deriveReader[BftBlockOrderer.P2PNetworkAuthenticationConfig]
+        : ConfigReader[BftBlockOrdererConfig.P2PNetworkAuthenticationConfig] =
+      deriveReader[BftBlockOrdererConfig.P2PNetworkAuthenticationConfig]
     lazy implicit val bftBlockOrdererP2PNetworkConfigReader
-        : ConfigReader[BftBlockOrderer.P2PNetworkConfig] =
-      deriveReader[BftBlockOrderer.P2PNetworkConfig]
-    lazy implicit val bftBlockOrdererConfigReader: ConfigReader[BftBlockOrderer.Config] =
-      deriveReader[BftBlockOrderer.Config]
+        : ConfigReader[BftBlockOrdererConfig.P2PNetworkConfig] =
+      deriveReader[BftBlockOrdererConfig.P2PNetworkConfig]
+    lazy implicit val bftBlockOrdererConfigReader: ConfigReader[BftBlockOrdererConfig] =
+      deriveReader[BftBlockOrdererConfig]
     lazy implicit val sequencerConfigBftSequencerReader
         : ConfigReader[SequencerConfig.BftSequencer] =
       deriveReader[SequencerConfig.BftSequencer]
@@ -1561,19 +1560,20 @@ object CantonConfig {
     lazy implicit val connectionPoolConfigWriter: ConfigWriter[DbLockedConnectionPoolConfig] =
       deriveWriter[DbLockedConnectionPoolConfig]
 
-    lazy implicit final val bftBlockOrdererBftP2PServerConfigWriter: ConfigWriter[P2PServerConfig] =
-      deriveWriter[P2PServerConfig]
+    lazy implicit final val bftBlockOrdererBftP2PServerConfigWriter
+        : ConfigWriter[BftBlockOrdererConfig.P2PServerConfig] =
+      deriveWriter[BftBlockOrdererConfig.P2PServerConfig]
     lazy implicit val bftBlockOrdererBftP2PEndpointConfigWriter
-        : ConfigWriter[BftBlockOrderer.P2PEndpointConfig] =
-      deriveWriter[BftBlockOrderer.P2PEndpointConfig]
+        : ConfigWriter[BftBlockOrdererConfig.P2PEndpointConfig] =
+      deriveWriter[BftBlockOrdererConfig.P2PEndpointConfig]
     lazy implicit val bftBlockOrdererBftP2PNetworkAuthenticationConfigWriter
-        : ConfigWriter[BftBlockOrderer.P2PNetworkAuthenticationConfig] =
-      deriveWriter[BftBlockOrderer.P2PNetworkAuthenticationConfig]
+        : ConfigWriter[BftBlockOrdererConfig.P2PNetworkAuthenticationConfig] =
+      deriveWriter[BftBlockOrdererConfig.P2PNetworkAuthenticationConfig]
     lazy implicit val bftBlockOrdererBftP2PNetworkConfigWriter
-        : ConfigWriter[BftBlockOrderer.P2PNetworkConfig] =
-      deriveWriter[BftBlockOrderer.P2PNetworkConfig]
-    lazy implicit val bftBlockOrdererConfigWriter: ConfigWriter[BftBlockOrderer.Config] =
-      deriveWriter[BftBlockOrderer.Config]
+        : ConfigWriter[BftBlockOrdererConfig.P2PNetworkConfig] =
+      deriveWriter[BftBlockOrdererConfig.P2PNetworkConfig]
+    lazy implicit val bftBlockOrdererConfigWriter: ConfigWriter[BftBlockOrdererConfig] =
+      deriveWriter[BftBlockOrdererConfig]
 
     lazy implicit val sequencerConfigBftSequencerWriter
         : ConfigWriter[SequencerConfig.BftSequencer] =

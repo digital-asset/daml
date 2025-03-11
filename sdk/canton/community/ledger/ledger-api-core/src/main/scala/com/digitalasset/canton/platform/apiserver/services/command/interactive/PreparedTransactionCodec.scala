@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.apiserver.services.command.interactive
 
 import cats.Applicative
 import cats.syntax.either.*
-import com.daml.error.ContextualizedErrorLogger
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult

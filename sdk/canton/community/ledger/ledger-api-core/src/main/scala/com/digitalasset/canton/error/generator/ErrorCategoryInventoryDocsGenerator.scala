@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.error.generator
 
-import com.daml.error.ErrorCategory
+import com.digitalasset.base.error.ErrorCategory
 
 object ErrorCategoryInventoryDocsGenerator {
 

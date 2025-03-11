@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.synchronizer
 
-import com.daml.error.*
+import com.digitalasset.base.error.{ErrorCategory, ErrorCode, ErrorGroup, Explanation, Resolution}
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.sequencing.client.{grpc as _, *}

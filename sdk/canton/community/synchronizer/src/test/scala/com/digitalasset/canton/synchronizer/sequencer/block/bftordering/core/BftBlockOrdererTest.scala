@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.time.BftTime
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -27,7 +27,7 @@ class BftBlockOrdererTest extends AnyWordSpec with BaseTest {
                 s"$maxBatchesPerProposal maximum batches per block proposal means " +
                 s"$maxRequestsPerBlock maximum requests per block, " +
                 s"but the maximum number allowed of requests per block is ${BftTime.MaxRequestsPerBlock}"
-            the[IllegalArgumentException] thrownBy BftBlockOrderer.Config(
+            the[IllegalArgumentException] thrownBy BftBlockOrdererConfig(
               maxRequestsInBatch = maxRequestsInBatch.toShort,
               maxBatchesPerBlockProposal = maxBatchesPerProposal.toShort,
             ) should have message expectedMessage

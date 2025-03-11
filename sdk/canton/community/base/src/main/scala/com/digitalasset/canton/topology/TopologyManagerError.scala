@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.topology
 
-import com.daml.error.*
-import com.daml.error.ErrorCategory.InvalidGivenCurrentSystemStateResourceExists
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.base.error.ErrorCategory.InvalidGivenCurrentSystemStateResourceExists
+import com.digitalasset.base.error.{ErrorCategory, ErrorCode, ErrorGroup, Explanation, Resolution}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError

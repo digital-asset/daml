@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.error
 
+import com.digitalasset.base.error.ErrorCategory
 import magnolify.scalacheck.auto.*
 import org.scalacheck.Arbitrary
 
 object GeneratorsError {
-  implicit val damlErrorCategoryArb: Arbitrary[com.daml.error.ErrorCategory] = genArbitrary
+  implicit val damlErrorCategoryArb: Arbitrary[ErrorCategory] = genArbitrary
 }

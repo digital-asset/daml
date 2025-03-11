@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
-import com.daml.error.utils.DecodedCantonError
 import com.daml.ledger.api.v2.admin.command_inspection_service.{
   CommandState,
   CommandStatus as ApiCommandStatus,
@@ -12,6 +11,7 @@ import com.daml.ledger.api.v2.admin.command_inspection_service.{
 }
 import com.daml.ledger.api.v2.commands.Command
 import com.daml.ledger.api.v2.completion.Completion
+import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown

@@ -3,8 +3,15 @@
 
 package com.digitalasset.canton.error
 
-import com.daml.error.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.base.error.{
+  ErrorCategory,
+  ErrorCode,
+  ErrorGroup,
+  ErrorResource,
+  Explanation,
+  Resolution,
+}
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.RoutingErrorGroup
 import com.digitalasset.canton.protocol.LfContractId

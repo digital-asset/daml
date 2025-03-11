@@ -5,8 +5,8 @@ package com.digitalasset.canton.platform.apiserver.services.admin
 
 import cats.data.EitherT
 import cats.implicits.toTraverseOps
-import com.daml.error.DamlError
 import com.daml.logging.entries.LoggingValue.OfString
+import com.digitalasset.base.error.DamlError
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.{InternalError, Validation}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext

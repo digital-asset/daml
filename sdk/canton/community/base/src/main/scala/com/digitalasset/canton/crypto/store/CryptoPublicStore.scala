@@ -6,8 +6,8 @@ package com.digitalasset.canton.crypto.store
 import cats.data.{EitherT, OptionT}
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
-import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.db.DbCryptoPublicStore
@@ -187,9 +187,7 @@ trait CryptoPublicStore extends AutoCloseable { this: NamedLogging =>
 
   private def performPublicKeysMigration()(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CryptoPublicStoreError, Unit] = {
-    logger.info("Migrating keys in public key store")
-
+  ): EitherT[FutureUnlessShutdown, CryptoPublicStoreError, Unit] =
     // During deserialization, keys are checked whether they use a legacy format, in which case they
     // are migrated and the `migrated` flag is set. If they already use the current format, the `migrated`
     // flag is not set.
@@ -202,9 +200,10 @@ trait CryptoPublicStore extends AutoCloseable { this: NamedLogging =>
         case SigningPublicKeyWithName(publicKey, _name) if publicKey.migrated => publicKey
       }
       _ <- EitherT.right(replaceSigningPublicKeys(migratedSigningKeys))
-      _ = logger.info(
-        s"Migrated ${migratedSigningKeys.size} of ${signingKeysWithNames.size} signing public keys"
-      )
+      _ = if (migratedSigningKeys.nonEmpty)
+        logger.info(
+          s"Migrated ${migratedSigningKeys.size} of ${signingKeysWithNames.size} signing public keys"
+        )
       // Remove migrated keys from the cache
       _ = signingKeyMap.filterInPlace((fp, _) => !migratedSigningKeys.map(_.id).contains(fp))
 
@@ -213,13 +212,13 @@ trait CryptoPublicStore extends AutoCloseable { this: NamedLogging =>
         case EncryptionPublicKeyWithName(publicKey, _name) if publicKey.migrated => publicKey
       }
       _ <- EitherT.right(replaceEncryptionPublicKeys(migratedEncryptionKeys))
-      _ = logger.info(
-        s"Migrated ${migratedEncryptionKeys.size} of ${encryptionKeysWithNames.size} encryption public keys"
-      )
+      _ = if (migratedEncryptionKeys.nonEmpty)
+        logger.info(
+          s"Migrated ${migratedEncryptionKeys.size} of ${encryptionKeysWithNames.size} encryption public keys"
+        )
       // Remove migrated keys from the cache
       _ = encryptionKeyMap.filterInPlace((fp, _) => !migratedEncryptionKeys.map(_.id).contains(fp))
     } yield ()
-  }
 
   private def waitForPublicKeysMigrationToComplete(timeouts: ProcessingTimeout)(implicit
       traceContext: TraceContext

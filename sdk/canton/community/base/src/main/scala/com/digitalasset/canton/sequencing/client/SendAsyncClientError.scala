@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}

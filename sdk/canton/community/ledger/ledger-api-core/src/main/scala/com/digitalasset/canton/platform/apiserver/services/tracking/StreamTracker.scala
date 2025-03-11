@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.platform.apiserver.services.tracking
 
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.api.MetricHandle
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.discard.Implicits.DiscardOps

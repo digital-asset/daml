@@ -11,7 +11,7 @@ import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.AvailabilityModule.quorum
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.AvailabilityModuleConfig.EmptyBlockCreationInterval
@@ -387,7 +387,10 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         val consensusCell = new AtomicReference[Option[Consensus.ProtocolMessage]](None)
 
         disseminationProtocolState.toBeProvidedToConsensus.addOne(
-          ToBeProvidedToConsensus(BftBlockOrderer.DefaultMaxBatchesPerProposal, EpochNumber.First)
+          ToBeProvidedToConsensus(
+            BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
+            EpochNumber.First,
+          )
         )
         val cryptoProvider = mock[CryptoProvider[IgnoringUnitTestEnv]]
         val me = Node0Peer
@@ -430,7 +433,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
           disseminationProtocolState.toBeProvidedToConsensus.addOne(
             ToBeProvidedToConsensus(
-              BftBlockOrderer.DefaultMaxBatchesPerProposal,
+              BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
               EpochNumber.First,
             )
           )
@@ -499,7 +502,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
           disseminationProtocolState.toBeProvidedToConsensus.addOne(
             ToBeProvidedToConsensus(
-              BftBlockOrderer.DefaultMaxBatchesPerProposal,
+              BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
               EpochNumber.First,
             )
           )
@@ -531,7 +534,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           disseminationProtocolState.batchesReadyForOrdering should be(empty)
           disseminationProtocolState.toBeProvidedToConsensus should
             contain only ToBeProvidedToConsensus(
-              BftBlockOrderer.DefaultMaxBatchesPerProposal,
+              BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
               EpochNumber.First,
             )
           p2pNetworkOutCell.get() shouldBe None
@@ -846,7 +849,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
           disseminationProtocolState.toBeProvidedToConsensus.addOne(
             ToBeProvidedToConsensus(
-              BftBlockOrderer.DefaultMaxBatchesPerProposal,
+              BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
               EpochNumber.First,
             )
           )
@@ -895,7 +898,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
           disseminationProtocolState.toBeProvidedToConsensus.addOne(
             ToBeProvidedToConsensus(
-              BftBlockOrderer.DefaultMaxBatchesPerProposal,
+              BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
               EpochNumber.First,
             )
           )
@@ -945,7 +948,10 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           ABatchDisseminationProgressNode0To6WithNode0Vote
         )
         disseminationProtocolState.toBeProvidedToConsensus.addOne(
-          ToBeProvidedToConsensus(BftBlockOrderer.DefaultMaxBatchesPerProposal, EpochNumber.First)
+          ToBeProvidedToConsensus(
+            BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
+            EpochNumber.First,
+          )
         )
         val cryptoProvider = mock[CryptoProvider[IgnoringUnitTestEnv]]
         val availability = createAvailability[IgnoringUnitTestEnv](
@@ -977,7 +983,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         disseminationProtocolState.batchesReadyForOrdering should be(empty)
         disseminationProtocolState.toBeProvidedToConsensus should
           contain only ToBeProvidedToConsensus(
-            BftBlockOrderer.DefaultMaxBatchesPerProposal,
+            BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
             EpochNumber.First,
           )
       }
@@ -1489,7 +1495,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         )
         mempoolCell.get() should contain(
           Mempool.CreateLocalBatches(
-            (BftBlockOrderer.DefaultMaxBatchesPerProposal * AvailabilityModule.DisseminateAheadMultiplier).toShort
+            (BftBlockOrdererConfig.DefaultMaxBatchesPerProposal * AvailabilityModule.DisseminateAheadMultiplier).toShort
           )
         )
         availability.receive(
@@ -1500,7 +1506,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         disseminationProtocolState.disseminationProgress should be(empty)
         disseminationProtocolState.toBeProvidedToConsensus should
           contain only ToBeProvidedToConsensus(
-            BftBlockOrderer.DefaultMaxBatchesPerProposal,
+            BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
             EpochNumber.First,
           )
         disseminationProtocolState.batchesReadyForOrdering should be(empty)
@@ -1532,7 +1538,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
           mempoolCell.get() should contain(
             Mempool.CreateLocalBatches(
-              (BftBlockOrderer.DefaultMaxBatchesPerProposal * AvailabilityModule.DisseminateAheadMultiplier).toShort
+              (BftBlockOrdererConfig.DefaultMaxBatchesPerProposal * AvailabilityModule.DisseminateAheadMultiplier).toShort
             )
           )
           availability.receive(
@@ -1543,7 +1549,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           disseminationProtocolState.disseminationProgress should be(empty)
           disseminationProtocolState.toBeProvidedToConsensus should
             contain only ToBeProvidedToConsensus(
-              BftBlockOrderer.DefaultMaxBatchesPerProposal,
+              BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
               EpochNumber.First,
             )
           disseminationProtocolState.batchesReadyForOrdering should be(empty)
@@ -1587,7 +1593,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             FakePipeToSelfQueueUnitTestContext(pipeToSelfQueue)
 
           val numberOfBatchesReadyForOrdering =
-            BftBlockOrderer.DefaultMaxBatchesPerProposal.toInt
+            BftBlockOrdererConfig.DefaultMaxBatchesPerProposal.toInt
           val batchesReadyForOrderingRange =
             0 to numberOfBatchesReadyForOrdering // both interval extremes are inclusive, i.e., 1 extra batch
           val batchIds = batchesReadyForOrderingRange
@@ -1615,7 +1621,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             )
           mempoolCell.get() should contain(
             Mempool.CreateLocalBatches(
-              (BftBlockOrderer.DefaultMaxBatchesPerProposal * AvailabilityModule.DisseminateAheadMultiplier - numberOfBatchesReadyForOrdering - 1).toShort
+              (BftBlockOrdererConfig.DefaultMaxBatchesPerProposal * AvailabilityModule.DisseminateAheadMultiplier - numberOfBatchesReadyForOrdering - 1).toShort
             )
           )
           availability.receive(
@@ -1653,7 +1659,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             )
           mempoolCell.get() should contain(
             Mempool.CreateLocalBatches(
-              (BftBlockOrderer.DefaultMaxBatchesPerProposal * AvailabilityModule.DisseminateAheadMultiplier - 1).toShort
+              (BftBlockOrdererConfig.DefaultMaxBatchesPerProposal * AvailabilityModule.DisseminateAheadMultiplier - 1).toShort
             )
           )
         }
@@ -1669,7 +1675,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           FakePipeToSelfQueueUnitTestContext(pipeToSelfQueue)
 
         val numberOfBatchesReadyForOrdering =
-          BftBlockOrderer.DefaultMaxBatchesPerProposal.toInt * 2
+          BftBlockOrdererConfig.DefaultMaxBatchesPerProposal.toInt * 2
         val batchIds =
           (0 until numberOfBatchesReadyForOrdering)
             .map(i => BatchId.createForTesting(s"batch $i"))
@@ -1692,7 +1698,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         {
           val proposedProofsOfAvailability = batchIdsWithMetadata
             .map(_._2)
-            .take(BftBlockOrderer.DefaultMaxBatchesPerProposal.toInt)
+            .take(BftBlockOrdererConfig.DefaultMaxBatchesPerProposal.toInt)
             .map(_.proofOfAvailability)
 
           availability.receive(
@@ -1740,8 +1746,8 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             .map(_._2)
             .map(_.proofOfAvailability)
             .slice(
-              BftBlockOrderer.DefaultMaxBatchesPerProposal.toInt,
-              BftBlockOrderer.DefaultMaxBatchesPerProposal.toInt * 2,
+              BftBlockOrdererConfig.DefaultMaxBatchesPerProposal.toInt,
+              BftBlockOrdererConfig.DefaultMaxBatchesPerProposal.toInt * 2,
             )
 
           consensusCell.get() should contain(
@@ -1779,7 +1785,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             FakePipeToSelfQueueUnitTestContext(pipeToSelfQueue)
 
           val numberOfBatchesReadyForOrdering =
-            BftBlockOrderer.DefaultMaxBatchesPerProposal.toInt - 2
+            BftBlockOrdererConfig.DefaultMaxBatchesPerProposal.toInt - 2
           val batchIds =
             (0 to numberOfBatchesReadyForOrdering)
               .map(i => BatchId.createForTesting(s"batch $i"))
@@ -1909,7 +1915,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         disseminationProtocolState.disseminationProgress should be(empty)
         disseminationProtocolState.toBeProvidedToConsensus should
           contain only ToBeProvidedToConsensus(
-            BftBlockOrderer.DefaultMaxBatchesPerProposal,
+            BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
             EpochNumber.First,
           )
         disseminationProtocolState.batchesReadyForOrdering should be(empty)
@@ -1955,7 +1961,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         disseminationProtocolState.disseminationProgress should be(empty)
         disseminationProtocolState.toBeProvidedToConsensus should
           contain only ToBeProvidedToConsensus(
-            BftBlockOrderer.DefaultMaxBatchesPerProposal,
+            BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
             EpochNumber.First,
           )
         disseminationProtocolState.batchesReadyForOrdering should be(empty)
@@ -2471,8 +2477,8 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
   private def createAvailability[E <: BaseIgnoringUnitTestEnv[E]](
       myId: SequencerId = Node0Peer,
       otherPeers: Set[SequencerId] = Set.empty,
-      maxRequestsInBatch: Short = BftBlockOrderer.DefaultMaxRequestsInBatch,
-      maxBatchesPerProposal: Short = BftBlockOrderer.DefaultMaxBatchesPerProposal,
+      maxRequestsInBatch: Short = BftBlockOrdererConfig.DefaultMaxRequestsInBatch,
+      maxBatchesPerProposal: Short = BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
       mempool: ModuleRef[Mempool.Message] = fakeIgnoringModule,
       cryptoProvider: CryptoProvider[E] = fakeCryptoProvider[E],
       availabilityStore: data.AvailabilityStore[E] = new FakeAvailabilityStore[E],
@@ -2486,7 +2492,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     val config = AvailabilityModuleConfig(
       maxRequestsInBatch,
       maxBatchesPerProposal,
-      BftBlockOrderer.DefaultOutputFetchTimeout,
+      BftBlockOrdererConfig.DefaultOutputFetchTimeout,
     )
     val dependencies = AvailabilityModuleDependencies[E](
       mempool,

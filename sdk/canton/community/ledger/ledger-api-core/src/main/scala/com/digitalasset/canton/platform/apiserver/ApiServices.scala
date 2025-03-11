@@ -288,6 +288,7 @@ object ApiServices {
             delegate = CommandExecutor(
               syncService = syncService,
               commandInterpreter = commandInterpreter,
+              topologyAwarePackageSelectionEnabled = ledgerFeatures.topologyAwarePackageSelection,
               loggerFactory = loggerFactory,
             ),
             new ResolveMaximumLedgerTime(maximumLedgerTimeService, loggerFactory),

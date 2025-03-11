@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 
 import cats.data.EitherT
 import com.digitalasset.canton.ledger.api.Commands
-import com.digitalasset.canton.ledger.participant.state.SyncService
+import com.digitalasset.canton.ledger.participant.state.{RoutingSynchronizerState, SyncService}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -23,6 +23,8 @@ trait CommandExecutor {
     *   The commands to be processed
     * @param submissionSeed
     *   The submission seed
+    * @param routingSynchronizerState
+    *   The synchronizer state that should be used throughout the command execution
     * @param forExternallySigned
     *   Whether the command should be processed for external signing. If true, the command's
     *   submitters are not required to have submission rights on the participant.
@@ -32,6 +34,7 @@ trait CommandExecutor {
   def execute(
       commands: Commands,
       submissionSeed: Hash,
+      routingSynchronizerState: RoutingSynchronizerState,
       forExternallySigned: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -42,13 +45,21 @@ object CommandExecutor {
   def apply(
       syncService: SyncService,
       commandInterpreter: CommandInterpreter,
+      topologyAwarePackageSelectionEnabled: Boolean,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): CommandExecutor =
-    new DefaultCommandExecutor(
-      syncService = syncService,
-      commandInterpreter = commandInterpreter,
-      loggerFactory = loggerFactory,
-    )
+    if (topologyAwarePackageSelectionEnabled)
+      new TopologyAwareCommandExecutor(
+        syncService = syncService,
+        commandInterpreter = commandInterpreter,
+        loggerFactory = loggerFactory,
+      )
+    else
+      new DefaultCommandExecutor(
+        syncService = syncService,
+        commandInterpreter = commandInterpreter,
+        loggerFactory = loggerFactory,
+      )
 }
 
 private[execution] class DefaultCommandExecutor(
@@ -63,6 +74,7 @@ private[execution] class DefaultCommandExecutor(
   override def execute(
       commands: Commands,
       submissionSeed: Hash,
+      routingSynchronizerState: RoutingSynchronizerState,
       forExternallySigned: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -72,7 +84,7 @@ private[execution] class DefaultCommandExecutor(
       commandInterpretationResult <- EitherT(
         commandInterpreter.interpret(commands, submissionSeed)
       )
-      routingSynchronizerResult <- syncService
+      synchronizerRank <- syncService
         .selectRoutingSynchronizer(
           commandInterpretationResult.submitterInfo,
           commandInterpretationResult.transaction,
@@ -80,9 +92,9 @@ private[execution] class DefaultCommandExecutor(
           commandInterpretationResult.processedDisclosedContracts.map(_.contractId).toList,
           commandInterpretationResult.optSynchronizerId,
           transactionUsedForExternalSigning = forExternallySigned,
+          routingSynchronizerState = routingSynchronizerState,
         )
         .leftMap[ErrorCause](ErrorCause.RoutingFailed(_))
-      (synchronizerRank, routingSynchronizerState) = routingSynchronizerResult
     } yield commandInterpretationResult.toCommandExecutionResult(
       synchronizerRank,
       routingSynchronizerState,

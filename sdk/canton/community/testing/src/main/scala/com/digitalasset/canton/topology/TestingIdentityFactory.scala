@@ -453,7 +453,7 @@ class TestingIdentityFactory(
         StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
       timestampForSynchronizerParameters: CantonTimestamp = CantonTimestamp.Epoch,
       timestampOfSnapshot: CantonTimestamp = CantonTimestamp.Epoch,
-  ): TopologySnapshot = {
+  ): TopologySnapshotLoader = {
 
     val store = new InMemoryTopologyStore(
       TopologyStoreId.AuthorizedStore,

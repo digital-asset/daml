@@ -10,7 +10,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.{
   Epoch,
   Segment,
@@ -41,7 +41,7 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
   private val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
   private implicit val mc: MetricsContext = MetricsContext.Empty
-  private implicit val config: BftBlockOrderer.Config = BftBlockOrderer.Config()
+  private implicit val config: BftBlockOrdererConfig = BftBlockOrdererConfig()
   private val clock = new SimClock(loggerFactory = loggerFactory)
 
   import LeaderSegmentStateTest.*

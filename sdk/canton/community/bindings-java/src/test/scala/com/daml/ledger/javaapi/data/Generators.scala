@@ -862,6 +862,56 @@ object Generators {
       .build()
   }
 
+  def transactionGenWithIdsInPreOrder: Gen[v2.TransactionOuterClass.Transaction] = {
+    import v2.TransactionOuterClass.Transaction
+    import v2.EventOuterClass.Event
+    def eventGen(nodeId: Int, lastDescendantNodeId: Int): Gen[Event] =
+      for {
+        event <-
+          if (lastDescendantNodeId == nodeId) // the node is a leaf node
+            Gen.oneOf(
+              createdEventGen(nodeId).map(e => (b: Event.Builder) => b.setCreated(e)),
+              exercisedEventGen(nodeId, lastDescendantNodeId).map(e =>
+                (b: Event.Builder) => b.setExercised(e)
+              ),
+            )
+          else
+            exercisedEventGen(nodeId, lastDescendantNodeId).map(e =>
+              (b: Event.Builder) => b.setExercised(e)
+            )
+      } yield v2.EventOuterClass.Event
+        .newBuilder()
+        .pipe(event)
+        .build()
+    for {
+      updateId <- Arbitrary.arbString.arbitrary
+      commandId <- Arbitrary.arbString.arbitrary
+      workflowId <- Arbitrary.arbString.arbitrary
+      effectiveAt <- instantGen
+      nodeIds <- genNodeTree(maxDepth = 5, maxChildren = 5).map(assignIdsInPreOrder)
+      multipleRoots <- Gen.oneOf(Gen.const(false), Gen.const(nodeIds.sizeIs > 1))
+      nodeIdsFiltered = if (multipleRoots) nodeIds.filterNot(_.id == 0) else nodeIds
+      events <- Gen.sequence(nodeIdsFiltered.map { case NodeIds(start, end) =>
+        eventGen(start, end)
+      })
+      offset <- Arbitrary.arbLong.arbitrary
+      synchronizerId <- Arbitrary.arbString.arbitrary
+      traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
+      recordTime <- instantGen
+    } yield Transaction
+      .newBuilder()
+      .setUpdateId(updateId)
+      .setCommandId(commandId)
+      .setWorkflowId(workflowId)
+      .setEffectiveAt(Utils.instantToProto(effectiveAt))
+      .addAllEvents(events)
+      .setOffset(offset)
+      .setSynchronizerId(synchronizerId)
+      .setTraceContext(traceContext)
+      .setRecordTime(Utils.instantToProto(recordTime))
+      .build()
+  }
+
   def transactionTreeGen: Gen[v2.TransactionOuterClass.TransactionTree] = {
     import v2.TransactionOuterClass.{TransactionTree, TreeEvent}
     def idTreeEventPairGen =

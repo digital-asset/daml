@@ -4,9 +4,9 @@
 package com.digitalasset.canton.ledger.participant.state.metrics
 
 import cats.data.EitherT
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.metrics.Timed
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.data.{CantonTimestamp, Offset, ProcessedDisclosedContract}
 import com.digitalasset.canton.error.{TransactionError, TransactionRoutingError}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
@@ -186,6 +186,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       informees: Set[LfPartyId],
       vettingValidityTimestamp: CantonTimestamp,
       prescribedSynchronizer: Option[SynchronizerId],
+      routingSynchronizerState: RoutingSynchronizerState,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[SynchronizerId, Map[LfPartyId, Set[PackageId]]]] =
@@ -194,6 +195,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       informees,
       vettingValidityTimestamp,
       prescribedSynchronizer,
+      routingSynchronizerState,
     )
 
   // TODO(#23334): Time the operation
@@ -203,6 +205,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       transactionMeta: TransactionMeta,
       admissibleSynchronizers: NonEmpty[Set[SynchronizerId]],
       disclosedContractIds: List[LfContractId],
+      routingSynchronizerState: RoutingSynchronizerState,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerId] =
@@ -212,6 +215,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       transactionMeta,
       admissibleSynchronizers,
       disclosedContractIds,
+      routingSynchronizerState,
     )
 
   // TODO(#23334): Time the operation
@@ -222,13 +226,10 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       disclosedContractIds: List[LfContractId],
       optSynchronizerId: Option[SynchronizerId],
       transactionUsedForExternalSigning: Boolean,
+      routingSynchronizerState: RoutingSynchronizerState,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[
-    FutureUnlessShutdown,
-    TransactionError,
-    (SynchronizerRank, RoutingSynchronizerState),
-  ] =
+  ): EitherT[FutureUnlessShutdown, TransactionError, SynchronizerRank] =
     delegate.selectRoutingSynchronizer(
       submitterInfo,
       transaction,
@@ -236,5 +237,11 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       disclosedContractIds,
       optSynchronizerId,
       transactionUsedForExternalSigning,
+      routingSynchronizerState,
     )
+
+  override def getRoutingSynchronizerState(implicit
+      traceContext: TraceContext
+  ): RoutingSynchronizerState =
+    delegate.getRoutingSynchronizerState
 }

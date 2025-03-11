@@ -13,7 +13,7 @@ import com.digitalasset.canton.participant.sync.{
 }
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.client.TopologySnapshotLoader
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -22,24 +22,29 @@ import scala.concurrent.ExecutionContext
 object RoutingSynchronizerStateFactory {
   def create(connectedSynchronizers: ConnectedSynchronizersLookup)(implicit
       traceContext: TraceContext
-  ) = new RoutingSynchronizerStateImpl(connectedSynchronizers.snapshot.toMap)
-}
+  ): RoutingSynchronizerStateImpl = {
+    val connectedSynchronizersSnapshot = connectedSynchronizers.snapshot.toMap
 
-class RoutingSynchronizerStateImpl(
-    connectedSynchronizers: Map[SynchronizerId, ConnectedSynchronizer]
-)(implicit
-    traceContext: TraceContext
-) extends RoutingSynchronizerState {
-
-  // Ensure we have a constant snapshot for the lifetime of this object.
-  override val topologySnapshots: Map[SynchronizerId, TopologySnapshot] =
-    connectedSynchronizers.view.mapValues {
+    // Ensure we have a constant snapshot for the lifetime of this object.
+    val topologySnapshots = connectedSynchronizersSnapshot.view.mapValues {
       _.topologyClient.currentSnapshotApproximation
     }.toMap
 
+    new RoutingSynchronizerStateImpl(
+      connectedSynchronizers = connectedSynchronizersSnapshot,
+      topologySnapshots = topologySnapshots,
+    )
+  }
+}
+
+class RoutingSynchronizerStateImpl private[routing] (
+    connectedSynchronizers: Map[SynchronizerId, ConnectedSynchronizer],
+    val topologySnapshots: Map[SynchronizerId, TopologySnapshotLoader],
+) extends RoutingSynchronizerState {
+
   override def getTopologySnapshotAndPVFor(
       synchronizerId: SynchronizerId
-  ): Either[UnableToQueryTopologySnapshot.Failed, (TopologySnapshot, ProtocolVersion)] =
+  ): Either[UnableToQueryTopologySnapshot.Failed, (TopologySnapshotLoader, ProtocolVersion)] =
     connectedSynchronizers
       .get(synchronizerId)
       .toRight(UnableToQueryTopologySnapshot.Failed(synchronizerId))
@@ -80,4 +85,9 @@ class RoutingSynchronizerStateImpl(
       }
       .map(_._2)
   }
+
+  override def existsReadySynchronizer(): Boolean =
+    connectedSynchronizers.view.exists { case (_syncId, sync) =>
+      sync.ready
+    }
 }

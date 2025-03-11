@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.{
   AvailabilityModule,
@@ -80,7 +80,7 @@ import scala.util.Random
 private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
     protocolVersion: ProtocolVersion,
     sequencerId: SequencerId,
-    config: BftBlockOrderer.Config,
+    config: BftBlockOrdererConfig,
     sequencerSubscriptionInitialBlockNumber: BlockNumber,
     epochLength: EpochLength,
     stores: BftOrderingStores[E],
@@ -103,7 +103,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
       moduleSystem: ModuleSystem[E],
       networkManager: ClientP2PNetworkManager[E, BftOrderingServiceReceiveRequest],
   ): SystemInitializationResult[BftOrderingServiceReceiveRequest, Mempool.Message] = {
-    implicit val c: BftBlockOrderer.Config = config
+    implicit val c: BftBlockOrdererConfig = config
     val bootstrapTopologyInfo = fetchBootstrapTopologyInfo(moduleSystem)
 
     val thisPeerFirstKnownAt =

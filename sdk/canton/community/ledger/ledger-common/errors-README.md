@@ -13,7 +13,7 @@ The users mentioned later in this document might be participant operators, appli
 
 ## Error codes
 
-Base class: `com.daml.error.ErrorCode`
+Base class: `ErrorCode`
 
 ### Error code definition
 
@@ -67,7 +67,7 @@ In practice you will also need to provide some additional implicit values. Look 
 
 ## Error categories
 
-Base class: `com.daml.error.ErrorCategory`.
+Base class: `ErrorCategory`.
 
 You must not add, remove or change existing error categories unless you have good reasons to do so.
 They are a part of the public API.
@@ -84,7 +84,7 @@ This is incidental and might change in the future.
 
 ## Error groups
 
-Base class: `com.daml.error.ErrorGroup.ErrorGroup`.
+Base class: `ErrorGroup.ErrorGroup`.
 
 Error groups are NOT part of the public API.
 They only influence how we render error codes sections in the official Daml documentation.

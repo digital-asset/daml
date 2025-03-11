@@ -4,11 +4,11 @@
 package com.digitalasset.canton.platform.store.dao.events
 
 import cats.implicits.toTraverseOps
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.event.{ArchivedEvent, CreatedEvent, ExercisedEvent, InterfaceView}
 import com.daml.ledger.api.v2.value
 import com.daml.ledger.api.v2.value.{Record as ApiRecord, Value as ApiValue}
 import com.daml.metrics.Timed
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,

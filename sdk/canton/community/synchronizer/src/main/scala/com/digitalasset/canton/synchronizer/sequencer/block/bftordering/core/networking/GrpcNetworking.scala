@@ -21,7 +21,7 @@ import com.digitalasset.canton.networking.grpc.ClientChannelBuilder.createChanne
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth
 import com.digitalasset.canton.synchronizer.sequencer.AuthenticationServices
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.P2PEndpointConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.authentication.{
   AddEndpointHeaderClientInterceptor,
@@ -468,7 +468,7 @@ object GrpcNetworking {
     def address: String
     def port: Port
     def transportSecurity: Boolean
-    def endpointConfig: P2PEndpointConfig
+    def endpointConfig: BftBlockOrdererConfig.P2PEndpointConfig
 
     final lazy val id: P2PEndpoint.Id = P2PEndpoint.Id(address, port, transportSecurity)
   }
@@ -494,7 +494,7 @@ object GrpcNetworking {
     }
 
     def fromEndpointConfig(
-        config: P2PEndpointConfig
+        config: BftBlockOrdererConfig.P2PEndpointConfig
     ): P2PEndpoint =
       config.tlsConfig match {
         case Some(TlsClientConfig(_, _, enabled)) =>
@@ -514,8 +514,8 @@ object GrpcNetworking {
 
     override val transportSecurity: Boolean = false
 
-    override lazy val endpointConfig: P2PEndpointConfig =
-      P2PEndpointConfig(
+    override lazy val endpointConfig: BftBlockOrdererConfig.P2PEndpointConfig =
+      BftBlockOrdererConfig.P2PEndpointConfig(
         address,
         port,
         Some(TlsClientConfig(trustCollectionFile = None, clientCert = None, enabled = false)),
@@ -524,12 +524,14 @@ object GrpcNetworking {
 
   object PlainTextP2PEndpoint {
 
-    private[networking] def fromEndpointConfig(config: P2PEndpointConfig): PlainTextP2PEndpoint =
+    private[networking] def fromEndpointConfig(
+        config: BftBlockOrdererConfig.P2PEndpointConfig
+    ): PlainTextP2PEndpoint =
       PlainTextP2PEndpoint(config.address, config.port)
   }
 
   final case class TlsP2PEndpoint(
-      override val endpointConfig: P2PEndpointConfig
+      override val endpointConfig: BftBlockOrdererConfig.P2PEndpointConfig
   ) extends P2PEndpoint {
 
     override val transportSecurity: Boolean = true
@@ -541,7 +543,9 @@ object GrpcNetworking {
 
   object TlsP2PEndpoint {
 
-    private[networking] def fromEndpointConfig(endpointConfig: P2PEndpointConfig): TlsP2PEndpoint =
+    private[networking] def fromEndpointConfig(
+        endpointConfig: BftBlockOrdererConfig.P2PEndpointConfig
+    ): TlsP2PEndpoint =
       TlsP2PEndpoint(endpointConfig)
   }
 

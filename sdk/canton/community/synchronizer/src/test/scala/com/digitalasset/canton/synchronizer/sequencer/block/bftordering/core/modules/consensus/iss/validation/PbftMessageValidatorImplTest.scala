@@ -10,8 +10,8 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer.DefaultMaxBatchesPerProposal
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.DefaultMaxBatchesPerProposal
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.{
   Epoch,
   Segment,
@@ -420,7 +420,7 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
         ),
       ).forEvery { (prePrepare, segment, previousMembership, currentMembership, expectedResult) =>
         implicit val metricsContext: MetricsContext = MetricsContext.Empty
-        implicit val config: BftBlockOrderer.Config = BftBlockOrderer.Config()
+        implicit val config: BftBlockOrdererConfig = BftBlockOrdererConfig()
 
         val epoch = createEpoch(
           prePrepare.blockMetadata.epochNumber,

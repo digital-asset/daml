@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton
 
-import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.config.RequireTypes.InvariantViolation as PureInvariantViolation
 import com.digitalasset.canton.error.CantonErrorGroups.ProtoDeserializationErrorGroup
 import com.digitalasset.canton.error.{CantonBaseError, CantonError, ContextualizedCantonError}

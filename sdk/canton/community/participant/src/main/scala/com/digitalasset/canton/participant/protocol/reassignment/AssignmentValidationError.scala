@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
-import com.daml.error.{Explanation, Resolution}
+import com.digitalasset.base.error.{Explanation, Resolution}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LocalRejectionGroup
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode}

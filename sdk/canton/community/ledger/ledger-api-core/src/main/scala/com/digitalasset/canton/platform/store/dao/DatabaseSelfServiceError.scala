@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.daml.error.ContextualizedErrorLogger
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.error.IndexErrors
 import io.grpc.StatusRuntimeException
 import org.h2.jdbc.JdbcSQLIntegrityConstraintViolationException

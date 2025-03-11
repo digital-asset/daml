@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
-import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.v2.value.Identifier
+import com.digitalasset.base.error.{ContextualizedErrorLogger, NoLogging}
 import com.digitalasset.canton.ledger.api.ApiMocks
 import io.grpc.Status.Code.INVALID_ARGUMENT
 import org.mockito.MockitoSugar

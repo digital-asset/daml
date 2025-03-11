@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.networking.grpc
 
-import com.daml.error.utils.DecodedCantonError
+import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.{
   MemberAccessDisabled,

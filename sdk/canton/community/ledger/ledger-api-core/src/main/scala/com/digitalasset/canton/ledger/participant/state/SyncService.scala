@@ -96,6 +96,7 @@ trait SyncService
       informees: Set[LfPartyId],
       vettingValidityTimestamp: CantonTimestamp,
       prescribedSynchronizer: Option[SynchronizerId],
+      routingSynchronizerState: RoutingSynchronizerState,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[SynchronizerId, Map[LfPartyId, Set[LfPackageId]]]]
@@ -120,6 +121,8 @@ trait SyncService
     *   The list of synchronizers from which the best one should be selected
     * @param disclosedContractIds
     *   The list of disclosed contracts used in command interpretation
+    * @param routingSynchronizerState
+    *   The routing synchronizer state the computation should be based on
     * @return
     *   The ID of the best ranked synchronizer
     */
@@ -129,6 +132,7 @@ trait SyncService
       transactionMeta: TransactionMeta,
       admissibleSynchronizers: NonEmpty[Set[SynchronizerId]],
       disclosedContractIds: List[LfContractId],
+      routingSynchronizerState: RoutingSynchronizerState,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerId]
@@ -154,8 +158,7 @@ trait SyncService
     *   submission rights on the local participant since they are supposed to externally sign the
     *   transaction.
     * @return
-    *   The rank of the routing synchronizer coupled with the synchronizer state that it was
-    *   computed with
+    *   The rank of the routing synchronizer
     */
   def selectRoutingSynchronizer(
       submitterInfo: SubmitterInfo,
@@ -164,13 +167,15 @@ trait SyncService
       disclosedContractIds: List[LfContractId],
       optSynchronizerId: Option[SynchronizerId],
       transactionUsedForExternalSigning: Boolean,
+      routingSynchronizerState: RoutingSynchronizerState,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[
-    FutureUnlessShutdown,
-    TransactionError,
-    (SynchronizerRank, RoutingSynchronizerState),
-  ]
+  ): EitherT[FutureUnlessShutdown, TransactionError, SynchronizerRank]
+
+  // temporary implementation, will be removed with the refactoring of the SyncService interface
+  /** Constructs and fetches the current synchronizer state, to be used throughout command execution
+    */
+  def getRoutingSynchronizerState(implicit traceContext: TraceContext): RoutingSynchronizerState
 }
 
 object SyncService {

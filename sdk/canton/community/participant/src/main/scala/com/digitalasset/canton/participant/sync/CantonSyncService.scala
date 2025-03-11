@@ -10,8 +10,8 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
-import com.daml.error.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.base.error.{ContextualizedErrorLogger, DamlError}
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -284,11 +284,6 @@ class CantonSyncService(
   ): Option[ConnectedSynchronizer] =
     connectedSynchronizersMap.get(synchronizerId).filter(_.ready)
 
-  private def existsReadySynchronizer: Boolean = connectedSynchronizersMap.exists {
-    case (_, sync) =>
-      sync.ready
-  }
-
   private[canton] def connectedSynchronizerForAlias(
       alias: SynchronizerAlias
   ): Option[ConnectedSynchronizer] =
@@ -298,7 +293,6 @@ class CantonSyncService(
     new AdmissibleSynchronizersComputation(participantId, loggerFactory)
   private val topologyPackageMapBuilder = new TopologyPackageMapBuilder(
     admissibleSynchronizersComputation = admissibleSynchronizers,
-    connectedSynchronizersLookup = connectedSynchronizersLookup,
     loggerFactory = loggerFactory,
   )
 
@@ -591,7 +585,7 @@ class CantonSyncService(
         Map("commandId" -> submitterInfo.commandId, "applicationId" -> submitterInfo.applicationId)
       )
       Future.successful(Left(SubmissionResult.SynchronousError(err.rpcStatus())))
-    } else if (!existsReadySynchronizer) {
+    } else if (!routingSynchronizerState.existsReadySynchronizer()) {
       Future.successful(
         processSubmissionError(SyncServiceInjectionError.NotConnectedToAnySynchronizer.Error())
       )
@@ -1696,8 +1690,12 @@ class CantonSyncService(
   override def currentHealth(): HealthStatus = HealthStatus.healthy
 
   // Write health requires the ability to transact, i.e. connectivity to at least one synchronizer and HA-activeness.
-  def currentWriteHealth(): HealthStatus =
+  def currentWriteHealth(): HealthStatus = {
+    val existsReadySynchronizer = connectedSynchronizersMap.exists { case (_, sync) =>
+      sync.ready
+    }
     if (existsReadySynchronizer && isActive()) HealthStatus.healthy else HealthStatus.unhealthy
+  }
 
   def computeTotalLoad: Int = connectedSynchronizersMap.foldLeft(0) {
     case (acc, (_, connectedSynchronizer)) =>
@@ -1923,17 +1921,12 @@ class CantonSyncService(
       disclosedContractIds: List[LfContractId],
       optSynchronizerId: Option[SynchronizerId],
       transactionUsedForExternalSigning: Boolean,
+      synchronizerState: RoutingSynchronizerState,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[
-    FutureUnlessShutdown,
-    TransactionError,
-    (SynchronizerRank, RoutingSynchronizerState),
-  ] =
-    if (existsReadySynchronizer) {
+  ): EitherT[FutureUnlessShutdown, TransactionError, SynchronizerRank] =
+    if (synchronizerState.existsReadySynchronizer()) {
       // Capture the synchronizer state that should be used for the entire phase 1 of the transaction protocol
-      val synchronizerState: RoutingSynchronizerState =
-        RoutingSynchronizerStateFactory.create(connectedSynchronizersLookup)
       transactionRoutingProcessor
         .selectRoutingSynchronizer(
           submitterInfo,
@@ -1944,7 +1937,6 @@ class CantonSyncService(
           optSynchronizerId,
           transactionUsedForExternalSigning,
         )
-        .map(_ -> synchronizerState)
         .leftWiden[TransactionError]
     } else
       EitherT.leftT(
@@ -1956,6 +1948,7 @@ class CantonSyncService(
       informees: Set[LfPartyId],
       vettingValidityTimestamp: CantonTimestamp,
       prescribedSynchronizer: Option[SynchronizerId],
+      routingSynchronizerState: RoutingSynchronizerState,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[SynchronizerId, Map[LfPartyId, Set[LfPackageId]]]] =
@@ -1964,6 +1957,7 @@ class CantonSyncService(
       informees,
       vettingValidityTimestamp,
       prescribedSynchronizer,
+      routingSynchronizerState,
     )
 
   override def computeHighestRankedSynchronizerFromAdmissible(
@@ -1972,6 +1966,7 @@ class CantonSyncService(
       transactionMeta: TransactionMeta,
       admissibleSynchronizers: NonEmpty[Set[SynchronizerId]],
       disclosedContractIds: List[LfContractId],
+      routingSynchronizerState: RoutingSynchronizerState,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerId] =
@@ -1982,7 +1977,13 @@ class CantonSyncService(
         transactionMeta,
         admissibleSynchronizers,
         disclosedContractIds,
+        routingSynchronizerState,
       )
+
+  override def getRoutingSynchronizerState(implicit
+      traceContext: TraceContext
+  ): RoutingSynchronizerState =
+    RoutingSynchronizerStateFactory.create(connectedSynchronizersLookup)
 }
 
 object CantonSyncService {

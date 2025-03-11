@@ -9,7 +9,7 @@ import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
@@ -46,7 +46,7 @@ class EpochStateTest extends AsyncWordSpec with BaseTest {
   import EpochStateTest.*
 
   private val clock = new SimClock(loggerFactory = loggerFactory)
-  implicit private val config: BftBlockOrderer.Config = BftBlockOrderer.Config()
+  implicit private val config: BftBlockOrdererConfig = BftBlockOrdererConfig()
 
   "EpochState" should {
 

@@ -3,7 +3,14 @@
 
 package com.digitalasset.canton.participant.admin
 
-import com.daml.error.*
+import com.digitalasset.base.error.{
+  ContextualizedDamlError,
+  ErrorCategory,
+  ErrorCode,
+  ErrorGroup,
+  Explanation,
+  Resolution,
+}
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.PackageServiceErrorGroup
 import com.digitalasset.canton.error.{CantonError, ContextualizedCantonError, ParentCantonError}
 import com.digitalasset.canton.ledger.error.PackageServiceErrors

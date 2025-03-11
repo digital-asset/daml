@@ -7,7 +7,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
@@ -59,7 +59,7 @@ final class StateTransferBehavior[E <: Env[E]](
     override val timeouts: ProcessingTimeout,
 )(private val maybeCustomStateTransferManager: Option[StateTransferManager[E]] = None)(implicit
     mc: MetricsContext,
-    config: BftBlockOrderer.Config,
+    config: BftBlockOrdererConfig,
 ) extends Consensus[E] {
 
   private val thisPeer = initialState.topologyInfo.thisPeer

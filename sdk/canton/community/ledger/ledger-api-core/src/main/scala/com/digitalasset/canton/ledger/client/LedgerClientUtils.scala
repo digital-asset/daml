@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.client
 
-import com.daml.error.utils.DecodedCantonError
+import com.digitalasset.base.error.utils.DecodedCantonError
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status
 

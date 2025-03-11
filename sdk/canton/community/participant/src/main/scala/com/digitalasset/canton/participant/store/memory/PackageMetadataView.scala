@@ -4,8 +4,8 @@
 package com.digitalasset.canton.participant.store.memory
 
 import cats.implicits.catsSyntaxSemigroup
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.timer.FutureCheck.*
+import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTimeout}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.error.{CommonErrors, PackageServiceErrors}

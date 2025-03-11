@@ -292,9 +292,7 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
 
   private def performPrivateKeysMigration()(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] = {
-    logger.info("Migrating keys in private key store")
-
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] =
     // During deserialization, keys are checked whether they use a legacy format, in which case they
     // are migrated and the `migrated` flag is set. If they already use the current format, the `migrated`
     // flag is not set.
@@ -317,9 +315,10 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
           )
       }
       _ <- replaceStoredPrivateKeys(migratedSigningKeys)
-      _ = logger.info(
-        s"Migrated ${migratedSigningKeys.size} of ${storedSigningKeys.size} private signing keys"
-      )
+      _ = if (migratedSigningKeys.nonEmpty)
+        logger.info(
+          s"Migrated ${migratedSigningKeys.size} of ${storedSigningKeys.size} signing private keys"
+        )
       // Remove migrated keys from the cache
       _ = signingKeyMap.filterInPlace((fp, _) => !migratedSigningKeys.map(_.id).contains(fp))
 
@@ -338,13 +337,13 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
           )
       }
       _ <- replaceStoredPrivateKeys(migratedEncryptionKeys)
-      _ = logger.info(
-        s"Migrated ${migratedEncryptionKeys.size} of ${storedEncryptionKeys.size} private encryption keys"
-      )
+      _ = if (migratedEncryptionKeys.nonEmpty)
+        logger.info(
+          s"Migrated ${migratedEncryptionKeys.size} of ${storedEncryptionKeys.size} encryption private keys"
+        )
       // Remove migrated keys from the cache
       _ = decryptionKeyMap.filterInPlace((fp, _) => !migratedEncryptionKeys.map(_.id).contains(fp))
     } yield ()
-  }
 
   private def waitForPrivateKeysMigrationToComplete(timeouts: ProcessingTimeout)(implicit
       traceContext: TraceContext

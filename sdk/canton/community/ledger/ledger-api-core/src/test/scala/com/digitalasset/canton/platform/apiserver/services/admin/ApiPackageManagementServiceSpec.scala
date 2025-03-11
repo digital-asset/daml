@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.apiserver.services.admin
 
 import cats.data.EitherT
-import com.daml.error.ErrorsAssertions
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.admin.package_management_service.{
   PackageManagementServiceGrpc,
@@ -15,6 +14,7 @@ import com.daml.ledger.api.v2.admin.package_management_service.{
 import com.daml.nonempty.NonEmpty
 import com.daml.tracing.DefaultOpenTelemetry
 import com.daml.tracing.TelemetrySpecBase.*
+import com.digitalasset.base.error.ErrorsAssertions
 import com.digitalasset.canton.data.{CantonTimestamp, Offset, ProcessedDisclosedContract}
 import com.digitalasset.canton.error.{TransactionError, TransactionRoutingError}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
@@ -211,6 +211,7 @@ object ApiPackageManagementServiceSpec {
         informees: Set[LfPartyId],
         vettingValidityTimestamp: CantonTimestamp,
         prescribedSynchronizer: Option[SynchronizerId],
+        routingSynchronizerState: RoutingSynchronizerState,
     )(implicit
         traceContext: TraceContext
     ): FutureUnlessShutdown[Map[SynchronizerId, Map[LfPartyId, Set[LfPackageId]]]] =
@@ -222,6 +223,7 @@ object ApiPackageManagementServiceSpec {
         transactionMeta: TransactionMeta,
         admissibleSynchronizers: NonEmpty[Set[SynchronizerId]],
         disclosedContractIds: List[LfContractId],
+        routingSynchronizerState: RoutingSynchronizerState,
     )(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerId] =
@@ -234,13 +236,15 @@ object ApiPackageManagementServiceSpec {
         disclosedContractIds: List[LfContractId],
         optSynchronizerId: Option[SynchronizerId],
         transactionUsedForExternalSigning: Boolean,
+        routingSynchronizerState: RoutingSynchronizerState,
     )(implicit
         traceContext: TraceContext
-    ): EitherT[
-      FutureUnlessShutdown,
-      TransactionError,
-      (SynchronizerRank, RoutingSynchronizerState),
-    ] =
+    ): EitherT[FutureUnlessShutdown, TransactionError, SynchronizerRank] =
+      throw new UnsupportedOperationException()
+
+    override def getRoutingSynchronizerState(implicit
+        traceContext: TraceContext
+    ): RoutingSynchronizerState =
       throw new UnsupportedOperationException()
   }
 }

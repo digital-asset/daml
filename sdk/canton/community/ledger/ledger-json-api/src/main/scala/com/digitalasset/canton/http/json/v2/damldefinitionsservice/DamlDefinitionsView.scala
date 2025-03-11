@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.http.json.v2.damldefinitionsservice
 
-import com.daml.error.{ContextualizedErrorLogger, NoLogging}
+import com.digitalasset.base.error.{ContextualizedErrorLogger, NoLogging}
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.{
   AllTemplatesResponse,
   TemplateDefinition,

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.admin.api.client.data
 
 import cats.syntax.either.*
-import com.daml.error.BaseError
+import com.digitalasset.base.error.BaseError
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.admin.api.client.data.ComponentHealthState.{
   Degraded,

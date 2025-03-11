@@ -3,7 +3,16 @@
 
 package com.digitalasset.canton.error.testpackage.subpackage
 
-import com.daml.error.*
+import com.digitalasset.base.error.{
+  BaseError,
+  ErrorCategory,
+  ErrorClass,
+  ErrorCode,
+  ErrorGroup,
+  ErrorResource,
+  Explanation,
+  Resolution,
+}
 
 @Explanation("Mild error parent explanation")
 object MildErrorsParent extends ErrorGroup()(ErrorClass.root()) {

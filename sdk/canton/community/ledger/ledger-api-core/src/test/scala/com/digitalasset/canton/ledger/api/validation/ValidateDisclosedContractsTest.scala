@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
-import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.v2.commands.{
   Commands as ProtoCommands,
   DisclosedContract as ProtoDisclosedContract,
 }
 import com.daml.ledger.api.v2.value.Identifier as ProtoIdentifier
+import com.digitalasset.base.error.{ContextualizedErrorLogger, NoLogging}
 import com.digitalasset.canton.BaseTest.testedProtocolVersion
 import com.digitalasset.canton.LfValue
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
