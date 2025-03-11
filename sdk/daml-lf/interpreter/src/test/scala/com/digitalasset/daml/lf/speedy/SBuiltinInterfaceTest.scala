@@ -391,14 +391,14 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
     }
 
     "exercise_interface" - {
-      "should prevent view errors from being caught" in {
+      "should not calculate view during interface exercise" in {
         val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
         val Ast.TTyCon(tplId) = t"ViewErrorTest:T"
         val tplPayload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
 
         inside(
           evalApp(
-            e"\(cid: ContractId I0:I0) -> ViewErrorTest:exercise_interface_and_catch_error cid",
+            e"\(cid: ContractId I0:I0) -> ViewErrorTest:exercise_interface_with_view_error cid",
             Array(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
@@ -411,23 +411,21 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             compiledPackages = compiledBasePkgs,
             committers = Set(alice),
           )
-        ) { case Success(Left(error)) =>
-          // We expect the error throw by the view to not have been caught by
-          // fetch_interface_and_catch_error.
-          error shouldBe a[SErrorDamlException]
+        ) { case Success(Right(_)) =>
+          succeed
         }
       }
     }
 
     "fetch_interface" - {
-      "should prevent view errors from being caught" in {
+      "should not calculate view during interface fetch" in {
         val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
         val Ast.TTyCon(tplId) = t"ViewErrorTest:T"
         val tplPayload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
 
         inside(
           evalApp(
-            e"\(cid: ContractId I0:I0) -> ViewErrorTest:fetch_interface_and_catch_error cid",
+            e"\(cid: ContractId I0:I0) -> ViewErrorTest:fetch_interface_with_view_error cid",
             Array(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
@@ -440,10 +438,8 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             compiledPackages = compiledBasePkgs,
             committers = Set(alice),
           )
-        ) { case Success(Left(error)) =>
-          // We expect the error throw by the view to not have been caught by
-          // fetch_interface_and_catch_error.
-          error shouldBe a[SErrorDamlException]
+        ) { case Success(Right(_)) =>
+          succeed
         }
       }
 
@@ -538,7 +534,7 @@ final class SBuiltinInterfaceTestHelpers(
           interface (this: I0) = {
             viewtype Mod:MyUnit;
             choice @nonConsuming MyChoice (self) (u: Unit): Unit
-              , controllers (Nil @Party)
+              , controllers (Cons @Party [Mod:mkParty "Alice"] Nil @Party)
               , observers (Nil @Party)
               to upure @Unit ();
             coimplements T_Co0_No1:T_Co0_No1 { view = Mod:MyUnit {}; };
@@ -563,7 +559,7 @@ final class SBuiltinInterfaceTestHelpers(
             implements I0:I0 { view = throw @Mod:MyUnit @ViewErrorTest:Ex (ViewErrorTest:Ex { message = "user error" }); };
           };
 
-          val fetch_interface_and_catch_error : ContractId I0:I0 -> Update Unit =
+          val fetch_interface_with_view_error : ContractId I0:I0 -> Update Unit =
             \(cid: ContractId I0:I0) ->
               try @Unit
                 ubind _:I0:I0 <- fetch_interface @I0:I0 cid
@@ -572,7 +568,7 @@ final class SBuiltinInterfaceTestHelpers(
                 e -> Some @(Update Unit) (upure @Unit ())
           ;
 
-          val exercise_interface_and_catch_error : ContractId I0:I0 -> Update Unit =
+          val exercise_interface_with_view_error : ContractId I0:I0 -> Update Unit =
             \(cid: ContractId I0:I0) ->
               try @Unit
                 exercise_interface @I0:I0 MyChoice cid ()
