@@ -211,6 +211,7 @@ class SBuiltinInterfaceUpgradeImplementationTest extends AnyFreeSpec with Matche
 class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with Inside {
 
   import EvalHelpers._
+  import org.scalatest.Inspectors.forEvery
 
   // TODO: revert to the default version and compiler config once they support upgrades
   val languageVersion = LanguageVersion.Features.packageUpgrades
@@ -278,10 +279,10 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
   )
 
   // But we prefer version 2 of -implem-pkg-, which will force an upgrade of any version 1 contract when
-  // fetched/exercised by interface and trigger a view consistency check, which is expected to fail.
-  val packagePreferences = Map(
+  // fetched/exercised by interface
+  def packagePreference(pkgVersion: Int) = Map(
     ifacePkgName -> ifacePkgId,
-    implemPkgName -> implemPkgId(2),
+    implemPkgName -> implemPkgId(pkgVersion),
   )
 
   // We assume one contract of type -implem-pkg-id-1-:Mod:T on the ledger, with ID cid.
@@ -301,7 +302,7 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
         evalApp(
           e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid" (ifaceParserParams),
           Array(SContractId(cid), SToken),
-          packageResolution = packagePreferences,
+          packageResolution = packagePreference(2),
           getContract = contracts,
           getPkg = PartialFunction.empty,
           compiledPackages = compiledPackages,
@@ -321,7 +322,7 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
             ifaceParserParams
           ),
           Array(SContractId(cid), SToken),
-          packageResolution = packagePreferences,
+          packageResolution = packagePreference(2),
           getContract = contracts,
           getPkg = PartialFunction.empty,
           compiledPackages = compiledPackages,
@@ -331,6 +332,31 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
         result shouldBe a[Right[_, _]]
       }
     }
+  }
+
+  val ifaceViewTypeId = Ref.Identifier.assertFromString(s"$ifacePkgId:Mod:MyViewType")
+  "view_interface" - {
+    forEvery(List(1, 2))(preferredVersion =>
+      s"should get view implementation v$preferredVersion when package preference is for version $preferredVersion" in {
+        inside(
+          evalApp(
+            e"""\(cid: ContractId Mod:Iface) ->
+                  ubind iface:Mod:Iface <- fetch_interface @Mod:Iface cid
+                  in upure @Mod:MyViewType view_interface @Mod:Iface iface""" (
+              ifaceParserParams
+            ),
+            Array(SContractId(cid), SToken),
+            packageResolution = packagePreference(preferredVersion),
+            getContract = contracts,
+            getPkg = PartialFunction.empty,
+            compiledPackages = compiledPackages,
+            committers = Set(alice),
+          )
+        ) { case Success(Right(SRecord(`ifaceViewTypeId`, _, ArrayList(SInt64(`preferredVersion`))))) =>
+          succeed
+        }
+      }
+    )
   }
 }
 
