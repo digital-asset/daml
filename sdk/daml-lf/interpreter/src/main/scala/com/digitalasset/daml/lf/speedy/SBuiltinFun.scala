@@ -1256,35 +1256,30 @@ private[lf] object SBuiltinFun {
       interfaceId: TypeConName,
   )(k: SAny => Control[Question.Update]): Control[Question.Update] = {
     fetchSourceContractId(machine, coid)({ case (_, srcContract) =>
-      ensureContractActive(machine, coid, srcContract.templateId) {
-        machine.checkContractVisibility(coid, srcContract)
-        machine.enforceLimitAddInputContract()
-        machine.enforceLimitSignatoriesAndObservers(coid, srcContract)
-        val srcTmplId = srcContract.templateId
-        val pkgName = srcContract.packageName
-        val srcArg = srcContract.value.asInstanceOf[SRecord]
-        resolvePackageName(machine, pkgName) { pkgId =>
-          val dstTmplId = srcTmplId.copy(packageId = pkgId)
-          machine.ensurePackageIsLoaded(
-            dstTmplId.packageId,
-            language.Reference.Template(dstTmplId),
-          ) { () =>
-            ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTmplId) {
-              fromInterface(machine, srcTmplId, srcArg, dstTmplId) {
-                case None =>
-                  Control.Error(IE.WronglyTypedContract(coid, dstTmplId, srcTmplId))
-                case Some(dstArg) =>
-                  fetchValidateDstContract(
-                    machine,
-                    coid,
-                    srcTmplId,
-                    srcContract,
-                    dstTmplId,
-                    dstArg,
-                  )({ case (dstTmplId, dstArg, _) =>
-                    k(SAny(Ast.TTyCon(dstTmplId), dstArg))
-                  })
-              }
+      val srcTmplId = srcContract.templateId
+      val pkgName = srcContract.packageName
+      val srcArg = srcContract.value.asInstanceOf[SRecord]
+      resolvePackageName(machine, pkgName) { pkgId =>
+        val dstTmplId = srcTmplId.copy(packageId = pkgId)
+        machine.ensurePackageIsLoaded(
+          dstTmplId.packageId,
+          language.Reference.Template(dstTmplId),
+        ) { () =>
+          ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTmplId) {
+            fromInterface(machine, srcTmplId, srcArg, dstTmplId) {
+              case None =>
+                Control.Error(IE.WronglyTypedContract(coid, dstTmplId, srcTmplId))
+              case Some(dstArg) =>
+                fetchValidateDstContract(
+                  machine,
+                  coid,
+                  srcTmplId,
+                  srcContract,
+                  dstTmplId,
+                  dstArg,
+                )({ case (dstTmplId, dstArg, _) =>
+                  k(SAny(Ast.TTyCon(dstTmplId), dstArg))
+                })
             }
           }
         }
@@ -2385,7 +2380,12 @@ private[lf] object SBuiltinFun {
                 coinst.template,
                 templateArg,
                 allowCatchingContractInfoErrors = false,
-              )(f(None, _))
+              )(srcContract => ensureContractActive(machine, coid, srcContract.templateId) {
+                  machine.checkContractVisibility(coid, srcContract)
+                  machine.enforceLimitAddInputContract()
+                  machine.enforceLimitSignatoriesAndObservers(coid, srcContract)
+                  f(None, srcContract)
+              })
             }
           }
         )
