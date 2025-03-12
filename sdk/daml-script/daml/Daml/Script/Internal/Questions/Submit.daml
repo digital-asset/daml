@@ -65,6 +65,10 @@ combineOptional l _ = l
 instance Semigroup SubmitOptions where
   SubmitOptions a b c d e <> SubmitOptions a' b' c' d' e' = SubmitOptions (a <> a') (b <> b') (c <> c') (d `combineOptional` d') (e <> e')
 
+-- | Monoid instance allowing for use of mconcat
+instance Monoid SubmitOptions where
+  mempty = SubmitOptions [] [] [] None []
+
 -- | Builds a SubmitOptions with given actAs parties.
 -- Any given submission must include at least one actAs party.
 -- Note that the parties type is constrainted by `IsParties`, allowing for specifying parties as any of the following:
