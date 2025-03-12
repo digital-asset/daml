@@ -2380,12 +2380,14 @@ private[lf] object SBuiltinFun {
                 coinst.template,
                 templateArg,
                 allowCatchingContractInfoErrors = false,
-              )(srcContract => ensureContractActive(machine, coid, srcContract.templateId) {
+              )(srcContract =>
+                ensureContractActive(machine, coid, srcContract.templateId) {
                   machine.checkContractVisibility(coid, srcContract)
                   machine.enforceLimitAddInputContract()
                   machine.enforceLimitSignatoriesAndObservers(coid, srcContract)
                   f(None, srcContract)
-              })
+                }
+              )
             }
           }
         )
