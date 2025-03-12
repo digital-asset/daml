@@ -802,34 +802,6 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         }
       }
 
-      @Explanation("View mismatch when trying to upgrade the contract")
-      @Resolution(
-        "Verify that the interface views of the contract have not changed"
-      )
-      object ViewMismatch
-          extends ErrorCode(
-            id = "INTERPRETATION_UPGRADE_ERROR_VIEW_MISMATCH",
-            ErrorCategory.InvalidGivenCurrentSystemStateOther,
-          ) {
-        final case class Reject(
-            override val cause: String,
-            err: LfInterpretationError.Upgrade.ViewMismatch,
-        )(implicit
-            loggingContext: ContextualizedErrorLogger
-        ) extends DamlErrorWithDefiniteAnswer(
-              cause = cause
-            ) {
-
-          override def resources: Seq[(ErrorResource, String)] =
-            Seq(
-              (ErrorResource.ContractId, err.coid.coid),
-              (ErrorResource.InterfaceId, err.iterfaceId.toString),
-              (ErrorResource.TemplateId, err.srcTemplateId.toString),
-              (ErrorResource.TemplateId, err.dstTemplateId.toString),
-            )
-        }
-      }
-
       @Explanation(
         "An optional contract field with a value of Some may not be dropped during downgrading"
       )
