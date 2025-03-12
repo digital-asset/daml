@@ -29,7 +29,6 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.collection.mutable.ArrayBuffer
-import scala.math.Ordered.orderingToOrdered
 import scala.util.{Failure, Success, Try}
 
 class TestTraceLog extends TraceLog {
@@ -62,8 +61,6 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
   private val packageId = Ref.PackageId.assertFromString("-pkg-")
   private[this] implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters(packageId, languageVersion = languageVersion)
-
-  private val upgradingEnabled = languageVersion >= LanguageVersion.Features.packageUpgrades
 
   private[this] final def tuple2TyCon: String = {
     val Tuple2 =
@@ -1099,11 +1096,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getWronglyTypedContract,
           )
           inside(res) {
-            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _))))
-                if !upgradingEnabled =>
-              msgs shouldBe Seq("starts test")
-            case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy))))
-                if upgradingEnabled =>
+            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _)))) =>
               msgs shouldBe Seq("starts test")
           }
         }
@@ -2283,11 +2276,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getWronglyTypedContract,
           )
           inside(res) {
-            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _))))
-                if !upgradingEnabled =>
-              msgs shouldBe Seq("starts test")
-            case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy))))
-                if upgradingEnabled =>
+            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _)))) =>
               msgs shouldBe Seq("starts test")
           }
         }
