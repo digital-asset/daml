@@ -166,6 +166,12 @@ object Ast {
       choiceArgExpr: Expr,
   ) extends Expr
 
+  /** Fail with grpc status and ErrorInfoDetail metadata */
+  final case class EFailWithStatus(
+      returnType: Type,
+      failureStatus: Expr,
+  ) extends Expr
+
   // We use this type to reduce depth of pattern matching
   sealed abstract class ExprInterface extends Expr
 

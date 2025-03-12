@@ -152,6 +152,9 @@ object RejectionGenerators {
         case e: LfInterpretationError.ValueNesting =>
           CommandExecutionErrors.Interpreter.ValueNesting
             .Reject(renderedMessage, e)
+        case e: LfInterpretationError.FailureStatus =>
+          CommandExecutionErrors.Interpreter.FailureStatus
+            .Reject(renderedMessage, e)
         case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.ValidationFailed) =>
           CommandExecutionErrors.Interpreter.UpgradeError.ValidationFailed
             .Reject(renderedMessage, error)

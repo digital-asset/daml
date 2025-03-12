@@ -162,11 +162,16 @@ instance Applicative Update where
 instance Action Update where
     (>>=) = primitive @"UBind"
 
+failWithStatusPure : FailureStatus -> a
+failWithStatusPure = primitive @"EFailWithStatus"
+
 instance ActionFail Update where
 #ifdef DAML_EXCEPTIONS
     fail m = pure () >>= \_ -> error m
+    failWithStatus s = pure () >>= \_ -> failWithStatusPure s
 #else
     fail = primitive @"UAbort"
+    failWithStatus s = pure () >>= \_ -> failWithStatusPure s
 #endif
 
 -- | The `HasTime` class is for where the time is available: `Update`

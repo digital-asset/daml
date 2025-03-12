@@ -607,6 +607,10 @@ data Expr
     , choiceObserverContract :: !Expr
     , choiceObserverChoiceArg :: !Expr
     }
+  | EFailWithStatus
+    { fwsReturnType :: !Type
+    , fwsStatusFailure :: !Expr
+    }
   -- | Experimental Expression Hook
   | EExperimental !T.Text !Type
   deriving (Eq, Data, Generic, NFData, Ord, Show)

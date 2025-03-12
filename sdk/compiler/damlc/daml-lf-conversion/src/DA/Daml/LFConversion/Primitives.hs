@@ -483,6 +483,10 @@ convertPrim _ "EChoiceObserver"
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
+convertPrim _ "EFailWithStatus"
+    (TFailureStatus :-> retTy) =
+    pure $ ETmLam (mkVar "x", TFailureStatus) (EFailWithStatus retTy (EVar (mkVar "x")))
+
 convertPrim (isDevVersion->True) (L.stripPrefix "$" -> Just builtin) typ =
     pure $
       EExperimental (T.pack builtin) typ
