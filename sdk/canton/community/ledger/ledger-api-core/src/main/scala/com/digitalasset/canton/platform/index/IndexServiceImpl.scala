@@ -800,7 +800,7 @@ object IndexServiceImpl {
       eventFormat: EventFormat,
       alwaysPopulateArguments: Boolean,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      contextualizedErrorLogger: ContextualizedErrorLogger,
   ): () => Option[(TemplatePartiesFilter, EventProjectionProperties)] = {
     @volatile var metadata: PackageMetadata = null
     @volatile var filters: Option[(TemplatePartiesFilter, EventProjectionProperties)] = None
@@ -836,7 +836,7 @@ object IndexServiceImpl {
       val eventProjectionProperties = EventProjectionProperties(
         eventFormat = eventFormat,
         interfaceImplementedBy =
-          interfaceId => metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty),
+          interfaceId => interfacesImplementedByWithUpgrades(metadata, interfaceId),
         resolveTypeConRef = metadata.resolveTypeConRef,
         alwaysPopulateArguments = alwaysPopulateArguments,
       )
@@ -852,6 +852,14 @@ object IndexServiceImpl {
     }
   }
 
+  private def interfacesImplementedByWithUpgrades(metadata: PackageMetadata, interfaceId: Ref.Identifier): Set[(Ref.Identifier, Ref.Identifier)] =
+    for {
+      originalImplementor <- metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty)
+      (packageName, _) <- metadata.packageIdVersionMap.get(originalImplementor.packageId).toSet
+      implementor <- metadata.resolveTypeConRef(Ref.TypeConRef(Ref.PackageRef.Name(packageName), originalImplementor.qualifiedName))
+    } yield (originalImplementor, implementor)
+
+
   private def templateIds(
       metadata: PackageMetadata,
       cumulativeFilter: CumulativeFilter,
@@ -859,7 +867,7 @@ object IndexServiceImpl {
     val fromInterfacesDefs = cumulativeFilter.interfaceFilters.view
       .map(_.interfaceTypeRef)
       .flatMap(metadata.resolveTypeConRef(_))
-      .flatMap(metadata.interfacesImplementedBy.getOrElse(_, Set.empty).view)
+      .flatMap(interfacesImplementedByWithUpgrades(metadata, _).map(_._2).view)
       .toSet
 
     val fromTemplateDefs = cumulativeFilter.templateFilters.view

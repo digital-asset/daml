@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
@@ -52,7 +52,7 @@ final case class EventProjectionProperties(
 object EventProjectionProperties {
 
   final case class Projection(
-      interfaces: Set[Identifier] = Set.empty,
+      interfaces: Set[(Identifier, Identifier)] = Set.empty,
       createdEventBlob: Boolean = false,
       contractArguments: Boolean = false,
   ) {
@@ -75,10 +75,10 @@ object EventProjectionProperties {
     */
   def apply(
       eventFormat: EventFormat,
-      interfaceImplementedBy: Identifier => Set[Identifier],
+      interfaceImplementedBy: Identifier => Set[(Identifier, Identifier)],
       resolveTypeConRef: TypeConRef => Set[Identifier],
       alwaysPopulateArguments: Boolean,
-  ): EventProjectionProperties =
+  ): EventProjectionProperties = {
     EventProjectionProperties(
       verbose = eventFormat.verbose,
       templateWildcardWitnesses = templateWildcardWitnesses(eventFormat, alwaysPopulateArguments),
@@ -90,6 +90,7 @@ object EventProjectionProperties {
         resolveTypeConRef,
       ),
     )
+  }
 
   private def templateWildcardWitnesses(
       apiTransactionFilter: EventFormat,
@@ -141,7 +142,7 @@ object EventProjectionProperties {
 
   private def witnessTemplateProjections(
       apiEventFormat: EventFormat,
-      interfaceImplementedBy: Identifier => Set[Identifier],
+      interfaceImplementedBy: Identifier => Set[(Identifier, Identifier)],
       resolveTypeConRef: TypeConRef => Set[Identifier],
   ): Map[Option[String], Map[Identifier, Projection]] = {
     val partyFilterPairs =
@@ -155,9 +156,9 @@ object EventProjectionProperties {
       val interfaceFilterProjections = for {
         interfaceFilter <- cumulativeFilter.interfaceFilters.view
         interfaceId <- resolveTypeConRef(interfaceFilter.interfaceTypeRef)
-        implementor <- interfaceImplementedBy(interfaceId).view
+        (originalImplementor, implementor) <- interfaceImplementedBy(interfaceId).view
       } yield implementor -> Projection(
-        interfaces = if (interfaceFilter.includeView) Set(interfaceId) else Set.empty,
+        interfaces = if (interfaceFilter.includeView) Set((originalImplementor, interfaceId)) else Set.empty,
         createdEventBlob = interfaceFilter.includeCreatedEventBlob,
         contractArguments = false,
       )
