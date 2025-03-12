@@ -22,6 +22,7 @@ module Daml.Script
   , actAs
   , readAs
   , disclose
+  , discloseMany
   , prefetchKeys
   , SubmitOptions
   , concurrently
