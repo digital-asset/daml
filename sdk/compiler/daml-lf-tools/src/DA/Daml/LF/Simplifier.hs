@@ -201,6 +201,7 @@ safetyStep = \case
   EViewInterfaceF _ _ -> Unsafe
   EChoiceControllerF _ _ s1 s2 -> s1 <> s2 <> Safe 0
   EChoiceObserverF _ _ s1 s2 -> s1 <> s2 <> Safe 0
+  EFailWithStatusF _ _ -> Unsafe
   EExperimentalF _ _ -> Unsafe
 
 isTypeClassDictionary :: DefValue -> Bool

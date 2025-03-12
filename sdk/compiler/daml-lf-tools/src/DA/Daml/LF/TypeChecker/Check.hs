@@ -778,6 +778,10 @@ typeOf' = \case
     checkExpr contract (TCon tpl)
     checkExpr choiceArg (chcArgType choice)
     pure (TList TParty)
+  EFailWithStatus ty bodyExpr -> do
+    checkType ty KStar
+    checkExpr bodyExpr TFailureStatus
+    pure ty
   EExperimental name ty -> do
     checkFeature featureExperimental
     checkExperimentalType name ty

@@ -1168,6 +1168,14 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             }
           }
 
+        case PLF.Expr.SumCase.FAIL_WITH_STATUS =>
+          val eFailWithStatus = lfExpr.getFailWithStatus
+          decodeType(eFailWithStatus.getReturnType) { returnType =>
+            decodeExpr(eFailWithStatus.getFailureStatus, definition) { failureStatus =>
+              Ret(EFailWithStatus(returnType, failureStatus))
+            }
+          }
+
         case PLF.Expr.SumCase.EXPERIMENTAL =>
           assertSince(LV.Features.unstable, "Expr.experimental")
           val experimental = lfExpr.getExperimental

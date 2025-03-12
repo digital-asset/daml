@@ -655,6 +655,10 @@ encodeExpr' = \case
         expr_ChoiceObserverContractExpr <- encodeExpr expr1
         expr_ChoiceObserverChoiceArgExpr <- encodeExpr expr2
         pureExpr $ P.ExprSumChoiceObserver P.Expr_ChoiceObserver{..}
+    EFailWithStatus ty failureStatus -> do
+        expr_FailWithStatusReturnType <- encodeType ty
+        expr_FailWithStatusFailureStatus <- encodeExpr failureStatus
+        pureExpr $ P.ExprSumFailWithStatus P.Expr_FailWithStatus{..}
     EExperimental name ty -> do
         let expr_ExperimentalName = encodeString name
         expr_ExperimentalType <- encodeType ty

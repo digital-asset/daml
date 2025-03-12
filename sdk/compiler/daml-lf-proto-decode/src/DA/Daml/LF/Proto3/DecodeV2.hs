@@ -570,6 +570,9 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     <*> decodeNameId ChoiceName expr_ChoiceObserverChoiceInternedStr
     <*> mayDecode "expr_ChoiceObserverContractExpr" expr_ChoiceObserverContractExpr decodeExpr
     <*> mayDecode "expr_ChoiceObserverChoiceArgExpr" expr_ChoiceObserverChoiceArgExpr decodeExpr
+  LF2.ExprSumFailWithStatus LF2.Expr_FailWithStatus {..} -> EFailWithStatus
+    <$> mayDecode "expr_FailWithStatusReturnType" expr_FailWithStatusReturnType decodeType
+    <*> mayDecode "expr_FailWithStatusFailureStatus" expr_FailWithStatusFailureStatus decodeExpr
   LF2.ExprSumExperimental (LF2.Expr_Experimental name mbType) -> do
     ty <- mayDecode "expr_Experimental" mbType decodeType
     pure $ EExperimental (decodeString name) ty
