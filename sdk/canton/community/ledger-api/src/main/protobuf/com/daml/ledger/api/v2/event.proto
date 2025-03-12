@@ -14,9 +14,10 @@ option java_outer_classname = "EventOuterClass";
 option java_package = "com.daml.ledger.api.v2";
 
 // Events in transactions can have two primary shapes:
-//   - ACS delta: events can be CreatedEvent or ArchivedEvent
-//   - ledger effects: events can be CreatedEvent or ExercisedEvent
-
+//
+// - ACS delta: events can be CreatedEvent or ArchivedEvent
+// - ledger effects: events can be CreatedEvent or ExercisedEvent
+//
 // In the update service the events are restricted to the events
 // visible for the parties specified in the transaction filter. Each
 // event message type below contains a ``witness_parties`` field which
@@ -62,11 +63,11 @@ message CreatedEvent {
   // The arguments that have been used to create the contract.
   // Set either:
   //
-  //   - if there was a party, which is in the ``witness_parties`` of this event,
-  //     and for which a ``CumulativeFilter`` exists with the ``template_id`` of this event
-  //     among the ``template_filters``,
-  //   - or if there was a party, which is in the ``witness_parties`` of this event,
-  //     and for which a wildcard filter exists (``Filters`` with a ``CumulativeFilter`` of ``WildcardFilter``).
+  // - if there was a party, which is in the ``witness_parties`` of this event,
+  //   and for which a ``CumulativeFilter`` exists with the ``template_id`` of this event
+  //   among the ``template_filters``,
+  // - or if there was a party, which is in the ``witness_parties`` of this event,
+  //   and for which a wildcard filter exists (``Filters`` with a ``CumulativeFilter`` of ``WildcardFilter``).
   //
   // Optional
   Record create_arguments = 6;
@@ -80,9 +81,9 @@ message CreatedEvent {
   // Interface views specified in the transaction filter.
   // Includes an ``InterfaceView`` for each interface for which there is a ``InterfaceFilter`` with
   //
-  //   - its party in the ``witness_parties`` of this event,
-  //   - and which is implemented by the template of this event,
-  //   - and which has ``include_interface_view`` set.
+  // - its party in the ``witness_parties`` of this event,
+  // - and which is implemented by the template of this event,
+  // - and which has ``include_interface_view`` set.
   //
   // Optional
   repeated InterfaceView interface_views = 8;

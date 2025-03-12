@@ -4,22 +4,20 @@
 package com.digitalasset.canton.integration
 
 import com.digitalasset.canton.config.{CantonEdition, CommunityCantonEdition}
-import com.digitalasset.canton.environment.CommunityEnvironment
 
 object CommunityTests {
 
-  type CommunityTestConsoleEnvironment = TestConsoleEnvironment[CommunityEnvironment]
+  type CommunityTestConsoleEnvironment = TestConsoleEnvironment
 
-  trait CommunityIntegrationTest
-      extends BaseIntegrationTest[CommunityEnvironment, CommunityTestConsoleEnvironment] {
-    this: EnvironmentSetup[CommunityEnvironment, CommunityTestConsoleEnvironment] =>
+  trait CommunityIntegrationTest extends BaseIntegrationTest[CommunityTestConsoleEnvironment] {
+    this: EnvironmentSetup[CommunityTestConsoleEnvironment] =>
 
     override val edition: CantonEdition = CommunityCantonEdition
   }
 
   type SharedCommunityEnvironment =
-    SharedEnvironment[CommunityEnvironment, CommunityTestConsoleEnvironment]
+    SharedEnvironment[CommunityTestConsoleEnvironment]
   type IsolatedCommunityEnvironments =
-    IsolatedEnvironments[CommunityEnvironment, CommunityTestConsoleEnvironment]
+    IsolatedEnvironments[CommunityTestConsoleEnvironment]
 
 }

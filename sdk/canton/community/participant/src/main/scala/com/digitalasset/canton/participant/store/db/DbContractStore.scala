@@ -25,14 +25,14 @@ import com.digitalasset.canton.store.db.DbBulkUpdateProcessor
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherUtil.RichEitherIterable
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{BatchAggregator, ErrorUtil, MonadUtil}
+import com.digitalasset.canton.util.{BatchAggregator, ErrorUtil, MonadUtil, TryUtil}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import com.digitalasset.canton.{LfPartyId, checked}
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
 import scala.collection.immutable
 import scala.concurrent.ExecutionContext
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Try}
 
 class DbContractStore(
     override protected val storage: DbStorage,
@@ -310,8 +310,6 @@ class DbContractStore(
           cache.put(contract.contractId, Option(contract))
         }
 
-      private val success: Try[Unit] = Success(())
-
       private def failWith(message: String)(implicit
           loggingContext: ErrorLoggingContext
       ): Failure[Nothing] =
@@ -342,7 +340,7 @@ class DbContractStore(
           case Some(data) =>
             if (data == item) {
               cache.put(item.contractId, Some(item))
-              success
+              TryUtil.unit
             } else {
               invalidateCache(data.contractId)
               failWith(

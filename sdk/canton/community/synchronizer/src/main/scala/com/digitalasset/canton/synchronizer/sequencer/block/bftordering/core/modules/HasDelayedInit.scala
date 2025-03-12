@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.tracing.TraceContext
+import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.mutable
 
@@ -39,4 +40,7 @@ trait HasDelayedInit[M] { self: NamedLogging =>
       logger.debug(s"Postponing processing message $message because init is still in progress")
       postponedMessages.enqueue(message)
     }
+
+  @VisibleForTesting
+  private[bftordering] def isInitComplete: Boolean = initComplete
 }

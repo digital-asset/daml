@@ -26,13 +26,13 @@ final class BlockTransferResponseQuorumBuilder(activeMembership: Membership) {
       _.headOption.exists(representative => doResponsesMatch(representative, response))
     ) match {
       case Some(existingResponses) =>
-        // Make sure that representatives are from the most advanced peer so that we always compare against them.
-        val isRepresentativeFromTheMostAdvancedPeer =
+        // Make sure that representatives are from the most advanced node so that we always compare against them.
+        val isRepresentativeFromTheMostAdvancedNode =
           existingResponses.headOption.exists(representative =>
             representative.latestCompletedEpoch > response.latestCompletedEpoch
           )
         // Add to an existing group.
-        if (isRepresentativeFromTheMostAdvancedPeer) {
+        if (isRepresentativeFromTheMostAdvancedNode) {
           existingResponses.addOne(response)
         } else {
           existingResponses.prepend(response)

@@ -5,11 +5,11 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.PeerNetworkStatus
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.P2PNetworkOutModuleDependencies
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, Module}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
-import com.digitalasset.canton.topology.SequencerId
 
 object P2PNetworkOut {
 
@@ -27,7 +27,7 @@ object P2PNetworkOut {
   object Network {
     final case class Authenticated(
         endpointId: P2PEndpoint.Id,
-        sequencerId: SequencerId,
+        node: BftNodeId,
     ) extends Message
   }
 
@@ -92,12 +92,12 @@ object P2PNetworkOut {
 
   final case class Multicast(
       message: BftOrderingNetworkMessage,
-      to: Set[SequencerId],
+      to: Set[BftNodeId],
   ) extends Message
 
   def send(
       message: BftOrderingNetworkMessage,
-      to: SequencerId,
+      to: BftNodeId,
   ): Multicast =
     Multicast(message, Set(to))
 }

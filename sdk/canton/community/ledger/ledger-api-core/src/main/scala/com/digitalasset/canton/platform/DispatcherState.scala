@@ -85,9 +85,9 @@ class DispatcherState(
         dispatcher
           .cancel(() => dispatcherNotRunning)
           .transform {
-            case Success(_) =>
+            case success @ Success(_) =>
               logger.debug(s"Active $ServiceName stopped.")
-              Success(())
+              success
             case f @ Failure(failure) =>
               logger.warn(s"Failed stopping active $ServiceName", failure)
               f
@@ -118,9 +118,9 @@ class DispatcherState(
             )
           )
           .transform {
-            case Success(()) =>
+            case success @ Success(_) =>
               logger.info(s"$ServiceName shutdown.")
-              Success(())
+              success
             case f @ Failure(failure) =>
               logger.warn(s"Error during $ServiceName shutdown", failure)
               f

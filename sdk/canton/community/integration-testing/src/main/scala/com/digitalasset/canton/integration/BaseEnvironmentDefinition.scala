@@ -20,12 +20,12 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
   *   transforms to perform on the base configuration before starting the environment (typically
   *   making ports unique or some other specialization for the particular tests you're running)
   */
-abstract class BaseEnvironmentDefinition[E <: Environment, TCE <: TestConsoleEnvironment[E]](
+abstract class BaseEnvironmentDefinition[TCE <: TestConsoleEnvironment](
     val baseConfig: CantonConfig,
     val testingConfig: TestingConfigInternal,
     val setups: List[TCE => Unit] = Nil,
     val teardown: Unit => Unit = _ => (),
-    val configTransforms: Seq[CantonConfig => CantonConfig],
+    val configTransforms: Seq[ConfigTransform],
 ) {
 
   /** Create a canton configuration by applying the configTransforms to the base config. Some
@@ -35,6 +35,7 @@ abstract class BaseEnvironmentDefinition[E <: Environment, TCE <: TestConsoleEnv
   def generateConfig: CantonConfig =
     configTransforms.foldLeft(baseConfig)((config, transform) => transform(config))
 
-  def environmentFactory: EnvironmentFactory[E]
-  def createTestConsole(environment: E, loggerFactory: NamedLoggerFactory): TCE
+  def environmentFactory: EnvironmentFactory
+
+  def createTestConsole(environment: Environment, loggerFactory: NamedLoggerFactory): TCE
 }

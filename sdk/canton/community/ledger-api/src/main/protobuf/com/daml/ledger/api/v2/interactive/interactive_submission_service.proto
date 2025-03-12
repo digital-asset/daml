@@ -17,7 +17,10 @@ option java_outer_classname = "InteractiveSubmissionServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2.interactive";
 
 // The InteractiveSubmissionService allows to submit commands in 2-steps:
-// 1) prepare transaction from commands, 2) submit the prepared transaction
+//
+// 1. prepare transaction from commands,
+// 2. submit the prepared transaction
+//
 // This gives callers the ability to sign the daml transaction with their own signing keys
 service InteractiveSubmissionService {
   // Requires `readAs` scope for the submitting party when LAPI User authorization is enabled

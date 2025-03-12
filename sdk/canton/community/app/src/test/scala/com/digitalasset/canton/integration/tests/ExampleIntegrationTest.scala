@@ -6,9 +6,9 @@ package com.digitalasset.canton.integration.tests
 import better.files.*
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.PreparedTransaction
 import com.digitalasset.canton.ConsoleScriptRunner
+import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.StorageConfig.Memory
-import com.digitalasset.canton.config.{CantonConfig, DbConfig}
 import com.digitalasset.canton.crypto.InteractiveSubmission
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.Environment
@@ -19,8 +19,9 @@ import com.digitalasset.canton.integration.CommunityTests.{
 import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.ExampleIntegrationTest.*
 import com.digitalasset.canton.integration.{
-  CommunityConfigTransforms,
   CommunityEnvironmentDefinition,
+  ConfigTransform,
+  ConfigTransforms,
 }
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLogging}
 import com.digitalasset.canton.platform.apiserver.execution.CommandInterpretationResult
@@ -44,7 +45,7 @@ abstract class ExampleIntegrationTest(configPaths: File*)
     with IsolatedCommunityEnvironments
     with HasConsoleScriptRunner {
 
-  protected def additionalConfigTransform: Seq[CantonConfig => CantonConfig] =
+  protected def additionalConfigTransform: Seq[ConfigTransform] =
     Seq.empty
 
   override lazy val environmentDefinition: CommunityEnvironmentDefinition =
@@ -52,15 +53,15 @@ abstract class ExampleIntegrationTest(configPaths: File*)
       .fromFiles(configPaths*)
       .addConfigTransforms(
         // lets not share databases
-        CommunityConfigTransforms.uniqueH2DatabaseNames,
+        ConfigTransforms.uniqueH2DatabaseNames,
         _.focus(_.monitoring.tracing.propagation).replace(TracingConfig.Propagation.Enabled),
-        CommunityConfigTransforms.updateAllParticipantConfigs { case (_, config) =>
+        ConfigTransforms.updateAllParticipantConfigs { case (_, config) =>
           // to make sure that the picked up time for the snapshot is the most recent one
           config
             .focus(_.parameters.reassignmentTimeProofFreshnessProportion)
             .replace(NonNegativeInt.zero)
         },
-        CommunityConfigTransforms.uniquePorts,
+        ConfigTransforms.globallyUniquePorts,
       )
       .addConfigTransforms(additionalConfigTransform*)
 }
@@ -128,7 +129,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
   private val encoder = new PreparedTransactionEncoder(loggerFactory)
   private val portsFiles =
     (interactiveSubmissionV1Folder / "canton_ports.json").deleteOnExit()
-  override protected def additionalConfigTransform: Seq[CantonConfig => CantonConfig] = Seq(
+  override protected def additionalConfigTransform: Seq[ConfigTransform] = Seq(
     _.focus(_.parameters.portsFile).replace(Some(portsFiles.pathAsString))
   )
   private val processLogger = new ConcurrentBufferedLogger {

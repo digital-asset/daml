@@ -11,7 +11,10 @@ import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.BatchesRequest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  EpochNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
   BatchId,
   ProofOfAvailability,
@@ -26,7 +29,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.AvailabilityModuleDependencies
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, Module}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
-import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.AvailabilityMessage
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWrapper,
   HasRepresentativeProtocolVersion,
@@ -89,18 +92,18 @@ object Availability {
     final case class RemoteBatchStored(
         batchId: BatchId,
         expirationTime: CantonTimestamp,
-        from: SequencerId,
+        from: BftNodeId,
     ) extends LocalDissemination
 
     final case class RemoteBatchStoredSigned(
         batchId: BatchId,
-        from: SequencerId,
+        from: BftNodeId,
         signature: Signature,
     ) extends LocalDissemination
 
     final case class RemoteBatchAcknowledgeVerified(
         batchId: BatchId,
-        from: SequencerId,
+        from: BftNodeId,
         signature: Signature,
     ) extends LocalDissemination
   }
@@ -109,7 +112,7 @@ object Availability {
     final case class RemoteBatch private (
         batchId: BatchId,
         batch: OrderingRequestBatch,
-        from: SequencerId,
+        from: BftNodeId,
     )(
         override val representativeProtocolVersion: RepresentativeProtocolVersion[RemoteBatch.type],
         override val deserializedFrom: Option[ByteString],
@@ -128,7 +131,7 @@ object Availability {
         super[HasProtocolVersionedWrapper].toByteString
     }
 
-    object RemoteBatch extends VersioningCompanionContextMemoization[RemoteBatch, SequencerId] {
+    object RemoteBatch extends VersioningCompanionContextMemoization[RemoteBatch, BftNodeId] {
 
       override def name: String = "RemoteBatch"
 
@@ -144,7 +147,7 @@ object Availability {
           )
       )
 
-      def fromProtoAvailabilityMessage(from: SequencerId, value: v30.AvailabilityMessage)(
+      def fromProtoAvailabilityMessage(from: BftNodeId, value: v30.AvailabilityMessage)(
           bytes: ByteString
       ): ParsingResult[RemoteBatch] = for {
         protoStoreRequest <- value.message.storeRequest.toRight(
@@ -153,7 +156,7 @@ object Availability {
         storeRequest <- fromProtoV30(from, protoStoreRequest)(bytes)
       } yield storeRequest
 
-      def fromProtoV30(from: SequencerId, storeRequest: v30.StoreRequest)(
+      def fromProtoV30(from: BftNodeId, storeRequest: v30.StoreRequest)(
           bytes: ByteString
       ): ParsingResult[RemoteBatch] =
         for {
@@ -169,7 +172,7 @@ object Availability {
           deserializedFrom = Some(bytes),
         )
 
-      def create(batchId: BatchId, batch: OrderingRequestBatch, from: SequencerId): RemoteBatch =
+      def create(batchId: BatchId, batch: OrderingRequestBatch, from: BftNodeId): RemoteBatch =
         RemoteBatch(batchId, batch, from)(
           protocolVersionRepresentativeFor(ProtocolVersion.minimum), // TODO(#23248)
           deserializedFrom = None,
@@ -178,7 +181,7 @@ object Availability {
 
     final case class RemoteBatchAcknowledged private (
         batchId: BatchId,
-        from: SequencerId,
+        from: BftNodeId,
         signature: Signature,
     )(
         override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -206,7 +209,7 @@ object Availability {
     object RemoteBatchAcknowledged
         extends VersioningCompanionContextMemoization[
           RemoteBatchAcknowledged,
-          SequencerId,
+          BftNodeId,
         ] {
 
       override def name: String = "RemoteBatchAcknowledged"
@@ -223,7 +226,7 @@ object Availability {
           )
       )
 
-      def fromAvailabilityMessage(from: SequencerId, value: v30.AvailabilityMessage)(
+      def fromAvailabilityMessage(from: BftNodeId, value: v30.AvailabilityMessage)(
           bytes: ByteString
       ): ParsingResult[RemoteBatchAcknowledged] = for {
         protoStoreResponse <- value.message.storeResponse.toRight(
@@ -233,7 +236,7 @@ object Availability {
       } yield storeResponse
 
       def fromProtoV30(
-          from: SequencerId,
+          from: BftNodeId,
           value: v30.StoreResponse,
       )(bytes: ByteString): ParsingResult[RemoteBatchAcknowledged] =
         for {
@@ -247,7 +250,7 @@ object Availability {
 
       def create(
           batchId: BatchId,
-          from: SequencerId,
+          from: BftNodeId,
           signature: Signature,
       ): RemoteBatchAcknowledged =
         RemoteBatchAcknowledged(batchId, from, signature)(
@@ -261,7 +264,7 @@ object Availability {
     * for a block; there are 2 cases:
     *
     *   - The availability module can provide all batches from local storage.
-    *   - If not, the availability module will ask other peers for the missing batches and then
+    *   - If not, the availability module will ask other nodes for the missing batches and then
     *     store them.
     *
     * In both cases, all the requested batches are fetched and returned to the output module.
@@ -281,14 +284,14 @@ object Availability {
         result: AvailabilityStore.FetchBatchesResult,
     ) extends LocalOutputFetch
 
-    final case class FetchBatchDataFromPeers(
+    final case class FetchBatchDataFromNodes(
         proofOfAvailability: ProofOfAvailability,
         mode: OrderedBlockForOutput.Mode,
     ) extends LocalOutputFetch
 
     final case class FetchRemoteBatchDataTimeout(batchId: BatchId) extends LocalOutputFetch
 
-    final case class AttemptedBatchDataLoadForPeer(
+    final case class AttemptedBatchDataLoadForNode(
         batchId: BatchId,
         batch: Option[OrderingRequestBatch],
     ) extends LocalOutputFetch
@@ -299,7 +302,7 @@ object Availability {
   object RemoteOutputFetch {
     final case class FetchRemoteBatchData private (
         batchId: BatchId,
-        from: SequencerId,
+        from: BftNodeId,
     )(
         override val representativeProtocolVersion: RepresentativeProtocolVersion[
           FetchRemoteBatchData.type
@@ -324,7 +327,7 @@ object Availability {
     object FetchRemoteBatchData
         extends VersioningCompanionContextMemoization[
           FetchRemoteBatchData,
-          SequencerId,
+          BftNodeId,
         ] {
 
       override def name: String = "FetchRemoteBatchData"
@@ -342,7 +345,7 @@ object Availability {
       )
 
       def fromAvailabilityMessage(
-          from: SequencerId,
+          from: BftNodeId,
           value: v30.AvailabilityMessage,
       )(bytes: ByteString): ParsingResult[FetchRemoteBatchData] = for {
         protoFetchRemoteBatchData <- value.message.batchRequest.toRight(
@@ -352,7 +355,7 @@ object Availability {
       } yield fetchRemoteBatchData
 
       def fromProtoV30(
-          from: SequencerId,
+          from: BftNodeId,
           value: v30.BatchRequest,
       )(bytes: ByteString): ParsingResult[FetchRemoteBatchData] =
         for {
@@ -363,7 +366,7 @@ object Availability {
           deserializedFrom = Some(bytes),
         )
 
-      def create(batchId: BatchId, from: SequencerId): FetchRemoteBatchData =
+      def create(batchId: BatchId, from: BftNodeId): FetchRemoteBatchData =
         FetchRemoteBatchData(batchId, from)(
           protocolVersionRepresentativeFor(ProtocolVersion.minimum), // TODO(#23248)
           deserializedFrom = None,
@@ -372,7 +375,7 @@ object Availability {
     }
 
     final case class RemoteBatchDataFetched private (
-        from: SequencerId,
+        from: BftNodeId,
         batchId: BatchId,
         batch: OrderingRequestBatch,
     )(
@@ -384,7 +387,7 @@ object Availability {
         with HasProtocolVersionedWrapper[RemoteBatchDataFetched] {
       override protected val companionObj: RemoteBatchDataFetched.type = RemoteBatchDataFetched
 
-      protected override def toProtoV30 =
+      protected override def toProtoV30: AvailabilityMessage =
         v30.AvailabilityMessage.of(
           v30.AvailabilityMessage.Message.BatchResponse(
             v30.BatchResponse(batchId.hash.getCryptographicEvidence, Some(batch.toProtoV30))
@@ -398,7 +401,7 @@ object Availability {
     object RemoteBatchDataFetched
         extends VersioningCompanionContextMemoization[
           RemoteBatchDataFetched,
-          SequencerId,
+          BftNodeId,
         ] {
 
       override def name: String = "RemoteBatchDataFetched"
@@ -416,7 +419,7 @@ object Availability {
       )
 
       def fromAvailabilityMessage(
-          from: SequencerId,
+          from: BftNodeId,
           value: v30.AvailabilityMessage,
       )(bytes: ByteString): ParsingResult[RemoteBatchDataFetched] = for {
         protoRemoteBatchDataFetched <- value.message.batchResponse.toRight(
@@ -426,7 +429,7 @@ object Availability {
       } yield remoteBatchDataFetched
 
       def fromProtoV30(
-          from: SequencerId,
+          from: BftNodeId,
           value: v30.BatchResponse,
       )(bytes: ByteString): ParsingResult[RemoteBatchDataFetched] =
         for {
@@ -443,11 +446,11 @@ object Availability {
         )
 
       def create(
-          thisPeer: SequencerId,
+          thisNode: BftNodeId,
           batchId: BatchId,
           batch: OrderingRequestBatch,
       ): RemoteBatchDataFetched =
-        RemoteBatchDataFetched(thisPeer, batchId, batch)(
+        RemoteBatchDataFetched(thisNode, batchId, batch)(
           protocolVersionRepresentativeFor(ProtocolVersion.minimum), // TODO(#23248)
           deserializedFrom = None,
         )

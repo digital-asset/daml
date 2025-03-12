@@ -13,10 +13,7 @@ import com.digitalasset.canton.integration.CommunityTests.{
   SharedCommunityEnvironment,
 }
 import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
-import com.digitalasset.canton.integration.{
-  CommunityConfigTransforms,
-  CommunityEnvironmentDefinition,
-}
+import com.digitalasset.canton.integration.{CommunityEnvironmentDefinition, ConfigTransforms}
 
 /** The objective of this test is to verify that pruning is accessible in the community edition and
   * no longer fails with a NotSupportedInCommunityEdition error.
@@ -29,8 +26,8 @@ sealed trait CommunityPruningSmokeIntegrationTest
 
   override def environmentDefinition: CommunityEnvironmentDefinition =
     CommunityEnvironmentDefinition.simpleTopology
-      .addConfigTransforms(CommunityConfigTransforms.uniquePorts)
-      .addConfigTransforms(CommunityConfigTransforms.setProtocolVersion(testedProtocolVersion)*)
+      .addConfigTransforms(ConfigTransforms.globallyUniquePorts)
+      .addConfigTransforms(ConfigTransforms.setProtocolVersion(testedProtocolVersion)*)
       .withManualStart
       .withSetup { implicit env =>
         import env.*

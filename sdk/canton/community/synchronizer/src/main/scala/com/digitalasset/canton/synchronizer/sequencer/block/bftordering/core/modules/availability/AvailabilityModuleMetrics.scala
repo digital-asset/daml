@@ -5,16 +5,16 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 
 private[availability] object AvailabilityModuleMetrics {
 
-  def emitInvalidMessage(metrics: BftOrderingMetrics, from: SequencerId)(implicit
+  def emitInvalidMessage(metrics: BftOrderingMetrics, from: BftNodeId)(implicit
       mc: MetricsContext
   ): Unit =
     metrics.security.noncompliant.behavior.mark()(
       mc.withExtraLabels(
-        metrics.security.noncompliant.labels.Sequencer -> from.toProtoPrimitive,
+        metrics.security.noncompliant.labels.Sequencer -> from,
         metrics.security.noncompliant.labels.violationType.Key ->
           metrics.security.noncompliant.labels.violationType.values.DisseminationInvalidMessage,
       )

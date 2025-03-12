@@ -111,19 +111,6 @@ import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.atomic.AtomicReference
 
 object SequencerNodeBootstrap {
-  trait Factory {
-    def create(
-        arguments: NodeFactoryArguments[
-          SequencerNodeConfig,
-          SequencerNodeParameters,
-          SequencerMetrics,
-        ]
-    )(implicit
-        executionContext: ExecutionContextIdlenessExecutorService,
-        scheduler: ScheduledExecutorService,
-        actorSystem: ActorSystem,
-    ): Either[String, SequencerNodeBootstrap]
-  }
 
   val LoggerFactoryKeyName: String = "sequencer"
 }

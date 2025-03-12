@@ -9,12 +9,14 @@ import com.digitalasset.canton.sequencer.admin.v30.*
 import com.digitalasset.canton.sequencer.admin.v30.SequencerBftAdministrationServiceGrpc.SequencerBftAdministrationService
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  EpochNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Consensus,
   P2PNetworkOut,
 }
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -27,7 +29,7 @@ final class BftOrderingSequencerAdminService(
     override val loggerFactory: NamedLoggerFactory,
     createBoolPromise: () => Promise[Boolean] = () => Promise(),
     createNetworkStatusPromise: () => Promise[PeerNetworkStatus] = () => Promise(),
-    createOrderingTopologyPromise: () => Promise[(EpochNumber, Set[SequencerId])] = () => Promise(),
+    createOrderingTopologyPromise: () => Promise[(EpochNumber, Set[BftNodeId])] = () => Promise(),
 )(implicit ec: ExecutionContext)
     extends SequencerBftAdministrationService
     with NamedLogging {
@@ -36,7 +38,7 @@ final class BftOrderingSequencerAdminService(
 
   override def addPeerEndpoint(request: AddPeerEndpointRequest): Future[AddPeerEndpointResponse] = {
     logger.info(
-      s"BFT sequencer admin service: adding peer endpoint ${request.endpoint} to the network."
+      s"BFT sequencer admin service: adding endpoint ${request.endpoint} to the network."
     )
     val resultPromise = createBoolPromise()
     request.endpoint.fold(
@@ -56,7 +58,7 @@ final class BftOrderingSequencerAdminService(
       request: RemovePeerEndpointRequest
   ): Future[RemovePeerEndpointResponse] = {
     logger.info(
-      s"BFT sequencer admin service: removing peer endpoint ${request.endpointId} to the network."
+      s"BFT sequencer admin service: removing endpoint ${request.endpointId} to the network."
     )
     val resultPromise = createBoolPromise()
     request.endpointId.fold(
@@ -76,7 +78,7 @@ final class BftOrderingSequencerAdminService(
       request: GetPeerNetworkStatusRequest
   ): Future[GetPeerNetworkStatusResponse] = {
     logger.info(
-      "BFT sequencer admin service: getting peer network status for endpoints " +
+      "BFT sequencer admin service: getting network status for endpoints " +
         s"${if (request.endpointIds.isEmpty) "<all known>" else request.endpointIds.toString()} " +
         "to the network."
     )
@@ -118,10 +120,10 @@ final class BftOrderingSequencerAdminService(
         resultPromise.success(currentEpoch -> sequencerIds).discard
       }
     )
-    resultPromise.future.map { case (currentEpoch, sequencerIds) =>
+    resultPromise.future.map { case (currentEpoch, nodes) =>
       GetOrderingTopologyResponse.of(
         currentEpoch,
-        sequencerIds.map(_.toProtoPrimitive).toSeq.sorted,
+        nodes.toSeq.sorted,
       )
     }
   }

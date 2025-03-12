@@ -13,14 +13,13 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   EpochStatusBuilder,
   RetransmissionsManager,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders.SimpleLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
   CryptoProvider,
   TopologyActivationTime,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochLength,
   EpochNumber,
@@ -48,13 +47,12 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.event.Level
 
 class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
-  val self = fakeSequencerId("self")
-  val other1 = fakeSequencerId("other1")
-  val otherPeers = Set(other1)
+  private val self = BftNodeId("self")
+  private val other1 = BftNodeId("other1")
+  private val others = Set(other1)
 
-  val membership = Membership.forTesting(self, otherPeers)
-  val leaderSelectionPolicy = SimpleLeaderSelectionPolicy
-  val epoch = EpochState.Epoch(
+  private val membership = Membership.forTesting(self, others)
+  private val epoch = EpochState.Epoch(
     EpochInfo(
       EpochNumber.First,
       BlockNumber.First,
@@ -66,18 +64,18 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     membership,
   )
 
-  val segmentStatus0 = Consensus.RetransmissionsMessage.SegmentStatus(
+  private val segmentStatus0 = Consensus.RetransmissionsMessage.SegmentStatus(
     EpochNumber.First,
     segmentIndex = 0,
     ConsensusStatus.SegmentStatus.Complete,
   )
-  val segmentStatus1 = Consensus.RetransmissionsMessage.SegmentStatus(
+  private val segmentStatus1 = Consensus.RetransmissionsMessage.SegmentStatus(
     EpochNumber.First,
     segmentIndex = 1,
     ConsensusStatus.SegmentStatus.Complete,
   )
 
-  val retransmissionRequest =
+  private val retransmissionRequest =
     Consensus.RetransmissionsMessage.RetransmissionRequest.create(
       ConsensusStatus.EpochStatus(
         self,
@@ -89,14 +87,14 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       )
     )
 
-  val epochStatus =
+  private val epochStatus =
     ConsensusStatus.EpochStatus(
       other1,
       EpochNumber.First,
       Seq(
         ConsensusStatus.SegmentStatus.InProgress(
           ViewNumber.First,
-          Seq(ConsensusStatus.BlockStatus.InProgress(false, Seq.empty, Seq.empty)),
+          Seq(ConsensusStatus.BlockStatus.InProgress(prePrepared = false, Seq.empty, Seq.empty)),
         )
       ),
     )
@@ -116,7 +114,7 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(
           retransmissionRequest.fakeSign
         ),
-        otherPeers,
+        others,
       )
     )
   }
@@ -133,7 +131,7 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
       when(epochState.epoch).thenReturn(epoch)
       when(epochState.requestSegmentStatuses())
-        .thenReturn(new EpochStatusBuilder(self, EpochNumber.First, 1 + otherPeers.size))
+        .thenReturn(new EpochStatusBuilder(self, EpochNumber.First, 1 + others.size))
 
       manager.startEpoch(epochState)
 
@@ -227,7 +225,7 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
       when(epochState.epoch).thenReturn(epoch)
       when(epochState.requestSegmentStatuses())
-        .thenReturn(new EpochStatusBuilder(self, EpochNumber.First, 1 + otherPeers.size))
+        .thenReturn(new EpochStatusBuilder(self, EpochNumber.First, 1 + others.size))
 
       val cryptoProvider = spy(ProgrammableUnitTestEnv.noSignatureCryptoProvider)
 
@@ -256,7 +254,7 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       val epochState = mock[EpochState[ProgrammableUnitTestEnv]]
 
       when(epochState.epoch).thenReturn(epoch)
-      def builder = new EpochStatusBuilder(self, EpochNumber.First, 1 + otherPeers.size)
+      def builder = new EpochStatusBuilder(self, EpochNumber.First, 1 + others.size)
       when(epochState.requestSegmentStatuses())
         .thenReturn(builder, builder) // we'll need 2 fresh builders in this test
 

@@ -33,8 +33,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.top
   OrderingTopologyProvider,
   TopologyActivationTime,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochNumber,
   ViewNumber,
@@ -626,7 +626,7 @@ class OutputModuleTest
             val consensusRef = mock[ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]]]
             val newOrderingTopology =
               OrderingTopology(
-                peers = Set(fakeSequencerId("peer1")),
+                nodes = Set(BftNodeId("node1")),
                 SequencingParameters.Default,
                 topologyActivationTime,
                 areTherePendingCantonTopologyChanges = pendingChanges,
@@ -741,7 +741,7 @@ class OutputModuleTest
             verify(consensusRef, times(1)).asyncSend(
               Consensus.NewEpochTopology(
                 secondEpochNumber,
-                Membership(fakeSequencerId("peer1"), newOrderingTopology, Seq.empty),
+                Membership(BftNodeId("node1"), newOrderingTopology, Seq.empty),
                 any[CryptoProvider[ProgrammableUnitTestEnv]],
                 GenesisPreviousEpochMaxBftTime,
                 lastBlockMode,
@@ -811,7 +811,7 @@ class OutputModuleTest
           spy(new FakeOrderingTopologyProvider[ProgrammableUnitTestEnv])
         val consensusRef = mock[ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]]]
         val output = createOutputModule[ProgrammableUnitTestEnv](
-          initialOrderingTopology = OrderingTopology(Set(fakeSequencerId("peer1"))),
+          initialOrderingTopology = OrderingTopology(Set(BftNodeId("node1"))),
           orderingTopologyProvider = topologyProviderSpy,
           consensusRef = consensusRef,
           requestInspector = (_, _, _, _) => false, // No request is for all members of synchronizer
@@ -832,7 +832,7 @@ class OutputModuleTest
         verify(consensusRef, times(1)).asyncSend(
           Consensus.NewEpochTopology(
             secondEpochNumber,
-            Membership.forTesting(fakeSequencerId("peer1")),
+            Membership.forTesting(BftNodeId("node1")),
             any[CryptoProvider[ProgrammableUnitTestEnv]],
             GenesisPreviousEpochMaxBftTime,
             OrderedBlockForOutput.Mode.FromConsensus,
@@ -849,18 +849,18 @@ class OutputModuleTest
       val store = createOutputMetadataStore[ProgrammableUnitTestEnv]
       val epochStore = createEpochStore[ProgrammableUnitTestEnv]
       val sequencerNodeRef = mock[ModuleRef[SequencerNode.SnapshotMessage]]
-      val peer1 = fakeSequencerId("peer1")
-      val peer2 = fakeSequencerId("peer2")
-      val peer2FirstKnownAtTime = TopologyActivationTime(aTimestamp)
-      val firstBlockBftTime = peer2FirstKnownAtTime.value.minusMillis(1)
-      val peer1FirstKnownAtTime = TopologyActivationTime(peer2FirstKnownAtTime.value.minusMillis(2))
-      val topologyActivationTime = TopologyActivationTime(peer2FirstKnownAtTime.value.plusMillis(2))
+      val node1 = BftNodeId("node1")
+      val node2 = BftNodeId("node2")
+      val node2FirstKnownAtTime = TopologyActivationTime(aTimestamp)
+      val firstBlockBftTime = node2FirstKnownAtTime.value.minusMillis(1)
+      val node1FirstKnownAtTime = TopologyActivationTime(node2FirstKnownAtTime.value.minusMillis(2))
+      val topologyActivationTime = TopologyActivationTime(node2FirstKnownAtTime.value.plusMillis(2))
       val topology = OrderingTopology(
-        peersActiveAt = Map(
-          peer1 -> peer1FirstKnownAtTime,
-          peer2 -> peer2FirstKnownAtTime,
-          fakeSequencerId("peer from the future") -> TopologyActivationTime(
-            peer2FirstKnownAtTime.value.plusMillis(1)
+        nodesActiveAt = Map(
+          node1 -> node1FirstKnownAtTime,
+          node2 -> node2FirstKnownAtTime,
+          BftNodeId("node from the future") -> TopologyActivationTime(
+            node2FirstKnownAtTime.value.plusMillis(1)
           ),
         ),
         SequencingParameters.Default,
@@ -905,7 +905,7 @@ class OutputModuleTest
           CompleteBlockData(
             anOrderedBlockForOutput(
               blockNumber = 1L,
-              commitTimestamp = peer2FirstKnownAtTime.value,
+              commitTimestamp = node2FirstKnownAtTime.value,
             ),
             batches = Seq.empty,
           )
@@ -915,7 +915,7 @@ class OutputModuleTest
 
       output.receive(
         Output.SequencerSnapshotMessage
-          .GetAdditionalInfo(timestamp = peer2FirstKnownAtTime.value, sequencerNodeRef)
+          .GetAdditionalInfo(timestamp = node2FirstKnownAtTime.value, sequencerNodeRef)
       )
 
       // run the first set of queries
@@ -927,13 +927,20 @@ class OutputModuleTest
         SequencerNode.SnapshotMessage.AdditionalInfo(
           v30.BftSequencerSnapshotAdditionalInfo(
             Map(
-              peer1.toProtoPrimitive ->
+              node1 ->
                 v30.BftSequencerSnapshotAdditionalInfo
-                  .PeerActiveAt(peer1FirstKnownAtTime.value.toMicros, None, None, None, None, None),
-              peer2.toProtoPrimitive ->
+                  .SequencerActiveAt(
+                    node1FirstKnownAtTime.value.toMicros,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                  ),
+              node2 ->
                 v30.BftSequencerSnapshotAdditionalInfo
-                  .PeerActiveAt(
-                    timestamp = peer2FirstKnownAtTime.value.toMicros,
+                  .SequencerActiveAt(
+                    timestamp = node2FirstKnownAtTime.value.toMicros,
                     epochNumber = Some(EpochNumber.First),
                     firstBlockNumberInEpoch = Some(BlockNumber.First),
                     epochTopologyQueryTimestamp = Some(topologyActivationTime.value.toMicros),
@@ -1035,7 +1042,7 @@ class OutputModuleTest
 
   private def createOutputModule[E <: BaseIgnoringUnitTestEnv[E]](
       initialHeight: Long = BlockNumber.First,
-      initialOrderingTopology: OrderingTopology = OrderingTopology(peers = Set.empty),
+      initialOrderingTopology: OrderingTopology = OrderingTopology(nodes = Set.empty),
       availabilityRef: ModuleRef[Availability.Message[E]] = fakeModuleExpectingSilence,
       consensusRef: ModuleRef[Consensus.Message[E]] = fakeModuleExpectingSilence,
       store: OutputMetadataStore[E] = createOutputMetadataStore[E],
@@ -1049,7 +1056,7 @@ class OutputModuleTest
   ): OutputModule[E] = {
     val startupState =
       StartupState[E](
-        fakeSequencerId("peer1"),
+        BftNodeId("node1"),
         BlockNumber(initialHeight),
         previousBftTimeForOnboarding,
         areTherePendingTopologyChangesInOnboardingEpoch,
@@ -1166,13 +1173,14 @@ object OutputModuleTest {
                 Hash
                   .digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
                 commitTimestamp,
-                from = fakeSequencerId(""),
+                from = BftNodeId.Empty,
               )
               .fakeSign
           )
         ),
       ),
-      fakeSequencerId(""),
+      ViewNumber.First,
+      BftNodeId.Empty,
       lastInEpoch,
       mode,
     )

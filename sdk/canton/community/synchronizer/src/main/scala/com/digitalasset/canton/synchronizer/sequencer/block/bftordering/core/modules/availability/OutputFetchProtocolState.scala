@@ -3,26 +3,26 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability
 
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
   BatchId,
   ProofOfAvailability,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.OrderedBlockForOutput
-import com.digitalasset.canton.topology.SequencerId
 
 import scala.collection.mutable
 
 final case class MissingBatchStatus(
     batchId: BatchId,
     originalProof: ProofOfAvailability,
-    remainingPeersToTry: Seq[SequencerId],
+    remainingNodesToTry: Seq[BftNodeId],
     mode: OrderedBlockForOutput.Mode,
 )
 
 final class MainOutputFetchProtocolState {
   val localOutputMissingBatches: mutable.SortedMap[BatchId, MissingBatchStatus] =
     mutable.SortedMap.empty
-  val incomingBatchRequests: mutable.Map[BatchId, Set[SequencerId]] = mutable.SortedMap.empty
+  val incomingBatchRequests: mutable.Map[BatchId, Set[BftNodeId]] = mutable.SortedMap.empty
   val pendingBatchesRequests: mutable.ArrayDeque[BatchesRequest] = mutable.ArrayDeque.empty
 
   def findProofOfAvailabilityForMissingBatchId(

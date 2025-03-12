@@ -4,14 +4,14 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 
 trait SimulationVerifier {
   def checkInvariants(at: CantonTimestamp): Unit
 
   def resumeCheckingLiveness(at: CantonTimestamp): Unit
 
-  def aFutureHappened(peer: SequencerId): Unit
+  def aFutureHappened(node: BftNodeId): Unit
 }
 
 case object NoVerification extends SimulationVerifier {
@@ -19,7 +19,7 @@ case object NoVerification extends SimulationVerifier {
 
   override def resumeCheckingLiveness(at: CantonTimestamp): Unit = ()
 
-  override def aFutureHappened(peer: SequencerId): Unit = ()
+  override def aFutureHappened(node: BftNodeId): Unit = ()
 }
 
 object SimulationVerifier {
@@ -29,6 +29,6 @@ object SimulationVerifier {
 
       override def resumeCheckingLiveness(at: CantonTimestamp): Unit = ()
 
-      override def aFutureHappened(peer: SequencerId): Unit = ()
+      override def aFutureHappened(node: BftNodeId): Unit = ()
     }
 }

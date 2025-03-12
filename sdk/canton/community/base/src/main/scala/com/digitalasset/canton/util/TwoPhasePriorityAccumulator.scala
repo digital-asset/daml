@@ -54,7 +54,12 @@ class TwoPhasePriorityAccumulator[A, B](obsoleteO: Option[A => Boolean]) {
     new ConcurrentSkipListMap[RegisteredItem, A](RegisteredItem.orderingRegisteredItem)
 
   /** Whether this class is still in the accumulation phase */
-  def isAccumulating: Boolean = phase.isEmpty
+  def isAccumulating: Boolean = getPhase.isEmpty
+
+  /** Returns [[scala.None$]] in the accumulating phase, and [[scala.Some$]] with the label of the
+    * draining phase.
+    */
+  def getPhase: Option[B] = phase.get
 
   /** Adds the given item with the given priority, if this container is still in the accumulation
     * phase, and returns a handle to remove it. If the container is already in the draining phase,

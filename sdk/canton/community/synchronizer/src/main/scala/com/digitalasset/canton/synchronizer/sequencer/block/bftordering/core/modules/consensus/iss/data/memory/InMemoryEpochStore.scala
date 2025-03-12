@@ -16,7 +16,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   Genesis,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BlockNumber,
   EpochNumber,
   ViewNumber,
@@ -42,6 +42,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PekkoFutureUnlessShutdown,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.TryUtil
 
 import scala.collection.MapView
 import scala.collection.concurrent.TrieMap
@@ -95,7 +96,7 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
     store.putIfAbsent(key, value).discard
     // Re-insertion with a different commit set may happen when a block has already been completed,
     //  but then catch-up is started and the block is re-sent by state transfer.
-    Success(())
+    TryUtil.unit
   }
 
   override def startEpoch(
@@ -159,7 +160,7 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
       prepares: Seq[SignedMessage[Prepare]]
   )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Unit] =
     createFuture(addPreparesActionName) { () =>
-      prepares.headOption.fold[Try[Unit]](Success(())) { head =>
+      prepares.headOption.fold(TryUtil.unit) { head =>
         preparesMap
           .putIfAbsent(
             head.message.blockMetadata.blockNumber,
@@ -330,6 +331,7 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
                           prePrepare.message.block.proofs,
                           prePrepare.message.canonicalCommitSet,
                         ),
+                        prePrepare.message.viewNumber,
                         prePrepare.from,
                         isBlockLastInEpoch,
                         OrderedBlockForOutput.Mode.FromConsensus,

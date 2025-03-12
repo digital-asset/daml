@@ -12,11 +12,10 @@ import com.digitalasset.canton.config.{
   CryptoConfig,
   TestingConfigInternal,
 }
-import com.digitalasset.canton.console.TestConsoleOutput
+import com.digitalasset.canton.console.{ConsoleEnvironment, TestConsoleOutput}
 import com.digitalasset.canton.environment.{
-  CommunityConsoleEnvironment,
-  CommunityEnvironment,
   CommunityEnvironmentFactory,
+  Environment,
   EnvironmentFactory,
 }
 import com.digitalasset.canton.integration.CommunityTests.CommunityTestConsoleEnvironment
@@ -29,8 +28,8 @@ final case class CommunityEnvironmentDefinition(
     override val testingConfig: TestingConfigInternal,
     override val setups: List[CommunityTestConsoleEnvironment => Unit] = Nil,
     override val teardown: Unit => Unit = _ => (),
-    override val configTransforms: Seq[CantonConfig => CantonConfig],
-) extends BaseEnvironmentDefinition[CommunityEnvironment, CommunityTestConsoleEnvironment](
+    override val configTransforms: Seq[ConfigTransform],
+) extends BaseEnvironmentDefinition[CommunityTestConsoleEnvironment](
       baseConfig,
       testingConfig,
       setups,
@@ -40,29 +39,33 @@ final case class CommunityEnvironmentDefinition(
 
   def withManualStart: CommunityEnvironmentDefinition =
     copy(baseConfig = baseConfig.focus(_.parameters.manualStart).replace(true))
+
   def withSetup(setup: CommunityTestConsoleEnvironment => Unit): CommunityEnvironmentDefinition =
     copy(setups = setups :+ setup)
+
   def clearConfigTransforms(): CommunityEnvironmentDefinition = copy(configTransforms = Seq())
+
   def addConfigTransforms(
-      transforms: CantonConfig => CantonConfig*
+      transforms: ConfigTransform*
   ): CommunityEnvironmentDefinition =
     transforms.foldLeft(this)((ed, ct) => ed.addConfigTransform(ct))
+
   def addConfigTransform(
-      transform: CantonConfig => CantonConfig
+      transform: ConfigTransform
   ): CommunityEnvironmentDefinition =
     copy(configTransforms = this.configTransforms :+ transform)
 
-  override lazy val environmentFactory: EnvironmentFactory[CommunityEnvironment] =
+  override lazy val environmentFactory: EnvironmentFactory =
     CommunityEnvironmentFactory
 
   override def createTestConsole(
-      environment: CommunityEnvironment,
+      environment: Environment,
       loggerFactory: NamedLoggerFactory,
-  ): TestConsoleEnvironment[CommunityEnvironment] =
-    new CommunityConsoleEnvironment(
+  ): TestConsoleEnvironment =
+    new ConsoleEnvironment(
       environment,
       new TestConsoleOutput(loggerFactory),
-    ) with TestEnvironment[CommunityEnvironment] {
+    ) with TestEnvironment {
       override val actualConfig: CantonConfig = this.environment.config
     }
 }

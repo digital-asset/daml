@@ -10,23 +10,21 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.top
   OrderingTopologyProvider,
   TopologyActivationTime,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
   OrderingTopology,
   SequencingParameters,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.{
-  SimulationEnv,
-  SimulationP2PNetworkManager,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.Simulation
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.util.Success
 
 class SimulationOrderingTopologyProvider(
-    thisPeer: SequencerId,
-    getPeerEndpointsToTopologyData: () => Map[P2PEndpoint, SimulationTopologyData],
+    thisNode: BftNodeId,
+    getEndpointsToTopologyData: () => Map[P2PEndpoint, SimulationTopologyData],
     loggerFactory: NamedLoggerFactory,
 ) extends OrderingTopologyProvider[SimulationEnv] {
 
@@ -35,12 +33,12 @@ class SimulationOrderingTopologyProvider(
   ): SimulationFuture[Option[(OrderingTopology, CryptoProvider[SimulationEnv])]] =
     SimulationFuture(s"getOrderingTopologyAt($activationTime)") { () =>
       val activeSequencerTopologyData =
-        getPeerEndpointsToTopologyData().view
+        getEndpointsToTopologyData().view
           .filter { case (_, topologyData) =>
             topologyData.onboardingTime.value <= activationTime.value
           }
           .map { case (endpoint, topologyData) =>
-            SimulationP2PNetworkManager.fakeSequencerId(endpoint) -> topologyData
+            Simulation.endpointToNode(endpoint) -> topologyData
           }
           .toMap
 
@@ -55,7 +53,7 @@ class SimulationOrderingTopologyProvider(
       Success(
         Some(
           topology -> SimulationCryptoProvider.create(
-            thisPeer,
+            thisNode,
             activeSequencerTopologyData,
             activationTime.value,
             loggerFactory,

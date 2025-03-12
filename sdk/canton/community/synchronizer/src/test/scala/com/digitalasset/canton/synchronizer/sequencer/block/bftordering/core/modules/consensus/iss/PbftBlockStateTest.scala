@@ -11,8 +11,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.PbftBlockState.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.PbftMessageValidator
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochNumber,
   ViewNumber,
@@ -34,7 +34,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.SequencerId
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 import org.slf4j.event.Level.{INFO, WARN}
@@ -51,14 +50,14 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
     "store only valid PrePrepares" in {
       val blockState = createBlockState()
 
-      // PrePrepare from invalid peer; ignored
-      val wrongLeaderPP = createPrePrepare(otherPeers.head)
+      // PrePrepare from invalid node; ignored
+      val wrongLeaderPP = createPrePrepare(otherIds.head)
       assertLogs(
         blockState
           .processMessage(wrongLeaderPP),
         log => {
           log.level shouldBe WARN
-          log.message should include("wrong peer")
+          log.message should include("wrong node")
         },
       ) shouldBe false
 
@@ -161,13 +160,11 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
     (2 to 16).foreach { n =>
       s"complete block w/ N=$n as leader" in {
-        val peers = (1 until n).map { index =>
-          fakeSequencerId(
-            s"peer$index"
-          )
+        val nodes = (1 until n).map { index =>
+          BftNodeId(s"node$index")
         }.toSet
-        val membership = Membership.forTesting(myId, peers)
-        val blockState = createBlockState(peers)
+        val membership = Membership.forTesting(myId, nodes)
+        val blockState = createBlockState(nodes)
 
         // PrePrepare from leader (self)
         assertNoLogs(blockState.processMessage(prePrepare)) shouldBe true
@@ -183,19 +180,19 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         )
 
         val myPrepare = createPrepare(myId)
-        val peerPrepares = peers.map(createPrepare(_))
+        val nodePrepares = nodes.map(createPrepare(_))
         val myCommit = createCommit(myId)
-        val peerCommits = peers.map(createCommit(_))
+        val nodeCommits = nodes.map(createCommit(_))
 
         // Receive all but one needed Prepare to make progress, and ensure advance() is empty;
         // In this case, that is StrongQuorum - 2 Prepares (already have local Prepare)
-        peerPrepares.tail.take(membership.orderingTopology.strongQuorum - 2).foreach { prepare =>
+        nodePrepares.tail.take(membership.orderingTopology.strongQuorum - 2).foreach { prepare =>
           assertNoLogs(blockState.processMessage(prepare)) shouldBe true
         }
         blockState.advance() shouldBe empty
 
-        // Prepare from last peer
-        peerPrepares.headOption.foreach { prepare =>
+        // Prepare from last node
+        nodePrepares.headOption.foreach { prepare =>
           assertNoLogs(blockState.processMessage(prepare)) shouldBe true
         }
         blockState.advance() should contain theSameElementsInOrderAs List(
@@ -207,20 +204,20 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         inside(prepareResult) {
           case List(SendPbftMessage(commit, Some(StorePrepares(preparesToBeStored)))) =>
             commit shouldBe createCommit(myId, ppHash)
-            preparesToBeStored should contain theSameElementsAs (peerPrepares.take(
+            preparesToBeStored should contain theSameElementsAs (nodePrepares.take(
               membership.orderingTopology.strongQuorum - 1
             ) + myPrepare)
         }
 
         // Receive all but one needed Commit to make progress, and ensure advance() is empty;
         // In this case, that is StrongQuorum - 2 Commits (already have local Commit)
-        peerCommits.tail.take(membership.orderingTopology.strongQuorum - 2).foreach { commit =>
+        nodeCommits.tail.take(membership.orderingTopology.strongQuorum - 2).foreach { commit =>
           assertNoLogs(blockState.processMessage(commit)) shouldBe true
         }
         blockState.advance() shouldBe empty
 
-        // Commit from last peer
-        peerCommits.headOption.foreach { commit =>
+        // Commit from last node
+        nodeCommits.headOption.foreach { commit =>
           assertNoLogs(blockState.processMessage(commit)) shouldBe true
         }
 
@@ -232,7 +229,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         inside(blockState.commitCertificate) { case Some(commitCertificate) =>
           commitCertificate.prePrepare shouldBe prePrepare
           commitCertificate.commits should contain theSameElementsAs
-            (peerCommits.take(membership.orderingTopology.strongQuorum - 1) + myCommit)
+            (nodeCommits.take(membership.orderingTopology.strongQuorum - 1) + myCommit)
         }
         blockState.isBlockComplete shouldBe true
       }
@@ -240,21 +237,21 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
     (2 to 16).foreach { n =>
       s"complete block w/ N=$n as follower" in {
-        val peers = (1 until n).map { index =>
-          fakeSequencerId(s"peer$index")
+        val nodes = (1 until n).map { index =>
+          BftNodeId(s"node$index")
         }
-        val leader = peers.head
-        val membership = Membership.forTesting(myId, peers.toSet)
-        val blockState = createBlockState(peers.toSet, leader)
+        val leader = nodes.head
+        val membership = Membership.forTesting(myId, nodes.toSet)
+        val blockState = createBlockState(nodes.toSet, leader)
 
-        // PrePrepare from leader (peer1)
+        // PrePrepare from leader (node1)
         val pp = createPrePrepare(leader)
         val hash = pp.message.hash
 
         val myPrepare = createPrepare(myId, hash)
-        val peerPrepares = peers.map(createPrepare(_, hash))
+        val nodePrepares = nodes.map(createPrepare(_, hash))
         val myCommit = createCommit(myId, hash)
-        val peerCommits = peers.map(createCommit(_, hash))
+        val nodeCommits = nodes.map(createCommit(_, hash))
 
         // Processing PrePrepare should result in local Prepare
         assertNoLogs(blockState.processMessage(pp)) shouldBe true
@@ -268,13 +265,13 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
         // Receive all but one needed Prepare to make progress, and ensure advance() is empty;
         // In this case, that is StrongQuorum - 2 Prepares (already have local Prepare)
-        peerPrepares.tail.take(membership.orderingTopology.strongQuorum - 2).foreach { prepare =>
+        nodePrepares.tail.take(membership.orderingTopology.strongQuorum - 2).foreach { prepare =>
           assertNoLogs(blockState.processMessage(prepare)) shouldBe true
         }
         blockState.advance() shouldBe empty
 
-        // Prepare from the last peer (the leader in this case)
-        peerPrepares.headOption.foreach { prepare =>
+        // Prepare from the last node (the leader in this case)
+        nodePrepares.headOption.foreach { prepare =>
           assertNoLogs(blockState.processMessage(prepare)) shouldBe true
         }
 
@@ -290,19 +287,19 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           case List(SendPbftMessage(commit, Some(StorePrepares(preparesToBeStored)))) =>
             commit shouldBe myCommit
             val expectedPrepares =
-              (myPrepare +: peerPrepares).take(membership.orderingTopology.strongQuorum)
+              (myPrepare +: nodePrepares).take(membership.orderingTopology.strongQuorum)
             preparesToBeStored should contain theSameElementsAs expectedPrepares
         }
 
         // Receive all but one needed Commit to make progress, and ensure advance() is empty;
         // In this case, that is StrongQuorum - 2 Commits (already have local Commit)
-        peerCommits.tail.take(membership.orderingTopology.strongQuorum - 2).foreach { commit =>
+        nodeCommits.tail.take(membership.orderingTopology.strongQuorum - 2).foreach { commit =>
           assertNoLogs(blockState.processMessage(commit)) shouldBe true
         }
         blockState.advance() shouldBe empty
 
         // Final commit from leader should complete the block
-        peerCommits.headOption.foreach { commit =>
+        nodeCommits.headOption.foreach { commit =>
           assertNoLogs(blockState.processMessage(commit)) shouldBe true
         }
 
@@ -314,14 +311,14 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         inside(blockState.commitCertificate) { case Some(commitCertificate) =>
           commitCertificate.prePrepare shouldBe pp
           commitCertificate.commits should contain theSameElementsAs
-            (peerCommits.take(membership.orderingTopology.strongQuorum - 1) :+ myCommit)
+            (nodeCommits.take(membership.orderingTopology.strongQuorum - 1) :+ myCommit)
         }
         blockState.isBlockComplete shouldBe true
       }
     }
 
     "not count votes with wrong hash" in {
-      val blockState = createBlockState(otherPeers.toSet, myId)
+      val blockState = createBlockState(otherIds.toSet, myId)
 
       // PrePrepare from leader (self)
       assertNoLogs(blockState.processMessage(prePrepare)) shouldBe true
@@ -336,15 +333,15 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       )
 
       // Prepare with BAD hash (won't count)
-      assertNoLogs(blockState.processMessage(createPrepare(otherPeer1, wrongHash))) shouldBe true
+      assertNoLogs(blockState.processMessage(createPrepare(otherId1, wrongHash))) shouldBe true
       suppressProblemLogs(blockState.advance()) shouldBe empty
 
       // Prepare with GOOD hash. Normally now we should have enough votes to create a commit, but the bad hash vote did not count
-      assertNoLogs(blockState.processMessage(createPrepare(otherPeer2))) shouldBe true
+      assertNoLogs(blockState.processMessage(createPrepare(otherId2))) shouldBe true
       suppressProblemLogs(blockState.advance()) shouldBe empty
 
       // Prepare with GOOD hash. Now we can commit
-      assertNoLogs(blockState.processMessage(createPrepare(otherPeer3))) shouldBe true
+      assertNoLogs(blockState.processMessage(createPrepare(otherId3))) shouldBe true
       suppressProblemLogs(blockState.advance()) should contain theSameElementsInOrderAs List(
         SignPbftMessage(createCommit(myId).message)
       )
@@ -355,42 +352,42 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           commit shouldBe createCommit(myId)
           preparesToBeStored should contain theSameElementsAs List(
             createPrepare(
-              otherPeer1,
+              otherId1,
               wrongHash,
             ), // probably dont need to store the ones with wrong hashes
-            createPrepare(otherPeer2),
-            createPrepare(otherPeer3),
+            createPrepare(otherId2),
+            createPrepare(otherId3),
             createPrepare(myId),
           )
       }
       blockState.confirmPreparesStored()
 
       // Commit with BAD hash (won't count)
-      assertNoLogs(blockState.processMessage(createCommit(otherPeer1, wrongHash))) shouldBe true
+      assertNoLogs(blockState.processMessage(createCommit(otherId1, wrongHash))) shouldBe true
       suppressProblemLogs(blockState.advance()) shouldBe empty
 
       // Commit with GOOD hash. Normally now we should have enough votes to complete the block, but the vote with bad hash did not count
-      assertNoLogs(blockState.processMessage(createCommit(otherPeer2))) shouldBe true
+      assertNoLogs(blockState.processMessage(createCommit(otherId2))) shouldBe true
       suppressProblemLogs(blockState.advance()) shouldBe empty
       blockState.isBlockComplete shouldBe false
 
       // Commit with GOOD hash. Now block can be completed.
-      assertNoLogs(blockState.processMessage(createCommit(otherPeer3))) shouldBe true
+      assertNoLogs(blockState.processMessage(createCommit(otherId3))) shouldBe true
       suppressProblemLogs(blockState.advance()) shouldBe empty
 
       blockState.commitCertificate should contain(
         CommitCertificate(
           prePrepare,
-          Seq(createCommit(otherPeer2), createCommit(otherPeer3), createCommit(myId)),
+          Seq(createCommit(otherId2), createCommit(otherId3), createCommit(myId)),
         )
       )
       blockState.isBlockComplete shouldBe true
     }
 
     "do not set PrePrepare after failed validation" in {
-      val leader = otherPeers.head
+      val leader = otherIds.head
       val blockState = createBlockState(
-        otherPeers.toSet,
+        otherIds.toSet,
         leader,
         pbftMessageValidator = (_: PrePrepare) => Left("validation failure"),
       )
@@ -414,7 +411,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
     }
 
     "complete block as leader with out-of-order Pbft messages" in {
-      val blockState = createBlockState(otherPeers.toSet, myId)
+      val blockState = createBlockState(otherIds.toSet, myId)
       val myPrepare = createPrepare(myId)
       val myCommit = createCommit(myId)
 
@@ -431,17 +428,17 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       )
 
       // Receive some commits first, but not enough yet to complete the block
-      otherPeers.dropRight(1).foreach { peer =>
-        assertNoLogs(blockState.processMessage(createCommit(peer))) shouldBe true
+      otherIds.dropRight(1).foreach { node =>
+        assertNoLogs(blockState.processMessage(createCommit(node))) shouldBe true
         blockState.advance() shouldBe empty
       }
 
-      // Receive one prepare from a peer, which should be one short of threshold to send a local commit
-      assertNoLogs(blockState.processMessage(createPrepare(otherPeers.head))) shouldBe true
+      // Receive one prepare from a node, which should be one short of threshold to send a local commit
+      assertNoLogs(blockState.processMessage(createPrepare(otherIds.head))) shouldBe true
       blockState.advance() shouldBe empty
 
       // Receive the final prepare that should complete the block
-      assertNoLogs(blockState.processMessage(createPrepare(otherPeer2))) shouldBe true
+      assertNoLogs(blockState.processMessage(createPrepare(otherId2))) shouldBe true
       blockState.advance() should contain theSameElementsInOrderAs List(
         SignPbftMessage(myCommit.message)
       )
@@ -450,7 +447,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       inside(blockState.advance()) {
         case List(SendPbftMessage(commit, Some(StorePrepares(preparesToStore)))) =>
           commit shouldBe myCommit
-          val expectedPreparesToStore = otherPeers.take(2).map(createPrepare(_)) :+ myPrepare
+          val expectedPreparesToStore = otherIds.take(2).map(createPrepare(_)) :+ myPrepare
           preparesToStore should contain theSameElementsAs expectedPreparesToStore
       }
 
@@ -460,14 +457,14 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       blockState.commitCertificate should contain(
         CommitCertificate(
           prePrepare,
-          Seq(createCommit(otherPeer1), createCommit(otherPeer2), myCommit),
+          Seq(createCommit(otherId1), createCommit(otherId2), myCommit),
         )
       )
     }
 
     "complete block as follower with out-of-order Pbft messages" in {
-      val leader = otherPeers.head
-      val blockState = createBlockState(otherPeers.toSet, leader)
+      val leader = otherIds.head
+      val blockState = createBlockState(otherIds.toSet, leader)
 
       // As a follower, receive the PrePrepare and send a Prepare
       val pp = createPrePrepare(leader)
@@ -486,17 +483,17 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       blockState.confirmPrePrepareStored()
 
       // Receive some commits first, but not enough yet to complete the block
-      otherPeers.dropRight(1).foreach { peer =>
-        assertNoLogs(blockState.processMessage(createCommit(peer, hash))) shouldBe true
+      otherIds.dropRight(1).foreach { node =>
+        assertNoLogs(blockState.processMessage(createCommit(node, hash))) shouldBe true
         blockState.advance() shouldBe empty
       }
 
-      // Receive another prepare from a peer, which should be one short of threshold to send a local commit
-      assertNoLogs(blockState.processMessage(createPrepare(otherPeers.head, hash))) shouldBe true
+      // Receive another prepare from a node, which should be one short of threshold to send a local commit
+      assertNoLogs(blockState.processMessage(createPrepare(otherIds.head, hash))) shouldBe true
       blockState.advance() shouldBe empty
 
       // Receive the final prepare that should result in a local commit sent
-      assertNoLogs(blockState.processMessage(createPrepare(otherPeer2, hash))) shouldBe true
+      assertNoLogs(blockState.processMessage(createPrepare(otherId2, hash))) shouldBe true
       blockState.advance() should contain theSameElementsInOrderAs List(
         SignPbftMessage(myCommit.message)
       )
@@ -505,7 +502,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         case List(SendPbftMessage(commit, Some(StorePrepares(preparesToStore)))) =>
           commit shouldBe myCommit
           val expectedPreparesToStore =
-            Seq(myPrepare, createPrepare(otherPeer2, hash), createPrepare(otherPeers.head, hash))
+            Seq(myPrepare, createPrepare(otherId2, hash), createPrepare(otherIds.head, hash))
           preparesToStore should contain theSameElementsAs expectedPreparesToStore
       }
 
@@ -517,8 +514,8 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         CommitCertificate(
           pp,
           Seq(
-            createCommit(otherPeer1, hash),
-            createCommit(otherPeer2, hash),
+            createCommit(otherId1, hash),
+            createCommit(otherId2, hash),
             myCommit,
           ),
         )
@@ -526,7 +523,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
     }
 
     "complete block as leader with only PrePrepare and non-local Commits" in {
-      val blockState = createBlockState(otherPeers.toSet, myId)
+      val blockState = createBlockState(otherIds.toSet, myId)
       val myPrepare = createPrepare(myId)
 
       // As a leader, the PrePrepare must always come first
@@ -542,34 +539,34 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         SendPbftMessage(myPrepare, store = None)
       )
 
-      // Receive commits from all but the last peer, which should not complete the block
-      otherPeers.dropRight(1).foreach { peer =>
-        assertNoLogs(blockState.processMessage(createCommit(peer))) shouldBe true
+      // Receive commits from all but the last node, which should not complete the block
+      otherIds.dropRight(1).foreach { node =>
+        assertNoLogs(blockState.processMessage(createCommit(node))) shouldBe true
         blockState.advance() shouldBe empty
       }
 
-      // Receive a commit from the last peer, which should be a strong quorum of non-local commits
-      otherPeers.takeRight(1).foreach { peer =>
-        assertNoLogs(blockState.processMessage(createCommit(peer))) shouldBe true
+      // Receive a commit from the last node, which should be a strong quorum of non-local commits
+      otherIds.takeRight(1).foreach { node =>
+        assertNoLogs(blockState.processMessage(createCommit(node))) shouldBe true
         blockState.advance() shouldBe empty
         blockState.commitCertificate should contain(
           CommitCertificate(
             prePrepare,
-            Seq(createCommit(otherPeer1), createCommit(otherPeer2), createCommit(otherPeer3)),
+            Seq(createCommit(otherId1), createCommit(otherId2), createCommit(otherId3)),
           )
         )
       }
 
       // Finish receiving a quorum of prepares and assert that the local commit action is NOT fired
-      otherPeers.dropRight(1).foreach { peer =>
-        assertNoLogs(blockState.processMessage(createPrepare(peer))) shouldBe true
+      otherIds.dropRight(1).foreach { node =>
+        assertNoLogs(blockState.processMessage(createPrepare(node))) shouldBe true
       }
       blockState.advance() shouldBe empty
     }
 
     "complete block as follower with only PrePrepare and non-local Commits" in {
-      val leader = otherPeers.head
-      val blockState = createBlockState(otherPeers.toSet, leader)
+      val leader = otherIds.head
+      val blockState = createBlockState(otherIds.toSet, leader)
 
       // As a follower, receive the PrePrepare and send a Prepare
       val pp = createPrePrepare(leader)
@@ -587,37 +584,37 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         SendPbftMessage(myPrepare, store = Some(StorePrePrepare(pp)))
       )
 
-      // Receive commits from all but the last peer, which should not complete the block
-      otherPeers.dropRight(1).foreach { peer =>
-        assertNoLogs(blockState.processMessage(createCommit(peer, hash))) shouldBe true
+      // Receive commits from all but the last node, which should not complete the block
+      otherIds.dropRight(1).foreach { node =>
+        assertNoLogs(blockState.processMessage(createCommit(node, hash))) shouldBe true
         blockState.advance() shouldBe empty
       }
 
-      // Receive a commit from the last peer, which should be a strong quorum of non-local commits
-      otherPeers.takeRight(1).foreach { peer =>
-        assertNoLogs(blockState.processMessage(createCommit(peer, hash))) shouldBe true
+      // Receive a commit from the last node, which should be a strong quorum of non-local commits
+      otherIds.takeRight(1).foreach { node =>
+        assertNoLogs(blockState.processMessage(createCommit(node, hash))) shouldBe true
         blockState.advance() shouldBe empty
         blockState.commitCertificate should contain(
           CommitCertificate(
             pp,
             Seq(
-              createCommit(otherPeer1, hash),
-              createCommit(otherPeer2, hash),
-              createCommit(otherPeer3, hash),
+              createCommit(otherId1, hash),
+              createCommit(otherId2, hash),
+              createCommit(otherId3, hash),
             ),
           )
         )
       }
 
       // Finish receiving a quorum of prepares and assert that the local commit action is NOT fired
-      otherPeers.dropRight(1).foreach { peer =>
-        assertNoLogs(blockState.processMessage(createPrepare(peer, hash))) shouldBe true
+      otherIds.dropRight(1).foreach { node =>
+        assertNoLogs(blockState.processMessage(createPrepare(node, hash))) shouldBe true
       }
       blockState.advance() shouldBe empty
     }
 
     "produce correct consensus certificate" in {
-      val blockState = createBlockState(otherPeers.toSet, myId)
+      val blockState = createBlockState(otherIds.toSet, myId)
       val myPrepare = createPrepare(myId)
       val myCommit = createCommit(myId)
 
@@ -627,13 +624,13 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       blockState.commitCertificate shouldBe None
       blockState.confirmPrePrepareStored()
 
-      val prepare1 = createPrepare(otherPeer1)
+      val prepare1 = createPrepare(otherId1)
       blockState.processMessage(prepare1)
       blockState.advance()
       blockState.prepareCertificate shouldBe None
       blockState.commitCertificate shouldBe None
 
-      val prepare2 = createPrepare(otherPeer2)
+      val prepare2 = createPrepare(otherId2)
       blockState.processMessage(prepare2)
       blockState.advance()
 
@@ -647,12 +644,12 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       prepareCert shouldBe Some(PrepareCertificate(prePrepare, Seq(prepare1, prepare2, myPrepare)))
       blockState.commitCertificate shouldBe None
 
-      val commit1 = createCommit(otherPeer1)
+      val commit1 = createCommit(otherId1)
       blockState.processMessage(commit1)
       blockState.advance()
       blockState.commitCertificate shouldBe None
 
-      val commit2 = createCommit(otherPeer2)
+      val commit2 = createCommit(otherId2)
       blockState.processMessage(commit2)
       blockState.advance()
       blockState.commitCertificate shouldBe None
@@ -665,7 +662,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
     }
 
     "as leader, only send local Prepare once PrePrepare is stored" in {
-      val blockState = createBlockState(otherPeers.toSet, myId)
+      val blockState = createBlockState(otherIds.toSet, myId)
       val myPrepare = createPrepare(myId)
 
       // Process the local PrePrepare
@@ -687,7 +684,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
     }
 
     "as any node, only send local Prepare after view change once NewView is stored" in {
-      val blockState = createBlockState(otherPeers.toSet, myId, viewNumber = ViewNumber(1L))
+      val blockState = createBlockState(otherIds.toSet, myId, viewNumber = ViewNumber(1L))
       val myPrepare = createPrepare(myId, view = ViewNumber(1L))
 
       assertNoLogs(blockState.processMessage(prePrepare)) shouldBe true
@@ -707,7 +704,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
     }
 
     "be able to restore prepare before pre-prepare" in {
-      val blockState = createBlockState(Set(fakeSequencerId("peer1"), fakeSequencerId("peer2")))
+      val blockState = createBlockState(Set(BftNodeId("node1"), BftNodeId("node2")))
       clock.advance(Duration.ofMinutes(5))
 
       val prepare = createPrepare(myId)
@@ -715,7 +712,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       assertNoLogs(blockState.processMessage(prepare)) shouldBe true
       assertNoLogs(blockState.advance()) shouldBe empty
 
-      // after processing our pre-prepare, we should only see a send result (and no sign result) for the prepare,
+      // after processing our pre-prepare, we should only see a send result (and no sign result) for the Prepare,
       // since we are using the recovered (pre-existing) prepare
       assertNoLogs(blockState.processMessage(prePrepare)) shouldBe true
       assertNoLogs(blockState.advance()) shouldBe List(
@@ -737,24 +734,22 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
     }
 
     "create status message and messages to retransmit" in {
-      val numberOfpeers = 4
-      val peers = (1 until numberOfpeers).map { index =>
-        fakeSequencerId(
-          s"peer$index"
-        )
+      val numberOfNodes = 4
+      val nodes = (1 until numberOfNodes).map { index =>
+        BftNodeId(s"node$index")
       }.toSet
-      val membership = Membership.forTesting(myId, peers)
-      val blockState = createBlockState(peers)
+      val membership = Membership.forTesting(myId, nodes)
+      val blockState = createBlockState(nodes)
       val strongQuorum = membership.orderingTopology.strongQuorum
       val noProgressBlockStatus = ConsensusStatus.BlockStatus.InProgress(
         prePrepared = false,
-        preparesPresent = Seq.fill(numberOfpeers)(false),
-        commitsPresent = Seq.fill(numberOfpeers)(false),
+        preparesPresent = Seq.fill(numberOfNodes)(false),
+        commitsPresent = Seq.fill(numberOfNodes)(false),
       )
       val myPrepare = createPrepare(myId)
-      val peerPrepares = peers.toSeq.sorted.map(createPrepare(_))
+      val nodePrepares = nodes.toSeq.sorted.map(createPrepare(_))
       val myCommit = createCommit(myId)
-      val peerCommits = peers.toSeq.sorted.map(createCommit(_))
+      val nodeCommits = nodes.toSeq.sorted.map(createCommit(_))
 
       blockState.status shouldBe noProgressBlockStatus
 
@@ -765,8 +760,8 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       blockState.status shouldBe ConsensusStatus.BlockStatus.InProgress(
         prePrepared = true,
-        preparesPresent = Seq.fill(numberOfpeers - 1)(false) ++ Seq(true),
-        commitsPresent = Seq.fill(numberOfpeers)(false),
+        preparesPresent = Seq.fill(numberOfNodes - 1)(false) ++ Seq(true),
+        commitsPresent = Seq.fill(numberOfNodes)(false),
       )
 
       blockState.messagesToRetransmit(noProgressBlockStatus) shouldBe empty
@@ -781,20 +776,20 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         myPrepare,
       )
 
-      peerPrepares.zipWithIndex.map { case (prepare, index) =>
+      nodePrepares.zipWithIndex.map { case (prepare, index) =>
         assertNoLogs(blockState.processMessage(prepare)) shouldBe true
         blockState.status shouldBe ConsensusStatus.BlockStatus.InProgress(
           prePrepared = true,
           preparesPresent =
-            Seq.fill(index + 1)(true) ++ Seq.fill(numberOfpeers - index - 2)(false) ++ Seq(true),
-          commitsPresent = Seq.fill(numberOfpeers)(false),
+            Seq.fill(index + 1)(true) ++ Seq.fill(numberOfNodes - index - 2)(false) ++ Seq(true),
+          commitsPresent = Seq.fill(numberOfNodes)(false),
         )
 
         blockState.messagesToRetransmit(
           noProgressBlockStatus
         ) should contain theSameElementsAs Seq[SignedMessage[PbftNetworkMessage]](
           prePrepare
-        ) ++ (peerPrepares.take(index + 1) ++ Seq(myPrepare))
+        ) ++ (nodePrepares.take(index + 1) ++ Seq(myPrepare))
           .take(strongQuorum)
       }
 
@@ -805,15 +800,15 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       blockState.status shouldBe ConsensusStatus.BlockStatus.InProgress(
         prePrepared = true,
-        preparesPresent = Seq.fill(numberOfpeers)(true),
-        commitsPresent = Seq.fill(numberOfpeers - 1)(false) ++ Seq(true),
+        preparesPresent = Seq.fill(numberOfNodes)(true),
+        commitsPresent = Seq.fill(numberOfNodes - 1)(false) ++ Seq(true),
       )
 
       // we only retransmit local commit after the prepares were stored
       val noCommitsBlockStatus = ConsensusStatus.BlockStatus.InProgress(
         prePrepared = true,
-        preparesPresent = Seq.fill(numberOfpeers)(true),
-        commitsPresent = Seq.fill(numberOfpeers)(false),
+        preparesPresent = Seq.fill(numberOfNodes)(true),
+        commitsPresent = Seq.fill(numberOfNodes)(false),
       )
       blockState.messagesToRetransmit(noCommitsBlockStatus) shouldBe empty
       blockState.confirmPreparesStored()
@@ -821,23 +816,23 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       blockState.messagesToRetransmit(noCommitsBlockStatus) should contain only myCommit
 
       // Receive all but one needed Commit to make progress
-      peerCommits.zipWithIndex.take(strongQuorum - 2).foreach { case (commit, index) =>
+      nodeCommits.zipWithIndex.take(strongQuorum - 2).foreach { case (commit, index) =>
         assertNoLogs(blockState.processMessage(commit)) shouldBe true
         blockState.status shouldBe ConsensusStatus.BlockStatus.InProgress(
           prePrepared = true,
-          preparesPresent = Seq.fill(numberOfpeers)(true),
+          preparesPresent = Seq.fill(numberOfNodes)(true),
           commitsPresent =
-            Seq.fill(index + 1)(true) ++ Seq.fill(numberOfpeers - index - 2)(false) ++ Seq(true),
+            Seq.fill(index + 1)(true) ++ Seq.fill(numberOfNodes - index - 2)(false) ++ Seq(true),
         )
 
         blockState.messagesToRetransmit(
           noCommitsBlockStatus
-        ) should contain theSameElementsAs (peerCommits.take(index + 1) ++ Seq(myCommit))
+        ) should contain theSameElementsAs (nodeCommits.take(index + 1) ++ Seq(myCommit))
           .take(strongQuorum)
       }
       blockState.advance() shouldBe empty
 
-      assertNoLogs(blockState.processMessage(peerCommits(strongQuorum - 2))) shouldBe true
+      assertNoLogs(blockState.processMessage(nodeCommits(strongQuorum - 2))) shouldBe true
       blockState.advance() shouldBe empty
       blockState.commitCertificate shouldBe defined
 
@@ -847,13 +842,13 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
   }
 
   private def createBlockState(
-      otherPeers: Set[SequencerId] = Set.empty,
-      leader: SequencerId = myId,
+      otherIds: Set[BftNodeId] = Set.empty,
+      leader: BftNodeId = myId,
       pbftMessageValidator: PbftMessageValidator = (_: PrePrepare) => Right(()),
       viewNumber: ViewNumber = ViewNumber.First,
   ) =
     new PbftBlockState(
-      Membership.forTesting(myId, otherPeers),
+      Membership.forTesting(myId, otherIds),
       clock,
       pbftMessageValidator,
       leader,
@@ -867,15 +862,13 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
 object PbftBlockStateTest {
 
-  private val myId = fakeSequencerId("self")
-  private val otherPeers = (1 to 3).map { index =>
-    fakeSequencerId(
-      s"peer$index"
-    )
+  private val myId = BftNodeId("self")
+  private val otherIds = (1 to 3).map { index =>
+    BftNodeId(s"node$index")
   }
-  private val otherPeer1 = otherPeers.head
-  private val otherPeer2 = otherPeers(1)
-  private val otherPeer3 = otherPeers(2)
+  private val otherId1 = otherIds.head
+  private val otherId2 = otherIds(1)
+  private val otherId3 = otherIds(2)
   private val canonicalCommitSet = CanonicalCommitSet(
     Set(
       createCommit(
@@ -892,7 +885,7 @@ object PbftBlockStateTest {
     HashAlgorithm.Sha256,
   )
 
-  private def createPrePrepare(p: SequencerId): SignedMessage[PrePrepare] =
+  private def createPrePrepare(p: BftNodeId): SignedMessage[PrePrepare] =
     PrePrepare
       .create(
         BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
@@ -905,7 +898,7 @@ object PbftBlockStateTest {
       .fakeSign
 
   private def createPrepare(
-      p: SequencerId,
+      p: BftNodeId,
       hash: Hash = ppHash,
       view: ViewNumber = ViewNumber.First,
   ): SignedMessage[Prepare] =
@@ -920,7 +913,7 @@ object PbftBlockStateTest {
       .fakeSign
 
   private def createCommit(
-      p: SequencerId,
+      p: BftNodeId,
       hash: Hash = ppHash,
       view: ViewNumber = ViewNumber.First,
   ): SignedMessage[Commit] =

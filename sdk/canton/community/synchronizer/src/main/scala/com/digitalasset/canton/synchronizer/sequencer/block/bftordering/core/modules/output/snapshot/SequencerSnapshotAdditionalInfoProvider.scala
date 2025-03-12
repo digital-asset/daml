@@ -8,10 +8,13 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStoreReader
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  EpochNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.{
-  PeerActiveAt,
+  NodeActiveAt,
   SequencerSnapshotAdditionalInfo,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
@@ -20,7 +23,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SequencerNode,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleRef}
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -38,20 +40,20 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
       requester: ModuleRef[SequencerNode.SnapshotMessage],
   )(implicit actorContext: E#ActorContextT[Output.Message[E]], traceContext: TraceContext): Unit = {
     // TODO(#23143) Consider returning an error if the `snapshotTimestamp` is too high, i.e., above the safe watermark.
-    val peerActiveAtTimestamps =
-      orderingTopology.peersActiveAt.view.filter { case (_, activeAt) =>
+    val nodeActiveAtTimestamps =
+      orderingTopology.nodesActiveAt.view.filter { case (_, activeAt) =>
         activeAt.value <= TopologyActivationTime
           .fromEffectiveTime(EffectiveTime(snapshotTimestamp))
           .value
       }.toSeq
-    val activeAtBlockFutures = peerActiveAtTimestamps.map { case (_, timestamp) =>
+    val activeAtBlockFutures = nodeActiveAtTimestamps.map { case (_, timestamp) =>
       // TODO(#23143) Get the first block with a timestamp greater or equal to `timestamp` instead.
       // The latest block up to `timestamp` is taken for easier simulation testing and simpler error handling.
       //  It can result however in transferring more data than needed (in particular, from before the onboarding) if:
       //  1) `timestamp` is around an epoch boundary
       //  2) `timestamp` hasn't been processed by the node that a snapshot is taken from (can happen only in simulation
       //      tests)
-      //  Last but not least, if snapshots from different peers are compared for byte-for-byte equality,
+      //  Last but not least, if snapshots from different nodes are compared for byte-for-byte equality,
       //  the comparison might fail it there are nodes that are not caught up.
       outputMetadataStore.getLatestBlockAtOrBefore(timestamp.value)
     }
@@ -65,7 +67,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
       case Success(blocks) =>
         logger.info(s"Retrieved blocks $blocks for sequencer snapshot at $snapshotTimestamp")
         val epochNumbers = blocks.map(_.map(_.epochNumber))
-        provideWithEpochBasedInfo(epochNumbers, peerActiveAtTimestamps, requester)
+        provideWithEpochBasedInfo(epochNumbers, nodeActiveAtTimestamps, requester)
         // We chain several `pipeToSelf` for simplicity, rather than continue via messages to the Output module.
         //  Based on Pekko documentation it's ok, as `pipeToSelf` can be called from other threads than the ordinary
         //  actor message processing thread.
@@ -75,7 +77,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
 
   private def provideWithEpochBasedInfo(
       epochNumbers: Seq[Option[EpochNumber]],
-      peerActiveAtTimestamps: Seq[(SequencerId, TopologyActivationTime)],
+      nodeActiveAtTimestamps: Seq[(BftNodeId, TopologyActivationTime)],
       requester: ModuleRef[SequencerNode.SnapshotMessage],
   )(implicit actorContext: E#ActorContextT[Output.Message[E]], traceContext: TraceContext): Unit = {
     val epochInfoFutures = epochNumbers.map(maybeEpochNumber =>
@@ -135,8 +137,8 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
               (epochMetadataObjects, (firstBlocksInEpochs, lastBlocksInPreviousEpochs)),
             )
           ) =>
-        val peerIdsToActiveAt =
-          peerActiveAtTimestamps
+        val nodeIdsToActiveAt =
+          nodeActiveAtTimestamps
             .lazyZip(epochInfoObjects)
             .lazyZip(epochMetadataObjects)
             .lazyZip(firstBlocksInEpochs)
@@ -144,11 +146,11 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
             .toList
             .map {
               case (
-                    ((peerId, timestamp), epochInfo, epochMetadata, firstBlockMetadata),
+                    ((node, timestamp), epochInfo, epochMetadata, firstBlockMetadata),
                     // Too many zips result in more nesting
                     previousEpochLastBlockMetadata,
                   ) =>
-                peerId -> PeerActiveAt(
+                node -> NodeActiveAt(
                   timestamp,
                   epochInfo.map(_.number),
                   firstBlockMetadata.map(_.blockNumber),
@@ -158,12 +160,12 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
                 )
             }
             .toMap
-        logger.info(s"Providing peers for sequencer snapshot: $peerIdsToActiveAt")
+        logger.info(s"Providing nodes for sequencer snapshot: $nodeIdsToActiveAt")
         Some(
           Output.SequencerSnapshotMessage
             .AdditionalInfo(
               requester,
-              SequencerSnapshotAdditionalInfo(peerIdsToActiveAt),
+              SequencerSnapshotAdditionalInfo(nodeIdsToActiveAt),
             )
         )
     }

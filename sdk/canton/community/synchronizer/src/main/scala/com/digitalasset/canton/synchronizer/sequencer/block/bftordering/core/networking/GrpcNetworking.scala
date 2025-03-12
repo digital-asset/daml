@@ -73,15 +73,15 @@ final class GrpcNetworking(
     private val channels = mutable.Map[P2PEndpoint, ManagedChannel]()
     private val grpcSequencerClientAuths = mutable.Map[P2PEndpoint, GrpcSequencerClientAuth]()
 
-    // Called by the client network manager when establishing a connection to a peer
+    // Called by the client network manager when establishing a connection to an endpoint
     def getServerHandleOrStartConnection(
-        serverPeer: P2PEndpoint
+        serverEndpoint: P2PEndpoint
     ): Option[ServerHandleInfo[BftOrderingServiceReceiveRequest]] =
       mutex(this) {
-        val res = serverHandles.get(serverPeer)
+        val res = serverHandles.get(serverEndpoint)
         res.foreach { case ServerHandleInfo(sequencerId, handle, _) =>
           serverHandles.put(
-            serverPeer,
+            serverEndpoint,
             ServerHandleInfo(sequencerId, handle, isNewlyConnected = false),
           )
         }
@@ -90,22 +90,22 @@ final class GrpcNetworking(
         case attemptCompleted @ Some(_) =>
           attemptCompleted
         case _ =>
-          ensureConnectWorker(serverPeer)
+          ensureConnectWorker(serverEndpoint)
           None
       }
 
     // Called by:
-    // - The sender actor, if it fails to send a message to a peer.
+    // - The sender actor, if it fails to send a message to a node.
     // - The gRPC streaming client endpoint on error (and on completion, but it never occurs).
     // - close().
-    def closeConnection(serverPeer: P2PEndpoint): Unit = {
-      logger.info(s"Closing connection to peer in server role $serverPeer")
+    def closeConnection(serverEndpoint: P2PEndpoint): Unit = {
+      logger.info(s"Closing connection to endpoint in server role $serverEndpoint")
       mutex(this) {
-        serverHandles.remove(serverPeer).map(_.serverHandle).foreach(completeHandle)
-        connectWorkers.remove(serverPeer).discard // Signals "stop" to the connect worker
-        grpcSequencerClientAuths.remove(serverPeer).foreach(_.close())
-        channels.remove(serverPeer)
-      }.foreach(shutdownGrpcChannel(serverPeer, _))
+        serverHandles.remove(serverEndpoint).map(_.serverHandle).foreach(completeHandle)
+        connectWorkers.remove(serverEndpoint).discard // Signals "stop" to the connect worker
+        grpcSequencerClientAuths.remove(serverEndpoint).foreach(_.close())
+        channels.remove(serverEndpoint)
+      }.foreach(shutdownGrpcChannel(serverEndpoint, _))
     }
 
     def close(): Unit = {
@@ -116,8 +116,8 @@ final class GrpcNetworking(
         .await(
           "bft-ordering-grpc-networking-state-client-close",
           logFailing = Some(Level.WARN),
-        )(Future.sequence(serverHandles.keys.map { serverPeer =>
-          Future(closeConnection(serverPeer))
+        )(Future.sequence(serverHandles.keys.map { serverEndpoint =>
+          Future(closeConnection(serverEndpoint))
         }))
         .discard
       logger.debug("Shutting down connection executor")
@@ -125,32 +125,35 @@ final class GrpcNetworking(
       logger.debug("Closed P2P networking (client role)")
     }
 
-    private def ensureConnectWorker(serverPeer: P2PEndpoint): Unit =
+    private def ensureConnectWorker(serverEndpoint: P2PEndpoint): Unit =
       mutex(this) {
-        connectWorkers.get(serverPeer) match {
+        connectWorkers.get(serverEndpoint) match {
           case Some(task) if !task.isCompleted => ()
           case _ =>
             connectWorkers
               .put(
-                serverPeer,
-                connect(serverPeer),
+                serverEndpoint,
+                connect(serverEndpoint),
               )
               .discard
         }
       }
 
-    private def connect(serverPeer: P2PEndpoint): FutureUnlessShutdown[Unit] =
+    private def connect(serverEndpoint: P2PEndpoint): FutureUnlessShutdown[Unit] =
       performUnlessClosingF("p2p-connect") {
-        logger.debug(s"Creating a gRPC channel and connecting to peer in server role $serverPeer")
+        logger.debug(
+          s"Creating a gRPC channel and connecting to endpoint in server role $serverEndpoint"
+        )
         val OpenChannel(
           channel,
           maybeSequencerIdFromAuthenticationFuture,
           asyncStub,
           blockingStub,
         ) =
-          openGrpcChannel(serverPeer)
+          openGrpcChannel(serverEndpoint)
 
-        val serverHandleOptionT = createServerHandle(serverPeer, channel, asyncStub, blockingStub)
+        val serverHandleOptionT =
+          createServerHandle(serverEndpoint, channel, asyncStub, blockingStub)
         maybeSequencerIdFromAuthenticationFuture match {
           case Some(sequencerIdFromAuthenticationFuture) =>
             sequencerIdFromAuthenticationFuture.flatMap { sequencerIdFromAuthentication =>
@@ -159,10 +162,14 @@ final class GrpcNetworking(
                   .map { case (_, streamFromServer) =>
                     // We don't care about the communicated sequencer ID if authentication is enabled
                     logger.info(
-                      s"Successfully connected to peer in server role $serverPeer " +
+                      s"Successfully connected to endpoint in server role $serverEndpoint " +
                         s"authenticated as sequencer with ID $sequencerIdFromAuthentication"
                     )
-                    addServerPeer(serverPeer, sequencerIdFromAuthentication, streamFromServer)
+                    addServerEndpoint(
+                      serverEndpoint,
+                      sequencerIdFromAuthentication,
+                      streamFromServer,
+                    )
                   }
               )
             }
@@ -171,34 +178,37 @@ final class GrpcNetworking(
               serverHandleOptionT
                 .map { case (communicatedSequencerId, streamFromServer) =>
                   logger.info(
-                    s"Successfully connected to peer in server role $serverPeer " +
+                    s"Successfully connected to endpoint in server role $serverEndpoint " +
                       s"claiming to be sequencer with ID $communicatedSequencerId (authentication is disabled)"
                   )
-                  addServerPeer(serverPeer, communicatedSequencerId, streamFromServer)
+                  addServerEndpoint(serverEndpoint, communicatedSequencerId, streamFromServer)
                 }
             )
         }
       }(connectExecutionContext, TraceContext.empty)
 
-    private def addServerPeer(
-        serverPeer: P2PEndpoint,
+    private def addServerEndpoint(
+        serverEndpoint: P2PEndpoint,
         sequencerId: SequencerId,
         streamFromServer: StreamObserver[BftOrderingServiceReceiveRequest],
     ): Unit =
-      // Peer streams are unidirectional: two of them (one per direction) are needed for a full-duplex P2P link.
+      // These streams are unidirectional: two of them (one per direction) are needed for a full-duplex P2P link.
       //  We avoid bidirectional streaming because client TLS certificate authentication is not well-supported
       //  by all network infrastructure, but we still want to be able to authenticate both ends with TLS.
       //  TLS support is however only about transport security; message-level authentication relies on
       //  signatures with keys registered in the Canton topology, that are unrelated to the TLS certificates.
       mutex(this) {
         serverHandles
-          .put(serverPeer, ServerHandleInfo(sequencerId, streamFromServer, isNewlyConnected = true))
+          .put(
+            serverEndpoint,
+            ServerHandleInfo(sequencerId, streamFromServer, isNewlyConnected = true),
+          )
           .discard
       }
 
-    private def openGrpcChannel(serverPeer: P2PEndpoint): OpenChannel = {
+    private def openGrpcChannel(serverEndpoint: P2PEndpoint): OpenChannel = {
       implicit val executor: Executor = (command: Runnable) => executionContext.execute(command)
-      val channel = createChannelBuilder(serverPeer.endpointConfig).build()
+      val channel = createChannelBuilder(serverEndpoint.endpointConfig).build()
       val maybeGrpcSequencerClientAuthAndServerEndpoint =
         authenticationInitialState.map(auth =>
           new GrpcSequencerClientAuth(
@@ -206,7 +216,7 @@ final class GrpcNetworking(
             member = auth.sequencerId,
             crypto = auth.authenticationServices.syncCryptoForAuthentication.crypto,
             channelPerEndpoint =
-              NonEmpty(Map, Endpoint(serverPeer.address, serverPeer.port) -> channel),
+              NonEmpty(Map, Endpoint(serverEndpoint.address, serverEndpoint.port) -> channel),
             supportedProtocolVersions = Seq(auth.protocolVersion),
             tokenManagerConfig = auth.authTokenConfig,
             clock = auth.clock,
@@ -215,11 +225,11 @@ final class GrpcNetworking(
           ) -> auth.serverEndpoint
         )
       mutex(this) {
-        channels.put(serverPeer, channel).discard
+        channels.put(serverEndpoint, channel).discard
         maybeGrpcSequencerClientAuthAndServerEndpoint.foreach { case (auth, _) =>
-          grpcSequencerClientAuths.put(serverPeer, auth).discard
+          grpcSequencerClientAuths.put(serverEndpoint, auth).discard
         }
-        logger.debug(s"Created gRPC channel to peer in server role $serverPeer")
+        logger.debug(s"Created gRPC channel to endpoint in server role $serverEndpoint")
       }
 
       def maybeAuthenticateStub[S <: AbstractStub[S]](stub: S) =
@@ -271,7 +281,7 @@ final class GrpcNetworking(
 
     @SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
     private def createServerHandle(
-        serverPeer: P2PEndpoint,
+        serverEndpoint: P2PEndpoint,
         channel: ManagedChannel,
         asyncStub: BftOrderingServiceGrpc.BftOrderingServiceStub,
         blockingStub: BftOrderingServiceGrpc.BftOrderingServiceBlockingStub,
@@ -302,11 +312,11 @@ final class GrpcNetworking(
           result <-
             if (
               !isClosing && mutex(this) {
-                connectWorkers.contains(serverPeer)
+                connectWorkers.contains(serverEndpoint)
               }
             ) {
               createServerHandle(
-                serverPeer,
+                serverEndpoint,
                 channel,
                 asyncStub,
                 blockingStub,
@@ -331,7 +341,7 @@ final class GrpcNetworking(
         val sequencerIdPromise = Promise[SequencerId]()
         val streamFromServer = asyncStub.receive(
           new GrpcClientHandle(
-            serverPeer,
+            serverEndpoint,
             sequencerIdPromise,
             closeConnection,
             authenticationEnabled = authenticationInitialState.isDefined,
@@ -347,7 +357,7 @@ final class GrpcNetworking(
                 Future.successful(Option(value))
               case Failure(exception) =>
                 retry(
-                  s"create a stream to peer $serverPeer",
+                  s"create a stream to '$serverEndpoint''",
                   exception,
                   connectRetryDelay,
                   attemptNumber + 1,
@@ -355,15 +365,15 @@ final class GrpcNetworking(
             }
           )
         case Failure(exception) =>
-          retry(s"ping peer $serverPeer", exception, connectRetryDelay, attemptNumber + 1)
+          retry(s"ping endpoint $serverEndpoint", exception, connectRetryDelay, attemptNumber + 1)
       }
     }
 
     private def shutdownGrpcChannel(
-        serverPeer: P2PEndpoint,
+        serverEndpoint: P2PEndpoint,
         channel: ManagedChannel,
     ): Unit = {
-      logger.debug(s"Terminating gRPC channel to peer in server role $serverPeer")
+      logger.debug(s"Terminating gRPC channel to endpoint in server role $serverEndpoint")
       val terminated =
         channel
           .shutdownNow()
@@ -373,10 +383,12 @@ final class GrpcNetworking(
           )
       if (!terminated) {
         logger.warn(
-          s"Failed to terminate in ${timeouts.closing.duration} the gRPC channel to peer in server role $serverPeer"
+          s"Failed to terminate in ${timeouts.closing.duration} the gRPC channel to endpoint in server role $serverEndpoint"
         )
       } else {
-        logger.info(s"Successfully terminated gRPC channel to peer in server role $serverPeer")
+        logger.info(
+          s"Successfully terminated gRPC channel to endpoint in server role $serverEndpoint"
+        )
       }
     }
   }

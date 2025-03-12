@@ -39,9 +39,9 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.top
   CryptoProvider,
   TopologyActivationTime,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochLength,
   EpochNumber,
@@ -65,7 +65,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   OrderedBlockForOutput,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.{
-  PeerActiveAt,
+  NodeActiveAt,
   SequencerSnapshotAdditionalInfo,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
@@ -91,7 +91,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.*
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.protobuf.ByteString
@@ -115,7 +114,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
   private implicit val config: BftBlockOrdererConfig = BftBlockOrdererConfig()
 
   private val blockOrder4Nodes =
-    Iterator.continually(allPeers).flatten.take(DefaultEpochLength.toInt).toSeq
+    Iterator.continually(allIds).flatten.take(DefaultEpochLength.toInt).toSeq
   private val blockMetadata4Nodes = blockOrder4Nodes.zipWithIndex.map { case (_, blockNum) =>
     BlockMetadata.mk(EpochNumber.First, blockNum.toLong)
   }
@@ -182,10 +181,10 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
 
       "start a new epoch when it hasn't been started only if the node is part of the topology" in {
         Table(
-          ("topology peers", "startEpoch calls count"),
-          (allPeers, times(1)),
-          (otherPeers, never),
-        ).forEvery { case (topologyPeers, expectedStartEpochCalls) =>
+          ("topology nodes", "startEpoch calls count"),
+          (allIds, times(1)),
+          (otherIds, never),
+        ).forEvery { case (nodes, expectedStartEpochCalls) =>
           val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
           val latestTopologyActivationTime = TopologyActivationTime(aTimestamp)
           val latestCompletedEpochFromStore = EpochStore.Epoch(
@@ -220,12 +219,12 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             Consensus.NewEpochTopology(
               EpochNumber(1L),
               Membership(
-                selfId,
+                myId,
                 OrderingTopology(
-                  peers = topologyPeers.toSet,
+                  nodes = nodes.toSet,
                   activationTime = nextTopologyActivationTime,
                 ),
-                allPeers,
+                allIds,
               ),
               fakeCryptoProvider,
               GenesisPreviousEpochMaxBftTime,
@@ -256,9 +255,9 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
           aStartEpoch.next(epochLength, aTopologyActivationTime, aPreviousEpochMaxBftTime)
         val membership =
           Membership(
-            selfId,
+            myId,
             anOrderingTopology.copy(activationTime = aTopologyActivationTime),
-            allPeers,
+            allIds,
           )
         val latestCompletedEpochFromStore = EpochStore.Epoch(
           EpochInfo(
@@ -281,7 +280,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                   aTopologyActivationTime.value,
                   OrderingBlock.empty,
                   CanonicalCommitSet.empty,
-                  selfId,
+                  myId,
                 )
                 .fakeSign
               Block(
@@ -339,7 +338,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
 
         val order = Mockito.inOrder(stateTransferManagerMock, segmentModuleMock)
         order
-          .verify(segmentModuleMock, times(membership.orderingTopology.peers.size))
+          .verify(segmentModuleMock, times(membership.orderingTopology.nodes.size))
           .asyncSend(ConsensusSegment.Start)
         succeed
       }
@@ -458,10 +457,10 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
 
       "start a new epoch if its topology has already been received but only if the node is part of the topology" in {
         Table(
-          ("topology peers", "startEpoch calls count"),
-          (allPeers, times(1)),
-          (otherPeers, never),
-        ).forEvery { case (topologyPeers, expectedStartEpochCalls) =>
+          ("topology nodes", "startEpoch calls count"),
+          (allIds, times(1)),
+          (otherIds, never),
+        ).forEvery { case (nodes, expectedStartEpochCalls) =>
           val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
           val latestTopologyActivationTime = TopologyActivationTime(aTimestamp)
           val latestCompletedEpochFromStore = EpochStore.Epoch(
@@ -493,12 +492,12 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                 NewEpochTopology(
                   EpochNumber(1L),
                   Membership(
-                    selfId,
+                    myId,
                     OrderingTopology(
-                      peers = topologyPeers.toSet,
+                      nodes = nodes.toSet,
                       activationTime = nextTopologyActivationTime,
                     ),
-                    topologyPeers,
+                    nodes,
                   ),
                   fakeCryptoProvider,
                   GenesisPreviousEpochMaxBftTime,
@@ -576,7 +575,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                     HashAlgorithm.Sha256,
                   ),
                   CantonTimestamp.Epoch,
-                  from = selfId,
+                  from = myId,
                 )
                 .fakeSign
             )
@@ -615,7 +614,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                     CantonTimestamp.Epoch,
                     OrderingBlock.empty,
                     CanonicalCommitSet.empty,
-                    from = selfId,
+                    from = myId,
                   )
                   .fakeSign
               val completedBlocks =
@@ -727,6 +726,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             Output.BlockOrdered(
               OrderedBlockForOutput(
                 expectedOrderedBlock,
+                prePrepare.viewNumber,
                 leaderOfBlock,
                 isLastBlockInEpoch,
                 OrderedBlockForOutput.Mode.FromConsensus,
@@ -764,12 +764,11 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             sequencerSnapshotAdditionalInfo = Some(
               SequencerSnapshotAdditionalInfo(
                 Map(
-                  selfId -> PeerActiveAt(
+                  myId -> NodeActiveAt(
                     timestamp = TopologyActivationTime(CantonTimestamp.Epoch),
                     epochNumber = Some(aStartEpochNumber),
                     firstBlockNumberInEpoch = Some(aStartEpoch.startBlockNumber),
-                    epochTopologyQueryTimestamp =
-                      Some(TopologyActivationTime(CantonTimestamp.MinValue)),
+                    epochTopologyQueryTimestamp = Some(aStartEpoch.topologyActivationTime),
                     epochCouldAlterOrderingTopology = None,
                     previousBftTime = None,
                   )
@@ -782,15 +781,16 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
 
         consensus.receive(Consensus.Start)
 
-        // TODO(#24268) fully test
-        context.extractBecomes() should matchPattern {
+        val becomes = context.extractBecomes()
+        println(aStartEpoch)
+        becomes should matchPattern {
           case Seq(
                 StateTransferBehavior(
-                  `DefaultEpochLength`,
+                  DefaultEpochLength,
                   `aStartEpochNumber`,
-                  _,
-                  _,
-                  _,
+                  `aTopologyInfo`,
+                  `aStartEpoch`,
+                  GenesisEpoch,
                 )
               ) =>
         }
@@ -810,14 +810,14 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                 clock.now,
                 OrderingBlock(oneRequestOrderingBlock.proofs),
                 CanonicalCommitSet(Set.empty),
-                allPeers(1),
+                allIds(1),
               ),
               Signature.noSignature,
             )
           ),
           RetransmissionsMessage.VerifiedNetworkMessage(
             RetransmissionsMessage.RetransmissionRequest.create(
-              EpochStatus(allPeers(1), EpochNumber.First, Seq.empty)
+              EpochStatus(allIds(1), EpochNumber.First, Seq.empty)
             )
           ),
         ).forEvery { message =>
@@ -825,7 +825,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
           val retransmissionsManagerMock = mock[RetransmissionsManager[ProgrammableUnitTestEnv]]
           val segmentModuleMock = mock[ModuleRef[ConsensusSegment.Message]]
           val catchupDetectorMock = mock[CatchupDetector]
-          when(catchupDetectorMock.updateLatestKnownPeerEpoch(any[SequencerId], any[EpochNumber]))
+          when(catchupDetectorMock.updateLatestKnownNodeEpoch(any[BftNodeId], any[EpochNumber]))
             .thenReturn(true)
           when(catchupDetectorMock.shouldCatchUp(any[EpochNumber])(any[TraceContext]))
             .thenReturn(true)
@@ -844,7 +844,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
           consensus.receive(message)
 
           verify(catchupDetectorMock, times(1))
-            .updateLatestKnownPeerEpoch(allPeers(1), EpochNumber.First)
+            .updateLatestKnownNodeEpoch(allIds(1), EpochNumber.First)
           verify(catchupDetectorMock, times(1))
             .shouldCatchUp(eqTo(GenesisEpochNumber))(any[TraceContext])
           verify(retransmissionsManagerMock, never)
@@ -874,7 +874,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
       segmentModuleFactoryFunction: EpochState.Epoch => ModuleRef[ConsensusSegment.Message] = _ =>
         fakeIgnoringModule,
   ): EpochState[ProgrammableUnitTestEnv] = {
-    val membership = Membership.forTesting(selfId)
+    val membership = Membership.forTesting(myId)
     val epochStateEpoch =
       EpochState.Epoch(
         latestCompletedEpochFromStore.info,
@@ -986,7 +986,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         moduleRefFactory,
         maybeRetransmissionsManager.getOrElse(
           new RetransmissionsManager[ProgrammableUnitTestEnv](
-            topologyInfo.thisPeer,
+            topologyInfo.thisNode,
             p2pNetworkOutModuleRef,
             fail(_),
             previousEpochsCommitCerts = Map.empty,
@@ -1013,28 +1013,28 @@ private[iss] object IssConsensusModuleTest {
   val aTimestamp: CantonTimestamp =
     CantonTimestamp.assertFromInstant(Instant.parse("2024-03-08T12:00:00.000Z"))
   val defaultBufferSize = 5
-  val selfId: SequencerId = fakeSequencerId("self")
-  val otherPeers: IndexedSeq[SequencerId] = (1 to 3).map { index =>
-    fakeSequencerId(
-      s"peer$index"
-    )
+  val myId: BftNodeId = BftNodeId("self")
+  val otherIds: IndexedSeq[BftNodeId] = (1 to 3).map { index =>
+    BftNodeId(s"node$index")
   }
-  val allPeers: Seq[SequencerId] = (selfId +: otherPeers).sorted
+  val allIds: Seq[BftNodeId] = (myId +: otherIds).sorted
   val aBatchId: BatchId = BatchId.createForTesting("A batch id")
   val oneRequestOrderingBlock: OrderingBlock = OrderingBlock(
     Seq(ProofOfAvailability(aBatchId, Seq.empty, CantonTimestamp.MaxValue))
   )
 
-  private val anOrderingTopology = OrderingTopology(allPeers.toSet)
-  private val aMembership = Membership(selfId, anOrderingTopology, allPeers)
+  private val anOrderingTopology = OrderingTopology(allIds.toSet)
+  private val aMembership = Membership(myId, anOrderingTopology, allIds)
+  private val aFakeCryptoProviderInstance: CryptoProvider[ProgrammableUnitTestEnv] =
+    fakeCryptoProvider
   private val aTopologyInfo = OrderingTopologyInfo[ProgrammableUnitTestEnv](
-    selfId,
+    myId,
     anOrderingTopology,
-    fakeCryptoProvider,
-    allPeers,
+    aFakeCryptoProviderInstance,
+    allIds,
     previousTopology = anOrderingTopology, // not relevant
-    fakeCryptoProvider,
-    allPeers,
+    aFakeCryptoProviderInstance,
+    allIds,
   )
 
   def createSegmentModuleRefFactory(

@@ -16,18 +16,18 @@ import scala.util.control.NonFatal
 /** Result for exposing the process exit code. All logging is expected to take place inside of the
   * runner.
   */
-trait Runner[E <: Environment] extends NamedLogging {
+trait Runner extends NamedLogging {
 
-  def run(environment: E): Unit
+  def run(environment: Environment): Unit
 }
 
-class ServerRunner[E <: Environment](
+class ServerRunner(
     bootstrapScript: Option[CantonScript] = None,
     override val loggerFactory: NamedLoggerFactory,
-) extends Runner[E]
+) extends Runner
     with NoTracing {
 
-  def run(environment: E): Unit =
+  def run(environment: Environment): Unit =
     try {
       def start(): Unit =
         environment
@@ -56,12 +56,12 @@ class ServerRunner[E <: Environment](
     }
 }
 
-class ConsoleInteractiveRunner[E <: Environment](
+class ConsoleInteractiveRunner(
     noTty: Boolean = false,
     bootstrapScript: Option[CantonScript],
     override val loggerFactory: NamedLoggerFactory,
-) extends Runner[E] {
-  def run(environment: E): Unit = {
+) extends Runner {
+  def run(environment: Environment): Unit = {
     val success =
       try {
         val consoleEnvironment = environment.createConsole()
@@ -73,14 +73,14 @@ class ConsoleInteractiveRunner[E <: Environment](
   }
 }
 
-class ConsoleScriptRunner[E <: Environment](
+class ConsoleScriptRunner(
     scriptPath: CantonScript,
     override val loggerFactory: NamedLoggerFactory,
-) extends Runner[E] {
+) extends Runner {
   private val Ok = 0
   private val Error = 1
 
-  override def run(environment: E): Unit = {
+  override def run(environment: Environment): Unit = {
     val exitCode =
       ConsoleScriptRunner.run(environment, scriptPath, logger) match {
         case Right(_unit) =>
@@ -147,20 +147,21 @@ final case class CantonScriptFromFile(scriptPath: File) extends CantonScript {
 }
 
 object ConsoleScriptRunner extends NoTracing {
-  def apply[E <: Environment](
+  def apply(
       scriptPath: File,
       loggerFactory: NamedLoggerFactory,
-  ): ConsoleScriptRunner[E] =
-    new ConsoleScriptRunner[E](CantonScriptFromFile(scriptPath), loggerFactory)
-  def run[E <: Environment](
-      environment: E,
+  ): ConsoleScriptRunner =
+    new ConsoleScriptRunner(CantonScriptFromFile(scriptPath), loggerFactory)
+
+  def run(
+      environment: Environment,
       scriptPath: File,
       logger: TracedLogger,
   ): Either[HeadlessConsole.HeadlessConsoleError, Unit] =
     run(environment, CantonScriptFromFile(scriptPath), logger)
 
-  def run[E <: Environment](
-      environment: E,
+  def run(
+      environment: Environment,
       cantonScript: CantonScript,
       logger: TracedLogger,
   ): Either[HeadlessConsole.HeadlessConsoleError, Unit] = {

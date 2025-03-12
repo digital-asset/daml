@@ -15,11 +15,11 @@ import com.digitalasset.canton.crypto.{
 }
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
   MessageFrom,
   SignedMessage,
 }
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import CryptoProvider.hashForMessage
@@ -42,7 +42,7 @@ trait CryptoProvider[E <: Env[E]] {
 
   def verifySignature(
       hash: Hash,
-      member: SequencerId,
+      member: BftNodeId,
       signature: Signature,
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
@@ -67,12 +67,12 @@ trait CryptoProvider[E <: Env[E]] {
 object CryptoProvider {
   def hashForMessage[MessageT <: ProtocolVersionedMemoizedEvidence](
       messageT: MessageT,
-      from: SequencerId,
+      from: BftNodeId,
       hashPurpose: HashPurpose,
   ): Hash =
     Hash
       .build(hashPurpose, Sha256)
-      .add(from.toProtoPrimitive)
+      .add(from)
       .add(messageT.getCryptographicEvidence)
       .finish()
 }

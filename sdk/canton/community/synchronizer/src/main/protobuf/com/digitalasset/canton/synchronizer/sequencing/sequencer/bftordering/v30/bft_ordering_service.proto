@@ -18,8 +18,7 @@ service BftOrderingService {
 
   // For simplicity and to avoid the usage of mTLS, which is not well supported by all network
   // infrastructure, each BFT ordering node (client endpoint) opens its own P2P connection to every
-  // other peer (server endpoint), performs server authentication (currently just receives the
-  // sequencer id) and then pushes messages to it.
+  // other server endpoint, performs server authentication and then pushes messages to it.
   //
   // Note that the Java gRPC implementation seems to implement unidirectional streams as
   // bidirectional ones, which seems to require anyway at least one server-sent message before
@@ -36,11 +35,11 @@ message PingResponse {}
 message BftOrderingServiceReceiveRequest {
   string trace_context = 1;
   BftOrderingMessageBody body = 2;
-  string sent_by_sequencer_uid = 3;
+  string sent_by = 3;
 }
 
 message BftOrderingServiceReceiveResponse {
-  string sequencer_uid = 1;
+  string from = 1;
 }
 
 message BftOrderingMessageBody {
@@ -107,7 +106,7 @@ message ConsensusMessage {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   BlockMetadata block_metadata = 1;
   int64 view_number = 2;
-  string from_sequencer_uid = 3;
+  string from = 3;
   int64 local_timestamp = 4; // in microseconds of UTC time since Unix epoch, updated for each newly created message
   // Might want to include segment
 
@@ -247,7 +246,7 @@ message ProofOfAvailability {
 }
 
 message AvailabilityAck {
-  string from_sequencer_uid = 1;
+  string from = 1;
   com.digitalasset.canton.crypto.v30.Signature signature = 2;
 }
 

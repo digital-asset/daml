@@ -4,9 +4,8 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions
 
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.EpochStatusBuilder
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   EpochNumber,
   ViewNumber,
 }
@@ -17,19 +16,20 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import org.scalatest.wordspec.AnyWordSpec
 
 class EpochStatusBuilderTest extends AnyWordSpec with BftSequencerBaseTest {
-  val self = fakeSequencerId("self")
-  val epoch0 = EpochNumber.First
-  val wrongEpoch = EpochNumber(epoch0 + 1)
+  private val myId = BftNodeId("self")
+  private val epoch0 = EpochNumber.First
+  private val wrongEpoch = EpochNumber(epoch0 + 1)
 
-  val completeSegment = ConsensusStatus.SegmentStatus.Complete
-  val inViewChangeSegment =
+  private val completeSegment = ConsensusStatus.SegmentStatus.Complete
+  private val inViewChangeSegment =
     ConsensusStatus.SegmentStatus.InViewChange(ViewNumber.First, Seq.empty, Seq.empty)
-  val inProgressSegment = ConsensusStatus.SegmentStatus.InProgress(ViewNumber.First, Seq.empty)
+  private val inProgressSegment =
+    ConsensusStatus.SegmentStatus.InProgress(ViewNumber.First, Seq.empty)
 
   "EpochStatusBuilder" should {
     "build epoch status based on segment index order" in {
       val epochStatusBuilder =
-        new EpochStatusBuilder(self, epoch0, numberOfSegments = 3)
+        new EpochStatusBuilder(myId, epoch0, numberOfSegments = 3)
 
       epochStatusBuilder.epochStatus shouldBe empty
 
@@ -56,7 +56,7 @@ class EpochStatusBuilderTest extends AnyWordSpec with BftSequencerBaseTest {
       )
       epochStatusBuilder.epochStatus shouldBe Some(
         ConsensusStatus.EpochStatus(
-          self,
+          myId,
           epoch0,
           Seq(inProgressSegment, completeSegment, inViewChangeSegment),
         )

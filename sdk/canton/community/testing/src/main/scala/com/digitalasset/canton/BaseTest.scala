@@ -34,7 +34,7 @@ import org.scalacheck.Test
 import org.scalactic.source.Position
 import org.scalactic.{Prettifier, source}
 import org.scalatest.*
-import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.concurrent.{Eventually, PatienceConfiguration, ScalaFutures}
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -361,6 +361,18 @@ trait BaseTest
         throw ex
     }
   }
+
+  private val scalaTestEventually = new Eventually {}
+  def eventuallyAsync[T](
+      timeUntilSuccess: FiniteDuration = 20.seconds,
+      maxPollInterval: FiniteDuration = 5.seconds,
+  )(testCode: => T)(implicit ec: ExecutionContext): FutureUnlessShutdown[T] =
+    FutureUnlessShutdown.outcomeF(
+      scalaTestEventually.eventually(
+        PatienceConfiguration.Timeout(timeUntilSuccess),
+        PatienceConfiguration.Interval(maxPollInterval),
+      )(Future(testCode))
+    )
 
   def eventually[T](
       timeUntilSuccess: FiniteDuration = 20.seconds,

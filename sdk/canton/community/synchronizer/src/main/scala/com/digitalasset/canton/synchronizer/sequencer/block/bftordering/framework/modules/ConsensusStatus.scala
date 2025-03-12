@@ -6,12 +6,12 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   EpochNumber,
   ViewNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
-import com.digitalasset.canton.topology.SequencerId
 
 /** Status messages that describe how far into the consensus process a node is. This is used as part
   * of retransmissions such that receiving nodes can tell if there are messages they can retransmit
@@ -20,7 +20,7 @@ import com.digitalasset.canton.topology.SequencerId
 object ConsensusStatus {
 
   final case class EpochStatus(
-      from: SequencerId,
+      from: BftNodeId,
       epochNumber: EpochNumber,
       segments: Seq[SegmentStatus],
   ) {
@@ -29,7 +29,7 @@ object ConsensusStatus {
 
   object EpochStatus {
     def fromProto(
-        from: SequencerId,
+        from: BftNodeId,
         protoEpochStatus: v30.EpochStatus,
     ): ParsingResult[EpochStatus] =
       for {

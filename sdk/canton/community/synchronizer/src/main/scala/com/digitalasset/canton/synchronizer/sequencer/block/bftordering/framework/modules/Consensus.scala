@@ -10,7 +10,8 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Epoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochNumber,
 }
@@ -29,7 +30,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, Module}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
@@ -45,7 +45,7 @@ object Consensus {
 
   sealed trait Admin extends Message[Nothing]
   object Admin {
-    final case class GetOrderingTopology(callback: (EpochNumber, Set[SequencerId]) => Unit)
+    final case class GetOrderingTopology(callback: (EpochNumber, Set[BftNodeId]) => Unit)
         extends Admin
   }
 
@@ -127,13 +127,13 @@ object Consensus {
       override protected[this] def toByteStringUnmemoized: ByteString =
         super[HasProtocolVersionedWrapper].toByteString
 
-      override def from: SequencerId = epochStatus.from
+      override def from: BftNodeId = epochStatus.from
     }
 
     object RetransmissionRequest
         extends VersioningCompanionContextMemoization[
           RetransmissionRequest,
-          SequencerId,
+          BftNodeId,
         ] {
       override def name: String = "RetransmissionRequest"
       def create(epochStatus: ConsensusStatus.EpochStatus): RetransmissionRequest =
@@ -143,7 +143,7 @@ object Consensus {
         )
 
       private def fromProtoRetransmissionMessage(
-          from: SequencerId,
+          from: BftNodeId,
           value: v30.RetransmissionMessage,
       )(
           originalByteString: ByteString
@@ -155,7 +155,7 @@ object Consensus {
       } yield result
 
       def fromProto(
-          from: SequencerId,
+          from: BftNodeId,
           proto: v30.EpochStatus,
       )(
           originalByteString: ByteString
@@ -180,7 +180,7 @@ object Consensus {
     }
 
     final case class RetransmissionResponse private (
-        from: SequencerId,
+        from: BftNodeId,
         commitCertificates: Seq[CommitCertificate],
     )(
         override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -205,11 +205,11 @@ object Consensus {
     object RetransmissionResponse
         extends VersioningCompanionContextMemoization[
           RetransmissionResponse,
-          SequencerId,
+          BftNodeId,
         ] {
       override def name: String = "RetransmissionResponse"
       def create(
-          from: SequencerId,
+          from: BftNodeId,
           commitCertificates: Seq[CommitCertificate],
       ): RetransmissionResponse =
         RetransmissionResponse(from, commitCertificates)(
@@ -218,7 +218,7 @@ object Consensus {
         )
 
       private def fromProtoRetransmissionMessage(
-          from: SequencerId,
+          from: BftNodeId,
           value: v30.RetransmissionMessage,
       )(
           originalByteString: ByteString
@@ -230,7 +230,7 @@ object Consensus {
       } yield response
 
       def fromProto(
-          from: SequencerId,
+          from: BftNodeId,
           protoRetransmissionResponse: v30.RetransmissionResponse,
       )(
           originalByteString: ByteString
@@ -268,7 +268,7 @@ object Consensus {
     final case class BlockTransferRequest private (
         startEpoch: EpochNumber,
         latestCompletedEpoch: EpochNumber,
-        from: SequencerId,
+        from: BftNodeId,
     )(
         override val representativeProtocolVersion: RepresentativeProtocolVersion[
           BlockTransferRequest.type
@@ -292,19 +292,19 @@ object Consensus {
     object BlockTransferRequest
         extends VersioningCompanionContextMemoization[
           BlockTransferRequest,
-          SequencerId,
+          BftNodeId,
         ] {
       override def name: String = "BlockTransferRequest"
       def create(
           startEpoch: EpochNumber,
           latestCompletedEpoch: EpochNumber,
-          from: SequencerId,
+          from: BftNodeId,
       ): BlockTransferRequest = BlockTransferRequest(startEpoch, latestCompletedEpoch, from)(
         protocolVersionRepresentativeFor(ProtocolVersion.minimum), // TODO(#23248)
         None,
       )
 
-      private def fromProtoStateTransferMessage(from: SequencerId, value: v30.StateTransferMessage)(
+      private def fromProtoStateTransferMessage(from: BftNodeId, value: v30.StateTransferMessage)(
           originalByteString: ByteString
       ): ParsingResult[BlockTransferRequest] = for {
         protoBlockTransferRequest <- value.message.blockRequest.toRight(
@@ -312,7 +312,7 @@ object Consensus {
         )
       } yield fromProto(from, protoBlockTransferRequest)(originalByteString)
 
-      def fromProto(from: SequencerId, request: v30.BlockTransferRequest)(
+      def fromProto(from: BftNodeId, request: v30.BlockTransferRequest)(
           originalByteString: ByteString
       ): BlockTransferRequest =
         BlockTransferRequest(
@@ -340,7 +340,7 @@ object Consensus {
     final case class BlockTransferResponse private (
         latestCompletedEpoch: EpochNumber,
         prePrepares: Seq[SignedMessage[PrePrepare]],
-        from: SequencerId,
+        from: BftNodeId,
     )(
         override val representativeProtocolVersion: RepresentativeProtocolVersion[
           BlockTransferResponse.type
@@ -366,13 +366,13 @@ object Consensus {
     object BlockTransferResponse
         extends VersioningCompanionContextMemoization[
           BlockTransferResponse,
-          SequencerId,
+          BftNodeId,
         ] {
       override def name: String = "BlockTransferResponse"
       def create(
           latestCompletedEpoch: EpochNumber,
           prePrepares: Seq[SignedMessage[PrePrepare]],
-          from: SequencerId,
+          from: BftNodeId,
       ): BlockTransferResponse = BlockTransferResponse(
         latestCompletedEpoch,
         prePrepares,
@@ -382,7 +382,7 @@ object Consensus {
         None,
       )
 
-      private def fromProtoStateTransferMessage(from: SequencerId, value: v30.StateTransferMessage)(
+      private def fromProtoStateTransferMessage(from: BftNodeId, value: v30.StateTransferMessage)(
           originalByteString: ByteString
       ): ParsingResult[BlockTransferResponse] = for {
         protoBlockTransferResponse <- value.message.blockResponse.toRight(
@@ -392,7 +392,7 @@ object Consensus {
       } yield blockTransferResponse
 
       def fromProto(
-          from: SequencerId,
+          from: BftNodeId,
           protoResponse: v30.BlockTransferResponse,
       )(originalByteString: ByteString): ParsingResult[BlockTransferResponse] =
         for {
@@ -427,7 +427,7 @@ object Consensus {
 
     final case class ResendBlockTransferRequest(
         blockTransferRequest: SignedMessage[BlockTransferRequest],
-        to: SequencerId,
+        to: BftNodeId,
     ) extends StateTransferMessage
 
     final case class BlocksStored[E <: Env[E]](
@@ -450,10 +450,7 @@ object Consensus {
       cryptoProvider: CryptoProvider[E],
   ) extends Message[E]
 
-  trait CatchUpMessage extends Message[Nothing]
-  object CatchUpMessage {
-    final case object SegmentCancelledEpoch extends CatchUpMessage
-  }
+  final case object SegmentCancelledEpoch extends Message[Nothing]
 }
 
 trait Consensus[E <: Env[E]] extends Module[E, Consensus.Message[E]] {

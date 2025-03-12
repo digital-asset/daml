@@ -77,6 +77,27 @@ class StoreBasedTopologySnapshot(
       ).toList.flatMap(_.packages.map(vp => (vp.packageId, vp))).toMap
     }
 
+  override def loadVettedPackages(participants: Seq[ParticipantId])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[ParticipantId, Map[PackageId, VettedPackage]]] =
+    findTransactions(
+      types = Seq(TopologyMapping.Code.VettedPackages),
+      filterUid = Some(participants.map(_.uid)),
+      filterNamespace = None,
+    ).map { transactions =>
+      transactions
+        .collectOfMapping[VettedPackages]
+        .result
+        .groupBy(_.mapping.participantId)
+        .view
+        .mapValues { txs =>
+          collectLatestMapping(TopologyMapping.Code.VettedPackages, txs).toList
+            .flatMap(_.packages.map(vp => (vp.packageId, vp)))
+            .toMap
+        }
+        .toMap
+    }
+
   override private[client] def loadUnvettedPackagesOrDependenciesUsingLoader(
       participant: ParticipantId,
       packageId: PackageId,

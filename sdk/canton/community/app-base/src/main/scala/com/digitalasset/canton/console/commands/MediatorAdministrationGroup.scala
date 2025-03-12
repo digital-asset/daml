@@ -9,6 +9,7 @@ import com.digitalasset.canton.admin.api.client.commands.MediatorAdministrationC
   Prune,
 }
 import com.digitalasset.canton.admin.api.client.commands.{
+  MediatorScanCommands,
   PruningSchedulerCommands,
   SynchronizerTimeCommands,
 }
@@ -24,11 +25,14 @@ import com.digitalasset.canton.console.{
   MediatorReference,
 }
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.mediator.admin.v30
+import com.digitalasset.canton.mediator.admin.v30.Verdict
+import com.digitalasset.canton.networking.grpc.RecordingStreamObserver
 import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.tracing.NoTracing
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -150,4 +154,32 @@ class MediatorSetupGroup(node: MediatorReference) extends ConsoleCommandGroup.Im
     }
   }
 
+}
+
+class MediatorScanGroup(
+    runner: AdminCommandRunner,
+    override protected val consoleEnvironment: ConsoleEnvironment,
+    override protected val name: String,
+    override protected val loggerFactory: NamedLoggerFactory,
+) extends NoTracing
+    with NamedLogging
+    with StreamingCommandHelper {
+  def verdicts(
+      fromRecordTimeOfResultExclusive: CantonTimestamp,
+      fromRecordTimeOfRequestExclusive: CantonTimestamp,
+      maxItems: PositiveInt,
+  ): Seq[Verdict] = {
+    val observer = new RecordingStreamObserver[v30.Verdict](completeAfter = maxItems)
+    val cmd = MediatorScanCommands.MediatorVerdicts(
+      mostRecentlyReceivedRecordTimeOfResult = Some(fromRecordTimeOfResultExclusive),
+      mostRecentlyReceivedRecordTimeOfRequest = Some(fromRecordTimeOfRequestExclusive),
+      observer,
+    )
+    mkResult(
+      consoleEnvironment.run(runner.adminCommand(cmd)),
+      s"fetch mediator verdicts starting from ($fromRecordTimeOfRequestExclusive, $fromRecordTimeOfResultExclusive)",
+      observer,
+      consoleEnvironment.commandTimeouts.bounded,
+    )
+  }
 }

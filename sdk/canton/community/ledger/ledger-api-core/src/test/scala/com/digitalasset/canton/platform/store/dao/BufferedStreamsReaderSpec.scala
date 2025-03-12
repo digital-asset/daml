@@ -25,7 +25,6 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.annotation.nowarn
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.Success
 import scala.util.chaining.*
 
 class BufferedStreamsReaderSpec
@@ -395,7 +394,7 @@ object BufferedStreamsReaderSpec {
       def updateStores(count: Int): Future[Done] = {
         val (done, handle) = {
           val blockingPromise = Promise[Unit]()
-          val unblockHandle: () => Unit = () => blockingPromise.complete(Success(()))
+          val unblockHandle: () => Unit = () => blockingPromise.success(())
 
           val done = Source
             .fromIterator(() => (ledgerEndIndex + 1L to count + ledgerEndIndex).iterator)
@@ -426,7 +425,7 @@ object BufferedStreamsReaderSpec {
           endInclusiveIdx: Int,
       ): (Future[Assertion], () => Unit) = {
         val blockingPromise = Promise[Unit]()
-        val unblockHandle: () => Unit = () => blockingPromise.complete(Success(()))
+        val unblockHandle: () => Unit = () => blockingPromise.success(())
 
         val assertReadStream = streamReader
           .stream[TransactionLogUpdate.TransactionAccepted](

@@ -7,8 +7,8 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.BlockTransferResponseQuorumBuilder
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochNumber,
   ViewNumber,
@@ -19,7 +19,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage.BlockTransferResponse
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
-import com.digitalasset.canton.topology.SequencerId
 import org.scalatest.wordspec.AnyWordSpec
 
 class BlockTransferResponseQuorumBuilderTest extends AnyWordSpec with BftSequencerBaseTest {
@@ -49,7 +48,7 @@ class BlockTransferResponseQuorumBuilderTest extends AnyWordSpec with BftSequenc
               ),
               blockTransferResponseUpTo(
                 epoch = 3L,
-                from = anotherSequencerId,
+                from = anotherId,
                 timestampForPrePrepares = CantonTimestamp.MaxValue,
               ),
             ),
@@ -80,23 +79,23 @@ class BlockTransferResponseQuorumBuilderTest extends AnyWordSpec with BftSequenc
 
 object BlockTransferResponseQuorumBuilderTest {
 
-  private val aSequencerId = fakeSequencerId("aSequencer")
-  private val anotherSequencerId = fakeSequencerId("anotherSequencer")
+  private val anId = BftNodeId("aSequencer")
+  private val anotherId = BftNodeId("anotherSequencer")
 
   // f = 1; f + 1 = 2
   private val membership =
     Membership.forTesting(
-      aSequencerId,
+      anId,
       Set(
-        anotherSequencerId,
-        fakeSequencerId("otherSequencer3"),
-        fakeSequencerId("otherSequencer4"),
+        anotherId,
+        BftNodeId("otherSequencer3"),
+        BftNodeId("otherSequencer4"),
       ),
     )
 
   private def blockTransferResponseUpTo(
       epoch: Long,
-      from: SequencerId = aSequencerId,
+      from: BftNodeId = anId,
       timestampForPrePrepares: CantonTimestamp = CantonTimestamp.MinValue,
   ) =
     BlockTransferResponse.create(
@@ -110,7 +109,7 @@ object BlockTransferResponseQuorumBuilderTest {
             timestampForPrePrepares,
             OrderingBlock(Seq.empty),
             CanonicalCommitSet.empty,
-            aSequencerId,
+            anId,
           )
           .fakeSign
       ),

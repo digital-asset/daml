@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding
 
-import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 
 trait OnboardingDataProvider[T] {
-  def provide(forSequencerId: SequencerId): T
+  def provide(forNode: BftNodeId): T
 }
 
 object EmptyOnboardingDataProvider extends OnboardingDataProvider[Unit] {
-  override def provide(forSequencerId: SequencerId): Unit = ()
+  override def provide(forNode: BftNodeId): Unit = ()
 }

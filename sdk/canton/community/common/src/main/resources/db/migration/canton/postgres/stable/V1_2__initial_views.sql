@@ -244,7 +244,7 @@ create or replace view debug.med_response_aggregations as
   select
     debug.canton_timestamp(request_id) as request_id,
     mediator_confirmation_request,
-    version,
+    debug.canton_timestamp(finalization_time) as finalization_time,
     verdict,
     request_trace_context
   from med_response_aggregations;

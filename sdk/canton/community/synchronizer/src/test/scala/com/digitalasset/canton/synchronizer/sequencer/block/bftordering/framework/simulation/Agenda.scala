@@ -5,8 +5,8 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleName
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.SequencerId
 import org.slf4j.{Logger, LoggerFactory}
 
 import java.util.concurrent.TimeUnit
@@ -36,16 +36,16 @@ class Agenda(clock: SimClock) {
   private def filterCommand(predicate: Command => Boolean): Unit =
     filterScheduledCommand(predicate.compose(_.command))
 
-  def removeCommandsOnCrash(peer: SequencerId): Unit =
+  def removeCommandsOnCrash(node: BftNodeId): Unit =
     filterScheduledCommand { scheduledCommand =>
       scheduledCommand.command match {
-        case InternalEvent(machine, _, _, _) if machine == peer =>
+        case InternalEvent(machine, _, _, _) if machine == node =>
           logger.info(s"Removing internal event $scheduledCommand to simulate crash")
           false
-        case InternalTick(machine, _, _, _) if machine == peer =>
+        case InternalTick(machine, _, _, _) if machine == node =>
           logger.info(s"Removing internal tick $scheduledCommand to simulate crash")
           false
-        case RunFuture(machine, _, _, _, _) if machine == peer =>
+        case RunFuture(machine, _, _, _, _) if machine == node =>
           logger.info(s"Removing future from $scheduledCommand to simulate crash")
           false
         case _ => true
@@ -69,30 +69,30 @@ class Agenda(clock: SimClock) {
     nextCommandSequencerNumber += 1
   }
 
-  def removeInternalTick(peer: SequencerId, tickId: Int): Unit = filterCommand {
+  def removeInternalTick(node: BftNodeId, tickId: Int): Unit = filterCommand {
     case i: InternalTick[_] =>
-      i.peer != peer ||
+      i.node != node ||
       i.tickId != tickId
     case _ => true
   }
 
   def findLatestScheduledLocalEvent(
-      peer: SequencerId,
+      node: BftNodeId,
       fromModuleName: ModuleName,
       to: ModuleName,
   ): Option[FiniteDuration] =
     queue.toSeq.view.flatMap { scheduledCommand =>
       scheduledCommand.command match {
         case i: InternalEvent[_]
-            if peer == i.peer && FromInternalModule(fromModuleName) == i.from && to == i.to =>
+            if node == i.node && FromInternalModule(fromModuleName) == i.from && to == i.to =>
           Seq(FiniteDuration((scheduledCommand.at - clock.now).toNanos, TimeUnit.NANOSECONDS))
         case _ => Seq.empty
       }
     }.maxOption
 
-  def removeClientTick(peer: SequencerId, tickId: Int): Unit = filterCommand {
+  def removeClientTick(node: BftNodeId, tickId: Int): Unit = filterCommand {
     case i: ClientTick[_] =>
-      i.peer != peer ||
+      i.node != node ||
       i.tickId != tickId
     case _ => true
   }

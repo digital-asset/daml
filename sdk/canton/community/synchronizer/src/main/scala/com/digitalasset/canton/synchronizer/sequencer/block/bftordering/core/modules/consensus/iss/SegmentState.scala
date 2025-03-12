@@ -14,7 +14,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   ConsensusCertificateValidator,
   PbftMessageValidatorImpl,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   ViewNumber,
 }
@@ -24,7 +25,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
@@ -58,10 +58,10 @@ class SegmentState(
   )
 
   // Only one view is active at a time, starting at view=0, inViewChange=false
-  // - Upon view change start, due to timeout or >= f+1 peer votes, increment currentView and inViewChange=true
+  // - Upon view change start, due to timeout or >= f+1 votes, increment currentView and inViewChange=true
   // - Upon view change completion, inViewChange=false (and view stays the same)
 
-  private var currentLeader: SequencerId = segment.originalLeader
+  private var currentLeader: BftNodeId = segment.originalLeader
   private var currentViewNumber: ViewNumber = ViewNumber.First
   private var inViewChange: Boolean = false
   private var strongQuorumReachedForCurrentView: Boolean = false
@@ -142,11 +142,11 @@ class SegmentState(
 
   def currentView: ViewNumber = currentViewNumber
 
-  def prepareVotes: Map[SequencerId, Long] = sumOverInProgressBlocks(_.prepareVoters)
+  def prepareVotes: Map[BftNodeId, Long] = sumOverInProgressBlocks(_.prepareVoters)
 
-  def commitVotes: Map[SequencerId, Long] = sumOverInProgressBlocks(_.commitVoters)
+  def commitVotes: Map[BftNodeId, Long] = sumOverInProgressBlocks(_.commitVoters)
 
-  def leader: SequencerId = currentLeader
+  def leader: BftNodeId = currentLeader
 
   def status: ConsensusStatus.SegmentStatus =
     if (isSegmentComplete) ConsensusStatus.SegmentStatus.Complete
@@ -166,7 +166,7 @@ class SegmentState(
       )
 
   def messagesToRetransmit(
-      from: SequencerId,
+      from: BftNodeId,
       remoteStatus: ConsensusStatus.SegmentStatus.Incomplete,
   )(implicit
       traceContext: TraceContext
@@ -175,7 +175,7 @@ class SegmentState(
       logger.debug(
         s"Node $from is in view ${remoteStatus.viewNumber}, which is higher than our current view $currentViewNumber, so we can't help with retransmissions"
       )
-      RetransmissionResult.empty
+      RetransmissionResult.Empty
     } else if (inViewChange) {
       // if we are in a view change, we help others make progress to complete the view change
       val vcState = viewChangeState(currentViewNumber)
@@ -205,11 +205,11 @@ class SegmentState(
             .collect { case (localBlockState, inProgress: ConsensusStatus.BlockStatus.InProgress) =>
               (localBlockState, inProgress) // only look at blocks they haven't completed yet
             }
-            .foldLeft(RetransmissionResult.empty) {
+            .foldLeft(RetransmissionResult.Empty) {
               case (RetransmissionResult(msgs, ccs), (localBlockState, remoteBlockStatus)) =>
                 localBlockState.consensusCertificate match {
                   case Some(cc: CommitCertificate) =>
-                    // TODO(#18788): just send a few commits in cases that's enough for remote node to complete quorum
+                    // TODO(#24442): just send a few commits in cases that's enough for remote node to complete quorum
                     RetransmissionResult(msgs, cc +: ccs)
                   case _ =>
                     val newMsgs = msgs ++ localBlockState.messagesToRetransmit(
@@ -225,7 +225,7 @@ class SegmentState(
         case _ =>
           val newView = viewChangeState(currentViewNumber).newViewMessage.toList
           val remoteBlockStatusNoPreparesOrCommits = {
-            val allMissing = Seq.fill(membership.sortedPeers.size)(false)
+            val allMissing = Seq.fill(membership.sortedNodes.size)(false)
             ConsensusStatus.BlockStatus.InProgress(
               prePrepared = true,
               preparesPresent = allMissing,
@@ -241,7 +241,7 @@ class SegmentState(
               case (RetransmissionResult(msgs, ccs), localBlockState) =>
                 localBlockState.consensusCertificate match {
                   case Some(cc: CommitCertificate) =>
-                    // TODO(#18788): rethink commit certs here, considering that some certs will be in the new-view message.
+                    // TODO(#24442): rethink commit certs here, considering that some certs will be in the new-view message.
                     // we could either: exclude sending commit certs that are already in the new-view,
                     // not take that into account and just send commit certs regardless (which means we may send the same cert twice),
                     // or not send any certs at all considering that the new-view message will likely contain most if not all of them
@@ -259,8 +259,8 @@ class SegmentState(
     }
 
   private def sumOverInProgressBlocks(
-      getVoters: SegmentBlockState => Iterable[SequencerId]
-  ): Map[SequencerId, Long] =
+      getVoters: SegmentBlockState => Iterable[BftNodeId]
+  ): Map[BftNodeId, Long] =
     segmentBlocks.forgetNE
       .flatMap(getVoters)
       .groupBy(identity)
@@ -269,7 +269,7 @@ class SegmentState(
       .toMap
 
   // Normal Case: PrePrepare, Prepare, Commit
-  // Note: We may want to limit the number of messages in the future queue, per peer
+  // Note: We may want to limit the number of messages in the future queue, per node
   //       When capacity is reached, we can (a) drop new messages, or (b) evict older for newer
   private def processNormalCaseMessage(
       msg: SignedMessage[PbftNormalCaseMessage]
@@ -405,7 +405,7 @@ class SegmentState(
   private def blockCompletionState: Seq[Boolean] =
     (0 until segment.slotNumbers.size).map(idx => isBlockComplete(segment.slotNumbers(idx)))
 
-  private def computeLeader(viewNumber: ViewNumber): SequencerId =
+  private def computeLeader(viewNumber: ViewNumber): BftNodeId =
     computeLeaderOfView(viewNumber, originalLeaderIndex, eligibleLeaders)
 
   private[iss] def isViewChangeInProgress: Boolean = inViewChange
@@ -671,14 +671,14 @@ object SegmentState {
       commitCerts: Seq[CommitCertificate] = Seq.empty,
   )
   object RetransmissionResult {
-    val empty = RetransmissionResult(Seq.empty, Seq.empty)
+    val Empty: RetransmissionResult = RetransmissionResult(Seq.empty, Seq.empty)
   }
 
   def computeLeaderOfView(
       viewNumber: ViewNumber,
       originalLeaderIndex: Int,
-      eligibleLeaders: Seq[SequencerId],
-  ): SequencerId = {
+      eligibleLeaders: Seq[BftNodeId],
+  ): BftNodeId = {
     val newIndex = (originalLeaderIndex + viewNumber) % eligibleLeaders.size
     eligibleLeaders(newIndex.toInt)
   }

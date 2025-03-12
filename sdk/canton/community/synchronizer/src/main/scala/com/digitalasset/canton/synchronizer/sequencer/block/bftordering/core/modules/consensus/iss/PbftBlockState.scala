@@ -9,7 +9,8 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.PbftMessageValidator
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   EpochNumber,
   ViewNumber,
 }
@@ -24,7 +25,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.mutable
@@ -44,7 +44,7 @@ final class PbftBlockState(
     membership: Membership,
     clock: Clock,
     messageValidator: PbftMessageValidator,
-    leader: SequencerId,
+    leader: BftNodeId,
     epoch: EpochNumber,
     view: ViewNumber,
     abort: String => Nothing,
@@ -59,8 +59,8 @@ final class PbftBlockState(
 
   // In-memory storage for block's PBFT votes in this view
   private var prePrepare: Option[SignedMessage[PrePrepare]] = None
-  private val prepareMap = mutable.HashMap[SequencerId, SignedMessage[Prepare]]()
-  private val commitMap = mutable.HashMap[SequencerId, SignedMessage[Commit]]()
+  private val prepareMap = mutable.HashMap[BftNodeId, SignedMessage[Prepare]]()
+  private val commitMap = mutable.HashMap[BftNodeId, SignedMessage[Commit]]()
 
   // TRUE when PrePrepare is stored
   private var prePrepareStored: Boolean = false
@@ -114,7 +114,7 @@ final class PbftBlockState(
   // To ensure "store-then-send" semantics, nodes can safely send a local Prepare in two cases:
   // * Special (optimized) case: if view == 0 and the node is a follower (non-leader), we can return SendPrepare
   //     result because of the populated `store` field (see below); the framework ensures any specified
-  //    `store` message is persisted first, and only then tries to send the payload (Prepare) to peers
+  //    `store` message is persisted first, and only then tries to send the payload (Prepare) to nodes
   // * General case: otherwise, the `store` message would be `None`, and the framework would try to send the
   //     Prepare immediately. In these cases, we must first wait for the PrePrepare to be confirmed as stored.
   private val sendPrepareAction =
@@ -143,7 +143,7 @@ final class PbftBlockState(
         val (matchingHash, nonMatchingHash) = prepareMap.values.partition(_.message.hash == hash)
         if (nonMatchingHash.nonEmpty)
           logger.warn(
-            s"Found non-matching hashes for prepare messages from peers (${nonMatchingHash.map(_.from)}); " +
+            s"Found non-matching hashes for prepare messages from (${nonMatchingHash.map(_.from)}); " +
               s"Metadata: ${pp.message.blockMetadata}, View: $view, ExpectedHash: ${pp.message.hash}, " +
               s"BadHashExample: ${nonMatchingHash.headOption.map(_.message.hash)}"
           )
@@ -181,7 +181,7 @@ final class PbftBlockState(
         val (matchingHash, nonMatchingHash) = commitMap.values.partition(_.message.hash == hash)
         if (nonMatchingHash.nonEmpty)
           logger.warn(
-            s"Found non-matching hashes for commit messages from peers (${nonMatchingHash.map(_.from)}); " +
+            s"Found non-matching hashes for commit messages from (${nonMatchingHash.map(_.from)}); " +
               s"Metadata: ${pp.message.blockMetadata}, View: $view, ExpectedHash: ${pp.message.hash}, " +
               s"BadHashExample: ${nonMatchingHash.headOption.map(_.message.hash)}"
           )
@@ -241,9 +241,9 @@ final class PbftBlockState(
       }
       .getOrElse(Seq.empty)
 
-  def prepareVoters: Iterable[SequencerId] = prepareMap.keys
+  def prepareVoters: Iterable[BftNodeId] = prepareMap.keys
 
-  def commitVoters: Iterable[SequencerId] = commitMap.keys
+  def commitVoters: Iterable[BftNodeId] = commitMap.keys
 
   private def setPrePrepare(pp: SignedMessage[PrePrepare])(implicit
       traceContext: TraceContext
@@ -261,7 +261,7 @@ final class PbftBlockState(
         metrics.security.noncompliant.labels.violationType.values.ConsensusRoleEquivocation,
       )
       logger.warn(
-        s"PrePrepare for block ${pp.message.blockMetadata.blockNumber} from wrong peer (${pp.from}), " +
+        s"PrePrepare for block ${pp.message.blockMetadata.blockNumber} from wrong node ('${pp.from}'), " +
           s"should be from $leader"
       )
       false
@@ -292,7 +292,7 @@ final class PbftBlockState(
     prepareMap.get(p.from) match {
       case Some(prepare) =>
         val baseLogMsg =
-          s"Prepare for block ${p.message.blockMetadata.blockNumber} already exists from peer ${p.from};"
+          s"Prepare for block ${p.message.blockMetadata.blockNumber} already exists from '${p.from}';"
         if (prepare.message.hash != p.message.hash) {
           emitNonCompliance(metrics)(
             p.from,
@@ -317,7 +317,7 @@ final class PbftBlockState(
     commitMap.get(c.from) match {
       case Some(commit) =>
         val baseLogMsg =
-          s"Commit for block ${c.message.blockMetadata.blockNumber} already exists from peer ${c.from}; "
+          s"Commit for block ${c.message.blockMetadata.blockNumber} already exists from '${c.from}'; "
         if (commit.message.hash != c.message.hash) {
           emitNonCompliance(metrics)(
             c.from,
@@ -411,8 +411,8 @@ final class PbftBlockState(
     else
       ConsensusStatus.BlockStatus.InProgress(
         prePrepare.isDefined,
-        membership.sortedPeers.map(prepareMap.contains),
-        membership.sortedPeers.map(commitMap.contains),
+        membership.sortedNodes.map(prepareMap.contains),
+        membership.sortedNodes.map(commitMap.contains),
       )
 
   def messagesToRetransmit(
@@ -434,9 +434,9 @@ final class PbftBlockState(
 
     def missingMessages[M <: PbftNetworkMessage](
         remoteHasIt: Seq[Boolean],
-        myMessages: collection.Map[SequencerId, SignedMessage[M]],
+        myMessages: collection.Map[BftNodeId, SignedMessage[M]],
         canIncludeLocalMessage: Boolean,
-    ): Seq[SignedMessage[PbftNetworkMessage]] = membership.sortedPeers.view
+    ): Seq[SignedMessage[PbftNetworkMessage]] = membership.sortedNodes.view
       .zip(remoteHasIt)
       .flatMap { case (node, hasMsg) =>
         if (hasMsg) None

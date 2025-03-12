@@ -23,7 +23,6 @@ object DbLockConfig {
     CantonConfigValidatorDerivation[DbLockConfig]
 
   /** For locks to be supported we must be using an [[DbConfig]] with it set to Postgres. */
-  // TODO(#22351) Reenable this check for the enterprise/community distinction?
   private[canton] def isSupportedConfig(config: StorageConfig): Boolean =
     PartialFunction.cond(config) { case _: DbConfig.Postgres =>
       true

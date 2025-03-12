@@ -34,7 +34,7 @@ private[output] object OutputModuleMetrics {
               metrics.global.requestsOrderingLatency.labels.ReceivingSequencer ->
                 // Only used when there are requests, in which case it matches the initial ISS segment leader,
                 //  which is also the receiving sequencer.
-                orderedBlockData.orderedBlockForOutput.from.toProtoPrimitive
+                orderedBlockData.orderedBlockForOutput.from
             )
           )
         }

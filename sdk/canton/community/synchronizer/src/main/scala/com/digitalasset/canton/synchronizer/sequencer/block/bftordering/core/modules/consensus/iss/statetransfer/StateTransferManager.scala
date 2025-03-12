@@ -8,7 +8,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   EpochLength,
   EpochNumber,
 }
@@ -21,7 +22,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.mutable
@@ -37,10 +37,10 @@ import scala.util.{Failure, Success}
   */
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class StateTransferManager[E <: Env[E]](
+    thisNode: BftNodeId,
     dependencies: ConsensusModuleDependencies[E],
     epochLength: EpochLength, // TODO(#19289) support variable epoch lengths
     epochStore: EpochStore[E],
-    thisPeer: SequencerId,
     override val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
@@ -56,15 +56,15 @@ class StateTransferManager[E <: Env[E]](
   private var blockTransferResponseQuorumBuilder: Option[BlockTransferResponseQuorumBuilder] = None
 
   private val messageSender = new StateTransferMessageSender[E](
+    thisNode,
     dependencies,
     epochLength,
     epochStore,
-    thisPeer,
     loggerFactory,
   )
 
   private val blockTransferResponseTimeouts =
-    mutable.Map[SequencerId, TimeoutManager[E, Consensus.Message[E], SequencerId]]()
+    mutable.Map[BftNodeId, TimeoutManager[E, Consensus.Message[E], BftNodeId]]()
 
   def inBlockTransfer: Boolean = stateTransferStartEpoch.isDefined
 
@@ -95,11 +95,11 @@ class StateTransferManager[E <: Env[E]](
           membership.myId,
         )
       messageSender.signMessage(cryptoProvider, blockTransferRequest) { signedMessage =>
-        membership.otherPeers.foreach { peerId =>
+        membership.otherNodes.foreach { node =>
           blockTransferResponseTimeouts
-            .put(peerId, new TimeoutManager(loggerFactory, RetryTimeout, peerId))
-            .foreach(_ => abort(s"There should be no timeout manager for peer $peerId yet"))
-          sendBlockTransferRequest(signedMessage, to = peerId)(abort)
+            .put(node, new TimeoutManager(loggerFactory, RetryTimeout, node))
+            .foreach(_ => abort(s"There should be no timeout manager for '$node' yet"))
+          sendBlockTransferRequest(signedMessage, to = node)(abort)
         }
       }
     }
@@ -165,7 +165,7 @@ class StateTransferManager[E <: Env[E]](
           .fold(
             validationMessage => logger.info(s"State transfer: $validationMessage, dropping..."),
             { _ =>
-              logger.info(s"State transfer: peer $from is starting transfer from epoch $startEpoch")
+              logger.info(s"State transfer: '$from' is starting transfer from epoch $startEpoch")
 
               messageSender.sendBlockTransferResponse(
                 activeCryptoProvider,
@@ -193,21 +193,21 @@ class StateTransferManager[E <: Env[E]](
 
   private def sendBlockTransferRequest(
       blockTransferRequest: SignedMessage[StateTransferMessage.BlockTransferRequest],
-      to: SequencerId,
+      to: BftNodeId,
   )(abort: String => Nothing)(implicit
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
   ): Unit =
     if (inBlockTransfer) {
       blockTransferResponseTimeouts
-        .getOrElse(to, abort(s"No timeout manager for peer $to"))
+        .getOrElse(to, abort(s"No timeout manager for '$to''"))
         .scheduleTimeout(
           StateTransferMessage.ResendBlockTransferRequest(blockTransferRequest, to)
         )
       messageSender.sendBlockTransferRequest(blockTransferRequest, to)
     } else {
       logger.info(
-        s"State transfer: not sending a block transfer request to $to when not in state transfer (likely a race)"
+        s"State transfer: not sending a block transfer request to '$to' when not in state transfer (likely a race)"
       )
     }
 
@@ -221,7 +221,7 @@ class StateTransferManager[E <: Env[E]](
       case Some(_) =>
         logger.debug(
           "State transfer: already reached quorum of matching block transfer responses; dropping an additional copy " +
-            s"from peer: ${response.from}"
+            s"from '${response.from}''"
         )
         StateTransferMessageResult.Continue
       case None =>

@@ -7,9 +7,9 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.PbftViewChangeState
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.SegmentState.computeLeaderOfView
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochNumber,
   ViewNumber,
@@ -17,7 +17,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.ViewChange
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.SequencerId
 import org.scalatest.wordspec.AsyncWordSpec
 import org.slf4j.event.Level.{INFO, WARN}
 
@@ -34,8 +33,8 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
     "storing messages" should {
       "store only valid View Change messages" in {
         val nextView = ViewNumber(ViewNumber.First + 1L)
-        val originalLeaderIndex = allPeers.indexOf(myId)
-        val nextLeader = computeLeaderOfView(nextView, originalLeaderIndex, allPeers)
+        val originalLeaderIndex = allIds.indexOf(myId)
+        val nextLeader = computeLeaderOfView(nextView, originalLeaderIndex, allIds)
 
         val vcState = new PbftViewChangeState(
           fullMembership,
@@ -64,8 +63,8 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       "store only valid New View messages" in {
         val nextView = ViewNumber(ViewNumber.First + 1)
-        val originalLeaderIndex = allPeers.indexOf(myId)
-        val nextLeader = computeLeaderOfView(nextView, originalLeaderIndex, allPeers)
+        val originalLeaderIndex = allIds.indexOf(myId)
+        val nextLeader = computeLeaderOfView(nextView, originalLeaderIndex, allIds)
 
         val vcState = new PbftViewChangeState(
           fullMembership,
@@ -78,16 +77,16 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         )
 
         // Create strong quorum number of View Change messages, and extract PrePrepares from one of them
-        val vcSet = allPeers
+        val vcSet = allIds
           .take(fullMembership.orderingTopology.strongQuorum)
-          .map(peer =>
-            createViewChange(nextView, peer, myId, slotNumbers.map(_ -> ViewNumber.First))
+          .map(node =>
+            createViewChange(nextView, node, myId, slotNumbers.map(_ -> ViewNumber.First))
           )
         val ppSeq = vcSet(0).message.consensusCerts.map(_.prePrepare)
 
         // Receiving a New View message from the incorrect leader fails
         val wrongNextLeader =
-          computeLeaderOfView(ViewNumber(nextView + 1), originalLeaderIndex, allPeers)
+          computeLeaderOfView(ViewNumber(nextView + 1), originalLeaderIndex, allIds)
         val wrongNewView = createNewView(nextView, wrongNextLeader, myId, vcSet, ppSeq)
         assertLogs(
           vcState.processMessage(wrongNewView),
@@ -114,12 +113,12 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
     "constructing a New View message (as a non-original leader)" should {
       class SystemState(
-          viewNumbersPerPeer: Seq[Map[Long, Long]],
+          viewNumbersPerNode: Seq[Map[Long, Long]],
           val nextView: ViewNumber = ViewNumber(ViewNumber.First + 1),
-          val originalLeader: SequencerId = otherPeer3,
+          val originalLeader: BftNodeId = otherId3,
       ) {
-        val originalLeaderIndex: Int = allPeers.indexOf(originalLeader)
-        val nextLeader: SequencerId = computeLeaderOfView(nextView, originalLeaderIndex, allPeers)
+        val originalLeaderIndex: Int = allIds.indexOf(originalLeader)
+        val nextLeader: BftNodeId = computeLeaderOfView(nextView, originalLeaderIndex, allIds)
         val vcState = new PbftViewChangeState(
           fullMembership,
           leader = nextLeader,
@@ -132,7 +131,7 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         val vcSet: IndexedSeq[SignedMessage[ViewChange]] = createViewChangeSet(
           nextView,
           originalLeader,
-          viewNumbersPerPeer,
+          viewNumbersPerNode,
         )
       }
 
@@ -192,7 +191,7 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
             Map(BlockNumber.First -> ViewNumber.First, 4L -> ViewNumber.First),
           ).map(_.map { case (k, v) => BlockNumber(k) -> ViewNumber(v) }),
           nextView = ViewNumber(3L),
-          originalLeader = otherPeer1,
+          originalLeader = otherId1,
         )
         import systemState.*
 
@@ -207,8 +206,8 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           pp.from -> pp.message.viewNumber
         ) should contain theSameElementsInOrderAs Seq(
           originalLeader -> 0,
-          otherPeer2 -> 1,
-          otherPeer3 -> 2,
+          otherId2 -> 1,
+          otherId3 -> 2,
         )
         prePrepares should have size slotNumbers.size.toLong
       }
@@ -221,7 +220,7 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
             Map(BlockNumber.First -> ViewNumber.First, 4L -> 0),
           ),
           nextView = ViewNumber(3L),
-          originalLeader = otherPeer1,
+          originalLeader = otherId1,
         )
         import systemState.*
 
@@ -239,7 +238,7 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           pp.from -> pp.message.viewNumber
         ) should contain theSameElementsInOrderAs Seq(
           originalLeader -> 0,
-          otherPeer2 -> 1,
+          otherId2 -> 1,
           myId -> 3,
         )
         prePrepares should have size slotNumbers.size.toLong

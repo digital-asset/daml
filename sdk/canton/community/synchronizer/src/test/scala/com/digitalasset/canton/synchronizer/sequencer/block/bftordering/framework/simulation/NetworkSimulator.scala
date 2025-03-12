@@ -8,8 +8,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.net
   P2PEndpoint,
   PlainTextP2PEndpoint,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.jdk.DurationConverters.ScalaDurationOps
@@ -18,13 +18,13 @@ import scala.util.Random
 private sealed trait NetworkSimulatorState {
 
   def tick(
-      nodes: Set[SequencerId],
+      nodes: Set[BftNodeId],
       settings: NetworkSettings,
       clock: Clock,
       random: Random,
   ): NetworkSimulatorState
 
-  def partitionExists(peer1: SequencerId, peer2: SequencerId): Boolean
+  def partitionExists(node1: BftNodeId, node2: BftNodeId): Boolean
 }
 
 private object NetworkSimulatorState {
@@ -40,21 +40,21 @@ private object NetworkSimulatorState {
       ) && settings.partitionProbability.flipCoin(random)
 
     private def makePartition(
-        nodes: Set[SequencerId],
+        nodes: Set[BftNodeId],
         settings: NetworkSettings,
         random: Random,
     ): Set[BrokenLink] = {
-      val selectedSet: Set[SequencerId] = settings.partitionMode.selectSet(nodes, random)
+      val selectedSet: Set[BftNodeId] = settings.partitionMode.selectSet(nodes, random)
       val otherSet = nodes.removedAll(selectedSet)
-      selectedSet.flatMap { peer1 =>
-        otherSet.flatMap { peer2 =>
-          BrokenLink(settings, peer1, peer2)
+      selectedSet.flatMap { node1 =>
+        otherSet.flatMap { node2 =>
+          BrokenLink(settings, node1, node2)
         }
       }
     }
 
     override def tick(
-        nodes: Set[SequencerId],
+        nodes: Set[BftNodeId],
         settings: NetworkSettings,
         clock: Clock,
         random: Random,
@@ -66,7 +66,7 @@ private object NetworkSimulatorState {
         )
       } else { this }
 
-    override def partitionExists(peer1: SequencerId, peer2: SequencerId): Boolean = false
+    override def partitionExists(node1: BftNodeId, node2: BftNodeId): Boolean = false
   }
 
   private final case class ActivePartition(partition: Set[BrokenLink], started: CantonTimestamp)
@@ -82,7 +82,7 @@ private object NetworkSimulatorState {
       ) && settings.unPartitionProbability.flipCoin(random)
 
     override def tick(
-        nodes: Set[SequencerId],
+        nodes: Set[BftNodeId],
         settings: NetworkSettings,
         clock: Clock,
         random: Random,
@@ -91,19 +91,19 @@ private object NetworkSimulatorState {
         NetworkSimulatorState.NoCurrentPartition(clock.now)
       } else { this }
 
-    override def partitionExists(peer1: SequencerId, peer2: SequencerId): Boolean =
-      partition.contains(BrokenLink(peer1, peer2))
+    override def partitionExists(node1: BftNodeId, node2: BftNodeId): Boolean =
+      partition.contains(BrokenLink(node1, node2))
   }
 }
 
-private final case class BrokenLink(from: SequencerId, to: SequencerId)
+private final case class BrokenLink(from: BftNodeId, to: BftNodeId)
 
 private object BrokenLink {
 
-  def apply(settings: NetworkSettings, peer1: SequencerId, peer2: SequencerId): Set[BrokenLink] =
+  def apply(settings: NetworkSettings, node1: BftNodeId, node2: BftNodeId): Set[BrokenLink] =
     settings.partitionSymmetry match {
-      case PartitionSymmetry.Symmetric => Set(BrokenLink(peer1, peer2), BrokenLink(peer2, peer1))
-      case PartitionSymmetry.ASymmetric => Set(BrokenLink(peer1, peer2))
+      case PartitionSymmetry.Symmetric => Set(BrokenLink(node1, node2), BrokenLink(node2, node1))
+      case PartitionSymmetry.ASymmetric => Set(BrokenLink(node1, node2))
     }
 }
 
@@ -130,8 +130,8 @@ class NetworkSimulator(
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   def scheduleNetworkEvent(
-      fromPeer: SequencerId,
-      toPeer: SequencerId,
+      from: BftNodeId,
+      to: BftNodeId,
       msg: Any,
       traceContext: TraceContext,
   ): Unit = {
@@ -141,7 +141,7 @@ class NetworkSimulator(
       return
     }
 
-    if (canUseFaults && partitionState.partitionExists(fromPeer, toPeer)) {
+    if (canUseFaults && partitionState.partitionExists(from, to)) {
       // there is a current partition, so drop
       return
     }
@@ -152,21 +152,21 @@ class NetworkSimulator(
       val delay = settings.oneWayDelay
         .generateRandomDuration(random)
       agenda.addOne(
-        ReceiveNetworkMessage(toPeer, msg, traceContext),
+        ReceiveNetworkMessage(to, msg, traceContext),
         delay,
       )
     }
   }
 
   def scheduleEstablishConnection(
-      fromPeer: SequencerId,
-      toPeer: SequencerId,
+      from: BftNodeId,
+      to: BftNodeId,
       endpoint: PlainTextP2PEndpoint,
-      continuation: (P2PEndpoint.Id, SequencerId) => Unit,
+      continuation: (P2PEndpoint.Id, BftNodeId) => Unit,
   ): Unit = {
     val delay = settings.establishConnectionDelay.generateRandomDuration(random)
     agenda.addOne(
-      EstablishConnection(fromPeer, toPeer, endpoint, continuation),
+      EstablishConnection(from, to, endpoint, continuation),
       delay,
     )
   }
@@ -176,5 +176,6 @@ class NetworkSimulator(
     partitionState = NetworkSimulatorState.NoCurrentPartition(clock.now)
   }
 
-  private def nodes = topology.activeSequencersToMachines.view.keySet.toSet
+  private def nodes =
+    topology.activeSequencersToMachines.view.keySet.toSet
 }

@@ -3,15 +3,15 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders
 
-import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 
 import scala.collection.immutable.SortedSet
 
 /** A simple leader selection policy based on the one from the ISS paper. It returns a sorted set of
-  * all peers.
+  * all nodes.
   */
 object SimpleLeaderSelectionPolicy extends LeaderSelectionPolicy {
 
-  override def selectLeaders(peers: Set[SequencerId]): SortedSet[SequencerId] =
-    SortedSet.from(peers)
+  override def selectLeaders(nodes: Set[BftNodeId]): SortedSet[BftNodeId] =
+    SortedSet.from(nodes)
 }

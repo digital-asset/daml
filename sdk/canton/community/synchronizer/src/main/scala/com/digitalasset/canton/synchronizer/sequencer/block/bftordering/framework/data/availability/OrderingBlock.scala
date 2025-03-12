@@ -16,7 +16,7 @@ final case class OrderingBlock(proofs: Seq[ProofOfAvailability]) {
         proof.batchId.hash.getCryptographicEvidence,
         proof.acks.map { ack =>
           ProtoAvailabilityAck.of(
-            ack.from.uid.toProtoPrimitive,
+            ack.from,
             Some(ack.signature.toProtoV30),
           )
         },

@@ -3,8 +3,10 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss
 
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.BlockNumber
-import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  BlockNumber,
+}
 
 import EpochState.Segment
 
@@ -18,7 +20,7 @@ import EpochState.Segment
 class BlockedProgressDetector(
     epochStartBlockNumber: BlockNumber,
     mySegmentState: Option[LeaderSegmentState],
-    leaderToSegmentState: Map[SequencerId, Segment],
+    leaderToSegmentState: Map[BftNodeId, Segment],
     isBlockComplete: BlockNumber => Boolean,
 ) {
 

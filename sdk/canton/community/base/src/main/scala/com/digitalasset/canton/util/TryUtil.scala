@@ -10,6 +10,8 @@ import scala.util.{Failure, Success, Try}
 
 object TryUtil {
 
+  val unit: Try[Unit] = Success(())
+
   /** Constructs a `Try` using the by-name parameter. This method will ensure any non-fatal
     * exception and [[java.lang.InterruptedException]] is caught and a `Failure` object is returned.
     */

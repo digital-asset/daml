@@ -20,9 +20,9 @@ import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.util.PekkoUtil.{FutureQueue, RecoveringFutureQueue}
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.{PekkoUtil, TryUtil}
 import org.apache.pekko.Done
 
 import scala.concurrent.duration.Duration
@@ -89,7 +89,7 @@ class IndexerState(
         }
         state = Repair(
           repairIndexerF,
-          result.transform(_ => Success(())),
+          result.transform(_ => TryUtil.unit),
           shutdownInitiated = false,
         )
         result

@@ -31,6 +31,7 @@ service UpdateService {
   // Read the ledger's filtered update stream for the specified contents and filters.
   // It returns the event types in accordance with the stream contents selected. Also the selection criteria
   // for individual events depends on the transaction shape chosen.
+  //
   // - ACS delta: a requesting party must be a stakeholder of an event for it to be included.
   // - ledger effects: a requesting party must be a witness of an en event for it to be included.
   rpc GetUpdates(GetUpdatesRequest) returns (stream GetUpdatesResponse);
@@ -94,13 +95,13 @@ message GetUpdatesRequest {
   // Must be unset for GetUpdateTrees request.
   // Optional for backwards compatibility for GetUpdates request: defaults to an UpdateFormat where:
   //
-  //   - include_transactions.event_format.filters_by_party = the filter.filters_by_party on this request
-  //   - include_transactions.event_format.filters_for_any_party = the filter.filters_for_any_party on this request
-  //   - include_transactions.event_format.verbose = the same flag specified on this request
-  //   - include_transactions.transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
-  //   - include_reassignments.filter = the same filter specified on this request
-  //   - include_reassignments.verbose = the same flag specified on this request
-  //   - include_topology_events.include_participant_authorization_events.parties = all the parties specified in filter
+  // - include_transactions.event_format.filters_by_party = the filter.filters_by_party on this request
+  // - include_transactions.event_format.filters_for_any_party = the filter.filters_for_any_party on this request
+  // - include_transactions.event_format.verbose = the same flag specified on this request
+  // - include_transactions.transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
+  // - include_reassignments.filter = the same filter specified on this request
+  // - include_reassignments.verbose = the same flag specified on this request
+  // - include_topology_events.include_participant_authorization_events.parties = all the parties specified in filter
   UpdateFormat update_format = 5;
 }
 

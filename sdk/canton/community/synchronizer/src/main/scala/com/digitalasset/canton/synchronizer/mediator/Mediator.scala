@@ -68,7 +68,7 @@ private[mediator] class Mediator(
     val topologyManagerStatus: TopologyManagerStatus,
     val synchronizerOutboxHandle: SynchronizerOutboxHandle,
     val timeTracker: SynchronizerTimeTracker,
-    state: MediatorState,
+    val state: MediatorState,
     private[canton] val sequencerCounterTrackerStore: SequencerCounterTrackerStore,
     sequencedEventStore: SequencedEventStore,
     parameters: CantonNodeParameters,

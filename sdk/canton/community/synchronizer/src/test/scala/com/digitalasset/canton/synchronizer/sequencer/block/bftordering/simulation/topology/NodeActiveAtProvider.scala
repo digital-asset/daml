@@ -5,30 +5,30 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulat
 
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochNumber,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.PeerActiveAt
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.NodeActiveAt
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.OnboardingDataProvider
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
-class PeerActiveAtProvider(
-    onboardingTimes: Map[SequencerId, TopologyActivationTime],
-    stores: Map[SequencerId, BftOrderingStores[SimulationEnv]],
-) extends OnboardingDataProvider[Option[PeerActiveAt]] {
+class NodeActiveAtProvider(
+    onboardingTimes: Map[BftNodeId, TopologyActivationTime],
+    stores: Map[BftNodeId, BftOrderingStores[SimulationEnv]],
+) extends OnboardingDataProvider[Option[NodeActiveAt]] {
 
   implicit private val traceContext: TraceContext = TraceContext.empty
 
-  override def provide(forSequencerId: SequencerId): Option[PeerActiveAt] = {
-    val onboardingTime = onboardingTimes(forSequencerId)
-    // We could check all the output metadata stores. Currently, we check only one for a peer that was onboarded earlier.
-    // It's similar to using a sequencer snapshot only from one peer (which is also not BFT).
+  override def provide(node: BftNodeId): Option[NodeActiveAt] = {
+    val onboardingTime = onboardingTimes(node)
+    // We could check all the output metadata stores. Currently, we check only one for a node that was onboarded earlier.
+    // It's similar to using a sequencer snapshot only from one node (which is also not BFT).
     val maybeStores = stores.view
-      .filterNot { case (sequencerId, _) =>
-        sequencerId == forSequencerId || onboardingTime.value <= onboardingTimes(sequencerId).value
+      .filterNot { case (nodeId, _) =>
+        nodeId == node || onboardingTime.value <= onboardingTimes(nodeId).value
       }
       .values
       // Conservatively, find an output metadata store with the highest block number.
@@ -41,14 +41,14 @@ class PeerActiveAtProvider(
       }
 
     // Trying to reflect what the non-simulated code would do.
-    maybeStores.fold(None: Option[PeerActiveAt]) { stores =>
+    maybeStores.fold(None: Option[NodeActiveAt]) { stores =>
       val outputMetadataStore = stores.outputStore
       val maybeOnboardingBlock = outputMetadataStore
         .getLatestBlockAtOrBefore(onboardingTime.value)
         .resolveValue()
         .getOrElse(
           sys.error(
-            s"Failed to get the latest block at or before $onboardingTime for peer $forSequencerId"
+            s"Failed to get the latest block at or before $onboardingTime for '$node'"
           )
         )
       maybeOnboardingBlock
@@ -62,7 +62,7 @@ class PeerActiveAtProvider(
             .flatten
             .getOrElse(
               sys.error(
-                s"Failed to get the first block in onboarding epoch $startEpochNumber for peer $forSequencerId"
+                s"Failed to get the first block in onboarding epoch $startEpochNumber for '$node'"
               )
             )
           val previousBftTime = outputMetadataStore
@@ -71,7 +71,7 @@ class PeerActiveAtProvider(
             .map(_.map(_.blockBftTime))
             .getOrElse(
               sys.error(
-                s"Failed to get the previous BFT time for peer $forSequencerId"
+                s"Failed to get the previous BFT time for '$node'"
               )
             )
           val epochTopologyQueryTimestamp =
@@ -81,10 +81,10 @@ class PeerActiveAtProvider(
               .map(_.map(_.topologyActivationTime))
               .getOrElse(
                 sys.error(
-                  s"Failed to get the start epoch topology query timestamp for peer $forSequencerId"
+                  s"Failed to get the start epoch topology query timestamp for '$node'"
                 )
               )
-          PeerActiveAt(
+          NodeActiveAt(
             onboardingTime,
             Some(startEpochNumber),
             Some(firstBlockInEpoch),

@@ -14,7 +14,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.dri
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.EpochStatusBuilder
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochNumber,
 }
@@ -32,7 +33,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ConsensusStatus,
 }
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
@@ -82,7 +82,7 @@ class EpochState[E <: Env[E]](
       .fold[EpochState.EpochCompletionStatus](EpochState.Incomplete)(EpochState.Complete(_))
 
   // Segment module references are lazy so that the segment module factory is not triggered on object creation
-  private lazy val segmentModules: Map[SequencerId, E#ModuleRefT[ConsensusSegment.Message]] =
+  private lazy val segmentModules: Map[BftNodeId, E#ModuleRefT[ConsensusSegment.Message]] =
     ListMap.from(epoch.segments.view.map { segment =>
       segment.originalLeader -> segmentModuleRefFactory(
         new SegmentState(
@@ -144,7 +144,7 @@ class EpochState[E <: Env[E]](
     }
 
   def processRetransmissionResponse(
-      from: SequencerId,
+      from: BftNodeId,
       commitCerts: Seq[CommitCertificate],
   )(implicit traceContext: TraceContext): Unit =
     performUnlessClosing("processRetransmissionsRequest") {
@@ -246,11 +246,11 @@ object EpochState {
     val segments: Seq[Segment] = currentMembership.leaders
       .take(info.length.toInt)
       .zipWithIndex
-      .map { case (peer, index) =>
-        createSegment(peer, index)
+      .map { case (node, index) =>
+        createSegment(node, index)
       }
 
-    private def createSegment(leader: SequencerId, leaderIndex: Int): Segment = {
+    private def createSegment(leader: BftNodeId, leaderIndex: Int): Segment = {
       val firstSlot = BlockNumber(info.startBlockNumber + leaderIndex)
       val stepSize = currentMembership.leaders.size
       Segment(
@@ -268,7 +268,7 @@ object EpochState {
   }
 
   final case class Segment(
-      originalLeader: SequencerId,
+      originalLeader: BftNodeId,
       slotNumbers: NonEmpty[Seq[BlockNumber]],
   ) {
     def relativeBlockIndex(blockNumber: BlockNumber): Int = slotNumbers.indexOf(blockNumber)

@@ -10,7 +10,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   OutputEpochMetadata,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStoreTest.createBlock
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BlockNumber,
   EpochNumber,
 }

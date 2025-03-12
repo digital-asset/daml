@@ -12,7 +12,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   Segment,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModuleMetrics.emitNonCompliance
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
 
@@ -220,13 +220,15 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
               s"which is below the strong quorum of ${topology.strongQuorum}"
           },
         )
+        // This check is stricter than needed, i.e., all commit messages are checked. It's because nodes always send
+        //  exactly the strong quorum of commits (for performance and simplicity).
         _ <- canonicalCommitSet.traverse(commit =>
           Either.cond(
             topology.contains(commit.from),
             (), {
               emitNonComplianceMetrics(prePrepare)
-              s"Canonical commit set for block ${prePrepare.blockMetadata} contains commit from ${commit.from} " +
-                s"that is not part of current topology ${topology.peers}"
+              s"Canonical commit set for block ${prePrepare.blockMetadata} contains commit from '${commit.from}' " +
+                s"that is not part of current topology ${topology.nodes}"
             },
           )
         )

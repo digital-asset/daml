@@ -6,10 +6,10 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose, Signature, v30}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.AvailabilityAck as ProtoAvailabilityAck
-import com.digitalasset.canton.topology.{SequencerId, UniqueIdentifier}
 
-final case class AvailabilityAck(from: SequencerId, signature: Signature)
+final case class AvailabilityAck(from: BftNodeId, signature: Signature)
 
 object AvailabilityAck {
   def fromProto(
@@ -18,18 +18,16 @@ object AvailabilityAck {
   ): ParsingResult[AvailabilityAck] =
     for {
       sig <- Signature.fromProtoV30(signature)
-      originatingSequencerId <- UniqueIdentifier
-        .fromProtoPrimitive(ack.fromSequencerUid, "from_sequencer_uid")
-        .map(SequencerId(_))
-    } yield AvailabilityAck(originatingSequencerId, sig)
+      originatingNode = BftNodeId(ack.from)
+    } yield AvailabilityAck(originatingNode, sig)
 
-  def hashFor(batchId: BatchId, expirationTime: CantonTimestamp, from: SequencerId): Hash = Hash
+  def hashFor(batchId: BatchId, expirationTime: CantonTimestamp, from: BftNodeId): Hash = Hash
     .build(
       HashPurpose.BftAvailabilityAck,
       HashAlgorithm.Sha256,
     )
     .add(batchId.getCryptographicEvidence)
-    .add(from.toProtoPrimitive)
+    .add(from)
     .add(expirationTime.toMicros)
     .finish()
 }

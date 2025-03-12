@@ -23,9 +23,9 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   SegmentState,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochLength,
   EpochNumber,
@@ -54,8 +54,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Membership,
   OrderingTopology,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.CatchUpMessage.SegmentCancelledEpoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.ConsensusMessage.SegmentCompletedEpoch
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.SegmentCancelledEpoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Availability,
@@ -66,7 +66,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.UnitTestContext.DelayCount
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
@@ -89,13 +88,13 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
       clock.now,
       OrderingBlock.empty,
       CanonicalCommitSet.empty,
-      selfId,
+      myId,
     )
     .fakeSign
   private val expectedBlock0Prepare1Node =
-    prepareFromPrePrepare(block0PrePrepare1Node.message)(from = selfId)
+    prepareFromPrePrepare(block0PrePrepare1Node.message)(from = myId)
   private val expectedBlock0Commit1Node =
-    commitFromPrePrepare(block0PrePrepare1Node.message)(from = selfId)
+    commitFromPrePrepare(block0PrePrepare1Node.message)(from = myId)
   private val expectedOrderedBlock0For1Node = orderedBlockFromPrePrepare(
     block0PrePrepare1Node.message
   )
@@ -116,7 +115,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         ViewNumber.First,
         Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
         CantonTimestamp.MaxValue,
-        selfId,
+        myId,
       )
       .fakeSign
   )
@@ -128,13 +127,13 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
       clock.now,
       OrderingBlock(oneRequestOrderingBlock1Ack.proofs),
       CanonicalCommitSet(block9Commits1Node.toSet),
-      selfId,
+      myId,
     )
     .fakeSign
   private val expectedBlock10Prepare1Node =
-    prepareFromPrePrepare(block10PrePrepare1Node.message)(from = selfId)
+    prepareFromPrePrepare(block10PrePrepare1Node.message)(from = myId)
   private val expectedBlock10Commit1Node =
-    commitFromPrePrepare(block10PrePrepare1Node.message)(from = selfId)
+    commitFromPrePrepare(block10PrePrepare1Node.message)(from = myId)
   private val expectedOrderedBlock10For1Node = orderedBlockFromPrePrepare(
     block10PrePrepare1Node.message
   )
@@ -145,24 +144,24 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
       BlockMetadata.mk(SecondEpochNumber, BlockNumber(10L)),
       SecondViewNumber,
       clock.now,
-      from = selfId,
+      from = myId,
     )
   private val bottomBlock1 =
     bottomBlock(
       BlockMetadata.mk(SecondEpochNumber, 11L),
       SecondViewNumber,
       clock.now,
-      from = selfId,
+      from = myId,
     )
   private val bottomBlock2 =
     bottomBlock(
       BlockMetadata.mk(SecondEpochNumber, 12L),
       SecondViewNumber,
       clock.now,
-      from = selfId,
+      from = myId,
     )
-  private val prepareBottomBlock0 = prepareFromPrePrepare(bottomBlock0.message)(from = selfId)
-  private val commitBottomBlock0 = commitFromPrePrepare(bottomBlock0.message)(from = selfId)
+  private val prepareBottomBlock0 = prepareFromPrePrepare(bottomBlock0.message)(from = myId)
+  private val commitBottomBlock0 = commitFromPrePrepare(bottomBlock0.message)(from = myId)
   private val viewChange1Node1BlockNoProgress = ViewChange
     .create(
       block10Metadata1Node,
@@ -170,7 +169,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
       SecondViewNumber,
       clock.now,
       consensusCerts = Seq.empty,
-      from = selfId,
+      from = myId,
     )
     .fakeSign
   private val newView1Node1BlockNoProgress = NewView.create(
@@ -180,12 +179,12 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
     clock.now,
     viewChanges = Seq(viewChange1Node1BlockNoProgress),
     prePrepares = Seq(bottomBlock0),
-    from = selfId,
+    from = myId,
   )
 
   // Common val for 4-node networks in tests below
-  private val blockOrder4Nodes: Seq[SequencerId] =
-    Iterator.continually(allPeers).flatten.take(DefaultEpochLength.toInt).toSeq
+  private val blockOrder4Nodes: Seq[BftNodeId] =
+    Iterator.continually(allIds).flatten.take(DefaultEpochLength.toInt).toSeq
   private val blockMetadata4Nodes = blockOrder4Nodes.zipWithIndex.map { case (_, blockNum) =>
     BlockMetadata.mk(SecondEpochNumber, DefaultEpochLength + blockNum.toLong)
   }
@@ -351,7 +350,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         }
         inside(availabilityCell.get()) {
           case Some(Availability.Consensus.CreateProposal(o, _, e, ackO)) =>
-            o.peers shouldBe Set(selfId)
+            o.nodes shouldBe Set(myId)
             e shouldBe EpochNumber.First
             ackO shouldBe None
         }
@@ -378,7 +377,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         consensus.receive(ConsensusSegment.Start)
         inside(availabilityCell.get()) {
           case Some(Availability.Consensus.CreateProposal(o, _, e, ackO)) =>
-            o.peers shouldBe Set(selfId)
+            o.nodes shouldBe Set(myId)
             e shouldBe SecondEpochNumber
             ackO shouldBe None
         }
@@ -467,7 +466,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         }
         inside(availabilityCell.get()) {
           case Some(Availability.Consensus.CreateProposal(o, _, e, ackO)) =>
-            o.peers shouldBe Set(selfId)
+            o.nodes shouldBe Set(myId)
             e shouldBe SecondEpochNumber
             ackO shouldBe Some(Availability.Consensus.Ack(Seq(aBatchId)))
         }
@@ -477,7 +476,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         consensus.allFuturesHaveFinished shouldBe true
       }
 
-      // Same test scenario as 1-node network above, but with a 4-node network and mocked peer votes
+      // Same test scenario as 1-node network above, but with a 4-node network and mocked node votes
       "sequence a local segment's block in a 4-node network" in {
         implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
           new ProgrammableUnitTestContext(resolveAwaits = true)
@@ -495,7 +494,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           parentModuleRef = parentRef,
           p2pNetworkOutModuleRef = p2pNetworkRef,
           cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
-          otherPeers = otherPeers.toSet,
+          otherNodes = otherIds.toSet,
         )(epochInfo = SecondEpochInfo)
 
         // Consensus.Start message from Network module(s) should trigger request for proposal
@@ -522,7 +521,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
                 ) =>
           }
         }
-        val blockMetadata = blockMetadata4Nodes(blockOrder4Nodes.indexOf(selfId))
+        val blockMetadata = blockMetadata4Nodes(blockOrder4Nodes.indexOf(myId))
         consensus.receive(
           ConsensusSegment.ConsensusMessage.PrePrepareStored(blockMetadata, ViewNumber.First)
         )
@@ -540,27 +539,27 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           clock.now,
           OrderingBlock(oneRequestOrderingBlock3Ack.proofs),
           CanonicalCommitSet.empty,
-          selfId,
+          myId,
         )
-        def basePrepare(from: SequencerId) = prepareFromPrePrepare(expectedPrePrepare)(from = from)
-        def baseCommit(from: SequencerId) = commitFromPrePrepare(expectedPrePrepare)(from = from)
+        def basePrepare(from: BftNodeId) = prepareFromPrePrepare(expectedPrePrepare)(from = from)
+        def baseCommit(from: BftNodeId) = commitFromPrePrepare(expectedPrePrepare)(from = from)
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(expectedPrePrepare.fakeSign),
-            otherPeers.toSet,
+            otherIds.toSet,
           ),
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
-              basePrepare(from = selfId)
+              basePrepare(from = myId)
             ),
-            otherPeers.toSet,
+            otherIds.toSet,
           ),
         )
         p2pBuffer.clear()
 
-        // Prepares from follower peers should trigger sending Commit for the first block
-        consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherPeers(0))))
-        consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherPeers(1))))
+        // Prepares from follower nodes should trigger sending Commit for the first block
+        consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherIds(0))))
+        consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherIds(1))))
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
             case MessageFromPipeToSelf(
@@ -572,23 +571,23 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
-              baseCommit(from = selfId)
+              baseCommit(from = myId)
             ),
-            otherPeers.toSet,
+            otherIds.toSet,
           )
         )
         p2pBuffer.clear()
 
-        // Commits from follower peers and confirmation of block stored should complete the block,
+        // Commits from follower nodes and confirmation of block stored should complete the block,
         //   forward the block to Output, and request a new proposal from Availability
         consensus.receive(
           ConsensusSegment.ConsensusMessage.PreparesStored(blockMetadata, ViewNumber.First)
         )
-        consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherPeers(0))))
-        consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherPeers(1))))
+        consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherIds(0))))
+        consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherIds(1))))
         val commitCertificate = CommitCertificate(
           expectedPrePrepare.fakeSign,
-          Seq(baseCommit(fakeSequencerId("toBeReplaced"))),
+          Seq(baseCommit(BftNodeId("toBeReplaced"))),
         )
         val orderedBlockStored = ConsensusSegment.Internal.OrderedBlockStored(
           commitCertificate,
@@ -613,7 +612,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         consensus.allFuturesHaveFinished shouldBe true
       }
 
-      "sequence another peer's segment block in a 4-node network" in {
+      "sequence another node's segment block in a 4-node network" in {
         implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
           new ProgrammableUnitTestContext(resolveAwaits = true)
         val availabilityBuffer =
@@ -624,25 +623,25 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         val parentRef = fakeRecordingModule(parentBuffer)
         val p2pBuffer = new ArrayBuffer[P2PNetworkOut.Message](defaultBufferSize)
         val p2pNetworkRef = fakeRecordingModule(p2pBuffer)
-        val remotePeer = otherPeers(0)
+        val remoteNode = otherIds(0)
 
         val consensus = createIssSegmentModule[ProgrammableUnitTestEnv](
           availabilityModuleRef = availabilityRef,
           parentModuleRef = parentRef,
           p2pNetworkOutModuleRef = p2pNetworkRef,
           cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
-          otherPeers = otherPeers.toSet,
-          leader = remotePeer,
+          otherNodes = otherIds.toSet,
+          leader = remoteNode,
         )(epochInfo = SecondEpochInfo)
 
         // Consensus.Start message from Network module(s) triggers request for proposal, but this
-        // test focuses on another peer's segment, so we simply clear the buffer and ignore
+        // test focuses on another node's segment, so we simply clear the buffer and ignore
         consensus.receive(ConsensusSegment.Start)
         availabilityBuffer.clear()
         context.delayedMessages should matchPattern { case Seq(_: PbftNormalTimeout) => }
 
         // Mock a PrePrepare coming from another node; upon receipt, should trigger Prepare multicast
-        val blockMetadata = blockMetadata4Nodes(blockOrder4Nodes.indexOf(remotePeer))
+        val blockMetadata = blockMetadata4Nodes(blockOrder4Nodes.indexOf(remoteNode))
         val remotePrePrepare = PrePrepare
           .create(
             blockMetadata,
@@ -650,12 +649,12 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
             clock.now,
             OrderingBlock(oneRequestOrderingBlock3Ack.proofs),
             CanonicalCommitSet.empty,
-            remotePeer,
+            remoteNode,
           )
           .fakeSign
-        def basePrepare(from: SequencerId) =
+        def basePrepare(from: BftNodeId) =
           prepareFromPrePrepare(remotePrePrepare.message)(from = from)
-        def baseCommit(from: SequencerId = remotePeer) =
+        def baseCommit(from: BftNodeId = remoteNode) =
           commitFromPrePrepare(remotePrePrepare.message)(from = from)
         consensus.receive(PbftSignedNetworkMessage(remotePrePrepare))
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
@@ -669,9 +668,9 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
-              basePrepare(from = selfId)
+              basePrepare(from = myId)
             ),
-            otherPeers.toSet,
+            otherIds.toSet,
           )
         )
         p2pBuffer.clear()
@@ -680,8 +679,8 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         consensus.receive(
           ConsensusSegment.ConsensusMessage.PrePrepareStored(blockMetadata, ViewNumber.First)
         )
-        consensus.receive(PbftSignedNetworkMessage(basePrepare(from = remotePeer)))
-        consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherPeers(1))))
+        consensus.receive(PbftSignedNetworkMessage(basePrepare(from = remoteNode)))
+        consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherIds(1))))
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
             case MessageFromPipeToSelf(
@@ -693,9 +692,9 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
-              baseCommit(from = selfId)
+              baseCommit(from = myId)
             ),
-            otherPeers.toSet,
+            otherIds.toSet,
           )
         )
         p2pBuffer.clear()
@@ -705,12 +704,12 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         consensus.receive(
           ConsensusSegment.ConsensusMessage.PreparesStored(blockMetadata, ViewNumber.First)
         )
-        consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherPeers(0))))
-        consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherPeers(1))))
+        consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherIds(0))))
+        consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherIds(1))))
         val commits = Seq(
           baseCommit(),
-          baseCommit(from = otherPeers(0)),
-          baseCommit(from = otherPeers(1)),
+          baseCommit(from = otherIds(0)),
+          baseCommit(from = otherIds(1)),
         )
         val commitCertificate = CommitCertificate(remotePrePrepare, commits)
         consensus.receive(
@@ -815,7 +814,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
 
         inside(availabilityBuffer.toSeq) {
           case Seq(Availability.Consensus.CreateProposal(t, _, e, ackO)) =>
-            t.peers shouldBe Set(selfId)
+            t.nodes shouldBe Set(myId)
             e shouldBe SecondEpochNumber
             ackO shouldBe Some(Availability.Consensus.Ack(Seq(aBatchId)))
         }
@@ -844,10 +843,10 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
             consensusCerts = Seq(
               CommitCertificate(
                 block10PrePrepare1Node,
-                Seq(commitFromPrePrepare(block10PrePrepare1Node.message)(from = selfId)),
+                Seq(commitFromPrePrepare(block10PrePrepare1Node.message)(from = myId)),
               )
             ),
-            from = selfId,
+            from = myId,
           )
           .fakeSign
         val expectedNewView = NewView
@@ -858,7 +857,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
             clock.now,
             viewChanges = Seq(expectedViewChange),
             prePrepares = Seq(block10PrePrepare1Node, bottomBlock1, bottomBlock2),
-            from = selfId,
+            from = myId,
           )
           .fakeSign
         // View Change should complete immediately in a 1-node network, resulting in:
@@ -883,13 +882,13 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         p2pBuffer shouldBe ArrayBuffer(
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
-              prepareFromPrePrepare(bottomBlock1.message)(from = selfId)
+              prepareFromPrePrepare(bottomBlock1.message)(from = myId)
             ),
             Set.empty,
           ),
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
-              prepareFromPrePrepare(bottomBlock2.message)(from = selfId)
+              prepareFromPrePrepare(bottomBlock2.message)(from = myId)
             ),
             Set.empty,
           ),
@@ -912,13 +911,13 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         p2pBuffer shouldBe ArrayBuffer(
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
-              commitFromPrePrepare(bottomBlock1.message)(from = selfId)
+              commitFromPrePrepare(bottomBlock1.message)(from = myId)
             ),
             Set.empty,
           ),
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
-              commitFromPrePrepare(bottomBlock2.message)(from = selfId)
+              commitFromPrePrepare(bottomBlock2.message)(from = myId)
             ),
             Set.empty,
           ),
@@ -937,7 +936,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         )
         val commitCertificateBottom2 = CommitCertificate(
           bottomBlock2,
-          Seq(commitFromPrePrepare(bottomBlock2.message)(from = selfId)),
+          Seq(commitFromPrePrepare(bottomBlock2.message)(from = myId)),
         )
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { msg =>
           msg shouldBe ConsensusSegment.Internal.OrderedBlockStored(
@@ -950,7 +949,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
 
         val commitCertificateBottom1 = CommitCertificate(
           bottomBlock1,
-          Seq(commitFromPrePrepare(bottomBlock1.message)(from = selfId)),
+          Seq(commitFromPrePrepare(bottomBlock1.message)(from = myId)),
         )
         consensus.receive(
           ConsensusSegment.ConsensusMessage
@@ -1000,7 +999,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           availabilityModuleRef = availabilityRef,
           parentModuleRef = parentRef,
           p2pNetworkOutModuleRef = p2pNetworkRef,
-          otherPeers = otherPeers.toSet,
+          otherNodes = otherIds.toSet,
           cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
         )(epochInfo = SecondEpochInfo)
 
@@ -1010,7 +1009,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         context.lastDelayedMessage shouldBe defined
 
         // Start first view change (from view0 to view1) for local segment
-        val blockMetadata = blockMetadata4Nodes(blockOrder4Nodes.indexOf(selfId))
+        val blockMetadata = blockMetadata4Nodes(blockOrder4Nodes.indexOf(myId))
         consensus.receive(
           ConsensusSegment.ConsensusMessage.PbftNormalTimeout(blockMetadata, ViewNumber.First)
         )
@@ -1018,10 +1017,10 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         context.runPipedMessagesAndReceiveOnModule(consensus)
         val nextView = SecondViewNumber
 
-        def expectedViewChange(from: SequencerId = selfId) = ViewChange
+        def expectedViewChange(from: BftNodeId = myId) = ViewChange
           .create(
             blockMetadata,
-            segmentIndex = blockOrder4Nodes.indexOf(selfId),
+            segmentIndex = blockOrder4Nodes.indexOf(myId),
             viewNumber = nextView,
             clock.now,
             consensusCerts = Seq.empty,
@@ -1036,7 +1035,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(expectedViewChange()),
-            otherPeers.toSet,
+            otherIds.toSet,
           )
         )
         p2pBuffer.clear()
@@ -1046,12 +1045,12 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
 
         // Next, simulate receiving additional view change message to reach 2f+1 total
         // This view change message is still one short of the strong quorum
-        consensus.receive(PbftSignedNetworkMessage(expectedViewChange(from = otherPeers(0))))
+        consensus.receive(PbftSignedNetworkMessage(expectedViewChange(from = otherIds(0))))
         p2pBuffer shouldBe empty
         delayCount(context) shouldBe delayCountAtStartOfViewChange
 
         // This view change message reaches strong quorum; now we expect nested timer to be set
-        consensus.receive(PbftSignedNetworkMessage(expectedViewChange(from = otherPeers(1))))
+        consensus.receive(PbftSignedNetworkMessage(expectedViewChange(from = otherIds(1))))
         p2pBuffer shouldBe empty
         delayCount(context) should be > delayCountAtStartOfViewChange
         context.lastDelayedMessage should matchPattern {
@@ -1086,7 +1085,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         context.runPipedMessagesAndReceiveOnModule(consensus)
         inside(availabilityBuffer.toSeq) {
           case Seq(Availability.Consensus.CreateProposal(t, _, e, ackO)) =>
-            t.peers shouldBe Set(selfId)
+            t.nodes shouldBe Set(myId)
             e shouldBe SecondEpochNumber
             ackO shouldBe None
         }
@@ -1199,8 +1198,8 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         // from the new epoch1 starting. Here, we mock Availability answering both back-to-back with proposals.
         // The one from epoch0 should be ignored because we are now in epoch1
         val epoch1PrePrepare = block10PrePrepare1Node
-        val epoch1Prepare = prepareFromPrePrepare(epoch1PrePrepare.message)(from = selfId)
-        val epoch1Commit = commitFromPrePrepare(epoch1PrePrepare.message)(from = selfId)
+        val epoch1Prepare = prepareFromPrePrepare(epoch1PrePrepare.message)(from = myId)
+        val epoch1Commit = commitFromPrePrepare(epoch1PrePrepare.message)(from = myId)
         val epoch1OrderedBlock = orderedBlockFromPrePrepare(epoch1PrePrepare.message)
 
         // this one is just ignored for being from an old epoch
@@ -1265,7 +1264,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         val parentBuffer =
           new ArrayBuffer[Consensus.Message[ProgrammableUnitTestEnv]](defaultBufferSize)
         val p2pBuffer = new ArrayBuffer[P2PNetworkOut.Message](defaultBufferSize)
-        val remotePeer = otherPeers(0)
+        val remoteNode = otherIds(0)
         val store = new InMemoryUnitTestEpochStore[ProgrammableUnitTestEnv]()
 
         implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
@@ -1275,8 +1274,8 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           availabilityModuleRef = fakeRecordingModule(availabilityBuffer),
           parentModuleRef = fakeRecordingModule(parentBuffer),
           p2pNetworkOutModuleRef = fakeRecordingModule(p2pBuffer),
-          otherPeers = otherPeers.toSet,
-          leader = remotePeer,
+          otherNodes = otherIds.toSet,
+          leader = remoteNode,
           storeMessages = true,
           epochStore = store,
           cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
@@ -1289,17 +1288,17 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         // Create PrePrepare, Prepare, and Commit messages for later
         val remotePrePrepare = PrePrepare
           .create(
-            blockMetadata4Nodes(blockOrder4Nodes.indexOf(remotePeer)),
+            blockMetadata4Nodes(blockOrder4Nodes.indexOf(remoteNode)),
             ViewNumber.First,
             clock.now,
             OrderingBlock(oneRequestOrderingBlock3Ack.proofs),
             CanonicalCommitSet.empty,
-            remotePeer,
+            remoteNode,
           )
           .fakeSign
-        def basePrepare(from: SequencerId) =
+        def basePrepare(from: BftNodeId) =
           prepareFromPrePrepare(remotePrePrepare.message)(from = from)
-        def baseCommit(from: SequencerId) =
+        def baseCommit(from: BftNodeId) =
           commitFromPrePrepare(remotePrePrepare.message)(from = from)
         val epochInfo = EpochInfo.mk(
           remotePrePrepare.message.blockMetadata.epochNumber,
@@ -1329,17 +1328,17 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
-              basePrepare(from = selfId)
+              basePrepare(from = myId)
             ),
-            otherPeers.toSet,
+            otherIds.toSet,
           )
         )
         p2pBuffer.clear()
         consensus.receive(prePrareStored)
 
         // Upon receiving enough other Prepares, should call pipeToSelf to store Seq(Prepare)
-        consensus.receive(PbftSignedNetworkMessage(basePrepare(from = remotePeer)))
-        consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherPeers(1))))
+        consensus.receive(PbftSignedNetworkMessage(basePrepare(from = remoteNode)))
+        consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherIds(1))))
         context.runPipedMessagesAndReceiveOnModule(consensus)
 
         // Run the pipeToSelf, should then store and send the Prepare
@@ -1356,32 +1355,32 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           Seq.empty,
           pbftMessagesForIncompleteBlocks = Seq[SignedMessage[PbftNetworkMessage]](
             remotePrePrepare,
-            basePrepare(from = remotePeer),
-            basePrepare(from = otherPeers(1)),
-            basePrepare(from = selfId),
+            basePrepare(from = remoteNode),
+            basePrepare(from = otherIds(1)),
+            basePrepare(from = myId),
           ),
         )
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
-              baseCommit(from = selfId)
+              baseCommit(from = myId)
             ),
-            otherPeers.toSet,
+            otherIds.toSet,
           )
         )
         p2pBuffer.clear()
         consensus.receive(preparesStored)
 
         // Upon receiving enough other Commits, should call pipeToSelf to addOrderedBlock
-        consensus.receive(PbftSignedNetworkMessage(baseCommit(from = remotePeer)))
-        consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherPeers(1))))
+        consensus.receive(PbftSignedNetworkMessage(baseCommit(from = remoteNode)))
+        consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherIds(1))))
 
         // Run the pipeToSelf, should then add to completed blocks and prune inProgress
         val events = context.runPipedMessages()
         val commits = Seq(
-          baseCommit(from = remotePeer),
-          baseCommit(from = otherPeers(1)),
-          baseCommit(from = selfId),
+          baseCommit(from = remoteNode),
+          baseCommit(from = otherIds(1)),
+          baseCommit(from = myId),
         )
         context.blockingAwait(store.loadEpochProgress(epochInfo)) shouldBe EpochInProgress(
           completedBlocks = Seq[EpochStore.Block](
@@ -1413,17 +1412,17 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
       }
 
       // CRASH-RECOVERY TESTS
-      val blockMetadata = blockMetadata4Nodes(blockOrder4Nodes.indexOf(selfId))
+      val blockMetadata = blockMetadata4Nodes(blockOrder4Nodes.indexOf(myId))
       val prePrepare = PrePrepare.create(
         blockMetadata,
         ViewNumber.First,
         clock.now,
         OrderingBlock(oneRequestOrderingBlock3Ack.proofs),
         CanonicalCommitSet.empty,
-        selfId,
+        myId,
       )
-      def basePrepare(from: SequencerId) = prepareFromPrePrepare(prePrepare)(from = from)
-      def baseCommit(from: SequencerId) = commitFromPrePrepare(prePrepare)(from = from)
+      def basePrepare(from: BftNodeId) = prepareFromPrePrepare(prePrepare)(from = from)
+      def baseCommit(from: BftNodeId) = commitFromPrePrepare(prePrepare)(from = from)
 
       "function after a crash from a pre-stored pre-prepare" in {
         implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
@@ -1436,7 +1435,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         val consensus = createIssSegmentModule[ProgrammableUnitTestEnv](
           p2pNetworkOutModuleRef = fakeRecordingModule(p2pBuffer),
           epochInProgress = initialMessages,
-          otherPeers = otherPeers.toSet,
+          otherNodes = otherIds.toSet,
           cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
         )(epochInfo = SecondEpochInfo)
 
@@ -1446,27 +1445,27 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(prePrepare.fakeSign),
-            otherPeers.toSet,
+            otherIds.toSet,
           ),
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
-              prepareFromPrePrepare(prePrepare)(from = selfId)
+              prepareFromPrePrepare(prePrepare)(from = myId)
             ),
-            otherPeers.toSet,
+            otherIds.toSet,
           ),
         )
         p2pBuffer.clear()
 
         // after starting from initial pre-prepare, we should be able to process prepares and create a commit
-        consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherPeers(0))))
-        consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherPeers(1))))
+        consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherIds(0))))
+        consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherIds(1))))
         context.runPipedMessagesAndReceiveOnModule(consensus)
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
-              baseCommit(from = selfId)
+              baseCommit(from = myId)
             ),
-            otherPeers.toSet,
+            otherIds.toSet,
           )
         )
         consensus.allFuturesHaveFinished shouldBe true
@@ -1476,11 +1475,11 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
           new ProgrammableUnitTestContext(resolveAwaits = true)
 
-        val myPrepare = prepareFromPrePrepare(prePrepare)(from = selfId)
+        val myPrepare = prepareFromPrePrepare(prePrepare)(from = myId)
         val prepares = List[SignedMessage[PbftNetworkMessage]](
           myPrepare,
-          basePrepare(from = otherPeers(0)),
-          basePrepare(from = otherPeers(1)),
+          basePrepare(from = otherIds(0)),
+          basePrepare(from = otherIds(1)),
         )
 
         val initialMessages =
@@ -1496,7 +1495,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           p2pNetworkOutModuleRef = fakeRecordingModule(p2pBuffer),
           parentModuleRef = fakeRecordingModule(parentBuffer),
           epochInProgress = initialMessages,
-          otherPeers = otherPeers.toSet,
+          otherNodes = otherIds.toSet,
           cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
         )(epochInfo = SecondEpochInfo)
 
@@ -1506,28 +1505,28 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(prePrepare.fakeSign),
-            otherPeers.toSet,
+            otherIds.toSet,
           ),
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(myPrepare),
-            otherPeers.toSet,
+            otherIds.toSet,
           ),
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
-              baseCommit(from = selfId)
+              baseCommit(from = myId)
             ),
-            otherPeers.toSet,
+            otherIds.toSet,
           ),
         )
         p2pBuffer.clear()
 
-        consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherPeers(0))))
-        consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherPeers(1))))
+        consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherIds(0))))
+        consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherIds(1))))
         val expectedOrderedBlock = orderedBlockFromPrePrepare(prePrepare)
         val commits = Seq(
-          baseCommit(from = otherPeers(0)),
-          baseCommit(from = otherPeers(1)),
-          baseCommit(from = selfId),
+          baseCommit(from = otherIds(0)),
+          baseCommit(from = otherIds(1)),
+          baseCommit(from = myId),
         )
         val commitCertificate = CommitCertificate(prePrepare.fakeSign, commits)
         val orderedBlockStored = ConsensusSegment.Internal.OrderedBlockStored(
@@ -1550,10 +1549,10 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
           new ProgrammableUnitTestContext(resolveAwaits = true)
 
-        val myPrepare = prepareFromPrePrepare(prePrepare)(from = selfId)
+        val myPrepare = prepareFromPrePrepare(prePrepare)(from = myId)
         val prepares = List(
-          basePrepare(from = otherPeers(0)),
-          basePrepare(from = otherPeers(1)),
+          basePrepare(from = otherIds(0)),
+          basePrepare(from = otherIds(1)),
           myPrepare,
         )
 
@@ -1566,7 +1565,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         val consensus = createIssSegmentModule[ProgrammableUnitTestEnv](
           p2pNetworkOutModuleRef = fakeRecordingModule(p2pBuffer),
           epochInProgress = initialMessages,
-          otherPeers = otherPeers.toSet,
+          otherNodes = otherIds.toSet,
           cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
         )(epochInfo = SecondEpochInfo)
 
@@ -1582,19 +1581,19 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         val viewChange = ViewChange
           .create(
             blockMetadata,
-            segmentIndex = blockOrder4Nodes.indexOf(selfId),
+            segmentIndex = blockOrder4Nodes.indexOf(myId),
             viewNumber = SecondViewNumber,
             clock.now,
             consensusCerts =
               Seq[ConsensusCertificate](PrepareCertificate(prePrepare.fakeSign, prepares)),
-            from = selfId,
+            from = myId,
           )
           .fakeSign
 
         p2pBuffer should contain(
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(viewChange),
-            otherPeers.toSet,
+            otherIds.toSet,
           )
         )
         consensus.allFuturesHaveFinished shouldBe true
@@ -1604,30 +1603,30 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
           new ProgrammableUnitTestContext(resolveAwaits = true)
 
-        val myPrepare = prepareFromPrePrepare(prePrepare)(from = selfId)
+        val myPrepare = prepareFromPrePrepare(prePrepare)(from = myId)
         val prepares = List(
-          basePrepare(from = otherPeers(0)),
-          basePrepare(from = otherPeers(1)),
+          basePrepare(from = otherIds(0)),
+          basePrepare(from = otherIds(1)),
           myPrepare,
         )
 
         val bottomBlock1 =
           bottomBlock(
-            blockMetadata4Nodes(blockOrder4Nodes.indexOf(selfId) + allPeers.size),
+            blockMetadata4Nodes(blockOrder4Nodes.indexOf(myId) + allIds.size),
             SecondViewNumber,
             clock.now,
-            from = otherPeers(0),
+            from = otherIds(0),
           )
 
         val emptyViewChanges = (0 until 2).map(i =>
           ViewChange
             .create(
               blockMetadata,
-              segmentIndex = blockOrder4Nodes.indexOf(selfId),
+              segmentIndex = blockOrder4Nodes.indexOf(myId),
               viewNumber = SecondViewNumber,
               clock.now,
               consensusCerts = Seq.empty,
-              from = otherPeers(i),
+              from = otherIds(i),
             )
             .fakeSign
         )
@@ -1635,23 +1634,23 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         val newView =
           NewView.create(
             blockMetadata,
-            segmentIndex = blockOrder4Nodes.indexOf(selfId),
+            segmentIndex = blockOrder4Nodes.indexOf(myId),
             viewNumber = SecondViewNumber,
             clock.now,
             ViewChange
               .create(
                 blockMetadata,
-                segmentIndex = blockOrder4Nodes.indexOf(selfId),
+                segmentIndex = blockOrder4Nodes.indexOf(myId),
                 viewNumber = SecondViewNumber,
                 clock.now,
                 consensusCerts =
                   Seq[ConsensusCertificate](PrepareCertificate(prePrepare.fakeSign, prepares)),
-                from = selfId,
+                from = myId,
               )
               .fakeSign
               +: emptyViewChanges,
             Seq(prePrepare.fakeSign, bottomBlock1),
-            from = otherPeers(0),
+            from = otherIds(0),
           )
 
         val initialMessages =
@@ -1668,8 +1667,8 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         val consensus = createIssSegmentModule[ProgrammableUnitTestEnv](
           p2pNetworkOutModuleRef = fakeRecordingModule(p2pBuffer),
           epochInProgress = initialMessages,
-          otherPeers = otherPeers.toSet,
-          leader = selfId,
+          otherNodes = otherIds.toSet,
+          leader = myId,
           cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
         )(epochInfo = SecondEpochInfo)
 
@@ -1679,31 +1678,31 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
-              prepareFromPrePrepare(prePrepare)(from = selfId, viewNumber = SecondViewNumber)
+              prepareFromPrePrepare(prePrepare)(from = myId, viewNumber = SecondViewNumber)
             ),
-            otherPeers.toSet,
+            otherIds.toSet,
           ),
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
-              prepareFromPrePrepare(bottomBlock1.message)(from = selfId)
+              prepareFromPrePrepare(bottomBlock1.message)(from = myId)
             ),
-            otherPeers.toSet,
+            otherIds.toSet,
           ),
         )
         p2pBuffer.clear()
 
         // after starting from initial-prepare, we should be able to process prepares and create a commit
-        def basePrepareNextView(from: SequencerId) =
+        def basePrepareNextView(from: BftNodeId) =
           prepareFromPrePrepare(prePrepare)(from = from, viewNumber = SecondViewNumber)
-        consensus.receive(PbftSignedNetworkMessage(basePrepareNextView(from = otherPeers(0))))
-        consensus.receive(PbftSignedNetworkMessage(basePrepareNextView(from = otherPeers(1))))
+        consensus.receive(PbftSignedNetworkMessage(basePrepareNextView(from = otherIds(0))))
+        consensus.receive(PbftSignedNetworkMessage(basePrepareNextView(from = otherIds(1))))
         context.runPipedMessagesAndReceiveOnModule(consensus)
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
-              commitFromPrePrepare(prePrepare)(from = selfId, viewNumber = SecondViewNumber)
+              commitFromPrePrepare(prePrepare)(from = myId, viewNumber = SecondViewNumber)
             ),
-            otherPeers.toSet,
+            otherIds.toSet,
           )
         )
         consensus.allFuturesHaveFinished shouldBe true
@@ -1718,10 +1717,10 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         fakeIgnoringModule[P2PNetworkOut.Message],
       parentModuleRef: ModuleRef[Consensus.Message[E]] = fakeIgnoringModule[Consensus.Message[E]],
       cryptoProvider: CryptoProvider[E] = new FakeCryptoProvider[E],
-      leader: SequencerId = selfId,
+      leader: BftNodeId = myId,
       epochLength: EpochLength = DefaultEpochLength,
       latestCompletedEpochLastCommits: Seq[SignedMessage[Commit]] = GenesisEpoch.lastBlockCommits,
-      otherPeers: Set[SequencerId] = Set.empty,
+      otherNodes: Set[BftNodeId] = Set.empty,
       storeMessages: Boolean = false,
       epochStore: EpochStore[E] = new InMemoryUnitTestEpochStore[E](),
       epochInProgress: EpochStore.EpochInProgress = EpochStore.EpochInProgress(),
@@ -1736,7 +1735,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
     implicit val config: BftBlockOrdererConfig = BftBlockOrdererConfig()
 
     val epoch = {
-      val membership = Membership.forTesting(selfId, otherPeers = otherPeers)
+      val membership = Membership.forTesting(myId, otherNodes = otherNodes)
       Epoch(
         epochInfo,
         currentMembership = membership,
@@ -1781,20 +1780,18 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
 
 private object IssSegmentModuleTest {
   private val defaultBufferSize = 5
-  private val selfId = fakeSequencerId("self")
-  private val otherPeers: IndexedSeq[SequencerId] = (1 to 3).map { index =>
-    fakeSequencerId(
-      s"peer$index"
-    )
+  private val myId = BftNodeId("self")
+  private val otherIds: IndexedSeq[BftNodeId] = (1 to 3).map { index =>
+    BftNodeId(s"node$index")
   }
-  private val allPeers = (selfId +: otherPeers).sorted
-  private val fullTopology = OrderingTopology(allPeers.toSet)
+  private val allIds = (myId +: otherIds).sorted
+  private val fullTopology = OrderingTopology(allIds.toSet)
   private val aBatchId = BatchId.createForTesting("A batch id")
   private val oneRequestOrderingBlock1Ack = OrderingBlock(
     Seq(
       ProofOfAvailability(
         aBatchId,
-        Seq(AvailabilityAck(selfId, Signature.noSignature)),
+        Seq(AvailabilityAck(myId, Signature.noSignature)),
         CantonTimestamp.MaxValue,
       )
     )
@@ -1803,7 +1800,7 @@ private object IssSegmentModuleTest {
     Seq(
       ProofOfAvailability(
         aBatchId,
-        otherPeers.map(AvailabilityAck(_, Signature.noSignature)),
+        otherIds.map(AvailabilityAck(_, Signature.noSignature)),
         CantonTimestamp.MaxValue,
       )
     )
@@ -1811,7 +1808,7 @@ private object IssSegmentModuleTest {
 
   def prepareFromPrePrepare(prePrepare: PrePrepare)(
       viewNumber: ViewNumber = prePrepare.viewNumber,
-      from: SequencerId = fakeSequencerId("toBeReplaced"),
+      from: BftNodeId = BftNodeId("toBeReplaced"),
   ): SignedMessage[Prepare] =
     Prepare
       .create(
@@ -1825,7 +1822,7 @@ private object IssSegmentModuleTest {
 
   def commitFromPrePrepare(prePrepare: PrePrepare)(
       viewNumber: ViewNumber = prePrepare.viewNumber,
-      from: SequencerId = fakeSequencerId("toBeReplaced"),
+      from: BftNodeId = BftNodeId("toBeReplaced"),
   ): SignedMessage[Commit] =
     Commit
       .create(
@@ -1848,7 +1845,7 @@ private object IssSegmentModuleTest {
       blockMetadata: BlockMetadata,
       view: ViewNumber,
       now: CantonTimestamp,
-      from: SequencerId,
+      from: BftNodeId,
   ): SignedMessage[PrePrepare] =
     PrePrepare
       .create(
@@ -1861,14 +1858,14 @@ private object IssSegmentModuleTest {
       )
       .fakeSign
 
-  def nextRoundRobinPeer(currentPeer: SequencerId): SequencerId = {
-    val currentIndex = allPeers.indexOf(currentPeer)
-    allPeers((currentIndex + 1) % allPeers.size)
+  def nextRoundRobinNode(currentNode: BftNodeId): BftNodeId = {
+    val currentIndex = allIds.indexOf(currentNode)
+    allIds((currentIndex + 1) % allIds.size)
   }
 
-  def nextRoundRobinPeerExcludingSelf(currentPeer: SequencerId): SequencerId = {
-    val nextPeer = nextRoundRobinPeer(currentPeer)
-    if (nextPeer == selfId) nextRoundRobinPeer(nextPeer)
-    else nextPeer
+  def nextRoundRobinNodeExcludingSelf(currentNode: BftNodeId): BftNodeId = {
+    val nextNode = nextRoundRobinNode(currentNode)
+    if (nextNode == myId) nextRoundRobinNode(nextNode)
+    else nextNode
   }
 }

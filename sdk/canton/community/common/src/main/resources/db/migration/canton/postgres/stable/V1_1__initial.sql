@@ -191,7 +191,7 @@ create table med_response_aggregations (
   request_id bigint not null primary key,
   mediator_confirmation_request bytea not null,
   -- UTC timestamp is stored in microseconds relative to EPOCH
-  version bigint not null,
+  finalization_time bigint not null,
   verdict bytea not null,
   request_trace_context bytea not null
 );

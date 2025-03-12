@@ -9,7 +9,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   EpochLength,
   EpochNumber,
 }
@@ -26,17 +27,16 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Output,
   P2PNetworkOut,
 }
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.util.{Failure, Success}
 
 /** Belongs to [[StateTransferManager]] and sends state transfer-related messages. */
 final class StateTransferMessageSender[E <: Env[E]](
+    thisNode: BftNodeId,
     consensusDependencies: ConsensusModuleDependencies[E],
     epochLength: EpochLength, // TODO(#19289) support variable epoch lengths
     epochStore: EpochStore[E],
-    thisPeer: SequencerId,
     override val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
@@ -44,7 +44,7 @@ final class StateTransferMessageSender[E <: Env[E]](
 
   def sendBlockTransferRequest(
       blockTransferRequest: SignedMessage[StateTransferMessage.BlockTransferRequest],
-      to: SequencerId,
+      to: BftNodeId,
   )(implicit traceContext: TraceContext): Unit = {
     logger.debug(s"State transfer: sending a block transfer request to $to")
     consensusDependencies.p2pNetworkOut.asyncSend(
@@ -54,7 +54,7 @@ final class StateTransferMessageSender[E <: Env[E]](
 
   def sendBlockTransferResponse(
       activeCryptoProvider: CryptoProvider[E],
-      to: SequencerId,
+      to: BftNodeId,
       startEpoch: EpochNumber,
       latestCompletedEpoch: EpochStore.Epoch,
   )(
@@ -63,11 +63,11 @@ final class StateTransferMessageSender[E <: Env[E]](
     val lastEpochToTransfer = latestCompletedEpoch.info.number
     if (lastEpochToTransfer < startEpoch) {
       logger.info(
-        s"State transfer: nothing to transfer to $to, start epoch was $startEpoch, " +
+        s"State transfer: nothing to transfer to '$to', start epoch was $startEpoch, " +
           s"latest locally completed epoch is $lastEpochToTransfer"
       )
       val response = StateTransferMessage.BlockTransferResponse
-        .create(lastEpochToTransfer, prePrepares = Seq.empty, from = thisPeer)
+        .create(lastEpochToTransfer, prePrepares = Seq.empty, from = thisNode)
       respond(response, activeCryptoProvider, to)
     } else {
       val blocksToTransfer = (lastEpochToTransfer - startEpoch + 1) * epochLength
@@ -93,7 +93,7 @@ final class StateTransferMessageSender[E <: Env[E]](
               s"$lastEpochToTransfer (inclusive) to $to"
           )
           val response = StateTransferMessage.BlockTransferResponse
-            .create(lastEpochToTransfer, prePrepares, from = thisPeer)
+            .create(lastEpochToTransfer, prePrepares, from = thisNode)
           respond(response, activeCryptoProvider, to)
           None // do not send anything back
         case Failure(exception) => Some(Consensus.ConsensusMessage.AsyncException(exception))
@@ -116,6 +116,7 @@ final class StateTransferMessageSender[E <: Env[E]](
             prePrepare.block.proofs,
             prePrepare.canonicalCommitSet,
           ),
+          prePrepare.viewNumber,
           prePrepare.from,
           isLastInEpoch,
           mode =
@@ -158,7 +159,7 @@ final class StateTransferMessageSender[E <: Env[E]](
   private def respond[Message <: StateTransferMessage.StateTransferNetworkMessage](
       response: Message,
       cryptoProvider: CryptoProvider[E],
-      to: SequencerId,
+      to: BftNodeId,
   )(implicit context: E#ActorContextT[Consensus.Message[E]], traceContext: TraceContext): Unit =
     signMessage(cryptoProvider, response) { signedMessage =>
       consensusDependencies.p2pNetworkOut.asyncSend(

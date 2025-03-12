@@ -144,12 +144,12 @@ class PipeTest extends AnyFlatSpec with BaseTest {
       durationOfFirstPhaseWithFaults = 2.minutes,
     )
 
-    val thePeerEndpoint = PlainTextP2PEndpoint("node", Port.tryCreate(0))
+    val theEndpoint = PlainTextP2PEndpoint("node", Port.tryCreate(0))
     val reporter = new Reporter
     val pipeStore = new SimulatedPipeStore
 
     val topologyInit = Map(
-      thePeerEndpoint -> SimulationInitializer
+      theEndpoint -> SimulationInitializer
         .noClient[String, String, Unit](
           loggerFactory,
           timeouts,

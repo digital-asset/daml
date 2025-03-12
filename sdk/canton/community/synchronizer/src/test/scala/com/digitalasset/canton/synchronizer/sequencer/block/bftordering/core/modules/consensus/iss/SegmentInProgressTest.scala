@@ -6,10 +6,9 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Segment
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.SegmentInProgress
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.SegmentInProgress.RehydrationMessages
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BlockNumber,
   ViewNumber,
 }
@@ -43,33 +42,33 @@ class SegmentInProgressTest extends AsyncWordSpec with BftSequencerBaseTest {
     val ppBlock2View0 = createPrePrepare(blockNumber = 2L, view = v0, from = myId)
     val p1View0 = createPrepare(blockNumber = 0L, view = v0, from = myId, ppView0.message.hash)
     val p2View0 =
-      createPrepare(blockNumber = 0L, view = v0, from = otherPeers(0), ppView0.message.hash)
+      createPrepare(blockNumber = 0L, view = v0, from = otherIds(0), ppView0.message.hash)
 
     val viewChange1 =
-      createViewChange(viewNumber = v1, from = otherPeers(0), originalLeader = myId, Seq.empty)
-    val ppView1 = createPrePrepare(blockNumber = 0L, view = v1, from = otherPeers(0))
+      createViewChange(viewNumber = v1, from = otherIds(0), originalLeader = myId, Seq.empty)
+    val ppView1 = createPrePrepare(blockNumber = 0L, view = v1, from = otherIds(0))
     val newView1 = createNewView(
       viewNumber = v1,
-      from = otherPeers(0),
+      from = otherIds(0),
       originalLeader = myId,
       Seq(viewChange1),
       Seq(ppView1),
     )
     val p1View1 =
-      createPrepare(blockNumber = 0L, view = v1, from = otherPeers(0), ppView0.message.hash)
+      createPrepare(blockNumber = 0L, view = v1, from = otherIds(0), ppView0.message.hash)
     val p2View1 =
-      createPrepare(blockNumber = 0L, view = v1, from = otherPeers(1), ppView0.message.hash)
+      createPrepare(blockNumber = 0L, view = v1, from = otherIds(1), ppView0.message.hash)
 
     val viewChange2 =
-      createViewChange(viewNumber = v2, from = otherPeers(1), originalLeader = myId, Seq.empty)
+      createViewChange(viewNumber = v2, from = otherIds(1), originalLeader = myId, Seq.empty)
     val viewChange3 =
-      createViewChange(viewNumber = v3, from = otherPeers(2), originalLeader = myId, Seq.empty)
+      createViewChange(viewNumber = v3, from = otherIds(2), originalLeader = myId, Seq.empty)
 
-    val ppView0AnotherSegment = createPrePrepare(blockNumber = 1L, view = v0, from = otherPeers(0))
+    val ppView0AnotherSegment = createPrePrepare(blockNumber = 1L, view = v0, from = otherIds(0))
     val p1View0AnotherSegment =
-      createPrepare(blockNumber = 1L, view = v0, from = otherPeers(0), ppView0.message.hash)
+      createPrepare(blockNumber = 1L, view = v0, from = otherIds(0), ppView0.message.hash)
     val p2View0AnotherSegment =
-      createPrepare(blockNumber = 1L, view = v0, from = otherPeers(1), ppView0.message.hash)
+      createPrepare(blockNumber = 1L, view = v0, from = otherIds(1), ppView0.message.hash)
 
     "rehydrate all messages if no view-change involved" in {
       rehydrationMessages(

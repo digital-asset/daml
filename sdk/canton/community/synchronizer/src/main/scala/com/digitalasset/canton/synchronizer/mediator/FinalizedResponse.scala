@@ -21,11 +21,12 @@ import scala.concurrent.ExecutionContext
 final case class FinalizedResponse(
     override val requestId: RequestId,
     override val request: MediatorConfirmationRequest,
-    override val version: CantonTimestamp,
+    finalizationTime: CantonTimestamp,
     verdict: Verdict,
 )(val requestTraceContext: TraceContext)
     extends ResponseAggregator {
 
+  override def version: CantonTimestamp = finalizationTime
   override def isFinalized: Boolean = true
 
   /** Merely validates the request and raises alarms. But there is nothing to progress any more */

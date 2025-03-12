@@ -9,7 +9,7 @@ import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.db.DbEpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.memory.InMemoryEpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BlockNumber,
   EpochNumber,
 }
@@ -75,7 +75,7 @@ trait EpochStore[E <: Env[E]] extends AutoCloseable {
     * We only store locally-created view-change messages, in order to indicate that this node
     * started a view change, either because of a timeout or because of gathering a weak quorum of
     * view-change messages from other nodes. Once a correct node starts a view change to v+1, and
-    * sends the view-change message to other peers, it should not go back to working on view v after
+    * sends the view-change message to other nodes, it should not go back to working on view v after
     * a restart.
     */
   def addViewChangeMessage[M <: PbftViewChangeMessage](viewChangeMessage: SignedMessage[M])(implicit

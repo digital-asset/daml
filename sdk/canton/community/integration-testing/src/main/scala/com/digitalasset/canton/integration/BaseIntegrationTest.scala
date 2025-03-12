@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration
 
 import com.digitalasset.canton.console.{CommandFailure, ParticipantReference}
-import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.{
@@ -53,13 +52,13 @@ import scala.jdk.CollectionConverters.*
   * All integration tests must be located in package [[com.digitalasset.canton.integration.tests]]
   * or a subpackage thereof. This is required to correctly compute unit test coverage.
   */
-private[integration] trait BaseIntegrationTest[E <: Environment, TCE <: TestConsoleEnvironment[E]]
+private[integration] trait BaseIntegrationTest[TCE <: TestConsoleEnvironment]
     extends FixtureAnyWordSpec
     with BaseTest
     with RepeatableTestSuiteTest
-    with HasEnvironmentDefinition[E, TCE]
+    with HasEnvironmentDefinition[TCE]
     with ProtocolVersionChecksFixtureAnyWordSpec {
-  this: EnvironmentSetup[E, TCE] =>
+  this: EnvironmentSetup[TCE] =>
 
   type FixtureParam = TCE
 

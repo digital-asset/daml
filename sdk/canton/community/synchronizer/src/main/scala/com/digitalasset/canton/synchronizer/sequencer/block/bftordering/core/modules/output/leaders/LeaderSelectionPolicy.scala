@@ -3,9 +3,11 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders
 
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  EpochNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
-import com.digitalasset.canton.topology.SequencerId
 
 import scala.collection.immutable.SortedSet
 
@@ -13,20 +15,21 @@ import LeaderSelectionPolicy.rotateLeaders
 
 trait LeaderSelectionPolicy {
 
-  def selectLeaders(peers: Set[SequencerId]): SortedSet[SequencerId]
+  def selectLeaders(nodes: Set[BftNodeId]): SortedSet[BftNodeId]
 
-  def getLeaders(orderingTopology: OrderingTopology, epochNumber: EpochNumber): Seq[SequencerId] = {
+  def getLeaders(orderingTopology: OrderingTopology, epochNumber: EpochNumber): Seq[BftNodeId] = {
     val selectedLeaders =
-      selectLeaders(orderingTopology.peers)
+      selectLeaders(orderingTopology.nodes)
     rotateLeaders(selectedLeaders, epochNumber)
   }
 }
 
 object LeaderSelectionPolicy {
+
   def rotateLeaders(
-      originalLeaders: SortedSet[SequencerId],
+      originalLeaders: SortedSet[BftNodeId],
       epochNumber: EpochNumber,
-  ): Seq[SequencerId] = {
+  ): Seq[BftNodeId] = {
     val splitIndex = (epochNumber % originalLeaders.size).toInt
     originalLeaders.drop(splitIndex).toSeq ++ originalLeaders.take(splitIndex).toSeq
   }

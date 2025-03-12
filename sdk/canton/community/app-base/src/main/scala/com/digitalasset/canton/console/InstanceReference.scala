@@ -1361,6 +1361,9 @@ abstract class MediatorReference(val consoleEnvironment: ConsoleEnvironment, nam
   @Help.Summary("Pruning functionality for the mediator")
   @Help.Group("Testing")
   def pruning: MediatorPruningAdministrationGroup = pruning_
+
+  private lazy val scan_ = new MediatorScanGroup(runner, consoleEnvironment, name, loggerFactory)
+  def scan: MediatorScanGroup = scan_
 }
 
 class LocalMediatorReference(consoleEnvironment: ConsoleEnvironment, val name: String)

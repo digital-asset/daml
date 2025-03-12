@@ -14,7 +14,6 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.Success
 
 /** Provides a single flush [[scala.concurrent.Future]] that runs asynchronously. Tasks can be
   * chained onto the flush future, although they will not run sequentially.
@@ -54,7 +53,7 @@ trait HasFlushFuture
       // so that we don't have to worry about execution contexts being closed here.
       val removeF = future.transform { _ =>
         tasks.remove(newTask).discard
-        Success(())
+        TryUtil.unit
       }(directExecutionContext)
       promise.completeWith(removeF)
     }

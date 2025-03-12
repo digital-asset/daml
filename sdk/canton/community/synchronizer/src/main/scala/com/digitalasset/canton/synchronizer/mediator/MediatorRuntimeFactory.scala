@@ -4,20 +4,28 @@
 package com.digitalasset.canton.synchronizer.mediator
 
 import cats.data.EitherT
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.mediator.admin.v30.MediatorAdministrationServiceGrpc
+import com.digitalasset.canton.mediator.admin.v30.{
+  MediatorAdministrationServiceGrpc,
+  MediatorScanServiceGrpc,
+}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.client.RichSequencerClient
 import com.digitalasset.canton.store.{SequencedEventStore, SequencerCounterTrackerStore}
-import com.digitalasset.canton.synchronizer.mediator.service.GrpcMediatorAdministrationService
+import com.digitalasset.canton.synchronizer.mediator.service.{
+  GrpcMediatorAdministrationService,
+  GrpcMediatorScanService,
+  WatermarkTracker,
+}
 import com.digitalasset.canton.synchronizer.mediator.store.{
   FinalizedResponseStore,
   MediatorDeduplicationStore,
@@ -28,7 +36,7 @@ import com.digitalasset.canton.time.admin.v30.SynchronizerTimeServiceGrpc
 import com.digitalasset.canton.time.{Clock, GrpcSynchronizerTimeService, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
-import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
+import com.digitalasset.canton.topology.processing.{SequencedTime, TopologyTransactionProcessor}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.ServerServiceDefinition
@@ -43,6 +51,7 @@ final class MediatorRuntime(
     config: MediatorConfig,
     storage: Storage,
     clock: Clock,
+    batchingConfig: BatchingConfig,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit protected val ec: ExecutionContext)
@@ -67,6 +76,24 @@ final class MediatorRuntime(
       new GrpcMediatorAdministrationService(mediator, pruningScheduler, loggerFactory),
       ec,
     )
+  val watermarkTracker = new WatermarkTracker {
+    override def getWatermark(): CantonTimestamp = mediator.syncCrypto.approximateTimestamp
+
+    override def awaitWatermarkTime(minimumTimestampInclusive: CantonTimestamp)(implicit
+        traceContext: TraceContext
+    ): Option[FutureUnlessShutdown[Unit]] =
+      mediator.topologyClient.awaitSequencedTimestamp(SequencedTime(minimumTimestampInclusive))
+  }
+
+  val scanService: ServerServiceDefinition = MediatorScanServiceGrpc.bindService(
+    new GrpcMediatorScanService(
+      mediator.state.finalizedResponseStore,
+      watermarkTracker,
+      batchingConfig.maxItemsInBatch,
+      loggerFactory,
+    ),
+    ec,
+  )
 
   ApiInfoServiceGrpc
     .bindService(new GrpcApiInfoService(CantonGrpcUtil.ApiName.AdminApi), ec)
@@ -147,6 +174,7 @@ object MediatorRuntimeFactory {
       clock,
       loggerFactory,
     )
+
     val mediator = new Mediator(
       synchronizerId,
       mediatorId,
@@ -174,6 +202,7 @@ object MediatorRuntimeFactory {
         config,
         storage,
         clock,
+        nodeParameters.batchingConfig,
         nodeParameters.processingTimeouts,
         loggerFactory,
       )

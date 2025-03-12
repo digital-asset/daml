@@ -58,8 +58,14 @@ object NodeReferences {
 /** The environment in which console commands are evaluated.
   */
 @SuppressWarnings(Array("org.wartremover.warts.Any")) // required for `Binding[_]` usage
-trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing {
-  type Env <: Environment
+class ConsoleEnvironment(
+    val environment: Environment,
+    val consoleOutput: ConsoleOutput = StandardConsoleOutput,
+) extends NamedLogging
+    with FlagCloseable
+    with NoTracing {
+
+  override protected val loggerFactory: NamedLoggerFactory = environment.loggerFactory
 
   def consoleLogger: Logger = super.noTracingLogger
 
@@ -68,19 +74,12 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
   private lazy val health_ = new CantonHealthAdministration(this)
   def health: CantonHealthAdministration = health_
 
-  /** the underlying Canton runtime environment */
-  val environment: Env
-
   /** determines the control exception thrown on errors */
-  val errorHandler: ConsoleErrorHandler = ThrowErrorHandler
-
-  /** the console for user facing output */
-  val consoleOutput: ConsoleOutput
+  private val errorHandler: ConsoleErrorHandler = ThrowErrorHandler
 
   /** The predef code itself which is executed before any script or repl command */
   private[console] def predefCode(interactive: Boolean, noTty: Boolean = false): String =
-    consoleEnvironmentBindings.predefCode(interactive, noTty)
-  protected def consoleEnvironmentBindings: ConsoleEnvironmentBinding
+    ConsoleEnvironmentBinding.predefCode(interactive, noTty)
 
   private[console] val tracer: Tracer = environment.tracerProvider.tracer
 
@@ -114,8 +113,6 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
       consoleEnvironment: ConsoleEnvironment,
       apiName: String,
   ): GrpcAdminCommandRunner = GrpcAdminCommandRunner(consoleEnvironment, apiName)
-
-  protected override val loggerFactory: NamedLoggerFactory = environment.loggerFactory
 
   private val commandTimeoutReference: AtomicReference[ConsoleCommandTimeout] =
     new AtomicReference[ConsoleCommandTimeout](environment.config.parameters.timeouts.console)

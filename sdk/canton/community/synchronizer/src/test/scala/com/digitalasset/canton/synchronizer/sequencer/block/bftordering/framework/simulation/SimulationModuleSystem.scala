@@ -8,7 +8,6 @@ import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
   P2PEndpoint,
@@ -18,6 +17,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ModuleControl,
   SystemInitializer,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.OnboardingDataProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
@@ -33,7 +33,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PureFun,
 }
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.HexString
 import org.scalatest.Assertions.fail
@@ -41,8 +40,6 @@ import org.scalatest.Assertions.fail
 import scala.collection.mutable
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Random, Try}
-
-import SimulationModuleSystem.SimulationP2PNetworkManager.fakeSequencerId
 
 object SimulationModuleSystem {
 
@@ -56,7 +53,7 @@ object SimulationModuleSystem {
   }
 
   private[simulation] final case class SimulationP2PNetworkRef[P2PMessageT](
-      peer: SequencerId,
+      node: BftNodeId,
       collector: NodeCollector,
       override val timeouts: ProcessingTimeout,
       override val loggerFactory: NamedLoggerFactory,
@@ -66,7 +63,7 @@ object SimulationModuleSystem {
     override def asyncP2PSend(msg: P2PMessageT)(onCompletion: => Unit)(implicit
         traceContext: TraceContext
     ): Unit = {
-      collector.addNetworkEvent(peer, msg)
+      collector.addNetworkEvent(node, msg)
       onCompletion
     }
   }
@@ -82,22 +79,17 @@ object SimulationModuleSystem {
         _context: SimulationModuleContext[ActorContextT],
         endpoint: P2PEndpoint,
     )(
-        onSequencerId: (P2PEndpoint.Id, SequencerId) => Unit
+        onNode: (P2PEndpoint.Id, BftNodeId) => Unit
     ): P2PNetworkRef[P2PMessageT] = {
-      val sequencerId = fakeSequencerId(endpoint)
+      val node = Simulation.endpointToNode(endpoint)
       endpoint match {
         case plaintextEndpoint: PlainTextP2PEndpoint =>
-          collector.addOpenConnection(sequencerId, plaintextEndpoint, onSequencerId)
-          SimulationP2PNetworkRef(sequencerId, collector, timeouts, loggerFactory)
+          collector.addOpenConnection(node, plaintextEndpoint, onNode)
+          SimulationP2PNetworkRef(node, collector, timeouts, loggerFactory)
         case _: GrpcNetworking.TlsP2PEndpoint =>
           throw new UnsupportedOperationException("TLS is not supported in simulation")
       }
     }
-  }
-
-  object SimulationP2PNetworkManager {
-    def fakeSequencerId(peer: P2PEndpoint): SequencerId =
-      bftordering.fakeSequencerId(peer.id.url)
   }
 
   private[simulation] trait SimulationModuleContext[MessageT]
@@ -422,11 +414,11 @@ object SimulationModuleSystem {
       endpointsToInitializers.partition { case (_, initializer) =>
         initializer.initializeImmediately
       }
-    val initialSequencersToMachines: Map[SequencerId, Machine[?, ?]] =
+    val initialSequencersToMachines: Map[BftNodeId, Machine[?, ?]] =
       initialSequencersToInitializers.view.map { case (endpoint, simulationInitializer) =>
-        val sequencerId = SimulationP2PNetworkManager.fakeSequencerId(endpoint)
-        sequencerId -> machineInitializer.initialize(
-          onboardingDataProvider.provide(sequencerId),
+        val node = Simulation.endpointToNode(endpoint)
+        node -> machineInitializer.initialize(
+          onboardingDataProvider.provide(node),
           simulationInitializer,
         )
       }.toMap

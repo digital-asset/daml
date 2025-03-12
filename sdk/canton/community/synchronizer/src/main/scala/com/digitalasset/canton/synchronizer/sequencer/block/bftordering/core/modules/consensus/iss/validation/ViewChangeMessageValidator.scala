@@ -9,7 +9,7 @@ import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.BlockNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BlockNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   NewView,
@@ -161,7 +161,7 @@ class ViewChangeMessageValidator(
         .map(_.message)
         .traverse_(viewChange =>
           validateViewChangeMessage(viewChange)
-            .leftMap(e => s"view change message from ${viewChange.from} is invalid: $e")
+            .leftMap(e => s"view change message from '${viewChange.from}' is invalid: $e")
         )
       _ <- {
         val blockNumbers = newView.prePrepares.map(_.message.blockMetadata.blockNumber)

@@ -54,7 +54,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SystemInitializer,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.BlockNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BlockNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.SequencerSnapshotAdditionalInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
@@ -122,12 +122,14 @@ final class BftBlockOrderer(
     s"The sequencer subscription initial height must be non-negative, but was $sequencerSubscriptionInitialHeight",
   )
 
+  private val thisNode = SequencerNodeId.toBftNodeId(sequencerId)
+
   // The initial metrics factory, which also pre-initializes histograms (as required by OpenTelemetry), is built
   //  very early in the Canton bootstrap process, before unique IDs for synchronizer nodes are even available,
   //  so it doesn't include the sequencer ID in the labels, rather just the node name AKA "instance name".
   //
   //  The instance name, though, coming from the Canton config, is operator-chosen and is, in general, not unique and
-  //  even uncorrelated with the sequencer ID, while the BFT ordering system must refer to peers uniquely and, thus,
+  //  even uncorrelated with the sequencer ID, while the BFT ordering system must refer to nodes uniquely and, thus,
   //  refers to them only by their sequencer IDs.
   //
   //  Since we want to always be able to correlate the sequencer IDs included as additional metrics context, e.g. in
@@ -138,7 +140,7 @@ final class BftBlockOrderer(
   //  Also, we do it as soon as the BFT block orderer is created, so that all BFT ordering sequencers include it in all
   //  emitted metrics.
   private implicit val metricsContext: MetricsContext =
-    MetricsContext(metrics.global.labels.ReportingSequencer -> sequencerId.toProtoPrimitive)
+    MetricsContext(metrics.global.labels.ReportingSequencer -> thisNode)
 
   // Initialize the non-compliant behavior meter so that a value appears even if all behavior is compliant.
   metrics.security.noncompliant.behavior.mark(0)
@@ -150,7 +152,7 @@ final class BftBlockOrderer(
   override protected val loggerFactory: NamedLoggerFactory =
     namedLoggerFactory
       .append(
-        "bftOrderingPeerEndpoint",
+        "bftOrderingEndpoint",
         config.initialNetwork.map(_.serverEndpoint.toString).getOrElse("unknown"),
       )
 
@@ -331,7 +333,7 @@ final class BftBlockOrderer(
       )
     new BftOrderingModuleSystemInitializer(
       protocolVersion,
-      sequencerId,
+      thisNode,
       config,
       BlockNumber(sequencerSubscriptionInitialHeight),
       // TODO(#18910) test with multiple epoch lengths >= 1 (incl. 1)
@@ -362,7 +364,7 @@ final class BftBlockOrderer(
   ): StreamObserver[BftOrderingServiceReceiveRequest] = {
     p2pGrpcNetworking.serverRole.addClientHandle(clientEndpoint)
     PekkoGrpcP2PNetworking.tryCreateServerHandle(
-      sequencerId,
+      SequencerNodeId.toBftNodeId(sequencerId),
       p2pNetworkInModuleRef,
       clientEndpoint,
       p2pGrpcNetworking.serverRole.cleanupClientHandle,

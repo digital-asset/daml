@@ -4,7 +4,10 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss
 
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.ViewNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  ViewNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.{
   CommitCertificate,
@@ -20,7 +23,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PreparesStored,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.mutable
@@ -138,6 +140,6 @@ class SegmentBlockState(
     }
   }
 
-  def prepareVoters: Iterable[SequencerId] = views.values.flatMap(_.prepareVoters)
-  def commitVoters: Iterable[SequencerId] = views.values.flatMap(_.commitVoters)
+  def prepareVoters: Iterable[BftNodeId] = views.values.flatMap(_.prepareVoters)
+  def commitVoters: Iterable[BftNodeId] = views.values.flatMap(_.commitVoters)
 }

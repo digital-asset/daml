@@ -25,7 +25,7 @@ import scala.util.Random
 
 object SimulationTopologyHelpers {
 
-  def generatePeerOnboardingDelay(
+  def generateNodeOnboardingDelay(
       durationOfFirstPhaseWithFaults: FiniteDuration,
       random: Random,
   ): FiniteDuration =
@@ -43,12 +43,12 @@ object SimulationTopologyHelpers {
     onboardingTime.value.plus(simSettings.becomingOnlineAfterOnboardingDelay.toJava)
 
   def generateSimulationTopologyData(
-      peerEndpointsToOnboardingTimes: Map[P2PEndpoint, TopologyActivationTime],
+      endpointsToOnboardingTimes: Map[P2PEndpoint, TopologyActivationTime],
       loggerFactory: NamedLoggerFactory,
   ): Map[P2PEndpoint, SimulationTopologyData] = {
     val crypto =
       SymbolicCrypto.create(ReleaseProtocolVersion.latest, ProcessingTimeout(), loggerFactory)
-    peerEndpointsToOnboardingTimes.view.mapValues { timestamp =>
+    endpointsToOnboardingTimes.view.mapValues { timestamp =>
       val keys = crypto.newSymbolicSigningKeyPair(SigningKeyUsage.ProtocolOnly)
       SimulationTopologyData(timestamp, keys.publicKey, keys.privateKey)
     }.toMap
