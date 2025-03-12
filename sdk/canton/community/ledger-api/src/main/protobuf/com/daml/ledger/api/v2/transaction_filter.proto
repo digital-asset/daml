@@ -97,13 +97,13 @@ message TransactionFilter {
   // The interpretation of the filter depends on the transaction-shape being filtered:
   //
   // 1. For **transaction trees** (used in GetUpdateTreesResponse for backwards compatibility) all party keys used as
-  //     wildcard filters, and all subtrees whose root has one of the listed parties as an informee are returned.
-  //     If there are ``CumulativeFilter``s, those will control returned ``CreatedEvent`` fields where applicable, but will
-  //     not be used for template/interface filtering.
+  //    wildcard filters, and all subtrees whose root has one of the listed parties as an informee are returned.
+  //    If there are ``CumulativeFilter``s, those will control returned ``CreatedEvent`` fields where applicable, but will
+  //    not be used for template/interface filtering.
   // 2. For **ledger-effects** create and exercise events are returned, for which the witnesses include at least one of
-  //     the listed parties and match the per-party filter.
+  //    the listed parties and match the per-party filter.
   // 3. For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
-  //     stakeholders include at least one of the listed parties and match the per-party filter.
+  //    stakeholders include at least one of the listed parties and match the per-party filter.
   //
   // Required
   map<string, Filters> filters_by_party = 1;
@@ -123,9 +123,9 @@ message EventFormat {
   // The interpretation of the filter depends on the transaction-shape being filtered:
   //
   // 1. For **ledger-effects** create and exercise events are returned, for which the witnesses include at least one of
-  //     the listed parties and match the per-party filter.
+  //    the listed parties and match the per-party filter.
   // 2. For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
-  //     stakeholders include at least one of the listed parties and match the per-party filter.
+  //    stakeholders include at least one of the listed parties and match the per-party filter.
   //
   // Optional
   map<string, Filters> filters_by_party = 1;

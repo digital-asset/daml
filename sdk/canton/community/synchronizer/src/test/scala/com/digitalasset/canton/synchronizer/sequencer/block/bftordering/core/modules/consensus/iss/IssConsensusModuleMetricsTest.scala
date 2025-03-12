@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss
 
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochLength
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochLength
 import org.scalatest.wordspec.AnyWordSpec
 
 class IssConsensusModuleMetricsTest extends AnyWordSpec with BftSequencerBaseTest {
@@ -12,7 +12,7 @@ class IssConsensusModuleMetricsTest extends AnyWordSpec with BftSequencerBaseTes
   "possibleVotesInEpoch" should {
     "work as expected" in {
       Table(
-        ("peers", "epochLength", "segmentLeaders", "viewsCount", "expected"),
+        ("votes", "epochLength", "segmentLeaders", "viewsCount", "expected"),
         (1, 1L, 1, 1L, 1),
         (1, 1L, 1, 2L, 2),
         (1, 2L, 1, 1L, 2),
@@ -22,9 +22,9 @@ class IssConsensusModuleMetricsTest extends AnyWordSpec with BftSequencerBaseTes
         (2, 2L, 2, 2L, 4),
         (2, 2L, 2, 3L, 6),
         (2, 2L, 2, 4L, 8),
-      ).forEvery { (peers, epochLength, segmentLeaders, viewsCount, expected) =>
+      ).forEvery { (votes, epochLength, segmentLeaders, viewsCount, expected) =>
         val result = IssConsensusModuleMetrics.totalConsensusStageVotesInEpoch(
-          peers,
+          votes,
           EpochLength(epochLength),
           segmentLeaders,
           viewsCount,

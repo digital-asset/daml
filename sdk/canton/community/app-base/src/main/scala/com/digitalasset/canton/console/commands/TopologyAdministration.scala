@@ -1460,7 +1460,7 @@ class TopologyAdministrationGroup(
     @Help.Description("""Change the association of a party to hosting participants.
       party: The unique identifier of the party whose set of participants or permission to modify.
       adds: The unique identifiers of the participants to host the party each specifying the participant's permissions
-            (submission, confirmation, observation). If the party already hosts the specified participant, update the
+            (submission, confirmation, observation). If the participant already hosts the specified party, update the
             participant's permissions.
       removes: The unique identifiers of the participants that should no longer host the party.
       signedBy: Refers to the optional fingerprint of the authorizing key which in turn refers to a specific, locally existing certificate.

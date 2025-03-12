@@ -18,6 +18,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.NetworkingMetrics.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2PEndpointsStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology.strongQuorumSize
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.P2PNetworkOut.{
@@ -34,7 +35,6 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
   BftOrderingMessageBody,
   BftOrderingServiceReceiveRequest,
 }
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
@@ -42,22 +42,22 @@ import java.time.{Duration, Instant}
 import scala.collection.mutable
 import scala.util.{Failure, Success}
 
-private[bftordering] class KnownPeers {
+private[bftordering] class KnownEndpointsAndNodes {
 
   private val networkRefs =
     mutable.Map.empty[
       P2PEndpoint.Id,
       (P2PEndpoint, P2PNetworkRef[BftOrderingServiceReceiveRequest]),
     ]
-  private val sequencerIds = mutable.Map.empty[P2PEndpoint.Id, SequencerId]
-  private val endpoints = mutable.Map.empty[SequencerId, P2PEndpoint.Id]
+  private val nodes = mutable.Map.empty[P2PEndpoint.Id, BftNodeId]
+  private val endpoints = mutable.Map.empty[BftNodeId, P2PEndpoint.Id]
 
   def isDefined(endpoint: P2PEndpoint.Id): Boolean = networkRefs.contains(endpoint)
 
-  def actOn(peer: SequencerId, ifEmpty: => Unit)(
+  def actOn(node: BftNodeId, ifEmpty: => Unit)(
       action: P2PNetworkRef[BftOrderingServiceReceiveRequest] => Unit
   ): Unit =
-    endpoints.get(peer).fold(ifEmpty)(networkRefs.get(_).map(_._2).fold(ifEmpty)(action))
+    endpoints.get(node).fold(ifEmpty)(networkRefs.get(_).map(_._2).fold(ifEmpty)(action))
 
   def add(
       endpoint: P2PEndpoint,
@@ -65,26 +65,26 @@ private[bftordering] class KnownPeers {
   ): Unit =
     networkRefs.addOne(endpoint.id -> (endpoint, ref))
 
-  def getSequencerId(endpoint: P2PEndpoint.Id): Option[SequencerId] =
-    sequencerIds.get(endpoint)
+  def getNode(endpoint: P2PEndpoint.Id): Option[BftNodeId] =
+    nodes.get(endpoint)
 
-  def setSequencerId(endpointId: P2PEndpoint.Id, sequencerId: SequencerId): Unit = {
-    sequencerIds.addOne(endpointId -> sequencerId)
-    endpoints.addOne(sequencerId -> endpointId)
+  def setNode(endpointId: P2PEndpoint.Id, node: BftNodeId): Unit = {
+    nodes.addOne(endpointId -> node)
+    endpoints.addOne(node -> endpointId)
   }
 
   def getEndpoints: Seq[P2PEndpoint] = networkRefs.values.map(_._1).toSeq
 
-  def authenticatedCount: Int = sequencerIds.size
+  def authenticatedCount: Int = nodes.size
 
   def delete(endpoint: P2PEndpoint.Id): Unit = {
     networkRefs.remove(endpoint).foreach(_._2.close())
-    sequencerIds.remove(endpoint).foreach(endpoints.remove)
+    nodes.remove(endpoint).foreach(endpoints.remove)
   }
 }
 
 final class BftP2PNetworkOut[E <: Env[E]](
-    thisSequencerId: SequencerId,
+    thisNode: BftNodeId,
     @VisibleForTesting private[bftordering] val p2pEndpointsStore: P2PEndpointsStore[E],
     metrics: BftOrderingMetrics,
     override val dependencies: P2PNetworkOutModuleDependencies[E],
@@ -113,7 +113,7 @@ final class BftP2PNetworkOut[E <: Env[E]](
         val endpoints =
           context.blockingAwait(p2pEndpointsStore.listEndpoints, DefaultDatabaseReadTimeout)
         initialEndpointsCount = endpoints.size + 1
-        connectInitialPeers(endpoints)
+        connectInitialNodes(endpoints)
         startModulesIfNeeded()
 
       case P2PNetworkOut.Internal.Connect(endpoint) =>
@@ -122,33 +122,32 @@ final class BftP2PNetworkOut[E <: Env[E]](
       case P2PNetworkOut.Internal.Disconnect(endpoint) =>
         disconnect(endpoint)
 
-      case P2PNetworkOut.Network.Authenticated(endpointId, sequencerId) =>
-        if (sequencerId == thisSequencerId) {
-          emitIdentityEquivocation(metrics, endpointId, sequencerId)
+      case P2PNetworkOut.Network.Authenticated(endpointId, node) =>
+        if (node == thisNode) {
+          emitIdentityEquivocation(metrics, endpointId, node)
           logger.warn(
-            s"A peer authenticated from $endpointId with the sequencer ID of this very peer " +
-              s"($thisSequencerId); this could indicate malicious behavior: disconnecting the peer"
+            s"A node authenticated from $endpointId with the sequencer ID of this very node " +
+              s"($thisNode); this could indicate malicious behavior: disconnecting it"
           )
           disconnect(endpointId)
         } else {
-          knownPeers.getSequencerId(endpointId) match {
-            case Some(existingSequencerId) if existingSequencerId != sequencerId =>
-              emitIdentityEquivocation(metrics, endpointId, existingSequencerId)
+          known.getNode(endpointId) match {
+            case Some(existingNode) if existingNode != node =>
+              emitIdentityEquivocation(metrics, endpointId, existingNode)
               logger.warn(
-                s"On reconnection, a peer authenticated from endpoint $endpointId " +
-                  s"with a different sequencer id $sequencerId, but it was already authenticated " +
-                  s"as $existingSequencerId; this could indicate malicious behavior: disconnecting the peer"
+                s"On reconnection, a node authenticated from endpoint $endpointId " +
+                  s"with a different sequencer id $node, but it was already authenticated " +
+                  s"as $existingNode; this could indicate malicious behavior: disconnecting it"
               )
               disconnect(endpointId)
             case _ =>
-              logger.debug(s"Authenticated peer $sequencerId at $endpointId")
-              registerAuthenticated(endpointId, sequencerId)
+              logger.debug(s"Authenticated node $node at $endpointId")
+              registerAuthenticated(endpointId, node)
           }
         }
 
-      case P2PNetworkOut.Multicast(message, peers) =>
-        peers.toSeq
-          .sortBy(_.toProtoPrimitive) // For determinism
+      case P2PNetworkOut.Multicast(message, nodes) =>
+        nodes.toSeq.sorted // For determinism
           .foreach(sendIfKnown(_, message))
 
       case admin: P2PNetworkOut.Admin =>
@@ -156,24 +155,24 @@ final class BftP2PNetworkOut[E <: Env[E]](
     }
 
   private def sendIfKnown(
-      peer: SequencerId,
+      node: BftNodeId,
       message: BftOrderingNetworkMessage,
   )(implicit
       traceContext: TraceContext
   ): Unit =
-    if (peer != thisSequencerId)
-      networkSendIfKnown(peer, message)
+    if (node != thisNode)
+      networkSendIfKnown(node, message)
     else
       dependencies.p2pNetworkIn.asyncSend(messageToSend(message.toProto))
 
   private def networkSendIfKnown(
-      to: SequencerId,
+      to: BftNodeId,
       message: BftOrderingNetworkMessage,
   )(implicit
       traceContext: TraceContext
   ): Unit = {
     val serializedMessage = message.toProto
-    knownPeers.actOn(
+    known.actOn(
       to,
       ifEmpty = {
         val mc1 =
@@ -204,7 +203,7 @@ final class BftP2PNetworkOut[E <: Env[E]](
   )(implicit context: E#ActorContextT[P2PNetworkOut.Message], traceContext: TraceContext): Unit =
     admin match {
       case Admin.AddEndpoint(endpoint, callback) =>
-        if (knownPeers.isDefined(endpoint.id)) {
+        if (known.isDefined(endpoint.id)) {
           callback(false)
         } else {
           context.pipeToSelf(p2pEndpointsStore.addEndpoint(endpoint)) {
@@ -219,7 +218,7 @@ final class BftP2PNetworkOut[E <: Env[E]](
           }
         }
       case Admin.RemoveEndpoint(endpointId, callback) =>
-        if (knownPeers.isDefined(endpointId)) {
+        if (known.isDefined(endpointId)) {
           context.pipeToSelf(p2pEndpointsStore.removeEndpoint(endpointId)) {
             case Success(hasBeenRemoved) =>
               callback(hasBeenRemoved)
@@ -241,13 +240,13 @@ final class BftP2PNetworkOut[E <: Env[E]](
     SequencerBftAdminData.PeerNetworkStatus(
       endpointIds
         .getOrElse(
-          knownPeers.getEndpoints
+          known.getEndpoints
             .map(_.id)
             .sorted // Sorted for output determinism and easier testing
         )
         .map { endpointId =>
-          val defined = knownPeers.isDefined(endpointId)
-          val authenticated = knownPeers.getSequencerId(endpointId).isDefined
+          val defined = known.isDefined(endpointId)
+          val authenticated = known.getNode(endpointId).isDefined
           PeerEndpointStatus(
             endpointId,
             health = (defined, authenticated) match {
@@ -260,10 +259,10 @@ final class BftP2PNetworkOut[E <: Env[E]](
         .toSeq
     )
 
-  private lazy val peerThresholdForAvailabilityStart =
+  private lazy val endpointThresholdForAvailabilityStart =
     AvailabilityModule.quorum(initialEndpointsCount)
 
-  private lazy val peerThresholdForConsensusStart = strongQuorumSize(initialEndpointsCount)
+  private lazy val endpointThresholdForConsensusStart = strongQuorumSize(initialEndpointsCount)
 
   private def startModulesIfNeeded()(implicit
       traceContext: TraceContext
@@ -273,19 +272,21 @@ final class BftP2PNetworkOut[E <: Env[E]](
       dependencies.mempool.asyncSend(Mempool.Start)
       mempoolStarted = true
     }
-    // Waiting for just a quorum (minus self) of peers to be authenticated assumes that they are not faulty
+    // Waiting for just a quorum (minus self) of nodes to be authenticated assumes that they are not faulty
     if (!availabilityStarted) {
-      if (maxPeersContemporarilyAuthenticated >= peerThresholdForAvailabilityStart - 1) {
+      if (maxNodesContemporarilyAuthenticated >= endpointThresholdForAvailabilityStart - 1) {
         logger.debug(
-          s"Peer threshold $peerThresholdForAvailabilityStart reached: starting availability"
+          s"Tthreshold $endpointThresholdForAvailabilityStart reached: starting availability"
         )
         dependencies.availability.asyncSend(Availability.Start)
         availabilityStarted = true
       }
     }
     if (!consensusStarted) {
-      if (maxPeersContemporarilyAuthenticated >= peerThresholdForConsensusStart - 1) {
-        logger.debug(s"Peer threshold $peerThresholdForConsensusStart reached: starting consensus")
+      if (maxNodesContemporarilyAuthenticated >= endpointThresholdForConsensusStart - 1) {
+        logger.debug(
+          s"Threshold $endpointThresholdForConsensusStart reached: starting consensus"
+        )
         dependencies.consensus.asyncSend(Consensus.Start)
         consensusStarted = true
       }
@@ -314,19 +315,19 @@ final class BftP2PNetworkOut[E <: Env[E]](
     BftOrderingServiceReceiveRequest.of(
       traceContext.traceId.getOrElse(""),
       Some(message),
-      thisSequencerId.uid.toProtoPrimitive,
+      thisNode,
     )
 
-  private def connectInitialPeers(otherInitialEndpoints: Seq[P2PEndpoint])(implicit
+  private def connectInitialNodes(otherInitialEndpoints: Seq[P2PEndpoint])(implicit
       context: E#ActorContextT[P2PNetworkOut.Message],
       traceContext: TraceContext,
   ): Unit =
-    if (!initialPeersConnecting) {
-      logger.debug(s"Connecting to initial peers: $otherInitialEndpoints")
+    if (!initialNodesConnecting) {
+      logger.debug(s"Connecting to initial nodes: $otherInitialEndpoints")
       otherInitialEndpoints.foreach { endpoint =>
         val _ = connect(endpoint)
       }
-      initialPeersConnecting = true
+      initialNodesConnecting = true
     }
 
   private def connect(
@@ -336,30 +337,30 @@ final class BftP2PNetworkOut[E <: Env[E]](
       traceContext: TraceContext,
   ): P2PNetworkRef[BftOrderingServiceReceiveRequest] = {
     logger.debug(
-      s"Connecting new peer at ${endpoint.id}"
+      s"Connecting new node at ${endpoint.id}"
     )
     val networkRef = dependencies.p2pNetworkManager.createNetworkRef(context, endpoint) {
-      (endpointId, sequencerId) =>
-        context.self.asyncSend(P2PNetworkOut.Network.Authenticated(endpointId, sequencerId))
+      (endpointId, node) =>
+        context.self.asyncSend(P2PNetworkOut.Network.Authenticated(endpointId, node))
     }
-    knownPeers.add(endpoint, networkRef)
-    emitConnectedCount(metrics, knownPeers)
+    known.add(endpoint, networkRef)
+    emitConnectedCount(metrics, known)
     logEndpointsStatus()
     networkRef
   }
 
   private def registerAuthenticated(
       endpointId: P2PEndpoint.Id,
-      sequencerId: SequencerId,
+      node: BftNodeId,
   )(implicit
       traceContext: TraceContext
   ): Unit = {
-    logger.debug(s"Registering peer $sequencerId at $endpointId")
-    knownPeers.setSequencerId(endpointId, sequencerId)
-    emitAuthenticatedCount(metrics, knownPeers)
+    logger.debug(s"Registering '$node' at $endpointId")
+    known.setNode(endpointId, node)
+    emitAuthenticatedCount(metrics, known)
     logEndpointsStatus()
-    maxPeersContemporarilyAuthenticated =
-      Math.max(maxPeersContemporarilyAuthenticated, knownPeers.authenticatedCount)
+    maxNodesContemporarilyAuthenticated =
+      Math.max(maxNodesContemporarilyAuthenticated, known.authenticatedCount)
     startModulesIfNeeded()
   }
 
@@ -369,10 +370,10 @@ final class BftP2PNetworkOut[E <: Env[E]](
       traceContext: TraceContext
   ): Unit = {
     logger.debug(
-      s"Disconnecting peer ${knownPeers.getSequencerId(endpointId).map(_.toString).getOrElse("<unknown>")} at $endpointId"
+      s"Disconnecting '${known.getNode(endpointId).getOrElse("<unknown>")}' at $endpointId"
     )
-    knownPeers.delete(endpointId)
-    emitConnectedCount(metrics, knownPeers)
+    known.delete(endpointId)
+    emitConnectedCount(metrics, known)
     logEndpointsStatus()
   }
 
@@ -385,25 +386,25 @@ private[bftordering] object BftP2PNetworkOut {
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   final class State {
 
-    val knownPeers = new KnownPeers
-    var initialPeersConnecting = false
+    val known = new KnownEndpointsAndNodes
+    var initialNodesConnecting = false
     var availabilityStarted = false
     var mempoolStarted = false
     var consensusStarted = false
     var outputStarted = false
 
-    // We want to track the maximum number of contemporarily authenticated peers,
+    // We want to track the maximum number of contemporarily authenticated nodes,
     //  because the threshold actions will be used by protocol modules to know when
     //  there are enough connections to start, so we don't want to consider
-    //  peers that disconnected afterward. For example, when peer P1 connects
-    //  to other peers:
+    //  nodes that disconnected afterward. For example, when node N1 connects
+    //  to other nodes:
     //
-    //  - P2 authenticates.
-    //  - P3 authenticates.
-    //  - P2 gets disconnected (e.g. by an admin) slightly before processing the request of
-    //    consensus to be started when 2 peers are authenticated.
+    //  - N2 authenticates.
+    //  - N3 authenticates.
+    //  - N2 gets disconnected (e.g. by an admin) slightly before processing the request of
+    //    consensus to be started when 2 nodes are authenticated.
     //
     //  In this case, we want to start consensus anyway.
-    var maxPeersContemporarilyAuthenticated = 0
+    var maxNodesContemporarilyAuthenticated = 0
   }
 }

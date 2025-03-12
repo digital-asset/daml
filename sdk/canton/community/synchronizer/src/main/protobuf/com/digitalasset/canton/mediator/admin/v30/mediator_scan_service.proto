@@ -1,0 +1,79 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.mediator.admin.v30;
+
+import "google/protobuf/timestamp.proto";
+
+service MediatorScanService {
+  // Returns a stream of mediator verdicts ordered primarily by the finalization time
+  // of the mediator verdict, reflected by the field
+  // finalization_time, and secondarily by the record_time.
+  // Limitation:
+  // All non-finalized requests at the time of a mediator restart or crash will not be
+  // contained as a response, as the mediator currently does not have crash recovery procedures
+  // to restore the state necessary to process such responses after the restart.
+  // Other mediators will report those verdicts though.
+  rpc Verdicts(VerdictsRequest) returns (stream VerdictsResponse);
+}
+
+// The request to either start a stream of verdicts from the beginning of the mediator's pruning window,
+// or to resume a stream based on a previously received event. Both timestamps must be
+// provided to correctly resume the stream.
+// The starting timestamps are interpreted as "exclusive", meaning the next verdict in the response is
+// the verdict with the lowest respective timestamps that are greater than the ones provided.
+message VerdictsRequest {
+  // Optional: The finalization_time of the most recently received Verdict.
+  //           If not provided, the mediator will return verdicts from the beginning.
+  optional google.protobuf.Timestamp most_recently_received_finalization_time = 1;
+  // Optional: The record_time_of_request of the most recently received verdict.
+  //           If not provided, the mediator will return verdicts from the beginning.
+  optional google.protobuf.Timestamp most_recently_received_record_time = 2;
+}
+
+message VerdictsResponse {
+  Verdict verdict = 1;
+}
+
+message Verdict {
+  repeated string submitting_parties = 1;
+  string submitting_participant_uid = 2;
+  VerdictResult verdict = 3;
+  // the time of the finalization of the verdict, i.e.:
+  // - the nth response required to finalize the verdict
+  // - the sequencing time that determined the timeout of a request
+  google.protobuf.Timestamp finalization_time = 4;
+  // record time of the request
+  google.protobuf.Timestamp record_time = 5;
+  // the mediator group of the mediator
+  uint32 mediator_group = 6;
+  // structured to allow for adding reassignments later
+  oneof views {
+    TransactionViews transaction_views = 7;
+  }
+  string update_id = 8;
+}
+
+message TransactionViews {
+  map<int32, TransactionView> views = 1;
+  repeated int32 root_views = 2;
+}
+
+message TransactionView {
+  repeated string informees = 1;
+  repeated Quorum confirming_parties = 2;
+  repeated int32 sub_views = 3;
+}
+
+message Quorum {
+  repeated string parties = 1;
+  int32 threshold = 2;
+}
+
+enum VerdictResult {
+  VERDICT_RESULT_UNSPECIFIED = 0;
+  VERDICT_RESULT_ACCEPTED = 1;
+  VERDICT_RESULT_REJECTED = 2;
+}

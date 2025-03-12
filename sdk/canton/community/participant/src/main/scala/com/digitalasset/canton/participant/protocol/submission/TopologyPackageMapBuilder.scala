@@ -62,26 +62,19 @@ final class TopologyPackageMapBuilder(
         )
 
     def getValidVettedPackages(
-        synchronizerId: SynchronizerId,
         topoLoader: TopologySnapshotLoader,
         participants: Set[ParticipantId],
-    ): FutureUnlessShutdown[(SynchronizerId, Map[ParticipantId, Set[PackageId]])] =
-      participants.toList
-        // TODO(#23334): Limit the load on the DB by either limiting the parallelism
-        //                   or by introducing a batch load method on the TopologySnapshotLoader
-        .parTraverse { participantId =>
-          topoLoader
-            .loadVettedPackages(participantId)
-            .map { vettedPackages =>
-              val packagesWithValidVetting = vettedPackages.view.collect {
-                case (pkgId, vettedPackage) if vettedPackage.validAt(vettingValidityTimestamp) =>
-                  pkgId
-              }.toSet
-
-              participantId -> packagesWithValidVetting
-            }
-        }
-        .map(participantVettedPackages => synchronizerId -> participantVettedPackages.toMap)
+    ): FutureUnlessShutdown[Map[ParticipantId, Set[PackageId]]] =
+      topoLoader
+        .loadVettedPackages(participants.toSeq)
+        .map(participantsPackagesVetted =>
+          participantsPackagesVetted.view.mapValues { vettedPackages =>
+            vettedPackages.view.collect {
+              case (pkgId, vettedPackage) if vettedPackage.validAt(vettingValidityTimestamp) =>
+                pkgId
+            }.toSet
+          }.toMap
+        )
 
     def computeAdmissibleSynchronizers
         : FutureUnlessShutdown[Map[SynchronizerId, TopologySnapshotLoader]] =
@@ -142,14 +135,14 @@ final class TopologyPackageMapBuilder(
         SynchronizerId,
         Map[ParticipantId, Set[PackageId]],
       ] <-
-        filteredTopologyView.view.toList
+        filteredTopologyView
           .parTraverse { case (sync, (topoLoader, partyParticipants)) =>
             getValidVettedPackages(
-              synchronizerId = sync,
               topoLoader = topoLoader,
-              participants =
-                partyParticipants.view.flatMap { case (_party, participants) => participants }.toSet,
-            )
+              participants = partyParticipants.view.flatMap { case (_party, participants) =>
+                participants
+              }.toSet,
+            ).map(sync -> _)
           }
           .map(_.toMap)
       globalPackageMap = computeGlobalPackageMap(

@@ -44,7 +44,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SystemInitializer,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.OrderingModuleSystemInitializer.ModuleFactories
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochLength,
   EpochNumber,
@@ -69,7 +70,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -79,7 +79,7 @@ import scala.util.Random
   */
 private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
     protocolVersion: ProtocolVersion,
-    sequencerId: SequencerId,
+    node: BftNodeId,
     config: BftBlockOrdererConfig,
     sequencerSubscriptionInitialBlockNumber: BlockNumber,
     epochLength: EpochLength,
@@ -106,17 +106,17 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
     implicit val c: BftBlockOrdererConfig = config
     val bootstrapTopologyInfo = fetchBootstrapTopologyInfo(moduleSystem)
 
-    val thisPeerFirstKnownAt =
-      sequencerSnapshotAdditionalInfo.flatMap(_.peerActiveAt.get(bootstrapTopologyInfo.thisPeer))
-    val firstBlockNumberInOnboardingEpoch = thisPeerFirstKnownAt.flatMap(_.firstBlockNumberInEpoch)
-    val previousBftTimeForOnboarding = thisPeerFirstKnownAt.flatMap(_.previousBftTime)
+    val thisNodeFirstKnownAt =
+      sequencerSnapshotAdditionalInfo.flatMap(_.nodeActiveAt.get(bootstrapTopologyInfo.thisNode))
+    val firstBlockNumberInOnboardingEpoch = thisNodeFirstKnownAt.flatMap(_.firstBlockNumberInEpoch)
+    val previousBftTimeForOnboarding = thisNodeFirstKnownAt.flatMap(_.previousBftTime)
     val onboardingEpochCouldAlterOrderingTopology =
-      thisPeerFirstKnownAt
+      thisNodeFirstKnownAt
         .flatMap(_.epochCouldAlterOrderingTopology)
         .exists(pendingChanges => pendingChanges)
     val outputModuleStartupState =
       OutputModule.StartupState(
-        bootstrapTopologyInfo.thisPeer,
+        bootstrapTopologyInfo.thisNode,
         initialHeightToProvide =
           firstBlockNumberInOnboardingEpoch.getOrElse(sequencerSubscriptionInitialBlockNumber),
         previousBftTimeForOnboarding,
@@ -162,7 +162,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
                 outputRef,
               )
               new BftP2PNetworkOut(
-                bootstrapTopologyInfo.thisPeer,
+                bootstrapTopologyInfo.thisNode,
                 stores.p2pEndpointsStore,
                 metrics,
                 dependencies,
@@ -265,9 +265,9 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
     val previousLeaders = getLeadersFrom(previousTopology, EpochNumber(initialEpochNumber - 1))
 
     OrderingTopologyInfo(
-      sequencerId,
-      // Use the previous topology (not containing this peer) as current topology when onboarding.
-      //  This prevents relying on newly onboarded peers for state transfer.
+      node,
+      // Use the previous topology (not containing this node) as current topology when onboarding.
+      //  This prevents relying on newly onboarded nodes for state transfer.
       currentTopology = if (onboarding) previousTopology else initialTopology,
       initialCryptoProvider,
       currentLeaders = if (onboarding) previousLeaders else initialLeaders,
@@ -284,16 +284,16 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
       case Some(additionalInfo) =>
         // We assume that, if a sequencer snapshot has been provided, then we're onboarding; in that case, we use
         //  topology information from the sequencer snapshot, else we fetch the latest topology from the DB.
-        val thisPeerActiveAt = additionalInfo.peerActiveAt.getOrElse(
-          sequencerId,
-          failBootstrap("Peer activation information is required when onboarding but it's empty"),
+        val thisNodeActiveAt = additionalInfo.nodeActiveAt.getOrElse(
+          node,
+          failBootstrap("Activation information is required when onboarding but it's empty"),
         )
-        val epochNumber = thisPeerActiveAt.epochNumber.getOrElse(
+        val epochNumber = thisNodeActiveAt.epochNumber.getOrElse(
           failBootstrap("epoch information is required when onboarding but it's empty")
         )
-        val initialTopologyQueryTimestamp = thisPeerActiveAt.timestamp
+        val initialTopologyQueryTimestamp = thisNodeActiveAt.timestamp
         val previousTopologyQueryTimestamp =
-          thisPeerActiveAt.epochTopologyQueryTimestamp.getOrElse(
+          thisNodeActiveAt.epochTopologyQueryTimestamp.getOrElse(
             failBootstrap(
               "Start epoch topology query timestamp is required when onboarding but it's empty"
             )

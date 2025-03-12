@@ -17,7 +17,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 object BootstrapDetector {
 
   /** Onboarding is currently assumed if a sequencer snapshot with additional info is provided, the
-    * node hasn't completed any epoch, and the node is not the only peer in the ordering topology.
+    * node hasn't completed any epoch, and the node is not the only node in the ordering topology.
     * The latter is queried based on a topology activation timestamp from the sequencer snapshot
     * additional info when a snapshot is provided.
     *
@@ -36,8 +36,8 @@ object BootstrapDetector {
   )(abort: String => Nothing): BootstrapKind =
     snapshotAdditionalInfo match {
       case Some(additionalInfo)
-          if latestCompletedEpoch == GenesisEpoch && membership.otherPeers.sizeIs > 0 =>
-        val activeAt = additionalInfo.peerActiveAt
+          if latestCompletedEpoch == GenesisEpoch && membership.otherNodes.sizeIs > 0 =>
+        val activeAt = additionalInfo.nodeActiveAt
           .getOrElse(
             membership.myId,
             abort(s"New node ${membership.myId} not found in sequencer snapshot additional info"),
@@ -54,6 +54,7 @@ object BootstrapDetector {
           activeAt.epochTopologyQueryTimestamp.getOrElse(
             abort("No starting epoch's topology query timestamp found for new node onboarding")
           ),
+          // This parameter is used just for validation in the Consensus module, it's not relevant during state transfer.
           GenesisPreviousEpochMaxBftTime,
         )
 

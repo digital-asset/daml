@@ -9,6 +9,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.pekkostreams.dispatcher.{Dispatcher, SubSource}
+import com.digitalasset.canton.util.TryUtil
 import io.grpc.StatusRuntimeException
 import org.apache.pekko.stream.scaladsl.Source
 import org.mockito.MockitoSugar
@@ -157,7 +158,7 @@ class DispatcherStateSpec
       _ <- runF.transform {
         case Failure(e: StatusRuntimeException)
             if ErrorDetails.matches(e, CommonErrors.ServiceNotRunning) =>
-          Success(())
+          TryUtil.unit
         case Failure(other) =>
           fail(
             s"Expected a self-service error exception of ${CommonErrors.ServiceNotRunning.code} but got $other"

@@ -14,9 +14,9 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   StateTransferManager,
   StateTransferMessageResult,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochLength,
   EpochNumber,
@@ -50,7 +50,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss.InMemoryUnitTestEpochStore
-import com.digitalasset.canton.topology.SequencerId
 import org.scalatest.wordspec.AnyWordSpec
 
 class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
@@ -83,14 +82,14 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         .create(
           startEpoch,
           latestCompletedEpoch = Genesis.GenesisEpochNumber,
-          from = mySequencerId,
+          from = myId,
         )
         .fakeSign
 
       assertBlockTransferRequestHasBeenSent(
         p2pNetworkOutRef,
         blockTransferRequest,
-        to = otherSequencerId,
+        to = otherId,
         numberOfTimes = 1,
       )
 
@@ -128,12 +127,12 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         .create(
           startEpoch,
           latestCompletedEpoch = Genesis.GenesisEpochNumber,
-          from = mySequencerId,
+          from = myId,
         )
         .fakeSign
       stateTransferManager.handleStateTransferMessage(
         StateTransferMessage
-          .ResendBlockTransferRequest(blockTransferRequest, to = otherSequencerId),
+          .ResendBlockTransferRequest(blockTransferRequest, to = otherId),
         aTopologyInfo,
         latestCompletedEpoch,
       )(abort = fail(_)) shouldBe StateTransferMessageResult.Continue
@@ -142,7 +141,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       assertBlockTransferRequestHasBeenSent(
         p2pNetworkOutRef,
         blockTransferRequest,
-        to = otherSequencerId,
+        to = otherId,
         numberOfTimes = 2, // +1 from start
       )
     }
@@ -167,7 +166,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
           StateTransferMessage.BlockTransferRequest.create(
             startEpoch = EpochNumber.First,
             latestCompletedEpoch = Genesis.GenesisEpochNumber,
-            from = otherSequencerId,
+            from = otherId,
           )
         ),
         aTopologyInfo,
@@ -187,11 +186,11 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
                 .create(
                   latestCompletedEpochLocally.info.number,
                   prePrepares = Seq.empty,
-                  from = mySequencerId,
+                  from = myId,
                 )
                 .fakeSign
             ),
-            to = otherSequencerId,
+            to = otherId,
           )
         )
     }
@@ -227,7 +226,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
           StateTransferMessage.BlockTransferRequest.create(
             startEpoch = EpochNumber.First,
             latestCompletedEpoch = Genesis.GenesisEpochNumber,
-            from = otherSequencerId,
+            from = otherId,
           )
         ),
         aTopologyInfo,
@@ -249,11 +248,11 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
                 .create(
                   latestCompletedEpochLocally.info.number,
                   Seq(prePrepare),
-                  from = mySequencerId,
+                  from = myId,
                 )
                 .fakeSign
             ),
-            to = otherSequencerId,
+            to = otherId,
           )
         )
     }
@@ -292,10 +291,10 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     val blockTransferResponse = StateTransferMessage.BlockTransferResponse.create(
       latestCompletedEpochRemotely.info.number,
       Seq(prePrepare),
-      from = otherSequencerId,
+      from = otherId,
     )
     val topologyInfo = OrderingTopologyInfo(
-      mySequencerId,
+      myId,
       membership.orderingTopology,
       ProgrammableUnitTestEnv.noSignatureCryptoProvider,
       membership.leaders,
@@ -340,6 +339,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
             prePrepare.message.block.proofs,
             prePrepare.message.canonicalCommitSet,
           ),
+          prePrepare.message.viewNumber,
           from = prePrepare.from,
           isLastInEpoch = true,
           mode = OrderedBlockForOutput.Mode.StateTransfer.LastBlock,
@@ -376,7 +376,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     val blockTransferResponse = StateTransferMessage.BlockTransferResponse.create(
       latestCompletedEpochRemotely.info.number,
       prePrepares = Seq.empty,
-      from = otherSequencerId,
+      from = otherId,
     )
     context.runPipedMessages() shouldBe List()
     stateTransferManager.handleStateTransferMessage(
@@ -406,7 +406,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     val aBlockTransferResponse = StateTransferMessage.BlockTransferResponse.create(
       latestCompletedEpochRemotely.info.number,
       prePrepares = Seq.empty,
-      from = otherSequencerId,
+      from = otherId,
     )
 
     forAll(
@@ -441,10 +441,10 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     )
 
     new StateTransferManager(
+      myId,
       dependencies,
       EpochLength(epochLength),
       epochStore,
-      mySequencerId,
       loggerFactory,
     )
   }
@@ -452,17 +452,17 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
   private def assertBlockTransferRequestHasBeenSent(
       p2pNetworkOutRef: ModuleRef[P2PNetworkOut.Message],
       blockTransferRequest: SignedMessage[StateTransferMessage.BlockTransferRequest],
-      to: SequencerId,
+      to: BftNodeId,
       numberOfTimes: Int,
   )(implicit context: ContextType): Unit = {
     // Should have scheduled a retry.
     context.lastDelayedMessage shouldBe Some(
       numberOfTimes -> StateTransferMessage.ResendBlockTransferRequest(
         blockTransferRequest,
-        to = otherSequencerId,
+        to = otherId,
       )
     )
-    // Should have sent a block transfer request to the other peer only.
+    // Should have sent a block transfer request to the other node only.
     val order = inOrder(p2pNetworkOutRef)
     order
       .verify(p2pNetworkOutRef, times(numberOfTimes))
@@ -479,17 +479,17 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 object StateTransferManagerTest {
   private type ContextType = ProgrammableUnitTestContext[Consensus.Message[ProgrammableUnitTestEnv]]
 
-  private val mySequencerId = fakeSequencerId("self")
-  private val otherSequencerId = fakeSequencerId("other")
-  private val membership = Membership.forTesting(mySequencerId, Set(otherSequencerId))
+  private val myId = BftNodeId("self")
+  private val otherId = BftNodeId("other")
+  private val membership = Membership.forTesting(myId, Set(otherId))
   private val membershipBeforeOnboarding =
     Membership(
-      mySequencerId,
-      OrderingTopology(Set(otherSequencerId), SequencingParameters.Default),
-      Seq(otherSequencerId),
+      myId,
+      OrderingTopology(Set(otherId), SequencingParameters.Default),
+      Seq(otherId),
     )
   private val aTopologyInfo = OrderingTopologyInfo[ProgrammableUnitTestEnv](
-    mySequencerId,
+    myId,
     membership.orderingTopology,
     ProgrammableUnitTestEnv.noSignatureCryptoProvider,
     membership.leaders,
@@ -508,7 +508,7 @@ object StateTransferManagerTest {
         localTimestamp = CantonTimestamp.Epoch,
         block = OrderingBlock(Seq.empty),
         canonicalCommitSet = CanonicalCommitSet.empty,
-        from = otherSequencerId,
+        from = otherId,
       )
       .fakeSign
 }

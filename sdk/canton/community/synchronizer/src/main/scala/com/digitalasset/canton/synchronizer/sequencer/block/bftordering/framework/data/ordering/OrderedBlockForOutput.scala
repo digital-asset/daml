@@ -3,7 +3,10 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering
 
-import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  ViewNumber,
+}
 
 /** The class allows preserving some contextual information during the roundtrip from output to
   * local availability to retrieve the batches.
@@ -15,7 +18,8 @@ import com.digitalasset.canton.topology.SequencerId
   */
 final case class OrderedBlockForOutput(
     orderedBlock: OrderedBlock,
-    from: SequencerId, // Only used for metrics
+    viewNumber: ViewNumber,
+    from: BftNodeId, // Only used for metrics
     isLastInEpoch: Boolean,
     mode: OrderedBlockForOutput.Mode,
 )

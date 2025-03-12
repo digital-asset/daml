@@ -13,6 +13,7 @@ import com.digitalasset.canton.lifecycle.{CloseContext, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.DbStorage.RetryConfig
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.retry.RetryEither
@@ -25,8 +26,16 @@ import slick.jdbc.{DataSourceJdbcDataSource, JdbcDataSource}
 
 import java.sql.SQLException
 import javax.sql.DataSource
-import scala.concurrent.blocking
 import scala.concurrent.duration.Duration
+import scala.concurrent.{ExecutionContext, blocking}
+
+trait DbMigrationsMetaFactory {
+
+  type Factory <: DbMigrationsFactory
+
+  def create(clock: Clock)(implicit ec: ExecutionContext): Factory
+
+}
 
 trait DbMigrationsFactory {
 
@@ -263,6 +272,15 @@ trait DbMigrations { this: NamedLogging =>
         }
     } yield ()
 
+}
+
+class CommunityDbMigrationsMetaFactory(loggerFactory: NamedLoggerFactory)
+    extends DbMigrationsMetaFactory {
+
+  override type Factory = CommunityDbMigrationsFactory
+
+  override def create(clock: Clock)(implicit ec: ExecutionContext): CommunityDbMigrationsFactory =
+    new CommunityDbMigrationsFactory(loggerFactory)
 }
 
 class CommunityDbMigrationsFactory(loggerFactory: NamedLoggerFactory) extends DbMigrationsFactory {

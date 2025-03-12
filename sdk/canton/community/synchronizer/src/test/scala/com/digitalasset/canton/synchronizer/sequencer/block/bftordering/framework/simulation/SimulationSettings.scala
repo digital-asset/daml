@@ -56,8 +56,8 @@ object PartitionMode {
   final case object IsolateSingle extends PartitionMode {
     override def selectSet[A](nodes: Set[A], random: Random): Set[A] = {
       val ix = random.between(0, nodes.size)
-      val peer = nodes.toSeq(ix)
-      Set(peer)
+      val node = nodes.toSeq(ix)
+      Set(node)
     }
   }
 }
@@ -124,7 +124,7 @@ final case class SimulationSettings(
       PositiveInt.three // fully arbitrary
     ),
     livenessCheckInterval: FiniteDuration = 20.seconds,
-    peerOnboardingDelays: Iterable[FiniteDuration] = Iterable.empty,
+    nodeOnboardingDelays: Iterable[FiniteDuration] = Iterable.empty,
     becomingOnlineAfterOnboardingDelay: FiniteDuration =
       SimulationSettings.DefaultBecomingOnlineAfterOnboardingDelay,
 ) {

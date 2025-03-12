@@ -33,6 +33,7 @@ final case class IndexerConfig(
     queueRecoveryRetryMaxWaitMillis: Int = DefaultQueueRecoveryRetryMaxWaitMillis,
     queueRecoveryRetryAttemptWarnThreshold: Int = DefaultQueueRecoveryRetryAttemptWarnThreshold,
     queueRecoveryRetryAttemptErrorThreshold: Int = DefaultQueueRecoveryRetryAttemptErrorThreshold,
+    disableMonotonicityChecks: Boolean = false,
 )
 
 object IndexerConfig {

@@ -34,6 +34,7 @@ import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
+import com.digitalasset.canton.console.commands.PruningSchedulerAdministration
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -62,7 +63,7 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.{
 }
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.BinaryFileUtil
-import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias}
+import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias, config}
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.LazyLogging
@@ -1077,6 +1078,52 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
 
       // TODO(#9557) 9. Write user-readable data in the readable output file regarding mismatching contracts ids
     }
+  }
+
+  @Help.Summary("Repair utilities")
+  @Help.Group("Repair")
+  lazy val repair = new RepairMacros(loggerFactory)
+
+  @Help.Summary("Convenience functions to configure behavior of pruning on all nodes at once")
+  @Help.Group("Pruning")
+  object pruning extends Helpful {
+
+    @Help.Summary(
+      "Sets the pruning schedule on all participants, mediators, and database sequencers in the environment"
+    )
+    def set_schedule(
+        cron: String,
+        maxDuration: config.PositiveDurationSeconds,
+        retention: config.PositiveDurationSeconds,
+    )(implicit env: ConsoleEnvironment): Unit =
+      allPrunableNodes.foreach { case (name, prunable) =>
+        prunable.set_schedule(cron, maxDuration, retention)
+        logger.info(s"Enabled pruning of node $name at $cron")
+      }
+
+    @Help.Summary(
+      "Deactivates scheduled pruning on all participants, mediators, and database sequencers in the environment"
+    )
+    def clear_schedule()(implicit env: ConsoleEnvironment): Unit =
+      allPrunableNodes.foreach { case (name, prunable) =>
+        prunable.clear_schedule()
+        logger.info(s"Disabled pruning of node $name")
+      }
+
+    // Helper to find all HA-active nodes
+    private def allPrunableNodes(implicit
+        env: ConsoleEnvironment
+    ): Map[String, PruningSchedulerAdministration[_]] =
+      (env.participants.all.collect { case p if p.health.active => p.name -> p.pruning }
+        ++ env.sequencers.all.collect {
+          case s
+              if s.health.status.successOption.exists(_.admin.acceptsAdminChanges) &&
+                // TODO(#15987): Remove the Try when block sequencers support scheduled pruning
+                util.Try(s.pruning.get_schedule().discard).isSuccess =>
+            s.name -> s.pruning
+        }
+        ++ env.mediators.all.collect { case m if m.health.active => m.name -> m.pruning }).toMap
+
   }
 }
 

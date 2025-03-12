@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
-import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.google.common.annotations.VisibleForTesting
 
 import OrderingTopology.{
@@ -23,35 +23,35 @@ import OrderingTopology.{
   * testing.
   */
 final case class OrderingTopology(
-    peersActiveAt: Map[SequencerId, TopologyActivationTime],
+    nodesActiveAt: Map[BftNodeId, TopologyActivationTime],
     sequencingParameters: SequencingParameters,
     activationTime: TopologyActivationTime,
     areTherePendingCantonTopologyChanges: Boolean,
 ) {
 
-  lazy val peers: Set[SequencerId] = peersActiveAt.keySet
+  lazy val nodes: Set[BftNodeId] = nodesActiveAt.keySet
 
-  lazy val sortedPeers: Seq[SequencerId] = peers.toList.sorted
+  lazy val sortedNodes: Seq[BftNodeId] = nodes.toList.sorted
 
-  lazy val weakQuorum: Int = weakQuorumSize(peers.size)
+  lazy val weakQuorum: Int = weakQuorumSize(nodes.size)
 
-  lazy val strongQuorum: Int = strongQuorumSize(peers.size)
+  lazy val strongQuorum: Int = strongQuorumSize(nodes.size)
 
-  def contains(id: SequencerId): Boolean = peers.contains(id)
+  def contains(id: BftNodeId): Boolean = nodes.contains(id)
 
-  def hasWeakQuorum(numVotes: Int): Boolean = isWeakQuorumReached(peers.size, numVotes)
+  def hasWeakQuorum(numVotes: Int): Boolean = isWeakQuorumReached(nodes.size, numVotes)
 
-  def hasWeakQuorum(quorum: Set[SequencerId]): Boolean = {
-    val quorumPeersNotInTopology = quorum.diff(peers)
-    isWeakQuorumReached(peers.size, quorum.diff(quorumPeersNotInTopology).size)
+  def hasWeakQuorum(quorum: Set[BftNodeId]): Boolean = {
+    val quorumNodesNotInTopology = quorum.diff(nodes)
+    isWeakQuorumReached(nodes.size, quorum.diff(quorumNodesNotInTopology).size)
   }
 
   def hasStrongQuorum(numVotes: Int): Boolean =
-    isStrongQuorumReached(peers.size, numVotes)
+    isStrongQuorumReached(nodes.size, numVotes)
 
   def successProbabilityOfStaleDissemination(
       previousTopology: OrderingTopology,
-      votes: Set[SequencerId],
+      votes: Set[BftNodeId],
   ): BigDecimal =
     successProbabilityOfStaleDissemination(
       currentTopologyDesiredQuorumSize = weakQuorum,
@@ -65,28 +65,28 @@ final case class OrderingTopology(
       currentTopologyDesiredQuorumSize: Int,
       previousTopologyDesiredQuorumSize: Int,
       previousTopology: OrderingTopology,
-      votes: Set[SequencerId],
+      votes: Set[BftNodeId],
   ): BigDecimal = {
     if (previousTopologyDesiredQuorumSize < currentTopologyDesiredQuorumSize)
       // The quorum in the current topology can't be reached because, as soon as the smaller quorum in the
       //  previous topology is reached, the dissemination is considered complete.
       return 0.0
 
-    val sharedPeers = peers.intersect(previousTopology.peers)
+    val sharedNodes = nodes.intersect(previousTopology.nodes)
 
-    if (sharedPeers == previousTopology.peers)
+    if (sharedNodes == previousTopology.nodes)
       // The quorum in the current topology can and will be reached,
       //  because it includes the previous topology (and they have the same quorum size).
       return 1.0
 
-    val votesInCurrentTopology = votes.intersect(peers)
+    val votesInCurrentTopology = votes.intersect(nodes)
     val numberOfVotesToGoInCurrentTopology =
       currentTopologyDesiredQuorumSize - votesInCurrentTopology.size
-    val sharedPeersThatHaveNotVotedYet = sharedPeers.diff(votes)
-    val numberOfVotesAvailableInSharedPeers = sharedPeersThatHaveNotVotedYet.size
+    val sharedNodesThatHaveNotVotedYet = sharedNodes.diff(votes)
+    val numberOfVotesAvailableInSharedNodes = sharedNodesThatHaveNotVotedYet.size
 
-    if (numberOfVotesAvailableInSharedPeers < numberOfVotesToGoInCurrentTopology) {
-      // Peers that haven't voted and are in both topologies are less than the missing votes,
+    if (numberOfVotesAvailableInSharedNodes < numberOfVotesToGoInCurrentTopology) {
+      // Nodes that haven't voted and are in both topologies are less than the missing votes,
       //  so the quorum in the current topology can't be reached.
       return 0.0
     }
@@ -95,17 +95,17 @@ final case class OrderingTopology(
       previousTopologyDesiredQuorumSize - votes.size
 
     if (numberOfVotesToGoInPreviousTopology < numberOfVotesToGoInCurrentTopology)
-      // Votes came in from peers that are not shared and there aren't enough left
+      // Votes came in from nodes that are not shared and there aren't enough left
       //  for a quorum in the current topology.
       return 0.0
 
-    val votesAvailableInPreviousTopology = previousTopology.peers.diff(votes)
+    val votesAvailableInPreviousTopology = previousTopology.nodes.diff(votes)
     val numberOfVotesAvailableInPreviousTopology =
       votesAvailableInPreviousTopology.size
-    val votesAvailableInPreviousTopologyNotInSharedPeers =
-      votesAvailableInPreviousTopology.diff(sharedPeers)
-    val numberOfVotesAvailableInPreviousTopologyNotFromSharedPeers =
-      votesAvailableInPreviousTopologyNotInSharedPeers.size
+    val votesAvailableInPreviousTopologyNotInSharedNodes =
+      votesAvailableInPreviousTopology.diff(sharedNodes)
+    val numberOfVotesAvailableInPreviousTopologyNotFromSharedNodes =
+      votesAvailableInPreviousTopologyNotInSharedNodes.size
 
     // We want to calculate the probability that, assuming that an in-progress dissemination in a previous topology
     //  is successful (i.e., it results in a valid quorum in the previous topology), it also results in a valid
@@ -136,13 +136,13 @@ final case class OrderingTopology(
     //  When it comes to favorable outcomes, there are 2 cases:
     //
     //  1. If the previous and current topologies have the same quorum size, then no single vote can be wasted,
-    //     so the favorable outcomes are thus only the ones from votes in shared peers,
+    //     so the favorable outcomes are thus only the ones from votes in shared nodes,
     //     that are `numberOfVotesToGoInPreviousTopology` ordered samples without repetition from
-    //     `sharedPeersThatHaveNotVotedYet`.
+    //     `sharedNodesThatHaveNotVotedYet`.
 
-    val numberOfOutcomesOnlyFromAvailableVotesInSharedPeers =
+    val numberOfOutcomesOnlyFromAvailableVotesInSharedNodes =
       permutations(
-        n = numberOfVotesAvailableInSharedPeers,
+        n = numberOfVotesAvailableInSharedNodes,
         k = numberOfVotesToGoInPreviousTopology,
       )
 
@@ -153,19 +153,19 @@ final case class OrderingTopology(
     //     and 2 are missing in the previous topology, the favorable outcomes will be all samples without repetition
     //     consisting of 2 votes, that are either:
     //
-    //     - `2 = numberOfVotesToGoInPreviousTopology` samples without repetition from the set of shared peers that
-    //       have not voted yet, i.e., `numberOfOutcomesOnlyFromAvailableVotesInSharedPeers`
+    //     - `2 = numberOfVotesToGoInPreviousTopology` samples without repetition from the set of shared nodes that
+    //       have not voted yet, i.e., `numberOfOutcomesOnlyFromAvailableVotesInSharedNodes`
     //
     //     or
     //
-    //     - Split into 2 sets of partial outcomes, such that partial outcomes in the first set are independent from
+    //     - Split into 2 sets of partial outcomes, such that partial outcomes in the first set are independent of
     //       partial outcomes in the second sets, as follows:
     //
-    //       a. `1 = numberOfVotesToGoInCurrentTopology` samples without repetition from the set of shared peers that
-    //         have not voted yet, i.e., `numberOfPartialOutcomesOnlyFromAvailableVotesInSharedPeers`.
+    //       a. `1 = numberOfVotesToGoInCurrentTopology` samples without repetition from the set of shared nodes that
+    //         have not voted yet, i.e., `numberOfPartialOutcomesOnlyFromAvailableVotesInSharedNodes`.
     //       b. `1 = numberOfVotesToGoInPreviousTopology - numberOfVotesToGoInCurrentTopology`, i.e., the remaining
-    //         votes samples without repetition from the set of peers in the previous topology that are not shared
-    //         and haven't voted yet, i.e., `numberOfPartialOutcomesOnlyFromAvailableVotesNotInSharedPeers`
+    //         votes samples without repetition from the set of nodes in the previous topology that are not shared
+    //         and haven't voted yet, i.e., `numberOfPartialOutcomesOnlyFromAvailableVotesNotInSharedNodes`
     //
     //     Sets `a` and `b` of partial outcomes have to be composed to produce a set of complete outcomes,
     //     which means that all ordered sequences of votes from set `a` must be concatenated with all ordered
@@ -174,24 +174,24 @@ final case class OrderingTopology(
     //     This composition has thus the cardinality of `cartesian_product(a, b) \union cartesian_product(b, a)`,
     //     i.e., twice the cardinality of `cartesian_product(a, b)`.
 
-    val favorableOutcomesAreOnlyFromVotesInSharedPeers =
+    val favorableOutcomesAreOnlyFromVotesInSharedNodes =
       numberOfVotesToGoInPreviousTopology == numberOfVotesToGoInCurrentTopology
 
     val numberOfFavorableOutcomes =
-      if (favorableOutcomesAreOnlyFromVotesInSharedPeers) {
-        numberOfOutcomesOnlyFromAvailableVotesInSharedPeers
+      if (favorableOutcomesAreOnlyFromVotesInSharedNodes) {
+        numberOfOutcomesOnlyFromAvailableVotesInSharedNodes
       } else {
-        val numberOfPartialOutcomesOnlyFromAvailableVotesInSharedPeers = permutations(
-          n = numberOfVotesAvailableInSharedPeers,
+        val numberOfPartialOutcomesOnlyFromAvailableVotesInSharedNodes = permutations(
+          n = numberOfVotesAvailableInSharedNodes,
           k = numberOfVotesToGoInCurrentTopology,
         )
-        val numberOfPartialOutcomesOnlyFromAvailableVotesNotInSharedPeers = permutations(
-          n = numberOfVotesAvailableInPreviousTopologyNotFromSharedPeers,
+        val numberOfPartialOutcomesOnlyFromAvailableVotesNotInSharedNodes = permutations(
+          n = numberOfVotesAvailableInPreviousTopologyNotFromSharedNodes,
           k = numberOfVotesToGoInPreviousTopology - numberOfVotesToGoInCurrentTopology,
         )
-        numberOfOutcomesOnlyFromAvailableVotesInSharedPeers +
-          2 * numberOfPartialOutcomesOnlyFromAvailableVotesInSharedPeers *
-          numberOfPartialOutcomesOnlyFromAvailableVotesNotInSharedPeers
+        numberOfOutcomesOnlyFromAvailableVotesInSharedNodes +
+          2 * numberOfPartialOutcomesOnlyFromAvailableVotesInSharedNodes *
+          numberOfPartialOutcomesOnlyFromAvailableVotesNotInSharedNodes
       }
 
     BigDecimal(numberOfFavorableOutcomes) / BigDecimal(numberOfPossibleOutcomes)
@@ -203,13 +203,13 @@ object OrderingTopology {
   /** A simple constructor for tests so that we don't have to provide timestamps. */
   @VisibleForTesting
   def apply(
-      peers: Set[SequencerId],
+      nodes: Set[BftNodeId],
       sequencingParameters: SequencingParameters = SequencingParameters.Default,
       activationTime: TopologyActivationTime = TopologyActivationTime(CantonTimestamp.MinValue),
       areTherePendingCantonTopologyChanges: Boolean = false,
   ): OrderingTopology =
     OrderingTopology(
-      peers.view.map(_ -> TopologyActivationTime(CantonTimestamp.MinValue)).toMap,
+      nodes.view.map(_ -> TopologyActivationTime(CantonTimestamp.MinValue)).toMap,
       sequencingParameters,
       activationTime,
       areTherePendingCantonTopologyChanges,
@@ -218,10 +218,10 @@ object OrderingTopology {
   /** A strong quorum is strictly greater than `(numberOfNodes + numberOfFaults) / 2`.
     *
     * The idea is that faulty nodes could vote twice (once for A and once for !A), by sending
-    * different votes to different peers. Under that assumption, the total number of votes is
-    * `numberOfNodes + numberOfFaults`. A peer locally decides on an outcome only after receiving
+    * different votes to different nodes. Under that assumption, the total number of votes is
+    * `numberOfNodes + numberOfFaults`. A node locally decides on an outcome only after receiving
     * more than half of the total number of votes and only if all these votes have the same outcome.
-    * That way, two honest peers will never decide for different outcomes.
+    * That way, two honest nodes will never decide for different outcomes.
     *
     * If `numberOfNodes = 3*numberOfFaults + 1`, then the size of a strong quorum is
     * `2*numberOfFaults + 1`.

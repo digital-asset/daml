@@ -12,9 +12,8 @@ import com.digitalasset.canton.config.{
   DbParametersConfig,
   StorageConfig,
 }
-import com.digitalasset.canton.environment.CommunityEnvironment
-import com.digitalasset.canton.integration.CommunityConfigTransforms.generateUniqueH2DatabaseName
 import com.digitalasset.canton.integration.CommunityTests.CommunityTestConsoleEnvironment
+import com.digitalasset.canton.integration.ConfigTransforms.generateUniqueH2DatabaseName
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.{
   MultiSynchronizer,
   SequencerSynchronizerGroups,
@@ -41,7 +40,6 @@ class UseCommunityReferenceBlockSequencer[S <: StorageConfig](
     extends UseReferenceBlockSequencerBase[
       S,
       SequencerConfig,
-      CommunityEnvironment,
       CommunityTestConsoleEnvironment,
     ](loggerFactory, "reference", sequencerGroups) {
 

@@ -7,9 +7,9 @@ package com.digitalasset.canton.sequencer.admin.v30;
 
 message BftSequencerSnapshotAdditionalInfo {
   // State transfer metadata for onboarding
-  map<string, PeerActiveAt> peers_active_at = 1;
+  map<string, SequencerActiveAt> sequencers_active_at = 1;
 
-  message PeerActiveAt {
+  message SequencerActiveAt {
     // Onboarding topology activation timestamp (in microseconds of UTC time since Unix epoch)
     int64 timestamp = 1;
     // An epoch where the onboarding transaction became effective, used as state transfer start epoch

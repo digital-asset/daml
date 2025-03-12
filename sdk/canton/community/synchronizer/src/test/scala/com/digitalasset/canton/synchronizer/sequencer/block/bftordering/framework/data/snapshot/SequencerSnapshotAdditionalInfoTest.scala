@@ -6,14 +6,10 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochNumber,
-}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.{
-  PeerActiveAt,
-  SequencerSnapshotAdditionalInfo,
 }
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -24,7 +20,7 @@ class SequencerSnapshotAdditionalInfoTest extends AnyWordSpec with BftSequencerB
       val aTopologyActivationTime = TopologyActivationTime(CantonTimestamp.Epoch)
       val snapshotAdditionalInfo = SequencerSnapshotAdditionalInfo(
         Map(
-          fakeSequencerId("sequencer1") -> PeerActiveAt(
+          BftNodeId("sequencer1") -> NodeActiveAt(
             aTopologyActivationTime,
             epochNumber = None,
             firstBlockNumberInEpoch = None,
@@ -32,7 +28,7 @@ class SequencerSnapshotAdditionalInfoTest extends AnyWordSpec with BftSequencerB
             epochCouldAlterOrderingTopology = None,
             previousBftTime = None,
           ),
-          fakeSequencerId("sequencer2") -> PeerActiveAt(
+          BftNodeId("sequencer2") -> NodeActiveAt(
             aTopologyActivationTime,
             Some(EpochNumber(7L)),
             Some(BlockNumber(70L)),

@@ -87,9 +87,9 @@ message Completion {
   // The synchronizer along with its record time.
   // The synchronizer id provided, in case of
   //
-  //   - successful/failed transactions: identifies the synchronizer of the transaction
-  //   - for successful/failed unassign commands: identifies the source synchronizer
-  //   - for successful/failed assign commands: identifies the target synchronizer
+  // - successful/failed transactions: identifies the synchronizer of the transaction
+  // - for successful/failed unassign commands: identifies the source synchronizer
+  // - for successful/failed assign commands: identifies the target synchronizer
   //
   // Required
   SynchronizerTime synchronizer_time = 11;

@@ -29,8 +29,10 @@ class TwoPhasePriorityAccumulatorTest extends AnyWordSpec with BaseTest {
       }
 
       accumulator.isAccumulating shouldBe true
+      accumulator.getPhase shouldBe None
       accumulator.stopAccumulating(()) shouldBe None
       accumulator.isAccumulating shouldBe false
+      accumulator.getPhase shouldBe Some(())
 
       accumulator.drain().toSeq shouldBe items.sortBy(priority)
     }
@@ -107,10 +109,13 @@ class TwoPhasePriorityAccumulatorTest extends AnyWordSpec with BaseTest {
 
       val label = 5
       accumulator.stopAccumulating(label) shouldBe None
+      accumulator.getPhase shouldBe Some(label)
       accumulator.accumulate("first", 1) shouldBe Left(label)
       accumulator.stopAccumulating(label + 1) shouldBe Some(label)
+      accumulator.getPhase shouldBe Some(label)
       accumulator.accumulate("second", 2) shouldBe Left(label)
       accumulator.stopAccumulating(label + 2) shouldBe Some(label)
+      accumulator.getPhase shouldBe Some(label)
     }
 
     "parallel drainings are disjoint and ascending in priority" in {

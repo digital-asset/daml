@@ -105,7 +105,7 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
   /** The approximate timestamp
     *
     * This is either the last observed sequencer timestamp OR the effective timestamp after we
-    * observed the time difference of (effective - sequencer = epsilon) to elapse
+    * observed the time difference of (effective - sequencer = epsilon)
     */
   def approximateTimestamp: CantonTimestamp
 
@@ -984,6 +984,10 @@ trait VettedPackagesLoader {
   def loadVettedPackages(
       participant: ParticipantId
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[PackageId, VettedPackage]]
+
+  def loadVettedPackages(participants: Seq[ParticipantId])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[ParticipantId, Map[PackageId, VettedPackage]]]
 }
 
 trait VettedPackagesSnapshotLoader extends VettedPackagesSnapshotClient with VettedPackagesLoader {

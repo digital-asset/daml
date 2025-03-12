@@ -13,8 +13,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   EpochInProgress,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpoch
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochNumber,
   ViewNumber,
@@ -407,7 +407,7 @@ object EpochStoreTest {
       CantonTimestamp.Epoch,
       OrderingBlock(Seq.empty),
       CanonicalCommitSet(Set.empty),
-      from = fakeSequencerId("address"),
+      from = BftNodeId("address"),
     )
     .fakeSign
 
@@ -422,7 +422,7 @@ object EpochStoreTest {
         ViewNumber(viewNumber),
         Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
         CantonTimestamp.Epoch,
-        from = fakeSequencerId("address"),
+        from = BftNodeId("address"),
       )
       .fakeSign
 
@@ -437,7 +437,7 @@ object EpochStoreTest {
         ViewNumber(viewNumber),
         Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
         CantonTimestamp.Epoch,
-        from = fakeSequencerId(s"address$i"),
+        from = BftNodeId(s"address$i"),
       )
       .fakeSign
   }
@@ -454,7 +454,7 @@ object EpochStoreTest {
         ViewNumber(viewNumber),
         CantonTimestamp.Epoch,
         consensusCerts = Seq.empty,
-        fakeSequencerId("address"),
+        BftNodeId("address"),
       )
       .fakeSign
 
@@ -471,7 +471,7 @@ object EpochStoreTest {
         localTimestamp = CantonTimestamp.Epoch,
         viewChanges = Seq.empty,
         prePrepares = Seq.empty,
-        fakeSequencerId("address"),
+        BftNodeId("address"),
       )
       .fakeSign
 
@@ -482,7 +482,8 @@ object EpochStoreTest {
         batchRefs = Seq.empty,
         CanonicalCommitSet.empty,
       ),
-      fakeSequencerId("address"),
+      ViewNumber.First,
+      BftNodeId("address"),
       isLastInEpoch,
       mode = OrderedBlockForOutput.Mode.FromConsensus,
     )

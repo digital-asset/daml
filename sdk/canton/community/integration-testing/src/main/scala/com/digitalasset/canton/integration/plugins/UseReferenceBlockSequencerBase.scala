@@ -6,7 +6,6 @@ package com.digitalasset.canton.integration.plugins
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.{
   MultiSynchronizer,
   SequencerSynchronizerGroups,
@@ -27,13 +26,12 @@ import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig
 abstract class UseReferenceBlockSequencerBase[
     StorageConfigT <: StorageConfig,
     SequencerConfigT <: SequencerConfig,
-    EnvT <: Environment,
-    TestConsoleEnvT <: TestConsoleEnvironment[EnvT],
+    TestConsoleEnvT <: TestConsoleEnvironment,
 ](
     override protected val loggerFactory: NamedLoggerFactory,
     driverSingleWordName: String,
     sequencerGroups: SequencerSynchronizerGroups = SingleSynchronizer,
-) extends EnvironmentSetupPlugin[EnvT, TestConsoleEnvT] {
+) extends EnvironmentSetupPlugin[TestConsoleEnvT] {
 
   protected final def dbNameForGroup(group: Int): String = s"${driverSingleWordName}_db_$group"
 

@@ -11,6 +11,7 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.TryUtil
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.StreamObserver
 import org.apache.pekko.stream.scaladsl.{Keep, Source}
@@ -20,7 +21,6 @@ import org.apache.pekko.{Done, NotUsed}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, blocking}
-import scala.util.Success
 
 trait StreamingServiceLifecycleManagement extends AutoCloseable with NamedLogging {
 
@@ -51,7 +51,7 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable with NamedLoggin
         awaitable = Future.sequence(
           completions.map(
             // we don't care about failures after abort
-            _.transform(_ => Success(()))
+            _.transform(_ => TryUtil.unit)
           )
         ),
         atMost = StreamAbortTimeout,

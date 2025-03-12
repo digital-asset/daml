@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration
 
 import com.digitalasset.canton.config.CantonConfig
-import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.logging.NamedLogging
 
 /** Plugin to allow multiple tests to reuse behavior modifying the test config or environment
@@ -14,8 +13,7 @@ import com.digitalasset.canton.logging.NamedLogging
   * [[SharedEnvironment]] integration test setups. Must call [[EnvironmentSetup.registerPlugin]]
   * within its constructor to register the plugin.
   */
-trait EnvironmentSetupPlugin[E <: Environment, TCE <: TestConsoleEnvironment[E]]
-    extends NamedLogging {
+trait EnvironmentSetupPlugin[TCE <: TestConsoleEnvironment] extends NamedLogging {
 
   /** Run before any of the tests in the test class have been run or an environment created */
   def beforeTests(): Unit = {}

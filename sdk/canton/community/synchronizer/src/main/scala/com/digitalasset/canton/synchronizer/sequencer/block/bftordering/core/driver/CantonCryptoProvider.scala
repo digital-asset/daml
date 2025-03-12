@@ -13,8 +13,10 @@ import com.digitalasset.canton.crypto.{
   SyncCryptoError,
   SynchronizerSnapshotSyncCryptoApi,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
   MessageFrom,
   SignedMessage,
@@ -23,7 +25,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PekkoEnv,
   PekkoFutureUnlessShutdown,
 }
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
@@ -31,6 +32,7 @@ import scala.concurrent.ExecutionContext
 class CantonCryptoProvider(cryptoApi: SynchronizerSnapshotSyncCryptoApi)(implicit
     ec: ExecutionContext
 ) extends CryptoProvider[PekkoEnv] {
+
   override def sign(
       hash: Hash,
       usage: NonEmpty[Set[SigningKeyUsage]],
@@ -61,13 +63,20 @@ class CantonCryptoProvider(cryptoApi: SynchronizerSnapshotSyncCryptoApi)(implici
 
   override def verifySignature(
       hash: Hash,
-      member: SequencerId,
+      node: BftNodeId,
       signature: Signature,
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
-  ): PekkoFutureUnlessShutdown[Either[SignatureCheckError, Unit]] = PekkoFutureUnlessShutdown(
-    "verifying signature",
-    () => cryptoApi.verifySignature(hash, member, signature, usage).value,
-  )
+  ): PekkoFutureUnlessShutdown[Either[SignatureCheckError, Unit]] =
+    PekkoFutureUnlessShutdown(
+      "verifying signature",
+      () =>
+        SequencerNodeId.fromBftNodeId(node) match {
+          case Left(error) =>
+            FutureUnlessShutdown.pure(Left(SignatureCheckError.SignerHasNoValidKeys(error.message)))
+          case Right(sequencerNodeId) =>
+            cryptoApi.verifySignature(hash, sequencerNodeId, signature, usage).value
+        },
+    )
 }

@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import cats.syntax.functor.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BlockNumber,
   ViewNumber,
 }

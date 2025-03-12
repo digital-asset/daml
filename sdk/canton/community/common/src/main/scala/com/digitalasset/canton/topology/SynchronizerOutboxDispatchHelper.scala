@@ -74,6 +74,7 @@ trait SynchronizerOutboxDispatchHelper extends NamedLogging {
 trait StoreBasedSynchronizerOutboxDispatchHelper extends SynchronizerOutboxDispatchHelper {
 
   def authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore]
+
   override protected def convertTransactions(
       transactions: Seq[GenericSignedTopologyTransaction]
   )(implicit

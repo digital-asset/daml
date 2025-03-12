@@ -8,9 +8,13 @@ import com.digitalasset.canton.discard.Implicits.*
 /** To make the [[ConsoleEnvironment]] functionality conveniently available in ammonite we stash it
   * in a implicit variable included as a predef before any script or REPL commands are run.
   */
-class ConsoleEnvironmentBinding {
+object ConsoleEnvironmentBinding {
 
-  protected def consoleMacrosImport: String =
+  /** where we hide the value of the active environment instance within the scope of our repl
+    */
+  private[console] val BindingName = "__replEnvironmentValue"
+
+  private def consoleMacrosImport: String =
     "import com.digitalasset.canton.console.ConsoleMacros._"
 
   /** The predef code itself which is executed before any script or repl command */
@@ -101,14 +105,5 @@ class ConsoleEnvironmentBinding {
 
     builder.result()
   }
-
-}
-
-object ConsoleEnvironmentBinding {
-
-  /** where we hide the value of the active environment instance within the scope of our repl
-    * *******
-    */
-  private[console] val BindingName = "__replEnvironmentValue"
 
 }

@@ -18,7 +18,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   EpochLength,
   EpochNumber,
 }
@@ -62,16 +62,16 @@ final class StateTransferBehavior[E <: Env[E]](
     config: BftBlockOrdererConfig,
 ) extends Consensus[E] {
 
-  private val thisPeer = initialState.topologyInfo.thisPeer
+  private val thisNode = initialState.topologyInfo.thisNode
 
   private val postponedQueue = new mutable.Queue[Consensus.Message[E]]()
 
   private val stateTransferManager = maybeCustomStateTransferManager.getOrElse(
     new StateTransferManager(
+      thisNode,
       dependencies,
       epochLength,
       epochStore,
-      thisPeer,
       loggerFactory,
     )
   )
@@ -94,10 +94,11 @@ final class StateTransferBehavior[E <: Env[E]](
 
     message match {
       case Consensus.Init =>
+        // Note that for onboarding, segments are created but not started
         initialState.epochState
           .notifyEpochCancellationToSegments(initialState.epochState.epoch.info.number)
 
-      case Consensus.CatchUpMessage.SegmentCancelledEpoch =>
+      case Consensus.SegmentCancelledEpoch =>
         cancelled += 1
         if (initialState.epochState.epoch.segments.sizeIs == cancelled) {
           if (stateTransferManager.inBlockTransfer) {
@@ -109,7 +110,7 @@ final class StateTransferBehavior[E <: Env[E]](
             initialState.topologyInfo.currentMembership,
             initialState.topologyInfo.currentCryptoProvider,
             initialState.latestCompletedEpoch,
-            initialState.epochState.epoch.info.number,
+            initialState.stateTransferStartEpoch,
           )(abort)
         }
 
@@ -132,7 +133,6 @@ final class StateTransferBehavior[E <: Env[E]](
         val lastCommitSet = Seq.empty
         latestCompletedEpoch = EpochStore.Epoch(epochInfo, lastCommitSet)
 
-        // TODO(#24268) consider checking state transfer end epoch number instead of propagating additional data via the Output module
         if (lastBlockFromPreviousEpochMode == Mode.StateTransfer.LastBlock) {
           logger.info(
             s"$messageType: received first epoch ($newEpochNumber) after $stateTransferType state transfer, " +
@@ -181,11 +181,11 @@ final class StateTransferBehavior[E <: Env[E]](
         initialState.latestCompletedEpoch,
       )(abort)
 
-    handleStasteTransferMessageResult(messageType, result)
+    handleStateTransferMessageResult(messageType, result)
   }
 
   @VisibleForTesting
-  private[bftordering] def handleStasteTransferMessageResult(
+  private[bftordering] def handleStateTransferMessageResult(
       messageType: => String,
       maybeNewEpochState: StateTransferMessageResult,
   )(implicit
@@ -238,7 +238,7 @@ final class StateTransferBehavior[E <: Env[E]](
       metrics,
       segmentModuleRefFactory,
       new RetransmissionsManager[E](
-        thisPeer,
+        thisNode,
         dependencies.p2pNetworkOut,
         abort,
         previousEpochsCommitCerts = Map.empty,
@@ -322,9 +322,9 @@ object StateTransferBehavior {
       (
         behavior.epochLength,
         behavior.initialState.stateTransferStartEpoch,
-        behavior.initialState.topologyInfo,
-        behavior.initialState.epochState.epoch.info,
-        behavior.initialState.latestCompletedEpoch,
+        behavior.activeTopologyInfo,
+        behavior.epochState.epoch.info,
+        behavior.latestCompletedEpoch,
       )
     )
 }

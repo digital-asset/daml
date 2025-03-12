@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulat
 
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Mempool
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.{
@@ -16,7 +17,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Module,
   ModuleRef,
 }
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.google.protobuf.ByteString
 
@@ -64,16 +64,17 @@ class IssClient[E <: Env[E]](
 }
 
 object IssClient {
+
   def initializer[E <: Env[E]](
       simSettings: SimulationSettings,
-      name: SequencerId,
+      node: BftNodeId,
       loggerFactory: NamedLoggerFactory,
       timeouts: ProcessingTimeout,
   ): SimulationClient.Initializer[E, Unit, Mempool.Message] =
     new SimulationClient.Initializer[E, Unit, Mempool.Message] {
 
       override def createClient(systemRef: ModuleRef[Mempool.Message]): Module[E, Unit] =
-        new IssClient[E](simSettings, systemRef, name.filterString, loggerFactory, timeouts)
+        new IssClient[E](simSettings, systemRef, node, loggerFactory, timeouts)
 
       override def init(context: E#ActorContextT[Unit]): Unit =
         // If the interval is None, the progress of the simulation time will solely depend on other delayed events

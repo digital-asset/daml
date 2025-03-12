@@ -5,9 +5,11 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  EpochNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.mutable
@@ -15,8 +17,8 @@ import scala.collection.mutable
 // We don't foresee multiple implementations, this trait exists only to allow mocking in tests
 sealed trait CatchupDetector {
   def updateMembership(newMembership: Membership): Unit
-  def updateLatestKnownPeerEpoch(
-      peer: SequencerId,
+  def updateLatestKnownNodeEpoch(
+      node: BftNodeId,
       epochNumber: EpochNumber,
   ): Boolean
   def shouldCatchUp(localEpoch: EpochNumber)(implicit traceContext: TraceContext): Boolean
@@ -33,34 +35,34 @@ final class DefaultCatchupDetector(
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var membership: Membership = initialMembership
 
-  // Transient bookkeeping of the highest epoch number received from each peer to determine when catch up should occur
-  private val latestKnownPeerEpochs: mutable.Map[SequencerId, EpochNumber] = mutable.Map.empty
+  // Transient bookkeeping of the highest epoch number received from each node to determine when catch up should occur
+  private val latestKnownNodeEpochs: mutable.Map[BftNodeId, EpochNumber] = mutable.Map.empty
 
   override def updateMembership(newMembership: Membership): Unit = {
     membership = newMembership
 
     // Cleanup outdated entries
-    latestKnownPeerEpochs.keys.toSeq.foreach { p =>
-      if (!membership.otherPeers.contains(p)) {
-        latestKnownPeerEpochs.remove(p).discard
+    latestKnownNodeEpochs.keys.toSeq.foreach { p =>
+      if (!membership.otherNodes.contains(p)) {
+        latestKnownNodeEpochs.remove(p).discard
       }
     }
   }
 
-  /** Updates the highest known epoch number for the specified peer. Returns `true` only if the
-    * epoch number was updated for the specified peer.
+  /** Updates the highest known epoch number for the specified node. Returns `true` only if the
+    * epoch number was updated for the specified node.
     */
-  override def updateLatestKnownPeerEpoch(
-      peer: SequencerId,
+  override def updateLatestKnownNodeEpoch(
+      node: BftNodeId,
       epochNumber: EpochNumber,
   ): Boolean = {
 
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     var updated = false
 
-    if (membership.otherPeers.contains(peer)) {
-      latestKnownPeerEpochs
-        .updateWith(peer) {
+    if (membership.otherNodes.contains(node)) {
+      latestKnownNodeEpochs
+        .updateWith(node) {
           case Some(epoch) =>
             if (epochNumber > epoch) {
               updated = true
@@ -81,18 +83,18 @@ final class DefaultCatchupDetector(
   override def shouldCatchUp(
       localEpoch: EpochNumber
   )(implicit traceContext: TraceContext): Boolean = {
-    val behindEnoughPeers =
-      latestKnownPeerEpochs.count { case (_, peerEpoch) =>
-        peerEpoch >= localEpoch + MinimumEpochDeltaToTriggerCatchUp
+    val behindEnoughNodes =
+      latestKnownNodeEpochs.count { case (_, nodeEpoch) =>
+        nodeEpoch >= localEpoch + MinimumEpochDeltaToTriggerCatchUp
       } >= membership.orderingTopology.weakQuorum
 
-    if (behindEnoughPeers) {
+    if (behindEnoughNodes) {
       logger.debug(
-        s"Detected need for catch-up state transfer while in epoch $localEpoch; peer epochs are $latestKnownPeerEpochs"
+        s"Detected need for catch-up state transfer while in epoch $localEpoch; epochs are $latestKnownNodeEpochs"
       )
     }
 
-    behindEnoughPeers
+    behindEnoughNodes
   }
 }
 

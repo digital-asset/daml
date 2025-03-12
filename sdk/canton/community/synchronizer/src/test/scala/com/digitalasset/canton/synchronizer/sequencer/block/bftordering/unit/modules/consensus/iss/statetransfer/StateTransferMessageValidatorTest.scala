@@ -6,8 +6,10 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferMessageValidator
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  EpochNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage.BlockTransferRequest
 import org.scalatest.wordspec.AnyWordSpec
@@ -26,27 +28,27 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
         ),
         // Not part of the membership
         (
-          BlockTransferRequest.create(EpochNumber.First, GenesisEpochNumber, otherSequencerId),
+          BlockTransferRequest.create(EpochNumber.First, GenesisEpochNumber, otherId),
           aMembershipWithOnlySelf,
           Left(
-            s"peer $otherSequencerId is requesting state transfer while not being active, active peers are: List($mySequencerId)"
+            s"'$otherId' is requesting state transfer while not being active, active nodes are: List($myId)"
           ),
         ),
         // Genesis start epoch
         (
-          BlockTransferRequest.create(GenesisEpochNumber, GenesisEpochNumber, otherSequencerId),
+          BlockTransferRequest.create(GenesisEpochNumber, GenesisEpochNumber, otherId),
           aMembershipWith2Nodes,
           Left("state transfer is supported only after genesis, but start epoch -1 received"),
         ),
         // Too old start epoch
         (
-          BlockTransferRequest.create(EpochNumber.First, EpochNumber.First, otherSequencerId),
+          BlockTransferRequest.create(EpochNumber.First, EpochNumber.First, otherId),
           aMembershipWith2Nodes,
           Left("start epoch 0 is not greater than latest completed epoch 0"),
         ),
         // Correct
         (
-          BlockTransferRequest.create(EpochNumber(1L), EpochNumber.First, otherSequencerId),
+          BlockTransferRequest.create(EpochNumber(1L), EpochNumber.First, otherId),
           aMembershipWith2Nodes,
           Right(()),
         ),
@@ -62,9 +64,8 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
 
 object StateTransferMessageValidatorTest {
 
-  private val mySequencerId = fakeSequencerId("self")
-  private val otherSequencerId = fakeSequencerId("other")
-  private val aMembershipWithOnlySelf = Membership.forTesting(mySequencerId)
-  private val aMembershipWith2Nodes =
-    Membership.forTesting(mySequencerId, Set(otherSequencerId))
+  private val myId = BftNodeId("self")
+  private val otherId = BftNodeId("other")
+  private val aMembershipWithOnlySelf = Membership.forTesting(myId)
+  private val aMembershipWith2Nodes = Membership.forTesting(myId, Set(otherId))
 }

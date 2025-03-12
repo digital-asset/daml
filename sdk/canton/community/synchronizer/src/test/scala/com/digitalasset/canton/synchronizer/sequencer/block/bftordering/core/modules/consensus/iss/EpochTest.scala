@@ -9,25 +9,22 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   Epoch,
   Segment,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
-import com.digitalasset.canton.topology.SequencerId
 import org.scalatest.wordspec.AsyncWordSpec
 
 class EpochTest extends AsyncWordSpec with BftSequencerBaseTest {
 
-  private val myId = fakeSequencerId("self")
-  private val otherPeers: Set[SequencerId] = (1 to 3).map { index =>
-    fakeSequencerId(s"peer$index")
+  private val myId = BftNodeId("self")
+  private val otherIds: Set[BftNodeId] = (1 to 3).map { index =>
+    BftNodeId(s"node$index")
   }.toSet
-  private val sortedLeaders = (otherPeers + myId).toSeq.sortWith((peer1, peer2) =>
-    peer1.toProtoPrimitive < peer2.toProtoPrimitive
-  )
+  private val sortedLeaders = (otherIds + myId).toSeq.sorted
 
   "Epoch.segments" should {
     "support single leader" in {
@@ -55,7 +52,7 @@ class EpochTest extends AsyncWordSpec with BftSequencerBaseTest {
           startBlockNumber = BlockNumber.First,
           length = 11,
         ),
-        currentMembership = Membership.forTesting(myId, otherPeers),
+        currentMembership = Membership.forTesting(myId, otherIds),
         previousMembership = Membership.forTesting(myId),
       )
 

@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking
 
-import cats.syntax.either.*
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.AvailabilityModule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Availability,
@@ -23,7 +23,6 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
   BftOrderingMessageBody,
   BftOrderingServiceReceiveRequest,
 }
-import com.digitalasset.canton.topology.{SequencerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 
 import java.time.{Duration, Instant}
@@ -47,36 +46,28 @@ class BftP2PNetworkIn[E <: Env[E]](
       context: E#ActorContextT[BftOrderingServiceReceiveRequest],
       traceContext: TraceContext,
   ): Unit = {
-    val sentBySequencerUid = message.sentBySequencerUid
-    logger.debug(s"Received network message from $sentBySequencerUid")
-    logger.trace(s"Message from $sentBySequencerUid is: $message")
+    val sentBy = BftNodeId(message.sentBy)
+    logger.debug(s"Received network message from $sentBy")
+    logger.trace(s"Message from $sentBy is: $message")
     val start = Instant.now
-    val sequencerIdOrError = UniqueIdentifier
-      .fromProtoPrimitive(sentBySequencerUid, "sent_by_sequencer_uid")
-      .map(SequencerId(_))
-      .leftMap(_.toString)
     parseAndForwardBody(
-      sequencerIdOrError,
+      sentBy,
       message.body,
       start,
     )
   }
 
   private def parseAndForwardBody(
-      from: Either[String, SequencerId],
+      from: BftNodeId,
       body: Option[BftOrderingMessageBody],
       start: Instant,
   )(implicit traceContext: TraceContext): Unit = {
-    val outcome: OutcomeType = from match {
-      case Left(error) =>
-        logger.warn(error)
-        metrics.p2p.receive.labels.source.values.SourceParsingFailed
-      case Right(from) =>
-        body.fold[OutcomeType]({
-          logger.info(s"Received empty message body from $from, dropping")
-          metrics.p2p.receive.labels.source.values.Empty(from)
-        })(body => handleMessage(from, body.message))
-    }
+    val outcome: OutcomeType =
+      body.fold[OutcomeType]({
+        logger.info(s"Received empty message body from $from, dropping")
+        metrics.p2p.receive.labels.source.values.Empty(from)
+      })(body => handleMessage(from, body.message))
+
     val end = Instant.now
     val mc1 = receiveMetricsContext(metrics)(outcome)
     locally {
@@ -87,7 +78,7 @@ class BftP2PNetworkIn[E <: Env[E]](
   }
 
   private def handleMessage(
-      from: SequencerId,
+      from: BftNodeId,
       message: Message,
   )(implicit
       traceContext: TraceContext

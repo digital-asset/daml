@@ -4,6 +4,7 @@
 package com.digitalasset.canton.grpc
 
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.util.TryUtil
 import com.google.protobuf.ByteString
 import io.grpc.stub.StreamObserver
 
@@ -34,12 +35,12 @@ class ByteStringStreamObserverWithContext[T, Context](
     if (!context.compareAndSet(None, Some(current))) {
       val previous = context.get()
       if (previous.contains(current)) {
-        Success(())
+        TryUtil.unit
       } else {
         Failure(new IllegalStateException(s"Context cannot be changed from: $previous to $current"))
       }
     } else {
-      Success(())
+      TryUtil.unit
     }
 
   override def onNext(value: T): Unit = {

@@ -315,7 +315,7 @@ object TryThereafterTest {
     override def theContent[A](content: Try[A]): A = content.fold(err => throw err, Predef.identity)
   }
   lazy val contents: Seq[Try[Any]] =
-    Seq(Success(()), Success(5), Failure(new RuntimeException("failure")))
+    Seq(TryUtil.unit, Success(5), Failure(new RuntimeException("failure")))
 }
 
 class FutureThereafterTest extends ThereafterTest with HasExecutionContext {

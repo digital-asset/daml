@@ -4,30 +4,29 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochMetricsAccumulator
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import org.scalatest.wordspec.AsyncWordSpec
 
 class EpochMetricsAccumulatorTest extends AsyncWordSpec with BaseTest {
-  private val seq1 = fakeSequencerId("sequencer1")
-  private val seq2 = fakeSequencerId("sequencer2")
-  private val seq3 = fakeSequencerId("sequencer3")
+  private val node1 = BftNodeId("sequencer1")
+  private val node2 = BftNodeId("sequencer2")
+  private val node3 = BftNodeId("sequencer3")
 
   "EpochMetricsAccumulator" should {
     "accumulate votes and views" in {
       val accumulator = new EpochMetricsAccumulator()
 
-      accumulator.accumulate(3, Map(seq1 -> 3), Map(seq1 -> 2, seq2 -> 2))
+      accumulator.accumulate(3, Map(node1 -> 3), Map(node1 -> 2, node2 -> 2))
 
       accumulator.viewsCount shouldBe 3
-      accumulator.commitVotes shouldBe Map(seq1 -> 3)
-      accumulator.prepareVotes shouldBe Map(seq1 -> 2, seq2 -> 2)
+      accumulator.commitVotes shouldBe Map(node1 -> 3)
+      accumulator.prepareVotes shouldBe Map(node1 -> 2, node2 -> 2)
 
-      accumulator.accumulate(2, Map(seq1 -> 2, seq2 -> 2), Map(seq3 -> 2, seq2 -> 2))
+      accumulator.accumulate(2, Map(node1 -> 2, node2 -> 2), Map(node3 -> 2, node2 -> 2))
 
       accumulator.viewsCount shouldBe 5
-      accumulator.commitVotes shouldBe Map(seq1 -> 5, seq2 -> 2)
-      accumulator.prepareVotes shouldBe Map(seq1 -> 2, seq2 -> 4, seq3 -> 2)
+      accumulator.commitVotes shouldBe Map(node1 -> 5, node2 -> 2)
+      accumulator.prepareVotes shouldBe Map(node1 -> 2, node2 -> 4, node3 -> 2)
     }
   }
 }

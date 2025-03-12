@@ -9,7 +9,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   GenesisTopologyActivationTime,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BlockNumber,
   EpochLength,
   EpochNumber,

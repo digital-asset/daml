@@ -4,12 +4,14 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions
 
 import cats.syntax.traverse.*
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  EpochNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Consensus,
   ConsensusStatus,
 }
-import com.digitalasset.canton.topology.SequencerId
 
 /** As part of retransmissions, we broadcast an epoch status to other nodes. However, because we
   * have separate modules processing each segment, we need to request and get segment statuses from
@@ -17,7 +19,7 @@ import com.digitalasset.canton.topology.SequencerId
   * (potentially out-of-order) segment status messages and then build the epoch status once all
   * segment status messages have arrived.
   */
-class EpochStatusBuilder(from: SequencerId, epochNumber: EpochNumber, numberOfSegments: Int) {
+class EpochStatusBuilder(from: BftNodeId, epochNumber: EpochNumber, numberOfSegments: Int) {
   private val segmentArray =
     Array.fill[Option[ConsensusStatus.SegmentStatus]](numberOfSegments)(None)
 

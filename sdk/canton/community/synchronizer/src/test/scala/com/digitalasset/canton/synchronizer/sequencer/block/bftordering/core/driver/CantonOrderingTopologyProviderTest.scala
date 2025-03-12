@@ -12,9 +12,7 @@ import com.digitalasset.canton.protocol.{
   DynamicSequencingParameters,
   DynamicSequencingParametersWithValidity,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.CantonOrderingTopologyProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
@@ -99,6 +97,9 @@ class CantonOrderingTopologyProviderTest
 }
 
 object CantonOrderingTopologyProviderTest {
+
+  private def fakeSequencerId(name: String): SequencerId =
+    SequencerId(UniqueIdentifier.tryCreate("ns", s"fake_$name"))
 
   private val aTimestamp = CantonTimestamp.Epoch
   private val someSequencerIds = Seq(fakeSequencerId("1"), fakeSequencerId("2"))

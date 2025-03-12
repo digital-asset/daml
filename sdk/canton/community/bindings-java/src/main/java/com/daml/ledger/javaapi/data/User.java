@@ -24,10 +24,14 @@ public final class User {
   }
 
   public UserManagementServiceOuterClass.User toProto() {
-    return UserManagementServiceOuterClass.User.newBuilder()
-        .setId(id)
-        .setPrimaryParty(primaryParty.orElse(null))
-        .build();
+    if (primaryParty == null || primaryParty.isEmpty()) {
+      return UserManagementServiceOuterClass.User.newBuilder().setId(id).build();
+    } else {
+      return UserManagementServiceOuterClass.User.newBuilder()
+          .setId(id)
+          .setPrimaryParty(primaryParty.get())
+          .build();
+    }
   }
 
   public static User fromProto(UserManagementServiceOuterClass.User proto) {
@@ -94,6 +98,10 @@ public final class User {
           // since this is a singleton so far we simply ignore the actual object
           right = IdentityProviderAdmin.INSTANCE;
           break;
+        case CAN_READ_AS_ANY_PARTY:
+          // since this is a singleton so far we simply ignore the actual object
+          right = CanReadAsAnyParty.INSTANCE;
+          break;
         default:
           throw new IllegalArgumentException("Unrecognized user right case: " + kindCase.name());
       }
@@ -158,6 +166,21 @@ public final class User {
         return UserManagementServiceOuterClass.Right.newBuilder()
             .setCanReadAs(
                 UserManagementServiceOuterClass.Right.CanReadAs.newBuilder().setParty(this.party))
+            .build();
+      }
+    }
+
+    public static final class CanReadAsAnyParty extends Right {
+      // empty private constructor, singleton object
+      private CanReadAsAnyParty() {}
+      // not built lazily on purpose, close to no overhead here
+      public static final CanReadAsAnyParty INSTANCE = new CanReadAsAnyParty();
+
+      @Override
+      UserManagementServiceOuterClass.Right toProto() {
+        return UserManagementServiceOuterClass.Right.newBuilder()
+            .setCanReadAsAnyParty(
+                UserManagementServiceOuterClass.Right.CanReadAsAnyParty.getDefaultInstance())
             .build();
       }
     }

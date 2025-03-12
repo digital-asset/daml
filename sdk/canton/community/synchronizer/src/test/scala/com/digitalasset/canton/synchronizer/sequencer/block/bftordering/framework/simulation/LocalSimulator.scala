@@ -6,8 +6,8 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleName
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.mutable
@@ -19,7 +19,7 @@ import SimulationModuleSystem.SimulationEnv
 
 class LocalSimulator(
     settings: LocalSettings,
-    peers: Set[SequencerId],
+    nodes: Set[BftNodeId],
     agenda: Agenda,
 ) {
   private val random = new Random(settings.randomSeed)
@@ -27,9 +27,9 @@ class LocalSimulator(
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var canUseFaults = true
 
-  private val crashPeerStatus: mutable.Map[SequencerId, LocalSimulator.CrashPeerStatus] =
+  private val crashNodeStatus: mutable.Map[BftNodeId, LocalSimulator.CrashNodeStatus] =
     mutable.Map.from(
-      peers.map(peer => peer -> LocalSimulator.Uninitialized)
+      nodes.map(node => node -> LocalSimulator.Uninitialized)
     )
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
@@ -37,12 +37,12 @@ class LocalSimulator(
     if (!canUseFaults) {
       return
     }
-    crashPeerStatus.mapValuesInPlace { case (peer, status) =>
+    crashNodeStatus.mapValuesInPlace { case (node, status) =>
       if (status.shouldUpdate(at)) {
         val gracePeriod =
           at.add(settings.crashRestartGracePeriod.generateRandomDuration(random).toJava)
         if (settings.crashRestartChance.flipCoin(random)) {
-          agenda.addOne(CrashRestartPeer(peer), duration = 1.microsecond)
+          agenda.addOne(CrashRestartNode(node), duration = 1.microsecond)
         }
         LocalSimulator.Initialized(gracePeriod)
       } else {
@@ -52,7 +52,7 @@ class LocalSimulator(
   }
 
   def scheduleEvent(
-      peer: SequencerId,
+      node: BftNodeId,
       to: ModuleName,
       from: EventOriginator,
       msg: ModuleControl[SimulationEnv, ?],
@@ -67,7 +67,7 @@ class LocalSimulator(
            */
           val lowFromAgenda = from match {
             case FromInternalModule(fromModuleName) =>
-              agenda.findLatestScheduledLocalEvent(peer, fromModuleName, to)
+              agenda.findLatestScheduledLocalEvent(node, fromModuleName, to)
             case _ => None
           }
           ScheduledCommand.DefaultPriority ->
@@ -80,14 +80,14 @@ class LocalSimulator(
       }
 
     agenda.addOne(
-      InternalEvent(peer, to, from, msg),
+      InternalEvent(node, to, from, msg),
       duration,
       priority,
     )
   }
 
   def scheduleTick(
-      peer: SequencerId,
+      node: BftNodeId,
       from: ModuleName,
       tickCounter: Int,
       duration: FiniteDuration,
@@ -97,21 +97,21 @@ class LocalSimulator(
       duration.plus(settings.clockDrift.generateRandomDuration(random))
     } else duration
     agenda.addOne(
-      InternalTick(peer, from, tickCounter, msg),
+      InternalTick(node, from, tickCounter, msg),
       computedDuration,
     )
   }
 
   def scheduleClientTick(
-      peer: SequencerId,
+      node: BftNodeId,
       tickCounter: Int,
       duration: FiniteDuration,
       msg: Any,
   ): Unit =
-    agenda.addOne(ClientTick(peer, tickCounter, msg), duration)
+    agenda.addOne(ClientTick(node, tickCounter, msg), duration)
 
   def scheduleFuture[X, T](
-      peer: SequencerId,
+      node: BftNodeId,
       to: ModuleName,
       now: CantonTimestamp,
       future: SimulationFuture[X],
@@ -127,7 +127,7 @@ class LocalSimulator(
     )
 
     agenda.addOne(
-      RunFuture(peer, to, runningFuture, fun, traceContext),
+      RunFuture(node, to, runningFuture, fun, traceContext),
       timeToRun,
       ScheduledCommand.DefaultPriority,
     )
@@ -138,15 +138,15 @@ class LocalSimulator(
 }
 
 object LocalSimulator {
-  private sealed trait CrashPeerStatus {
+  private sealed trait CrashNodeStatus {
     def shouldUpdate(at: CantonTimestamp): Boolean
   }
 
-  private object Uninitialized extends CrashPeerStatus {
+  private object Uninitialized extends CrashNodeStatus {
     override def shouldUpdate(at: CantonTimestamp): Boolean = true
   }
 
-  private final case class Initialized(dontUpdateUntil: CantonTimestamp) extends CrashPeerStatus {
+  private final case class Initialized(dontUpdateUntil: CantonTimestamp) extends CrashNodeStatus {
     override def shouldUpdate(at: CantonTimestamp): Boolean = dontUpdateUntil.isBefore(at)
   }
 }

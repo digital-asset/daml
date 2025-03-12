@@ -13,7 +13,17 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 //  as soon as any operation is done on them, e.g., with `T <: Int`, `T(0) + 1` ends up being a `Long`.
 
 @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-object NumberIdentifiers {
+object BftOrderingIdentifiers {
+
+  /** A low-overhead symbolic identifier for a BFT ordering node, treated as opaque. When we refer
+    * to a whole sequencer node, we use `SequencerId` instead. `Peer` refers to a BFT ordering node
+    * in the context of P2P communication.
+    */
+  type BftNodeId <: String
+  object BftNodeId {
+    val Empty: BftNodeId = BftNodeId("")
+    def apply(x: String): BftNodeId = x.asInstanceOf[BftNodeId]
+  }
 
   type EpochNumber <: Long
   object EpochNumber {

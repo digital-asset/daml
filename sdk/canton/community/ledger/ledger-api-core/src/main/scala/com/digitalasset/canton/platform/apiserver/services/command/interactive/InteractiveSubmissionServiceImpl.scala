@@ -54,6 +54,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.TryUtil
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.crypto
@@ -370,7 +371,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
     result match {
       case Success(Acknowledged) =>
         logger.debug("Interactive submission acknowledged by sync-service.")
-        Success(())
+        TryUtil.unit
 
       case Success(result: SynchronousError) =>
         logger.info(s"Rejected: ${result.description}")

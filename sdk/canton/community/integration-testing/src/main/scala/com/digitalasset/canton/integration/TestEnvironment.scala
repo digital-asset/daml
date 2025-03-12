@@ -11,16 +11,15 @@ import com.digitalasset.canton.console.{
   ConsoleEnvironmentTestHelpers,
   ConsoleMacros,
 }
-import com.digitalasset.canton.environment.Environment
 import org.apache.pekko.actor.ActorSystem
 
 /** Type including all environment macros and utilities to appear as you're using canton console */
-trait TestEnvironment[+E <: Environment]
-    extends ConsoleEnvironmentTestHelpers[E#Console]
+trait TestEnvironment
+    extends ConsoleEnvironmentTestHelpers[ConsoleEnvironment]
     with ConsoleMacros
-    with CommonTestAliases[E#Console]
+    with CommonTestAliases[ConsoleEnvironment]
     with ConsoleEnvironment.Implicits {
-  this: E#Console =>
+  this: ConsoleEnvironment =>
   val actualConfig: CantonConfig
 
   implicit val executionContext: ExecutionContextIdlenessExecutorService =
@@ -29,5 +28,5 @@ trait TestEnvironment[+E <: Environment]
   implicit val executionSequencerFactory: ExecutionSequencerFactory =
     environment.executionSequencerFactory
 
-  def verifyParticipantLapiIntegrity(plugins: Seq[EnvironmentSetupPlugin[_, _]]): Unit = ()
+  def verifyParticipantLapiIntegrity(plugins: Seq[EnvironmentSetupPlugin[_]]): Unit = ()
 }

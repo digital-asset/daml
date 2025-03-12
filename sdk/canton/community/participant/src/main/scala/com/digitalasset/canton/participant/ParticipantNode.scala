@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant
 
 import cats.Eval
 import cats.data.EitherT
-import cats.syntax.either.*
 import cats.syntax.option.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.LfPackageId
@@ -16,8 +15,6 @@ import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorServic
 import com.digitalasset.canton.config.SessionSigningKeysConfig
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
-import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
-import com.digitalasset.canton.crypto.store.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi, SyncCryptoApiParticipantProvider}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -25,18 +22,13 @@ import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.*
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.{
-  CantonGrpcUtil,
-  CantonMutableHandlerRegistry,
-  StaticGrpcServices,
-}
+import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, CantonMutableHandlerRegistry}
 import com.digitalasset.canton.participant.ParticipantNodeBootstrap.ParticipantServices
 import com.digitalasset.canton.participant.admin.*
 import com.digitalasset.canton.participant.admin.grpc.*
 import com.digitalasset.canton.participant.admin.workflows.java.canton
 import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.health.admin.ParticipantStatus
-import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.IndexerLockIds
 import com.digitalasset.canton.participant.ledger.api.{
   AcsCommitmentPublicationPostProcessor,
   LedgerApiIndexer,
@@ -61,9 +53,7 @@ import com.digitalasset.canton.participant.sync.ConnectedSynchronizer.Submission
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.participant.synchronizer.grpc.GrpcSynchronizerRegistry
 import com.digitalasset.canton.participant.topology.*
-import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
-import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
 import com.digitalasset.canton.resource.*
 import com.digitalasset.canton.scheduler.{Schedulers, SchedulersImpl}
 import com.digitalasset.canton.sequencing.client.{RecordingConfig, ReplayConfig, SequencerClient}
@@ -928,44 +918,6 @@ class ParticipantNodeBootstrap(
 object ParticipantNodeBootstrap {
   val LoggerFactoryKeyName: String = "participant"
 
-  trait Factory[PC <: LocalParticipantConfig, B <: CantonNodeBootstrap[_]] {
-
-    type Arguments =
-      CantonNodeBootstrapCommonArguments[PC, ParticipantNodeParameters, ParticipantMetrics]
-
-    protected def createEngine(arguments: Arguments): Engine = DAMLe.newEngine(
-      enableLfDev = arguments.parameterConfig.alphaVersionSupport,
-      enableLfBeta = arguments.parameterConfig.betaVersionSupport,
-      enableStackTraces = arguments.parameterConfig.engine.enableEngineStackTraces,
-      profileDir = arguments.config.features.profileDir,
-      iterationsBetweenInterruptions =
-        arguments.parameterConfig.engine.iterationsBetweenInterruptions,
-    )
-
-    protected def createResourceService(
-        arguments: Arguments
-    )(store: Eval[ParticipantSettingsStore]): ResourceManagementService
-
-    protected def createLedgerApiServerFactory(
-        arguments: Arguments,
-        engine: Engine,
-        testingTimeService: TestingTimeService,
-    )(implicit
-        executionContext: ExecutionContextIdlenessExecutorService,
-        actorSystem: ActorSystem,
-    ): CantonLedgerApiServerFactory
-
-    def create(
-        arguments: NodeFactoryArguments[PC, ParticipantNodeParameters, ParticipantMetrics],
-        testingTimeService: TestingTimeService,
-    )(implicit
-        executionContext: ExecutionContextIdlenessExecutorService,
-        scheduler: ScheduledExecutorService,
-        actorSystem: ActorSystem,
-        executionSequencerFactory: ExecutionSequencerFactory,
-    ): Either[String, B]
-  }
-
   final case class ParticipantServices(
       persistentStateContainer: LifeCycleContainer[ParticipantNodePersistentState],
       packageServiceContainer: LifeCycleContainer[PackageService],
@@ -976,106 +928,6 @@ object ParticipantNodeBootstrap {
       startableStoppableLedgerApiDependentServices: StartableStoppableLedgerApiDependentServices,
       participantTopologyDispatcher: ParticipantTopologyDispatcher,
   )
-
-  object CommunityParticipantFactory
-      extends Factory[LocalParticipantConfig, ParticipantNodeBootstrap] {
-
-    override protected def createResourceService(
-        arguments: Arguments
-    )(store: Eval[ParticipantSettingsStore]): ResourceManagementService =
-      new ResourceManagementService(
-        store,
-        arguments.config.parameters.warnIfOverloadedFor.map(_.toInternal),
-        arguments.metrics,
-      )
-
-    private def createReplicationServiceFactory(
-        arguments: Arguments
-    ): ServerServiceDefinition =
-      StaticGrpcServices
-        .notSupportedByCommunity(
-          v30.EnterpriseParticipantReplicationServiceGrpc.SERVICE,
-          arguments.loggerFactory,
-        )
-
-    override protected def createLedgerApiServerFactory(
-        arguments: Arguments,
-        engine: Engine,
-        testingTimeService: TestingTimeService,
-    )(implicit
-        executionContext: ExecutionContextIdlenessExecutorService,
-        actorSystem: ActorSystem,
-    ): CantonLedgerApiServerFactory =
-      new CantonLedgerApiServerFactory(
-        engine = engine,
-        clock = arguments.clock,
-        testingTimeService = testingTimeService,
-        allocateIndexerLockIds = _ => Option.empty[IndexerLockIds].asRight,
-        meteringReportKey = CommunityKey,
-        futureSupervisor = arguments.futureSupervisor,
-        loggerFactory = arguments.loggerFactory,
-      )
-
-    override def create(
-        arguments: NodeFactoryArguments[
-          LocalParticipantConfig,
-          ParticipantNodeParameters,
-          ParticipantMetrics,
-        ],
-        testingTimeService: TestingTimeService,
-    )(implicit
-        executionContext: ExecutionContextIdlenessExecutorService,
-        scheduler: ScheduledExecutorService,
-        actorSystem: ActorSystem,
-        executionSequencerFactory: ExecutionSequencerFactory,
-    ): Either[String, ParticipantNodeBootstrap] =
-      arguments
-        .toCantonNodeBootstrapCommonArguments(
-          new CommunityStorageFactory(arguments.config.storage),
-          new CommunityCryptoPrivateStoreFactory(
-            arguments.config.crypto.provider,
-            arguments.config.crypto.kms,
-            CommunityKmsFactory,
-            arguments.config.parameters.caching.kmsMetadataCache,
-            arguments.config.crypto.privateKeyStore,
-            arguments.parameters.nonStandardConfig,
-            arguments.futureSupervisor,
-            arguments.clock,
-            arguments.executionContext,
-          ),
-          CommunityKmsFactory,
-        )
-        .map { arguments =>
-          val engine = createEngine(arguments)
-          createNode(
-            arguments,
-            createLedgerApiServerFactory(
-              arguments,
-              engine,
-              testingTimeService,
-            ),
-          )
-        }
-
-    private def createNode(
-        arguments: Arguments,
-        ledgerApiServerFactory: CantonLedgerApiServerFactory,
-    )(implicit
-        executionContext: ExecutionContextIdlenessExecutorService,
-        scheduler: ScheduledExecutorService,
-        actorSystem: ActorSystem,
-        executionSequencerFactory: ExecutionSequencerFactory,
-    ): ParticipantNodeBootstrap =
-      new ParticipantNodeBootstrap(
-        arguments,
-        createEngine(arguments),
-        CantonSyncService.DefaultFactory,
-        createResourceService(arguments),
-        _ => createReplicationServiceFactory(arguments),
-        ledgerApiServerFactory = ledgerApiServerFactory,
-        setInitialized = _ => (),
-      )
-  }
 }
 
 class ParticipantNode(

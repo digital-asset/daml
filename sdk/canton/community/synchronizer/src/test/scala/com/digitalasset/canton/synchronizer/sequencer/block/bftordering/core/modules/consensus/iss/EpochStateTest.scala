@@ -12,9 +12,9 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochNumber,
   ViewNumber,
@@ -34,7 +34,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.SelfEnv
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
@@ -58,7 +57,7 @@ class EpochStateTest extends AsyncWordSpec with BaseTest {
             startBlockNumber = BlockNumber.First,
             length = 7,
           )
-        val membership = Membership.forTesting(myId, otherPeers)
+        val membership = Membership.forTesting(myId, otherIds)
         val epoch =
           Epoch(
             epochInfo,
@@ -94,7 +93,7 @@ class EpochStateTest extends AsyncWordSpec with BaseTest {
           startBlockNumber = BlockNumber.First,
           length = 7,
         )
-      val membership = Membership.forTesting(myId, otherPeers)
+      val membership = Membership.forTesting(myId, otherIds)
       val epoch =
         Epoch(
           epochInfo,
@@ -137,9 +136,9 @@ object EpochStateTest {
   private implicit val mc: MetricsContext = MetricsContext.Empty
   private val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
 
-  private val myId = fakeSequencerId("self")
-  private val otherPeers: Set[SequencerId] = (1 to 3).map { index =>
-    fakeSequencerId(s"peer$index")
+  private val myId = BftNodeId("self")
+  private val otherIds: Set[BftNodeId] = (1 to 3).map { index =>
+    BftNodeId(s"node$index")
   }.toSet
 
   private val pp =

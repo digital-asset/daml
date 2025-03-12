@@ -979,38 +979,6 @@ object LedgerApiCommands {
     }
   }
 
-  trait SubscribeBase[Req, Resp, Res] extends GrpcAdminCommand[Req, AutoCloseable, AutoCloseable] {
-    // The subscription should never be cut short because of a gRPC timeout
-    override def timeoutType: TimeoutType = ServerEnforcedTimeout
-
-    def observer: StreamObserver[Res]
-
-    def doRequest(
-        service: this.Svc,
-        request: Req,
-        rawObserver: StreamObserver[Resp],
-    ): Unit
-
-    def extractResults(response: Resp): IterableOnce[Res]
-
-    implicit def loggingContext: ErrorLoggingContext
-
-    override protected def submitRequest(
-        service: this.Svc,
-        request: Req,
-    ): Future[AutoCloseable] = {
-      val rawObserver = new ForwardingStreamObserver[Resp, Res](observer, extractResults)
-      val context = Context.current().withCancellation()
-      context.run(() => doRequest(service, request, rawObserver))
-      Future.successful(context)
-    }
-
-    override protected def handleResponse(response: AutoCloseable): Either[String, AutoCloseable] =
-      Right(
-        response
-      )
-  }
-
   object UpdateService {
 
     sealed trait UpdateTreeWrapper {

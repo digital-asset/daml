@@ -25,7 +25,7 @@ import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.store.db.DbBulkUpdateProcessor
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{BatchAggregator, ErrorUtil}
+import com.digitalasset.canton.util.{BatchAggregator, ErrorUtil, TryUtil}
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.*
 
@@ -103,8 +103,8 @@ class DbRequestJournalStore(
 
       }
 
-      private val success: Try[Unit] = Success(())
-      override protected def onSuccessItemUpdate(item: Traced[RequestData]): Try[Unit] = success
+      override protected def onSuccessItemUpdate(item: Traced[RequestData]): Try[Unit] =
+        TryUtil.unit
 
       override protected type CheckData = RequestData
       override protected type ItemIdentifier = RequestCounter
@@ -125,7 +125,7 @@ class DbRequestJournalStore(
               new IllegalStateException(show"Failed to insert data for request ${item.rc}")
             )
           case Some(data) =>
-            if (data == item) success
+            if (data == item) TryUtil.unit
             else
               ErrorUtil.internalErrorTry(
                 new IllegalStateException(

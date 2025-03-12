@@ -8,7 +8,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.top
   OrderingTopologyProvider,
   TopologyActivationTime,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BlockNumber,
   EpochLength,
   EpochNumber,

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
   AvailabilityAck,
   BatchId,

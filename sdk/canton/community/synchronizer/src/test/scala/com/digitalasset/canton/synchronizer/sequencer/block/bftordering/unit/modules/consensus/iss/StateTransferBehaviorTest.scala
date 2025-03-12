@@ -11,16 +11,20 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.EpochInProgress
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisPreviousEpochMaxBftTime
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.{
+  GenesisEpoch,
+  GenesisEpochNumber,
+  GenesisPreviousEpochMaxBftTime,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferBehavior.StateTransferType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
   CryptoProvider,
   TopologyActivationTime,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochLength,
   EpochNumber,
@@ -40,7 +44,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.*
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss.IssConsensusModuleTest.selfId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss.IssConsensusModuleTest.myId
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
@@ -50,18 +54,18 @@ import scala.collection.mutable
 
 class StateTransferBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionContext {
 
-  import StateTransferBehaviorTest.*
   import IssConsensusModuleTest.*
+  import StateTransferBehaviorTest.*
 
   private val clock = new SimClock(loggerFactory = loggerFactory)
 
-  "CatchupBehavior" when {
+  "StateTransferBehavior" when {
 
     "ready" should {
       "init" in {
-        val (context, catchupBehavior) = createCatchupBehavior()
+        val (context, stateTransferBehavior) = createStateTransferBehavior()
 
-        catchupBehavior.ready(context.self)
+        stateTransferBehavior.ready(context.self)
 
         context.extractSelfMessages() shouldBe Seq(Consensus.Init)
       }
@@ -71,11 +75,11 @@ class StateTransferBehaviorTest extends AsyncWordSpec with BaseTest with HasExec
       "cancel the current epoch" in {
         val epochStateMock = mock[EpochState[ProgrammableUnitTestEnv]]
         when(epochStateMock.epoch) thenReturn anEpoch
-        val (context, catchupBehavior) =
-          createCatchupBehavior(preConfiguredInitialEpochState = Some(_ => epochStateMock))
+        val (context, stateTransferBehavior) =
+          createStateTransferBehavior(preConfiguredInitialEpochState = Some(_ => epochStateMock))
         implicit val ctx: ContextType = context
 
-        catchupBehavior.receive(Consensus.Init)
+        stateTransferBehavior.receive(Consensus.Init)
 
         verify(epochStateMock, times(1)).notifyEpochCancellationToSegments(EpochNumber(1))
 
@@ -93,15 +97,15 @@ class StateTransferBehaviorTest extends AsyncWordSpec with BaseTest with HasExec
         when(
           epochStoreMock.latestEpoch(includeInProgress = eqTo(false))(any[TraceContext])
         ) thenReturn (() => anEpochStoreEpoch)
-        val (context, catchupBehavior) =
-          createCatchupBehavior(
+        val (context, stateTransferBehavior) =
+          createStateTransferBehavior(
             preConfiguredInitialEpochState = Some(_ => epochStateMock),
             maybeOnboardingStateTransferManager = Some(stateTransferManagerMock),
             epochStore = epochStoreMock,
           )
         implicit val ctx: ContextType = context
 
-        catchupBehavior.receive(Consensus.CatchUpMessage.SegmentCancelledEpoch)
+        stateTransferBehavior.receive(Consensus.SegmentCancelledEpoch)
 
         verify(stateTransferManagerMock, never).startStateTransfer(
           any[Membership],
@@ -110,7 +114,7 @@ class StateTransferBehaviorTest extends AsyncWordSpec with BaseTest with HasExec
           any[EpochNumber],
         )(any[String => Nothing])(any[ContextType], any[TraceContext])
 
-        catchupBehavior.receive(Consensus.CatchUpMessage.SegmentCancelledEpoch)
+        stateTransferBehavior.receive(Consensus.SegmentCancelledEpoch)
 
         verify(stateTransferManagerMock, times(1)).startStateTransfer(
           eqTo(anEpoch.currentMembership),
@@ -140,15 +144,15 @@ class StateTransferBehaviorTest extends AsyncWordSpec with BaseTest with HasExec
             any[EpochStore.Epoch],
           )(any[String => Nothing])(any[ContextType], any[TraceContext])
         ) thenReturn StateTransferMessageResult.Continue
-        val (context, catchupBehavior) =
-          createCatchupBehavior(
+        val (context, stateTransferBehavior) =
+          createStateTransferBehavior(
             maybeOnboardingStateTransferManager = Some(stateTransferManagerMock),
             epochStore = epochStoreMock,
           )
         implicit val ctx: ContextType = context
 
         val aStateTransferMessage = BlocksStored(Seq.empty, EpochNumber.First)
-        catchupBehavior.receive(aStateTransferMessage)
+        stateTransferBehavior.receive(aStateTransferMessage)
 
         verify(stateTransferManagerMock, times(1)).handleStateTransferMessage(
           eqTo(aStateTransferMessage),
@@ -162,10 +166,10 @@ class StateTransferBehaviorTest extends AsyncWordSpec with BaseTest with HasExec
 
     "handling a 'Continue' result of processing a state transfer message" should {
       "do nothing" in {
-        val (context, catchupBehavior) = createCatchupBehavior()
+        val (context, stateTransferBehavior) = createStateTransferBehavior()
         implicit val ctx: ContextType = context
 
-        catchupBehavior.handleStasteTransferMessageResult(
+        stateTransferBehavior.handleStateTransferMessageResult(
           "aMessageType",
           StateTransferMessageResult.Continue,
         )
@@ -178,38 +182,75 @@ class StateTransferBehaviorTest extends AsyncWordSpec with BaseTest with HasExec
     }
   }
 
-  // TODO(#24268) test other cases
-  "receiving a new epoch topology message from the first epoch after state transfer" should {
-    "transition back to consensus mode" in {
-      val (context, catchupBehavior) = createCatchupBehavior()
+  "receiving a new epoch topology message" should {
+    "set the new epoch state during state transfer" in {
+      val (context, stateTransferBehavior) = createStateTransferBehavior()
       implicit val ctx: ContextType = context
 
-      catchupBehavior.receive(
+      val newEpochNumber = EpochNumber.First
+      val previousEpochMaxBftTime = CantonTimestamp.Epoch
+      val newEpoch = EpochInfo(
+        newEpochNumber,
+        BlockNumber.First,
+        DefaultEpochLength,
+        TopologyActivationTime(CantonTimestamp.MinValue),
+        previousEpochMaxBftTime,
+      )
+
+      stateTransferBehavior.receive(
+        Consensus.NewEpochTopology(
+          newEpochNumber,
+          aMembership,
+          aFakeCryptoProviderInstance,
+          previousEpochMaxBftTime,
+          Mode.StateTransfer.MiddleBlock,
+        )
+      )
+
+      stateTransferBehavior should matchPattern {
+        case StateTransferBehavior(
+              DefaultEpochLength,
+              GenesisEpochNumber,
+              `aTopologyInfo`,
+              `newEpoch`,
+              GenesisEpoch,
+            ) =>
+      }
+    }
+
+    "transition back to consensus mode if it's the first epoch after state transfer" in {
+      val (context, stateTransferBehavior) = createStateTransferBehavior()
+      implicit val ctx: ContextType = context
+
+      stateTransferBehavior.receive(
         Consensus.NewEpochTopology(
           EpochNumber.First,
           aMembership,
-          fakeCryptoProvider,
+          aFakeCryptoProviderInstance,
           GenesisPreviousEpochMaxBftTime,
           Mode.StateTransfer.LastBlock,
         )
       )
 
-      context.extractBecomes() should matchPattern {
+      val becomes = context.extractBecomes()
+      inside(becomes) {
         case Seq(
-              IssConsensusModule(
-                `DefaultEpochLength`,
+              consensusModule @ IssConsensusModule(
+                DefaultEpochLength,
                 None, // snapshotAdditionalInfo
-                _, // TODO(#24268) test topology
+                `aTopologyInfo`,
                 futurePbftMessageQueue,
                 Seq(), // queuedConsensusMessages
               )
             ) if futurePbftMessageQueue.isEmpty =>
-        // TODO(#24268) test resending new epoch topology message
+          // A successful check below means that the `NewEpochTopology` has been resent
+          //  and processed by the Consensus module.
+          consensusModule.isInitComplete shouldBe true
       }
     }
   }
 
-  private def createCatchupBehavior(
+  private def createStateTransferBehavior(
       pbftMessageQueue: mutable.Queue[SignedMessage[PbftNetworkMessage]] = mutable.Queue.empty,
       availabilityModuleRef: ModuleRef[Availability.Message[ProgrammableUnitTestEnv]] =
         fakeModuleExpectingSilence,
@@ -323,12 +364,12 @@ object StateTransferBehaviorTest {
   private val anEpochInfo: EpochInfo = EpochInfo(
     EpochNumber(1),
     BlockNumber(1),
-    EpochLength(20),
+    DefaultEpochLength,
     TopologyActivationTime(CantonTimestamp.Epoch),
     CantonTimestamp.MinValue,
   )
   private val aMembership =
-    Membership.forTesting(selfId, otherPeers = Set(fakeSequencerId("other")))
+    Membership.forTesting(myId, otherNodes = Set(BftNodeId("other")))
   private val anEpoch = EpochState.Epoch(
     anEpochInfo,
     currentMembership = aMembership,
@@ -337,13 +378,15 @@ object StateTransferBehaviorTest {
   private val anEpochStoreEpoch = EpochStore.Epoch(anEpochInfo, Seq.empty)
 
   private val anOrderingTopology = aMembership.orderingTopology
+  private val aFakeCryptoProviderInstance: CryptoProvider[ProgrammableUnitTestEnv] =
+    fakeCryptoProvider
   private val aTopologyInfo = OrderingTopologyInfo[ProgrammableUnitTestEnv](
-    selfId,
+    myId,
     anOrderingTopology,
-    fakeCryptoProvider,
+    aFakeCryptoProviderInstance,
     aMembership.leaders,
     previousTopology = anOrderingTopology, // Not relevant
-    fakeCryptoProvider,
+    aFakeCryptoProviderInstance,
     aMembership.leaders,
   )
 }

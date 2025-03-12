@@ -28,6 +28,7 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
   KeyUnassigned,
 }
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
+import com.digitalasset.canton.util.TryUtil
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.value.Value.ContractId
 import io.grpc.{Metadata, StatusRuntimeException}
@@ -76,7 +77,7 @@ class PekkoStreamParallelBatchedLoader[KEY, VALUE](
               promise.success(resultMap.get(key))
               ()
             }
-            Success(())
+            TryUtil.unit
 
           case Failure(t) =>
             batch.view.foreach { case (_, _, promise) =>
@@ -92,7 +93,7 @@ class PekkoStreamParallelBatchedLoader[KEY, VALUE](
               )
               ()
             }
-            Success(())
+            TryUtil.unit
         }
     }
     .toMat(Sink.ignore)(Keep.both)

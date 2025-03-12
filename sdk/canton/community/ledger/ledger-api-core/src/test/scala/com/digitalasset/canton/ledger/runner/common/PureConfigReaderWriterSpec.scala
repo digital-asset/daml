@@ -365,7 +365,8 @@ class PureConfigReaderWriterSpec
       |  input-mapping-parallelism = 16
       |  max-input-buffer-size = 50
       |  restart-delay = "10s"
-      |  submission-batch-size = 50""".stripMargin
+      |  submission-batch-size = 50
+      |  disable-monotonicity-checks = false""".stripMargin
 
   it should "support current defaults" in {
     val value = validIndexerConfigValue

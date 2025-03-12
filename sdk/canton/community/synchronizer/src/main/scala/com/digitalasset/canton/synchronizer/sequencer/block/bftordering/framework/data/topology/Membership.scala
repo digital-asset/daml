@@ -3,16 +3,16 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology
 
-import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.google.common.annotations.VisibleForTesting
 
 final case class Membership(
-    myId: SequencerId,
+    myId: BftNodeId,
     orderingTopology: OrderingTopology,
-    leaders: Seq[SequencerId],
+    leaders: Seq[BftNodeId],
 ) {
-  val otherPeers: Set[SequencerId] = orderingTopology.peers - myId
-  lazy val sortedPeers: Seq[SequencerId] = orderingTopology.sortedPeers
+  val otherNodes: Set[BftNodeId] = orderingTopology.nodes - myId
+  lazy val sortedNodes: Seq[BftNodeId] = orderingTopology.sortedNodes
 }
 
 object Membership {
@@ -20,13 +20,13 @@ object Membership {
   /** A simple constructor for tests so that we don't have to provide a full ordering topology. */
   @VisibleForTesting
   def forTesting(
-      myId: SequencerId,
-      otherPeers: Set[SequencerId] = Set.empty,
+      myId: BftNodeId,
+      otherNodes: Set[BftNodeId] = Set.empty,
       sequencingParameters: SequencingParameters = SequencingParameters.Default,
-      leaders: Option[Seq[SequencerId]] = None,
+      leaders: Option[Seq[BftNodeId]] = None,
   ): Membership = {
-    val orderingTopology = OrderingTopology(otherPeers + myId, sequencingParameters)
-    val peers = orderingTopology.sortedPeers
-    Membership(myId, orderingTopology, leaders.getOrElse(peers))
+    val orderingTopology = OrderingTopology(otherNodes + myId, sequencingParameters)
+    val nodes = orderingTopology.sortedNodes
+    Membership(myId, orderingTopology, leaders.getOrElse(nodes))
   }
 }

@@ -7,8 +7,8 @@ import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochNumber,
   ViewNumber,
@@ -30,23 +30,23 @@ import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 
 class PreviousEpochsRetransmissionsTrackerTest extends AnyWordSpec with BftSequencerBaseTest {
-  val self = fakeSequencerId("self")
-  val anotherPeer = fakeSequencerId("another")
-  val epoch0 = EpochNumber.First
-  val epoch1 = EpochNumber(epoch0 + 1)
-  val wrongEpoch = EpochNumber(epoch0 + 1)
+  private val myId = BftNodeId("self")
+  private val anotherId = BftNodeId("another")
+  private val epoch0 = EpochNumber.First
+  private val epoch1 = EpochNumber(epoch0 + 1)
 
-  val completeSegmentStatus = SegmentStatus.Complete
+  private val completeSegmentStatus = SegmentStatus.Complete
 
-  def inProgressSegmentStatus(areBlocksComplete: Seq[Boolean]) = SegmentStatus
+  private def inProgressSegmentStatus(areBlocksComplete: Seq[Boolean]) = SegmentStatus
     .InProgress(
       ViewNumber.First,
       areBlocksComplete.map { completed =>
-        if (completed) BlockStatus.Complete else BlockStatus.InProgress(false, Seq.empty, Seq.empty)
+        if (completed) BlockStatus.Complete
+        else BlockStatus.InProgress(prePrepared = false, Seq.empty, Seq.empty)
       },
     )
 
-  def inViewChangeSegmentStatus(areBlocksComplete: Seq[Boolean]) =
+  private def inViewChangeSegmentStatus(areBlocksComplete: Seq[Boolean]) =
     ConsensusStatus.SegmentStatus.InViewChange(ViewNumber.First, Seq.empty, areBlocksComplete)
 
   private val canonicalCommitSet = CanonicalCommitSet(
@@ -57,7 +57,7 @@ class PreviousEpochsRetransmissionsTrackerTest extends AnyWordSpec with BftSeque
           ViewNumber.First,
           Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
           CantonTimestamp.Epoch,
-          from = self,
+          from = myId,
         )
         .fakeSign
     )
@@ -78,7 +78,7 @@ class PreviousEpochsRetransmissionsTrackerTest extends AnyWordSpec with BftSeque
               CantonTimestamp.Epoch,
               OrderingBlock(Seq()),
               canonicalCommitSet,
-              from = self,
+              from = myId,
             )
             .fakeSign,
           Seq.empty,
@@ -93,7 +93,7 @@ class PreviousEpochsRetransmissionsTrackerTest extends AnyWordSpec with BftSeque
 
       tracker.processRetransmissionsRequest(
         ConsensusStatus.EpochStatus(
-          anotherPeer,
+          anotherId,
           epoch0,
           Seq(
             inProgressSegmentStatus(Seq(true, false, false)),
@@ -114,7 +114,7 @@ class PreviousEpochsRetransmissionsTrackerTest extends AnyWordSpec with BftSeque
 
       tracker.processRetransmissionsRequest(
         ConsensusStatus.EpochStatus(
-          anotherPeer,
+          anotherId,
           epoch0,
           Seq(
             inProgressSegmentStatus(Seq(false, true, false, false)), // blocks 0, 3, 6, 9
@@ -144,14 +144,14 @@ class PreviousEpochsRetransmissionsTrackerTest extends AnyWordSpec with BftSeque
 
       tracker.processRetransmissionsRequest(
         ConsensusStatus.EpochStatus(
-          anotherPeer,
+          anotherId,
           epoch0,
           Seq(
             inProgressSegmentStatus(Seq(false, true, false, false, true)),
             inProgressSegmentStatus(Seq(false, true, false, false, false)),
           ),
         )
-      ) should have size (7)
+      ) should have size 7
 
       val epochWhenFirstEpochGetsPurged = EpochNumber(epoch0 + howManyEpochsToKeep)
       tracker.endEpoch(
@@ -161,7 +161,7 @@ class PreviousEpochsRetransmissionsTrackerTest extends AnyWordSpec with BftSeque
 
       tracker.processRetransmissionsRequest(
         ConsensusStatus.EpochStatus(
-          anotherPeer,
+          anotherId,
           epoch0,
           Seq(
             inProgressSegmentStatus(Seq(false, true, false, false, true)),

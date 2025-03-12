@@ -124,6 +124,7 @@ object JdbcIndexer {
           reassignmentOffsetPersistence = reassignmentOffsetPersistence,
           postProcessor = postProcessor,
           sequentialPostProcessor = sequentialPostProcessor,
+          disableMonotonicityChecks = config.disableMonotonicityChecks,
           tracer = tracer,
           loggerFactory = loggerFactory,
         ),

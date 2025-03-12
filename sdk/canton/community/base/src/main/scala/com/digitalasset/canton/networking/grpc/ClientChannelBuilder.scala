@@ -18,12 +18,44 @@ import com.google.protobuf.ByteString
 import io.grpc.netty.{GrpcSslContexts, NettyChannelBuilder}
 import io.netty.handler.ssl.{SslContext, SslContextBuilder}
 
-import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{Executor, TimeUnit}
 import scala.jdk.CollectionConverters.*
 
 /** Construct a GRPC channel to be used by a client within canton. */
-trait ClientChannelBuilder {
+class ClientChannelBuilder private (protected val loggerFactory: NamedLoggerFactory)
+    extends NamedLogging {
+
+  /** Create the initial netty channel builder before customizing settings */
+  private def createNettyChannelBuilder(
+      endpoints: NonEmpty[Seq[Endpoint]]
+  ): NettyChannelBuilder =
+    // only use our multi-host name resolver if using multiple hosts
+    endpoints.forgetNE match {
+      case Seq(singleHost) =>
+        NettyChannelBuilder.forAddress(singleHost.host, singleHost.port.unwrap)
+      case _multipleHosts =>
+        // setup a multi-host config
+        val uri = MultiHostNameResolverProvider.setupEndpointConfig(endpoints)
+        NettyChannelBuilder.forTarget(uri)
+    }
+
+  /** Set implementation specific channel settings */
+  private def additionalChannelBuilderSettings(
+      builder: NettyChannelBuilder
+  ): Unit = {
+    import scala.jdk.CollectionConverters.*
+    builder.defaultLoadBalancingPolicy("round_robin")
+    // enable health checking as a basis for round robin failover
+    builder.defaultServiceConfig(
+      Map(
+        "healthCheckConfig" -> Map(
+          "serviceName" -> CantonGrpcUtil.sequencerHealthCheckServiceName
+        ).asJava
+      ).asJava
+    )
+    ()
+  }
+
   def create(
       endpoints: NonEmpty[Seq[Endpoint]],
       useTls: Boolean,
@@ -38,7 +70,7 @@ trait ClientChannelBuilder {
 
     // the builder calls mutate this instance so is fine to assign to a val
     val builder = createNettyChannelBuilder(endpoints)
-    additionalChannelBuilderSettings(builder, endpoints)
+    additionalChannelBuilderSettings(builder)
 
     builder.executor(executor)
     maxInboundMessageSize.foreach(s => builder.maxInboundMessageSize(s.unwrap))
@@ -63,55 +95,16 @@ trait ClientChannelBuilder {
     builder
   }
 
-  /** Create the initial netty channel builder before customizing settings */
-  protected def createNettyChannelBuilder(endpoints: NonEmpty[Seq[Endpoint]]): NettyChannelBuilder
-
-  /** Set implementation specific channel settings */
-  protected def additionalChannelBuilderSettings(
-      builder: NettyChannelBuilder,
-      endpoints: NonEmpty[Seq[Endpoint]],
-  ): Unit = ()
-}
-
-trait ClientChannelBuilderFactory extends (NamedLoggerFactory => ClientChannelBuilder)
-
-/** Supports creating GRPC channels but only supports a single host. If multiple endpoints are
-  * provided a warning will be logged and the first supplied will be used.
-  */
-class CommunityClientChannelBuilder(protected val loggerFactory: NamedLoggerFactory)
-    extends ClientChannelBuilder
-    with NamedLogging {
-
-  /** Create the initial netty channel builder before customizing settings */
-  override protected def createNettyChannelBuilder(
-      endpoints: NonEmpty[Seq[Endpoint]]
-  ): NettyChannelBuilder = {
-    val singleHost = endpoints.head1
-
-    // warn that community does not support more than one synchronizer connection if we've been passed multiple
-    if (endpoints.sizeIs > 1) {
-      noTracingLogger.warn(
-        s"Canton Community does not support using many connections for a synchronizer. Defaulting to first: $singleHost"
-      )
-    }
-
-    NettyChannelBuilder.forAddress(singleHost.host, singleHost.port.unwrap)
-  }
-}
-
-object CommunityClientChannelBuilder extends ClientChannelBuilderFactory {
-  override def apply(loggerFactory: NamedLoggerFactory): ClientChannelBuilder =
-    new CommunityClientChannelBuilder(loggerFactory)
 }
 
 object ClientChannelBuilder {
-  // basic service locator to prevent having to pass these instances around everywhere
-  private lazy val factoryRef =
-    new AtomicReference[ClientChannelBuilderFactory](CommunityClientChannelBuilder)
+
+  // setup enterprise GRPC client channels that supports load-balancing
+  MultiHostNameResolverProvider.register()
+
   def apply(loggerFactory: NamedLoggerFactory): ClientChannelBuilder =
-    factoryRef.get()(loggerFactory)
-  private[canton] def setFactory(factory: ClientChannelBuilderFactory): Unit =
-    factoryRef.set(factory)
+    // Create through the companion object to ensure we register the multi-host name resolver
+    new ClientChannelBuilder(loggerFactory)
 
   private def sslContextBuilder(tls: TlsClientConfig): SslContextBuilder = {
     val builder = GrpcSslContexts

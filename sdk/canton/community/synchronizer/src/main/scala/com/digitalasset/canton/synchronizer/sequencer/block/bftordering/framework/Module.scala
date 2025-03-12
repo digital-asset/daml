@@ -11,12 +11,12 @@ import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, O
 import com.digitalasset.canton.lifecycle.{FlagCloseable, UnlessShutdown}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Consensus,
   Output,
   P2PNetworkOut,
 }
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import org.apache.pekko.dispatch.ControlMessage
 
@@ -173,9 +173,9 @@ trait ClientP2PNetworkManager[E <: Env[E], -P2PMessageT] {
 
   def createNetworkRef[ActorContextT](
       context: E#ActorContextT[ActorContextT],
-      peer: P2PEndpoint,
+      endpoint: P2PEndpoint,
   )(
-      onSequencerId: (P2PEndpoint.Id, SequencerId) => Unit
+      onSequencerId: (P2PEndpoint.Id, BftNodeId) => Unit
   ): P2PNetworkRef[P2PMessageT]
 }
 
@@ -344,7 +344,7 @@ object Module {
     * of the concrete actors framework, such as Pekko or the simulation testing framework, as to
     * further reduce the gap between what is run and what is deterministically simulation-tested.
     *
-    * Inputs are a module system and a network manager; the latter defines how peers connect.
+    * Inputs are a module system and a network manager; the latter defines how nodes connect.
     */
   trait SystemInitializer[E <: Env[E], P2PMessageT, InputMessageT] {
     def initialize(

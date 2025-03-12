@@ -27,10 +27,13 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.net
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.SimulationBlockSubscription
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.BlockNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  BlockNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.{
-  PeerActiveAt,
+  NodeActiveAt,
   SequencerSnapshotAdditionalInfo,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Mempool
@@ -38,29 +41,24 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.{
   SimulationEnv,
   SimulationInitializer,
-  SimulationP2PNetworkManager,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.BftOrderingSimulationTest.{
-  SimulationStartTime,
-  SimulationTestStage,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.BftOrderingSimulationTest.SimulationTestStage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.bftordering.{
   BftOrderingVerifier,
   IssClient,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.SimulationTopologyHelpers.{
-  generatePeerOnboardingDelay,
+  generateNodeOnboardingDelay,
   onboardingTime,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.{
-  PeerActiveAtProvider,
+  NodeActiveAtProvider,
   SimulationOrderingTopologyProvider,
   SimulationTopologyData,
   SimulationTopologyHelpers,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
 import com.digitalasset.canton.time.{Clock, SimClock}
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.flatspec.AnyFlatSpec
@@ -94,12 +92,14 @@ import scala.util.Random
   */
 trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
 
+  import BftOrderingSimulationTest.*
+
   def numberOfRuns: Int
-  def numberOfInitialPeers: Int
+  def numberOfInitialNodes: Int
   def generateStages(): Seq[SimulationTestStage]
 
   private type SimulationT = Simulation[Option[
-    PeerActiveAt
+    NodeActiveAt
   ], BftOrderingServiceReceiveRequest, Mempool.Message, Unit]
 
   private implicit val metricsContext: MetricsContext = MetricsContext.Empty
@@ -108,28 +108,28 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
   private val initialApplicationHeight =
     BlockNumber.First // TODO(#17281): Change for restarts/crashes
 
-  private lazy val initialPeersIndexRange = 0 until numberOfInitialPeers
-  private lazy val initialPeersOnboardingTimes =
-    initialPeersIndexRange.map(_ => Genesis.GenesisTopologyActivationTime)
-  private lazy val initialPeerEndpoints =
-    initialPeersIndexRange.map(i => PlainTextP2PEndpoint(peerHostname(i), Port.tryCreate(0)))
-  private lazy val initialPeerEndpointsWithOnboardingTimes =
-    initialPeerEndpoints.zip(initialPeersOnboardingTimes)
-  private lazy val initialPeerEndpointsToTopologyData =
+  private lazy val initialIndexRange = 0 until numberOfInitialNodes
+  private lazy val initialOnboardingTimes =
+    initialIndexRange.map(_ => Genesis.GenesisTopologyActivationTime)
+  private lazy val initialEndpoints =
+    initialIndexRange.map(i => PlainTextP2PEndpoint(hostname(i), Port.tryCreate(0)))
+  private lazy val initialEndpointsWithOnboardingTimes =
+    initialEndpoints.zip(initialOnboardingTimes)
+  private lazy val initialEndpointsToTopologyData =
     SimulationTopologyHelpers.generateSimulationTopologyData(
-      initialPeerEndpointsWithOnboardingTimes.toMap,
+      initialEndpointsWithOnboardingTimes.toMap,
       loggerFactory,
     )
-  private lazy val initialSequencerIdsToOnboardingTimes =
-    initialPeerEndpoints
-      .zip(initialPeersOnboardingTimes)
+  private lazy val initialNodesToOnboardingTimes =
+    initialEndpoints
+      .zip(initialOnboardingTimes)
       .view
       .map { case (endpoint, onboardingTime) =>
-        SimulationP2PNetworkManager.fakeSequencerId(endpoint) -> onboardingTime
+        Simulation.endpointToNode(endpoint) -> onboardingTime
       }
       .toMap
 
-  private def peerHostname(i: Int) = s"system$i"
+  private def hostname(i: Int) = s"system$i"
 
   it should "run with no issues" in {
 
@@ -137,10 +137,10 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
 
       logger.info(s"Starting run $runNumber (of $numberOfRuns)")
 
-      val initialPeersWithStores = initialPeerEndpoints.map { endpoint =>
+      val initialEndpointsWithStores = initialEndpoints.map { endpoint =>
         val simulationEpochStore = new SimulationEpochStore()
         val stores = BftOrderingStores(
-          new SimulationP2PEndpointsStore(initialPeerEndpoints.filterNot(_ == endpoint).toSet),
+          new SimulationP2PEndpointsStore(initialEndpoints.filterNot(_ == endpoint).toSet),
           new SimulationAvailabilityStore(),
           simulationEpochStore,
           epochStoreReader = simulationEpochStore,
@@ -148,19 +148,19 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
         )
         endpoint -> stores
       }.toMap
-      val initialSequencerIdsToStores =
-        initialPeersWithStores.view.map { case (endpoint, store) =>
-          SimulationP2PNetworkManager.fakeSequencerId(endpoint) -> store
+      val initialNodesToStores =
+        initialEndpointsWithStores.view.map { case (endpoint, store) =>
+          Simulation.endpointToNode(endpoint) -> store
         }.toMap
 
-      val sendQueue = mutable.Queue.empty[(SequencerId, BlockFormat.Block)]
+      val sendQueue = mutable.Queue.empty[(BftNodeId, BlockFormat.Block)]
 
-      var firstNewlyOnboardedPeerIndex = initialPeerEndpoints.size
+      var firstNewlyOnboardedIndex = initialEndpoints.size
 
-      var alreadyOnboardedPeerEndpoints = initialPeerEndpoints
-      var alreadyOnboardedPeerEndpointsToTopologyData = initialPeerEndpointsToTopologyData
-      var alreadyOnboardedSequencerIdsToOnboardingTimes = initialSequencerIdsToOnboardingTimes
-      var alreadyOnboardedSequencerIdsToStores = initialSequencerIdsToStores
+      var alreadyOnboardedEndpoints = initialEndpoints
+      var alreadyOnboardedEndpointsToTopologyData = initialEndpointsToTopologyData
+      var alreadyOnboardedNodesToOnboardingTimes = initialNodesToOnboardingTimes
+      var alreadyOnboardedNodesToStores = initialNodesToStores
       var simulationAndModel: Option[(SimulationT, BftOrderingVerifier)] = None
 
       val clock = new SimClock(SimulationStartTime, loggerFactory)
@@ -178,15 +178,15 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
 
         val availabilityRandom = new Random(simSettings.localSettings.randomSeed)
 
-        val numberOfOnboardedPeers = simSettings.peerOnboardingDelays.size
-        val newlyOnboardedPeerEndpoints =
-          (firstNewlyOnboardedPeerIndex until firstNewlyOnboardedPeerIndex + numberOfOnboardedPeers)
-            .map(i => PlainTextP2PEndpoint(peerHostname(i), Port.tryCreate(0)))
-        val newlyOnboardedPeersWithStores = newlyOnboardedPeerEndpoints.map { endpoint =>
+        val numberOfOnboardedNodes = simSettings.nodeOnboardingDelays.size
+        val newlyOnboardedEndpoints =
+          (firstNewlyOnboardedIndex until firstNewlyOnboardedIndex + numberOfOnboardedNodes)
+            .map(i => PlainTextP2PEndpoint(hostname(i), Port.tryCreate(0)))
+        val newlyOnboardedEndpointsWithStores = newlyOnboardedEndpoints.map { endpoint =>
           val simulationEpochStore = new SimulationEpochStore()
           val stores = BftOrderingStores(
-            // Creates a one-way connection from each new peer to already onboarded peer endpoints
-            new SimulationP2PEndpointsStore(alreadyOnboardedPeerEndpoints.toSet),
+            // Creates a one-way connection from each new node to already onboarded endpoints
+            new SimulationP2PEndpointsStore(alreadyOnboardedEndpoints.toSet),
             new SimulationAvailabilityStore(),
             simulationEpochStore,
             epochStoreReader = simulationEpochStore,
@@ -194,27 +194,27 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
           )
           endpoint -> stores
         }
-        val newlyOnboardedPeerEndpointsWithOnboardingTimes =
-          newlyOnboardedPeerEndpoints.zip(
-            simSettings.peerOnboardingDelays.map(onboardingTime(stageStart, _))
+        val newlyOnboardedEndpointsWithOnboardingTimes =
+          newlyOnboardedEndpoints.zip(
+            simSettings.nodeOnboardingDelays.map(onboardingTime(stageStart, _))
           )
 
-        val newlyOnboardedPeerEndpointsToTopologyData =
+        val newlyOnboardedEndpointsToTopologyData =
           SimulationTopologyHelpers.generateSimulationTopologyData(
-            newlyOnboardedPeerEndpointsWithOnboardingTimes.toMap,
+            newlyOnboardedEndpointsWithOnboardingTimes.toMap,
             loggerFactory,
           )
         val allEndpointsToTopologyData =
-          alreadyOnboardedPeerEndpointsToTopologyData ++ newlyOnboardedPeerEndpointsToTopologyData
+          alreadyOnboardedEndpointsToTopologyData ++ newlyOnboardedEndpointsToTopologyData
 
         allEndpointsToTopologyDataCell.set(allEndpointsToTopologyData)
 
-        def peerInitializer(
+        def initializer(
             endpoint: P2PEndpoint,
             stores: BftOrderingStores[SimulationEnv],
             initializeImmediately: Boolean,
         ) =
-          newPeerInitializer(
+          newInitializer(
             endpoint,
             () => getAllEndpointsToTopologyData,
             stores,
@@ -226,33 +226,32 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
           )
 
         val newlyOnboardedTopologyInitializers =
-          newlyOnboardedPeersWithStores.map { case (endpoint, stores) =>
-            endpoint -> peerInitializer(
+          newlyOnboardedEndpointsWithStores.map { case (endpoint, stores) =>
+            endpoint -> initializer(
               endpoint,
               stores,
               initializeImmediately = false,
             )
           }.toMap
-        val newlyOnboardedSequencerIdsToOnboardingTimes =
-          newlyOnboardedPeerEndpointsWithOnboardingTimes.view.map {
-            case (endpoint, onboardingTime) =>
-              SimulationP2PNetworkManager.fakeSequencerId(endpoint) -> onboardingTime
+        val newlyOnboardedNodesToOnboardingTimes =
+          newlyOnboardedEndpointsWithOnboardingTimes.view.map { case (endpoint, onboardingTime) =>
+            Simulation.endpointToNode(endpoint) -> onboardingTime
           }.toMap
-        val newlyOnboardedSequencerIdsToStores =
-          newlyOnboardedPeersWithStores.view.map { case (endpoint, store) =>
-            SimulationP2PNetworkManager.fakeSequencerId(endpoint) -> store
+        val newlyOnboardedNodesToStores =
+          newlyOnboardedEndpointsWithStores.view.map { case (endpoint, store) =>
+            Simulation.endpointToNode(endpoint) -> store
           }.toMap
 
-        val allSequencerIdsToOnboardingTimes =
-          alreadyOnboardedSequencerIdsToOnboardingTimes ++ newlyOnboardedSequencerIdsToOnboardingTimes
-        val allSequencerIdsToStores =
-          alreadyOnboardedSequencerIdsToStores ++ newlyOnboardedSequencerIdsToStores
+        val allNodesToOnboardingTimes =
+          alreadyOnboardedNodesToOnboardingTimes ++ newlyOnboardedNodesToOnboardingTimes
+        val allNodesToStores =
+          alreadyOnboardedNodesToStores ++ newlyOnboardedNodesToStores
 
         simulationAndModel = simulationAndModel match {
           case None => // First stage
             val initialTopologyInitializers =
-              initialPeersWithStores.map { case (endpoint, stores) =>
-                endpoint -> peerInitializer(
+              initialEndpointsWithStores.map { case (endpoint, stores) =>
+                endpoint -> initializer(
                   endpoint,
                   stores,
                   initializeImmediately = true,
@@ -263,9 +262,9 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
             val simulation =
               SimulationModuleSystem(
                 allTopologyInitializers,
-                new PeerActiveAtProvider(
-                  allSequencerIdsToOnboardingTimes,
-                  allSequencerIdsToStores,
+                new NodeActiveAtProvider(
+                  allNodesToOnboardingTimes,
+                  allNodesToStores,
                 ),
                 simSettings,
                 clock,
@@ -275,8 +274,8 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
             val model =
               new BftOrderingVerifier(
                 sendQueue,
-                allSequencerIdsToStores.view.mapValues(stores => stores.outputStore).toMap,
-                allSequencerIdsToOnboardingTimes,
+                allNodesToStores.view.mapValues(stores => stores.outputStore).toMap,
+                allNodesToOnboardingTimes,
                 simSettings,
                 loggerFactory,
               )
@@ -286,16 +285,16 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
             Some(
               previousSimulation.newStage(
                 simSettings,
-                new PeerActiveAtProvider(
-                  allSequencerIdsToOnboardingTimes,
-                  allSequencerIdsToStores,
+                new NodeActiveAtProvider(
+                  allNodesToOnboardingTimes,
+                  allNodesToStores,
                 ),
                 newlyOnboardedTopologyInitializers,
               ) ->
                 previousModel.newStage(
                   simSettings,
-                  newlyOnboardedSequencerIdsToOnboardingTimes,
-                  newlyOnboardedSequencerIdsToStores.view.mapValues(_.outputStore).toMap,
+                  newlyOnboardedNodesToOnboardingTimes,
+                  newlyOnboardedNodesToStores.view.mapValues(_.outputStore).toMap,
                 )
             )
         }
@@ -307,34 +306,34 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
         simulation.run(model)
 
         // Prepare for next stage
-        firstNewlyOnboardedPeerIndex += numberOfOnboardedPeers
-        alreadyOnboardedPeerEndpoints ++= newlyOnboardedPeerEndpoints
-        alreadyOnboardedPeerEndpointsToTopologyData = allEndpointsToTopologyData
-        alreadyOnboardedSequencerIdsToOnboardingTimes = allSequencerIdsToOnboardingTimes
-        alreadyOnboardedSequencerIdsToStores = allSequencerIdsToStores
+        firstNewlyOnboardedIndex += numberOfOnboardedNodes
+        alreadyOnboardedEndpoints ++= newlyOnboardedEndpoints
+        alreadyOnboardedEndpointsToTopologyData = allEndpointsToTopologyData
+        alreadyOnboardedNodesToOnboardingTimes = allNodesToOnboardingTimes
+        alreadyOnboardedNodesToStores = allNodesToStores
       }
     }
   }
 
-  def newPeerInitializer(
+  def newInitializer(
       endpoint: P2PEndpoint,
       getAllEndpointsToTopologyData: () => Map[P2PEndpoint, SimulationTopologyData],
       stores: BftOrderingStores[SimulationEnv],
-      sendQueue: mutable.Queue[(SequencerId, BlockFormat.Block)],
+      sendQueue: mutable.Queue[(BftNodeId, BlockFormat.Block)],
       clock: Clock,
       availabilityRandom: Random,
       simSettings: SimulationSettings,
       initializeImmediately: Boolean,
   ): SimulationInitializer[Option[
-    PeerActiveAt
+    NodeActiveAt
   ], BftOrderingServiceReceiveRequest, Mempool.Message, Unit] = {
 
-    val peerLogger = loggerFactory.append("peer", s"$endpoint")
+    val logger = loggerFactory.append("endpoint", s"$endpoint")
 
-    val thisPeer = SimulationP2PNetworkManager.fakeSequencerId(endpoint)
+    val thisNode = Simulation.endpointToNode(endpoint)
     val orderingTopologyProvider =
       new SimulationOrderingTopologyProvider(
-        thisPeer,
+        thisNode,
         getAllEndpointsToTopologyData,
         loggerFactory,
       )
@@ -345,16 +344,16 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
       )
 
     SimulationInitializer(
-      (maybePeerActiveAt: Option[PeerActiveAt]) => {
+      (maybeActiveAt: Option[NodeActiveAt]) => {
         val sequencerSnapshotAdditionalInfo =
-          if (genesisTopology.contains(thisPeer))
+          if (genesisTopology.contains(thisNode))
             None
           else {
-            // Non-simulated snapshots contain information about other peers as well.
+            // Non-simulated snapshots contain information about other nodes as well.
             //  We skip it here for simplicity. Fully reflecting the non-simulated logic would be pointless,
             //  as it would still be totally different code.
-            maybePeerActiveAt.map(peerActiveAt =>
-              SequencerSnapshotAdditionalInfo(Map(thisPeer -> peerActiveAt))
+            maybeActiveAt.map(activeAt =>
+              SequencerSnapshotAdditionalInfo(Map(thisNode -> activeAt))
             )
           }
 
@@ -364,23 +363,23 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
 
         new BftOrderingModuleSystemInitializer[SimulationEnv](
           testedProtocolVersion,
-          thisPeer,
+          thisNode,
           BftBlockOrdererConfig(),
           initialApplicationHeight,
           IssConsensusModule.DefaultEpochLength,
           stores,
           orderingTopologyProvider,
-          new SimulationBlockSubscription(thisPeer, sendQueue),
+          new SimulationBlockSubscription(thisNode, sendQueue),
           sequencerSnapshotAdditionalInfo,
           clock,
           availabilityRandom,
           noopMetrics,
-          peerLogger,
+          logger,
           timeouts,
           requestInspector,
         )
       },
-      IssClient.initializer(simSettings, thisPeer, peerLogger, timeouts),
+      IssClient.initializer(simSettings, thisNode, logger, timeouts),
       initializeImmediately,
     )
   }
@@ -395,7 +394,7 @@ object BftOrderingSimulationTest {
 
 class BftOrderingSimulationTest1NodeNoFaults extends BftOrderingSimulationTest {
   override val numberOfRuns: Int = 10
-  override val numberOfInitialPeers: Int = 1
+  override val numberOfInitialNodes: Int = 1
 
   private val durationOfFirstPhaseWithFaults = 1.minute
   private val durationOfSecondPhaseWithoutFaults = 1.minute
@@ -424,7 +423,7 @@ class BftOrderingSimulationTestWithProgressiveOnboardingAndDelayNoFaults
 
   override val numberOfRuns: Int = 2
 
-  override val numberOfInitialPeers: Int = 1
+  override val numberOfInitialNodes: Int = 1
 
   private val durationOfFirstPhaseWithFaults = 1.minute
   private val durationOfSecondPhaseWithoutFaults = 1.minute
@@ -462,7 +461,7 @@ class BftOrderingSimulationTestWithProgressiveOnboardingAndDelayNoFaults
         ),
         durationOfFirstPhaseWithFaults,
         durationOfSecondPhaseWithoutFaults,
-        peerOnboardingDelays = List(newOnboardingDelay()),
+        nodeOnboardingDelays = List(newOnboardingDelay()),
         // Delay of zero doesn't make the test rely on catch-up, as onboarded nodes will buffer all messages since
         //  the activation, and thus won't fall behind.
         becomingOnlineAfterOnboardingDelay = 0.seconds,
@@ -470,7 +469,7 @@ class BftOrderingSimulationTestWithProgressiveOnboardingAndDelayNoFaults
     )
 
   private def newOnboardingDelay(): FiniteDuration =
-    generatePeerOnboardingDelay(
+    generateNodeOnboardingDelay(
       durationOfFirstPhaseWithFaults,
       randomSourceToCreateSettings,
     )
@@ -478,14 +477,14 @@ class BftOrderingSimulationTestWithProgressiveOnboardingAndDelayNoFaults
 
 class BftOrderingSimulationTestWithConcurrentOnboardingsNoFaults extends BftOrderingSimulationTest {
   override val numberOfRuns: Int = 3
-  override val numberOfInitialPeers: Int = 1 // f = 0
-  private val numberOfOnboardedPeers = 6 // n = 7, f = 2
+  override val numberOfInitialNodes: Int = 1 // f = 0
+  private val numberOfOnboardedNodes = 6 // n = 7, f = 2
 
   private val randomSourceToCreateSettings: Random =
     new Random(4) // Manually remove the seed for fully randomized local runs.
 
   // Onboard all nodes around the same time in the middle of the first phase.
-  private val basePeerOnboardingDelay = 30.seconds
+  private val baseOnboardingDelay = 30.seconds
   private val durationOfFirstPhase = 1.minute
   private val durationOfSecondPhase = 1.minute
 
@@ -500,17 +499,17 @@ class BftOrderingSimulationTestWithConcurrentOnboardingsNoFaults extends BftOrde
         ),
         durationOfFirstPhase,
         durationOfSecondPhase,
-        peerOnboardingDelays = LazyList
+        nodeOnboardingDelays = LazyList
           .continually {
             val onboardingTimeDriftProbability = Probability(0.3)
             // The idea is to test scenarios where onboarding times are both the same and slightly different.
             //  Hopefully, the onboarding times land in the same epoch. It can be ensured with higher probability
             //  by increasing the numbers of runs and nodes.
             if (onboardingTimeDriftProbability.flipCoin(randomSourceToCreateSettings))
-              basePeerOnboardingDelay.plus(1.microsecond)
-            else basePeerOnboardingDelay
+              baseOnboardingDelay.plus(1.microsecond)
+            else baseOnboardingDelay
           }
-          .take(numberOfOnboardedPeers),
+          .take(numberOfOnboardedNodes),
         // Delay of zero doesn't make the test rely on catch-up, as onboarded nodes will buffer all messages since
         //  the activation, and thus won't fall behind.
         becomingOnlineAfterOnboardingDelay = 0.seconds,
@@ -522,7 +521,7 @@ class BftOrderingSimulationTestWithConcurrentOnboardingsNoFaults extends BftOrde
 // Allows catch-up state transfer testing without requiring CFT.
 class BftOrderingSimulationTestWithPartitions extends BftOrderingSimulationTest {
   override val numberOfRuns: Int = 4
-  override val numberOfInitialPeers: Int = 4
+  override val numberOfInitialNodes: Int = 4
 
   private val durationOfFirstPhaseWithPartitions = 2.minutes
 
@@ -549,7 +548,7 @@ class BftOrderingSimulationTestWithPartitions extends BftOrderingSimulationTest 
 
 class BftOrderingSimulationTest2NodesBootstrap extends BftOrderingSimulationTest {
   override val numberOfRuns: Int = 100
-  override val numberOfInitialPeers: Int = 2
+  override val numberOfInitialNodes: Int = 2
 
   private val durationOfFirstPhaseWithFaults = 2.seconds
   private val durationOfSecondPhaseWithoutFaults = 2.seconds
@@ -577,7 +576,7 @@ class BftOrderingSimulationTest2NodesBootstrap extends BftOrderingSimulationTest
 class BftOrderingEmptyBlocksSimulationTest extends BftOrderingSimulationTest {
   // At the moment of writing, the test requires 12 runs to fail on the liveness check when there's no "silent network detection".
   override val numberOfRuns: Int = 15
-  override val numberOfInitialPeers: Int = 2
+  override val numberOfInitialNodes: Int = 2
   private val durationOfFirstPhaseWithFaults = 1.minute
   private val durationOfSecondPhaseWithoutFaults = 1.minute
 
@@ -612,7 +611,7 @@ class BftOrderingEmptyBlocksSimulationTest extends BftOrderingSimulationTest {
 // Note that simulation tests don't use a real network, so this test doesn't cover gRPC messages.
 class BftOrderingSimulationTest2NodesLargeRequests extends BftOrderingSimulationTest {
   override val numberOfRuns: Int = 1
-  override val numberOfInitialPeers: Int = 2
+  override val numberOfInitialNodes: Int = 2
 
   private val durationOfFirstPhaseWithFaults = 1.minute
   private val durationOfSecondPhaseWithoutFaults = 1.minute
@@ -646,7 +645,7 @@ class BftOrderingSimulationTest2NodesLargeRequests extends BftOrderingSimulation
 // TODO(#17284) Activate when we can handle the crash restart fault
 class BftOrderingSimulationTest2NodesCrashFaults extends BftOrderingSimulationTest {
   override val numberOfRuns: Int = 10
-  override val numberOfPeers: Int = 2
+  override val numberOfNodes: Int = 2
 
   private val randomSourceToCreateSettings: Random = new Random(4) // remove seed to randomly explore seeds
 

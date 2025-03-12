@@ -18,8 +18,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisTopologyActivationTime
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochNumber,
   ViewNumber,
@@ -40,7 +40,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Commit,
   PrePrepare,
 }
-import com.digitalasset.canton.topology.SequencerId
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -317,8 +316,8 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           aMembership,
           Membership.forTesting(myId),
           Left(
-            "Canonical commit set for block BlockMetadata(1,13) contains commit from SEQ::ns::fake_otherId " +
-              "that is not part of current topology Set(SEQ::ns::fake_self)"
+            "Canonical commit set for block BlockMetadata(1,13) contains commit from 'otherId' " +
+              "that is not part of current topology Set(self)"
           ),
         ),
         // positive: canonical commits (from the current epoch) make a strong quorum
@@ -363,7 +362,7 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           Membership.forTesting(myId, Set(otherId)),
           Left(
             "Canonical commits for block BlockMetadata(1,13) contain duplicate senders: " +
-              "List(SEQ::ns::fake_otherId, SEQ::ns::fake_otherId)"
+              "List(otherId, otherId)"
           ),
         ),
         // negative: non-empty block needs availability acks
@@ -441,8 +440,8 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
 }
 
 object PbftMessageValidatorImplTest {
-  private val myId = fakeSequencerId("self")
-  private val otherId = fakeSequencerId("otherId")
+  private val myId = BftNodeId("self")
+  private val otherId = BftNodeId("otherId")
 
   private val aBlockNumber: BlockNumber = BlockNumber(12L)
   private val aBlockMetadata = BlockMetadata(EpochNumber(1L), aBlockNumber)
@@ -460,7 +459,7 @@ object PbftMessageValidatorImplTest {
 
   private def createCommit(
       blockMetadata: BlockMetadata = aPreviousBlockInSegmentMetadata,
-      from: SequencerId = myId,
+      from: BftNodeId = myId,
       localTimestamp: CantonTimestamp = CantonTimestamp.Epoch,
   ) =
     Commit
@@ -509,7 +508,7 @@ object PbftMessageValidatorImplTest {
       previousMembership,
     )
 
-  private def createAck(from: SequencerId): AvailabilityAck =
+  private def createAck(from: BftNodeId): AvailabilityAck =
     AvailabilityAck(from, Signature.noSignature)
 
   private def createPoa(

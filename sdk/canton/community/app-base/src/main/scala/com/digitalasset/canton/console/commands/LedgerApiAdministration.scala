@@ -64,10 +64,8 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.{
 import com.digitalasset.canton.admin.api.client.data.*
 import com.digitalasset.canton.config.ConsoleCommandTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
-  CommandSuccessful,
   ConsoleEnvironment,
   ConsoleMacros,
   FeatureFlag,
@@ -91,7 +89,6 @@ import com.digitalasset.canton.platform.apiserver.execution.CommandStatus
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.NoTracing
-import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.{LfPackageId, LfPartyId, config}
 import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf.field_mask.FieldMask
@@ -100,13 +97,12 @@ import io.grpc.stub.StreamObserver
 
 import java.time.Instant
 import java.util.UUID
-import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.ExecutionContext
 import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Try}
 
-trait BaseLedgerApiAdministration extends NoTracing {
+trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper {
   thisAdministration: LedgerApiCommandRunner & NamedLogging & FeatureFlagFilter =>
 
   implicit protected[canton] lazy val executionContext: ExecutionContext =
@@ -154,7 +150,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       )
       def trees(
           partyIds: Set[PartyId],
-          completeAfter: Int,
+          completeAfter: PositiveInt,
           beginOffsetExclusive: Long = 0L,
           endOffsetInclusive: Option[Long] = None,
           verbose: Boolean = true,
@@ -186,7 +182,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       )
       def trees_with_tx_filter(
           filter: TransactionFilterProto,
-          completeAfter: Int,
+          completeAfter: PositiveInt,
           beginOffsetExclusive: Long = 0L,
           endOffsetInclusive: Option[Long] = None,
           verbose: Boolean = true,
@@ -248,7 +244,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       )
       def flat(
           partyIds: Set[PartyId],
-          completeAfter: Int,
+          completeAfter: PositiveInt,
           beginOffsetExclusive: Long = 0L,
           endOffsetInclusive: Option[Long] = None,
           verbose: Boolean = true,
@@ -292,7 +288,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       def reassignments(
           partyIds: Set[PartyId],
           filterTemplates: Seq[TemplateId],
-          completeAfter: Int,
+          completeAfter: PositiveInt,
           beginOffsetExclusive: Long = 0L,
           endOffsetInclusive: Option[Long] = None,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
@@ -357,7 +353,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           |If the endOffset is None then a continuous stream is returned."""
       )
       def topology_transactions(
-          completeAfter: Int,
+          completeAfter: PositiveInt,
           partyIds: Seq[PartyId] = Seq.empty,
           beginOffsetExclusive: Long = 0L,
           endOffsetInclusive: Option[Long] = None,
@@ -419,7 +415,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       )
       def flat_with_tx_filter(
           filter: TransactionFilterProto,
-          completeAfter: Int,
+          completeAfter: PositiveInt,
           beginOffsetExclusive: Long = 0L,
           endOffsetInclusive: Option[Long] = None,
           verbose: Boolean = true,
@@ -1157,7 +1153,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             resultFilter: GetActiveContractsResponse => Boolean = _.contractEntry.isDefined,
         ): Seq[WrappedContractEntry] = {
           val observer =
-            new RecordingStreamObserver[GetActiveContractsResponse](limit.value, resultFilter)
+            new RecordingStreamObserver[GetActiveContractsResponse](limit, resultFilter)
           val activeAt =
             activeAtOffsetO match {
               case None =>
@@ -1344,7 +1340,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 if (localParties.isEmpty) Right(Seq.empty)
                 else {
                   val observer = new RecordingStreamObserver[GetActiveContractsResponse](
-                    limit.value,
+                    limit,
                     resultFilter,
                   )
                   Try(
@@ -2360,7 +2356,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         )
         def trees(
             partyIds: Set[PartyId],
-            completeAfter: Int,
+            completeAfter: PositiveInt,
             beginOffsetExclusive: Long = 0L,
             endOffsetInclusive: Option[Long] = None,
             verbose: Boolean = true,
@@ -2408,7 +2404,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         )
         def flat(
             partyIds: Set[PartyId],
-            completeAfter: Int,
+            completeAfter: PositiveInt,
             beginOffsetExclusive: Long = 0L,
             endOffsetInclusive: Option[Long] = None,
             verbose: Boolean = true,
@@ -2462,7 +2458,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         )
         def flat_with_tx_filter(
             filter: TransactionFilter,
-            completeAfter: Int,
+            completeAfter: PositiveInt,
             beginOffsetExclusive: Long = 0L,
             endOffsetInclusive: Option[Long] = None,
             verbose: Boolean = true,
@@ -2621,7 +2617,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           .flat(
             partyIds = Set(queryPartyId),
             beginOffsetExclusive = from,
-            completeAfter = 1,
+            completeAfter = PositiveInt.one,
             resultFilter = {
               case reassignmentW: ReassignmentWrapper =>
                 reassignmentW.reassignment.updateId == updateId
@@ -2651,24 +2647,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
   ): Map[String, String] = {
     val deletions = original.removedAll(modified.keys).view.mapValues(_ => "").toMap
     modified.concat(deletions)
-  }
-
-  private def mkResult[Res](
-      call: => AutoCloseable,
-      requestDescription: String,
-      observer: RecordingStreamObserver[Res],
-      timeout: config.NonNegativeDuration,
-  ): Seq[Res] = consoleEnvironment.run {
-    try {
-      ResourceUtil.withResource(call) { _ =>
-        // Not doing noisyAwaitResult here, because we don't want to log warnings in case of a timeout.
-        CommandSuccessful(Await.result(observer.result, timeout.duration))
-      }
-    } catch {
-      case sre: StatusRuntimeException =>
-        GenericCommandError(GrpcError(requestDescription, name, sre).toString)
-      case _: TimeoutException => CommandSuccessful(observer.responses)
-    }
   }
 }
 

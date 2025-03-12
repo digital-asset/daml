@@ -31,7 +31,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.top
   OrderingTopologyProvider,
   TopologyActivationTime,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochNumber,
 }
@@ -76,7 +77,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ModuleRef,
   PureFun,
 }
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -112,7 +112,7 @@ class OutputModule[E <: Env[E]](
     extends Output[E]
     with HasDelayedInit[Message[E]] {
 
-  private val thisPeer = startupState.thisPeer
+  private val thisNode = startupState.thisNode
 
   private val lastAcknowledgedBlockNumber =
     if (startupState.initialHeightToProvide == BlockNumber.First) None
@@ -279,6 +279,7 @@ class OutputModule[E <: Env[E]](
                   orderedBlock,
                   _,
                   _,
+                  _,
                   mode,
                 )
               ) =>
@@ -291,7 +292,7 @@ class OutputModule[E <: Env[E]](
               logger.debug(s"Skipping block $blockNumber as it's been provided already")
             } else if (!blocksBeingFetched.contains(blockNumber)) {
               // Block batches will be fetched by the availability module either from the local store or,
-              //  if unavailable, from remote peers.
+              //  if unavailable, from remote nodes.
               //  We need to fetch the batches to provide requests, and their BFT sequencing time,
               //  to the sequencer runtime, but this also ensures that all batches are stored locally
               //  when the epoch ends, so that we can provide past block data (e.g. to a re-subscription from
@@ -336,7 +337,7 @@ class OutputModule[E <: Env[E]](
 
             // Since consensus will wait for the topology before starting the new epoch, and we send it only when all
             //  blocks, including the last block of the previous epoch, are fully fetched, all blocks can always be read
-            //  locally, which is essential because all other peers could (in principle, although this is definitely
+            //  locally, which is essential because all other nodes could (in principle, although this is definitely
             //  not sensible governance) be swapped in the new epoch, so they would have no past data and would thus
             //  be unable to provide it to us.
             // We fetch the topology once the last block is stored as, based on the returned topology, the last block
@@ -673,7 +674,7 @@ class OutputModule[E <: Env[E]](
       currentEpochCouldAlterOrderingTopology = pendingTopologyChanges
     }
 
-    metrics.topology.validators.updateValue(currentEpochOrderingTopology.peers.size)
+    metrics.topology.validators.updateValue(currentEpochOrderingTopology.nodes.size)
     val destination =
       if (lastBlockFromPreviousEpochMode.isStateTransfer) "state transfer" else "consensus"
     logger.debug(
@@ -681,7 +682,7 @@ class OutputModule[E <: Env[E]](
     )
     val newEpochLeaders =
       leaderSelectionPolicy.getLeaders(currentEpochOrderingTopology, newEpochNumber)
-    val newMembership = Membership(thisPeer, currentEpochOrderingTopology, newEpochLeaders)
+    val newMembership = Membership(thisNode, currentEpochOrderingTopology, newEpochLeaders)
     consensus.asyncSend(
       Consensus.NewEpochTopology(
         newEpochNumber,
@@ -709,7 +710,7 @@ class OutputModule[E <: Env[E]](
 object OutputModule {
 
   final case class StartupState[E <: Env[E]](
-      thisPeer: SequencerId,
+      thisNode: BftNodeId,
       initialHeightToProvide: BlockNumber,
       previousBftTimeForOnboarding: Option[CantonTimestamp],
       onboardingEpochCouldAlterOrderingTopology: Boolean,

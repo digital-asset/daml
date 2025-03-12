@@ -17,8 +17,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpoch
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochNumber,
   ViewNumber,
@@ -33,7 +33,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.*
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.SequencerId
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -141,7 +140,7 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
     }
 
     "tell when this node is blocking progress" in {
-      val membership = Membership.forTesting(myId, otherPeers)
+      val membership = Membership.forTesting(myId, otherIds)
       val epoch = Epoch(
         EpochInfo.mk(
           number = EpochNumber.First,
@@ -209,19 +208,19 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
     val _ = assertNoLogs(segmentState.processEvent(PbftSignedNetworkMessage(prePrepare)))
     segmentState.processEvent(prePrepare.message.stored)
 
-    otherPeers.foreach { peer =>
+    otherIds.foreach { node =>
       val prepare =
         Prepare
-          .create(metadata, ViewNumber.First, ppHash, CantonTimestamp.Epoch, from = peer)
+          .create(metadata, ViewNumber.First, ppHash, CantonTimestamp.Epoch, from = node)
           .fakeSign
       val _ = assertNoLogs(segmentState.processEvent(PbftSignedNetworkMessage(prepare)))
     }
     segmentState.processEvent(PreparesStored(metadata, ViewNumber.First))
 
-    otherPeers.foreach { peer =>
+    otherIds.foreach { node =>
       val commit =
         Commit
-          .create(metadata, ViewNumber.First, ppHash, CantonTimestamp.Epoch, from = peer)
+          .create(metadata, ViewNumber.First, ppHash, CantonTimestamp.Epoch, from = node)
           .fakeSign
       val _ = assertNoLogs(segmentState.processEvent(PbftSignedNetworkMessage(commit)))
     }
@@ -235,11 +234,11 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
 object LeaderSegmentStateTest {
 
-  private val myId = fakeSequencerId("self")
-  private val otherPeers: Set[SequencerId] = (1 to 3).map { index =>
-    fakeSequencerId(s"peer$index")
+  private val myId = BftNodeId("self")
+  private val otherIds = (1 to 3).map { index =>
+    BftNodeId(s"node$index")
   }.toSet
-  private val currentMembership = Membership.forTesting(myId, otherPeers)
+  private val currentMembership = Membership.forTesting(myId, otherIds)
   private val epoch =
     Epoch(
       EpochInfo.mk(EpochNumber.First, startBlockNumber = BlockNumber.First, 7),
@@ -247,15 +246,15 @@ object LeaderSegmentStateTest {
       previousMembership = currentMembership, // not relevant
     )
 
-  private val commits = (otherPeers + myId)
-    .map { peer =>
+  private val commits = (otherIds + myId)
+    .map { node =>
       Commit
         .create(
           BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
           ViewNumber.First,
           Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
           CantonTimestamp.Epoch,
-          from = peer,
+          from = node,
         )
         .fakeSign
     }

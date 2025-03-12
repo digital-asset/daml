@@ -24,13 +24,13 @@ object StateTransferMessageValidator {
       activeMembership: Membership,
   ): Either[String, Unit] = {
     val from = request.from
-    val peers = activeMembership.sortedPeers
+    val nodes = activeMembership.sortedNodes
 
     for {
       _ <- Either.cond(
-        peers.contains(from),
+        nodes.contains(from),
         (),
-        s"peer $from is requesting state transfer while not being active, active peers are: $peers",
+        s"'$from' is requesting state transfer while not being active, active nodes are: $nodes",
       )
       _ <- Either.cond(
         request.startEpoch > Genesis.GenesisEpochNumber,
@@ -55,7 +55,7 @@ object StateTransferMessageValidator {
       traceContext: TraceContext,
   ): Unit = {
     val logger = loggerFactory.getLogger(getClass)
-    if (activeMembership.orderingTopology.peers.contains(unverifiedMessage.from)) {
+    if (activeMembership.orderingTopology.nodes.contains(unverifiedMessage.from)) {
       context.pipeToSelf(
         activeCryptoProvider
           .verifySignedMessage(

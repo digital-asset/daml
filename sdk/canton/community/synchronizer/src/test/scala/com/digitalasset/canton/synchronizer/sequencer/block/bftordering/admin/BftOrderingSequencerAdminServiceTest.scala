@@ -21,13 +21,15 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.net
   TlsP2PEndpoint,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  EpochNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Consensus,
   P2PNetworkOut,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.fakeIgnoringModule
-import com.digitalasset.canton.topology.SequencerId
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Promise
@@ -150,7 +152,7 @@ class BftOrderingSequencerAdminServiceTest extends AsyncWordSpec with BaseTest {
         spy[ModuleRef[P2PNetworkOut.Admin]](fakeIgnoringModule[P2PNetworkOut.Admin])
       val consensusAdminSpy =
         spy[ModuleRef[Consensus.Admin]](fakeIgnoringModule[Consensus.Admin])
-      val resultPromise = Promise[(EpochNumber, Set[SequencerId])]()
+      val resultPromise = Promise[(EpochNumber, Set[BftNodeId])]()
       resultPromise.success(EpochNumber.First -> Set.empty)
       val bftOrderingSequencerAdminService =
         new BftOrderingSequencerAdminService(
@@ -163,7 +165,7 @@ class BftOrderingSequencerAdminServiceTest extends AsyncWordSpec with BaseTest {
         .getOrderingTopology(GetOrderingTopologyRequest())
         .map { response =>
           verify(consensusAdminSpy).asyncSend(
-            Consensus.Admin.GetOrderingTopology(any[(EpochNumber, Set[SequencerId]) => Unit])
+            Consensus.Admin.GetOrderingTopology(any[(EpochNumber, Set[BftNodeId]) => Unit])
           )
           response.sequencerIds shouldBe empty
         }

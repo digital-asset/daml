@@ -26,6 +26,12 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
 import com.digitalasset.canton.synchronizer.sequencer.Sequencer
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerParameters
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
+import com.digitalasset.canton.synchronizer.service.{
+  RecordStreamObserverItems,
+  StreamComplete,
+  StreamError,
+  StreamNext,
+}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.{SynchronizerTopologyClient, TopologySnapshot}
@@ -59,7 +65,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.FixtureAsyncWordSpec
 import org.scalatest.{Assertion, FutureOutcome}
 
-import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
@@ -679,12 +684,13 @@ class GrpcSequencerServiceTest
       }
       val parsed = observer.items.toSeq.map {
         case StreamNext(response: v30.DownloadTopologyStateForInitResponse) =>
-          StreamNext(
+          StreamNext[TopologyStateForInitResponse](
             TopologyStateForInitResponse
               .fromProtoV30(response)
               .getOrElse(sys.error("error converting response from protobuf"))
           )
-        case otherwise => otherwise
+        case StreamComplete => StreamComplete
+        case StreamError(t) => StreamError(t)
       }
       parsed should matchPattern {
         case Seq(
@@ -702,14 +708,6 @@ class GrpcSequencerServiceTest
 }
 
 private object GrpcSequencerServiceTest {
-  sealed trait StreamItem
-
-  final case class StreamNext[A](value: A) extends StreamItem
-
-  final case class StreamError(t: Throwable) extends StreamItem
-
-  object StreamComplete extends StreamItem
-
   class MockStreamObserver[T] extends StreamObserver[T] with RecordStreamObserverItems[T]
 
   class MockServerStreamObserver[T]
@@ -730,18 +728,6 @@ private object GrpcSequencerServiceTest {
     override def request(count: Int): Unit = ???
 
     override def setMessageCompression(enable: Boolean): Unit = ???
-  }
-
-  trait RecordStreamObserverItems[T] {
-    this: StreamObserver[T] =>
-
-    val items: mutable.Buffer[StreamItem] = mutable.Buffer[StreamItem]()
-
-    override def onNext(value: T): Unit = items += StreamNext(value)
-
-    override def onError(t: Throwable): Unit = items += StreamError(t)
-
-    override def onCompleted(): Unit = items += StreamComplete
   }
 
   class MockSubscription extends CloseNotification with AutoCloseable {

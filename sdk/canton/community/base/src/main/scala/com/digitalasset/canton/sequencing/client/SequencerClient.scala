@@ -1700,7 +1700,8 @@ class SequencerClientImplPekko[E: Pretty](
           .map(_.map(_.map { withPromise =>
             val completion = withPromise.value match {
               case Outcome(Left(error)) => Failure(SequencerClientSubscriptionException(error))
-              case _ => Success(())
+              case _ => TryUtil.unit
+
             }
             withPromise.promise.tryComplete(completion).discard[Boolean]
             withPromise

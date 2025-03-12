@@ -20,7 +20,6 @@ import org.scalatest.matchers.should.Matchers
 import org.slf4j.event.Level
 
 import scala.concurrent.{Future, Promise}
-import scala.util.Success
 
 class UserBasedAuthorizationInterceptorSpec
     extends AsyncFlatSpec
@@ -65,7 +64,7 @@ class UserBasedAuthorizationInterceptorSpec
     val promise = Promise[Unit]()
     // Using a promise to ensure the verify call below happens after the expected call to `serverCall.close`
     when(serverCall.close(any[Status], any[Metadata])).thenAnswer {
-      promise.complete(Success(()))
+      promise.success(())
       ()
     }
 

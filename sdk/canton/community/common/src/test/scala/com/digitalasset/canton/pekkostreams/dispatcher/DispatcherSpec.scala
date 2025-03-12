@@ -11,6 +11,7 @@ import com.digitalasset.canton.pekkostreams.FutureTimeouts
 import com.digitalasset.canton.pekkostreams.dispatcher.DispatcherImpl.Incrementable
 import com.digitalasset.canton.pekkostreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.TryUtil
 import org.apache.pekko.stream.DelayOverflowStrategy
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
@@ -230,7 +231,7 @@ class DispatcherSpec
           _ = publish(i100, dispatcher)
 
           _ <- out.transform {
-            case Failure(`expectedException`) => Success(())
+            case Failure(`expectedException`) => TryUtil.unit
             case Failure(other) =>
               fail(s"Expected stream failed with $expectedException but got $other")
             case Success(_) => fail("Expected stream failed")

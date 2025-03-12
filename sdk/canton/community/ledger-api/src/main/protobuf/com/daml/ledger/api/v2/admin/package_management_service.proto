@@ -36,6 +36,7 @@ service PackageManagementService {
   // Performs the same checks that UploadDarFile call perform, but doesn't
   // upload the DAR and does not make it available on the whole ledger.
   // This call may:
+  //
   // - Succeed if the package is valid
   // - Respond with a gRPC error if the package is not valid
   rpc ValidateDarFile(ValidateDarFileRequest) returns (ValidateDarFileResponse);

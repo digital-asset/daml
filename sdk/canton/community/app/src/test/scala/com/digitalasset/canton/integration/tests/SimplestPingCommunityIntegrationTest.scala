@@ -12,10 +12,7 @@ import com.digitalasset.canton.integration.CommunityTests.{
   SharedCommunityEnvironment,
 }
 import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
-import com.digitalasset.canton.integration.{
-  CommunityConfigTransforms,
-  CommunityEnvironmentDefinition,
-}
+import com.digitalasset.canton.integration.{CommunityEnvironmentDefinition, ConfigTransforms}
 
 sealed trait SimplestPingCommunityIntegrationTest
     extends CommunityIntegrationTest
@@ -23,8 +20,8 @@ sealed trait SimplestPingCommunityIntegrationTest
 
   override def environmentDefinition: CommunityEnvironmentDefinition =
     CommunityEnvironmentDefinition.simpleTopology
-      .addConfigTransforms(CommunityConfigTransforms.uniquePorts)
-      .addConfigTransforms(CommunityConfigTransforms.setProtocolVersion(testedProtocolVersion)*)
+      .addConfigTransforms(ConfigTransforms.globallyUniquePorts)
+      .addConfigTransforms(ConfigTransforms.setProtocolVersion(testedProtocolVersion)*)
       .withManualStart
 
   "we can run a trivial ping" in { implicit env =>

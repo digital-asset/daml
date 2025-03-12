@@ -6,27 +6,27 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.ne
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessageBody
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessageBody.Message
-import com.digitalasset.canton.topology.SequencerId
 
 private[networking] object NetworkingMetrics {
 
   def emitConnectedCount(
       metrics: BftOrderingMetrics,
-      knownPeers: KnownPeers,
+      known: KnownEndpointsAndNodes,
   )(implicit
       mc: MetricsContext
   ): Unit =
-    metrics.p2p.connections.connected.updateValue(knownPeers.getEndpoints.size)
+    metrics.p2p.connections.connected.updateValue(known.getEndpoints.size)
 
   def emitAuthenticatedCount(
       metrics: BftOrderingMetrics,
-      knownPeers: KnownPeers,
+      known: KnownEndpointsAndNodes,
   )(implicit
       mc: MetricsContext
   ): Unit =
-    metrics.p2p.connections.authenticated.updateValue(knownPeers.authenticatedCount)
+    metrics.p2p.connections.authenticated.updateValue(known.authenticatedCount)
 
   def emitSendStats(
       metrics: BftOrderingMetrics,
@@ -41,7 +41,7 @@ private[networking] object NetworkingMetrics {
   def sendMetricsContext(
       metrics: BftOrderingMetrics,
       message: BftOrderingMessageBody,
-      to: SequencerId,
+      to: BftNodeId,
       droppedAsUnauthenticated: Boolean,
   )(implicit mc: MetricsContext): MetricsContext = {
     type TargetModule = metrics.p2p.send.labels.targetModule.values.TargetModuleValue
@@ -58,7 +58,7 @@ private[networking] object NetworkingMetrics {
           Some(metrics.p2p.send.labels.targetModule.values.Consensus)
       }
     val mc1 = mc.withExtraLabels(
-      metrics.p2p.send.labels.TargetSequencer -> to.toProtoPrimitive,
+      metrics.p2p.send.labels.TargetSequencer -> to,
       metrics.p2p.send.labels.DroppedAsUnauthenticated -> droppedAsUnauthenticated.toString,
     )
     targetModule
@@ -96,7 +96,9 @@ private[networking] object NetworkingMetrics {
     )
     val mc2 = sourceSequencerId
       .map(from =>
-        mc1.withExtraLabels(metrics.p2p.receive.labels.SourceSequencer -> from.toProtoPrimitive)
+        mc1.withExtraLabels(
+          metrics.p2p.receive.labels.SourceSequencer -> from
+        )
       )
       .getOrElse(mc)
     mc2
@@ -105,14 +107,14 @@ private[networking] object NetworkingMetrics {
   def emitIdentityEquivocation(
       metrics: BftOrderingMetrics,
       fromEndpointId: P2PEndpoint.Id,
-      fromSequencerId: SequencerId,
+      from: BftNodeId,
   )(implicit
       mc: MetricsContext
   ): Unit =
     metrics.security.noncompliant.behavior.mark()(
       mc.withExtraLabels(
         metrics.security.noncompliant.labels.Endpoint -> fromEndpointId.url,
-        metrics.security.noncompliant.labels.Sequencer -> fromSequencerId.toProtoPrimitive,
+        metrics.security.noncompliant.labels.Sequencer -> from,
         metrics.security.noncompliant.labels.violationType.Key -> metrics.security.noncompliant.labels.violationType.values.AuthIdentityEquivocation,
       )
     )

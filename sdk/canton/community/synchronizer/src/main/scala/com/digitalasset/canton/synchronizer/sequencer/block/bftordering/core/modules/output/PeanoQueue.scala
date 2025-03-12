@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 import com.digitalasset.canton.data
 import com.digitalasset.canton.data.{Counter, PeanoTreeQueue}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.BlockNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BlockNumber
 
 class PeanoQueue[T](initialHead: BlockNumber)(abort: String => Nothing) {
   type BlockNumberCounterDiscriminator

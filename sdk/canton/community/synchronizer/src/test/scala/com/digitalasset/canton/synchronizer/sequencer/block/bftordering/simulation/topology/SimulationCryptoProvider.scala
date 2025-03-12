@@ -34,13 +34,14 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
   MessageFrom,
   SignedMessage,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
-import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.topology.{Namespace, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 
@@ -49,16 +50,25 @@ import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Try
 
 class SimulationCryptoProvider(
-    val thisPeer: SequencerId,
-    val peerIdsToTopologyData: Map[SequencerId, SimulationTopologyData],
+    val thisNode: BftNodeId,
+    val nodesToTopologyData: Map[BftNodeId, SimulationTopologyData],
     val crypto: SymbolicCrypto,
     val timestamp: CantonTimestamp,
     val loggerFactory: NamedLoggerFactory,
 ) extends CryptoProvider[SimulationEnv] {
-  private def fetchSigningKey(): Either[SyncCryptoError, Fingerprint] = {
-    val keyNotFound = Left(SyncCryptoError.KeyNotAvailable(thisPeer, Signing, timestamp, Seq.empty))
 
-    peerIdsToTopologyData.get(thisPeer) match {
+  private def fetchSigningKey(): Either[SyncCryptoError, Fingerprint] = {
+    val keyNotFound = Left(
+      SyncCryptoError.KeyNotAvailable(
+        SequencerId
+          .tryCreate(thisNode.replace("/", "_"), Namespace(Fingerprint.tryFromString("ns"))),
+        Signing,
+        timestamp,
+        Seq.empty,
+      )
+    )
+
+    nodesToTopologyData.get(thisNode) match {
       case Some(topologyData) =>
         Right(topologyData.signingPublicKey.fingerprint)
       case None =>
@@ -66,8 +76,8 @@ class SimulationCryptoProvider(
     }
   }
 
-  private def validKeys(member: SequencerId): Map[Fingerprint, SigningPublicKey] =
-    peerIdsToTopologyData.get(member) match {
+  private def validKeys(member: BftNodeId): Map[Fingerprint, SigningPublicKey] =
+    nodesToTopologyData.get(member) match {
       case Some(topologyData) =>
         Map(topologyData.signingPublicKey.fingerprint -> topologyData.signingPublicKey)
       case None => Map.empty
@@ -104,7 +114,7 @@ class SimulationCryptoProvider(
 
   override def verifySignature(
       hash: Hash,
-      member: SequencerId,
+      member: BftNodeId,
       signature: Signature,
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
@@ -143,8 +153,8 @@ class SimulationCryptoProvider(
 
 object SimulationCryptoProvider {
   def create(
-      thisPeer: SequencerId,
-      sequencerToTopologyData: Map[SequencerId, SimulationTopologyData],
+      thisNode: BftNodeId,
+      sequencerToTopologyData: Map[BftNodeId, SimulationTopologyData],
       timestamp: CantonTimestamp,
       loggerFactory: NamedLoggerFactory,
   ): SimulationCryptoProvider = {
@@ -162,7 +172,7 @@ object SimulationCryptoProvider {
     implicit val traceContext: TraceContext = TraceContext.empty
 
     sequencerToTopologyData
-      .get(thisPeer)
+      .get(thisNode)
       .foreach { topologyData =>
         Await.result(
           cryptoPrivateStore.storePrivateKey(topologyData.signingPrivateKey, None).value.unwrap,
@@ -181,7 +191,7 @@ object SimulationCryptoProvider {
       )
 
     new SimulationCryptoProvider(
-      thisPeer,
+      thisNode,
       sequencerToTopologyData,
       crypto,
       timestamp,

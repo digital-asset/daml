@@ -33,9 +33,9 @@ import scala.util.control.NonFatal
   *
   * Starts a set of synchronizers and participant nodes.
   */
-abstract class CantonAppDriver[E <: Environment] extends App with NamedLogging with NoTracing {
+abstract class CantonAppDriver extends App with NamedLogging with NoTracing {
 
-  protected def environmentFactory: EnvironmentFactory[E]
+  protected def environmentFactory: EnvironmentFactory
 
   protected def withManualStart(config: CantonConfig): CantonConfig =
     config.copy(parameters = config.parameters.copy(manualStart = true))
@@ -104,7 +104,7 @@ abstract class CantonAppDriver[E <: Environment] extends App with NamedLogging w
   // Canton does not die on a warning status.
   logbackStatusManager.remove(killingStatusListener)
 
-  private val environmentRef: AtomicReference[Option[E]] = new AtomicReference(None)
+  private val environmentRef: AtomicReference[Option[Environment]] = new AtomicReference(None)
   sys.runtime.addShutdownHook(new Thread(() => {
     try {
       logger.info("Shutting down...")
@@ -204,7 +204,7 @@ abstract class CantonAppDriver[E <: Environment] extends App with NamedLogging w
   private lazy val bootstrapScript: Option[CantonScript] =
     cliOptions.bootstrapScriptPath.map(CantonScriptFromFile.apply)
 
-  val runner: Runner[E] = cliOptions.command match {
+  val runner: Runner = cliOptions.command match {
     case Some(Command.Daemon) => new ServerRunner(bootstrapScript, loggerFactory)
     case Some(Command.RunScript(script)) => ConsoleScriptRunner(script, loggerFactory)
     case Some(Command.Generate(target)) =>

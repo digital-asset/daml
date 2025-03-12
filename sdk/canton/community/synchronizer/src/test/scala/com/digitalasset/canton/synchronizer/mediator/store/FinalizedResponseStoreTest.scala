@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.mediator.store
 
+import cats.Monad
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
@@ -22,10 +23,11 @@ import com.digitalasset.canton.synchronizer.mediator.{FinalizedResponse, Mediato
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{ApplicationId, BaseTest, CommandId, LfPartyId}
-import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.{Assertion, BeforeAndAfterAll}
 
 import java.time.Duration
 import java.util.UUID
@@ -135,6 +137,134 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
           _ <- sut.store(currentVersion)
         } yield succeed
       }.failOnShutdown("Unexpected shutdown.")
+    }
+
+    "when reading events" should {
+      val responses = (1 to 10).map { i =>
+        currentVersion.copy(
+          RequestId(CantonTimestamp.Epoch.plusSeconds(i.toLong)),
+          // simulate that the verdicts where issued in the reverse order: oldest request confirmed first.
+          // also causes 2 verdicts to have the same version timestamp, so we can confirm that the store
+          // returns them in the proper order
+          finalizationTime = CantonTimestamp.Epoch.plusSeconds(20 - (i.toLong / 2)),
+        )(currentVersion.requestTraceContext)
+      }.toList
+
+      val responsesInExpectedOrder = responses.sortBy(r => (r.version, r.requestId.unwrap))
+
+      "sort in order of (version, request_id)" in {
+        val sut = mk()
+        for {
+          _ <- MonadUtil.sequentialTraverse_(responses)(sut.store(_))
+          loadedVerdicts <- sut.readFinalizedVerdicts(
+            fromFinalizationTimeExclusive = CantonTimestamp.MinValue,
+            fromRequestExclusive = CantonTimestamp.MinValue,
+            toFinalizationTimeInclusive = CantonTimestamp.MaxValue,
+            PositiveInt.MaxValue,
+          )
+        } yield {
+          loadedVerdicts should contain theSameElementsInOrderAs responsesInExpectedOrder
+        }
+      }.failOnShutdown("unexpected shutdown.")
+
+      "respect the batch size" in {
+        val sut = mk()
+        for {
+          _ <- MonadUtil.sequentialTraverse_(responses)(sut.store(_))
+          loadedVerdicts <- sut.readFinalizedVerdicts(
+            fromFinalizationTimeExclusive = CantonTimestamp.MinValue,
+            fromRequestExclusive = CantonTimestamp.MinValue,
+            toFinalizationTimeInclusive = CantonTimestamp.MaxValue,
+            PositiveInt.two,
+          )
+        } yield {
+          loadedVerdicts should contain theSameElementsInOrderAs responsesInExpectedOrder.take(2)
+        }
+      }.failOnShutdown("unexpected shutdown.")
+
+      "read a batch correctly when starting in the 'middle' of a version timestamp" in {
+        val sut = mk()
+        // test with multiple batch sizes
+        val batchSizes = Seq(3, 4)
+
+        MonadUtil
+          .sequentialTraverse[Int, FutureUnlessShutdown, Assertion](batchSizes) { batchSize =>
+            for {
+              _ <- MonadUtil.sequentialTraverse_(responses)(sut.store(_))
+
+              // tailRecM re-runs the effect until it returns Left with the result.
+              // The result of Right(x) is passed as the input for the next iteration
+              // of the effect.
+              // In this case, we continue to load up to batchSize number of verdicts
+              // as long as we find verdicts, returning the timestamps of the last verdict
+              // in the batch as the result of the effect, which then serve as the input
+              // for the next iteration's lookup.
+              // If no verdicts were found, batch.lasOption.toLeft(acc) will return the
+              // accumulated verdicts.
+              batches <- Monad[FutureUnlessShutdown].tailRecM(
+                (
+                  /* resulting batches = */ Vector.empty[Seq[FinalizedResponse]],
+                  /* fromVersionExclusive = */ CantonTimestamp.MinValue,
+                  /* fromRequestExclusive = */ CantonTimestamp.MinValue,
+                )
+              ) { case (acc, fromVersionExclusive, fromResultExclusive) =>
+                sut
+                  .readFinalizedVerdicts(
+                    fromFinalizationTimeExclusive = fromVersionExclusive,
+                    fromRequestExclusive = fromResultExclusive,
+                    toFinalizationTimeInclusive = CantonTimestamp.MaxValue,
+                    PositiveInt.tryCreate(batchSize),
+                  )
+                  .map { batch =>
+                    batch.lastOption
+                      .map { latestReceivedVerdict =>
+                        val nextFromVersionExclusive = latestReceivedVerdict.version
+                        val nextFromRequestExclusive = latestReceivedVerdict.requestId.unwrap
+                        (acc :+ batch, nextFromVersionExclusive, nextFromRequestExclusive)
+                      }
+                      .toLeft(acc)
+                  }
+              }
+
+            } yield {
+              // check that each individual batch against the expected order
+              forAll(batches.zipWithIndex) { case (batch, index) =>
+                batch should contain theSameElementsInOrderAs responsesInExpectedOrder.slice(
+                  batchSize * index,
+                  batchSize * index + batchSize,
+                )
+              }
+              // slightly superfluous, but also check that the concatenated batches contain all expected elements
+              batches.flatten should contain theSameElementsInOrderAs responsesInExpectedOrder
+            }
+          }
+          .failOnShutdown("unexpected shutdown.")
+          .map(_ => succeed)
+      }
+
+      "return an empty list if there are no results" in {
+        val sut = mk()
+        for {
+          loadedVerdictsOnEmptyStore <- sut.readFinalizedVerdicts(
+            fromFinalizationTimeExclusive = CantonTimestamp.MinValue,
+            fromRequestExclusive = CantonTimestamp.MinValue,
+            toFinalizationTimeInclusive = CantonTimestamp.MaxValue,
+            PositiveInt.two,
+          )
+          _ <- MonadUtil.sequentialTraverse_(responses)(sut.store(_))
+          loadedVerdicts <- sut.readFinalizedVerdicts(
+            fromFinalizationTimeExclusive = CantonTimestamp.MaxValue.minusSeconds(1),
+            fromRequestExclusive = CantonTimestamp.MaxValue.minusSeconds(1),
+            toFinalizationTimeInclusive = CantonTimestamp.MaxValue,
+            PositiveInt.two,
+          )
+
+        } yield {
+          loadedVerdictsOnEmptyStore shouldBe empty
+          loadedVerdicts shouldBe empty
+        }
+      }.failOnShutdown("unexpected shutdown.")
+
     }
 
     "pruning" should {

@@ -11,7 +11,6 @@ import com.digitalasset.canton.config.{
   DefaultPorts,
   TestingConfigInternal,
 }
-import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.logging.{LogEntry, NamedLogging, SuppressingLogger}
 import com.digitalasset.canton.metrics.{MetricsFactoryType, ScopedInMemoryMetricsFactory}
 import org.scalatest.{Assertion, BeforeAndAfterAll, Suite}
@@ -23,9 +22,8 @@ import scala.util.control.NonFatal
   * [[ConcurrentEnvironmentLimiter]] to ensure we limit the number of concurrent environments in a
   * test run.
   */
-sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]]
-    extends BeforeAndAfterAll {
-  this: Suite with HasEnvironmentDefinition[E, TCE] with NamedLogging =>
+sealed trait EnvironmentSetup[TCE <: TestConsoleEnvironment] extends BeforeAndAfterAll {
+  this: Suite with HasEnvironmentDefinition[TCE] with NamedLogging =>
 
   private lazy val envDef = environmentDefinition
 
@@ -33,9 +31,9 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
 
   // plugins are registered during construction from a single thread
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  private var plugins: Seq[EnvironmentSetupPlugin[E, TCE]] = Seq()
+  private var plugins: Seq[EnvironmentSetupPlugin[TCE]] = Seq()
 
-  protected[integration] def registerPlugin(plugin: EnvironmentSetupPlugin[E, TCE]): Unit =
+  protected[integration] def registerPlugin(plugin: EnvironmentSetupPlugin[TCE]): Unit =
     plugins = plugins :+ plugin
 
   override protected def beforeAll(): Unit = {
@@ -84,8 +82,8 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
     */
   protected def manualCreateEnvironment(
       initialConfig: CantonConfig = envDef.generateConfig,
-      configTransform: CantonConfig => CantonConfig = identity,
-      runPlugins: EnvironmentSetupPlugin[E, TCE] => Boolean = _ => true,
+      configTransform: ConfigTransform = identity,
+      runPlugins: EnvironmentSetupPlugin[TCE] => Boolean = _ => true,
       testConfigTransform: TestingConfigInternal => TestingConfigInternal = identity,
   ): TCE = {
     val testConfig = initialConfig
@@ -195,10 +193,10 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
   * As a result, the environment state at the beginning of a test case equals the state at the end
   * of the previous test case.
   */
-trait SharedEnvironment[E <: Environment, TCE <: TestConsoleEnvironment[E]]
-    extends EnvironmentSetup[E, TCE]
+trait SharedEnvironment[TCE <: TestConsoleEnvironment]
+    extends EnvironmentSetup[TCE]
     with CloseableTest {
-  this: Suite with HasEnvironmentDefinition[E, TCE] with NamedLogging =>
+  this: Suite with HasEnvironmentDefinition[TCE] with NamedLogging =>
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var sharedEnvironment: Option[TCE] = None
@@ -225,9 +223,8 @@ trait SharedEnvironment[E <: Environment, TCE <: TestConsoleEnvironment[E]]
   * Try to use SharedEnvironment instead to avoid the cost of frequently creating environments in
   * CI.
   */
-trait IsolatedEnvironments[E <: Environment, TCE <: TestConsoleEnvironment[E]]
-    extends EnvironmentSetup[E, TCE] {
-  this: Suite with HasEnvironmentDefinition[E, TCE] with NamedLogging =>
+trait IsolatedEnvironments[TCE <: TestConsoleEnvironment] extends EnvironmentSetup[TCE] {
+  this: Suite with HasEnvironmentDefinition[TCE] with NamedLogging =>
 
   override def provideEnvironment: TCE = createEnvironment()
   override def testFinished(environment: TCE): Unit = destroyEnvironment(environment)

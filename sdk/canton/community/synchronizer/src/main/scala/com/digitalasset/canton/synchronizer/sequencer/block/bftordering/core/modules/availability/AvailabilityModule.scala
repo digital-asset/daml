@@ -18,6 +18,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
   AvailabilityAck,
   BatchId,
@@ -49,7 +50,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
 
@@ -64,7 +64,7 @@ import AvailabilityModuleMetrics.{emitDisseminationStateStats, emitInvalidMessag
 /** Trantor-inspired availability implementation.
   *
   * @param random
-  *   the random source used to select what peer to download batches from
+  *   the random source used to select what node to download batches from
   */
 final class AvailabilityModule[E <: Env[E]](
     initialMembership: Membership,
@@ -83,7 +83,7 @@ final class AvailabilityModule[E <: Env[E]](
     extends Availability[E]
     with HasDelayedInit[Availability.Message[E]] {
 
-  private val thisPeer = initialMembership.myId
+  private val thisNode = initialMembership.myId
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var activeMembership = initialMembership
@@ -202,27 +202,27 @@ final class AvailabilityModule[E <: Env[E]](
           DisseminationProgress(
             activeMembership.orderingTopology,
             InProgressBatchMetadata(batchId, batch.stats, batch.expirationTime),
-            Set(AvailabilityAck(thisPeer, signature)),
+            Set(AvailabilityAck(thisNode, signature)),
           ),
         )
         updateOutputFetchStatus(batchId)
-        // If F == 0, no other peers are required to store the batch because there is no fault tolerance,
+        // If F == 0, no other nodes are required to store the batch because there is no fault tolerance,
         //  so batches are ready for consensus immediately after being stored locally.
         if (
           updateBatchDisseminationProgress(
             signature,
             batchId,
-            thisPeer,
+            thisNode,
             messageType,
           )
         ) {
           shipAvailableConsensusProposals(messageType)
         }
 
-        if (activeMembership.orderingTopology.peers.nonEmpty) {
+        if (activeMembership.orderingTopology.nodes.nonEmpty) {
           multicast(
-            Availability.RemoteDissemination.RemoteBatch.create(batchId, batch, from = thisPeer),
-            activeMembership.otherPeers,
+            Availability.RemoteDissemination.RemoteBatch.create(batchId, batch, from = thisNode),
+            activeMembership.otherNodes,
           )
         }
 
@@ -244,7 +244,7 @@ final class AvailabilityModule[E <: Env[E]](
           Availability.RemoteDissemination.RemoteBatchAcknowledged
             .create(
               batchId,
-              from = thisPeer,
+              from = thisNode,
               signature,
             ),
           from,
@@ -351,15 +351,15 @@ final class AvailabilityModule[E <: Env[E]](
             request.missingBatches.filterInPlace(missingBatchIds.contains)
             request.missingBatches.foreach { missingBatchId =>
               // we are missing batches, so for each batch we are missing we will request
-              // it from another peer until we get all of them again.
+              // it from another node until we get all of them again.
               outputFetchProtocolState
                 .findProofOfAvailabilityForMissingBatchId(missingBatchId)
                 .fold {
                   logger.warn(
-                    s"we are missing proof of availability for $missingBatchId, so we don't know peers to ask."
+                    s"we are missing proof of availability for $missingBatchId, so we don't know nodes to ask."
                   )
                 } { proofOfAvailability =>
-                  fetchBatchDataFromPeers(
+                  fetchBatchDataFromNodes(
                     messageType,
                     proofOfAvailability,
                     request.blockForOutput.mode,
@@ -382,7 +382,7 @@ final class AvailabilityModule[E <: Env[E]](
         }
         outputFetchProtocolState.removeRequestsWithNoMissingBatches()
 
-      case Availability.LocalOutputFetch.AttemptedBatchDataLoadForPeer(batchId, maybeBatch) =>
+      case Availability.LocalOutputFetch.AttemptedBatchDataLoadForNode(batchId, maybeBatch) =>
         maybeBatch match {
           case Some(batch) =>
             logger.debug(
@@ -392,14 +392,14 @@ final class AvailabilityModule[E <: Env[E]](
               .get(batchId)
               .toList
               .flatMap(_.toSeq)
-              .foreach { peerSequencerId =>
+              .foreach { nodeId =>
                 logger.debug(
-                  s"$messageType: peer $peerSequencerId had requested $batchId, sending it"
+                  s"$messageType: node '$nodeId' had requested $batchId, sending it"
                 )
                 send(
                   Availability.RemoteOutputFetch.RemoteBatchDataFetched
-                    .create(thisPeer, batchId, batch),
-                  peerSequencerId,
+                    .create(thisNode, batchId, batch),
+                  nodeId,
                 )
               }
           case None =>
@@ -427,41 +427,41 @@ final class AvailabilityModule[E <: Env[E]](
             )
             return
         }
-        val (peer, remainingPeers) = status.remainingPeersToTry.headOption match {
+        val (node, remainingNodes) = status.remainingNodesToTry.headOption match {
           case None =>
             logger.warn(
-              s"$messageType: got fetch timeout for $batchId but no peers to try left, " +
+              s"$messageType: got fetch timeout for $batchId but no nodes to try left, " +
                 "restarting fetch from the beginning"
             )
-            // We tried all peers and all timed out so we retry all again in the hope that we are just
+            // We tried all nodes and all timed out so we retry all again in the hope that we are just
             //  experiencing temporarily network outage.
             //  We have to keep retrying because the output module is blocked until we get these batches.
             //  If these batches cannot be retrieved, e.g. because the topology has changed too much and/or
-            //  the peers in the PoA are unreachable indefinitely, we'll need to resort (possibly manually)
+            //  the nodes in the PoA are unreachable indefinitely, we'll need to resort (possibly manually)
             //  to state transfer incl. the batch payloads (when it is implemented).
             if (status.mode.isStateTransfer)
-              extractPeers(None, useCurrentTopology = true)
+              extractNodes(None, useCurrentTopology = true)
             else
-              extractPeers(Some(status.originalProof.acks))
+              extractNodes(Some(status.originalProof.acks))
 
-          case Some(peer) =>
-            logger.debug(s"$messageType: got fetch timeout for $batchId, trying fetch from $peer")
-            (peer, status.remainingPeersToTry.drop(1))
+          case Some(node) =>
+            logger.debug(s"$messageType: got fetch timeout for $batchId, trying fetch from $node")
+            (node, status.remainingNodesToTry.drop(1))
         }
         outputFetchProtocolState.localOutputMissingBatches.update(
           batchId,
           MissingBatchStatus(
             batchId,
             status.originalProof,
-            remainingPeers,
+            remainingNodes,
             status.mode,
           ),
         )
-        startDownload(batchId, peer)
+        startDownload(batchId, node)
 
       // This message is only used for tests
-      case Availability.LocalOutputFetch.FetchBatchDataFromPeers(proofOfAvailability, mode) =>
-        fetchBatchDataFromPeers(messageType, proofOfAvailability, mode)
+      case Availability.LocalOutputFetch.FetchBatchDataFromNodes(proofOfAvailability, mode) =>
+        fetchBatchDataFromNodes(messageType, proofOfAvailability, mode)
     }
   }
 
@@ -493,15 +493,15 @@ final class AvailabilityModule[E <: Env[E]](
                 case Success(result) =>
                   result match {
                     case AvailabilityStore.MissingBatches(_) =>
-                      Availability.LocalOutputFetch.AttemptedBatchDataLoadForPeer(batchId, None)
+                      Availability.LocalOutputFetch.AttemptedBatchDataLoadForNode(batchId, None)
                     case AvailabilityStore.AllBatches(Seq((_, result))) =>
-                      Availability.LocalOutputFetch.AttemptedBatchDataLoadForPeer(
+                      Availability.LocalOutputFetch.AttemptedBatchDataLoadForNode(
                         batchId,
                         Some(result),
                       )
                     case AvailabilityStore.AllBatches(batches) =>
                       logger.error(s"Wrong batches fetched. Requested $batchId got $batches")
-                      Availability.LocalOutputFetch.AttemptedBatchDataLoadForPeer(batchId, None)
+                      Availability.LocalOutputFetch.AttemptedBatchDataLoadForNode(batchId, None)
                   }
               }
               Some(Set(from))
@@ -529,7 +529,7 @@ final class AvailabilityModule[E <: Env[E]](
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
-  private def fetchBatchDataFromPeers(
+  private def fetchBatchDataFromNodes(
       messageType: String,
       proofOfAvailability: ProofOfAvailability,
       mode: OrderedBlockForOutput.Mode,
@@ -547,25 +547,25 @@ final class AvailabilityModule[E <: Env[E]](
       logger.error(s"$messageType: proof of availability is missing, ignoring")
       return
     }
-    val (peer, remainingPeers) =
+    val (node, remainingNodes) =
       if (mode.isStateTransfer)
-        extractPeers(acks = None, useCurrentTopology = true)
+        extractNodes(acks = None, useCurrentTopology = true)
       else
-        extractPeers(Some(proofOfAvailability.acks))
+        extractNodes(Some(proofOfAvailability.acks))
     logger.debug(
       s"$messageType: fetch of ${proofOfAvailability.batchId} " +
-        s"requested from local store, trying to fetch from $peer"
+        s"requested from local store, trying to fetch from $node"
     )
     outputFetchProtocolState.localOutputMissingBatches.update(
       proofOfAvailability.batchId,
       MissingBatchStatus(
         proofOfAvailability.batchId,
         proofOfAvailability,
-        remainingPeers,
+        remainingNodes,
         mode,
       ),
     )
-    startDownload(proofOfAvailability.batchId, peer)
+    startDownload(proofOfAvailability.batchId, node)
   }
 
   private def updateOutputFetchStatus(
@@ -695,7 +695,7 @@ final class AvailabilityModule[E <: Env[E]](
 
   private def startDownload(
       batchId: BatchId,
-      peer: SequencerId,
+      node: BftNodeId,
   )(implicit
       context: E#ActorContextT[Availability.Message[E]],
       traceContext: TraceContext,
@@ -710,23 +710,23 @@ final class AvailabilityModule[E <: Env[E]](
       )
       .discard
     send(
-      Availability.RemoteOutputFetch.FetchRemoteBatchData.create(batchId, from = thisPeer),
-      peer,
+      Availability.RemoteOutputFetch.FetchRemoteBatchData.create(batchId, from = thisNode),
+      node,
     )
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
-  private def extractPeers(
+  private def extractNodes(
       acks: Option[Seq[AvailabilityAck]],
       useCurrentTopology: Boolean = false,
   )(implicit
       context: E#ActorContextT[Availability.Message[E]],
       traceContext: TraceContext,
-  ): (SequencerId, Seq[SequencerId]) = {
-    val peers =
-      if (useCurrentTopology) activeMembership.otherPeers.toSeq
-      else acks.getOrElse(abort("No availability acks provided for extracting peers")).map(_.from)
-    val shuffled = random.shuffle(peers)
+  ): (BftNodeId, Seq[BftNodeId]) = {
+    val nodes =
+      if (useCurrentTopology) activeMembership.otherNodes.toSeq
+      else acks.getOrElse(abort("No availability acks provided for extracting nodes")).map(_.from)
+    val shuffled = random.shuffle(nodes)
     shuffled.head -> shuffled.tail
   }
 
@@ -743,14 +743,14 @@ final class AvailabilityModule[E <: Env[E]](
   private def updateBatchDisseminationProgress(
       signature: Signature,
       batchId: BatchId,
-      peer: SequencerId,
+      nodeId: BftNodeId,
       actingOnMessageType: String,
   )(implicit traceContext: TraceContext): ReadyForOrdering = {
     val maybeUpdatedDisseminationProgress =
       disseminationProtocolState.disseminationProgress.updateWith(batchId) {
         case None =>
           logger.info(
-            s"$actingOnMessageType: got a store-response for batch $batchId from $peer " +
+            s"$actingOnMessageType: got a store-response for batch $batchId from $nodeId " +
               "but the batch is unknown (potentially already proposed), ignoring"
           )
           None
@@ -759,7 +759,7 @@ final class AvailabilityModule[E <: Env[E]](
             DisseminationProgress(
               status.orderingTopology,
               status.batchMetadata,
-              status.votes.+(AvailabilityAck(peer, signature)),
+              status.votes.+(AvailabilityAck(nodeId, signature)),
             )
           )
       }
@@ -889,7 +889,7 @@ final class AvailabilityModule[E <: Env[E]](
       handle(value)
   }
 
-  private def send(message: RemoteProtocolMessage, to: SequencerId)(implicit
+  private def send(message: RemoteProtocolMessage, to: BftNodeId)(implicit
       context: E#ActorContextT[Availability.Message[E]],
       traceContext: TraceContext,
   ): Unit =
@@ -911,7 +911,7 @@ final class AvailabilityModule[E <: Env[E]](
       }
     )
 
-  private def multicast(message: RemoteProtocolMessage, peers: Set[SequencerId])(implicit
+  private def multicast(message: RemoteProtocolMessage, nodes: Set[BftNodeId])(implicit
       context: E#ActorContextT[Availability.Message[E]],
       traceContext: TraceContext,
   ): Unit =
@@ -926,7 +926,7 @@ final class AvailabilityModule[E <: Env[E]](
         dependencies.p2pNetworkOut.asyncSendTraced(
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.AvailabilityMessage(signedMessage),
-            peers,
+            nodes,
           )
         )
         Availability.NoOp
@@ -936,7 +936,7 @@ final class AvailabilityModule[E <: Env[E]](
   private def validateBatch(
       batchId: BatchId,
       batch: OrderingRequestBatch,
-      from: SequencerId,
+      from: BftNodeId,
   ): Either[String, Unit] =
     for {
       _ <- Either.cond(
@@ -951,7 +951,7 @@ final class AvailabilityModule[E <: Env[E]](
         batch.requests.sizeIs <= config.maxRequestsInBatch.toInt,
         (), {
           emitInvalidMessage(metrics, from)
-          s"Batch $batchId from $from contains more requests (${batch.requests.size}) than allowed " +
+          s"Batch $batchId from '$from' contains more requests (${batch.requests.size}) than allowed " +
             s"(${config.maxRequestsInBatch}), skipping"
         },
       )
@@ -966,7 +966,7 @@ object AvailabilityModule {
   //  when the ordering topology has changed.
   //  This is a somewhat arbitrary middle-ground value that is based on an assessment of
   //  the most likely changes, i.e. be adding/removing one node.
-  //  Such changes can change the probability in both ways (depending on whether the quorum size changes and/or peers
+  //  Such changes can change the probability in both ways (depending on whether the quorum size changes and/or nodes
   //  from the old/current topologies already voted), so a middle ground seems reasonable.
   private val QuorumProbabilityRetentionThreshold = 0.5
 
@@ -981,12 +981,12 @@ object AvailabilityModule {
 
   def hasQuorum(
       orderingTopology: OrderingTopology,
-      votes: Set[SequencerId],
+      votes: Set[BftNodeId],
   ): Boolean =
     orderingTopology.hasWeakQuorum(votes)
 
   private def parseAvailabilityNetworkMessage(
-      from: SequencerId,
+      from: BftNodeId,
       message: v30.AvailabilityMessage,
       originalMessage: ByteString,
   ): ParsingResult[Availability.RemoteProtocolMessage] =
@@ -1015,7 +1015,7 @@ object AvailabilityModule {
       protoSignedMessage: v30.SignedMessage
   ): ParsingResult[Availability.UnverifiedProtocolMessage] =
     SignedMessage
-      .fromProtoWithSequencerId(v30.AvailabilityMessage)(from =>
+      .fromProtoWithNodeId(v30.AvailabilityMessage)(from =>
         proto =>
           originalByteString => parseAvailabilityNetworkMessage(from, proto, originalByteString)
       )(protoSignedMessage)
@@ -1024,7 +1024,7 @@ object AvailabilityModule {
   private def quorumProbability(
       currentOrderingTopology: OrderingTopology,
       previousOrderingTopology: OrderingTopology,
-      votes: Set[SequencerId],
+      votes: Set[BftNodeId],
   ): BigDecimal =
     currentOrderingTopology
       .successProbabilityOfStaleDissemination(

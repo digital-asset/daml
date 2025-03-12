@@ -19,6 +19,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, SuppressingLogger}
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
   MessageFrom,
   SignedMessage,
@@ -32,7 +33,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ModuleRef,
   PureFun,
 }
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.Assertions.fail
 
@@ -311,7 +311,7 @@ object ProgrammableUnitTestEnv {
 
     override def verifySignature(
         hash: Hash,
-        member: SequencerId,
+        member: BftNodeId,
         signature: Signature,
         usage: NonEmpty[Set[SigningKeyUsage]],
     )(implicit

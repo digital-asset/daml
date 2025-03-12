@@ -12,7 +12,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.dri
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.HasDelayedInit
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.RetransmissionsManager
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   EpochLength,
   EpochNumber,
 }
@@ -70,7 +70,7 @@ final class PreIssConsensusModule[E <: Env[E]](
           metrics,
           segmentModuleRefFactory,
           new RetransmissionsManager[E](
-            bootstrapTopologyInfo.thisPeer,
+            bootstrapTopologyInfo.thisNode,
             dependencies.p2pNetworkOut,
             abort,
             previousEpochsCommitCerts,

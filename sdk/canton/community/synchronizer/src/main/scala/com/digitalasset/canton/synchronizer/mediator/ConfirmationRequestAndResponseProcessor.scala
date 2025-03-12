@@ -117,13 +117,13 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             )
           case MediatorEvent.Response(
                 counter,
-                _,
+                responseTimestamp,
                 responses,
                 topologyTimestamp,
                 recipients,
               ) =>
             processResponses(
-              requestTimestamp,
+              responseTimestamp,
               counter,
               participantResponseDeadline,
               decisionTime,

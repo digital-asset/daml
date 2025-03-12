@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.networking.grpc
 
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import io.grpc.stub.StreamObserver
 
 import java.util.concurrent.atomic.AtomicInteger
@@ -12,12 +13,12 @@ import scala.jdk.CollectionConverters.*
 /** Stream observer that records all incoming events.
   */
 class RecordingStreamObserver[RespT](
-    completeAfter: Int = Int.MaxValue,
+    completeAfter: PositiveInt = PositiveInt.MaxValue,
     filter: RespT => Boolean = (_: RespT) => true,
 ) extends StreamObserver[RespT] {
 
   val responseQueue: java.util.concurrent.BlockingQueue[RespT] =
-    new java.util.concurrent.LinkedBlockingDeque[RespT](completeAfter)
+    new java.util.concurrent.LinkedBlockingDeque[RespT](completeAfter.value)
 
   def responses: Seq[RespT] = responseQueue.asScala.toSeq
 
@@ -30,7 +31,7 @@ class RecordingStreamObserver[RespT](
 
   override def onNext(value: RespT): Unit = if (filter(value)) {
     responseQueue.offer(value)
-    if (responseCount.incrementAndGet() >= completeAfter) {
+    if (responseCount.incrementAndGet() >= completeAfter.value) {
       val _ = completionP.trySuccess(())
     }
   }

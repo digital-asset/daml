@@ -4,26 +4,26 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss
 
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 
 import java.util.concurrent.atomic.AtomicLong
 import scala.collection.concurrent.TrieMap
 
 class EpochMetricsAccumulator {
-  private val commitVotesAccumulator: TrieMap[SequencerId, Long] = TrieMap.empty
-  private val prepareVotesAccumulator: TrieMap[SequencerId, Long] = TrieMap.empty
+  private val commitVotesAccumulator: TrieMap[BftNodeId, Long] = TrieMap.empty
+  private val prepareVotesAccumulator: TrieMap[BftNodeId, Long] = TrieMap.empty
   private val viewsAccumulator = new AtomicLong(0L)
 
-  def prepareVotes: Map[SequencerId, Long] = prepareVotesAccumulator.toMap
-  def commitVotes: Map[SequencerId, Long] = commitVotesAccumulator.toMap
+  def prepareVotes: Map[BftNodeId, Long] = prepareVotesAccumulator.toMap
+  def commitVotes: Map[BftNodeId, Long] = commitVotesAccumulator.toMap
   def viewsCount: Long = viewsAccumulator.get()
 
-  private def accumulate(accumulator: TrieMap[SequencerId, Long])(
-      values: Map[SequencerId, Long]
+  private def accumulate(accumulator: TrieMap[BftNodeId, Long])(
+      values: Map[BftNodeId, Long]
   ): Unit =
-    values.foreach { case (sequencerId, newVotes) =>
+    values.foreach { case (node, newVotes) =>
       accumulator
-        .updateWith(sequencerId) {
+        .updateWith(node) {
           case Some(votes) => Some(votes + newVotes)
           case None => Some(newVotes)
         }
@@ -32,8 +32,8 @@ class EpochMetricsAccumulator {
 
   def accumulate(
       views: Long,
-      commits: Map[SequencerId, Long],
-      prepares: Map[SequencerId, Long],
+      commits: Map[BftNodeId, Long],
+      prepares: Map[BftNodeId, Long],
   ): Unit = {
     viewsAccumulator.addAndGet(views).discard
     accumulate(commitVotesAccumulator)(commits)

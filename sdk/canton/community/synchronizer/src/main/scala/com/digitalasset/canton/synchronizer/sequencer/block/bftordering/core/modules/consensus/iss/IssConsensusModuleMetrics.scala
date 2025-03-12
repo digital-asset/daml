@@ -6,14 +6,14 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 import com.daml.metrics.api.MetricHandle.Gauge
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
   BlockNumber,
   EpochLength,
   EpochNumber,
   ViewNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
-import com.digitalasset.canton.topology.SequencerId
 
 import java.time.{Duration, Instant}
 
@@ -40,12 +40,12 @@ private[iss] object IssConsensusModuleMetrics {
       epoch: EpochInfo,
       prevEpoch: Epoch,
       prevEpochViewsCount: Long,
-      prevEpochPrepareVotes: Map[SequencerId, Long],
-      prevEpochCommitVotes: Map[SequencerId, Long],
+      prevEpochPrepareVotes: Map[BftNodeId, Long],
+      prevEpochCommitVotes: Map[BftNodeId, Long],
   )(implicit mc: MetricsContext): Unit = {
     val totalConsensusStageVotes =
       totalConsensusStageVotesInEpoch(
-        prevEpoch.currentMembership.orderingTopology.peers.size,
+        prevEpoch.currentMembership.orderingTopology.nodes.size,
         prevEpoch.info.length,
         prevEpoch.currentMembership.leaders.size,
         prevEpochViewsCount,
@@ -56,27 +56,27 @@ private[iss] object IssConsensusModuleMetrics {
 
     emitVoteStats(
       totalConsensusStageVotes,
-      prevEpoch.currentMembership.orderingTopology.peers.size,
+      prevEpoch.currentMembership.orderingTopology.nodes.size,
       VoteStatsSpec(metrics.consensus.votes.prepareVotesPercent, prevEpochPrepareVotes),
       VoteStatsSpec(metrics.consensus.votes.commitVotesPercent, prevEpochCommitVotes),
     )
   }
 
   private[iss] def totalConsensusStageVotesInEpoch(
-      peers: Int,
+      count: Int,
       epochLength: EpochLength,
       segmentLeaders: Int,
       viewsCount: Long,
   ): Long = {
-    val happyPathVotes = epochLength * peers
+    val happyPathVotes = epochLength * count
     val viewChanges = viewsCount - segmentLeaders
     // TODO(#23351): breaks when we introduce commit certificates, revisit then
-    val additionalVotesDueToViewChanges = peers * viewChanges
+    val additionalVotesDueToViewChanges = count * viewChanges
     happyPathVotes + additionalVotesDueToViewChanges
   }
 
   def emitNonCompliance(metrics: BftOrderingMetrics)(
-      from: SequencerId,
+      from: BftNodeId,
       epoch: EpochNumber,
       view: ViewNumber,
       block: BlockNumber,
@@ -84,7 +84,7 @@ private[iss] object IssConsensusModuleMetrics {
   )(implicit mc: MetricsContext): Unit =
     metrics.security.noncompliant.behavior.mark()(
       mc.withExtraLabels(
-        metrics.security.noncompliant.labels.Sequencer -> from.toProtoPrimitive,
+        metrics.security.noncompliant.labels.Sequencer -> from,
         metrics.security.noncompliant.labels.Epoch -> epoch.toString,
         metrics.security.noncompliant.labels.View -> view.toString,
         metrics.security.noncompliant.labels.Block -> block.toString,
@@ -93,16 +93,16 @@ private[iss] object IssConsensusModuleMetrics {
     )
 
   private final case class VoteStatsSpec(
-      getGauge: SequencerId => Gauge[Double],
-      getVotes: Map[SequencerId, Long],
+      getGauge: BftNodeId => Gauge[Double],
+      getVotes: Map[BftNodeId, Long],
   )
 
   private def emitVoteStats(
       totalConsensusStageVotes: Long,
-      peersCount: Int,
+      count: Int,
       voteStatsSpecs: VoteStatsSpec*
   )(implicit mc: MetricsContext): Unit = {
-    val singleNodeConsensusStageVotes = totalConsensusStageVotes.toDouble / peersCount
+    val singleNodeConsensusStageVotes = totalConsensusStageVotes.toDouble / count
     voteStatsSpecs.foreach { case VoteStatsSpec(getGauge, getVotes) =>
       val allStageVotes = getVotes
       allStageVotes.foreach { case (sequencerId, votes) =>

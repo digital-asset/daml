@@ -8,7 +8,10 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  EpochNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.RetransmissionsMessage.RetransmissionsNetworkMessage
@@ -22,7 +25,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Env,
   ModuleRef,
 }
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.duration.*
@@ -32,7 +34,7 @@ import RetransmissionsManager.{HowManyEpochsToKeep, RetransmissionRequestPeriod}
 
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class RetransmissionsManager[E <: Env[E]](
-    myId: SequencerId,
+    thisNode: BftNodeId,
     p2pNetworkOut: ModuleRef[P2PNetworkOut.Message],
     abort: String => Nothing,
     previousEpochsCommitCerts: Map[EpochNumber, Seq[CommitCertificate]],
@@ -174,7 +176,7 @@ class RetransmissionsManager[E <: Env[E]](
           // after gathering the segment status from all segments,
           // we can broadcast our whole epoch status
           // and effectively request retransmissions of missing messages
-          broadcastStatus(activeCryptoProvider, epochStatus, e.epoch.currentMembership.otherPeers)
+          broadcastStatus(activeCryptoProvider, epochStatus, e.epoch.currentMembership.otherNodes)
         }
 
         epochStatusBuilder = None
@@ -193,7 +195,7 @@ class RetransmissionsManager[E <: Env[E]](
   private def broadcastStatus(
       activeCryptoProvider: CryptoProvider[E],
       epochStatus: ConsensusStatus.EpochStatus,
-      otherPeers: Set[SequencerId],
+      otherNodes: Set[BftNodeId],
   )(implicit
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
@@ -204,21 +206,21 @@ class RetransmissionsManager[E <: Env[E]](
     p2pNetworkOut.asyncSend(
       P2PNetworkOut.Multicast(
         P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(signedMessage),
-        otherPeers,
+        otherNodes,
       )
     )
   }
 
   private def retransmitCommitCertificates(
       activeCryptoProvider: CryptoProvider[E],
-      receiver: SequencerId,
+      receiver: BftNodeId,
       commitCertificates: Seq[CommitCertificate],
   )(implicit
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
   ): Unit = signRetransmissionNetworkMessage(
     activeCryptoProvider,
-    Consensus.RetransmissionsMessage.RetransmissionResponse.create(myId, commitCertificates),
+    Consensus.RetransmissionsMessage.RetransmissionResponse.create(thisNode, commitCertificates),
   ) { signedMessage =>
     p2pNetworkOut.asyncSend(
       P2PNetworkOut.send(
@@ -269,6 +271,6 @@ class RetransmissionsManager[E <: Env[E]](
 object RetransmissionsManager {
   val RetransmissionRequestPeriod: FiniteDuration = 10.seconds
 
-  // TODO(#18788): unify this value with catch up and pass it as config
+  // TODO(#24443): unify this value with catch up and pass it as config
   val HowManyEpochsToKeep = 5
 }
