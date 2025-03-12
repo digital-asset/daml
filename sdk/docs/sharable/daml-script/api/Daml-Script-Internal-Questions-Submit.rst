@@ -264,6 +264,8 @@ Data Types
 
   **instance** `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ `SubmitOptions <type-daml-script-internal-questions-submit-submitoptions-56692_>`_
 
+  **instance** `Monoid <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-prelude-monoid-6742>`_ `SubmitOptions <type-daml-script-internal-questions-submit-submitoptions-56692_>`_
+
   **instance** `Semigroup <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-prelude-semigroup-78998>`_ `SubmitOptions <type-daml-script-internal-questions-submit-submitoptions-56692_>`_
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"soActAs\" `SubmitOptions <type-daml-script-internal-questions-submit-submitoptions-56692_>`_ \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
