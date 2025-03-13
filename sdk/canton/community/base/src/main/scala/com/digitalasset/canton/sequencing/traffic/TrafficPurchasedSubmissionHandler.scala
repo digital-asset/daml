@@ -217,6 +217,7 @@ class TrafficPurchasedSubmissionHandler(
                 _,
                 _,
                 _,
+                _,
                 SequencerErrors.AggregateSubmissionAlreadySent(message),
                 _,
               )

@@ -177,7 +177,7 @@ class PreIssConsensusModuleTest
     implicit val metricsContext: MetricsContext = MetricsContext.Empty
     implicit val config: BftBlockOrdererConfig = BftBlockOrdererConfig()
 
-    val orderingTopology = OrderingTopology(Set(myId))
+    val orderingTopology = OrderingTopology.forTesting(Set(myId))
     new PreIssConsensusModule[IgnoringUnitTestEnv](
       OrderingTopologyInfo(
         myId,

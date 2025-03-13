@@ -37,6 +37,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeL
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.admin.ResourceLimits
+import com.digitalasset.canton.participant.admin.data.ContractIdImportMode
 import com.digitalasset.canton.participant.admin.traffic.TrafficStateAdmin
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
   ReceivedCmtState,
@@ -498,6 +499,56 @@ object ParticipantAdminCommands {
           response: v30.AddPartyAsyncResponse
       ): Either[String, String] = Right(response.partyReplicationId)
     }
+
+    final case class ExportAcsNew(
+        parties: Set[PartyId],
+        filterSynchronizerId: Option[SynchronizerId],
+        offset: Long,
+        observer: StreamObserver[v30.ExportAcsNewResponse],
+        contractSynchronizerRenames: Map[SynchronizerId, SynchronizerId],
+    ) extends GrpcAdminCommand[
+          v30.ExportAcsNewRequest,
+          CancellableContext,
+          CancellableContext,
+        ] {
+
+      override type Svc = PartyManagementServiceStub
+
+      override def createService(channel: ManagedChannel): PartyManagementServiceStub =
+        v30.PartyManagementServiceGrpc.stub(channel)
+
+      override protected def createRequest(): Either[String, v30.ExportAcsNewRequest] =
+        Right(
+          v30.ExportAcsNewRequest(
+            parties.map(_.toLf).toSeq,
+            filterSynchronizerId.map(_.toProtoPrimitive).getOrElse(""),
+            offset,
+            contractSynchronizerRenames.map { case (source, targetSynchronizerId) =>
+              val target = v30.ExportAcsTargetSynchronizer(
+                targetSynchronizerId.toProtoPrimitive
+              )
+
+              (source.toProtoPrimitive, target)
+            },
+          )
+        )
+
+      override protected def submitRequest(
+          service: PartyManagementServiceStub,
+          request: v30.ExportAcsNewRequest,
+      ): Future[CancellableContext] = {
+        val context = Context.current().withCancellation()
+        context.run(() => service.exportAcsNew(request, observer))
+        Future.successful(context)
+      }
+
+      override protected def handleResponse(
+          response: CancellableContext
+      ): Either[String, CancellableContext] = Right(response)
+
+      override def timeoutType: GrpcAdminCommand.TimeoutType =
+        GrpcAdminCommand.DefaultUnboundedTimeout
+    }
   }
 
   object ParticipantRepairManagement {
@@ -601,6 +652,58 @@ object ParticipantAdminCommands {
           response: v30.ImportAcsResponse
       ): Either[String, Map[LfContractId, LfContractId]] =
         response.contractIdMapping.toSeq
+          .traverse { case (oldCid, newCid) =>
+            for {
+              oldCidParsed <- LfContractId.fromString(oldCid)
+              newCidParsed <- LfContractId.fromString(newCid)
+            } yield oldCidParsed -> newCidParsed
+          }
+          .map(_.toMap)
+    }
+
+    final case class ImportAcsNew(
+        acsChunk: ByteString,
+        workflowIdPrefix: String,
+        contractIdImportMode: ContractIdImportMode,
+    ) extends GrpcAdminCommand[
+          v30.ImportAcsNewRequest,
+          v30.ImportAcsNewResponse,
+          Map[LfContractId, LfContractId],
+        ] {
+
+      override type Svc = ParticipantRepairServiceStub
+
+      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
+        v30.ParticipantRepairServiceGrpc.stub(channel)
+
+      override protected def createRequest(): Either[String, v30.ImportAcsNewRequest] =
+        Right(
+          v30.ImportAcsNewRequest(
+            acsChunk,
+            workflowIdPrefix,
+            contractIdImportMode.toProtoV30,
+          )
+        )
+
+      override protected def submitRequest(
+          service: ParticipantRepairServiceStub,
+          request: v30.ImportAcsNewRequest,
+      ): Future[v30.ImportAcsNewResponse] =
+        GrpcStreamingUtils.streamToServer(
+          service.importAcsNew,
+          (bytes: Array[Byte]) =>
+            v30.ImportAcsNewRequest(
+              ByteString.copyFrom(bytes),
+              workflowIdPrefix,
+              contractIdImportMode.toProtoV30,
+            ),
+          request.acsSnapshot,
+        )
+
+      override protected def handleResponse(
+          response: v30.ImportAcsNewResponse
+      ): Either[String, Map[LfContractId, LfContractId]] =
+        response.contractIdMappings.toSeq
           .traverse { case (oldCid, newCid) =>
             for {
               oldCidParsed <- LfContractId.fromString(oldCid)

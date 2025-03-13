@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -522,7 +523,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
         case _ => EitherT.rightT[FutureUnlessShutdown, TopologyManagerError](())
       }
       signed <- SignedTopologyTransaction
-        .create(
+        .signAndCreate(
           transaction,
           keysToUseForSigning,
           isProposal,
@@ -552,15 +553,14 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
         keys,
         forSigning = true,
       )
-      signatures <- keyWithUsage.forgetNE.toSeq
-        .parTraverse { case (key, usage) =>
-          crypto.privateCrypto
-            .sign(transaction.hash.hash, key, usage)
-            .leftMap(err =>
-              TopologyManagerError.InternalError.TopologySigningError(err): TopologyManagerError
-            )
-        }
-    } yield transaction.addSignatures(signatures)
+      signatures <- keyWithUsage.toList.toNEF.parTraverse { case (key, usage) =>
+        crypto.privateCrypto
+          .sign(transaction.hash.hash, key, usage)
+          .leftMap(err =>
+            TopologyManagerError.InternalError.TopologySigningError(err): TopologyManagerError
+          )
+      }
+    } yield transaction.addSingleSignatures(signatures.toSet)
 
   private def determineKeysToUse(
       transaction: GenericTopologyTransaction,

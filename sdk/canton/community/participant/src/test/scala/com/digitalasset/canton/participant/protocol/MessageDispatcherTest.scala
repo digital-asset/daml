@@ -292,6 +292,7 @@ trait MessageDispatcherTest {
   ): Deliver[DefaultOpenEnvelope] =
     Deliver.create(
       sc,
+      None,
       ts,
       synchronizerId,
       messageId,
@@ -1237,6 +1238,7 @@ trait MessageDispatcherTest {
         val deliver3 = mkDeliver(dummyBatch, SequencerCounter(2), CantonTimestamp.ofEpochSecond(2))
         val deliverError4 = DeliverError.create(
           SequencerCounter(3),
+          None,
           CantonTimestamp.ofEpochSecond(3),
           synchronizerId,
           messageId3,

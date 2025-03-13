@@ -11,6 +11,7 @@ import com.digitalasset.canton.topology.processing.AuthorizedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.{
   DecentralizedNamespaceDefinition,
   NamespaceDelegation,
+  SingleTransactionSignature,
   TopologyMapping,
 }
 import com.digitalasset.canton.topology.{Namespace, TestingOwnerWithKeys}
@@ -115,7 +116,11 @@ class DecentralizedNamespaceAuthorizationGraphTest
         .value
         .futureValueUS
         .getOrElse(sys.error(s"Error when signing ${authTx}with $key"))
-      authTx.copy(transaction = authTx.transaction.copy(signatures = NonEmpty(Set, signature)))
+      authTx.copy(transaction =
+        authTx.transaction.copy(signatures =
+          NonEmpty.mk(Set, SingleTransactionSignature(authTx.transaction.hash, signature))
+        )
+      )
     }
 
   }

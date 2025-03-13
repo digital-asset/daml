@@ -70,7 +70,7 @@ class PekkoBlockSubscription[E <: Env[E]](
   override def subscription(): Source[BlockFormat.Block, KillSwitch] =
     source
       .statefulMapConcat { () =>
-        val blocksPeanoQueue = new PeanoQueue[BlockFormat.Block](initialHeight)(abort)
+        val blocksPeanoQueue = new PeanoQueue[BlockNumber, BlockFormat.Block](initialHeight)(abort)
         block => {
           val blockHeight = block.blockHeight
           logger.debug(

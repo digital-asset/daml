@@ -3,17 +3,10 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules
 
-import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.{
-  Hash,
-  HashPurpose,
-  Signature,
-  SignatureCheckError,
-  SigningKeyUsage,
-  SyncCryptoError,
-}
+import com.digitalasset.canton.crypto.{Hash, Signature, SignatureCheckError, SyncCryptoError}
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
@@ -25,15 +18,14 @@ import org.scalatest.Assertions.fail
 
 class FakeCryptoProvider[E <: Env[E]] extends CryptoProvider[E] {
 
-  override def sign(hash: Hash, usage: NonEmpty[Set[SigningKeyUsage]])(implicit
+  override def signHash(hash: Hash)(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Either[SyncCryptoError, Signature]] =
     fail("Module should not sign messages")
 
   override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
       message: MessageT,
-      hashPurpose: HashPurpose,
-      usage: NonEmpty[Set[SigningKeyUsage]],
+      authenticatedMessageType: AuthenticatedMessageType,
   )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Either[SyncCryptoError, SignedMessage[MessageT]]] =
@@ -43,7 +35,6 @@ class FakeCryptoProvider[E <: Env[E]] extends CryptoProvider[E] {
       hash: Hash,
       node: BftNodeId,
       signature: Signature,
-      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Either[SignatureCheckError, Unit]] =

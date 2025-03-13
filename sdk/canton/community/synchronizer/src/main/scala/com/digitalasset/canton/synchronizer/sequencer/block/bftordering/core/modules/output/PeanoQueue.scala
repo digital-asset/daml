@@ -6,21 +6,23 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 import com.digitalasset.canton.data
 import com.digitalasset.canton.data.{Counter, PeanoTreeQueue}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BlockNumber
 
-class PeanoQueue[T](initialHead: BlockNumber)(abort: String => Nothing) {
-  type BlockNumberCounterDiscriminator
+class PeanoQueue[KeyT <: Long, ValueT](initialHead: KeyT)(
+    abort: String => Nothing
+) {
 
-  private val BlockNumberCounter = Counter[BlockNumberCounterDiscriminator]
+  type PeanoQueueCounterDiscriminator
 
-  private val peanoQueue: PeanoTreeQueue[BlockNumberCounterDiscriminator, T] =
-    new PeanoTreeQueue[BlockNumberCounterDiscriminator, T](
-      BlockNumberCounter(initialHead)
+  private val PeanoQueueCounter = Counter[PeanoQueueCounterDiscriminator]
+
+  private val peanoQueue: PeanoTreeQueue[PeanoQueueCounterDiscriminator, ValueT] =
+    new PeanoTreeQueue[PeanoQueueCounterDiscriminator, ValueT](
+      PeanoQueueCounter(initialHead)
     )
 
-  def head: Counter[BlockNumberCounterDiscriminator] = peanoQueue.head
+  def head: Counter[PeanoQueueCounterDiscriminator] = peanoQueue.head
 
-  def headValue: Option[T] =
+  def headValue: Option[ValueT] =
     peanoQueue.get(head) match {
       case data.PeanoQueue.NotInserted(_, _) => None
       case data.PeanoQueue.InsertedValue(value) => Some(value)
@@ -28,13 +30,13 @@ class PeanoQueue[T](initialHead: BlockNumber)(abort: String => Nothing) {
         abort(s"Head $head is before the actual head ${peanoQueue.head}")
     }
 
-  def alreadyInserted(key: BlockNumber): Boolean =
-    peanoQueue.alreadyInserted(BlockNumberCounter(key))
+  def alreadyInserted(key: KeyT): Boolean =
+    peanoQueue.alreadyInserted(PeanoQueueCounter(key))
 
-  def insert(key: BlockNumber, value: T): Unit =
-    peanoQueue.insert(BlockNumberCounter(key), value).discard
+  def insert(key: KeyT, value: ValueT): Unit =
+    peanoQueue.insert(PeanoQueueCounter(key), value).discard
 
-  def pollAvailable(pollWhile: Option[T] => Boolean = _.isDefined): Seq[T] =
+  def pollAvailable(pollWhile: Option[ValueT] => Boolean = _.isDefined): Seq[ValueT] =
     LazyList
       .continually {
         if (pollWhile(headValue))

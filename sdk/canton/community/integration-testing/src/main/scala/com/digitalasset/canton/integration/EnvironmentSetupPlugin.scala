@@ -13,7 +13,7 @@ import com.digitalasset.canton.logging.NamedLogging
   * [[SharedEnvironment]] integration test setups. Must call [[EnvironmentSetup.registerPlugin]]
   * within its constructor to register the plugin.
   */
-trait EnvironmentSetupPlugin[TCE <: TestConsoleEnvironment] extends NamedLogging {
+trait EnvironmentSetupPlugin extends NamedLogging {
 
   /** Run before any of the tests in the test class have been run or an environment created */
   def beforeTests(): Unit = {}
@@ -28,11 +28,13 @@ trait EnvironmentSetupPlugin[TCE <: TestConsoleEnvironment] extends NamedLogging
   def beforeEnvironmentCreated(config: CantonConfig): CantonConfig = config
 
   /** Hook after the environment has been created but no tests have yet been run */
-  def afterEnvironmentCreated(config: CantonConfig, environment: TCE): Unit = {}
+  def afterEnvironmentCreated(config: CantonConfig, environment: TestConsoleEnvironment): Unit = {}
 
   /** Hook after all tests from the test class have completed but the environment is still running
     */
-  def beforeEnvironmentDestroyed(config: CantonConfig, environment: TCE): Unit = {}
+  def beforeEnvironmentDestroyed(
+      environment: TestConsoleEnvironment
+  ): Unit = {}
 
   /** Hook after the tests have been run and the environment has been shutdown */
   def afterEnvironmentDestroyed(config: CantonConfig): Unit = {}

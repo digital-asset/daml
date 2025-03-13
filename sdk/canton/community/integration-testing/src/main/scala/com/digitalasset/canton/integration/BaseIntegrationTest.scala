@@ -52,15 +52,15 @@ import scala.jdk.CollectionConverters.*
   * All integration tests must be located in package [[com.digitalasset.canton.integration.tests]]
   * or a subpackage thereof. This is required to correctly compute unit test coverage.
   */
-private[integration] trait BaseIntegrationTest[TCE <: TestConsoleEnvironment]
+private[integration] trait BaseIntegrationTest
     extends FixtureAnyWordSpec
     with BaseTest
     with RepeatableTestSuiteTest
-    with HasEnvironmentDefinition[TCE]
+    with HasEnvironmentDefinition
     with ProtocolVersionChecksFixtureAnyWordSpec {
-  this: EnvironmentSetup[TCE] =>
+  this: EnvironmentSetup =>
 
-  type FixtureParam = TCE
+  type FixtureParam = TestConsoleEnvironment
 
   override protected def withFixture(test: OneArgTest): Outcome = {
     val integrationTestPackage = "com.digitalasset.canton.integration.tests"

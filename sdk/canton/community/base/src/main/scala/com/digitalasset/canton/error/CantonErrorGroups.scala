@@ -36,6 +36,7 @@ object CantonErrorGroups {
     abstract class PruningServiceErrorGroup extends ErrorGroup()
     abstract class InspectionServiceErrorGroup extends ErrorGroup()
     abstract class RepairServiceErrorGroup extends ErrorGroup()
+    abstract class PartyManagementServiceErrorGroup extends ErrorGroup()
 
     object TransactionErrorGroup extends ErrorGroup() {
       // TransactionInjectErrors are initial injection errors resulting from the canton sync service

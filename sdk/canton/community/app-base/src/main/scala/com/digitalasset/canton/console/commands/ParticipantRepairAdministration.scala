@@ -18,10 +18,14 @@ import com.digitalasset.canton.console.{
   Help,
   Helpful,
 }
-import com.digitalasset.canton.data.RepairContract
 import com.digitalasset.canton.grpc.FileStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.admin.data.ActiveContract
+import com.digitalasset.canton.participant.admin.data.{
+  ActiveContract,
+  ContractIdImportMode,
+  RepairContract,
+  Validation,
+}
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
@@ -250,6 +254,62 @@ class ParticipantRepairAdministration(
             allowContractIdSuffixRecomputation = allowContractIdSuffixRecomputation,
           )
         )
+      }
+    }
+
+  @Help.Summary(
+    "Import active contracts from an Active Contract Set (ACS) snapshot file.",
+    FeatureFlag.Preview,
+  )
+  @Help.Description(
+    """This command imports contracts from an ACS snapshot file into the participant's
+      |ACS. It expects the given ACS snapshot file to be the result of a previous
+      |`export_acs_new` command invocation.
+      |
+      |The contract IDs of the imported contracts may be checked ahead of starting the
+      |process. If any contract ID doesn't match the contract ID scheme associated to
+      |the synchronizer where the contract is assigned to, the whole import process
+      |will fail depending on the value of `contractIdImportMode`.
+      |
+      |By default `contractIdImportMode` is set to `ContractIdImportMode.Validation`.
+      |If set to `ContractIdImportMode.Recomputation`, any contract ID that wouldn't
+      |pass the check above will be recomputed. Note that the recomputation of contract
+      |IDs will fail under the following circumstances:
+      | - the contract salt used to compute the contract ID is missing
+      | - the contract ID discriminator version is unknown
+      |
+      |Note that only the Canton-specific contract ID suffix will be recomputed. The
+      |discriminator cannot be recomputed and will be left as is.
+      |
+      |The recomputation will not be performed on contract IDs referenced in the payload
+      |of some imported contract but is missing from the import itself (this should mean
+      |that the contract was archived, which makes recomputation unnecessary).
+      |
+      |Expert only: As validation or recomputation on contract IDs may lengthen the
+      |import significantly, you have the option to simply accept the contract IDs as they
+      |are using `ContractIdImportMode.Accept`.
+      |
+      |If the import process succeeds, the mapping from the old contract IDs to the new
+      |contract IDs will be returned. An empty map means that all contract IDs were valid,
+      |or have been accept as they are, and no contract ID was recomputed.
+      """
+  )
+  def import_acs_new(
+      inputFile: String = "canton-acs-export-new.gz",
+      workflowIdPrefix: String = "",
+      contractIdImportMode: ContractIdImportMode = Validation,
+  ): Map[LfContractId, LfContractId] =
+    check(FeatureFlag.Repair) {
+      check(FeatureFlag.Preview) {
+        consoleEnvironment.run {
+          runner.adminCommand(
+            ParticipantAdminCommands.ParticipantRepairManagement.ImportAcsNew(
+              ByteString.copyFrom(File(inputFile).loadBytes),
+              if (workflowIdPrefix.nonEmpty) workflowIdPrefix else s"import-${UUID.randomUUID}",
+              contractIdImportMode = contractIdImportMode,
+            )
+          )
+        }
       }
     }
 

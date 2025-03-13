@@ -7,7 +7,11 @@ import cats.instances.order.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{SigningKeyUsage, SigningPublicKey}
-import com.digitalasset.canton.topology.transaction.{NamespaceDelegation, TopologyMapping}
+import com.digitalasset.canton.topology.transaction.{
+  NamespaceDelegation,
+  SingleTransactionSignature,
+  TopologyMapping,
+}
 import com.digitalasset.canton.topology.{Namespace, TestingOwnerWithKeys}
 import com.digitalasset.canton.{BaseTestWordSpec, ProtocolVersionChecksAnyWordSpec}
 import org.scalatest.wordspec.AnyWordSpec
@@ -77,7 +81,11 @@ class AuthorizationGraphTest
         .failOnShutdown
         .futureValue
         .getOrElse(sys.error(s"Error when signing ${authTx}with $key"))
-      authTx.copy(transaction = authTx.transaction.copy(signatures = NonEmpty(Set, signature)))
+      authTx.copy(transaction =
+        authTx.transaction.copy(signatures =
+          NonEmpty.mk(Set, SingleTransactionSignature(authTx.transaction.hash, signature))
+        )
+      )
     }
 
   }

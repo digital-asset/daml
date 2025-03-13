@@ -3,17 +3,13 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology
 
-import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
-import com.digitalasset.canton.crypto.{
-  Hash,
-  HashPurpose,
-  Signature,
-  SignatureCheckError,
-  SigningKeyUsage,
-  SyncCryptoError,
-}
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.{
+  AuthenticatedMessageType,
+  hashForMessage,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
@@ -22,20 +18,17 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.tracing.TraceContext
 
-import CryptoProvider.hashForMessage
-
 trait CryptoProvider[E <: Env[E]] {
-  def sign(
-      hash: Hash,
-      usage: NonEmpty[Set[SigningKeyUsage]],
+
+  def signHash(
+      hash: Hash
   )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Either[SyncCryptoError, Signature]]
 
   def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
       message: MessageT,
-      hashPurpose: HashPurpose,
-      usage: NonEmpty[Set[SigningKeyUsage]],
+      authenticatedMessageType: AuthenticatedMessageType,
   )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Either[SyncCryptoError, SignedMessage[MessageT]]]
@@ -44,35 +37,61 @@ trait CryptoProvider[E <: Env[E]] {
       hash: Hash,
       member: BftNodeId,
       signature: Signature,
-      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Either[SignatureCheckError, Unit]]
 
   def verifySignedMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
       signedMessage: SignedMessage[MessageT],
-      hashPurpose: HashPurpose,
-      usage: NonEmpty[Set[SigningKeyUsage]],
+      authenticatedMessageType: AuthenticatedMessageType,
   )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Either[SignatureCheckError, Unit]] =
     verifySignature(
-      hashForMessage(signedMessage.message, signedMessage.from, hashPurpose),
+      hashForMessage(signedMessage.message, signedMessage.from, authenticatedMessageType),
       signedMessage.from,
       signedMessage.signature,
-      usage,
     )
 }
 
 object CryptoProvider {
+
+  sealed trait AuthenticatedMessageType extends Product
+  object AuthenticatedMessageType {
+    case object BftOrderingPbftBlock extends AuthenticatedMessageType
+    case object BftAvailabilityAck extends AuthenticatedMessageType
+    case object BftBatchId extends AuthenticatedMessageType
+    case object BftSignedAvailabilityMessage extends AuthenticatedMessageType
+    case object BftSignedConsensusMessage extends AuthenticatedMessageType
+    case object BftSignedStateTransferMessage extends AuthenticatedMessageType
+    case object BftSignedRetransmissionMessage extends AuthenticatedMessageType
+  }
+
   def hashForMessage[MessageT <: ProtocolVersionedMemoizedEvidence](
       messageT: MessageT,
       from: BftNodeId,
-      hashPurpose: HashPurpose,
+      authenticatedMessageType: AuthenticatedMessageType,
   ): Hash =
     Hash
-      .build(hashPurpose, Sha256)
+      .build(toHashPurpose(authenticatedMessageType), Sha256)
       .add(from)
       .add(messageT.getCryptographicEvidence)
       .finish()
+
+  private def toHashPurpose(
+      authenticatedMessageType: AuthenticatedMessageType
+  ): HashPurpose =
+    authenticatedMessageType match {
+      case AuthenticatedMessageType.BftOrderingPbftBlock => HashPurpose.BftOrderingPbftBlock
+      case AuthenticatedMessageType.BftAvailabilityAck => HashPurpose.BftAvailabilityAck
+      case AuthenticatedMessageType.BftBatchId => HashPurpose.BftBatchId
+      case AuthenticatedMessageType.BftSignedAvailabilityMessage =>
+        HashPurpose.BftSignedAvailabilityMessage
+      case AuthenticatedMessageType.BftSignedConsensusMessage =>
+        HashPurpose.BftSignedConsensusMessage
+      case AuthenticatedMessageType.BftSignedStateTransferMessage =>
+        HashPurpose.BftSignedStateTransferMessage
+      case AuthenticatedMessageType.BftSignedRetransmissionMessage =>
+        HashPurpose.BftSignedRetransmissionMessage
+    }
 }

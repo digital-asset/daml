@@ -5,11 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
-  P2PEndpoint,
-  PlainTextP2PEndpoint,
-}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl.Send
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
@@ -25,22 +21,17 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   TraceContextGenerator,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.RunningFuture
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.OnboardingDataProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.OnboardingManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   Module,
   ModuleName,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.SimulationTopologyHelpers.{
-  onboardingTime,
-  sequencerBecomeOnlineTime,
-}
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.tracing.TraceContext
-import org.slf4j.{Logger, LoggerFactory}
 import pprint.{PPrinter, Tree}
 
 import scala.collection.mutable
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 /** @param clock
@@ -57,7 +48,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
       SystemInputMessageT,
       ClientMessageT,
     ],
-    onboardingDataProvider: OnboardingDataProvider[OnboardingDataT],
+    onboardingManager: OnboardingManager[OnboardingDataT],
     machineInitializer: MachineInitializer[
       OnboardingDataT,
       SystemNetworkMessageT,
@@ -68,28 +59,14 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
     clock: SimClock,
     traceContextGenerator: TraceContextGenerator,
     loggerFactory: NamedLoggerFactory,
-)(val agenda: Agenda = new Agenda(clock)) {
+)(val agenda: Agenda = new Agenda(clock, loggerFactory)) {
 
   val simulationStageStart: CantonTimestamp = clock.now
 
   // onboarding
-  simSettings.nodeOnboardingDelays
-    .zip(topology.laterOnboardedEndpointsWithInitializers)
-    .foldLeft(Map[TopologyActivationTime, Seq[PlainTextP2PEndpoint]]()) {
-      case (acc, (onboardingDelay, (endpoint, _))) =>
-        val activationTime = onboardingTime(simulationStageStart, onboardingDelay)
-        acc.get(activationTime) match {
-          case Some(endpoints) => acc + (activationTime -> (endpoints :+ endpoint))
-          case None => acc + (activationTime -> Seq(endpoint))
-        }
-    }
-    .foreach { case (onboardingTime, endpoints) =>
-      agenda.addOne(
-        OnboardSequencers(endpoints),
-        at = sequencerBecomeOnlineTime(onboardingTime, simSettings),
-        ScheduledCommand.DefaultPriority,
-      )
-    }
+  onboardingManager.initCommands.foreach { case (command, at) =>
+    agenda.addOne(command, at, ScheduledCommand.DefaultPriority)
+  }
 
   agenda.addOne(MakeSystemHealthy, simSettings.durationOfFirstPhaseWithFaults)
   // Schedule liveness checks starting from "phase 2" up to the end of the simulation
@@ -112,7 +89,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
 
   // the init functions might have already sent messages that we need to add to the agenda
   topology.foreach { (node, machine) =>
-    runNodeCollector(node, FromInit, machine.nodeCollector)
+    runNodeCollector(node, EventOriginator.FromInit, machine.nodeCollector)
     runClientCollector(node, machine.clientCollector)
   }
 
@@ -120,7 +97,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private val currentHistory: mutable.ArrayBuffer[Command] = mutable.ArrayBuffer.empty[Command]
 
-  implicit private val logger: Logger = LoggerFactory.getLogger(getClass)
+  private val logger = loggerFactory.getLogger(getClass)
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private def nextThingTodo(): ScheduledCommand = {
@@ -153,20 +130,26 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
 
   private def runClientCollector(node: BftNodeId, collector: ClientCollector): Unit =
     collector.collect().foreach {
-      case ClientCollector.TickEvent(duration, tickId, newMsg) =>
-        local.scheduleClientTick(node, tickId, duration, newMsg)
+      case ClientCollector.TickEvent(duration, tickId, newMsg, traceContext) =>
+        local.scheduleClientTick(node, tickId, duration, newMsg, traceContext)
       case ClientCollector.ClientRequest(to, msg, traceContext) =>
-        local.scheduleEvent(node, to, FromClient, ModuleControl.Send(msg, traceContext))
+        local.scheduleEvent(
+          node,
+          to,
+          EventOriginator.FromClient,
+          ModuleControl.Send(msg, traceContext),
+        )
       case ClientCollector.CancelTick(tickCounter) =>
         agenda.removeClientTick(node, tickCounter)
     }
 
   private def executeEvent[MessageT](
       node: BftNodeId,
-      to: ModuleName,
+      toAddress: ModuleAddress,
       msg: ModuleControl[SimulationEnv, MessageT],
   ): Unit = {
     val machine = tryGetMachine(node)
+    val to = machine.resolveModuleAddress(toAddress)
     val context =
       SimulationModuleSystem.SimulationModuleNodeContext[MessageT](
         to,
@@ -196,7 +179,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
       case ModuleControl.NoOp() =>
     }
 
-    runNodeCollector(node, FromInternalModule(to), machine.nodeCollector)
+    runNodeCollector(node, EventOriginator.FromInternalModule(to), machine.nodeCollector)
   }
 
   private def executeFuture[FutureT, MessageT](
@@ -215,11 +198,16 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
         )
       case RunningFuture.Resolved(valueFromFuture) =>
         fun(valueFromFuture).foreach { msg =>
-          local.scheduleEvent(node, name, FromFuture, ModuleControl.Send(msg, traceContext))
+          local.scheduleEvent(
+            node,
+            name,
+            EventOriginator.FromFuture,
+            ModuleControl.Send(msg, traceContext),
+          )
         }
     }
 
-  private def executeClientTick[M](node: BftNodeId, msg: M): Unit = {
+  private def executeClientTick[M](node: BftNodeId, msg: M, traceContext: TraceContext): Unit = {
     val machine = tryGetMachine(node)
     asModule[M](machine.clientReactor)
       .receive(msg)(
@@ -229,71 +217,38 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
             traceContextGenerator,
             loggerFactory,
           ),
-        TraceContext.empty,
+        traceContext,
       )
     runClientCollector(node, machine.clientCollector)
+  }
+
+  private def startMachine(
+      endpoint: P2PEndpoint
+  ): BftNodeId = {
+    val node = endpointToNode(endpoint)
+    val initializer = topology.laterOnboardedEndpointsWithInitializers(endpoint)
+    val onboardingData = onboardingManager.provide(node)
+    val machine = machineInitializer.initialize(onboardingData, initializer)
+    topology = topology.copy(activeSequencersToMachines =
+      topology.activeSequencersToMachines.updated(node, machine)
+    )
+    // handle init messages
+    runNodeCollector(node, EventOriginator.FromInit, machine.nodeCollector)
+    node
   }
 
   private def crashRestartNode(node: BftNodeId): Unit = {
     agenda.removeCommandsOnCrash(node)
     val machine = tryGetMachine(node)
     machine.crashRestart(node)
-    runNodeCollector(node, FromInit, machine.nodeCollector)
-  }
-
-  private def onboardSequencers(endpoints: Seq[PlainTextP2PEndpoint]): Unit = {
-    val endpointsToNodes = endpoints.view
-      .map(endpoint => endpoint -> endpointToNode(endpoint))
-      .toMap
-
-    logger.info(s"Onboarding new sequencers ${endpointsToNodes.values} at ${clock.now}")
-
-    // connect existing nodes to new nodes
-    endpoints.foreach { endpoint =>
-      topology.foreach { case (node, _) =>
-        addEndpoint(endpoint, node)
-      }
-    }
-
-    // initialize
-    endpoints.foreach { endpoint =>
-      val node = endpointsToNodes(endpoint)
-      val initializer = topology.laterOnboardedEndpointsWithInitializers(endpoint)
-      val onboardingData = onboardingDataProvider.provide(node)
-      val machine = machineInitializer.initialize(onboardingData, initializer)
-      topology = topology.copy(activeSequencersToMachines =
-        topology.activeSequencersToMachines.updated(node, machine)
-      )
-      // handle init messages
-      runNodeCollector(node, FromInit, machine.nodeCollector)
-    }
-
-    // connect new nodes (currently onboarding in this stage) to all active non-initial nodes.
-    // note that connections from new nodes to initial nodes were already established during stage setup
-    // (i.e., `new SimulationP2PEndpointsStore`) in BftOrderingSimulationTest.
-    topology.activeNonInitialEndpoints.foreach { activeNonInitialEndpoint =>
-      endpoints.foreach { newNodeEndpoint =>
-        if (activeNonInitialEndpoint != newNodeEndpoint) {
-          val newNode = endpointToNode(newNodeEndpoint)
-          logger.debug(
-            s"scheduling execution of addEndpoint for $newNode -> $activeNonInitialEndpoint"
-          )
-          // needs to happen after handling init messages (setting behaviors for modules)
-          agenda.addOne(
-            AddEndpoint(activeNonInitialEndpoint, newNode),
-            duration = 1.microsecond,
-            ScheduledCommand.DefaultPriority,
-          )
-        }
-      }
-    }
+    runNodeCollector(node, EventOriginator.FromInit, machine.nodeCollector)
   }
 
   private def addEndpoint(endpoint: P2PEndpoint, to: BftNodeId): Unit = {
     logger.debug(s"immediately executing addEndpoint for $to -> $endpoint")
     executeEvent(
       to,
-      tryGetMachine(to).networkOutReactor,
+      ModuleAddress.NetworkOut,
       ModuleControl.Send(
         P2PNetworkOut.Admin.AddEndpoint(
           endpoint,
@@ -335,6 +290,11 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
       case someReactor => someReactor
     }
 
+  def addCommands(commands: Seq[(Command, FiniteDuration)]): Unit = commands.foreach {
+    case (command, duration) =>
+      agenda.addOne(command, duration)
+  }
+
   @SuppressWarnings(Array("org.wartremover.warts.While"))
   def run(verifier: SimulationVerifier = NoVerification): History = {
     logger.debug(
@@ -354,9 +314,11 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
 
         whatToDo.command match {
           case InternalEvent(machineName, to, _, msg) =>
-            executeEvent(machineName, to, msg)
+            executeEvent(machineName, ModuleAddress.ViaName(to), msg)
+          case InjectedSend(machineName, to, _, msg) =>
+            executeEvent(machineName, to, ModuleControl.Send(msg, TraceContext.empty))
           case InternalTick(machineName, to, _, msg) =>
-            executeEvent(machineName, to, msg)
+            executeEvent(machineName, ModuleAddress.ViaName(to), msg)
           case RunFuture(machine, to, toRun, fun, traceContext) =>
             logger.trace(s"Future ${toRun.name} for $machine:$to completed")
             executeFuture(machine, to, toRun, fun, traceContext)
@@ -365,21 +327,25 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
             local.scheduleEvent(
               machineName,
               tryGetMachine(machineName).networkInReactor,
-              FromNetwork,
+              EventOriginator.FromNetwork,
               ModuleControl.Send(msg, traceContext),
             )
-          case ClientTick(machine, _, msg) =>
+          case ClientTick(machine, _, msg, traceContext) =>
             logger.info(s"Client for $machine ticks")
-            executeClientTick(machine, msg)
-          case OnboardSequencers(endpoints) =>
-            onboardSequencers(endpoints)
+            executeClientTick(machine, msg, traceContext)
+          case StartMachine(endpoint) =>
+            val node = startMachine(endpoint)
+            verifier.nodeStarted(clock.now, node)
+            addCommands(onboardingManager.machineStarted(clock.now, endpoint, node))
+          case PrepareOnboarding(node) =>
+            addCommands(onboardingManager.prepareOnboardingFor(clock.now, node))
           case AddEndpoint(endpoint, to) =>
             addEndpoint(endpoint, to)
           case EstablishConnection(from, to, endpoint, continuation) =>
             logger.debug(s"Establish connection '$from' -> '$to' via $endpoint")
             continuation(endpoint.id, to)
             val machine = tryGetMachine(from)
-            runNodeCollector(from, FromNetwork, machine.nodeCollector)
+            runNodeCollector(from, EventOriginator.FromNetwork, machine.nodeCollector)
           case CrashRestartNode(node) =>
             logger.info(s"Crashing '$node'")
             crashRestartNode(node)
@@ -395,6 +361,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
         }
 
         verifier.checkInvariants(clock.now)
+        addCommands(onboardingManager.commandsToSchedule(clock.now))
       }
     } catch {
       case e: Throwable =>
@@ -409,9 +376,9 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
 
   def newStage(
       simulationSettings: SimulationSettings,
-      onboardingDataProvider: OnboardingDataProvider[OnboardingDataT],
+      onboardingDataProvider: OnboardingManager[OnboardingDataT],
       newlyOnboardedEndpointsToInitializers: Map[
-        PlainTextP2PEndpoint,
+        P2PEndpoint,
         SimulationInitializer[
           OnboardingDataT,
           SystemNetworkMessageT,
@@ -452,17 +419,19 @@ final case class Reactor[InnerMessage](module: Module[SimulationEnv, InnerMessag
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 final case class Machine[OnboardingDataT, SystemNetworkMessageT](
     allReactors: mutable.Map[ModuleName, Reactor[?]],
+    mempoolReactor: ModuleName,
+    outputReactor: ModuleName,
     networkInReactor: ModuleName,
     networkOutReactor: ModuleName,
     nodeCollector: NodeCollector,
     clientReactor: Reactor[?],
     clientCollector: ClientCollector,
     init: SimulationInitializer[OnboardingDataT, SystemNetworkMessageT, ?, ?],
-    onboardingDataProvider: OnboardingDataProvider[OnboardingDataT],
+    onboardingManager: OnboardingManager[OnboardingDataT],
     loggerFactory: NamedLoggerFactory,
     simulationP2PNetworkManager: SimulationP2PNetworkManager[SystemNetworkMessageT],
 ) {
-  implicit private val logger: Logger = LoggerFactory.getLogger(getClass)
+  private val logger = loggerFactory.getLogger(getClass)
 
   def crashRestart(node: BftNodeId): Unit = {
     logger.info("Stopping modules to simulate crash")
@@ -470,8 +439,16 @@ final case class Machine[OnboardingDataT, SystemNetworkMessageT](
     val system = new SimulationModuleSystem(nodeCollector, loggerFactory)
     logger.info("Initializing modules again to simulate restart")
     val _ = init
-      .systemInitializerFactory(onboardingDataProvider.provide(node))
+      .systemInitializerFactory(onboardingManager.provide(node))
       .initialize(system, simulationP2PNetworkManager)
+  }
+
+  def resolveModuleAddress(toAddress: ModuleAddress) = toAddress match {
+    case ModuleAddress.ViaName(moduleName) => moduleName
+    case ModuleAddress.Mempool => mempoolReactor
+    case ModuleAddress.Output => outputReactor
+    case ModuleAddress.NetworkIn => networkInReactor
+    case ModuleAddress.NetworkOut => networkOutReactor
   }
 }
 
@@ -483,7 +460,7 @@ final case class Topology[
 ](
     activeSequencersToMachines: Map[BftNodeId, Machine[?, ?]],
     laterOnboardedEndpointsWithInitializers: Map[
-      PlainTextP2PEndpoint,
+      P2PEndpoint,
       SimulationInitializer[
         OnboardingDataT,
         SystemNetworkMessageT,
@@ -492,7 +469,7 @@ final case class Topology[
       ],
     ],
 ) {
-  lazy val activeNonInitialEndpoints: Seq[PlainTextP2PEndpoint] =
+  lazy val activeNonInitialEndpoints: Seq[P2PEndpoint] =
     laterOnboardedEndpointsWithInitializers
       .filter { case (endpoint, _) =>
         val nodeId = endpointToNode(endpoint)

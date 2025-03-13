@@ -59,6 +59,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
       SignedContent(
         Deliver.create(
           SequencerCounter(counter),
+          None, // TODO(#11834): Make sure that tests using mkDeliver are not affected by this after counters are gone
           ts,
           synchronizerId,
           Some(MessageId.tryCreate("deliver")),
@@ -82,6 +83,9 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
       SignedContent(
         Deliver.create(
           SequencerCounter.MaxValue,
+          Some(
+            CantonTimestamp.MaxValue
+          ), // TODO(#11834): Make sure that tests are not affected by this after counters are gone
           CantonTimestamp.MaxValue,
           synchronizerId,
           Some(MessageId.tryCreate("single-max-positive-deliver")),
@@ -102,6 +106,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
       SignedContent(
         Deliver.create(
           SequencerCounter(Long.MinValue),
+          None, // TODO(#11834): Make sure that tests are not affected by this after counters are gone
           CantonTimestamp.MinValue,
           synchronizerId,
           Some(MessageId.tryCreate("single-min-deliver")),
@@ -122,6 +127,9 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
       SignedContent(
         Deliver.create(
           SequencerCounter(99),
+          Some(
+            CantonTimestamp.ofEpochMilli(-2)
+          ), // TODO(#11834): Make sure that tests using modifiedSingleDeliver are not affected by this after counters are gone
           CantonTimestamp.ofEpochMilli(-1),
           synchronizerId,
           Some(MessageId.tryCreate("single-deliver")),
@@ -155,6 +163,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
       SignedContent(
         Deliver.create(
           SequencerCounter(101),
+          None, // TODO(#11834): Make sure that tests using emptyDeliver are not affected by this after counters are gone
           CantonTimestamp.ofEpochMilli(1),
           synchronizerId,
           Some(MessageId.tryCreate("empty-deliver")),
@@ -174,6 +183,9 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
       SignedContent(
         DeliverError.create(
           SequencerCounter(sc),
+          Some(
+            ts.immediatePredecessor
+          ), // TODO(#11834): Make sure that tests using mkDeliverError are not affected by this after counters are gone
           ts,
           synchronizerId,
           MessageId.tryCreate("deliver-error"),
@@ -548,6 +560,9 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
           signDeliver(
             Deliver.create(
               SequencerCounter(102),
+              Some(
+                CantonTimestamp.ofEpochSecond(1)
+              ), // TODO(#11834): Make sure that tests are not affected by this after counters are gone
               CantonTimestamp.ofEpochSecond(2),
               synchronizerId,
               Some(MessageId.tryCreate("deliver1")),
@@ -562,6 +577,9 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
         signDeliver(
           Deliver.create(
             SequencerCounter(104),
+            Some(
+              deliver1.timestamp
+            ), // TODO(#11834): Make sure that tests are not affected by this after counters are gone
             CantonTimestamp.ofEpochSecond(200000),
             synchronizerId,
             Some(MessageId.tryCreate("deliver2")),
@@ -616,6 +634,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
           signDeliver(
             Deliver.create(
               SequencerCounter(102),
+              None, // TODO(#11834): Make sure that tests are not affected by this after counters are gone
               ts2,
               synchronizerId,
               Some(MessageId.tryCreate("deliver1")),
@@ -631,6 +650,9 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
           signDeliver(
             Deliver.create(
               SequencerCounter(104),
+              Some(
+                deliver1.timestamp
+              ), // TODO(#11834): Make sure that tests are not affected by this after counters are gone
               ts4,
               synchronizerId,
               Some(MessageId.tryCreate("deliver2")),
@@ -675,6 +697,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
           signDeliver(
             Deliver.create(
               SequencerCounter(102),
+              None, // TODO(#11834): Make sure that tests are not affected by this after counters are gone
               ts2,
               synchronizerId,
               Some(MessageId.tryCreate("deliver1")),
@@ -690,6 +713,9 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
           signDeliver(
             Deliver.create(
               SequencerCounter(104),
+              Some(
+                deliver1.timestamp
+              ), // TODO(#11834): Make sure that tests are not affected by this after counters are gone
               ts4,
               synchronizerId,
               Some(MessageId.tryCreate("deliver2")),

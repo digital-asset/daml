@@ -4,7 +4,6 @@
 package com.digitalasset.canton.util.retry
 
 import cats.Eval
-import cats.syntax.flatMap.*
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{

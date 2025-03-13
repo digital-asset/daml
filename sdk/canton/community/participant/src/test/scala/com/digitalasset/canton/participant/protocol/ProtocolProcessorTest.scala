@@ -171,6 +171,7 @@ class ProtocolProcessorTest
             Success(
               Deliver.create(
                 SequencerCounter(0),
+                None,
                 CantonTimestamp.Epoch,
                 synchronizer,
                 Some(messageId),

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology
 
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.FingerprintKeyId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
   CryptoProvider,
@@ -11,6 +12,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.top
   TopologyActivationTime,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology.NodeTopologyInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
   OrderingTopology,
   SequencingParameters,
@@ -44,7 +46,12 @@ class SimulationOrderingTopologyProvider(
 
       val topology =
         OrderingTopology(
-          activeSequencerTopologyData.view.mapValues(_.onboardingTime).toMap,
+          activeSequencerTopologyData.view.mapValues { simulationTopologyData =>
+            NodeTopologyInfo(
+              activationTime = simulationTopologyData.onboardingTime,
+              keyIds = Set(FingerprintKeyId.toBftKeyId(simulationTopologyData.signingPublicKey.id)),
+            )
+          }.toMap,
           SequencingParameters.Default,
           activationTime,
           // Switch the value deterministically so that we trigger all code paths.

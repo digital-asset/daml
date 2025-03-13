@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mo
 
 import cats.syntax.either.*
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.crypto.{HashPurpose, Signature, SignatureCheckError, SigningKeyUsage}
+import com.digitalasset.canton.crypto.{Signature, SignatureCheckError}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -18,6 +18,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.memory.GenericInMemoryAvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
@@ -146,14 +147,14 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     AvailabilityAck(from = Node1, Signature.noSignature),
     AvailabilityAck(from = Node2, Signature.noSignature),
   )
-  private val OrderingTopologyNode0 = OrderingTopology(Set(Node0))
+  private val OrderingTopologyNode0 = OrderingTopology.forTesting(Set(Node0))
   private val ADisseminationProgressNode0WithNode0Vote =
     DisseminationProgress(
       OrderingTopologyNode0,
       AnInProgressBatchMetadata,
       votes = Node0Acks,
     )
-  private val OrderingTopologyNodes0And1 = OrderingTopology(Set(Node0, Node1))
+  private val OrderingTopologyNodes0And1 = OrderingTopology.forTesting(Set(Node0, Node1))
 
   private val ADisseminationProgressNode0And1WithNode0Vote =
     ADisseminationProgressNode0WithNode0Vote.copy(
@@ -165,12 +166,12 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       AnInProgressBatchMetadata,
       votes = Node0And1Acks.toSet,
     )
-  private val OrderingTopologyNodes0To3 = OrderingTopology(Node0To3)
+  private val OrderingTopologyNodes0To3 = OrderingTopology.forTesting(Node0To3)
   private val ADisseminationProgressNode0To3WithNode0Vote =
     ADisseminationProgressNode0WithNode0Vote.copy(
       orderingTopology = OrderingTopologyNodes0To3
     )
-  private val OrderingTopologyWithNode0To6 = OrderingTopology(Node1To6 + Node0)
+  private val OrderingTopologyWithNode0To6 = OrderingTopology.forTesting(Node1To6 + Node0)
   private val ADisseminationProgressNode0To6WithNode0Vote =
     ADisseminationProgressNode0WithNode0Vote.copy(
       orderingTopology = OrderingTopologyWithNode0To6
@@ -335,9 +336,8 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             cryptoProvider = cryptoProvider,
           )
           availability.receive(LocalDissemination.LocalBatchStored(ABatchId, ABatch))
-          verify(cryptoProvider).sign(
-            AvailabilityAck.hashFor(ABatchId, anExpirationTime, me),
-            SigningKeyUsage.ProtocolOnly,
+          verify(cryptoProvider).signHash(
+            AvailabilityAck.hashFor(ABatchId, anExpirationTime, me)
           )
 
           availability.receive(
@@ -367,9 +367,8 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         )
         availability.receive(LocalDissemination.LocalBatchStored(ABatchId, ABatch))
 
-        verify(cryptoProvider).sign(
-          AvailabilityAck.hashFor(ABatchId, anExpirationTime, me),
-          SigningKeyUsage.ProtocolOnly,
+        verify(cryptoProvider).signHash(
+          AvailabilityAck.hashFor(ABatchId, anExpirationTime, me)
         )
 
         availability.receive(
@@ -406,9 +405,8 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         )
         availability.receive(LocalDissemination.LocalBatchStored(ABatchId, ABatch))
 
-        verify(cryptoProvider).sign(
-          AvailabilityAck.hashFor(ABatchId, anExpirationTime, me),
-          SigningKeyUsage.ProtocolOnly,
+        verify(cryptoProvider).signHash(
+          AvailabilityAck.hashFor(ABatchId, anExpirationTime, me)
         )
 
         availability.receive(
@@ -457,9 +455,8 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
           availability.receive(LocalDissemination.LocalBatchStored(ABatchId, ABatch))
 
-          verify(cryptoProvider).sign(
-            AvailabilityAck.hashFor(ABatchId, anExpirationTime, me),
-            SigningKeyUsage.ProtocolOnly,
+          verify(cryptoProvider).signHash(
+            AvailabilityAck.hashFor(ABatchId, anExpirationTime, me)
           )
 
           availability.receive(
@@ -479,8 +476,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             .create(ABatchId, ABatch, Node0)
           verify(cryptoProvider).signMessage(
             remoteBatch,
-            HashPurpose.BftSignedAvailabilityMessage,
-            SigningKeyUsage.ProtocolOnly,
+            AuthenticatedMessageType.BftSignedAvailabilityMessage,
           )
 
           context.runPipedMessagesAndReceiveOnModule(availability)
@@ -524,9 +520,8 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
           availability.receive(LocalDissemination.LocalBatchStored(ABatchId, ABatch))
 
-          verify(cryptoProvider).sign(
-            AvailabilityAck.hashFor(ABatchId, anExpirationTime, me),
-            SigningKeyUsage.ProtocolOnly,
+          verify(cryptoProvider).signHash(
+            AvailabilityAck.hashFor(ABatchId, anExpirationTime, me)
           )
 
           availability.receive(
@@ -545,8 +540,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           val remoteBatch = RemoteDissemination.RemoteBatch.create(ABatchId, ABatch, Node0)
           verify(cryptoProvider).signMessage(
             remoteBatch,
-            HashPurpose.BftSignedAvailabilityMessage,
-            SigningKeyUsage.ProtocolOnly,
+            AuthenticatedMessageType.BftSignedAvailabilityMessage,
           )
 
           context.runPipedMessagesAndReceiveOnModule(availability)
@@ -651,9 +645,8 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       disseminationProtocolState.disseminationProgress should be(empty)
       disseminationProtocolState.batchesReadyForOrdering should be(empty)
       disseminationProtocolState.toBeProvidedToConsensus should be(empty)
-      verify(cryptoProvider).sign(
-        AvailabilityAck.hashFor(ABatchId, anExpirationTime, myId),
-        SigningKeyUsage.ProtocolOnly,
+      verify(cryptoProvider).signHash(
+        AvailabilityAck.hashFor(ABatchId, anExpirationTime, myId)
       )
     }
   }
@@ -736,7 +729,6 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           AvailabilityAck.hashFor(msg.batchId, anExpirationTime, msg.from),
           msg.from,
           msg.signature,
-          SigningKeyUsage.ProtocolOnly,
         )
 
         availability.receive(
@@ -774,7 +766,6 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
               AvailabilityAck.hashFor(quorumAck.batchId, anExpirationTime, quorumAck.from),
               quorumAck.from,
               quorumAck.signature,
-              SigningKeyUsage.ProtocolOnly,
             )
           }
 
@@ -818,7 +809,6 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             AvailabilityAck.hashFor(quorumAck.batchId, anExpirationTime, quorumAck.from),
             quorumAck.from,
             quorumAck.signature,
-            SigningKeyUsage.ProtocolOnly,
           )
         }
 
@@ -870,7 +860,6 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             AvailabilityAck.hashFor(msg.batchId, anExpirationTime, msg.from),
             msg.from,
             msg.signature,
-            SigningKeyUsage.ProtocolOnly,
           )
 
           availability.receive(
@@ -919,7 +908,6 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
               AvailabilityAck.hashFor(quorumAck.batchId, anExpirationTime, quorumAck.from),
               quorumAck.from,
               quorumAck.signature,
-              SigningKeyUsage.ProtocolOnly,
             )
             availability.receive(
               LocalDissemination.RemoteBatchAcknowledgeVerified(
@@ -970,7 +958,6 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             AvailabilityAck.hashFor(quorumAck.batchId, anExpirationTime, quorumAck.from),
             quorumAck.from,
             quorumAck.signature,
-            SigningKeyUsage.ProtocolOnly,
           )
 
           availability.receive(
@@ -1433,8 +1420,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             when(
               cryptoProvider.signMessage(
                 fetchRemoteBatchData,
-                HashPurpose.BftSignedAvailabilityMessage,
-                SigningKeyUsage.ProtocolOnly,
+                AuthenticatedMessageType.BftSignedAvailabilityMessage,
               )
             ) thenReturn (() => Right(fetchRemoteBatchData.fakeSign))
 
@@ -1471,8 +1457,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
             verify(cryptoProvider).signMessage(
               fetchRemoteBatchData,
-              HashPurpose.BftSignedAvailabilityMessage,
-              SigningKeyUsage.ProtocolOnly,
+              AuthenticatedMessageType.BftSignedAvailabilityMessage,
             )
 
             p2pNetworkOutCell.get() should contain(
@@ -2142,9 +2127,8 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           availability.receive(message)
 
           context.runPipedMessages() shouldBe Seq(reply)
-          verify(cryptoProvider).sign(
-            AvailabilityAck.hashFor(ABatchId, anExpirationTime, Node0),
-            SigningKeyUsage.ProtocolOnly,
+          verify(cryptoProvider).signHash(
+            AvailabilityAck.hashFor(ABatchId, anExpirationTime, Node0)
           )
         }
       }
@@ -2426,8 +2410,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       when(
         cryptoProvider.verifySignedMessage(
           signedMessage,
-          HashPurpose.BftSignedAvailabilityMessage,
-          SigningKeyUsage.ProtocolOnly,
+          AuthenticatedMessageType.BftSignedAvailabilityMessage,
         )
       ) thenReturn (() => Either.unit)
 
@@ -2455,8 +2438,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       when(
         cryptoProvider.verifySignedMessage(
           signedMessage,
-          HashPurpose.BftSignedAvailabilityMessage,
-          SigningKeyUsage.ProtocolOnly,
+          AuthenticatedMessageType.BftSignedAvailabilityMessage,
         )
       ) thenReturn (() => Left(signatureCheckError))
 

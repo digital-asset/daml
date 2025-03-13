@@ -7,22 +7,24 @@ import cats.data.EitherT
 import cats.instances.order.*
 import cats.instances.seq.*
 import cats.syntax.either.*
+import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
+import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30
-import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbSerializationException
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.TopologyManager.assignExpectedUsageToKeys
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.*
 import com.google.common.annotations.VisibleForTesting
@@ -41,9 +43,11 @@ import scala.reflect.ClassTag
   * Whether the key is eligible to authorize the topology transaction depends on the topology state
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
-case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapping](
+case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapping] private (
     transaction: TopologyTransaction[Op, M],
-    signatures: NonEmpty[Set[Signature]],
+    // All signatures from both the single and multi transaction hashes
+    // May or may not cover the transaction hash.
+    signatures: NonEmpty[Set[TopologyTransactionSignature]],
     isProposal: Boolean,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -57,27 +61,69 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
     with Serializable
     with PrettyPrinting {
 
+  def allUnvalidatedSignaturesCoveringHash: Set[TopologyTransactionSignature] =
+    signatures.filter(_.coversHash(transaction.hash))
+
+  private val singleHashSignatures: Set[Signature] =
+    signatures.collect { case SingleTransactionSignature(_, signature) =>
+      signature
+    }
+
+  /** Computes a set of hash -> signature pairs for all signatures
+    */
+  def signaturesWithHash(
+      hashOps: HashOps
+  ): Set[(Hash, TopologyTransactionSignature)] =
+    signatures
+      .map { signature =>
+        signature.computeHashForSignatureVerification(hashOps) -> signature
+      }
+
   override protected def transactionLikeDelegate: TopologyTransactionLike[Op, M] = transaction
 
   def hashOfSignatures(protocolVersion: ProtocolVersion): Hash = {
     val builder = Hash.build(HashPurpose.TopologyTransactionSignature, HashAlgorithm.Sha256)
     signatures.toList
       .sortBy(_.signedBy.toProtoPrimitive)
-      .foreach(signature => builder.add(signature.toByteString(protocolVersion)))
+      .foreach(signature => builder.add(signature.signature.toByteString(protocolVersion)))
     builder.finish()
   }
 
-  def addSignatures(add: Seq[Signature]): SignedTopologyTransaction[Op, M] =
+  /** Add new signatures into the existing ones. Important: this method DOES NOT check that the
+    * added signatures are consistent with this transaction, and specifically does not check that
+    * multi-transaction signatures cover this transaction hash.
+    */
+  def addSignatures(
+      newSignatures: NonEmpty[Set[TopologyTransactionSignature]]
+  ): SignedTopologyTransaction[Op, M] =
     SignedTopologyTransaction(
       transaction,
-      signatures ++ add,
+      signatures ++ newSignatures,
       isProposal,
     )(representativeProtocolVersion)
 
-  def removeSignatures(keys: Set[Fingerprint]): Option[SignedTopologyTransaction[Op, M]] =
+  def addSingleSignatures(
+      newSignatures: NonEmpty[Set[Signature]]
+  ): SignedTopologyTransaction[Op, M] =
+    SignedTopologyTransaction(
+      transaction,
+      signatures ++ newSignatures.map(SingleTransactionSignature(transaction.hash, _)),
+      isProposal,
+    )(representativeProtocolVersion)
+
+  def addSignaturesFromTransaction(
+      signedTopologyTransaction: SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]
+  ): SignedTopologyTransaction[Op, M] =
+    addSignatures(signedTopologyTransaction.signatures)
+
+  def removeSignatures(keys: Set[Fingerprint]): Option[SignedTopologyTransaction[Op, M]] = {
+    val updatedSignatures =
+      signatures.filterNot(sig => keys.contains(sig.signedBy))
+
     NonEmpty
-      .from(signatures.filterNot(sig => keys.contains(sig.signedBy)))
-      .map(updatedSignatures => copy(signatures = updatedSignatures))
+      .from(updatedSignatures)
+      .map(updatedSignaturesNE => copy(signatures = updatedSignaturesNE))
+  }
 
   @transient override protected lazy val companionObj: SignedTopologyTransaction.type =
     SignedTopologyTransaction
@@ -100,12 +146,26 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
       : Option[SignedTopologyTransaction[TargetOp, TargetMapping]] =
     selectMapping[TargetMapping].flatMap(_.selectOp[TargetOp])
 
-  def toProtoV30: v30.SignedTopologyTransaction =
+  def toProtoV30: v30.SignedTopologyTransaction = {
+    // Collect the multi transaction signatures and group them by multi-hash to avoid creating multiple
+    // proto objects for signatures covering the same multi-hash
+    val multiHashSignatures = signatures.collect { case sig: MultiTransactionSignature => sig }
+    val multiTransactionSignatures = {
+      multiHashSignatures.groupBy(_.transactionHashes).view.map { case (hashes, signatures) =>
+        v30.MultiTransactionSignatures(
+          transactionHashes = hashes.map(_.hash.getCryptographicEvidence).toSeq,
+          signatures = signatures.toSeq.map(_.signature.toProtoV30),
+        )
+      }
+    }.toSeq
+
     v30.SignedTopologyTransaction(
       transaction = transaction.getCryptographicEvidence,
-      signatures = signatures.toSeq.map(_.toProtoV30),
+      signatures = singleHashSignatures.map(_.toProtoV30).toSeq,
       proposal = isProposal,
+      multiTransactionSignatures = multiTransactionSignatures,
     )
+  }
 
   override protected def pretty: Pretty[SignedTopologyTransaction.this.type] =
     prettyOfClass(
@@ -122,7 +182,7 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
   @VisibleForTesting
   def copy[Op2 <: TopologyChangeOp, M2 <: TopologyMapping](
       transaction: TopologyTransaction[Op2, M2] = this.transaction,
-      signatures: NonEmpty[Set[Signature]] = this.signatures,
+      signatures: NonEmpty[Set[TopologyTransactionSignature]] = this.signatures,
       isProposal: Boolean = this.isProposal,
   ): SignedTopologyTransaction[Op2, M2] =
     new SignedTopologyTransaction[Op2, M2](transaction, signatures, isProposal)(
@@ -163,8 +223,80 @@ object SignedTopologyTransaction
 
   import com.digitalasset.canton.resource.DbStorage.Implicits.*
 
+  def create[Op <: TopologyChangeOp, M <: TopologyMapping](
+      transaction: TopologyTransaction[Op, M],
+      signatures: NonEmpty[Set[TopologyTransactionSignature]],
+      isProposal: Boolean,
+      protocolVersion: ProtocolVersion,
+  ): SignedTopologyTransaction[Op, M] = SignedTopologyTransaction(
+    transaction = transaction,
+    signatures = signatures,
+    isProposal = isProposal,
+  )(
+    versioningTable.protocolVersionRepresentativeFor(
+      protocolVersion
+    )
+  )
+
+  def create[Op <: TopologyChangeOp, M <: TopologyMapping](
+      transaction: TopologyTransaction[Op, M],
+      signatures: NonEmpty[Set[Signature]],
+      isProposal: Boolean,
+  )(
+      representativeProtocolVersion: RepresentativeProtocolVersion[SignedTopologyTransaction.type]
+  ): SignedTopologyTransaction[Op, M] =
+    SignedTopologyTransaction(
+      transaction = transaction,
+      signatures = signatures.map(SingleTransactionSignature(transaction.hash, _)),
+      isProposal = isProposal,
+    )(representativeProtocolVersion)
+
+  private def signAndCreateWithAssignedKeyUsages[Op <: TopologyChangeOp, M <: TopologyMapping](
+      transaction: TopologyTransaction[Op, M],
+      keysWithUsage: NonEmpty[Map[Fingerprint, NonEmpty[Set[SigningKeyUsage]]]],
+      isProposal: Boolean,
+      crypto: CryptoPrivateApi,
+      protocolVersion: ProtocolVersion,
+      multiTxAndHashOps: Option[(NonEmpty[Set[TxHash]], HashOps)],
+  )(implicit
+      ec: ExecutionContext,
+      tc: TraceContext,
+  ): EitherT[FutureUnlessShutdown, SigningError, SignedTopologyTransaction[Op, M]] =
+    for {
+      hash <- EitherT.fromEither[FutureUnlessShutdown](
+        multiTxAndHashOps
+          .traverse { case (hashes, ops) =>
+            Either.cond(
+              hashes.contains(transaction.hash),
+              MultiTransactionSignature.computeCombinedHash(hashes, ops),
+              SigningError.InvariantViolation(
+                s"Multi hash set ${hashes.map(_.hash.toHexString).mkString(", ")} does not contain transaction hash ${transaction.hash.hash.toHexString}"
+              ),
+            )
+          }
+          .map(_.getOrElse(transaction.hash.hash))
+      )
+      signaturesNE <- keysWithUsage.toSeq.toNEF.parTraverse { case (keyId, usage) =>
+        crypto.sign(hash, keyId, usage)
+      }
+      representativeProtocolVersion = versioningTable.protocolVersionRepresentativeFor(
+        protocolVersion
+      )
+      topologyTransactionSignatures = multiTxAndHashOps
+        .map { case (hashes, _) =>
+          signaturesNE.map[TopologyTransactionSignature](MultiTransactionSignature(hashes, _))
+        }
+        .getOrElse(
+          signaturesNE
+            .map[TopologyTransactionSignature](SingleTransactionSignature(transaction.hash, _))
+        )
+        .toSet
+    } yield SignedTopologyTransaction(transaction, topologyTransactionSignatures, isProposal)(
+      representativeProtocolVersion
+    )
+
   @VisibleForTesting
-  def createWithAssignedKeyUsages[Op <: TopologyChangeOp, M <: TopologyMapping](
+  def signAndCreateWithAssignedKeyUsages[Op <: TopologyChangeOp, M <: TopologyMapping](
       transaction: TopologyTransaction[Op, M],
       keysWithUsage: NonEmpty[Map[Fingerprint, NonEmpty[Set[SigningKeyUsage]]]],
       isProposal: Boolean,
@@ -174,24 +306,26 @@ object SignedTopologyTransaction
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, SigningError, SignedTopologyTransaction[Op, M]] =
-    for {
-      signaturesNE <- keysWithUsage.toSeq.toNEF.parTraverse { case (keyId, usage) =>
-        crypto.sign(transaction.hash.hash, keyId, usage)
-      }
-      representativeProtocolVersion = versioningTable.protocolVersionRepresentativeFor(
-        protocolVersion
-      )
-    } yield SignedTopologyTransaction(transaction, signaturesNE.toSet, isProposal)(
-      representativeProtocolVersion
+    signAndCreateWithAssignedKeyUsages(
+      transaction,
+      keysWithUsage,
+      isProposal,
+      crypto,
+      protocolVersion,
+      None,
     )
 
-  /** Sign the given topology transaction. */
-  def create[Op <: TopologyChangeOp, M <: TopologyMapping](
+  /** Sign the given topology transaction.
+    * @param multiHash,
+    *   if provided the multi hash will be signed instead of the transaction hash
+    */
+  def signAndCreate[Op <: TopologyChangeOp, M <: TopologyMapping](
       transaction: TopologyTransaction[Op, M],
       signingKeys: NonEmpty[Set[Fingerprint]],
       isProposal: Boolean,
       crypto: CryptoPrivateApi,
       protocolVersion: ProtocolVersion,
+      multiHash: Option[(NonEmpty[Set[TxHash]], HashOps)] = None,
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
@@ -201,7 +335,14 @@ object SignedTopologyTransaction
       signingKeys,
       forSigning = true,
     )
-    createWithAssignedKeyUsages(transaction, keysWithUsage, isProposal, crypto, protocolVersion)
+    signAndCreateWithAssignedKeyUsages(
+      transaction,
+      keysWithUsage,
+      isProposal,
+      crypto,
+      protocolVersion,
+      multiHash,
+    )
   }
 
   def asVersion[Op <: TopologyChangeOp, M <: TopologyMapping](
@@ -225,7 +366,7 @@ object SignedTopologyTransaction
         val convertedTx = originTx.asVersion(protocolVersion)
         for {
           signedTopologyTransaction <- SignedTopologyTransaction
-            .create(
+            .signAndCreate(
               convertedTx,
               signedTx.signatures.map(signature => signature.signedBy),
               signedTx.isProposal,
@@ -246,16 +387,31 @@ object SignedTopologyTransaction
       protocolVersionValidation: ProtocolVersionValidation,
       transactionP: v30.SignedTopologyTransaction,
   ): ParsingResult[GenericSignedTopologyTransaction] = {
-    val v30.SignedTopologyTransaction(txBytes, signaturesP, isProposal) = transactionP
+    val v30.SignedTopologyTransaction(
+      txBytes,
+      signaturesP,
+      isProposal,
+      multiTransactionSignaturesPO,
+    ) = transactionP
     for {
       transaction <- TopologyTransaction.fromByteString(protocolVersionValidation, txBytes)
-      signatures <- ProtoConverter.parseRequiredNonEmpty(
-        Signature.fromProtoV30,
-        "SignedTopologyTransaction.signatures",
-        signaturesP,
-      )
+      singleSignatures <- signaturesP
+        .traverse(Signature.fromProtoV30)
+        .map(
+          _.map(SingleTransactionSignature(transaction.hash, _))
+        )
+        .map(_.toSet[TopologyTransactionSignature])
+      multiTransactionHashes <- multiTransactionSignaturesPO
+        .flatTraverse(MultiTransactionSignature.fromProtoV30(_, transaction.hash).map(_.forgetNE))
+        .map(_.toSet[TopologyTransactionSignature])
+      allSigs <- NonEmpty
+        .from(singleSignatures ++ multiTransactionHashes)
+        .toRight(
+          ProtoDeserializationError
+            .InvariantViolation("signatures", "At least one signature must be provided")
+        )
       rpv <- versioningTable.protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield SignedTopologyTransaction(transaction, signatures.toSet, isProposal)(rpv)
+    } yield SignedTopologyTransaction(transaction, allSigs, isProposal)(rpv)
   }
 
   def createGetResultSynchronizerTopologyTransaction: GetResult[GenericSignedTopologyTransaction] =
@@ -365,7 +521,9 @@ object SignedTopologyTransactions
     val byHash = txs
       .groupBy(_.hash)
       .view
-      .mapValues(_.reduceLeftOption((tx1, tx2) => tx1.addSignatures(tx2.signatures.toSeq)))
+      .mapValues(
+        _.reduceLeftOption((tx1, tx2) => tx1.addSignaturesFromTransaction(tx2))
+      )
       .collect { case (k, Some(v)) => k -> v }
       .toMap
 

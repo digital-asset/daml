@@ -103,4 +103,5 @@ object HashPurpose {
   val BftSignedConsensusMessage = HashPurpose(52, "BftSignedConsensusMessage")
   val BftSignedStateTransferMessage = HashPurpose(53, "BftSignedStateTransferMessage")
   val BftSignedRetransmissionMessage = HashPurpose(54, "BftSignedRetransmissionMessage")
+  val MultiTopologyTransaction = HashPurpose(55, "MultiTopologyTransaction")
 }

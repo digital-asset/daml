@@ -373,8 +373,11 @@ object TestSequencerSubscriptionFactoryPekko {
       counter: SequencerCounter,
       signatures: NonEmpty[Set[Signature]] = Signature.noSignatures,
   ): OrdinarySerializedEvent = {
+    val pts =
+      if (counter.unwrap == 0) None else Some(CantonTimestamp.Epoch.addMicros(counter.unwrap - 1))
     val sequencedEvent = Deliver.create(
       counter,
+      pts,
       CantonTimestamp.Epoch.addMicros(counter.unwrap),
       DefaultTestIdentities.synchronizerId,
       None,

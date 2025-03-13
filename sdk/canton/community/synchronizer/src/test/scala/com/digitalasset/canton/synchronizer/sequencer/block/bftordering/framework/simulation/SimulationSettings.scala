@@ -127,6 +127,7 @@ final case class SimulationSettings(
     nodeOnboardingDelays: Iterable[FiniteDuration] = Iterable.empty,
     becomingOnlineAfterOnboardingDelay: FiniteDuration =
       SimulationSettings.DefaultBecomingOnlineAfterOnboardingDelay,
+    retryBecomingOnlineInterval: FiniteDuration = 1.second,
 ) {
   def totalSimulationTime: FiniteDuration =
     durationOfFirstPhaseWithFaults.plus(durationOfSecondPhaseWithoutFaults)

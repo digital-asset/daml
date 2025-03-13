@@ -365,6 +365,7 @@ abstract class SequencerClientImpl(
             SendResult.Success(
               Deliver.create(
                 SequencerCounter.Genesis,
+                previousTimestamp = None,
                 CantonTimestamp.now(),
                 synchronizerId,
                 messageIdO = None,

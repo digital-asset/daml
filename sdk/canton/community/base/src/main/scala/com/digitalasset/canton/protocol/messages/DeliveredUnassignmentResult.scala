@@ -49,7 +49,7 @@ object DeliveredUnassignmentResult {
       content: Deliver[DefaultOpenEnvelope]
   ): Either[InvalidUnassignmentResult, SignedProtocolMessage[ConfirmationResultMessage]] =
     content match {
-      case Deliver(_, _, _, _, Batch(envelopes), _, _) =>
+      case Deliver(_, _, _, _, _, Batch(envelopes), _, _) =>
         val unassignmentResults =
           envelopes
             .mapFilter(

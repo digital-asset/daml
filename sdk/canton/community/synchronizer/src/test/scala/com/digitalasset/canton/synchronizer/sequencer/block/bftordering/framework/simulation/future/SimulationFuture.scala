@@ -16,11 +16,11 @@ sealed trait SimulationFuture[T] {
 }
 
 object SimulationFuture {
-  final case class Pure[T](name: String, fun: () => Try[T]) extends SimulationFuture[T] {
+  final class Pure[T](name: => String, fun: () => Try[T]) extends SimulationFuture[T] {
     override def resolveValue(): Try[T] = fun()
 
     override def schedule(timeGenerator: () => CantonTimestamp): RunningFuture[T] =
-      RunningFuture.Pure(name, RunningFuture.Scheduled(timeGenerator(), () => resolveValue()))
+      new RunningFuture.Pure(name, RunningFuture.Scheduled(timeGenerator(), () => resolveValue()))
   }
 
   final case class Zip[X, Y](fut1: SimulationFuture[X], fut2: SimulationFuture[Y])
@@ -56,9 +56,12 @@ object SimulationFuture {
 
     // TODO(#23754): support finer-grained simulation of `FlatMap` futures
     override def schedule(timeGenerator: () => CantonTimestamp): RunningFuture[R2] =
-      RunningFuture.Pure("flatMap", RunningFuture.Scheduled(timeGenerator(), () => resolveValue()))
+      new RunningFuture.Pure(
+        "flatMap",
+        RunningFuture.Scheduled(timeGenerator(), () => resolveValue()),
+      )
   }
 
-  def apply[T](name: String)(resolveValue: () => Try[T]): SimulationFuture[T] =
-    Pure(name, resolveValue)
+  def apply[T](name: => String)(resolveValue: () => Try[T]): SimulationFuture[T] =
+    new Pure(name, resolveValue)
 }

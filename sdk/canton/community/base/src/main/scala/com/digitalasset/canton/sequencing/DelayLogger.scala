@@ -30,7 +30,7 @@ class DelayLogger(
     case OrdinarySequencedEvent(signedEvent) =>
       implicit val traceContext: TraceContext = event.traceContext
       signedEvent.content match {
-        case Deliver(counter, ts, _, _, _, _, _) =>
+        case Deliver(counter, _, ts, _, _, _, _, _) =>
           val now = clock.now
           val delta = java.time.Duration.between(ts.toInstant, now.toInstant)
           val deltaMs = delta.toMillis

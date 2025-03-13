@@ -7,16 +7,17 @@ import com.digitalasset.canton.admin.api.client.data.{NodeStatus, WaitingForInit
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.StorageConfig
 import com.digitalasset.canton.console.InstanceReference
-import com.digitalasset.canton.integration.CommunityTests.{
-  CommunityIntegrationTest,
-  SharedCommunityEnvironment,
-}
 import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
-import com.digitalasset.canton.integration.{CommunityEnvironmentDefinition, ConfigTransforms}
+import com.digitalasset.canton.integration.{
+  CommunityEnvironmentDefinition,
+  CommunityIntegrationTest,
+  ConfigTransforms,
+  SharedEnvironment,
+}
 
 sealed trait SimplestPingCommunityIntegrationTest
     extends CommunityIntegrationTest
-    with SharedCommunityEnvironment {
+    with SharedEnvironment {
 
   override def environmentDefinition: CommunityEnvironmentDefinition =
     CommunityEnvironmentDefinition.simpleTopology

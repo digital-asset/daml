@@ -45,6 +45,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
           Some(
             v30
               .SequencedEvent(
+                previousTimestamp = None,
                 timestamp = 0,
                 batch = Some(
                   v30.CompressedBatch(

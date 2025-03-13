@@ -46,7 +46,7 @@ import scala.concurrent.{ExecutionContextExecutor, blocking}
   */
 class StartableStoppableLedgerApiDependentServices(
     config: LocalParticipantConfig,
-    testingConfig: ParticipantNodeParameters,
+    parameters: ParticipantNodeParameters,
     packageServiceE: Eval[PackageService],
     syncService: CantonSyncService,
     participantId: ParticipantId,
@@ -99,7 +99,7 @@ class StartableStoppableLedgerApiDependentServices(
             val adminWorkflowServices =
               new AdminWorkflowServices(
                 config,
-                testingConfig,
+                parameters,
                 packageService,
                 syncService,
                 participantId,
@@ -145,7 +145,12 @@ class StartableStoppableLedgerApiDependentServices(
                 registry
                   .addService(
                     PartyManagementServiceGrpc.bindService(
-                      new GrpcPartyManagementService(partyReplicationCoordinator, loggerFactory),
+                      new GrpcPartyManagementService(
+                        partyReplicationCoordinator,
+                        parameters.processingTimeouts,
+                        syncService,
+                        loggerFactory,
+                      ),
                       ec,
                     )
                   )

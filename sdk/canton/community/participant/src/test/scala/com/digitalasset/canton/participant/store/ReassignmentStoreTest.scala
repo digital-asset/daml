@@ -1613,6 +1613,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       Batch.of(BaseTest.testedProtocolVersion, signedResult -> RecipientsTest.testInstance)
     val deliver = Deliver.create(
       SequencerCounter(1),
+      None,
       CantonTimestamp.ofEpochMilli(10),
       reassignmentData.sourceSynchronizer.unwrap,
       Some(MessageId.tryCreate("1")),

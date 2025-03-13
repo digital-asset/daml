@@ -5,7 +5,7 @@ package com.digitalasset.canton.console
 
 /** Utilities for accessing the console environment
   */
-trait ConsoleEnvironmentTestHelpers[+CE <: ConsoleEnvironment] { this: CE =>
+trait ConsoleEnvironmentTestHelpers { this: ConsoleEnvironment =>
 
   lazy val testConsoleOutput: TestConsoleOutput = consoleOutput match {
     case testConsoleOutput: TestConsoleOutput => testConsoleOutput

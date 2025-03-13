@@ -22,13 +22,13 @@ import scala.collection.mutable.ArrayBuffer
   *   querying and mathematical operations, but can loose precision, as numbers in some json
   *   implementations are backed by Double
   */
-
-//TODO (i20144) remove or convert to scala2
 class JsonCodec(
     encodeNumericAsString: Boolean = true,
     encodeInt64AsString: Boolean = true,
 ) extends SchemaVisitor {
   override type Type = Codec[Value]
+
+  private val recordIdField = "_recordId"
 
   override def record(
       id: Identifier,
@@ -39,19 +39,24 @@ class JsonCodec(
 
     override def toDynamicValue(v: Value): DynamicValue = {
       val valueMap = v.obj.value
-      val unexpectedFields = valueMap.keySet.toSet -- fields.map(_._1)
+      val recordId = valueMap.get(recordIdField).flatMap(_.strOpt).map(Identifier.fromString(_))
 
-      val result = DynamicValue.Record(fields map { case (name, c) =>
-        if (c.isOptional()) {
-          (Some(name), c.toDynamicValue(valueMap.getOrElse(name, ujson.Null)))
-        } else {
-          valueMap.get(name) match {
-            case Some(value) => (Some(name), c.toDynamicValue(value))
-            case None =>
-              throw new MissingFieldException(name)
+      val unexpectedFields = valueMap.keySet.toSet -- fields.map(_._1) - recordIdField
+
+      val result = DynamicValue.Record(
+        recordId,
+        fields map { case (name, c) =>
+          if (c.isOptional()) {
+            (Some(name), c.toDynamicValue(valueMap.getOrElse(name, ujson.Null)))
+          } else {
+            valueMap.get(name) match {
+              case Some(value) => (Some(name), c.toDynamicValue(value))
+              case None =>
+                throw new MissingFieldException(name)
+            }
           }
-        }
-      })
+        },
+      )
       // We handle unexpectedValues after creation of value, as the more important exception is a MissingFieldException and should be
       // thrown if needed
       val unexpectedValues =
@@ -64,9 +69,9 @@ class JsonCodec(
     }
 
     override def fromDynamicValue(dv: DynamicValue): Value =
-      Obj.from(dv.record.iterator zip fields map { case (f, (name, c)) =>
+      Obj.from((dv.record._2.iterator zip fields map { case (f, (name, c)) =>
         f._1.getOrElse(name) -> c.fromDynamicValue(f._2)
-      })
+      }) ++ dv.record._1.map(recId => (recordIdField, recId.asString)))
   }
 
   override def variant(

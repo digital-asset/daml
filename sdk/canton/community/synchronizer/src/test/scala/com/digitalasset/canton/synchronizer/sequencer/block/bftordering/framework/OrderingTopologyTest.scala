@@ -49,15 +49,15 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
           ),
           // If the previous and current topology are the same, success is certain.
           (
-            OrderingTopology(Set(BftNodeId("node1"), BftNodeId("node2"))),
-            OrderingTopology(Set(BftNodeId("node1"), BftNodeId("node2"))),
+            OrderingTopology.forTesting(Set(BftNodeId("node1"), BftNodeId("node2"))),
+            OrderingTopology.forTesting(Set(BftNodeId("node1"), BftNodeId("node2"))),
             Set.empty[BftNodeId],
             BigDecimal(1),
           ),
           // If the current topology includes the previous topology and the quorum size is the same, success is certain.
           (
-            OrderingTopology(Set(BftNodeId("node1"), BftNodeId("node2"))),
-            OrderingTopology(
+            OrderingTopology.forTesting(Set(BftNodeId("node1"), BftNodeId("node2"))),
+            OrderingTopology.forTesting(
               Set(BftNodeId("node1"), BftNodeId("node2"), BftNodeId("node3"))
             ),
             Set.empty[BftNodeId],
@@ -66,8 +66,8 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
           // If the current topology includes the previous topology and the quorum size is NOT the same,
           //  failure is certain.
           (
-            OrderingTopology(Set(BftNodeId("node1"), BftNodeId("node2"))),
-            OrderingTopology(
+            OrderingTopology.forTesting(Set(BftNodeId("node1"), BftNodeId("node2"))),
+            OrderingTopology.forTesting(
               Set(
                 BftNodeId("node1"),
                 BftNodeId("node2"),
@@ -80,8 +80,8 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
           ),
           // If current and previous topologies are disjoint, failure is certain.
           (
-            OrderingTopology(Set(BftNodeId("node1"), BftNodeId("node2"))),
-            OrderingTopology(Set(BftNodeId("node3"), BftNodeId("node4"))),
+            OrderingTopology.forTesting(Set(BftNodeId("node1"), BftNodeId("node2"))),
+            OrderingTopology.forTesting(Set(BftNodeId("node3"), BftNodeId("node4"))),
             Set.empty[BftNodeId],
             BigDecimal(0),
           ),
@@ -89,18 +89,18 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
           //  the missing vote can come with equal probability either from the shared node (success)
           //  or from the node in the previous topology that is not shared (failure).
           (
-            OrderingTopology(Set(BftNodeId("node1"), BftNodeId("node2"))),
-            OrderingTopology(Set(BftNodeId("node2"), BftNodeId("node3"))),
+            OrderingTopology.forTesting(Set(BftNodeId("node1"), BftNodeId("node2"))),
+            OrderingTopology.forTesting(Set(BftNodeId("node2"), BftNodeId("node3"))),
             Set.empty[BftNodeId],
             BigDecimal(1) / 2,
           ),
           // Like before but with the old topology having size 3: since the missing vote can also come
           //  from a further node in the old topology that is not shared, the probability of success is now 1/3.
           (
-            OrderingTopology(
+            OrderingTopology.forTesting(
               Set(BftNodeId("node1"), BftNodeId("node2"), BftNodeId("node3"))
             ),
-            OrderingTopology(Set(BftNodeId("node3"), BftNodeId("node4"))),
+            OrderingTopology.forTesting(Set(BftNodeId("node3"), BftNodeId("node4"))),
             Set.empty[BftNodeId],
             BigDecimal(1) / 3,
           ),
@@ -109,7 +109,7 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
           //  while the favorable outcomes are:
           //  [1, 4], [4, 1], [2, 4], [4, 2], [3, 4], [4, 3]
           (
-            OrderingTopology(
+            OrderingTopology.forTesting(
               Set(
                 BftNodeId("node1"),
                 BftNodeId("node2"),
@@ -117,7 +117,7 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
                 BftNodeId("node4"),
               )
             ),
-            OrderingTopology(Set(BftNodeId("node4"), BftNodeId("node5"))),
+            OrderingTopology.forTesting(Set(BftNodeId("node4"), BftNodeId("node5"))),
             Set.empty[BftNodeId],
             BigDecimal(6) / 12,
           ),
@@ -126,7 +126,7 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
           //  while the favorable outcomes are:
           //  [3, 1], [3, 2], [4, 1], [4, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4], [4, 3]
           (
-            OrderingTopology(
+            OrderingTopology.forTesting(
               Set(
                 BftNodeId("node1"),
                 BftNodeId("node2"),
@@ -134,7 +134,7 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
                 BftNodeId("node4"),
               )
             ),
-            OrderingTopology(
+            OrderingTopology.forTesting(
               Set(BftNodeId("node3"), BftNodeId("node4"), BftNodeId("node5"))
             ),
             Set.empty[BftNodeId],
@@ -146,7 +146,7 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
           //  while the favorable outcomes are:
           //  [3, 4], [4, 3]
           (
-            OrderingTopology(
+            OrderingTopology.forTesting(
               Set(
                 BftNodeId("node1"),
                 BftNodeId("node2"),
@@ -154,7 +154,7 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
                 BftNodeId("node4"),
               )
             ),
-            OrderingTopology(
+            OrderingTopology.forTesting(
               Set(
                 BftNodeId("node3"),
                 BftNodeId("node4"),
@@ -171,7 +171,7 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
           //  while the favorable outcomes are:
           //  [3, 4], [4, 3]
           (
-            OrderingTopology(
+            OrderingTopology.forTesting(
               Set(
                 BftNodeId("node1"),
                 BftNodeId("node2"),
@@ -179,7 +179,7 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
                 BftNodeId("node4"),
               )
             ),
-            OrderingTopology(
+            OrderingTopology.forTesting(
               Set(
                 BftNodeId("node3"),
                 BftNodeId("node4"),
@@ -194,7 +194,7 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
           //  vote went wasted on a node that is not shared, i.e, the votes to go in the current topology are
           //  less than the votes missing for a quorum, so failure is certain.
           (
-            OrderingTopology(
+            OrderingTopology.forTesting(
               Set(
                 BftNodeId("node1"),
                 BftNodeId("node2"),
@@ -202,7 +202,7 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
                 BftNodeId("node4"),
               )
             ),
-            OrderingTopology(
+            OrderingTopology.forTesting(
               Set(
                 BftNodeId("node3"),
                 BftNodeId("node4"),
@@ -237,7 +237,7 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
           (otherIds.take(6), 7, 3, 5),
         )
       ) { (nodes, size, weakQuorum, strongQuorum) =>
-        val topology = OrderingTopology(nodes + myId)
+        val topology = OrderingTopology.forTesting(nodes + myId)
         topology.nodes.size shouldBe size
 
         topology.weakQuorum shouldBe weakQuorum

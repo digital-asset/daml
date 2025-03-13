@@ -280,6 +280,7 @@ object ReassignmentDataHelpers {
 
     val deliver = Deliver.create(
       SequencerCounter(0),
+      None,
       sequencingTime,
       synchronizerId,
       Some(MessageId.tryCreate("msg-0")),

@@ -40,6 +40,9 @@ final case class ActiveContract(
   ): ActiveContract =
     copy(contract = contract)(representativeProtocolVersion)
 
+  private[admin] def toRepairContract: RepairContract =
+    RepairContract(synchronizerId, contract, reassignmentCounter)
+
 }
 
 private[canton] object ActiveContract extends VersioningCompanion[ActiveContract] {

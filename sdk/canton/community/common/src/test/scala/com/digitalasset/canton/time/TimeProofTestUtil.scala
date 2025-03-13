@@ -18,12 +18,14 @@ import com.digitalasset.canton.{BaseTest, SequencerCounter}
 object TimeProofTestUtil {
   def mkTimeProof(
       timestamp: CantonTimestamp,
+      previousEventTimestamp: Option[CantonTimestamp] = None,
       counter: Long = 0L,
       targetSynchronizer: Target[SynchronizerId] = Target(DefaultTestIdentities.synchronizerId),
       protocolVersion: ProtocolVersion = BaseTest.testedProtocolVersion,
   ): TimeProof = {
     val deliver = Deliver.create(
       SequencerCounter(counter),
+      previousEventTimestamp,
       timestamp,
       targetSynchronizer.unwrap,
       TimeProof.mkTimeProofRequestMessageId.some,

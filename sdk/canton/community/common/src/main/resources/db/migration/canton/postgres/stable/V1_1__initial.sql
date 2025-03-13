@@ -471,6 +471,10 @@ create table sequencer_members (
     member varchar collate "C" primary key,
     id serial unique,
     registered_ts bigint not null,
+    -- we keep the latest event's timestamp below the pruning timestamp,
+    -- so that we can produce a valid first event above the pruning timestamp with previousTimestamp populated
+    -- also used in sequencer state transfer
+    pruned_previous_event_timestamp bigint,
     enabled bool not null default true
 );
 

@@ -13,10 +13,13 @@ import "google/protobuf/timestamp.proto";
 // and should be used with caution.
 service ParticipantRepairService {
   // Export the ACS for the given parties from the participant
-  rpc ExportAcs(ExportAcsRequest) returns (stream ExportAcsResponse);
+  rpc ExportAcs(ExportAcsRequest) returns (stream ExportAcsResponse); // TODO(#24326) - Remove, new ExportAcs lives in the party_management_service.proto
 
   // Import an existing export into the participant
-  rpc ImportAcs(stream ImportAcsRequest) returns (ImportAcsResponse);
+  rpc ImportAcs(stream ImportAcsRequest) returns (ImportAcsResponse); // TODO(#24326) - Replace with ImportAcsNew below
+
+  // Import an existing export into the participant
+  rpc ImportAcsNew(stream ImportAcsNewRequest) returns (ImportAcsNewResponse); // TODO(#24326) - Becomes ImportAcsNew
 
   // Remove the given contracts from the participant
   rpc PurgeContracts(PurgeContractsRequest) returns (PurgeContractsResponse);
@@ -159,6 +162,40 @@ message ImportAcsRequest {
 message ImportAcsResponse {
   // Mapping from the old contract id to the new contract id
   map<string, string> contract_id_mapping = 1;
+}
+
+enum ContractIdImportMode {
+  CONTRACT_ID_IMPORT_MODE_UNSPECIFIED = 0;
+  // The contract ID neither gets validated nor recomputed.
+  // Allows to save time for large imports where it has been otherwise ensured that the contract ID suffix
+  // matches the scheme associated to the synchronizer.
+  CONTRACT_ID_IMPORT_MODE_ACCEPT = 1;
+  // The service will fail if any contract ID suffix doesn't match the scheme
+  // associated to the synchronizer where the contract is being assigned as a result of the import.
+  CONTRACT_ID_IMPORT_MODE_VALIDATION = 2;
+  // Any contract ID suffix will be recomputed to match the scheme associated to the synchronizer.
+  CONTRACT_ID_IMPORT_MODE_RECOMPUTATION = 3;
+}
+
+message ImportAcsNewRequest {
+  // The raw binary of the ACS snapshot to be imported
+  // The binary contents does not align on individual active contracts! It may contain bytes that are part of
+  // an active contract, or include several active contracts - depending on how much data fits into the
+  // configured gRPC message size.
+  // Required
+  bytes acs_snapshot = 1;
+  // The synchronizer id prefix to be used for the imported contracts
+  // Optional, if not provided the service will generate a prefix
+  string workflow_id_prefix = 2;
+  // How contract ID should be evaluated upon import
+  // Required
+  ContractIdImportMode contract_id_suffix_recomputation_mode = 3;
+}
+
+message ImportAcsNewResponse {
+  // Maps old contract IDs to newly recomputed contract IDs iff the recomputation contract ID import mode has
+  // been selected, empty otherwise.
+  map<string, string> contract_id_mappings = 1;
 }
 
 message PurgeDeactivatedSynchronizerRequest {

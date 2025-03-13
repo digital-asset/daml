@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer
 
-import com.digitalasset.canton.crypto.{HashPurpose, SigningKeyUsage}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
@@ -136,8 +136,7 @@ final class StateTransferMessageSender[E <: Env[E]](
     context.pipeToSelf(
       cryptoProvider.signMessage(
         stateTransferMessage,
-        HashPurpose.BftSignedStateTransferMessage,
-        SigningKeyUsage.ProtocolOnly,
+        AuthenticatedMessageType.BftSignedStateTransferMessage,
       )
     ) {
       case Failure(exception) =>

@@ -75,7 +75,7 @@ class QueueBasedSynchronizerOutboxTest
   private lazy val slice2 = transactions.slice(slice1.length, transactions.length)
 
   private val rootCertF = SignedTopologyTransaction
-    .create(
+    .signAndCreate(
       TopologyTransaction(
         op = TopologyChangeOp.Replace,
         serial = PositiveInt.one,

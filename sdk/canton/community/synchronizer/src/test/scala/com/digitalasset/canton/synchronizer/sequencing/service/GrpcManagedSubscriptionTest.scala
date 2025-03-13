@@ -61,6 +61,7 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
       val event = SignedContent(
         Deliver.create(
           SequencerCounter(0),
+          None,
           CantonTimestamp.Epoch,
           synchronizerId,
           Some(MessageId.tryCreate("test-deliver")),

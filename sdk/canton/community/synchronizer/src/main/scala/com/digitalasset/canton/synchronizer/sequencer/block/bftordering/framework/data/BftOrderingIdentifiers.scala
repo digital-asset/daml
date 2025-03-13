@@ -25,6 +25,14 @@ object BftOrderingIdentifiers {
     def apply(x: String): BftNodeId = x.asInstanceOf[BftNodeId]
   }
 
+  /** A low-overhead symbolic identifier for a BFT ordering protocol signing key, treated as opaque.
+    */
+  type BftKeyId <: String
+  object BftKeyId {
+    val Empty: BftKeyId = BftKeyId("")
+    def apply(x: String): BftKeyId = x.asInstanceOf[BftKeyId]
+  }
+
   type EpochNumber <: Long
   object EpochNumber {
     val First: EpochNumber = EpochNumber(0L)

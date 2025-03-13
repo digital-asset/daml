@@ -4,6 +4,6 @@
 package com.digitalasset.canton.integration
 
 /** Trait for exposing only an environment definition */
-trait HasEnvironmentDefinition[TCE <: TestConsoleEnvironment] {
-  def environmentDefinition: BaseEnvironmentDefinition[TCE]
+trait HasEnvironmentDefinition {
+  def environmentDefinition: BaseEnvironmentDefinition
 }

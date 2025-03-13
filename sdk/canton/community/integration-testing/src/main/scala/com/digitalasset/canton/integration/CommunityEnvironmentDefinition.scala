@@ -18,7 +18,6 @@ import com.digitalasset.canton.environment.{
   Environment,
   EnvironmentFactory,
 }
-import com.digitalasset.canton.integration.CommunityTests.CommunityTestConsoleEnvironment
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.typesafe.config.ConfigFactory
 import monocle.macros.syntax.lens.*
@@ -26,10 +25,10 @@ import monocle.macros.syntax.lens.*
 final case class CommunityEnvironmentDefinition(
     override val baseConfig: CantonConfig,
     override val testingConfig: TestingConfigInternal,
-    override val setups: List[CommunityTestConsoleEnvironment => Unit] = Nil,
+    override val setups: List[TestConsoleEnvironment => Unit] = Nil,
     override val teardown: Unit => Unit = _ => (),
     override val configTransforms: Seq[ConfigTransform],
-) extends BaseEnvironmentDefinition[CommunityTestConsoleEnvironment](
+) extends BaseEnvironmentDefinition(
       baseConfig,
       testingConfig,
       setups,
@@ -40,7 +39,7 @@ final case class CommunityEnvironmentDefinition(
   def withManualStart: CommunityEnvironmentDefinition =
     copy(baseConfig = baseConfig.focus(_.parameters.manualStart).replace(true))
 
-  def withSetup(setup: CommunityTestConsoleEnvironment => Unit): CommunityEnvironmentDefinition =
+  def withSetup(setup: TestConsoleEnvironment => Unit): CommunityEnvironmentDefinition =
     copy(setups = setups :+ setup)
 
   def clearConfigTransforms(): CommunityEnvironmentDefinition = copy(configTransforms = Seq())
@@ -65,9 +64,7 @@ final case class CommunityEnvironmentDefinition(
     new ConsoleEnvironment(
       environment,
       new TestConsoleOutput(loggerFactory),
-    ) with TestEnvironment {
-      override val actualConfig: CantonConfig = this.environment.config
-    }
+    ) with TestEnvironment
 }
 
 object CommunityEnvironmentDefinition {

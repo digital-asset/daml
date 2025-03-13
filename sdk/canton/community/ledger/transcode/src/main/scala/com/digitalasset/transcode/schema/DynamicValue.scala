@@ -44,13 +44,16 @@ object DynamicValue {
     * gRPC API error handling.
     */
 
-  final case class Record(fields: IterableOnce[(Option[String], DynamicValue)]) extends Adt {
-    override def inner: Any = fields
+  final case class Record(
+      recordId: Option[Identifier],
+      fields: IterableOnce[(Option[String], DynamicValue)],
+  ) extends Adt {
+    override def inner: Any = (recordId, fields)
   }
 
   implicit class RecordExtension(value: DynamicValue) {
-    def record: IterableOnce[(Option[String], DynamicValue)] =
-      value.inner.asInstanceOf[IterableOnce[(Option[String], DynamicValue)]]
+    def record: (Option[Identifier], IterableOnce[(Option[String], DynamicValue)]) =
+      value.inner.asInstanceOf[(Option[Identifier], IterableOnce[(Option[String], DynamicValue)])]
   }
 
   /** ADT, Sum type. Contains constructor's ordinal index and a wrapped value. */

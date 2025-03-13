@@ -102,6 +102,11 @@ message SequencedEvent {
   // The same event may have different counter values for different recipients.
   int64 counter = 1;
 
+  // The timestamp of the previous event of the member's event sequence.
+  // in microseconds of UTC time since Unix epoch
+  // Optional, set to None if this is the first ever event of the member's event sequence.
+  optional int64 previous_timestamp = 9;
+
   // The timestamp of the event. Unique and monotonically increasing.
   // The same event has the same timestamp for all recipients.
   // in microseconds of UTC time since Unix epoch

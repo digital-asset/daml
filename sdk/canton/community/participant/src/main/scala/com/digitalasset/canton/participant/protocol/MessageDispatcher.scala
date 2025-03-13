@@ -174,7 +174,7 @@ trait MessageDispatcher { this: NamedLogging =>
     val deliver = eventE.event.content
     // TODO(#13883) Validate the topology timestamp
     // TODO(#13883) Centralize the topology timestamp constraints in a single place so that they are well-documented
-    val Deliver(sc, ts, _, _, batch, topologyTimestampO, _) = deliver
+    val Deliver(sc, _pts, ts, _, _, batch, topologyTimestampO, _) = deliver
 
     val envelopesWithCorrectSynchronizerId = filterBatchForSynchronizerId(batch, sc, ts)
 
@@ -565,11 +565,21 @@ trait MessageDispatcher { this: NamedLogging =>
       events: Seq[RawProtocolEvent]
   )(implicit traceContext: TraceContext): ProcessingResult = {
     val receipts = events.mapFilter {
-      case Deliver(counter, timestamp, _synchronizerId, messageIdO, _batch, _, _) =>
+      case Deliver(
+            counter,
+            _previousTimestamp,
+            timestamp,
+            _synchronizerId,
+            messageIdO,
+            _batch,
+            _,
+            _,
+          ) =>
         // The event was submitted by the current participant iff the message ID is set.
         messageIdO.map(_ -> SequencedSubmission(counter, timestamp))
       case DeliverError(
             _counter,
+            _previousTimestamp,
             _timestamp,
             _synchronizerId,
             _messageId,

@@ -22,7 +22,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationInitializer
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.EmptyOnboardingDataProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.EmptyOnboardingManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   Env,
   Module,
@@ -232,8 +232,8 @@ class PingPongSimulationTest extends AnyFlatSpec with BaseTest {
     )
 
     val fakePort = Port.tryCreate(0)
-    val pingerEndpoint = PlainTextP2PEndpoint("pinger", fakePort)
-    val pongerEndpoint = PlainTextP2PEndpoint("ponger", fakePort)
+    val pingerEndpoint = PlainTextP2PEndpoint("pinger", fakePort).asInstanceOf[P2PEndpoint]
+    val pongerEndpoint = PlainTextP2PEndpoint("ponger", fakePort).asInstanceOf[P2PEndpoint]
     val recorder = new Recorder
 
     val topologyInit = Map(
@@ -252,7 +252,7 @@ class PingPongSimulationTest extends AnyFlatSpec with BaseTest {
     val simulation =
       SimulationModuleSystem(
         topologyInit,
-        EmptyOnboardingDataProvider,
+        EmptyOnboardingManager,
         simSettings,
         new SimClock(loggerFactory = loggerFactory),
         timeouts,

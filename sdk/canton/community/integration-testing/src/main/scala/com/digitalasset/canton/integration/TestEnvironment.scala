@@ -4,23 +4,29 @@
 package com.digitalasset.canton.integration
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.CantonConfig
 import com.digitalasset.canton.console.{
   ConsoleEnvironment,
   ConsoleEnvironmentTestHelpers,
   ConsoleMacros,
+  InstanceReference,
+  LocalInstanceReference,
 }
 import org.apache.pekko.actor.ActorSystem
 
+import scala.collection.concurrent.TrieMap
+import scala.collection.mutable
+
 /** Type including all environment macros and utilities to appear as you're using canton console */
 trait TestEnvironment
-    extends ConsoleEnvironmentTestHelpers[ConsoleEnvironment]
+    extends ConsoleEnvironmentTestHelpers
     with ConsoleMacros
-    with CommonTestAliases[ConsoleEnvironment]
-    with ConsoleEnvironment.Implicits {
+    with ConsoleEnvironment.Implicits
+    with EnvironmentTestHelpers
+    with CommonTestAliases {
   this: ConsoleEnvironment =>
-  val actualConfig: CantonConfig
 
   implicit val executionContext: ExecutionContextIdlenessExecutorService =
     environment.executionContext
@@ -28,5 +34,29 @@ trait TestEnvironment
   implicit val executionSequencerFactory: ExecutionSequencerFactory =
     environment.executionSequencerFactory
 
-  def verifyParticipantLapiIntegrity(plugins: Seq[EnvironmentSetupPlugin[_]]): Unit = ()
+  def actualConfig: CantonConfig = environment.config
+
+}
+
+trait EnvironmentTestHelpers {
+  this: ConsoleEnvironment =>
+
+  def n(
+      name: String
+  ): LocalInstanceReference =
+    nodes.local
+      .find(_.name == name)
+      .getOrElse(sys.error(s"node [$name] not configured"))
+
+  val initializedSynchronizers: mutable.Map[SynchronizerAlias, InitializedSynchronizer] = TrieMap()
+
+  def runOnAllInitializedSynchronizersForAllOwners(
+      run: (InstanceReference, InitializedSynchronizer) => Unit,
+      topologyAwaitIdle: Boolean = true,
+  ): Unit =
+    IntegrationTestUtilities.runOnAllInitializedSynchronizersForAllOwners(
+      initializedSynchronizers.toMap,
+      run,
+      topologyAwaitIdle,
+    )
 }

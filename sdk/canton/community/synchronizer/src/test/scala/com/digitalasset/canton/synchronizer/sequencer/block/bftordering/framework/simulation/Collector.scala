@@ -109,9 +109,9 @@ object NodeCollector {
 }
 
 class ClientCollector(to: ModuleName) extends Collector[ClientCollector.Event] {
-  def addTickEvent(duration: FiniteDuration, msg: Any): Int = {
+  def addTickEvent(duration: FiniteDuration, msg: Any)(implicit traceContext: TraceContext): Int = {
     val tickId = generateNewTickId()
-    add(ClientCollector.TickEvent(duration, tickId, msg))
+    add(ClientCollector.TickEvent(duration, tickId, msg, traceContext))
     tickId
   }
 
@@ -126,7 +126,12 @@ class ClientCollector(to: ModuleName) extends Collector[ClientCollector.Event] {
 object ClientCollector {
   sealed trait Event
 
-  final case class TickEvent(duration: FiniteDuration, tickId: Int, msg: Any) extends Event
+  final case class TickEvent(
+      duration: FiniteDuration,
+      tickId: Int,
+      msg: Any,
+      traceContext: TraceContext,
+  ) extends Event
 
   final case class ClientRequest(to: ModuleName, msg: Any, traceContext: TraceContext) extends Event
   final case class CancelTick(tickId: Int) extends Event

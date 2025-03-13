@@ -3,10 +3,16 @@
 
 package com.digitalasset.canton.console.commands
 
+import better.files.File
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.traverse.*
+import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
 import com.digitalasset.canton.LedgerParticipantId
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.{
+  TopologyTransactionWrapper,
+  UpdateWrapper,
+}
 import com.digitalasset.canton.admin.api.client.commands.{
   ParticipantAdminCommands,
   TopologyAdminCommands,
@@ -16,8 +22,9 @@ import com.digitalasset.canton.admin.api.client.data.{
   ListPartiesResult,
   PartyDetails,
 }
-import com.digitalasset.canton.config.NonNegativeDuration
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.admin.participant.v30.ExportAcsNewResponse
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
+import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
   CantonInternalError,
@@ -32,12 +39,14 @@ import com.digitalasset.canton.console.{
   ParticipantReference,
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.grpc.FileStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
+import io.grpc.Context
 
 import java.time.Instant
 import scala.util.Try
@@ -97,6 +106,8 @@ class ParticipantPartiesAdministrationGroup(
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends PartiesAdministrationGroup(reference, consoleEnvironment)
     with FeatureFlagFilter {
+
+  private def timeouts: ConsoleCommandTimeout = consoleEnvironment.commandTimeouts
 
   @Help.Summary("List parties hosted by this participant")
   @Help.Description("""Inspect the parties hosted by this participant as used for synchronisation.
@@ -376,6 +387,129 @@ class ParticipantPartiesAdministrationGroup(
     check(FeatureFlag.Preview) {
       reference.health.wait_for_initialized()
       TopologySynchronisation.awaitTopologyObserved(reference, partyAssignment, timeout)
+    }
+
+  @Help.Summary("Finds the last activation offset of a party.")
+  @Help.Description( // TODO(#24326) - Revise description for export_acs(_new) / export_acs_new becomes export_acs
+    """This command finds ledger offsets, at which a party has become active on a
+      |participant, and returns the highest offset.
+      |
+      |A party becomes active on a participant if there's a corresponding topology
+      |transaction that has been sequenced by the synchronizer.
+      |
+      |The search starts from the ledger beginning if `beginOffsetExclusive` is kept
+      |on its default value. If the participant has been pruned via `pruning.prune`
+      |and if `beginOffsetExclusive` is lower than the pruning offset, this command
+      |fails with a `NOT_FOUND` error.
+      |
+      |For example, this command is useful to create an ACS snapshot with the
+      |`export_acs_new` command which requires the ledger offset of a party activation.
+      |
+      |
+      |The arguments are:
+      |- party: The party for which the activations should be found.
+      |- synchronizerId: The synchronizer which sequenced the activations.
+      |- participantId: The participant which newly hosts the party.
+      |- timeout: This process returns after the given timeout has expired,
+      |           defaults to 1 minute.
+      |- beginOffsetExclusive: From which ledger offset activations should be searched
+      |                        for, defaults to 0 (the ledger beginning).
+      |- endOffsetInclusive: Until which ledger offset activations should be
+      |                      searched for, default to None (the current ledger end).
+      |"""
+  )
+  def find_party_last_activation_offset(
+      party: PartyId,
+      synchronizerId: SynchronizerId,
+      participantId: ParticipantId,
+      timeout: NonNegativeDuration = timeouts.bounded,
+      beginOffsetExclusive: Long = 0L,
+      endOffsetInclusive: Option[Long] = None,
+  ): Option[NonNegativeLong] = {
+
+    def filter(wrapper: UpdateWrapper): Boolean =
+      wrapper match {
+        case TopologyTransactionWrapper(topologyTransaction) =>
+          synchronizerId.toProtoPrimitive == wrapper.synchronizerId &&
+          topologyTransaction.events.exists(
+            _.getParticipantAuthorizationChanged.participantId == participantId.toLf
+          )
+        case _ => false
+      }
+
+    val ledgerEnd = reference.ledger_api.state.end()
+
+    val topologyTransactions: Seq[TopologyTransaction] = reference.ledger_api.updates
+      .topology_transactions(
+        partyIds = Seq(party),
+        completeAfter = PositiveInt.MaxValue,
+        timeout = timeout,
+        beginOffsetExclusive = beginOffsetExclusive,
+        endOffsetInclusive = endOffsetInclusive.orElse(Some(ledgerEnd)),
+        resultFilter = filter,
+      )
+      .collect { case TopologyTransactionWrapper(topologyTransaction) => topologyTransaction }
+
+    topologyTransactions.map(_.offset).map(NonNegativeLong.tryCreate).lastOption
+  }
+
+  @Help.Summary(
+    "Export active contracts for the given set of parties to a file.",
+    FeatureFlag.Preview,
+  )
+  @Help.Description(
+    """This command exports the current Active Contract Set (ACS) of a given set of
+      |parties to a GZIP compressed ACS snapshot file. Afterwards, the `import_acs_new`
+      |repair command imports it into a participant's ACS again.
+      |
+      |Note that the `export_acs_new` command execution may take a long time to
+      |complete and may require significant memory (RAM) depending on the size of the ACS.
+      |
+      |The arguments are:
+      |- parties: Identifying contracts having at least one stakeholder from the given set.
+      |- exportFileName: The file name where to store the data.
+      |- filterSynchronizerId: When defined, restricts the export to the given synchronizer.
+      |- ledgerOffset: The offset at which the ACS snapshot is exported.
+      |- contractSynchronizerRenames: Changes the associated synchronizer id of contracts
+      |                               from one synchronizer to another based on the mapping.
+      |- timeout: A timeout for this operation to complete.
+      |- templateFilter: Template IDs for the contracts to be exported.
+        """
+  )
+  def export_acs_new(
+      parties: Set[PartyId],
+      // TODO(#24065) - handle `partiesOffboarding: Boolean,` = true in repair.party_migration
+      exportFileName: String = "canton-acs-export-new.gz",
+      filterSynchronizerId: Option[SynchronizerId] = None,
+      ledgerOffset: NonNegativeLong,
+      contractSynchronizerRenames: Map[SynchronizerId, SynchronizerId] = Map.empty,
+      timeout: NonNegativeDuration = timeouts.unbounded,
+  ): Unit =
+    check(FeatureFlag.Preview) {
+      consoleEnvironment.run {
+        val file = File(exportFileName)
+        val responseObserver = new FileStreamObserver[ExportAcsNewResponse](file, _.chunk)
+
+        def call: ConsoleCommandResult[Context.CancellableContext] =
+          reference.adminCommand(
+            ParticipantAdminCommands.PartyManagement
+              .ExportAcsNew(
+                parties,
+                filterSynchronizerId,
+                ledgerOffset.unwrap,
+                responseObserver,
+                contractSynchronizerRenames,
+              )
+          )
+
+        processResult(
+          call,
+          responseObserver.result,
+          timeout,
+          request = "exporting acs",
+          cleanupOnError = () => file.delete(),
+        )
+      }
     }
 }
 

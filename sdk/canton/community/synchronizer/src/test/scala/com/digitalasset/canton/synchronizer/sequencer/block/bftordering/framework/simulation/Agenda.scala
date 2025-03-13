@@ -4,18 +4,18 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation
 
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleName
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.time.SimClock
-import org.slf4j.{Logger, LoggerFactory}
 
 import java.util.concurrent.TimeUnit
 import scala.collection.mutable
 import scala.concurrent.duration.FiniteDuration
 import scala.jdk.DurationConverters.ScalaDurationOps
 
-class Agenda(clock: SimClock) {
-  implicit private val logger: Logger = LoggerFactory.getLogger(getClass)
+class Agenda(clock: SimClock, loggerFactory: NamedLoggerFactory) {
+  private val logger = loggerFactory.getLogger(getClass)
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var nextCommandSequencerNumber = 0
@@ -84,7 +84,9 @@ class Agenda(clock: SimClock) {
     queue.toSeq.view.flatMap { scheduledCommand =>
       scheduledCommand.command match {
         case i: InternalEvent[_]
-            if node == i.node && FromInternalModule(fromModuleName) == i.from && to == i.to =>
+            if node == i.node && EventOriginator.FromInternalModule(
+              fromModuleName
+            ) == i.from && to == i.to =>
           Seq(FiniteDuration((scheduledCommand.at - clock.now).toNanos, TimeUnit.NANOSECONDS))
         case _ => Seq.empty
       }

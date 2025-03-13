@@ -200,7 +200,7 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
 
       val expectedLine =
         // user-manual-entry-begin: LogNumThreads
-        "INFO  c.d.c.e.EnterpriseEnvironment - Deriving 12 as number of threads from '-Dscala.concurrent.context.numThreads'."
+        "INFO  c.d.canton.environment.Environment - Deriving 12 as number of threads from '-Dscala.concurrent.context.numThreads'."
       // user-manual-entry-end: LogNumThreads
 
       forAtLeast(1, logLines)(_ should endWith(expectedLine))

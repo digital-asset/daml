@@ -5,29 +5,32 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.dr
 
 import com.digitalasset.canton.BaseTest.testedProtocolVersion
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{SynchronizerCryptoClient, SynchronizerSnapshotSyncCryptoApi}
+import com.digitalasset.canton.crypto.SigningKeySpec.EcSecp256k1
+import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
+import com.digitalasset.canton.crypto.{
+  CryptoTestHelper,
+  SynchronizerCryptoClient,
+  SynchronizerSnapshotSyncCryptoApi,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.{
   DynamicSequencingParameters,
   DynamicSequencingParametersWithValidity,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.CantonCryptoProvider.BftOrderingSigningKeyUsage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology.NodeTopologyInfo
+import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.{
-  SequencerGroup,
-  SequencerId,
-  SynchronizerId,
-  UniqueIdentifier,
-}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
-import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.wordspec.AsyncWordSpec
 
 class CantonOrderingTopologyProviderTest
-    extends AnyWordSpec
+    extends AsyncWordSpec
+    with CryptoTestHelper
     with BaseTest
     with HasExecutionContext {
 
@@ -35,6 +38,8 @@ class CantonOrderingTopologyProviderTest
 
   "Getting the ordering topology" should {
     "return the correct ordering topology" in {
+      val crypto = SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
+      val pk = getSigningPublicKey(crypto, BftOrderingSigningKeyUsage, EcSecp256k1).futureValueUS
       val topologySnapshotMock = mock[TopologySnapshot]
       when(topologySnapshotMock.timestamp).thenReturn(aTimestamp)
       when(topologySnapshotMock.sequencerGroup())
@@ -49,6 +54,16 @@ class CantonOrderingTopologyProviderTest
         )
       when(topologySnapshotMock.findDynamicSequencingParameters()(any[TraceContext]))
         .thenReturn(FutureUnlessShutdown.pure(Right(someDynamicSequencingParameters)))
+      when(
+        topologySnapshotMock.signingKeys(eqTo(someSequencerIds), eqTo(BftOrderingSigningKeyUsage))(
+          any[TraceContext]
+        )
+      )
+        .thenReturn(
+          FutureUnlessShutdown.pure(
+            someSequencerIds.map(sequencerId => sequencerId -> Seq(pk)).toMap
+          )
+        )
       val synchronizerSnapshotSyncCryptoApiMock = mock[SynchronizerSnapshotSyncCryptoApi]
       when(synchronizerSnapshotSyncCryptoApiMock.ipsSnapshot).thenReturn(topologySnapshotMock)
       val cryptoApiMock = mock[SynchronizerCryptoClient]
@@ -83,14 +98,21 @@ class CantonOrderingTopologyProviderTest
                 Some((SequencedTime(aTimestamp), EffectiveTime(maxEffectiveTimestamp)))
               )
             )
-          val cantonOrderingTopologyProvider =
-            new CantonOrderingTopologyProvider(cryptoApiMock, loggerFactory)
-          cantonOrderingTopologyProvider
+          new CantonOrderingTopologyProvider(cryptoApiMock, loggerFactory)
             .getOrderingTopologyAt(TopologyActivationTime(activationTimestamp))
             .futureUnlessShutdown()
-            .futureValueUS should matchPattern {
-            case Some((OrderingTopology(_, _, _, `expectedPendingTopologyChangesFlag`), _)) =>
-          }
+            .futureValueUS
+            .fold(fail("Ordering topology not returned")) { case (orderingTopology, _) =>
+              orderingTopology.areTherePendingCantonTopologyChanges shouldBe expectedPendingTopologyChangesFlag
+              orderingTopology.nodesTopologyInfo should contain theSameElementsAs someSequencerIds
+                .map(sequencerId =>
+                  SequencerNodeId.toBftNodeId(sequencerId) -> NodeTopologyInfo(
+                    activationTime =
+                      TopologyActivationTime.fromEffectiveTime(EffectiveTime(aTimestamp)),
+                    keyIds = Set(FingerprintKeyId.toBftKeyId(pk.id)),
+                  )
+                )
+            }
       }
     }
   }

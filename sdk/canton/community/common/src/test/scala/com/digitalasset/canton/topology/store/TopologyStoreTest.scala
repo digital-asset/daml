@@ -799,9 +799,15 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
             OwnerToKeyMapping(p1Id, NonEmpty(Seq, factory.SigningKeys.key1))
           )(p1Key, factory.SigningKeys.key1)
 
-          val bad_otk = makeSignedTx(
+          val bad_otkTx = makeSignedTx(
             OwnerToKeyMapping(p1Id, NonEmpty(Seq, factory.EncryptionKeys.key2))
-          )(p1Key, factory.SigningKeys.key2).copy(signatures = good_otk.signatures)
+          )(p1Key, factory.SigningKeys.key2)
+          val bad_otk = bad_otkTx
+            .copy(signatures =
+              good_otk.signatures.map(sig =>
+                SingleTransactionSignature(bad_otkTx.hash, sig.signature)
+              )
+            )
 
           for {
             _ <- store.update(

@@ -3,12 +3,18 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology
 
+import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.FingerprintKeyId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftKeyId,
+  BftNodeId,
+}
 import com.google.common.annotations.VisibleForTesting
 
 import OrderingTopology.{
+  NodeTopologyInfo,
   isStrongQuorumReached,
   isWeakQuorumReached,
   permutations,
@@ -23,13 +29,13 @@ import OrderingTopology.{
   * testing.
   */
 final case class OrderingTopology(
-    nodesActiveAt: Map[BftNodeId, TopologyActivationTime],
+    nodesTopologyInfo: Map[BftNodeId, NodeTopologyInfo],
     sequencingParameters: SequencingParameters,
     activationTime: TopologyActivationTime,
     areTherePendingCantonTopologyChanges: Boolean,
 ) {
 
-  lazy val nodes: Set[BftNodeId] = nodesActiveAt.keySet
+  lazy val nodes: Set[BftNodeId] = nodesTopologyInfo.keySet
 
   lazy val sortedNodes: Seq[BftNodeId] = nodes.toList.sorted
 
@@ -200,16 +206,30 @@ final case class OrderingTopology(
 
 object OrderingTopology {
 
+  final case class NodeTopologyInfo(
+      activationTime: TopologyActivationTime,
+      keyIds: Set[BftKeyId],
+  )
+
   /** A simple constructor for tests so that we don't have to provide timestamps. */
   @VisibleForTesting
-  def apply(
+  def forTesting(
       nodes: Set[BftNodeId],
       sequencingParameters: SequencingParameters = SequencingParameters.Default,
       activationTime: TopologyActivationTime = TopologyActivationTime(CantonTimestamp.MinValue),
       areTherePendingCantonTopologyChanges: Boolean = false,
+      nodesTopologyInfos: Map[BftNodeId, NodeTopologyInfo] = Map.empty,
   ): OrderingTopology =
     OrderingTopology(
-      nodes.view.map(_ -> TopologyActivationTime(CantonTimestamp.MinValue)).toMap,
+      nodes.view.map { node =>
+        node -> nodesTopologyInfos.getOrElse(
+          node,
+          NodeTopologyInfo(
+            activationTime = TopologyActivationTime(CantonTimestamp.MinValue),
+            keyIds = Set(FingerprintKeyId.toBftKeyId(Signature.noSignature.signedBy)),
+          ),
+        )
+      }.toMap,
       sequencingParameters,
       activationTime,
       areTherePendingCantonTopologyChanges,

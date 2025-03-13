@@ -310,7 +310,9 @@ class SequencerReaderTest
         events <- readAsSeq(alice, SequencerCounter(0), 20)
       } yield {
         forAll(events.zipWithIndex) { case (event, n) =>
+          val expectedPreviousEventTimestamp = if (n == 0) None else Some(ts0.plusSeconds(n.toLong))
           event.counter shouldBe SequencerCounter(n)
+          event.previousTimestamp shouldBe expectedPreviousEventTimestamp
         }
       }
     }
@@ -330,7 +332,9 @@ class SequencerReaderTest
       } yield {
         events.headOption.value.counter shouldBe SequencerCounter(5)
         events.headOption.value.timestamp shouldBe ts0.plusSeconds(6)
+        events.headOption.value.previousTimestamp shouldBe Some(ts0.plusSeconds(5))
         events.lastOption.value.counter shouldBe SequencerCounter(19)
+        events.lastOption.value.previousTimestamp shouldBe Some(ts0.plusSeconds(19))
         events.lastOption.value.timestamp shouldBe ts0.plusSeconds(20)
       }
     }
@@ -367,7 +371,11 @@ class SequencerReaderTest
         // wait for the next event
         nextEventO <- nextEventF
         _ = queue.cancel() // cancel the queue now we're done with it
-      } yield nextEventO.value.counter shouldBe SequencerCounter(5) // it'll be alices fifth event
+      } yield {
+        nextEventO.value.counter shouldBe SequencerCounter(5)
+        nextEventO.value.previousTimestamp shouldBe Some(ts0.plusSeconds(5))
+        nextEventO.value.timestamp shouldBe ts0.plusSeconds(6)
+      } // it'll be alices fifth event
     }
 
     "attempting to read an unregistered member returns error" in { env =>
@@ -446,7 +454,7 @@ class SequencerReaderTest
         for {
           _ <- store.registerMember(topologyClientMember, ts0)
           aliceId <- store.registerMember(alice, ts0)
-          // generate 20 delivers starting at ts0+1s
+          // generate 25 delivers starting at ts0+1s
           delivers = (1L to 25L)
             .map(ts0.plusSeconds)
             .map(
@@ -461,6 +469,12 @@ class SequencerReaderTest
         } yield {
           // this assertion is a bit redundant as we're actually just looking for the prior fetch to complete rather than get stuck
           events should have size 15
+          events.headOption.value.counter shouldBe SequencerCounter(10)
+          events.headOption.value.previousTimestamp shouldBe Some(ts0.plusSeconds(10))
+          events.headOption.value.timestamp shouldBe ts0.plusSeconds(11)
+          events.lastOption.value.counter shouldBe SequencerCounter(24)
+          events.lastOption.value.previousTimestamp shouldBe Some(ts0.plusSeconds(24))
+          events.lastOption.value.timestamp shouldBe ts0.plusSeconds(25)
         }
       }
     }
@@ -570,6 +584,8 @@ class SequencerReaderTest
           // event (0) is for ts0+1s.
           // event 15 should then have ts ts0+16s
           events.headOption.value.timestamp shouldBe ts0.plusSeconds(16)
+          // check that previous timestamp lookup from the checkpoint is correct
+          events.headOption.value.previousTimestamp shouldBe Some(ts0.plusSeconds(15))
         }
       }
     }
@@ -677,12 +693,12 @@ class SequencerReaderTest
           bobId <- store.registerMember(bob, ts0)
 
           recipients = NonEmpty(SortedSet, aliceId, bobId)
-          testData = Seq(
-            // Sequencing ts, signing ts relative to ts0
-            (1L, 0L),
-            (topologyTimestampToleranceInSec, 0L),
-            (topologyTimestampToleranceInSec + 1L, 0L),
-            (topologyTimestampToleranceInSec + 2L, 2L),
+          testData: Seq[(Option[Long], Long, Long)] = Seq(
+            // Previous ts, sequencing ts, signing ts relative to ts0
+            (None, 1L, 0L),
+            (Some(1), topologyTimestampToleranceInSec, 0L),
+            (Some(topologyTimestampToleranceInSec), topologyTimestampToleranceInSec + 1L, 0L),
+            (Some(topologyTimestampToleranceInSec + 1L), topologyTimestampToleranceInSec + 2L, 2L),
           )
           batch = Batch.fromClosed(
             testedProtocolVersion,
@@ -694,7 +710,7 @@ class SequencerReaderTest
             ),
           )
 
-          delivers = testData.map { case (sequenceTs, signingTs) =>
+          delivers = testData.map { case (_, sequenceTs, signingTs) =>
             val storeEvent = TraceContext
               .withNewTraceContext { eventTraceContext =>
                 mockDeliverStoreEvent(
@@ -707,141 +723,165 @@ class SequencerReaderTest
               .map(id => BytesPayload(id, batch.toByteString))
             Sequenced(ts0.plusSeconds(sequenceTs), storeEvent)
           }
+          previousTimestamps = testData.map { case (previousTs, _, _) =>
+            previousTs.map(ts0.plusSeconds)
+          }
           _ <- storePayloadsAndWatermark(delivers)
-        } yield (topologyTimestampTolerance, batch, delivers)
+        } yield (topologyTimestampTolerance, batch, delivers, previousTimestamps)
       }
 
       final case class DeliveredEventToCheck[A](
           delivered: A,
+          previousTimestamp: Option[CantonTimestamp],
           sequencingTimestamp: CantonTimestamp,
           messageId: MessageId,
           topologyTimestamp: CantonTimestamp,
           sequencerCounter: Long,
       )
 
-      def filterForTopologyTimestamps[A]
-          : PartialFunction[((A, Sequenced[BytesPayload]), Int), DeliveredEventToCheck[A]] = {
+      def filterForTopologyTimestamps[A]: PartialFunction[
+        (((A, Sequenced[BytesPayload]), Int), Option[CantonTimestamp]),
+        DeliveredEventToCheck[A],
+      ] = {
         case (
               (
-                delivered,
-                Sequenced(
-                  timestamp,
-                  DeliverStoreEvent(
-                    _sender,
-                    messageId,
-                    _members,
-                    _payload,
-                    Some(topologyTimestamp),
-                    _traceContext,
-                    _trafficReceiptO,
+                (
+                  delivered,
+                  Sequenced(
+                    timestamp,
+                    DeliverStoreEvent(
+                      _sender,
+                      messageId,
+                      _members,
+                      _payload,
+                      Some(topologyTimestamp),
+                      _traceContext,
+                      _trafficReceiptO,
+                    ),
                   ),
                 ),
+                idx,
               ),
-              idx,
+              previousTimestamp,
             ) =>
-          DeliveredEventToCheck(delivered, timestamp, messageId, topologyTimestamp, idx.toLong)
+          DeliveredEventToCheck(
+            delivered,
+            previousTimestamp,
+            timestamp,
+            messageId,
+            topologyTimestamp,
+            idx.toLong,
+          )
       }
 
       "read by the sender into deliver errors" in { env =>
         import env.*
-        setup(env).flatMap { case (topologyTimestampTolerance, batch, delivers) =>
-          for {
-            aliceEvents <- readAsSeq(alice, SequencerCounter(0), delivers.length)
-          } yield {
-            aliceEvents.length shouldBe delivers.length
-            aliceEvents.map(_.counter) shouldBe (SequencerCounter(0) until SequencerCounter(
-              delivers.length.toLong
-            ))
-            val deliverWithTopologyTimestamps =
-              aliceEvents.zip(delivers).zipWithIndex.collect {
-                filterForTopologyTimestamps
-              }
-            forEvery(deliverWithTopologyTimestamps) {
-              case DeliveredEventToCheck(
-                    delivered,
-                    sequencingTimestamp,
-                    messageId,
-                    topologyTimestamp,
-                    sc,
-                  ) =>
-                val expectedSequencedEvent =
-                  if (topologyTimestamp + topologyTimestampTolerance >= sequencingTimestamp)
-                    Deliver.create(
-                      SequencerCounter(sc),
+        setup(env).flatMap {
+          case (topologyTimestampTolerance, batch, delivers, previousTimestamps) =>
+            for {
+              aliceEvents <- readAsSeq(alice, SequencerCounter(0), delivers.length)
+            } yield {
+              aliceEvents.length shouldBe delivers.length
+              aliceEvents.map(_.counter) shouldBe (SequencerCounter(0) until SequencerCounter(
+                delivers.length.toLong
+              ))
+              val deliverWithTopologyTimestamps =
+                aliceEvents.zip(delivers).zipWithIndex.zip(previousTimestamps).collect {
+                  filterForTopologyTimestamps
+                }
+              forEvery(deliverWithTopologyTimestamps) {
+                case DeliveredEventToCheck(
+                      delivered,
+                      previousTimestamp,
                       sequencingTimestamp,
-                      synchronizerId,
-                      messageId.some,
-                      batch,
-                      Some(topologyTimestamp),
-                      testedProtocolVersion,
-                      Option.empty[TrafficReceipt],
-                    )
-                  else
-                    DeliverError.create(
-                      SequencerCounter(sc),
-                      sequencingTimestamp,
-                      synchronizerId,
                       messageId,
-                      SequencerErrors.TopologyTimestampTooEarly(
-                        topologyTimestamp,
+                      topologyTimestamp,
+                      sc,
+                    ) =>
+                  val expectedSequencedEvent =
+                    if (topologyTimestamp + topologyTimestampTolerance >= sequencingTimestamp)
+                      Deliver.create(
+                        SequencerCounter(sc),
+                        previousTimestamp,
                         sequencingTimestamp,
-                      ),
-                      testedProtocolVersion,
-                      Option.empty[TrafficReceipt],
-                    )
-                delivered.signedEvent.content shouldBe expectedSequencedEvent
+                        synchronizerId,
+                        messageId.some,
+                        batch,
+                        Some(topologyTimestamp),
+                        testedProtocolVersion,
+                        Option.empty[TrafficReceipt],
+                      )
+                    else
+                      DeliverError.create(
+                        SequencerCounter(sc),
+                        previousTimestamp,
+                        sequencingTimestamp,
+                        synchronizerId,
+                        messageId,
+                        SequencerErrors.TopologyTimestampTooEarly(
+                          topologyTimestamp,
+                          sequencingTimestamp,
+                        ),
+                        testedProtocolVersion,
+                        Option.empty[TrafficReceipt],
+                      )
+                  delivered.signedEvent.content shouldBe expectedSequencedEvent
+              }
             }
-          }
         }
       }
 
       "read by another recipient into empty batches" in { env =>
         import env.*
-        setup(env).flatMap { case (topologyTimestampTolerance, batch, delivers) =>
-          for {
-            bobEvents <- readAsSeq(bob, SequencerCounter(0), delivers.length)
-          } yield {
-            bobEvents.length shouldBe delivers.length
-            bobEvents.map(_.counter) shouldBe (0L until delivers.length.toLong)
-              .map(SequencerCounter(_))
-            val deliverWithTopologyTimestamps =
-              bobEvents.zip(delivers).zipWithIndex.collect {
-                filterForTopologyTimestamps
+        setup(env).flatMap {
+          case (topologyTimestampTolerance, batch, delivers, previousTimestamps) =>
+            for {
+              bobEvents <- readAsSeq(bob, SequencerCounter(0), delivers.length)
+            } yield {
+              bobEvents.length shouldBe delivers.length
+              bobEvents.map(_.counter) shouldBe (0L until delivers.length.toLong)
+                .map(SequencerCounter(_))
+              val deliverWithTopologyTimestamps =
+                bobEvents.zip(delivers).zipWithIndex.zip(previousTimestamps).collect {
+                  filterForTopologyTimestamps
+                }
+              forEvery(deliverWithTopologyTimestamps) {
+                case DeliveredEventToCheck(
+                      delivered,
+                      previousTimestamp,
+                      sequencingTimestamp,
+                      _messageId,
+                      topologyTimestamp,
+                      sc,
+                    ) =>
+                  val expectedSequencedEvent =
+                    if (topologyTimestamp + topologyTimestampTolerance >= sequencingTimestamp)
+                      Deliver.create(
+                        SequencerCounter(sc),
+                        previousTimestamp,
+                        sequencingTimestamp,
+                        synchronizerId,
+                        None,
+                        batch,
+                        Some(topologyTimestamp),
+                        testedProtocolVersion,
+                        Option.empty[TrafficReceipt],
+                      )
+                    else
+                      Deliver.create(
+                        SequencerCounter(sc),
+                        previousTimestamp,
+                        sequencingTimestamp,
+                        synchronizerId,
+                        None,
+                        Batch.empty(testedProtocolVersion),
+                        None,
+                        testedProtocolVersion,
+                        Option.empty[TrafficReceipt],
+                      )
+                  delivered.signedEvent.content shouldBe expectedSequencedEvent
               }
-            forEvery(deliverWithTopologyTimestamps) {
-              case DeliveredEventToCheck(
-                    delivered,
-                    sequencingTimestamp,
-                    _messageId,
-                    topologyTimestamp,
-                    sc,
-                  ) =>
-                val expectedSequencedEvent =
-                  if (topologyTimestamp + topologyTimestampTolerance >= sequencingTimestamp)
-                    Deliver.create(
-                      SequencerCounter(sc),
-                      sequencingTimestamp,
-                      synchronizerId,
-                      None,
-                      batch,
-                      Some(topologyTimestamp),
-                      testedProtocolVersion,
-                      Option.empty[TrafficReceipt],
-                    )
-                  else
-                    Deliver.create(
-                      SequencerCounter(sc),
-                      sequencingTimestamp,
-                      synchronizerId,
-                      None,
-                      Batch.empty(testedProtocolVersion),
-                      None,
-                      testedProtocolVersion,
-                      Option.empty[TrafficReceipt],
-                    )
-                delivered.signedEvent.content shouldBe expectedSequencedEvent
             }
-          }
         }
       }
 

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology.store
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{Fingerprint, SignatureCheckError}
@@ -13,6 +14,7 @@ import com.digitalasset.canton.protocol.OnboardingRestriction
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.transaction.TopologyMapping
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 
 sealed trait TopologyTransactionRejection extends PrettyPrinting with Product with Serializable {
   def asString: String
@@ -120,6 +122,16 @@ object TopologyTransactionRejection {
     override def asString: String = str
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
       TopologyManagerError.InternalError.AssumptionViolation(str)
+  }
+
+  final case class MultiTransactionHashMismatch(
+      expected: TxHash,
+      actual: NonEmpty[Set[TxHash]],
+  ) extends TopologyTransactionRejection {
+    override def asString: String =
+      s"The given transaction hash set $actual did not contain the expected hash $expected of the transaction."
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.MultiTransactionHashMismatch.Failure(expected, actual)
   }
 
   final case class InsufficientKeys(members: Seq[Member]) extends TopologyTransactionRejection {

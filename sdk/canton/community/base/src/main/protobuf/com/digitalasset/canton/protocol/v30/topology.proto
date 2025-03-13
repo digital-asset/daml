@@ -343,13 +343,27 @@ message TopologyTransaction {
   TopologyMapping mapping = 3;
 }
 
+// Used in SignedTopologyTransaction to bundle together multiple transaction hashes
+// Allows submitters to only sign a single combined hash to authorize multiple transactions at once
+// The combined hash is computed from the transaction hashes
+// TODO(i24259): document hashing algorithm
+message MultiTransactionSignatures {
+  // List of topology transaction hashes.
+  // Required
+  repeated bytes transaction_hashes = 1;
+  // Signatures on the combined hash computed over the transaction_hashes
+  // MUST contain at least one
+  repeated com.digitalasset.canton.crypto.v30.Signature signatures = 2;
+}
+
 message SignedTopologyTransaction {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   // serialized topology transaction (protobuf bytestring)
   bytes transaction = 1;
 
-  // multiple signatures (at least one)
+  // multiple signatures
+  // Either this field OR the multi_transaction_signatures field MUST contain at least one signature
   repeated com.digitalasset.canton.crypto.v30.Signature signatures = 2;
   // if true, this transaction is just a proposal. this means that every signature is valid,
   // but the signatures are insufficient to properly authorize the transaction.
@@ -357,6 +371,12 @@ message SignedTopologyTransaction {
   // when the nodes are pruned
   // TODO(#14045) implement pruning
   bool proposal = 3;
+
+  // If set, the transaction may be authorized by signing a hash computed from multiple transaction hashes
+  // This allows to effectively authorize multiple transactions with a single signature.
+  // Each item MUST contain the hash of this transaction
+  // Optional
+  repeated MultiTransactionSignatures multi_transaction_signatures = 4;
 }
 
 message SignedTopologyTransactions {

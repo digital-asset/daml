@@ -10,6 +10,7 @@ import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyReturningOps.*
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -33,6 +34,7 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentSkipListMap}
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.SortedSet
+import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.*
 
@@ -53,6 +55,8 @@ class InMemorySequencerStore(
 
   private val nextNewMemberId = new AtomicInteger()
   private val members = TrieMap[Member, RegisteredMember]()
+  private val memberPrunedPreviousEventTimestamps: mutable.Map[Member, CantonTimestamp] =
+    mutable.Map.empty
   private val payloads = new ConcurrentSkipListMap[CantonTimestamp, StoredPayload]()
   private val events = new ConcurrentSkipListMap[CantonTimestamp, StoreEvent[PayloadId]]()
   private val watermark = new AtomicReference[Option[Watermark]](None)
@@ -293,6 +297,24 @@ class InMemorySequencerStore(
         }
     }
 
+  def fetchPreviousEventTimestamp(memberId: SequencerMemberId, timestampInclusive: CantonTimestamp)(
+      implicit traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    FutureUnlessShutdown.pure {
+      events
+        .headMap(
+          timestampInclusive.min(
+            watermark.get().map(_.timestamp).getOrElse(CantonTimestamp.MaxValue)
+          ),
+          true,
+        )
+        .asScala
+        .filter { case (_, event) => isMemberRecipient(memberId)(event) }
+        .map { case (ts, _) => ts }
+        .maxOption
+        .orElse(memberPrunedPreviousEventTimestamps.get(lookupExpectedMember(memberId)))
+    }
+
   override def fetchLatestCheckpoint()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]] =
@@ -463,7 +485,7 @@ class InMemorySequencerStore(
       }
       .getOrElse(sys.error(s"Member id [$memberId] is not registered"))
 
-  override def disableMemberInternal(
+  override protected def disableMemberInternal(
       memberId: SequencerMemberId
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.pure {
@@ -497,6 +519,26 @@ class InMemorySequencerStore(
 
     val memberCheckpoints = computeMemberCheckpoints(timestamp)
 
+    // expand every event with members, group by timestamps per member, and take the max timestamp
+    val previousEventTimestamps = events
+      .headMap(timestamp, true)
+      .asScala
+      .toList
+      .flatMap { case (timestamp, event) =>
+        event.members.toList.map(member => (member, timestamp))
+      }
+      .groupMap1 { case (member, _) => member } { case (_, timestamp) => timestamp }
+      .map { case (memberId, timestamps) =>
+        (lookupExpectedMember(memberId), Some(timestamps.max1))
+      }
+
+    val previousEventTimestampsWithFallback = members.keySet.map { member =>
+      member -> previousEventTimestamps.getOrElse(
+        member,
+        memberPrunedPreviousEventTimestamps.get(member),
+      )
+    }.toMap
+
     val lastTs = memberCheckpoints.map(_._2.timestamp).maxOption.getOrElse(CantonTimestamp.MinValue)
 
     FutureUnlessShutdown.pure(
@@ -504,6 +546,7 @@ class InMemorySequencerStore(
         lastTs,
         UninitializedBlockHeight,
         memberCheckpoints.fmap(_.counter),
+        previousEventTimestampsWithFallback,
         internalStatus(lastTs),
         Map.empty,
         None,
@@ -512,6 +555,15 @@ class InMemorySequencerStore(
         Seq.empty,
       )
     )
+  }
+
+  override protected def updatePrunedPreviousEventTimestampsInternal(
+      updatedPreviousTimestamps: Map[SequencerMemberId, CantonTimestamp]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    updatedPreviousTimestamps.foreach { case (memberId, timestamp) =>
+      memberPrunedPreviousEventTimestamps.put(lookupExpectedMember(memberId), timestamp).discard
+    }
+    FutureUnlessShutdown.unit
   }
 
   def checkpointsAtTimestamp(timestamp: CantonTimestamp)(implicit
