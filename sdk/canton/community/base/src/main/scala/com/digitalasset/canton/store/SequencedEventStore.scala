@@ -189,6 +189,9 @@ object SequencedEventStore {
       with PrettyPrinting
       with Product
       with Serializable {
+
+    def previousTimestamp: Option[CantonTimestamp]
+
     def timestamp: CantonTimestamp
 
     def counter: SequencerCounter
@@ -226,6 +229,9 @@ object SequencedEventStore {
       override val timestamp: CantonTimestamp,
       override val counter: SequencerCounter,
       override val underlying: Option[SignedContent[SequencedEvent[Env]]],
+      // TODO(#11834): Hardcoded to previousTimestamp=None, need to make sure that previousTimestamp
+      //   works with ignored events and repair service
+      override val previousTimestamp: Option[CantonTimestamp] = None,
   )(override val traceContext: TraceContext)
       extends PossiblyIgnoredSequencedEvent[Env] {
 
@@ -279,6 +285,8 @@ object SequencedEventStore {
   )(
       override val traceContext: TraceContext
   ) extends PossiblyIgnoredSequencedEvent[Env] {
+
+    override def previousTimestamp: Option[CantonTimestamp] = signedEvent.content.previousTimestamp
 
     override def timestamp: CantonTimestamp = signedEvent.content.timestamp
 

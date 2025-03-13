@@ -277,7 +277,7 @@ object Threading {
             logger.info(s"Deriving $n as number of threads from '-D$numThreadsProp'.")
             n
           case None =>
-            // Guaranteed to be postiive: https://docs.oracle.com/javase/8/docs/api/java/lang/Runtime.html#availableProcessors--
+            // Guaranteed to be positive: https://docs.oracle.com/javase/8/docs/api/java/lang/Runtime.html#availableProcessors--
             PositiveInt.tryCreate(checked(sys.runtime.availableProcessors())).tap { n =>
               logger.info(
                 s"Deriving $n as number of threads from 'sys.runtime.availableProcessors()'. " +

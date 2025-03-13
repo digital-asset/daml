@@ -1048,9 +1048,16 @@ class DbSequencerStore(
         timestamp,
         safeWatermarkO.getOrElse(CantonTimestamp.MaxValue),
       )
-    } yield checkpoints
+      previousEventTimestamps <- memberPreviousEventTimestamps(
+        timestamp,
+        safeWatermarkO.getOrElse(CantonTimestamp.MaxValue),
+      )
+    } yield (checkpoints, previousEventTimestamps)
     for {
-      checkpointsAtTimestamp <- storage.query(query.transactionally, functionFullName)
+      (checkpointsAtTimestamp, previousTimestampsAtTimestamps) <- storage.query(
+        query.transactionally,
+        functionFullName,
+      )
       lastTs = checkpointsAtTimestamp
         .map(_._2.timestamp)
         .maxOption
@@ -1061,6 +1068,7 @@ class DbSequencerStore(
         lastTs,
         UninitializedBlockHeight,
         checkpointsAtTimestamp.fmap(_.counter),
+        previousTimestampsAtTimestamps,
         statusAtTimestamp,
         Map.empty,
         None,
@@ -1160,6 +1168,49 @@ class DbSequencerStore(
       }
     }
   }
+
+  private def memberPreviousEventTimestamps(
+      beforeInclusive: CantonTimestamp,
+      safeWatermark: CantonTimestamp,
+  ): DBIOAction[Map[Member, Option[CantonTimestamp]], NoStream, Effect.Read] =
+    sql"""
+            with
+              enabled_members as (
+                select
+                  member,
+                  id,
+                  registered_ts,
+                  pruned_previous_event_timestamp
+                from sequencer_members
+                where
+                  -- consider the given timestamp
+                  registered_ts <= $beforeInclusive
+                  -- no need to consider disabled members since they can't be served events anymore
+                  and enabled = true
+              )
+            -- for each enabled member, find the latest event before the given timestamp using a subquery
+            select m.member, coalesce( -- we use coalesce to handle the case where there are no events for a member
+                (
+                 select events.ts
+                        from sequencer_events events
+                        left join sequencer_watermarks watermarks
+                        on events.node_index = watermarks.node_index
+                      where
+                        (
+                          -- if the sequencer that produced the event is offline, only consider up until its offline watermark
+                          watermarks.watermark_ts is not null and (watermarks.sequencer_online = true or events.ts <= watermarks.watermark_ts)
+                        )
+                        and events.ts <= $beforeInclusive
+                        and events.ts >= m.registered_ts
+                        and events.ts <= $safeWatermark
+                        and (#$memberContainsBefore m.id #$memberContainsAfter)
+                      order by events.ts desc
+                      limit 1
+                ),
+                pruned_previous_event_timestamp -- otherwise we use the timestamp stored by pruning or onboarding
+              ) as previous_ts
+            from enabled_members m
+             """.as[(Member, Option[CantonTimestamp])].map(_.toMap)
 
   private def memberCheckpointsQuery(
       beforeInclusive: CantonTimestamp,
@@ -1505,6 +1556,46 @@ class DbSequencerStore(
     storage.query(checkpointQuery, functionFullName)
   }
 
+  override def fetchPreviousEventTimestamp(
+      memberId: SequencerMemberId,
+      timestampInclusive: CantonTimestamp,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] = {
+
+    val query = for {
+      safeWatermarkO <- safeWaterMarkDBIO
+      safeWatermark = safeWatermarkO.getOrElse(CantonTimestamp.MaxValue)
+      previousEventTimestamp <-
+        sql"""
+            select coalesce(
+              ( -- first we try to find the previous event for the member
+                select ts
+                  from sequencer_events events
+                  left join sequencer_watermarks watermarks
+                          on events.node_index = watermarks.node_index
+                  where
+                   (
+                     -- if the sequencer that produced the event is offline, only consider up until its offline watermark
+                     watermarks.watermark_ts is not null and (watermarks.sequencer_online = true or events.ts <= watermarks.watermark_ts)
+                   )
+                   and ts <= $timestampInclusive
+                   and (#$memberContainsBefore $memberId #$memberContainsAfter)
+                   and ts <= $safeWatermark
+                 order by ts desc
+                 limit 1
+               ),
+              ( -- otherwise we fall back to the timestamp saved by pruning or onboarding
+                select pruned_previous_event_timestamp
+                from sequencer_members
+                where id = $memberId
+              )
+            ) as previous_event_timestamp
+             """.as[Option[CantonTimestamp]].headOption
+    } yield previousEventTimestamp
+    storage.query(query, functionFullName).map(_.flatten)
+  }
+
   override def fetchLatestCheckpoint()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]] = {
@@ -1626,6 +1717,31 @@ class DbSequencerStore(
       )
     )
 
+  override protected def updatePrunedPreviousEventTimestampsInternal(
+      updatedPreviousTimestamps: Map[SequencerMemberId, CantonTimestamp]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    val updateSql =
+      """update sequencer_members
+         set pruned_previous_event_timestamp = ?
+         where id = ?"""
+
+    val bulkInsert = DbStorage
+      .bulkOperation(updateSql, updatedPreviousTimestamps, storage.profile) {
+        pp => idAndTimestamp =>
+          val memberId -> timestamp = idAndTimestamp
+          pp >> timestamp
+          pp >> memberId
+      }
+      .map(_.sum)
+    storage
+      .queryAndUpdate(bulkInsert, functionFullName)
+      .map(updateCount =>
+        logger.debug(
+          s"Updated $updateCount sequencer members with pruned previous event timestamps"
+        )
+      )
+  }
+
   override protected[store] def pruneEvents(
       beforeExclusive: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
@@ -1736,7 +1852,7 @@ class DbSequencerStore(
       functionFullName,
     )
 
-  override def disableMemberInternal(member: SequencerMemberId)(implicit
+  override protected def disableMemberInternal(member: SequencerMemberId)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     // we assume here that the member is already registered in order to have looked up the memberId

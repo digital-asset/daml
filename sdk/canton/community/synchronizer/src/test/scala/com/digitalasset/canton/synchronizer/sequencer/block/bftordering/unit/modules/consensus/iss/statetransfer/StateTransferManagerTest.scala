@@ -485,7 +485,7 @@ object StateTransferManagerTest {
   private val membershipBeforeOnboarding =
     Membership(
       myId,
-      OrderingTopology(Set(otherId), SequencingParameters.Default),
+      OrderingTopology.forTesting(Set(otherId), SequencingParameters.Default),
       Seq(otherId),
     )
   private val aTopologyInfo = OrderingTopologyInfo[ProgrammableUnitTestEnv](

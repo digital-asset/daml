@@ -49,8 +49,9 @@ object RunningFuture {
   final case class Scheduled[Action, Value](when: CantonTimestamp, what: Action)
       extends IsResolved[Action, Value]
 
-  final case class Pure[X](override val name: String, isResolved: IsResolved[() => Try[X], X])
+  final class Pure[X](theName: => String, isResolved: IsResolved[() => Try[X], X])
       extends RunningFuture[X] {
+    override def name: String = theName
     override def minimumScheduledTime: Option[CantonTimestamp] = isResolved match {
       case Resolved(_) => None
       case Scheduled(when, _) => Some(when)
@@ -62,7 +63,7 @@ object RunningFuture {
         case Scheduled(when, what) =>
           if (when <= time) {
             val value = what()
-            Pure(name, Resolved(value))
+            new Pure(theName, Resolved(value))
           } else {
             this
           }

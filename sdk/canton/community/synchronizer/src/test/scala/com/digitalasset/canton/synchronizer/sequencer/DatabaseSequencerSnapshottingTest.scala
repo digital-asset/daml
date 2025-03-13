@@ -7,21 +7,24 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
-import com.digitalasset.canton.resource.MemoryStorage
+import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.sequencing.client.RequestSigner
 import com.digitalasset.canton.sequencing.protocol.{Recipients, SubmissionRequest}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
+import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.Sequencer as CantonSequencer
-import com.digitalasset.canton.synchronizer.sequencer.store.SequencerStore
+import com.digitalasset.canton.synchronizer.sequencer.store.{DbSequencerStoreTest, SequencerStore}
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.{MediatorId, TestingIdentityFactory, TestingTopology}
+import com.digitalasset.canton.tracing.TraceContext
 import org.apache.pekko.stream.Materializer
 
 import java.time.Duration
 
-final class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
+trait DatabaseSequencerSnapshottingTest extends SequencerApiTest with DbTest {
 
   def createSequencer(
       crypto: SynchronizerCryptoClient
@@ -44,7 +47,6 @@ final class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
     val metrics = SequencerMetrics.noop("database-sequencer-test")
 
     val dbConfig = TestDatabaseSequencerConfig()
-    val storage = new MemoryStorage(loggerFactory, timeouts)
     val sequencerStore = SequencerStore(
       storage,
       testedProtocolVersion,
@@ -140,6 +142,8 @@ final class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
           clock.asInstanceOf[SimClock].advanceTo(CantonTimestamp.Epoch.immediateSuccessor)
         }
 
+        _ <- cleanDb(storage) // we clean the DB to simulate a new separate database
+
         // create a second separate sequencer from the snapshot
         secondSequencer = createSequencerWithSnapshot(
           Some(
@@ -195,4 +199,15 @@ final class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
       }
     }
   }
+
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    DbSequencerStoreTest.cleanSequencerTables(storage)
 }
+
+class DatabaseSequencerSnapshottingTestPostgres
+    extends DatabaseSequencerSnapshottingTest
+    with PostgresTest
+
+class DatabaseSequencerSnapshottingTestH2 extends DatabaseSequencerSnapshottingTest with H2Test

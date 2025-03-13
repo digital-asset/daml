@@ -44,6 +44,7 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Remove
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.{ErrorUtil, MapsUtil}
 import com.digitalasset.canton.{BaseTest, FutureHelpers, LfPackageId, LfPartyId}
@@ -567,7 +568,7 @@ class TestingIdentityFactory(
       serial: PositiveInt = PositiveInt.one,
       isProposal: Boolean = false,
   ): SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping] =
-    SignedTopologyTransaction(
+    SignedTopologyTransaction.create(
       TopologyTransaction(
         TopologyChangeOp.Replace,
         serial,
@@ -748,6 +749,7 @@ class TestingOwnerWithKeys(
     val keyOwner: Member,
     loggerFactory: NamedLoggerFactory,
     initEc: ExecutionContext,
+    multiHash: Boolean = false,
 ) extends NoTracing {
 
   val cryptoApi = TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(keyOwner)
@@ -905,22 +907,35 @@ class TestingOwnerWithKeys(
       isProposal: Boolean = false,
   )(implicit
       ec: ExecutionContext
-  ): SignedTopologyTransaction[Op, M] =
+  ): SignedTopologyTransaction[Op, M] = {
+    // Randomize which hash gets signed when multiHash is true, to create a mix of single and multi signatures
+    val hash = if (multiHash && scala.util.Random.nextBoolean()) {
+      Some(
+        // In practice the other hash should be an actual transaction hash
+        // But it actually doesn't matter what the other hash is as long as the transaction hash is included
+        // in the hash set
+        (NonEmpty.mk(Set, trans.hash, TxHash(TestHash.digest("test_hash"))), cryptoApi.pureCrypto)
+      )
+    } else {
+      None
+    }
     Await
       .result(
         SignedTopologyTransaction
-          .create(
+          .signAndCreate(
             trans,
             signingKeys.map(_.fingerprint),
             isProposal,
             cryptoApi.crypto.privateCrypto,
             BaseTest.testedProtocolVersion,
+            multiHash = hash,
           )
           .value,
         10.seconds,
       )
       .onShutdown(sys.error("aborted due to shutdown"))
       .valueOr(err => sys.error(s"failed to create signed topology transaction: $err"))
+  }
 
   def setSerial(
       trans: SignedTopologyTransaction[TopologyChangeOp, TopologyMapping],

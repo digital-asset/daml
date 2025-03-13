@@ -479,7 +479,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
     findStored(CantonTimestamp.MaxValue, transaction).map(_.forall { inStore =>
       // check whether source still could provide an additional signature
-      transaction.signatures.diff(inStore.transaction.signatures.forgetNE).nonEmpty &&
+      transaction.signatures.diff(inStore.transaction.signatures).nonEmpty &&
       // but only if the transaction in the target store is a valid proposal
       inStore.transaction.isProposal &&
       inStore.validUntil.isEmpty

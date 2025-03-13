@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology.processing
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.{CryptoPureApi, SigningKeyUsage, SigningPublicKey}
+import com.digitalasset.canton.crypto.{CryptoPureApi, Fingerprint, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -187,17 +187,19 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
 
     val referencedAuth = requiredAuth.referenced
 
-    val signingKeys = toValidate.signatures.map(_.signedBy)
+    val unvalidatedSigningKeysCoveringHash =
+      toValidate.allUnvalidatedSignaturesCoveringHash.map(_.signedBy)
+
     val namespaceWithRootAuthorizations =
       referencedAuth.namespacesWithRoot.map { ns =>
         // This succeeds because loading of uid is requested in AuthorizationKeys.requiredForCheckingAuthorization
         val check = tryGetAuthorizationCheckForNamespace(ns)
         val keysUsed = check.keysSupportingAuthorization(
-          signingKeys,
+          unvalidatedSigningKeysCoveringHash,
           requireRoot = true,
         )
         val keysAuthorizeNamespace =
-          check.existsAuthorizedKeyIn(signingKeys, requireRoot = true)
+          check.existsAuthorizedKeyIn(unvalidatedSigningKeysCoveringHash, requireRoot = true)
         ns -> (keysAuthorizeNamespace, keysUsed)
       }.toMap
 
@@ -206,10 +208,11 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       // This succeeds because loading of uid is requested in AuthorizationKeys.requiredForCheckingAuthorization
       val check = tryGetAuthorizationCheckForNamespace(ns)
       val keysUsed = check.keysSupportingAuthorization(
-        signingKeys,
+        unvalidatedSigningKeysCoveringHash,
         requireRoot = false,
       )
-      val keysAuthorizeNamespace = check.existsAuthorizedKeyIn(signingKeys, requireRoot = false)
+      val keysAuthorizeNamespace =
+        check.existsAuthorizedKeyIn(unvalidatedSigningKeysCoveringHash, requireRoot = false)
       ns -> (keysAuthorizeNamespace, keysUsed)
     }.toMap
 
@@ -218,17 +221,17 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
         // This succeeds because loading of uid.namespace is requested in AuthorizationKeys.requiredForCheckingAuthorization
         val check = tryGetAuthorizationCheckForNamespace(uid.namespace)
         val keysUsed = check.keysSupportingAuthorization(
-          signingKeys,
+          unvalidatedSigningKeysCoveringHash,
           requireRoot = false,
         )
         val keysAuthorizeNamespace =
-          check.existsAuthorizedKeyIn(signingKeys, requireRoot = false)
+          check.existsAuthorizedKeyIn(unvalidatedSigningKeysCoveringHash, requireRoot = false)
 
         val keyForUid =
           // This succeeds because loading of uid is requested in AuthorizationKeys.requiredForCheckingAuthorization
           tryGetIdentifierDelegationsForUid(uid)
             .find(aid =>
-              signingKeys.contains(aid.mapping.target.id) &&
+              unvalidatedSigningKeysCoveringHash.contains(aid.mapping.target.id) &&
                 check.existsAuthorizedKeyIn(
                   aid.signingKeys,
                   requireRoot = false,
@@ -260,7 +263,8 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
                 // only consider the public key as "found" if:
                 // * it's required and
                 // * actually used to sign the transaction
-                if referencedAuth.extraKeys(k.fingerprint) && signingKeys(k.fingerprint) =>
+                if referencedAuth
+                  .extraKeys(k.fingerprint) && unvalidatedSigningKeysCoveringHash(k.fingerprint) =>
               k.fingerprint -> (true, Set(k))
           }.toMap
         }
@@ -280,11 +284,11 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
 
     logger.debug(s"All keys used for authorization: ${allKeysUsedForAuthorization.keySet}")
 
-    val superfluousKeys = signingKeys -- allKeysUsedForAuthorization.keys
+    val superfluousKeys = toValidate.signatures.map(_.signedBy) -- allKeysUsedForAuthorization.keys
     for {
       _ <- Either.cond[TopologyTransactionRejection, Unit](
         // there must be at least 1 key used for the signatures for one of the delegation mechanisms
-        (signingKeys -- superfluousKeys).nonEmpty,
+        (unvalidatedSigningKeysCoveringHash -- superfluousKeys).nonEmpty,
         (), {
           logger.info(
             s"The keys ${superfluousKeys.mkString(", ")} have no delegation to authorize the transaction $toValidate"
@@ -302,41 +306,19 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
           TopologyTransactionRejection.NoDelegationFoundForKeys(superfluousKeys)
         })
 
-      allKeyIdsUsedForAuthorizationNE <- NonEmpty
-        .from(allKeysUsedForAuthorization.values.map(_.id).toSet)
+      allKeysUsedForAuthorizationNE <- NonEmpty
+        .from(allKeysUsedForAuthorization)
         .toRight {
           val msg =
             s"No keys have been used for authorization. This should not happen."
           logger.error(msg)
           TopologyTransactionRejection.AssumptionViolation(msg)
         }
-      keyIdsWithUsage = TopologyManager.assignExpectedUsageToKeys(
-        txWithSignaturesToVerify.mapping,
-        allKeyIdsUsedForAuthorizationNE,
-        forSigning = false,
-      )
 
-      _ <- txWithSignaturesToVerify.signatures.forgetNE.toList
-        .traverse_(sig =>
-          allKeysUsedForAuthorization
-            .get(sig.signedBy)
-            .toRight({
-              val msg =
-                s"Key ${sig.signedBy} was delegated to, but no actual key was identified. This should not happen."
-              logger.error(msg)
-              TopologyTransactionRejection.AssumptionViolation(msg)
-            })
-            .flatMap(key =>
-              pureCrypto
-                .verifySignature(
-                  txWithSignaturesToVerify.hash.hash,
-                  key,
-                  sig,
-                  keyIdsWithUsage.forgetNE(key.id),
-                )
-                .leftMap(TopologyTransactionRejection.SignatureCheckFailed.apply)
-            )
-        )
+      _ <- validateSignatures(
+        txWithSignaturesToVerify,
+        allKeysUsedForAuthorizationNE = allKeysUsedForAuthorizationNE,
+      )
     } yield {
       // and finally we can check whether the authorizations granted by the keys actually satisfy
       // the authorization requirements
@@ -363,6 +345,50 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
           ),
       )
     }
+  }
+
+  private def validateSignatures(
+      txWithSignaturesToVerify: SignedTopologyTransaction[TopologyChangeOp, TopologyMapping],
+      allKeysUsedForAuthorizationNE: NonEmpty[Map[Fingerprint, SigningPublicKey]],
+  )(implicit traceContext: TraceContext) = {
+    val validSignaturesToVerify = txWithSignaturesToVerify.signaturesWithHash(pureCrypto)
+    val keyIdsWithUsage = TopologyManager.assignExpectedUsageToKeys(
+      txWithSignaturesToVerify.mapping,
+      allKeysUsedForAuthorizationNE.keySet,
+      forSigning = false,
+    )
+    validSignaturesToVerify.toList
+      .traverse_ { case (hash, signature) =>
+        allKeysUsedForAuthorizationNE
+          .get(signature.signedBy)
+          .toRight({
+            val msg =
+              s"Key ${signature.signedBy} was delegated to, but no actual key was identified. This should not happen."
+            logger.error(msg)
+            TopologyTransactionRejection.AssumptionViolation(msg)
+          })
+          .flatMap(key =>
+            Either.cond(
+              signature.coversHash(txWithSignaturesToVerify.hash),
+              key,
+              TopologyTransactionRejection
+                .MultiTransactionHashMismatch(
+                  txWithSignaturesToVerify.hash,
+                  signature.hashesCovered,
+                ),
+            )
+          )
+          .flatMap(key =>
+            pureCrypto
+              .verifySignature(
+                hash,
+                key,
+                signature.signature,
+                keyIdsWithUsage.forgetNE(key.id),
+              )
+              .leftMap(TopologyTransactionRejection.SignatureCheckFailed.apply)
+          )
+      }
   }
 
   private def logAuthorizations[A](
@@ -446,20 +472,13 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       .selectMapping[NamespaceDelegation]
       .filter(NamespaceDelegation.isRootCertificate)
       .map { rootCert =>
-        val result = rootCert.signatures.toSeq.forgetNE
-          .traverse_(
-            pureCrypto
-              .verifySignature(
-                rootCert.hash.hash,
-                rootCert.mapping.target,
-                _,
-                SigningKeyUsage.NamespaceOnly,
-              )
+        val result = {
+          validateSignatures(
+            rootCert,
+            NonEmpty(Map, rootCert.mapping.target.fingerprint -> rootCert.mapping.target),
           )
-          .bimap(
-            TopologyTransactionRejection.SignatureCheckFailed.apply,
-            _ => (toValidate, ReferencedAuthorizations.empty /* no missing authorizers */ ),
-          )
+
+        }.map(_ => (toValidate, ReferencedAuthorizations.empty /* no missing authorizers */ ))
         result
       }
 

@@ -72,7 +72,6 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.*
-import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias, config}
 import io.grpc.Context
 import spray.json.DeserializationException
@@ -1707,33 +1706,10 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     @Help.Description("""Sometimes, when scripting tests and demos, a dar or package is uploaded and we need to ensure
         |that commands are only submitted once the package vetting has been observed by some other connected participant
         |known to the console. This command can be used in such cases.""")
-    // Also checks that the packages stored by Canton are the same as by the ledger api server.
-    // However, this check is bypassed if there are 1000 or more packages at the ledger api server.
     def synchronize_vetting(
         timeout: config.NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded
-    ): Unit = {
-
-      // ensure that the ledger api server has seen all packages
-      ConsoleMacros.utils.retry_until_true(timeout)(
-        {
-          val canton = packages.list().map(_.packageId).toSet
-          val maxPackages = PositiveInt.tryCreate(1000)
-          val lApi = consoleEnvironment
-            .run {
-              ledgerApiCommand(
-                LedgerApiCommands.PackageService.ListKnownPackages(maxPackages)
-              )
-            }
-            .map(_.packageId)
-            .toSet
-          // don't synchronise anymore in a big production system (as we only need this truly for testing)
-          (lApi.sizeIs >= maxPackages.value) || (canton -- lApi).isEmpty
-        },
-        show"Participant $id ledger Api server has still a different set of packages than the sync server",
-      )
-
+    ): Unit =
       waitPackagesVetted(timeout)
-    }
   }
 
   @Help.Summary("Manage synchronizer connections")

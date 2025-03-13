@@ -681,6 +681,7 @@ class GrpcInspectionService(
       .asGrpcResponse
 
   }
+
 }
 
 object InspectionServiceError extends InspectionServiceErrorGroup {

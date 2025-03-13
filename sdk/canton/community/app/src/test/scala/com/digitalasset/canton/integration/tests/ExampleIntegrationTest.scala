@@ -8,20 +8,17 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.Prepare
 import com.digitalasset.canton.ConsoleScriptRunner
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.StorageConfig.Memory
 import com.digitalasset.canton.crypto.InteractiveSubmission
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.Environment
-import com.digitalasset.canton.integration.CommunityTests.{
-  CommunityIntegrationTest,
-  IsolatedCommunityEnvironments,
-}
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseCommunityReferenceBlockSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.ExampleIntegrationTest.*
 import com.digitalasset.canton.integration.{
   CommunityEnvironmentDefinition,
+  CommunityIntegrationTest,
   ConfigTransform,
   ConfigTransforms,
+  IsolatedEnvironments,
 }
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLogging}
 import com.digitalasset.canton.platform.apiserver.execution.CommandInterpretationResult
@@ -42,7 +39,7 @@ import scala.sys.process.Process
 
 abstract class ExampleIntegrationTest(configPaths: File*)
     extends CommunityIntegrationTest
-    with IsolatedCommunityEnvironments
+    with IsolatedEnvironments
     with HasConsoleScriptRunner {
 
   protected def additionalConfigTransform: Seq[ConfigTransform] =
@@ -68,6 +65,7 @@ abstract class ExampleIntegrationTest(configPaths: File*)
 
 trait HasConsoleScriptRunner { this: NamedLogging =>
   import org.scalatest.EitherValues.*
+
   def runScript(scriptPath: File)(implicit env: Environment): Unit =
     ConsoleScriptRunner.run(env, scriptPath.toJava, logger = logger).value.discard
 }
@@ -109,8 +107,7 @@ sealed abstract class SimplePingExampleIntegrationTest
   }
 }
 
-final class SimplePingExampleReferenceIntegrationTestDefault
-    extends SimplePingExampleIntegrationTest {
+final class SimplePingExampleReferenceIntegrationTestH2 extends SimplePingExampleIntegrationTest {
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 }
 
@@ -279,9 +276,9 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
   }
 }
 
-final class InteractiveSubmissionDemoExampleIntegrationTestInMemory
+final class InteractiveSubmissionDemoExampleIntegrationTestH2
     extends InteractiveSubmissionDemoExampleIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[Memory](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
 }
 
 sealed abstract class RepairExampleIntegrationTest

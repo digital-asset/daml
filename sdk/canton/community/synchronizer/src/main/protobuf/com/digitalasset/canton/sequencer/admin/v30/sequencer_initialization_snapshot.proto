@@ -21,6 +21,16 @@ message SequencerSnapshot {
   repeated InFlightAggregationWithId in_flight_aggregations = 6;
   repeated com.digitalasset.canton.protocol.v30.TrafficPurchased traffic_purchased = 7;
   repeated com.digitalasset.canton.protocol.v30.TrafficConsumed traffic_consumed = 8;
+  repeated MemberPreviousTimestamp member_previous_timestamps = 9;
+
+  message MemberPreviousTimestamp {
+    string member = 1;
+    // The value below must be:
+    // - None if member doesn't have any events in its event stream <= SequencerSnapshot.latest_timestamp
+    // - Set to the timestamp of the last event in the member's event stream <= SequencerSnapshot.latest_timestamp
+    // in microseconds of UTC time since Unix epoch
+    optional int64 previous_timestamp = 2;
+  }
 
   message MemberCounter {
     string member = 1;

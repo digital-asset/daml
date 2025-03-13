@@ -173,6 +173,7 @@ class SequencedEventTestFixture(
     )
     val deliver: Deliver[ClosedEnvelope] = Deliver.create[ClosedEnvelope](
       SequencerCounter(counter),
+      None, // TODO(#11834): Make sure that tests using createEvent are not affected by this after counters are gone
       timestamp,
       synchronizerId,
       MessageId.tryCreate("test").some,

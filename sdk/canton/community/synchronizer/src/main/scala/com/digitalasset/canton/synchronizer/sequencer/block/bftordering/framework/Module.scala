@@ -211,7 +211,12 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging {
 
   def self: E#ModuleRefT[MessageT]
 
-  def delayedEvent(delay: FiniteDuration, message: MessageT): CancellableEvent
+  def delayedEvent(delay: FiniteDuration, message: MessageT): CancellableEvent =
+    delayedEventTraced(delay, message)(TraceContext.empty)
+
+  def delayedEventTraced(delay: FiniteDuration, messageT: MessageT)(implicit
+      traceContext: TraceContext
+  ): CancellableEvent
 
   /** Similar to TraceContext.withNewTraceContext but can be deterministically simulated
     */

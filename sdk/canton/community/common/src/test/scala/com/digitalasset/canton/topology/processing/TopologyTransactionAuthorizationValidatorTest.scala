@@ -12,9 +12,11 @@ import com.digitalasset.canton.crypto.{Signature, SigningPublicKey, Synchronizer
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.DefaultTestIdentities.participant2
 import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.{
+  MultiTransactionHashMismatch,
   NoDelegationFoundForKeys,
   NotAuthorized,
 }
@@ -34,76 +36,80 @@ import com.digitalasset.canton.{
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
-class TopologyTransactionAuthorizationValidatorTest
+abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHash: Boolean)
     extends AsyncWordSpec
     with BaseTest
     with HasExecutionContext
     with FailOnShutdown
     with ProtocolVersionChecksAsyncWordSpec {
 
-  "topology transaction authorization" when {
+  object Factory
+      extends TopologyTransactionTestFactory(
+        loggerFactory,
+        parallelExecutionContext,
+        multiTransactionHash,
+      )
 
-    object Factory extends TopologyTransactionTestFactory(loggerFactory, parallelExecutionContext)
+  def ts(seconds: Long) = CantonTimestamp.Epoch.plusSeconds(seconds)
 
-    def ts(seconds: Long) = CantonTimestamp.Epoch.plusSeconds(seconds)
-
-    def mk(
-        store: InMemoryTopologyStore[TopologyStoreId] = new InMemoryTopologyStore(
-          SynchronizerStore(Factory.synchronizerId1),
-          testedProtocolVersion,
-          loggerFactory,
-          timeouts,
+  def mk(
+      store: InMemoryTopologyStore[TopologyStoreId] = new InMemoryTopologyStore(
+        SynchronizerStore(Factory.synchronizerId1),
+        testedProtocolVersion,
+        loggerFactory,
+        timeouts,
+      ),
+      validationIsFinal: Boolean = true,
+      insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot: Boolean = false,
+  ) = {
+    val validator =
+      new TopologyTransactionAuthorizationValidator(
+        new SynchronizerCryptoPureApi(
+          defaultStaticSynchronizerParameters,
+          Factory.cryptoApi.crypto.pureCrypto,
         ),
-        validationIsFinal: Boolean = true,
-        insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot: Boolean = false,
-    ) = {
-      val validator =
-        new TopologyTransactionAuthorizationValidator(
-          new SynchronizerCryptoPureApi(
-            defaultStaticSynchronizerParameters,
-            Factory.cryptoApi.crypto.pureCrypto,
-          ),
-          store,
-          validationIsFinal = validationIsFinal,
-          insecureIgnoreMissingExtraKeySignatures =
-            insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot,
-          loggerFactory,
-        )
-      validator
-    }
+        store,
+        validationIsFinal = validationIsFinal,
+        insecureIgnoreMissingExtraKeySignatures =
+          insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot,
+        loggerFactory,
+      )
+    validator
+  }
 
-    def check(
-        validated: Seq[ValidatedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
-        expectedOutcome: Seq[Option[TopologyTransactionRejection => Boolean]],
-    ) = {
-      validated should have length expectedOutcome.size.toLong
-      validated.zipWithIndex.zip(expectedOutcome).foreach {
-        case ((ValidatedTopologyTransaction(tx, Some(err), _), _), Some(expected)) =>
-          assert(expected(err), s"Error $err was not expected for transaction: $tx")
-        case ((ValidatedTopologyTransaction(transaction, rej, _), idx), expected) =>
-          assertResult(expected, s"idx=$idx $transaction")(rej)
-      }
-      succeed
+  def check(
+      validated: Seq[ValidatedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
+      expectedOutcome: Seq[Option[TopologyTransactionRejection => Boolean]],
+  ) = {
+    validated should have length expectedOutcome.size.toLong
+    validated.zipWithIndex.zip(expectedOutcome).foreach {
+      case ((ValidatedTopologyTransaction(tx, Some(err), _), _), Some(expected)) =>
+        assert(expected(err), s"Error $err was not expected for transaction: $tx")
+      case ((ValidatedTopologyTransaction(transaction, rej, _), idx), expected) =>
+        assertResult(expected, s"idx=$idx $transaction")(rej)
     }
+    succeed
+  }
 
-    def validate(
-        validator: TopologyTransactionAuthorizationValidator[SynchronizerCryptoPureApi],
-        timestamp: CantonTimestamp,
-        toValidate: Seq[GenericSignedTopologyTransaction],
-        inStore: Map[MappingHash, GenericSignedTopologyTransaction],
-        expectFullAuthorization: Boolean,
-    )(implicit
-        traceContext: TraceContext
-    ): FutureUnlessShutdown[Seq[GenericValidatedTopologyTransaction]] =
-      MonadUtil
-        .sequentialTraverse(toValidate)(tx =>
-          validator.validateAndUpdateHeadAuthState(
-            timestamp,
-            tx,
-            inStore.get(tx.mapping.uniqueKey),
-            expectFullAuthorization,
-          )
+  def validate(
+      validator: TopologyTransactionAuthorizationValidator[SynchronizerCryptoPureApi],
+      timestamp: CantonTimestamp,
+      toValidate: Seq[GenericSignedTopologyTransaction],
+      inStore: Map[MappingHash, GenericSignedTopologyTransaction],
+      expectFullAuthorization: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[GenericValidatedTopologyTransaction]] =
+    MonadUtil
+      .sequentialTraverse(toValidate)(tx =>
+        validator.validateAndUpdateHeadAuthState(
+          timestamp,
+          tx,
+          inStore.get(tx.mapping.uniqueKey),
+          expectFullAuthorization,
         )
+      )
+  "topology transaction authorization" when {
 
     "receiving transactions with signatures" should {
       "succeed to add if the signature is valid" in {
@@ -125,7 +131,14 @@ class TopologyTransactionAuthorizationValidatorTest
       "fail to add if the signature is invalid" in {
         val validator = mk()
         import Factory.*
-        val invalid = ns1k2_k1.copy(signatures = ns1k1_k1.signatures)
+        val invalidSig: NonEmpty[Set[TopologyTransactionSignature]] = if (multiTransactionHash) {
+          ns1k1_k1.signatures.map(sig =>
+            MultiTransactionSignature(NonEmpty.mk(Set, ns1k2_k1.hash), sig.signature)
+          )
+        } else {
+          ns1k1_k1.signatures.map(sig => SingleTransactionSignature(ns1k2_k1.hash, sig.signature))
+        }
+        val invalid = ns1k2_k1.copy(signatures = invalidSig)
         for {
           validatedTopologyTransactions <- validate(
             validator,
@@ -363,10 +376,21 @@ class TopologyTransactionAuthorizationValidatorTest
         import Factory.*
 
         val sig_k1_emptySignature = Signature
-          .fromProtoV30(ns1k1_k1.signatures.head1.toProtoV30.copy(signature = ByteString.empty()))
+          .fromProtoV30(
+            ns1k1_k1.signatures.head1.signature.toProtoV30
+              .copy(signature = ByteString.empty())
+          )
           .value
+        val newSig: NonEmpty[Set[TopologyTransactionSignature]] = if (multiTransactionHash) {
+          NonEmpty.mk(
+            Set,
+            MultiTransactionSignature(NonEmpty.mk(Set, ns1k1_k1.hash), sig_k1_emptySignature),
+          )
+        } else {
+          NonEmpty.mk(Set, SingleTransactionSignature(ns1k1_k1.hash, sig_k1_emptySignature))
+        }
         val ns1k1_k1WithEmptySignature =
-          ns1k1_k1.copy(signatures = NonEmpty(Set, sig_k1_emptySignature))
+          ns1k1_k1.copy(signatures = newSig)
 
         for {
           res <- validate(
@@ -848,7 +872,7 @@ class TopologyTransactionAuthorizationValidatorTest
             ts(2),
             // Analogously to how the TopologyStateProcessor merges the signatures of proposals
             // with the same serial, combine the signature of the previous proposal to the current proposal.
-            List(dns3.addSignatures(dns2.signatures.toSeq)),
+            List(dns3.addSignaturesFromTransaction(dns2)),
             (decentralizedNamespaceWithMultipleOwnerThreshold ++ proposeDecentralizedNamespaceWithLowerThresholdAndOwnerNumber)
               .map(tx => tx.mapping.uniqueKey -> tx)
               .toMap,
@@ -1246,4 +1270,63 @@ class TopologyTransactionAuthorizationValidatorTest
     }
   }
 
+}
+
+// Authorizes transactions by signing the hash of the transaction only
+class TopologyTransactionAuthorizationValidatorTestDefault
+    extends TopologyTransactionAuthorizationValidatorTest(multiTransactionHash = false)
+
+// Authorizes transactions by signing a multi-hash containing the transaction hash
+class TopologyTransactionAuthorizationValidatorTestMultiTransactionHash
+    extends TopologyTransactionAuthorizationValidatorTest(multiTransactionHash = true) {
+
+  def makeOtkWithNonCoveringSignature = {
+    import Factory.*
+    val newSig = okm1ak5k1E_k2.signatures.filter(
+      // Remove the signature from key5, which we need for this OTK, and keep only the namespace signature
+      _.signature.signedBy == SigningKeys.key2.fingerprint
+    )
+    // Create a signature for an OTK with participant 2. Should not authorize okm1ak5k1E_k2 in any way because it's
+    // a different transaction
+    val signatureFromKey5ForParticipant2 = mkAddMultiKey(
+      OwnerToKeyMapping(participant2, NonEmpty(Seq, SigningKeys.key5, EncryptionKeys.key1)),
+      NonEmpty(Set, SigningKeys.key5, SigningKeys.key2),
+    )
+    okm1ak5k1E_k2
+      .copy(
+        // the OTK needs 2 signatures to be authorized, we just keep the namespace delegation one here
+        signatures = NonEmpty.from(newSig).value
+      )
+      // Add the signature to the original OTK
+      .addSignaturesFromTransaction(signatureFromKey5ForParticipant2)
+  }
+
+  "topology transaction authorization" should {
+    "fail if the signatures are valid but do not cover the transaction" in {
+      val validator = mk()
+      import Factory.*
+      val invalid = makeOtkWithNonCoveringSignature
+      for {
+        validatedTopologyTransactions <- validate(
+          validator,
+          ts(0),
+          List(ns1k1_k1, ns1k2_k1, invalid),
+          Map.empty,
+          expectFullAuthorization = true,
+        )
+      } yield {
+        check(
+          validatedTopologyTransactions,
+          Seq(
+            None,
+            None,
+            Some {
+              case _: MultiTransactionHashMismatch => true
+              case _ => false
+            },
+          ),
+        )
+      }
+    }
+  }
 }

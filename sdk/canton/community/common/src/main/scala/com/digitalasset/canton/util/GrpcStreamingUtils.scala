@@ -20,6 +20,7 @@ import java.io.{
   OutputStream,
 }
 import java.util.concurrent.atomic.AtomicReference
+import scala.annotation.tailrec
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future, Promise, blocking}
 import scala.util.{Failure, Success, Try}
@@ -147,33 +148,38 @@ object GrpcStreamingUtils {
     }
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.While"))
+  /** Deserializes versioned message instances from a given stream.
+    *
+    * IMPORTANT: Expects data in the input stream that has been serialized with
+    * [[com.digitalasset.canton.version.HasProtocolVersionedWrapper#writeDelimitedTo]]! Otherwise,
+    * you'll get weird deserialization behaviour without errors, or you'll observe misaligned
+    * message fields and message truncation errors result from having used
+    * [[scalapb.GeneratedMessage#writeDelimitedTo]] directly.
+    *
+    * @return
+    *   either an error, or a list of versioned message instances in reverse order as appeared in
+    *   the given stream
+    */
   def parseDelimitedFromTrusted[T <: HasRepresentativeProtocolVersion](
       stream: InputStream,
       objectType: VersioningCompanion[T],
-  ): Either[String, Seq[T]] = {
-    var hasDataInStream = true
-    var errorMessageO: Option[String] = None
-    // assume we can load everything into memory
-    val output =
-      scala.collection.mutable.ListBuffer.empty[T]
-
-    while (hasDataInStream && errorMessageO.isEmpty) {
+  ): Either[String, List[T]] = {
+    // Assume we can load all parsed messages into memory
+    @tailrec
+    def read(acc: List[T]): Either[String, List[T]] =
       objectType.parseDelimitedFromTrusted(stream) match {
-        case None =>
-          // parseDelimitedFrom returns None to indicate that there is no more data to read from the input stream
-          hasDataInStream = false
-        case Some(contractMetadataE) =>
-          contractMetadataE match {
-            case Left(parsingError) =>
-              // if there is a deserialization error, let's stop processing and return the error message
-              errorMessageO = Some(parsingError.message)
-            case Right(activeContract) =>
-              output.addOne(activeContract)
+        case Some(parsed) =>
+          parsed match {
+            case Left(parseError) =>
+              Left(parseError.message)
+            case Right(value) =>
+              // Prepend for efficiency!
+              read(value :: acc)
           }
+        case None =>
+          Right(acc)
       }
-    }
-    errorMessageO.toLeft(output.toList)
+    read(Nil)
   }
 
   private def streamResponseChunks[T](

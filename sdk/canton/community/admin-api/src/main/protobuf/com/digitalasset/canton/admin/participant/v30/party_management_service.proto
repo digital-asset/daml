@@ -13,6 +13,9 @@ service PartyManagementService {
   // local participant in the specified synchronizer.
   // Performs some checks synchronously and then starts the replication asynchronously.
   rpc AddPartyAsync(AddPartyAsyncRequest) returns (AddPartyAsyncResponse);
+
+  // Export the ACS for the given parties from the participant
+  rpc ExportAcsNew(ExportAcsNewRequest) returns (stream ExportAcsNewResponse);
 }
 
 message AddPartyAsyncRequest {
@@ -35,4 +38,38 @@ message AddPartyAsyncRequest {
 message AddPartyAsyncResponse {
   // A identifier used to uniquely track add party activity
   string party_replication_id = 1;
+}
+
+message ExportAcsTargetSynchronizer {
+  // The ID of the synchronizer where the contract is supposed to be assigned when the export is being imported
+  string target_synchronizer_id = 1;
+}
+
+message ExportAcsNewRequest {
+  // The parties for which the ACS should be exported
+  // Required
+  repeated string party_ids = 1;
+
+  // The IDs of the synchronizers to filter the contracts by
+  // Optional, if set the contracts will be filtered by the exact match of the ID of the synchronizer
+  // to which it's assigned
+  string filter_synchronizer_id = 2; // optional; exact match if set
+
+  // The ledger offset at which the ACS snapshot should be taken.
+  // Required
+  int64 ledger_offset = 3;
+
+  // Mapping from one synchronizer ID and protocol version. If provided, the assignation of the contracts
+  // will be changed according to map values. However, these mappings are not proper reassignments.
+  // Optional, if not provided the contracts will be exported with the same synchronizer ID as they are
+  // currently assigned.
+  // Default: empty
+  map<string, ExportAcsTargetSynchronizer> contract_synchronizer_renames = 4;
+}
+
+message ExportAcsNewResponse {
+  // The raw binary of the ACS snapshot to be imported
+  // This is meant to be streamed and every message should be a chunk of the snapshot
+  // Required
+  bytes chunk = 1;
 }

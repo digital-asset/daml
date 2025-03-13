@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss
 
-import com.digitalasset.canton.crypto.{HashPurpose, SignatureCheckError, SigningKeyUsage}
+import com.digitalasset.canton.crypto.SignatureCheckError
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
@@ -13,6 +13,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   EpochStatusBuilder,
   RetransmissionsManager,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
   CryptoProvider,
   TopologyActivationTime,
@@ -106,8 +107,7 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
   ): Unit = {
     verify(cryptoProvider, times(wantedNumberOfInvocations)).signMessage(
       retransmissionRequest,
-      HashPurpose.BftSignedRetransmissionMessage,
-      SigningKeyUsage.ProtocolOnly,
+      AuthenticatedMessageType.BftSignedRetransmissionMessage,
     )
     verify(networkOut, times(wantedNumberOfInvocations)).asyncSend(
       P2PNetworkOut.Multicast(
@@ -168,8 +168,7 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         when(
           cryptoProvider.verifySignedMessage(
             message.fakeSign,
-            HashPurpose.BftSignedRetransmissionMessage,
-            SigningKeyUsage.ProtocolOnly,
+            AuthenticatedMessageType.BftSignedRetransmissionMessage,
           )
         ).thenReturn(() => Right(()))
 
@@ -198,8 +197,7 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       when(
         cryptoProvider.verifySignedMessage(
           message.fakeSign,
-          HashPurpose.BftSignedRetransmissionMessage,
-          SigningKeyUsage.ProtocolOnly,
+          AuthenticatedMessageType.BftSignedRetransmissionMessage,
         )
       ).thenReturn(() => Left(SignatureCheckError.InvalidKeyError("failed to verify")))
 
@@ -379,8 +377,7 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
       verify(cryptoProvider, times(1)).signMessage(
         retransmissionResponse,
-        HashPurpose.BftSignedRetransmissionMessage,
-        SigningKeyUsage.ProtocolOnly,
+        AuthenticatedMessageType.BftSignedRetransmissionMessage,
       )
       verify(networkOut, times(1)).asyncSend(
         P2PNetworkOut.Multicast(

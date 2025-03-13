@@ -18,7 +18,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SimulationSettings,
   SimulationVerifier,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.SimulationTopologyHelpers.sequencerBecomeOnlineTime
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.data.StorageHelpers
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.matchers.should.Matchers
 
@@ -32,6 +32,7 @@ final class BftOrderingVerifier(
     queue: mutable.Queue[(BftNodeId, BlockFormat.Block)],
     stores: Map[BftNodeId, OutputMetadataStore[SimulationEnv]],
     onboardingTimes: Map[BftNodeId, TopologyActivationTime],
+    initialNodes: Seq[BftNodeId],
     simSettings: SimulationSettings,
     override val loggerFactory: NamedLoggerFactory,
 ) extends SimulationVerifier
@@ -42,9 +43,11 @@ final class BftOrderingVerifier(
 
   private var previousTimestamp = 0L
 
-  private val peanoQueues = mutable.Map.empty[BftNodeId, PeanoQueue[BlockFormat.Block]]
+  private val peanoQueues = mutable.Map.empty[BftNodeId, PeanoQueue[BlockNumber, BlockFormat.Block]]
 
-  private val nodesToOnboard = mutable.Set.from(onboardingTimes.keys)
+  initialNodes.foreach { node =>
+    peanoQueues(node) = new PeanoQueue(BlockNumber(0L))(fail(_))
+  }
 
   private var livenessState: LivenessState = LivenessState.NotChecking
 
@@ -62,9 +65,22 @@ final class BftOrderingVerifier(
   override def checkInvariants(at: CantonTimestamp): Unit = {
     checkLiveness(at)
 
-    onboardSequencers(at)
-
     checkStores()
+  }
+
+  override def nodeStarted(at: CantonTimestamp, node: BftNodeId): Unit = {
+    implicit val traceContext: TraceContext = TraceContext.empty
+    // Conservatively, find the most advanced store to increase certainty that it contains the onboarding block.
+    // If the right onboarding block is not found, the simulation is supposed to fail on liveness due to a gap
+    //  in the relevant peano queue.
+    val store = StorageHelpers.findMostAdvancedOutputStore(stores)._2
+    val onboardingTime = onboardingTimes(node)
+    val startingBlock = store
+      .getLatestBlockAtOrBefore(onboardingTime.value)
+      .resolveValue()
+      .getOrElse(fail(s"failed to get an onboarding block for peer $node"))
+      .map(_.blockNumber)
+    peanoQueues(node) = new PeanoQueue(startingBlock.getOrElse(BlockNumber(0L)))(fail(_))
   }
 
   override def aFutureHappened(node: BftNodeId): Unit = ()
@@ -79,13 +95,13 @@ final class BftOrderingVerifier(
         queue,
         stores ++ newStores,
         newOnboardingTimes,
+        Seq.empty,
         simulationSettings,
         loggerFactory,
       )
     newVerifier.currentLog ++= currentLog
     newVerifier.previousTimestamp = previousTimestamp
     newVerifier.peanoQueues ++= peanoQueues
-    newVerifier.nodesToOnboard ++= nodesToOnboard
     newVerifier
   }
 
@@ -109,33 +125,6 @@ final class BftOrderingVerifier(
             at should be <= startedAt.add(simSettings.livenessCheckInterval.toJava)
           }
         }
-    }
-
-  private def onboardSequencers(timestamp: CantonTimestamp): Unit =
-    if (nodesToOnboard.nonEmpty) {
-      nodesToOnboard.toSeq.foreach { node =>
-        val onboardingTime = onboardingTimes(node)
-        if (sequencerBecomeOnlineTime(onboardingTime, simSettings) < timestamp) {
-          implicit val traceContext: TraceContext = TraceContext.empty
-          // Conservatively, find the most advanced store to increase certainty that it contains the onboarding block.
-          // If the right onboarding block is not found, the simulation is supposed to fail on liveness due to a gap
-          //  in the relevant peano queue.
-          val store = stores.values.maxBy( // `maxBy` can throw, it's fine for tests
-            _.getLastConsecutiveBlock
-              .resolveValue()
-              .toOption
-              .flatMap(_.map(_.blockNumber))
-              .getOrElse(BlockNumber(0L))
-          )
-          val startingBlock = store
-            .getLatestBlockAtOrBefore(onboardingTime.value)
-            .resolveValue()
-            .getOrElse(fail(s"failed to get an onboarding block for '$node''"))
-            .map(_.blockNumber)
-          peanoQueues(node) = new PeanoQueue(startingBlock.getOrElse(BlockNumber(0L)))(fail(_))
-          nodesToOnboard.remove(node)
-        }
-      }
     }
 
   private def checkBlockAgainstModel(block: BlockFormat.Block): Unit =

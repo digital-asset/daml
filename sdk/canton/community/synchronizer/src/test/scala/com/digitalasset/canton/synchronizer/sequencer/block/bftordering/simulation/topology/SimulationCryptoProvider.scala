@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulat
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.KeyPurpose.Signing
 import com.digitalasset.canton.crypto.SignatureCheckError.{
   SignatureWithWrongKey,
@@ -20,20 +21,11 @@ import com.digitalasset.canton.crypto.store.memory.{
   InMemoryCryptoPrivateStore,
   InMemoryCryptoPublicStore,
 }
-import com.digitalasset.canton.crypto.{
-  Fingerprint,
-  Hash,
-  HashPurpose,
-  Signature,
-  SignatureCheckError,
-  SigningKeyUsage,
-  SigningPublicKey,
-  SyncCryptoError,
-}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
   MessageFrom,
@@ -83,7 +75,7 @@ class SimulationCryptoProvider(
       case None => Map.empty
     }
 
-  override def sign(hash: Hash, usage: NonEmpty[Set[SigningKeyUsage]])(implicit
+  override def signHash(hash: Hash)(implicit
       traceContext: TraceContext
   ): SimulationFuture[Either[SyncCryptoError, Signature]] = SimulationFuture(s"sign($hash)") { () =>
     Try {
@@ -93,14 +85,13 @@ class SimulationCryptoProvider(
 
   override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
       message: MessageT,
-      hashPurpose: HashPurpose,
-      usage: NonEmpty[Set[SigningKeyUsage]],
+      authenticatedMessageType: AuthenticatedMessageType,
   )(implicit
       traceContext: TraceContext
   ): SimulationFuture[Either[SyncCryptoError, SignedMessage[MessageT]]] =
     SimulationFuture("signMessage") { () =>
       Try {
-        innerSign(CryptoProvider.hashForMessage(message, message.from, hashPurpose))
+        innerSign(CryptoProvider.hashForMessage(message, message.from, authenticatedMessageType))
           .map(SignedMessage(message, _))
       }
     }
@@ -116,13 +107,18 @@ class SimulationCryptoProvider(
       hash: Hash,
       member: BftNodeId,
       signature: Signature,
-      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): SimulationFuture[Either[SignatureCheckError, Unit]] =
     SimulationFuture(s"verifySignature($hash, $member)") { () =>
       Try {
-        innerVerifySignature(hash, validKeys(member), signature, member.toString, usage)
+        innerVerifySignature(
+          hash,
+          validKeys(member),
+          signature,
+          member.toString,
+          SigningKeyUsage.ProtocolOnly,
+        )
       }
     }
 

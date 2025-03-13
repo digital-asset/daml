@@ -143,7 +143,10 @@ class ConsoleEnvironment(
 
   }
 
-  protected def timeouts: ProcessingTimeout = environment.config.parameters.timeouts.processing
+  def environmentTimeouts: ProcessingTimeout = timeouts
+
+  override protected val timeouts: ProcessingTimeout =
+    environment.config.parameters.timeouts.processing
 
   /** @return
     *   maximum runtime of a console command

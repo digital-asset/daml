@@ -4,15 +4,22 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver
 
 import cats.syntax.traverse.*
-import com.digitalasset.canton.crypto.{SynchronizerCryptoClient, SynchronizerSnapshotSyncCryptoApi}
+import com.digitalasset.canton.crypto.{
+  SigningPublicKey,
+  SynchronizerCryptoClient,
+  SynchronizerSnapshotSyncCryptoApi,
+}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.CantonCryptoProvider.BftOrderingSigningKeyUsage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
   CryptoProvider,
   OrderingTopologyProvider,
   TopologyActivationTime,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology.NodeTopologyInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
   OrderingTopology,
   SequencingParameters,
@@ -21,9 +28,9 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PekkoEnv,
   PekkoFutureUnlessShutdown,
 }
-import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.processing.SequencedTime
+import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
@@ -85,6 +92,12 @@ private[driver] final class CantonOrderingTopologyProvider(
       )
 
       maybeSequencers = maybeSequencerGroup.map(_.active)
+      maybeSequencerKeys <-
+        maybeSequencers.fold(
+          FutureUnlessShutdown.pure[Map[Member, Seq[SigningPublicKey]]](Map.empty)
+        ) { sequencers =>
+          snapshot.ipsSnapshot.signingKeys(sequencers, BftOrderingSigningKeyUsage)
+        }
       maybeSequencersFirstKnownAt <-
         maybeSequencers
           .map(computeFirstKnownAtTimestamps(_, snapshot))
@@ -98,17 +111,25 @@ private[driver] final class CantonOrderingTopologyProvider(
         s"Dynamic sequencing parameters queried successfully on snapshot at $snapshotTimestamp: $sequencingDynamicParameters"
       )
     } yield maybeSequencersFirstKnownAt.map { sequencersFirstKnownAt =>
-      val sequencersActiveAt = sequencersFirstKnownAt.view.map { case (sequencerId, firstKnownAt) =>
-        // We first get all the nodes from the synchronizer client, so the default value should never be needed.
-        BftNodeId(SequencerNodeId.toBftNodeId(sequencerId)) -> firstKnownAt.fold(
-          TopologyActivationTime(CantonTimestamp.MaxValue)
-        ) { case (_, effectiveTime) =>
-          TopologyActivationTime.fromEffectiveTime(effectiveTime)
-        }
+      val nodesTopologyInfo = sequencersFirstKnownAt.view.map { case (sequencerId, firstKnownAt) =>
+        BftNodeId(SequencerNodeId.toBftNodeId(sequencerId)) -> NodeTopologyInfo(
+          activationTime =
+            // We first get all the nodes from the synchronizer client, so the default value should never be needed.
+            firstKnownAt.fold(
+              TopologyActivationTime(CantonTimestamp.MaxValue)
+            ) { case (_, effectiveTime) =>
+              TopologyActivationTime.fromEffectiveTime(effectiveTime)
+            },
+          keyIds = maybeSequencerKeys
+            .getOrElse(sequencerId, Seq.empty)
+            .map(_.id)
+            .map(FingerprintKeyId.toBftKeyId)
+            .toSet,
+        )
       }.toMap
       val topology =
         OrderingTopology(
-          sequencersActiveAt,
+          nodesTopologyInfo,
           sequencingDynamicParameters,
           activationTime,
           areTherePendingCantonTopologyChanges = maxTimestamp.exists { case (_, maxEffectiveTime) =>

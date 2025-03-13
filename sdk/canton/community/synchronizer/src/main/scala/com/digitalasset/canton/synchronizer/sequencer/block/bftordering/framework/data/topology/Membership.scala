@@ -25,7 +25,7 @@ object Membership {
       sequencingParameters: SequencingParameters = SequencingParameters.Default,
       leaders: Option[Seq[BftNodeId]] = None,
   ): Membership = {
-    val orderingTopology = OrderingTopology(otherNodes + myId, sequencingParameters)
+    val orderingTopology = OrderingTopology.forTesting(otherNodes + myId, sequencingParameters)
     val nodes = orderingTopology.sortedNodes
     Membership(myId, orderingTopology, leaders.getOrElse(nodes))
   }

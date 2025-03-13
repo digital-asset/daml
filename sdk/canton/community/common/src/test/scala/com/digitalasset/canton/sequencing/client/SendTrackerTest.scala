@@ -68,6 +68,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
       sign(
         Deliver.create(
           SequencerCounter(0),
+          None,
           timestamp,
           DefaultTestIdentities.synchronizerId,
           Some(msgId),
@@ -88,6 +89,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
       sign(
         DeliverError.create(
           SequencerCounter(0),
+          None,
           timestamp,
           DefaultTestIdentities.synchronizerId,
           msgId,

@@ -13,8 +13,8 @@ import com.digitalasset.canton.topology.PartyId
 
 /** Adds the ability to create TrailingNone instances to integration tests.
   */
-trait HasTrailingNoneUtils[TCE <: TestConsoleEnvironment] {
-  this: BaseIntegrationTest[TCE] =>
+trait HasTrailingNoneUtils {
+  this: BaseIntegrationTest =>
 
   def createTrailingNoneContract(
       participant: ParticipantReference,

@@ -5,22 +5,23 @@ package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.admin.api.client.data.{NodeStatus, WaitingForInitialization}
+import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.StorageConfig
 import com.digitalasset.canton.console.{CommandFailure, InstanceReference}
-import com.digitalasset.canton.integration.CommunityTests.{
+import com.digitalasset.canton.integration.plugins.{UseCommunityReferenceBlockSequencer, UseH2}
+import com.digitalasset.canton.integration.{
+  CommunityEnvironmentDefinition,
   CommunityIntegrationTest,
-  SharedCommunityEnvironment,
+  ConfigTransforms,
+  SharedEnvironment,
 }
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
-import com.digitalasset.canton.integration.{CommunityEnvironmentDefinition, ConfigTransforms}
 
 /** The objective of this test is to verify that pruning is accessible in the community edition and
   * no longer fails with a NotSupportedInCommunityEdition error.
   */
 sealed trait CommunityPruningSmokeIntegrationTest
     extends CommunityIntegrationTest
-    with SharedCommunityEnvironment {
+    with SharedEnvironment {
 
   private val synchronizerAlias = "da"
 
@@ -120,9 +121,10 @@ sealed trait CommunityPruningSmokeIntegrationTest
   }
 }
 
-final class CommunityReferencePruningSmokeIntegrationTest
+final class CommunityReferencePruningSmokeIntegrationTestH2
     extends CommunityPruningSmokeIntegrationTest {
+  registerPlugin(new UseH2(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[StorageConfig.Memory](loggerFactory)
+    new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory)
   )
 }

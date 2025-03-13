@@ -1074,7 +1074,7 @@ trait SequencerApiTestUtils
       val event = message.signedEvent.content
 
       event match {
-        case Deliver(_, _, _, messageIdO, batch, _, trafficReceipt) =>
+        case Deliver(_, _, _, _, messageIdO, batch, _, trafficReceipt) =>
           withClue(s"Received the wrong number of envelopes for recipient $member") {
             batch.envelopes.length shouldBe expectedMessage.envs.length
           }
@@ -1111,6 +1111,7 @@ trait SequencerApiTestUtils
         event.signedEvent.content match {
           case DeliverError(
                 _counter,
+                _previousTimestamp,
                 _timestamp,
                 _synchronizerId,
                 messageId,

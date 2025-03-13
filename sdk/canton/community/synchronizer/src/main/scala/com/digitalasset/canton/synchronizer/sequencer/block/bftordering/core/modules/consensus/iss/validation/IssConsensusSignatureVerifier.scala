@@ -4,8 +4,9 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation
 
 import cats.syntax.either.*
-import com.digitalasset.canton.crypto.{HashPurpose, SignatureCheckError, SigningKeyUsage}
+import com.digitalasset.canton.crypto.SignatureCheckError
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
   AvailabilityAck,
@@ -102,7 +103,7 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
         proofOfAvailability.expirationTime,
         ack.from,
       )
-      cryptoProvider.verifySignature(hash, ack.from, ack.signature, SigningKeyUsage.ProtocolOnly)
+      cryptoProvider.verifySignature(hash, ack.from, ack.signature)
     }
   }
 
@@ -155,12 +156,12 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
       traceContext: TraceContext,
   ): VerificationResult = message match {
     case ConsensusSegment.ConsensusMessage.ViewChange(
-          blockMetadata,
-          segmentIndex,
-          viewNumber,
-          localTimestamp,
+          _blockMetadata,
+          _segmentIndex,
+          _viewNumber,
+          _localTimestamp,
           certs,
-          from,
+          _from,
         ) =>
       collectFuturesAndFlatten(certs.map(validateConsensusCertificate(_, topologyInfo)))
   }
@@ -190,8 +191,7 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
           Seq(
             cryptoProvider.verifySignedMessage(
               signedMessage,
-              HashPurpose.BftSignedConsensusMessage,
-              SigningKeyUsage.ProtocolOnly,
+              AuthenticatedMessageType.BftSignedConsensusMessage,
             )
           )
         ),

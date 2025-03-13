@@ -79,6 +79,7 @@ class SequencedEventStoreBasedTopologyHeadInitializerTest
                     SignedContent(
                       Deliver.create(
                         SequencerCounter(0),
+                        None,
                         timestamp,
                         SynchronizerId.tryFromString("namespace::id"),
                         None,

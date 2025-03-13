@@ -214,12 +214,14 @@ final class GeneratorsProtocol(
   private implicit val deliverErrorArb: Arbitrary[DeliverError] = Arbitrary(
     for {
       sequencerCounter <- Arbitrary.arbitrary[SequencerCounter]
+      pts <- Arbitrary.arbitrary[Option[CantonTimestamp]]
       ts <- Arbitrary.arbitrary[CantonTimestamp]
       synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
       messageId <- Arbitrary.arbitrary[MessageId]
       error <- sequencerDeliverErrorArb.arbitrary
     } yield DeliverError.create(
       sequencerCounter,
+      previousTimestamp = pts,
       timestamp = ts,
       synchronizerId = synchronizerId,
       messageId,
@@ -307,6 +309,7 @@ object GeneratorsProtocol {
       batch: Batch[Env],
       protocolVersion: ProtocolVersion,
   ): Gen[Deliver[Env]] = for {
+    previousTimestamp <- Arbitrary.arbitrary[Option[CantonTimestamp]]
     timestamp <- Arbitrary.arbitrary[CantonTimestamp]
     counter <- Arbitrary.arbitrary[SequencerCounter]
     messageIdO <- Gen.option(Arbitrary.arbitrary[MessageId])
@@ -314,6 +317,7 @@ object GeneratorsProtocol {
     trafficReceipt <- Gen.option(Arbitrary.arbitrary[TrafficReceipt])
   } yield Deliver.create(
     counter,
+    previousTimestamp,
     timestamp,
     synchronizerId,
     messageIdO,
@@ -326,8 +330,15 @@ object GeneratorsProtocol {
   def timeProofArb(protocolVersion: ProtocolVersion): Arbitrary[TimeProof] = Arbitrary(
     for {
       timestamp <- Arbitrary.arbitrary[CantonTimestamp]
+      previousEventTimestamp <- Arbitrary.arbitrary[Option[CantonTimestamp]]
       counter <- nonNegativeLongArb.arbitrary.map(_.unwrap)
       targetSynchronizerId <- Arbitrary.arbitrary[Target[SynchronizerId]]
-    } yield TimeProofTestUtil.mkTimeProof(timestamp, counter, targetSynchronizerId, protocolVersion)
+    } yield TimeProofTestUtil.mkTimeProof(
+      timestamp,
+      previousEventTimestamp,
+      counter,
+      targetSynchronizerId,
+      protocolVersion,
+    )
   )
 }

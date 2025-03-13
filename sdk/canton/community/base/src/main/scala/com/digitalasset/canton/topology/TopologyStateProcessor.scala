@@ -317,7 +317,7 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
   ): (Boolean, GenericSignedTopologyTransaction) =
     inStore match {
       case Some(value) if value.hash == toValidate.hash =>
-        (true, value.addSignatures(toValidate.signatures.toSeq))
+        (true, value.addSignaturesFromTransaction(toValidate))
 
       case _ => (false, toValidate)
     }
@@ -328,7 +328,7 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
     proposalsForTx.get(toValidate.hash) match {
       case None => toValidate
       case Some(existingProposal) =>
-        toValidate.addSignatures(existingProposal.validatedTx.transaction.signatures.toSeq)
+        toValidate.addSignaturesFromTransaction(existingProposal.validatedTx.transaction)
     }
 
   private def validateAndMerge(

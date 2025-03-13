@@ -30,6 +30,8 @@ sealed trait UnlessShutdown[+A] extends Product with Serializable {
   /** Monadically chain two outcome computations. Abortion due to shutdown propagates. */
   def flatMap[B](f: A => UnlessShutdown[B]): UnlessShutdown[B]
 
+  def flatten[B](implicit ev: A <:< UnlessShutdown[B]): UnlessShutdown[B] = flatMap(ev)
+
   /** Applicative traverse for outcome computations. The given function is not applied upon
     * abortion.
     */

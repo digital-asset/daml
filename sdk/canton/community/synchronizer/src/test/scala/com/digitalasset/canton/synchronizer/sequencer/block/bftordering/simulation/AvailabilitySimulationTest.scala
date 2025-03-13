@@ -69,7 +69,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SimulationEnv,
   SimulationInitializer,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.EmptyOnboardingDataProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.EmptyOnboardingManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.{
   SimulationOrderingTopologyProvider,
   SimulationTopologyHelpers,
@@ -432,6 +432,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
       val topologyInit = range.map { n =>
         val endpointConfig = endpoints(n)
         val endpoint = PlainTextP2PEndpoint(endpointConfig.address, endpointConfig.port)
+          .asInstanceOf[P2PEndpoint]
         val node = Simulation.endpointToNode(endpoint)
 
         val orderingTopologyProvider =
@@ -464,7 +465,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
       val simulation =
         SimulationModuleSystem(
           topologyInit,
-          EmptyOnboardingDataProvider,
+          EmptyOnboardingManager,
           simSettings,
           clock,
           timeouts,

@@ -194,7 +194,8 @@ class ParallelMessageDispatcher(
       signedEventE: WithOpeningErrors[SignedContent[SequencedEvent[DefaultOpenEnvelope]]]
   )(implicit traceContext: TraceContext): ProcessingResult =
     signedEventE.event.content match {
-      case deliver @ Deliver(sc, ts, _, _, _, _, _) if TimeProof.isTimeProofDeliver(deliver) =>
+      case deliver @ Deliver(sc, _pts, ts, _, _, _, _, _)
+          if TimeProof.isTimeProofDeliver(deliver) =>
         logTimeProof(sc, ts)
         FutureUnlessShutdown
           .lift(
@@ -202,7 +203,7 @@ class ParallelMessageDispatcher(
           )
           .flatMap(_ => pureProcessingResult)
 
-      case Deliver(sc, ts, _, msgId, _, _, _) =>
+      case Deliver(sc, _pts, ts, _, msgId, _, _, _) =>
         // TODO(#13883) Validate the topology timestamp
         if (signedEventE.hasNoErrors) {
           logEvent(sc, ts, msgId, signedEventE.event)
@@ -223,7 +224,7 @@ class ParallelMessageDispatcher(
               Failure(ex)
           }
 
-      case error @ DeliverError(sc, ts, _, msgId, status, _) =>
+      case error @ DeliverError(sc, _pts, ts, _, msgId, status, _) =>
         logDeliveryError(sc, ts, msgId, status)
         observeDeliverError(error)
     }

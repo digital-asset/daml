@@ -701,7 +701,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         proposedOrExisting.reduceLeft[SignedTopologyTransaction[
           TopologyChangeOp,
           DecentralizedNamespaceDefinition,
-        ]]((txA, txB) => txA.addSignatures(txB.signatures.forgetNE.toSeq))
+        ]]((txA, txB) => txA.addSignaturesFromTransaction(txB))
 
       val ownerNSDs = owners.flatMap(_.topology.transactions.identity_transactions())
       val foundingTransactions = ownerNSDs :+ decentralizedNamespaceDefinition
@@ -862,7 +862,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         .map(
           // combine signatures of transactions with the same hash
           _.reduceLeft[PositiveSignedTopologyTransaction] { (a, b) =>
-            a.addSignatures(b.signatures.toSeq)
+            a.addSignaturesFromTransaction(b)
           }.updateIsProposal(isProposal = false)
         )
         .toSeq

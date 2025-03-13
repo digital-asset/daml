@@ -77,8 +77,27 @@ sealed trait HasSynchronizeWithClosing extends HasRunOnClosing {
     * [[synchronizeWithClosingPatience]] has elapsed.
     *
     * @return
+    *   The computation completes with
     *   [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]] if `f` has not
-    *   run. Otherwise the result of running `f`
+    *   run. Otherwise it is the result of running `f`.
+    *
+    * @see
+    *   HasRunOnClosing.isClosing
+    */
+  def synchronizeWithClosingUSF[F[_], A](name: String)(f: => F[A])(implicit
+      traceContext: TraceContext,
+      F: Thereafter[F],
+      A: AbsorbUnlessShutdown[F],
+  ): F[A] = A.absorbOuter(synchronizeWithClosingF(name)(f))
+
+  /** Runs the computation `f` only if the component is not yet closing. If so, the component will
+    * delay releasing its resources until `f` has completed (as defined by the
+    * [[com.digitalasset.canton.util.Thereafter]] instance) or the
+    * [[synchronizeWithClosingPatience]] has elapsed.
+    *
+    * @return
+    *   [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]] if `f` has not
+    *   run. Otherwise the result of running `f`.
     *
     * @see
     *   HasRunOnClosing.isClosing
@@ -86,10 +105,7 @@ sealed trait HasSynchronizeWithClosing extends HasRunOnClosing {
   def synchronizeWithClosingF[F[_], A](name: String)(f: => F[A])(implicit
       traceContext: TraceContext,
       F: Thereafter[F],
-  )
-  // TODO(#16601) The outer `UnlessShutdown` is a bit clumsy.
-  //  If we add a method `UnlessShutdown[F[A]] => G[A]` to Thereafter, we should be good
-      : UnlessShutdown[F[A]]
+  ): UnlessShutdown[F[A]]
 
   def synchronizeWithClosingPatience: FiniteDuration
 }

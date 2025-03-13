@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.{HashPurpose, Signature, SigningKeyUsage}
+import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -17,6 +17,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   shortType,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
@@ -118,8 +119,7 @@ final class AvailabilityModule[E <: Env[E]](
             pipeToSelf(
               activeCryptoProvider.verifySignedMessage(
                 signedMessage,
-                hashPurpose = HashPurpose.BftSignedAvailabilityMessage,
-                SigningKeyUsage.ProtocolOnly,
+                AuthenticatedMessageType.BftSignedAvailabilityMessage,
               )
             ) {
               case Failure(exception) =>
@@ -187,9 +187,8 @@ final class AvailabilityModule[E <: Env[E]](
       case Availability.LocalDissemination.LocalBatchStored(batchId, batch) =>
         logger.debug(s"$messageType: persisted local batch $batchId, now signing")
         pipeToSelf(
-          activeCryptoProvider.sign(
-            AvailabilityAck.hashFor(batchId, batch.expirationTime, activeMembership.myId),
-            SigningKeyUsage.ProtocolOnly,
+          activeCryptoProvider.signHash(
+            AvailabilityAck.hashFor(batchId, batch.expirationTime, activeMembership.myId)
           )
         )(handleFailure(s"Can't sign batch $batchId") { signature =>
           LocalDissemination.LocalBatchStoredSigned(batchId, batch, signature)
@@ -229,9 +228,8 @@ final class AvailabilityModule[E <: Env[E]](
       case Availability.LocalDissemination.RemoteBatchStored(batchId, expirationTime, from) =>
         logger.debug(s"$messageType: local store persisted $batchId from $from, signing")
         pipeToSelf(
-          activeCryptoProvider.sign(
-            AvailabilityAck.hashFor(batchId, expirationTime, activeMembership.myId),
-            SigningKeyUsage.ProtocolOnly,
+          activeCryptoProvider.signHash(
+            AvailabilityAck.hashFor(batchId, expirationTime, activeMembership.myId)
           )
         )(handleFailure(s"Failed to sign $batchId") { signature =>
           LocalDissemination.RemoteBatchStoredSigned(batchId, from, signature)
@@ -302,7 +300,6 @@ final class AvailabilityModule[E <: Env[E]](
                   AvailabilityAck.hashFor(batchId, expirationTime, from),
                   from,
                   signature,
-                  SigningKeyUsage.ProtocolOnly,
                 )
             ) {
               case Failure(exception) =>
@@ -376,7 +373,7 @@ final class AvailabilityModule[E <: Env[E]](
             // We received all the batches that the output module requested
             // so we can send them to output module
             request.missingBatches.clear()
-            dependencies.output.asyncSend(
+            dependencies.output.asyncSendTraced(
               Output.BlockDataFetched(CompleteBlockData(request.blockForOutput, batches))
             )
         }
@@ -704,7 +701,7 @@ final class AvailabilityModule[E <: Env[E]](
     //  bandwidth and should be able to support it. However, presently there is no evidence that this is a winning
     //  strategy in a majority of situations.
     context
-      .delayedEvent(
+      .delayedEventTraced(
         config.outputFetchTimeout,
         Availability.LocalOutputFetch.FetchRemoteBatchDataTimeout(batchId),
       )
@@ -896,8 +893,7 @@ final class AvailabilityModule[E <: Env[E]](
     pipeToSelf(
       activeCryptoProvider.signMessage(
         message,
-        HashPurpose.BftSignedAvailabilityMessage,
-        SigningKeyUsage.ProtocolOnly,
+        AuthenticatedMessageType.BftSignedAvailabilityMessage,
       )
     )(
       handleFailure(s"Can't sign message $message") { signedMessage =>
@@ -918,8 +914,7 @@ final class AvailabilityModule[E <: Env[E]](
     pipeToSelf(
       activeCryptoProvider.signMessage(
         message,
-        HashPurpose.BftSignedAvailabilityMessage,
-        SigningKeyUsage.ProtocolOnly,
+        AuthenticatedMessageType.BftSignedAvailabilityMessage,
       )
     )(
       handleFailure(s"Can't sign message $message") { signedMessage =>

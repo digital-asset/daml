@@ -53,6 +53,7 @@ class SynchronizerTimeTrackerTest extends FixtureAsyncWordSpec with BaseTest {
       SignedContent(
         Deliver.create(
           SequencerCounter(0),
+          None,
           ts,
           DefaultTestIdentities.synchronizerId,
           TimeProof.mkTimeProofRequestMessageId.some,
@@ -73,6 +74,7 @@ class SynchronizerTimeTrackerTest extends FixtureAsyncWordSpec with BaseTest {
       SignedContent(
         Deliver.create(
           SequencerCounter(0),
+          None,
           ts,
           DefaultTestIdentities.synchronizerId,
           MessageId.tryCreate("not a time proof").some,

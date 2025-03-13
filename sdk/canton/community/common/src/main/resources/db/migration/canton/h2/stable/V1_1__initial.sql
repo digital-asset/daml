@@ -453,6 +453,7 @@ create table sequencer_members (
     member varchar primary key,
     id serial unique,
     registered_ts bigint not null,
+    pruned_previous_event_timestamp bigint,
     enabled bool not null default true
 );
 

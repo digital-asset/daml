@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions
 
-import com.digitalasset.canton.crypto.{HashPurpose, SigningKeyUsage}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
   EpochNumber,
@@ -95,8 +95,7 @@ class RetransmissionsManager[E <: Env[E]](
       context.pipeToSelf(
         activeCryptoProvider.verifySignedMessage(
           message,
-          HashPurpose.BftSignedRetransmissionMessage,
-          SigningKeyUsage.ProtocolOnly,
+          AuthenticatedMessageType.BftSignedRetransmissionMessage,
         )
       ) {
         case Failure(exception) =>
@@ -242,8 +241,7 @@ class RetransmissionsManager[E <: Env[E]](
     context.pipeToSelf(
       activeCryptoProvider.signMessage(
         message,
-        HashPurpose.BftSignedRetransmissionMessage,
-        SigningKeyUsage.ProtocolOnly,
+        AuthenticatedMessageType.BftSignedRetransmissionMessage,
       )
     ) {
       case Failure(exception) =>

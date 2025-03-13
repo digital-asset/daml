@@ -184,6 +184,28 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
+    """This error is returned when a signature does not cover the expected transaction hash
+      |of the transaction."""
+  )
+  @Resolution(
+    """Either add a signature for the hash of this specific transaction only, or a signature
+      |that covers the this transaction as part of a multi transaction hash."""
+  )
+  object MultiTransactionHashMismatch
+      extends ErrorCode(
+        id = "TOPOLOGY_MULTI_TRANSACTION_HASH_MISMATCH",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Failure(expected: TxHash, actual: NonEmpty[Set[TxHash]])(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"The given transaction hash set $actual did not contain the expected hash $expected of the transaction."
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
     """This error is returned if a transaction was submitted that is restricted to another synchronizer."""
   )
   @Resolution(

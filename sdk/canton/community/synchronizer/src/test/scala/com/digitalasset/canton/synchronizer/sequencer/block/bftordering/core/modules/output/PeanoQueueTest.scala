@@ -4,7 +4,6 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.PeanoQueue
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BlockNumber
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -12,7 +11,7 @@ class PeanoQueueTest extends AnyWordSpec with BaseTest {
 
   "PeanoQueue" should {
     "insert and poll" in {
-      val peanoQueue = new PeanoQueue[String](BlockNumber.First)(abort = fail(_))
+      val peanoQueue = new PeanoQueue[BlockNumber, String](BlockNumber.First)(abort = fail(_))
 
       peanoQueue.head.v shouldBe BlockNumber.First
 
@@ -30,7 +29,7 @@ class PeanoQueueTest extends AnyWordSpec with BaseTest {
     }
 
     "insert and not poll" in {
-      val peanoQueue = new PeanoQueue[String](BlockNumber.First)(abort = fail(_))
+      val peanoQueue = new PeanoQueue[BlockNumber, String](BlockNumber.First)(abort = fail(_))
 
       peanoQueue.insert(BlockNumber.First, "item0")
       peanoQueue.pollAvailable(pollWhile = _ => false) shouldBe Seq.empty
@@ -38,7 +37,7 @@ class PeanoQueueTest extends AnyWordSpec with BaseTest {
     }
 
     "insert before head with no effect" in {
-      val peanoQueue = new PeanoQueue[String](BlockNumber(7L))(abort = fail(_))
+      val peanoQueue = new PeanoQueue[BlockNumber, String](BlockNumber(7L))(abort = fail(_))
       peanoQueue.insert(BlockNumber(5L), "item before head 1")
       peanoQueue.pollAvailable() shouldBe empty
       peanoQueue.head.v shouldBe 7L

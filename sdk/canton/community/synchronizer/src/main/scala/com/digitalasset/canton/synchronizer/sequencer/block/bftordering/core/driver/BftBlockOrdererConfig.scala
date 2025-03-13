@@ -84,7 +84,7 @@ object BftBlockOrdererConfig {
   val DefaultMinRequestsInBatch: Short = 3
   val DefaultMaxBatchCreationInterval: FiniteDuration = 100.milliseconds
   val DefaultMaxBatchesPerProposal: Short = 16
-  val DefaultOutputFetchTimeout: FiniteDuration = 1.second
+  val DefaultOutputFetchTimeout: FiniteDuration = 2.second
 
   implicit val configCantonConfigValidator: CantonConfigValidator[BftBlockOrdererConfig] =
     CantonConfigValidatorDerivation[BftBlockOrdererConfig]

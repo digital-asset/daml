@@ -22,24 +22,30 @@ object GrpcValueCodec extends SchemaVisitor {
     private lazy val codecs = fields.map(_._2)
 
     override def fromDynamicValue(dv: DynamicValue): value.Value = {
-      val fs = dv.record.iterator zip codecs map { case (f, c) =>
+      val record = dv.record
+      val fs = record._2.iterator zip codecs map { case (f, c) =>
         value.RecordField(
           label = f._1.getOrElse(""),
           value = Some(c.fromDynamicValue(f._2)),
         )
       }
-      value.Value(Sum.Record(value.Record(fields = fs.toSeq)))
+      val recordId =
+        record._1.map(ref => value.Identifier(ref.packageId, ref.moduleName, ref.entityName))
+      value.Value(Sum.Record(value.Record(recordId = recordId, fields = fs.toSeq)))
     }
 
     override def toDynamicValue(a: value.Value): DynamicValue =
       DynamicValue.Record(
+        a.getRecord.recordId.map(recordId =>
+          Identifier(recordId.packageId, recordId.moduleName, recordId.entityName)
+        ),
         a.getRecord.fields.view zip codecs map { case (f, c) =>
           if (f.label.isEmpty) {
             (Option.empty[String], c.toDynamicValue(f.getValue))
           } else {
             (Some(f.label), c.toDynamicValue(f.getValue))
           }
-        }
+        },
       )
   }
 

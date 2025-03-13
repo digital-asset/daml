@@ -18,6 +18,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SequencerSnapshotAdditionalInfo,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology.NodeTopologyInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Output,
   SequencerNode,
@@ -40,13 +41,13 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
       requester: ModuleRef[SequencerNode.SnapshotMessage],
   )(implicit actorContext: E#ActorContextT[Output.Message[E]], traceContext: TraceContext): Unit = {
     // TODO(#23143) Consider returning an error if the `snapshotTimestamp` is too high, i.e., above the safe watermark.
-    val nodeActiveAtTimestamps =
-      orderingTopology.nodesActiveAt.view.filter { case (_, activeAt) =>
-        activeAt.value <= TopologyActivationTime
+    val relevantNodesTopologyInfo =
+      orderingTopology.nodesTopologyInfo.view.filter { case (_, nodeTopologyInfo) =>
+        nodeTopologyInfo.activationTime.value <= TopologyActivationTime
           .fromEffectiveTime(EffectiveTime(snapshotTimestamp))
           .value
       }.toSeq
-    val activeAtBlockFutures = nodeActiveAtTimestamps.map { case (_, timestamp) =>
+    val activeAtBlockFutures = relevantNodesTopologyInfo.map { case (_, nodeTopologyInfo) =>
       // TODO(#23143) Get the first block with a timestamp greater or equal to `timestamp` instead.
       // The latest block up to `timestamp` is taken for easier simulation testing and simpler error handling.
       //  It can result however in transferring more data than needed (in particular, from before the onboarding) if:
@@ -55,7 +56,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
       //      tests)
       //  Last but not least, if snapshots from different nodes are compared for byte-for-byte equality,
       //  the comparison might fail it there are nodes that are not caught up.
-      outputMetadataStore.getLatestBlockAtOrBefore(timestamp.value)
+      outputMetadataStore.getLatestBlockAtOrBefore(nodeTopologyInfo.activationTime.value)
     }
     val activeAtBlocksF = actorContext.sequenceFuture(activeAtBlockFutures)
 
@@ -67,7 +68,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
       case Success(blocks) =>
         logger.info(s"Retrieved blocks $blocks for sequencer snapshot at $snapshotTimestamp")
         val epochNumbers = blocks.map(_.map(_.epochNumber))
-        provideWithEpochBasedInfo(epochNumbers, nodeActiveAtTimestamps, requester)
+        provideWithEpochBasedInfo(epochNumbers, relevantNodesTopologyInfo, requester)
         // We chain several `pipeToSelf` for simplicity, rather than continue via messages to the Output module.
         //  Based on Pekko documentation it's ok, as `pipeToSelf` can be called from other threads than the ordinary
         //  actor message processing thread.
@@ -77,7 +78,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
 
   private def provideWithEpochBasedInfo(
       epochNumbers: Seq[Option[EpochNumber]],
-      nodeActiveAtTimestamps: Seq[(BftNodeId, TopologyActivationTime)],
+      nodesTopologyInfo: Seq[(BftNodeId, NodeTopologyInfo)],
       requester: ModuleRef[SequencerNode.SnapshotMessage],
   )(implicit actorContext: E#ActorContextT[Output.Message[E]], traceContext: TraceContext): Unit = {
     val epochInfoFutures = epochNumbers.map(maybeEpochNumber =>
@@ -138,7 +139,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
             )
           ) =>
         val nodeIdsToActiveAt =
-          nodeActiveAtTimestamps
+          nodesTopologyInfo
             .lazyZip(epochInfoObjects)
             .lazyZip(epochMetadataObjects)
             .lazyZip(firstBlocksInEpochs)
@@ -146,12 +147,12 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
             .toList
             .map {
               case (
-                    ((node, timestamp), epochInfo, epochMetadata, firstBlockMetadata),
+                    ((node, nodeTopologyInfo), epochInfo, epochMetadata, firstBlockMetadata),
                     // Too many zips result in more nesting
                     previousEpochLastBlockMetadata,
                   ) =>
                 node -> NodeActiveAt(
-                  timestamp,
+                  nodeTopologyInfo.activationTime,
                   epochInfo.map(_.number),
                   firstBlockMetadata.map(_.blockNumber),
                   epochInfo.map(_.topologyActivationTime),

@@ -6,9 +6,16 @@ package com.digitalasset.canton.topology.transaction
 import cats.syntax.apply.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.{GeneratorsCrypto, PublicKey, Signature, SigningPublicKey}
+import com.digitalasset.canton.crypto.{
+  GeneratorsCrypto,
+  Hash,
+  PublicKey,
+  Signature,
+  SigningPublicKey,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.GeneratorsProtocol
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.topology.{
   GeneratorsTopology,
   MediatorId,
@@ -177,15 +184,39 @@ final class GeneratorsTransaction(
   implicit val topologyTransactionSignaturesArb: Arbitrary[NonEmpty[Set[Signature]]] =
     Generators.nonEmptySet[Signature]
 
+  implicit val txHashArb: Arbitrary[NonEmpty[Set[TxHash]]] = Arbitrary(
+    Generators.nonEmptySet[Hash].arbitrary.map(_.map(TxHash(_)))
+  )
+
+  def multiTransactionSignaturesGen(transactionHash: TxHash) = for {
+    hashes <- Arbitrary.arbitrary[NonEmpty[Set[TxHash]]]
+    signatures <- Arbitrary.arbitrary[Signature]
+  } yield MultiTransactionSignature(
+    // Guarantees that the transaction hash is in the multi hash set
+    NonEmpty.mk(Set, transactionHash, hashes.toSeq*),
+    signatures,
+  )
+
+  def topologyTransactionSignatureArb(
+      transactionHash: TxHash
+  ): Arbitrary[TopologyTransactionSignature] = Arbitrary {
+    Gen.frequency(
+      (1, Arbitrary.arbitrary[Signature].map(SingleTransactionSignature(transactionHash, _))),
+      (1, multiTransactionSignaturesGen(transactionHash)),
+    )
+  }
+
   implicit val signedTopologyTransactionArb
       : Arbitrary[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]] = Arbitrary(
     for {
       transaction <- Arbitrary.arbitrary[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-      signatures <- Arbitrary.arbitrary[NonEmpty[Set[Signature]]]
       proposal <- Arbitrary.arbBool.arbitrary
-    } yield SignedTopologyTransaction(transaction, signatures, proposal)(
-      SignedTopologyTransaction.protocolVersionRepresentativeFor(protocolVersion)
-    )
+      topologyTransactionSignatures <- {
+        implicit val localSignatureArb = topologyTransactionSignatureArb(transaction.hash)
+        Generators.nonEmptySetGen[TopologyTransactionSignature]
+      }
+    } yield SignedTopologyTransaction
+      .create(transaction, topologyTransactionSignatures, proposal, protocolVersion)
   )
 
   implicit val signedTopologyTransactionsArb

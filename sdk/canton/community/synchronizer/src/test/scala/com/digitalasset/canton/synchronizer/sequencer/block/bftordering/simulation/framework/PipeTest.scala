@@ -8,7 +8,10 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.PlainTextP2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
+  P2PEndpoint,
+  PlainTextP2PEndpoint,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
   SystemInitializationResult,
   SystemInitializer,
@@ -24,7 +27,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SimulationInitializer,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.EmptyOnboardingDataProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.EmptyOnboardingManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   Env,
   Module,
@@ -144,7 +147,7 @@ class PipeTest extends AnyFlatSpec with BaseTest {
       durationOfFirstPhaseWithFaults = 2.minutes,
     )
 
-    val theEndpoint = PlainTextP2PEndpoint("node", Port.tryCreate(0))
+    val theEndpoint = PlainTextP2PEndpoint("node", Port.tryCreate(0)).asInstanceOf[P2PEndpoint]
     val reporter = new Reporter
     val pipeStore = new SimulatedPipeStore
 
@@ -160,7 +163,7 @@ class PipeTest extends AnyFlatSpec with BaseTest {
 
     val simulation = SimulationModuleSystem(
       topologyInit,
-      EmptyOnboardingDataProvider,
+      EmptyOnboardingManager,
       simSettings,
       new SimClock(loggerFactory = loggerFactory),
       timeouts,

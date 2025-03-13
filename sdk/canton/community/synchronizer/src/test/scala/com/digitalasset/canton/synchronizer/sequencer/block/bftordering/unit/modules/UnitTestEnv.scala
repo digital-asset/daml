@@ -7,18 +7,11 @@ import cats.Traverse
 import cats.syntax.either.*
 import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.metrics.api.MetricsContext
-import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.{
-  Hash,
-  HashPurpose,
-  Signature,
-  SignatureCheckError,
-  SigningKeyUsage,
-  SyncCryptoError,
-}
+import com.digitalasset.canton.crypto.{Hash, Signature, SignatureCheckError, SyncCryptoError}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, SuppressingLogger}
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
   MessageFrom,
@@ -67,7 +60,9 @@ class UnitTestContext[E <: Env[E], MessageT] extends ModuleContext[E, MessageT] 
   ): Unit =
     unsupported()
 
-  override def delayedEvent(delay: FiniteDuration, message: MessageT): CancellableEvent =
+  override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+      traceContext: TraceContext
+  ): CancellableEvent =
     unsupported()
 
   // Metrics are not produced in unit tests
@@ -167,10 +162,13 @@ class IgnoringUnitTestEnv extends BaseIgnoringUnitTestEnv[IgnoringUnitTestEnv] {
 }
 
 final case class IgnoringUnitTestContext[MessageT]()
-    extends UnitTestContext[IgnoringUnitTestEnv, MessageT] {
+    extends UnitTestContext[IgnoringUnitTestEnv, MessageT]
+    with WithTraceContext[IgnoringUnitTestEnv, MessageT] {
   override def self: IgnoringModuleRef[MessageT] = new IgnoringModuleRef()
 
-  override def delayedEvent(delay: FiniteDuration, message: MessageT): CancellableEvent =
+  override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+      traceContext: TraceContext
+  ): CancellableEvent =
     fakeCancellableEventExpectingSilence
 
   override def pipeToSelfInternal[X](futureUnlessShutdown: () => X)(
@@ -204,7 +202,9 @@ class FakeTimerCellUnitTestContext[MessageT](
 
   override def self: IgnoringModuleRef[MessageT] = new IgnoringModuleRef()
 
-  override def delayedEvent(delay: FiniteDuration, message: MessageT): CancellableEvent = {
+  override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+      traceContext: TraceContext
+  ): CancellableEvent = {
     delayCount += 1
     val newDelayCount = delayCount
     cell.set(Some(newDelayCount -> message))
@@ -233,7 +233,8 @@ class FakePipeToSelfCellUnitTestEnv extends BaseIgnoringUnitTestEnv[FakePipeToSe
 
 final case class FakePipeToSelfCellUnitTestContext[MessageT](
     cell: AtomicReference[Option[() => Option[MessageT]]]
-) extends UnitTestContext[FakePipeToSelfCellUnitTestEnv, MessageT] {
+) extends UnitTestContext[FakePipeToSelfCellUnitTestEnv, MessageT]
+    with WithTraceContext[FakePipeToSelfCellUnitTestEnv, MessageT] {
   override def self: ModuleRef[MessageT] = new IgnoringModuleRef()
 
   override def timeFuture[X](timer: Timer, futureUnlessShutdown: => () => X)(implicit
@@ -298,14 +299,13 @@ class ProgrammableUnitTestEnv extends BaseIgnoringUnitTestEnv[ProgrammableUnitTe
 object ProgrammableUnitTestEnv {
   private[unit] case object noSignatureCryptoProvider
       extends CryptoProvider[ProgrammableUnitTestEnv] {
-    override def sign(hash: Hash, usage: NonEmpty[Set[SigningKeyUsage]])(implicit
+    override def signHash(hash: Hash)(implicit
         traceContext: TraceContext
     ): () => Either[SyncCryptoError, Signature] = () => Right(Signature.noSignature)
 
     override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
         message: MessageT,
-        hashPurpose: HashPurpose,
-        usage: NonEmpty[Set[SigningKeyUsage]],
+        authenticatedMessageType: AuthenticatedMessageType,
     )(implicit traceContext: TraceContext): () => Either[SyncCryptoError, SignedMessage[MessageT]] =
       () => Right(SignedMessage(message, Signature.noSignature))
 
@@ -313,7 +313,6 @@ object ProgrammableUnitTestEnv {
         hash: Hash,
         member: BftNodeId,
         signature: Signature,
-        usage: NonEmpty[Set[SigningKeyUsage]],
     )(implicit
         traceContext: TraceContext
     ): () => Either[SignatureCheckError, Unit] = () => Either.unit
@@ -321,7 +320,8 @@ object ProgrammableUnitTestEnv {
 }
 
 final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false)
-    extends UnitTestContext[ProgrammableUnitTestEnv, MessageT] {
+    extends UnitTestContext[ProgrammableUnitTestEnv, MessageT]
+    with WithTraceContext[ProgrammableUnitTestEnv, MessageT] {
   private val pipedQueue = mutable.Queue.empty[() => Option[MessageT]]
   private val delayedQueue = mutable.Queue.empty[MessageT]
   private var lastCancelledEventCell: Option[(Int, MessageT)] = None
@@ -334,7 +334,9 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
       selfQueue.addOne((msg, traceContext))
   }
 
-  override def delayedEvent(delay: FiniteDuration, message: MessageT): CancellableEvent = {
+  override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+      traceContext: TraceContext
+  ): CancellableEvent = {
     delayedQueue.addOne(message)
     val delayCount = delayedQueue.size
     () => {

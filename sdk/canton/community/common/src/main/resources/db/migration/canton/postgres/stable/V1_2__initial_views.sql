@@ -430,6 +430,7 @@ create or replace view debug.sequencer_members as
     member,
     id,
     debug.canton_timestamp(registered_ts) as registered_ts,
+    debug.canton_timestamp(pruned_previous_event_timestamp) as pruned_previous_event_timestamp,
     enabled
   from sequencer_members;
 

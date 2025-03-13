@@ -19,7 +19,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.OnboardingDataProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.OnboardingManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   CancellableEvent,
   ClientP2PNetworkManager,
@@ -116,7 +116,7 @@ object SimulationModuleSystem {
     ): SimulationFuture[Y] = SimulationFuture.Map(future, fun)
 
     override def pureFuture[X](x: X): SimulationFuture[X] =
-      SimulationFuture.Pure(s"pure($x)", () => Try(x))
+      new SimulationFuture.Pure(s"pure($x)", () => Try(x))
 
     override def flatMapFuture[R1, R2](
         future1: SimulationFuture[R1],
@@ -167,9 +167,11 @@ object SimulationModuleSystem {
 
     override val self: SimulationModuleRef[MessageT] = SimulationModuleRef(to, collector)
 
-    override def delayedEvent(delay: FiniteDuration, message: MessageT): CancellableEvent = {
+    override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+        traceContext: TraceContext
+    ): CancellableEvent = {
       val tickCounter =
-        collector.addTickEvent(delay, to, ModuleControl.Send(message, TraceContext.empty))
+        collector.addTickEvent(delay, to, ModuleControl.Send(message, traceContext))
       SimulationCancelable(collector, tickCounter)
     }
 
@@ -218,7 +220,9 @@ object SimulationModuleSystem {
 
     override def self: SimulationModuleRef[MessageT] = unsupportedForClientModules()
 
-    override def delayedEvent(delay: FiniteDuration, message: MessageT): CancellableEvent = {
+    override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+        traceContext: TraceContext
+    ): CancellableEvent = {
       val tickId = collector.addTickEvent(delay, message)
       SimulationCancelable(collector, tickId)
     }
@@ -260,7 +264,9 @@ object SimulationModuleSystem {
 
     override def self: SimulationModuleRef[MessageT] = unsupportedForSystem()
 
-    override def delayedEvent(delay: FiniteDuration, message: MessageT): CancellableEvent =
+    override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+        traceContext: TraceContext
+    ): CancellableEvent =
       unsupportedForSystem()
 
     override def pipeToSelfInternal[X](futureUnlessShutdown: SimulationFuture[X])(
@@ -389,7 +395,7 @@ object SimulationModuleSystem {
 
   def apply[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, ClientMessageT](
       endpointsToInitializers: Map[
-        PlainTextP2PEndpoint,
+        P2PEndpoint,
         SimulationInitializer[
           OnboardingDataT,
           SystemNetworkMessageT,
@@ -397,7 +403,7 @@ object SimulationModuleSystem {
           ClientMessageT,
         ],
       ],
-      onboardingDataProvider: OnboardingDataProvider[OnboardingDataT],
+      onboardingManager: OnboardingManager[OnboardingDataT],
       config: SimulationSettings,
       clock: SimClock,
       timeouts: ProcessingTimeout,
@@ -409,7 +415,7 @@ object SimulationModuleSystem {
       SystemNetworkMessageT,
       SystemInputMessageT,
       ClientMessageT,
-    ](onboardingDataProvider, timeouts, loggerFactory, traceContextGenerator)
+    ](onboardingManager, timeouts, loggerFactory, traceContextGenerator)
     val (initialSequencersToInitializers, laterOnboardedEndpointsToInitializers) =
       endpointsToInitializers.partition { case (_, initializer) =>
         initializer.initializeImmediately
@@ -418,14 +424,14 @@ object SimulationModuleSystem {
       initialSequencersToInitializers.view.map { case (endpoint, simulationInitializer) =>
         val node = Simulation.endpointToNode(endpoint)
         node -> machineInitializer.initialize(
-          onboardingDataProvider.provide(node),
+          onboardingManager.provide(node),
           simulationInitializer,
         )
       }.toMap
     val topology = Topology(initialSequencersToMachines, laterOnboardedEndpointsToInitializers)
     new Simulation(
       topology,
-      onboardingDataProvider,
+      onboardingManager,
       machineInitializer,
       config,
       clock,
@@ -440,7 +446,7 @@ object SimulationModuleSystem {
       SystemInputMessageT,
       ClientMessageT,
   ](
-      onboardingDataProvider: OnboardingDataProvider[OnboardingDataT],
+      onboardingManager: OnboardingManager[OnboardingDataT],
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
       traceContextGenerator: TraceContextGenerator,
@@ -476,18 +482,22 @@ object SimulationModuleSystem {
         simulationInitializer.clientInitializer.init(
           SimulationModuleClientContext(clientCollector, traceContextGenerator, loggerFactory)
         )
+        val mempoolModuleName = getSimulationName(resultFromInit.inputModuleRef)
+        val outputModuleName = getSimulationName(resultFromInit.outputModuleRef)
         val networkInModuleName = getSimulationName(resultFromInit.p2pNetworkInModuleRef)
         val networkOutModuleName = getSimulationName(resultFromInit.p2pNetworkOutAdminModuleRef)
 
         Machine(
           allReactors,
+          mempoolModuleName,
+          outputModuleName,
           networkInModuleName,
           networkOutModuleName,
           collector,
           Reactor(client),
           clientCollector,
           simulationInitializer,
-          onboardingDataProvider,
+          onboardingManager,
           loggerFactory,
           simulationP2PNetworkManager,
         )

@@ -59,7 +59,7 @@ class PartyReplicationSourceParticipantProcessor private (
     synchronizerId: SynchronizerId,
     partyId: PartyId,
     activeAfter: CantonTimestamp,
-    acsInspection: AcsInspection, // TODO(#18525): Stream the ACS via the Ledger Api instead.
+    acsInspection: AcsInspection, // TODO(#24326): Stream the ACS via the Ledger Api instead.
     protected val protocolVersion: ProtocolVersion,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -122,7 +122,7 @@ class PartyReplicationSourceParticipantProcessor private (
     } yield ()
 
   /** Reads contract chunks from the ACS in a brute-force fashion via AcsInspection until
-    * TODO(#18525) reads the ACS via the Ledger API.
+    * TODO(#24326) reads the ACS via the Ledger API.
     */
   private def readContracts(
       newChunkToConsumerFrom: NonNegativeInt,

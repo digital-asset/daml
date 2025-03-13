@@ -220,7 +220,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
               EpochNumber(1L),
               Membership(
                 myId,
-                OrderingTopology(
+                OrderingTopology.forTesting(
                   nodes = nodes.toSet,
                   activationTime = nextTopologyActivationTime,
                 ),
@@ -493,7 +493,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                   EpochNumber(1L),
                   Membership(
                     myId,
-                    OrderingTopology(
+                    OrderingTopology.forTesting(
                       nodes = nodes.toSet,
                       activationTime = nextTopologyActivationTime,
                     ),
@@ -1023,7 +1023,7 @@ private[iss] object IssConsensusModuleTest {
     Seq(ProofOfAvailability(aBatchId, Seq.empty, CantonTimestamp.MaxValue))
   )
 
-  private val anOrderingTopology = OrderingTopology(allIds.toSet)
+  private val anOrderingTopology = OrderingTopology.forTesting(allIds.toSet)
   private val aMembership = Membership(myId, anOrderingTopology, allIds)
   private val aFakeCryptoProviderInstance: CryptoProvider[ProgrammableUnitTestEnv] =
     fakeCryptoProvider

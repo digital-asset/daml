@@ -66,7 +66,7 @@ class LocalSimulator(
            * scheduled, `msg`` would correspond to m2 in the example.
            */
           val lowFromAgenda = from match {
-            case FromInternalModule(fromModuleName) =>
+            case EventOriginator.FromInternalModule(fromModuleName) =>
               agenda.findLatestScheduledLocalEvent(node, fromModuleName, to)
             case _ => None
           }
@@ -107,8 +107,9 @@ class LocalSimulator(
       tickCounter: Int,
       duration: FiniteDuration,
       msg: Any,
+      traceContext: TraceContext,
   ): Unit =
-    agenda.addOne(ClientTick(node, tickCounter, msg), duration)
+    agenda.addOne(ClientTick(node, tickCounter, msg, traceContext), duration)
 
   def scheduleFuture[X, T](
       node: BftNodeId,

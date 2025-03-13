@@ -126,12 +126,14 @@ object PekkoModuleSystem {
 
     override val self: PekkoModuleRef[MessageT] = PekkoModuleRef(underlying.self)
 
-    override def delayedEvent(delay: FiniteDuration, message: MessageT): CancellableEvent =
+    override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+        traceContext: TraceContext
+    ): CancellableEvent =
       PekkoCancellableEvent(
         underlying.scheduleOnce(
           delay,
           underlying.self,
-          Send[PekkoEnv, MessageT](message, TraceContext.empty),
+          Send[PekkoEnv, MessageT](message, traceContext),
         )
       )
 

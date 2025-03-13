@@ -473,8 +473,21 @@ object GrpcNetworking {
       isNewlyConnected: Boolean,
   )
 
-  // TODO(#23926): generalize further to insulate internals from details and add simple string-typed endpoint for tests
-  /** The BFT orderer's internal representation of a P2P endpoint */
+  /** The BFT orderer's internal representation of a P2P network endpoint.
+    *
+    * Non-networked tests (unit and simulation tests) use the [[PlainTextP2PEndpoint]] concrete
+    * subclass and fill in fake ports.
+    *
+    * It is possible to generalize further and introduce a symbolic endpoint type for non-networked
+    * tests, so that they don't have to deal with networking-only information, but it's not worth
+    * the added complexity and required time/maintenance investment, because:
+    *
+    *   - The endpoint type should become part of the environment definition, and endpoint admin
+    *     messages would thus become parametric in the environment.
+    *   - Furthermore, endpoint administration is only supported for networked endpoints, so the
+    *     network output module would have to be split into a networked and a non-networked part and
+    *     networked-only functionality should be tested separately.
+    */
   sealed trait P2PEndpoint extends Product {
 
     def address: String

@@ -9,6 +9,8 @@ package com.digitalasset.transcode
 package schema {
   final case class Identifier(packageId: String, moduleName: String, entityName: String) {
     lazy val qualifiedName = s"$moduleName:$entityName"
+
+    def asString = s"$packageId:$moduleName:$entityName"
   }
 
   object Identifier {

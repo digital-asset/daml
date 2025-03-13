@@ -40,6 +40,7 @@ class SequencerSnapshotBasedTopologyHeadInitializerTest
             aSnapshotLastTs,
             latestBlockHeight = 77L,
             Map.empty,
+            Map.empty,
             SequencerPruningStatus.Unimplemented,
             Map.empty,
             None,

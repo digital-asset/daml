@@ -22,8 +22,8 @@ import scala.util.control.NonFatal
   * [[ConcurrentEnvironmentLimiter]] to ensure we limit the number of concurrent environments in a
   * test run.
   */
-sealed trait EnvironmentSetup[TCE <: TestConsoleEnvironment] extends BeforeAndAfterAll {
-  this: Suite with HasEnvironmentDefinition[TCE] with NamedLogging =>
+sealed trait EnvironmentSetup extends BeforeAndAfterAll {
+  this: Suite with HasEnvironmentDefinition with NamedLogging =>
 
   private lazy val envDef = environmentDefinition
 
@@ -31,9 +31,9 @@ sealed trait EnvironmentSetup[TCE <: TestConsoleEnvironment] extends BeforeAndAf
 
   // plugins are registered during construction from a single thread
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  private var plugins: Seq[EnvironmentSetupPlugin[TCE]] = Seq()
+  private var plugins: Seq[EnvironmentSetupPlugin] = Seq()
 
-  protected[integration] def registerPlugin(plugin: EnvironmentSetupPlugin[TCE]): Unit =
+  protected[integration] def registerPlugin(plugin: EnvironmentSetupPlugin): Unit =
     plugins = plugins :+ plugin
 
   override protected def beforeAll(): Unit = {
@@ -48,13 +48,13 @@ sealed trait EnvironmentSetup[TCE <: TestConsoleEnvironment] extends BeforeAndAf
   /** Provide an environment for an individual test either by reusing an existing one or creating a
     * new one depending on the approach being used.
     */
-  def provideEnvironment: TCE
+  def provideEnvironment: TestConsoleEnvironment
 
   /** Optional hook for implementors to know when a test has finished and be provided the
     * environment instance. This is required over a afterEach hook as we need the environment
     * instance passed.
     */
-  def testFinished(environment: TCE): Unit = {}
+  def testFinished(environment: TestConsoleEnvironment): Unit = {}
 
   override val loggerFactory: SuppressingLogger = SuppressingLogger(getClass)
 
@@ -83,9 +83,9 @@ sealed trait EnvironmentSetup[TCE <: TestConsoleEnvironment] extends BeforeAndAf
   protected def manualCreateEnvironment(
       initialConfig: CantonConfig = envDef.generateConfig,
       configTransform: ConfigTransform = identity,
-      runPlugins: EnvironmentSetupPlugin[TCE] => Boolean = _ => true,
+      runPlugins: EnvironmentSetupPlugin => Boolean = _ => true,
       testConfigTransform: TestingConfigInternal => TestingConfigInternal = identity,
-  ): TCE = {
+  ): TestConsoleEnvironment = {
     val testConfig = initialConfig
     // note: beforeEnvironmentCreate may well have side-effects (e.g. starting databases or docker containers)
     val pluginConfig =
@@ -127,7 +127,7 @@ sealed trait EnvironmentSetup[TCE <: TestConsoleEnvironment] extends BeforeAndAf
       )
 
     try {
-      val testEnvironment: TCE =
+      val testEnvironment: TestConsoleEnvironment =
         envDef.createTestConsole(environmentFixture, loggerFactory)
 
       plugins.foreach(plugin =>
@@ -156,14 +156,14 @@ sealed trait EnvironmentSetup[TCE <: TestConsoleEnvironment] extends BeforeAndAf
     }
   }
 
-  protected def createEnvironment(): TCE =
+  protected def createEnvironment(): TestConsoleEnvironment =
     ConcurrentEnvironmentLimiter.create(getClass.getName, numPermits)(
       manualCreateEnvironment()
     )
 
-  protected def manualDestroyEnvironment(environment: TCE): Unit = {
+  protected def manualDestroyEnvironment(environment: TestConsoleEnvironment): Unit = {
     val config = environment.actualConfig
-    plugins.foreach(_.beforeEnvironmentDestroyed(config, environment))
+    plugins.foreach(_.beforeEnvironmentDestroyed(environment))
     try {
       environment.close()
     } finally {
@@ -172,8 +172,12 @@ sealed trait EnvironmentSetup[TCE <: TestConsoleEnvironment] extends BeforeAndAf
     }
   }
 
-  protected def destroyEnvironment(environment: TCE): Unit = {
-    environment.verifyParticipantLapiIntegrity(plugins)
+  protected def destroyEnvironment(environment: TestConsoleEnvironment): Unit = {
+
+    // Run the Ledger API integrity check before destroying the environment
+    val checker = new LedgerApiStoreIntegrityChecker(loggerFactory)
+    checker.verifyParticipantLapiIntegrity(environment, plugins)
+
     ConcurrentEnvironmentLimiter.destroy(getClass.getName, numPermits) {
       manualDestroyEnvironment(environment)
     }
@@ -193,13 +197,11 @@ sealed trait EnvironmentSetup[TCE <: TestConsoleEnvironment] extends BeforeAndAf
   * As a result, the environment state at the beginning of a test case equals the state at the end
   * of the previous test case.
   */
-trait SharedEnvironment[TCE <: TestConsoleEnvironment]
-    extends EnvironmentSetup[TCE]
-    with CloseableTest {
-  this: Suite with HasEnvironmentDefinition[TCE] with NamedLogging =>
+trait SharedEnvironment extends EnvironmentSetup with CloseableTest {
+  this: Suite with HasEnvironmentDefinition with NamedLogging =>
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  private var sharedEnvironment: Option[TCE] = None
+  private var sharedEnvironment: Option[TestConsoleEnvironment] = None
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -211,7 +213,7 @@ trait SharedEnvironment[TCE <: TestConsoleEnvironment]
       sharedEnvironment.foreach(destroyEnvironment)
     } finally super.afterAll()
 
-  override def provideEnvironment: TCE =
+  override def provideEnvironment: TestConsoleEnvironment =
     sharedEnvironment.getOrElse(
       sys.error("beforeAll should have run before providing a shared environment")
     )
@@ -223,9 +225,11 @@ trait SharedEnvironment[TCE <: TestConsoleEnvironment]
   * Try to use SharedEnvironment instead to avoid the cost of frequently creating environments in
   * CI.
   */
-trait IsolatedEnvironments[TCE <: TestConsoleEnvironment] extends EnvironmentSetup[TCE] {
-  this: Suite with HasEnvironmentDefinition[TCE] with NamedLogging =>
+trait IsolatedEnvironments extends EnvironmentSetup {
+  this: Suite with HasEnvironmentDefinition with NamedLogging =>
 
-  override def provideEnvironment: TCE = createEnvironment()
-  override def testFinished(environment: TCE): Unit = destroyEnvironment(environment)
+  override def provideEnvironment: TestConsoleEnvironment = createEnvironment()
+  override def testFinished(environment: TestConsoleEnvironment): Unit = destroyEnvironment(
+    environment
+  )
 }

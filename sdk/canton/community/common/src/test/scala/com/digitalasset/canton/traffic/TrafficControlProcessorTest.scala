@@ -126,6 +126,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
   ): Deliver[DefaultOpenEnvelope] =
     Deliver.create(
       sc,
+      None,
       ts,
       synchronizerId,
       None,
@@ -141,6 +142,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
   ): DeliverError =
     DeliverError.create(
       sc,
+      None,
       ts,
       synchronizerId,
       MessageId.fromUuid(new UUID(0, 1)),

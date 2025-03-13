@@ -279,6 +279,7 @@ class TrafficPurchasedSubmissionHandlerTest
     val messageId = MessageId.randomMessageId()
     val deliverError = DeliverError.create(
       SequencerCounter.Genesis,
+      None,
       CantonTimestamp.Epoch,
       synchronizerId,
       messageId,
@@ -313,7 +314,7 @@ class TrafficPurchasedSubmissionHandlerTest
         Seq(
           (
             _.message should include(
-              s"The traffic balance request submission failed: DeliverError(counter = 0, timestamp = 1970-01-01T00:00:00Z, synchronizer id = da::default, message id = $messageId, reason = Status(OK, BOOM))"
+              s"The traffic balance request submission failed: DeliverError(counter = 0, previous timestamp = None(), timestamp = 1970-01-01T00:00:00Z, synchronizer id = da::default, message id = $messageId, reason = Status(OK, BOOM))"
             ),
             "sequencing failure",
           )

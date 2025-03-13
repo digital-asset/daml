@@ -857,6 +857,7 @@ final class UnassignmentProcessingStepsTest
             Batch.of(testedProtocolVersion, (signedResult, Recipients.cc(submittingParticipant)))
           Deliver.create(
             SequencerCounter(0),
+            None,
             CantonTimestamp.Epoch,
             sourceSynchronizer.unwrap,
             Some(MessageId.tryCreate("msg-0")),

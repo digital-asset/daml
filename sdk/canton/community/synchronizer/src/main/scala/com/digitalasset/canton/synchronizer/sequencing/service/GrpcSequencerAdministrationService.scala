@@ -40,7 +40,7 @@ import com.digitalasset.canton.topology.{
   UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.GrpcStreamingUtils
+import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils}
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 
@@ -212,6 +212,15 @@ class GrpcSequencerAdministrationService(
       sequencerSnapshot <- sequencer
         .awaitSnapshot(referenceEffective.value)
         .leftMap(_.toCantonError)
+
+      // Wait for the domain time tracker to observe the sequencerSnapshot.lastTs.
+      // This is only serves as a potential trigger for the topology client, in case no
+      // additional message comes in, because topologyClient.awaitSequencedTimestamp does not
+      // trigger a tick.
+      _ <- synchronizerTimeTracker
+        .awaitTick(sequencerSnapshot.lastTs)
+        .map(EitherTUtil.rightUS[CantonError, CantonTimestamp](_).void)
+        .getOrElse(EitherTUtil.unitUS[CantonError])
 
       // wait for the sequencer snapshot's lastTs to be observed by the topology client,
       // which implies that all topology transactions with a sequenced time up to including the
