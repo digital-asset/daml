@@ -60,7 +60,8 @@ private[daml] sealed class StablePackagesImpl(
   override lazy val Tuple2: Ref.TypeConName = DA_Types.assertIdentifier("Tuple2")
   override lazy val Tuple3: Ref.TypeConName = DA_Types.assertIdentifier("Tuple3")
   override lazy val Either: Ref.TypeConName = GHC_Tuple.assertIdentifier("Either")
-  override lazy val FailureStatus: Ref.TypeConName = DA_Internal_Fail.assertIdentifier("FailureStatus")
+  override lazy val FailureStatus: Ref.TypeConName =
+    DA_Internal_Fail.assertIdentifier("FailureStatus")
 
   private lazy val DA_Exception_ArithmeticError = allPackagesByName("DA.Exception.ArithmeticError")
   private lazy val DA_Internal_Any = allPackagesByName("DA.Internal.Any")

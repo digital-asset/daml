@@ -2074,8 +2074,12 @@ private[lf] object SBuiltinFun {
       val failureStatusIdentifier = machine.failureStatusIdentifier
       val tuple2Identifier = machine.tuple2Identifier
       getSRecord(args, 0) match {
-        case SRecord(`failureStatusIdentifier`, _, ArrayList(SText(errorId), SInt64(categoryId), SText(errorMessage), SList(tuples))) => {
-          val meta = tuples.toImmArray.toSeq.map{
+        case SRecord(
+              `failureStatusIdentifier`,
+              _,
+              ArrayList(SText(errorId), SInt64(categoryId), SText(errorMessage), SList(tuples)),
+            ) => {
+          val meta = tuples.toImmArray.toSeq.map {
             case SRecord(`tuple2Identifier`, _, ArrayList(SText(key), SText(value))) => (key, value)
             case otherwise => unexpectedType(0, "(Text, Text)", otherwise)
           }

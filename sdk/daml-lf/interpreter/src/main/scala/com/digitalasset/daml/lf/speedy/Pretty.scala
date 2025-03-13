@@ -124,7 +124,7 @@ private[lf] object Pretty {
         text(s"User failure: $errorId (error category $cantonCategoryId): $errorMessage") /
           // TODO[SW] May not need to include metadata here, as its repeated in the Grpcstatus
           text("Metadata: ") /
-          text(meta.map{case (key, value) => s"  $key: $value"}.mkString("\n"))
+          text(meta.map { case (key, value) => s"  $key: $value" }.mkString("\n"))
       case Upgrade(error) =>
         error match {
           case Upgrade.ValidationFailed(
