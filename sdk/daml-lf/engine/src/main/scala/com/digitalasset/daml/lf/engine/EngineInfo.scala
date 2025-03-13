@@ -6,6 +6,8 @@ package engine
 
 class EngineInfo(config: EngineConfig) {
 
+  val foo = 42
+
   import language.{LanguageVersion => LV}
 
   override def toString: String = show
