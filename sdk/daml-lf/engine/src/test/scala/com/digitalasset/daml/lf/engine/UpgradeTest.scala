@@ -1839,17 +1839,6 @@ object UpgradeTest {
       // Some of the patterns below are verbose and could be simplified with a pattern guard, but we favor this style
       // because it is compatible exhaustivness checker.
       (testCase, operation, catchBehavior, entryPoint, contractOrigin) match {
-        // TODO(https://github.com/DACH-NY/canton/issues/23826): re-enable key upgrade/downgrade tests once
-        //   SValue.toNormalizedValue drops trailing Nones. It currently doesn't, which means checkContractUpgradable
-        //   will always fail on keys that differ, even if they normalize to the same value.
-        case (
-              ValidKeyUpgradeAdditionalField | ValidKeyDowngradeAdditionalField,
-              _,
-              _,
-              _,
-              _,
-            ) =>
-          None
         case (_, Fetch | FetchInterface | FetchByKey | LookupByKey, _, Command, _) =>
           None // There are no fetch* or lookupByKey commands
         case (_, Exercise | ExerciseInterface, _, Command, Local) =>

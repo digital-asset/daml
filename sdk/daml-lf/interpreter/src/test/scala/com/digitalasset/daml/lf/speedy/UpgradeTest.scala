@@ -346,7 +346,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   val theCid = ContractId.V1(crypto.Hash.hashPrivateKey(s"theCid"))
 
-  type Success = (Value, List[UpgradeVerificationRequest])
+  type Success = (SValue, Value, List[UpgradeVerificationRequest])
 
   def go(
       e: Expr,
@@ -369,7 +369,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       .runCollectRequests(machine)
       .map { case (sv, uvs) => // ignoring any AuthRequest
         val v = sv.toNormalizedValue(VDev)
-        (v, uvs)
+        (sv, v, uvs)
       }
   }
 
@@ -388,7 +388,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       .runCollectRequests(machine, getContract = Map(theCid -> Versioned(VDev, contract)))
       .map { case (sv, uvs) => // ignoring any AuthRequest
         val v = sv.toNormalizedValue(VDev)
-        (v, uvs)
+        (sv, v, uvs)
       }
   }
 
@@ -425,7 +425,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       .runCollectRequests(machine)
       .map { case (sv, uvs) => // ignoring any AuthRequest
         val v = sv.toNormalizedValue(VDev)
-        (v, uvs)
+        (sv, v, uvs)
       }
   }
 
@@ -460,12 +460,16 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ValueInt64(100),
         )
 
-      val v_extendedWithNone =
-        makeRecord(
-          ValueParty(alice),
-          ValueParty(bob),
-          ValueInt64(100),
-          ValueOptional(None),
+      val sv_extendedWithNone =
+        SValue.SRecord(
+          i"'-pkg3-':M:T",
+          ImmArray(n"sig", n"obs", n"aNumber", n"optSig"),
+          ArrayList(
+            SValue.SParty(alice),
+            SValue.SParty(bob),
+            SValue.SInt64(100),
+            SValue.SOptional(None),
+          ),
         )
 
       inside(
@@ -473,8 +477,9 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           e"'-pkg3-':M:do_fetch",
           ContractInstance(pkgName, pkg2Ver, i"'-pkg2-':M:T", v_missingField),
         )
-      ) { case Right((v, _)) =>
-        v shouldBe v_extendedWithNone
+      ) { case Right((sv, v, _)) =>
+        sv shouldBe sv_extendedWithNone
+        v shouldBe v_missingField
       }
     }
 
@@ -530,7 +535,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val res =
         go(e"'-pkg1-':M:do_fetch", ContractInstance(pkgName, pkg2Ver, i"'-pkg2-':M:T", v1_base))
 
-      inside(res) { case Right((v, _)) =>
+      inside(res) { case Right((_, v, _)) =>
         v shouldBe v1_base
       }
     }
@@ -595,7 +600,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ContractInstance(pkgName, unknownPkgVer, i"'-pkg3-':M:T", v1_extraNone),
         )
 
-      inside(res) { case Right((v, _)) =>
+      inside(res) { case Right((_, v, _)) =>
         v shouldBe v1_base
       }
     }
@@ -657,7 +662,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((v, List())) =>
+      inside(res) { case Right((_, v, List())) =>
         v shouldBe a[ValueContractId]
       }
     }
@@ -671,7 +676,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((v, List())) =>
+      inside(res) { case Right((_, v, List())) =>
         v shouldBe a[ValueContractId]
       }
     }
@@ -684,7 +689,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((v, List())) =>
+      inside(res) { case Right((_, v, List())) =>
         v shouldBe a[ValueContractId]
       }
     }
@@ -698,7 +703,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((v, List())) =>
+      inside(res) { case Right((_, v, List())) =>
         v shouldBe a[ValueContractId]
       }
     }
@@ -716,14 +721,14 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           """,
         packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> pkgId2),
       )
-      inside(res) { case Right((v, List())) =>
+      inside(res) { case Right((_, v, List())) =>
         v shouldBe a[ValueContractId]
       }
     }
 
     "do recompute and check immutability of meta data when using different versions" in {
       // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
-      val res: Either[SError, (Value, List[UpgradeVerificationRequest])] = go(
+      val res: Either[SError, (SValue, Value, List[UpgradeVerificationRequest])] = go(
         e"""\(cid: ContractId '-pkg1-':M:T) ->
                ubind
                  x1: Unit <- '-pkg2-':M:do_fetch cid;
@@ -756,8 +761,9 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         )
         SValue.SRecord(i"'-pkg1-':M:T", fields, values)
       }
-      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) { case Right((v, _)) =>
-        v shouldBe v1_base
+      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) {
+        case Right((_, v, _)) =>
+          v shouldBe v1_base
       }
     }
 
@@ -778,8 +784,9 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         )
         SValue.SRecord(i"'-unknown-':M:T", fields, values)
       }
-      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) { case Right((v, _)) =>
-        v shouldBe v1_base
+      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) {
+        case Right((_, v, _)) =>
+          v shouldBe v1_base
       }
     }
   }
