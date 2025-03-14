@@ -258,6 +258,9 @@ object Profile {
       implicit val exceptionMessageDefRef: Allowed[ExceptionMessageDefRef] = allowAll
       implicit val scenarioLabel: Allowed[ScenarioLabel] = allowAll
       implicit val exprVarName: Allowed[Ast.ExprVarName] = allowAll
+      implicit val throwExceptionAsFailureStatusDefRef
+          : Allowed[ThrowExceptionAsFailureStatusDefRef] =
+        allowAll
 
       // below cases must cover above set
 
