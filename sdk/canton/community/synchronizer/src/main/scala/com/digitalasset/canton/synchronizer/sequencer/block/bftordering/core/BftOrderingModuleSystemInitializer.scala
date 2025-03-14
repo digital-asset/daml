@@ -30,6 +30,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule.RequestInspector
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.PruningModule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2PEndpointsStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.{
   BftP2PNetworkIn,
@@ -238,6 +239,13 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
             loggerFactory,
             timeouts,
             requestInspector,
+          ),
+        pruning = () =>
+          new PruningModule(
+            config.pruningConfig,
+            stores,
+            loggerFactory,
+            timeouts,
           ),
       )
     ).initialize(moduleSystem, networkManager)

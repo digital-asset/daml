@@ -973,6 +973,9 @@ object CantonConfig {
     lazy implicit val bftBlockOrdererP2PNetworkConfigReader
         : ConfigReader[BftBlockOrdererConfig.P2PNetworkConfig] =
       deriveReader[BftBlockOrdererConfig.P2PNetworkConfig]
+    lazy implicit val bftBlockOrdererPruningConfigReader
+        : ConfigReader[BftBlockOrdererConfig.PruningConfig] =
+      deriveReader[BftBlockOrdererConfig.PruningConfig]
     lazy implicit val bftBlockOrdererConfigReader: ConfigReader[BftBlockOrdererConfig] =
       deriveReader[BftBlockOrdererConfig]
     lazy implicit val sequencerConfigBftSequencerReader
@@ -1572,6 +1575,9 @@ object CantonConfig {
     lazy implicit val bftBlockOrdererBftP2PNetworkConfigWriter
         : ConfigWriter[BftBlockOrdererConfig.P2PNetworkConfig] =
       deriveWriter[BftBlockOrdererConfig.P2PNetworkConfig]
+    lazy implicit val bftBlockOrdererPruningConfigWriter
+        : ConfigWriter[BftBlockOrdererConfig.PruningConfig] =
+      deriveWriter[BftBlockOrdererConfig.PruningConfig]
     lazy implicit val bftBlockOrdererConfigWriter: ConfigWriter[BftBlockOrdererConfig] =
       deriveWriter[BftBlockOrdererConfig]
 

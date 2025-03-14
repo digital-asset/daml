@@ -257,7 +257,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
 
     val operationFilter = op.map(value => sql" AND operation = $value").getOrElse(sql"")
 
-    val mappingIdFilter = getIdFilter(idFilter)
+    val mappingIdFilter = getIdFilter(idFilter, exactMatch = namespaceFilter.isEmpty)
     val mappingNameSpaceFilter = getNamespaceFilter(namespaceFilter)
 
     val mappingTypeFilter = typeFilter(types.toSet)
@@ -277,26 +277,25 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       s"Inspecting known parties at t=$asOfExclusive with filterParty=$filterParty and filterParticipant=$filterParticipant"
     )
 
-    def splitFilterPrefixAndSql(uidFilter: String): (String, String, String, String) =
-      UniqueIdentifier.splitFilter(uidFilter) match {
-        case (id, ns) => (id, ns, id + "%", ns + "%")
-      }
-
-    val (prefixPartyIdentifier, prefixPartyNS, sqlPartyIdentifier, sqlPartyNS) =
-      splitFilterPrefixAndSql(filterParty)
+    val (filterPartyIdentifier, filterPartyNamespaceO) =
+      UniqueIdentifier.splitFilter(filterParty)
     val (
-      prefixParticipantIdentifier,
-      prefixParticipantNS,
-      sqlParticipantIdentifier,
-      sqlParticipantNS,
+      filterParticipantIdentifier,
+      filterParticipantNamespaceO,
     ) =
-      splitFilterPrefixAndSql(filterParticipant)
+      UniqueIdentifier.splitFilter(filterParticipant)
 
     // conditional append avoids "like '%'" filters on empty filters
-    def conditionalAppend(filter: String, sqlIdentifier: String, sqlNamespace: String) =
-      if (filter.nonEmpty)
-        sql" AND identifier LIKE $sqlIdentifier AND namespace LIKE $sqlNamespace"
-      else sql""
+    def conditionalAppend(
+        filter: String,
+        filterIdentifier: String,
+        filterNamespaceO: Option[String],
+    ): SQLActionBuilder =
+      if (filter.nonEmpty) {
+        getIdFilter(Some(filterIdentifier), exactMatch = filterNamespaceO.nonEmpty) ++
+          getNamespaceFilter(filterNamespaceO)
+
+      } else sql""
 
     queryForTransactions(
       asOfQuery(asOfExclusive, asOfInclusive = false) ++
@@ -304,7 +303,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
         // PartyToParticipant filtering
         ++ Seq(
           sql"(transaction_type = ${PartyToParticipant.code}"
-            ++ conditionalAppend(filterParty, sqlPartyIdentifier, sqlPartyNS)
+            ++ conditionalAppend(filterParty, filterPartyIdentifier, filterPartyNamespaceO)
             ++ sql")"
         )
         ++ sql" OR "
@@ -313,8 +312,12 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
           sql"(transaction_type = ${SynchronizerTrustCertificate.code}"
           // In SynchronizerTrustCertificate part of the filter, compare not only to participant, but also to party identifier
           // to enable searching for the admin party
-            ++ conditionalAppend(filterParty, sqlPartyIdentifier, sqlPartyNS)
-            ++ conditionalAppend(filterParticipant, sqlParticipantIdentifier, sqlParticipantNS)
+            ++ conditionalAppend(filterParty, filterPartyIdentifier, filterPartyNamespaceO)
+            ++ conditionalAppend(
+              filterParticipant,
+              filterParticipantIdentifier,
+              filterParticipantNamespaceO,
+            )
             ++ sql")"
         )
         ++ sql")",
@@ -327,12 +330,12 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
                 if filterParticipant.isEmpty || ptp.participants
                   .exists(
                     _.participantId.uid
-                      .matchesPrefixes(prefixParticipantIdentifier, prefixParticipantNS)
+                      .matchesFilters(filterParticipantIdentifier, filterParticipantNamespaceO)
                   ) =>
               Set(ptp.partyId)
             case cert: SynchronizerTrustCertificate
                 if filterParty.isEmpty || cert.participantId.adminParty.uid
-                  .matchesPrefixes(prefixPartyIdentifier, prefixPartyNS) =>
+                  .matchesFilters(filterPartyIdentifier, filterPartyNamespaceO) =>
               Set(cert.participantId.adminParty)
             case _ => Set.empty
           })
@@ -866,10 +869,13 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   }
 
   private def getIdFilter(
-      idFilter: Option[String]
+      idFilter: Option[String],
+      exactMatch: Boolean,
   ): SQLActionBuilderChain =
     idFilter match {
-      case Some(value) if value.nonEmpty => sql" AND identifier like ${value + "%"}"
+      case Some(value) if value.nonEmpty =>
+        if (exactMatch) sql" AND identifier = $value"
+        else sql" AND identifier LIKE ${value + "%"}"
       case _ => sql""
     }
 

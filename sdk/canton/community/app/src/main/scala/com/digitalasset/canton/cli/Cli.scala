@@ -5,6 +5,7 @@ package com.digitalasset.canton.cli
 
 import ch.qos.logback.classic.Level
 import com.digitalasset.canton.buildinfo.BuildInfo
+import com.digitalasset.canton.cli.Command.Sandbox
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import scopt.OptionParser
 
@@ -160,7 +161,12 @@ object Cli {
         .text(
           "Set configuration file(s).\n" +
             inColumns(second = "If several configuration files assign values to the same key,\n") +
-            inColumns(second = "the last value is taken.")
+            inColumns(second =
+              "the last value is taken. For a 'sandbox' command, its default config\n"
+            ) +
+            inColumns(second =
+              "is processed first, followed by files defined with '-c' and '--config'"
+            )
         )
         .valueName("<file1>,<file2>,...")
         .unbounded()
@@ -356,10 +362,39 @@ object Cli {
             .action((target, cli) => cli.copy(command = Some(Command.Generate(target))))
         )
 
+      note("") // Newline
+      cmd("sandbox")
+        .text("Run Canton sandbox")
+        .action((_, cli) => cli.copy(command = Some(Sandbox())))
+        .children(
+          opt[Unit]("exit-after-bootstrap")
+            .hidden()
+            .action((_, cli) =>
+              cli.copy(
+                command = Some(Sandbox(exitAfterBootstrap = true))
+              )
+            )
+        )
+
       checkConfig(cli =>
-        if (cli.configFiles.isEmpty && cli.configMap.isEmpty) {
+        if (
+          cli.configFiles.isEmpty && cli.configMap.isEmpty && cli.command.collect {
+            case _: Command.Sandbox => true
+          }.isEmpty
+        ) {
           failure(
-            "at least one config has to be defined either as files (-c) or as key-values (-C)"
+            "at least one config has to be defined either as files (-c), as key-values (-C) or as sandbox's default config"
+          )
+        } else success
+      )
+      checkConfig(cli =>
+        if (
+          cli.bootstrapScriptPath.nonEmpty && cli.command.collect { case _: Command.Sandbox =>
+            true
+          }.nonEmpty
+        ) {
+          failure(
+            "bootstrap script cannot be defined together with the 'sandbox' command"
           )
         } else success
       )

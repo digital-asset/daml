@@ -30,7 +30,9 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.dri
   DefaultMaxRequestsInBatch,
   DefaultMinRequestsInBatch,
   DefaultOutputFetchTimeout,
+  DefaultPruningConfig,
   P2PNetworkConfig,
+  PruningConfig,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.AvailabilityModuleConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssSegmentModule.BlockCompletionTimeout
@@ -56,6 +58,7 @@ final case class BftBlockOrdererConfig(
     // TODO(#24184) make a dynamic sequencing parameter
     maxBatchesPerBlockProposal: Short = DefaultMaxBatchesPerProposal,
     outputFetchTimeout: FiniteDuration = DefaultOutputFetchTimeout,
+    pruningConfig: PruningConfig = DefaultPruningConfig,
     initialNetwork: Option[P2PNetworkConfig] = None,
     storage: Option[StorageConfig] = None,
 ) extends UniformCantonConfigValidation {
@@ -85,6 +88,11 @@ object BftBlockOrdererConfig {
   val DefaultMaxBatchCreationInterval: FiniteDuration = 100.milliseconds
   val DefaultMaxBatchesPerProposal: Short = 16
   val DefaultOutputFetchTimeout: FiniteDuration = 2.second
+  val DefaultPruningConfig: PruningConfig = PruningConfig(
+    retentionPeriod = 30.days,
+    minNumberOfBlocksToKeep = 100,
+    pruningFrequency = 1.hour,
+  )
 
   implicit val configCantonConfigValidator: CantonConfigValidator[BftBlockOrdererConfig] =
     CantonConfigValidatorDerivation[BftBlockOrdererConfig]
@@ -169,4 +177,15 @@ object BftBlockOrdererConfig {
       port: Port,
       tls: Boolean,
   )
+
+  final case class PruningConfig(
+      retentionPeriod: FiniteDuration,
+      minNumberOfBlocksToKeep: Int,
+      pruningFrequency: FiniteDuration,
+  ) extends UniformCantonConfigValidation
+  object PruningConfig {
+    implicit val pruningConfigCantonConfigValidator: CantonConfigValidator[PruningConfig] =
+      CantonConfigValidatorDerivation[PruningConfig]
+  }
+
 }

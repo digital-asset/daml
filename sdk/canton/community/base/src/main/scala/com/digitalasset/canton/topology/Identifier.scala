@@ -82,11 +82,13 @@ final case class UniqueIdentifier private (identifier: String185, namespace: Nam
     */
   def tryChangeId(id: String): UniqueIdentifier = UniqueIdentifier.tryCreate(id, namespace)
 
-  // utility to filter UIDs using prefixes obtained via UniqueIdentifier.splitFilter() below
-  def matchesPrefixes(idPrefix: String, nsPrefix: String): Boolean =
-    identifier.unwrap.startsWith(idPrefix) && namespace.toProtoPrimitive.startsWith(
-      nsPrefix
-    )
+  // utility to filter UIDs using the id and namespace components obtained via UniqueIdentifier.splitFilter() below
+  def matchesFilters(idFilter: String, nsFilterO: Option[String]): Boolean = nsFilterO match {
+    case Some(nsFilter) =>
+      identifier.unwrap == idFilter && namespace.toProtoPrimitive.startsWith(nsFilter)
+    case None =>
+      identifier.unwrap.startsWith(idFilter)
+  }
 
   override protected def pretty: Pretty[this.type] =
     prettyOfString(uid => uid.identifier.str.show + UniqueIdentifier.delimiter + uid.namespace.show)
@@ -191,14 +193,14 @@ object UniqueIdentifier {
       throw new DbDeserializationException(s"Failed to parse a unique ID $uid: $err")
     )
 
-  /** Split an uid filter into the two subparts */
-  def splitFilter(filter: String, append: String = ""): (String, String) = {
+  /** Split a uid filter into the two subparts */
+  def splitFilter(filter: String): (String, Option[String]) = {
     val items = filter.split(UniqueIdentifier.delimiter)
     val prefix = items(0)
     if (items.lengthCompare(1) > 0) {
       val suffix = items(1)
-      (prefix ++ append, suffix ++ append)
-    } else (prefix ++ append, append)
+      (prefix, Some(suffix))
+    } else (prefix, None)
   }
 
 }

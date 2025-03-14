@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: JSON Ledger API HTTP endpoints
-  version: 2.5.0
+  version: 3.3.0-SNAPSHOT
 paths:
   /v2/commands/submit-and-wait:
     post:
@@ -2213,7 +2213,7 @@ components:
     DeduplicationPeriod:
       title: DeduplicationPeriod
       description: |-
-        Specifies the deduplication period for the change ID.
+        Specifies the deduplication period for the change ID (See PrepareSubmissionRequest).
         If omitted, the participant will assume the configured maximum deduplication time.
       oneOf:
       - type: object
@@ -2237,7 +2237,7 @@ components:
     DeduplicationPeriod1:
       title: DeduplicationPeriod
       description: |-
-        Specifies the deduplication period for the change ID.
+        Specifies the deduplication period for the change ID (See PrepareSubmissionRequest).
         If omitted, the participant will assume the configured maximum deduplication time.
       oneOf:
       - type: object
@@ -2261,7 +2261,7 @@ components:
     DeduplicationPeriod2:
       title: DeduplicationPeriod
       description: |-
-        Specifies the deduplication period for the change ID.
+        Specifies the deduplication period for the change ID (See PrepareSubmissionRequest).
         If omitted, the participant will assume the configured maximum deduplication time.
       oneOf:
       - type: object
@@ -4214,7 +4214,6 @@ components:
           $ref: '#/components/schemas/UnassignedEvent'
     Kind:
       title: Kind
-      description: Required
       oneOf:
       - type: object
         required:
@@ -5090,14 +5089,6 @@ components:
       properties:
         value:
           $ref: '#/components/schemas/JsTopologyTransaction'
-    TopologyTransaction1:
-      title: TopologyTransaction
-      type: object
-      required:
-      - value
-      properties:
-        value:
-          $ref: '#/components/schemas/JsTopologyTransaction'
     TraceContext:
       title: TraceContext
       type: object
@@ -5424,12 +5415,6 @@ components:
         properties:
           Reassignment:
             $ref: '#/components/schemas/Reassignment1'
-      - type: object
-        required:
-        - TopologyTransaction
-        properties:
-          TopologyTransaction:
-            $ref: '#/components/schemas/TopologyTransaction1'
       - type: object
         required:
         - TransactionTree

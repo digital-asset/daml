@@ -11,6 +11,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Output,
   P2PNetworkIn,
   P2PNetworkOut,
+  Pruning,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
 
@@ -33,6 +34,7 @@ class OrderingModuleSystemInitializer[E <: Env[E]](moduleFactories: ModuleFactor
       moduleSystem.newModuleRef[Availability.Message[E]](ModuleName("availability"))
     val consensusRef = moduleSystem.newModuleRef[Consensus.Message[E]](ModuleName("consensus"))
     val outputRef = moduleSystem.newModuleRef[Output.Message[E]](ModuleName("output"))
+    val pruningRef = moduleSystem.newModuleRef[Pruning.Message](ModuleName("pruning"))
 
     val mempool = moduleFactories.mempool(availabilityRef)
     val p2pNetworkIn = moduleFactories.p2pNetworkIn(availabilityRef, consensusRef)
@@ -54,12 +56,15 @@ class OrderingModuleSystemInitializer[E <: Env[E]](moduleFactories: ModuleFactor
     val consensus =
       moduleFactories.consensus(p2pNetworkOutRef, availabilityRef, outputRef)
 
+    val pruning = moduleFactories.pruning()
+
     moduleSystem.setModule(mempoolRef, mempool)
     moduleSystem.setModule(p2pNetworkOutRef, p2pNetworkOut)
     moduleSystem.setModule(p2pNetworkInRef, p2pNetworkIn)
     moduleSystem.setModule(availabilityRef, availability)
     moduleSystem.setModule(consensusRef, consensus)
     moduleSystem.setModule(outputRef, output)
+    moduleSystem.setModule(pruningRef, pruning)
 
     mempool.ready(self = mempoolRef)
     p2pNetworkIn.ready(self = p2pNetworkInRef)
@@ -67,6 +72,7 @@ class OrderingModuleSystemInitializer[E <: Env[E]](moduleFactories: ModuleFactor
     availability.ready(self = availabilityRef)
     consensus.ready(self = consensusRef)
     output.ready(self = outputRef)
+    pruning.ready(self = pruningRef)
 
     SystemInitializationResult(
       mempoolRef,
@@ -108,5 +114,6 @@ object OrderingModuleSystemInitializer {
           ModuleRef[Availability.Message[E]],
           ModuleRef[Consensus.Message[E]],
       ) => Output[E],
+      pruning: () => Pruning[E],
   )
 }

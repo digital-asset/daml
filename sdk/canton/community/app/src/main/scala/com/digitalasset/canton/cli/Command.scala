@@ -20,6 +20,8 @@ object Command {
     */
   final case class RunScript(scriptPath: File) extends Command
 
+  final case class Sandbox(exitAfterBootstrap: Boolean = false) extends Command
+
   final case class Generate(target: Generate.Target) extends Command
 
   object Generate {

@@ -206,7 +206,7 @@ class GrpcTopologyManagerReadService(
       baseQueryProto,
       typ,
       idFilter = Some(idFilter),
-      namespaceFilter = Some(namespaceFilter),
+      namespaceFilter = namespaceFilter,
     )
   }
 

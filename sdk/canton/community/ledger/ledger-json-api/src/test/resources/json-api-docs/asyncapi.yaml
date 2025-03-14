@@ -1,7 +1,7 @@
 asyncapi: 2.6.0
 info:
   title: JSON Ledger API WebSocket endpoints
-  version: 2.5.0
+  version: 3.3.0-SNAPSHOT
 channels:
   /v2/commands/completions:
     description: Get completions stream
@@ -311,7 +311,7 @@ components:
     DeduplicationPeriod:
       title: DeduplicationPeriod
       description: |-
-        Specifies the deduplication period for the change ID.
+        Specifies the deduplication period for the change ID (See PrepareSubmissionRequest).
         If omitted, the participant will assume the configured maximum deduplication time.
       oneOf:
       - type: object
@@ -1839,12 +1839,6 @@ components:
             $ref: '#/components/schemas/Reassignment1'
       - type: object
         required:
-        - TopologyTransaction
-        properties:
-          TopologyTransaction:
-            $ref: '#/components/schemas/TopologyTransaction1'
-      - type: object
-        required:
         - TransactionTree
         properties:
           TransactionTree:
@@ -1871,14 +1865,6 @@ components:
       properties:
         value:
           $ref: '#/components/schemas/JsReassignment'
-    TopologyTransaction1:
-      title: TopologyTransaction
-      type: object
-      required:
-      - value
-      properties:
-        value:
-          $ref: '#/components/schemas/JsTopologyTransaction'
     TransactionTree:
       title: TransactionTree
       description: |-

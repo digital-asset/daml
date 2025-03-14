@@ -34,6 +34,10 @@ import scala.util.{Failure, Success}
   * It is meant to be used by Consensus behaviors only and is not thread-safe.
   *
   * Design document: https://docs.google.com/document/d/1oB1KtnpM7OiNDWQoRUL0NuoEFJYUjg58ECYIjSi4sIM
+  *
+  * Crash recovery note: once the Output module starts fetching batches, the process is sped up by
+  * not re-fetching already stored batches and storing intermediate epochs in the epoch store.
+  * Before that, a state-transferring node needs to start the process from scratch.
   */
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class StateTransferManager[E <: Env[E]](

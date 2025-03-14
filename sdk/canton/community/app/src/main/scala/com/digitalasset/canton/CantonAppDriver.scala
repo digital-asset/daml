@@ -10,6 +10,7 @@ import ch.qos.logback.core.status.{ErrorStatus, Status, StatusListener, WarnStat
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.CantonAppDriver.installGCLogging
 import com.digitalasset.canton.buildinfo.BuildInfo
+import com.digitalasset.canton.cli.Command.Sandbox
 import com.digitalasset.canton.cli.{Cli, Command, LogFileAppender}
 import com.digitalasset.canton.config.ConfigErrors.CantonConfigError
 import com.digitalasset.canton.config.{CantonConfig, ConfigErrors, GCLoggingConfig, Generate}
@@ -17,6 +18,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.{Environment, EnvironmentFactory}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
+import com.digitalasset.canton.util.JarResourceUtils
 import com.digitalasset.canton.version.ReleaseVersion
 import com.sun.management.GarbageCollectionNotificationInfo
 import com.typesafe.config.{Config, ConfigFactory}
@@ -126,9 +128,18 @@ abstract class CantonAppDriver extends App with NamedLogging with NoTracing {
     }
   }))
   logger.debug("Registered shutdown-hook.")
+  val sandboxConfig = JarResourceUtils.extractFileFromJar("sandbox/sandbox.conf")
+  val sandboxBotstrap = JarResourceUtils.extractFileFromJar("sandbox/bootstrap.canton")
+  val configFiles = cliOptions.command
+    .collect { case _: Sandbox => sandboxConfig }
+    .toList
+    .concat(cliOptions.configFiles)
+  val bootstrapFile = cliOptions.command
+    .collect { case _: Sandbox => sandboxBotstrap }
+    .orElse(cliOptions.bootstrapScriptPath)
 
   val cantonConfig: CantonConfig = {
-    val mergedUserConfigsE = NonEmpty.from(cliOptions.configFiles) match {
+    val mergedUserConfigsE = NonEmpty.from(configFiles) match {
       case None if cliOptions.configMap.isEmpty =>
         Left(ConfigErrors.NoConfigFiles.Error())
       case None => Right(ConfigFactory.empty())
@@ -147,7 +158,7 @@ abstract class CantonAppDriver extends App with NamedLogging with NoTracing {
 
     val loadedConfig = loadConfig(finalConfig) match {
       case Left(_) =>
-        if (cliOptions.configFiles.sizeCompare(1) > 0)
+        if (configFiles.sizeCompare(1) > 0)
           writeConfigToTmpFile(mergedUserConfigs)
         sys.exit(1)
       case Right(loaded) =>
@@ -189,7 +200,7 @@ abstract class CantonAppDriver extends App with NamedLogging with NoTracing {
   }
 
   // verify that run script and bootstrap script aren't mixed
-  if (cliOptions.bootstrapScriptPath.isDefined) {
+  if (bootstrapFile.isDefined) {
     cliOptions.command match {
       case Some(Command.RunScript(_)) =>
         logger.error("--bootstrap script and run script are mutually exclusive")
@@ -202,9 +213,11 @@ abstract class CantonAppDriver extends App with NamedLogging with NoTracing {
   }
 
   private lazy val bootstrapScript: Option[CantonScript] =
-    cliOptions.bootstrapScriptPath.map(CantonScriptFromFile.apply)
+    bootstrapFile.map(CantonScriptFromFile.apply)
 
   val runner: Runner = cliOptions.command match {
+    case Some(Command.Sandbox(exitAfterBootstrap)) =>
+      new ServerRunner(bootstrapScript, loggerFactory, exitAfterBootstrap)
     case Some(Command.Daemon) => new ServerRunner(bootstrapScript, loggerFactory)
     case Some(Command.RunScript(script)) => ConsoleScriptRunner(script, loggerFactory)
     case Some(Command.Generate(target)) =>

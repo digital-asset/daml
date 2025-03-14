@@ -315,7 +315,8 @@ class ParticipantPartiesAdministrationGroup(
               )
             ),
           ),
-          signedBy = Seq(this.participantId.fingerprint),
+          // let the topology service determine the appropriate keys to use
+          signedBy = Seq.empty,
           serial = nextSerial,
           store = TopologyStoreId.Authorized,
           mustFullyAuthorize = mustFullyAuthorize,

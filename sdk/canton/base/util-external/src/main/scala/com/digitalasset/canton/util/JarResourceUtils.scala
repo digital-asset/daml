@@ -10,7 +10,9 @@ import scala.util.Using
 /** Utility methods for loading resource test files.
   */
 object JarResourceUtils {
-  def resourceFileFromJar(path: String): File =
+  // Extract a resource and store it in a temporary file.
+  // This method works for resources embedded in a JAR.
+  def extractFileFromJar(path: String): File =
     Using(getClass.getClassLoader.getResourceAsStream(path)) { inputStream =>
       if (inputStream == null) throw new RuntimeException(s"Resource for $path not found")
 
@@ -22,6 +24,8 @@ object JarResourceUtils {
       tmpFilePath.toFile
     }.getOrElse(throw new RuntimeException(s"Resource for $path not found"))
 
+  // Use resource file directly wrapping it in a File. This method works in unit tests.
+  // It doesn't work for resources from a JAR
   def resourceFile(path: String): File =
     Option(getClass.getClassLoader.getResource(path))
       .map(_.toURI)

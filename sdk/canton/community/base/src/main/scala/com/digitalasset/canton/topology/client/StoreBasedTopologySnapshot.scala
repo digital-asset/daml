@@ -422,7 +422,7 @@ class StoreBasedTopologySnapshot(
       filterOwnerType: Option[MemberCode],
       limit: Int,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[Member, KeyCollection]] = {
-    val (idFilter, namespaceFilter) = UniqueIdentifier.splitFilter(filterOwner)
+    val (idFilter, namespaceFilterO) = UniqueIdentifier.splitFilter(filterOwner)
     store
       .inspect(
         proposals = false,
@@ -431,7 +431,7 @@ class StoreBasedTopologySnapshot(
         op = Some(TopologyChangeOp.Replace),
         types = Seq(TopologyMapping.Code.OwnerToKeyMapping),
         idFilter = Some(idFilter),
-        namespaceFilter = Some(namespaceFilter),
+        namespaceFilter = namespaceFilterO,
       )
       .map(
         _.collectOfMapping[OwnerToKeyMapping]
