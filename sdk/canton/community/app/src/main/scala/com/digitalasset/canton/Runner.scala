@@ -24,6 +24,7 @@ trait Runner extends NamedLogging {
 class ServerRunner(
     bootstrapScript: Option[CantonScript] = None,
     override val loggerFactory: NamedLoggerFactory,
+    exitAfterBootstrap: Boolean = false,
 ) extends Runner
     with NoTracing {
 
@@ -48,6 +49,7 @@ class ServerRunner(
         }
 
       bootstrapScript.fold(start())(startWithBootstrap)
+      if (exitAfterBootstrap) sys.exit(0)
     } catch {
       case ex: Throwable =>
         logger.error(s"Unexpected error while running server: ${ex.getMessage}")

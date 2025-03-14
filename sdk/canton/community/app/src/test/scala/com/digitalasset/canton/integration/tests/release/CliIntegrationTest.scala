@@ -88,6 +88,11 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
         checkOutput(processLogger, shouldContain = Seq(successMsg))
     }
 
+    "successfully start canton sandbox" in { processLogger =>
+      s"$cantonBin sandbox --exit-after-bootstrap" ! processLogger
+      checkOutput(processLogger, shouldContain = Seq("Canton sandbox is ready"))
+    }
+
     "successfully start a Canton node when configured only using -C" in { processLogger =>
       s"""$cantonBin
           | -C canton.participants.participant1.storage.type=memory

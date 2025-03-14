@@ -12,6 +12,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.RetransmissionsManager
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferBehavior.StateTransferType.Onboarding
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferBehavior.{
   InitialState,
   StateTransferType,
@@ -38,6 +39,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.mutable
+import scala.util.{Failure, Success}
 
 /** A state transfer behavior for [[IssConsensusModule]]. It uses [[StateTransferManager]] and
   * inherits its limitations. In particular, the topology at the catch-up starting epoch is assumed
@@ -106,12 +108,23 @@ final class StateTransferBehavior[E <: Env[E]](
               s"$messageType: $stateTransferType state transfer cannot be already in progress during another state transfer"
             )
           }
+          val startEpochNumber = initialState.stateTransferStartEpoch
+          val startEpochInfo = initialState.epochState.epoch.info
+          val membership = initialState.topologyInfo.currentMembership
+          val cryptoProvider = initialState.topologyInfo.currentCryptoProvider
+
           stateTransferManager.startStateTransfer(
-            initialState.topologyInfo.currentMembership,
-            initialState.topologyInfo.currentCryptoProvider,
+            membership,
+            cryptoProvider,
             initialState.latestCompletedEpoch,
-            initialState.stateTransferStartEpoch,
+            startEpochNumber,
           )(abort)
+
+          if (stateTransferType == Onboarding) {
+            // Storing this epoch should theoretically allow catching up after a restart during onboarding.
+            //  However, sequencer node crash recovery is not supported during onboarding.
+            storeNewEpoch(startEpochInfo, messageType)
+          }
         }
 
       case stateTransferMessage: Consensus.StateTransferMessage =>
@@ -124,14 +137,21 @@ final class StateTransferBehavior[E <: Env[E]](
             previousEpochMaxBftTime,
             lastBlockFromPreviousEpochMode,
           ) =>
-        val epochInfo = epochState.epoch.info
+        val currentEpochInfo = epochState.epoch.info
         logger.info(
-          s"$messageType: setting latest completed epoch $epochInfo from $stateTransferType state transfer"
+          s"$messageType: setting latest completed epoch $currentEpochInfo from $stateTransferType state transfer"
         )
         // Providing an empty commit message set, which results in using the BFT time monotonicity adjustment for
         //  the first block produced by the state-transferred node as a leader.
         val lastCommitSet = Seq.empty
-        latestCompletedEpoch = EpochStore.Epoch(epochInfo, lastCommitSet)
+        latestCompletedEpoch = EpochStore.Epoch(currentEpochInfo, lastCommitSet)
+
+        // Storing epochs during state transfer is done on a best effort basis solely based on NewEpochTopology messages
+        //  and independently of storing OrderedBlocks (PrePrepares) in StateTransferManager. This allows a slightly
+        //  better crash recovery experience, where state transfer can be resumed from a further epoch than the start
+        //  one, once at least one NewEpochTopology message has been received from the Output module.
+        //  Other than the above, crash recovery during state transfer depends on idempotency of the stores.
+        storeCompletedEpoch(currentEpochInfo, messageType)
 
         if (lastBlockFromPreviousEpochMode == Mode.StateTransfer.LastBlock) {
           logger.info(
@@ -141,15 +161,19 @@ final class StateTransferBehavior[E <: Env[E]](
           transitionBackToConsensus(newEpochTopologyMessage)
         } else {
           val latestCompletedEpochNumber = latestCompletedEpoch.info.number
-          val currentEpochNumber = epochInfo.number
+          val currentEpochNumber = currentEpochInfo.number
 
           if (
             newEpochNumber == currentEpochNumber + 1 && newEpochNumber == latestCompletedEpochNumber + 1
           ) {
             val orderingTopology = initialState.topologyInfo.currentTopology
             val newEpochInfo =
-              epochInfo.next(epochLength, orderingTopology.activationTime, previousEpochMaxBftTime)
-            // TODO(#23567) store epochs
+              currentEpochInfo.next(
+                epochLength,
+                orderingTopology.activationTime,
+                previousEpochMaxBftTime,
+              )
+            storeNewEpoch(newEpochInfo, messageType)
             logger.debug(
               s"$messageType: setting new epoch ${newEpochInfo.number} during $stateTransferType state transfer"
             )
@@ -166,6 +190,32 @@ final class StateTransferBehavior[E <: Env[E]](
         logger.error(s"$messageType: exception raised from async consensus message: ${e.toString}")
 
       case _ => postponedQueue.enqueue(message)
+    }
+  }
+
+  private def storeNewEpoch(
+      newEpochInfo: EpochInfo,
+      messageType: => String,
+  )(implicit context: E#ActorContextT[Consensus.Message[E]], traceContext: TraceContext): Unit = {
+    logger.debug(s"$messageType: storing new epoch ${newEpochInfo.number}")
+    context.pipeToSelf(epochStore.startEpoch(newEpochInfo)) {
+      case Failure(exception) => Some(Consensus.ConsensusMessage.AsyncException(exception))
+      case Success(_) =>
+        logger.debug(s"$messageType: stored new epoch ${newEpochInfo.number}")
+        None
+    }
+  }
+
+  private def storeCompletedEpoch(epochInfo: EpochInfo, messageType: => String)(implicit
+      context: E#ActorContextT[Consensus.Message[E]],
+      traceContext: TraceContext,
+  ): Unit = {
+    logger.debug(s"$messageType: storing complete epoch ${epochInfo.number}")
+    context.pipeToSelf(epochStore.completeEpoch(epochInfo.number)) {
+      case Failure(exception) => Some(Consensus.ConsensusMessage.AsyncException(exception))
+      case Success(_) =>
+        logger.debug(s"$messageType: complete epoch ${epochInfo.number} stored")
+        None
     }
   }
 

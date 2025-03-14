@@ -259,17 +259,17 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         // matches a party to participant mapping (with appropriate filters)
         (entry.mapping match {
           case ptp: PartyToParticipant =>
-            ptp.partyId.uid.matchesPrefixes(prefixPartyIdentifier, prefixPartyNS) &&
+            ptp.partyId.uid.matchesFilters(prefixPartyIdentifier, prefixPartyNS) &&
             (filterParticipant.isEmpty ||
               ptp.participants.exists(
                 _.participantId.uid
-                  .matchesPrefixes(prefixParticipantIdentifier, prefixParticipantNS)
+                  .matchesFilters(prefixParticipantIdentifier, prefixParticipantNS)
               ))
           case cert: SynchronizerTrustCertificate =>
             cert.participantId.adminParty.uid
-              .matchesPrefixes(prefixPartyIdentifier, prefixPartyNS) &&
+              .matchesFilters(prefixPartyIdentifier, prefixPartyNS) &&
             cert.participantId.uid
-              .matchesPrefixes(prefixParticipantIdentifier, prefixParticipantNS)
+              .matchesFilters(prefixParticipantIdentifier, prefixParticipantNS)
           case _ => false
         })
 

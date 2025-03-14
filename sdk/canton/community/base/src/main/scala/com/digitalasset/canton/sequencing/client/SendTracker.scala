@@ -239,8 +239,9 @@ class SendTracker(
     val removeUnlessTimedOut = pendingSends.updateWith(messageId) {
       case Some(pending) if sequencedTimeO.exists(_ > pending.maxSequencingTime) => Some(pending)
       case other =>
-        // this shouldn't happen (as per above),  but let's leave a note in the logs if it does
-        if (other != current)
+        // a concurrent modification of the same message id is only possible when the SendTracker is shutting down
+        // otherwise this shouldn't happen (as per above comment), but let's leave a note in the logs if it does
+        if (!isClosing && other != current)
           logger.error(s"Concurrent modification of pending sends $other / $current")
         None
     }
