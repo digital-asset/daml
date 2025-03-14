@@ -11,6 +11,7 @@ sealed case class SpanAttribute(key: AttributeKey[String])
 
 object SpanAttribute {
   val ApplicationId: SpanAttribute = SpanAttribute("daml.application_id")
+  val UserId: SpanAttribute = SpanAttribute("daml.user_id")
   val CommandId: SpanAttribute = SpanAttribute("daml.command_id")
   val Offset: SpanAttribute = SpanAttribute("daml.offset")
   val OffsetFrom: SpanAttribute = SpanAttribute("daml.offset_from")
