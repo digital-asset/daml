@@ -97,7 +97,7 @@ class GrpcAdminCommandRunner(
                   ClientChannelBuilder.createChannelBuilderToTrustedServer(clientConfig),
                 logger = logger,
                 timeout = commandTimeouts.bounded,
-                onShutdownRunner = this,
+                hasRunOnClosing = this,
                 token = token,
               )
             )

@@ -59,7 +59,7 @@ class GrpcSequencerConnectClient(
           builder,
           logger,
           timeouts.network,
-          onShutdownRunner = this,
+          hasRunOnClosing = this,
           None,
         )
         .leftMap(err => Error.Transport(err))
@@ -72,7 +72,7 @@ class GrpcSequencerConnectClient(
           timeout = timeouts.network.unwrap,
           logger = logger,
           logPolicy = CantonGrpcUtil.SilentLogPolicy,
-          onShutdownRunner = this,
+          hasRunOnClosing = this,
           retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
           token = None,
         )(_.getSynchronizerId(v30.SequencerConnect.GetSynchronizerIdRequest()))
@@ -106,7 +106,7 @@ class GrpcSequencerConnectClient(
         timeout = timeouts.network.unwrap,
         logger = logger,
         logPolicy = CantonGrpcUtil.SilentLogPolicy,
-        onShutdownRunner = this,
+        hasRunOnClosing = this,
         retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
         token = None,
       )(_.getSynchronizerParameters(v30.SequencerConnect.GetSynchronizerParametersRequest()))
@@ -133,7 +133,7 @@ class GrpcSequencerConnectClient(
           timeout = timeouts.network.unwrap,
           logger = logger,
           logPolicy = CantonGrpcUtil.SilentLogPolicy,
-          onShutdownRunner = this,
+          hasRunOnClosing = this,
           retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
           token = None,
         )(_.getSynchronizerId(v30.SequencerConnect.GetSynchronizerIdRequest()))
@@ -163,7 +163,7 @@ class GrpcSequencerConnectClient(
           timeout = timeouts.network.unwrap,
           logger = logger,
           logPolicy = CantonGrpcUtil.SilentLogPolicy,
-          onShutdownRunner = this,
+          hasRunOnClosing = this,
           retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
           token = None,
         )(_.handshake(request.toProtoV30))
@@ -209,7 +209,7 @@ class GrpcSequencerConnectClient(
           timeout = timeouts.network.unwrap,
           logger = logger,
           logPolicy = CantonGrpcUtil.SilentLogPolicy,
-          onShutdownRunner = this,
+          hasRunOnClosing = this,
           retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
           token = None,
         )(_.verifyActive(VerifyActiveRequest()))
@@ -246,7 +246,7 @@ class GrpcSequencerConnectClient(
         timeout = timeouts.network.unwrap,
         logger = logger,
         logPolicy = CantonGrpcUtil.SilentLogPolicy,
-        onShutdownRunner = this,
+        hasRunOnClosing = this,
         retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
         token = None,
       )(

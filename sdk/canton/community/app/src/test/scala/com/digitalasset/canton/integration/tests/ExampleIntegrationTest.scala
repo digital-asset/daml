@@ -20,8 +20,8 @@ import com.digitalasset.canton.integration.{
   ConfigTransforms,
   IsolatedEnvironments,
 }
+import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.TransactionData
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLogging}
-import com.digitalasset.canton.platform.apiserver.execution.CommandInterpretationResult
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionEncoder
 import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.topology.SynchronizerId
@@ -205,7 +205,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
   }
 
   def buildV1Hash(
-      commandExecutionResult: CommandInterpretationResult,
+      preparedTransactionData: TransactionData,
       transactionUUID: UUID,
       mediatorGroup: PositiveInt,
       synchronizerId: SynchronizerId,
@@ -213,20 +213,20 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
   ) =
     InteractiveSubmission.computeVersionedHash(
       HashingSchemeVersion.V1,
-      commandExecutionResult.transaction,
-      InteractiveSubmission.TransactionMetadataForHashing.createFromDisclosedContracts(
-        commandExecutionResult.submitterInfo.actAs.toSet,
-        commandExecutionResult.submitterInfo.commandId,
+      preparedTransactionData.transaction,
+      InteractiveSubmission.TransactionMetadataForHashing.create(
+        preparedTransactionData.submitterInfo.actAs.toSet,
+        preparedTransactionData.submitterInfo.commandId,
         transactionUUID,
         mediatorGroup.value,
         synchronizerId,
-        Option.when(commandExecutionResult.dependsOnLedgerTime)(
-          commandExecutionResult.transactionMeta.ledgerEffectiveTime
+        Option.when(preparedTransactionData.dependsOnLedgerTime)(
+          preparedTransactionData.transactionMeta.ledgerEffectiveTime
         ),
-        commandExecutionResult.transactionMeta.submissionTime,
-        commandExecutionResult.processedDisclosedContracts,
+        preparedTransactionData.transactionMeta.submissionTime,
+        preparedTransactionData.inputContracts,
       ),
-      commandExecutionResult.transactionMeta.optNodeSeeds
+      preparedTransactionData.transactionMeta.optNodeSeeds
         .getOrElse(ImmArray.empty)
         .toList
         .toMap,
@@ -238,14 +238,14 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
     import env.*
     forAll {
       (
-          commandExecutionResult: CommandInterpretationResult,
+          preparedTransactionData: TransactionData,
           synchronizerId: SynchronizerId,
           transactionUUID: UUID,
           mediatorGroup: PositiveInt,
       ) =>
         val hashTracer = HashTracer.StringHashTracer(traceSubNodes = true)
         val expectedHash = buildV1Hash(
-          commandExecutionResult,
+          preparedTransactionData,
           transactionUUID,
           mediatorGroup,
           synchronizerId,
@@ -254,7 +254,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
 
         val result = for {
           encoded <- encoder.serializeCommandInterpretationResult(
-            commandExecutionResult,
+            preparedTransactionData,
             synchronizerId,
             transactionUUID,
             mediatorGroup.value,

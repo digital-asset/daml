@@ -5,7 +5,7 @@ package com.digitalasset.canton.health
 
 import cats.Eval
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.RunOnShutdown
+import com.digitalasset.canton.lifecycle.RunOnClosing
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.concurrent.TrieMap
@@ -40,10 +40,10 @@ trait CompositeHealthElement[ID, HE <: HealthElement] extends HealthElement {
   // Unregister all dependencies when this element is closed.
   locally {
     import TraceContext.Implicits.Empty.*
-    associatedOnShutdownRunner.runOnShutdown_(new RunOnShutdown {
+    associatedHasRunOnClosing.runOnOrAfterClose_(new RunOnClosing {
       override def name: String = s"unregister-$name-from-dependencies"
       override def done: Boolean = false
-      override def run(): Unit = unregisterFromAll()
+      override def run()(implicit traceContext: TraceContext): Unit = unregisterFromAll()
     })
   }
 
@@ -91,14 +91,14 @@ trait CompositeHealthElement[ID, HE <: HealthElement] extends HealthElement {
           true
       }
 
-    if (!associatedOnShutdownRunner.isClosing) {
+    if (!associatedHasRunOnClosing.isClosing) {
       val removedAtLeastOne = remove.map(removeId).exists(Predef.identity)
       val addedAtLeastOne =
         add.map { case (id, dependency) => addOrReplace(id, dependency) }.exists(Predef.identity)
       val dependenciesChanged = addedAtLeastOne || removedAtLeastOne
-      // Since the associatedOnShutdownRunner may have started closing while we've been modifying the dependencies,
+      // Since the associatedHasRunOnClosing may have started closing while we've been modifying the dependencies,
       // query the closing flag again and repeat the unregistration
-      if (associatedOnShutdownRunner.isClosing) {
+      if (associatedHasRunOnClosing.isClosing) {
         unregisterFromAll()
       } else if (dependenciesChanged) refreshFromDependencies()(TraceContext.empty)
     }

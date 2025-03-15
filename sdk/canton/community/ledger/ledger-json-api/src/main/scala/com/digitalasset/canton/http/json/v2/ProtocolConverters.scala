@@ -459,35 +459,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           case lapi.transaction.TreeEvent.Kind.Created(created) =>
             CreatedEvent.toJson(created).map(JsTreeEvent.CreatedTreeEvent(_))
           case lapi.transaction.TreeEvent.Kind.Exercised(exercised) =>
-            val apiTemplateId = exercised.getTemplateId
-
-            val choiceName = Ref.ChoiceName.assertFromString(exercised.choice)
-            for {
-              choiceArgs <- schemaProcessors.choiceArgsFromProtoToJson(
-                template = apiTemplateId,
-                choiceName = choiceName,
-                protoArgs = exercised.getChoiceArgument,
-              )
-              exerciseResult <- schemaProcessors.exerciseResultFromProtoToJson(
-                apiTemplateId,
-                choiceName,
-                exercised.getExerciseResult,
-              )
-            } yield JsTreeEvent.ExercisedTreeEvent(
-              offset = exercised.offset,
-              nodeId = exercised.nodeId,
-              contractId = exercised.contractId,
-              templateId = IdentifierConverter.toJson(apiTemplateId),
-              interfaceId = exercised.interfaceId.map(IdentifierConverter.toJson),
-              choice = exercised.choice,
-              choiceArgument = choiceArgs,
-              actingParties = exercised.actingParties,
-              consuming = exercised.consuming,
-              witnessParties = exercised.witnessParties,
-              lastDescendantNodeId = exercised.lastDescendantNodeId,
-              exerciseResult = exerciseResult,
-              packageName = exercised.packageName,
-            )
+            ExercisedEvent.toJson(exercised).map(JsTreeEvent.ExercisedTreeEvent(_))
         }
       Future
         .traverse(jsEventsById.toSeq) { case (key, fv) =>
@@ -522,43 +494,10 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
               .fromJson(created)
               .map(ev => lapi.transaction.TreeEvent(lapi.transaction.TreeEvent.Kind.Created(ev)))
 
-          case exercised: JsTreeEvent.ExercisedTreeEvent =>
-            val apiTemplateId = IdentifierConverter.fromJson(exercised.templateId)
-            val choiceName = Ref.ChoiceName.assertFromString(exercised.choice)
-            for {
-              choiceArgs <- schemaProcessors.choiceArgsFromJsonToProto(
-                template = apiTemplateId,
-                choiceName = choiceName,
-                jsonArgsValue = ujson.read(
-                  CirceJson.transform(exercised.choiceArgument, StringRenderer()).toString
-                ),
-              )
-              lapiExerciseResult <- schemaProcessors.exerciseResultFromJsonToProto(
-                template = apiTemplateId,
-                choiceName = choiceName,
-                value = ujson.read(
-                  CirceJson.transform(exercised.exerciseResult, StringRenderer()).toString
-                ),
-              )
-            } yield lapi.transaction.TreeEvent(
-              kind = lapi.transaction.TreeEvent.Kind.Exercised(
-                lapi.event.ExercisedEvent(
-                  offset = exercised.offset,
-                  nodeId = exercised.nodeId,
-                  contractId = exercised.contractId,
-                  templateId = Some(apiTemplateId),
-                  interfaceId = exercised.interfaceId.map(IdentifierConverter.fromJson),
-                  choice = exercised.choice,
-                  choiceArgument = Some(choiceArgs),
-                  actingParties = exercised.actingParties,
-                  consuming = exercised.consuming,
-                  witnessParties = exercised.witnessParties,
-                  exerciseResult = lapiExerciseResult,
-                  packageName = exercised.packageName,
-                  lastDescendantNodeId = exercised.lastDescendantNodeId,
-                )
-              )
-            )
+          case JsTreeEvent.ExercisedTreeEvent(exercised) =>
+            ExercisedEvent
+              .fromJson(exercised)
+              .map(ev => lapi.transaction.TreeEvent(lapi.transaction.TreeEvent.Kind.Exercised(ev)))
         }
       Future
         .traverse(lapiEventsById.toSeq) { case (key, fv) =>
@@ -854,14 +793,14 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         choiceArgs <-
           schemaProcessors
             .choiceArgsFromProtoToJson(
-              exercised.getTemplateId,
+              exercised.interfaceId.getOrElse(exercised.getTemplateId),
               Ref.ChoiceName.assertFromString(exercised.choice),
               exercised.getChoiceArgument,
             )
         exerciseResult <-
           schemaProcessors
             .exerciseResultFromProtoToJson(
-              exercised.getTemplateId,
+              exercised.interfaceId.getOrElse(exercised.getTemplateId),
               Ref.ChoiceName.assertFromString(exercised.choice),
               exercised.getExerciseResult,
             )
@@ -889,14 +828,14 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       for {
         choiceArgs <-
           schemaProcessors.choiceArgsFromJsonToProto(
-            exericisedEvent.templateId,
+            exericisedEvent.interfaceId.getOrElse(exericisedEvent.templateId),
             Ref.ChoiceName.assertFromString(exericisedEvent.choice),
             exericisedEvent.choiceArgument,
           )
         choiceResult <-
           schemaProcessors
             .exerciseResultFromJsonToProto(
-              exericisedEvent.templateId,
+              exericisedEvent.interfaceId.getOrElse(exericisedEvent.templateId),
               Ref.ChoiceName.assertFromString(exericisedEvent.choice),
               exericisedEvent.exerciseResult,
             )

@@ -7,7 +7,7 @@ import cats.data.EitherT
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, OnShutdownRunner}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasRunOnClosing}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.sequencing.channel.ConnectToSequencerChannelRequest
@@ -76,7 +76,7 @@ private[channel] final class SequencerChannelClientEndpoint(
     timestamp: CantonTimestamp,
     protocolVersion: ProtocolVersion,
     context: CancellableContext,
-    parentOnShutdownRunner: OnShutdownRunner,
+    parentHasRunOnClosing: HasRunOnClosing,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
     onSentMessage: Option[OnSentMessageForTesting] = None,
@@ -84,7 +84,7 @@ private[channel] final class SequencerChannelClientEndpoint(
     extends ConsumesCancellableGrpcStreamObserver[
       String,
       v30.ConnectToSequencerChannelResponse,
-    ](context, parentOnShutdownRunner, timeouts) {
+    ](context, parentHasRunOnClosing, timeouts) {
 
   private val security: SequencerChannelSecurity =
     new SequencerChannelSecurity(synchronizerCryptoApi, protocolVersion, timestamp)

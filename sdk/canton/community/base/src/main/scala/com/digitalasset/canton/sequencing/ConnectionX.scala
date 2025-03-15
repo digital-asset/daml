@@ -4,7 +4,7 @@
 package com.digitalasset.canton.sequencing
 
 import com.digitalasset.canton.health.AtomicHealthElement
-import com.digitalasset.canton.lifecycle.{FlagCloseable, OnShutdownRunner}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, HasRunOnClosing}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
 import com.digitalasset.canton.networking.Endpoint
@@ -68,7 +68,7 @@ object ConnectionX {
 
   class ConnectionXHealth(
       override val name: String,
-      override val associatedOnShutdownRunner: OnShutdownRunner,
+      override val associatedHasRunOnClosing: HasRunOnClosing,
       protected override val logger: TracedLogger,
   ) extends AtomicHealthElement {
     override type State = ConnectionXState

@@ -16,10 +16,10 @@ final case class SubscriptionResponse(
 object SubscriptionResponse {
   def fromVersionedProtoV30(
       protocolVersion: ProtocolVersion
-  )(responseP: v30.VersionedSubscriptionResponse)(implicit
+  )(responseP: v30.SubscriptionResponse)(implicit
       traceContext: TraceContext
   ): ParsingResult[SubscriptionResponse] = {
-    val v30.VersionedSubscriptionResponse(
+    val v30.SubscriptionResponse(
       signedSequencedEvent,
       _ignoredTraceContext,
     ) = responseP

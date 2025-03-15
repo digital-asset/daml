@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
-import com.digitalasset.canton.lifecycle.{FlagCloseable, OnShutdownRunner}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, HasRunOnClosing, OnShutdownRunner}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
@@ -262,7 +262,7 @@ object ResilientSequencerSubscriberPekko {
   private class ResilientSequencerSubscriptionHealth(
       override val name: String,
       sequencerId: SequencerId,
-      override protected val associatedOnShutdownRunner: OnShutdownRunner,
+      override protected val associatedHasRunOnClosing: HasRunOnClosing,
       override protected val logger: TracedLogger,
   ) extends AtomicHealthComponent {
     override protected def initialHealthState: ComponentHealthState = ComponentHealthState.Ok()

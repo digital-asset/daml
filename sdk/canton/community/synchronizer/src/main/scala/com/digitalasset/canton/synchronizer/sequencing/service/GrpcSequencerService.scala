@@ -188,9 +188,9 @@ class GrpcSequencerService(
   def disconnectAllMembers()(implicit traceContext: TraceContext): Unit =
     subscriptionPool.closeAllSubscriptions()
 
-  override def sendAsyncVersioned(
-      requestP: v30.SendAsyncVersionedRequest
-  ): Future[v30.SendAsyncVersionedResponse] = {
+  override def sendAsync(
+      requestP: v30.SendAsyncRequest
+  ): Future[v30.SendAsyncResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     // This has to run at the beginning, because it reads from a thread-local.
@@ -230,7 +230,7 @@ class GrpcSequencerService(
       )
       _ <- checkRate(request.content)
       _ <- sequencer.sendAsyncSigned(request)
-    } yield v30.SendAsyncVersionedResponse()
+    } yield v30.SendAsyncResponse()
 
     val resET = performUnlessClosingEitherUSF(functionFullName)(sendET.leftMap { err =>
       logger.info(s"Rejecting submission request by $senderFromMetadata with $err")
@@ -411,16 +411,16 @@ class GrpcSequencerService(
   }
 
   private def toVersionSubscriptionResponseV0(event: OrdinarySerializedEvent) =
-    v30.VersionedSubscriptionResponse(
+    v30.SubscriptionResponse(
       signedSequencedEvent = event.signedEvent.toByteString,
       Some(SerializableTraceContext(event.traceContext).toProtoV30),
     )
 
-  override def subscribeVersioned(
+  override def subscribe(
       request: v30.SubscriptionRequest,
-      responseObserver: StreamObserver[v30.VersionedSubscriptionResponse],
+      responseObserver: StreamObserver[v30.SubscriptionResponse],
   ): Unit =
-    subscribeInternal[v30.VersionedSubscriptionResponse](
+    subscribeInternal[v30.SubscriptionResponse](
       request,
       responseObserver,
       toVersionSubscriptionResponseV0,

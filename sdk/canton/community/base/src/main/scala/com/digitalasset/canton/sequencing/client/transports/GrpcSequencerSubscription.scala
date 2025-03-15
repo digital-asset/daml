@@ -50,9 +50,9 @@ trait HasProtoTraceContext[R] {
 }
 object HasProtoTraceContext {
   implicit val versionedSubscriptionResponseTraceContext
-      : HasProtoTraceContext[v30.VersionedSubscriptionResponse] =
-    new HasProtoTraceContext[v30.VersionedSubscriptionResponse] {
-      override def traceContext(value: v30.VersionedSubscriptionResponse) = value.traceContext
+      : HasProtoTraceContext[v30.SubscriptionResponse] =
+    new HasProtoTraceContext[v30.SubscriptionResponse] {
+      override def traceContext(value: v30.SubscriptionResponse) = value.traceContext
     }
 }
 
@@ -61,7 +61,7 @@ abstract class ConsumesCancellableGrpcStreamObserver[
     R: HasProtoTraceContext,
 ] private[client] (
     context: CancellableContext,
-    parentOnShutdownRunner: OnShutdownRunner,
+    parentHasRunOnClosing: HasRunOnClosing,
     timeouts: ProcessingTimeout,
 )(implicit executionContext: ExecutionContext)
     extends SequencerSubscription[E] {
@@ -82,17 +82,18 @@ abstract class ConsumesCancellableGrpcStreamObserver[
     import TraceContext.Implicits.Empty.*
 
     // Abort the current waiting when this observer is shut down
-    runOnShutdown_(new RunOnShutdown {
+    runOnOrAfterClose_(new RunOnClosing {
       override def name: String = "cancel-current-await-in-onNext"
       override def done: Boolean = false
-      override def run(): Unit = currentAwaitOnNext.get.trySuccess(AbortedDueToShutdown).discard
+      override def run()(implicit traceContext: TraceContext): Unit =
+        currentAwaitOnNext.get.trySuccess(AbortedDueToShutdown).discard
     })
 
     // Cancel the subscription when the parent is closed
-    parentOnShutdownRunner.runOnShutdown_(new RunOnShutdown {
+    parentHasRunOnClosing.runOnOrAfterClose_(new RunOnClosing {
       override def name: String = "cancel-subscription-on-parent-close"
       override def done: Boolean = cancelledByClient.get() || isClosing
-      override def run(): Unit = cancel()
+      override def run()(implicit traceContext: TraceContext): Unit = cancel()
     })
   }
 
@@ -260,14 +261,14 @@ abstract class ConsumesCancellableGrpcStreamObserver[
 @VisibleForTesting
 class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] (
     context: CancellableContext,
-    parentOnShutdownRunner: OnShutdownRunner,
+    parentHasRunOnClosing: HasRunOnClosing,
     override protected val callHandler: Traced[R] => EitherT[FutureUnlessShutdown, E, Unit],
     override val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends ConsumesCancellableGrpcStreamObserver[E, R](
       context,
-      parentOnShutdownRunner,
+      parentHasRunOnClosing,
       timeouts,
     ) {
 
@@ -284,18 +285,18 @@ class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] 
 }
 
 object GrpcSequencerSubscription {
-  def fromVersionedSubscriptionResponse[E](
+  def fromSubscriptionResponse[E](
       context: CancellableContext,
       handler: SerializedEventHandler[E],
-      onShutdownRunner: OnShutdownRunner,
+      hasRunOnClosing: HasRunOnClosing,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(protocolVersion: ProtocolVersion)(implicit
       executionContext: ExecutionContext
-  ): ConsumesCancellableGrpcStreamObserver[E, v30.VersionedSubscriptionResponse] =
+  ): ConsumesCancellableGrpcStreamObserver[E, v30.SubscriptionResponse] =
     new GrpcSequencerSubscription(
       context,
-      onShutdownRunner,
+      hasRunOnClosing,
       deserializingSubscriptionHandler(
         handler,
         (value, traceContext) =>

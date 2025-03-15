@@ -248,12 +248,12 @@ def encode_metadata(metadata):
         )
         + encode_int64(metadata.submission_time)
         + encode_repeated(
-            metadata.disclosed_events, encode_processed_disclosed_contract
+            metadata.input_contracts, encode_input_contract
         )
     )
 
 
-def encode_processed_disclosed_contract(contract):
+def encode_input_contract(contract):
     return encode_int64(contract.created_at) + sha256(
         encode_create_node(contract.v1, "unused_node_id", [])
     )

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.lifecycle
 
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.tracing.NoTracing
+import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.*
@@ -29,18 +29,18 @@ class OnShutdownRunnerTest extends AnyWordSpec with Matchers with NoTracing with
       var shutdownTasks: Seq[String] = Seq.empty
 
       val closeable = new TestResource()
-      closeable.runOnShutdown_(new RunOnShutdown {
+      closeable.runOnOrAfterClose_(new RunOnClosing {
         override val name = "first"
         override val done = false
 
-        override def run() =
+        override def run()(implicit traceContext: TraceContext): Unit =
           shutdownTasks = shutdownTasks :+ "first"
       })
-      closeable.runOnShutdown_(new RunOnShutdown {
+      closeable.runOnOrAfterClose_(new RunOnClosing {
         override val name = "second"
         override val done = false
 
-        override def run() =
+        override def run()(implicit traceContext: TraceContext): Unit =
           shutdownTasks = shutdownTasks :+ "second"
       })
       closeable.close()
@@ -55,13 +55,13 @@ class OnShutdownRunnerTest extends AnyWordSpec with Matchers with NoTracing with
 
       // Start by adding some shutdown tasks
       (0 to total / 2).foreach { i =>
-        closeable.runOnShutdown_(new ConcurrentRunOnShutdownHelperClass(shutdownTasks, i))
+        closeable.runOnOrAfterClose_(new ConcurrentRunOnClosingHelperClass(shutdownTasks, i))
       }
 
       // Then add another chunk each in it's own thread, and after a few close the closeable
       val threads = (total / 2 + 1 to total).map { i =>
         val t = new Thread(() => {
-          closeable.runOnShutdown_(new ConcurrentRunOnShutdownHelperClass(shutdownTasks, i))
+          closeable.runOnOrAfterClose_(new ConcurrentRunOnClosingHelperClass(shutdownTasks, i))
         })
         t.start()
 
@@ -83,25 +83,25 @@ class OnShutdownRunnerTest extends AnyWordSpec with Matchers with NoTracing with
       var shutdownTasks: Seq[String] = Seq.empty
 
       val closeable = new TestResource()
-      closeable.runOnShutdown_(new RunOnShutdown {
+      closeable.runOnOrAfterClose_(new RunOnClosing {
         override val name = "first"
         override val done = false
 
-        override def run() =
+        override def run()(implicit traceContext: TraceContext): Unit =
           shutdownTasks = shutdownTasks :+ "first"
       })
-      val token = closeable.runOnShutdown(new RunOnShutdown {
+      val token = closeable.runOnOrAfterClose(new RunOnClosing {
         override val name = "second"
         override val done = false
 
-        override def run() =
+        override def run()(implicit traceContext: TraceContext): Unit =
           shutdownTasks = shutdownTasks :+ "second"
       })
-      closeable.runOnShutdown_(new RunOnShutdown {
+      closeable.runOnOrAfterClose_(new RunOnClosing {
         override val name = "third"
         override val done = false
 
-        override def run() =
+        override def run()(implicit traceContext: TraceContext): Unit =
           shutdownTasks = shutdownTasks :+ "third"
       })
       token.cancel()
@@ -112,13 +112,13 @@ class OnShutdownRunnerTest extends AnyWordSpec with Matchers with NoTracing with
     }
   }
 
-  private class ConcurrentRunOnShutdownHelperClass(
+  private class ConcurrentRunOnClosingHelperClass(
       shutdownTasks: ConcurrentHashMap[Int, Unit],
       i: Int,
-  ) extends RunOnShutdown {
+  ) extends RunOnClosing {
     override val name = i.toString
     override val done = shutdownTasks.contains(i)
-    override def run() =
+    override def run()(implicit traceContext: TraceContext): Unit =
       shutdownTasks.put(i, ())
   }
 }

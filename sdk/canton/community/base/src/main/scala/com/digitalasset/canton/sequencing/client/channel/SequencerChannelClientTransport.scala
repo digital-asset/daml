@@ -8,8 +8,8 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
-  OnShutdownRunner,
-  RunOnShutdown,
+  HasRunOnClosing,
+  RunOnClosing,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcClient, GrpcManagedChannel}
@@ -57,10 +57,10 @@ private[channel] final class SequencerChannelClientTransport(
     // Otherwise the forced shutdownNow() on the transport channel will time out if the authentication interceptor
     // is in a retry loop to refresh the token
     import TraceContext.Implicits.Empty.*
-    managedChannel.runOnShutdown_(new RunOnShutdown() {
+    managedChannel.runOnOrAfterClose_(new RunOnClosing() {
       override def name: String = "grpc-sequencer-transport-shutdown-auth"
       override def done: Boolean = clientAuth.isClosing
-      override def run(): Unit = clientAuth.close()
+      override def run()(implicit traceContext: TraceContext): Unit = clientAuth.close()
     })
   }
 
@@ -69,7 +69,7 @@ private[channel] final class SequencerChannelClientTransport(
   def connectToSequencerChannel(
       channelEndpointFactory: (
           CancellableContext,
-          OnShutdownRunner,
+          HasRunOnClosing,
       ) => Either[String, SequencerChannelClientEndpoint]
   )(implicit traceContext: TraceContext): Either[String, SequencerChannelClientEndpoint] =
     CantonGrpcUtil

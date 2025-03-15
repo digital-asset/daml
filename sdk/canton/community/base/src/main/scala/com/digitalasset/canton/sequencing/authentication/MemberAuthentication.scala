@@ -128,7 +128,7 @@ object MemberAuthentication extends MemberAuthentication {
       availableSigningKey <-
         crypto.cryptoPrivateStore
           .filterSigningKeys(
-            possibleSigningKeys.forgetNE,
+            possibleSigningKeys,
             SigningKeyUsage.SequencerAuthenticationOnly,
           )
           .map(_.headOption) // the first we find is as good as any

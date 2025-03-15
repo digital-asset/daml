@@ -116,6 +116,7 @@ object EventsTable {
                   )
               },
             offset = first.offset.unwrap,
+            synchronizerId = first.synchronizerId,
             traceContext = first.traceContext.map(DamlTraceContext.parseFrom),
             recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
           )

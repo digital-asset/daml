@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant
 
 import cats.Eval
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, OnShutdownRunner}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasRunOnClosing}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
@@ -12,7 +12,7 @@ import com.digitalasset.canton.util.ErrorUtil
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 
-class LifeCycleContainer[T <: AutoCloseable & OnShutdownRunner](
+class LifeCycleContainer[T <: AutoCloseable & HasRunOnClosing](
     stateName: String,
     create: () => FutureUnlessShutdown[T],
     val loggerFactory: NamedLoggerFactory,

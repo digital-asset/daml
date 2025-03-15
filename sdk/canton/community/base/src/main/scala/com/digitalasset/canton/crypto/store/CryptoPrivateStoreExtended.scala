@@ -4,9 +4,11 @@
 package com.digitalasset.canton.crypto.store
 
 import cats.data.EitherT
+import cats.syntax.bifunctor.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
@@ -75,6 +77,10 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[StoredPrivateKey]]
 
+  private[crypto] def readPrivateKeys(keyIds: NonEmpty[Seq[Fingerprint]], purpose: KeyPurpose)(
+      implicit traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]]
+
   @VisibleForTesting
   private[canton] def listPrivateKeys(purpose: KeyPurpose, encrypted: Boolean)(implicit
       traceContext: TraceContext
@@ -138,45 +144,54 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
       }
   }
 
-  private def readAndParsePrivateKey[A <: PrivateKey, B <: PrivateKeyWithName](
+  private def readAndParsePrivateKeys[A <: PrivateKey, B <: PrivateKeyWithName](
       keyPurpose: KeyPurpose,
       parsingFunc: StoredPrivateKey => ParsingResult[A],
       buildKeyWithNameFunc: (A, Option[KeyName]) => B,
-  )(keyId: Fingerprint)(implicit
+  )(keyIds: NonEmpty[Seq[Fingerprint]])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[B]] =
-    readPrivateKey(keyId, keyPurpose)
-      .flatMap {
-        case Some(storedPrivateKey) =>
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[(Fingerprint, B)]] = for {
+    storedKeys <- readPrivateKeys(keyIds, keyPurpose)
+    keyMap <- storedKeys.toSeq
+      .parTraverse {
+        storedPrivateKey => // parTraverse use is fine because computation is in-memory only
           parsingFunc(storedPrivateKey) match {
             case Left(parseErr) =>
-              EitherT.leftT[FutureUnlessShutdown, Option[B]](
-                CryptoPrivateStoreError
-                  .FailedToReadKey(
-                    keyId,
-                    s"could not parse stored key (it can either be corrupted or encrypted): ${parseErr.toString}",
-                  )
-              )
+              EitherT
+                .leftT[FutureUnlessShutdown, (Fingerprint, B)](
+                  CryptoPrivateStoreError
+                    .FailedToReadKey(
+                      storedPrivateKey.id,
+                      s"could not parse stored key (it can either be corrupted or encrypted): ${parseErr.toString}",
+                    )
+                )
+                .leftWiden[CryptoPrivateStoreError]
             case Right(privateKey) =>
               EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](
-                Some(buildKeyWithNameFunc(privateKey, storedPrivateKey.name))
+                (storedPrivateKey.id, buildKeyWithNameFunc(privateKey, storedPrivateKey.name))
               )
           }
-        case None => EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](None)
       }
+      .map(_.toSet)
+  } yield keyMap
 
   private[crypto] def signingKey(signingKeyId: Fingerprint)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[SigningPrivateKey]] =
+    signingKeys(NonEmpty.mk(Seq, signingKeyId)).map(_.headOption)
+
+  private[crypto] def signingKeys(signingKeyIds: NonEmpty[Seq[Fingerprint]])(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[SigningPrivateKey]] =
     retrieveAndUpdateCache(
       signingKeyMap,
-      keyFingerprint =>
-        readAndParsePrivateKey[SigningPrivateKey, SigningPrivateKeyWithName](
+      fingerprints =>
+        readAndParsePrivateKeys[SigningPrivateKey, SigningPrivateKeyWithName](
           Signing,
           key => SigningPrivateKey.fromTrustedByteString(key.data),
           (privateKey, name) => SigningPrivateKeyWithName(privateKey, name),
-        )(keyFingerprint),
-    )(signingKeyId)
+        )(fingerprints),
+    )(signingKeyIds)
 
   private[crypto] def storeSigningKey(
       key: SigningPrivateKey,
@@ -200,15 +215,15 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
     } yield ()
 
   def filterSigningKeys(
-      signingKeyIds: Seq[Fingerprint],
+      signingKeyIds: NonEmpty[Seq[Fingerprint]],
       filterUsage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Seq[Fingerprint]] =
     for {
-      signingKeys <- signingKeyIds.parTraverse(signingKey(_)).map(_.flatten)
+      signingKeys <- signingKeys(signingKeyIds)
       filteredSigningKeys = signingKeys.filter(key => matchesRelevantUsages(key.usage, filterUsage))
-    } yield filteredSigningKeys.map(_.id)
+    } yield filteredSigningKeys.map(_.id).toSeq
 
   def existsSigningKey(signingKeyId: Fingerprint)(implicit
       traceContext: TraceContext
@@ -218,15 +233,20 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
   private[crypto] def decryptionKey(encryptionKeyId: Fingerprint)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[EncryptionPrivateKey]] =
+    decryptionKeys(NonEmpty.mk(Seq, encryptionKeyId)).map(_.headOption)
+
+  private[crypto] def decryptionKeys(encryptionKeyIds: NonEmpty[Seq[Fingerprint]])(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[EncryptionPrivateKey]] =
     retrieveAndUpdateCache(
       decryptionKeyMap,
-      keyFingerprint =>
-        readAndParsePrivateKey[EncryptionPrivateKey, EncryptionPrivateKeyWithName](
+      fingerprints =>
+        readAndParsePrivateKeys[EncryptionPrivateKey, EncryptionPrivateKeyWithName](
           Encryption,
           key => EncryptionPrivateKey.fromTrustedByteString(key.data),
           (privateKey, name) => EncryptionPrivateKeyWithName(privateKey, name),
-        )(keyFingerprint),
-    )(encryptionKeyId)
+        )(fingerprints),
+    )(encryptionKeyIds)
 
   private[crypto] def storeDecryptionKey(
       key: EncryptionPrivateKey,
@@ -256,16 +276,30 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
 
   private def retrieveAndUpdateCache[KN <: PrivateKeyWithName](
       cache: TrieMap[Fingerprint, KN],
-      readKey: Fingerprint => EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[KN]],
-  )(keyId: Fingerprint): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[KN#K]] =
-    cache.get(keyId) match {
-      case Some(value) => EitherT.rightT(Some(value.privateKey))
-      case None =>
-        readKey(keyId).map { keyOption =>
-          keyOption.foreach(key => cache.putIfAbsent(keyId, key))
-          keyOption.map(_.privateKey)
+      readKeys: NonEmpty[Seq[Fingerprint]] => EitherT[
+        FutureUnlessShutdown,
+        CryptoPrivateStoreError,
+        Set[
+          (Fingerprint, KN)
+        ],
+      ],
+  )(
+      keyIds: NonEmpty[Seq[Fingerprint]]
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[KN#K]] = {
+    val missingKeys = NonEmpty.from((keyIds.toSet -- signingKeyMap.keySet).toSeq)
+    for {
+      missingKeyMap <- missingKeys.traverse(readKeys)
+      _ = missingKeyMap.foreach(update =>
+        update.foreach { case (fingerprint, privateKey) =>
+          cache.putIfAbsent(fingerprint, privateKey).discard
         }
-    }
+      )
+      keys <- EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError]({
+        keyIds.forgetNE.flatMap(keyId => cache.get(keyId).map(_.privateKey))
+      })
+    } yield keys.toSet
+
+  }
 
   /** Returns the wrapper key used to encrypt the private key or None if private key is not
     * encrypted.

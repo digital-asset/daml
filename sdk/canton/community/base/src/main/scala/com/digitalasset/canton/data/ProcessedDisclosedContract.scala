@@ -5,7 +5,7 @@ package com.digitalasset.canton.data
 
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, Node}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKeyWithMaintainers, Node}
 import com.digitalasset.daml.lf.value.Value
 
 /** An explicitly-disclosed contract that has been used during command interpretation and enriched
@@ -25,6 +25,8 @@ final case class ProcessedDisclosedContract(
 ) {
   def contractId: Value.ContractId = create.coid
   def templateId: Ref.TypeConName = create.templateId
+  def toFatContractInstance: FatContractInstance =
+    FatContractInstance.fromCreateNode(create, createdAt, driverMetadata)
 }
 
 object ProcessedDisclosedContract {

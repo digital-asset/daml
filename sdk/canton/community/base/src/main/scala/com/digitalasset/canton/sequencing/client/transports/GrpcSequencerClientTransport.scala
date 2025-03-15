@@ -12,8 +12,8 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
-  OnShutdownRunner,
-  RunOnShutdown,
+  HasRunOnClosing,
+  RunOnClosing,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.GrpcError.{
@@ -29,7 +29,7 @@ import com.digitalasset.canton.networking.grpc.{
 }
 import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.SequencerServiceStub
-import com.digitalasset.canton.sequencer.api.v30.VersionedSubscriptionResponse
+import com.digitalasset.canton.sequencer.api.v30.SubscriptionResponse
 import com.digitalasset.canton.sequencing.SerializedEventHandler
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.{
@@ -81,10 +81,10 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     // Otherwise the forced shutdownNow() on the transport channel will time out if the authentication interceptor
     // is in a retry loop to refresh the token
     import TraceContext.Implicits.Empty.*
-    managedChannel.runOnShutdown_(new RunOnShutdown() {
+    managedChannel.runOnOrAfterClose_(new RunOnClosing() {
       override def name: String = "grpc-sequencer-transport-shutdown-auth"
       override def done: Boolean = clientAuth.isClosing
-      override def run(): Unit = clientAuth.close()
+      override def run()(implicit traceContext: TraceContext): Unit = clientAuth.close()
     })
   }
 
@@ -105,8 +105,8 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     val sendAtMostOnce = retryPolicy(retryOnUnavailable = false)
     val response = CantonGrpcUtil.sendGrpcRequest(sequencerServiceClient, "sequencer")(
       stub =>
-        stub.sendAsyncVersioned(
-          v30.SendAsyncVersionedRequest(signedSubmissionRequest = request.toByteString)
+        stub.sendAsync(
+          v30.SendAsyncRequest(signedSubmissionRequest = request.toByteString)
         ),
       requestDescription = s"$endpoint/$messageId",
       timeout = timeout,
@@ -306,18 +306,18 @@ class GrpcSequencerClientTransport(
 
     def mkSubscription(
         context: CancellableContext,
-        onShutdownRunner: OnShutdownRunner,
-    ): ConsumesCancellableGrpcStreamObserver[E, VersionedSubscriptionResponse] =
-      GrpcSequencerSubscription.fromVersionedSubscriptionResponse(
+        hasRunOnClosing: HasRunOnClosing,
+    ): ConsumesCancellableGrpcStreamObserver[E, SubscriptionResponse] =
+      GrpcSequencerSubscription.fromSubscriptionResponse(
         context,
         handler,
-        onShutdownRunner,
+        hasRunOnClosing,
         timeouts,
         loggerFactory,
       )(protocolVersion)
 
     CantonGrpcUtil.serverStreamingRequest(sequencerServiceClient, mkSubscription)(_.observer)(
-      _.subscribeVersioned(subscriptionRequest.toProtoV30, _)
+      _.subscribe(subscriptionRequest.toProtoV30, _)
     )
   }
 

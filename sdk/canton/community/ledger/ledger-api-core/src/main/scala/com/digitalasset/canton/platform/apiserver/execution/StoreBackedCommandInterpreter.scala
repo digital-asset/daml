@@ -63,7 +63,7 @@ private[apiserver] trait CommandInterpreter {
   *   [[scala.concurrent.ExecutionContext]] that will be used for scheduling CPU-intensive
   *   computations performed by an [[com.digitalasset.daml.lf.engine.Engine]].
   */
-private[apiserver] final class StoreBackedCommandInterpreter(
+final class StoreBackedCommandInterpreter(
     engine: Engine,
     participant: Ref.ParticipantId,
     packageSyncService: PackageSyncService,
@@ -144,7 +144,7 @@ private[apiserver] final class StoreBackedCommandInterpreter(
       .map { event =>
         val disclosedContract = disclosedContractsMap(event.coid)
         ProcessedDisclosedContract(
-          create = event,
+          create = disclosedContract.fatContractInstance.toCreateNode,
           createdAt = disclosedContract.fatContractInstance.createdAt,
           driverMetadata = disclosedContract.fatContractInstance.cantonData,
         ) -> disclosedContract.synchronizerIdO

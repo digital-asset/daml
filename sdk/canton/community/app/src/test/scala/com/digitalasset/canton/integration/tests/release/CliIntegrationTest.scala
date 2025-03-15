@@ -56,7 +56,7 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
       s"$cantonBin --help" ! processLogger
       checkOutput(
         processLogger,
-        shouldContain = Seq("Usage: canton [daemon|run|generate] [options] <args>..."),
+        shouldContain = Seq("Usage: canton [daemon|run|generate|sandbox] [options] <args>..."),
       )
     }
 
@@ -64,7 +64,7 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
       s"$cantonBin" ! processLogger
       checkOutput(
         processLogger,
-        shouldContain = Seq("Usage: canton [daemon|run|generate] [options] <args>..."),
+        shouldContain = Seq("Usage: canton [daemon|run|generate|sandbox] [options] <args>..."),
         shouldSucceed = false,
       )
     }

@@ -7,6 +7,7 @@ import cats.Id
 import com.digitalasset.canton.concurrent.{FutureSupervisor, SupervisedPromise}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 import org.slf4j.event.Level
 
@@ -42,21 +43,21 @@ object PromiseUnlessShutdown {
   }
 
   /** Creates a supervised promise that will be completed with
-    * [[UnlessShutdown.AbortedDueToShutdown]] when the `onShutdownRunner` is closed, unless the
+    * [[UnlessShutdown.AbortedDueToShutdown]] when the `hasRunOnClosing` is closed, unless the
     * promise had been completed before.
     */
   def abortOnShutdown[A](
       description: String,
-      onShutdownRunner: OnShutdownRunner,
+      hasRunOnClosing: HasRunOnClosing,
       futureSupervisor: FutureSupervisor,
       logAfter: Duration = 10.seconds,
       logLevel: Level = Level.DEBUG,
   )(implicit ecl: ErrorLoggingContext): PromiseUnlessShutdown[A] = {
     val promise = supervised[A](description, futureSupervisor, logAfter, logLevel)
     val abortRunner = new AbortPromiseOnShutdown(description, WeakReference(promise))
-    onShutdownRunner.runOnShutdown_(abortRunner)(ecl.traceContext)
+    hasRunOnClosing.runOnOrAfterClose_(abortRunner)(ecl.traceContext)
     // We do not need to cancel the registration when the promise is completed
-    // because the abort runner will report itself as done and then be cleaned up by the onShutdownRunner anyway.
+    // because the abort runner will report itself as done and then be cleaned up by the hasRunOnClosing anyway.
     promise
   }
 
@@ -69,20 +70,21 @@ object PromiseUnlessShutdown {
     *   1. If the promise is created, but never completed and no longer referenced anywhere by the
     *      user code, then there is no longer any point to complete the promise. The weak reference
     *      allows the GC to collect such promises. This runner will then mark itself as `done` and
-    *      be eventually removed from the onShutdownRunner, avoiding a memory leak due to
+    *      be eventually removed from the hasRunOnClosing, avoiding a memory leak due to
     *      never-completed promises.
     */
   @VisibleForTesting
   private[lifecycle] final class AbortPromiseOnShutdown(
       override val name: String,
       @VisibleForTesting private[lifecycle] val promiseRef: WeakReference[PromiseUnlessShutdown[?]],
-  ) extends RunOnShutdown {
+  ) extends RunOnClosing {
     override def done: Boolean = promiseRef match {
       case WeakReference(promise) => promise.isCompleted
       case _ => true
     }
 
-    override def run(): Unit = WeakReference.unapply(promiseRef).foreach(_.shutdown())
+    override def run()(implicit traceContext: TraceContext): Unit =
+      WeakReference.unapply(promiseRef).foreach(_.shutdown())
   }
 }
 

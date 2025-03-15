@@ -1805,7 +1805,7 @@ class AcsCommitmentProcessor private (
 
   private[canton] class AcsCommitmentProcessorHealth(
       override val name: String,
-      override protected val associatedOnShutdownRunner: OnShutdownRunner,
+      override protected val associatedHasRunOnClosing: HasRunOnClosing,
       override protected val logger: TracedLogger,
   ) extends AtomicHealthComponent {
     override protected def initialHealthState: ComponentHealthState = ComponentHealthState.Ok()

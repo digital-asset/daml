@@ -109,14 +109,14 @@ class KmsCryptoPrivateStore(
   /** Filter signing keys by usage, using the metadata stored in the private store.
     */
   override def filterSigningKeys(
-      signingKeyIds: Seq[Fingerprint],
+      signingKeyIds: NonEmpty[Seq[Fingerprint]],
       filterUsage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Seq[Fingerprint]] =
     for {
       signingKeys <- EitherT.right {
-        signingKeyIds.parTraverseFilter(signingKeyId =>
+        signingKeyIds.forgetNE.parTraverseFilter(signingKeyId =>
           lock.withReadLock {
             getKeyMetadataInternal(signingKeyId).value
           }

@@ -71,7 +71,7 @@ object InteractiveSubmission {
       disclosedContracts = SortedMap.from(disclosedContracts),
     )
 
-    def createFromDisclosedContracts(
+    def createFromInputContracts(
         actAs: Set[Ref.Party],
         commandId: Ref.CommandId,
         transactionUUID: UUID,

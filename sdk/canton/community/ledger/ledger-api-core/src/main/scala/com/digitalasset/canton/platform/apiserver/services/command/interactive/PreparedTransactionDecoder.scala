@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.DamlTransaction.Node.VersionedNode
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.Metadata
-import com.daml.ledger.api.v2.interactive.interactive_submission_service.Metadata.ProcessedDisclosedContract.Contract
+import com.daml.ledger.api.v2.interactive.interactive_submission_service.Metadata.InputContract.Contract
 import com.daml.ledger.api.v2.interactive.transaction.v1.interactive_submission_data as isdv1
 import com.daml.ledger.api.v2.interactive.{
   interactive_submission_common_data as iscd,
@@ -15,15 +15,16 @@ import com.daml.ledger.api.v2.interactive.{
 }
 import com.daml.ledger.api.v2.value as lapiValue
 import com.digitalasset.base.error.ContextualizedErrorLogger
-import com.digitalasset.canton.data.ProcessedDisclosedContract
-import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.ExecuteRequest
+import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.{
+  ExecuteRequest,
+  TransactionData,
+}
 import com.digitalasset.canton.ledger.api.validation.StricterValueValidator
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo.ExternallySignedSubmission
 import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, Update}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.platform.apiserver.execution.CommandInterpretationResult
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionCodec.*
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionDecoder.DeserializationResult
 import com.digitalasset.canton.protocol.{LfNode, LfNodeId}
@@ -34,7 +35,7 @@ import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref.TypeConName
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.NodeId
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, NodeId}
 import com.digitalasset.daml.lf.value.Value
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -52,7 +53,7 @@ import scala.util.Try
 
 object PreparedTransactionDecoder {
   final case class DeserializationResult(
-      commandExecutionResult: CommandInterpretationResult,
+      preparedTransactionData: TransactionData,
       transactionUUID: UUID,
       mediatorGroup: Int,
   )
@@ -345,24 +346,26 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         .map(_.toMap)
     }
 
-  // Disclosed contract decoder
-  private implicit def processedDisclosedContractTransformer(implicit
+  // Input contract decoder
+  private implicit def inputContractTransformer(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): PartialTransformer[iss.Metadata.ProcessedDisclosedContract, ProcessedDisclosedContract] =
+  ): PartialTransformer[iss.Metadata.InputContract, FatContractInstance] =
     PartialTransformer { src =>
-      src
-        .intoPartial[ProcessedDisclosedContract]
-        .withFieldComputedPartial(
-          _.create,
-          contract =>
-            // Here again we use the correct transformer version
-            contract.contract match {
-              case Contract.V1(value) => v1.createNodeTransformer.transform(value)
-              case Contract.Empty =>
-                Result.fromErrorString("Cannot decode empty disclosed contract")
-            },
-        )
-        .transform
+      val contract = src.contract
+      val createNodeResult = contract match {
+        case Contract.V1(value) => v1.createNodeTransformer.transform(value)
+        case Contract.Empty =>
+          Result.fromErrorString("Cannot decode empty disclosed contract")
+      }
+
+      for {
+        createNode <- createNodeResult
+        createTime <- src.createdAt.transformIntoPartial[Time.Timestamp]
+      } yield FatContractInstance.fromCreateNode(
+        createNode,
+        createTime,
+        src.driverMetadata.transformInto[Bytes],
+      )
     }
 
   private def requireField[A](optA: Option[A], field: String)(implicit
@@ -387,9 +390,9 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
     } yield let
   }
 
-  /** Decodes a prepared transaction back into a CommandExecutionResult that can be submitted.
+  /** Decodes a prepared transaction back into a DeserializationResult that can be submitted.
     */
-  def makeCommandExecutionResult(
+  def deserialize(
       executeRequest: ExecuteRequest,
       ledgerEffectiveTime: Time.Timestamp,
   )(implicit
@@ -473,23 +476,46 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
       globalKeyMapping <- metadataProto.globalKeyMapping
         .transformIntoPartial[Map[lf.transaction.GlobalKey, Option[lf.value.Value.ContractId]]]
         .toFutureWithLoggedFailures("Failed to deserialize global key mapping", logger)
-      processedDisclosedContracts <- metadataProto.disclosedEvents
-        .transformIntoPartial[ImmArray[com.digitalasset.canton.data.ProcessedDisclosedContract]]
-        .toFutureWithLoggedFailures("Failed to deserialize disclosed contracts", logger)
+      inputContracts <- metadataProto.inputContracts
+        .traverse(_.transformIntoPartial[FatContractInstance])
+        .map(_.map(fci => fci.contractId -> fci).toMap)
+        .toFutureWithLoggedFailures("Failed to deserialize input contracts", logger)
+      missingInputContracts = transaction.inputContracts.diff(inputContracts.keySet)
+      _ <- Either
+        .cond(
+          missingInputContracts.isEmpty,
+          (),
+          s"Missing input contracts: ${missingInputContracts.mkString(",")}",
+        )
+        .toResult
+        .toFutureWithLoggedFailures(
+          "Provided input contracts do not match the input contracts in the transaction",
+          logger,
+        )
+      superfluousInputContracts = inputContracts.keySet.diff(transaction.inputContracts)
+      _ <- Either
+        .cond(
+          superfluousInputContracts.isEmpty,
+          (),
+          s"Superfluous input contracts: ${superfluousInputContracts.mkString(",")}",
+        )
+        .toResult
+        .toFutureWithLoggedFailures(
+          "Provided input contracts do not match the input contracts in the transaction",
+          logger,
+        )
     } yield {
-      val commandExecutionResult = CommandInterpretationResult(
+      val preparedTransactionData = TransactionData(
         submitterInfo = submitterInfo,
-        optSynchronizerId = Some(synchronizerId),
+        synchronizerId = synchronizerId,
         transactionMeta = transactionMeta,
         transaction = lf.transaction.SubmittedTransaction(transaction),
         dependsOnLedgerTime = metadataProto.ledgerEffectiveTime.isDefined,
-        // Unused
-        interpretationTimeNanos = 0L,
         globalKeyMapping = globalKeyMapping,
-        processedDisclosedContracts = processedDisclosedContracts,
+        inputContracts = inputContracts,
       )
 
-      DeserializationResult(commandExecutionResult, transactionUUID, metadataProto.mediatorGroup)
+      DeserializationResult(preparedTransactionData, transactionUUID, metadataProto.mediatorGroup)
     }
   }
 }

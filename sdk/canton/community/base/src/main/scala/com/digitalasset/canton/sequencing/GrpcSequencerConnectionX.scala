@@ -10,7 +10,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.{AtomicHealthElement, CompositeHealthElement, HealthListener}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle, OnShutdownRunner}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasRunOnClosing, LifeCycle}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
@@ -58,7 +58,7 @@ class GrpcSequencerConnectionX private (
   // The sequencer connection health state is determined by the underlying connection state and the local state
   override val health: GrpcSequencerConnectionXHealth = new GrpcSequencerConnectionXHealth(
     name = name,
-    associatedOnShutdownRunner = this,
+    associatedHasRunOnClosing = this,
     logger = logger,
   ) with CompositeHealthElement[String, AtomicHealthElement] {
 
@@ -293,9 +293,9 @@ class GrpcSequencerConnectionX private (
 object GrpcSequencerConnectionX {
   abstract class GrpcSequencerConnectionXHealth(
       override val name: String,
-      override val associatedOnShutdownRunner: OnShutdownRunner,
+      override val associatedHasRunOnClosing: HasRunOnClosing,
       protected override val logger: TracedLogger,
-  ) extends SequencerConnectionXHealth(name, associatedOnShutdownRunner, logger) {
+  ) extends SequencerConnectionXHealth(name, associatedHasRunOnClosing, logger) {
     private[GrpcSequencerConnectionX] def refresh()(implicit traceContext: TraceContext): Unit
   }
 

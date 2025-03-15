@@ -6,6 +6,7 @@ package com.digitalasset.canton.crypto.store.db
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
@@ -80,6 +81,19 @@ class DbCryptoPrivateStore(
     sql"select key_id, data, purpose, name, wrapper_key_id from common_crypto_private_keys where purpose = $purpose"
       .as[StoredPrivateKey]
       .map(_.toSet)
+
+  private def queryKeys(
+      keyIds: NonEmpty[Seq[Fingerprint]],
+      purpose: KeyPurpose,
+  ): DbAction.ReadOnly[Set[StoredPrivateKey]] = {
+    import DbStorage.Implicits.BuilderChain.*
+    val inClause = DbStorage.toInClause("key_id", keyIds)
+    val query =
+      sql"""select key_id, data, purpose, name, wrapper_key_id from common_crypto_private_keys where purpose = $purpose and """ ++ inClause
+    query
+      .as[StoredPrivateKey]
+      .map(_.toSet)
+  }
 
   private def queryKey(
       keyId: Fingerprint,
@@ -157,6 +171,14 @@ class DbCryptoPrivateStore(
         )
         .value
     )
+
+  override private[crypto] def readPrivateKeys(
+      keyIds: NonEmpty[Seq[Fingerprint]],
+      purpose: KeyPurpose,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
+    EitherT.right(storage.query(queryKeys(keyIds, purpose), functionFullName))
 
   private[crypto] def writePrivateKey(
       key: StoredPrivateKey
