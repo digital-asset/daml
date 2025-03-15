@@ -11,7 +11,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
-  OnShutdownRunner,
+  HasRunOnClosing,
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -98,7 +98,7 @@ final class SequencerChannelClient(
     EitherT(performUnlessClosing("connectToSequencerChannel") {
       def mkEndpoint(
           context: CancellableContext,
-          onShutdownRunner: OnShutdownRunner,
+          hasRunOnClosing: HasRunOnClosing,
       ): SequencerChannelClientEndpoint =
         new SequencerChannelClientEndpoint(
           channelId,
@@ -110,7 +110,7 @@ final class SequencerChannelClient(
           topologyTs,
           synchronizerParameters.protocolVersion,
           context,
-          onShutdownRunner,
+          hasRunOnClosing,
           timeouts,
           loggerFactory
             .append("sequencerId", sequencerId.uid.toString)

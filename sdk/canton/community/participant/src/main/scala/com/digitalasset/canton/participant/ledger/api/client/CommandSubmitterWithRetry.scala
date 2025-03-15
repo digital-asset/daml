@@ -81,7 +81,7 @@ class CommandSubmitterWithRetry(
       implicit val ec: ExecutionContext = directEc
       val promise = PromiseUnlessShutdown.abortOnShutdown[R](
         description = name,
-        onShutdownRunner = this,
+        hasRunOnClosing = this,
         futureSupervisor = futureSupervisor,
       )
       promise.completeWithUS(FutureUnlessShutdown.outcomeF(future)).discard

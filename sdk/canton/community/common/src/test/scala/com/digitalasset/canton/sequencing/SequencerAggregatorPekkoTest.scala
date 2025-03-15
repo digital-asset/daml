@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{Fingerprint, Signature}
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, OnShutdownRunner}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasRunOnClosing, OnShutdownRunner}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.sequencing.SequencerAggregatorPekko.HasSequencerSubscriptionFactoryPekko
 import com.digitalasset.canton.sequencing.SequencerAggregatorPekkoTest.Config
@@ -97,7 +97,7 @@ class SequencerAggregatorPekkoTest
   private class TestAtomicHealthComponent(override val name: String) extends AtomicHealthComponent {
     override protected def initialHealthState: ComponentHealthState =
       ComponentHealthState.NotInitializedState
-    override protected def associatedOnShutdownRunner: OnShutdownRunner =
+    override protected def associatedHasRunOnClosing: HasRunOnClosing =
       new OnShutdownRunner.PureOnShutdownRunner(logger)
     override protected def logger: TracedLogger = SequencerAggregatorPekkoTest.this.logger
   }

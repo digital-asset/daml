@@ -4,10 +4,8 @@
 package com.digitalasset.canton.participant.admin.grpc
 
 import cats.data.EitherT
-import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.daml.ledger.api.v2.state_service.ActiveContract as LapiActiveContract
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.admin.participant.v30.*
@@ -17,6 +15,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.mapErrNewEUS
+import com.digitalasset.canton.participant.admin.data.ActiveContractNew as ActiveContractValueClass
 import com.digitalasset.canton.participant.admin.grpc.GrpcPartyManagementService.ValidExportAcsRequest
 import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow.PartyReplicationArguments
 import com.digitalasset.canton.participant.admin.party.{
@@ -32,11 +31,11 @@ import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils, OptionUtil
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.scaladsl.Sink
 
 import java.io.OutputStream
 import java.util.zip.GZIPOutputStream
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /** grpc service to allow modifying party hosting on participants
   */
@@ -135,46 +134,40 @@ class GrpcPartyManagementService(
       validRequest <- EitherT.fromEither[FutureUnlessShutdown](
         ValidExportAcsRequest.validateRequest(request, ledgerEnd, allSynchronizerIds)
       )
-      lapiActiveContracts <- EitherT
-        .liftF[Future, PartyManagementServiceError, Seq[LapiActiveContract]](
-          service
-            .activeContracts(validRequest.parties, Some(validRequest.offset))
-            .map(response => response.getActiveContract)
-            .filter(contract =>
-              validRequest.filterSynchronizerId
-                .forall(filterId => contract.synchronizerId == filterId.toProtoPrimitive)
-            )
-            .runWith(Sink.seq)
+      _ <- EitherT
+        .apply[Future, PartyManagementServiceError, Unit](
+          ResourceUtil.withResourceFuture(out)(out =>
+            service
+              .activeContracts(validRequest.parties, Some(validRequest.offset))
+              .map(response => response.getActiveContract)
+              .filter(contract =>
+                validRequest.filterSynchronizerId
+                  .forall(filterId => contract.synchronizerId == filterId.toProtoPrimitive)
+              )
+              .map { contract =>
+                if (validRequest.contractSynchronizerRenames.contains(contract.synchronizerId)) {
+                  val synchronizerId = validRequest.contractSynchronizerRenames
+                    .getOrElse(contract.synchronizerId, contract.synchronizerId)
+                  contract.copy(synchronizerId = synchronizerId)
+                } else { contract }
+              }
+              .map(ActiveContractValueClass.tryCreate)
+              .map {
+                _.writeDelimitedTo(out) match {
+                  // throwing intentionally to immediately interrupt any further Pekko source stream processing
+                  case Left(errorMessage) => throw new RuntimeException(errorMessage)
+                  case Right(_) => out.flush()
+                }
+              }
+              .run()
+              .transform {
+                case Failure(e) =>
+                  Success(Left(PartyManagementServiceError.IOStream.Error(e.getMessage)))
+                case Success(_) => Success(Right(()))
+              }
+          )
         )
         .mapK(FutureUnlessShutdown.outcomeK)
-
-      activeContracts = lapiActiveContracts.map { c =>
-        val contract = if (validRequest.contractSynchronizerRenames.contains(c.synchronizerId)) {
-          val synchronizerId =
-            validRequest.contractSynchronizerRenames.getOrElse(c.synchronizerId, c.synchronizerId)
-          c.copy(synchronizerId = synchronizerId)
-        } else { c }
-        com.digitalasset.canton.participant.admin.data.ActiveContractNew.tryCreate(contract)
-      }
-
-      _ <- EitherT
-        .fromEither[FutureUnlessShutdown](
-          ResourceUtil
-            .withResource(out) { outputStream =>
-              activeContracts.traverse(c =>
-                c.writeDelimitedTo(outputStream) match {
-                  case Left(errorMessage) =>
-                    Left(
-                      PartyManagementServiceError.InvalidArgument.Error(errorMessage)
-                    )
-                  case Right(_) =>
-                    outputStream.flush()
-                    Either.unit
-                }
-              )
-            }
-        )
-        .leftWiden[PartyManagementServiceError]
     } yield ()
 
     mapErrNewEUS(res.leftMap(_.toCantonError))

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.health
 
 import cats.Eval
-import com.digitalasset.canton.lifecycle.{OnShutdownRunner, RunOnShutdown}
+import com.digitalasset.canton.lifecycle.{HasRunOnClosing, RunOnClosing}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.tracing.TraceContext
@@ -99,23 +99,23 @@ trait HealthElement {
   /** The initial state upon creation */
   protected def initialHealthState: State
 
-  /** The state set when the [[associatedOnShutdownRunner]] closes */
+  /** The state set when the [[associatedHasRunOnClosing]] closes */
   protected def closingState: State
 
-  /** The [[com.digitalasset.canton.lifecycle.OnShutdownRunner]] associated with this object.
+  /** The [[com.digitalasset.canton.lifecycle.HasRunOnClosing]] associated with this object.
     *
-    * When this [[com.digitalasset.canton.lifecycle.OnShutdownRunner]] closes, the health state
+    * When this [[com.digitalasset.canton.lifecycle.HasRunOnClosing]] closes, the health state
     * permanently becomes [[closingState]] and all listeners are notified about this.
     */
-  protected def associatedOnShutdownRunner: OnShutdownRunner
+  protected def associatedHasRunOnClosing: HasRunOnClosing
 
   locally {
-    import TraceContext.Implicits.Empty.*
-    associatedOnShutdownRunner.runOnShutdown_(new RunOnShutdown {
+    associatedHasRunOnClosing.runOnOrAfterClose_(new RunOnClosing {
       override def name: String = s"set-closing-state-of-${HealthElement.this.name}"
       override def done: Boolean = false
-      override def run(): Unit = refreshState(Eval.now(closingState))
-    })
+      override def run()(implicit traceContext: TraceContext): Unit =
+        refreshState(Eval.now(closingState))
+    })(TraceContext.empty)
   }
 
   protected def logger: TracedLogger
@@ -154,7 +154,7 @@ trait HealthElement {
     }
     // When we're closing, force the value to `closingState`.
     // This ensures that `closingState` is sticky.
-    val newStateValue = if (associatedOnShutdownRunner.isClosing) closingState else newState.value
+    val newStateValue = if (associatedHasRunOnClosing.isClosing) closingState else newState.value
 
     if (oldState != newStateValue)
       logger.debug(s"Refreshing state of $name from $oldState to $newStateValue")

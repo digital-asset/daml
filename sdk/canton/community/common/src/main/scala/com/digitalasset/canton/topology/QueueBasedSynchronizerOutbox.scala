@@ -68,10 +68,10 @@ class QueueBasedSynchronizerOutbox(
     super.onClosed()
   }
 
-  runOnShutdown_(new RunOnShutdown {
+  runOnOrAfterClose_(new RunOnClosing {
     override def name: String = "close-participant-topology-outbox"
     override def done: Boolean = idleFuture.get().forall(_.isCompleted)
-    override def run(): Unit =
+    override def run()(implicit traceContext: TraceContext): Unit =
       idleFuture.get().foreach(_.trySuccess(UnlessShutdown.AbortedDueToShutdown))
   })(TraceContext.empty)
 

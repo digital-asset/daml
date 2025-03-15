@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.health
 
-import com.digitalasset.canton.lifecycle.OnShutdownRunner
+import com.digitalasset.canton.lifecycle.{HasRunOnClosing, OnShutdownRunner}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 
@@ -35,7 +35,7 @@ object HealthComponent {
   ) extends HealthComponent {
     override protected def initialHealthState: ComponentHealthState = ComponentHealthState.Ok()
     override def closingState: ComponentHealthState = ComponentHealthState.Ok()
-    override protected def associatedOnShutdownRunner: OnShutdownRunner =
+    override protected def associatedHasRunOnClosing: HasRunOnClosing =
       new OnShutdownRunner.PureOnShutdownRunner(logger)
   }
 }

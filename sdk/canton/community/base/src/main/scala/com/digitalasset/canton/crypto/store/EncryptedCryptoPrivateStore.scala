@@ -4,10 +4,9 @@
 package com.digitalasset.canton.crypto.store
 
 import cats.data.EitherT
-import cats.implicits.showInterpolator
-import cats.syntax.bifunctor.*
-import cats.syntax.parallel.*
+import cats.implicits.*
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.KeyPurpose.{Encryption, Signing}
@@ -76,14 +75,19 @@ class EncryptedCryptoPrivateStore(
   private[crypto] def readPrivateKey(keyId: Fingerprint, purpose: KeyPurpose)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[StoredPrivateKey]] =
+    readPrivateKeys(NonEmpty.mk(Seq, keyId), purpose).map(_.headOption)
+
+  override private[crypto] def readPrivateKeys(
+      keyIds: NonEmpty[Seq[Fingerprint]],
+      purpose: KeyPurpose,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
     for {
-      keyOpt <- store.readPrivateKey(keyId, purpose)
-      storedKey <- keyOpt.fold(
-        EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](
-          Option.empty[StoredPrivateKey]
-        )
-      )(decryptStoredKey(kms, _).map(Some(_)))
-    } yield storedKey
+      readKeys <- store.readPrivateKeys(keyIds, purpose)
+      decryptedKeys <- readKeys.map(decryptStoredKey(kms, _)).toSeq.sequence
+      keys = decryptedKeys.toSet
+    } yield keys
 
   @VisibleForTesting
   private[canton] def listPrivateKeys(purpose: KeyPurpose, encrypted: Boolean)(implicit

@@ -5,6 +5,7 @@ package com.digitalasset.canton.lifecycle
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   NamedLoggerFactory,
@@ -73,24 +74,24 @@ object CloseContext {
     //  then the close of the created flagCloseable will terminate early for the second call to its close method
     //  and thus not delay that closeContext's closing.
     val flagCloseable = FlagCloseable(tracedLogger, processingTimeout)
-    val cancelToken1 = closeContext1.context.runOnShutdown(new RunOnShutdown {
+    val cancelToken1 = closeContext1.context.runOnOrAfterClose(new RunOnClosing {
       override def name: String = s"combined-close-ctx1"
       override def done: Boolean =
         closeContext1.context.isClosing && closeContext2.context.isClosing
-      override def run(): Unit = flagCloseable.close()
+      override def run()(implicit traceContext: TraceContext): Unit = flagCloseable.close()
     })
-    val cancelToken2 = closeContext2.context.runOnShutdown(new RunOnShutdown {
+    val cancelToken2 = closeContext2.context.runOnOrAfterClose(new RunOnClosing {
       override def name: String = s"combined-close-ctx2"
       override def done: Boolean =
         closeContext1.context.isClosing && closeContext2.context.isClosing
-      override def run(): Unit = flagCloseable.close()
+      override def run()(implicit traceContext: TraceContext): Unit = flagCloseable.close()
     })
-    flagCloseable.runOnShutdown_(new RunOnShutdown {
+    flagCloseable.runOnOrAfterClose_(new RunOnClosing {
       override def name: String = "cancel-close-propagation-of-combined-context"
       override def done: Boolean = !cancelToken1.isScheduled && !cancelToken2.isScheduled
-      override def run(): Unit = {
-        cancelToken1.cancel()
-        cancelToken2.cancel()
+      override def run()(implicit traceContext: TraceContext): Unit = {
+        cancelToken1.cancel().discard[Boolean]
+        cancelToken2.cancel().discard[Boolean]
       }
     })
     CloseContext(flagCloseable)

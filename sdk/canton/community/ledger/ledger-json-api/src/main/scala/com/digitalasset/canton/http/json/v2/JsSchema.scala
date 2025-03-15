@@ -9,7 +9,7 @@ import com.daml.ledger.api.v2.{offset_checkpoint, reassignment, transaction_filt
 import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.base.error.{DamlError, DamlErrorWithDefiniteAnswer}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
-import com.digitalasset.canton.http.json.v2.JsSchema.JsEvent.CreatedEvent
+import com.digitalasset.canton.http.json.v2.JsSchema.JsEvent.{CreatedEvent, ExercisedEvent}
 import com.google.protobuf
 import com.google.protobuf.field_mask.FieldMask
 import com.google.protobuf.struct.Struct
@@ -167,24 +167,9 @@ object JsSchema {
   object JsTreeEvent {
     sealed trait TreeEvent
 
-    final case class ExercisedTreeEvent(
-        offset: Long,
-        nodeId: Int,
-        contractId: String,
-        templateId: String,
-        interfaceId: Option[String],
-        choice: String,
-        choiceArgument: Json,
-        actingParties: Seq[String],
-        consuming: Boolean,
-        witnessParties: Seq[String],
-        exerciseResult: Json,
-        packageName: String,
-        lastDescendantNodeId: Int,
-    ) extends TreeEvent
-
     final case class CreatedTreeEvent(value: CreatedEvent) extends TreeEvent
 
+    final case class ExercisedTreeEvent(value: ExercisedEvent) extends TreeEvent
   }
 
   final case class JsCantonError(

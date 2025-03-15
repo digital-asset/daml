@@ -32,4 +32,14 @@ object PartyManagementServiceError extends PartyManagementServiceErrorGroup {
         with PartyManagementServiceError
   }
 
+  object IOStream
+      extends ErrorCode(
+        id = "IO_STREAM_PARTY_MANAGEMENT_ERROR",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(reason)
+        with PartyManagementServiceError
+  }
+
 }

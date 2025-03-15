@@ -15,14 +15,28 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
   ExecuteRequest,
   PrepareRequest,
 }
+import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.daml.lf.data.Ref.{ApplicationId, SubmissionId}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKey, SubmittedTransaction}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 object InteractiveSubmissionService {
   final case class PrepareRequest(commands: Commands, verboseHashing: Boolean)
+
+  final case class TransactionData(
+      submitterInfo: state.SubmitterInfo,
+      transactionMeta: state.TransactionMeta,
+      transaction: SubmittedTransaction,
+      dependsOnLedgerTime: Boolean,
+      globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
+      inputContracts: Map[ContractId, FatContractInstance],
+      synchronizerId: SynchronizerId,
+  )
 
   final case class ExecuteRequest(
       applicationId: ApplicationId,

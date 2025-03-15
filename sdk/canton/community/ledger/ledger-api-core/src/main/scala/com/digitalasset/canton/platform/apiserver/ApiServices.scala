@@ -392,6 +392,7 @@ object ApiServices {
             checkOverloaded,
             lfValueTranslation,
             interactiveSubmissionServiceConfig,
+            contractStore,
             loggerFactory,
           )
 

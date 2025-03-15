@@ -72,15 +72,15 @@ service SequencerService {
   // (3) by not emitting a receipt to the sender until request.max_sequencing_time
   // Note that only (2) and (3) can be trusted. A malicious sequencer may synchronously return an error and
   // still accept the request internally and therefore emit events later on.
-  rpc SendAsyncVersioned(SendAsyncVersionedRequest) returns (SendAsyncVersionedResponse);
+  rpc SendAsync(SendAsyncRequest) returns (SendAsyncResponse);
 
   // Establishes a stream with the server to receive sequenced events from the synchronizer after the given
-  // counter. The delivered events will have a sequential counter and monotonically increasing timestamp.
+  // counter. The delivered events will have a sequential counter and strictly monotonically increasing timestamp.
   //
   // The call fails synchronously, if the request is invalid, i.e., some field violates a documented validity condition.
   // The call fails asynchronously, if the sequencer does not have a key to sign the event; this may occur if
   // event.topology_timestamp refers to a time before the sequencer has been onboarded.
-  rpc SubscribeVersioned(SubscriptionRequest) returns (stream VersionedSubscriptionResponse);
+  rpc Subscribe(SubscriptionRequest) returns (stream SubscriptionResponse);
 
   // Allows a member to acknowledge that they have read all events up to and including the provided timestamp,
   // and that they will never re-read these events again. This information is currently only used for informational
@@ -98,7 +98,7 @@ service SequencerService {
   rpc GetTrafficStateForMember(GetTrafficStateForMemberRequest) returns (GetTrafficStateForMemberResponse);
 }
 
-message SendAsyncVersionedRequest {
+message SendAsyncRequest {
   // Contains a versioned SignedContent which itself contains a versioned SubmissionRequest.
   // TODO(i17383): Have exactly one signature instead of multiple signatures.
   bytes signed_submission_request = 1;
@@ -118,7 +118,7 @@ message TrafficControlErrorReason {
   }
 }
 
-message SendAsyncVersionedResponse {}
+message SendAsyncResponse {}
 
 message SubscriptionRequest {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
@@ -130,7 +130,7 @@ message SubscriptionRequest {
   int64 counter = 2;
 }
 
-message VersionedSubscriptionResponse {
+message SubscriptionResponse {
   // Contains a versioned SignedContent which itself contains a versioned SequencedEvent
   // Serialized SignedContent[SequencedEvent[ClosedEnvelope]]
   bytes signed_sequenced_event = 1;

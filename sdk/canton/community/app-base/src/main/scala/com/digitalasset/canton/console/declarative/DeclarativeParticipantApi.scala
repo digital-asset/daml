@@ -22,7 +22,7 @@ import com.digitalasset.canton.console.GrpcAdminCommandRunner
 import com.digitalasset.canton.console.declarative.DeclarativeApi.UpdateResult
 import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{CloseContext, LifeCycle, RunOnShutdown}
+import com.digitalasset.canton.lifecycle.{CloseContext, LifeCycle, RunOnClosing}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
@@ -296,10 +296,10 @@ class DeclarativeParticipantApi(
   private val adminApiRunner = runnerFactory(CantonGrpcUtil.ApiName.AdminApi)
   private val ledgerApiRunner = runnerFactory(CantonGrpcUtil.ApiName.LedgerApi)
   closeContext.context
-    .runOnShutdown(new RunOnShutdown {
+    .runOnOrAfterClose(new RunOnClosing {
       override def name: String = "stop-declarative-api"
       override def done: Boolean = false
-      override def run(): Unit =
+      override def run()(implicit traceContext: TraceContext): Unit =
         LifeCycle.close(adminApiRunner, ledgerApiRunner)(logger)
     })(TraceContext.empty)
     .discard

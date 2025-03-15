@@ -12,6 +12,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
 import com.digitalasset.canton.lifecycle.{
   FutureUnlessShutdown,
+  HasRunOnClosing,
   OnShutdownRunner,
   SyncCloseable,
   UnlessShutdown,
@@ -212,7 +213,7 @@ class DirectSequencerClientTransport(
           .flatMap(_ => terminationF)(directExecutionContext)
           .thereafter { _ =>
             logger.debug("Closing direct sequencer subscription transport")
-            health.associatedOnShutdownRunner.close()
+            health.associatedHasRunOnClosing.close()
           }
         (killSwitch, doneF)
       }
@@ -249,7 +250,7 @@ object DirectSequencerClientTransport {
     override protected def initialHealthState: ComponentHealthState =
       ComponentHealthState.Ok()
 
-    override lazy val associatedOnShutdownRunner: AutoCloseable & OnShutdownRunner =
+    override lazy val associatedHasRunOnClosing: AutoCloseable & HasRunOnClosing =
       new OnShutdownRunner.PureOnShutdownRunner(logger)
   }
 }

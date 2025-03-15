@@ -259,7 +259,6 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
       logger.debug(
         s"${readers.count} active tasks (${readers.readers.mkString(",")}) preventing closing; sleeping for ${sleepMillis}ms"
       )
-      runStateChanged(true)
       Threading.sleep(sleepMillis)
       sleepMillis = (sleepMillis * 2) min maxSleepMillis min deadline.timeLeft.toMillis
     }

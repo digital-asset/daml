@@ -63,7 +63,7 @@ final class CommandsValidator(
         CommandId(_)
       )
       submitters <- validateSubmitters(effectiveSubmitters(prepareRequest))
-      synchronizerId <- requireSynchronizerId(prepareRequest.synchronizerId, "synchronizer_id")
+      synchronizerIdO <- optionalSynchronizerId(prepareRequest.synchronizerId, "synchronizer_id")
       commandz <- requireNonEmpty(prepareRequest.commands, "commands")
       validatedCommands <- validateInnerCommands(commandz)
       ledgerEffectiveTime <- validateLedgerTime(
@@ -104,7 +104,7 @@ final class CommandsValidator(
         commandsReference = "",
       ),
       disclosedContracts = validatedDisclosedContracts,
-      synchronizerId = Some(synchronizerId),
+      synchronizerId = synchronizerIdO,
       packageMap = packageResolutions.packageMap,
       packagePreferenceSet =
         if (topologyAwarePackageSelectionEnabled) {

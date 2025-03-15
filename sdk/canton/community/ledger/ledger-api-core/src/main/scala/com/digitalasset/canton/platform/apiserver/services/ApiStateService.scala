@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.apiserver.services
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.state_service.*
+import com.daml.logging.entries.LoggingEntries
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.{GrpcApiService, StreamingServiceLifecycleManagement}
@@ -118,6 +119,9 @@ final class ApiStateService(
             ),
           identity,
         )
+        .via(
+          logger.enrichedDebugStream("Responding with active contracts.", activeContractsLoggable)
+        )
         .via(logger.logErrorsOnStream)
         .via(StreamMetrics.countElements(metrics.lapi.streams.acs))
     }
@@ -197,4 +201,11 @@ final class ApiStateService(
   override def bindService(): ServerServiceDefinition =
     StateServiceGrpc.bindService(this, executionContext)
 
+  private def activeContractsLoggable(
+      activeContractsResponse: GetActiveContractsResponse
+  ): LoggingEntries =
+    Option(activeContractsResponse.workflowId)
+      .filter(_.nonEmpty)
+      .map(workflowId => LoggingEntries(logging.workflowId(workflowId)))
+      .getOrElse(LoggingEntries())
 }

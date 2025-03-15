@@ -313,18 +313,29 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
 
+      object Reject {
+        def apply(cause: String, err: LfInterpretationError.ContractNotActive)(implicit
+            loggingContext: ContextualizedErrorLogger
+        ): Reject = Reject(
+          cause,
+          err.coid,
+          Some(err.templateId.toString()),
+        )
+      }
+
       final case class Reject(
           override val cause: String,
-          err: LfInterpretationError.ContractNotActive,
+          coid: ContractId,
+          templateIdO: Option[String],
       )(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
             cause = cause
           ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
-          (ErrorResource.TemplateId, err.templateId.toString),
-          (ErrorResource.ContractId, err.coid.coid),
-        )
+          templateIdO.map(templateId => (ErrorResource.TemplateId, templateId)),
+          Some((ErrorResource.ContractId, coid.coid)),
+        ).flatten
       }
 
     }

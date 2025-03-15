@@ -7,7 +7,7 @@ import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
   FutureUnlessShutdown,
-  OnShutdownRunner,
+  HasRunOnClosing,
   PerformUnlessClosing,
   UnlessShutdown,
 }
@@ -69,25 +69,25 @@ object DelayUtil extends NamedLogging {
     promise.future
   }
 
-  /** Creates a future that succeeds after the given delay provided that `onShutdownRunner` has not
+  /** Creates a future that succeeds after the given delay provided that `hasRunOnClosing` has not
     * yet been closed then. The future completes fast with UnlessShutdown.AbortedDueToShutdown if
-    * `onShutdownRunner` is already closing.
+    * `hasRunOnClosing` is already closing.
     */
   def delayIfNotClosing(
       parentName: String,
       delay: FiniteDuration,
-      onShutdownRunner: OnShutdownRunner,
+      hasRunOnClosing: HasRunOnClosing,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
     val promise = Promise[UnlessShutdown[Unit]]()
     val future = promise.future
 
-    import com.digitalasset.canton.lifecycle.RunOnShutdown
-    val cancelToken = onShutdownRunner.runOnShutdown(new RunOnShutdown() {
+    import com.digitalasset.canton.lifecycle.RunOnClosing
+    val cancelToken = hasRunOnClosing.runOnOrAfterClose(new RunOnClosing() {
       val name = s"$parentName-shutdown"
       def done = promise.isCompleted
-      def run(): Unit =
+      def run()(implicit traceContext: TraceContext): Unit =
         promise.trySuccess(UnlessShutdown.AbortedDueToShutdown).discard
     })
 
@@ -95,7 +95,7 @@ object DelayUtil extends NamedLogging {
       promise.trySuccess(UnlessShutdown.Outcome(())).discard
       // No need to complete the promise on shutdown with an AbortedDueToShutdown since we succeeded, and also
       // keeps the list of shutdown tasks from growing indefinitely with each retry
-      cancelToken.cancel()
+      cancelToken.cancel().discard[Boolean]
     }
 
     // TODO(i4245): Use Clock instead

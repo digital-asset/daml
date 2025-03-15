@@ -64,7 +64,7 @@ trait CryptoPrivateStore extends AutoCloseable {
     * @return
     */
   def filterSigningKeys(
-      signingKeyIds: Seq[Fingerprint],
+      signingKeyIds: NonEmpty[Seq[Fingerprint]],
       filterUsage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext

@@ -46,7 +46,7 @@ final case class GrpcConnectionX(
 
   override val health: ConnectionXHealth = new ConnectionXHealth(
     name = name,
-    associatedOnShutdownRunner = this,
+    associatedHasRunOnClosing = this,
     logger = logger,
   )
 
@@ -63,7 +63,7 @@ final case class GrpcConnectionX(
           val channel = GrpcManagedChannel(
             s"GrpcConnectionX-$name",
             builder.build(),
-            associatedShutdownRunner = this,
+            associatedHasRunOnClosing = this,
             logger,
           )
 

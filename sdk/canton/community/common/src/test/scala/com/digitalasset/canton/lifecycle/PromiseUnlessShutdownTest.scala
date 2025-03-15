@@ -4,7 +4,7 @@
 package com.digitalasset.canton.lifecycle
 
 import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
-import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.lifecycle.OnShutdownRunner.PureOnShutdownRunner
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.logging.{SuppressionRule, TracedLogger}
@@ -103,13 +103,13 @@ class PromiseUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExec
     "discarded promises do not leak memory" in {
 
       object RecordingOnShutdownRunner extends AutoCloseable with OnShutdownRunner {
-        var tasks = Seq.empty[(OnShutdownRunner.RunOnShutdownHandle, RunOnShutdown)]
+        var tasks = Seq.empty[(LifeCycleRegistrationHandle, RunOnClosing)]
 
         // Intercept all the tasks and add them to tasks list
-        override def runOnShutdown[T](task: RunOnShutdown)(implicit
+        override def runOnOrAfterClose(task: RunOnClosing)(implicit
             traceContext: TraceContext
-        ): OnShutdownRunner.RunOnShutdownHandle = {
-          val token = super.runOnShutdown(task)
+        ): LifeCycleRegistrationHandle = {
+          val token = super.runOnOrAfterClose(task)
           tasks = tasks :+ (token -> task)
           token
         }
@@ -133,10 +133,10 @@ class PromiseUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExec
       task.promiseRef.clear()
 
       // Register a new task to get the old task cleared:
-      RecordingOnShutdownRunner.runOnShutdown_(new RunOnShutdown {
+      RecordingOnShutdownRunner.runOnOrAfterClose_(new RunOnClosing {
         override def name: String = "dummy"
         override def done: Boolean = false
-        override def run(): Unit = ()
+        override def run()(implicit traceContext: TraceContext): Unit = ()
       })
 
       token.isScheduled shouldBe false

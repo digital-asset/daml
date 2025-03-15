@@ -13,7 +13,7 @@ import com.digitalasset.canton.health.{
   CompositeHealthComponent,
   HealthComponent,
 }
-import com.digitalasset.canton.lifecycle.OnShutdownRunner
+import com.digitalasset.canton.lifecycle.{HasRunOnClosing, OnShutdownRunner}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.sequencing.client.{
@@ -296,7 +296,7 @@ object SequencerAggregatorPekko {
 
   private[SequencerAggregatorPekko] class SequencerAggregatorHealth(
       private val synchronizerId: SynchronizerId,
-      override protected val associatedOnShutdownRunner: OnShutdownRunner,
+      override protected val associatedHasRunOnClosing: HasRunOnClosing,
       override protected val logger: TracedLogger,
   ) extends CompositeHealthComponent[SequencerId, HealthComponent]
       with PrettyPrinting {

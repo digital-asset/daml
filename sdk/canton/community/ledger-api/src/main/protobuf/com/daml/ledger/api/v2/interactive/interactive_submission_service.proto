@@ -261,7 +261,7 @@ message Metadata {
     optional Value value = 2;
   }
 
-  message ProcessedDisclosedContract {
+  message InputContract {
     oneof contract {
       // When new versions will be added, they will show here
       interactive.transaction.v1.Create v1 = 1;
@@ -289,7 +289,7 @@ message Metadata {
   uint32 mediator_group = 4;
   string transaction_uuid = 5;
   uint64 submission_time = 6;
-  repeated ProcessedDisclosedContract disclosed_events = 7;
+  repeated InputContract input_contracts = 7;
 
   /* **************************************************************** */
   /* ** Metadata information that does NOT need to be signed in V1 ** */

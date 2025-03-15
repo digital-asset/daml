@@ -38,7 +38,7 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
     val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default"))
     var handler: Option[SerializedEventOrErrorHandler[SequencedEventError]] = None
     val member = ParticipantId(DefaultTestIdentities.uid)
-    val observer = mock[ServerCallStreamObserver[v30.VersionedSubscriptionResponse]]
+    val observer = mock[ServerCallStreamObserver[v30.SubscriptionResponse]]
     var cancelCallback: Option[Runnable] = None
 
     when(observer.setOnCancelHandler(any[Runnable]))
@@ -86,7 +86,7 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
     }
 
     private def toSubscriptionResponseV30(event: OrdinarySerializedEvent) =
-      v30.VersionedSubscriptionResponse(
+      v30.SubscriptionResponse(
         signedSequencedEvent = event.signedEvent.toByteString,
         Some(SerializableTraceContext(event.traceContext).toProtoV30),
       )
@@ -107,7 +107,7 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
     "send received events" in new Env {
       createManagedSubscription()
       deliver()
-      verify(observer).onNext(any[v30.VersionedSubscriptionResponse])
+      verify(observer).onNext(any[v30.SubscriptionResponse])
     }
 
     "if observer is cancelled then subscription is closed but no response is sent" in new Env {

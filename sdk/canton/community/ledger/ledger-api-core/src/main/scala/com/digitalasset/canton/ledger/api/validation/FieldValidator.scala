@@ -200,6 +200,12 @@ object FieldValidator {
     if (s.isEmpty) Left(missingField(fieldName))
     else SynchronizerId.fromString(s).left.map(invalidField(fieldName, _))
 
+  def optionalSynchronizerId(s: String, fieldName: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Option[SynchronizerId]] =
+    if (s.isEmpty) Right(None)
+    else SynchronizerId.fromString(s).left.map(invalidField(fieldName, _)).map(Some(_))
+
   def requireContractId(
       s: String,
       fieldName: String,

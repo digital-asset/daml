@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.networking.grpc
 
-import com.digitalasset.canton.lifecycle.OnShutdownRunner
+import com.digitalasset.canton.lifecycle.HasRunOnClosing
 import io.grpc.ManagedChannel
 import io.grpc.stub.AbstractStub
 
@@ -12,7 +12,7 @@ final class GrpcClient[Svc <: AbstractStub[Svc]] private (
     private[grpc] val channel: GrpcManagedChannel,
     val service: Svc,
 ) {
-  def onShutdownRunner: OnShutdownRunner = channel
+  def hasRunOnClosing: HasRunOnClosing = channel
 }
 
 object GrpcClient {

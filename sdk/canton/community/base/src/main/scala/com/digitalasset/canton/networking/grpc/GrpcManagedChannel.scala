@@ -4,8 +4,14 @@
 package com.digitalasset.canton.networking.grpc
 
 import com.digitalasset.canton.lifecycle.LifeCycle.FastCloseableChannel
-import com.digitalasset.canton.lifecycle.{LifeCycle, OnShutdownRunner, RunOnShutdown}
+import com.digitalasset.canton.lifecycle.{
+  HasRunOnClosing,
+  LifeCycle,
+  OnShutdownRunner,
+  RunOnClosing,
+}
 import com.digitalasset.canton.logging.TracedLogger
+import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.ManagedChannel
 
 /** Bundles a gRPC managed channel together with the shutdown runner of the component the channel
@@ -14,7 +20,7 @@ import io.grpc.ManagedChannel
 final case class GrpcManagedChannel(
     name: String,
     channel: ManagedChannel,
-    associatedShutdownRunner: OnShutdownRunner,
+    associatedHasRunOnClosing: HasRunOnClosing,
     logger: TracedLogger,
 ) extends AutoCloseable
     with OnShutdownRunner {
@@ -22,11 +28,11 @@ final case class GrpcManagedChannel(
   locally {
     // Immediately force-close this channel when the associated shutdown runner starts to be closed
     import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.*
-    associatedShutdownRunner.runOnShutdown_(
-      new RunOnShutdown() {
+    associatedHasRunOnClosing.runOnOrAfterClose_(
+      new RunOnClosing() {
         override val name = s"GrpcManagedChannel-${GrpcManagedChannel.this.name}-shutdown"
         override def done: Boolean = isClosing
-        override def run(): Unit = close()
+        override def run()(implicit traceContext: TraceContext): Unit = close()
       }
     )
   }

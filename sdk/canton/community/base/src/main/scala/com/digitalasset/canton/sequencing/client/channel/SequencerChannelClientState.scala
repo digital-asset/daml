@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{FlagCloseable, OnShutdownRunner}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, HasRunOnClosing}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint
 import com.digitalasset.canton.sequencing.protocol.channel.SequencerChannelId
@@ -48,13 +48,13 @@ private[channel] final class SequencerChannelClientState(
   def connectToSequencer(
       sequencerId: SequencerId,
       processor: SequencerChannelProtocolProcessor,
-      endpointFactory: (CancellableContext, OnShutdownRunner) => SequencerChannelClientEndpoint,
+      endpointFactory: (CancellableContext, HasRunOnClosing) => SequencerChannelClientEndpoint,
   )(implicit traceContext: TraceContext): Either[String, SequencerChannelClientEndpoint] = {
     def endpointFactoryWithRegistration(state: SequencerChannelState)(
         context: CancellableContext,
-        onShutdownRunner: OnShutdownRunner,
+        hasRunOnClosing: HasRunOnClosing,
     ): Either[String, SequencerChannelClientEndpoint] = {
-      val endpoint = endpointFactory(context, onShutdownRunner)
+      val endpoint = endpointFactory(context, hasRunOnClosing)
       for {
         _ <- state.addChannelEndpoint(endpoint)
         _ <- processor.setChannelEndpoint(endpoint)
