@@ -225,6 +225,8 @@ final class Conversions(
                 builder.setComparableValueError(proto.Empty.newBuilder)
               case ValueNesting(_) =>
                 builder.setValueExceedsMaxNesting(proto.Empty.newBuilder)
+              case FailureStatus(errorId, _, _, _) =>
+                builder.setCrash(s"Failure status: $errorId")
               case Dev(_, devError) if devMode =>
                 devError match {
                   case Dev.Conformance(_, _, _) =>

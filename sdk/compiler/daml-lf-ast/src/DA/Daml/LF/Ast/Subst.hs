@@ -232,6 +232,9 @@ applySubstInExpr subst@Subst{..} = \case
         ch
         (applySubstInExpr subst expr1)
         (applySubstInExpr subst expr2)
+    EFailWithStatus t e -> EFailWithStatus
+        (applySubstInType subst t)
+        (applySubstInExpr subst e)
     EExperimental name ty ->
         EExperimental name (applySubstInType subst ty)
 

@@ -166,6 +166,12 @@ object Ast {
       choiceArgExpr: Expr,
   ) extends Expr
 
+  /** Fail with grpc status and ErrorInfoDetail metadata */
+  final case class EFailWithStatus(
+      returnType: Type,
+      failureStatus: Expr,
+  ) extends Expr
+
   // We use this type to reduce depth of pattern matching
   sealed abstract class ExprInterface extends Expr
 
@@ -388,6 +394,7 @@ object Ast {
   case object BTAnyException extends BuiltinType
   case object BTRoundingMode extends BuiltinType
   case object BTBigNumeric extends BuiltinType
+  case object BTFailureCategory extends BuiltinType
 
   //
   // Builtin literals
@@ -404,6 +411,20 @@ object Ast {
   final case class BLTimestamp(override val value: Time.Timestamp) extends BuiltinLit
   final case class BLDate(override val value: Time.Date) extends BuiltinLit
   final case class BLRoundingMode(override val value: java.math.RoundingMode) extends BuiltinLit
+  final case class BLFailureCategory(override val value: FailureCategory) extends BuiltinLit
+
+  sealed abstract class FailureCategory(override val toString: String, val cantonCategoryId: Int)
+      extends Equals
+      with Product
+      with Serializable
+  final case object FCInvalidGivenCurrentSystemStateOther
+      extends FailureCategory("InvalidGivenCurrentSystemStateOther", 9)
+  final case object FCInvalidIndependentOfSystemState
+      extends FailureCategory("InvalidIndependentOfSystemState", 8)
+  final case object FCInternalUnsupportedOperation
+      extends FailureCategory("InternalUnsupportedOperation", 14)
+  final case object FCSystemInternalAssumptionViolated
+      extends FailureCategory("SystemInternalAssumptionViolated", 4)
 
   //
   // Builtin constructors

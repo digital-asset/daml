@@ -318,7 +318,7 @@ object SignatureReader {
         // repo, BTScenario can be removed from Ast, and we can get rid of the
         // BTScenario in this pattern match.
         case Ast.BTUpdate | Ast.BTScenario | Ast.BTArrow | Ast.BTAny | Ast.BTTypeRep |
-            Ast.BTAnyException | Ast.BTBigNumeric | Ast.BTRoundingMode =>
+            Ast.BTAnyException | Ast.BTBigNumeric | Ast.BTRoundingMode | Ast.BTFailureCategory =>
           unserializableDataType(ctx, s"Unserializable primitive type: $a")
       }): Eo[(Int, PrimType)]
       (arity, primType) = ab

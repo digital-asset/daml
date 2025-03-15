@@ -182,6 +182,7 @@ data BuiltinType
   | BTRoundingMode
   | BTBigNumeric
   | BTAnyException
+  | BTFailureCategory
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Type as used in typed binders.
@@ -231,6 +232,13 @@ data RoundingModeLiteral =
     | LitRoundingUnnecessary
     deriving (Eq, Data, Generic, NFData, Ord, Show)
 
+data FailureCategoryLiteral  =
+      LitInvalidGivenCurrentSystemStateOther
+    | LitInvalidIndependentOfSystemState
+    | LitInternalUnsupportedOperation
+    | LitSystemInternalAssumptionViolated
+    deriving (Eq, Data, Generic, NFData, Ord, Show)
+
 -- | Builtin operation or literal.
 data BuiltinExpr
   -- Literals
@@ -242,6 +250,7 @@ data BuiltinExpr
   | BEUnit                       -- :: Unit
   | BEBool       !Bool           -- :: Bool
   | BERoundingMode !RoundingModeLiteral -- :: RoundingMode
+  | BEFailureCategory !FailureCategoryLiteral -- :: FailureCategory
 
   -- Exceptions
   | BEError                          -- :: ∀a. Text -> a
@@ -597,6 +606,10 @@ data Expr
     , choiceObserverChoice :: !ChoiceName
     , choiceObserverContract :: !Expr
     , choiceObserverChoiceArg :: !Expr
+    }
+  | EFailWithStatus
+    { fwsReturnType :: !Type
+    , fwsStatusFailure :: !Expr
     }
   -- | Experimental Expression Hook
   | EExperimental !T.Text !Type

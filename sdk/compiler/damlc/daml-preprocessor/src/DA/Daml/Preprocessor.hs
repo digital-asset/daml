@@ -77,12 +77,14 @@ preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
     , "DA.Exception.ArithmeticError"
     , "DA.Exception.AssertionFailed"
     , "DA.Exception.PreconditionFailed"
+    , "DA.Fail"
 
 
     -- These modules need to have the record preprocessor disabled.
     , "DA.NonEmpty.Types"
     , "DA.Monoid.Types"
     , "DA.Set.Types"
+    , "DA.Internal.Fail"
 
     -- This module needs to use the PatternSynonyms extension.
     , "DA.Maybe"

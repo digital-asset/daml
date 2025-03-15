@@ -97,8 +97,9 @@ pattern GHC_Types <- ModuleIn DamlPrim "GHC.Types"
 pattern GHC_Show <- ModuleIn DamlPrim "GHC.Show"
 
 -- daml-stdlib module patterns
-pattern DA_Action, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record, DA_Internal_Desugar, DA_Internal_Template_Functions, DA_Internal_Exception, DA_Internal_Interface, DA_Internal_Template, DA_Internal_Compatible :: GHC.Module
+pattern DA_Action, DA_Internal_Fail, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record, DA_Internal_Desugar, DA_Internal_Template_Functions, DA_Internal_Exception, DA_Internal_Interface, DA_Internal_Template, DA_Internal_Compatible :: GHC.Module
 pattern DA_Action <- ModuleIn DamlStdlib "DA.Action"
+pattern DA_Internal_Fail <- ModuleIn DamlStdlib "DA.Internal.Fail"
 pattern DA_Internal_LF <- ModuleIn DamlStdlib "DA.Internal.LF"
 pattern DA_Internal_Prelude <- ModuleIn DamlStdlib "DA.Internal.Prelude"
 pattern DA_Internal_Record <- ModuleIn DamlStdlib "DA.Internal.Record"
@@ -217,6 +218,9 @@ pattern ConstraintTupleProjection index arity <-
 pattern RoundingModeName :: LF.RoundingModeLiteral -> FastString
 pattern RoundingModeName lit <- (toRoundingModeLiteral . fsToText -> Just lit)
 
+pattern FailureCategoryName :: LF.FailureCategoryLiteral -> FastString
+pattern FailureCategoryName lit <- (toFailureCategoryLiteral . fsToText -> Just lit)
+
 -- GHC tuples
 pattern IsTuple :: NamedThing a => Int -> a
 pattern IsTuple n <- NameIn GHC_Tuple (deconstructTupleName . unpackFS -> Just n)
@@ -245,6 +249,17 @@ roundingModeLiteralMap = MS.fromList
     , ("RoundingHalfDown", LF.LitRoundingHalfDown)
     , ("RoundingHalfEven", LF.LitRoundingHalfEven)
     , ("RoundingUnnecessary", LF.LitRoundingUnnecessary)
+    ]
+
+toFailureCategoryLiteral :: T.Text -> Maybe LF.FailureCategoryLiteral
+toFailureCategoryLiteral x = MS.lookup x failureCategoryLiteralMap
+
+failureCategoryLiteralMap :: MS.Map T.Text LF.FailureCategoryLiteral
+failureCategoryLiteralMap = MS.fromList
+    [ ("InvalidGivenCurrentSystemStateOther", LF.LitInvalidGivenCurrentSystemStateOther)
+    , ("InvalidIndependentOfSystemState", LF.LitInvalidIndependentOfSystemState)
+    , ("InternalUnsupportedOperation", LF.LitInternalUnsupportedOperation)
+    , ("SystemInternalAssumptionViolated", LF.LitSystemInternalAssumptionViolated)
     ]
 
 subst :: [(TyVar, GHC.Type)] -> GHC.Type -> GHC.Type

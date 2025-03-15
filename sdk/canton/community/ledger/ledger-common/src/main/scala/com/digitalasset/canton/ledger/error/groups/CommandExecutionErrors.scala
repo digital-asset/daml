@@ -747,6 +747,25 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       ) extends DamlErrorWithDefiniteAnswer(cause = cause) {}
     }
 
+    @Explanation("")
+    @Resolution("")
+    object FailureStatus
+        // TODO[SW] This category is lying, since its actually determined by the error content.
+        // Consider some kind of wildcard category, whereby we can simply give a text description, and this is used in the docs
+        extends ErrorCode(id = "DAML_FAILURE", ErrorCategory.InvalidIndependentOfSystemState) {
+
+      // Override the code to change the category, otherwise inherit frokm FailureStatus
+      private def mkErrorCode(err: LfInterpretationError.FailureStatus): ErrorCode =
+        new ErrorCode(id = FailureStatus.id, ErrorCategory.fromInt(err.failureCategory).getOrElse(FailureStatus.category))(FailureStatus.parent) {}
+
+      final case class Reject(override val cause: String, err: LfInterpretationError.FailureStatus)(
+          implicit loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(cause = cause)(code = mkErrorCode(err), loggingContext = loggingContext) {
+        override def context: Map[String, String] =
+          super.context ++ List(("error_id", err.errorId)) ++ err.metadata
+      }
+    }
+
     @Explanation("Errors that occur when trying to upgrade a contract")
     object UpgradeError extends ErrorGroup {
       @Explanation("Validation fails when trying to upgrade the contract")
