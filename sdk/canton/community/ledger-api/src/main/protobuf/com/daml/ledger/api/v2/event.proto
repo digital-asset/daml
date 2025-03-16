@@ -98,6 +98,20 @@ message CreatedEvent {
   // ActiveContract or IncompleteUnassigned (so the event is related to
   // an assignment or unassignment): this will include all parties of the
   // ``TransactionFilter`` that are stakeholders of the contract.
+  //
+  // The behavior of reading create events visible to parties not hosted
+  // on the participant node serving the Ledger API is undefined. Concretely,
+  // there is neither a guarantee that the participant node will serve all their
+  // create events on the ACS stream, nor is there a guarantee that matching archive
+  // events are delivered for such create events.
+  //
+  // For most clients this is not a problem, as they only read events for parties
+  // that are hosted on the participant node. If you need to read events
+  // for parties that may not be hosted at all times on the participant node,
+  // subscribe to the ``TopologyEvent``s for that party by setting a corresponding
+  // ``UpdateFormat``.  Using these events, query the ACS as-of an offset where the
+  // party is hosted on the participant node, and ignore create events at offsets
+  // where the party is not hosted on the participant node.
   // Required
   repeated string witness_parties = 9;
 
