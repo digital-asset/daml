@@ -121,10 +121,7 @@ private[lf] object Pretty {
       case ValueNesting(limit) =>
         text(s"Value exceeds maximum nesting value of $limit")
       case FailureStatus(errorId, cantonCategoryId, errorMessage, meta) =>
-        text(s"User failure: $errorId (error category $cantonCategoryId): $errorMessage") /
-          // TODO[SW] May not need to include metadata here, as its repeated in the Grpcstatus
-          text("Metadata: ") /
-          text(meta.map { case (key, value) => s"  $key: $value" }.mkString("\n"))
+        text(s"User failure: $errorId (error category $cantonCategoryId): $errorMessage")
       case Upgrade(error) =>
         error match {
           case Upgrade.ValidationFailed(
