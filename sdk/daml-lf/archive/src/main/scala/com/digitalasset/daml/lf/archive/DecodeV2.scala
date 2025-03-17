@@ -1460,14 +1460,10 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           BLRoundingMode(java.math.RoundingMode.valueOf(lfBuiltinLit.getRoundingModeValue))
         case PLF.BuiltinLit.SumCase.FAILURE_CATEGORY =>
           BLFailureCategory(lfBuiltinLit.getFailureCategory match {
-            case PLF.BuiltinLit.FailureCategory.INVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER =>
-              FCInvalidGivenCurrentSystemStateOther
             case PLF.BuiltinLit.FailureCategory.INVALID_INDEPENDENT_OF_SYSTEM_STATE =>
               FCInvalidIndependentOfSystemState
-            case PLF.BuiltinLit.FailureCategory.INTERNAL_UNSUPPORTED_OPERATION =>
-              FCInternalUnsupportedOperation
-            case PLF.BuiltinLit.FailureCategory.SYSTEM_INTERNAL_ASSUMPTION_VIOLATED =>
-              FCSystemInternalAssumptionViolated
+            case PLF.BuiltinLit.FailureCategory.INVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER =>
+              FCInvalidGivenCurrentSystemStateOther
             case PLF.BuiltinLit.FailureCategory.UNRECOGNIZED =>
               throw Error.Parsing("BuiltinLitFailureCategory.UNRECOGNIZED")
           })

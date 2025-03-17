@@ -718,10 +718,8 @@ decodeBuiltinLit (LF2.BuiltinLit mbSum) = mayDecode "builtinLitSum" mbSum $ \cas
     Proto.Enumerated (Left idx) -> throwError (UnknownEnum "BuiltinLitSumRoundingMode" idx)
   LF2.BuiltinLitSumFailureCategory enum -> case enum of
     Proto.Enumerated (Right mode) -> pure $ case mode of
-       LF2.BuiltinLit_FailureCategoryINVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER -> BEFailureCategory LitInvalidGivenCurrentSystemStateOther
        LF2.BuiltinLit_FailureCategoryINVALID_INDEPENDENT_OF_SYSTEM_STATE -> BEFailureCategory LitInvalidIndependentOfSystemState
-       LF2.BuiltinLit_FailureCategoryINTERNAL_UNSUPPORTED_OPERATION -> BEFailureCategory LitInternalUnsupportedOperation
-       LF2.BuiltinLit_FailureCategorySYSTEM_INTERNAL_ASSUMPTION_VIOLATED -> BEFailureCategory LitSystemInternalAssumptionViolated
+       LF2.BuiltinLit_FailureCategoryINVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER -> BEFailureCategory LitInvalidGivenCurrentSystemStateOther
     Proto.Enumerated (Left idx) -> throwError (UnknownEnum "BuiltinLitSumFailureCategory" idx)
 
 decodeNumericLit :: T.Text -> Decode BuiltinExpr

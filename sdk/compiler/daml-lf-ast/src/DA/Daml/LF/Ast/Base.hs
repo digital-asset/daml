@@ -233,10 +233,8 @@ data RoundingModeLiteral =
     deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 data FailureCategoryLiteral  =
-      LitInvalidGivenCurrentSystemStateOther
-    | LitInvalidIndependentOfSystemState
-    | LitInternalUnsupportedOperation
-    | LitSystemInternalAssumptionViolated
+      LitInvalidIndependentOfSystemState
+    | LitInvalidGivenCurrentSystemStateOther
     deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Builtin operation or literal.

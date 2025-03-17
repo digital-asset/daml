@@ -32,16 +32,7 @@ data FailureStatus = FailureStatus with
 -- If you are more familiar with gRPC error codes, you can use the synonyms referenced in the
 -- comments.
 data FailureCategory
-  = InvalidGivenCurrentSystemStateOther
-    -- ^ Use this to report errors that are due to the current state of the ledger,
-    -- but might disappear if the ledger state changes. Clients should retry these
-    -- requests after reading updated state from the ledger.
-    --
-    -- Corresponds to the gRPC status code `FAILED_PRECONDITION`.
-    --
-    -- See https://docs.daml.com/canton/reference/error_codes.html#invalidgivencurrentsystemstateother
-    -- for more information.
-  | InvalidIndependentOfSystemState
+  = InvalidIndependentOfSystemState
     -- ^ Use this to report errors that are independent of the current state of the ledger,
     -- and should thus not be retried.
     --
@@ -49,19 +40,12 @@ data FailureCategory
     --
     -- See https://docs.daml.com/canton/reference/error_codes.html#invalidindependentofsystemstate
     -- for more information.
-  | InternalUnsupportedOperation
-    -- ^ Use this to report unimplemented features or operations.
+  | InvalidGivenCurrentSystemStateOther
+    -- ^ Use this to report errors that are due to the current state of the ledger,
+    -- but might disappear if the ledger state changes. Clients should retry these
+    -- requests after reading updated state from the ledger.
     --
-    -- Corresponds to the gRPC status code `UNIMPLEMENTED`. Clients should not retry when
-    -- observing these errors.
+    -- Corresponds to the gRPC status code `FAILED_PRECONDITION`.
     --
-    -- See https://docs.daml.com/canton/reference/error_codes.html#internalunsupportedoperation
-    -- for more information.
-  | SystemInternalAssumptionViolated
-    -- ^ Use this to report unexpected internal errors. Clients should not retry when
-    -- observing these errors.
-    -- 
-    -- Corresponds to the gRPC status code `INTERNAL`.
-    --
-    -- See https://docs.daml.com/canton/reference/error_codes.html#systeminternalassumptionviolated
+    -- See https://docs.daml.com/canton/reference/error_codes.html#invalidgivencurrentsystemstateother
     -- for more information.

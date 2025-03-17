@@ -221,10 +221,8 @@ prettyRounding = \case
 
 prettyFailureCategory :: FailureCategoryLiteral -> String
 prettyFailureCategory = \case
-  LitInvalidGivenCurrentSystemStateOther -> "INVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER"
   LitInvalidIndependentOfSystemState -> "INVALID_INDEPENDENT_OF_SYSTEM_STATE"
-  LitInternalUnsupportedOperation -> "INTERNAL_UNSUPPORTED_OPERATION"
-  LitSystemInternalAssumptionViolated -> "SYSTEM_INTERNAL_ASSUMPTION_VIOLATED"
+  LitInvalidGivenCurrentSystemStateOther -> "INVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER"
 
 instance Pretty BuiltinExpr where
   pPrintPrec lvl prec = \case

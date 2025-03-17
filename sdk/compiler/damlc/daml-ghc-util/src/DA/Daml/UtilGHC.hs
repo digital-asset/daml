@@ -256,10 +256,8 @@ toFailureCategoryLiteral x = MS.lookup x failureCategoryLiteralMap
 
 failureCategoryLiteralMap :: MS.Map T.Text LF.FailureCategoryLiteral
 failureCategoryLiteralMap = MS.fromList
-    [ ("InvalidGivenCurrentSystemStateOther", LF.LitInvalidGivenCurrentSystemStateOther)
-    , ("InvalidIndependentOfSystemState", LF.LitInvalidIndependentOfSystemState)
-    , ("InternalUnsupportedOperation", LF.LitInternalUnsupportedOperation)
-    , ("SystemInternalAssumptionViolated", LF.LitSystemInternalAssumptionViolated)
+    [ ("InvalidIndependentOfSystemState", LF.LitInvalidIndependentOfSystemState)
+    , ("InvalidGivenCurrentSystemStateOther", LF.LitInvalidGivenCurrentSystemStateOther)
     ]
 
 subst :: [(TyVar, GHC.Type)] -> GHC.Type -> GHC.Type

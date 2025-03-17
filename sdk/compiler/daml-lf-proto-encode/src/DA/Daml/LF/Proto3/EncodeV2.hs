@@ -372,10 +372,8 @@ encodeBuiltinExpr = \case
       LitRoundingUnnecessary -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeUNNECESSARY
 
     BEFailureCategory fc -> case fc of
-      LitInvalidGivenCurrentSystemStateOther -> pureLit $ P.BuiltinLitSumFailureCategory $ P.Enumerated $ Right P.BuiltinLit_FailureCategoryINVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER
       LitInvalidIndependentOfSystemState -> pureLit $ P.BuiltinLitSumFailureCategory $ P.Enumerated $ Right P.BuiltinLit_FailureCategoryINVALID_INDEPENDENT_OF_SYSTEM_STATE
-      LitInternalUnsupportedOperation -> pureLit $ P.BuiltinLitSumFailureCategory $ P.Enumerated $ Right P.BuiltinLit_FailureCategoryINTERNAL_UNSUPPORTED_OPERATION
-      LitSystemInternalAssumptionViolated -> pureLit $ P.BuiltinLitSumFailureCategory $ P.Enumerated $ Right P.BuiltinLit_FailureCategorySYSTEM_INTERNAL_ASSUMPTION_VIOLATED
+      LitInvalidGivenCurrentSystemStateOther -> pureLit $ P.BuiltinLitSumFailureCategory $ P.Enumerated $ Right P.BuiltinLit_FailureCategoryINVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER
 
     BEEqual -> builtin P.BuiltinFunctionEQUAL
     BELess -> builtin P.BuiltinFunctionLESS

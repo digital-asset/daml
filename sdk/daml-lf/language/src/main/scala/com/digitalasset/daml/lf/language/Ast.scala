@@ -417,14 +417,10 @@ object Ast {
       extends Equals
       with Product
       with Serializable
-  final case object FCInvalidGivenCurrentSystemStateOther
-      extends FailureCategory("InvalidGivenCurrentSystemStateOther", 9)
   final case object FCInvalidIndependentOfSystemState
       extends FailureCategory("InvalidIndependentOfSystemState", 8)
-  final case object FCInternalUnsupportedOperation
-      extends FailureCategory("InternalUnsupportedOperation", 14)
-  final case object FCSystemInternalAssumptionViolated
-      extends FailureCategory("SystemInternalAssumptionViolated", 4)
+  final case object FCInvalidGivenCurrentSystemStateOther
+      extends FailureCategory("InvalidGivenCurrentSystemStateOther", 9)
 
   //
   // Builtin constructors
