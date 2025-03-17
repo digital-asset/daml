@@ -35,6 +35,17 @@ template SimpleNumeric
       controller p
       do pure "hello"
 
+template SimpleTrailingNone
+  with
+    p: Party
+    opt: Optional Int
+  where
+    signatory p
+
+    choice HelloTrailingNone : Text
+      controller p
+      do pure "hello"
+
 template SimpleMultiParty
   with
     p1: Party

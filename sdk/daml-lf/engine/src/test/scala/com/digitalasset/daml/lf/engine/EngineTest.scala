@@ -157,7 +157,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   "command with disclosure" should {
-    "reject disclosures with un-normalized numeric values" in {
     "reject disclosures with non-normalized numeric values" in {
       val templateId = Identifier(basicTestsPkgId, "BasicTests:SimpleNumeric")
       val cid = toContractId("BasicTests:SimpleNumeric:1")
@@ -216,6 +215,67 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       inside(result) { case Left(Error.Interpretation(DamlException(IE.Dev(_, err)), _)) =>
         err shouldBe a[IE.Dev.Conformance]
       }
+    }
+
+    "accept disclosures with trailing nones" in {
+      val templateId = Identifier(basicTestsPkgId, "BasicTests:SimpleTrailingNone")
+      val cid = toContractId("BasicTests:SimpleTrailingNone:1")
+      val command =
+        ApiCommand.Exercise(
+          templateId.toRef,
+          cid,
+          "HelloTrailingNone",
+          ValueRecord(
+            Some(Identifier(basicTestsPkgId, "BasicTests:HelloTrailingNone")),
+            ImmArray.Empty,
+          ),
+        )
+      val readAs = (Set.empty: Set[Party])
+
+      val res = preprocessor
+        .preprocessApiCommands(Map.empty, ImmArray(command))
+        .consume(Map.empty, lookupPackage, Map.empty)
+      res shouldBe a[Right[_, _]]
+
+      val disclosure =
+        FatContractInstance.fromCreateNode(
+          Node.Create(
+            coid = cid,
+            packageName = basicTestsPkg.pkgName,
+            packageVersion = basicTestsPkg.pkgVersion,
+            templateId = templateId,
+            arg = ValueRecord(
+              Some(templateId),
+              ImmArray(
+                Some[Name]("p") -> ValueParty(party),
+                // The engine will always produce transactions with no trailing Nones. But for backwards compatibility
+                // with version of Canton predating 3.3, SBImportInputContract should not reject disclosures with
+                // trailing Nones.
+                Some[Name]("opt") -> ValueOptional(None),
+              ),
+            ),
+            signatories = Set(party),
+            stakeholders = Set(party),
+            keyOpt = None,
+            version = basicTestsPkg.languageVersion,
+          ),
+          Time.Timestamp.now(),
+          Bytes.Empty,
+        )
+
+      val result = suffixLenientEngine
+        .submit(
+          submitters = Set(party),
+          readAs = readAs,
+          cmds = ApiCommands(ImmArray(command), Time.Timestamp.now(), "test"),
+          disclosures = ImmArray(disclosure),
+          participantId = participant,
+          submissionSeed = hash("exercise command with disclosure"),
+          prefetchKeys = Seq.empty,
+        )
+        .consume(Map.empty, lookupPackage, Map.empty)
+
+      result shouldBe a[Right[_, _]]
     }
   }
 
