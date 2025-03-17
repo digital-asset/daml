@@ -842,10 +842,10 @@ installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
                   pDataDependencies
               createProjectPackageDb (toNormalizedFilePath' projRoot) opts pModulePrefixes
 
-getMultiPackagePath :: MultiPackageLocation -> IO (Maybe ProjectPath)
-getMultiPackagePath multiPackageLocation =
+getMultiPackagePath :: MultiPackageLocation -> Maybe FilePath -> IO (Maybe ProjectPath)
+getMultiPackagePath multiPackageLocation searchPath =
   case multiPackageLocation of
-    MPLSearch -> findMultiPackageConfig defaultProjectPath
+    MPLSearch -> findMultiPackageConfig $ maybe defaultProjectPath ProjectPath searchPath
     MPLPath path -> do
       hasMultiPackage <- doesFileExist $ path </> multiPackageConfigName
       unless hasMultiPackage $ do
@@ -867,6 +867,8 @@ execBuild
   -> Command
 execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPackage buildAll noCache multiPackageLocation =
   Command Build (Just projectOpts) $ evalContT $ do
+    -- Need exec path for `daml build --all`, where we don't want to be relativized to a package
+    execPath <- liftIO getCurrentDirectory
     relativize <- ContT $ withProjectRoot' (projectOpts {projectCheck = ProjectCheck "" False})
 
     let buildSingle :: ProjectPath -> PackageConfigFields -> IO ()
@@ -881,8 +883,10 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
     pkgPath <- liftIO getCanonDefaultProjectPath
     mPkgConfig <- ContT $ withMaybeConfig $ withPackageConfig pkgPath
     liftIO $ if getEnableMultiPackage enableMultiPackage then do
-      mMultiPackagePath <- getMultiPackagePath multiPackageLocation
+      mMultiPackagePath <- getMultiPackagePath multiPackageLocation $ if getMultiPackageBuildAll buildAll then Just execPath else Nothing
       -- At this point, if mMultiPackagePath is Just, we know it points to a multi-package.yaml
+      -- TODO: For regular build, its important that we look from the package
+      -- for build --all, "current package" has no significance, and we should instead search from run dir
 
       case (getMultiPackageBuildAll buildAll, mPkgConfig, mMultiPackagePath) of
         -- We're attempting to multi-package build --all, so we require that we have a multi-package.yaml, but do not care if we have a daml.yaml
@@ -1294,7 +1298,8 @@ execClean projectOpts enableMultiPackage multiPackageLocation cleanAll =
     effect
       | getEnableMultiPackage enableMultiPackage
       = do
-        mMultiPackagePath <- getMultiPackagePath multiPackageLocation
+        execPath <- liftIO getCurrentDirectory
+        mMultiPackagePath <- getMultiPackagePath multiPackageLocation $ if getMultiPackageCleanAll cleanAll then Just execPath else Nothing
         isProject <- withProjectRoot' (projectOpts {projectCheck = ProjectCheck "" False}) $ const $ doesFileExist projectConfigName
         case (mMultiPackagePath, isProject, getMultiPackageCleanAll cleanAll) of
           -- daml clean --all with no multi-package.yaml
@@ -1472,7 +1477,7 @@ execGenerateMultiPackageManifest multiPackageLocation outputLocation =
     Command GenerateMultiPackageManifest Nothing effect
   where
     effect = do
-      mMultiPackageConfigProjectPath <- getMultiPackagePath multiPackageLocation
+      mMultiPackageConfigProjectPath <- getMultiPackagePath multiPackageLocation Nothing
       multiPackageConfigProjectPath <- case mMultiPackageConfigProjectPath of
         Nothing -> do
           hPutStrLn stderr "Couldn't find a multi-package.yaml at current or parent directory. Use --multi-package-path to specify its location."
