@@ -24,6 +24,17 @@ template Simple
       controller p
       do pure "hello"
 
+template SimpleNumeric
+  with
+    p: Party
+    num: Numeric 4
+  where
+    signatory p
+
+    choice HelloNumeric : Text
+      controller p
+      do pure "hello"
+
 template SimpleMultiParty
   with
     p1: Party
