@@ -120,7 +120,7 @@ private[lf] object Pretty {
           prettyContractId(key.cids.head)
       case ValueNesting(limit) =>
         text(s"Value exceeds maximum nesting value of $limit")
-      case FailureStatus(errorId, cantonCategoryId, errorMessage, meta) =>
+      case FailureStatus(errorId, cantonCategoryId, errorMessage, _) =>
         text(s"User failure: $errorId (error category $cantonCategoryId): $errorMessage")
       case Upgrade(error) =>
         error match {

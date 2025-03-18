@@ -60,7 +60,10 @@ object ErrorCodeDocumentationGenerator {
         val annotations = parseErrorCodeAnnotations(errorCode)
         ErrorCodeDocItem(
           errorCodeClassName = errorCode.getClass.getName,
-          category = simpleClassName(errorCode.category),
+          category = errorCode.category match {
+            case ErrorCategory.MetaErrorCategory(message) => message
+            case cat => simpleClassName(cat)
+          },
           hierarchicalGrouping = errorCode.parent,
           conveyance = errorCode.errorConveyanceDocString,
           code = errorCode.id,

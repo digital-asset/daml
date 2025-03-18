@@ -747,16 +747,17 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       ) extends DamlErrorWithDefiniteAnswer(cause = cause) {}
     }
 
-    @Explanation("")
-    @Resolution("")
+    @Explanation("This error is thrown by use of `failWithStatus` in daml code. The Daml code determines the canton error category, and thus the grpc status code.")
+    @Resolution("Either your choice body has a bug, or you are using a contract incorrectly.")
     object FailureStatus
-        // TODO[SW] This category is lying, since its actually determined by the error content.
-        // Consider some kind of wildcard category, whereby we can simply give a text description, and this is used in the docs
-        extends ErrorCode(id = "DAML_FAILURE", ErrorCategory.InvalidIndependentOfSystemState) {
+        extends ErrorCode(id = "DAML_FAILURE", ErrorCategory.MetaErrorCategory("<determined by daml code>")) {
 
       // Override the code to change the category, otherwise inherit frokm FailureStatus
       private def mkErrorCode(err: LfInterpretationError.FailureStatus): ErrorCode =
         new ErrorCode(id = FailureStatus.id, ErrorCategory.fromInt(err.failureCategory).getOrElse(FailureStatus.category))(FailureStatus.parent) {}
+
+      // Building conveyance string from MetaErrorCategory will fail, and would be wrong
+      override def errorConveyanceDocString: Option[String] = Some("Conveyance is determined by the category, which is selected in daml code")
 
       final case class Reject(override val cause: String, err: LfInterpretationError.FailureStatus)(
           implicit loggingContext: ContextualizedErrorLogger
