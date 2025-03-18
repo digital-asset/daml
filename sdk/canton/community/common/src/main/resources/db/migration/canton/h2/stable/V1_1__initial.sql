@@ -234,7 +234,6 @@ create table par_reassignments (
     source_synchronizer_idx integer not null,
 
     -- reassignment data
-    source_protocol_version integer not null,
     contract binary large object not null,
 
     -- UTC timestamp in microseconds relative to EPOCH

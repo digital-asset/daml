@@ -293,8 +293,7 @@ create or replace view debug.par_reassignments as
     debug.canton_timestamp(unassignment_decision_time) as unassignment_decision_time,
     unassignment_result,
     contract,
-    debug.canton_timestamp(assignment_timestamp) as assignment_timestamp,
-    source_protocol_version
+    debug.canton_timestamp(assignment_timestamp) as assignment_timestamp
   from par_reassignments;
 
 create or replace view debug.par_journal_requests as

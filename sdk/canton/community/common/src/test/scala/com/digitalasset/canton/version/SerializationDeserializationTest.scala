@@ -125,9 +125,9 @@ class SerializationDeserializationTest
         testContext(CommonMetadata, TestHash, version)
         testContext(ParticipantMetadata, TestHash, version)
         testContext(SubmitterMetadata, TestHash, version)
-        testContext(AssignmentCommonData, (TestHash, Target(version)), version)
+        testContext(AssignmentCommonData, TestHash, version)
         testContext(AssignmentView, TestHash, version)
-        testContext(UnassignmentCommonData, (TestHash, Source(version)), version)
+        testContext(UnassignmentCommonData, TestHash, version)
         testContext(UnassignmentView, TestHash, version)
 
         testContext(ViewCommonData, TestHash, version)
@@ -179,7 +179,11 @@ class SerializationDeserializationTest
         testContext(LightTransactionViewTree, ((TestHash, randomnessLength), version), version)
 
         testContextTaggedProtocolVersion(AssignmentViewTree, TestHash, Target(version))
-        testContextTaggedProtocolVersion(UnassignmentViewTree, TestHash, Source(version))
+        testContext(
+          UnassignmentViewTree,
+          (TestHash, Source(ProtocolVersionValidation.PV(version))),
+          version,
+        )
       }
     }
   }

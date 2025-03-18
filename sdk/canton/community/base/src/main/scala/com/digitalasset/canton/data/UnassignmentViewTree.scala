@@ -61,8 +61,11 @@ final case class UnassignmentViewTree(
   protected[this] override def createMediatorMessage(
       blindedTree: UnassignmentViewTree,
       submittingParticipantSignature: Signature,
+      protocolVersion: ProtocolVersion,
   ): UnassignmentMediatorMessage =
-    UnassignmentMediatorMessage(blindedTree, submittingParticipantSignature)
+    UnassignmentMediatorMessage(blindedTree, submittingParticipantSignature)(
+      UnassignmentMediatorMessage.protocolVersionRepresentativeFor(protocolVersion)
+    )
 
   override protected def pretty: Pretty[UnassignmentViewTree] = prettyOfClass(
     param("common data", _.commonData),
@@ -74,10 +77,9 @@ final case class UnassignmentViewTree(
 }
 
 object UnassignmentViewTree
-    extends VersioningCompanionContextTaggedPVValidation2[
+    extends VersioningCompanionContext[
       UnassignmentViewTree,
-      Source,
-      HashOps,
+      (HashOps, Source[ProtocolVersionValidation]),
     ] {
 
   override val name: String = "UnassignmentViewTree"
@@ -100,7 +102,7 @@ object UnassignmentViewTree
       hashOps,
     )
 
-  def fromProtoV30(context: (HashOps, Source[ProtocolVersion]))(
+  def fromProtoV30(context: (HashOps, Source[ProtocolVersionValidation]))(
       unassignmentViewTreeP: v30.ReassignmentViewTree
   ): ParsingResult[UnassignmentViewTree] = {
     val (hashOps, expectedProtocolVersion) = context
@@ -108,9 +110,8 @@ object UnassignmentViewTree
     for {
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       res <- GenReassignmentViewTree.fromProtoV30(
-        UnassignmentCommonData
-          .fromByteString(expectedProtocolVersion.unwrap, (hashOps, expectedProtocolVersion)),
-        UnassignmentView.fromByteString(expectedProtocolVersion.unwrap, hashOps),
+        UnassignmentCommonData.fromByteString(expectedProtocolVersion.unwrap, hashOps, _),
+        UnassignmentView.fromByteString(expectedProtocolVersion.unwrap, hashOps, _),
       )((commonData, view) =>
         UnassignmentViewTree(commonData, view)(
           rpv,
@@ -150,7 +151,9 @@ final case class UnassignmentCommonData private (
     submitterMetadata: ReassignmentSubmitterMetadata,
 )(
     hashOps: HashOps,
-    val sourceProtocolVersion: Source[ProtocolVersion],
+    override val representativeProtocolVersion: RepresentativeProtocolVersion[
+      UnassignmentCommonData.type
+    ],
     override val deserializedFrom: Option[ByteString],
 ) extends MerkleTreeLeaf[UnassignmentCommonData](hashOps)
     with ReassignmentCommonData
@@ -158,10 +161,6 @@ final case class UnassignmentCommonData private (
 
   @transient override protected lazy val companionObj: UnassignmentCommonData.type =
     UnassignmentCommonData
-
-  override val representativeProtocolVersion
-      : RepresentativeProtocolVersion[UnassignmentCommonData.type] =
-    UnassignmentCommonData.protocolVersionRepresentativeFor(sourceProtocolVersion.unwrap)
 
   protected def toProtoV30: v30.UnassignmentCommonData =
     v30.UnassignmentCommonData(
@@ -193,7 +192,7 @@ final case class UnassignmentCommonData private (
 object UnassignmentCommonData
     extends VersioningCompanionContextMemoization[
       UnassignmentCommonData,
-      (HashOps, Source[ProtocolVersion]),
+      HashOps,
     ] {
   override val name: String = "UnassignmentCommonData"
 
@@ -221,15 +220,14 @@ object UnassignmentCommonData
     reassigningParticipants = reassigningParticipants,
     uuid = uuid,
     submitterMetadata = submitterMetadata,
-  )(hashOps, sourceProtocolVersion, None)
+  )(hashOps, protocolVersionRepresentativeFor(sourceProtocolVersion.value), None)
 
   private[this] def fromProtoV30(
-      context: (HashOps, Source[ProtocolVersion]),
+      hashOps: HashOps,
       unassignmentCommonDataP: v30.UnassignmentCommonData,
   )(
       bytes: ByteString
   ): ParsingResult[UnassignmentCommonData] = {
-    val (hashOps, sourceProtocolVersion) = context
     val v30.UnassignmentCommonData(
       saltP,
       sourceSynchronizerP,
@@ -265,6 +263,8 @@ object UnassignmentCommonData
       submitterMetadata <- ProtoConverter
         .required("submitter_metadata", submitterMetadataPO)
         .flatMap(ReassignmentSubmitterMetadata.fromProtoV30)
+
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield UnassignmentCommonData(
       salt,
       sourceSynchronizerId,
@@ -273,7 +273,7 @@ object UnassignmentCommonData
       reassigningParticipants = reassigningParticipants.toSet,
       uuid,
       submitterMetadata,
-    )(hashOps, sourceProtocolVersion, Some(bytes))
+    )(hashOps, rpv, Some(bytes))
   }
 }
 
@@ -431,11 +431,12 @@ final case class FullUnassignmentTree(tree: UnassignmentViewTree)
   override def targetSynchronizer: Target[SynchronizerId] = view.targetSynchronizerId
   def targetTimeProof: TimeProof = view.targetTimeProof
   def targetProtocolVersion: Target[ProtocolVersion] = view.targetProtocolVersion
-  def sourceProtocolVersion: Source[ProtocolVersion] = commonData.sourceProtocolVersion
 
   def mediatorMessage(
-      submittingParticipantSignature: Signature
-  ): UnassignmentMediatorMessage = tree.mediatorMessage(submittingParticipantSignature)
+      submittingParticipantSignature: Signature,
+      protocolVersion: Source[ProtocolVersion],
+  ): UnassignmentMediatorMessage =
+    tree.mediatorMessage(submittingParticipantSignature, protocolVersion.value)
 
   override def mediator: MediatorGroupRecipient = commonData.sourceMediatorGroup
 
@@ -453,10 +454,14 @@ final case class FullUnassignmentTree(tree: UnassignmentViewTree)
 object FullUnassignmentTree {
   def fromByteString(
       crypto: CryptoPureApi,
-      sourceProtocolVersion: Source[ProtocolVersion],
+      expectedProtocolVersion: Source[ProtocolVersionValidation],
   )(bytes: ByteString): ParsingResult[FullUnassignmentTree] =
     for {
-      tree <- UnassignmentViewTree.fromByteString(crypto, sourceProtocolVersion)(bytes)
+      tree <- UnassignmentViewTree.fromByteString(
+        expectedProtocolVersion.value,
+        (crypto, expectedProtocolVersion),
+        bytes,
+      )
       _ <- Either.cond(
         tree.isFullyUnblinded,
         (),

@@ -68,7 +68,7 @@ object EnvelopeContent extends VersioningCompanionContextPVValidation2[EnvelopeC
           EncryptedViewMessage.fromProto(messageP)
         case Content.UnassignmentMediatorMessage(messageP) =>
           UnassignmentMediatorMessage.fromProtoV30(
-            (hashOps, Source(expectedProtocolVersion))
+            (hashOps, Source(ProtocolVersionValidation.PV(expectedProtocolVersion)))
           )(messageP)
         case Content.AssignmentMediatorMessage(messageP) =>
           AssignmentMediatorMessage.fromProtoV30(

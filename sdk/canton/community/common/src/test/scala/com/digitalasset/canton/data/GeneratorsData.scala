@@ -630,7 +630,6 @@ final class GeneratorsData(
         salt,
         contract,
         unassignmentResultEvent,
-        sourceProtocolVersion,
         targetProtocolVersion,
         reassignmentCounter,
       )

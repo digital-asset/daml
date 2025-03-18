@@ -272,7 +272,6 @@ create table par_reassignments (
   -- defined if reassignment was completed
   -- UTC timestamp in microseconds relative to EPOCH
   assignment_timestamp bigint,
-  source_protocol_version integer not null,
   contract bytea not null
 );
 

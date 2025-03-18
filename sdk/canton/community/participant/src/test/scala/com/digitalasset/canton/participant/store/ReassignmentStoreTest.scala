@@ -215,7 +215,6 @@ trait ReassignmentStoreTest extends FailOnShutdown {
       val assignmentData = AssignmentData(
         data.reassignmentId,
         data.contract,
-        data.sourceProtocolVersion,
       )
 
       "be idempotent" in {
@@ -230,16 +229,24 @@ trait ReassignmentStoreTest extends FailOnShutdown {
       "AddAssignmentData doesn't update if conflicting data" in {
         val store = mk(indexedTargetSynchronizer)
 
+        val initialMetadata = assignmentData.contract.metadata
+
+        val updatedMetadata = ContractMetadata.tryCreate(
+          initialMetadata.signatories,
+          initialMetadata.stakeholders + LfPartyId.assertFromString("other"),
+          None,
+        )
+
+        val updatedAssignmentData =
+          assignmentData.focus(_.contract.metadata).replace(updatedMetadata)
+
         for {
           _ <- store.addAssignmentDataIfAbsent(assignmentData).value
           _ <- valueOrFail(
-            store
-              .addAssignmentDataIfAbsent(
-                assignmentData.copy(sourceProtocolVersion = Source(ProtocolVersion.dev))
-              )
+            store.addAssignmentDataIfAbsent(updatedAssignmentData)
           )("addAssignmentDataIfAbsent")
           entry <- store.findReassignmentEntry(data.reassignmentId).value
-        } yield entry.map(_.sourceProtocolVersion) shouldBe Right(data.sourceProtocolVersion)
+        } yield entry.map(_.contract) shouldBe Right(data.contract)
       }
 
       "AddAssignmentData doesn't update the entry once the reassignment data is inserted" in {
@@ -307,7 +314,6 @@ trait ReassignmentStoreTest extends FailOnShutdown {
           entry1 shouldBe Right(
             ReassignmentEntry(
               data.reassignmentId,
-              data.sourceProtocolVersion,
               data.contract,
               None,
               CantonTimestamp.Epoch,
@@ -690,7 +696,6 @@ trait ReassignmentStoreTest extends FailOnShutdown {
         val assignmentData = AssignmentData(
           reassignmentData.reassignmentId,
           reassignmentData.contract,
-          reassignmentData.sourceProtocolVersion,
         )
 
         for {
@@ -1593,8 +1598,8 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
   def mkUnassignmentResult(reassignmentData: UnassignmentData): DeliveredUnassignmentResult = {
     val requestId = RequestId(reassignmentData.unassignmentTs)
 
-    val mediatorMessage =
-      reassignmentData.unassignmentRequest.tree.mediatorMessage(Signature.noSignature)
+    val mediatorMessage = reassignmentData.unassignmentRequest.tree
+      .mediatorMessage(Signature.noSignature, BaseTest.testedProtocolVersion)
     val result = ConfirmationResultMessage.create(
       mediatorMessage.synchronizerId,
       ViewType.UnassignmentViewType,

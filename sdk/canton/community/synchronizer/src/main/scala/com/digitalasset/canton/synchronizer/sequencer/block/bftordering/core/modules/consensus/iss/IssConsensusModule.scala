@@ -163,6 +163,11 @@ final class IssConsensusModule[E <: Env[E]](
           s"${StateTransferBehavior.getClass.getSimpleName} should be the only one receiving ${Consensus.SegmentCancelledEpoch.getClass.getSimpleName}"
         )
 
+      case Consensus.StateTransferCompleted(_) =>
+        abortInit(
+          s"${StateTransferBehavior.getClass.getSimpleName} should be the only one receiving ${Consensus.StateTransferCompleted.getClass.getSimpleName}"
+        )
+
       case Consensus.Start =>
         val maybeSnapshotAdditionalInfo = initialState.sequencerSnapshotAdditionalInfo
         BootstrapDetector.detect(

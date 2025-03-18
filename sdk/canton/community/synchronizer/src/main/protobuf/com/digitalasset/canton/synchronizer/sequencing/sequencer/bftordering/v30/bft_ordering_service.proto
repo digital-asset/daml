@@ -260,12 +260,11 @@ message StateTransferMessage {
 }
 
 message BlockTransferRequest {
-  int64 start_epoch = 1;
-  int64 latest_completed_epoch = 2;
+  int64 epoch = 1;
 }
 
 message BlockTransferResponse {
+  optional CommitCertificate commit_certificate = 1;
   // Latest completed epoch of the serving node.
-  int64 latest_completed_epoch = 1;
-  repeated SignedMessage /*ConsensusMessage*/block_pre_prepares = 2;
+  int64 latest_completed_epoch = 2;
 }

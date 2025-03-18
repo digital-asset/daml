@@ -354,7 +354,7 @@ class IssSegmentModule[E <: Env[E]](
 
     def handleStore(store: StoreResult, sendMsg: () => Unit): Unit = store match {
       case StorePrePrepare(prePrepare) =>
-        context.pipeToSelf(epochStore.addPrePrepare(prePrepare)) {
+        pipeToSelfWithFutureTracking(epochStore.addPrePrepare(prePrepare)) {
           case Failure(exception) =>
             logAsyncException(exception)
             // We can't send messages back from here as the module might be already stopped.

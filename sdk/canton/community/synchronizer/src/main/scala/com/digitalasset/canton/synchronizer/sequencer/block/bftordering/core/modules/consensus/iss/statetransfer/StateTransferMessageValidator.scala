@@ -33,14 +33,9 @@ object StateTransferMessageValidator {
         s"'$from' is requesting state transfer while not being active, active nodes are: $nodes",
       )
       _ <- Either.cond(
-        request.startEpoch > Genesis.GenesisEpochNumber,
+        request.epoch > Genesis.GenesisEpochNumber,
         (),
-        s"state transfer is supported only after genesis, but start epoch ${request.startEpoch} received",
-      )
-      _ <- Either.cond(
-        request.startEpoch > request.latestCompletedEpoch,
-        (),
-        s"start epoch ${request.startEpoch} is not greater than latest completed epoch ${request.latestCompletedEpoch}",
+        s"state transfer is supported only after genesis, but start epoch ${request.epoch} received",
       )
     } yield ()
   }
