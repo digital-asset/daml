@@ -1403,13 +1403,11 @@ private[lf] object SBuiltinFun {
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control.Expression = {
-      val txVersion = machine.tmplId2TxVersion(interfaceId)
       val e = SEBuiltinFun(
         SBUInsertFetchNode(
           getSAnyContract(args, 0)._1,
           byKey = false,
-          interfaceId =
-            Option.when(txVersion >= TransactionVersion.minFetchInterfaceId)(interfaceId),
+          interfaceId = Some(interfaceId),
         )
       )
       Control.Expression(e)
