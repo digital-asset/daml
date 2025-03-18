@@ -72,7 +72,7 @@ EOF
 
 genrule(
     name = "sources",
-    srcs = glob(["source/**"]) + [
+    srcs = glob(["source/**"], exclude=["**/.daml/**"]) + [
         "//compiler/damlc:daml-base-rst.tar.gz",
         "//daml-script/daml:daml-script-rst.tar.gz",
         "//:LICENSE",

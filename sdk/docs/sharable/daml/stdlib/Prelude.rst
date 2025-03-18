@@ -217,6 +217,13 @@ Typeclasses
 
     Fail with an error message\.
 
+  .. _function-da-internal-prelude-failwithstatus-87289:
+
+  `failWithStatus <function-da-internal-prelude-failwithstatus-87289_>`_
+    \: :ref:`FailureStatus <type-da-internal-fail-failurestatus-69800>` \-\> m a
+
+    Fail with a failure status
+
   **instance** `ActionFail <class-da-internal-prelude-actionfail-34438_>`_ `Update <type-da-internal-lf-update-68072_>`_
 
   **instance** `ActionFail <class-da-internal-prelude-actionfail-34438_>`_ `Optional <type-da-internal-prelude-optional-37153_>`_
