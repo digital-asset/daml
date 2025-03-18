@@ -521,7 +521,11 @@ class ReferenceDemoScript(
                 blocking {
                   val processorId =
                     participant6.parties
-                      .enable("Processor", waitForSynchronizer = SynchronizerChoice.All)
+                      .enable(
+                        "Processor",
+                        waitForSynchronizer = SynchronizerChoice.All,
+                        synchronizeParticipants = Seq(participant5),
+                      )
                   partyIdCache.put("Processor", (processorId, participant6))
                 }
               }

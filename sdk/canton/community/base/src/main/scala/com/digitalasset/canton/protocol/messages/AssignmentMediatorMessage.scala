@@ -33,6 +33,10 @@ import java.util.UUID
 final case class AssignmentMediatorMessage(
     tree: AssignmentViewTree,
     override val submittingParticipantSignature: Signature,
+)(
+    override val representativeProtocolVersion: RepresentativeProtocolVersion[
+      AssignmentMediatorMessage.type
+    ]
 ) extends ReassignmentMediatorMessage {
 
   require(tree.commonData.isFullyUnblinded, "The assignment common data must be unblinded")
@@ -41,13 +45,6 @@ final case class AssignmentMediatorMessage(
   override def submittingParticipant: ParticipantId = tree.submittingParticipant
 
   protected[this] val commonData: AssignmentCommonData = tree.commonData.tryUnwrap
-
-  // Align the protocol version with the common data's protocol version
-  lazy val protocolVersion: Target[ProtocolVersion] = commonData.targetProtocolVersion
-
-  override lazy val representativeProtocolVersion
-      : RepresentativeProtocolVersion[AssignmentMediatorMessage.type] =
-    AssignmentMediatorMessage.protocolVersionRepresentativeFor(protocolVersion.unwrap)
 
   override def synchronizerId: SynchronizerId = commonData.targetSynchronizerId.unwrap
 
@@ -112,7 +109,8 @@ object AssignmentMediatorMessage
           submittingParticipantSignaturePO,
         )
         .flatMap(Signature.fromProtoV30)
-    } yield AssignmentMediatorMessage(tree, submittingParticipantSignature)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+    } yield AssignmentMediatorMessage(tree, submittingParticipantSignature)(rpv)
   }
 
   override def name: String = "AssignmentMediatorMessage"

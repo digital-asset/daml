@@ -448,7 +448,6 @@ class AssignmentValidationTest
         targetMediator,
         unassignmentResult,
         uuid,
-        Source(testedProtocolVersion),
         Target(testedProtocolVersion),
         reassigningParticipants = reassigningParticipants,
       )

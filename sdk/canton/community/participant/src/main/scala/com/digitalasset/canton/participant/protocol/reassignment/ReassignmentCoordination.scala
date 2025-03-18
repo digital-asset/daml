@@ -286,11 +286,7 @@ class ReassignmentCoordination(
 
       _ <- reassignmentStore
         .addAssignmentDataIfAbsent(
-          AssignmentData(
-            reassignmentId = reassignmentId,
-            contract = contract,
-            sourceProtocolVersion = sourceStaticParams.map(_.protocolVersion),
-          )
+          AssignmentData(reassignmentId = reassignmentId, contract = contract)
         )
         .leftMap[ReassignmentProcessorError](
           ReassignmentStoreFailed(reassignmentId, _)

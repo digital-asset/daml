@@ -383,7 +383,29 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
         synchronizers,
       )
       if (synchronize) {
-        ConsoleMacros.utils.synchronize_topology()
+        synchronizers.foreach(synchronizerId =>
+          // wait to observe either the fully authorized party mapping or the proposal.
+          // normally it would be a proposal, but it could be a fully authorized transaction, if
+          // the target participant signed a NamespaceDelegation or IdentifierDelegation for a
+          // key available on the source participant
+          ConsoleMacros.utils.retry_until_true(env.commandTimeouts.bounded)(
+            sourceParticipant.topology.party_to_participant_mappings
+              .list(
+                synchronizerId,
+                proposals = true,
+                filterParty = partyId.filterString,
+                filterParticipant = targetParticipantId.filterString,
+              )
+              .nonEmpty ||
+              sourceParticipant.topology.party_to_participant_mappings
+                .list(
+                  synchronizerId,
+                  filterParty = partyId.filterString,
+                  filterParticipant = targetParticipantId.filterString,
+                )
+                .nonEmpty
+          )
+        )
       }
     }
 
@@ -434,7 +456,6 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
               e,
             )
         }
-        ConsoleMacros.utils.synchronize_topology()
       }
     }
 
@@ -469,18 +490,16 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
       )
       .discard
     if (synchronize) {
-      ConsoleMacros.utils.synchronize_topology()
+      // there's a gap between having received the transaction, but it hasn't been fully processed yet,
+      // so the node status will return that the node is idle, when that's not really the case.
+      // to avoid flakiness for now, we'll retry
+      ConsoleMacros.utils.retry_until_true(env.commandTimeouts.bounded)(
+        condition =
+          sourceParticipant.parties.list(partyId.filterString).flatMap(_.participants).isEmpty,
+        // above code will only work if we are managing the party ourselves. otherwise, we need some help
+        s"Cannot disable party $partyId completely. Ask your identity manager for help.",
+      )
     }
-
-    // there's a gap between having received the transaction, but it hasn't been fully processed yet,
-    // so the node status will return that the node is idle, when that's not really the case.
-    // to avoid flakiness for now, we'll retry
-    ConsoleMacros.utils.retry_until_true(env.commandTimeouts.bounded)(
-      condition =
-        sourceParticipant.parties.list(partyId.filterString).flatMap(_.participants).isEmpty,
-      // above code will only work if we are managing the party ourselves. otherwise, we need some help
-      s"Cannot disable party $partyId completely. Ask your identity manager for help.",
-    )
   }
 
   private def ensureTargetPartyToParticipantIsPermissioned(
@@ -488,7 +507,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
       participant: ParticipantReference,
       targetParticipantId: ParticipantId,
       synchronizerIds: Set[SynchronizerId],
-  )(implicit env: ConsoleEnvironment): Unit = {
+  ): Unit = {
     noTracingLogger.info(
       s"Participant '${participant.id}' is ensuring that the party '$partyId' is enabled on the target '$targetParticipantId'"
     )
@@ -529,8 +548,6 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
           .discard
       }
     }
-    ConsoleMacros.utils.synchronize_topology()
-
   }
 
   private def readGrouped(

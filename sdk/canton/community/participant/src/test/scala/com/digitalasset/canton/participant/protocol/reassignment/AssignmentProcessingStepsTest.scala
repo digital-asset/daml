@@ -963,7 +963,6 @@ class AssignmentProcessingStepsTest
         targetMediator,
         unassignmentResult,
         uuid,
-        Source(testedProtocolVersion),
         Target(testedProtocolVersion),
         reassigningParticipants = reassigningParticipants,
       )

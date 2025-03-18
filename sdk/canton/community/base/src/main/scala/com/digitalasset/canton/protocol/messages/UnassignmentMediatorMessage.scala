@@ -16,6 +16,7 @@ import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
+  ProtocolVersionValidation,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
   VersioningCompanionContext,
@@ -33,6 +34,10 @@ import java.util.UUID
 final case class UnassignmentMediatorMessage(
     tree: UnassignmentViewTree,
     override val submittingParticipantSignature: Signature,
+)(
+    val representativeProtocolVersion: RepresentativeProtocolVersion[
+      UnassignmentMediatorMessage.type
+    ]
 ) extends ReassignmentMediatorMessage {
   require(tree.commonData.isFullyUnblinded, "The unassignment common data must be unblinded")
   require(tree.view.isBlinded, "The unassignment view must be blinded")
@@ -40,12 +45,6 @@ final case class UnassignmentMediatorMessage(
   protected[this] val commonData: UnassignmentCommonData = tree.commonData.tryUnwrap
 
   override def submittingParticipant: ParticipantId = tree.submittingParticipant
-
-  val protocolVersion: Source[ProtocolVersion] = commonData.sourceProtocolVersion
-
-  override val representativeProtocolVersion
-      : RepresentativeProtocolVersion[UnassignmentMediatorMessage.type] =
-    UnassignmentMediatorMessage.protocolVersionRepresentativeFor(protocolVersion.unwrap)
 
   override def synchronizerId: SynchronizerId = commonData.sourceSynchronizerId.unwrap
 
@@ -75,7 +74,7 @@ final case class UnassignmentMediatorMessage(
 object UnassignmentMediatorMessage
     extends VersioningCompanionContext[
       UnassignmentMediatorMessage,
-      (HashOps, Source[ProtocolVersion]),
+      (HashOps, Source[ProtocolVersionValidation]),
     ] {
 
   val versioningTable: VersioningTable = VersioningTable(
@@ -87,7 +86,7 @@ object UnassignmentMediatorMessage
     )
   )
 
-  def fromProtoV30(context: (HashOps, Source[ProtocolVersion]))(
+  def fromProtoV30(context: (HashOps, Source[ProtocolVersionValidation]))(
       unassignmentMediatorMessageP: v30.UnassignmentMediatorMessage
   ): ParsingResult[UnassignmentMediatorMessage] = {
     val v30.UnassignmentMediatorMessage(treePO, submittingParticipantSignaturePO) =
@@ -112,7 +111,8 @@ object UnassignmentMediatorMessage
           submittingParticipantSignaturePO,
         )
         .flatMap(Signature.fromProtoV30)
-    } yield UnassignmentMediatorMessage(tree, submittingParticipantSignature)
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+    } yield UnassignmentMediatorMessage(tree, submittingParticipantSignature)(rpv)
   }
 
   override def name: String = "UnassignmentMediatorMessage"

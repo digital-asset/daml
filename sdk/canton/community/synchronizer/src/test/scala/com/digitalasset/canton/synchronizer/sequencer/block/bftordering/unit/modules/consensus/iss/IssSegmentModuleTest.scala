@@ -1317,7 +1317,10 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
 
         // Run the pipeToSelf, should then store the PrePrepare and send the Prepare
         val prePrareStored =
-          PrePrepareStored(remotePrePrepare.message.blockMetadata, ViewNumber.First)
+          MessageFromPipeToSelf(
+            Some(PrePrepareStored(remotePrePrepare.message.blockMetadata, ViewNumber.First)),
+            FutureId(1),
+          )
         context.runPipedMessages() should contain only prePrareStored
         context.blockingAwait(store.loadEpochProgress(epochInfo)) shouldBe EpochInProgress(
           Seq.empty,
@@ -1347,7 +1350,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { message =>
           message shouldBe MessageFromPipeToSelf(
             Some(preparesStored),
-            FutureId(2),
+            FutureId(3),
           )
         }
         val progress = context.blockingAwait(store.loadEpochProgress(epochInfo))

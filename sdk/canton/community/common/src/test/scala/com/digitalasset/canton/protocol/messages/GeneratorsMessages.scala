@@ -213,14 +213,17 @@ final class GeneratorsMessages(
     for {
       tree <- Arbitrary.arbitrary[AssignmentViewTree]
       submittingParticipantSignature <- Arbitrary.arbitrary[Signature]
-    } yield AssignmentMediatorMessage(tree, submittingParticipantSignature)
+    } yield AssignmentMediatorMessage(tree, submittingParticipantSignature)(
+      AssignmentMediatorMessage.protocolVersionRepresentativeFor(protocolVersion)
+    )
   )
 
   private val unassignmentMediatorMessageArb: Arbitrary[UnassignmentMediatorMessage] = Arbitrary(
     for {
       tree <- Arbitrary.arbitrary[UnassignmentViewTree]
       submittingParticipantSignature <- Arbitrary.arbitrary[Signature]
-    } yield UnassignmentMediatorMessage(tree, submittingParticipantSignature)
+      rpv = UnassignmentMediatorMessage.protocolVersionRepresentativeFor(protocolVersion)
+    } yield UnassignmentMediatorMessage(tree, submittingParticipantSignature)(rpv)
   )
 
   implicit val rootHashMessageArb: Arbitrary[RootHashMessage[RootHashMessagePayload]] =

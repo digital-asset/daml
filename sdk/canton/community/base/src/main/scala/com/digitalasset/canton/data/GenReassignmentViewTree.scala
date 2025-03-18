@@ -10,7 +10,7 @@ import com.digitalasset.canton.data.MerkleTree.{BlindSubtree, RevealIfNeedBe, Re
 import com.digitalasset.canton.protocol.{ViewHash, v30}
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.version.HasProtocolVersionedWrapper
+import com.digitalasset.canton.version.{HasProtocolVersionedWrapper, ProtocolVersion}
 import com.google.protobuf.ByteString
 
 /** A reassignment request tree has two children: The `commonData` for the mediator and the involved
@@ -40,20 +40,22 @@ abstract class GenReassignmentViewTree[
     * revealed.
     */
   def mediatorMessage(
-      submittingParticipantSignature: Signature
+      submittingParticipantSignature: Signature,
+      protocolVersion: ProtocolVersion,
   ): MediatorMessage = {
     val blinded = blind {
       case root if root eq this => RevealIfNeedBe
       case `commonData` => RevealSubtree
       case `participantData` => BlindSubtree
     }
-    createMediatorMessage(blinded.tryUnwrap, submittingParticipantSignature)
+    createMediatorMessage(blinded.tryUnwrap, submittingParticipantSignature, protocolVersion)
   }
 
   /** Creates the mediator message from an appropriately blinded reassignment view tree. */
   protected[this] def createMediatorMessage(
       blindedTree: Tree,
       submittingParticipantSignature: Signature,
+      protocolVersion: ProtocolVersion,
   ): MediatorMessage
 }
 
