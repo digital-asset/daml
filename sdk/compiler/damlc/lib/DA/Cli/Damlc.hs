@@ -883,10 +883,9 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
     pkgPath <- liftIO getCanonDefaultProjectPath
     mPkgConfig <- ContT $ withMaybeConfig $ withPackageConfig pkgPath
     liftIO $ if getEnableMultiPackage enableMultiPackage then do
+      -- If running build --all, search from invocation location, as package location is irrelevant
       mMultiPackagePath <- getMultiPackagePath multiPackageLocation $ if getMultiPackageBuildAll buildAll then Just execPath else Nothing
       -- At this point, if mMultiPackagePath is Just, we know it points to a multi-package.yaml
-      -- TODO: For regular build, its important that we look from the package
-      -- for build --all, "current package" has no significance, and we should instead search from run dir
 
       case (getMultiPackageBuildAll buildAll, mPkgConfig, mMultiPackagePath) of
         -- We're attempting to multi-package build --all, so we require that we have a multi-package.yaml, but do not care if we have a daml.yaml

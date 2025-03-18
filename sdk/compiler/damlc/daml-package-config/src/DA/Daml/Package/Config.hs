@@ -197,7 +197,6 @@ withPackageConfig projectPath f = do
 findMultiPackageConfig :: ProjectPath -> IO (Maybe ProjectPath)
 findMultiPackageConfig projectPath = do
   filePath <- canonicalizePath $ unwrapProjectPath projectPath
-  hPutStrLn stderr filePath
   flip loopM filePath $ \path -> do
     hasMultiPackage <- doesFileExist $ path </> multiPackageConfigName
     if hasMultiPackage
