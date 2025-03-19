@@ -218,7 +218,7 @@ typeOfBuiltin = \case
   BEUnit             -> pure TUnit
   BEBool _           -> pure TBool
   BERoundingMode _   -> pure TRoundingMode
-  BEFailureCategory _   -> pure TFailureCategory
+  BEFailureCategory _ -> pure TFailureCategory
   BEError            -> pure $ TForall (alpha, KStar) (TText :-> tAlpha)
   BEAnyExceptionMessage -> pure $ TAnyException :-> TText
   BEEqual     -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)

@@ -162,6 +162,7 @@ instance Applicative Update where
 instance Action Update where
     (>>=) = primitive @"UBind"
 
+-- | Fail with a failure status in a pure context
 failWithStatusPure : FailureStatus -> a
 failWithStatusPure = primitive @"EFailWithStatus"
 
