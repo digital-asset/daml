@@ -23,6 +23,8 @@ option java_package = "com.daml.ledger.api.v2";
 // children of events which have witnesses.
 message TreeEvent {
   oneof kind {
+    // The event as it appeared in the context of its original daml transaction on this participant node.
+    // In particular, the offset, node_id pair of the daml transaction are preserved.
     CreatedEvent created = 1;
     ExercisedEvent exercised = 2;
   }

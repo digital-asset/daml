@@ -44,5 +44,6 @@ package object modules {
   private[unit] def fakeCancellableEventExpectingSilence: CancellableEvent =
     () => fail("Module should not cancel delayed event")
 
-  private[unit] def fakeCryptoProvider[E <: Env[E]]: CryptoProvider[E] = new FakeCryptoProvider()
+  private[unit] def failingCryptoProvider[E <: Env[E]]: CryptoProvider[E] =
+    new FailingCryptoProvider()
 }

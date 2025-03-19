@@ -5,7 +5,10 @@ package com.digitalasset.canton.util
 
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.util.LazyValWithContextTest.ClassUsingLazyValWithContext
+import com.digitalasset.canton.util.LazyValWithContextTest.{
+  ClassUsingLazyValWithContext,
+  ClassUsingRecursiveLazyValWithContext,
+}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -67,19 +70,37 @@ class LazyValWithContextTest extends AnyWordSpec with BaseTest with HasExecution
       sut.lazyVal(1) shouldBe "abc"
       stash.future.futureValue shouldBe "abc"
     }
+
+    "initialize multiple times when the initializer recurses" in {
+      // This test shows that the `synchronized` block is re-entrant.
+      // The same behavior can be observed with ordinary lazy vals in Scala.
+      val sut = new ClassUsingRecursiveLazyValWithContext()
+      sut.lazyVal(2) shouldBe "foo2"
+      sut.state.get shouldBe 2
+    }
   }
 }
 
 object LazyValWithContextTest {
-  type Context = Int
-  type T = String
+  private type Context = Int
+  private type T = String
 
-  class ClassUsingLazyValWithContext(initializer: Context => T) {
+  private class ClassUsingLazyValWithContext(initializer: Context => T) {
     val _lazyVal: LazyValWithContext[T, Context] = new LazyValWithContext[T, Context](initializer)
     def lazyVal(context: Int): String = _lazyVal.get(context)
   }
-  object ClassUsingLazyValWithContext {
+  private object ClassUsingLazyValWithContext {
     def apply(initializer: Context => T): ClassUsingLazyValWithContext =
       new ClassUsingLazyValWithContext(initializer)
+  }
+
+  private class ClassUsingRecursiveLazyValWithContext {
+    val state = new AtomicInteger(0)
+
+    val _lazyVal: LazyValWithContext[T, Context] = new LazyValWithContext[T, Context]({ context =>
+      val newState = state.incrementAndGet()
+      if (newState == 1) lazyVal(context) else s"foo$newState"
+    })
+    def lazyVal(context: Int): String = _lazyVal.get(context)
   }
 }

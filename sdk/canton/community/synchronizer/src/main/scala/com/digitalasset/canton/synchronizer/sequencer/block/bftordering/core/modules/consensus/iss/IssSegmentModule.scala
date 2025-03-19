@@ -271,7 +271,7 @@ class IssSegmentModule[E <: Env[E]](
           if (leaderSegmentState.exists(_.moreSlotsToAssign))
             initiatePull(orderedBatchIds)
           else if (orderedBatchIds.nonEmpty)
-            availability.asyncSend(Availability.Consensus.Ack(orderedBatchIds))
+            availability.asyncSend(Availability.Consensus.Ordered(orderedBatchIds))
         }
 
         // Some block completion logic is in the parent ISS consensus module,
@@ -558,7 +558,7 @@ class IssSegmentModule[E <: Env[E]](
     }
 
   private def initiatePull(
-      ackedBatchIds: Seq[BatchId] = Seq.empty
+      orderedBatchIds: Seq[BatchId] = Seq.empty
   )(implicit traceContext: TraceContext): Unit = {
     logger.debug("Consensus requesting new proposal from local availability")
     availability.asyncSend(
@@ -566,7 +566,7 @@ class IssSegmentModule[E <: Env[E]](
         epoch.currentMembership.orderingTopology,
         cryptoProvider,
         epoch.info.number,
-        if (ackedBatchIds.nonEmpty) Some(Availability.Consensus.Ack(ackedBatchIds)) else None,
+        orderedBatchIds,
       )
     )
   }

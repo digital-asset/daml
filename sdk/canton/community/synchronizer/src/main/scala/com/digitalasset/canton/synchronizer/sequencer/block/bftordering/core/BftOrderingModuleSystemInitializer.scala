@@ -277,6 +277,8 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
       // Use the previous topology (not containing this node) as current topology when onboarding.
       //  This prevents relying on newly onboarded nodes for state transfer.
       currentTopology = if (onboarding) previousTopology else initialTopology,
+      // Note that, when onboarding, the crypto provider corresponds to the onboarding node activation timestamp
+      //  (so that its signing key is present), and, as a consequence, it might be more recent than the current topology.
       initialCryptoProvider,
       currentLeaders = if (onboarding) previousLeaders else initialLeaders,
       previousTopology,

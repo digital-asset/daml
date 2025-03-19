@@ -93,6 +93,30 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
       checkOutput(processLogger, shouldContain = Seq("Canton sandbox is ready"))
     }
 
+    "successfully start canton sandbox on bespoke ports" in { processLogger =>
+      val portNames = List(
+        "ledger-api-port",
+        "admin-api-port",
+        "json-api-port",
+        "sequencer-public-port",
+        "sequencer-admin-port",
+        "mediator-admin-port",
+      )
+      val portNamesWithValues = portNames.zip(5500 until 5500 + portNames.length)
+      val portsArgString = portNamesWithValues.foldLeft("") { (acc, elem) =>
+        acc + s"--${elem._1} ${elem._2} "
+      }
+      val portsAsserts = portNamesWithValues.map(elem => s"port=\"${elem._2}\"")
+      val sandboxLogName = "log/new-sandbox.log"
+      Process(s"rm -f $sandboxLogName", Some(new java.io.File(cantonDir))) !;
+      s"$cantonBin sandbox --exit-after-bootstrap $portsArgString --log-file-name $sandboxLogName" ! processLogger
+      checkOutput(processLogger, Seq("Canton sandbox is ready"))
+      val logFile = File(sandboxLogName)
+      assert(logFile.exists)
+      val contents = logFile.contentAsString
+      portsAsserts.foreach(portLine => assert(contents.contains(portLine)))
+    }
+
     "successfully start a Canton node when configured only using -C" in { processLogger =>
       s"""$cantonBin
           | -C canton.participants.participant1.storage.type=memory

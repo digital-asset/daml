@@ -25,6 +25,8 @@ option java_package = "com.daml.ledger.api.v2";
 // in question.
 message Event {
   oneof event {
+    // The event as it appeared in the context of its original daml transaction on this participant node.
+    // In particular, the offset, node_id pair of the daml transaction are preserved.
     CreatedEvent created = 1;
     ArchivedEvent archived = 2;
     ExercisedEvent exercised = 3;
@@ -33,14 +35,14 @@ message Event {
 
 // Records that a contract has been created, and choices may now be exercised on it.
 message CreatedEvent {
-  // The offset of origin, which has contextual meaning, please see description at usage.
+  // The offset of origin, which has contextual meaning, please see description at messages that include a CreatedEvent.
   // Offsets are managed by the participant nodes.
   // Transactions can thus NOT be assumed to have the same offsets on different participant nodes.
   // Required, it is a valid absolute offset (positive integer)
   int64 offset = 1;
 
   // The position of this event in the originating transaction or reassignment.
-  // The origin has contextual meaning, please see description at usage.
+  // The origin has contextual meaning, please see description at messages that include a CreatedEvent.
   // Node ids are not necessarily equal across participants,
   // as these may see different projections/parts of transactions.
   // Required, must be valid node ID (non-negative integer)

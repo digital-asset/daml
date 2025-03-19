@@ -330,7 +330,7 @@ class StateTransferBehaviorTest
           val segmentModuleRefFactory = createSegmentModuleRefFactory(segmentModuleFactoryFunction)(
             context,
             epoch,
-            fakeCryptoProvider,
+            failingCryptoProvider,
             latestCompletedEpochFromStore.lastBlockCommits,
             epochStore.loadEpochProgress(latestEpochFromStore.info)(TraceContext.empty)(),
           )
@@ -409,7 +409,7 @@ object StateTransferBehaviorTest {
 
   private val anOrderingTopology = aMembership.orderingTopology
   private val aFakeCryptoProviderInstance: CryptoProvider[ProgrammableUnitTestEnv] =
-    fakeCryptoProvider
+    failingCryptoProvider
   private val aTopologyInfo = OrderingTopologyInfo[ProgrammableUnitTestEnv](
     myId,
     anOrderingTopology,

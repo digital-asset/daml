@@ -4,7 +4,11 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.DisseminationProgress.reviewAcks
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  EpochNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
   AvailabilityAck,
   BatchId,
@@ -19,14 +23,59 @@ import scala.collection.mutable
 final case class DisseminationProgress(
     orderingTopology: OrderingTopology,
     batchMetadata: InProgressBatchMetadata,
-    votes: Set[AvailabilityAck],
+    acks: Set[AvailabilityAck],
 ) {
 
-  def proofOfAvailability(): Option[ProofOfAvailability] =
-    if (AvailabilityModule.hasQuorum(orderingTopology, votes.size))
-      Some(ProofOfAvailability(batchMetadata.batchId, votes.toSeq, batchMetadata.expirationTime))
+  // We allow dissemination progress with acks not in the topology to allow dissemination
+  //  when the node is not part of the topology yet during onboarding, but we always
+  //  produce valid PoAs.
+
+  def proofOfAvailability(): Option[ProofOfAvailability] = {
+    val reviewedAcks = reviewAcks(acks, orderingTopology)
+    if (AvailabilityModule.hasQuorum(orderingTopology, reviewedAcks.size))
+      Some(
+        ProofOfAvailability(batchMetadata.batchId, reviewedAcks.toSeq, batchMetadata.expirationTime)
+      )
     else
       None
+  }
+
+  def voteOf(nodeId: BftNodeId): Option[AvailabilityAck] =
+    acks.find(_.from == nodeId)
+
+  def review(currentOrderingTopology: OrderingTopology): DisseminationProgress =
+    copy(
+      orderingTopology = currentOrderingTopology,
+      acks = reviewAcks(acks, currentOrderingTopology),
+    )
+}
+
+object DisseminationProgress {
+
+  // TODO(#24403): test this method
+  def reviewReadyForOrdering(
+      batchMetadata: DisseminatedBatchMetadata,
+      orderingTopology: OrderingTopology,
+  ): DisseminationProgress = {
+    val inProgressMetadata =
+      InProgressBatchMetadata(
+        batchMetadata.proofOfAvailability.batchId,
+        batchMetadata.expirationTime,
+        batchMetadata.stats,
+      )
+    val reviewedAcks = reviewAcks(batchMetadata.proofOfAvailability.acks, orderingTopology)
+    DisseminationProgress(
+      orderingTopology,
+      inProgressMetadata,
+      reviewedAcks,
+    )
+  }
+
+  private def reviewAcks(
+      acks: Iterable[AvailabilityAck],
+      currentOrderingTopology: OrderingTopology,
+  ): Set[AvailabilityAck] =
+    acks.filter(_.validateIn(currentOrderingTopology).isRight).toSet
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.Var"))

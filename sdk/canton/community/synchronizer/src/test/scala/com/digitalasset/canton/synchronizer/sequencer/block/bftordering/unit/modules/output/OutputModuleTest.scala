@@ -633,7 +633,7 @@ class OutputModuleTest
                 topologyActivationTime,
                 areTherePendingCantonTopologyChanges = pendingChanges,
               )
-            val newCryptoProvider = fakeCryptoProvider[ProgrammableUnitTestEnv]
+            val newCryptoProvider = failingCryptoProvider[ProgrammableUnitTestEnv]
             when(topologyProviderMock.getOrderingTopologyAt(topologyActivationTime))
               .thenReturn(() => Some((newOrderingTopology, newCryptoProvider)))
             val subscriptionBlocks = mutable.Queue.empty[BlockFormat.Block]
@@ -779,7 +779,7 @@ class OutputModuleTest
           )
         val aNewMembership =
           Membership(BftNodeId("node1"), anOrderingTopology, Seq(BftNodeId("node1")))
-        val aCryptoProvider = fakeCryptoProvider[ProgrammableUnitTestEnv]
+        val aCryptoProvider = failingCryptoProvider[ProgrammableUnitTestEnv]
         output.receive(
           TopologyFetched(
             aBlockMode,
@@ -1151,7 +1151,7 @@ class OutputModuleTest
         BlockNumber(initialHeight),
         previousBftTimeForOnboarding,
         areTherePendingTopologyChangesInOnboardingEpoch,
-        fakeCryptoProvider,
+        failingCryptoProvider,
         initialOrderingTopology,
       )
     new OutputModule(

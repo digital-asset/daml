@@ -426,6 +426,16 @@ class GrpcSequencerService(
       toVersionSubscriptionResponseV0,
     )
 
+  override def subscribeV2(
+      request: v30.SubscriptionRequestV2,
+      responseObserver: StreamObserver[v30.SubscriptionResponse],
+  ): Unit =
+    subscribeInternalV2[v30.SubscriptionResponse](
+      request,
+      responseObserver,
+      toVersionSubscriptionResponseV0,
+    )
+
   private def subscribeInternal[T](
       request: v30.SubscriptionRequest,
       responseObserver: StreamObserver[T],
@@ -454,6 +464,49 @@ class GrpcSequencerService(
                 member,
                 authenticationTokenO.map(_.expireAt),
                 offset,
+                observer,
+                toSubscriptionResponse,
+              ),
+            member,
+          )
+          .leftMap { case SubscriptionPool.PoolClosed =>
+            Status.UNAVAILABLE.withDescription("Subscription pool is closed.")
+          }
+      } yield ()
+      result.fold(err => responseObserver.onError(err.asException()), identity)
+    }
+  }
+
+  private def subscribeInternalV2[T](
+      request: v30.SubscriptionRequestV2,
+      responseObserver: StreamObserver[T],
+      toSubscriptionResponse: OrdinarySerializedEvent => T,
+  ): Unit = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    withServerCallStreamObserver(responseObserver) { observer =>
+      val result = for {
+        subscriptionRequest <- SubscriptionRequestV2
+          .fromProtoV30(request)
+          .left
+          .map(err => invalidRequest(err.toString))
+        SubscriptionRequestV2(member, timestamp) = subscriptionRequest
+        _ = logger.debug(
+          s"Received subscription request from $member for timestamp (inclusive) $timestamp"
+        )
+        _ <- Either.cond(
+          !isClosing,
+          (),
+          Status.UNAVAILABLE.withDescription("Sequencer is being shutdown."),
+        )
+        _ <- checkSubscriptionMemberPermission(member)
+        authenticationTokenO = IdentityContextHelper.getCurrentStoredAuthenticationToken
+        _ <- subscriptionPool
+          .create(
+            () =>
+              createSubscriptionV2[T](
+                member,
+                authenticationTokenO.map(_.expireAt),
+                timestamp,
                 observer,
                 toSubscriptionResponse,
               ),
@@ -528,6 +581,26 @@ class GrpcSequencerService(
     logger.info(s"$member subscribes from counter=$counter")
     new GrpcManagedSubscription(
       handler => directSequencerSubscriptionFactory.create(counter, member, handler),
+      observer,
+      member,
+      expireAt,
+      timeouts,
+      loggerFactory,
+      toSubscriptionResponse,
+    )
+  }
+
+  private def createSubscriptionV2[T](
+      member: Member,
+      expireAt: Option[CantonTimestamp],
+      timestamp: Option[CantonTimestamp],
+      observer: ServerCallStreamObserver[T],
+      toSubscriptionResponse: OrdinarySerializedEvent => T,
+  )(implicit traceContext: TraceContext): GrpcManagedSubscription[T] = {
+
+    logger.info(s"$member subscribes from timestamp=$timestamp")
+    new GrpcManagedSubscription(
+      handler => directSequencerSubscriptionFactory.createV2(timestamp, member, handler),
       observer,
       member,
       expireAt,

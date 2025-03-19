@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mo
 
 import cats.syntax.either.*
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.crypto.{Signature, SignatureCheckError}
+import com.digitalasset.canton.crypto.{Hash, Signature, SignatureCheckError}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -48,6 +48,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   OrderingRequestBatch,
   OrderingRequestBatchStats,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Availability.LocalDissemination.LocalBatchStoredSigned
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Availability.{
   LocalDissemination,
   LocalOutputFetch,
@@ -66,7 +67,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.UnitTestContext.DelayCount
 import com.digitalasset.canton.time.{Clock, SimClock}
-import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.event.Level
@@ -95,7 +96,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
   private val ABatchId = BatchId.from(ABatch)
   private val anExpirationTime = CantonTimestamp.MaxValue
   private val AnInProgressBatchMetadata =
-    InProgressBatchMetadata(ABatchId, ABatch.stats, anExpirationTime)
+    InProgressBatchMetadata(ABatchId, anExpirationTime, ABatch.stats)
   private val WrongBatchId = BatchId.createForTesting("Wrong BatchId")
   private val ABlockMetadata: BlockMetadata =
     BlockMetadata.mk(
@@ -140,9 +141,10 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
   private val FirstFourNodesQuorumAcks = (0 until quorum(numberOfNodes = 4)).map { idx =>
     AvailabilityAck(from = node(idx), Signature.noSignature)
   }
-  private val Nodes4To6QuorumAcks = (4 until quorum(numberOfNodes = 7)).map { idx =>
-    AvailabilityAck(from = node(idx), Signature.noSignature)
-  }
+  private val Nodes0And4To6QuorumAcks =
+    (Range.inclusive(0, 0) ++ (4 until quorum(numberOfNodes = 7))).map { idx =>
+      AvailabilityAck(from = node(idx), Signature.noSignature)
+    }
   private val Node1And2Acks = Seq(
     AvailabilityAck(from = Node1, Signature.noSignature),
     AvailabilityAck(from = Node2, Signature.noSignature),
@@ -152,7 +154,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     DisseminationProgress(
       OrderingTopologyNode0,
       AnInProgressBatchMetadata,
-      votes = Node0Acks,
+      acks = Node0Acks,
     )
   private val OrderingTopologyNodes0And1 = OrderingTopology.forTesting(Set(Node0, Node1))
 
@@ -164,7 +166,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     DisseminationProgress(
       OrderingTopologyNodes0And1,
       AnInProgressBatchMetadata,
-      votes = Node0And1Acks.toSet,
+      acks = Node0And1Acks.toSet,
     )
   private val OrderingTopologyNodes0To3 = OrderingTopology.forTesting(Node0To3)
   private val ADisseminationProgressNode0To3WithNode0Vote =
@@ -190,7 +192,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     }
   private val ADisseminationProgressNode0To6WithNonQuorumVotes =
     ADisseminationProgressNode0To6WithNode0Vote.copy(
-      votes = (0 until quorum(numberOfNodes = 7) - 1).map { idx =>
+      acks = (0 until quorum(numberOfNodes = 7) - 1).map { idx =>
         AvailabilityAck(from = node(idx), Signature.noSignature)
       }.toSet
     )
@@ -222,8 +224,8 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
   private val BatchReadyForOrderingNode0Vote =
     ABatchId -> InProgressBatchMetadata(
       ABatchId,
-      ABatch.stats,
       anExpirationTime,
+      ABatch.stats,
     ).complete(ProofOfAvailabilityNode0AckNode0InTopology.acks)
   private val ABatchProposalNode0VoteNode0InTopology = Consensus.LocalAvailability.ProposalCreated(
     OrderingBlock(
@@ -231,46 +233,46 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     ),
     EpochNumber.First,
   )
-  private val ABatchProposalNode0VoteNode0To2InTopology =
+  private val ABatchProposalNode0VoteNodes0To2InTopology =
     Consensus.LocalAvailability.ProposalCreated(
       OrderingBlock(
         Seq(ProofOfAvailabilityNode0AckNode0To2InTopology)
       ),
       EpochNumber.First,
     )
-  private val ProofOfAvailabilityNode0And1VotesNode1And2InTopology = ProofOfAvailability(
+  private val ProofOfAvailabilityNode0And1VotesNodes0And1InTopology = ProofOfAvailability(
     ABatchId,
     Node0And1Acks,
     anExpirationTime,
   )
-  private val ProofOfAvailability4NodesQuorumVotesNode0To3InTopology = ProofOfAvailability(
+  private val ProofOfAvailability4NodesQuorumVotesNodes0To3InTopology = ProofOfAvailability(
     ABatchId,
     FirstFourNodesQuorumAcks,
     anExpirationTime,
   )
-  private val ProofOfAvailability6NodesQuorumVotesNode4To6InTopology = ProofOfAvailability(
+  private val ProofOfAvailability6NodesQuorumVotesNodes0And4To6InTopology = ProofOfAvailability(
     ABatchId,
-    Nodes4To6QuorumAcks,
+    Nodes0And4To6QuorumAcks,
     anExpirationTime,
   )
   private val BatchReadyForOrderingNode0And1Votes =
-    ABatchId -> InProgressBatchMetadata(ABatchId, ABatch.stats, anExpirationTime)
-      .complete(ProofOfAvailabilityNode0And1VotesNode1And2InTopology.acks)
+    ABatchId -> InProgressBatchMetadata(ABatchId, anExpirationTime, ABatch.stats)
+      .complete(ProofOfAvailabilityNode0And1VotesNodes0And1InTopology.acks)
   private val BatchReadyForOrdering4NodesQuorumVotes =
-    ABatchId -> InProgressBatchMetadata(ABatchId, ABatch.stats, anExpirationTime)
-      .complete(ProofOfAvailability4NodesQuorumVotesNode0To3InTopology.acks)
-  private val AnotherBatchReadyForOrdering6NodesQuorumNodes4To6Votes =
-    AnotherBatchId -> InProgressBatchMetadata(AnotherBatchId, ABatch.stats, anExpirationTime)
-      .complete(ProofOfAvailability6NodesQuorumVotesNode4To6InTopology.acks)
+    ABatchId -> InProgressBatchMetadata(ABatchId, anExpirationTime, ABatch.stats)
+      .complete(ProofOfAvailability4NodesQuorumVotesNodes0To3InTopology.acks)
+  private val AnotherBatchReadyForOrdering6NodesQuorumNodes0And4To6Votes =
+    AnotherBatchId -> InProgressBatchMetadata(AnotherBatchId, anExpirationTime, ABatch.stats)
+      .complete(ProofOfAvailability6NodesQuorumVotesNodes0And4To6InTopology.acks)
   private val ABatchProposalNode0And1Votes = Consensus.LocalAvailability.ProposalCreated(
     OrderingBlock(
-      Seq(ProofOfAvailabilityNode0And1VotesNode1And2InTopology)
+      Seq(ProofOfAvailabilityNode0And1VotesNodes0And1InTopology)
     ),
     EpochNumber.First,
   )
   private val ABatchProposal4NodesQuorumVotes = Consensus.LocalAvailability.ProposalCreated(
     OrderingBlock(
-      Seq(ProofOfAvailability4NodesQuorumVotesNode0To3InTopology)
+      Seq(ProofOfAvailability4NodesQuorumVotesNodes0To3InTopology)
     ),
     EpochNumber.First,
   )
@@ -294,6 +296,11 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
   private val AMissingBatchStatusFromStateTransferWithNoAttemptsLeft =
     AMissingBatchStatusNode1And2AcksWithNoAttemptsLeft
       .copy(mode = OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock)
+  private val AToBeProvidedToConsensus =
+    ToBeProvidedToConsensus(
+      BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
+      EpochNumber.First,
+    )
 
   private implicit val fakeTimerIgnoringUnitTestContext
       : IgnoringUnitTestContext[Availability.Message[IgnoringUnitTestEnv]] =
@@ -326,22 +333,24 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     "there are no other nodes (so, F == 0)" should {
       "clear dissemination progress and " +
         "mark the batch ready for ordering" in {
+          implicit val ctx
+              : ProgrammableUnitTestContext[Availability.Message[ProgrammableUnitTestEnv]] =
+            new ProgrammableUnitTestContext()
           val disseminationProtocolState = new DisseminationProtocolState()
 
-          val cryptoProvider = mock[CryptoProvider[IgnoringUnitTestEnv]]
+          val cryptoProvider = newMockCrypto
+
           val me = Node0
-          val availability = createAvailability[IgnoringUnitTestEnv](
+          val availability = createAvailability[ProgrammableUnitTestEnv](
             disseminationProtocolState = disseminationProtocolState,
             myId = me,
             cryptoProvider = cryptoProvider,
           )
-          availability.receive(LocalDissemination.LocalBatchStored(ABatchId, ABatch))
+          availability.receive(LocalDissemination.LocalBatchesStored(Seq(ABatchId -> ABatch)))
+          ctx.runPipedMessagesAndReceiveOnModule(availability) // Perform signing
+
           verify(cryptoProvider).signHash(
             AvailabilityAck.hashFor(ABatchId, anExpirationTime, me)
-          )
-
-          availability.receive(
-            LocalDissemination.LocalBatchStoredSigned(ABatchId, ABatch, Signature.noSignature)
           )
 
           disseminationProtocolState.disseminationProgress should be(empty)
@@ -355,24 +364,25 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     "there are no consensus requests and " +
     "F > 0" should {
       "just update dissemination progress" in {
+        implicit val ctx
+            : ProgrammableUnitTestContext[Availability.Message[ProgrammableUnitTestEnv]] =
+          new ProgrammableUnitTestContext()
         val disseminationProtocolState = new DisseminationProtocolState()
 
         val me = Node0
-        val cryptoProvider = mock[CryptoProvider[IgnoringUnitTestEnv]]
-        val availability = createAvailability[IgnoringUnitTestEnv](
+        val cryptoProvider = newMockCrypto
+
+        val availability = createAvailability[ProgrammableUnitTestEnv](
           otherNodes = Node1To3,
           myId = me,
           cryptoProvider = cryptoProvider,
           disseminationProtocolState = disseminationProtocolState,
         )
-        availability.receive(LocalDissemination.LocalBatchStored(ABatchId, ABatch))
+        availability.receive(LocalDissemination.LocalBatchesStored(Seq(ABatchId -> ABatch)))
+        ctx.runPipedMessagesAndReceiveOnModule(availability) // Perform signing
 
         verify(cryptoProvider).signHash(
           AvailabilityAck.hashFor(ABatchId, anExpirationTime, me)
-        )
-
-        availability.receive(
-          LocalDissemination.LocalBatchStoredSigned(ABatchId, ABatch, Signature.noSignature)
         )
 
         disseminationProtocolState.disseminationProgress should
@@ -386,31 +396,25 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     "there are consensus requests, " +
     "there are no other nodes (so, F == 0) " should {
       "just send proposal to local consensus" in {
+        implicit val ctx
+            : ProgrammableUnitTestContext[Availability.Message[ProgrammableUnitTestEnv]] =
+          new ProgrammableUnitTestContext()
         val disseminationProtocolState = new DisseminationProtocolState()
+        disseminationProtocolState.toBeProvidedToConsensus.addOne(AToBeProvidedToConsensus)
         val consensusCell = new AtomicReference[Option[Consensus.ProtocolMessage]](None)
-
-        disseminationProtocolState.toBeProvidedToConsensus.addOne(
-          ToBeProvidedToConsensus(
-            BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
-            EpochNumber.First,
-          )
-        )
-        val cryptoProvider = mock[CryptoProvider[IgnoringUnitTestEnv]]
+        val cryptoProvider = newMockCrypto
         val me = Node0
-        val availability = createAvailability[IgnoringUnitTestEnv](
+        val availability = createAvailability[ProgrammableUnitTestEnv](
           consensus = fakeCellModule(consensusCell),
           myId = me,
           cryptoProvider = cryptoProvider,
           disseminationProtocolState = disseminationProtocolState,
         )
-        availability.receive(LocalDissemination.LocalBatchStored(ABatchId, ABatch))
+        availability.receive(LocalDissemination.LocalBatchesStored(Seq(ABatchId -> ABatch)))
+        ctx.runPipedMessagesAndReceiveOnModule(availability) // Perform signing
 
         verify(cryptoProvider).signHash(
           AvailabilityAck.hashFor(ABatchId, anExpirationTime, me)
-        )
-
-        availability.receive(
-          LocalDissemination.LocalBatchStoredSigned(ABatchId, ABatch, Signature.noSignature)
         )
 
         disseminationProtocolState.disseminationProgress should be(empty)
@@ -418,7 +422,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         disseminationProtocolState.batchesReadyForOrdering should not be empty
 
         consensusCell.get() should contain(ABatchProposalNode0VoteNode0InTopology)
-        availability.receive(Availability.Consensus.Ack(Seq(ABatchId)))
+        availability.receive(Availability.Consensus.Ordered(Seq(ABatchId)))
         disseminationProtocolState.batchesReadyForOrdering should be(empty)
       }
     }
@@ -430,15 +434,9 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       "send proposal to local consensus and " +
         "broadcast Dissemination.RemoteBatch" in {
           val disseminationProtocolState = new DisseminationProtocolState()
+          disseminationProtocolState.toBeProvidedToConsensus.addOne(AToBeProvidedToConsensus)
           val consensusCell = new AtomicReference[Option[Consensus.ProtocolMessage]](None)
           val p2pNetworkOutCell = new AtomicReference[Option[P2PNetworkOut.Message]](None)
-
-          disseminationProtocolState.toBeProvidedToConsensus.addOne(
-            ToBeProvidedToConsensus(
-              BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
-              EpochNumber.First,
-            )
-          )
           val me = Node0
           val cryptoProvider = spy(ProgrammableUnitTestEnv.noSignatureCryptoProvider)
 
@@ -453,22 +451,24 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             p2pNetworkOut = fakeCellModule(p2pNetworkOutCell),
             disseminationProtocolState = disseminationProtocolState,
           )
-          availability.receive(LocalDissemination.LocalBatchStored(ABatchId, ABatch))
+          availability.receive(LocalDissemination.LocalBatchesStored(Seq(ABatchId -> ABatch)))
 
           verify(cryptoProvider).signHash(
             AvailabilityAck.hashFor(ABatchId, anExpirationTime, me)
           )
 
           availability.receive(
-            LocalDissemination.LocalBatchStoredSigned(ABatchId, ABatch, Signature.noSignature)
+            LocalDissemination.LocalBatchesStoredSigned(
+              Seq(LocalBatchStoredSigned(ABatchId, ABatch, Right(Signature.noSignature)))
+            )
           )
 
           disseminationProtocolState.disseminationProgress should be(empty)
           disseminationProtocolState.toBeProvidedToConsensus should be(empty)
 
           disseminationProtocolState.batchesReadyForOrdering should not be empty
-          consensusCell.get() should contain(ABatchProposalNode0VoteNode0To2InTopology)
-          availability.receive(Availability.Consensus.Ack(Seq(ABatchId)))
+          consensusCell.get() should contain(ABatchProposalNode0VoteNodes0To2InTopology)
+          availability.receive(Availability.Consensus.Ordered(Seq(ABatchId)))
           disseminationProtocolState.batchesReadyForOrdering should be(empty)
 
           p2pNetworkOutCell.get() shouldBe None
@@ -498,14 +498,8 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       "update dissemination progress and " +
         "broadcast Dissemination.RemoteBatch" in {
           val disseminationProtocolState = new DisseminationProtocolState()
+          disseminationProtocolState.toBeProvidedToConsensus.addOne(AToBeProvidedToConsensus)
           val p2pNetworkOutCell = new AtomicReference[Option[P2PNetworkOut.Message]](None)
-
-          disseminationProtocolState.toBeProvidedToConsensus.addOne(
-            ToBeProvidedToConsensus(
-              BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
-              EpochNumber.First,
-            )
-          )
           val me = Node0
           val cryptoProvider = spy(ProgrammableUnitTestEnv.noSignatureCryptoProvider)
           implicit val context
@@ -518,24 +512,22 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             p2pNetworkOut = fakeCellModule(p2pNetworkOutCell),
             disseminationProtocolState = disseminationProtocolState,
           )
-          availability.receive(LocalDissemination.LocalBatchStored(ABatchId, ABatch))
+          availability.receive(LocalDissemination.LocalBatchesStored(Seq(ABatchId -> ABatch)))
 
           verify(cryptoProvider).signHash(
             AvailabilityAck.hashFor(ABatchId, anExpirationTime, me)
           )
 
           availability.receive(
-            LocalDissemination.LocalBatchStoredSigned(ABatchId, ABatch, Signature.noSignature)
+            LocalDissemination.LocalBatchesStoredSigned(
+              Seq(LocalBatchStoredSigned(ABatchId, ABatch, Right(Signature.noSignature)))
+            )
           )
 
           disseminationProtocolState.disseminationProgress should
             contain only ABatchDisseminationProgressNode0To3WithNode0Vote
           disseminationProtocolState.batchesReadyForOrdering should be(empty)
-          disseminationProtocolState.toBeProvidedToConsensus should
-            contain only ToBeProvidedToConsensus(
-              BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
-              EpochNumber.First,
-            )
+          disseminationProtocolState.toBeProvidedToConsensus should contain only AToBeProvidedToConsensus
           p2pNetworkOutCell.get() shouldBe None
           val remoteBatch = RemoteDissemination.RemoteBatch.create(ABatchId, ABatch, Node0)
           verify(cryptoProvider).signMessage(
@@ -836,17 +828,11 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       "reset dissemination progress and " +
         "send proposal to local consensus" in {
           val disseminationProtocolState = new DisseminationProtocolState()
-          val consensusCell = new AtomicReference[Option[Consensus.ProtocolMessage]](None)
-
           disseminationProtocolState.disseminationProgress.addOne(
             ABatchDisseminationProgressNode0And1WithNode0Vote
           )
-          disseminationProtocolState.toBeProvidedToConsensus.addOne(
-            ToBeProvidedToConsensus(
-              BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
-              EpochNumber.First,
-            )
-          )
+          disseminationProtocolState.toBeProvidedToConsensus.addOne(AToBeProvidedToConsensus)
+          val consensusCell = new AtomicReference[Option[Consensus.ProtocolMessage]](None)
           val cryptoProvider = mock[CryptoProvider[IgnoringUnitTestEnv]]
           val availability = createAvailability[IgnoringUnitTestEnv](
             otherNodes = Set(Node1),
@@ -871,7 +857,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           disseminationProtocolState.disseminationProgress should be(empty)
           disseminationProtocolState.toBeProvidedToConsensus should be(empty)
 
-          availability.receive(Availability.Consensus.Ack(Seq(ABatchId)))
+          availability.receive(Availability.Consensus.Ordered(Seq(ABatchId)))
           disseminationProtocolState.batchesReadyForOrdering should be(empty)
         }
     }
@@ -884,17 +870,11 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       "reset dissemination progress and " +
         "send proposal to local consensus" in {
           val disseminationProtocolState = new DisseminationProtocolState()
-          val consensusCell = new AtomicReference[Option[Consensus.ProtocolMessage]](None)
-
           disseminationProtocolState.disseminationProgress.addOne(
             ABatchDisseminationProgressNode0To3WithNode0Vote
           )
-          disseminationProtocolState.toBeProvidedToConsensus.addOne(
-            ToBeProvidedToConsensus(
-              BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
-              EpochNumber.First,
-            )
-          )
+          disseminationProtocolState.toBeProvidedToConsensus.addOne(AToBeProvidedToConsensus)
+          val consensusCell = new AtomicReference[Option[Consensus.ProtocolMessage]](None)
           val cryptoProvider = mock[CryptoProvider[IgnoringUnitTestEnv]]
           val availability = createAvailability[IgnoringUnitTestEnv](
             otherNodes = Node1To3,
@@ -923,7 +903,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           disseminationProtocolState.disseminationProgress should be(empty)
           disseminationProtocolState.toBeProvidedToConsensus should be(empty)
 
-          availability.receive(Availability.Consensus.Ack(Seq(ABatchId)))
+          availability.receive(Availability.Consensus.Ordered(Seq(ABatchId)))
           disseminationProtocolState.batchesReadyForOrdering should be(empty)
         }
     }
@@ -935,16 +915,10 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     "there are consensus requests" should {
       "just update dissemination progress" in {
         val disseminationProtocolState = new DisseminationProtocolState()
-
         disseminationProtocolState.disseminationProgress.addOne(
           ABatchDisseminationProgressNode0To6WithNode0Vote
         )
-        disseminationProtocolState.toBeProvidedToConsensus.addOne(
-          ToBeProvidedToConsensus(
-            BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
-            EpochNumber.First,
-          )
-        )
+        disseminationProtocolState.toBeProvidedToConsensus.addOne(AToBeProvidedToConsensus)
         val cryptoProvider = mock[CryptoProvider[IgnoringUnitTestEnv]]
         val availability = createAvailability[IgnoringUnitTestEnv](
           otherNodes = Node1To6,
@@ -972,11 +946,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         disseminationProtocolState.disseminationProgress should
           contain only ABatchDisseminationProgressNode0To6WithNonQuorumVotes
         disseminationProtocolState.batchesReadyForOrdering should be(empty)
-        disseminationProtocolState.toBeProvidedToConsensus should
-          contain only ToBeProvidedToConsensus(
-            BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
-            EpochNumber.First,
-          )
+        disseminationProtocolState.toBeProvidedToConsensus should contain only AToBeProvidedToConsensus
       }
     }
 
@@ -1489,15 +1459,11 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         )
         availability.receive(
           Availability.Consensus
-            .CreateProposal(OrderingTopologyNode0, fakeCryptoProvider, EpochNumber.First)
+            .CreateProposal(OrderingTopologyNode0, failingCryptoProvider, EpochNumber.First)
         )
 
         disseminationProtocolState.disseminationProgress should be(empty)
-        disseminationProtocolState.toBeProvidedToConsensus should
-          contain only ToBeProvidedToConsensus(
-            BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
-            EpochNumber.First,
-          )
+        disseminationProtocolState.toBeProvidedToConsensus should contain only AToBeProvidedToConsensus
         disseminationProtocolState.batchesReadyForOrdering should be(empty)
 
       }
@@ -1532,15 +1498,11 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
           availability.receive(
             Availability.Consensus
-              .CreateProposal(OrderingTopologyNode0, fakeCryptoProvider, EpochNumber.First)
+              .CreateProposal(OrderingTopologyNode0, failingCryptoProvider, EpochNumber.First)
           )
 
           disseminationProtocolState.disseminationProgress should be(empty)
-          disseminationProtocolState.toBeProvidedToConsensus should
-            contain only ToBeProvidedToConsensus(
-              BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
-              EpochNumber.First,
-            )
+          disseminationProtocolState.toBeProvidedToConsensus should contain only AToBeProvidedToConsensus
           disseminationProtocolState.batchesReadyForOrdering should be(empty)
 
           consensusCell.get() shouldBe None
@@ -1553,7 +1515,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           consensusCell.get() shouldBe None
           timerCell.get() should contain(1 -> Availability.Consensus.LocalClockTick)
 
-          // after enough time has passed and we do a new clock tick, we propose an empty block to consensus
+          // after enough time has passed, and we do a new clock tick, we propose an empty block to consensus
           clock.advance(EmptyBlockCreationInterval.plus(1.micro).toJava)
           availability.receive(Availability.Consensus.LocalClockTick)
 
@@ -1591,8 +1553,8 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             batchesReadyForOrderingRange.map(n =>
               batchIds(n) -> InProgressBatchMetadata(
                 batchIds(n),
-                OrderingRequestBatchStats.ForTesting,
                 anExpirationTime,
+                OrderingRequestBatchStats.ForTesting,
               ).complete(
                 ProofOfAvailabilityNode0AckNode0InTopology.copy(batchId = batchIds(n)).acks
               )
@@ -1615,7 +1577,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
           availability.receive(
             Availability.Consensus
-              .CreateProposal(OrderingTopologyNode0, fakeCryptoProvider, EpochNumber.First)
+              .CreateProposal(OrderingTopologyNode0, failingCryptoProvider, EpochNumber.First)
           )
 
           val batchIdsWithProofsOfAvailabilityReadyForOrdering = batchIdsWithMetadata
@@ -1623,22 +1585,25 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
               0,
               numberOfBatchesReadyForOrdering,
             )
-          val proposedProofsOfAvailability = batchIdsWithProofsOfAvailabilityReadyForOrdering
-            .map(_._2)
-          consensusCell.get() should contain(
-            Consensus.LocalAvailability
-              .ProposalCreated(
-                OrderingBlock(proposedProofsOfAvailability.map(_.proofOfAvailability)),
-                EpochNumber.First,
-              )
-          )
+          val proposedProofsOfAvailability =
+            batchIdsWithProofsOfAvailabilityReadyForOrdering.map(_._2)
+          consensusCell.get() should matchPattern {
+            case Some(
+                  Consensus.LocalAvailability
+                    .ProposalCreated(
+                      OrderingBlock(poas),
+                      EpochNumber.First,
+                    )
+                )
+                if poas.toSet.sizeIs == BftBlockOrdererConfig.DefaultMaxBatchesPerProposal.toInt =>
+          }
           pipeToSelfQueue shouldBe empty
 
           disseminationProtocolState.disseminationProgress should be(empty)
           disseminationProtocolState.toBeProvidedToConsensus should be(empty)
 
           availability.receive(
-            Availability.Consensus.Ack(
+            Availability.Consensus.Ordered(
               proposedProofsOfAvailability.map(_.proofOfAvailability.batchId)
             )
           )
@@ -1672,8 +1637,8 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           (0 until numberOfBatchesReadyForOrdering).map(n =>
             batchIds(n) -> InProgressBatchMetadata(
               batchIds(n),
-              OrderingRequestBatchStats.ForTesting,
               anExpirationTime,
+              OrderingRequestBatchStats.ForTesting,
             ).complete(ProofOfAvailabilityNode0AckNode0InTopology.copy(batchId = batchIds(n)).acks)
           )
         disseminationProtocolState.batchesReadyForOrdering.addAll(
@@ -1685,28 +1650,29 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         )
 
         {
-          val proposedProofsOfAvailability = batchIdsWithMetadata
-            .map(_._2)
-            .take(BftBlockOrdererConfig.DefaultMaxBatchesPerProposal.toInt)
-            .map(_.proofOfAvailability)
-
           availability.receive(
             Availability.Consensus
-              .CreateProposal(OrderingTopologyNode0, fakeCryptoProvider, EpochNumber.First)
+              .CreateProposal(OrderingTopologyNode0, failingCryptoProvider, EpochNumber.First)
           )
-          consensusCell.get() should contain(
-            Consensus.LocalAvailability
-              .ProposalCreated(
-                OrderingBlock(proposedProofsOfAvailability),
-                EpochNumber.First,
-              )
-          )
+          consensusCell.get() should matchPattern {
+            case Some(
+                  Consensus.LocalAvailability
+                    .ProposalCreated(
+                      OrderingBlock(poas),
+                      EpochNumber.First,
+                    )
+                )
+                if poas.toSet.sizeIs == BftBlockOrdererConfig.DefaultMaxBatchesPerProposal.toInt =>
+          }
+          pipeToSelfQueue shouldBe empty
+
+          val proposedProofsOfAvailability = getPoas(consensusCell)
           consensusCell.set(None)
 
           // if we ask for a proposal again without acking the previous response, we'll get the same thing again
           availability.receive(
             Availability.Consensus
-              .CreateProposal(OrderingTopologyNode0, fakeCryptoProvider, EpochNumber.First)
+              .CreateProposal(OrderingTopologyNode0, failingCryptoProvider, EpochNumber.First)
           )
           consensusCell.get() should contain(
             Consensus.LocalAvailability
@@ -1715,15 +1681,17 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
                 EpochNumber.First,
               )
           )
+          pipeToSelfQueue shouldBe empty
+
           consensusCell.set(None)
 
           // now we ask for a new proposal, but ack the previous one
           availability.receive(
             Availability.Consensus.CreateProposal(
               OrderingTopologyNode0,
-              fakeCryptoProvider,
+              failingCryptoProvider,
               EpochNumber.First,
-              Some(Availability.Consensus.Ack(proposedProofsOfAvailability.map(_.batchId))),
+              orderedBatchIds = proposedProofsOfAvailability.map(_.batchId),
             )
           )
 
@@ -1731,13 +1699,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         }
 
         {
-          val proposedProofsOfAvailability = batchIdsWithMetadata
-            .map(_._2)
-            .map(_.proofOfAvailability)
-            .slice(
-              BftBlockOrdererConfig.DefaultMaxBatchesPerProposal.toInt,
-              BftBlockOrdererConfig.DefaultMaxBatchesPerProposal.toInt * 2,
-            )
+          val proposedProofsOfAvailability = getPoas(consensusCell)
 
           consensusCell.get() should contain(
             Consensus.LocalAvailability
@@ -1745,7 +1707,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
 
           availability.receive(
-            Availability.Consensus.Ack(proposedProofsOfAvailability.map(_.batchId))
+            Availability.Consensus.Ordered(proposedProofsOfAvailability.map(_.batchId))
           )
         }
 
@@ -1753,7 +1715,6 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         disseminationProtocolState.toBeProvidedToConsensus should be(empty)
         disseminationProtocolState.batchesReadyForOrdering should be(empty)
       }
-
     }
 
   "it receives Consensus.CreateProposal (from local consensus), " +
@@ -1776,14 +1737,14 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           val numberOfBatchesReadyForOrdering =
             BftBlockOrdererConfig.DefaultMaxBatchesPerProposal.toInt - 2
           val batchIds =
-            (0 to numberOfBatchesReadyForOrdering)
+            (0 until numberOfBatchesReadyForOrdering)
               .map(i => BatchId.createForTesting(s"batch $i"))
           val batchIdsWithMetadata =
-            (0 to numberOfBatchesReadyForOrdering).map(n =>
+            (0 until numberOfBatchesReadyForOrdering).map(n =>
               batchIds(n) -> InProgressBatchMetadata(
                 batchIds(n),
-                OrderingRequestBatchStats.ForTesting,
                 anExpirationTime,
+                OrderingRequestBatchStats.ForTesting,
               ).complete(
                 ProofOfAvailabilityNode0AckNode0InTopology.copy(batchId = batchIds(n)).acks
               )
@@ -1797,7 +1758,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
           availability.receive(
             Availability.Consensus
-              .CreateProposal(OrderingTopologyNode0, fakeCryptoProvider, EpochNumber.First)
+              .CreateProposal(OrderingTopologyNode0, failingCryptoProvider, EpochNumber.First)
           )
 
           disseminationProtocolState.disseminationProgress should be(empty)
@@ -1806,14 +1767,16 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
           val proposedProofsOfAvailability =
             batchIdsWithMetadata.map(_._2).map(_.proofOfAvailability)
-          consensusCell.get() should contain(
-            Consensus.LocalAvailability
-              .ProposalCreated(OrderingBlock(proposedProofsOfAvailability), EpochNumber.First)
-          )
+          consensusCell.get() should matchPattern {
+            case Some(
+                  Consensus.LocalAvailability
+                    .ProposalCreated(OrderingBlock(poas), EpochNumber.First)
+                ) if poas.toSet.sizeIs == numberOfBatchesReadyForOrdering =>
+          }
           pipeToSelfQueue shouldBe empty
 
           availability.receive(
-            Availability.Consensus.Ack(proposedProofsOfAvailability.map(_.batchId))
+            Availability.Consensus.Ordered(proposedProofsOfAvailability.map(_.batchId))
           )
           disseminationProtocolState.batchesReadyForOrdering should be(empty)
         }
@@ -1821,7 +1784,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
   "it receives Consensus.CreateProposal (from local consensus), " +
     "there are no batches ready for ordering but " +
-    "topology changes and " +
+    "topology becomes strictly smaller and " +
     "an in-progress batch is ready in the new topology" should {
       "move the in-progress batch to ready and " +
         "send it in a proposal to local consensus" in {
@@ -1845,7 +1808,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
           availability.receive(
             Availability.Consensus
-              .CreateProposal(OrderingTopologyNodes0To3, fakeCryptoProvider, EpochNumber.First)
+              .CreateProposal(OrderingTopologyNodes0To3, failingCryptoProvider, EpochNumber.First)
           )
 
           disseminationProtocolState.disseminationProgress should be(empty)
@@ -1864,16 +1827,16 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
           pipeToSelfQueue shouldBe empty
 
-          availability.receive(Availability.Consensus.Ack(Seq(poa.batchId)))
+          availability.receive(Availability.Consensus.Ordered(Seq(poa.batchId)))
           disseminationProtocolState.batchesReadyForOrdering should be(empty)
         }
     }
 
   "it receives Consensus.CreateProposal (from local consensus) and " +
     "there is a batch ready for ordering but " +
-    "the topology changes and " +
+    "the topology becomes strictly bigger and " +
     "the batch is not ready for ordering in the new topology" should {
-      "re-disseminate the batch" in {
+      "complete batch dissemination" in {
         val disseminationProtocolState = new DisseminationProtocolState()
         val consensusCell = new AtomicReference[Option[Consensus.ProtocolMessage]](None)
         val pipeToSelfQueue =
@@ -1898,65 +1861,23 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         )
         availability.receive(
           Availability.Consensus
-            .CreateProposal(OrderingTopologyWithNode0To6, fakeCryptoProvider, EpochNumber.First)
+            .CreateProposal(OrderingTopologyWithNode0To6, failingCryptoProvider, EpochNumber.First)
         )
 
-        disseminationProtocolState.disseminationProgress should be(empty)
-        disseminationProtocolState.toBeProvidedToConsensus should
-          contain only ToBeProvidedToConsensus(
-            BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
-            EpochNumber.First,
-          )
+        val reviewedProgress =
+          DisseminationProgress
+            .reviewReadyForOrdering(BatchReadyForOrderingNode0Vote._2, OrderingTopologyWithNode0To6)
+        disseminationProtocolState.disseminationProgress should contain only (ABatchId -> reviewedProgress)
+        disseminationProtocolState.toBeProvidedToConsensus should contain only AToBeProvidedToConsensus
         disseminationProtocolState.batchesReadyForOrdering should be(empty)
+
         consensusCell.get() should be(empty)
-        pipeToSelfQueue.flatMap(_.apply()) should contain only Availability.LocalDissemination
-          .LocalBatchStored(ABatchId, ABatch)
-      }
-    }
 
-  "it receives Consensus.CreateProposal (from local consensus) and " +
-    "there is an in-progress batch but " +
-    "the topology changes and " +
-    "the batch will never be ready for ordering in the new topology" should {
-      "re-disseminate the batch" in {
-        val disseminationProtocolState = new DisseminationProtocolState()
-        val consensusCell = new AtomicReference[Option[Consensus.ProtocolMessage]](None)
-        val pipeToSelfQueue =
-          new mutable.Queue[() => Option[Availability.Message[FakePipeToSelfQueueUnitTestEnv]]]()
-        implicit val selfPipeRecordingContext: FakePipeToSelfQueueUnitTestContext[
-          Availability.Message[FakePipeToSelfQueueUnitTestEnv]
-        ] =
-          FakePipeToSelfQueueUnitTestContext(pipeToSelfQueue)
-
-        disseminationProtocolState.disseminationProgress.addOne(
-          ABatchDisseminationProgressNode0To3WithNode0Vote
-        )
-        val availabilityStore = new FakeAvailabilityStore[FakePipeToSelfQueueUnitTestEnv](
-          mutable.Map[BatchId, OrderingRequestBatch](
-            ABatchId -> ABatch
+        val selfSendMessages = pipeToSelfQueue.flatMap(_.apply())
+        selfSendMessages should contain only
+          Availability.LocalDissemination.LocalBatchesStoredSigned(
+            Seq(LocalBatchStoredSigned(ABatchId, ABatch, Left(reviewedProgress)))
           )
-        )
-        val availability = createAvailability[FakePipeToSelfQueueUnitTestEnv](
-          otherNodes = Node1To3,
-          disseminationProtocolState = disseminationProtocolState,
-          availabilityStore = availabilityStore,
-          consensus = fakeCellModule(consensusCell),
-        )
-        availability.receive(
-          Availability.Consensus
-            .CreateProposal(OrderingTopologyWithNode0To6, fakeCryptoProvider, EpochNumber.First)
-        )
-
-        disseminationProtocolState.disseminationProgress should be(empty)
-        disseminationProtocolState.toBeProvidedToConsensus should
-          contain only ToBeProvidedToConsensus(
-            BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
-            EpochNumber.First,
-          )
-        disseminationProtocolState.batchesReadyForOrdering should be(empty)
-        consensusCell.get() should be(empty)
-        pipeToSelfQueue.flatMap(_.apply()) should contain only Availability.LocalDissemination
-          .LocalBatchStored(ABatchId, ABatch)
       }
     }
 
@@ -1964,12 +1885,12 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     "there are multiple pending pulls from consensus and" +
     "there are batches ready for ordering," +
     "there are batches in progress but " +
-    "topology changes; after that " +
+    "the topology becomes strictly smaller; after that " +
     "some in-progress batches are ready in the new topology and " +
     "some batches ready for ordering are not ready anymore in the new topology" should {
       "move the previously in-progress and now completed batches to ready, " +
         "propose them to local consensus and " +
-        "re-disseminate the batches previously ready for ordering that are not ready anymore" in {
+        "complete dissemination of the batches previously ready for ordering that are not ready anymore" in {
           val disseminationProtocolState = new DisseminationProtocolState()
           val consensusBuffer = new ArrayBuffer[Consensus.Message[FakePipeToSelfQueueUnitTestEnv]]()
           val pipeToSelfQueue =
@@ -1987,7 +1908,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
           // This ready batch will become stale in the new topology
           disseminationProtocolState.batchesReadyForOrdering.addOne(
-            AnotherBatchReadyForOrdering6NodesQuorumNodes4To6Votes
+            AnotherBatchReadyForOrdering6NodesQuorumNodes0And4To6Votes
           )
           // We need local consensus pulls for both the in-progress and ready batches, to ensure that
           //  the ready batch that becomes stale is not included in a proposal to consensus even
@@ -2010,16 +1931,16 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
           availability.receive(
             Availability.Consensus
-              .CreateProposal(OrderingTopologyNodes0To3, fakeCryptoProvider, EpochNumber.First)
+              .CreateProposal(OrderingTopologyNodes0To3, failingCryptoProvider, EpochNumber.First)
           )
 
-          // Currently we just re-disseminate "stale" batches from scratch.
-          //  Stale batches are in-progress batches with less than 50% probability of completing in the new topology,
-          //  plus batches that had completed in the old topology but that are not complete anymore in the new topology.
-          //  The batch that was ready is not ready anymore because the nodes that acked it are gone
-          //  in the new topology, and it's not yet in progress because re-dissemination (from scratch) hasn't started
-          //  yet.
-          disseminationProtocolState.disseminationProgress.size shouldBe 0
+          val reviewedProgress =
+            DisseminationProgress
+              .reviewReadyForOrdering(
+                AnotherBatchReadyForOrdering6NodesQuorumNodes0And4To6Votes._2,
+                OrderingTopologyNodes0To3,
+              )
+          disseminationProtocolState.disseminationProgress should contain only (AnotherBatchId -> reviewedProgress)
           disseminationProtocolState.toBeProvidedToConsensus should be(empty)
           disseminationProtocolState.batchesReadyForOrdering.keys should contain only ABatchId
 
@@ -2035,9 +1956,13 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
           val selfMessages = pipeToSelfQueue.flatMap(_.apply())
           selfMessages should contain only Availability.LocalDissemination
-            .LocalBatchStored(AnotherBatchId, ABatch)
+            .LocalBatchesStoredSigned(
+              Seq(LocalBatchStoredSigned(AnotherBatchId, ABatch, Left(reviewedProgress)))
+            )
         }
     }
+
+  // TODO(#24403): add tests about key rotations
 
   "it receives " +
     "Dissemination.StoreLocalBatch, " +
@@ -2052,7 +1977,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             ("message", "reply"),
             (
               Availability.LocalDissemination.LocalBatchCreated(ABatchId, ABatch),
-              Availability.LocalDissemination.LocalBatchStored(ABatchId, ABatch),
+              Availability.LocalDissemination.LocalBatchesStored(Seq(ABatchId -> ABatch)),
             ),
             (
               Availability.RemoteDissemination.RemoteBatch.create(
@@ -2104,9 +2029,11 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           Table[Msg, Msg](
             ("message", "reply"),
             (
-              Availability.LocalDissemination.LocalBatchStored(ABatchId, ABatch),
+              Availability.LocalDissemination.LocalBatchesStored(Seq(ABatchId -> ABatch)),
               Availability.LocalDissemination
-                .LocalBatchStoredSigned(ABatchId, ABatch, Signature.noSignature),
+                .LocalBatchesStoredSigned(
+                  Seq(LocalBatchStoredSigned(ABatchId, ABatch, Right(Signature.noSignature)))
+                ),
             ),
             (
               Availability.LocalDissemination
@@ -2133,103 +2060,103 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         }
       }
 
-      "after stored (and potentially signed), update pending requests and fetch data when single missing" in {
-        forAll(
-          Table[Msg](
-            "message",
-            Availability.LocalDissemination
-              .LocalBatchStoredSigned(ABatchId, ABatch, Signature.noSignature),
-            Availability.LocalDissemination
-              .RemoteBatchStoredSigned(ABatchId, Node0, Signature.noSignature),
-            Availability.LocalOutputFetch.FetchedBatchStored(ABatchId),
-          )
-        ) { message =>
-          val singleBatchMissingRequest = new BatchesRequest(
-            AnOrderedBlockForOutput,
-            missingBatches = mutable.SortedSet(ABatchId),
-          )
-
-          val outputFetchProtocolState = new MainOutputFetchProtocolState()
-          outputFetchProtocolState.pendingBatchesRequests.addOne(singleBatchMissingRequest)
-          outputFetchProtocolState.localOutputMissingBatches.addOne(
-            ABatchId -> MissingBatchStatus(
-              ABatchId,
-              ProofOfAvailabilityNode1And2AcksNode1And2InTopology,
-              Seq(Node1),
-              mode = OrderedBlockForOutput.Mode.FromConsensus,
+      "after having stored a remote batch, " +
+        "update the pending requests and fetch it " +
+        "when it's the only one missing" in {
+          forAll(
+            Table[Msg](
+              "message",
+              Availability.LocalDissemination
+                .RemoteBatchStoredSigned(ABatchId, Node0, Signature.noSignature),
+              Availability.LocalOutputFetch.FetchedBatchStored(ABatchId),
             )
-          )
-          implicit val context
-              : ProgrammableUnitTestContext[Availability.Message[ProgrammableUnitTestEnv]] =
-            new ProgrammableUnitTestContext
-
-          val availabilityStore = spy(new FakeAvailabilityStore[ProgrammableUnitTestEnv]())
-          val availability = createAvailability[ProgrammableUnitTestEnv](
-            availabilityStore = availabilityStore,
-            outputFetchProtocolState = outputFetchProtocolState,
-            cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
-          )
-          val result = mock[AvailabilityStore.FetchBatchesResult]
-          when(availabilityStore.fetchBatches(Seq(ABatchId))) thenReturn (() => result)
-
-          availability.receive(message)
-
-          outputFetchProtocolState.pendingBatchesRequests shouldBe empty
-          singleBatchMissingRequest.missingBatches shouldBe empty
-          context.runPipedMessages() should contain(
-            LocalOutputFetch.FetchedBlockDataFromStorage(singleBatchMissingRequest, result)
-          )
-        }
-      }
-
-      "after stored (and potentially signed), update pending requests, don't fetch when multiple missing" in {
-        forAll(
-          Table[Msg](
-            "message",
-            Availability.LocalDissemination
-              .LocalBatchStoredSigned(ABatchId, ABatch, Signature.noSignature),
-            Availability.LocalDissemination
-              .RemoteBatchStoredSigned(ABatchId, Node0, Signature.noSignature),
-            Availability.LocalOutputFetch.FetchedBatchStored(ABatchId),
-          )
-        ) { message =>
-          val multipleBatchMissingRequest = new BatchesRequest(
-            AnotherOrderedBlockForOutput,
-            missingBatches = mutable.SortedSet(ABatchId, AnotherBatchId),
-          )
-
-          val outputFetchProtocolState = new MainOutputFetchProtocolState()
-          outputFetchProtocolState.pendingBatchesRequests.addOne(multipleBatchMissingRequest)
-          outputFetchProtocolState.localOutputMissingBatches.addOne(
-            ABatchId -> MissingBatchStatus(
-              ABatchId,
-              ProofOfAvailabilityNode1And2AcksNode1And2InTopology,
-              Seq(Node1),
-              mode = OrderedBlockForOutput.Mode.FromConsensus,
+          ) { message =>
+            val singleBatchMissingRequest = new BatchesRequest(
+              AnOrderedBlockForOutput,
+              missingBatches = mutable.SortedSet(ABatchId),
             )
-          )
-          implicit val context
-              : ProgrammableUnitTestContext[Availability.Message[ProgrammableUnitTestEnv]] =
-            new ProgrammableUnitTestContext
 
-          val availabilityStore = spy(new FakeAvailabilityStore[ProgrammableUnitTestEnv]())
-          val availability = createAvailability[ProgrammableUnitTestEnv](
-            availabilityStore = availabilityStore,
-            outputFetchProtocolState = outputFetchProtocolState,
-            cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
-          )
+            val outputFetchProtocolState = new MainOutputFetchProtocolState()
+            outputFetchProtocolState.pendingBatchesRequests.addOne(singleBatchMissingRequest)
+            outputFetchProtocolState.localOutputMissingBatches.addOne(
+              ABatchId -> MissingBatchStatus(
+                ABatchId,
+                ProofOfAvailabilityNode1And2AcksNode1And2InTopology,
+                Seq(Node1),
+                mode = OrderedBlockForOutput.Mode.FromConsensus,
+              )
+            )
+            implicit val context
+                : ProgrammableUnitTestContext[Availability.Message[ProgrammableUnitTestEnv]] =
+              new ProgrammableUnitTestContext
 
-          availability.receive(message)
+            val availabilityStore = spy(new FakeAvailabilityStore[ProgrammableUnitTestEnv]())
+            val availability = createAvailability[ProgrammableUnitTestEnv](
+              availabilityStore = availabilityStore,
+              outputFetchProtocolState = outputFetchProtocolState,
+              cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+            )
+            val result = mock[AvailabilityStore.FetchBatchesResult]
+            when(availabilityStore.fetchBatches(Seq(ABatchId))) thenReturn (() => result)
 
-          outputFetchProtocolState.pendingBatchesRequests.size should be(1)
-          outputFetchProtocolState
-            .pendingBatchesRequests(0)
-            .missingBatches should contain only AnotherBatchId
-          context.runPipedMessages()
-          multipleBatchMissingRequest.missingBatches.toSet shouldBe Set(AnotherBatchId)
-          verifyZeroInteractions(availabilityStore)
+            availability.receive(message)
+
+            outputFetchProtocolState.pendingBatchesRequests shouldBe empty
+            singleBatchMissingRequest.missingBatches shouldBe empty
+            context.runPipedMessages() should contain(
+              LocalOutputFetch.FetchedBlockDataFromStorage(singleBatchMissingRequest, result)
+            )
+          }
         }
-      }
+
+      "after having stored a remote batch, " +
+        "update the pending requests and " +
+        "don't fetch it when batches are still missing" in {
+          forAll(
+            Table[Msg](
+              "message",
+              Availability.LocalDissemination
+                .RemoteBatchStoredSigned(ABatchId, Node0, Signature.noSignature),
+              Availability.LocalOutputFetch.FetchedBatchStored(ABatchId),
+            )
+          ) { message =>
+            val multipleBatchMissingRequest = new BatchesRequest(
+              AnotherOrderedBlockForOutput,
+              missingBatches = mutable.SortedSet(ABatchId, AnotherBatchId),
+            )
+
+            val outputFetchProtocolState = new MainOutputFetchProtocolState()
+            outputFetchProtocolState.pendingBatchesRequests.addOne(multipleBatchMissingRequest)
+            outputFetchProtocolState.localOutputMissingBatches.addOne(
+              ABatchId -> MissingBatchStatus(
+                ABatchId,
+                ProofOfAvailabilityNode1And2AcksNode1And2InTopology,
+                Seq(Node1),
+                mode = OrderedBlockForOutput.Mode.FromConsensus,
+              )
+            )
+            implicit val context
+                : ProgrammableUnitTestContext[Availability.Message[ProgrammableUnitTestEnv]] =
+              new ProgrammableUnitTestContext
+
+            val availabilityStore = spy(new FakeAvailabilityStore[ProgrammableUnitTestEnv]())
+            val availability = createAvailability[ProgrammableUnitTestEnv](
+              availabilityStore = availabilityStore,
+              outputFetchProtocolState = outputFetchProtocolState,
+              cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+            )
+
+            availability.receive(message)
+
+            outputFetchProtocolState.pendingBatchesRequests.size should be(1)
+            outputFetchProtocolState
+              .pendingBatchesRequests(0)
+              .missingBatches should contain only AnotherBatchId
+            context.runPipedMessages()
+            multipleBatchMissingRequest.missingBatches.toSet shouldBe Set(AnotherBatchId)
+            verifyZeroInteractions(availabilityStore)
+          }
+        }
     }
 
   "it receives OutputFetch.FetchedBlockDataFromStorage and there are no missing batches" should {
@@ -2467,7 +2394,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       maxRequestsInBatch: Short = BftBlockOrdererConfig.DefaultMaxRequestsInBatch,
       maxBatchesPerProposal: Short = BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
       mempool: ModuleRef[Mempool.Message] = fakeIgnoringModule,
-      cryptoProvider: CryptoProvider[E] = fakeCryptoProvider[E],
+      cryptoProvider: CryptoProvider[E] = failingCryptoProvider[E],
       availabilityStore: data.AvailabilityStore[E] = new FakeAvailabilityStore[E],
       clock: Clock = new SimClock(loggerFactory = loggerFactory),
       output: ModuleRef[Output.Message[E]] = fakeModuleExpectingSilence,
@@ -2511,6 +2438,24 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       from = node(idx),
       Signature.noSignature,
     )
+
+  private def newMockCrypto = {
+    val cryptoProvider = mock[CryptoProvider[ProgrammableUnitTestEnv]]
+    when(cryptoProvider.signHash(any[Hash])(any[TraceContext])).thenReturn(() =>
+      Right(Signature.noSignature)
+    )
+    cryptoProvider
+  }
+
+  def getPoas(
+      consensusCell: AtomicReference[Option[Consensus.ProtocolMessage]]
+  ): Seq[ProofOfAvailability] =
+    consensusCell
+      .get()
+      .getOrElse(fail())
+      .asInstanceOf[ProposalCreated]
+      .orderingBlock
+      .proofs
 
   private def node(n: Int): BftNodeId =
     BftNodeId(s"node$n")

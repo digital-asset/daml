@@ -6,17 +6,23 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 import cats.syntax.traverse.*
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.{
+  BftBlockOrdererConfig,
+  FingerprintKeyId,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.{
   Epoch,
   Segment,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModuleMetrics.emitNonCompliance
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.AvailabilityAck.ValidationError
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.ProofOfAvailability
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
 
 trait PbftMessageValidator {
+
   def validatePrePrepare(prePrepare: PrePrepare): Either[String, Unit]
 }
 
@@ -37,7 +43,8 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
       // Messages/PrePrepares from wrong/different epochs are filtered out at the Consensus module level.
       //  Getting here means a programming bug, where likely the validator is created for a wrong epoch.
       abort(
-        s"Internal invariant violation: validator epoch ($validatorEpochNumber) differs from PrePrepare epoch ($prePrepareEpochNumber)"
+        s"Internal invariant violation: validator epoch ($validatorEpochNumber) " +
+          s"differs from PrePrepare epoch ($prePrepareEpochNumber)"
       )
     }
 
@@ -50,9 +57,9 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
         block.proofs.sizeIs <= config.maxBatchesPerBlockProposal.toInt,
         (), {
           emitNonComplianceMetrics(prePrepare)
-          s"PrePrepare for block ${prePrepare.blockMetadata} has ${block.proofs.size} proofs of availability, " +
-            s"but it should have up to the maximum batch number per proposal of ${config.maxBatchesPerBlockProposal}, " +
-            "this number should be configured to the same value across all nodes"
+          s"The PrePrepare for block ${prePrepare.blockMetadata} has ${block.proofs.size} proofs of availability, " +
+            s"but it should have up to the maximum batch number per proposal of ${config.maxBatchesPerBlockProposal}; " +
+            "the maximum batch number per proposal should be configured with the same value across all nodes"
         },
       )
 
@@ -60,8 +67,8 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
         blockCanBeNonEmpty || block.proofs.isEmpty,
         (), {
           emitNonComplianceMetrics(prePrepare)
-          s"PrePrepare for block ${prePrepare.blockMetadata} has ${block.proofs.size} proofs of availability, " +
-            s"but it should be empty"
+          s"The PrePrepare for block ${prePrepare.blockMetadata} has ${block.proofs.size} proofs of availability, " +
+            "but it should be empty"
         },
       )
 
@@ -78,32 +85,83 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
       val weakQuorum = epoch.currentMembership.orderingTopology.weakQuorum
 
       for {
+        _ <- validateProofOfAvailabilityAgainstCurrentTopology(poa, prePrepare)
+
         _ <- Either.cond(
           poa.expirationTime > epoch.info.previousEpochMaxBftTime,
           (), {
             emitNonComplianceMetrics(prePrepare)
-            s"PrePrepare for block ${prePrepare.blockMetadata} has expired proof of availability at ${poa.expirationTime}, (current time is ${epoch.info.previousEpochMaxBftTime})"
+            s"The PrePrepare for block ${prePrepare.blockMetadata} has an expired proof of availability " +
+              s"at ${poa.expirationTime} (current time is ${epoch.info.previousEpochMaxBftTime})"
           },
         )
         _ <- Either.cond(
           fromSequencers.sizeIs == fromSequencers.distinct.size,
           (), {
             emitNonComplianceMetrics(prePrepare)
-            s"PrePrepare for block ${prePrepare.blockMetadata} with proof of availability have acks from same sequencer"
+            s"The proof of availability for batch ${poa.batchId} in PrePrepare for block ${prePrepare.blockMetadata} " +
+              "has duplicated dissemination acknowledgements"
           },
         )
         _ <- Either.cond(
           fromSequencers.sizeIs >= weakQuorum,
           (), {
             emitNonComplianceMetrics(prePrepare)
-            s"PrePrepare for block ${prePrepare.blockMetadata} with proof of availability have only " +
-              s"$howManyDistinctNodesHaveAcked acks but should have at least $weakQuorum"
+            s"The proof of availability for batch ${poa.batchId} in PrePrepare for block ${prePrepare.blockMetadata} " +
+              s"has $howManyDistinctNodesHaveAcked dissemination acknowledgements, " +
+              s"but it should have at least $weakQuorum"
           },
         )
       } yield ()
     }
 
-  private def validateCanonicalCommitSet(prePrepare: PrePrepare, firstInSegment: Boolean) = {
+  private def validateProofOfAvailabilityAgainstCurrentTopology(
+      poa: ProofOfAvailability,
+      prePrepare: PrePrepare,
+  ): Either[String, Unit] =
+    forallEither(poa.acks) { ack =>
+      val ackValidationResult = ack.validateIn(epoch.currentMembership.orderingTopology)
+
+      ackValidationResult match {
+
+        case Left(error) =>
+          emitNonComplianceMetrics(prePrepare)
+
+          val errorString =
+            error match {
+
+              case ValidationError.NodeNotInTopology =>
+                s"The dissemination acknowledgement for batch ${poa.batchId} from '${ack.from}' is invalid " +
+                  s"because '${ack.from}' is not in the current topology " +
+                  s"(epoch ${epoch.info.number}, nodes ${epoch.currentMembership.orderingTopology.nodes})"
+
+              case ValidationError.KeyNotInTopology =>
+                val nodeTopologyInfo =
+                  epoch.currentMembership.orderingTopology.nodesTopologyInfo
+                    .getOrElse(
+                      ack.from,
+                      abort(
+                        s"Internal invariant violation: node '${ack.from}' is part of the current topology" +
+                          s"(epoch ${epoch.info.number}), but has no associated topology info"
+                      ),
+                    )
+                val keyId = FingerprintKeyId.toBftKeyId(ack.signature.signedBy)
+                s"The dissemination acknowledgement for batch ${poa.batchId} from '${ack.from}' is invalid " +
+                  s"because the signing key '$keyId' is not valid for '${ack.from}' in the current topology " +
+                  s"(epoch ${epoch.info.number}, nodes ${epoch.currentMembership.orderingTopology.nodes}); " +
+                  s"the keys valid for '${ack.from}' in the current topology are ${nodeTopologyInfo.keyIds}"
+            }
+
+          Left(errorString)
+
+        case Right(_) => Right(())
+      }
+    }
+
+  private def validateCanonicalCommitSet(
+      prePrepare: PrePrepare,
+      firstInSegment: Boolean,
+  ): Either[String, Unit] = {
     val block = prePrepare.block
     val prePrepareEpochNumber = prePrepare.blockMetadata.epochNumber
     val prePrepareBlockNumber = prePrepare.blockMetadata.blockNumber
@@ -119,8 +177,8 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
         canonicalCommitSet.nonEmpty || canonicalCommitSetCanBeEmpty,
         (), {
           emitNonComplianceMetrics(prePrepare)
-          s"Canonical commit set is empty for block ${prePrepare.blockMetadata} with ${block.proofs.size} " +
-            "proofs of availability, but it can only be empty for empty blocks or first blocks in segments"
+          s"The canonical commit set is empty for block ${prePrepare.blockMetadata} with ${block.proofs.size} " +
+            "proofs of availability, but it can only be empty for empty blocks or the first segment block"
         },
       )
 
@@ -129,7 +187,7 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
         senderIds.distinct.sizeIs == canonicalCommitSet.size,
         (), {
           emitNonComplianceMetrics(prePrepare)
-          s"Canonical commits for block ${prePrepare.blockMetadata} contain duplicate senders: $senderIds"
+          s"The canonical commit set for block ${prePrepare.blockMetadata} contains duplicate senders: $senderIds"
         },
       )
 
@@ -138,7 +196,8 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
         canonicalCommitSet.isEmpty || distinctEpochNumbers.sizeIs == 1,
         (), {
           emitNonComplianceMetrics(prePrepare)
-          s"Canonical commits contain different epochs $distinctEpochNumbers, should contain just one"
+          s"The canonical commit set refers to multiple epochs $distinctEpochNumbers, " +
+            "but it should refer to just one"
         },
       )
 
@@ -147,7 +206,8 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
         canonicalCommitSet.isEmpty || distinctBlockNumbers.sizeIs == 1,
         (), {
           emitNonComplianceMetrics(prePrepare)
-          s"Canonical commits contain different block numbers $distinctBlockNumbers, should contain just one"
+          s"The canonical commit set refers to multiple block numbers $distinctBlockNumbers, " +
+            "but it should refer to just one"
         },
       )
 
@@ -158,8 +218,8 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
         ),
         (), {
           emitNonComplianceMetrics(prePrepare)
-          s"Canonical commits contain epoch number $canonicalCommitSetFirstEpochNumber that is different from " +
-            s"PrePrepare's epoch number $prePrepareEpochNumber"
+          s"The canonical commit set refers to epoch number $canonicalCommitSetFirstEpochNumber " +
+            s"that is different from PrePrepare's epoch number $prePrepareEpochNumber"
         },
       )
 
@@ -170,7 +230,8 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
         ),
         (), {
           emitNonComplianceMetrics(prePrepare)
-          s"Canonical commits for the first block in the segment contain epoch number $canonicalCommitSetFirstEpochNumber " +
+          s"The canonical commit set for the first block in the segment " +
+            s"refers to epoch number $canonicalCommitSetFirstEpochNumber " +
             s"that is different from PrePrepare's previous epoch number $previousEpochNumber"
         },
       )
@@ -183,8 +244,9 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
         ),
         (), {
           emitNonComplianceMetrics(prePrepare)
-          s"Canonical commits for the first block in the segment refer to block number $canonicalCommitSetFirstBlockNumber " +
-            s"that is not the last block from the previous epoch ($lastBlockFromPreviousEpoch)"
+          s"The canonical commit set for the first block in the segment " +
+            s"refers to block number $canonicalCommitSetFirstBlockNumber " +
+            s"that is not the last block number from the previous epoch ($lastBlockFromPreviousEpoch)"
         },
       )
 
@@ -195,8 +257,8 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
         ),
         (), {
           emitNonComplianceMetrics(prePrepare)
-          s"Canonical commits contain block number $canonicalCommitSetFirstBlockNumber that does not refer to " +
-            s"the previous block ($previousBlockNumberInSegment) in the current segment ${segment.slotNumbers}"
+          s"The canonical commit set refers to block number $canonicalCommitSetFirstBlockNumber that is not " +
+            s"the previous block number $previousBlockNumberInSegment in the current segment ${segment.slotNumbers}"
         },
       )
 
@@ -204,9 +266,7 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
     } yield ()
   }
 
-  private def validateCanonicalCommitSetQuorum(
-      prePrepare: PrePrepare
-  ) = {
+  private def validateCanonicalCommitSetQuorum(prePrepare: PrePrepare): Either[String, Unit] = {
     val canonicalCommitSet = prePrepare.canonicalCommitSet.sortedCommits
     val epochNumber = epoch.info.number
 
@@ -216,8 +276,8 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
           topology.hasStrongQuorum(canonicalCommitSet.size),
           (), {
             emitNonComplianceMetrics(prePrepare)
-            s"Canonical commit set for block ${prePrepare.blockMetadata} has size ${canonicalCommitSet.size} " +
-              s"which is below the strong quorum of ${topology.strongQuorum}"
+            s"The canonical commit set for block ${prePrepare.blockMetadata} has size ${canonicalCommitSet.size} " +
+              s"which is below the strong quorum of ${topology.strongQuorum} for current topology ${topology.nodes}"
           },
         )
         // This check is stricter than needed, i.e., all commit messages are checked. It's because nodes always send
@@ -227,7 +287,8 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
             topology.contains(commit.from),
             (), {
               emitNonComplianceMetrics(prePrepare)
-              s"Canonical commit set for block ${prePrepare.blockMetadata} contains commit from '${commit.from}' " +
+              s"The canonical commit set for block ${prePrepare.blockMetadata} " +
+                s"contains a commit from '${commit.from}' " +
                 s"that is not part of current topology ${topology.nodes}"
             },
           )
@@ -249,7 +310,8 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
         } else {
           emitNonComplianceMetrics(prePrepare)
           Left(
-            s"Canonical commit set epoch is $canonicalCommitSetEpoch but should be $epochNumber or $previousEpochNumber"
+            s"The canonical commit set epoch is $canonicalCommitSetEpoch, " +
+              s"but it should be either $epochNumber or $previousEpochNumber"
           )
         }
       }

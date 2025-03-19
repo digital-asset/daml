@@ -16,7 +16,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.Assertions.fail
 
-class FakeCryptoProvider[E <: Env[E]] extends CryptoProvider[E] {
+class FailingCryptoProvider[E <: Env[E]] extends CryptoProvider[E] {
 
   override def signHash(hash: Hash)(implicit
       traceContext: TraceContext
