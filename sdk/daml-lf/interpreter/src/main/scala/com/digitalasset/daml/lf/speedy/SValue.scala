@@ -14,10 +14,14 @@ import com.digitalasset.daml.lf.value.Value.ValueArithmeticError
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
+import com.digitalasset.daml.lf.language.StructuralType
+import com.digitalasset.daml.lf.language.StructuralType.StructuralTypeF
+import com.digitalasset.daml.lf.language.TypeDestructor.SerializableTypeF
 import com.digitalasset.daml.lf.speedy.iterable.SValueIterable
 
 import scala.jdk.CollectionConverters._
-import scala.collection.immutable.TreeMap
+import scala.collection.immutable.{ArraySeq, TreeMap}
+import scala.reflect.ClassTag
 import scala.util.hashing.MurmurHash3
 
 /** Speedy values. These are the value types recognized by the
@@ -420,4 +424,165 @@ object SValue {
       case (acc, SContractId(cid)) => acc + cid
       case (acc, _) => acc
     }
+
+  /** Direct translation of TypeDestructor.SerializableTypeF members into StructuralTypeF - allows structural type hashes
+    * to be calculated for TypeDestructor.SerializableTypeF instances.
+    */
+  private[this] def nonStructuredType(
+      typ: Type
+  )(implicit destruct: Type => SerializableTypeF[Type]): StructuralTypeF = {
+    destruct(typ) match {
+      case SerializableTypeF.UnitF =>
+        StructuralTypeF.UnitF
+
+      case SerializableTypeF.BoolF =>
+        StructuralTypeF.BoolF
+
+      case SerializableTypeF.Int64F =>
+        StructuralTypeF.Int64F
+
+      case SerializableTypeF.DateF =>
+        StructuralTypeF.DateF
+
+      case SerializableTypeF.TimestampF =>
+        StructuralTypeF.TimestampF
+
+      case SerializableTypeF.NumericF(scale) =>
+        StructuralTypeF.NumericF(scale)
+
+      case SerializableTypeF.PartyF =>
+        StructuralTypeF.PartyF
+
+      case SerializableTypeF.TextF =>
+        StructuralTypeF.TextF
+
+      case SerializableTypeF.ContractIdF(t) =>
+        StructuralTypeF.ContractIdF(nonStructuredType(t))
+
+      case SerializableTypeF.OptionalF(t) =>
+        StructuralTypeF.OptionalF(nonStructuredType(t))
+
+      case SerializableTypeF.ListF(t) =>
+        StructuralTypeF.ListF(nonStructuredType(t))
+
+      case SerializableTypeF.MapF(keyT, valueT) =>
+        StructuralTypeF.MapF(nonStructuredType(keyT), nonStructuredType(valueT))
+
+      case SerializableTypeF.TextMapF(valueT) =>
+        StructuralTypeF.TextMapF(nonStructuredType(valueT))
+
+      case SerializableTypeF.RecordF(tyCon, pkgName, fieldNames, fieldTypes) =>
+        StructuralTypeF.RecordF(tyCon, pkgName, fieldNames, fieldTypes.map(nonStructuredType))
+
+      case SerializableTypeF.VariantF(tyCon, pkgName, cons, consTypes) =>
+        StructuralTypeF.VariantF(tyCon, pkgName, cons, consTypes.map(nonStructuredType))
+
+      case SerializableTypeF.EnumF(tyCons, pkgName, cons) =>
+        StructuralTypeF.EnumF(tyCons, pkgName, cons)
+    }
+  }
+
+  /** Generate a structural type from which structural type hashes may then be calculated.
+    *
+    * @param svalue `svalue` that is typically generated using the package interface to enrich an `Ast.Value` with type
+    *               and field name information.
+    * @param typ    the type of the `svalue` parameter after type destruction
+    * @return
+    */
+  private[lf] def structuralType(svalue: SValue, typ: Type)(implicit
+      destruct: Type => SerializableTypeF[Type],
+      classTag: ClassTag[Name],
+  ): StructuralTypeF = {
+    (svalue, destruct(typ)) match {
+      case (SUnit, SerializableTypeF.UnitF) =>
+        StructuralTypeF.UnitF
+
+      case (SBool(_), SerializableTypeF.BoolF) =>
+        StructuralTypeF.BoolF
+
+      case (SInt64(_), SerializableTypeF.Int64F) =>
+        StructuralTypeF.Int64F
+
+      case (SDate(_), SerializableTypeF.DateF) =>
+        StructuralTypeF.DateF
+
+      case (STimestamp(_), SerializableTypeF.TimestampF) =>
+        StructuralTypeF.TimestampF
+
+      case (SNumeric(_), SerializableTypeF.NumericF(scale)) =>
+        StructuralTypeF.NumericF(scale)
+
+      case (SParty(_), SerializableTypeF.PartyF) =>
+        StructuralTypeF.PartyF
+
+      case (SContractId(_), SerializableTypeF.ContractIdF(typ)) =>
+        StructuralTypeF.ContractIdF(nonStructuredType(typ))
+
+      case (SOptional(None), SerializableTypeF.OptionalF(typ)) =>
+        StructuralTypeF.OptionalF(nonStructuredType(typ))
+
+      case (SOptional(Some(value)), SerializableTypeF.OptionalF(typ)) =>
+        StructuralTypeF.OptionalF(structuralType(value, typ))
+
+      case (SText(_), SerializableTypeF.TextF) =>
+        StructuralTypeF.TextF
+
+      case (SList(values), SerializableTypeF.ListF(typ)) =>
+        StructuralTypeF.StructuralListF(values.map(structuralType(_, typ)))
+
+      case (SMap(false, entries), SerializableTypeF.MapF(keyType, valueType)) =>
+        StructuralTypeF.StructuralMapF(ArraySeq.from(entries.toSeq.map { case (key, value) =>
+          (structuralType(key, keyType), structuralType(value, valueType))
+        }))
+
+      case (SMap(true, entries), SerializableTypeF.TextMapF(valueType)) =>
+        StructuralTypeF.StructuralTextMapF(
+          ArraySeq.from(entries.values.map(structuralType(_, valueType)))
+        )
+
+      case (
+            SRecord(_, fields, values),
+            SerializableTypeF.RecordF(typCon, pkgName, _, fieldTypes),
+          ) =>
+        // Drop information from record type where (trailing) field values are None
+        val numOfNonEmptyValues = values.asScala.reverse.dropWhile(SValue.None != _).length
+        val nonEmptyFields = ArraySeq.from(fields.toSeq.take(numOfNonEmptyValues))
+        val nonEmptyValues = values.asScala.take(numOfNonEmptyValues).toSeq
+        val nonEmptyFieldTypes = fieldTypes.take(numOfNonEmptyValues)
+        val nonEmptyStructuralTypes = ArraySeq.from(
+          nonEmptyValues.zip(nonEmptyFieldTypes).map { case (v, t) => structuralType(v, t) }
+        )
+
+        StructuralTypeF.RecordF(typCon, pkgName, nonEmptyFields, nonEmptyStructuralTypes)
+
+      case (
+            SVariant(_, variant, _, variantValue),
+            SerializableTypeF.VariantF(tyCon, pkgName, fieldNames, fieldTypes),
+          ) =>
+        // Record variant field used by the value within the structural type
+        val variantIndex = fieldNames.indexOf(variant)
+        val structuralFieldTypes = fieldTypes.zipWithIndex.map {
+          case (fT, `variantIndex`) =>
+            structuralType(variantValue, fT)
+          case (fT, _) =>
+            nonStructuredType(fT)
+        }
+
+        StructuralTypeF.StructuralVariantF(
+          tyCon,
+          pkgName,
+          fieldNames,
+          structuralFieldTypes,
+          variant,
+        )
+
+      case (SEnum(_, _, _), SerializableTypeF.EnumF(tyCon, pkgName, cons)) =>
+        StructuralTypeF.EnumF(tyCon, pkgName, cons)
+
+      case _ =>
+        throw StructuralType.Error.StructuralTypeError(
+          "impossible case for a type checked SValue!!"
+        )
+    }
+  }
 }

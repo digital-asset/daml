@@ -22,6 +22,7 @@ import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.crypto.HashUtils.{HashTracer, formatByteToHexString}
 import com.digitalasset.daml.lf.data.Ref.Name
 import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.language.StructuralType.StructuralTypeF
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value.ContractId
 import scalaz.Order
@@ -171,20 +172,26 @@ object Hash {
     }
 
     /* add size delimited utf8 string. */
+    final def addStringWithContext(s: String, context: => String): this.type =
+      addBytes(Utf8.getBytes(s), context)
+
     final def addString(s: String): this.type =
-      addBytes(Utf8.getBytes(s), s"$s (string)")
+      addStringWithContext(s, s"$s (string)")
 
     final def addBool(b: Boolean): this.type =
       addByte(if (b) 1.toByte else 0.toByte, s"${b.toString} (bool)")
 
     private val intBuffer = ByteBuffer.allocate(java.lang.Integer.BYTES)
 
-    final def addInt(a: Int): this.type = {
+    final def addIntWithContext(a: Int, context: => String): this.type = {
       discard(intBuffer.rewind())
       discard(intBuffer.putInt(a).position(0))
-      update(intBuffer, s"${a.toString} (int)")
+      update(intBuffer, context)
       this
     }
+
+    final def addInt(a: Int): this.type =
+      addIntWithContext(a, s"${a.toString} (int)")
 
     private val longBuffer = ByteBuffer.allocate(java.lang.Long.BYTES)
 
@@ -198,7 +205,7 @@ object Hash {
     final def addNumeric(v: data.Numeric): this.type =
       addBytes(numericToBytes(v), s"${data.Numeric.toString(v)} (numeric)")
 
-    final def iterateOver[T, U](a: ImmArray[T])(f: (this.type, T) => this.type): this.type =
+    final def iterateOver[T](a: ImmArray[T])(f: (this.type, T) => this.type): this.type =
       a.foldLeft[this.type](addInt(a.length))(f)
 
     final def iterateOver[T](a: Iterator[T], size: Int)(f: (this.type, T) => this.type): this.type =
@@ -921,6 +928,7 @@ object Hash {
     val ChangeId = new Purpose(6)
     val TransactionHash = new Purpose(7)
     val MetadataHash = new Purpose(8)
+    val StructuralTypeHash = new Purpose(9)
   }
 
   private class Version private (val id: Byte)
@@ -937,7 +945,7 @@ object Hash {
   }
 
   // package private for testing purpose.
-  // Do not call this method from outside Hash object/
+  // Do not call this method from outside Hash object
   private[crypto] def builder(
       purpose: Purpose,
       cid2Bytes: Value.ContractId => Bytes,
@@ -1034,6 +1042,113 @@ object Hash {
       .addString(commandId)
       .addStringSet(actAs)
       .build
+
+  // TODO: assess confidence in lack of hashing clashes
+  // TODO: tail recursive implementation!
+  def hashStructuralType(structType: StructuralTypeF): Hash = {
+    def builder: UpgradeFriendlyBuilder = {
+      val structuralTypeName = structType.getClass.getSimpleName
+
+      new UpgradeFriendlyBuilder(
+        Purpose.StructuralTypeHash,
+        aCid2Bytes,
+        bigIntNumericToBytes,
+        HashTracer.NoOp,
+      ).addVersion
+        .addBytes(Utf8.getBytes(structuralTypeName), structuralTypeName)
+    }
+
+    structType match {
+      case StructuralTypeF.NumericF(scale) =>
+        builder.addIntWithContext(scale, "scale").build
+
+      case StructuralTypeF.ContractIdF(arg) =>
+        builder.addHash(hashStructuralType(arg), "arg").build
+
+      case StructuralTypeF.OptionalF(arg) =>
+        builder.addHash(hashStructuralType(arg), "arg").build
+
+      case StructuralTypeF.ListF(arg) =>
+        builder.addHash(hashStructuralType(arg), "arg").build
+
+      case StructuralTypeF.StructuralListF(arg) =>
+        builder
+          .iterateOver(arg.iterator.zipWithIndex, arg.length) { case (b, (typeT, index)) =>
+            b.addHash(hashStructuralType(typeT), s"typeT($index)")
+          }
+          .build
+
+      case StructuralTypeF.MapF(keyT, valueT) =>
+        builder
+          .addHash(hashStructuralType(keyT), "keyT")
+          .addHash(hashStructuralType(valueT), "valueT")
+          .build
+
+      case StructuralTypeF.StructuralMapF(arg) =>
+        builder
+          .iterateOver(arg.zipWithIndex.iterator, arg.size) { case (b, ((keyT, valueT), index)) =>
+            b.addHash(hashStructuralType(keyT), s"keyT($index)")
+              .addHash(hashStructuralType(valueT), s"valueT($index)")
+          }
+          .build
+
+      case StructuralTypeF.TextMapF(arg) =>
+        builder.addHash(hashStructuralType(arg), "arg").build
+
+      case StructuralTypeF.StructuralTextMapF(arg) =>
+        builder
+          .iterateOver(arg.zipWithIndex.iterator, arg.size) { case (b, (valueT, index)) =>
+            b.addHash(hashStructuralType(valueT), s"valueT($index)")
+          }
+          .build
+
+      case StructuralTypeF.RecordF(tyCon, pkgName, fieldNames, fieldTypes) =>
+        builder
+          .addStringWithContext(tyCon.toString, "tyCon")
+          .addStringWithContext(pkgName, "pkgName")
+          .iterateOver(fieldNames.zip(fieldTypes).zipWithIndex.iterator, fieldNames.length) {
+            case (b, ((nm, typ), index)) =>
+              b.addStringWithContext(nm, s"fieldNames($index)")
+                .addHash(hashStructuralType(typ), s"fieldTypes($index)")
+          }
+          .build
+
+      case StructuralTypeF.VariantF(tyCon, pkgName, cons, consTypes) =>
+        builder
+          .addStringWithContext(tyCon.toString, "tyCon")
+          .addStringWithContext(pkgName, "pkgName")
+          .iterateOver(cons.zip(consTypes).zipWithIndex.iterator, cons.length) {
+            case (b, ((c, cT), index)) =>
+              b.addStringWithContext(c, s"cons($index)")
+                .addHash(hashStructuralType(cT), s"consTypes($index)")
+          }
+          .build
+
+      case StructuralTypeF.StructuralVariantF(tyCon, pkgName, cons, consTypes, variant) =>
+        builder
+          .addStringWithContext(tyCon.toString, "tyCon")
+          .addStringWithContext(pkgName, "pkgName")
+          .iterateOver(cons.zip(consTypes).zipWithIndex.iterator, cons.length) {
+            case (b, ((c, cT), index)) =>
+              b.addStringWithContext(c, s"cons($index)")
+                .addHash(hashStructuralType(cT), s"consTypes($index)")
+          }
+          .addStringWithContext(variant, "variant")
+          .build
+
+      case StructuralTypeF.EnumF(tyCon, pkgName, cons) =>
+        builder
+          .addStringWithContext(tyCon.toString, "tyCon")
+          .addStringWithContext(pkgName, "pkgName")
+          .iterateOver(cons.zipWithIndex.iterator, cons.length) { case (b, (c, index)) =>
+            b.addStringWithContext(c, s"cons($index)")
+          }
+          .build
+
+      case _ =>
+        builder.build
+    }
+  }
 
   def deriveSubmissionSeed(
       nonce: Hash,
