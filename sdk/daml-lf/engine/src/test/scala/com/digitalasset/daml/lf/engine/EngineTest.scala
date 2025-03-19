@@ -2424,12 +2424,20 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
     )
     val compatibleLanguageVersions = LanguageVersion.AllV2
-    val stablePackages = StablePackages(majorLanguageVersion).allPackages
+    // Following stable packages are deps of other stable packages, so we sort such that these are preloaded first
+    val stablePackagesToLoadFirst = List("daml-prim-DA-Types", "daml-stdlib-DA-NonEmpty-Types")
+    val stablePackages =
+      StablePackages(majorLanguageVersion).allPackages
+        .sortBy { sp =>
+          val i = stablePackagesToLoadFirst.indexOf(sp.name)
+          if (i == -1) Int.MaxValue else i
+        }
 
     s"accept stable packages from ${devVersion} even if version is smaller than min version" in {
       for {
         lv <- compatibleLanguageVersions.filter(_ <= devVersion)
         eng = engine(min = lv, max = devVersion)
+        _ = System.err.println(stablePackages.map(_.name))
         pkg <- stablePackages
         pkgId = pkg.packageId
         pkg <- allPackagesDev.get(pkgId).toList
