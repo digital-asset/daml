@@ -1043,13 +1043,11 @@ object Hash {
       .addStringSet(actAs)
       .build
 
-  // TODO: assess confidence in lack of hashing clashes
-  // TODO: tail recursive implementation!
   def hashStructuralType(structType: StructuralTypeF): Hash = {
-    def builder: UpgradeFriendlyBuilder = {
+    def newHashBuilder: LegacyBuilder = {
       val structuralTypeName = structType.getClass.getSimpleName
 
-      new UpgradeFriendlyBuilder(
+      new LegacyBuilder(
         Purpose.StructuralTypeHash,
         aCid2Bytes,
         bigIntNumericToBytes,
@@ -1060,32 +1058,31 @@ object Hash {
 
     structType match {
       case StructuralTypeF.NumericF(scale) =>
-        builder.addIntWithContext(scale, "scale").build
+        newHashBuilder.addIntWithContext(scale, "scale").build
 
-      case StructuralTypeF.ContractIdF(arg) =>
-        builder.addHash(hashStructuralType(arg), "arg").build
+      case StructuralTypeF.ContractIdF(templateId) =>
+        newHashBuilder
+          .addStringWithContext(templateId.toString, "templateId")
+          .build
 
-      case StructuralTypeF.OptionalF(arg) =>
-        builder.addHash(hashStructuralType(arg), "arg").build
+      case StructuralTypeF.OptionalF(None) =>
+        newHashBuilder.addIntWithContext(0, "None").build
+
+      case StructuralTypeF.OptionalF(Some(arg)) =>
+        newHashBuilder
+          .addIntWithContext(1, "Some")
+          .addHash(hashStructuralType(arg), "arg")
+          .build
 
       case StructuralTypeF.ListF(arg) =>
-        builder.addHash(hashStructuralType(arg), "arg").build
-
-      case StructuralTypeF.StructuralListF(arg) =>
-        builder
+        newHashBuilder
           .iterateOver(arg.iterator.zipWithIndex, arg.length) { case (b, (typeT, index)) =>
             b.addHash(hashStructuralType(typeT), s"typeT($index)")
           }
           .build
 
-      case StructuralTypeF.MapF(keyT, valueT) =>
-        builder
-          .addHash(hashStructuralType(keyT), "keyT")
-          .addHash(hashStructuralType(valueT), "valueT")
-          .build
-
-      case StructuralTypeF.StructuralMapF(arg) =>
-        builder
+      case StructuralTypeF.MapF(arg) =>
+        newHashBuilder
           .iterateOver(arg.zipWithIndex.iterator, arg.size) { case (b, ((keyT, valueT), index)) =>
             b.addHash(hashStructuralType(keyT), s"keyT($index)")
               .addHash(hashStructuralType(valueT), s"valueT($index)")
@@ -1093,60 +1090,43 @@ object Hash {
           .build
 
       case StructuralTypeF.TextMapF(arg) =>
-        builder.addHash(hashStructuralType(arg), "arg").build
-
-      case StructuralTypeF.StructuralTextMapF(arg) =>
-        builder
+        newHashBuilder
           .iterateOver(arg.zipWithIndex.iterator, arg.size) { case (b, (valueT, index)) =>
             b.addHash(hashStructuralType(valueT), s"valueT($index)")
           }
           .build
 
-      case StructuralTypeF.RecordF(tyCon, pkgName, fieldNames, fieldTypes) =>
-        builder
+      case StructuralTypeF.RecordF(tyCon, pkgName, fieldInfo) =>
+        newHashBuilder
           .addStringWithContext(tyCon.toString, "tyCon")
           .addStringWithContext(pkgName, "pkgName")
-          .iterateOver(fieldNames.zip(fieldTypes).zipWithIndex.iterator, fieldNames.length) {
-            case (b, ((nm, typ), index)) =>
-              b.addStringWithContext(nm, s"fieldNames($index)")
-                .addHash(hashStructuralType(typ), s"fieldTypes($index)")
+          .iterateOver(fieldInfo.iterator, fieldInfo.length) {
+            case (b, (fieldName, fieldIndex, fieldType)) =>
+              b.addStringWithContext(fieldName, "fieldName")
+                .addIntWithContext(fieldIndex, "fieldIndex")
+                .addHash(hashStructuralType(fieldType), "fieldType")
           }
           .build
 
-      case StructuralTypeF.VariantF(tyCon, pkgName, cons, consTypes) =>
-        builder
+      case StructuralTypeF.VariantF(tyCon, pkgName, variant, variantIndex, variantType) =>
+        newHashBuilder
           .addStringWithContext(tyCon.toString, "tyCon")
           .addStringWithContext(pkgName, "pkgName")
-          .iterateOver(cons.zip(consTypes).zipWithIndex.iterator, cons.length) {
-            case (b, ((c, cT), index)) =>
-              b.addStringWithContext(c, s"cons($index)")
-                .addHash(hashStructuralType(cT), s"consTypes($index)")
-          }
-          .build
-
-      case StructuralTypeF.StructuralVariantF(tyCon, pkgName, cons, consTypes, variant) =>
-        builder
-          .addStringWithContext(tyCon.toString, "tyCon")
-          .addStringWithContext(pkgName, "pkgName")
-          .iterateOver(cons.zip(consTypes).zipWithIndex.iterator, cons.length) {
-            case (b, ((c, cT), index)) =>
-              b.addStringWithContext(c, s"cons($index)")
-                .addHash(hashStructuralType(cT), s"consTypes($index)")
-          }
           .addStringWithContext(variant, "variant")
+          .addIntWithContext(variantIndex, "variantIndex")
+          .addHash(hashStructuralType(variantType), "variantType")
           .build
 
-      case StructuralTypeF.EnumF(tyCon, pkgName, cons) =>
-        builder
+      case StructuralTypeF.EnumF(tyCon, pkgName, cons, consIndex) =>
+        newHashBuilder
           .addStringWithContext(tyCon.toString, "tyCon")
           .addStringWithContext(pkgName, "pkgName")
-          .iterateOver(cons.zipWithIndex.iterator, cons.length) { case (b, (c, index)) =>
-            b.addStringWithContext(c, s"cons($index)")
-          }
+          .addStringWithContext(cons, "cons")
+          .addIntWithContext(consIndex, "consIndex")
           .build
 
       case _ =>
-        builder.build
+        newHashBuilder.build
     }
   }
 

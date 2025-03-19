@@ -29,49 +29,35 @@ object StructuralType {
 
     case object TextF extends StructuralTypeF
 
-    final case class ContractIdF(arg: StructuralTypeF) extends StructuralTypeF
+    final case class ContractIdF(templateId: Ref.Identifier) extends StructuralTypeF
 
-    final case class OptionalF(arg: StructuralTypeF) extends StructuralTypeF
+    final case class OptionalF(arg: Option[StructuralTypeF]) extends StructuralTypeF
 
-    final case class ListF(arg: StructuralTypeF) extends StructuralTypeF
+    final case class ListF(arg: FrontStack[StructuralTypeF]) extends StructuralTypeF
 
-    final case class StructuralListF(arg: FrontStack[StructuralTypeF]) extends StructuralTypeF
+    final case class MapF(arg: ArraySeq[(StructuralTypeF, StructuralTypeF)]) extends StructuralTypeF
 
-    final case class MapF(keyT: StructuralTypeF, valueT: StructuralTypeF) extends StructuralTypeF
-
-    final case class StructuralMapF(arg: ArraySeq[(StructuralTypeF, StructuralTypeF)])
-        extends StructuralTypeF
-
-    final case class TextMapF(arg: StructuralTypeF) extends StructuralTypeF
-
-    final case class StructuralTextMapF(arg: ArraySeq[StructuralTypeF]) extends StructuralTypeF
+    final case class TextMapF(arg: ArraySeq[StructuralTypeF]) extends StructuralTypeF
 
     final case class RecordF(
-        tyCon: Ref.TypeConName,
+        tyCon: Ref.QualifiedName,
         pkgName: Ref.PackageName,
-        fieldNames: ArraySeq[Ref.Name],
-        fieldTypes: ArraySeq[StructuralTypeF],
+        fieldInfo: ArraySeq[(Ref.Name, Int, StructuralTypeF)],
     ) extends StructuralTypeF
 
     final case class VariantF(
-        tyCon: Ref.TypeConName,
+        tyCon: Ref.QualifiedName,
         pkgName: Ref.PackageName,
-        cons: ArraySeq[Ref.Name],
-        consTypes: ArraySeq[StructuralTypeF],
-    ) extends StructuralTypeF
-
-    final case class StructuralVariantF(
-        tyCon: Ref.TypeConName,
-        pkgName: Ref.PackageName,
-        cons: ArraySeq[Ref.Name],
-        consTypes: ArraySeq[StructuralTypeF],
         variant: Ref.Name,
+        variantIndex: Int,
+        variantType: StructuralTypeF,
     ) extends StructuralTypeF
 
     final case class EnumF(
-        tyCon: Ref.TypeConName,
+        tyCon: Ref.QualifiedName,
         pkgName: Ref.PackageName,
-        cons: ArraySeq[Ref.Name],
+        cons: Ref.Name,
+        consIndex: Int,
     ) extends StructuralTypeF
   }
 
