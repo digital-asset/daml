@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencing.service
 import cats.data.EitherT
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.SerializedEventOrErrorHandler
@@ -61,6 +62,41 @@ class DirectSequencerSubscriptionFactory(
         new DirectSequencerSubscription[E](member, source, handler, timeouts, loggerFactory)
       logger.debug(
         show"Created sequencer subscription for $member from $startingAt (may still be starting)"
+      )
+      subscription
+    }
+  }
+
+  /** Create a subscription for an event handler to observe sequencer events for this member. By
+    * connecting from inclusive `timestamp` it is assumed that all prior events have been
+    * successfully read by the member (and may be removed by a separate administrative process).
+    * Closing the returned subscription should disconnect the handler. If member is unknown by the
+    * sequencer a [[sequencer.errors.CreateSubscriptionError.UnknownMember]] error will be returned.
+    *
+    * @param timestamp
+    *   Inclusive starting timestamp or None to start from the very beginning.
+    * @param member
+    *   Member to subscribe on behalf of.
+    * @param handler
+    *   The handler to invoke with sequencer events
+    * @return
+    *   A running subscription
+    */
+  def createV2[E](
+      timestamp: Option[CantonTimestamp],
+      member: Member,
+      handler: SerializedEventOrErrorHandler[E],
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, SequencerSubscription[E]] = {
+    logger.debug(show"Creating subscription for $member from $timestamp...")
+    for {
+      source <- sequencer.readV2(member, timestamp)
+    } yield {
+      val subscription =
+        new DirectSequencerSubscription[E](member, source, handler, timeouts, loggerFactory)
+      logger.debug(
+        show"Created sequencer subscription for $member from $timestamp (may still be starting)"
       )
       subscription
     }

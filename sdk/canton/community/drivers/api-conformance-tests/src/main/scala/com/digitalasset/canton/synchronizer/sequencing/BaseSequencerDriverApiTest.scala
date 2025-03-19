@@ -10,6 +10,7 @@ import com.digitalasset.canton.synchronizer.block.SequencerDriver
 import com.digitalasset.canton.synchronizer.sequencing.BaseSequencerDriverApiTest.CompletionTimeout
 import com.digitalasset.canton.time.TimeProvider
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.DefaultTestIdentities.sequencerId
 import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
 import com.typesafe.config.ConfigFactory
 import org.apache.pekko.actor.ActorSystem
@@ -51,7 +52,7 @@ trait BaseSequencerDriverApiTest[ConfigType]
 
   private val topologyFactory = TestingTopology().build(loggerFactory)
   private val topologyClient =
-    topologyFactory.forOwnerAndSynchronizer(owner = mediatorId, synchronizerId)
+    topologyFactory.forOwnerAndSynchronizer(owner = sequencerId, synchronizerId)
 
   protected val driverConfig: AtomicReference[Option[ConfigType]]
 

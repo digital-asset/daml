@@ -94,7 +94,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       // Try to start state transfer (with no effect) while another one is in progress.
       stateTransferManager.startCatchUp(
         membership,
-        fakeCryptoProvider,
+        failingCryptoProvider,
         latestCompletedEpoch = Genesis.GenesisEpoch,
         startEpoch,
       )(abort = fail(_))
@@ -291,7 +291,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       ProgrammableUnitTestEnv.noSignatureCryptoProvider,
       membership.leaders,
       previousTopology = membershipBeforeOnboarding.orderingTopology,
-      previousCryptoProvider = fakeCryptoProvider,
+      previousCryptoProvider = failingCryptoProvider,
       membershipBeforeOnboarding.leaders,
     )
     stateTransferManager.handleStateTransferMessage(
@@ -503,7 +503,7 @@ object StateTransferManagerTest {
     ProgrammableUnitTestEnv.noSignatureCryptoProvider,
     membership.leaders,
     previousTopology = membership.orderingTopology,
-    previousCryptoProvider = fakeCryptoProvider,
+    previousCryptoProvider = failingCryptoProvider,
     membership.leaders,
   )
 

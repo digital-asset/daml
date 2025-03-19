@@ -643,7 +643,11 @@ trait SequencerStoreTest
         for {
           aliceId <- env.store.registerMember(alice, ts1)
           checkpointO <- env.store.fetchClosestCheckpointBefore(aliceId, SequencerCounter(0))
-        } yield checkpointO shouldBe None
+          checkpointByTime0 <- env.store.fetchClosestCheckpointBeforeV2(aliceId, timestamp = None)
+        } yield {
+          checkpointO shouldBe None
+          checkpointByTime0 shouldBe None
+        }
       }
 
       "return the counter at the point queried" in {
@@ -659,17 +663,41 @@ trait SequencerStoreTest
           _ <- valueOrFail(env.store.saveCounterCheckpoint(aliceId, checkpoint2))(
             "save second checkpoint"
           )
+          beginningCheckpoint <- env.store.fetchClosestCheckpointBeforeV2(aliceId, timestamp = None)
+          noCheckpoint <- env.store.fetchClosestCheckpointBeforeV2(aliceId, timestamp = Some(ts1))
           firstCheckpoint <- env.store.fetchClosestCheckpointBefore(
             aliceId,
             SequencerCounter(0L + 1),
+          )
+          firstCheckpointByTime <- env.store.fetchClosestCheckpointBeforeV2(
+            aliceId,
+            timestamp = Some(ts2),
+          )
+          firstCheckpointByTime2 <- env.store.fetchClosestCheckpointBeforeV2(
+            aliceId,
+            timestamp = Some(ts2.plusMillis(500L)),
           )
           secondCheckpoint <- env.store.fetchClosestCheckpointBefore(
             aliceId,
             SequencerCounter(1L + 1),
           )
+          secondCheckpointByTime <- env.store.fetchClosestCheckpointBeforeV2(
+            aliceId,
+            timestamp = Some(ts3),
+          )
+          secondCheckpointByTime2 <- env.store.fetchClosestCheckpointBeforeV2(
+            aliceId,
+            timestamp = Some(CantonTimestamp.MaxValue),
+          )
         } yield {
+          beginningCheckpoint shouldBe None
+          noCheckpoint shouldBe None
           firstCheckpoint.value shouldBe checkpoint1
+          firstCheckpointByTime.value shouldBe checkpoint1
+          firstCheckpointByTime2.value shouldBe checkpoint1
           secondCheckpoint.value shouldBe checkpoint2
+          secondCheckpointByTime.value shouldBe checkpoint2
+          secondCheckpointByTime2.value shouldBe checkpoint2
         }
       }
 

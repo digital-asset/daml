@@ -182,10 +182,10 @@ class PreIssConsensusModuleTest
       OrderingTopologyInfo(
         myId,
         orderingTopology,
-        fakeCryptoProvider,
+        failingCryptoProvider,
         Seq(myId),
         previousTopology = orderingTopology, // not relevant
-        fakeCryptoProvider,
+        failingCryptoProvider,
         Seq(myId),
       ),
       epochLength,

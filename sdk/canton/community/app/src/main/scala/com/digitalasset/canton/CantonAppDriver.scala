@@ -131,11 +131,11 @@ abstract class CantonAppDriver extends App with NamedLogging with NoTracing {
   val sandboxConfig = JarResourceUtils.extractFileFromJar("sandbox/sandbox.conf")
   val sandboxBotstrap = JarResourceUtils.extractFileFromJar("sandbox/bootstrap.canton")
   val configFiles = cliOptions.command
-    .collect { case _: Sandbox => sandboxConfig }
+    .collect { case Sandbox => sandboxConfig }
     .toList
     .concat(cliOptions.configFiles)
   val bootstrapFile = cliOptions.command
-    .collect { case _: Sandbox => sandboxBotstrap }
+    .collect { case Sandbox => sandboxBotstrap }
     .orElse(cliOptions.bootstrapScriptPath)
 
   val cantonConfig: CantonConfig = {
@@ -216,8 +216,8 @@ abstract class CantonAppDriver extends App with NamedLogging with NoTracing {
     bootstrapFile.map(CantonScriptFromFile.apply)
 
   val runner: Runner = cliOptions.command match {
-    case Some(Command.Sandbox(exitAfterBootstrap)) =>
-      new ServerRunner(bootstrapScript, loggerFactory, exitAfterBootstrap)
+    case Some(Command.Sandbox) =>
+      new ServerRunner(bootstrapScript, loggerFactory, cliOptions.exitAfterBootstrap)
     case Some(Command.Daemon) => new ServerRunner(bootstrapScript, loggerFactory)
     case Some(Command.RunScript(script)) => ConsoleScriptRunner(script, loggerFactory)
     case Some(Command.Generate(target)) =>
@@ -241,6 +241,7 @@ abstract class CantonAppDriver extends App with NamedLogging with NoTracing {
 }
 
 object CantonAppDriver {
+
   @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.AsInstanceOf"))
   private def installGCLogging(loggerFactory: NamedLoggerFactory, config: GCLoggingConfig): Unit =
     if (config.enabled) {

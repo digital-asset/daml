@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 import cats.data.EitherT
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.crypto.HashPurpose
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.protocol.SequencerErrors.SubmissionRequestRefused
@@ -139,7 +140,16 @@ abstract class BaseSequencer(
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
     readInternal(member, offset)
 
+  override def readV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+    readInternalV2(member, timestamp)
+
   protected def readInternal(member: Member, offset: SequencerCounter)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource]
+
+  protected def readInternalV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource]
 

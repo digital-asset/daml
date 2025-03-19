@@ -35,6 +35,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SignedContent,
   SubmissionRequest,
   SubscriptionRequest,
+  SubscriptionRequestV2,
   TopologyStateForInitRequest,
 }
 import com.digitalasset.canton.topology.transaction.{
@@ -149,6 +150,7 @@ class SerializationDeserializationTest
         test(GetTrafficStateForMemberResponse, version)
         test(TopologyStateForInitRequest, version)
         test(SubscriptionRequest, version)
+        test(SubscriptionRequestV2, version)
         if (version.isDev) {
           test(ConnectToSequencerChannelRequest, version)
           test(ConnectToSequencerChannelResponse, version)

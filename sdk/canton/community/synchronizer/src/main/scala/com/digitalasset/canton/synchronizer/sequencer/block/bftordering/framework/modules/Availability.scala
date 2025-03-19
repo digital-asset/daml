@@ -8,8 +8,11 @@ import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.BatchesRequest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.{
+  BatchesRequest,
+  DisseminationProgress,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
@@ -80,13 +83,17 @@ object Availability {
     final case class LocalBatchCreated(batchId: BatchId, batch: OrderingRequestBatch)
         extends LocalDissemination
 
-    final case class LocalBatchStored(batchId: BatchId, batch: OrderingRequestBatch)
+    final case class LocalBatchesStored(batches: Seq[(BatchId, OrderingRequestBatch)])
         extends LocalDissemination
 
     final case class LocalBatchStoredSigned(
         batchId: BatchId,
         batch: OrderingRequestBatch,
-        signature: Signature,
+        progressOrSignature: Either[DisseminationProgress, Signature],
+    )
+
+    final case class LocalBatchesStoredSigned(
+        batches: Seq[LocalBatchStoredSigned]
     ) extends LocalDissemination
 
     final case class RemoteBatchStored(
@@ -463,9 +470,9 @@ object Availability {
         orderingTopology: OrderingTopology,
         cryptoProvider: CryptoProvider[E],
         epochNumber: EpochNumber,
-        ack: Option[Ack] = None,
+        orderedBatchIds: Seq[BatchId] = Seq.empty,
     ) extends Consensus[E]
-    final case class Ack(batchIds: Seq[BatchId]) extends Consensus[Nothing]
+    final case class Ordered(batchIds: Seq[BatchId]) extends Consensus[Nothing]
     final case object LocalClockTick extends Consensus[Nothing]
   }
 }

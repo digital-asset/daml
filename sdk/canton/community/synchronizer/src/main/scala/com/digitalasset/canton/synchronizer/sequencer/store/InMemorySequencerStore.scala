@@ -297,6 +297,32 @@ class InMemorySequencerStore(
         }
     }
 
+  override def fetchClosestCheckpointBeforeV2(
+      memberId: SequencerMemberId,
+      timestampInclusiveO: Option[CantonTimestamp],
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CounterCheckpoint]] =
+    FutureUnlessShutdown.pure {
+      val registeredMember = members(lookupExpectedMember(memberId))
+      val memberOnlyCheckpoints = checkpoints.keySet
+        .filter(_._1 == registeredMember)
+      val foundCheckpoint = timestampInclusiveO.flatMap { timestamp =>
+        // when timestamp is provided, we want the closest checkpoint before or at the timestamp
+        memberOnlyCheckpoints
+          .filter(_._3 <= timestamp)
+          .maxByOption(_._3)
+      }
+      foundCheckpoint
+        .map { case (_, foundCounter, foundTimestamp) =>
+          val lastTopologyClientTimestamp =
+            checkpoints
+              .get((registeredMember, foundCounter, foundTimestamp))
+              .flatten
+          CounterCheckpoint(foundCounter, foundTimestamp, lastTopologyClientTimestamp)
+        }
+    }
+
   def fetchPreviousEventTimestamp(memberId: SequencerMemberId, timestampInclusive: CantonTimestamp)(
       implicit traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]] =

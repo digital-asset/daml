@@ -7,6 +7,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Signature
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -19,7 +20,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  EpochNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
   AvailabilityAck,
   BatchId,
@@ -59,7 +63,6 @@ import scala.concurrent.duration.DurationInt
 import scala.jdk.DurationConverters.*
 import scala.util.{Failure, Random, Success, Try}
 
-import AvailabilityModule.*
 import AvailabilityModuleMetrics.{emitDisseminationStateStats, emitInvalidMessage}
 
 /** Trantor-inspired availability implementation.
@@ -83,6 +86,8 @@ final class AvailabilityModule[E <: Env[E]](
 )(implicit mc: MetricsContext)
     extends Availability[E]
     with HasDelayedInit[Availability.Message[E]] {
+
+  import AvailabilityModule.*
 
   private val thisNode = initialMembership.myId
 
@@ -110,10 +115,13 @@ final class AvailabilityModule[E <: Env[E]](
           case Availability.Start =>
 
           case Availability.NoOp =>
-          case message: Availability.RemoteProtocolMessage =>
-            handleRemoteProtocolMessage(message)
+
           case message: Availability.LocalProtocolMessage[E] =>
             handleLocalProtocolMessage(message)
+
+          case message: Availability.RemoteProtocolMessage =>
+            handleRemoteProtocolMessage(message)
+
           case Availability.UnverifiedProtocolMessage(signedMessage) =>
             logger.debug(s"Start to verify message from ${signedMessage.from}")
             pipeToSelf(
@@ -147,10 +155,12 @@ final class AvailabilityModule[E <: Env[E]](
     message match {
       case message: Availability.LocalDissemination =>
         handleLocalDisseminationMessage(message)
-      case message: Availability.LocalOutputFetch =>
-        handleLocalOutputFetchMessage(message)
+
       case message: Availability.Consensus[E] =>
         handleConsensusMessage(message)
+
+      case message: Availability.LocalOutputFetch =>
+        handleLocalOutputFetchMessage(message)
     }
 
   private def handleRemoteProtocolMessage(
@@ -162,6 +172,7 @@ final class AvailabilityModule[E <: Env[E]](
     message match {
       case message: Availability.RemoteDissemination =>
         handleRemoteDisseminationMessage(message)
+
       case message: Availability.RemoteOutputFetch =>
         handleRemoteOutputFetchMessage(message)
     }
@@ -182,58 +193,19 @@ final class AvailabilityModule[E <: Env[E]](
           case Failure(exception) =>
             abort(s"Failed to add batch $batchId", exception)
           case Success(_) =>
-            Availability.LocalDissemination.LocalBatchStored(batchId, batch)
-        }
-      case Availability.LocalDissemination.LocalBatchStored(batchId, batch) =>
-        logger.debug(s"$messageType: persisted local batch $batchId, now signing")
-        pipeToSelf(
-          activeCryptoProvider.signHash(
-            AvailabilityAck.hashFor(batchId, batch.expirationTime, activeMembership.myId)
-          )
-        )(handleFailure(s"Can't sign batch $batchId") { signature =>
-          LocalDissemination.LocalBatchStoredSigned(batchId, batch, signature)
-        })
-
-      case LocalDissemination.LocalBatchStoredSigned(batchId, batch, signature) =>
-        logger.debug(s"$messageType: signed local batch $batchId")
-        disseminationProtocolState.disseminationProgress.update(
-          batchId,
-          DisseminationProgress(
-            activeMembership.orderingTopology,
-            InProgressBatchMetadata(batchId, batch.stats, batch.expirationTime),
-            Set(AvailabilityAck(thisNode, signature)),
-          ),
-        )
-        updateOutputFetchStatus(batchId)
-        // If F == 0, no other nodes are required to store the batch because there is no fault tolerance,
-        //  so batches are ready for consensus immediately after being stored locally.
-        if (
-          updateBatchDisseminationProgress(
-            signature,
-            batchId,
-            thisNode,
-            messageType,
-          )
-        ) {
-          shipAvailableConsensusProposals(messageType)
+            Availability.LocalDissemination.LocalBatchesStored(Seq(batchId -> batch))
         }
 
-        if (activeMembership.orderingTopology.nodes.nonEmpty) {
-          multicast(
-            Availability.RemoteDissemination.RemoteBatch.create(batchId, batch, from = thisNode),
-            activeMembership.otherNodes,
-          )
-        }
+      case Availability.LocalDissemination.LocalBatchesStored(batches) =>
+        logger.debug(s"$messageType: persisted local batches ${batches.map(_._1)}, now signing")
+        signLocalBatchesAndContinue(batches)
 
       case Availability.LocalDissemination.RemoteBatchStored(batchId, expirationTime, from) =>
         logger.debug(s"$messageType: local store persisted $batchId from $from, signing")
-        pipeToSelf(
-          activeCryptoProvider.signHash(
-            AvailabilityAck.hashFor(batchId, expirationTime, activeMembership.myId)
-          )
-        )(handleFailure(s"Failed to sign $batchId") { signature =>
-          LocalDissemination.RemoteBatchStoredSigned(batchId, from, signature)
-        })
+        signRemoteBatchAndContinue(batchId, expirationTime, from)
+
+      case LocalDissemination.LocalBatchesStoredSigned(batches) =>
+        disseminateLocalBatches(messageType, batches)
 
       case LocalDissemination.RemoteBatchStoredSigned(batchId, from, signature) =>
         logger.debug(s"$messageType: signed $batchId from $from, sending ACK")
@@ -245,25 +217,422 @@ final class AvailabilityModule[E <: Env[E]](
               from = thisNode,
               signature,
             ),
-          from,
+          to = from,
         )
+
       case LocalDissemination.RemoteBatchAcknowledgeVerified(batchId, from, signature) =>
         logger.debug(
           s"$messageType: $from sent valid ACK for batch $batchId, " +
             "updating batches ready for ordering"
         )
-        if (
-          updateBatchDisseminationProgress(
-            signature,
-            batchId,
-            from,
-            messageType,
+        updateAndAdvanceSingleDisseminationProgress(messageType, batchId, Some(from -> signature))
+    }
+  }
+
+  private def signRemoteBatchAndContinue(
+      batchId: BatchId,
+      expirationTime: CantonTimestamp,
+      from: BftNodeId,
+  )(implicit
+      context: E#ActorContextT[Availability.Message[E]],
+      traceContext: TraceContext,
+  ): Unit =
+    pipeToSelf(
+      activeCryptoProvider.signHash(
+        AvailabilityAck.hashFor(batchId, expirationTime, activeMembership.myId)
+      )
+    )(handleFailure(s"Failed to sign $batchId") { signature =>
+      LocalDissemination.RemoteBatchStoredSigned(batchId, from, signature)
+    })
+
+  private def signLocalBatchesAndContinue(batches: Seq[(BatchId, OrderingRequestBatch)])(implicit
+      context: E#ActorContextT[Availability.Message[E]],
+      traceContext: TraceContext,
+  ): Unit =
+    pipeToSelf(
+      context.sequenceFuture(batches.map { case (batchId, batch) =>
+        activeCryptoProvider.signHash(
+          AvailabilityAck.hashFor(batchId, batch.expirationTime, activeMembership.myId)
+        )
+      })
+    ) {
+      case Failure(exception) =>
+        abort("Failed to sign local batches", exception)
+      case Success(results) =>
+        val (errors, signatures) = results.partitionMap(identity)
+        if (errors.nonEmpty) {
+          abort(s"Failed to sign local batches: ${errors.map(_.toString)}")
+        } else {
+          Availability.LocalDissemination.LocalBatchesStoredSigned(
+            batches.zip(signatures).map { case ((batchId, batch), signature) =>
+              Availability.LocalDissemination
+                .LocalBatchStoredSigned(batchId, batch, Right(signature))
+            }
           )
-        ) {
-          shipAvailableConsensusProposals(messageType)
+        }
+    }
+
+  private def disseminateLocalBatches(
+      actingOnMessageType: => String,
+      batches: Seq[Availability.LocalDissemination.LocalBatchStoredSigned],
+  )(implicit
+      context: E#ActorContextT[Availability.Message[E]],
+      traceContext: TraceContext,
+  ): Unit = {
+    logger.debug(
+      s"$actingOnMessageType: local batches ${batches.map(_.batchId)} ready to disseminate"
+    )
+
+    batches.foreach {
+      case Availability.LocalDissemination.LocalBatchStoredSigned(
+            batchId,
+            batch,
+            progressOrSignature,
+          ) =>
+        val progress =
+          progressOrSignature.fold(
+            identity,
+            signature =>
+              DisseminationProgress(
+                activeMembership.orderingTopology,
+                InProgressBatchMetadata(batchId, batch.expirationTime, batch.stats),
+                Set(AvailabilityAck(thisNode, signature)),
+              ),
+          )
+        logger.debug(s"$actingOnMessageType: progress of $batchId is $progress")
+        disseminationProtocolState.disseminationProgress.put(batchId, progress).discard
+
+        // If F == 0, no other nodes are required to store the batch because there is no fault tolerance,
+        //  so batches are ready for consensus immediately after being stored locally.
+        updateAndAdvanceSingleDisseminationProgress(
+          actingOnMessageType,
+          batchId,
+          voteToAdd = None,
+        )
+
+        if (activeMembership.otherNodes.nonEmpty) {
+          multicast(
+            message =
+              Availability.RemoteDissemination.RemoteBatch.create(batchId, batch, from = thisNode),
+            nodes = activeMembership.otherNodes.diff(progress.acks.map(_.from)),
+          )
         }
     }
   }
+
+  private def updateAndAdvanceSingleDisseminationProgress(
+      actingOnMessageType: => String,
+      batchId: BatchId,
+      voteToAdd: Option[(BftNodeId, Signature)],
+  )(implicit
+      traceContext: TraceContext
+  ): Unit =
+    if (
+      updateBatchDisseminationProgress(
+        actingOnMessageType,
+        batchId,
+        voteToAdd,
+      )
+    ) {
+      shipAvailableConsensusProposals(actingOnMessageType)
+    }
+
+  private def updateBatchDisseminationProgress(
+      actingOnMessageType: => String,
+      batchId: BatchId,
+      voteToAdd: Option[(BftNodeId, Signature)],
+  )(implicit traceContext: TraceContext): ReadyForOrdering = {
+    val maybeUpdatedDisseminationProgress =
+      disseminationProtocolState.disseminationProgress.updateWith(batchId) {
+        case None =>
+          val fromNodeString = voteToAdd.map(_._1).map(node => s"'$node'").getOrElse("this node")
+          logger.info(
+            s"$actingOnMessageType: got a store-response for batch $batchId " +
+              s"from $fromNodeString but the batch is unknown (potentially already proposed), ignoring"
+          )
+          None
+        case Some(status) =>
+          Some(
+            DisseminationProgress(
+              status.orderingTopology,
+              status.batchMetadata,
+              status.acks ++ voteToAdd.flatMap { case (from, signature) =>
+                // Since we may be re-requesting votes, we need to ensure we
+                //  don't add different valid signatures from the same node
+                if (status.acks.map(_.from).contains(from))
+                  None
+                else
+                  Some(AvailabilityAck(from, signature))
+              },
+            )
+          )
+      }
+    maybeUpdatedDisseminationProgress.exists(
+      advanceBatchIfComplete(actingOnMessageType, batchId, _)
+    )
+  }
+
+  private def handleConsensusMessage(
+      consensusMessage: Availability.Consensus[E]
+  )(implicit
+      context: E#ActorContextT[Availability.Message[E]],
+      traceContext: TraceContext,
+  ): Unit = {
+    lazy val messageType = shortType(consensusMessage)
+
+    consensusMessage match {
+      case Availability.Consensus.Ordered(batchIds) =>
+        removeOrderedBatchesAndPullFromMempool(messageType, batchIds)
+
+      case Availability.Consensus.CreateProposal(
+            orderingTopology,
+            cryptoProvider: CryptoProvider[E],
+            forEpochNumber,
+            ordered,
+          ) =>
+        handleConsensusProposalRequest(
+          messageType,
+          orderingTopology,
+          cryptoProvider,
+          forEpochNumber,
+          ordered,
+        )
+
+      case Availability.Consensus.LocalClockTick =>
+        // If there are no batches to be ordered, but the consensus module is waiting for a proposal
+        //  and more time has passed since the last one was created than `emptyBlockCreationInterval`,
+        //  we propose an empty block to the consensus module.
+        //  That way the consensus module can potentially use it to fill a segment and unblock progress
+        //  of subsequent segments filled by other remote nodes.
+        if (
+          disseminationProtocolState.batchesReadyForOrdering.isEmpty &&
+          disseminationProtocolState.toBeProvidedToConsensus.nonEmpty &&
+          disseminationProtocolState.lastProposalTime
+            .exists(ts => (clock.now - ts).toScala > config.emptyBlockCreationInterval)
+        ) {
+          logger.debug("LocalClockTick: proposing empty block to local consensus")
+          val maxBatchesPerProposal =
+            disseminationProtocolState.toBeProvidedToConsensus.dequeue()
+          assembleAndSendConsensusProposal( // Will propose an empty block
+            messageType,
+            maxBatchesPerProposal,
+          )
+        }
+
+        context.delayedEvent(ClockTickInterval, Availability.Consensus.LocalClockTick).discard
+    }
+  }
+
+  private def handleConsensusProposalRequest(
+      actingOnMessageType: => String,
+      orderingTopology: OrderingTopology,
+      cryptoProvider: CryptoProvider[E],
+      forEpochNumber: EpochNumber,
+      orderedBatchIds: Seq[BatchId],
+  )(implicit
+      context: E#ActorContextT[Availability.Message[E]],
+      traceContext: TraceContext,
+  ): Unit = {
+    removeOrderedBatchesAndPullFromMempool(actingOnMessageType, orderedBatchIds)
+
+    logger.debug(
+      s"$actingOnMessageType: recording block request from local consensus, " +
+        s"updating active ordering topology to $orderingTopology and reviewing progress"
+    )
+    disseminationProtocolState.toBeProvidedToConsensus enqueue ToBeProvidedToConsensus(
+      config.maxBatchesPerProposal,
+      forEpochNumber,
+    )
+    activeMembership = activeMembership.copy(orderingTopology = orderingTopology)
+    activeCryptoProvider = cryptoProvider
+
+    // Review and complete both in-progress and ready disseminations regardless of whether the topology
+    //  has changed, so that we also try and complete ones that might have become stuck;
+    //  note that a topology change may also cause in-progress disseminations to complete without
+    //  further acks due to a quorum reduction.
+
+    syncWithTopologyAllDisseminationProgress(actingOnMessageType)
+    advanceAllDisseminationProgress(actingOnMessageType)
+
+    emitDisseminationStateStats(metrics, disseminationProtocolState)
+  }
+
+  private def removeOrderedBatchesAndPullFromMempool(
+      actingOnMessageType: => String,
+      orderedBatches: Seq[BatchId],
+  )(implicit traceContext: TraceContext): Unit = {
+    logger.debug(
+      s"$actingOnMessageType: batches $orderedBatches have been acked from consensus as ordered"
+    )
+    orderedBatches.foreach(disseminationProtocolState.batchesReadyForOrdering.remove(_).discard)
+    initiateMempoolPull(actingOnMessageType)
+    emitDisseminationStateStats(metrics, disseminationProtocolState)
+  }
+
+  private def syncWithTopologyAllDisseminationProgress(actingOnMessageType: => String)(implicit
+      context: E#ActorContextT[Availability.Message[E]],
+      traceContext: TraceContext,
+  ): Unit = {
+    // TODO(#23297): drop expired batches
+
+    val currentOrderingTopology = activeMembership.orderingTopology
+
+    reviewInProgressBatches(actingOnMessageType)
+    reviewBatchesReadyForOrdering(actingOnMessageType)
+
+    val batchesThatNeedSigning = mutable.ListBuffer[BatchId]()
+    val batchesThatNeedMoreVotes = mutable.ListBuffer[(BatchId, DisseminationProgress)]()
+
+    // Review all in-progress disseminations
+    disseminationProtocolState.disseminationProgress =
+      disseminationProtocolState.disseminationProgress.flatMap {
+        case (batchId, disseminationProgress) =>
+          disseminationProgress
+            .voteOf(thisNode) match {
+            case None =>
+              // Needs re-signing
+              batchesThatNeedSigning.addOne(batchId)
+              None
+            case _ =>
+              if (
+                disseminationProgress.proofOfAvailability().isEmpty &&
+                disseminationProgress.acks.sizeIs < currentOrderingTopology.size
+              ) {
+                // Needs more votes
+                batchesThatNeedMoreVotes.addOne(batchId -> disseminationProgress)
+              }
+              Some(batchId -> disseminationProgress)
+          }
+      }
+
+    if (batchesThatNeedSigning.sizeIs > 0)
+      fetchBatchesAndThenSelfSend(batchesThatNeedSigning)(
+        // Will trigger signing and then further dissemination
+        Availability.LocalDissemination.LocalBatchesStored(_)
+      )
+
+    if (batchesThatNeedMoreVotes.sizeIs > 0)
+      fetchBatchesAndThenSelfSend(batchesThatNeedMoreVotes.map(_._1)) { batches =>
+        Availability.LocalDissemination.LocalBatchesStoredSigned(
+          batches.zip(batchesThatNeedMoreVotes.map(_._2)).map { case ((batchId, batch), progress) =>
+            // Will trigger further dissemination
+            Availability.LocalDissemination
+              .LocalBatchStoredSigned(batchId, batch, Left(progress))
+          }
+        )
+      }
+  }
+
+  private def reviewInProgressBatches(
+      actingOnMessageType: => String
+  )(implicit traceContext: TraceContext): Unit = {
+    val currentOrderingTopology = activeMembership.orderingTopology
+
+    disseminationProtocolState.disseminationProgress =
+      disseminationProtocolState.disseminationProgress.map { case (batchId, progress) =>
+        val reviewedProgress = progress.review(currentOrderingTopology)
+        debugLogReviewedProgressIfAny(
+          actingOnMessageType,
+          currentOrderingTopology,
+          batchId,
+          progress.acks,
+          reviewedProgress.acks,
+        )
+        batchId -> reviewedProgress
+      }
+  }
+
+  private def reviewBatchesReadyForOrdering(
+      actingOnMessageType: => String
+  )(implicit traceContext: TraceContext): Unit = {
+    val currentOrderingTopology = activeMembership.orderingTopology
+
+    // Consider everything as in progress again by converting batches that were
+    //  previously ready for ordering back into in-progress dissemination state, and
+    //  concatenating them into the single `disseminationProgress` map.
+    disseminationProtocolState.disseminationProgress ++=
+      disseminationProtocolState.batchesReadyForOrdering
+        .map { case (batchId, disseminatedBatchMetadata) =>
+          val reviewedProgress =
+            DisseminationProgress.reviewReadyForOrdering(
+              disseminatedBatchMetadata,
+              currentOrderingTopology,
+            )
+          val originalAcks = disseminatedBatchMetadata.proofOfAvailability.acks.toSet
+          debugLogReviewedProgressIfAny(
+            actingOnMessageType,
+            currentOrderingTopology,
+            batchId,
+            originalAcks,
+            reviewedProgress.acks,
+          )
+          batchId -> reviewedProgress
+        }
+    disseminationProtocolState.batchesReadyForOrdering.clear()
+  }
+
+  private def fetchBatchesAndThenSelfSend(
+      batchIds: Iterable[BatchId]
+  )(f: Seq[(BatchId, OrderingRequestBatch)] => LocalDissemination)(implicit
+      context: E#ActorContextT[Availability.Message[E]],
+      traceContext: TraceContext,
+  ): Unit =
+    pipeToSelf(availabilityStore.fetchBatches(batchIds.toSeq)) {
+      case Failure(error) =>
+        abort("Failed to fetch batches", error)
+      case Success(AvailabilityStore.MissingBatches(missingBatchIds)) =>
+        abort(s"Some batches couldn't be fetched: $missingBatchIds")
+      case Success(AvailabilityStore.AllBatches(batches)) =>
+        f(batches)
+    }
+
+  private def debugLogReviewedProgressIfAny(
+      actingOnMessageType: => String,
+      currentOrderingTopology: OrderingTopology,
+      batchId: BatchId,
+      originalAcks: Set[AvailabilityAck],
+      reviewedAcks: Set[AvailabilityAck],
+  )(implicit traceContext: TraceContext): Unit =
+    if (reviewedAcks != originalAcks)
+      logger.debug(
+        s"$actingOnMessageType: updated dissemination acks for previously competed batch $batchId " +
+          s"from $originalAcks to $reviewedAcks " +
+          s"due to the new topology $currentOrderingTopology"
+      )
+
+  private def advanceAllDisseminationProgress(actingOnMessageType: => String)(implicit
+      traceContext: TraceContext
+  ): Unit = {
+    val atLeastOneDisseminationWasCompleted =
+      disseminationProtocolState.disseminationProgress
+        .map { case (batchId, disseminationProgress) =>
+          advanceBatchIfComplete(actingOnMessageType, batchId, disseminationProgress)
+        }
+        .exists(identity)
+
+    if (atLeastOneDisseminationWasCompleted)
+      shipAvailableConsensusProposals(actingOnMessageType)
+  }
+
+  private def advanceBatchIfComplete(
+      actingOnMessageType: => String,
+      batchId: BatchId,
+      disseminationProgress: DisseminationProgress,
+  )(implicit traceContext: TraceContext): ReadyForOrdering =
+    disseminationProgress.proofOfAvailability().fold(false) { proof =>
+      logger.debug(
+        s"$actingOnMessageType: $batchId has completed dissemination in ${disseminationProgress.orderingTopology}"
+      )
+      // Dissemination completed: remove it now from the progress to avoids clashes with delayed / unneeded ACKs
+      disseminationProtocolState.disseminationProgress.remove(batchId).discard
+      disseminationProtocolState.batchesReadyForOrdering
+        .put(
+          batchId,
+          disseminationProgress.batchMetadata.complete(proof.acks),
+        )
+        .discard
+      true
+    }
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private def handleRemoteDisseminationMessage(
@@ -289,6 +658,7 @@ final class AvailabilityModule[E <: Env[E]](
                   .RemoteBatchStored(batchId, batch.expirationTime, from)
             },
         )
+
       case Availability.RemoteDissemination.RemoteBatchAcknowledged(batchId, from, signature) =>
         disseminationProtocolState.disseminationProgress
           .get(batchId)
@@ -527,7 +897,7 @@ final class AvailabilityModule[E <: Env[E]](
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private def fetchBatchDataFromNodes(
-      messageType: String,
+      actingOnMessageType: => String,
       proofOfAvailability: ProofOfAvailability,
       mode: OrderedBlockForOutput.Mode,
   )(implicit
@@ -536,12 +906,12 @@ final class AvailabilityModule[E <: Env[E]](
   ): Unit = {
     if (outputFetchProtocolState.localOutputMissingBatches.contains(proofOfAvailability.batchId)) {
       logger.debug(
-        s"$messageType: already trying to download ${proofOfAvailability.batchId}, ignoring"
+        s"$actingOnMessageType: already trying to download ${proofOfAvailability.batchId}, ignoring"
       )
       return
     }
     if (proofOfAvailability.acks.isEmpty) {
-      logger.error(s"$messageType: proof of availability is missing, ignoring")
+      logger.error(s"$actingOnMessageType: proof of availability is missing, ignoring")
       return
     }
     val (node, remainingNodes) =
@@ -550,7 +920,7 @@ final class AvailabilityModule[E <: Env[E]](
       else
         extractNodes(Some(proofOfAvailability.acks))
     logger.debug(
-      s"$messageType: fetch of ${proofOfAvailability.batchId} " +
+      s"$actingOnMessageType: fetch of ${proofOfAvailability.batchId} " +
         s"requested from local store, trying to fetch from $node"
     )
     outputFetchProtocolState.localOutputMissingBatches.update(
@@ -597,99 +967,6 @@ final class AvailabilityModule[E <: Env[E]](
     }
   }
 
-  private def handleConsensusMessage(
-      consensusMessage: Availability.Consensus[E]
-  )(implicit
-      context: E#ActorContextT[Availability.Message[E]],
-      traceContext: TraceContext,
-  ): Unit = {
-    lazy val messageType = shortType(consensusMessage)
-
-    consensusMessage match {
-      case Availability.Consensus.Ack(batchIds) =>
-        removeAckedBatches(batchIds, messageType)
-
-      case Availability.Consensus.CreateProposal(
-            orderingTopology,
-            cryptoProvider: CryptoProvider[E],
-            forEpochNumber,
-            acks,
-          ) =>
-        acks.map(_.batchIds).foreach(removeAckedBatches(_, messageType))
-
-        logger.debug(s"$messageType: received block request from local consensus")
-        if (activeMembership.orderingTopology != orderingTopology) {
-          // Deal with past proposal requests from consensus; some of them may now be complete
-          //  because the quorum may be lower in the new topology.
-          logger.debug(
-            s"$messageType: updating active ordering topology to $orderingTopology and re-checking progress"
-          )
-          activeMembership = activeMembership.copy(orderingTopology = orderingTopology)
-          activeCryptoProvider = cryptoProvider
-          reDisseminateBatchesWithStaleTopology()
-          updateTopologyInDisseminationProgress()
-          if (
-            disseminationProtocolState.disseminationProgress
-              .map { case (batchId, disseminationProgress) =>
-                advanceBatchIfComplete(batchId, disseminationProgress)
-              }
-              .exists(_ == true)
-          ) {
-            shipAvailableConsensusProposals(messageType)
-          }
-        } else {
-          logger.debug(s"$messageType: ordering topology is unchanged")
-        }
-
-        // Deal with the current proposal request from consensus
-        if (disseminationProtocolState.batchesReadyForOrdering.isEmpty) {
-          logger.debug(s"$messageType: no batches ready for ordering")
-          disseminationProtocolState.toBeProvidedToConsensus enqueue ToBeProvidedToConsensus(
-            config.maxBatchesPerProposal,
-            forEpochNumber,
-          )
-          emitDisseminationStateStats(metrics, disseminationProtocolState)
-        } else {
-          assembleAndSendConsensusProposal(
-            ToBeProvidedToConsensus(config.maxBatchesPerProposal, forEpochNumber),
-            messageType,
-          )
-        }
-
-      case Availability.Consensus.LocalClockTick =>
-        // If there are no batches to be ordered, but the consensus module is waiting for a proposal and more time has passed since
-        // the last one was created than `emptyBlockCreationInterval`, we propose an empty block to the consensus module.
-        // That way the consensus module can potentially use it to fill a segment and unblock progress of subsequent segments
-        // filled by other remote nodes.
-        if (
-          disseminationProtocolState.batchesReadyForOrdering.isEmpty &&
-          disseminationProtocolState.toBeProvidedToConsensus.nonEmpty &&
-          disseminationProtocolState.lastProposalTime
-            .exists(ts => (clock.now - ts).toScala > config.emptyBlockCreationInterval)
-        ) {
-          logger.debug("LocalClockTick: proposing empty block to local consensus")
-          val maxBatchesPerProposal =
-            disseminationProtocolState.toBeProvidedToConsensus.dequeue()
-          assembleAndSendConsensusProposal( // Will propose an empty block
-            maxBatchesPerProposal,
-            messageType,
-          )
-        }
-
-        context.delayedEvent(ClockTickInterval, Availability.Consensus.LocalClockTick).discard
-    }
-  }
-
-  private def removeAckedBatches(
-      ackedBatchIds: Seq[BatchId],
-      messageType: String,
-  )(implicit traceContext: TraceContext): Unit = {
-    logger.debug(s"Batches $ackedBatchIds have been ordered and acked")
-    ackedBatchIds.foreach(disseminationProtocolState.batchesReadyForOrdering.remove(_).discard)
-    initiateMempoolPull(messageType)
-    emitDisseminationStateStats(metrics, disseminationProtocolState)
-  }
-
   private def startDownload(
       batchId: BatchId,
       node: BftNodeId,
@@ -727,61 +1004,9 @@ final class AvailabilityModule[E <: Env[E]](
     shuffled.head -> shuffled.tail
   }
 
-  private def updateTopologyInDisseminationProgress(): Unit =
-    disseminationProtocolState.disseminationProgress =
-      disseminationProtocolState.disseminationProgress
-        .map { case (batchId, disseminationProgress) =>
-          val updatedDisseminationProgress =
-            disseminationProgress.copy(orderingTopology = activeMembership.orderingTopology)
-          batchId -> updatedDisseminationProgress
-        }
-        .to(mutable.SortedMap)
-
-  private def updateBatchDisseminationProgress(
-      signature: Signature,
-      batchId: BatchId,
-      nodeId: BftNodeId,
-      actingOnMessageType: String,
-  )(implicit traceContext: TraceContext): ReadyForOrdering = {
-    val maybeUpdatedDisseminationProgress =
-      disseminationProtocolState.disseminationProgress.updateWith(batchId) {
-        case None =>
-          logger.info(
-            s"$actingOnMessageType: got a store-response for batch $batchId from $nodeId " +
-              "but the batch is unknown (potentially already proposed), ignoring"
-          )
-          None
-        case Some(status) =>
-          Some(
-            DisseminationProgress(
-              status.orderingTopology,
-              status.batchMetadata,
-              status.votes.+(AvailabilityAck(nodeId, signature)),
-            )
-          )
-      }
-    maybeUpdatedDisseminationProgress.exists(advanceBatchIfComplete(batchId, _))
-  }
-
-  private def advanceBatchIfComplete(
-      batchId: BatchId,
-      disseminationProgress: DisseminationProgress,
-  ): ReadyForOrdering =
-    disseminationProgress.proofOfAvailability().fold(false) { proof =>
-      // Dissemination completed: remove it now from the progress to avoids clashes with delayed / unneeded ACKs
-      disseminationProtocolState.disseminationProgress.remove(batchId).discard
-      disseminationProtocolState.batchesReadyForOrdering
-        .put(
-          batchId,
-          disseminationProgress.batchMetadata.complete(proof.acks),
-        )
-        .discard
-      true
-    }
-
   @SuppressWarnings(Array("org.wartremover.warts.While"))
   private def shipAvailableConsensusProposals(
-      actingOnMessageType: String
+      actingOnMessageType: => String
   )(implicit traceContext: TraceContext): Unit =
     while (
       disseminationProtocolState.batchesReadyForOrdering.nonEmpty &&
@@ -790,15 +1015,15 @@ final class AvailabilityModule[E <: Env[E]](
       val maxBatchesPerProposal =
         disseminationProtocolState.toBeProvidedToConsensus.dequeue()
       assembleAndSendConsensusProposal(
-        maxBatchesPerProposal,
         actingOnMessageType,
+        maxBatchesPerProposal,
       )
     }
 
   @SuppressWarnings(Array("org.wartremover.warts.While"))
   private def assembleAndSendConsensusProposal(
+      actingOnMessageType: => String,
       toBeProvidedToConsensus: ToBeProvidedToConsensus,
-      actingOnMessageType: String,
   )(implicit traceContext: TraceContext): Unit = {
     val batchesToBeProposed = // May be empty if no batches are ready for ordering
       disseminationProtocolState.batchesReadyForOrdering.take(
@@ -818,47 +1043,8 @@ final class AvailabilityModule[E <: Env[E]](
     emitDisseminationStateStats(metrics, disseminationProtocolState)
   }
 
-  // Currently we just re-disseminate "stale" batches from scratch because we assess that
-  //  it's not worth adding complexity just to spare some sends.
-  //
-  //  Stale batches are in-progress batches with less than 50% probability of completing in the new topology,
-  //  plus batches that had completed in the old topology but that are not complete anymore in the new topology.
-  // TODO(#23635) Re-evaluate this strategy when we have more data on the actual impact of re-dissemination.
-  private def reDisseminateBatchesWithStaleTopology()(implicit
-      context: E#ActorContextT[Availability.Message[E]],
-      traceContext: TraceContext,
-  ): Unit = {
-    val currentOrderingTopology = activeMembership.orderingTopology
-    val (goodInProgress, staleInProgress) =
-      disseminationProtocolState.disseminationProgress.partition { case (_, progress) =>
-        quorumProbability(
-          currentOrderingTopology,
-          previousOrderingTopology = progress.orderingTopology,
-          votes = progress.votes.map(_.from),
-        ) >= QuorumProbabilityRetentionThreshold
-      }
-    disseminationProtocolState.disseminationProgress = goodInProgress
-    val (goodReady, staleReady) = disseminationProtocolState.batchesReadyForOrdering.partition {
-      case (_, metadata) =>
-        hasQuorum(currentOrderingTopology, metadata.proofOfAvailability.acks.view.map(_.from).toSet)
-    }
-    disseminationProtocolState.batchesReadyForOrdering = goodReady
-    val staleBatchIds = staleReady.keySet ++ staleInProgress.keySet
-    if (staleBatchIds.nonEmpty) {
-      // Re-disseminate: we need to re-fetch the batches from the store and restart the process by self-sending `LocalBatchStored`
-      staleBatchIds.foreach(batchId =>
-        pipeToSelf(availabilityStore.fetchBatches(Seq(batchId))) {
-          case Success(AvailabilityStore.AllBatches(Seq((_, batch)))) =>
-            Availability.LocalDissemination.LocalBatchStored(batchId, batch)
-          case other =>
-            abort(s"Failed to load batch $batchId for re-dissemination: $other")
-        }
-      )
-    }
-  }
-
   private def initiateMempoolPull(
-      messageType: String
+      actingOnMessageType: => String
   )(implicit traceContext: TraceContext): Unit = {
     // we tell mempool we want enough batches to fill up a proposal in order to make up for the one we just created
     // times the multiplier in order to try to disseminate-ahead batches for a following proposal
@@ -867,7 +1053,7 @@ final class AvailabilityModule[E <: Env[E]](
       (disseminationProtocolState.batchesReadyForOrdering.size + disseminationProtocolState.disseminationProgress.size)
 
     if (atMost > 0) {
-      logger.debug(s"$messageType: requesting at most $atMost batches from local mempool")
+      logger.debug(s"$actingOnMessageType: requesting at most $atMost batches from local mempool")
       dependencies.mempool.asyncSend(Mempool.CreateLocalBatches(atMost.toShort))
     }
   }
@@ -957,14 +1143,6 @@ object AvailabilityModule {
 
   private type ReadyForOrdering = Boolean
 
-  // The success probability threshold we use to decide whether to let an in-progress dissemination continue
-  //  when the ordering topology has changed.
-  //  This is a somewhat arbitrary middle-ground value that is based on an assessment of
-  //  the most likely changes, i.e. be adding/removing one node.
-  //  Such changes can change the probability in both ways (depending on whether the quorum size changes and/or nodes
-  //  from the old/current topologies already voted), so a middle ground seems reasonable.
-  private val QuorumProbabilityRetentionThreshold = 0.5
-
   private val ClockTickInterval = 100.milliseconds
 
   val DisseminateAheadMultiplier = 2
@@ -972,12 +1150,6 @@ object AvailabilityModule {
   def quorum(numberOfNodes: Int): Int = OrderingTopology.weakQuorumSize(numberOfNodes)
 
   def hasQuorum(orderingTopology: OrderingTopology, votes: Int): Boolean =
-    orderingTopology.hasWeakQuorum(votes)
-
-  def hasQuorum(
-      orderingTopology: OrderingTopology,
-      votes: Set[BftNodeId],
-  ): Boolean =
     orderingTopology.hasWeakQuorum(votes)
 
   private def parseAvailabilityNetworkMessage(
@@ -1015,15 +1187,4 @@ object AvailabilityModule {
           originalByteString => parseAvailabilityNetworkMessage(from, proto, originalByteString)
       )(protoSignedMessage)
       .map(Availability.UnverifiedProtocolMessage.apply)
-
-  private def quorumProbability(
-      currentOrderingTopology: OrderingTopology,
-      previousOrderingTopology: OrderingTopology,
-      votes: Set[BftNodeId],
-  ): BigDecimal =
-    currentOrderingTopology
-      .successProbabilityOfStaleDissemination(
-        previousOrderingTopology,
-        votes,
-      )
 }

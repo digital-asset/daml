@@ -367,6 +367,11 @@ class DatabaseSequencer(
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
     reader.read(member, offset)
 
+  override def readInternalV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+    reader.readV2(member, timestamp)
+
   /** Internal method to be used in the sequencer integration.
     */
   // TODO(#18401): Refactor ChunkUpdate and merge/remove this method with `acknowledgeSignedInternal` below

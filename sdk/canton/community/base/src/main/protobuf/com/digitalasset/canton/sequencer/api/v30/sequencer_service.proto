@@ -82,6 +82,15 @@ service SequencerService {
   // event.topology_timestamp refers to a time before the sequencer has been onboarded.
   rpc Subscribe(SubscriptionRequest) returns (stream SubscriptionResponse);
 
+  // Establishes a stream with the server to receive sequenced events from the synchronizer after the given
+  // counter. The delivered events will have a reference to the previous event (its timestamp)
+  // and a strictly monotonically increasing timestamp.
+  //
+  // The call fails synchronously, if the request is invalid, i.e., some field violates a documented validity condition.
+  // The call fails asynchronously, if the sequencer does not have a key to sign the event; this may occur if
+  // event.topology_timestamp refers to a time before the sequencer has been onboarded.
+  rpc SubscribeV2(SubscriptionRequestV2) returns (stream SubscriptionResponse);
+
   // Allows a member to acknowledge that they have read all events up to and including the provided timestamp,
   // and that they will never re-read these events again. This information is currently only used for informational
   // purposes and to provide a watermark for which it is safe to prune earlier events from the sequencer data stores.
@@ -128,6 +137,20 @@ message SubscriptionRequest {
   // Indicates the next event to receive.
   // If it refers to an event that has already been acknowledged, the sequencer may reject the request.
   int64 counter = 2;
+}
+
+message SubscriptionRequestV2 {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  string member = 1;
+
+  // Timestamp to start the subscription from (inclusive).
+  // Members can use the timestamp of the last event they have received to continue from there and compare the event,
+  // or can subscribe from previous event timestamp's immediate successor to get the next event.
+  // To subscribe from the beginning, set the optional to None.
+  // If it refers to an event that has already been acknowledged, the sequencer may reject the request.
+  // In microseconds of UTC time since Unix epoch
+  optional int64 timestamp = 2;
 }
 
 message SubscriptionResponse {

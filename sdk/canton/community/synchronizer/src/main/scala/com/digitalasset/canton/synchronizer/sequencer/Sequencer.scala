@@ -106,6 +106,10 @@ trait Sequencer
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource]
 
+  def readV2(member: Member, timestampInclusive: Option[CantonTimestamp])(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource]
+
   /** Return a snapshot state that other newly onboarded sequencers can use as an initial state from
     * which to support serving events. This state depends on the provided timestamp and will contain
     * registered members, counters per member, latest timestamp (which will be greater than or equal

@@ -8,15 +8,20 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 
 final case class InProgressBatchMetadata(
     batchId: BatchId,
-    stats: OrderingRequestBatchStats,
     expirationTime: CantonTimestamp,
+    stats: OrderingRequestBatchStats,
 ) {
 
   def complete(acks: Seq[AvailabilityAck]): DisseminatedBatchMetadata =
-    DisseminatedBatchMetadata(ProofOfAvailability(batchId, acks, expirationTime), stats)
+    DisseminatedBatchMetadata(
+      ProofOfAvailability(batchId, acks, expirationTime),
+      expirationTime,
+      stats,
+    )
 }
 
 final case class DisseminatedBatchMetadata(
     proofOfAvailability: ProofOfAvailability,
+    expirationTime: CantonTimestamp,
     stats: OrderingRequestBatchStats,
 )

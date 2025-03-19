@@ -663,7 +663,7 @@ class LifeCycleManagerTest extends AnyWordSpec with BaseTest with HasExecutionCo
 }
 
 object LifeCycleManagerTest {
-  private class TestManagedResource(
+  private[lifecycle] class TestManagedResource(
       override val name: String,
       onRelease: TraceContext => Future[Unit] = _ => Future.unit,
   ) extends ManagedResource {
@@ -677,7 +677,7 @@ object LifeCycleManagerTest {
     }
   }
 
-  private class TestRunOnClosing(
+  private[lifecycle] class TestRunOnClosing(
       override val name: String,
       onRun: () => Unit = () => (),
   ) extends RunOnClosing {

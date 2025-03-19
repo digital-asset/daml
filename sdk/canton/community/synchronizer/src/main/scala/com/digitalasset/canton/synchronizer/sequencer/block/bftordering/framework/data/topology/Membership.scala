@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology
 
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology.NodeTopologyInfo
 import com.google.common.annotations.VisibleForTesting
 
 final case class Membership(
@@ -24,8 +25,13 @@ object Membership {
       otherNodes: Set[BftNodeId] = Set.empty,
       sequencingParameters: SequencingParameters = SequencingParameters.Default,
       leaders: Option[Seq[BftNodeId]] = None,
+      nodesTopologyInfos: Map[BftNodeId, NodeTopologyInfo] = Map.empty,
   ): Membership = {
-    val orderingTopology = OrderingTopology.forTesting(otherNodes + myId, sequencingParameters)
+    val orderingTopology = OrderingTopology.forTesting(
+      otherNodes + myId,
+      sequencingParameters,
+      nodesTopologyInfos = nodesTopologyInfos,
+    )
     val nodes = orderingTopology.sortedNodes
     Membership(myId, orderingTopology, leaders.getOrElse(nodes))
   }

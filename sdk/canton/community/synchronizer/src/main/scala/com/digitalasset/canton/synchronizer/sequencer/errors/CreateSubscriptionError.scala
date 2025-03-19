@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.errors
 
 import com.digitalasset.canton.SequencerCounter
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.topology.Member
 
 /** Possible error from creating a subscription */
@@ -32,6 +33,15 @@ object CreateSubscriptionError {
     */
   final case class EventsUnavailable(counter: SequencerCounter, message: String)
       extends CreateSubscriptionError
+
+  /** Returned if the timestamp is valid but this sequencer instance does not hold sufficient data
+    * to fulfill the request from this point. Potentially because this data has been pruned or the
+    * sequencer was initialized at a later point.
+    */
+  final case class EventsUnavailableForTimestamp(
+      timestamp: Option[CantonTimestamp],
+      message: String,
+  ) extends CreateSubscriptionError
 
   /** In case the sequencer is being shut down as we are creating the subscription */
   case object ShutdownError extends CreateSubscriptionError
