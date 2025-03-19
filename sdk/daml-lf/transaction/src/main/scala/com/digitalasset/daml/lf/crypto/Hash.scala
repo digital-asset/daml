@@ -22,7 +22,7 @@ import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.crypto.HashUtils.{HashTracer, formatByteToHexString}
 import com.digitalasset.daml.lf.data.Ref.Name
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.language.StructuralType.StructuralTypeF
+import com.digitalasset.daml.lf.language.StructuralType.StructuralType
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value.ContractId
 import scalaz.Order
@@ -1043,7 +1043,7 @@ object Hash {
       .addStringSet(actAs)
       .build
 
-  def hashStructuralType(structType: StructuralTypeF): Hash = {
+  def hashStructuralType(structType: StructuralType): Hash = {
     def newHashBuilder: LegacyBuilder = {
       val structuralTypeName = structType.getClass.getSimpleName
 
@@ -1057,31 +1057,31 @@ object Hash {
     }
 
     structType match {
-      case StructuralTypeF.NumericF(scale) =>
+      case StructuralType.NumericT(scale) =>
         newHashBuilder.addIntWithContext(scale, "scale").build
 
-      case StructuralTypeF.ContractIdF(templateId) =>
+      case StructuralType.ContractIdT(templateId) =>
         newHashBuilder
           .addStringWithContext(templateId.toString, "templateId")
           .build
 
-      case StructuralTypeF.OptionalF(None) =>
+      case StructuralType.OptionalT(None) =>
         newHashBuilder.addIntWithContext(0, "None").build
 
-      case StructuralTypeF.OptionalF(Some(arg)) =>
+      case StructuralType.OptionalT(Some(arg)) =>
         newHashBuilder
           .addIntWithContext(1, "Some")
           .addHash(hashStructuralType(arg), "arg")
           .build
 
-      case StructuralTypeF.ListF(arg) =>
+      case StructuralType.ListT(arg) =>
         newHashBuilder
           .iterateOver(arg.iterator.zipWithIndex, arg.length) { case (b, (typeT, index)) =>
             b.addHash(hashStructuralType(typeT), s"typeT($index)")
           }
           .build
 
-      case StructuralTypeF.MapF(arg) =>
+      case StructuralType.MapT(arg) =>
         newHashBuilder
           .iterateOver(arg.zipWithIndex.iterator, arg.size) { case (b, ((keyT, valueT), index)) =>
             b.addHash(hashStructuralType(keyT), s"keyT($index)")
@@ -1089,14 +1089,14 @@ object Hash {
           }
           .build
 
-      case StructuralTypeF.TextMapF(arg) =>
+      case StructuralType.TextMapT(arg) =>
         newHashBuilder
           .iterateOver(arg.zipWithIndex.iterator, arg.size) { case (b, (valueT, index)) =>
             b.addHash(hashStructuralType(valueT), s"valueT($index)")
           }
           .build
 
-      case StructuralTypeF.RecordF(tyCon, pkgName, fieldInfo) =>
+      case StructuralType.RecordT(tyCon, pkgName, fieldInfo) =>
         newHashBuilder
           .addStringWithContext(tyCon.toString, "tyCon")
           .addStringWithContext(pkgName, "pkgName")
@@ -1108,7 +1108,7 @@ object Hash {
           }
           .build
 
-      case StructuralTypeF.VariantF(tyCon, pkgName, variant, variantIndex, variantType) =>
+      case StructuralType.VariantT(tyCon, pkgName, variant, variantIndex, variantType) =>
         newHashBuilder
           .addStringWithContext(tyCon.toString, "tyCon")
           .addStringWithContext(pkgName, "pkgName")
@@ -1117,7 +1117,7 @@ object Hash {
           .addHash(hashStructuralType(variantType), "variantType")
           .build
 
-      case StructuralTypeF.EnumF(tyCon, pkgName, cons, consIndex) =>
+      case StructuralType.EnumT(tyCon, pkgName, cons, consIndex) =>
         newHashBuilder
           .addStringWithContext(tyCon.toString, "tyCon")
           .addStringWithContext(pkgName, "pkgName")

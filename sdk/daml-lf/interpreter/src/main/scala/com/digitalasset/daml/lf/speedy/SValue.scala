@@ -14,8 +14,7 @@ import com.digitalasset.daml.lf.value.Value.ValueArithmeticError
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
-import com.digitalasset.daml.lf.language.StructuralType
-import com.digitalasset.daml.lf.language.StructuralType.StructuralTypeF
+import com.digitalasset.daml.lf.language.StructuralType.{Error => STError, StructuralType}
 import com.digitalasset.daml.lf.language.TypeDestructor.SerializableTypeF
 import com.digitalasset.daml.lf.speedy.iterable.SValueIterable
 
@@ -435,48 +434,48 @@ object SValue {
   private[lf] def structuralType(svalue: SValue, typ: Type)(implicit
       destruct: Type => SerializableTypeF[Type],
       classTag: ClassTag[Name],
-  ): StructuralTypeF = {
+  ): StructuralType = {
     (svalue, destruct(typ)) match {
       case (SUnit, SerializableTypeF.UnitF) =>
-        StructuralTypeF.UnitF
+        StructuralType.UnitT
 
       case (SBool(_), SerializableTypeF.BoolF) =>
-        StructuralTypeF.BoolF
+        StructuralType.BoolT
 
       case (SInt64(_), SerializableTypeF.Int64F) =>
-        StructuralTypeF.Int64F
+        StructuralType.Int64T
 
       case (SDate(_), SerializableTypeF.DateF) =>
-        StructuralTypeF.DateF
+        StructuralType.DateT
 
       case (STimestamp(_), SerializableTypeF.TimestampF) =>
-        StructuralTypeF.TimestampF
+        StructuralType.TimestampT
 
       case (SNumeric(_), SerializableTypeF.NumericF(scale)) =>
-        StructuralTypeF.NumericF(scale)
+        StructuralType.NumericT(scale)
 
       case (SParty(_), SerializableTypeF.PartyF) =>
-        StructuralTypeF.PartyF
+        StructuralType.PartyT
 
       case (SContractId(_), SerializableTypeF.ContractIdF(TTyCon(templateId))) =>
-        StructuralTypeF.ContractIdF(templateId)
+        StructuralType.ContractIdT(templateId)
 
       case (SOptional(optValue), SerializableTypeF.OptionalF(typ)) =>
-        StructuralTypeF.OptionalF(optValue.map(structuralType(_, typ)))
+        StructuralType.OptionalT(optValue.map(structuralType(_, typ)))
 
       case (SText(_), SerializableTypeF.TextF) =>
-        StructuralTypeF.TextF
+        StructuralType.TextT
 
       case (SList(values), SerializableTypeF.ListF(typ)) =>
-        StructuralTypeF.ListF(values.map(structuralType(_, typ)))
+        StructuralType.ListT(values.map(structuralType(_, typ)))
 
       case (SMap(false, entries), SerializableTypeF.MapF(keyType, valueType)) =>
-        StructuralTypeF.MapF(ArraySeq.from(entries.toSeq.map { case (key, value) =>
+        StructuralType.MapT(ArraySeq.from(entries.toSeq.map { case (key, value) =>
           (structuralType(key, keyType), structuralType(value, valueType))
         }))
 
       case (SMap(true, entries), SerializableTypeF.TextMapF(valueType)) =>
-        StructuralTypeF.TextMapF(
+        StructuralType.TextMapT(
           ArraySeq.from(entries.values.map(structuralType(_, valueType)))
         )
 
@@ -494,7 +493,7 @@ object SValue {
             }
         )
 
-        StructuralTypeF.RecordF(typCon.qualifiedName, pkgName, nonEmptyFieldInfo)
+        StructuralType.RecordT(typCon.qualifiedName, pkgName, nonEmptyFieldInfo)
 
       case (
             SVariant(_, variant, _, variantValue),
@@ -505,7 +504,7 @@ object SValue {
         val variantType = fieldTypes(variantIndex)
         val variantStructuralType = structuralType(variantValue, variantType)
 
-        StructuralTypeF.VariantF(
+        StructuralType.VariantT(
           tyCon.qualifiedName,
           pkgName,
           variant,
@@ -515,10 +514,10 @@ object SValue {
 
       case (SEnum(_, constructor, _), SerializableTypeF.EnumF(tyCon, pkgName, cons)) =>
         // Record enum constructor that the value uses within the structural type
-        StructuralTypeF.EnumF(tyCon.qualifiedName, pkgName, constructor, cons.indexOf(constructor))
+        StructuralType.EnumT(tyCon.qualifiedName, pkgName, constructor, cons.indexOf(constructor))
 
       case _ =>
-        throw StructuralType.Error.StructuralTypeError(
+        throw STError.StructuralTypeError(
           "impossible case for a type checked SValue!!"
         )
     }

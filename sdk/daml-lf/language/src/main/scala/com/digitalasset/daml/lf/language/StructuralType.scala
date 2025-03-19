@@ -9,56 +9,56 @@ import com.digitalasset.daml.lf.data.{FrontStack, Numeric, Ref}
 import scala.collection.immutable.ArraySeq
 
 object StructuralType {
-  sealed abstract class StructuralTypeF extends Product with Serializable
+  sealed abstract class StructuralType extends Product with Serializable
 
-  object StructuralTypeF {
+  object StructuralType {
 
-    case object UnitF extends StructuralTypeF
+    case object UnitT extends StructuralType
 
-    case object BoolF extends StructuralTypeF
+    case object BoolT extends StructuralType
 
-    case object Int64F extends StructuralTypeF
+    case object Int64T extends StructuralType
 
-    case object DateF extends StructuralTypeF
+    case object DateT extends StructuralType
 
-    case object TimestampF extends StructuralTypeF
+    case object TimestampT extends StructuralType
 
-    final case class NumericF(scale: Numeric.Scale) extends StructuralTypeF
+    final case class NumericT(scale: Numeric.Scale) extends StructuralType
 
-    case object PartyF extends StructuralTypeF
+    case object PartyT extends StructuralType
 
-    case object TextF extends StructuralTypeF
+    case object TextT extends StructuralType
 
-    final case class ContractIdF(templateId: Ref.Identifier) extends StructuralTypeF
+    final case class ContractIdT(templateId: Ref.Identifier) extends StructuralType
 
-    final case class OptionalF(arg: Option[StructuralTypeF]) extends StructuralTypeF
+    final case class OptionalT(arg: Option[StructuralType]) extends StructuralType
 
-    final case class ListF(arg: FrontStack[StructuralTypeF]) extends StructuralTypeF
+    final case class ListT(arg: FrontStack[StructuralType]) extends StructuralType
 
-    final case class MapF(arg: ArraySeq[(StructuralTypeF, StructuralTypeF)]) extends StructuralTypeF
+    final case class MapT(arg: ArraySeq[(StructuralType, StructuralType)]) extends StructuralType
 
-    final case class TextMapF(arg: ArraySeq[StructuralTypeF]) extends StructuralTypeF
+    final case class TextMapT(arg: ArraySeq[StructuralType]) extends StructuralType
 
-    final case class RecordF(
+    final case class RecordT(
         tyCon: Ref.QualifiedName,
         pkgName: Ref.PackageName,
-        fieldInfo: ArraySeq[(Ref.Name, Int, StructuralTypeF)],
-    ) extends StructuralTypeF
+        fieldInfo: ArraySeq[(Ref.Name, Int, StructuralType)],
+    ) extends StructuralType
 
-    final case class VariantF(
+    final case class VariantT(
         tyCon: Ref.QualifiedName,
         pkgName: Ref.PackageName,
         variant: Ref.Name,
         variantIndex: Int,
-        variantType: StructuralTypeF,
-    ) extends StructuralTypeF
+        variantType: StructuralType,
+    ) extends StructuralType
 
-    final case class EnumF(
+    final case class EnumT(
         tyCon: Ref.QualifiedName,
         pkgName: Ref.PackageName,
         cons: Ref.Name,
         consIndex: Int,
-    ) extends StructuralTypeF
+    ) extends StructuralType
   }
 
   sealed abstract class Error extends Throwable
