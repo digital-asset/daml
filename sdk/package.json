@@ -32,11 +32,11 @@
     "http-proxy": "^1.17.0",
     "node-cache": "^4.2.0",
     "setprototypeof": "^1.2.0",
-    "typescript": "3.7.4",
+    "typescript": "5.8",
     "url": "^0.11.0"
   },
   "devDependencies": {
     "@bazel/hide-bazel-files": "1.7.0",
-    "@bazel/typescript": "4.6.1"
+    "@bazel/typescript": "5.8"
   }
 }
