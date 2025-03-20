@@ -15,6 +15,9 @@ class SingleUseCell[A] {
   /** Returns whether the value has not yet been set */
   def isEmpty: Boolean = content.get.isEmpty
 
+  /** Returns whether the value has been set */
+  def isDefined: Boolean = content.get.isDefined
+
   /** Inserts the given value into the cell if it was empty before. Otherwise returns the content.
     *
     * @return

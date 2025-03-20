@@ -45,7 +45,7 @@ import scala.util.Random
   * [[ConfigTransform]]; this object provides helpers for transforming particular synchronizer or
   * participant instances, or all of them. It also provides a set of transforms that will be run for
   * every integration test using [[BaseIntegrationTest]] unless
-  * [[EnterpriseEnvironmentDefinition.clearConfigTransforms]] is called.
+  * [[EnvironmentDefinition.clearConfigTransforms]] is called.
   */
 object ConfigTransforms {
 
@@ -95,8 +95,8 @@ object ConfigTransforms {
       _.focus(_.ledgerApi.rateLimit).replace(Some(RateLimitingConfig.Default))
     )
 
-  /** Config transforms to apply to heavy-weight tests using an [[EnterpriseEnvironmentDefinition]].
-    * For example, these transforms should be applied to toxiproxy tests.
+  /** Config transforms to apply to heavy-weight tests using an [[EnvironmentDefinition]]. For
+    * example, these transforms should be applied to toxiproxy tests.
     */
   val heavyTestDefaults: Seq[ConfigTransform] = optSetProtocolVersion ++
     setBetaSupport(BaseTest.testedProtocolVersion.isBeta) ++
@@ -190,8 +190,8 @@ object ConfigTransforms {
       )
     )
 
-  /** Default transforms to apply to tests using a [[EnterpriseEnvironmentDefinition]]. Covers the
-    * primary ways that distinct concurrent environments may unintentionally collide.
+  /** Default transforms to apply to tests using a [[EnvironmentDefinition]]. Covers the primary
+    * ways that distinct concurrent environments may unintentionally collide.
     */
   val defaults: Seq[ConfigTransform] =
     heavyTestDefaults ++ updateLedgerApiSlowProcessWarning ++
@@ -773,8 +773,8 @@ object ConfigTransforms {
 
   /** Enables remote mediators
     *
-    * Alternatively use [[EnterpriseEnvironmentDefinition.buildBaseEnterpriseEnvironmentDefinition]]
-    * with `withRemote = true`
+    * Alternatively use [[EnvironmentDefinition.buildBaseEnvironmentDefinition]] with `withRemote =
+    * true`
     */
   def enableRemoteMediators(source: String, target: String): ConfigTransform = cantonConfig => {
     val remote = cantonConfig.mediators

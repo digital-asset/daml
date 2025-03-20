@@ -289,6 +289,7 @@ package http {
         templateId = Some(apiIdentifier(templateId)),
         contractId = ContractId unwrap contractId,
         createdEventBlob = Base64 unwrap createdEventBlob,
+        synchronizerId = "",
       )
   }
 

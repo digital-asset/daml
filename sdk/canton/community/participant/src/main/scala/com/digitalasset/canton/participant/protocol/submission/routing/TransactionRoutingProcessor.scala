@@ -11,7 +11,7 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.CryptoPureApi
-import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.TransactionRoutingError
 import com.digitalasset.canton.error.TransactionRoutingError.ConfigurationErrors.{
   MultiSynchronizerSupportNotEnabled,
@@ -51,6 +51,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.{LfKeyResolver, LfPartyId, checked}
 import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.transaction.FatContractInstance
 
 import scala.concurrent.ExecutionContext
 
@@ -84,7 +85,7 @@ class TransactionRoutingProcessor(
       wfTransaction: WellFormedTransaction[WithoutSuffixes],
       transactionMeta: TransactionMeta,
       keyResolver: LfKeyResolver,
-      explicitlyDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+      explicitlyDisclosedContracts: ImmArray[FatContractInstance],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, FutureUnlessShutdown[

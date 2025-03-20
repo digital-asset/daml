@@ -46,7 +46,6 @@ import com.digitalasset.canton.participant.protocol.EngineController.EngineAbort
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.participant.topology.TopologyComponentFactory
-import com.digitalasset.canton.participant.util.DAMLe.ContractWithMetadata
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{LfChoiceName, *}
@@ -220,8 +219,8 @@ final class RepairService(
     for {
       // Able to recompute contract signatories and stakeholders (and sanity check
       // repairContract metadata otherwise ignored matches real metadata)
-      contractWithMetadata <- damle
-        .contractWithMetadata(
+      contractMetadata <- damle
+        .contractMetadata(
           repairContract.contract.rawContractInstance.contractInstance,
           repairContract.contract.metadata.signatories,
           // There is currently no mechanism in place through which another service command can ask to abort the
@@ -231,22 +230,18 @@ final class RepairService(
         .leftMap(e =>
           log(s"Failed to compute contract ${repairContract.contract.contractId} metadata: $e")
         )
-      _ = if (repairContract.contract.metadata.signatories != contractWithMetadata.signatories) {
+      _ = if (repairContract.contract.metadata.signatories != contractMetadata.signatories) {
         logger.info(
-          s"Contract ${repairContract.contract.contractId} metadata signatories ${repairContract.contract.metadata.signatories} differ from actual signatories ${contractWithMetadata.signatories}"
+          s"Contract ${repairContract.contract.contractId} metadata signatories ${repairContract.contract.metadata.signatories} differ from actual signatories ${contractMetadata.signatories}"
         )
       }
-      _ = if (repairContract.contract.metadata.stakeholders != contractWithMetadata.stakeholders) {
+      _ = if (repairContract.contract.metadata.stakeholders != contractMetadata.stakeholders) {
         logger.info(
-          s"Contract ${repairContract.contract.contractId} metadata stakeholders ${repairContract.contract.metadata.stakeholders} differ from actual stakeholders ${contractWithMetadata.stakeholders}"
+          s"Contract ${repairContract.contract.contractId} metadata stakeholders ${repairContract.contract.metadata.stakeholders} differ from actual stakeholders ${contractMetadata.stakeholders}"
         )
       }
-      computedContract <- useComputedContractAndMetadata(
-        repairContract.contract,
-        contractWithMetadata,
-      )
       contractToAdd <- contractToAdd(
-        repairContract.copy(contract = computedContract),
+        repairContract,
         ignoreAlreadyAdded = ignoreAlreadyAdded,
         acsState = acsState,
         storedContract = storedContract,
@@ -743,25 +738,6 @@ final class RepairService(
       } yield (),
     )
   }
-
-  private def useComputedContractAndMetadata(
-      inputContract: SerializableContract,
-      computed: ContractWithMetadata,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, SerializableContract] =
-    EitherT.fromEither[FutureUnlessShutdown](
-      for {
-        rawContractInstance <- SerializableRawContractInstance
-          .create(computed.instance)
-          .leftMap(err =>
-            log(s"Failed to serialize contract ${inputContract.contractId}: ${err.errorMessage}")
-          )
-      } yield inputContract.copy(
-        metadata = computed.metadataWithGlobalKey,
-        rawContractInstance = rawContractInstance,
-      )
-    )
 
   /** Checks that the contracts can be added (packages known, stakeholders hosted, ...)
     * @param allHostedStakeholders

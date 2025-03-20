@@ -54,7 +54,9 @@ class MeteringReportEndpointTest extends AnyFreeSpec with Matchers {
     "should convert from protobuf response" in {
       val expected = Struct.of(Map("" -> struct.Value.of(struct.Value.Kind.StringValue("ok"))))
       val response = metering_report_service.GetMeteringReportResponse(
-        meteringReportJson = Some(expected)
+        request = None,
+        reportGenerationTime = None,
+        meteringReportJson = Some(expected),
       )
       val actual = MeteringReportEndpoint.toJsonMeteringReport(response)
       actual shouldBe \/-(expected)

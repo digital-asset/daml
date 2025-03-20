@@ -1,5 +1,8 @@
 // Composability tutorial part 2
 
+// Use the latest protocol version as default, but allow overriding it with an environment variable `CANTON_PROTOCOL_VERSION`
+val protocolVersion = sys.env.get("CANTON_PROTOCOL_VERSION").map(ProtocolVersion.tryCreate).getOrElse(ProtocolVersion.latest)
+
 // architecture-handbook-entry-begin: topology
 val iouAlias = "iou"
 val paintAlias = "paint"
@@ -12,7 +15,7 @@ val iouId = bootstrap.synchronizer(
   mediators = Seq(iou_mediator),
   synchronizerOwners = Seq(iouSynchronizerOwner),
   synchronizerThreshold = PositiveInt.one,
-  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(protocolVersion),
 )
 
 val paintSynchronizerOwner = paint_sequencer
@@ -22,7 +25,7 @@ val paintId = bootstrap.synchronizer(
   mediators = Seq(paint_mediator),
   synchronizerOwners = Seq(paintSynchronizerOwner),
   synchronizerThreshold = PositiveInt.one,
-  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(protocolVersion),
 )
 
 // update parameters
@@ -145,7 +148,7 @@ participant3.ledger_api.state.acs.await_active_contract(Painter, iouContract.id.
 
 // Painter accepts the paint offer on the Iou synchronizer
 val acceptCmd = paintOffer.id.exerciseAcceptByPainter().commands.asScala.toSeq
-val acceptTx = participant3.ledger_api.javaapi.commands.submit_flat(Seq(Painter), acceptCmd, synchronizerId =Some(iouId))
+val acceptTx = participant3.ledger_api.javaapi.commands.submit_flat(Seq(Painter), acceptCmd, synchronizerId = Some(iouId))
 val Seq(painterIou) = decodeAllCreated(Iou.COMPANION)(acceptTx)
 val Seq(paintHouse) = decodeAllCreated(PaintHouse.COMPANION)(acceptTx)
 // architecture-handbook-entry-end: accept

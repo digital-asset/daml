@@ -97,6 +97,7 @@ class SubmitRequestValidatorTest
       applicationId = applicationId,
       submissionId = submissionId.unwrap,
       commandId = commandId.unwrap,
+      readAs = Nil,
       actAs = Seq(submitter),
       commands = Seq(command),
       deduplicationPeriod = DeduplicationPeriodProto.DeduplicationDuration(deduplicationDuration),
@@ -105,6 +106,7 @@ class SubmitRequestValidatorTest
       packageIdSelectionPreference = Seq.empty,
       synchronizerId = synchronizerId,
       prefetchContractKeys = Seq.empty,
+      disclosedContracts = Nil,
     )
   }
 
@@ -231,7 +233,7 @@ class SubmitRequestValidatorTest
             commands = Some(api.commands),
             transactionFormat = Some(
               TransactionFormat(
-                eventFormat = Some(EventFormat(filtersForAnyParty = Some(Filters()))),
+                eventFormat = Some(EventFormat(Map.empty, Some(Filters(Nil)), verbose = false)),
                 transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
               )
             ),
@@ -249,7 +251,7 @@ class SubmitRequestValidatorTest
               commands = Some(api.commands),
               transactionFormat = Some(
                 TransactionFormat(
-                  eventFormat = Some(EventFormat()),
+                  eventFormat = Some(EventFormat(Map.empty, None, verbose = false)),
                   transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
                 )
               ),

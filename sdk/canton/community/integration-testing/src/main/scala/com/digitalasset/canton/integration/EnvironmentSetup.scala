@@ -11,6 +11,7 @@ import com.digitalasset.canton.config.{
   DefaultPorts,
   TestingConfigInternal,
 }
+import com.digitalasset.canton.environment.EnvironmentFactory
 import com.digitalasset.canton.logging.{LogEntry, NamedLogging, SuppressingLogger}
 import com.digitalasset.canton.metrics.{MetricsFactoryType, ScopedInMemoryMetricsFactory}
 import org.scalatest.{Assertion, BeforeAndAfterAll, Suite}
@@ -23,9 +24,13 @@ import scala.util.control.NonFatal
   * test run.
   */
 sealed trait EnvironmentSetup extends BeforeAndAfterAll {
-  this: Suite with HasEnvironmentDefinition with NamedLogging =>
+  this: Suite with NamedLogging =>
 
-  private lazy val envDef = environmentDefinition
+  protected def environmentDefinition: EnvironmentDefinition
+
+  private lazy val envDef: EnvironmentDefinition = environmentDefinition
+
+  protected def environmentFactory: EnvironmentFactory
 
   val edition: CantonEdition
 
@@ -102,7 +107,7 @@ sealed trait EnvironmentSetup extends BeforeAndAfterAll {
 
     val scopedMetricsFactory = new ScopedInMemoryMetricsFactory
     val environmentFixture =
-      envDef.environmentFactory.create(
+      environmentFactory.create(
         finalConfig,
         loggerFactory,
         testConfigTransform(
@@ -198,7 +203,7 @@ sealed trait EnvironmentSetup extends BeforeAndAfterAll {
   * of the previous test case.
   */
 trait SharedEnvironment extends EnvironmentSetup with CloseableTest {
-  this: Suite with HasEnvironmentDefinition with NamedLogging =>
+  this: Suite with NamedLogging =>
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var sharedEnvironment: Option[TestConsoleEnvironment] = None
@@ -226,7 +231,7 @@ trait SharedEnvironment extends EnvironmentSetup with CloseableTest {
   * CI.
   */
 trait IsolatedEnvironments extends EnvironmentSetup {
-  this: Suite with HasEnvironmentDefinition with NamedLogging =>
+  this: Suite with NamedLogging =>
 
   override def provideEnvironment: TestConsoleEnvironment = createEnvironment()
   override def testFinished(environment: TestConsoleEnvironment): Unit = destroyEnvironment(

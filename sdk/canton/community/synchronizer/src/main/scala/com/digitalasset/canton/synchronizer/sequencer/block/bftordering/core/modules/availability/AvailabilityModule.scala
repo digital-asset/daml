@@ -53,6 +53,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Output,
   P2PNetworkOut,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.utils.BftNodeShuffler
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
@@ -90,6 +91,7 @@ final class AvailabilityModule[E <: Env[E]](
   import AvailabilityModule.*
 
   private val thisNode = initialMembership.myId
+  private val nodeShuffler = new BftNodeShuffler(random)
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var activeMembership = initialMembership
@@ -989,7 +991,6 @@ final class AvailabilityModule[E <: Env[E]](
     )
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
   private def extractNodes(
       acks: Option[Seq[AvailabilityAck]],
       useCurrentTopology: Boolean = false,
@@ -1000,8 +1001,9 @@ final class AvailabilityModule[E <: Env[E]](
     val nodes =
       if (useCurrentTopology) activeMembership.otherNodes.toSeq
       else acks.getOrElse(abort("No availability acks provided for extracting nodes")).map(_.from)
-    val shuffled = random.shuffle(nodes)
-    shuffled.head -> shuffled.tail
+    val shuffled = nodeShuffler.shuffle(nodes)
+    val head = shuffled.headOption.getOrElse(abort("There should be at least one node to extract"))
+    head -> shuffled.tail
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.While"))

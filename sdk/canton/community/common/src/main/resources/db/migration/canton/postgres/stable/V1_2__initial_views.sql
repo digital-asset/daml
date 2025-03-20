@@ -670,6 +670,13 @@ create or replace view debug.ord_metadata_output_epochs as
     could_alter_ordering_topology
   from ord_metadata_output_epochs;
 
+create or replace view debug.ord_output_lower_bound as
+  select
+    single_row_lock,
+    epoch_number,
+    block_number
+  from ord_output_lower_bound;
+
 create or replace view debug.common_static_strings as
   select
     id,

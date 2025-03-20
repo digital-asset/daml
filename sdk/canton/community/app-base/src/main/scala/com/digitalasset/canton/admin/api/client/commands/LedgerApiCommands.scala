@@ -204,7 +204,7 @@ object LedgerApiCommands {
         Right(
           AllocatePartyRequest(
             partyIdHint = partyIdHint,
-            localMetadata = Some(ObjectMeta(annotations = annotations)),
+            localMetadata = Some(ObjectMeta(resourceVersion = "", annotations = annotations)),
             identityProviderId = identityProviderId,
           )
         )
@@ -240,6 +240,7 @@ object LedgerApiCommands {
         val partyDetails =
           PartyDetails(
             party = party.toProtoPrimitive,
+            isLocal = false,
             localMetadata = Some(metadata),
             identityProviderId = identityProviderId,
           )
@@ -266,7 +267,9 @@ object LedgerApiCommands {
       override protected def createRequest(): Either[String, ListKnownPartiesRequest] =
         Right(
           ListKnownPartiesRequest(
-            identityProviderId = identityProviderId
+            pageToken = "",
+            pageSize = 0,
+            identityProviderId = identityProviderId,
           )
         )
       override protected def submitRequest(
@@ -348,7 +351,7 @@ object LedgerApiCommands {
       override protected def createRequest(): Either[String, UploadDarFileRequest] =
         for {
           bytes <- BinaryFileUtil.readByteStringFromFile(darPath)
-        } yield UploadDarFileRequest(bytes)
+        } yield UploadDarFileRequest(bytes, submissionId = "")
       override protected def submitRequest(
           service: PackageManagementServiceStub,
           request: UploadDarFileRequest,
@@ -368,7 +371,7 @@ object LedgerApiCommands {
       override protected def createRequest(): Either[String, ValidateDarFileRequest] =
         for {
           bytes <- BinaryFileUtil.readByteStringFromFile(darPath)
-        } yield ValidateDarFileRequest(bytes)
+        } yield ValidateDarFileRequest(bytes, submissionId = "")
 
       override protected def submitRequest(
           service: PackageManagementServiceStub,
@@ -451,6 +454,7 @@ object LedgerApiCommands {
         Right(
           PruneRequest(
             pruneUpTo,
+            submissionId = "",
             // canton always prunes divulged contracts both in the ledger api index-db and in canton stores
             pruneAllDivulgedContracts = true,
           )
@@ -483,14 +487,19 @@ object LedgerApiCommands {
       def readAsAnyParty: Boolean
 
       protected def getRights: Seq[UserRight] =
-        actAs.toSeq.map(x => UserRight().withCanActAs(UserRight.CanActAs(x))) ++
-          readAs.toSeq.map(x => UserRight().withCanReadAs(UserRight.CanReadAs(x))) ++
-          (if (participantAdmin) Seq(UserRight().withParticipantAdmin(UserRight.ParticipantAdmin()))
+        actAs.toSeq.map(x => UserRight.defaultInstance.withCanActAs(UserRight.CanActAs(x))) ++
+          readAs.toSeq.map(x => UserRight.defaultInstance.withCanReadAs(UserRight.CanReadAs(x))) ++
+          (if (participantAdmin)
+             Seq(UserRight.defaultInstance.withParticipantAdmin(UserRight.ParticipantAdmin()))
            else Seq()) ++
           (if (identityProviderAdmin)
-             Seq(UserRight().withIdentityProviderAdmin(UserRight.IdentityProviderAdmin()))
+             Seq(
+               UserRight.defaultInstance
+                 .withIdentityProviderAdmin(UserRight.IdentityProviderAdmin())
+             )
            else Seq()) ++
-          (if (readAsAnyParty) Seq(UserRight().withCanReadAsAnyParty(UserRight.CanReadAsAnyParty()))
+          (if (readAsAnyParty)
+             Seq(UserRight.defaultInstance.withCanReadAsAnyParty(UserRight.CanReadAsAnyParty()))
            else Seq())
     }
 
@@ -521,7 +530,7 @@ object LedgerApiCommands {
               id = id,
               primaryParty = primaryParty.getOrElse(""),
               isDeactivated = isDeactivated,
-              metadata = Some(ObjectMeta(annotations = annotations)),
+              metadata = Some(ObjectMeta(resourceVersion = "", annotations = annotations)),
               identityProviderId = identityProviderId,
             )
           ),
@@ -1085,6 +1094,7 @@ object LedgerApiCommands {
           endInclusive = endInclusive,
           verbose = verbose,
           filter = Some(filter),
+          updateFormat = None,
         )
       }
     }
@@ -1160,6 +1170,8 @@ object LedgerApiCommands {
           beginExclusive = beginExclusive,
           endInclusive = endInclusive,
           updateFormat = Some(updateFormat),
+          filter = None,
+          verbose = false,
         )
       }
 
@@ -1175,6 +1187,7 @@ object LedgerApiCommands {
         GetTransactionByIdRequest(
           updateId = id,
           requestingParties = parties.toSeq,
+          transactionFormat = None,
         )
       }
 
@@ -1213,6 +1226,7 @@ object LedgerApiCommands {
           GetTransactionByOffsetRequest(
             offset = offset,
             requestingParties = parties.toSeq,
+            transactionFormat = None,
           )
         }
 
@@ -1275,11 +1289,13 @@ object LedgerApiCommands {
             offset.fold(0L)(_.unwrap)
           )
       },
+      minLedgerTimeRel = None,
       minLedgerTimeAbs = minLedgerTimeAbs.map(ProtoConverter.InstantConverter.toProtoPrimitive),
       submissionId = submissionId,
       disclosedContracts = disclosedContracts,
       synchronizerId = synchronizerId.map(_.toProtoPrimitive).getOrElse(""),
       packageIdSelectionPreference = packageIdSelectionPreference.map(_.toString),
+      prefetchContractKeys = Nil,
     )
 
     override protected def pretty: Pretty[this.type] =
@@ -1632,7 +1648,8 @@ object LedgerApiCommands {
                 TransactionFormat(
                   eventFormat = Some(
                     EventFormat(
-                      filtersByParty = actAs.map(_ -> Filters()).toMap,
+                      filtersByParty = actAs.map(_ -> Filters(Nil)).toMap,
+                      filtersForAnyParty = None,
                       verbose = true,
                     )
                   ),
@@ -1696,7 +1713,7 @@ object LedgerApiCommands {
         ] {
 
       override protected def createRequest(): Either[String, GetConnectedSynchronizersRequest] =
-        Right(GetConnectedSynchronizersRequest(partyId.toString))
+        Right(GetConnectedSynchronizersRequest(partyId.toString, participantId = ""))
 
       override protected def submitRequest(
           service: StateServiceStub,
@@ -1742,9 +1759,10 @@ object LedgerApiCommands {
           } else Filters.defaultInstance
         Right(
           GetActiveContractsRequest(
-            filter = Some(TransactionFilter(parties.map((_, filter)).toMap)),
+            filter = Some(TransactionFilter(parties.map((_, filter)).toMap, None)),
             verbose = verbose,
             activeAtOffset = activeAtOffset,
+            eventFormat = None,
           )
         )
       }
@@ -1948,6 +1966,7 @@ object LedgerApiCommands {
         GetEventsByContractIdRequest(
           contractId = contractId,
           requestingParties = requestingParties,
+          eventFormat = None,
         )
       )
 

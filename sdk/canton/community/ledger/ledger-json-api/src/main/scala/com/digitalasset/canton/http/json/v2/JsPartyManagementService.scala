@@ -56,7 +56,7 @@ class JsPartyManagementService(
     req =>
       partyManagementClient
         .serviceStub(ctx.token())(req.traceContext)
-        .listKnownParties(party_management_service.ListKnownPartiesRequest())
+        .listKnownParties(party_management_service.ListKnownPartiesRequest("", 0, ""))
         .resultToRight
   // TODO (i19538) paging
 

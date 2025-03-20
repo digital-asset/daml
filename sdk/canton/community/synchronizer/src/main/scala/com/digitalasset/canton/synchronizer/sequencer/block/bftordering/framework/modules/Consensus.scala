@@ -412,10 +412,8 @@ object Consensus {
     final case class VerifiedStateTransferMessage(message: StateTransferNetworkMessage)
         extends StateTransferMessage
 
-    final case class ResendBlockTransferRequest(
-        blockTransferRequest: SignedMessage[BlockTransferRequest],
-        to: BftNodeId,
-    ) extends StateTransferMessage
+    final case class RetryBlockTransferRequest(request: SignedMessage[BlockTransferRequest])
+        extends StateTransferMessage
 
     final case class BlockVerified[E <: Env[E]](
         commitCertificate: CommitCertificate,

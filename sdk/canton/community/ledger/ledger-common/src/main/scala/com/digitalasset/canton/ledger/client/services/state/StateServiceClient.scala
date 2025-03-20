@@ -43,6 +43,7 @@ class StateServiceClient(service: StateServiceStub)(implicit
           filter = Some(filter),
           verbose = verbose,
           activeAtOffset = validAtOffset,
+          eventFormat = None,
         ),
         LedgerClient.stubWithTracing(service, token).getActiveContracts,
       )
@@ -85,5 +86,10 @@ class StateServiceClient(service: StateServiceStub)(implicit
   )(implicit traceContext: TraceContext): Future[GetConnectedSynchronizersResponse] =
     LedgerClient
       .stubWithTracing(service, token)
-      .getConnectedSynchronizers(GetConnectedSynchronizersRequest(party))
+      .getConnectedSynchronizers(
+        GetConnectedSynchronizersRequest(
+          party = party,
+          participantId = "",
+        )
+      )
 }

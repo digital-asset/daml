@@ -376,6 +376,21 @@ object ReassignmentStore {
         reassignmentGlobalOffset,
         tsCompletion,
       )
+
+    def apply(
+        assignmentData: AssignmentData,
+        reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
+        tsCompletion: Option[CantonTimestamp],
+    ): ReassignmentEntry =
+      ReassignmentEntry(
+        assignmentData.reassignmentId,
+        assignmentData.contract,
+        None,
+        assignmentData.unassignmentDecisionTime,
+        None,
+        reassignmentGlobalOffset,
+        tsCompletion,
+      )
   }
 }
 

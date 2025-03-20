@@ -16,6 +16,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem.PekkoEnv
 import com.digitalasset.canton.tracing.TraceContext
+import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
 
@@ -88,6 +89,34 @@ trait OutputMetadataStore[E <: Env[E]] extends AutoCloseable {
   ): E#FutureUnlessShutdownT[Option[OutputBlockMetadata]]
 
   protected final val lastConsecutiveActionName: String = "get last consecutive block metadata"
+
+  @VisibleForTesting
+  def loadNumberOfRecords(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[OutputMetadataStore.NumberOfRecords]
+  protected def loadNumberOfRecordsName: String = s"load number of records"
+
+  def prune(
+      epochNumberExclusive: EpochNumber
+  )(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[OutputMetadataStore.NumberOfRecords]
+  protected def pruneName(epochNumberExclusive: EpochNumber): String =
+    s"prune at epoch $epochNumberExclusive (exclusive)"
+
+  def saveLowerBound(epoch: EpochNumber)(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[Either[String, Unit]]
+  protected def saveLowerBoundName(epoch: EpochNumber): String =
+    s"save lower bound $epoch"
+
+  /** Fetch the lower bound of blocks/epochs that can be read. Returns `None` if all data can be
+    * read.
+    */
+  def getLowerBound()(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[Option[OutputMetadataStore.LowerBound]]
+  protected val getLowerBoundActionName: String = s"get lower bound"
 }
 
 object OutputMetadataStore {
@@ -102,6 +131,17 @@ object OutputMetadataStore {
       epochNumber: EpochNumber,
       couldAlterOrderingTopology: Boolean,
   )
+
+  final case class NumberOfRecords(
+      epochs: Long,
+      blocks: Long,
+  )
+
+  final case class LowerBound(epochNumber: EpochNumber, blockNumber: BlockNumber)
+
+  object NumberOfRecords {
+    val empty = NumberOfRecords(0L, 0L)
+  }
 
   def apply(
       storage: Storage,

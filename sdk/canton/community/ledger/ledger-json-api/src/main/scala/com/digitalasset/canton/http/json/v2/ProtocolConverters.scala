@@ -165,6 +165,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
             disclosedContracts = disclosedContracts,
             synchronizerId = synchronizerId.getOrElse(""),
             packageIdSelectionPreference = packageIdSelectionPreference,
+            prefetchContractKeys = Nil,
           )
         )
     }
@@ -1307,6 +1308,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       synchronizerId = obj.synchronizerId,
       packageIdSelectionPreference = obj.packageIdSelectionPreference,
       verboseHashing = obj.verboseHashing,
+      prefetchContractKeys = Nil,
     )
   }
 

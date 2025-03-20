@@ -182,14 +182,45 @@ class StateTransferBehaviorTest
         implicit val ctx: ContextType = context
 
         stateTransferBehavior.handleStateTransferMessageResult(
-          "aMessageType",
           StateTransferMessageResult.Continue,
+          "aMessageType",
         )
 
         context.runPipedMessages() shouldBe empty
         context.extractSelfMessages() shouldBe empty
         context.extractBecomes() shouldBe empty
         context.delayedMessages shouldBe empty
+      }
+    }
+
+    "handling a 'NothingToTransfer' result of processing a state transfer message" should {
+      "retry state transfer of an epoch" in {
+        val stateTransferManagerMock = mock[StateTransferManager[ProgrammableUnitTestEnv]]
+        val epochStoreMock = mock[EpochStore[ProgrammableUnitTestEnv]]
+        when(
+          epochStoreMock.latestEpoch(any[Boolean])(any[TraceContext])
+        ) thenReturn (() => anEpochStoreEpoch)
+        when(
+          epochStoreMock.loadEpochProgress(eqTo(anEpochStoreEpoch.info))(any[TraceContext])
+        ) thenReturn (() => EpochInProgress())
+        val (context, stateTransferBehavior) =
+          createStateTransferBehavior(
+            epochStore = epochStoreMock,
+            maybeOnboardingStateTransferManager = Some(stateTransferManagerMock),
+          )
+        implicit val ctx: ContextType = context
+
+        stateTransferBehavior.handleStateTransferMessageResult(
+          StateTransferMessageResult.NothingToStateTransfer(otherIds.head),
+          "aMessageType",
+        )
+
+        verify(stateTransferManagerMock, times(1)).stateTransferNewEpoch(
+          eqTo(anEpochStoreEpoch.info.number),
+          eqTo(aMembership),
+          eqTo(aFakeCryptoProviderInstance),
+        )(any[String => Nothing])(eqTo(ctx), any[TraceContext])
+        succeed
       }
     }
   }

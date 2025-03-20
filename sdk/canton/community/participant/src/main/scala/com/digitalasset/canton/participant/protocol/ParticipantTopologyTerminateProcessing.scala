@@ -251,7 +251,7 @@ class ParticipantTopologyTerminateProcessing(
       synchronizerId = synchronizerId,
       oldRelevantState = effectiveStateChange.before.signedTransactions,
       currentRelevantState = effectiveStateChange.after.signedTransactions,
-      participantId = participantId,
+      localParticipantId = participantId,
       protocolVersion = protocolVersion,
     ).map { case TopologyTransactionDiff(events, updateId, requiresLocalPartyReplication) =>
       EventInfo(

@@ -50,7 +50,7 @@ class LogEntryTest extends AnyWordSpec with BaseTest {
       failure.message.value shouldBe
         """Incorrect log level WARN. Expected: ERROR
           |Incorrect logger name MyLogger. Expected one of:
-          |  com.digitalasset.canton.integration.CommunityEnvironmentDefinition, com.digitalasset.canton.integration.EnterpriseEnvironmentDefinition
+          |  com.digitalasset.canton.integration.EnvironmentDefinition, com.digitalasset.canton.integration.EnvironmentDefinition
           |## WARN  MyLogger - test""".stripMargin
     }
   }

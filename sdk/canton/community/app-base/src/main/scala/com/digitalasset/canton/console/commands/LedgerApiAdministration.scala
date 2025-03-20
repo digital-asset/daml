@@ -158,7 +158,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           resultFilter: UpdateTreeWrapper => Boolean = _ => true,
       ): Seq[UpdateTreeWrapper] =
         trees_with_tx_filter(
-          filter = TransactionFilterProto(partyIds.map(_.toLf -> Filters()).toMap),
+          filter = TransactionFilterProto(partyIds.map(_.toLf -> Filters(Nil)).toMap, None),
           completeAfter = completeAfter,
           beginOffsetExclusive = beginOffsetExclusive,
           endOffsetInclusive = endOffsetInclusive,
@@ -263,7 +263,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         val observer =
           new RecordingStreamObserver[UpdateWrapper](completeAfter, resultFilterWithSynchronizer)
 
-        val filter = TransactionFilterProto(partyIds.map(_.toLf -> Filters()).toMap)
+        val filter = TransactionFilterProto(partyIds.map(_.toLf -> Filters(Nil)).toMap, None)
         mkResult(
           subscribe_flat(observer, filter, beginOffsetExclusive, endOffsetInclusive, verbose),
           "getUpdates",
@@ -315,17 +315,32 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           filterTemplates.map(templateId =>
             CumulativeFilter(
               IdentifierFilter.TemplateFilter(
-                TemplateFilter(Some(templateId.toIdentifier))
+                TemplateFilter(Some(templateId.toIdentifier), includeCreatedEventBlob = false)
               )
             )
           )
         )
 
-        val updateFormat = UpdateFormat(includeReassignments =
-          if (partyIds.isEmpty)
-            Some(EventFormat(filtersForAnyParty = Some(filters)))
-          else
-            Some(EventFormat(filtersByParty = partyIds.map(_.toLf -> filters).toMap))
+        val updateFormat = UpdateFormat(
+          includeReassignments =
+            if (partyIds.isEmpty)
+              Some(
+                EventFormat(
+                  filtersByParty = Map.empty,
+                  filtersForAnyParty = Some(filters),
+                  verbose = false,
+                )
+              )
+            else
+              Some(
+                EventFormat(
+                  filtersByParty = partyIds.map(_.toLf -> filters).toMap,
+                  filtersForAnyParty = None,
+                  verbose = false,
+                )
+              ),
+          includeTransactions = None,
+          includeTopologyEvents = None,
         )
 
         mkResult(
@@ -378,6 +393,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         val observer =
           new RecordingStreamObserver[UpdateWrapper](completeAfter, resultFilterWithSynchronizer)
         val updateFormat = UpdateFormat(
+          includeTransactions = None,
+          includeReassignments = None,
           includeTopologyEvents = Some(
             TopologyFormat(
               includeParticipantAuthorizationEvents = Some(
@@ -386,7 +403,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 )
               )
             )
-          )
+          ),
         )
 
         mkResult(
@@ -554,7 +571,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               logger.info(s"Stop measuring throughput (metric: $metricName).")
           }
 
-          val filterParty = TransactionFilterProto(parties.map(_.toLf -> Filters()).toMap)
+          val filterParty = TransactionFilterProto(parties.map(_.toLf -> Filters(Nil)).toMap, None)
 
           logger.info(s"Start measuring throughput (metric: $metricName).")
           subscribe_trees(

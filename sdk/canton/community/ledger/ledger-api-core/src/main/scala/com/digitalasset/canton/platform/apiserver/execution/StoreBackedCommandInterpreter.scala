@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 import cats.data.*
 import cats.syntax.all.*
 import com.daml.metrics.{Timed, Tracked}
-import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.api.Commands as ApiCommands
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
@@ -143,11 +143,7 @@ final class StoreBackedCommandInterpreter(
     val processedDisclosedContractsSynchronizers = meta.disclosedEvents
       .map { event =>
         val disclosedContract = disclosedContractsMap(event.coid)
-        ProcessedDisclosedContract(
-          create = disclosedContract.fatContractInstance.toCreateNode,
-          createdAt = disclosedContract.fatContractInstance.createdAt,
-          driverMetadata = disclosedContract.fatContractInstance.cantonData,
-        ) -> disclosedContract.synchronizerIdO
+        disclosedContract.fatContractInstance -> disclosedContract.synchronizerIdO
       }
 
     StoreBackedCommandInterpreter

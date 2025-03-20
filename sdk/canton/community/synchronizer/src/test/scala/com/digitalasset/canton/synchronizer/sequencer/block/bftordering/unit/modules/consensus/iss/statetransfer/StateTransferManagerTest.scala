@@ -125,8 +125,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         .create(startEpoch, from = myId)
         .fakeSign
       stateTransferManager.handleStateTransferMessage(
-        StateTransferMessage
-          .ResendBlockTransferRequest(blockTransferRequest, to = otherId),
+        StateTransferMessage.RetryBlockTransferRequest(blockTransferRequest),
         aTopologyInfo,
         latestCompletedEpoch,
       )(abort = fail(_)) shouldBe StateTransferMessageResult.Continue
@@ -391,7 +390,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       VerifiedStateTransferMessage(blockTransferResponse),
       aTopologyInfo,
       latestCompletedEpochLocally,
-    )(abort = fail(_)) shouldBe StateTransferMessageResult.NothingToStateTransfer
+    )(abort = fail(_)) shouldBe StateTransferMessageResult.NothingToStateTransfer(from = otherId)
   }
 
   "drop messages when not in state transfer" in {
@@ -466,10 +465,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
   )(implicit context: ContextType): Unit = {
     // Should have scheduled a retry.
     context.lastDelayedMessage shouldBe Some(
-      numberOfTimes -> StateTransferMessage.ResendBlockTransferRequest(
-        blockTransferRequest,
-        to = otherId,
-      )
+      numberOfTimes -> StateTransferMessage.RetryBlockTransferRequest(blockTransferRequest)
     )
     // Should have sent a block transfer request to the other node only.
     val order = inOrder(p2pNetworkOutRef)

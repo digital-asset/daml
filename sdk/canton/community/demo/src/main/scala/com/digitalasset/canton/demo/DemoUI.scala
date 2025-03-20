@@ -363,8 +363,12 @@ class ParticipantTab(
     val partyId = UniqueIdentifier.tryCreate(party, uid.namespace).toProtoPrimitive
     val req = new GetUpdatesRequest(
       beginExclusive = offset,
-      filter = Some(TransactionFilter(filtersByParty = Map(partyId -> Filters()))),
+      endInclusive = None,
+      filter = Some(
+        TransactionFilter(filtersByParty = Map(partyId -> Filters(Nil)), filtersForAnyParty = None)
+      ),
       verbose = true,
+      updateFormat = None,
     )
     updatesService.getUpdates(req, obs)
   }

@@ -11,4 +11,5 @@ option (scalapb.options) = {
   scope: PACKAGE
   preserve_unknown_fields: false
   java_conversions : true
+  no_default_values_in_constructor: true
 };

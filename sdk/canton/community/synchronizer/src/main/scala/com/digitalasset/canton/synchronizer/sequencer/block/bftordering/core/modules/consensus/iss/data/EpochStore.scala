@@ -125,12 +125,12 @@ trait EpochStore[E <: Env[E]] extends AutoCloseable {
   protected def loadNumberOfRecordsName: String = s"load number of records"
 
   def prune(
-      epochNumberInclusive: EpochNumber
+      epochNumberExclusive: EpochNumber
   )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[EpochStore.NumberOfRecords]
   protected def pruneName(epochNumberInclusive: EpochNumber): String =
-    s"prune at epoch $epochNumberInclusive (inclusive)"
+    s"prune at epoch $epochNumberInclusive (exclusive)"
 
 }
 

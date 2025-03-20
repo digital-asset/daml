@@ -64,15 +64,18 @@ object LedgerConnection {
   }
 
   def transactionFilterByParty(filter: Map[PartyId, Seq[Identifier]]): TransactionFilter =
-    TransactionFilter(filter.map {
-      case (p, Nil) => p.toProtoPrimitive -> Filters.defaultInstance
-      case (p, ts) =>
-        p.toProtoPrimitive -> Filters(
-          ts.map(tf =>
-            CumulativeFilter(IdentifierFilter.TemplateFilter(TemplateFilter(Some(tf), false)))
+    TransactionFilter(
+      filter.map {
+        case (p, Nil) => p.toProtoPrimitive -> Filters.defaultInstance
+        case (p, ts) =>
+          p.toProtoPrimitive -> Filters(
+            ts.map(tf =>
+              CumulativeFilter(IdentifierFilter.TemplateFilter(TemplateFilter(Some(tf), false)))
+            )
           )
-        )
-    })
+      },
+      None,
+    )
 
   def mapTemplateIds(id: javaapi.data.Identifier): Identifier =
     Identifier(

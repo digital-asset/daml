@@ -71,11 +71,11 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
     RequiredClaims.transactionFilterClaims[String](
       TransactionFilter(
         filtersByParty = Map(
-          "a" -> Filters(),
-          "b" -> Filters(),
-          "c" -> Filters(),
+          "a" -> Filters(Nil),
+          "b" -> Filters(Nil),
+          "c" -> Filters(Nil),
         ),
-        filtersForAnyParty = Some(Filters()),
+        filtersForAnyParty = Some(Filters(Nil)),
       )
     ) should contain theSameElementsAs RequiredClaims[String](
       RequiredClaim.ReadAs("a"),
@@ -89,9 +89,9 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
     RequiredClaims.transactionFilterClaims[String](
       TransactionFilter(
         filtersByParty = Map(
-          "a" -> Filters(),
-          "b" -> Filters(),
-          "c" -> Filters(),
+          "a" -> Filters(Nil),
+          "b" -> Filters(Nil),
+          "c" -> Filters(Nil),
         ),
         filtersForAnyParty = None,
       )
@@ -135,11 +135,11 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
     RequiredClaims.eventFormatClaims[String](
       EventFormat(
         filtersByParty = Map(
-          "a" -> Filters(),
-          "b" -> Filters(),
-          "c" -> Filters(),
+          "a" -> Filters(Nil),
+          "b" -> Filters(Nil),
+          "c" -> Filters(Nil),
         ),
-        filtersForAnyParty = Some(Filters()),
+        filtersForAnyParty = Some(Filters(Nil)),
         verbose = true,
       )
     ) should contain theSameElementsAs RequiredClaims[String](
@@ -154,9 +154,9 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
     RequiredClaims.eventFormatClaims[String](
       EventFormat(
         filtersByParty = Map(
-          "a" -> Filters(),
-          "b" -> Filters(),
-          "c" -> Filters(),
+          "a" -> Filters(Nil),
+          "b" -> Filters(Nil),
+          "c" -> Filters(Nil),
         ),
         filtersForAnyParty = None,
         verbose = false,
@@ -172,7 +172,7 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
     RequiredClaims.eventFormatClaims[String](
       EventFormat(
         filtersByParty = Map.empty,
-        filtersForAnyParty = Some(Filters()),
+        filtersForAnyParty = Some(Filters(Nil)),
         verbose = false,
       )
     ) should contain theSameElementsAs RequiredClaims[String](
@@ -200,11 +200,11 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
             eventFormat = Some(
               EventFormat(
                 filtersByParty = Map(
-                  "a" -> Filters(),
-                  "b" -> Filters(),
-                  "c" -> Filters(),
+                  "a" -> Filters(Nil),
+                  "b" -> Filters(Nil),
+                  "c" -> Filters(Nil),
                 ),
-                filtersForAnyParty = Some(Filters()),
+                filtersForAnyParty = Some(Filters(Nil)),
                 verbose = true,
               )
             ),
@@ -214,11 +214,11 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
         includeReassignments = Some(
           EventFormat(
             filtersByParty = Map(
-              "1" -> Filters(),
-              "2" -> Filters(),
-              "3" -> Filters(),
+              "1" -> Filters(Nil),
+              "2" -> Filters(Nil),
+              "3" -> Filters(Nil),
             ),
-            filtersForAnyParty = Some(Filters()),
+            filtersForAnyParty = Some(Filters(Nil)),
             verbose = true,
           )
         ),
@@ -254,11 +254,11 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
             eventFormat = Some(
               EventFormat(
                 filtersByParty = Map(
-                  "a" -> Filters(),
-                  "b" -> Filters(),
-                  "c" -> Filters(),
+                  "a" -> Filters(Nil),
+                  "b" -> Filters(Nil),
+                  "c" -> Filters(Nil),
                 ),
-                filtersForAnyParty = Some(Filters()),
+                filtersForAnyParty = Some(Filters(Nil)),
                 verbose = true,
               )
             ),
@@ -268,11 +268,11 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
         includeReassignments = Some(
           EventFormat(
             filtersByParty = Map(
-              "1" -> Filters(),
-              "2" -> Filters(),
-              "3" -> Filters(),
+              "1" -> Filters(Nil),
+              "2" -> Filters(Nil),
+              "3" -> Filters(Nil),
             ),
-            filtersForAnyParty = Some(Filters()),
+            filtersForAnyParty = Some(Filters(Nil)),
             verbose = true,
           )
         ),
@@ -305,11 +305,11 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
             eventFormat = Some(
               EventFormat(
                 filtersByParty = Map(
-                  "a" -> Filters(),
-                  "b" -> Filters(),
-                  "c" -> Filters(),
+                  "a" -> Filters(Nil),
+                  "b" -> Filters(Nil),
+                  "c" -> Filters(Nil),
                 ),
-                filtersForAnyParty = Some(Filters()),
+                filtersForAnyParty = Some(Filters(Nil)),
                 verbose = true,
               )
             ),
@@ -319,11 +319,11 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
         includeReassignments = Some(
           EventFormat(
             filtersByParty = Map(
-              "1" -> Filters(),
-              "2" -> Filters(),
-              "3" -> Filters(),
+              "1" -> Filters(Nil),
+              "2" -> Filters(Nil),
+              "3" -> Filters(Nil),
             ),
-            filtersForAnyParty = Some(Filters()),
+            filtersForAnyParty = Some(Filters(Nil)),
             verbose = true,
           )
         ),
@@ -352,11 +352,11 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
             eventFormat = Some(
               EventFormat(
                 filtersByParty = Map(
-                  "a" -> Filters(),
-                  "b" -> Filters(),
-                  "c" -> Filters(),
+                  "a" -> Filters(Nil),
+                  "b" -> Filters(Nil),
+                  "c" -> Filters(Nil),
                 ),
-                filtersForAnyParty = Some(Filters()),
+                filtersForAnyParty = Some(Filters(Nil)),
                 verbose = true,
               )
             ),
@@ -366,11 +366,11 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
         includeReassignments = Some(
           EventFormat(
             filtersByParty = Map(
-              "1" -> Filters(),
-              "2" -> Filters(),
-              "3" -> Filters(),
+              "1" -> Filters(Nil),
+              "2" -> Filters(Nil),
+              "3" -> Filters(Nil),
             ),
-            filtersForAnyParty = Some(Filters()),
+            filtersForAnyParty = Some(Filters(Nil)),
             verbose = true,
           )
         ),
@@ -395,11 +395,11 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
             eventFormat = Some(
               EventFormat(
                 filtersByParty = Map(
-                  "a" -> Filters(),
-                  "b" -> Filters(),
-                  "c" -> Filters(),
+                  "a" -> Filters(Nil),
+                  "b" -> Filters(Nil),
+                  "c" -> Filters(Nil),
                 ),
-                filtersForAnyParty = Some(Filters()),
+                filtersForAnyParty = Some(Filters(Nil)),
                 verbose = true,
               )
             ),
@@ -409,9 +409,9 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
         includeReassignments = Some(
           EventFormat(
             filtersByParty = Map(
-              "1" -> Filters(),
-              "2" -> Filters(),
-              "3" -> Filters(),
+              "1" -> Filters(Nil),
+              "2" -> Filters(Nil),
+              "3" -> Filters(Nil),
             ),
             filtersForAnyParty = None,
             verbose = true,
@@ -438,9 +438,9 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
             eventFormat = Some(
               EventFormat(
                 filtersByParty = Map(
-                  "a" -> Filters(),
-                  "b" -> Filters(),
-                  "c" -> Filters(),
+                  "a" -> Filters(Nil),
+                  "b" -> Filters(Nil),
+                  "c" -> Filters(Nil),
                 ),
                 filtersForAnyParty = None,
                 verbose = true,
@@ -452,9 +452,9 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
         includeReassignments = Some(
           EventFormat(
             filtersByParty = Map(
-              "1" -> Filters(),
-              "2" -> Filters(),
-              "3" -> Filters(),
+              "1" -> Filters(Nil),
+              "2" -> Filters(Nil),
+              "3" -> Filters(Nil),
             ),
             filtersForAnyParty = None,
             verbose = true,
@@ -480,9 +480,9 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
             eventFormat = Some(
               EventFormat(
                 filtersByParty = Map(
-                  "a" -> Filters(),
-                  "b" -> Filters(),
-                  "c" -> Filters(),
+                  "a" -> Filters(Nil),
+                  "b" -> Filters(Nil),
+                  "c" -> Filters(Nil),
                 ),
                 filtersForAnyParty = None,
                 verbose = true,

@@ -36,7 +36,6 @@ import scala.util.chaining.*
 class TopologyTransactionsStreamReader(
     globalIdQueriesLimiter: ConcurrencyLimiter,
     globalPayloadQueriesLimiter: ConcurrencyLimiter,
-    experimentalEnableTopologyEvents: Boolean,
     dbDispatcher: DbDispatcher,
     queryValidRange: QueryValidRange,
     eventStorageBackend: EventStorageBackend,
@@ -83,15 +82,12 @@ class TopologyTransactionsStreamReader(
               maxParallelIdQueriesLimiter.execute {
                 globalIdQueriesLimiter.execute {
                   dbDispatcher.executeSql(metric) {
-                    if (experimentalEnableTopologyEvents)
-                      idDbQuery.fetchIds(
-                        stakeholder = partyO,
-                        startExclusive = state.fromIdExclusive,
-                        endInclusive = queryRange.endInclusiveEventSeqId,
-                        limit = state.pageSize,
-                      )
-                    else
-                      _ => Vector.empty
+                    idDbQuery.fetchIds(
+                      stakeholder = partyO,
+                      startExclusive = state.fromIdExclusive,
+                      endInclusive = queryRange.endInclusiveEventSeqId,
+                      limit = state.pageSize,
+                    )
                   }
                 }
               }

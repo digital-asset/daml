@@ -80,14 +80,22 @@ class PartyReplicationAdminWorkflow(
       retrySubmitter
         .submitCommands(
           Commands(
+            workflowId = "",
             applicationId = applicationId,
             commandId = s"proposal-$partyReplicationIdS",
-            actAs = Seq(participantId.adminParty.toProtoPrimitive),
             commands = proposal.create.commands.asScala.toSeq
               .map(LedgerClientUtils.javaCodegenToScalaProto),
             deduplicationPeriod =
               DeduplicationDuration(syncService.maxDeduplicationDuration.toProtoPrimitive),
+            minLedgerTimeAbs = None,
+            minLedgerTimeRel = None,
+            actAs = Seq(participantId.adminParty.toProtoPrimitive),
+            readAs = Nil,
+            submissionId = "",
+            disclosedContracts = Nil,
             synchronizerId = synchronizerId.toProtoPrimitive,
+            packageIdSelectionPreference = Nil,
+            prefetchContractKeys = Nil,
           ),
           timeouts.default.asFiniteApproximation,
         )
@@ -154,13 +162,21 @@ class PartyReplicationAdminWorkflow(
         commandResult <- performUnlessClosingF(s"submit $commandId")(
           retrySubmitter.submitCommands(
             Commands(
+              workflowId = "",
               applicationId = applicationId,
               commandId = commandId,
-              actAs = Seq(participantId.adminParty.toProtoPrimitive),
               commands = exercise.asScala.toSeq.map(LedgerClientUtils.javaCodegenToScalaProto),
               deduplicationPeriod =
                 DeduplicationDuration(syncService.maxDeduplicationDuration.toProtoPrimitive),
+              minLedgerTimeAbs = None,
+              minLedgerTimeRel = None,
+              actAs = Seq(participantId.adminParty.toProtoPrimitive),
+              readAs = Nil,
+              submissionId = "",
+              disclosedContracts = Nil,
               synchronizerId = synchronizerId,
+              packageIdSelectionPreference = Nil,
+              prefetchContractKeys = Nil,
             ),
             timeouts.default.asFiniteApproximation,
           )

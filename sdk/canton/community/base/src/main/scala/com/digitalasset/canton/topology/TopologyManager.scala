@@ -297,6 +297,19 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
     EitherT.rightT(())
   }
 
+  def checkInsufficientSignatoryAssigningParticipantsForParty(
+      @unused partyId: PartyId,
+      @unused currentThreshold: PositiveInt,
+      @unused nextThreshold: Option[PositiveInt],
+      @unused nextConfirmingParticipants: Seq[HostingParticipant],
+      @unused forceFlags: ForceFlags,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = {
+    traceContext.discard
+    EitherT.rightT(())
+  }
+
   def checkInsufficientParticipantPermissionForSignatoryParty(
       @unused party: PartyId,
       @unused forceFlags: ForceFlags,
@@ -755,9 +768,10 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
         forceChanges,
         transaction.mapping.code,
       )
-    case PartyToParticipant(partyId, _, participants) =>
+    case PartyToParticipant(partyId, threshold, participants) =>
       checkPartyToParticipantIsNotDangerous(
         partyId,
+        threshold,
         participants,
         forceChanges,
         transaction.transaction.operation,
@@ -878,13 +892,15 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
 
   private def checkPartyToParticipantIsNotDangerous(
       partyId: PartyId,
+      threshold: PositiveInt,
       nextParticipants: Seq[HostingParticipant],
       forceChanges: ForceFlags,
       operation: TopologyChangeOp,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = {
-    val currentHostingParticipants =
+    val currentThresholdAndHostingParticipants
+        : FutureUnlessShutdown[(Option[PositiveInt], Seq[HostingParticipant])] =
       store
         .findPositiveTransactions(
           asOf = CantonTimestamp.MaxValue,
@@ -896,14 +912,19 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
         )
         .map {
           _.collectOfMapping[PartyToParticipant].collectLatestByUniqueKey.toTopologyState
-            .collectFirst { case PartyToParticipant(_, _, currentHostingParticipants) =>
-              currentHostingParticipants
+            .collectFirst {
+              case PartyToParticipant(_, currentThreshold, currentHostingParticipants) =>
+                Some(currentThreshold) -> currentHostingParticipants
             }
-            .getOrElse(Nil)
+            .getOrElse(None -> Nil)
         }
 
     for {
-      currentHostingParticipants <- EitherT.right(currentHostingParticipants)
+      currentThresholdAndHostingParticipants <- EitherT.right(
+        currentThresholdAndHostingParticipants
+      )
+      currentThresholdO = currentThresholdAndHostingParticipants._1
+      currentHostingParticipants = currentThresholdAndHostingParticipants._2
 
       removed = operation match {
         case TopologyChangeOp.Replace =>
@@ -931,6 +952,22 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
         ) {
           checkInsufficientParticipantPermissionForSignatoryParty(partyId, forceChanges: ForceFlags)
         } else EitherT.rightT[FutureUnlessShutdown, TopologyManagerError](())
+
+      (nextThreshold, nexHostingParticipants) = operation match {
+        case TopologyChangeOp.Replace => Some(threshold) -> nextParticipants
+        case TopologyChangeOp.Remove => None -> Nil
+      }
+
+      _ <- currentThresholdO.traverse_(currentThreshold =>
+        checkInsufficientSignatoryAssigningParticipantsForParty(
+          partyId,
+          currentThreshold,
+          nextThreshold,
+          nexHostingParticipants,
+          forceChanges,
+        )
+      )
+
     } yield ()
   }
 

@@ -15,7 +15,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.tracing.DefaultOpenTelemetry
 import com.daml.tracing.TelemetrySpecBase.*
 import com.digitalasset.base.error.ErrorsAssertions
-import com.digitalasset.canton.data.{CantonTimestamp, Offset, ProcessedDisclosedContract}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.error.{TransactionError, TransactionRoutingError}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state
@@ -38,7 +38,7 @@ import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.{BaseTest, LfKeyResolver, LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.data.Ref.{ApplicationId, CommandId, Party, SubmissionId, WorkflowId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.SubmittedTransaction
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, SubmittedTransaction}
 import com.google.protobuf.ByteString
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.sdk.OpenTelemetrySdk
@@ -177,7 +177,7 @@ object ApiPackageManagementServiceSpec {
         // Currently, the estimated interpretation cost is not used
         _estimatedInterpretationCost: Long,
         keyResolver: LfKeyResolver,
-        processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+        processedDisclosedContracts: ImmArray[FatContractInstance],
     )(implicit
         traceContext: TraceContext
     ): CompletionStage[SubmissionResult] =

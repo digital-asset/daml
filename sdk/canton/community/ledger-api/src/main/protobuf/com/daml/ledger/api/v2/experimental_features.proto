@@ -18,7 +18,6 @@ option java_package = "com.daml.ledger.api.v2";
 message ExperimentalFeatures {
   ExperimentalStaticTime static_time = 1;
   ExperimentalCommandInspectionService command_inspection_service = 2;
-  ExperimentalPartyTopologyEvents party_topology_events = 4;
 }
 
 // Ledger is in the static time mode and exposes a time service.

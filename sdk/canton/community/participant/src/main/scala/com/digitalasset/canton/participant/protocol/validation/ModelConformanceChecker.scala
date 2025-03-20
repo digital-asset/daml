@@ -203,18 +203,16 @@ class ModelConformanceChecker(
   ): EitherT[FutureUnlessShutdown, Error, Map[LfContractId, SerializableContract]] =
     view.tryFlattenToParticipantViews
       .flatMap(_.viewParticipantData.coreInputs)
-      .parTraverse {
-        case (cid, InputContract(contract, _)) => {
-          val templateId = contract.rawContractInstance.contractInstance.unversioned.template
-          validateContract(contract, getEngineAbortStatus, traceContext)
-            .leftMap {
-              case DAMLeFailure(error) =>
-                DAMLeError(error, view.viewHash): Error
-              case ContractMismatch(_, _) | ArgumentHashingFailure(_) =>
-                InvalidInputContract(cid, templateId, view.viewHash): Error
-            }
-            .map(_ => cid -> contract)
-        }
+      .parTraverse { case (cid, InputContract(contract, _)) =>
+        val templateId = contract.rawContractInstance.contractInstance.unversioned.template
+        validateContract(contract, getEngineAbortStatus, traceContext)
+          .leftMap {
+            case DAMLeFailure(error) =>
+              DAMLeError(error, view.viewHash): Error
+            case ContractMismatch(_, _) | ArgumentHashingFailure(_) =>
+              InvalidInputContract(cid, templateId, view.viewHash): Error
+          }
+          .map(_ => cid -> contract)
       }
       .map(_.toMap)
 
@@ -589,6 +587,7 @@ object ModelConformanceChecker {
         keyOpt = metadata.maybeKeyWithMaintainers,
         version = instance.contractInstance.version,
       )
+
       // Since 3.3 all Create nodes contain normalized values. As the input value may have been created
       // prior to 3.3 we need to check that the normalized representation of both arguments is equal.
       argumentsEqual <- normalizedEquivalence(actual.arg, expected.arg)

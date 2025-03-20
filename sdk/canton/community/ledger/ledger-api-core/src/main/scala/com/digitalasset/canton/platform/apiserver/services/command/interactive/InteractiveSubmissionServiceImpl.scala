@@ -12,7 +12,6 @@ import com.digitalasset.base.error.ErrorCode.LoggedApiException
 import com.digitalasset.base.error.{ContextualizedErrorLogger, DamlError}
 import com.digitalasset.canton.crypto.InteractiveSubmission
 import com.digitalasset.canton.crypto.InteractiveSubmission.TransactionMetadataForHashing
-import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.{
   ExecuteRequest,
@@ -425,11 +424,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
             transactionMeta = transactionInfo.transactionMeta,
             _estimatedInterpretationCost = 0L,
             keyResolver = transactionInfo.globalKeyMapping,
-            processedDisclosedContracts = ImmArray.from(
-              transactionInfo.inputContracts.values.map(fci =>
-                ProcessedDisclosedContract(fci.toCreateNode, fci.createdAt, fci.cantonData)
-              )
-            ),
+            processedDisclosedContracts = ImmArray.from(transactionInfo.inputContracts.values),
           )
           .toScalaUnwrapped
       }

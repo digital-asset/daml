@@ -515,7 +515,7 @@ class InMemoryFanoutBufferSpec
     TransactionLogUpdate.TransactionRejected(
       offset = offset,
       completionStreamResponse = CompletionStreamResponse.defaultInstance.withCompletion(
-        Completion(
+        Completion.defaultInstance.copy(
           actAs = Seq(s"submitter-$idx")
         )
       ),

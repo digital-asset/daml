@@ -13,7 +13,11 @@ import scala.concurrent.Future
 object ParticipantPruningManagementClient {
 
   private def pruneRequest(pruneUpTo: Long, submissionId: Option[String]) =
-    PruneRequest(pruneUpTo = pruneUpTo, submissionId = submissionId.getOrElse(""))
+    PruneRequest(
+      pruneUpTo = pruneUpTo,
+      submissionId = submissionId.getOrElse(""),
+      pruneAllDivulgedContracts = false,
+    )
 
 }
 

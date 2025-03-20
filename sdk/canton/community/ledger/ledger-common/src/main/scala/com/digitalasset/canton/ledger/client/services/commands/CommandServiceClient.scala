@@ -130,7 +130,15 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
         TransactionFormat(
           eventFormat = Some(
             EventFormat(
-              filtersByParty = commands.toList.flatMap(_.actAs).map(_ -> Filters()).toMap,
+              filtersByParty = commands.toList
+                .flatMap(_.actAs)
+                .map(
+                  _ -> Filters(
+                    cumulative = Nil
+                  )
+                )
+                .toMap,
+              filtersForAnyParty = None,
               verbose = true,
             )
           ),

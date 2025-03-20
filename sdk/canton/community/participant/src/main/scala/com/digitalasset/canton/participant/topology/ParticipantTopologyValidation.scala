@@ -6,12 +6,18 @@ package com.digitalasset.canton.participant.topology
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.parallel.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPackageId
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
-import com.digitalasset.canton.participant.store.AcsInspection
+import com.digitalasset.canton.participant.protocol.reassignment.IncompleteReassignmentData
+import com.digitalasset.canton.participant.store.{AcsInspection, ReassignmentStore}
+import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
 import com.digitalasset.canton.topology.TopologyManagerError.ParticipantTopologyManagerError
+import com.digitalasset.canton.topology.transaction.HostingParticipant
 import com.digitalasset.canton.topology.{
   ForceFlag,
   ForceFlags,
@@ -110,6 +116,107 @@ trait ParticipantTopologyValidation extends NamedLogging {
               Either.unit
           }
       )
+    }
+
+  /** Checks that changing the party to participant mapping does not result in stuck assignments.
+    * The check involves identifying all incomplete reassignments for the party and verifying that
+    * there will still be enough signatory-assigning participants after the mapping change.
+    */
+  def checkInsufficientSignatoryAssigningParticipantsForParty(
+      party: PartyId,
+      currentThreshold: PositiveInt,
+      nextThresholdO: Option[PositiveInt],
+      nextHostingParticipants: Seq[HostingParticipant],
+      forceFlags: ForceFlags,
+      reassignmentStores: () => Map[SynchronizerId, ReassignmentStore],
+      ledgerEnd: () => FutureUnlessShutdown[Option[ParameterStorageBackend.LedgerEnd]],
+  )(implicit
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
+    MonadUtil.sequentialTraverse_(reassignmentStores().toList) {
+      case (synchronizerId, reassignmentStore) =>
+        EitherT(
+          for {
+            ledgerEnd <- ledgerEnd()
+            incompleteReassignments <- reassignmentStore.findIncomplete(
+              sourceSynchronizer = None,
+              validAt = ledgerEnd.map(_.lastOffset).getOrElse(Offset.firstOffset),
+              stakeholders = NonEmpty.from(Set(party.toLf)),
+              limit = NonNegativeInt.maxValue,
+            )
+            reassignmentIdToReassigningParticipants = incompleteReassignments.collect {
+              case IncompleteReassignmentData(
+                    reassignmentId,
+                    Some(reassigningParticipants),
+                    _,
+                    _,
+                  ) =>
+                reassignmentId -> reassigningParticipants
+            }.toMap
+
+            nextConfirmingParticipants = nextHostingParticipants
+              .filter(_.permission.canConfirm)
+              .map(_.participantId)
+
+            // find the first reassignment that has less reassigning participants than the threshold
+            // if the next threshold is not defined, it means we are deactivating the party
+            stuckAssignmentO = nextThresholdO
+              .map { nextThreshold =>
+                reassignmentIdToReassigningParticipants.view
+                  .mapValues(_.intersect(nextConfirmingParticipants.toSet))
+                  .find(
+                    _._2.sizeIs < nextThreshold.value
+                  )
+              }
+              .getOrElse(reassignmentIdToReassigningParticipants.headOption)
+
+          } yield stuckAssignmentO match {
+            case Some((reassignmentId, signatoryAssigningParticipants))
+                if !forceFlags
+                  .permits(ForceFlag.AllowInsufficientSignatoryAssigningParticipantsForParty) =>
+              nextThresholdO match {
+                case None =>
+                  Left(
+                    TopologyManagerError.ParticipantTopologyManagerError.InsufficientSignatoryAssigningParticipantsForParty
+                      .RejectRemovingParty(
+                        party,
+                        synchronizerId,
+                        reassignmentId,
+                      ): TopologyManagerError
+                  )
+                case Some(nextThreshold) if nextThreshold > currentThreshold =>
+                  Left(
+                    TopologyManagerError.ParticipantTopologyManagerError.InsufficientSignatoryAssigningParticipantsForParty
+                      .RejectThresholdIncrease(
+                        party,
+                        synchronizerId,
+                        reassignmentId,
+                        nextThreshold,
+                        signatoryAssigningParticipants,
+                      ): TopologyManagerError
+                  )
+                case _ =>
+                  Left(
+                    TopologyManagerError.ParticipantTopologyManagerError.InsufficientSignatoryAssigningParticipantsForParty
+                      .RejectNotEnoughSignatoryAssigningParticipants(
+                        party,
+                        synchronizerId,
+                        reassignmentId,
+                        currentThreshold,
+                        signatoryAssigningParticipants,
+                      ): TopologyManagerError
+                  )
+              }
+            case Some((reassignmentId, _)) =>
+              logger.debug(
+                s"Allow to change party to participant mapping for $party with incomplete reassignments, such as $reassignmentId, on $synchronizerId because force flag ${ForceFlag.DisablePartyWithActiveContracts} is set."
+              )
+              Either.unit
+            case None =>
+              Either.unit
+          }
+        )
     }
 
   private def checkPackageDependencies(

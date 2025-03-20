@@ -12,8 +12,11 @@ trait Pruning[E <: Env[E]] extends Module[E, Pruning.Message]
 object Pruning {
   sealed trait Message extends Product
 
-  case object PerformPruning extends Message
-  final case class LatestBlock(block: OutputBlockMetadata) extends Message
-  final case class PruningPoint(epoch: EpochNumber) extends Message
-  case object PruningComplete extends Message
+  case object Start extends Message
+  case object KickstartPruning extends Message
+  final case class ComputePruningPoint(block: OutputBlockMetadata) extends Message
+  final case class SaveNewLowerBound(epoch: EpochNumber) extends Message
+  final case class PerformPruning(epoch: EpochNumber) extends Message
+  final case class FailedDatabaseOperation(msg: String, exception: Throwable) extends Message
+  case object SchedulePruning extends Message
 }

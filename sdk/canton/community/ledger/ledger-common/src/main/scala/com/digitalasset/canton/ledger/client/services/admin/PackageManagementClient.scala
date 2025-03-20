@@ -40,7 +40,12 @@ final class PackageManagementClient(service: PackageManagementServiceStub)(impli
   )(implicit traceContext: TraceContext): Future[Unit] =
     LedgerClient
       .stubWithTracing(service, token)
-      .uploadDarFile(UploadDarFileRequest(darFile))
+      .uploadDarFile(
+        UploadDarFileRequest(
+          darFile = darFile,
+          submissionId = "",
+        )
+      )
       .map(_ => ())
 
   def validateDarFile(
@@ -49,6 +54,11 @@ final class PackageManagementClient(service: PackageManagementServiceStub)(impli
   )(implicit traceContext: TraceContext): Future[Unit] =
     LedgerClient
       .stubWithTracing(service, token)
-      .validateDarFile(ValidateDarFileRequest(darFile))
+      .validateDarFile(
+        ValidateDarFileRequest(
+          darFile = darFile,
+          submissionId = "",
+        )
+      )
       .map(_ => ())
 }

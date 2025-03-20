@@ -15,7 +15,7 @@ object ClientUtil {
   def uniqueCommandId(): CommandId = CommandId(uniqueId())
 
   def transactionFilter(ps: Party*): TransactionFilter =
-    TransactionFilter(Party.unsubst(ps).map((_, Filters.defaultInstance)).toMap)
+    TransactionFilter(Party.unsubst(ps).map((_, Filters.defaultInstance)).toMap, None)
 
   import com.digitalasset.canton.fetchcontracts.util.ClientUtil as FC
 

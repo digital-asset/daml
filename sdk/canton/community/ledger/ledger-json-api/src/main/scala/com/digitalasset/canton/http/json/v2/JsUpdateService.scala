@@ -99,6 +99,7 @@ class JsUpdateService(
         update_service.GetTransactionByOffsetRequest(
           offset = req.in._1,
           requestingParties = req.in._2,
+          transactionFormat = None,
         )
       )
       .flatMap(protocolConverters.GetTransactionTreeResponse.toJson(_))
@@ -145,6 +146,7 @@ class JsUpdateService(
           update_service.GetTransactionByIdRequest(
             updateId = req.in._1,
             requestingParties = req.in._2,
+            transactionFormat = None,
           )
         )
         .flatMap { tr =>

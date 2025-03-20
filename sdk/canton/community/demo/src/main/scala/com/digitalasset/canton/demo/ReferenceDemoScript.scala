@@ -609,6 +609,12 @@ object ReferenceDemoScript {
         .find(_.name == str)
         .getOrElse(sys.error(s"can not find synchronizer named $str"))
 
+    // Use the latest protocol version as default, but allow overriding it with an environment variable `CANTON_PROTOCOL_VERSION`
+    val protocolVersion = sys.env
+      .get("CANTON_PROTOCOL_VERSION")
+      .map(ProtocolVersion.tryCreate)
+      .getOrElse(ProtocolVersion.latest)
+
     val bankingSequencers = consoleEnvironment.sequencers.all.filter(_.name == SequencerBanking)
     val bankingMediators = consoleEnvironment.mediators.all.filter(_.name == "mediatorBanking")
     val bankingSynchronizerId = ConsoleMacros.bootstrap.synchronizer(
@@ -618,7 +624,7 @@ object ReferenceDemoScript {
       synchronizerOwners = bankingSequencers ++ bankingMediators,
       synchronizerThreshold = PositiveInt.one,
       staticSynchronizerParameters =
-        StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+        StaticSynchronizerParameters.defaultsWithoutKMS(protocolVersion),
     )
     val medicalSequencers = consoleEnvironment.sequencers.all.filter(_.name == SequencerMedical)
     val medicalMediators = consoleEnvironment.mediators.all.filter(_.name == "mediatorMedical")
@@ -629,7 +635,7 @@ object ReferenceDemoScript {
       synchronizerOwners = medicalSequencers ++ medicalMediators,
       synchronizerThreshold = PositiveInt.one,
       staticSynchronizerParameters =
-        StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+        StaticSynchronizerParameters.defaultsWithoutKMS(protocolVersion),
     )
 
     val banking = getSequencer(SequencerBanking)

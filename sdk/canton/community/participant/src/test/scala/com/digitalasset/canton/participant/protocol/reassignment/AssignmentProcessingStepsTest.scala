@@ -415,7 +415,7 @@ class AssignmentProcessingStepsTest
         metadata = ContractMetadata.tryCreate(Set(), Set(party3), None),
       )
 
-      val reassignmentData2 = ReassignmentStoreTest.mkReassignmentDataForSynchronizer(
+      val reassignmentData2 = ReassignmentStoreTest.mkUnassignmentDataForSynchronizer(
         reassignmentId,
         sourceMediator,
         party3,

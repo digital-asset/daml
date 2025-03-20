@@ -285,6 +285,66 @@ trait OutputMetadataStoreTest extends AsyncWordSpec {
           )
         }
       }
+
+      "prune" should {
+        "prune epochs and blocks" in {
+          val store = createStore()
+          val block1 = createBlock(BlockNumber.First)
+          val block2 = createBlock(1L, epochNumber = EpochNumber(1L))
+          val block3 = createBlock(2L, epochNumber = EpochNumber(2L))
+
+          val epoch1 = OutputEpochMetadata(EpochNumber.First, couldAlterOrderingTopology = true)
+          val epoch2 = OutputEpochMetadata(EpochNumber(1L), couldAlterOrderingTopology = true)
+          val epoch3 = OutputEpochMetadata(EpochNumber(2L), couldAlterOrderingTopology = true)
+          for {
+            numberOfRecords0 <- store.loadNumberOfRecords
+            _ = numberOfRecords0 shouldBe (OutputMetadataStore.NumberOfRecords.empty)
+
+            _ <- store.insertEpochIfMissing(epoch1)
+            _ <- store.insertBlockIfMissing(block1)
+
+            numberOfRecords1 <- store.loadNumberOfRecords
+            _ = numberOfRecords1 shouldBe (OutputMetadataStore.NumberOfRecords(
+              epochs = 1L,
+              blocks = 1L,
+            ))
+
+            _ <- store.insertBlockIfMissing(block2)
+            _ <- store.insertBlockIfMissing(block3)
+            _ <- store.insertEpochIfMissing(epoch2)
+            _ <- store.insertEpochIfMissing(epoch3)
+
+            numberOfRecords2 <- store.loadNumberOfRecords
+            _ = numberOfRecords2 shouldBe (OutputMetadataStore.NumberOfRecords(
+              epochs = 3L,
+              blocks = 3L,
+            ))
+
+            lastBlock <- store.getLastConsecutiveBlock
+            _ = lastBlock shouldBe Some(block3)
+
+            pruningEpoch = EpochNumber(EpochNumber.First + 1)
+            _ <- store.saveLowerBound(pruningEpoch)
+            _ <- store.prune(pruningEpoch)
+
+            lowerBound <- store.getLowerBound()
+            numberOfRecordsAfterPruning <- store.loadNumberOfRecords
+
+            _ = numberOfRecordsAfterPruning shouldBe (OutputMetadataStore.NumberOfRecords(
+              epochs = 2L,
+              blocks = 2L,
+            ))
+            _ = lowerBound shouldBe Some(
+              OutputMetadataStore.LowerBound(pruningEpoch, BlockNumber(1L))
+            )
+
+            lastBlockAfterPruning <- store.getLastConsecutiveBlock
+            _ = lastBlockAfterPruning shouldBe Some(block3)
+
+          } yield succeed
+        }
+      }
+
     }
 }
 

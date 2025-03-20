@@ -487,21 +487,21 @@ class DbEpochStore(
       )
     }
 
-  override def prune(epochNumberInclusive: EpochNumber)(implicit
+  override def prune(epochNumberExclusive: EpochNumber)(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[EpochStore.NumberOfRecords] =
-    createFuture(pruneName(epochNumberInclusive)) {
+    createFuture(pruneName(epochNumberExclusive)) {
       for {
         epochsDeleted <- storage.update(
-          sqlu""" delete from ord_epochs where epoch_number <= $epochNumberInclusive """,
+          sqlu""" delete from ord_epochs where epoch_number < $epochNumberExclusive """,
           functionFullName,
         )
         pbftMessagesCompletedDeleted <- storage.update(
-          sqlu""" delete from ord_pbft_messages_completed where epoch_number <= $epochNumberInclusive """,
+          sqlu""" delete from ord_pbft_messages_completed where epoch_number < $epochNumberExclusive """,
           functionFullName,
         )
         pbftMessagesInProgressDeleted <- storage.update(
-          sqlu""" delete from ord_pbft_messages_in_progress where epoch_number <= $epochNumberInclusive """,
+          sqlu""" delete from ord_pbft_messages_in_progress where epoch_number < $epochNumberExclusive """,
           functionFullName,
         )
       } yield EpochStore.NumberOfRecords(

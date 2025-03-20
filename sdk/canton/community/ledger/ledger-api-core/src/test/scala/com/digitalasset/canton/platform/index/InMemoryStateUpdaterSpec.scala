@@ -570,7 +570,7 @@ object InMemoryStateUpdaterSpec {
     val tx_rejected_updateId = "tRejected"
     val tx_rejected_submitters: Set[String] = Set("p3", "p4")
 
-    val tx_accepted_completion: Completion = Completion(
+    val tx_accepted_completion: Completion = Completion.defaultInstance.copy(
       commandId = tx_accepted_commandId,
       applicationId = "appId",
       updateId = tx_accepted_updateId,

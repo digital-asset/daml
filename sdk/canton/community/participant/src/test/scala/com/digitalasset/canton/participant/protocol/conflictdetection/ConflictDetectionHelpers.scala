@@ -77,7 +77,7 @@ private[protocol] trait ConflictDetectionHelpers {
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ReassignmentCache] =
     MonadUtil
       .sequentialTraverse(entries) { case (reassignmentId, sourceMediator) =>
-        val unassignmentData = ReassignmentStoreTest.mkReassignmentDataForSynchronizer(
+        val unassignmentData = ReassignmentStoreTest.mkUnassignmentDataForSynchronizer(
           reassignmentId,
           sourceMediator,
           targetSynchronizerId = ReassignmentStoreTest.targetSynchronizerId,

@@ -362,13 +362,13 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
       )
     }
 
-  override def prune(epochNumberInclusive: EpochNumber)(implicit
+  override def prune(epochNumberExclusive: EpochNumber)(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[EpochStore.NumberOfRecords] =
-    createFuture(pruneName(epochNumberInclusive)) { () =>
-      val epochsToDelete = epochs.filter(_._1 <= epochNumberInclusive)
+    createFuture(pruneName(epochNumberExclusive)) { () =>
+      val epochsToDelete = epochs.filter(_._1 < epochNumberExclusive)
       val blocksToDelete =
-        blocks.filter(_._2.prePrepare.message.blockMetadata.epochNumber <= epochNumberInclusive)
+        blocks.filter(_._2.prePrepare.message.blockMetadata.epochNumber < epochNumberExclusive)
       epochs --= epochsToDelete.keys
       blocks --= blocksToDelete.keys
 

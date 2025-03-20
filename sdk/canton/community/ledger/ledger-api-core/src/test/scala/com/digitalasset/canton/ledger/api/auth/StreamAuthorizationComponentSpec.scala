@@ -250,7 +250,7 @@ class StreamAuthorizationComponentSpec
           responseObserver: StreamObserver[GetUpdatesResponse],
       ): Unit = registerStream(responseObserver) {
         Source
-          .fromIterator(() => Iterator.continually(GetUpdatesResponse()))
+          .fromIterator(() => Iterator.continually(GetUpdatesResponse.defaultInstance))
           .map { elem =>
             Threading.sleep(200)
             logger.debug("sent")
@@ -331,14 +331,19 @@ class StreamAuthorizationComponentSpec
       getTransactions(
         grpcChannel,
         GetUpdatesRequest(
+          beginExclusive = 0,
+          endInclusive = None,
           filter = Some(
             TransactionFilter(
               Map(
-                partyId1 -> Filters(),
-                partyId2 -> Filters(),
-              )
+                partyId1 -> Filters(Nil),
+                partyId2 -> Filters(Nil),
+              ),
+              None,
             )
-          )
+          ),
+          verbose = false,
+          updateFormat = None,
         ),
       )
     }

@@ -40,7 +40,6 @@ import org.apache.pekko.stream.scaladsl.Source
 import scala.concurrent.{ExecutionContext, Future}
 
 private[events] class BufferedUpdateReader(
-    experimentalEnableTopologyEvents: Boolean,
     delegate: LedgerDaoUpdateReader,
     bufferedUpdatesReader: BufferedStreamsReader[InternalUpdateFormat, GetUpdatesResponse],
     bufferedTransactionTreesReader: BufferedStreamsReader[
@@ -81,13 +80,7 @@ private[events] class BufferedUpdateReader(
         endInclusive = endInclusive,
         persistenceFetchArgs = internalUpdateFormat,
         bufferFilter = ToFlatTransaction
-          .filter(internalUpdateFormat)
-          .andThen {
-            case Some(TransactionLogUpdate.TopologyTransactionEffective(_, _, _, _, _))
-                if !experimentalEnableTopologyEvents =>
-              None
-            case something => something
-          },
+          .filter(internalUpdateFormat),
         toApiResponse = ToFlatTransaction
           .toGetUpdatesResponse(internalUpdateFormat, lfValueTranslation)(
             loggingContext,
@@ -168,7 +161,6 @@ private[platform] object BufferedUpdateReader {
       delegate: LedgerDaoUpdateReader,
       transactionsBuffer: InMemoryFanoutBuffer,
       eventProcessingParallelism: Int,
-      experimentalEnableTopologyEvents: Boolean,
       lfValueTranslation: LfValueTranslation,
       metrics: LedgerApiServerMetrics,
       loggerFactory: NamedLoggerFactory,
@@ -347,7 +339,6 @@ private[platform] object BufferedUpdateReader {
       )
 
     new BufferedUpdateReader(
-      experimentalEnableTopologyEvents = experimentalEnableTopologyEvents,
       delegate = delegate,
       bufferedUpdatesReader = UpdatesStreamReader,
       bufferedTransactionTreesReader = transactionTreesStreamReader,

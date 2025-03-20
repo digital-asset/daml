@@ -894,6 +894,16 @@ create table ord_metadata_output_epochs (
   could_alter_ordering_topology bool not null
 );
 
+-- inclusive lower bound of when blocks can be read.
+-- if empty it means all blocks can be read.
+-- is updated when bft-sequencer is pruned meaning that
+-- only events from later epochs can be served (earlier events have probably been pruned)
+create table ord_output_lower_bound (
+  single_row_lock char(1) not null default 'X' primary key check(single_row_lock = 'X'),
+  epoch_number bigint not null,
+  block_number bigint not null
+);
+
 -- Stores P2P endpoints from the configuration or admin command
 create table ord_p2p_endpoints (
   address varchar collate "C" not null,
