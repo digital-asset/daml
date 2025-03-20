@@ -59,6 +59,7 @@ import scala.annotation.nowarn
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 import scala.math.Ordered.orderingToOrdered
+import com.digitalasset.daml.lf.interpretation.{Error => IE}
 
 class EngineTestV2 extends EngineTest(LanguageMajorVersion.V2)
 
@@ -153,6 +154,129 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       interpretResult.map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
     }
 
+  }
+
+  "command with disclosure" should {
+    "reject disclosures with non-normalized numeric values" in {
+      val templateId = Identifier(basicTestsPkgId, "BasicTests:SimpleNumeric")
+      val cid = toContractId("BasicTests:SimpleNumeric:1")
+      val command =
+        ApiCommand.Exercise(
+          templateId.toRef,
+          cid,
+          "HelloNumeric",
+          ValueRecord(Some(Identifier(basicTestsPkgId, "BasicTests:HelloNumeric")), ImmArray.Empty),
+        )
+      val readAs = (Set.empty: Set[Party])
+
+      val res = preprocessor
+        .preprocessApiCommands(Map.empty, ImmArray(command))
+        .consume(Map.empty, lookupPackage, Map.empty)
+      res shouldBe a[Right[_, _]]
+
+      val disclosure =
+        FatContractInstance.fromCreateNode(
+          Node.Create(
+            coid = cid,
+            packageName = basicTestsPkg.pkgName,
+            packageVersion = basicTestsPkg.pkgVersion,
+            templateId = templateId,
+            arg = ValueRecord(
+              Some(templateId),
+              ImmArray(
+                Some[Name]("p") -> ValueParty(party),
+                // The static type of "num" is Numeric 4 but the value below only has 2 decimal places. Because
+                // numeric values in disclosures must be normalized, we expect this to disclosure to be rejected
+                // by the engine in SBImportInputContract with a conformance error.
+                Some[Name]("num") -> ValueNumeric(Numeric.assertFromString("12.12")),
+              ),
+            ),
+            signatories = Set(party),
+            stakeholders = Set(party),
+            keyOpt = None,
+            version = basicTestsPkg.languageVersion,
+          ),
+          Time.Timestamp.now(),
+          Bytes.Empty,
+        )
+
+      val result = suffixLenientEngine
+        .submit(
+          submitters = Set(party),
+          readAs = readAs,
+          cmds = ApiCommands(ImmArray(command), Time.Timestamp.now(), "test"),
+          disclosures = ImmArray(disclosure),
+          participantId = participant,
+          submissionSeed = hash("exercise command with disclosure"),
+          prefetchKeys = Seq.empty,
+        )
+        .consume(Map.empty, lookupPackage, Map.empty)
+
+      inside(result) { case Left(Error.Interpretation(DamlException(IE.Dev(_, err)), _)) =>
+        err shouldBe a[IE.Dev.Conformance]
+      }
+    }
+
+    "accept disclosures with trailing nones" in {
+      val templateId = Identifier(basicTestsPkgId, "BasicTests:SimpleTrailingNone")
+      val cid = toContractId("BasicTests:SimpleTrailingNone:1")
+      val command =
+        ApiCommand.Exercise(
+          templateId.toRef,
+          cid,
+          "HelloTrailingNone",
+          ValueRecord(
+            Some(Identifier(basicTestsPkgId, "BasicTests:HelloTrailingNone")),
+            ImmArray.Empty,
+          ),
+        )
+      val readAs = (Set.empty: Set[Party])
+
+      val res = preprocessor
+        .preprocessApiCommands(Map.empty, ImmArray(command))
+        .consume(Map.empty, lookupPackage, Map.empty)
+      res shouldBe a[Right[_, _]]
+
+      val disclosure =
+        FatContractInstance.fromCreateNode(
+          Node.Create(
+            coid = cid,
+            packageName = basicTestsPkg.pkgName,
+            packageVersion = basicTestsPkg.pkgVersion,
+            templateId = templateId,
+            arg = ValueRecord(
+              Some(templateId),
+              ImmArray(
+                Some[Name]("p") -> ValueParty(party),
+                // The engine will always produce transactions with no trailing Nones. But for backwards compatibility
+                // with version of Canton predating 3.3, SBImportInputContract should not reject disclosures with
+                // trailing Nones.
+                Some[Name]("opt") -> ValueOptional(None),
+              ),
+            ),
+            signatories = Set(party),
+            stakeholders = Set(party),
+            keyOpt = None,
+            version = basicTestsPkg.languageVersion,
+          ),
+          Time.Timestamp.now(),
+          Bytes.Empty,
+        )
+
+      val result = suffixLenientEngine
+        .submit(
+          submitters = Set(party),
+          readAs = readAs,
+          cmds = ApiCommands(ImmArray(command), Time.Timestamp.now(), "test"),
+          disclosures = ImmArray(disclosure),
+          participantId = participant,
+          submissionSeed = hash("exercise command with disclosure"),
+          prefetchKeys = Seq.empty,
+        )
+        .consume(Map.empty, lookupPackage, Map.empty)
+
+      result shouldBe a[Right[_, _]]
+    }
   }
 
   "multi-party create command" should {
