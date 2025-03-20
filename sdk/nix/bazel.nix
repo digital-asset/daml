@@ -47,7 +47,7 @@ let shared = rec {
         perl
         haskell.compiler.ghc902
         stdenv.cc  # ghc-lib needs `gcc` or `clang`, but Bazel provides `cc`.
-        stdenv.cc.cc.lib
+        stdenv.cc.cc.lib # requiered to link `com_github_madler_zlib/libz.so` otherwise it cannot find `-lgcc_s`
         xz
       ] ++ (
         if stdenv.isDarwin

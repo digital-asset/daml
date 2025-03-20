@@ -69,7 +69,7 @@ let
 in
 buildEnv {
   name = "bazel-cc-toolchain";
-  paths = [ customStdenv.cc  ] ++ (if stdenv.isDarwin then [ darwinBinutils ] else [ binutils ]);
+  paths = [ customStdenv.cc ] ++ (if stdenv.isDarwin then [ darwinBinutils ] else [ binutils ]);
   ignoreCollisions = true;
   passthru = { isClang = customStdenv.cc.isClang; targetPrefix = customStdenv.cc.targetPrefix; };
 }
