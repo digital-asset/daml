@@ -1,6 +1,9 @@
 // start all local instances defined in the configuration file
 nodes.local.start()
 
+// Use the latest protocol version as default, but allow overriding it with an environment variable `CANTON_PROTOCOL_VERSION`
+val protocolVersion = sys.env.get("CANTON_PROTOCOL_VERSION").map(ProtocolVersion.tryCreate).getOrElse(ProtocolVersion.latest)
+
 // Bootstrap the synchronizers
 bootstrap.synchronizer(
   synchronizerName = "lostSynchronizer",
@@ -8,7 +11,7 @@ bootstrap.synchronizer(
   mediators = Seq(mediator1),
   synchronizerOwners = Seq(sequencer1, mediator1),
   synchronizerThreshold = PositiveInt.two,
-  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(protocolVersion),
 )
 
 // upload the Daml model to all participants

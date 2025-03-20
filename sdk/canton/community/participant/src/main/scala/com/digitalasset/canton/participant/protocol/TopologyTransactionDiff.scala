@@ -11,8 +11,8 @@ import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransacti
   AuthorizationLevel,
   TopologyEvent,
 }
-import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactions.PositiveSignedTopologyTransactions
+import com.digitalasset.canton.topology.transaction.{ParticipantPermission, *}
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LedgerParticipantId, LedgerTransactionId, LfPartyId}
@@ -27,7 +27,7 @@ private[protocol] object TopologyTransactionDiff {
     *   Previous topology state
     * @param currentRelevantState
     *   Current state, after applying the batch of transactions
-    * @param participantId
+    * @param localParticipantId
     *   The local participant that may require initiation of online party replication
     * @return
     *   The set of events, the update_id, and whether a party needs to be replicated to this
@@ -37,41 +37,51 @@ private[protocol] object TopologyTransactionDiff {
       synchronizerId: SynchronizerId,
       oldRelevantState: PositiveSignedTopologyTransactions,
       currentRelevantState: PositiveSignedTopologyTransactions,
-      participantId: ParticipantId,
+      localParticipantId: ParticipantId,
       protocolVersion: ProtocolVersion,
   ): Option[TopologyTransactionDiff] = {
 
     val before = partyToParticipant(oldRelevantState)
     val after = partyToParticipant(currentRelevantState)
 
-    val added: Set[TopologyEvent] = after.diff(before).map { case (partyId, participantId) =>
-      PartyToParticipantAuthorization(partyId, participantId, Submission)
-    }
-    val removed: Set[TopologyEvent] = before.diff(after).map { case (partyId, participantId) =>
-      PartyToParticipantAuthorization(partyId, participantId, Revoked)
+    def locallyAddedPartiesExistingOnOtherParticipants: Set[LfPartyId] = {
+      // Adding a party that existed before on another participant means the local participant needs to
+      // initiate party replication.
+      val locallyAddedParties = after.view.collect {
+        case ((partyId, participantId), _)
+            if participantId == localParticipantId.toLf && !before.contains(
+              partyId -> participantId
+            ) =>
+          partyId
+      }.toSet
+      val partiesExistingOnOtherParticipants = before.view.collect {
+        case ((partyId, participantId), _) if participantId != localParticipantId.toLf => partyId
+      }.toSet
+      locallyAddedParties intersect partiesExistingOnOtherParticipants
     }
 
-    val allEvents: Set[TopologyEvent] = added ++ removed
+    val addedOrChanged: Set[TopologyEvent] = after.view.collect {
+      case ((partyId, participantId), permission)
+          if !before.get(partyId -> participantId).contains(permission) =>
+        PartyToParticipantAuthorization(partyId, participantId, permission)
+    }.toSet
+    val removed: Set[TopologyEvent] = before.view.collect {
+      case ((partyId, participantId), _) if !after.contains(partyId -> participantId) =>
+        PartyToParticipantAuthorization(partyId, participantId, Revoked)
+    }.toSet
+
+    val allEvents: Set[TopologyEvent] = addedOrChanged ++ removed
 
     NonEmpty
       .from(allEvents)
-      .map { events =>
-        // Adding a party that existed before on another participant means the local participant needs to
-        // initiate party replication.
-        val locallyAddedParties = added.collect {
-          case PartyToParticipantAuthorization(partyId, lfParticipantId, authLevel)
-              if lfParticipantId == participantId.toLf && authLevel != AuthorizationLevel.Revoked =>
-            partyId
-        }
-        val partiesExistingOnOtherParticipants = locallyAddedParties intersect before.collect {
-          case (partyId, _) => partyId
-        }
+      .map(
         TopologyTransactionDiff(
-          events,
+          _,
           updateId(synchronizerId, protocolVersion, oldRelevantState, currentRelevantState),
-          requiresLocalParticipantPartyReplication = partiesExistingOnOtherParticipants.nonEmpty,
+          requiresLocalParticipantPartyReplication =
+            locallyAddedPartiesExistingOnOtherParticipants.nonEmpty,
         )
-      }
+      )
   }
 
   private[protocol] def updateId(
@@ -104,20 +114,36 @@ private[protocol] object TopologyTransactionDiff {
 
   private def partyToParticipant(
       state: PositiveSignedTopologyTransactions
-  ): Set[(LfPartyId, LedgerParticipantId)] = {
-    val fromPartyToParticipantMapping = SignedTopologyTransactions
-      .collectOfMapping[TopologyChangeOp.Replace, PartyToParticipant](state)
-      .view
-      .map(_.mapping)
-      .flatMap(m => m.participants.map(p => (m.partyId.toLf, p.participantId.toLf)))
+  ): Map[(LfPartyId, LedgerParticipantId), AuthorizationLevel] = {
+    val fromPartyToParticipantMapping = for {
+      topologyTransaction <- SignedTopologyTransactions
+        .collectOfMapping[TopologyChangeOp.Replace, PartyToParticipant](state)
+        .view
+      mapping = topologyTransaction.mapping
+      participant <- mapping.participants
+    } yield (
+      mapping.partyId.toLf -> participant.participantId.toLf,
+      toAuthorizationLevel(participant.permission),
+    )
     val forAdminParties = SignedTopologyTransactions
       .collectOfMapping[TopologyChangeOp.Replace, SynchronizerTrustCertificate](state)
       .view
       .map(_.mapping)
-      .map(m => m.participantId.adminParty.toLf -> m.participantId.toLf)
+      .map(m =>
+        (
+          m.participantId.adminParty.toLf -> m.participantId.toLf,
+          AuthorizationLevel.Submission,
+        )
+      )
     fromPartyToParticipantMapping
       .++(forAdminParties)
-      .toSet
+      .toMap
+  }
+
+  private val toAuthorizationLevel: ParticipantPermission => AuthorizationLevel = {
+    case ParticipantPermission.Submission => AuthorizationLevel.Submission
+    case ParticipantPermission.Confirmation => AuthorizationLevel.Confirmation
+    case ParticipantPermission.Observation => AuthorizationLevel.Observation
   }
 }
 

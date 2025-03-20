@@ -9,6 +9,7 @@ import com.daml.ledger.api.v2.value.Value
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.console.{InstanceReference, LocalParticipantReference}
+import com.digitalasset.canton.integration.bootstrap.InitializedSynchronizer
 import com.digitalasset.canton.ledger.api.util.TransactionTreeOps.*
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.tracing.TraceContext

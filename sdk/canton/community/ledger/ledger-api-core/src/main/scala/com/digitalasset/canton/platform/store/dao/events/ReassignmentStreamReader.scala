@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.ledger.api.v2.reassignment.Reassignment
+import com.daml.ledger.api.v2.trace_context.TraceContext as DamlTraceContext
 import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
@@ -197,6 +198,7 @@ class ReassignmentStreamReader(
             UpdateReader.toUnassignedEvent(rawUnassignEntry.event)
           ),
           recordTime = Some(TimestampConversion.fromLf(rawUnassignEntry.recordTime)),
+          traceContext = rawUnassignEntry.traceContext.map(DamlTraceContext.parseFrom),
         )
       },
       timer = dbMetrics.reassignmentStream.translationTimer,
@@ -225,6 +227,7 @@ class ReassignmentStreamReader(
                 )
               ),
               recordTime = Some(TimestampConversion.fromLf(rawAssignEntry.recordTime)),
+              traceContext = rawAssignEntry.traceContext.map(DamlTraceContext.parseFrom),
             )
           )
       ),

@@ -30,6 +30,7 @@ class UpdateServiceClient(service: UpdateServiceStub)(implicit
           endInclusive = end,
           filter = Some(filter),
           verbose = verbose,
+          updateFormat = None,
         ),
         LedgerClient.stubWithTracing(service, token).getUpdates,
       )

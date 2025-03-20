@@ -364,7 +364,7 @@ trait EpochStoreTest extends AsyncWordSpec {
             pbftMessagesInProgress = 4,
           ))
 
-          _ <- store.prune(epochNumberInclusive = EpochNumber.First)
+          _ <- store.prune(epochNumberExclusive = EpochNumber(1L))
           numberOfRecordsAfterPrune1 <- store.loadNumberOfRecords
           _ = numberOfRecordsAfterPrune1 shouldBe (EpochStore.NumberOfRecords(
             epochs = 2L,
@@ -372,7 +372,7 @@ trait EpochStoreTest extends AsyncWordSpec {
             pbftMessagesInProgress = 4,
           ))
 
-          _ <- store.prune(epochNumberInclusive = EpochNumber(1L))
+          _ <- store.prune(epochNumberExclusive = EpochNumber(2L))
           numberOfRecordsAfterPrune2 <- store.loadNumberOfRecords
           _ = numberOfRecordsAfterPrune2 shouldBe (EpochStore.NumberOfRecords(
             epochs = 1L,
@@ -380,7 +380,7 @@ trait EpochStoreTest extends AsyncWordSpec {
             pbftMessagesInProgress = 4,
           ))
 
-          _ <- store.prune(epochNumberInclusive = EpochNumber(2L))
+          _ <- store.prune(epochNumberExclusive = EpochNumber(3L))
           numberOfRecordsAfterPrune3 <- store.loadNumberOfRecords
           _ = numberOfRecordsAfterPrune3 shouldBe (EpochStore.NumberOfRecords(
             epochs = 0L,

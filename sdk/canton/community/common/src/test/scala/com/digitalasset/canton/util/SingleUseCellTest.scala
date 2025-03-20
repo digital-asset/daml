@@ -16,11 +16,14 @@ class SingleUseCellTest extends AnyWordSpec with BaseTest {
       val cell = mk[Int]()
       assert(cell.isEmpty)
       assert(cell.get.isEmpty)
+      assert(!cell.isDefined)
     }
 
     "return the written value" in {
       val cell = mk[Int]()
       assert(cell.putIfAbsent(7).isEmpty)
+      assert(cell.isDefined)
+      assert(!cell.isEmpty)
       assert(cell.get.contains(7))
     }
 

@@ -57,6 +57,7 @@ class EventQueryServiceRequestValidatorTest
       val req = event_query_service.GetEventsByContractIdRequest(
         contractId.coid,
         Seq(party),
+        None,
       )
 
       "pass on valid input" in {

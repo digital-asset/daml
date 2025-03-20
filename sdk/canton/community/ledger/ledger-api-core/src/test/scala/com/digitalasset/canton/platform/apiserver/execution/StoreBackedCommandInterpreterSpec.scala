@@ -8,7 +8,7 @@ import com.daml.logging.LoggingContext
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt, SaltSeed}
-import com.digitalasset.canton.data.{DeduplicationPeriod, ProcessedDisclosedContract}
+import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.{CommandId, Commands, DisclosedContract}
 import com.digitalasset.canton.ledger.participant.state.SyncService
@@ -103,10 +103,10 @@ class StoreBackedCommandInterpreterSpec
   )
 
   private val processedDisclosedContracts = ImmArray(
-    ProcessedDisclosedContract(
+    FatContractInstance.fromCreateNode(
       create = disclosedCreateNode,
-      createdAt = disclosedContractCreateTime,
-      driverMetadata = salt,
+      createTime = disclosedContractCreateTime,
+      cantonData = salt,
     )
   )
 

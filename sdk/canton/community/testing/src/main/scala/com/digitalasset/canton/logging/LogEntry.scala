@@ -99,8 +99,8 @@ final case class LogEntry(
 
   val CommandFailureLoggerNames: Seq[String] =
     Seq(
-      "com.digitalasset.canton.integration.CommunityEnvironmentDefinition",
-      "com.digitalasset.canton.integration.EnterpriseEnvironmentDefinition",
+      "com.digitalasset.canton.integration.EnvironmentDefinition",
+      "com.digitalasset.canton.integration.EnvironmentDefinition",
     )
 
   def shouldBeCommandFailure(code: ErrorCode, message: String = "")(implicit

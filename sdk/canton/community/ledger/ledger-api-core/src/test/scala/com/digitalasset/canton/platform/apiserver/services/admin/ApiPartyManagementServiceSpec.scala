@@ -132,7 +132,7 @@ class ApiPartyManagementServiceSpec
 
       // Kick the interaction off
       val future = apiService
-        .allocateParty(AllocatePartyRequest("aParty"))
+        .allocateParty(AllocatePartyRequest("aParty", None, ""))
         .thereafter { _ =>
           scope.close()
           span.end()
@@ -176,7 +176,7 @@ class ApiPartyManagementServiceSpec
       )
 
       // Kick the interaction off
-      val future = apiPartyManagementService.allocateParty(AllocatePartyRequest("aParty"))
+      val future = apiPartyManagementService.allocateParty(AllocatePartyRequest("aParty", None, ""))
 
       // Close the service
       apiPartyManagementService.close()
@@ -278,7 +278,7 @@ object ApiPartyManagementServiceSpec {
   )
   val protoPartyDetails: ProtoPartyDetails = ProtoPartyDetails(
     party = "Bob",
-    localMetadata = Some(new com.daml.ledger.api.v2.admin.object_meta.ObjectMeta()),
+    localMetadata = Some(new com.daml.ledger.api.v2.admin.object_meta.ObjectMeta("", Map.empty)),
     isLocal = true,
     identityProviderId = "",
   )

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.apiserver.execution
 
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.participant.state.index.{
   MaximumLedgerTime,
   MaximumLedgerTimeService,
@@ -13,6 +12,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.digitalasset.daml.lf.value.Value.ContractId
 
 import scala.concurrent.ExecutionContext
@@ -32,7 +32,7 @@ class ResolveMaximumLedgerTime(
   private val directEc = DirectExecutionContext(noTracingLogger)
 
   def apply(
-      processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+      processedDisclosedContracts: ImmArray[FatContractInstance],
       usedContractIds: Set[ContractId],
   )(implicit
       lc: LoggingContextWithTrace,
@@ -49,7 +49,7 @@ class ResolveMaximumLedgerTime(
 
   private def adjustTimeForDisclosedContracts(
       lookupMaximumLet: MaximumLedgerTime,
-      processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+      processedDisclosedContracts: ImmArray[FatContractInstance],
   ): MaximumLedgerTime =
     processedDisclosedContracts.iterator
       .map(_.createdAt)

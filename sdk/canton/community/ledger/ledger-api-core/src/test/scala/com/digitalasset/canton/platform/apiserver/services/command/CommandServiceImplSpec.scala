@@ -299,7 +299,7 @@ object CommandServiceImplSpec {
 
   val offset: Long = 12345678L
 
-  val completion = Completion(
+  val completion = Completion.defaultInstance.copy(
     commandId = "command ID",
     status = Some(OkStatus),
     updateId = "transaction ID",
@@ -313,7 +313,7 @@ object CommandServiceImplSpec {
     parties = Set(party),
   )
 
-  private def someCommands() = Commands(
+  private def someCommands() = Commands.defaultInstance.copy(
     commandId = commandId,
     applicationId = applicationId,
     actAs = Seq(party),

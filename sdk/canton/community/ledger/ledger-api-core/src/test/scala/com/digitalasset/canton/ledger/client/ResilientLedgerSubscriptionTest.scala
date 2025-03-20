@@ -118,7 +118,7 @@ class ResilientLedgerSubscriptionTest extends AnyWordSpec with BaseTest with Has
 
     val initialOffset: Long = 0L
     val reSubscriptionOffset: Long = 7L
-    val tx = Transaction(offset = reSubscriptionOffset)
+    val tx = Transaction.defaultInstance.copy(offset = reSubscriptionOffset)
 
     private[client] val subscriber = new AtomicReference[Option[SubscriptionState]](
       None

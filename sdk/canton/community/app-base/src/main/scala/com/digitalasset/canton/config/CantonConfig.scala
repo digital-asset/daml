@@ -474,8 +474,6 @@ final case class CantonConfig(
         disableUpgradeValidation = participantParameters.disableUpgradeValidation,
         commandProgressTracking = participantParameters.commandProgressTracker,
         unsafeOnlinePartyReplication = participantParameters.unsafeOnlinePartyReplication,
-        // TODO(i21341) Remove the flag before going to production
-        experimentalEnableTopologyEvents = participantParameters.experimentalEnableTopologyEvents,
       )
     }
 

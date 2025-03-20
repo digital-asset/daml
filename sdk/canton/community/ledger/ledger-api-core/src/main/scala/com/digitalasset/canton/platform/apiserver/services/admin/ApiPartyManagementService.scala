@@ -233,7 +233,12 @@ private[apiserver] final class ApiPartyManagementService private (
           partyIdHintO <- optionalString(
             request.partyIdHint
           )(requireParty)
-          metadata = request.localMetadata.getOrElse(ProtoObjectMeta())
+          metadata = request.localMetadata.getOrElse(
+            ProtoObjectMeta(
+              resourceVersion = "",
+              annotations = Map.empty,
+            )
+          )
           _ <- requireEmptyString(
             metadata.resourceVersion,
             "party_details.local_metadata.resource_version",
@@ -337,7 +342,12 @@ private[apiserver] final class ApiPartyManagementService private (
             "party_details",
           )
           party <- requireParty(partyDetails.party)
-          metadata = partyDetails.localMetadata.getOrElse(ProtoObjectMeta())
+          metadata = partyDetails.localMetadata.getOrElse(
+            ProtoObjectMeta(
+              resourceVersion = "",
+              annotations = Map.empty,
+            )
+          )
           resourceVersionNumberO <- optionalString(metadata.resourceVersion)(
             requireResourceVersion(
               _,

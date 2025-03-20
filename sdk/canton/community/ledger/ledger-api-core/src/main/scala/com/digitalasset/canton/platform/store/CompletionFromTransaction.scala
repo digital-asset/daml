@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.store
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse.CompletionResponse
 import com.daml.ledger.api.v2.completion.Completion
+import com.daml.ledger.api.v2.completion.Completion.DeduplicationPeriod.Empty
 import com.daml.ledger.api.v2.offset_checkpoint.SynchronizerTime
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
@@ -110,11 +111,13 @@ object CompletionFromTransaction {
       synchronizerTime: Option[SynchronizerTime],
   ): Completion = {
     val completionWithMandatoryFields = Completion(
-      actAs = submitters.toSeq,
       commandId = commandId,
       status = optStatus,
       updateId = updateId,
       applicationId = applicationId,
+      actAs = submitters.toSeq,
+      submissionId = "", // will be adapted later
+      deduplicationPeriod = Empty, // will be adapted later
       traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
       offset = offset,
       synchronizerTime = synchronizerTime,

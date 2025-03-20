@@ -84,7 +84,7 @@ class JsUserManagementService(
   ] = req =>
     userManagementClient
       .serviceStub(callerContext.token())(req.traceContext)
-      .listUsers(user_management_service.ListUsersRequest())
+      .listUsers(user_management_service.ListUsersRequest("", 0, ""))
       .resultToRight
   // TODO (i19538) paging
 
@@ -96,7 +96,12 @@ class JsUserManagementService(
         case Right(userId) =>
           userManagementClient
             .serviceStub(callerContext.token())(req.traceContext)
-            .getUser(user_management_service.GetUserRequest(userId = userId))
+            .getUser(
+              user_management_service.GetUserRequest(
+                userId = userId,
+                identityProviderId = "",
+              )
+            )
             .resultToRight
         case Left(error) => malformedUserId(error)(req.traceContext)
 
@@ -137,7 +142,12 @@ class JsUserManagementService(
       case Right(userId) =>
         userManagementClient
           .serviceStub(callerContext.token())(req.traceContext)
-          .listUserRights(new user_management_service.ListUserRightsRequest(userId = userId))
+          .listUserRights(
+            new user_management_service.ListUserRightsRequest(
+              userId = userId,
+              identityProviderId = "",
+            )
+          )
           .resultToRight
       case Left(error) => malformedUserId(error)(req.traceContext)
     }

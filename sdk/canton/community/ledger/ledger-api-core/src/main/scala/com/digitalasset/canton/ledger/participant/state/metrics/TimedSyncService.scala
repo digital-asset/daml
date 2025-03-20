@@ -7,7 +7,7 @@ import cats.data.EitherT
 import com.daml.metrics.Timed
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.ContextualizedErrorLogger
-import com.digitalasset.canton.data.{CantonTimestamp, Offset, ProcessedDisclosedContract}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.error.{TransactionError, TransactionRoutingError}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state.*
@@ -26,7 +26,7 @@ import com.digitalasset.canton.{LfKeyResolver, LfPartyId}
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.SubmittedTransaction
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, SubmittedTransaction}
 import com.google.protobuf.ByteString
 
 import java.util.concurrent.CompletionStage
@@ -44,7 +44,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       // Currently, the estimated interpretation cost is not used
       _estimatedInterpretationCost: Long,
       keyResolver: LfKeyResolver,
-      processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+      processedDisclosedContracts: ImmArray[FatContractInstance],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] =

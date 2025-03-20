@@ -14,6 +14,7 @@ import com.digitalasset.canton.console.{
   InstanceReference,
   LocalInstanceReference,
 }
+import com.digitalasset.canton.integration.bootstrap.InitializedSynchronizer
 import org.apache.pekko.actor.ActorSystem
 
 import scala.collection.concurrent.TrieMap

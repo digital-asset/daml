@@ -22,7 +22,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   EpochNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Pruning
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Pruning.PerformPruning
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.{
   ProgrammableUnitTestContext,
   ProgrammableUnitTestEnv,
@@ -30,7 +29,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mod
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.Instant
-import scala.concurrent.duration.{FiniteDuration, *}
+import scala.concurrent.duration.*
 import scala.jdk.DurationConverters.ScalaDurationOps
 
 class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
@@ -46,7 +45,37 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
   "PruningModule" when {
     "performing pruning" should {
-      "start by finding the latest block" in {
+      "try to perform pruning with latest pruning point when starting module" in {
+        implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
+          new ProgrammableUnitTestContext()
+        val outputStore: OutputMetadataStore[ProgrammableUnitTestEnv] =
+          mock[OutputMetadataStore[ProgrammableUnitTestEnv]]
+        val module = createPruningModule[ProgrammableUnitTestEnv](outputStore = outputStore)
+
+        when(outputStore.getLowerBound()(traceContext)).thenReturn(() =>
+          Some(OutputMetadataStore.LowerBound(EpochNumber(10), BlockNumber(10)))
+        )
+
+        module.receiveInternal(Pruning.Start)
+
+        context.runPipedMessages() should contain only Pruning.PerformPruning(EpochNumber(10))
+      }
+
+      "schedule pruning if no previous pruning point exists" in {
+        implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
+          new ProgrammableUnitTestContext()
+        val outputStore: OutputMetadataStore[ProgrammableUnitTestEnv] =
+          mock[OutputMetadataStore[ProgrammableUnitTestEnv]]
+        val module = createPruningModule[ProgrammableUnitTestEnv](outputStore = outputStore)
+
+        when(outputStore.getLowerBound()(traceContext)).thenReturn(() => None)
+
+        module.receiveInternal(Pruning.Start)
+
+        context.runPipedMessages() should contain only Pruning.SchedulePruning
+      }
+
+      "kickstart pruning by finding the latest block" in {
         implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
           new ProgrammableUnitTestContext()
         val outputStore: OutputMetadataStore[ProgrammableUnitTestEnv] =
@@ -55,9 +84,9 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
         when(outputStore.getLastConsecutiveBlock(traceContext)).thenReturn(() => Some(latestBlock))
 
-        module.receiveInternal(PerformPruning)
+        module.receiveInternal(Pruning.KickstartPruning)
 
-        context.runPipedMessages() should contain only Pruning.LatestBlock(latestBlock)
+        context.runPipedMessages() should contain only Pruning.ComputePruningPoint(latestBlock)
       }
 
       "compute pruning point based on retention period and min blocks to keep" in {
@@ -87,26 +116,57 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         val number = BlockNumber(latestBlock.blockNumber - minNumberOfBlocksToKeep)
         when(outputStore.getBlock(number)(traceContext)).thenReturn(() => blockAtEpoch40)
 
-        module.receiveInternal(Pruning.LatestBlock(latestBlock))
+        module.receiveInternal(Pruning.ComputePruningPoint(latestBlock))
 
-        context.runPipedMessages() should contain only Pruning.PruningPoint(EpochNumber(40))
+        context.runPipedMessages() should contain only Pruning.SaveNewLowerBound(EpochNumber(40))
       }
 
-      "prune stores" in {
+      "save new lower bound" in {
+        implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
+          new ProgrammableUnitTestContext()
+        val outputStore: OutputMetadataStore[ProgrammableUnitTestEnv] =
+          mock[OutputMetadataStore[ProgrammableUnitTestEnv]]
+
+        val module = createPruningModule[ProgrammableUnitTestEnv](outputStore = outputStore)
+
+        when(outputStore.saveLowerBound(EpochNumber(40))(traceContext)).thenReturn(() => Right(()))
+
+        module.receiveInternal(Pruning.SaveNewLowerBound(EpochNumber(40)))
+        context.runPipedMessages() should contain only Pruning.PerformPruning(EpochNumber(40))
+      }
+
+      "perform pruning by pruning stores" in {
         implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
           new ProgrammableUnitTestContext()
         val epochStore: EpochStore[ProgrammableUnitTestEnv] =
           mock[EpochStore[ProgrammableUnitTestEnv]]
+        val outputStore: OutputMetadataStore[ProgrammableUnitTestEnv] =
+          mock[OutputMetadataStore[ProgrammableUnitTestEnv]]
 
-        val module = createPruningModule[ProgrammableUnitTestEnv](epochStore = epochStore)
-
-        when(epochStore.prune(EpochNumber(39))(traceContext)).thenReturn(() =>
-          EpochStore.NumberOfRecords(10L, 10L, 0)
+        val module = createPruningModule[ProgrammableUnitTestEnv](
+          epochStore = epochStore,
+          outputStore = outputStore,
         )
 
-        module.receiveInternal(Pruning.PruningPoint(EpochNumber(40)))
-        context.runPipedMessages() should contain only Pruning.PruningComplete
+        when(epochStore.prune(EpochNumber(40))(traceContext)).thenReturn(() =>
+          EpochStore.NumberOfRecords(10L, 10L, 0)
+        )
+        when(outputStore.prune(EpochNumber(40))(traceContext)).thenReturn(() =>
+          OutputMetadataStore.NumberOfRecords(10L, 10L)
+        )
+
+        module.receiveInternal(Pruning.PerformPruning(EpochNumber(40)))
+        context.runPipedMessages() should contain only Pruning.SchedulePruning
       }
+
+      "schedule pruning" in {
+        implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
+          new ProgrammableUnitTestContext()
+        val module = createPruningModule[ProgrammableUnitTestEnv]()
+        module.receiveInternal(Pruning.SchedulePruning)
+        context.lastDelayedMessage should contain((1, Pruning.KickstartPruning))
+      }
+
     }
   }
 

@@ -271,8 +271,8 @@ class CommandProgressTrackerImpl(
       ),
       state = CommandState.COMMAND_STATE_PENDING,
       commands = commands,
-      requestStatistics = RequestStatistics(),
-      updates = CommandUpdates(),
+      requestStatistics = RequestStatistics.defaultInstance,
+      updates = CommandUpdates.defaultInstance,
     )
     val handle = MyCommandResultHandle(key, status)
     val existing = lock.synchronized {

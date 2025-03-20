@@ -117,6 +117,9 @@ class DbReassignmentStore(
         )
       )
 
+  implicit val getResultFullUnassignmentTree: GetResult[FullUnassignmentTree] =
+    GetResult(r => parseFullUnassignmentTree(r.nextBytes()))
+
   implicit val getResultFullUnassignmentTreeO: GetResult[Option[FullUnassignmentTree]] =
     GetResult(r => r.nextBytesOption().map(parseFullUnassignmentTree))
 
@@ -693,7 +696,7 @@ class DbReassignmentStore(
               storage.limitSql(numberOfItems = DbReassignmentStore.dbQueryLimit, skipItems = start)
 
             val base: SQLActionBuilder =
-              sql"""select source_synchronizer_idx, unassignment_timestamp, contract, unassignment_global_offset, assignment_global_offset
+              sql"""select source_synchronizer_idx, unassignment_timestamp, unassignment_request, contract, unassignment_global_offset, assignment_global_offset
               from par_reassignments
               where target_synchronizer_idx=$indexedTargetSynchronizer"""
 
@@ -702,6 +705,7 @@ class DbReassignmentStore(
                 (
                     Int,
                     CantonTimestamp,
+                    Option[FullUnassignmentTree],
                     SerializableContract,
                     Option[ReassignmentGlobalOffset],
                 )
@@ -711,10 +715,17 @@ class DbReassignmentStore(
         )
 
       incompletes <- MonadUtil.sequentialTraverse(res) {
-        case (synchronizerIndex, unassignmentTs, contract, reassignmentGlobalOffset) =>
+        case (
+              synchronizerIndex,
+              unassignmentTs,
+              unassignmentRequest,
+              contract,
+              reassignmentGlobalOffset,
+            ) =>
           synchronizerIdF(synchronizerIndex, "source_synchronizer_idx").map(sourceSynchronizer =>
             InternalIncompleteReassignmentData(
               ReassignmentId(Source(sourceSynchronizer), unassignmentTs),
+              unassignmentRequest,
               reassignmentGlobalOffset,
               contract,
             )
@@ -860,18 +871,7 @@ class DbReassignmentStore(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[LfContractId, Seq[ReassignmentId]]] = {
-
     import DbStorage.Implicits.BuilderChain.*
-
-    implicit val getResultReassignmentEntry
-        : GetResult[(Int, CantonTimestamp, FullUnassignmentTree)] =
-      GetResult { r =>
-        (
-          GetResult[Int].apply(r),
-          GetResult[CantonTimestamp].apply(r),
-          GetResult(r => parseFullUnassignmentTree(r.nextBytes())).apply(r),
-        )
-      }
 
     for {
       indexedSourceSynchronizerO <- sourceSynchronizer.fold(

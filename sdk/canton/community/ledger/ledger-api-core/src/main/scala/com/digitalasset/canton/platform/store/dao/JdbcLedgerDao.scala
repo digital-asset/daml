@@ -55,7 +55,6 @@ private class JdbcLedgerDao(
     transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
     globalMaxEventIdQueries: Int,
     globalMaxEventPayloadQueries: Int,
-    experimentalEnableTopologyEvents: Boolean,
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
     incompleteOffsets: (
@@ -322,7 +321,6 @@ private class JdbcLedgerDao(
   private val topologyTransactionsStreamReader = new TopologyTransactionsStreamReader(
     globalIdQueriesLimiter = globalIdQueriesLimiter,
     globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
-    experimentalEnableTopologyEvents = experimentalEnableTopologyEvents,
     dbDispatcher = dbDispatcher,
     queryValidRange = queryValidRange,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
@@ -521,7 +519,6 @@ private[platform] object JdbcLedgerDao {
       transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
       globalMaxEventIdQueries: Int,
       globalMaxEventPayloadQueries: Int,
-      experimentalEnableTopologyEvents: Boolean,
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
       incompleteOffsets: (
@@ -550,7 +547,6 @@ private[platform] object JdbcLedgerDao {
       transactionTreeStreamsConfig = transactionTreeStreamsConfig,
       globalMaxEventIdQueries = globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
-      experimentalEnableTopologyEvents = experimentalEnableTopologyEvents,
       tracer = tracer,
       loggerFactory = loggerFactory,
       incompleteOffsets = incompleteOffsets,
@@ -572,7 +568,6 @@ private[platform] object JdbcLedgerDao {
       transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
       globalMaxEventIdQueries: Int,
       globalMaxEventPayloadQueries: Int,
-      experimentalEnableTopologyEvents: Boolean,
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
       contractLoader: ContractLoader = ContractLoader.dummyLoader,
@@ -596,7 +591,6 @@ private[platform] object JdbcLedgerDao {
       transactionTreeStreamsConfig = transactionTreeStreamsConfig,
       globalMaxEventIdQueries = globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
-      experimentalEnableTopologyEvents = experimentalEnableTopologyEvents,
       tracer = tracer,
       loggerFactory = loggerFactory,
       incompleteOffsets = (_, _, _) => FutureUnlessShutdown.pure(Vector.empty),

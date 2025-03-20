@@ -48,8 +48,10 @@ class TimeoutManager[E <: Env[E], ParentModuleMessageT, TimeoutIdT](
   }
 
   def cancelTimeout()(implicit traceContext: TraceContext): Unit = {
-    timeoutCancellable.foreach(_.cancel().discard)
+    timeoutCancellable.foreach { timeout =>
+      logger.debug(s"Canceling timeout w/ ID: $timeoutId")
+      timeout.cancel().discard
+    }
     timeoutCancellable = None
-    logger.debug(s"Canceling timeout w/ ID: $timeoutId")
   }
 }

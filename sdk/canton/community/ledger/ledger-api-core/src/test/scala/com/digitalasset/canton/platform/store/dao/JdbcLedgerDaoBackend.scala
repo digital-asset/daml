@@ -150,7 +150,6 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
         transactionTreeStreamsConfig = TransactionTreeStreamsConfig.default,
         globalMaxEventIdQueries = 20,
         globalMaxEventPayloadQueries = 10,
-        experimentalEnableTopologyEvents = true,
         tracer = OpenTelemetry.noop().getTracer("test"),
         loggerFactory = loggerFactory,
         contractLoader = contractLoader,

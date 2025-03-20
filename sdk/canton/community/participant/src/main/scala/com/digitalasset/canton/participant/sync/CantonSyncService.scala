@@ -18,14 +18,13 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiParticipantProvider}
-import com.digitalasset.canton.data.{
-  CantonTimestamp,
-  Offset,
-  ProcessedDisclosedContract,
-  ReassignmentSubmitterMetadata,
-}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset, ReassignmentSubmitterMetadata}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.*
+import com.digitalasset.canton.error.TransactionRoutingError.{
+  MalformedInputErrors,
+  RoutingInternalError,
+}
 import com.digitalasset.canton.health.MutableHealthComponent
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.error.CommonErrors
@@ -107,6 +106,7 @@ import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, SubmissionId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
+import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.google.protobuf.ByteString
 import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
@@ -119,8 +119,6 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.jdk.FutureConverters.*
 import scala.util.{Failure, Right, Success, Try}
-
-import TransactionRoutingError.{MalformedInputErrors, RoutingInternalError}
 
 /** The Canton-based synchronization service.
   *
@@ -439,7 +437,7 @@ class CantonSyncService(
       transactionMeta: TransactionMeta,
       _estimatedInterpretationCost: Long,
       keyResolver: LfKeyResolver,
-      processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+      processedDisclosedContracts: ImmArray[FatContractInstance],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] = {
@@ -559,7 +557,7 @@ class CantonSyncService(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       keyResolver: LfKeyResolver,
-      explicitlyDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+      explicitlyDisclosedContracts: ImmArray[FatContractInstance],
   )(implicit
       traceContext: TraceContext
   ): Future[Either[SubmissionResult, FutureUnlessShutdown[_]]] = {

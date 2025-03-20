@@ -320,6 +320,7 @@ class InMemoryReassignmentStore(
             .tryCreate(
               entry.sourceSynchronizer,
               entry.unassignmentTs,
+              entry.unassignmentRequest,
               entry.reassignmentGlobalOffset,
               validAt,
             )

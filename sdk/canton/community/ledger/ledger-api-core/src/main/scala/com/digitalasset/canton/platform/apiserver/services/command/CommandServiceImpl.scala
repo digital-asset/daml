@@ -87,6 +87,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
         val updateId = resp.completion.updateId
         val txRequest = GetTransactionByIdRequest(
           updateId = updateId,
+          requestingParties = Nil,
           transactionFormat = request.transactionFormat,
         )
         transactionServices
@@ -115,7 +116,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
                     .update(
                       _.transactionFormat.transactionShape := TRANSACTION_SHAPE_LEDGER_EFFECTS,
                       _.transactionFormat.eventFormat.modify(_.clearFiltersForAnyParty),
-                      _.transactionFormat.eventFormat.filtersForAnyParty := Filters(),
+                      _.transactionFormat.eventFormat.filtersForAnyParty := Filters(Nil),
                     )
                     .clearRequestingParties
                 )
@@ -139,6 +140,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
         val txRequest = GetTransactionByIdRequest(
           updateId = resp.completion.updateId,
           requestingParties = effectiveActAs.toList,
+          transactionFormat = None,
         )
         transactionServices
           .getTransactionTreeById(txRequest)

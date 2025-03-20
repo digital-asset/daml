@@ -56,7 +56,6 @@ private[integration] trait BaseIntegrationTest
     extends FixtureAnyWordSpec
     with BaseTest
     with RepeatableTestSuiteTest
-    with HasEnvironmentDefinition
     with ProtocolVersionChecksFixtureAnyWordSpec {
   this: EnvironmentSetup =>
 

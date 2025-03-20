@@ -84,7 +84,6 @@ private[index] class IndexServiceImpl(
     getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
     metrics: LedgerApiServerMetrics,
     idleStreamOffsetCheckpointTimeout: config.NonNegativeFiniteDuration,
-    experimentalEnableTopologyEvents: Boolean,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends IndexService
     with NamedLogging {
@@ -137,7 +136,6 @@ private[index] class IndexServiceImpl(
                   getPackageMetadataSnapshot = getPackageMetadataSnapshot,
                   updateFormat = updateFormat,
                   alwaysPopulateArguments = false,
-                  enableTopologyEvents = experimentalEnableTopologyEvents,
                 )
               (startInclusive, endInclusive) =>
                 Source(memoInternalUpdateFormat().toList)
@@ -743,7 +741,6 @@ object IndexServiceImpl {
       getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
       updateFormat: UpdateFormat,
       alwaysPopulateArguments: Boolean, // TODO(#23504) remove the field since it will always be false after removing transaction trees
-      enableTopologyEvents: Boolean,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): () => Option[InternalUpdateFormat] = {
@@ -775,7 +772,7 @@ object IndexServiceImpl {
         )
       }
 
-      val topologyEvents = if (enableTopologyEvents) updateFormat.includeTopologyEvents else None
+      val topologyEvents = updateFormat.includeTopologyEvents
 
       if (
         internalTransactionFormat.isEmpty &&

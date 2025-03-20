@@ -254,24 +254,31 @@ final class StateTransferBehavior[E <: Env[E]](
         latestCompletedEpoch,
       )(abort)
 
-    handleStateTransferMessageResult(messageType, result)
+    handleStateTransferMessageResult(result, messageType)
   }
 
   @VisibleForTesting
   private[bftordering] def handleStateTransferMessageResult(
+      result: StateTransferMessageResult,
       messageType: => String,
-      maybeNewEpochState: StateTransferMessageResult,
   )(implicit
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
   ): Unit =
-    maybeNewEpochState match {
+    result match {
       case StateTransferMessageResult.Continue =>
 
-      case StateTransferMessageResult.NothingToStateTransfer =>
-        abort(
-          s"$messageType: internal inconsistency, need $stateTransferType state transfer but nothing to transfer"
+      case StateTransferMessageResult.NothingToStateTransfer(from) =>
+        val currentEpochNumber = epochState.epoch.info.number
+        logger.info(
+          s"$messageType: nothing to state transfer from '$from', likely reached out to a lagging-behind " +
+            s"or malicious node, state-transferring epoch $currentEpochNumber again from a different node"
         )
+        stateTransferManager.stateTransferNewEpoch(
+          currentEpochNumber,
+          activeTopologyInfo.currentMembership,
+          initialState.topologyInfo.currentCryptoProvider, // used only for signing the request
+        )(abort)
 
       case StateTransferMessageResult.BlockTransferCompleted(
             endEpochNumber,

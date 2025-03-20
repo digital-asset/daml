@@ -457,7 +457,7 @@ class SubmissionTrackerSpec
 
     val submitters: Set[String] = (actAs :+ party).toSet
 
-    val completionOk: Completion = Completion(
+    val completionOk: Completion = Completion.defaultInstance.copy(
       submissionId = submissionId,
       commandId = commandId,
       status = Some(Status(code = io.grpc.Status.Code.OK.value())),

@@ -92,6 +92,11 @@ object Commands {
       synchronizerId = synchronizerId.map(_.toProtoPrimitive).getOrElse(""),
       packageIdSelectionPreference = packageIdSelectionPreference,
       commands = Seq(lav2.commands.Command(command)),
+      workflowId = workflowId.map(_.toString).getOrElse(""),
+      submissionId = submissionId.map(_.toString).getOrElse(""),
+      minLedgerTimeAbs = None,
+      minLedgerTimeRel = None,
+      prefetchContractKeys = Nil,
     )
     val commandsWithSubmissionId =
       http.SubmissionId.unsubst(submissionId).map(commands.withSubmissionId).getOrElse(commands)

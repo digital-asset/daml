@@ -93,7 +93,10 @@ private[apiserver] final class ApiUserManagementService(
           pUser <- requirePresence(request.user, "user")
           pUserId <- requireUserId(pUser.id, "id")
           pMetadata = pUser.metadata.getOrElse(
-            com.daml.ledger.api.v2.admin.object_meta.ObjectMeta()
+            com.daml.ledger.api.v2.admin.object_meta.ObjectMeta(
+              resourceVersion = "",
+              annotations = Map.empty,
+            )
           )
           _ <- requireEmptyString(
             pMetadata.resourceVersion,
@@ -151,7 +154,10 @@ private[apiserver] final class ApiUserManagementService(
           pUser <- requirePresence(request.user, "user")
           pUserId <- requireUserId(pUser.id, "user.id")
           pMetadata = pUser.metadata.getOrElse(
-            com.daml.ledger.api.v2.admin.object_meta.ObjectMeta()
+            com.daml.ledger.api.v2.admin.object_meta.ObjectMeta(
+              resourceVersion = "",
+              annotations = Map.empty,
+            )
           )
           pFieldMask <- requirePresence(request.updateMask, "update_mask")
           pOptPrimaryParty <- optionalString(pUser.primaryParty)(requireParty)

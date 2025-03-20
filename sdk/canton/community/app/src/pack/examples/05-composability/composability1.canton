@@ -1,5 +1,8 @@
 // Composability tutorial part 1
 
+// Use the latest protocol version as default, but allow overriding it with an environment variable `CANTON_PROTOCOL_VERSION`
+val protocolVersion = sys.env.get("CANTON_PROTOCOL_VERSION").map(ProtocolVersion.tryCreate).getOrElse(ProtocolVersion.latest)
+
 // architecture-handbook-entry-begin: topology
 
 // create the synchronizers
@@ -13,7 +16,7 @@ val iouId = bootstrap.synchronizer(
   mediators = Seq(iou_mediator),
   synchronizerOwners = Seq(iouSynchronizerOwner),
   synchronizerThreshold = PositiveInt.one,
-  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(protocolVersion),
 )
 
 val paintSynchronizerOwner = paint_sequencer
@@ -23,7 +26,7 @@ val paintId = bootstrap.synchronizer(
   mediators = Seq(paint_mediator),
   synchronizerOwners = Seq(paintSynchronizerOwner),
   synchronizerThreshold = PositiveInt.one,
-  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(protocolVersion),
 )
 
 // update parameters

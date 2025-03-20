@@ -1,11 +1,11 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data
+package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.utils
 
 import scala.collection.mutable
 
-object Utils {
+object Miscellaneous {
 
   def dequeueN[ElementT, NumberT](
       queue: mutable.Queue[ElementT],

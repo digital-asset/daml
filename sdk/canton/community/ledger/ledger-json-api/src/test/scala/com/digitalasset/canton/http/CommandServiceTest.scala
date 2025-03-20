@@ -146,7 +146,7 @@ object CommandServiceTest extends BaseTest {
                 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters.apiIdentifier
                 val creation = Event(
                   Created(
-                    CreatedEvent(
+                    CreatedEvent.defaultInstance.copy(
                       templateId = Some(apiIdentifier(tplId)),
                       createArguments = Some(lav2.value.Record()),
                     )
@@ -154,7 +154,7 @@ object CommandServiceTest extends BaseTest {
                 )
                 \/-(
                   SubmitAndWaitForTransactionResponse(
-                    Some(Transaction(events = Seq(creation), offset = 1))
+                    Some(Transaction.defaultInstance.copy(events = Seq(creation), offset = 1))
                   )
                 )
               },
@@ -162,7 +162,7 @@ object CommandServiceTest extends BaseTest {
           _ =>
             Future {
               trees.add(req)
-              \/-(SubmitAndWaitForTransactionTreeResponse(Some(TransactionTree())))
+              \/-(SubmitAndWaitForTransactionTreeResponse(Some(TransactionTree.defaultInstance)))
             },
         loggerFactory = loggerFactory,
       ),

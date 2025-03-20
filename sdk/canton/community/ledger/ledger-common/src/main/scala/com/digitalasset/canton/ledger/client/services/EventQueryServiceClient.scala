@@ -24,6 +24,7 @@ class EventQueryServiceClient(service: EventQueryServiceStub) {
         GetEventsByContractIdRequest(
           contractId = contractId,
           requestingParties = requestingParties,
+          eventFormat = None,
         )
       )
 

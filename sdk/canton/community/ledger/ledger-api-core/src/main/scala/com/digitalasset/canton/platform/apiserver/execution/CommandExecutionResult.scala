@@ -3,12 +3,11 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
-import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.{RoutingSynchronizerState, SynchronizerRank}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKey, SubmittedTransaction}
 import com.digitalasset.daml.lf.value.Value
 
 /** The result of command execution.
@@ -45,7 +44,7 @@ private[canton] final case class CommandInterpretationResult(
     dependsOnLedgerTime: Boolean,
     interpretationTimeNanos: Long,
     globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-    processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+    processedDisclosedContracts: ImmArray[FatContractInstance],
     // TODO(#23334): Consider removing the prescribed synchronizer decision from command interpreter
     //               and factor this field out of here as well.
     optSynchronizerId: Option[SynchronizerId],

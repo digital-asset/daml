@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant
 
 import cats.Eval
 import cats.data.EitherT
+import cats.implicits.toTraverseOps
 import cats.syntax.option.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.LfPackageId
@@ -12,6 +13,7 @@ import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.SessionSigningKeysConfig
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
@@ -54,6 +56,7 @@ import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.participant.synchronizer.grpc.GrpcSynchronizerRegistry
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
+import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
 import com.digitalasset.canton.resource.*
 import com.digitalasset.canton.scheduler.{Schedulers, SchedulersImpl}
 import com.digitalasset.canton.sequencing.client.{RecordingConfig, ReplayConfig, SequencerClient}
@@ -67,6 +70,7 @@ import com.digitalasset.canton.topology.client.{
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, SynchronizerStore}
 import com.digitalasset.canton.topology.store.{PartyMetadataStore, TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.transaction.HostingParticipant
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, SingleUseCell}
 import com.digitalasset.canton.version.{
@@ -185,6 +189,18 @@ class ParticipantNodeBootstrap(
         })
         .getOrElse(Map.empty)
 
+    def reassignmentStore(): Map[SynchronizerId, ReassignmentStore] =
+      cantonSyncService.get
+        .map(_.syncPersistentStateManager.getAll.map { case (synchronizerId, state) =>
+          synchronizerId -> state.reassignmentStore
+        })
+        .getOrElse(Map.empty)
+
+    def ledgerEnd(): FutureUnlessShutdown[Option[ParameterStorageBackend.LedgerEnd]] =
+      cantonSyncService.get
+        .traverse(_.ledgerApiIndexer.asEval.value.ledgerApiStore.value.ledgerEnd)
+        .map(_.flatten)
+
     val topologyManager = new AuthorizedTopologyManager(
       nodeId,
       clock,
@@ -221,6 +237,25 @@ class ParticipantNodeBootstrap(
           partyId,
           forceFlags,
           () => acsInspectionPerSynchronizer(),
+        )
+
+      override def checkInsufficientSignatoryAssigningParticipantsForParty(
+          partyId: PartyId,
+          currentThreshold: PositiveInt,
+          nextThreshold: Option[PositiveInt],
+          nextConfirmingParticipants: Seq[HostingParticipant],
+          forceFlags: ForceFlags,
+      )(implicit
+          traceContext: TraceContext
+      ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
+        checkInsufficientSignatoryAssigningParticipantsForParty(
+          partyId,
+          currentThreshold,
+          nextThreshold,
+          nextConfirmingParticipants,
+          forceFlags,
+          () => reassignmentStore(),
+          () => ledgerEnd(),
         )
 
       override def checkInsufficientParticipantPermissionForSignatoryParty(

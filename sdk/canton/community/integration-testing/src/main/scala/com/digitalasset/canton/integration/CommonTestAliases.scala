@@ -16,6 +16,7 @@ import com.digitalasset.canton.console.{
   RemoteSequencerReference,
   SequencerReference,
 }
+import com.digitalasset.canton.integration.bootstrap.InitializedSynchronizer
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.topology.SynchronizerId
 

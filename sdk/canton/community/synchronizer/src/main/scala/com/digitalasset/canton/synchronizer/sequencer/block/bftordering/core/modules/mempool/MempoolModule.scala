@@ -9,13 +9,13 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequestBatch
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.Utils.dequeueN
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.BatchId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Availability,
   Mempool,
   SequencerNode,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.utils.Miscellaneous.dequeueN
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleRef}
 import com.digitalasset.canton.tracing.TraceContext
 

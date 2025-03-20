@@ -101,6 +101,7 @@ final class ApiUpdateService(
             endInclusive = request.endInclusive,
             filter = request.filter,
             verbose = request.verbose,
+            updateFormat = None,
           ),
           ledgerEnd,
         )
