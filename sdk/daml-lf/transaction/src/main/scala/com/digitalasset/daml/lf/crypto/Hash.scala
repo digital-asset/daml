@@ -22,6 +22,7 @@ import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.crypto.HashUtils.{HashTracer, formatByteToHexString}
 import com.digitalasset.daml.lf.data.Ref.Name
 import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.language.StructuralType.StructuralType
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value.ContractId
 import scalaz.Order
@@ -171,20 +172,26 @@ object Hash {
     }
 
     /* add size delimited utf8 string. */
+    final def addStringWithContext(s: String, context: => String): this.type =
+      addBytes(Utf8.getBytes(s), context)
+
     final def addString(s: String): this.type =
-      addBytes(Utf8.getBytes(s), s"$s (string)")
+      addStringWithContext(s, s"$s (string)")
 
     final def addBool(b: Boolean): this.type =
       addByte(if (b) 1.toByte else 0.toByte, s"${b.toString} (bool)")
 
     private val intBuffer = ByteBuffer.allocate(java.lang.Integer.BYTES)
 
-    final def addInt(a: Int): this.type = {
+    final def addIntWithContext(a: Int, context: => String): this.type = {
       discard(intBuffer.rewind())
       discard(intBuffer.putInt(a).position(0))
-      update(intBuffer, s"${a.toString} (int)")
+      update(intBuffer, context)
       this
     }
+
+    final def addInt(a: Int): this.type =
+      addIntWithContext(a, s"${a.toString} (int)")
 
     private val longBuffer = ByteBuffer.allocate(java.lang.Long.BYTES)
 
@@ -198,7 +205,7 @@ object Hash {
     final def addNumeric(v: data.Numeric): this.type =
       addBytes(numericToBytes(v), s"${data.Numeric.toString(v)} (numeric)")
 
-    final def iterateOver[T, U](a: ImmArray[T])(f: (this.type, T) => this.type): this.type =
+    final def iterateOver[T](a: ImmArray[T])(f: (this.type, T) => this.type): this.type =
       a.foldLeft[this.type](addInt(a.length))(f)
 
     final def iterateOver[T](a: Iterator[T], size: Int)(f: (this.type, T) => this.type): this.type =
@@ -921,6 +928,7 @@ object Hash {
     val ChangeId = new Purpose(6)
     val TransactionHash = new Purpose(7)
     val MetadataHash = new Purpose(8)
+    val StructuralTypeHash = new Purpose(9)
   }
 
   private class Version private (val id: Byte)
@@ -937,7 +945,7 @@ object Hash {
   }
 
   // package private for testing purpose.
-  // Do not call this method from outside Hash object/
+  // Do not call this method from outside Hash object
   private[crypto] def builder(
       purpose: Purpose,
       cid2Bytes: Value.ContractId => Bytes,
@@ -1034,6 +1042,93 @@ object Hash {
       .addString(commandId)
       .addStringSet(actAs)
       .build
+
+  def hashStructuralType(structType: StructuralType): Hash = {
+    def newHashBuilder: LegacyBuilder = {
+      val structuralTypeName = structType.getClass.getSimpleName
+
+      new LegacyBuilder(
+        Purpose.StructuralTypeHash,
+        aCid2Bytes,
+        bigIntNumericToBytes,
+        HashTracer.NoOp,
+      ).addVersion
+        .addBytes(Utf8.getBytes(structuralTypeName), structuralTypeName)
+    }
+
+    structType match {
+      case StructuralType.NumericT(scale) =>
+        newHashBuilder.addIntWithContext(scale, "scale").build
+
+      case StructuralType.ContractIdT(templateId) =>
+        newHashBuilder
+          .addStringWithContext(templateId.toString, "templateId")
+          .build
+
+      case StructuralType.OptionalT(None) =>
+        newHashBuilder.addIntWithContext(0, "None").build
+
+      case StructuralType.OptionalT(Some(arg)) =>
+        newHashBuilder
+          .addIntWithContext(1, "Some")
+          .addHash(hashStructuralType(arg), "arg")
+          .build
+
+      case StructuralType.ListT(arg) =>
+        newHashBuilder
+          .iterateOver(arg.iterator.zipWithIndex, arg.length) { case (b, (typeT, index)) =>
+            b.addHash(hashStructuralType(typeT), s"typeT($index)")
+          }
+          .build
+
+      case StructuralType.MapT(arg) =>
+        newHashBuilder
+          .iterateOver(arg.zipWithIndex.iterator, arg.size) { case (b, ((keyT, valueT), index)) =>
+            b.addHash(hashStructuralType(keyT), s"keyT($index)")
+              .addHash(hashStructuralType(valueT), s"valueT($index)")
+          }
+          .build
+
+      case StructuralType.TextMapT(arg) =>
+        newHashBuilder
+          .iterateOver(arg.zipWithIndex.iterator, arg.size) { case (b, (valueT, index)) =>
+            b.addHash(hashStructuralType(valueT), s"valueT($index)")
+          }
+          .build
+
+      case StructuralType.RecordT(tyCon, pkgName, fieldInfo) =>
+        newHashBuilder
+          .addStringWithContext(tyCon.toString, "tyCon")
+          .addStringWithContext(pkgName, "pkgName")
+          .iterateOver(fieldInfo.iterator, fieldInfo.length) {
+            case (b, (fieldName, fieldIndex, fieldType)) =>
+              b.addStringWithContext(fieldName, "fieldName")
+                .addIntWithContext(fieldIndex, "fieldIndex")
+                .addHash(hashStructuralType(fieldType), "fieldType")
+          }
+          .build
+
+      case StructuralType.VariantT(tyCon, pkgName, variant, variantIndex, variantType) =>
+        newHashBuilder
+          .addStringWithContext(tyCon.toString, "tyCon")
+          .addStringWithContext(pkgName, "pkgName")
+          .addStringWithContext(variant, "variant")
+          .addIntWithContext(variantIndex, "variantIndex")
+          .addHash(hashStructuralType(variantType), "variantType")
+          .build
+
+      case StructuralType.EnumT(tyCon, pkgName, cons, consIndex) =>
+        newHashBuilder
+          .addStringWithContext(tyCon.toString, "tyCon")
+          .addStringWithContext(pkgName, "pkgName")
+          .addStringWithContext(cons, "cons")
+          .addIntWithContext(consIndex, "consIndex")
+          .build
+
+      case _ =>
+        newHashBuilder.build
+    }
+  }
 
   def deriveSubmissionSeed(
       nonce: Hash,
