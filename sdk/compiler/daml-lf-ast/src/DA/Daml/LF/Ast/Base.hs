@@ -313,6 +313,8 @@ data BuiltinExpr
   | BEImplodeText                -- :: List Text -> Text
   | BESha256Text                 -- :: Text -> Text
   | BEKecCak256Text              -- :: Text -> Text
+  | BEEncodeHex                  -- :: Text -> Text
+  | BEDecodeHex                  -- :: Text -> Text
   | BETextToParty                -- :: Text -> Optional Party
   | BETextToInt64                -- :: Text -> Optional Int64
   | BETextToNumeric              -- :: ∀(s:nat). Numeric s -> Text -> Optional (Numeric s)

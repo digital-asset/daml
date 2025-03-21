@@ -9,6 +9,35 @@ DA.Crypto.Text
 Functions for working with Crypto builtins\.
 For example, as used to implement CCTP functionality\.
 
+Typeclasses
+-----------
+
+.. _class-da-crypto-text-hastohex-92431:
+
+**class** `HasToHex <class-da-crypto-text-hastohex-92431_>`_ a **where**
+
+  .. _function-da-crypto-text-tohex-12193:
+
+  `toHex <function-da-crypto-text-tohex-12193_>`_
+    \: a \-\> `BytesHex <type-da-crypto-text-byteshex-47880_>`_
+
+    Converts a typed data value into a hex encoded string\.
+
+  **instance** `HasToHex <class-da-crypto-text-hastohex-92431_>`_ :ref:`Text <type-ghc-types-text-51952>`
+
+.. _class-da-crypto-text-hasfromhex-84972:
+
+**class** `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ a **where**
+
+  .. _function-da-crypto-text-fromhex-45182:
+
+  `fromHex <function-da-crypto-text-fromhex-45182_>`_
+    \: `BytesHex <type-da-crypto-text-byteshex-47880_>`_ \-\> a
+
+    Converts a hex encoded string into a typed data value\.
+
+  **instance** `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ :ref:`Text <type-ghc-types-text-51952>`
+
 Data Types
 ----------
 

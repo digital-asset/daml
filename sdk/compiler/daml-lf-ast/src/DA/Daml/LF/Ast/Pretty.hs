@@ -288,6 +288,8 @@ instance Pretty BuiltinExpr where
     BEImplodeText -> "IMPLODE_TEXT"
     BESha256Text -> "SHA256_TEXT"
     BEKecCak256Text -> "KECCAK256_TEXT"
+    BEEncodeHex -> "TEXT_TO_HEX"
+    BEDecodeHex -> "HEX_TO_TEXT"
     BESecp256k1Bool -> "SECP256K1_BOOL"
     BETrace -> "TRACE"
     BETextToParty -> "TEXT_TO_PARTY"

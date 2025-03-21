@@ -1598,6 +1598,8 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
       BuiltinFunctionInfo(KECCAK256_TEXT, BKECCAK256Text, minVersion = LV.Features.cctp),
       BuiltinFunctionInfo(SECP256K1_BOOL, BSECP256K1Bool, minVersion = LV.Features.cctp),
+      BuiltinFunctionInfo(HEX_TO_TEXT, BDecodeHex, minVersion = LV.Features.cctp),
+      BuiltinFunctionInfo(TEXT_TO_HEX, BEncodeHex, minVersion = LV.Features.cctp),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
       BuiltinFunctionInfo(EXPLODE_TEXT, BExplodeText),
       BuiltinFunctionInfo(IMPLODE_TEXT, BImplodeText),
