@@ -48,3 +48,18 @@ Functions
   \: `SignatureHex <type-da-crypto-text-signaturehex-12945_>`_ \-\> `BytesHex <type-da-crypto-text-byteshex-47880_>`_ \-\> `PublicKeyHex <type-da-crypto-text-publickeyhex-51359_>`_ \-\> :ref:`Bool <type-ghc-types-bool-66265>`
 
   Validate the SECP256K1 signature given a hex encoded message and a hex encoded DER formatted public key\.
+
+.. _function-da-crypto-text-tohex-12193:
+
+`toHex <function-da-crypto-text-tohex-12193_>`_
+  \: :ref:`Text <type-ghc-types-text-51952>` \-\> `BytesHex <type-da-crypto-text-byteshex-47880_>`_
+
+  TODO\: introduce type classes\: HexEncode a \- toHex\: a \-\> HexBytes; and HexDecode a \- fromHex\: HexBytes \-\> a
+  Converts an arbitrary UTF\-8 encoded text string into a hex encoded string\.
+
+.. _function-da-crypto-text-fromhex-45182:
+
+`fromHex <function-da-crypto-text-fromhex-45182_>`_
+  \: `BytesHex <type-da-crypto-text-byteshex-47880_>`_ \-\> :ref:`Text <type-ghc-types-text-51952>`
+
+  Converts a hex encoded string into a UTF\-8 encoded text string\.
