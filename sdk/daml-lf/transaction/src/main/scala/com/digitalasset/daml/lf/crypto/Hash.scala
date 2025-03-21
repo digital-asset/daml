@@ -1035,18 +1035,6 @@ object Hash {
       .addStringSet(actAs)
       .build
 
-  def deriveSubmissionSeed(
-      nonce: Hash,
-      applicationId: Ref.LedgerString,
-      commandId: Ref.LedgerString,
-      submitter: Ref.Party,
-  ): Hash =
-    hMacBuilder(nonce)
-      .addString(applicationId)
-      .addString(commandId)
-      .addString(submitter)
-      .build
-
   def deriveTransactionSeed(
       submissionSeed: Hash,
       participantId: Ref.ParticipantId,

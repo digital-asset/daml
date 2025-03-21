@@ -17,14 +17,14 @@ class TelemetryContextSpec extends AnyWordSpec with TelemetrySpecBase with Match
     "run a body and create a current context with a span" in {
       val span = anEmptySpan()
       span.setAttribute(
-        anApplicationIdSpanAttribute._1.key,
-        anApplicationIdSpanAttribute._2,
+        anUserIdSpanAttribute._1.key,
+        anUserIdSpanAttribute._2,
       )
 
       runInOpenTelemetryScopeAndAssert(DefaultTelemetryContext(tracer, span))
 
       val attributes = spanExporter.finishedSpanAttributes
-      attributes should contain(anApplicationIdSpanAttribute)
+      attributes should contain(anUserIdSpanAttribute)
     }
 
     "return a raw Open Telemetry context" in {

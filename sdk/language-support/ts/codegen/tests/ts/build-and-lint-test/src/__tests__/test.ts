@@ -30,7 +30,7 @@ import WebSocket from "ws";
 import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
 
 const LEDGER_ID = "build-and-lint-test";
-const APPLICATION_ID = "build-and-lint-test";
+const USER_ID = "build-and-lint-test";
 const SECRET_KEY = "secret";
 const DAML_TEXTMAP = false;
 
@@ -48,7 +48,7 @@ const ADMIN_TOKEN = encode(
   {
     "https://daml.com/ledger-api": {
       ledgerId: LEDGER_ID,
-      applicationId: APPLICATION_ID,
+      userId: USER_ID,
       admin: true,
     },
   },
