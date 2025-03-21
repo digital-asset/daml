@@ -8,6 +8,7 @@ package v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.daml.lf.CompiledPackages
+import com.digitalasset.daml.lf.data.cctp.MessageSignatureUtil
 import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -31,6 +32,8 @@ import scalaz.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{Foldable, OneAnd}
 
+import java.security.KeyFactory
+import java.security.spec.PKCS8EncodedKeySpec
 import java.time.Clock
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -519,6 +522,20 @@ object ScriptF {
     }
   }
 
+  final case class Secp256k1Sign(pk: String, msg: String) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = Future {
+      val keySpec = new PKCS8EncodedKeySpec(HexString.assertFromString(pk).getBytes)
+      val privateKey = KeyFactory.getInstance("EC", "BC").generatePrivate(keySpec)
+      val message = HexString.assertFromString(msg)
+
+      SEValue(SText(MessageSignatureUtil.sign(message, privateKey)))
+    }
+  }
+
   final case class ValidateUserId(
       userName: String
   ) extends Cmd {
@@ -975,6 +992,16 @@ object ScriptF {
       case _ => Left(s"Expected SetTime payload but got $v")
     }
 
+  private def parseSecp256k1Sign(v: SValue): Either[String, Secp256k1Sign] =
+    v match {
+      case SRecord(_, _, ArrayList(pk, msg)) =>
+        for {
+          pk <- toText(pk)
+          msg <- toText(msg)
+        } yield Secp256k1Sign(pk, msg)
+      case _ => Left(s"Expected Secp256k1Sign payload but got $v")
+    }
+
   private def parseSleep(v: SValue): Either[String, Sleep] =
     v match {
       case SRecord(_, _, ArrayList(SRecord(_, _, ArrayList(SInt64(micros))))) =>
@@ -1131,6 +1158,7 @@ object ScriptF {
       case ("GetTime", 1) => parseEmpty(GetTime())(v)
       case ("SetTime", 1) => parseSetTime(v)
       case ("Sleep", 1) => parseSleep(v)
+      case ("Secp256k1Sign", 1) => parseSecp256k1Sign(v)
       case ("Catch", 1) => parseCatch(v)
       case ("Throw", 1) => parseThrow(v)
       case ("ValidateUserId", 1) => parseValidateUserId(v)

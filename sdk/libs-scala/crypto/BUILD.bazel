@@ -27,7 +27,6 @@ da_scala_test(
     ],
     deps = [
         ":crypto",
-        "@maven//:org_bouncycastle_bcprov_jdk15on",
     ],
 )
 
