@@ -1,6 +1,16 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
+
+#ifndef DAML_CCTP
+
+-- | HIDE
+module Daml.Script.Internal.Questions.Crypto.Text where
+
+#else
+
+-- | Daml Script support for working with Crypto builtins.
 module Daml.Script.Internal.Questions.Crypto.Text where
 
 import Daml.Script.Internal.LowLevel
@@ -9,7 +19,6 @@ import DA.Stack
 
 -- | A DER formatted private key to be used for ECDSA message signing
 type PrivateKeyHex = BytesHex
-
 data Secp256k1Sign = Secp256k1Sign with
   privateKey: PublicKeyHex
   message: BytesHex
@@ -21,3 +30,5 @@ instance IsQuestion Secp256k1Sign BytesHex where command = "Secp256k1Sign"
 -- For example, CCTP attestation services may be mocked in daml-script code.
 secp256k1sign : HasCallStack => PrivateKeyHex -> BytesHex -> Script BytesHex
 secp256k1sign = lift . Secp256k1Sign
+
+#endif
