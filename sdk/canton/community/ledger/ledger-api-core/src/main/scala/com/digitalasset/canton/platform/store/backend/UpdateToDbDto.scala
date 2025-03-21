@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.store.backend
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.{withExtraMetricLabels, withOptionalMetricLabels}
 import com.daml.platform.v1.index.StatusDetails
+import com.digitalasset.canton.data
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.*
@@ -21,7 +22,6 @@ import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils.NodeIn
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.platform.store.dao.events.*
 import com.digitalasset.canton.tracing.SerializableTraceContext
-import com.digitalasset.canton.{SequencerCounter, data}
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import io.grpc.Status
 
@@ -107,7 +107,7 @@ object UpdateToDbDto {
         .fromCodeValue(commandRejected.reasonTemplate.code)
         .getCode
         .name(),
-      IndexerMetrics.Labels.applicationId -> commandRejected.completionInfo.applicationId,
+      IndexerMetrics.Labels.userId -> commandRejected.completionInfo.userId,
     ) { implicit mc: MetricsContext =>
       incrementCounterForEvent(
         metrics.indexer,
@@ -115,18 +115,9 @@ object UpdateToDbDto {
         IndexerMetrics.Labels.status.rejected,
       )
     }
-    val (messageUuid, requestSequencerCounter) = commandRejected match {
-      case sequenced: SequencedCommandRejected =>
-        (
-          None,
-          Some(sequenced.sequencerCounter),
-        )
-
-      case unSequenced: UnSequencedCommandRejected =>
-        (
-          Some(unSequenced.messageUuid),
-          None,
-        )
+    val messageUuid = commandRejected match {
+      case _: SequencedCommandRejected => None
+      case unSequenced: UnSequencedCommandRejected => Some(unSequenced.messageUuid)
     }
     Iterator(
       commandCompletion(
@@ -135,7 +126,6 @@ object UpdateToDbDto {
         updateId = None,
         completionInfo = commandRejected.completionInfo,
         synchronizerId = commandRejected.synchronizerId.toProtoPrimitive,
-        requestSequencerCounter = requestSequencerCounter,
         messageUuid = messageUuid,
         serializedTraceContext = serializedTraceContext,
         isTransaction =
@@ -252,8 +242,8 @@ object UpdateToDbDto {
       transactionAccepted: TransactionAccepted,
   )(implicit mc: MetricsContext): Iterator[DbDto] = {
     withOptionalMetricLabels(
-      IndexerMetrics.Labels.applicationId -> transactionAccepted.completionInfoO.map(
-        _.applicationId
+      IndexerMetrics.Labels.userId -> transactionAccepted.completionInfoO.map(
+        _.userId
       )
     ) { implicit mc: MetricsContext =>
       incrementCounterForEvent(
@@ -309,15 +299,12 @@ object UpdateToDbDto {
     val completions =
       for {
         completionInfo <- transactionAccepted.completionInfoO
-        // only sequenced completions are supported for TransactionAccepted (In case of repair, no completion is supported)
-        requestSequencerCounter <- transactionAccepted.sequencerCounterO
       } yield commandCompletion(
         offset = offset,
         recordTime = transactionAccepted.recordTime.toLf,
         updateId = Some(transactionAccepted.updateId),
         completionInfo = completionInfo,
         synchronizerId = transactionAccepted.synchronizerId.toProtoPrimitive,
-        requestSequencerCounter = Some(requestSequencerCounter),
         messageUuid = None,
         serializedTraceContext = serializedTraceContext,
         isTransaction = true,
@@ -352,7 +339,7 @@ object UpdateToDbDto {
         ledger_effective_time = transactionAccepted.transactionMeta.ledgerEffectiveTime.micros,
         command_id = transactionAccepted.completionInfoO.map(_.commandId),
         workflow_id = transactionAccepted.transactionMeta.workflowId,
-        application_id = transactionAccepted.completionInfoO.map(_.applicationId),
+        user_id = transactionAccepted.completionInfoO.map(_.userId),
         submitters = transactionAccepted.completionInfoO.map(_.actAs.toSet),
         node_id = nodeId.index,
         contract_id = create.coid.toBytes.toByteArray,
@@ -423,7 +410,7 @@ object UpdateToDbDto {
         ledger_effective_time = transactionAccepted.transactionMeta.ledgerEffectiveTime.micros,
         command_id = transactionAccepted.completionInfoO.map(_.commandId),
         workflow_id = transactionAccepted.transactionMeta.workflowId,
-        application_id = transactionAccepted.completionInfoO.map(_.applicationId),
+        user_id = transactionAccepted.completionInfoO.map(_.userId),
         submitters = transactionAccepted.completionInfoO.map(_.actAs.toSet),
         node_id = nodeId.index,
         contract_id = exercise.targetCoid.toBytes.toByteArray,
@@ -484,8 +471,8 @@ object UpdateToDbDto {
       reassignmentAccepted: ReassignmentAccepted,
   )(implicit mc: MetricsContext): Iterator[DbDto] = {
     withOptionalMetricLabels(
-      IndexerMetrics.Labels.applicationId -> reassignmentAccepted.optCompletionInfo.map(
-        _.applicationId
+      IndexerMetrics.Labels.userId -> reassignmentAccepted.optCompletionInfo.map(
+        _.userId
       )
     ) { implicit mc: MetricsContext =>
       incrementCounterForEvent(
@@ -518,15 +505,12 @@ object UpdateToDbDto {
     val completions =
       for {
         completionInfo <- reassignmentAccepted.optCompletionInfo
-        // only sequenced completions are supported for ReassignmentAccepted (In case of repair, no completion is supported)
-        requestSequencerCounter <- reassignmentAccepted.sequencerCounterO
       } yield commandCompletion(
         offset = offset,
         recordTime = reassignmentAccepted.recordTime.toLf,
         updateId = Some(reassignmentAccepted.updateId),
         completionInfo = completionInfo,
         synchronizerId = reassignmentAccepted.synchronizerId.toProtoPrimitive,
-        requestSequencerCounter = Some(requestSequencerCounter),
         messageUuid = None,
         serializedTraceContext = serializedTraceContext,
         isTransaction = false,
@@ -665,19 +649,10 @@ object UpdateToDbDto {
       updateId: Option[data.UpdateId],
       completionInfo: CompletionInfo,
       synchronizerId: String,
-      requestSequencerCounter: Option[SequencerCounter],
       messageUuid: Option[UUID],
       isTransaction: Boolean,
       serializedTraceContext: Array[Byte],
   ): DbDto.CommandCompletion = {
-    assert(
-      messageUuid.nonEmpty || requestSequencerCounter.nonEmpty,
-      "Either messageUuid or requestSequencerCounter should be defined, but neither defined",
-    )
-    assert(
-      messageUuid.isEmpty || requestSequencerCounter.isEmpty,
-      "Only one of messageUuid or requestSequencerCounter should be defined, but both defined",
-    )
     val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
       completionInfo.optDeduplicationPeriod
         .map {
@@ -696,7 +671,7 @@ object UpdateToDbDto {
       completion_offset = offset.unwrap,
       record_time = recordTime.micros,
       publication_time = 0L, // will be filled later
-      application_id = completionInfo.applicationId,
+      user_id = completionInfo.userId,
       submitters = completionInfo.actAs.toSet,
       command_id = completionInfo.commandId,
       update_id = updateId,
@@ -709,7 +684,6 @@ object UpdateToDbDto {
       deduplication_duration_nanos = deduplicationDurationNanos,
       synchronizer_id = synchronizerId,
       message_uuid = messageUuid.map(_.toString),
-      request_sequencer_counter = requestSequencerCounter.map(_.unwrap),
       is_transaction = isTransaction,
       trace_context = serializedTraceContext,
     )

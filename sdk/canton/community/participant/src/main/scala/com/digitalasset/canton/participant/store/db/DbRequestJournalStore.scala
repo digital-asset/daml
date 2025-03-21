@@ -346,12 +346,12 @@ class DbRequestJournalStore(
       )
       .map(_.size)
 
-  override def deleteSince(
-      fromInclusive: RequestCounter
+  override def deleteSinceRequestTimestamp(
+      fromInclusive: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val statement =
       sqlu"""
-        delete from par_journal_requests where synchronizer_idx = $indexedSynchronizer and request_counter >= $fromInclusive
+        delete from par_journal_requests where synchronizer_idx = $indexedSynchronizer and request_timestamp >= $fromInclusive
         """
     storage.update_(statement, functionFullName)
   }

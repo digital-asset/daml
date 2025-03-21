@@ -13,14 +13,15 @@ import com.digitalasset.daml.lf.data.Ref
   *   ReadService.stateUpdates for the command deduplication guarantee
   */
 final case class ChangeId(
-    applicationId: Ref.ApplicationId,
+    userId: Ref.UserId,
     commandId: Ref.CommandId,
     actAs: Set[Ref.Party],
 ) {
 
   /** A stable hash of the change id. Suitable for storing in persistent storage.
     */
-  lazy val hash: Hash = Hash.hashChangeId(applicationId, commandId, actAs)
+  lazy val hash: Hash =
+    Hash.hashChangeId(userId, commandId, actAs)
 
   override def equals(that: Any): Boolean = that match {
     case other: ChangeId =>

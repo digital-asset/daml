@@ -26,15 +26,15 @@ class MeteringReportGeneratorSpec extends AsyncWordSpec with Matchers with Optio
 
   private val someParticipantId = Ref.ParticipantId.assertFromString("test-participant")
 
-  private val appIdA = Ref.ApplicationId.assertFromString("AppA")
-  private val appIdB = Ref.ApplicationId.assertFromString("AppB")
-  private val appIdX = Ref.ApplicationId.assertFromString("AppX")
+  private val userIdA = Ref.UserId.assertFromString("AppA")
+  private val userIdB = Ref.UserId.assertFromString("AppB")
+  private val userIdX = Ref.UserId.assertFromString("AppX")
 
   private val from = Timestamp.now()
   private val to = from.add(Duration.of(-1, ChronoUnit.DAYS))
 
   private val reportData =
-    ReportData(applicationData = Map(appIdB -> 2, appIdA -> 4), isFinal = false)
+    ReportData(applicationData = Map(userIdB -> 2, userIdA -> 4), isFinal = false)
 
   private val testKey = HmacSha256.generateKey("test")
 
@@ -42,9 +42,9 @@ class MeteringReportGeneratorSpec extends AsyncWordSpec with Matchers with Optio
     import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReport.*
     val report = ParticipantReport(
       participant = someParticipantId,
-      request = Request(from, Some(to), Some(appIdX)),
+      request = Request(from, Some(to), Some(userIdX)),
       `final` = false,
-      applications = Seq(ApplicationReport(appIdA, 4), ApplicationReport(appIdB, 2)),
+      applications = Seq(ApplicationReport(userIdA, 4), ApplicationReport(userIdB, 2)),
       check = None,
     )
     inside(JcsSigner.sign(report, testKey)) { case Right(signedReport) =>
@@ -74,7 +74,7 @@ class MeteringReportGeneratorSpec extends AsyncWordSpec with Matchers with Optio
           request,
           from,
           Some(to),
-          Some(appIdX),
+          Some(userIdX),
           reportData,
           generationTime,
         )

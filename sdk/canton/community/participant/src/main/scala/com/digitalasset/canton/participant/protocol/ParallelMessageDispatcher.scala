@@ -245,9 +245,9 @@ class ParallelMessageDispatcher(
         recordOrderPublisher.tick(
           SequencerIndexMoved(
             synchronizerId = synchronizerId,
-            sequencerCounter = sc,
             recordTime = ts,
           ),
+          sequencerCounter = sc,
           rcO = None,
         )
       } else {

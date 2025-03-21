@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.admin.repair
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.participant.protocol.ProcessingStartingPoints
+import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.participant.store.SyncPersistentState
 import com.digitalasset.canton.protocol.{StaticSynchronizerParameters, TransactionId}
 import com.digitalasset.canton.topology.SynchronizerId
@@ -18,7 +18,7 @@ private[repair] final case class RepairRequest(
     repairCounters: NonEmpty[Seq[RepairCounter]],
 ) {
 
-  val timestamp: CantonTimestamp = synchronizer.startingPoints.processing.currentRecordTime
+  val timestamp: CantonTimestamp = synchronizer.currentRecordTime
 
   def firstTimeOfRepair: TimeOfRepair = TimeOfRepair(timestamp, repairCounters.head1)
 
@@ -39,13 +39,19 @@ private[repair] final case class RepairRequest(
 
 private[repair] object RepairRequest {
 
+  /** @param synchronizerIndex
+    *   Should be provided as it returned from the ledgerApiStore (required to provide,
+    *   synchronizerIndex is optional in nature)
+    */
   final case class SynchronizerData(
       id: SynchronizerId,
       alias: SynchronizerAlias,
       topologySnapshot: TopologySnapshot,
       persistentState: SyncPersistentState,
       parameters: StaticSynchronizerParameters,
-      startingPoints: ProcessingStartingPoints,
+      currentRecordTime: CantonTimestamp,
+      nextRepairCounter: RepairCounter,
+      synchronizerIndex: Option[SynchronizerIndex],
   )
 
 }

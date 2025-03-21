@@ -69,14 +69,14 @@ class SubmissionTrackerSpec
         )
       )
 
-      // Completion with mismatching applicationId
-      completionWithMismatchingAppId = completionOk.copy(
-        applicationId = "wrongAppId",
+      // Completion with mismatching userId
+      completionWithMismatchingUserId = completionOk.copy(
+        userId = "wrongUserId",
         actAs = submitters.toSeq,
       )
       _ = submissionTracker.onCompletion(
         CompletionStreamResponse(completionResponse =
-          CompletionStreamResponse.CompletionResponse.Completion(completionWithMismatchingAppId)
+          CompletionStreamResponse.CompletionResponse.Completion(completionWithMismatchingUserId)
         )
       )
 
@@ -439,13 +439,13 @@ class SubmissionTrackerSpec
 
     val submissionId = "sId_1"
     val commandId = "cId_1"
-    val applicationId = "apId_1"
+    val userId = "apId_1"
     val actAs: Seq[String] = Seq("p1", "p2")
     val party = "p3"
     val submissionKey: SubmissionKey = SubmissionKey(
       submissionId = submissionId,
       commandId = commandId,
-      applicationId = applicationId,
+      userId = userId,
       parties = Set(party) ++ actAs,
     )
     val otherSubmissionKey: SubmissionKey = submissionKey.copy(commandId = "cId_2")
@@ -461,7 +461,7 @@ class SubmissionTrackerSpec
       submissionId = submissionId,
       commandId = commandId,
       status = Some(Status(code = io.grpc.Status.Code.OK.value())),
-      applicationId = applicationId,
+      userId = userId,
       actAs = submitters.toSeq,
     )
 

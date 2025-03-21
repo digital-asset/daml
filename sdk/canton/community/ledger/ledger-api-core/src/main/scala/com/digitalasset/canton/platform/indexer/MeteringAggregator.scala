@@ -9,7 +9,7 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ParticipantMetering
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.platform.ApplicationId
+import com.digitalasset.canton.platform.UserId
 import com.digitalasset.canton.platform.indexer.MeteringAggregator.{toOffsetDateTime, toTimestamp}
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.digitalasset.canton.platform.store.backend.{
@@ -186,7 +186,7 @@ class MeteringAggregator(
       thisLedgerMeteringEnd: LedgerMeteringEnd,
   ): Unit = {
 
-    val applicationCounts: Map[ApplicationId, Int] =
+    val userCounts: Map[UserId, Int] =
       thisLedgerMeteringEnd.offset match {
         case Some(end) =>
           meteringStore.selectTransactionMetering(
@@ -196,9 +196,9 @@ class MeteringAggregator(
         case None => Map.empty
       }
 
-    val participantMetering = applicationCounts.map { case (applicationId, actionCount) =>
+    val participantMetering = userCounts.map { case (userId, actionCount) =>
       ParticipantMetering(
-        applicationId = applicationId,
+        userId = userId,
         from = lastLedgerMeteringEnd.timestamp,
         to = thisLedgerMeteringEnd.timestamp,
         actionCount = actionCount,

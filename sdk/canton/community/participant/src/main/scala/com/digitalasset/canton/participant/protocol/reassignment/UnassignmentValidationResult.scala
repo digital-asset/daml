@@ -25,7 +25,7 @@ import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
-import com.digitalasset.canton.{LfPackageName, LfPartyId, ReassignmentCounter, SequencerCounter}
+import com.digitalasset.canton.{LfPackageName, LfPartyId, ReassignmentCounter}
 
 import scala.concurrent.ExecutionContext
 
@@ -72,8 +72,7 @@ final case class UnassignmentValidationResult(
   )
 
   def createReassignmentAccepted(
-      participantId: ParticipantId,
-      requestSequencerCounter: SequencerCounter,
+      participantId: ParticipantId
   )(implicit
       traceContext: TraceContext
   ): Either[ReassignmentProcessorError, Update.SequencedReassignmentAccepted] =
@@ -90,7 +89,7 @@ final case class UnassignmentValidationResult(
         )(
           CompletionInfo(
             actAs = List(submitterMetadata.submitter),
-            applicationId = submitterMetadata.applicationId,
+            userId = submitterMetadata.userId,
             commandId = submitterMetadata.commandId,
             optDeduplicationPeriod = None,
             submissionId = submitterMetadata.submissionId,
@@ -115,7 +114,6 @@ final case class UnassignmentValidationResult(
         stakeholders = stakeholders.toList,
         assignmentExclusivity = assignmentExclusivity.map(_.unwrap.toLf),
       ),
-      sequencerCounter = requestSequencerCounter,
       recordTime = reassignmentId.unassignmentTs,
     )
 }

@@ -17,12 +17,7 @@ import com.daml.ledger.api.v2.value.{
 }
 import com.digitalasset.base.error.{ContextualizedErrorLogger, NoLogging}
 import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
-import com.digitalasset.canton.ledger.api.ApiMocks.{
-  applicationId,
-  commandId,
-  submissionId,
-  workflowId,
-}
+import com.digitalasset.canton.ledger.api.ApiMocks.{commandId, submissionId, userId, workflowId}
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.api.{ApiMocks, Commands as ApiCommands, DisclosedContract}
@@ -94,7 +89,7 @@ class SubmitRequestValidatorTest
 
     val commands = Commands(
       workflowId = workflowId.unwrap,
-      applicationId = applicationId,
+      userId = userId,
       submissionId = submissionId.unwrap,
       commandId = commandId.unwrap,
       readAs = Nil,
@@ -168,7 +163,7 @@ class SubmitRequestValidatorTest
         prefetchKeys: Seq[ApiContractKey] = Seq.empty,
     ) = ApiCommands(
       workflowId = Some(workflowId),
-      applicationId = applicationId,
+      userId = userId,
       commandId = commandId,
       submissionId = Some(submissionId),
       actAs = Set(ApiMocks.party),
@@ -346,17 +341,17 @@ class SubmitRequestValidatorTest
         )
       }
 
-      "not allow missing applicationId" in {
+      "not allow missing userId" in {
         requestMustFailWith(
           request = testedCommandValidator.validateCommands(
-            api.commands.withApplicationId(""),
+            api.commands.withUserId(""),
             internal.ledgerTime,
             internal.submittedAt,
             internal.maxDeduplicationDuration,
           ),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: application_id",
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: user_id",
           metadata = Map.empty,
         )
       }

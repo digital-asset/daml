@@ -265,6 +265,20 @@ object ProtocolVersion {
   // TODO(i15561): change back to `stableAndSupported.max1` once there is a stable Daml 3 protocol version
   val latest: ProtocolVersion = stable.lastOption.getOrElse(alpha.head1)
 
+  /** The protocol version used to bootstrap a synchronizer.
+    *
+    * Uses the latest protocol version as default, but allow overriding it with an environment
+    * variable `CANTON_PROTOCOL_VERSION`.
+    *
+    * @throws java.lang.RuntimeException
+    *   if the environment variable's value cannot be parsed to a protocol version
+    */
+  val forSynchronizer: ProtocolVersion =
+    sys.env
+      .get("CANTON_PROTOCOL_VERSION")
+      .map(ProtocolVersion.tryCreate)
+      .getOrElse(ProtocolVersion.latest)
+
   lazy val dev: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha] =
     ProtocolVersion.createAlpha(Int.MaxValue)
 

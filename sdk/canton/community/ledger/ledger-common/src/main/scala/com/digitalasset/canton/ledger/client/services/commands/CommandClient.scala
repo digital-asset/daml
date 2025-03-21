@@ -17,7 +17,7 @@ import scala.concurrent.Future
   *   gRPC service reference.
   * @param commandCompletionService
   *   gRPC service reference.
-  * @param applicationId
+  * @param userId
   *   Will be applied to submitted commands.
   * @param config
   *   Options for changing behavior.

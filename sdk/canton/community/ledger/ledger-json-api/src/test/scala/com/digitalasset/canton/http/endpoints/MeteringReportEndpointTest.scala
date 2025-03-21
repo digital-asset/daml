@@ -4,7 +4,7 @@
 package com.digitalasset.canton.http.endpoints
 
 import com.daml.ledger.api.v2.admin.metering_report_service
-import com.digitalasset.daml.lf.data.Ref.ApplicationId
+import com.digitalasset.daml.lf.data.Ref.UserId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.protobuf.struct
 import com.google.protobuf.struct.Struct
@@ -21,7 +21,7 @@ class MeteringReportEndpointTest extends AnyFreeSpec with Matchers {
 
   "MeteringReportEndpoint" - {
 
-    val appX = ApplicationId.assertFromString("appX")
+    val appX = UserId.assertFromString("appX")
 
     val request = MeteringReportDateRequest(
       LocalDate.of(2022, 2, 3),
@@ -45,7 +45,7 @@ class MeteringReportEndpointTest extends AnyFreeSpec with Matchers {
       val expected = metering_report_service.GetMeteringReportRequest(
         Some(toPbTimestamp(toTimestamp(from))),
         to.map(toTimestamp).map(toPbTimestamp),
-        application.getOrElse(""),
+        user.getOrElse(""),
       )
       val actual = MeteringReportEndpoint.toPbRequest(request)
       actual shouldBe expected

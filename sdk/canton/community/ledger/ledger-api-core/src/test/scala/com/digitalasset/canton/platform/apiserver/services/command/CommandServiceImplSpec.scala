@@ -278,7 +278,7 @@ object CommandServiceImplSpec {
   private val OkStatus = StatusProto.of(Status.Code.OK.value, "", Seq.empty)
 
   val commandId = "command ID"
-  val applicationId = "application ID"
+  val userId = "userID"
   val submissionId = Ref.SubmissionId.assertFromString("submissionId")
   val maxDeduplicationDuration = java.time.Duration.ofDays(1)
   val party = "Alice"
@@ -309,13 +309,13 @@ object CommandServiceImplSpec {
   val expectedSubmissionKey = SubmissionTracker.SubmissionKey(
     commandId = commandId,
     submissionId = submissionId,
-    applicationId = applicationId,
+    userId = userId,
     parties = Set(party),
   )
 
   private def someCommands() = Commands.defaultInstance.copy(
     commandId = commandId,
-    applicationId = applicationId,
+    userId = userId,
     actAs = Seq(party),
     commands = Seq(command),
   )

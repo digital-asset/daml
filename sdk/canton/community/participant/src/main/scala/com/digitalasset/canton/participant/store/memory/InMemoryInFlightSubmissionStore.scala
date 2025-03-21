@@ -110,7 +110,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
     inFlights.mapValuesInPlace { (_, info) =>
       val shouldUpdate = info.rootHashO.contains(rootHash) && (info.sequencingInfo match {
         case UnsequencedSubmission(_, _) => true
-        case SequencedSubmission(_, ts) => submission.sequencingTime < ts
+        case SequencedSubmission(ts) => submission.sequencingTime < ts
       })
       if (shouldUpdate) {
         info.copy(sequencingInfo = submission)

@@ -13,7 +13,7 @@ import com.digitalasset.canton.protocol.LfHash
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
 import com.digitalasset.canton.util.ErrorUtil
-import com.digitalasset.canton.{RepairCounter, SequencerCounter, data}
+import com.digitalasset.canton.{RepairCounter, data}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.engine.Blinding
@@ -74,29 +74,24 @@ sealed trait SynchronizerUpdate extends Update {
 sealed trait SynchronizerIndexUpdate extends SynchronizerUpdate {
   def repairCounterO: Option[RepairCounter]
 
-  def sequencerCounterO: Option[SequencerCounter]
-
-  private final def repairIndexO: Option[RepairIndex] =
-    repairCounterO.map(RepairIndex(recordTime, _))
-
-  private final def sequencerIndexO: Option[SequencerIndex] =
-    sequencerCounterO.map(SequencerIndex(_, recordTime))
+  def sequencerIndexO: Option[SequencerIndex]
 
   final def synchronizerIndex: (SynchronizerId, SynchronizerIndex) =
-    synchronizerId -> SynchronizerIndex(repairIndexO, sequencerIndexO, recordTime)
+    synchronizerId -> SynchronizerIndex(
+      repairCounterO.map(RepairIndex(recordTime, _)),
+      sequencerIndexO,
+      recordTime,
+    )
 }
 
 sealed trait SequencedUpdate extends SynchronizerIndexUpdate {
-  def sequencerCounter: SequencerCounter
-
-  final override def sequencerCounterO: Option[SequencerCounter] = Some(sequencerCounter)
+  final override def sequencerIndexO: Option[SequencerIndex] = Some(SequencerIndex(recordTime))
 
   final override def repairCounterO: Option[RepairCounter] = None
 }
 
 sealed trait FloatingUpdate extends SynchronizerIndexUpdate {
-
-  final override def sequencerCounterO: Option[SequencerCounter] = None
+  final override def sequencerIndexO: Option[SequencerIndex] = None
 
   final override def repairCounterO: Option[RepairCounter] = None
 }
@@ -106,7 +101,7 @@ sealed trait RepairUpdate extends SynchronizerIndexUpdate {
 
   final override def repairCounterO: Option[RepairCounter] = Some(repairCounter)
 
-  final override def sequencerCounterO: Option[SequencerCounter] = None
+  final override def sequencerIndexO: Option[SequencerIndex] = None
 }
 
 trait LapiCommitSet
@@ -315,7 +310,6 @@ object Update {
       updateId: data.UpdateId,
       contractMetadata: Map[Value.ContractId, Bytes],
       synchronizerId: SynchronizerId,
-      sequencerCounter: SequencerCounter,
       recordTime: CantonTimestamp,
       commitSetO: Option[LapiCommitSet] = None,
   )(implicit override val traceContext: TraceContext)
@@ -388,7 +382,6 @@ object Update {
       updateId: data.UpdateId,
       reassignmentInfo: ReassignmentInfo,
       reassignment: Reassignment,
-      sequencerCounter: SequencerCounter,
       recordTime: CantonTimestamp,
       commitSetO: Option[LapiCommitSet] = None,
   )(implicit override val traceContext: TraceContext)
@@ -457,7 +450,6 @@ object Update {
       completionInfo: CompletionInfo,
       reasonTemplate: RejectionReasonTemplate,
       synchronizerId: SynchronizerId,
-      sequencerCounter: SequencerCounter,
       recordTime: CantonTimestamp,
   )(implicit override val traceContext: TraceContext)
       extends CommandRejected
@@ -480,7 +472,7 @@ object Update {
         LoggingValue.Nested.fromEntries(
           Logging.recordTime(commandRejected.recordTime.toLf),
           Logging.submitter(commandRejected.completionInfo.actAs),
-          Logging.applicationId(commandRejected.completionInfo.applicationId),
+          Logging.userId(commandRejected.completionInfo.userId),
           Logging.commandId(commandRejected.completionInfo.commandId),
           Logging.deduplicationPeriod(commandRejected.completionInfo.optDeduplicationPeriod),
           Logging.rejectionReason(commandRejected.reasonTemplate),
@@ -530,14 +522,12 @@ object Update {
 
   final case class SequencerIndexMoved(
       synchronizerId: SynchronizerId,
-      sequencerCounter: SequencerCounter,
       recordTime: CantonTimestamp,
   )(implicit override val traceContext: TraceContext)
       extends SequencedUpdate {
     override protected def pretty: Pretty[SequencerIndexMoved] =
       prettyOfClass(
         param("synchronizerId", _.synchronizerId.uid),
-        param("sequencerCounter", _.sequencerCounter),
         param("sequencerTimestamp", _.recordTime),
       )
   }
@@ -547,7 +537,6 @@ object Update {
       seqIndexMoved =>
         LoggingValue.Nested.fromEntries(
           Logging.synchronizerId(seqIndexMoved.synchronizerId),
-          "sequencerCounter" -> seqIndexMoved.sequencerCounter.unwrap,
           "sequencerTimestamp" -> seqIndexMoved.recordTime.toInstant,
         )
   }
@@ -627,8 +616,8 @@ object Update {
     def updateId(id: data.UpdateId): LoggingEntry =
       "updateId" -> id
 
-    def applicationId(id: Ref.ApplicationId): LoggingEntry =
-      "applicationId" -> id
+    def userId(id: Ref.UserId): LoggingEntry =
+      "userId" -> id
 
     def workflowIdOpt(id: Option[Ref.WorkflowId]): LoggingEntry =
       "workflowId" -> id

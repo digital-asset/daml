@@ -11,7 +11,7 @@ import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.platform.indexer.IndexerState.RepairInProgress
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.PekkoUtil.{FutureQueue, RecoveringFutureQueue}
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.apache.pekko.Done
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AnyFlatSpec
@@ -1599,7 +1599,6 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
   def update: Update.SequencerIndexMoved =
     Update.SequencerIndexMoved(
       synchronizerId = SynchronizerId.tryFromString("x::synchronizer"),
-      sequencerCounter = SequencerCounter(15L),
       recordTime = CantonTimestamp.now(),
     )
 

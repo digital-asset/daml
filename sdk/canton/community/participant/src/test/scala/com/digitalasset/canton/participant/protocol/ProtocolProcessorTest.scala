@@ -452,7 +452,7 @@ class ProtocolProcessorTest
       TransactionSubmissionTrackingData(
         CompletionInfo(
           List.empty,
-          changeId.applicationId,
+          changeId.userId,
           changeId.commandId,
           None,
           Some(subId),
@@ -827,7 +827,7 @@ class ProtocolProcessorTest
 
       verify(mockInFlightSubmissionSynchronizerTracker).observeSequencedRootHash(
         isEq(someRequestBatch.rootHashMessage.rootHash),
-        isEq(SequencedSubmission(requestSc, requestId.unwrap)),
+        isEq(SequencedSubmission(requestId.unwrap)),
       )(anyTraceContext)
     }
 
@@ -917,8 +917,7 @@ class ProtocolProcessorTest
           .observeSequencing(
             Map(
               unsequencedSubmission.messageId -> SequencedSubmission(
-                SequencerCounter(1),
-                requestId.unwrap.plusSeconds(1),
+                requestId.unwrap.plusSeconds(1)
               )
             )
           )
@@ -940,7 +939,7 @@ class ProtocolProcessorTest
       sub.sequencingInfo.isSequenced shouldBe true
       sub.sequencingInfo match {
         // The information corresponds to the preplay
-        case SequencedSubmission(`requestSc`, ts) => ts shouldBe requestId.unwrap
+        case SequencedSubmission(ts) => ts shouldBe requestId.unwrap
         case _ => fail(s"Bad information in in-flight submission tracker:\n$sub")
       }
     }

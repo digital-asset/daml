@@ -519,8 +519,7 @@ object BaseTest {
     protocolVersion = protocolVersion,
   )
 
-  lazy val testedProtocolVersion: ProtocolVersion =
-    tryGetProtocolVersionFromEnv.getOrElse(ProtocolVersion.latest)
+  lazy val testedProtocolVersion: ProtocolVersion = ProtocolVersion.forSynchronizer
 
   lazy val testedStaticSynchronizerParameters: StaticSynchronizerParameters =
     defaultStaticSynchronizerParametersWith(testedProtocolVersion)
@@ -547,14 +546,6 @@ object BaseTest {
       .map(_.getPath)
       .getOrElse(throw new IllegalArgumentException(s"Cannot find resource $name"))
 
-  /** @return
-    *   Parsed protocol version if found in environment variable `CANTON_PROTOCOL_VERSION`
-    * @throws java.lang.RuntimeException
-    *   if the given parameter cannot be parsed to a protocol version
-    */
-  protected def tryGetProtocolVersionFromEnv: Option[ProtocolVersion] = sys.env
-    .get("CANTON_PROTOCOL_VERSION")
-    .map(ProtocolVersion.tryCreate)
 }
 
 trait BaseTestWordSpec extends BaseTest with AnyWordSpecLike {

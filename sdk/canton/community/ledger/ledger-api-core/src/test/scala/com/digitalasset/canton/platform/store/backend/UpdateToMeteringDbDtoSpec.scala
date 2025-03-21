@@ -5,7 +5,6 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.metrics.{IndexerHistograms, IndexerMetrics}
@@ -37,7 +36,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
 
   "UpdateMeteringToDbDto" should {
 
-    val applicationId = Ref.ApplicationId.assertFromString("a0")
+    val userId = Ref.UserId.assertFromString("a0")
 
     val timestamp: Long = 12345
 
@@ -51,7 +50,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
 
     val someCompletionInfo = state.CompletionInfo(
       actAs = Nil,
-      applicationId = applicationId,
+      userId = userId,
       commandId = Ref.CommandId.assertFromString("c0"),
       optDeduplicationPeriod = None,
       submissionId = None,
@@ -100,7 +99,6 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
       updateId = Ref.TransactionId.assertFromString("UpdateId"),
       Map.empty,
       synchronizerId = SynchronizerId.tryFromString("da::default"),
-      SequencerCounter(10),
       CantonTimestamp.now(),
     )
 
@@ -115,7 +113,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
 
       val expected: Vector[DbDto.TransactionMetering] = Vector(
         DbDto.TransactionMetering(
-          application_id = applicationId,
+          user_id = userId,
           action_count = statistics.committed.actions + statistics.rolledBack.actions,
           metering_timestamp = timestamp,
           ledger_offset = offset.unwrap,
@@ -129,7 +127,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
     "aggregate transaction metering across batch" in {
 
       val metering = DbDto.TransactionMetering(
-        application_id = applicationId,
+        user_id = userId,
         action_count = 2 * (statistics.committed.actions + statistics.rolledBack.actions),
         metering_timestamp = timestamp,
         ledger_offset = 99,

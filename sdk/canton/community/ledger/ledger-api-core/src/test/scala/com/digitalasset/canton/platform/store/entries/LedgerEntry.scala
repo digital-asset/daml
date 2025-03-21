@@ -15,7 +15,7 @@ private[platform] object LedgerEntry {
   final case class Transaction(
       commandId: Option[CommandId],
       updateId: UpdateId,
-      applicationId: Option[ApplicationId],
+      userId: Option[UserId],
       submissionId: Option[SubmissionId],
       actAs: List[Party],
       workflowId: Option[WorkflowId],

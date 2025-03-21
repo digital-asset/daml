@@ -246,12 +246,14 @@ class PruningProcessor(
             participantNodePersistentState.value.ledgerApiStore
               .cleanSynchronizerIndex(synchronizerId)
           )
+        _ = logger.debug(s"SynchronizerIndex for synchronizer $synchronizerId: $synchronizerIndex ")
+
         sortedReconciliationIntervalsProvider <- sortedReconciliationIntervalsProviderFactory
           .get(
             synchronizerId,
             synchronizerIndex
               .flatMap(_.sequencerIndex)
-              .map(_.timestamp)
+              .map(_.sequencerTimestamp)
               .getOrElse(CantonTimestamp.MinValue),
           )
           .leftMap(LedgerPruningInternalError.apply)
@@ -295,9 +297,18 @@ class PruningProcessor(
         )
 
         (firstUnsafeRecordTime, cause) =
-          earliestSequencedTimestampForNonEffectiveTopologyTransactions
-            .filter(_ < safeCommitmentTick.forgetRefinement)
-            .map(_ -> "Topology event crash recovery")
+          List(
+            // The sequenced event should not be pruned for the clean sequencer index, as the sequencer counter is looked up from the SequencedEventStore.
+            synchronizerIndex
+              .flatMap(_.sequencerIndex)
+              .map(_.sequencerTimestamp -> "Synchronizer index crash recover")
+              .toList,
+            earliestSequencedTimestampForNonEffectiveTopologyTransactions
+              .map(_ -> "Topology event crash recovery")
+              .toList,
+          ).flatten
+            .filter(_._1 < safeCommitmentTick.forgetRefinement)
+            .minByOption(_._1)
             .getOrElse(
               safeCommitmentTick.forgetRefinement -> "ACS background reconciliation and crash recovery"
             )

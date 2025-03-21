@@ -422,7 +422,7 @@ class CantonSyncService(
     commandProgressTracker
       .findHandle(
         submitterInfo.commandId,
-        submitterInfo.applicationId,
+        submitterInfo.userId,
         submitterInfo.actAs,
         submitterInfo.submissionId,
       )
@@ -566,7 +566,7 @@ class CantonSyncService(
         error: TransactionError
     ): Either[SubmissionResult, FutureUnlessShutdown[_]] = {
       error.logWithContext(
-        Map("commandId" -> submitterInfo.commandId, "applicationId" -> submitterInfo.applicationId)
+        Map("commandId" -> submitterInfo.commandId, "userId" -> submitterInfo.userId)
       )
       Left(SubmissionResult.SynchronousError(error.rpcStatus()))
     }
@@ -576,11 +576,11 @@ class CantonSyncService(
     } else if (!isActive()) {
       // this is the only error we can not really return with a rejection, as this is the passive replica ...
       val err = SyncServiceInjectionError.PassiveReplica.Error(
-        submitterInfo.applicationId,
+        submitterInfo.userId,
         submitterInfo.commandId,
       )
       err.logWithContext(
-        Map("commandId" -> submitterInfo.commandId, "applicationId" -> submitterInfo.applicationId)
+        Map("commandId" -> submitterInfo.commandId, "userId" -> submitterInfo.userId)
       )
       Future.successful(Left(SubmissionResult.SynchronousError(err.rpcStatus())))
     } else if (!routingSynchronizerState.existsReadySynchronizer()) {
@@ -666,7 +666,7 @@ class CantonSyncService(
           case Failure(PassiveInstanceException(_)) |
               Success(UnlessShutdown.AbortedDueToShutdown) =>
             val err = SyncServiceInjectionError.PassiveReplica.Error(
-              submitterInfo.applicationId,
+              submitterInfo.userId,
               submitterInfo.commandId,
             )
             Left(SubmissionResult.SynchronousError(err.rpcStatus()))
@@ -1754,7 +1754,7 @@ class CantonSyncService(
 
   override def submitReassignment(
       submitter: Party,
-      applicationId: Ref.ApplicationId,
+      userId: Ref.UserId,
       commandId: Ref.CommandId,
       submissionId: Option[SubmissionId],
       workflowId: Option[Ref.WorkflowId],
@@ -1818,7 +1818,7 @@ class CantonSyncService(
               _.submitUnassignment(
                 submitterMetadata = ReassignmentSubmitterMetadata(
                   submitter = submitter,
-                  applicationId = applicationId,
+                  userId = userId,
                   submittingParticipant = participantId,
                   commandId = commandId,
                   submissionId = submissionId,
@@ -1838,7 +1838,7 @@ class CantonSyncService(
             _.submitAssignment(
               submitterMetadata = ReassignmentSubmitterMetadata(
                 submitter = submitter,
-                applicationId = applicationId,
+                userId = userId,
                 submittingParticipant = participantId,
                 commandId = commandId,
                 submissionId = submissionId,

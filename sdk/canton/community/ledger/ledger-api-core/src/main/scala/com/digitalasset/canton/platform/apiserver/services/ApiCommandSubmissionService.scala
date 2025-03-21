@@ -85,7 +85,7 @@ final class ApiCommandSubmissionService(
       .map {
         case allCommands @ Commands(
               workflowId,
-              applicationId,
+              userId,
               commandId,
               commands,
               deduplicationPeriod,
@@ -102,7 +102,7 @@ final class ApiCommandSubmissionService(
           tracker.registerCommand(
             commandId,
             Option.when(submissionId.nonEmpty)(submissionId),
-            applicationId,
+            userId,
             commands,
             actAs = allCommands.actAs.toSet,
           )(loggingContextWithTrace.traceContext)
@@ -142,7 +142,7 @@ final class ApiCommandSubmissionService(
 
     request.reassignmentCommand.foreach { command =>
       telemetryContext
-        .setAttribute(SpanAttribute.ApplicationId, command.applicationId)
+        .setAttribute(SpanAttribute.UserId, command.userId)
         .setAttribute(SpanAttribute.CommandId, command.commandId)
         .setAttribute(SpanAttribute.Submitter, command.submitter)
         .setAttribute(SpanAttribute.WorkflowId, command.workflowId)
@@ -166,7 +166,7 @@ final class ApiCommandSubmissionService(
           submissionSyncService
             .submitReassignment(
               submitter = request.submitter,
-              applicationId = request.applicationId,
+              userId = request.userId,
               commandId = request.commandId,
               submissionId = Some(request.submissionId),
               workflowId = request.workflowId,

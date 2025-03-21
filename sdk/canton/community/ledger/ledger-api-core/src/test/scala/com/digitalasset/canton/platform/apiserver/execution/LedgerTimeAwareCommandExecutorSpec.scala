@@ -99,7 +99,7 @@ class LedgerTimeAwareCommandExecutorSpec
         SubmitterInfo(
           Nil,
           Nil,
-          Ref.ApplicationId.assertFromString("foobar"),
+          Ref.UserId.assertFromString("foobar"),
           Ref.CommandId.assertFromString("foobar"),
           DeduplicationDuration(Duration.ofMinutes(1)),
           None,
@@ -155,7 +155,7 @@ class LedgerTimeAwareCommandExecutorSpec
 
     val commands = Commands(
       workflowId = None,
-      applicationId = Ref.ApplicationId.assertFromString("applicationId"),
+      userId = Ref.UserId.assertFromString("userId"),
       commandId = CommandId(Ref.CommandId.assertFromString("commandId")),
       submissionId = None,
       actAs = Set.empty,
@@ -195,7 +195,7 @@ class LedgerTimeAwareCommandExecutorSpec
               SubmitterInfo(
                 Nil,
                 Nil,
-                Ref.ApplicationId.assertFromString("foobar"),
+                Ref.UserId.assertFromString("foobar"),
                 Ref.CommandId.assertFromString("foobar"),
                 DeduplicationDuration(Duration.ofMinutes(1)),
                 None,

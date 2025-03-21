@@ -22,7 +22,7 @@ import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.ApiValueToLfValueConverter
 import com.digitalasset.canton.http.util.FutureUtil.*
 import com.digitalasset.canton.http.util.Logging.InstanceUUID
-import com.digitalasset.canton.ledger.api.refinements.ApiTypes.ApplicationId
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes.UserId
 import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
 import com.digitalasset.canton.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -84,13 +84,13 @@ class HttpService(
       logger.info(s"Starting JSON API server, ${lc.makeString}")
 
       import startSettings.*
-      val DummyApplicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway")
+      val DummyUserId: UserId = UserId("HTTP-JSON-API-Gateway")
 
       implicit val settings: ServerSettings = ServerSettings(asys).withTransparentHeadRequests(true)
       implicit val wsConfig = startSettings.websocketConfig.getOrElse(WebsocketConfig())
 
       val clientConfig = LedgerClientConfiguration(
-        applicationId = ApplicationId.unwrap(DummyApplicationId),
+        userId = UserId.unwrap(DummyUserId),
         commandClient = CommandClientConfiguration.default,
       )
 

@@ -25,6 +25,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   CancellableEvent,
   ClientP2PNetworkManager,
   Env,
+  FutureContext,
   ModuleContext,
   ModuleName,
   ModuleRef,
@@ -148,43 +149,6 @@ object PekkoModuleSystem {
     ): Unit =
       moduleSystem.setModule(moduleRef, module)
 
-    override def timeFuture[X](timer: Timer, futureUnlessShutdown: => PekkoFutureUnlessShutdown[X])(
-        implicit mc: MetricsContext
-    ): PekkoFutureUnlessShutdown[X] = {
-      val handle = timer.startAsync()
-      futureUnlessShutdown.map { x =>
-        handle.stop()
-        x
-      }(underlying.executionContext)
-    }
-
-    override def zipFuture[X, Y](
-        future1: PekkoFutureUnlessShutdown[X],
-        future2: PekkoFutureUnlessShutdown[Y],
-    ): PekkoFutureUnlessShutdown[(X, Y)] =
-      future1.zip(future2)(underlying.executionContext)
-
-    override def sequenceFuture[A, F[_]](
-        futures: F[PekkoFutureUnlessShutdown[A]]
-    )(implicit
-        ev: Traverse[F]
-    ): PekkoFutureUnlessShutdown[F[A]] =
-      PekkoFutureUnlessShutdown.sequence(futures)(ev, underlying.executionContext)
-
-    override def mapFuture[X, Y](future: PekkoFutureUnlessShutdown[X])(
-        fun: PureFun[X, Y]
-    ): PekkoFutureUnlessShutdown[Y] =
-      future.map(fun)(underlying.executionContext)
-
-    override def pureFuture[X](x: X): PekkoFutureUnlessShutdown[X] =
-      PekkoFutureUnlessShutdown.pure(x)
-
-    override def flatMapFuture[R1, R2](
-        future1: PekkoFutureUnlessShutdown[R1],
-        future2: PureFun[R1, PekkoFutureUnlessShutdown[R2]],
-    ): PekkoFutureUnlessShutdown[R2] =
-      future1.flatMap(future2)(underlying.executionContext)
-
     override def pipeToSelfInternal[X](
         futureUnlessShutdown: PekkoFutureUnlessShutdown[X]
     )(fun: Try[X] => Option[MessageT])(implicit traceContext: TraceContext): Unit =
@@ -239,6 +203,10 @@ object PekkoModuleSystem {
 
     override def withNewTraceContext[A](fn: TraceContext => A): A =
       TraceContext.withNewTraceContext(fn)
+
+    override def futureContext: FutureContext[PekkoEnv] = PekkoFutureContext(
+      underlying.executionContext
+    )
   }
 
   final case class PekkoFutureUnlessShutdown[MessageT](
@@ -285,6 +253,47 @@ object PekkoModuleSystem {
 
   }
 
+  private[bftordering] final case class PekkoFutureContext(executionContext: ExecutionContext)
+      extends FutureContext[PekkoEnv] {
+
+    override def timeFuture[X](timer: Timer, futureUnlessShutdown: => PekkoFutureUnlessShutdown[X])(
+        implicit mc: MetricsContext
+    ): PekkoFutureUnlessShutdown[X] = {
+      val handle = timer.startAsync()
+      futureUnlessShutdown.map { x =>
+        handle.stop()
+        x
+      }(executionContext)
+    }
+
+    override def zipFuture[X, Y](
+        future1: PekkoFutureUnlessShutdown[X],
+        future2: PekkoFutureUnlessShutdown[Y],
+    ): PekkoFutureUnlessShutdown[(X, Y)] =
+      future1.zip(future2)(executionContext)
+
+    override def sequenceFuture[A, F[_]](
+        futures: F[PekkoFutureUnlessShutdown[A]]
+    )(implicit
+        ev: Traverse[F]
+    ): PekkoFutureUnlessShutdown[F[A]] =
+      PekkoFutureUnlessShutdown.sequence(futures)(ev, executionContext)
+
+    override def mapFuture[X, Y](future: PekkoFutureUnlessShutdown[X])(
+        fun: PureFun[X, Y]
+    ): PekkoFutureUnlessShutdown[Y] =
+      future.map(fun)(executionContext)
+
+    override def pureFuture[X](x: X): PekkoFutureUnlessShutdown[X] =
+      PekkoFutureUnlessShutdown.pure(x)
+
+    override def flatMapFuture[R1, R2](
+        future1: PekkoFutureUnlessShutdown[R1],
+        future2: PureFun[R1, PekkoFutureUnlessShutdown[R2]],
+    ): PekkoFutureUnlessShutdown[R2] =
+      future1.flatMap(future2)(executionContext)
+  }
+
   private[bftordering] final class PekkoEnv extends Env[PekkoEnv] {
     override type ActorContextT[MessageT] = PekkoActorContext[MessageT]
     override type ModuleRefT[AcceptedMessageT] = PekkoModuleRef[AcceptedMessageT]
@@ -319,6 +328,10 @@ object PekkoModuleSystem {
     override def rootActorContext: PekkoActorContext[?] =
       PekkoActorContext(this, underlyingRootActorContext, loggerFactory)
 
+    override def futureContext: FutureContext[PekkoEnv] = PekkoFutureContext(
+      underlyingRootActorContext.executionContext
+    )
+
     override def newModuleRef[AcceptedMessageT](
         moduleName: ModuleName
     ): PekkoModuleRef[AcceptedMessageT] = newModuleRefImpl(moduleName, rootActorContext.underlying)
@@ -341,6 +354,7 @@ object PekkoModuleSystem {
         module: framework.Module[PekkoEnv, AcceptedMessageT],
     ): Unit =
       moduleRef.ref ! SetBehavior(module, ready = false)
+
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))

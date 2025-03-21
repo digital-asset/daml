@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.platform.indexer.parallel.{PostPublishData, PublishSource}
 import com.digitalasset.canton.topology.SynchronizerId
@@ -30,7 +29,7 @@ private[backend] trait StorageBackendTestsCompletions
   it should "correctly find completions by offset range" in {
     TraceContext.withNewTraceContext { aTraceContext =>
       val party = someParty
-      val applicationId = someApplicationId
+      val userId = someUserId
       val emptyTraceContext = SerializableTraceContext(TraceContext.empty).toDamlProto.toByteArray
       val serializableTraceContext = SerializableTraceContext(aTraceContext).toDamlProto.toByteArray
 
@@ -52,7 +51,7 @@ private[backend] trait StorageBackendTestsCompletions
           .commandCompletions(
             Offset.firstOffset,
             offset(2),
-            applicationId,
+            userId,
             Set(party),
             limit = 10,
           )
@@ -62,7 +61,7 @@ private[backend] trait StorageBackendTestsCompletions
           .commandCompletions(
             offset(2),
             offset(2),
-            applicationId,
+            userId,
             Set(party),
             limit = 10,
           )
@@ -72,7 +71,7 @@ private[backend] trait StorageBackendTestsCompletions
           .commandCompletions(
             Offset.firstOffset,
             offset(9),
-            applicationId,
+            userId,
             Set(party),
             limit = 10,
           )
@@ -90,9 +89,9 @@ private[backend] trait StorageBackendTestsCompletions
     }
   }
 
-  it should "correctly persist and retrieve application IDs" in {
+  it should "correctly persist and retrieve user IDs" in {
     val party = someParty
-    val applicationId = someApplicationId
+    val userId = someUserId
 
     val dtos = Vector(
       dtoCompletion(offset(1), submitters = Set(party))
@@ -107,7 +106,7 @@ private[backend] trait StorageBackendTestsCompletions
         .commandCompletions(
           Offset.firstOffset,
           offset(1),
-          applicationId,
+          userId,
           Set(party),
           limit = 10,
         )
@@ -115,8 +114,8 @@ private[backend] trait StorageBackendTestsCompletions
 
     completions should not be empty
     completions.head.completionResponse.completion should not be empty
-    completions.head.completionResponse.completion.toList.head.applicationId should be(
-      applicationId
+    completions.head.completionResponse.completion.toList.head.userId should be(
+      userId
     )
   }
 
@@ -137,7 +136,7 @@ private[backend] trait StorageBackendTestsCompletions
         .commandCompletions(
           Offset.firstOffset,
           offset(2),
-          someApplicationId,
+          someUserId,
           Set(party),
           limit = 10,
         )
@@ -178,7 +177,7 @@ private[backend] trait StorageBackendTestsCompletions
         .commandCompletions(
           Offset.firstOffset,
           offset(2),
-          someApplicationId,
+          someUserId,
           Set(party),
           limit = 10,
         )
@@ -226,7 +225,7 @@ private[backend] trait StorageBackendTestsCompletions
         .commandCompletions(
           Offset.firstOffset,
           offset(2),
-          someApplicationId,
+          someUserId,
           Set(party),
           limit = 10,
         )
@@ -269,7 +268,7 @@ private[backend] trait StorageBackendTestsCompletions
         .commandCompletions(
           Offset.firstOffset,
           offset(2),
-          someApplicationId,
+          someUserId,
           Set(party, party2),
           limit = 10,
         )
@@ -314,7 +313,7 @@ private[backend] trait StorageBackendTestsCompletions
         backend.completion.commandCompletions(
           Offset.firstOffset,
           offset(1),
-          someApplicationId,
+          someUserId,
           Set(party),
           limit = 10,
         )
@@ -339,7 +338,7 @@ private[backend] trait StorageBackendTestsCompletions
         backend.completion.commandCompletions(
           offset(2),
           offset(2),
-          someApplicationId,
+          someUserId,
           Set(party),
           limit = 10,
         )
@@ -362,7 +361,7 @@ private[backend] trait StorageBackendTestsCompletions
         offset = offset(2),
         submitters = Set(someParty),
         commandId = commandId,
-        applicationId = "applicationid1",
+        userId = "userid1",
         submissionId = Some(submissionId),
         synchronizerId = "x::synchronizer1",
         messageUuid = Some(messageUuid.toString),
@@ -373,7 +372,7 @@ private[backend] trait StorageBackendTestsCompletions
         offset = offset(5),
         submitters = Set(someParty),
         commandId = commandId,
-        applicationId = "applicationid1",
+        userId = "userid1",
         submissionId = Some(submissionId),
         synchronizerId = "x::synchronizer1",
         messageUuid = Some(messageUuid.toString),
@@ -384,7 +383,7 @@ private[backend] trait StorageBackendTestsCompletions
         offset = offset(9),
         submitters = Set(someParty),
         commandId = commandId,
-        applicationId = "applicationid1",
+        userId = "userid1",
         submissionId = Some(submissionId),
         synchronizerId = "x::synchronizer1",
         recordTime = recordTime,
@@ -392,21 +391,6 @@ private[backend] trait StorageBackendTestsCompletions
         updateId = None,
         publicationTime = publicationTime,
         isTransaction = true,
-        requestSequencerCounter = Some(11),
-      ),
-      dtoCompletion(
-        offset = offset(11),
-        submitters = Set(someParty),
-        commandId = commandId,
-        applicationId = "applicationid1",
-        submissionId = Some(submissionId),
-        synchronizerId = "x::synchronizer1",
-        recordTime = recordTime,
-        messageUuid = None,
-        updateId = None,
-        publicationTime = publicationTime,
-        isTransaction = true,
-        requestSequencerCounter = None,
       ),
     )
 
@@ -418,7 +402,7 @@ private[backend] trait StorageBackendTestsCompletions
       PostPublishData(
         submissionSynchronizerId = SynchronizerId.tryFromString("x::synchronizer1"),
         publishSource = PublishSource.Local(messageUuid),
-        applicationId = Ref.ApplicationId.assertFromString("applicationid1"),
+        userId = Ref.UserId.assertFromString("userid1"),
         commandId = Ref.CommandId.assertFromString(commandId),
         actAs = Set(someParty),
         offset = offset(2),
@@ -430,10 +414,9 @@ private[backend] trait StorageBackendTestsCompletions
       PostPublishData(
         submissionSynchronizerId = SynchronizerId.tryFromString("x::synchronizer1"),
         publishSource = PublishSource.Sequencer(
-          requestSequencerCounter = SequencerCounter(11),
-          sequencerTimestamp = CantonTimestamp(recordTime),
+          sequencerTimestamp = CantonTimestamp(recordTime)
         ),
-        applicationId = Ref.ApplicationId.assertFromString("applicationid1"),
+        userId = Ref.UserId.assertFromString("userid1"),
         commandId = Ref.CommandId.assertFromString(commandId),
         actAs = Set(someParty),
         offset = offset(9),
@@ -443,12 +426,5 @@ private[backend] trait StorageBackendTestsCompletions
         traceContext = TraceContext.empty,
       ),
     )
-
-    // this tries to deserialize the last dto which has an invalid combination of message_uuid and request_sequencer_counter
-    intercept[IllegalStateException](
-      executeSql(
-        backend.completion.commandCompletionsForRecovery(offset(3), offset(11))
-      )
-    ).getMessage should include("if message_uuid is empty, this field should be populated")
   }
 }

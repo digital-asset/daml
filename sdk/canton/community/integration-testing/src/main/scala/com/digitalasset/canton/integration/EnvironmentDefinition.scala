@@ -113,24 +113,24 @@ final case class EnvironmentDefinition(
 
 /** Default testing environments for integration tests
   *
-  * Our typical configurations are provided in [[EnvironmentDefinition..singleSynchronizer]] and
-  * [[EnvironmentDefinition..multiSynchronizer]], these load the configuration files
+  * Our typical configurations are provided in [[EnvironmentDefinition.singleSynchronizer]] and
+  * [[EnvironmentDefinition.multiSynchronizer]], these load the configuration files
   * `single-synchronizer-topology.conf` and `multi-synchronizer-topology.conf` respectively.
   * Environment setup steps which are appropriate for all test cases in the class should be
-  * performed using [[EnvironmentDefinition..withSetup]]. This allows test cases sharing an
+  * performed using [[EnvironmentDefinition.withSetup]]. This allows test cases sharing an
   * environment to still be run individually.
   *
   * Config transforms are applied to the [[config.CantonConfig]] loaded from the base configuration
   * files. By default the tests will automatically assign unique port numbers and h2 database names
   * to ensure that concurrent environments will not interfere with one another (see
   * [[ConfigTransforms.defaults]]). These default transforms can be disabled for a test case by
-  * using [[EnvironmentDefinition..clearConfigTransforms]], this is useful if using a configuration
+  * using [[EnvironmentDefinition.clearConfigTransforms]], this is useful if using a configuration
   * known to not collide with other environments (see
   * [[com.digitalasset.canton.integration.tests.ExampleIntegrationTest]]). Additional transforms are
   * available to enable other common configuration on top of the default configuration files:
   *   - [[ConfigTransforms.allInMemory]]: for ensuring all nodes are using in-memory stores
   *   - [[ConfigTransforms.realCrypto]]: for enabling real crypto providers rather than symbolic
-  *     These can be added to your test case by using [[EnvironmentDefinition..addConfigTransform]].
+  *     These can be added to your test case by using [[EnvironmentDefinition.addConfigTransform]].
   *     A config transform is a function with the signature {{{CantonConfig => CantonConfig}}}
   *     enabling you to define your own if required. See
   *     [[com.digitalasset.canton.integration.tests.CommandResubmissionIntegrationTest]] for an

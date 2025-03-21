@@ -13,23 +13,23 @@ import scalaz.NonEmptyList
 final class HttpSpec extends AnyFreeSpec with Matchers with FreeSpecCheckLaws {
   import HttpSpec.*
 
-  private val appId = ApplicationId("myAppId")
+  private val userId = UserId("myUserId")
   private val alice = Party("Alice")
   private val bob = Party("Bob")
   "JwtWritePayload" - {
     "parties deduplicates between actAs/submitter and readAs" in {
       val payload =
-        JwtWritePayload(appId, submitter = NonEmptyList(alice), readAs = List(alice, bob))
+        JwtWritePayload(userId, submitter = NonEmptyList(alice), readAs = List(alice, bob))
       payload.parties should ===(NonEmpty(Set, alice, bob))
     }
   }
   "JwtPayload" - {
     "parties deduplicates between actAs and readAs" in {
-      val payload = JwtPayload(appId, actAs = List(alice), readAs = List(alice, bob))
+      val payload = JwtPayload(userId, actAs = List(alice), readAs = List(alice, bob))
       payload.map(_.parties) should ===(Some(NonEmpty(Set, alice, bob)))
     }
     "returns None if readAs and actAs are empty" in {
-      val payload = JwtPayload(appId, actAs = List(), readAs = List())
+      val payload = JwtPayload(userId, actAs = List(), readAs = List())
       payload shouldBe None
     }
   }

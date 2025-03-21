@@ -248,7 +248,7 @@ class CommandSubmissionServiceImplSpec
 
     val commands = Commands(
       workflowId = None,
-      applicationId = Ref.ApplicationId.assertFromString("app"),
+      userId = Ref.UserId.assertFromString("app"),
       commandId = CommandId(Ref.CommandId.assertFromString("cmd")),
       submissionId = None,
       actAs = Set.empty,
@@ -268,7 +268,7 @@ class CommandSubmissionServiceImplSpec
     val submitterInfo = SubmitterInfo(
       actAs = Nil,
       readAs = Nil,
-      applicationId = Ref.ApplicationId.assertFromString("foobar"),
+      userId = Ref.UserId.assertFromString("foobar"),
       commandId = Ref.CommandId.assertFromString("foobar"),
       deduplicationPeriod = DeduplicationDuration(Duration.ofMinutes(1)),
       submissionId = None,

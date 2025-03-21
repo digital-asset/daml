@@ -18,7 +18,7 @@ package object services {
       telemetry.contextFromGrpcThreadLocalContext()
     commands.foreach { commands =>
       telemetryContext
-        .setAttribute(SpanAttribute.ApplicationId, commands.applicationId)
+        .setAttribute(SpanAttribute.UserId, commands.userId)
         .setAttribute(SpanAttribute.CommandId, commands.commandId)
         .setAttribute(SpanAttribute.Submitter, commands.actAs.headOption.getOrElse(""))
         .setAttribute(SpanAttribute.WorkflowId, commands.workflowId)
@@ -27,7 +27,7 @@ package object services {
   }
 
   def getPrepareRequestTraceContext(
-      applicationId: String,
+      userId: String,
       commandId: String,
       actAs: Seq[String],
       telemetry: Telemetry,
@@ -35,7 +35,7 @@ package object services {
     val telemetryContext: TelemetryContext =
       telemetry.contextFromGrpcThreadLocalContext()
     telemetryContext
-      .setAttribute(SpanAttribute.ApplicationId, applicationId)
+      .setAttribute(SpanAttribute.UserId, userId)
       .setAttribute(SpanAttribute.CommandId, commandId)
       .setAttribute(SpanAttribute.Submitter, actAs.headOption.getOrElse(""))
       .discard[TelemetryContext]
@@ -44,7 +44,7 @@ package object services {
   }
 
   def getExecuteRequestTraceContext(
-      applicationId: String,
+      userId: String,
       commandId: Option[String],
       actAs: Seq[String],
       telemetry: Telemetry,
@@ -52,7 +52,7 @@ package object services {
     val telemetryContext: TelemetryContext =
       telemetry.contextFromGrpcThreadLocalContext()
     telemetryContext
-      .setAttribute(SpanAttribute.ApplicationId, applicationId)
+      .setAttribute(SpanAttribute.UserId, userId)
       .setAttribute(SpanAttribute.CommandId, commandId.getOrElse(""))
       .setAttribute(SpanAttribute.Submitter, actAs.headOption.getOrElse(""))
       .discard[TelemetryContext]

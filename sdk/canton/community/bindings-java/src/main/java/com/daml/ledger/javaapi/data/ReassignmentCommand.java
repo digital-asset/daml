@@ -18,7 +18,7 @@ import static java.util.Optional.empty;
  *
  * Usage:
  * <pre>
- *   var submission = ReassignmentCommand.create(applicationId, commandId, synchronizerId, unassingnCommand)
+ *   var submission = ReassignmentCommand.create(userId, commandId, synchronizerId, unassingnCommand)
  *                                   .withWorkflowId(workflowId)
  *                                   .with...
  * <pre/>
@@ -27,7 +27,7 @@ public final class ReassignmentCommand {
 
   @NonNull private final Optional<String> workflowId;
 
-  @NonNull private final String applicationId;
+  @NonNull private final String userId;
   @NonNull private final String commandId;
   @NonNull private final String submitter;
   @NonNull private final Optional<UnassignCommand> unassignCommand;
@@ -37,14 +37,14 @@ public final class ReassignmentCommand {
 
   protected ReassignmentCommand(
       @NonNull Optional<String> workflowId,
-      @NonNull String applicationId,
+      @NonNull String userId,
       @NonNull String commandId,
       @NonNull String submitter,
       @NonNull Optional<UnassignCommand> unassignCommand,
       @NonNull Optional<AssignCommand> assignCommand,
       @NonNull Optional<String> submissionId) {
     this.workflowId = workflowId;
-    this.applicationId = applicationId;
+    this.userId = userId;
     this.commandId = commandId;
     this.submitter = submitter;
     this.unassignCommand = unassignCommand;
@@ -53,33 +53,27 @@ public final class ReassignmentCommand {
   }
 
   public static ReassignmentCommand create(
-      @NonNull String applicationId,
+      @NonNull String userId,
       @NonNull String commandId,
       @NonNull String submitter,
       @NonNull UnassignCommand unassignCommand) {
     return new ReassignmentCommand(
-        empty(),
-        applicationId,
-        commandId,
-        submitter,
-        Optional.of(unassignCommand),
-        empty(),
-        empty());
+        empty(), userId, commandId, submitter, Optional.of(unassignCommand), empty(), empty());
   }
 
   public static ReassignmentCommand create(
-      @NonNull String applicationId,
+      @NonNull String userId,
       @NonNull String commandId,
       @NonNull String submitter,
       @NonNull AssignCommand assignCommand) {
     return new ReassignmentCommand(
-        empty(), applicationId, commandId, submitter, empty(), Optional.of(assignCommand), empty());
+        empty(), userId, commandId, submitter, empty(), Optional.of(assignCommand), empty());
   }
 
   public ReassignmentCommand withWorkflowId(@NonNull String workflowId) {
     return new ReassignmentCommand(
         Optional.of(workflowId),
-        applicationId,
+        userId,
         commandId,
         submitter,
         unassignCommand,
@@ -90,7 +84,7 @@ public final class ReassignmentCommand {
   public ReassignmentCommand withSubmissionId(@NonNull String submissionId) {
     return new ReassignmentCommand(
         workflowId,
-        applicationId,
+        userId,
         commandId,
         submitter,
         unassignCommand,
@@ -104,8 +98,8 @@ public final class ReassignmentCommand {
   }
 
   @NonNull
-  public String getApplicationId() {
-    return applicationId;
+  public String getUserId() {
+    return userId;
   }
 
   @NonNull
@@ -137,7 +131,7 @@ public final class ReassignmentCommand {
 
     var builder =
         ReassignmentCommandOuterClass.ReassignmentCommand.newBuilder()
-            .setApplicationId(applicationId)
+            .setUserId(userId)
             .setCommandId(commandId)
             .setSubmitter(submitter);
 
@@ -173,7 +167,7 @@ public final class ReassignmentCommand {
 
     return new ReassignmentCommand(
         workflowId,
-        commands.getApplicationId(),
+        commands.getUserId(),
         commands.getCommandId(),
         commands.getSubmitter(),
         unassignCommand,
@@ -187,8 +181,8 @@ public final class ReassignmentCommand {
         + "workflowId='"
         + workflowId
         + '\''
-        + ", applicationId='"
-        + applicationId
+        + ", userId='"
+        + userId
         + '\''
         + ", commandId='"
         + commandId
@@ -211,7 +205,7 @@ public final class ReassignmentCommand {
     if (o == null || getClass() != o.getClass()) return false;
     ReassignmentCommand commandsSubmission = (ReassignmentCommand) o;
     return Objects.equals(workflowId, commandsSubmission.workflowId)
-        && Objects.equals(applicationId, commandsSubmission.applicationId)
+        && Objects.equals(userId, commandsSubmission.userId)
         && Objects.equals(commandId, commandsSubmission.commandId)
         && Objects.equals(submitter, commandsSubmission.submitter)
         && Objects.equals(unassignCommand, commandsSubmission.unassignCommand)
@@ -222,12 +216,6 @@ public final class ReassignmentCommand {
   @Override
   public int hashCode() {
     return Objects.hash(
-        workflowId,
-        applicationId,
-        commandId,
-        submitter,
-        unassignCommand,
-        assignCommand,
-        submissionId);
+        workflowId, userId, commandId, submitter, unassignCommand, assignCommand, submissionId);
   }
 }

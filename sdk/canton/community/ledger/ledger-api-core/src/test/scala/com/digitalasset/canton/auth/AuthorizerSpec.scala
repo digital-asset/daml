@@ -344,29 +344,29 @@ class AuthorizerSpec
 
   behavior of s"$className.authorize for RequiredClaim.MatchUserId"
 
-  it should "authorize for resolvedFromUser and application ID matching user ID" in {
+  it should "authorize for resolvedFromUser and user ID matching user ID" in {
     val userL = Lens[Long, String](_.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
         claims = Nil,
-        applicationId = Some(dummyRequest.toString),
+        userId = Some(dummyRequest.toString),
         resolvedFromUser = true,
       )
     ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserId(userL))(dummyRequest)
+      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserIdForUserManagement(userL))(dummyRequest)
     }.map(_ shouldBe expectedSuccessfulResponse)
   }
 
-  it should "return permission denied for resolvedFromUser and application ID not matching user ID" in {
+  it should "return permission denied for resolvedFromUser and user ID not matching user ID" in {
     val userL = Lens[Long, String](_.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
         claims = Nil,
-        applicationId = Some("x"),
+        userId = Some("x"),
         resolvedFromUser = true,
       )
     ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserId(userL))(dummyRequest)
+      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserIdForUserManagement(userL))(dummyRequest)
     }
       .transform(
         assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
@@ -381,14 +381,14 @@ class AuthorizerSpec
         resolvedFromUser = false,
       )
     ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserId(userL))(dummyRequest)
+      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserIdForUserManagement(userL))(dummyRequest)
     }
       .transform(
         assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
       )
   }
 
-  it should "return permission denied for resolvedFromUser and not defined application ID" in {
+  it should "return permission denied for resolvedFromUser and not defined user ID" in {
     val userL = Lens[Long, String](_.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
@@ -396,92 +396,92 @@ class AuthorizerSpec
         resolvedFromUser = false,
       )
     ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserId(userL))(dummyRequest)
+      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserIdForUserManagement(userL))(dummyRequest)
     }
       .transform(
         assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
       )
   }
 
-  it should "authorize for resolvedFromUser and application ID not matching user ID if Admin rights available" in {
+  it should "authorize for resolvedFromUser and user ID not matching user ID if Admin rights available" in {
     val userL = Lens[Long, String](_.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
         claims = Seq(ClaimAdmin),
-        applicationId = Some("x"),
+        userId = Some("x"),
         resolvedFromUser = true,
       )
     ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserId(userL))(dummyRequest)
+      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserIdForUserManagement(userL))(dummyRequest)
     }.map(_ shouldBe expectedSuccessfulResponse)
   }
 
-  it should "authorize for resolvedFromUser and application ID not matching user ID if IDP Admin rights available" in {
+  it should "authorize for resolvedFromUser and user ID not matching user ID if IDP Admin rights available" in {
     val userL = Lens[Long, String](_.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
         claims = Seq(ClaimIdentityProviderAdmin),
-        applicationId = Some("x"),
+        userId = Some("x"),
         resolvedFromUser = true,
       )
     ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserId(userL))(dummyRequest)
+      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserIdForUserManagement(userL))(dummyRequest)
     }.map(_ shouldBe expectedSuccessfulResponse)
   }
 
-  behavior of s"$className.authorize for RequiredClaim.MatchApplicationId"
+  behavior of s"$className.authorize for RequiredClaim.MatchUserId"
 
-  it should "authorize for application ID matching user ID" in {
-    val applicationIdL = Lens[Long, String](_.toString)((_, s) => s.toLong)
+  it should "authorize for user ID matching user ID" in {
+    val userIdL = Lens[Long, String](_.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
         claims = Nil,
-        applicationId = Some(dummyRequest.toString),
+        userId = Some(dummyRequest.toString),
       )
     ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchApplicationId(applicationIdL))(dummyRequest)
+      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserId(userIdL))(dummyRequest)
     }.map(_ shouldBe expectedSuccessfulResponse)
   }
 
-  it should "authorize for no application ID specified but available in the claims" in {
-    val applicationIdL = Lens[Long, String](l => if (l == 0) "" else l.toString)((_, s) => s.toLong)
+  it should "authorize for no user ID specified but available in the claims" in {
+    val userIdL = Lens[Long, String](l => if (l == 0) "" else l.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
         claims = Nil,
-        applicationId = Some(dummyRequest.toString),
+        userId = Some(dummyRequest.toString),
       )
     ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchApplicationId(applicationIdL))(0)
+      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserId(userIdL))(0)
     }.map(_ shouldBe expectedSuccessfulResponse)
   }
 
-  it should "return permission denied for application ID not matching user ID" in {
-    val applicationIdL = Lens[Long, String](_.toString)((_, s) => s.toLong)
+  it should "return permission denied for user ID not matching user ID" in {
+    val userIdL = Lens[Long, String](_.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
         claims = Nil,
-        applicationId = Some("15"),
+        userId = Some("15"),
       )
     ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchApplicationId(applicationIdL))(dummyRequest)
+      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserId(userIdL))(dummyRequest)
     }
       .transform(
         assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
       )
   }
 
-  it should "return permission denied for application ID not matching user ID if skipApplicationIdValidationForAnyPartyReaders" in {
-    val applicationIdL = Lens[Long, String](_.toString)((_, s) => s.toLong)
+  it should "return permission denied for user ID not matching user ID if skipUserIdValidationForAnyPartyReaders" in {
+    val userIdL = Lens[Long, String](_.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
         claims = Nil,
-        applicationId = Some("15"),
+        userId = Some("15"),
       )
     ) {
       authorizer().rpc(dummyReqRes)(
-        RequiredClaim.MatchApplicationId(
-          applicationIdL,
-          skipApplicationIdValidationForAnyPartyReaders = true,
+        RequiredClaim.MatchUserId(
+          userIdL,
+          skipUserIdValidationForAnyPartyReaders = true,
         )
       )(dummyRequest)
     }
@@ -490,32 +490,32 @@ class AuthorizerSpec
       )
   }
 
-  it should "authorize for application ID not matching user ID for AnyPartyReaders-s if skipApplicationIdValidationForAnyPartyReaders" in {
-    val applicationIdL = Lens[Long, String](_.toString)((_, s) => s.toLong)
+  it should "authorize for user ID not matching user ID for AnyPartyReaders-s if skipUserIdValidationForAnyPartyReaders" in {
+    val userIdL = Lens[Long, String](_.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
         claims = Seq(ClaimReadAsAnyParty),
-        applicationId = Some("15"),
+        userId = Some("15"),
       )
     ) {
       authorizer().rpc(dummyReqRes)(
-        RequiredClaim.MatchApplicationId(
-          applicationIdL,
-          skipApplicationIdValidationForAnyPartyReaders = true,
+        RequiredClaim.MatchUserId(
+          userIdL,
+          skipUserIdValidationForAnyPartyReaders = true,
         )
       )(dummyRequest)
     }.map(_ shouldBe expectedSuccessfulResponse)
   }
 
-  it should "return invalid argument for no application ID in claims, and none provided in the request" in {
-    val applicationIdL = Lens[Long, String](l => if (l == 0) "" else l.toString)((_, s) => s.toLong)
+  it should "return invalid argument for no user ID in claims, and none provided in the request" in {
+    val userIdL = Lens[Long, String](l => if (l == 0) "" else l.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
         claims = Nil,
-        applicationId = None,
+        userId = None,
       )
     ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchApplicationId(applicationIdL))(0)
+      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserId(userIdL))(0)
     }
       .transform(
         assertExpectedFailure(Status.INVALID_ARGUMENT.getCode)

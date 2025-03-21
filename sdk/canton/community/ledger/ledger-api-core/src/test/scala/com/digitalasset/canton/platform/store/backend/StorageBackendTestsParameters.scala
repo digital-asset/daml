@@ -10,7 +10,7 @@ import com.digitalasset.canton.ledger.participant.state.{
   SynchronizerIndex,
 }
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.digitalasset.canton.{HasExecutionContext, RepairCounter, SequencerCounter}
+import com.digitalasset.canton.{HasExecutionContext, RepairCounter}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, OptionValues}
@@ -113,8 +113,7 @@ private[backend] trait StorageBackendTestsParameters
     )
     val someSynchronizerIndex2 = SynchronizerIndex.of(
       SequencerIndex(
-        counter = SequencerCounter(3),
-        timestamp = someSequencerTime.plusSeconds(5),
+        sequencerTimestamp = someSequencerTime.plusSeconds(5)
       )
     )
     executeSql(

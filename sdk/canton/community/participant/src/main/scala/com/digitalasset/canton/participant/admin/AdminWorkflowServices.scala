@@ -252,12 +252,12 @@ class AdminWorkflowServices(
   }
 
   private def createLedgerClient(
-      applicationId: String
+      userId: String
   ): LedgerClient = {
-    val appId = A.ApplicationId(applicationId)
+    val taggedUserId = A.UserId(userId)
     val ledgerApiConfig = config.ledgerApi
     LedgerConnection.createLedgerClient(
-      appId,
+      taggedUserId,
       ledgerApiConfig.clientConfig,
       CommandClientConfiguration.default, // not used by admin workflows
       tracerProvider,
@@ -267,12 +267,12 @@ class AdminWorkflowServices(
   }
 
   private def createService[S <: AdminWorkflowService](
-      applicationId: String,
+      userId: String,
       resubscribeIfPruned: Boolean,
   )(createService: LedgerClient => S): (Future[ResilientLedgerSubscription[?, ?]], S) = {
     import TraceContext.Implicits.Empty.*
 
-    val client = createLedgerClient(applicationId)
+    val client = createLedgerClient(userId)
     val service = createService(client)
 
     val startupF =

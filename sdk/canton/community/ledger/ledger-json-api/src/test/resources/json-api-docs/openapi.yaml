@@ -1419,13 +1419,13 @@ paths:
       security:
       - httpAuth: []
       - apiKeyAuth: []
-  /v2/metering/report/{application-id}:
+  /v2/metering/report/{user-id}:
     get:
       description: Metering report that provides information necessary for billing
-        participant and application operators.
-      operationId: getV2MeteringReportApplication-id
+        participant and user operators.
+      operationId: getV2MeteringReportUser-id
       parameters:
-      - name: application-id
+      - name: user-id
         in: path
         required: true
         schema:
@@ -1792,7 +1792,7 @@ components:
       required:
       - commandId
       - updateId
-      - applicationId
+      - userId
       - submissionId
       - deduplicationPeriod
       - offset
@@ -1815,10 +1815,10 @@ components:
             Only set for successfully executed commands.
             Must be a valid LedgerString (as described in ``value.proto``).
           type: string
-        applicationId:
+        userId:
           description: |-
-            The application-id or user-id that was used for the submission, as described in ``commands.proto``.
-            Must be a valid ApplicationIdString (as described in ``value.proto``).
+            The user-id or user-id that was used for the submission, as described in ``commands.proto``.
+            Must be a valid UserIdString (as described in ``value.proto``).
             Optional for historic completions where this data is not available.
           type: string
         actAs:
@@ -1894,15 +1894,15 @@ components:
       title: CompletionStreamRequest
       type: object
       required:
-      - applicationId
+      - userId
       - beginExclusive
       properties:
-        applicationId:
+        userId:
           description: |-
-            Only completions of commands submitted with the same application_id will be visible in the stream.
-            Must be a valid ApplicationIdString (as described in ``value.proto``).
-            Required unless authentication is used with a user token or a custom token specifying an application-id.
-            In that case, the token's user-id, respectively application-id, will be used for the request's application_id.
+            Only completions of commands submitted with the same user_id will be visible in the stream.
+            Must be a valid UserIdString (as described in ``value.proto``).
+            Required unless authentication is used with a user token or a custom token specifying an user-id.
+            In that case, the token's user-id, respectively user-id, will be used for the request's user_id.
           type: string
         parties:
           description: |-
@@ -2913,7 +2913,7 @@ components:
         admin.
       type: object
       required:
-      - applicationId
+      - userId
       properties:
         from:
           $ref: '#/components/schemas/Timestamp'
@@ -2925,7 +2925,7 @@ components:
           description: |-
             The to timestamp (exclusive).
             If not provided, the server will default to its current time.
-        applicationId:
+        userId:
           description: |-
             If set to a non-empty value, then the report will only be generated for that application.
             Optional.
@@ -3451,7 +3451,7 @@ components:
         commandId:
           description: |-
             Uniquely identifies the command.
-            The triple (application_id, act_as, command_id) constitutes the change ID for the intended ledger change,
+            The triple (user_id, act_as, command_id) constitutes the change ID for the intended ledger change,
             where act_as is interpreted as a set of party names.
             The change ID can be used for matching the intended ledger changes with all their completions.
             Must be a valid LedgerString (as described in ``value.proto``).
@@ -3467,12 +3467,12 @@ components:
           type: array
           items:
             type: string
-        applicationId:
+        userId:
           description: |-
-            Uniquely identifies the application or participant user that issued the command.
-            Must be a valid ApplicationIdString (as described in ``value.proto``).
-            Required unless authentication is used with a user token or a custom token specifying an application-id.
-            In that case, the token's user-id, respectively application-id, will be used for the request's application_id.
+            Uniquely identifies the participant user that issued the command.
+            Must be a valid UserIdString (as described in ``value.proto``).
+            Required unless authentication is used with a user token or a custom token specifying an user-id.
+            In that case, the token's user-id, respectively user-id, will be used for the request's user_id.
           type: string
         readAs:
           description: |-
@@ -3601,7 +3601,7 @@ components:
       required:
       - deduplicationPeriod
       - submissionId
-      - applicationId
+      - userId
       - hashingSchemeVersion
       properties:
         preparedTransaction:
@@ -3628,8 +3628,8 @@ components:
 
             Required
           type: string
-        applicationId:
-          description: See [PrepareSubmissionRequest.application_id]
+        userId:
+          description: See [PrepareSubmissionRequest.user_id]
           type: string
         hashingSchemeVersion:
           $ref: '#/components/schemas/HashingSchemeVersion'
@@ -3763,22 +3763,22 @@ components:
       title: JsPrepareSubmissionRequest
       type: object
       required:
-      - applicationId
+      - userId
       - commandId
       - synchronizerId
       - verboseHashing
       properties:
-        applicationId:
+        userId:
           description: |-
-            Uniquely identifies the application or participant user that prepares the transaction.
-            Must be a valid ApplicationIdString (as described in ``value.proto``).
-            Required unless authentication is used with a user token or a custom token specifying an application-id.
-            In that case, the token's user-id, respectively application-id, will be used for the request's application_id.
+            Uniquely identifies the participant user that prepares the transaction.
+            Must be a valid UserIdString (as described in ``value.proto``).
+            Required unless authentication is used with a user token or a custom token specifying an user-id.
+            In that case, the token's user-id, respectively user-id, will be used for the request's user_id.
           type: string
         commandId:
           description: |-
             Uniquely identifies the command.
-            The triple (application_id, act_as, command_id) constitutes the change ID for the intended ledger change,
+            The triple (user_id, act_as, command_id) constitutes the change ID for the intended ledger change,
             where act_as is interpreted as a set of party names.
             The change ID can be used for matching the intended ledger changes with all their completions.
             Must be a valid LedgerString (as described in ``value.proto``).
@@ -4695,7 +4695,7 @@ components:
       type: object
       required:
       - workflowId
-      - applicationId
+      - userId
       - commandId
       - submitter
       - command
@@ -4707,17 +4707,17 @@ components:
             Must be a valid LedgerString (as described in ``value.proto``).
             Optional
           type: string
-        applicationId:
+        userId:
           description: |-
-            Uniquely identifies the application or participant user that issued the command.
-            Must be a valid ApplicationIdString (as described in ``value.proto``).
-            Required unless authentication is used with a user token or a custom token specifying an application-id.
-            In that case, the token's user-id, respectively application-id, will be used for the request's application_id.
+            Uniquely identifies the participant user that issued the command.
+            Must be a valid UserIdString (as described in ``value.proto``).
+            Required unless authentication is used with a user token or a custom token specifying an user-id.
+            In that case, the token's user-id, respectively user-id, will be used for the request's user_id.
           type: string
         commandId:
           description: |-
             Uniquely identifies the command.
-            The triple (application_id, submitter, command_id) constitutes the change ID for the intended ledger change.
+            The triple (user_id, submitter, command_id) constitutes the change ID for the intended ledger change.
             The change ID can be used for matching the intended ledger changes with all their completions.
             Must be a valid LedgerString (as described in ``value.proto``).
             Required

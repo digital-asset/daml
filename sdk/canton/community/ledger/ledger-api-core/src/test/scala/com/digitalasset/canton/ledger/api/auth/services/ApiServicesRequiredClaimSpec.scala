@@ -38,7 +38,7 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
   it should "compute the correct claims in the happy path" in {
     val result = CommandCompletionServiceAuthorization.completionStreamClaims(
       CompletionStreamRequest(
-        applicationId = "qwe",
+        userId = "qwe",
         parties = Seq("a", "b", "c"),
         beginExclusive = 1234L,
       )
@@ -50,15 +50,15 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
       RequiredClaim.ReadAs[CompletionStreamRequest]("c"),
     )
     result
-      .collectFirst(matchApplicationId)
+      .collectFirst(matchUserId)
       .value
-      .skipApplicationIdValidationForAnyPartyReaders shouldBe true
+      .skipUserIdValidationForAnyPartyReaders shouldBe true
   }
 
   it should "compute the correct claims if empty parties" in {
     val result = CommandCompletionServiceAuthorization.completionStreamClaims(
       CompletionStreamRequest(
-        applicationId = "qwe",
+        userId = "qwe",
         parties = Nil,
         beginExclusive = 1234L,
       )
@@ -66,9 +66,9 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
     result should have size (1)
     result.collect(readAs) shouldBe Nil
     result
-      .collectFirst(matchApplicationId)
+      .collectFirst(matchUserId)
       .value
-      .skipApplicationIdValidationForAnyPartyReaders shouldBe true
+      .skipUserIdValidationForAnyPartyReaders shouldBe true
   }
 
   behavior of "PartyManagementServiceAuthorization.updatePartyDetailsClaims"
@@ -331,7 +331,7 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
       RequiredClaim.ReadAs("i"),
       RequiredClaim.ReadAs("ii"),
       RequiredClaim.ReadAsAnyParty(),
-      RequiredClaim.MatchApplicationId(CommandServiceAuthorization.applicationIdForTransactionL),
+      RequiredClaim.MatchUserId(CommandServiceAuthorization.userIdForTransactionL),
     )
   }
 
@@ -347,7 +347,7 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
       RequiredClaim.ReadAs("b"),
       RequiredClaim.ReadAs("i"),
       RequiredClaim.ReadAs("ii"),
-      RequiredClaim.MatchApplicationId(CommandServiceAuthorization.applicationIdForTransactionL),
+      RequiredClaim.MatchUserId(CommandServiceAuthorization.userIdForTransactionL),
     )
   }
 
@@ -362,7 +362,7 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
       RequiredClaim.ReadAs("a"),
       RequiredClaim.ReadAs("b"),
       RequiredClaim.ReadAsAnyParty(),
-      RequiredClaim.MatchApplicationId(CommandServiceAuthorization.applicationIdForTransactionL),
+      RequiredClaim.MatchUserId(CommandServiceAuthorization.userIdForTransactionL),
     )
   }
 
@@ -374,7 +374,7 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
       RequiredClaim.ActAs("2"),
       RequiredClaim.ReadAs("a"),
       RequiredClaim.ReadAs("b"),
-      RequiredClaim.MatchApplicationId(CommandServiceAuthorization.applicationIdForTransactionL),
+      RequiredClaim.MatchUserId(CommandServiceAuthorization.userIdForTransactionL),
     )
   }
 
@@ -387,7 +387,7 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
       RequiredClaim.ReadAs("i"),
       RequiredClaim.ReadAs("ii"),
       RequiredClaim.ReadAsAnyParty(),
-      RequiredClaim.MatchApplicationId(CommandServiceAuthorization.applicationIdForTransactionL),
+      RequiredClaim.MatchUserId(CommandServiceAuthorization.userIdForTransactionL),
     )
   }
 
@@ -400,7 +400,7 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
       RequiredClaim.ReadAs("i"),
       RequiredClaim.ReadAs("ii"),
       RequiredClaim.ReadAsAnyParty(),
-      RequiredClaim.MatchApplicationId(CommandServiceAuthorization.applicationIdForTransactionL),
+      RequiredClaim.MatchUserId(CommandServiceAuthorization.userIdForTransactionL),
     )
   }
 
@@ -414,7 +414,7 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
       RequiredClaim.ReadAs("i"),
       RequiredClaim.ReadAs("ii"),
       RequiredClaim.ReadAsAnyParty(),
-      RequiredClaim.MatchApplicationId(CommandServiceAuthorization.applicationIdForTransactionL),
+      RequiredClaim.MatchUserId(CommandServiceAuthorization.userIdForTransactionL),
     )
   }
 
@@ -784,7 +784,7 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
       userIdL = userIdL,
       identityProviderIdL = identityProviderIdL,
     ) should contain theSameElementsAs RequiredClaims[String](
-      RequiredClaim.MatchUserId(userIdL),
+      RequiredClaim.MatchUserIdForUserManagement(userIdL),
       RequiredClaim.MatchIdentityProviderId(identityProviderIdL),
     )
   }
@@ -832,9 +832,8 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
     case adminOrIdp: RequiredClaim.AdminOrIdpAdmin[Req] => adminOrIdp
   }
 
-  def matchApplicationId[Req]
-      : PartialFunction[RequiredClaim[Req], RequiredClaim.MatchApplicationId[Req]] = {
-    case matchApplicationId: RequiredClaim.MatchApplicationId[Req] => matchApplicationId
+  def matchUserId[Req]: PartialFunction[RequiredClaim[Req], RequiredClaim.MatchUserId[Req]] = {
+    case matchUserId: RequiredClaim.MatchUserId[Req] => matchUserId
   }
 
   def matchIdentityProviderId[Req]
@@ -850,7 +849,7 @@ object ApiServicesRequiredClaimSpec {
         Commands.defaultInstance.copy(
           actAs = Seq("1", "2"),
           readAs = Seq("a", "b"),
-          applicationId = "appId",
+          userId = "userId",
         )
       ),
       transactionFormat = Some(

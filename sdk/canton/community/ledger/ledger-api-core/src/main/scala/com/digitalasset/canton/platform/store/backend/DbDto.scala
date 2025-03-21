@@ -18,7 +18,7 @@ object DbDto {
       ledger_effective_time: Long,
       command_id: Option[String],
       workflow_id: Option[String],
-      application_id: Option[String],
+      user_id: Option[String],
       submitters: Option[Set[String]],
       node_id: Int,
       contract_id: Array[Byte],
@@ -49,7 +49,7 @@ object DbDto {
       ledger_effective_time: Long,
       command_id: Option[String],
       workflow_id: Option[String],
-      application_id: Option[String],
+      user_id: Option[String],
       submitters: Option[Set[String]],
       node_id: Int,
       contract_id: Array[Byte],
@@ -150,7 +150,7 @@ object DbDto {
       completion_offset: Long,
       record_time: Long,
       publication_time: Long,
-      application_id: String,
+      user_id: String,
       submitters: Set[String],
       command_id: String,
       update_id: Option[String],
@@ -163,7 +163,6 @@ object DbDto {
       deduplication_duration_nanos: Option[Int],
       synchronizer_id: String,
       message_uuid: Option[String],
-      request_sequencer_counter: Option[Long],
       is_transaction: Boolean,
       trace_context: Array[Byte],
   ) extends DbDto
@@ -231,7 +230,7 @@ object DbDto {
   ) extends DbDto
 
   final case class TransactionMetering(
-      application_id: String,
+      user_id: String,
       action_count: Int,
       metering_timestamp: Long,
       ledger_offset: Long,

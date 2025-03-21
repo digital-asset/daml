@@ -43,7 +43,7 @@ final class CommandServiceAuthorization(
       RequiredClaims.submissionClaims(
         actAs = effectiveSubmitters.actAs,
         readAs = effectiveSubmitters.readAs,
-        applicationIdL = Lens.unit[SubmitAndWaitRequest].commands.applicationId,
+        userIdL = Lens.unit[SubmitAndWaitRequest].commands.userId,
       )*
     )(request)
   }
@@ -56,7 +56,7 @@ final class CommandServiceAuthorization(
       RequiredClaims.submissionClaims(
         actAs = effectiveSubmitters.actAs,
         readAs = effectiveSubmitters.readAs,
-        applicationIdL = Lens.unit[SubmitAndWaitRequest].commands.applicationId,
+        userIdL = Lens.unit[SubmitAndWaitRequest].commands.userId,
       )*
     )(request)
   }
@@ -73,17 +73,17 @@ object CommandServiceAuthorization {
     (RequiredClaims.submissionClaims(
       actAs = effectiveSubmitters.actAs,
       readAs = effectiveSubmitters.readAs,
-      applicationIdL = applicationIdForTransactionL,
+      userIdL = userIdForTransactionL,
     ) ::: request.transactionFormat.toList
       .flatMap(
         RequiredClaims.transactionFormatClaims[SubmitAndWaitForTransactionRequest]
       )).distinct
   }
 
-  val applicationIdL: Lens[SubmitAndWaitRequest, String] =
-    Lens.unit[SubmitAndWaitRequest].commands.applicationId
+  val userIdL: Lens[SubmitAndWaitRequest, String] =
+    Lens.unit[SubmitAndWaitRequest].commands.userId
 
-  val applicationIdForTransactionL: Lens[SubmitAndWaitForTransactionRequest, String] =
-    Lens.unit[SubmitAndWaitForTransactionRequest].commands.applicationId
+  val userIdForTransactionL: Lens[SubmitAndWaitForTransactionRequest, String] =
+    Lens.unit[SubmitAndWaitForTransactionRequest].commands.userId
 
 }

@@ -12,8 +12,8 @@ import com.digitalasset.daml.lf.data.Ref
   *
   * @param actAs
   *   the non-empty set of parties that submitted the change.
-  * @param applicationId
-  *   an identifier for the Daml application that submitted the command.
+  * @param userId
+  *   an identifier for the user that submitted the command.
   * @param commandId
   *   a submitter-provided identifier to identify an intended ledger change within all the
   *   submissions by the same parties and application.
@@ -39,17 +39,17 @@ import com.digitalasset.daml.lf.data.Ref
   */
 final case class CompletionInfo(
     actAs: List[Ref.Party],
-    applicationId: Ref.ApplicationId,
+    userId: Ref.UserId,
     commandId: Ref.CommandId,
     optDeduplicationPeriod: Option[DeduplicationPeriod],
     submissionId: Option[Ref.SubmissionId],
 ) extends PrettyPrinting {
-  def changeId: ChangeId = ChangeId(applicationId, commandId, actAs.toSet)
+  def changeId: ChangeId = ChangeId(userId, commandId, actAs.toSet)
 
   override protected def pretty: Pretty[CompletionInfo.this.type] = prettyOfClass(
     param("actAs", _.actAs.mkShow()),
     param("commandId", _.commandId),
-    param("applicationId", _.applicationId),
+    param("userId", _.userId),
     paramIfDefined("deduplication period", _.optDeduplicationPeriod),
     param("submissionId", _.submissionId),
     indicateOmittedFields,
@@ -58,10 +58,10 @@ final case class CompletionInfo(
 
 object CompletionInfo {
   implicit val `CompletionInfo to LoggingValue`: ToLoggingValue[CompletionInfo] = {
-    case CompletionInfo(actAs, applicationId, commandId, deduplicationPeriod, submissionId) =>
+    case CompletionInfo(actAs, userId, commandId, deduplicationPeriod, submissionId) =>
       LoggingValue.Nested.fromEntries(
         "actAs " -> actAs,
-        "applicationId " -> applicationId,
+        "userId " -> userId,
         "commandId " -> commandId,
         "deduplicationPeriod " -> deduplicationPeriod,
         "submissionId" -> submissionId,

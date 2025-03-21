@@ -675,13 +675,13 @@ object Generators {
       : Gen[v2.CommandCompletionServiceOuterClass.CompletionStreamRequest] = {
     import v2.CommandCompletionServiceOuterClass.CompletionStreamRequest as Request
     for {
-      applicationId <- Arbitrary.arbString.arbitrary
+      userId <- Arbitrary.arbString.arbitrary
       parties <- Gen.listOf(Arbitrary.arbString.arbitrary)
       beginExclusive <- Gen.option(Arbitrary.arbLong.arbitrary)
     } yield {
       val builder = Request
         .newBuilder()
-        .setApplicationId(applicationId)
+        .setUserId(userId)
         .addAllParties(parties.asJava)
       beginExclusive.foreach(builder.setBeginExclusive)
       builder.build()
@@ -694,7 +694,7 @@ object Generators {
       commandId <- Arbitrary.arbString.arbitrary
       status <- Gen.const(com.google.rpc.Status.getDefaultInstance)
       updateId <- Arbitrary.arbString.arbitrary
-      applicationId <- Arbitrary.arbString.arbitrary
+      userId <- Arbitrary.arbString.arbitrary
       actAs <- Gen.listOf(Arbitrary.arbString.arbitrary)
       submissionId <- Arbitrary.arbString.arbitrary
       deduplication <- Gen.oneOf(
@@ -714,7 +714,7 @@ object Generators {
       .setCommandId(commandId)
       .setStatus(status)
       .setUpdateId(updateId)
-      .setApplicationId(applicationId)
+      .setUserId(userId)
       .addAllActAs(actAs.asJava)
       .setSubmissionId(submissionId)
       .pipe(deduplication)
@@ -1187,7 +1187,7 @@ object Generators {
     import v2.CommandsOuterClass.Commands
     for {
       workflowId <- Arbitrary.arbString.arbitrary
-      applicationId <- Arbitrary.arbString.arbitrary
+      userId <- Arbitrary.arbString.arbitrary
       commandId <- Arbitrary.arbString.arbitrary
       commands <- Gen.listOf(commandGen)
       deduplication <- Gen.oneOf(
@@ -1211,7 +1211,7 @@ object Generators {
     } yield Commands
       .newBuilder()
       .setWorkflowId(workflowId)
-      .setApplicationId(applicationId)
+      .setUserId(userId)
       .setCommandId(commandId)
       .addAllCommands(commands.asJava)
       .pipe(deduplication)
@@ -1257,7 +1257,7 @@ object Generators {
     import v2.ReassignmentCommandOuterClass.ReassignmentCommand
     for {
       workflowId <- Arbitrary.arbString.arbitrary
-      applicationId <- Arbitrary.arbString.arbitrary
+      userId <- Arbitrary.arbString.arbitrary
       commandId <- Arbitrary.arbString.arbitrary
       submitter <- Arbitrary.arbString.arbitrary
       command <- Gen.oneOf(
@@ -1272,7 +1272,7 @@ object Generators {
     } yield ReassignmentCommand
       .newBuilder()
       .setWorkflowId(workflowId)
-      .setApplicationId(applicationId)
+      .setUserId(userId)
       .setCommandId(commandId)
       .setSubmitter(submitter)
       .pipe(command)

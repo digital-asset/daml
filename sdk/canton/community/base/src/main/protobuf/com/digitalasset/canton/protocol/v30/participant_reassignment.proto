@@ -76,7 +76,7 @@ message ReassignmentSubmitterMetadata {
   string submitting_participant_uid = 2;
   string command_id = 3;
   string submission_id = 4; // optional
-  string application_id = 5;
+  string user_id = 5;
   string workflow_id = 6; // optional
 }
 

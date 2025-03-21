@@ -8,7 +8,7 @@ import com.daml.struct.spray.StructJsonFormat
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReport.*
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.ApplicationId
+import com.digitalasset.daml.lf.data.Ref.UserId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.protobuf.struct.Struct
 import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
@@ -22,11 +22,11 @@ class MeteringReportGenerator(participantId: Ref.ParticipantId, key: Key) {
       request: GetMeteringReportRequest,
       from: Timestamp,
       to: Option[Timestamp],
-      applicationId: Option[Ref.ApplicationId],
+      userId: Option[Ref.UserId],
       reportData: ReportData,
       generationTime: ProtoTimestamp,
   ): Either[String, GetMeteringReportResponse] =
-    genMeteringReportJson(from, to, applicationId, reportData).map { reportJson =>
+    genMeteringReportJson(from, to, userId, reportData).map { reportJson =>
       GetMeteringReportResponse(
         request = Some(request),
         reportGenerationTime = Some(generationTime),
@@ -38,7 +38,7 @@ class MeteringReportGenerator(participantId: Ref.ParticipantId, key: Key) {
   private def genMeteringReportJson(
       from: Timestamp,
       to: Option[Timestamp],
-      applicationId: Option[ApplicationId],
+      userId: Option[UserId],
       reportData: ReportData,
   ): Either[String, Struct] = {
 
@@ -48,7 +48,7 @@ class MeteringReportGenerator(participantId: Ref.ParticipantId, key: Key) {
 
     val report: ParticipantReport = ParticipantReport(
       participant = participantId,
-      request = Request(from, to, applicationId),
+      request = Request(from, to, userId),
       `final` = reportData.isFinal,
       applications = applicationReports,
       check = None,
