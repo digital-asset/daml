@@ -1990,6 +1990,14 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         }
       }
     }
+
+    "HEX_TO_TEXT" - {
+      // TODO:
+    }
+
+    "TEXT_TO_HEX" - {
+      // TODO:
+    }
   }
 }
 

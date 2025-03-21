@@ -33,6 +33,7 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.{Value => V}
 
+import java.nio.charset.StandardCharsets
 import java.security.{
   InvalidKeyException,
   KeyFactory,
@@ -694,6 +695,42 @@ private[lf] object SBuiltinFun {
       val byteEncodedPublicKey = Ref.HexString.decode(hexEncodedPublicKey).toByteArray
 
       KeyFactory.getInstance("EC").generatePublic(new X509EncodedKeySpec(byteEncodedPublicKey))
+    }
+  }
+
+  final case object SBHexToText extends SBuiltinFun(1) {
+    override private[speedy] def execute[Q](
+        args: util.ArrayList[SValue],
+        machine: Machine[Q],
+    ): Control[Q] = {
+      try {
+        val hexArg = Ref.HexString.assertFromString(getSText(args, 0))
+        val arg = new String(Ref.HexString.decode(hexArg).toByteArray, StandardCharsets.UTF_8)
+
+        Control.Value(SText(arg))
+      } catch {
+        case _: IllegalArgumentException =>
+          Control.Error(
+            IE.Dev(
+              NameOf.qualifiedNameOfCurrentFunc,
+              IE.Dev.CCTP(
+                IE.Dev.CCTP.MalformedByteEncoding(
+                  getSText(args, 0),
+                  cause = "can not parse hex string argument",
+                )
+              ),
+            )
+          )
+      }
+    }
+  }
+
+  final case object SBTextToHex extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+      val arg = getSText(args, 0)
+      val hexArg = Ref.HexString.encode(Bytes.fromByteArray(arg.getBytes(StandardCharsets.UTF_8)))
+
+      SText(hexArg)
     }
   }
 
