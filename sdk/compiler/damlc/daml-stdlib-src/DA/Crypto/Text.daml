@@ -10,8 +10,8 @@
 module DA.Crypto.Text
   (keccak256
   , secp256k1
-  , toHex
-  , fromHex
+  , HasToHex(..)
+  , HasFromHex(..)
   , BytesHex
   , PublicKeyHex
   , SignatureHex
@@ -74,13 +74,19 @@ secp256k1 sig _ _ | not (isDEREncoded sig) = error $ "Signature argument is not 
 secp256k1 _ msg _ | not (Text.isHex msg) = error $ "Message argument is not a hex string: " <> msg
 secp256k1 _ _ pk = error $ "Public key argument is not a DER encoded hex string: " <> pk
 
--- | TODO: introduce type classes: HexEncode a - toHex: a -> HexBytes; and HexDecode a - fromHex: HexBytes -> a
+class HasToHex a where
+  toHex: a -> BytesHex
 
--- | Converts an arbitrary UTF-8 encoded text string into a hex encoded string.
-toHex : Text -> BytesHex
-toHex = primitive @"BETextToHex"
+class HasFromHex a where
+  fomHex: BytesHex -> a
 
--- | Converts a hex encoded string into a UTF-8 encoded text string.
-fromHex : BytesHex -> Text
-fromHex arg | Text.isHex arg = primitive @"BEHexToText" (Text.asciiToLower arg)
-fromHex arg = error $ "Argument is not a hex string: " <> arg
+instance HasToHex Text where
+  -- | Converts an arbitrary UTF-8 encoded text string into a hex encoded string.
+  toHex : Text -> BytesHex
+  toHex = primitive @"BETextToHex"
+
+instance HasFromHex Text where
+  -- | Converts a hex encoded string into a UTF-8 encoded text string.
+  fromHex : BytesHex -> Text
+  fromHex arg | Text.isHex arg = primitive @"BEHexToText" (Text.asciiToLower arg)
+  fromHex arg = error $ "Argument is not a hex string: " <> arg
