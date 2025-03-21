@@ -119,6 +119,7 @@ data UnserializabilityReason
   | URTypeSyn  -- ^ It contains a type synonym.
   | URExperimental -- ^ It contains a experimental type
   | URInterface -- ^ It constains an interface
+  | URFailureCategory -- ^ It contains a value of type FailureCategory
   deriving (Show)
 
 data Error
@@ -654,6 +655,7 @@ instance Pretty UnserializabilityReason where
     URBigNumeric -> "BigNumeric"
     URExperimental -> "experimental type"
     URInterface -> "interface"
+    URFailureCategory -> "FailureCategory"
 
 instance Pretty Error where
   pPrint = \case

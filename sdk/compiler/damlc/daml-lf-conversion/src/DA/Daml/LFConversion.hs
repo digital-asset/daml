@@ -1797,6 +1797,9 @@ convertExpr env0 e = do
     go env (VarIn GHC_Types (RoundingModeName roundingModeLit)) args =
         pure (EBuiltinFun (BERoundingMode roundingModeLit), args)
 
+    go env (VarIn DA_Internal_Fail_Types (FailureCategoryName failureCategoryLit)) args
+        = pure (EBuiltinFun (BEFailureCategory failureCategoryLit), args)
+
     go env (VarIn GHC_Types "True") args = pure (mkBool True, args)
     go env (VarIn GHC_Types "False") args = pure (mkBool False, args)
     go env (VarIn GHC_Types "I#") args = pure (mkIdentity TInt64, args)
@@ -2189,6 +2192,11 @@ convertAlt env ty (DataAlt con, [], x)
     | NameIn GHC_Types (RoundingModeName roundingModeLit) <- con
     = GCA (GCPEquality (EBuiltinFun (BERoundingMode roundingModeLit))) <$> convertExpr env x
 
+    -- FailureCategory constructors do not have built-in LF support for pattern matching,
+    -- but we get the same result with equality tests.
+    | NameIn DA_Internal_Fail_Types (FailureCategoryName failureCategoryLit) <- con
+    = GCA (GCPEquality (EBuiltinFun (BEFailureCategory failureCategoryLit))) <$> convertExpr env x
+
 convertAlt env ty (DataAlt con, [a,b], x)
     | NameIn GHC_Types ":" <- con
     = GCA (GCPNormal (CPCons (convVar a) (convVar b))) <$> convertExpr env x
@@ -2490,6 +2498,7 @@ convertTyCon env t
             "AnyException" -> pure (TBuiltin BTAnyException)
             _ -> defaultTyCon
     | NameIn DA_Internal_Prelude "Optional" <- t = pure (TBuiltin BTOptional)
+    | NameIn DA_Internal_Fail_Types "FailureCategory" <- t = pure (TBuiltin BTFailureCategory)
     | otherwise = defaultTyCon
     where
         arity = tyConArity t

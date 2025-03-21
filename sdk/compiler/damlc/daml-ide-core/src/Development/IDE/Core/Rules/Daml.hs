@@ -717,6 +717,7 @@ generateStablePackages lfVersion fp = do
                     , "DA-Action-State-Type.dalf"
                     , "DA-Random-Types.dalf"
                     , "DA-Stack-Types.dalf"
+                    , "DA-Internal-Fail-Types.dalf"
                     ]
                 ]
         forM dalfs $ \dalf -> do

@@ -139,6 +139,7 @@ kindOfBuiltin = \case
   BTRoundingMode -> KStar
   BTBigNumeric -> KStar
   BTAnyException -> KStar
+  BTFailureCategory -> KStar
 
 checkKind :: MonadGamma m => Kind -> m ()
 checkKind = \case
@@ -217,6 +218,7 @@ typeOfBuiltin = \case
   BEUnit             -> pure TUnit
   BEBool _           -> pure TBool
   BERoundingMode _   -> pure TRoundingMode
+  BEFailureCategory _ -> pure TFailureCategory
   BEError            -> pure $ TForall (alpha, KStar) (TText :-> tAlpha)
   BEAnyExceptionMessage -> pure $ TAnyException :-> TText
   BEEqual     -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
@@ -778,6 +780,10 @@ typeOf' = \case
     checkExpr contract (TCon tpl)
     checkExpr choiceArg (chcArgType choice)
     pure (TList TParty)
+  EFailWithStatus ty bodyExpr -> do
+    checkType ty KStar
+    checkExpr bodyExpr TFailureStatus
+    pure ty
   EExperimental name ty -> do
     checkFeature featureExperimental
     checkExperimentalType name ty

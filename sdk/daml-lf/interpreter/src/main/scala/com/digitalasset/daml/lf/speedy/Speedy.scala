@@ -827,17 +827,19 @@ private[lf] object Speedy {
     /* number of iteration between cooperation interruption */
     val iterationsBetweenInterruptions: Long
 
+    private val stablePackages = StablePackages(
+      compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
+    )
+
     /** A constructor/deconstructor of value arithmetic errors. */
-    val valueArithmeticError: ValueArithmeticError = {
-      val stablePackages = StablePackages(
-        compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
-      )
+    val valueArithmeticError: ValueArithmeticError =
       new ValueArithmeticError(stablePackages)
-    }
 
     /** A constructor/deconstructor of svalue arithmetic errors. */
     val sArithmeticError: SArithmeticError =
       new SArithmeticError(valueArithmeticError)
+
+    val failureStatusIdentifier: Identifier = stablePackages.FailureStatus
 
     private[speedy] def handleException(excep: SValue.SAny): Control[Nothing]
 

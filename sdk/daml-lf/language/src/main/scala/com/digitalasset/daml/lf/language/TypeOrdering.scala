@@ -87,6 +87,7 @@ object TypeOrdering extends Ordering[Type] {
       Ast.BTTypeRep,
       Ast.BTArrow,
       Ast.BTUpdate,
+      Ast.BTFailureCategory,
       Ast.BTTextMap,
       Ast.BTBigNumeric,
       Ast.BTRoundingMode,

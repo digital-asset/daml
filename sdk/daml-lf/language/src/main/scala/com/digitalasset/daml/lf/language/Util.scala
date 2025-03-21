@@ -83,6 +83,7 @@ object Util {
   val TTypeRep = TBuiltin(BTTypeRep)
   val TBigNumeric = TBuiltin(BTBigNumeric)
   val TRoundingMode = TBuiltin(BTRoundingMode)
+  val TFailureCategory = TBuiltin(BTFailureCategory)
 
   val TNumeric = new ParametricType1(BTNumeric)
   val TList = new ParametricType1(BTList)

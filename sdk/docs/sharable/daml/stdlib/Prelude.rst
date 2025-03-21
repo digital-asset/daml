@@ -1565,6 +1565,8 @@ Data Types
 
   **instance** :ref:`ActionThrow <class-da-internal-exception-actionthrow-37623>` `Update <type-da-internal-lf-update-68072_>`_
 
+  **instance** :ref:`ActionFailWithStatus <class-da-internal-fail-actionfailwithstatus-58664>` `Update <type-da-internal-lf-update-68072_>`_
+
   **instance** `CanAbort <class-da-internal-lf-canabort-29060_>`_ `Update <type-da-internal-lf-update-68072_>`_
 
   **instance** `HasTime <class-da-internal-lf-hastime-96546_>`_ `Update <type-da-internal-lf-update-68072_>`_

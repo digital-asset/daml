@@ -31,6 +31,7 @@ Here is a complete list of modules in the standard library:
    DA.Date <DA-Date>
    DA.Either <DA-Either>
    DA.Exception <DA-Exception>
+   DA.Fail <DA-Fail>
    DA.Foldable <DA-Foldable>
    DA.Functor <DA-Functor>
    DA.Internal.Interface.AnyView <DA-Internal-Interface-AnyView>

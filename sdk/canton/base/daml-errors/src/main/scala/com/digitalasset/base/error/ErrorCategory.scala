@@ -391,6 +391,20 @@ object ErrorCategory {
 
   implicit val orderingErrorType: Ordering[ErrorCategory] = Ordering.by[ErrorCategory, Int](_.rank)
 
+  /** Special error category that isn't included in ErrorCategory.all, purely for overriding the displayed text in the generated logs
+  * it is expected that this category is replaced by the time the error is thrown (by overriding `code` in `DamlErrorWithDefiniteAnswer` and the like)
+  * as such, all definitions in this Error Category are errors
+  */
+  final case class MetaErrorCategory(overrideText: String) extends ErrorCategory {
+    private def unimplemented = throw new IllegalArgumentException("Attempted to use MetaErrorCategory in thrown error. This should be replaced at construction")
+    override def grpcCode: Option[Code] = unimplemented
+    override def logLevel: Level = unimplemented
+    override def retryable: Option[ErrorCategoryRetry] = unimplemented
+    override def redactDetails: Boolean = unimplemented
+    override def asInt: Int = unimplemented
+    override def rank: Int = unimplemented
+  }
+
   /** Generic error category class meant to be used as a data container for information deserialized
     * from gRPC statuses (see [[com.digitalasset.base.error.utils.DecodedCantonError]]).
     *

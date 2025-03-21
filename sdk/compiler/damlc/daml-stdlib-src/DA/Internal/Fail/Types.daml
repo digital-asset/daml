@@ -1,0 +1,52 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+
+-- | MOVE DA.Fail
+module DA.Internal.Fail.Types (FailureCategory(..), FailureStatus(..)) where
+
+import GHC.Types (Text)
+import DA.Internal.LF (Map)
+
+data FailureStatus = FailureStatus with
+    errorId : Text
+      -- ^ Unambiguous identifier of the error.
+      -- SHOULD be prefixed with the DNS name identifying the app provider
+      -- or the API standard defining the error. For example,
+      -- `splice.lfdecentralizedtrust.org/insufficient-funds` could be used for
+      -- reporting an out of funds error in the context of the CN token standards. 
+    category : FailureCategory
+      -- ^ Category of the failure, which determines how clients are expected to handle the error.
+    message : Text
+      -- ^ Developer-facing error message, which should be in English.
+    meta : Map Text Text
+      -- ^ Machine-readable metadata about the error in a key-value format.
+      -- Use this to provide extra context to clients for errors.
+      --
+      -- SHOULD be less than < 512 characters as it MAY be truncated otherwise.
+
+-- | The category of the failure, which determines the status code and log
+-- level of the failure. Maps 1-1 to the Canton error categories documented
+-- here: https://docs.daml.com/canton/reference/error_codes.html#error-categories-inventory 
+--
+-- If you are more familiar with gRPC error codes, you can use the synonyms referenced in the
+-- comments.
+data FailureCategory
+  = InvalidIndependentOfSystemState
+    -- ^ Use this to report errors that are independent of the current state of the ledger,
+    -- and should thus not be retried.
+    --
+    -- Corresponds to the gRPC status code `INVALID_ARGUMENT`.
+    --
+    -- See https://docs.daml.com/canton/reference/error_codes.html#invalidindependentofsystemstate
+    -- for more information.
+  | InvalidGivenCurrentSystemStateOther
+    -- ^ Use this to report errors that are due to the current state of the ledger,
+    -- but might disappear if the ledger state changes. Clients should retry these
+    -- requests after reading updated state from the ledger.
+    --
+    -- Corresponds to the gRPC status code `FAILED_PRECONDITION`.
+    --
+    -- See https://docs.daml.com/canton/reference/error_codes.html#invalidgivencurrentsystemstateother
+    -- for more information.

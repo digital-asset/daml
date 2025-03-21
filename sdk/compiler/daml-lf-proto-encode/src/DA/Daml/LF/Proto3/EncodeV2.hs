@@ -277,6 +277,7 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTRoundingMode -> P.BuiltinTypeROUNDING_MODE
     BTBigNumeric -> P.BuiltinTypeBIGNUMERIC
     BTAnyException -> P.BuiltinTypeANY_EXCEPTION
+    BTFailureCategory -> P.BuiltinTypeFAILURE_CATEGORY
 
 encodeType' :: Type -> Encode P.Type
 encodeType' typ = do
@@ -369,6 +370,10 @@ encodeBuiltinExpr = \case
       LitRoundingHalfDown -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeHALF_DOWN
       LitRoundingHalfEven -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeHALF_EVEN
       LitRoundingUnnecessary -> pureLit $ P.BuiltinLitSumRoundingMode $ P.Enumerated $ Right P.BuiltinLit_RoundingModeUNNECESSARY
+
+    BEFailureCategory fc -> case fc of
+      LitInvalidIndependentOfSystemState -> pureLit $ P.BuiltinLitSumFailureCategory $ P.Enumerated $ Right P.BuiltinLit_FailureCategoryINVALID_INDEPENDENT_OF_SYSTEM_STATE
+      LitInvalidGivenCurrentSystemStateOther -> pureLit $ P.BuiltinLitSumFailureCategory $ P.Enumerated $ Right P.BuiltinLit_FailureCategoryINVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER
 
     BEEqual -> builtin P.BuiltinFunctionEQUAL
     BELess -> builtin P.BuiltinFunctionLESS
@@ -650,6 +655,10 @@ encodeExpr' = \case
         expr_ChoiceObserverContractExpr <- encodeExpr expr1
         expr_ChoiceObserverChoiceArgExpr <- encodeExpr expr2
         pureExpr $ P.ExprSumChoiceObserver P.Expr_ChoiceObserver{..}
+    EFailWithStatus ty failureStatus -> do
+        expr_FailWithStatusReturnType <- encodeType ty
+        expr_FailWithStatusFailureStatus <- encodeExpr failureStatus
+        pureExpr $ P.ExprSumFailWithStatus P.Expr_FailWithStatus{..}
     EExperimental name ty -> do
         let expr_ExperimentalName = encodeString name
         expr_ExperimentalType <- encodeType ty

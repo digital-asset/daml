@@ -1119,6 +1119,7 @@ convBuiltInTy env =
         LF.BTRoundingMode -> mkGhcType env "RoundingMode"
         LF.BTBigNumeric -> mkGhcType env "BigNumeric"
         LF.BTAnyException -> mkLfInternalType env "AnyException"
+        LF.BTFailureCategory -> mkInternalFailTypes env "FailureCategory"
 
 errTooManyNameComponents :: [T.Text] -> a
 errTooManyNameComponents cs =
@@ -1185,6 +1186,10 @@ mkDesugarType env = mkStableType env primUnitId $
 mkLfInternalPrelude :: SdkVersioned => Env -> String -> Gen (HsType GhcPs)
 mkLfInternalPrelude env = mkStableType env damlStdlib $
     LF.ModuleName ["DA", "Internal", "Prelude"]
+
+mkInternalFailTypes :: SdkVersioned => Env -> String -> Gen (HsType GhcPs)
+mkInternalFailTypes env = mkStableType env damlStdlib $
+    LF.ModuleName ["DA", "Internal", "Fail", "Types"]
 
 mkTyConTypeUnqual :: TyCon -> HsType GhcPs
 mkTyConTypeUnqual tyCon = HsTyVar noExt NotPromoted . noLoc $ mkRdrUnqual (occName name)

@@ -141,6 +141,20 @@ object Error {
     */
   final case class ValueNesting(limit: Int) extends Error
 
+  /** User thrown failure with grpc status/metadata
+    *
+    * @param errorId Defines the errorId metadata value in the ErrorInfoDetail metadata of the resulting GrpcStatus
+    * @param failureCategory Canton error category ID, defines the GrpcStatusCode and retry metadata of the resulting GrpcStatus
+    * @param errorMessage Message placed in the top level GrpcStatus message field (with prefixes)
+    * @param metadata Key value metadata placed in the ErrorInfoDetail of the resulting GrpcStatus
+    */
+  final case class FailureStatus(
+      errorId: String,
+      failureCategory: Int,
+      errorMessage: String,
+      metadata: Map[String, String],
+  ) extends Error
+
   sealed case class Upgrade(error: Upgrade.Error) extends Error
 
   object Upgrade {

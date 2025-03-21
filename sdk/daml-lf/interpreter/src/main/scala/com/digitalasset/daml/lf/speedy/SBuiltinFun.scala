@@ -2101,6 +2101,35 @@ private[lf] object SBuiltinFun {
 
   }
 
+  /** $failWithStatus :: FailureStatus -> a */
+  final case object SBFailWithStatus extends SBuiltinFun(1) {
+    override private[speedy] def execute[Q](
+        args: util.ArrayList[SValue],
+        machine: Machine[Q],
+    ): Control[Nothing] = {
+      val failureStatusIdentifier = machine.failureStatusIdentifier
+      getSRecord(args, 0) match {
+        case SRecord(
+              `failureStatusIdentifier`,
+              _,
+              ArrayList(
+                SText(errorId),
+                SInt64(categoryId),
+                SText(errorMessage),
+                smap @ SMap(false, treeMap),
+              ),
+            ) => {
+          val meta = treeMap.toMap.map {
+            case (SText(key), SText(value)) => (key, value)
+            case _ => unexpectedType(0, "Map Text Text", smap)
+          }
+          Control.Error(IE.FailureStatus(errorId, categoryId.toInt, errorMessage, meta))
+        }
+        case otherwise => unexpectedType(0, "FailureStatus", otherwise)
+      }
+    }
+  }
+
   object SBExperimental {
 
     private object SBExperimentalAnswer extends SBuiltinFun(1) {

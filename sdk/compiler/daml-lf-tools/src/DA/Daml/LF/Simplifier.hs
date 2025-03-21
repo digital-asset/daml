@@ -89,6 +89,7 @@ safetyStep = \case
       BEUnit              -> Safe 0
       BEBool _            -> Safe 0
       BERoundingMode _    -> Safe 0
+      BEFailureCategory _ -> Safe 0
       BEError             -> Safe 0
       BEAnyExceptionMessage -> Safe 0 -- evaluates user-defined code which may throw
       BEEqual      -> Safe 1 -- may crash if values are incomparable
@@ -202,6 +203,7 @@ safetyStep = \case
   EViewInterfaceF _ _ -> Unsafe
   EChoiceControllerF _ _ s1 s2 -> s1 <> s2 <> Safe 0
   EChoiceObserverF _ _ s1 s2 -> s1 <> s2 <> Safe 0
+  EFailWithStatusF _ _ -> Unsafe
   EExperimentalF _ _ -> Unsafe
 
 isTypeClassDictionary :: DefValue -> Bool

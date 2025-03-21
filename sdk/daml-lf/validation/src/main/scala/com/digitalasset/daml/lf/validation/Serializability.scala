@@ -88,6 +88,8 @@ private[validation] object Serializability {
             unserializable(URRoundingMode)
           case BTBigNumeric =>
             unserializable(URBigNumeric)
+          case BTFailureCategory =>
+            unserializable(URFailureCategory)
         }
       case TForall(_, _) =>
         unserializable(URForall)

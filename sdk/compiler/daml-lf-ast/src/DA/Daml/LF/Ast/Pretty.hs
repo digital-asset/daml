@@ -161,6 +161,7 @@ instance Pretty BuiltinType where
     BTRoundingMode -> "RoundingMode"
     BTBigNumeric -> "BigNumeric"
     BTAnyException -> "AnyException"
+    BTFailureCategory -> "FailureCategory"
 
 pPrintRecord :: Pretty a => PrettyLevel -> Doc ann -> [(FieldName, a)] -> Doc ann
 pPrintRecord lvl sept fields =
@@ -218,6 +219,11 @@ prettyRounding = \case
   LitRoundingHalfEven -> "ROUNDING_HALF_EVEN"
   LitRoundingUnnecessary -> "ROUNDING_UNNECESSARY"
 
+prettyFailureCategory :: FailureCategoryLiteral -> String
+prettyFailureCategory = \case
+  LitInvalidIndependentOfSystemState -> "INVALID_INDEPENDENT_OF_SYSTEM_STATE"
+  LitInvalidGivenCurrentSystemStateOther -> "INVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER"
+
 instance Pretty BuiltinExpr where
   pPrintPrec lvl prec = \case
     BEInt64 n -> integer (toInteger n)
@@ -226,6 +232,7 @@ instance Pretty BuiltinExpr where
     BEUnit -> keyword_ "unit"
     BEBool b -> keyword_ $ case b of { False -> "false"; True -> "true" }
     BERoundingMode r -> keyword_ $ prettyRounding r
+    BEFailureCategory r -> keyword_ $ prettyFailureCategory r
     BEError -> "ERROR"
     BEAnyExceptionMessage -> "ANY_EXCEPTION_MESSAGE"
     BEEqual -> "EQUAL"
@@ -536,6 +543,8 @@ instance Pretty Expr where
         [TyArg (TCon tpl), TmArg (EVar (ExprVarName (unChoiceName ch))), TmArg expr1, TmArg expr2]
     EChoiceObserver tpl ch expr1 expr2 -> pPrintAppKeyword lvl prec "choice_observer"
         [TyArg (TCon tpl), TmArg (EVar (ExprVarName (unChoiceName ch))), TmArg expr1, TmArg expr2]
+    EFailWithStatus ty val -> pPrintAppKeyword lvl prec "failWithStatus"
+        [TyArg ty, TmArg val]
     EExperimental name _ ->  pPrint $ "$" <> name
 
 instance Pretty DefTypeSyn where

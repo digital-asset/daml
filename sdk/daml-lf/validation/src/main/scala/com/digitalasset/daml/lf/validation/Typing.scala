@@ -69,7 +69,7 @@ private[validation] object Typing {
 
   private def kindOfBuiltin(bType: BuiltinType): Kind = bType match {
     case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAny | BTTypeRep |
-        BTAnyException | BTRoundingMode | BTBigNumeric =>
+        BTAnyException | BTRoundingMode | BTBigNumeric | BTFailureCategory =>
       KStar
     case BTNumeric => KArrow(KNat, KStar)
     case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTTextMap =>
@@ -84,6 +84,7 @@ private[validation] object Typing {
     case BLTimestamp(_) => TTimestamp
     case BLDate(_) => TDate
     case BLRoundingMode(_) => TRoundingMode
+    case BLFailureCategory(_) => TFailureCategory
   }
 
   private def tBinop(typ: Type): Type = typ ->: typ ->: typ
@@ -421,6 +422,9 @@ private[validation] object Typing {
 
     private[lf] def TTuple2(t1: Type, t2: Type) =
       TApp(TApp(TTyCon(stablePackages.Tuple2), t1), t2)
+
+    private[lf] val TFailureStatus =
+      TTyCon(stablePackages.FailureStatus)
 
     private[lf] def kindOf(typ: Type): Kind = { // testing entry point
       // must *NOT* be used for sub-types
@@ -1524,6 +1528,11 @@ private[validation] object Typing {
         typeOfChoiceControllerOrObserver(ty, ch, expr1, expr2)
       case EChoiceObserver(ty, ch, expr1, expr2) =>
         typeOfChoiceControllerOrObserver(ty, ch, expr1, expr2)
+      case EFailWithStatus(returnTyp, body) =>
+        checkType(returnTyp, KStar)
+        checkExpr(body, TFailureStatus) {
+          Ret(returnTyp)
+        }
       case expr: ExprInterface =>
         typOfExprInterface(expr)
       case EExperimental(_, typ) =>
