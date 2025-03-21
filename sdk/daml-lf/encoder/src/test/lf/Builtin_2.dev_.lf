@@ -93,6 +93,8 @@ module BuiltinMod {
     KECCAK256_TEXT;
   val secp256k1Bool: Text -> Text -> Text -> Bool =
     SECP256K1_BOOL;
+  val textToHex: Text -> Text;
+  val hexToText: Text -> Text;
   val dateToUnixDays: Date -> Int64 =
     DATE_TO_UNIX_DAYS;
   val explodeText: Text -> List Text =
