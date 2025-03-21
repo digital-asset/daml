@@ -2,9 +2,11 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Fail, for FailureStatus
-module DA.Fail (FailureStatus (..), FailureCategory (..)) where
+module DA.Fail (module DA.Fail, module DA.Internal.Fail, module DA.Internal.Fail.Types) where
 
 import DA.Internal.Fail
+import DA.Internal.Fail.Types
+import DA.Map ()
 import GHC.Types (primitive)
 
 instance Eq FailureCategory where

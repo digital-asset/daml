@@ -217,13 +217,6 @@ Typeclasses
 
     Fail with an error message\.
 
-  .. _function-da-internal-prelude-failwithstatus-87289:
-
-  `failWithStatus <function-da-internal-prelude-failwithstatus-87289_>`_
-    \: :ref:`FailureStatus <type-da-internal-fail-failurestatus-69800>` \-\> m a
-
-    Fail with a failure status
-
   **instance** `ActionFail <class-da-internal-prelude-actionfail-34438_>`_ `Update <type-da-internal-lf-update-68072_>`_
 
   **instance** `ActionFail <class-da-internal-prelude-actionfail-34438_>`_ `Optional <type-da-internal-prelude-optional-37153_>`_
@@ -1571,6 +1564,8 @@ Data Types
   **instance** :ref:`ActionCatch <class-da-internal-exception-actioncatch-69238>` `Update <type-da-internal-lf-update-68072_>`_
 
   **instance** :ref:`ActionThrow <class-da-internal-exception-actionthrow-37623>` `Update <type-da-internal-lf-update-68072_>`_
+
+  **instance** :ref:`ActionFailWithStatus <class-da-internal-fail-actionfailwithstatus-58664>` `Update <type-da-internal-lf-update-68072_>`_
 
   **instance** `CanAbort <class-da-internal-lf-canabort-29060_>`_ `Update <type-da-internal-lf-update-68072_>`_
 

@@ -2072,16 +2072,20 @@ private[lf] object SBuiltinFun {
         machine: Machine[Q],
     ): Control[Nothing] = {
       val failureStatusIdentifier = machine.failureStatusIdentifier
-      val tuple2Identifier = machine.tuple2Identifier
       getSRecord(args, 0) match {
         case SRecord(
               `failureStatusIdentifier`,
               _,
-              ArrayList(SText(errorId), SInt64(categoryId), SText(errorMessage), SList(tuples)),
+              ArrayList(
+                SText(errorId),
+                SInt64(categoryId),
+                SText(errorMessage),
+                smap @ SMap(false, treeMap),
+              ),
             ) => {
-          val meta = tuples.toImmArray.toSeq.map {
-            case SRecord(`tuple2Identifier`, _, ArrayList(SText(key), SText(value))) => (key, value)
-            case otherwise => unexpectedType(0, "(Text, Text)", otherwise)
+          val meta = treeMap.toMap.map {
+            case (SText(key), SText(value)) => (key, value)
+            case _ => unexpectedType(0, "Map Text Text", smap)
           }
           Control.Error(IE.FailureStatus(errorId, categoryId.toInt, errorMessage, meta))
         }

@@ -11,10 +11,6 @@ module DA.Internal.Prelude
   ( module DA.Internal.Prelude
   , module GHC
   , Down(..)
-  , FailureCategory (..)
-  , -- Do not export the `message` field until exceptions have been removed (in 3.4)
-    -- Explicit import of DA.Fail required to use field accessor
-    FailureStatus (errorId, category, meta)
   ) where
 
 import Control.Exception.Base ()
@@ -37,7 +33,6 @@ import GHC.Types (primitive)
 import GHC.Tuple.Check()
 
 import DA.Internal.Down
-import DA.Internal.Fail
 
 -- | Turn a function that takes a pair into a function that takes two arguments.
 curry : ((a, b) -> c) -> a -> b -> c
@@ -117,11 +112,6 @@ join x = x >>= identity
 class Action m => ActionFail m where
     -- | Fail with an error message.
     fail : Text -> m a
-    -- | Fail with a failure status
-    failWithStatus : FailureStatus -> m a
-    -- Default implementation is to pass the message to fail
-    -- to be used by everything other than Update & Script
-    failWithStatus (FailureStatus _ _ msg _) = fail msg
 
 -- | The identity function.
 identity : a -> a

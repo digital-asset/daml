@@ -841,8 +841,6 @@ private[lf] object Speedy {
 
     val failureStatusIdentifier: Identifier = stablePackages.FailureStatus
 
-    val tuple2Identifier: Identifier = stablePackages.Tuple2
-
     private[speedy] def handleException(excep: SValue.SAny): Control[Nothing]
 
     protected final def unhandledException(excep: SValue.SAny): Control.Error = {

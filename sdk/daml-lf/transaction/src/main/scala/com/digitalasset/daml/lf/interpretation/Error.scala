@@ -152,7 +152,7 @@ object Error {
       errorId: String,
       failureCategory: Int,
       errorMessage: String,
-      metadata: Seq[(String, String)],
+      metadata: Map[String, String],
   ) extends Error
 
   sealed case class Upgrade(error: Upgrade.Error) extends Error

@@ -753,7 +753,7 @@ message Expr {
   message FailWithStatus {
     // Overall type of the "failWithStatus" expression.
     Type return_type = 1;
-    // value of type DA.Internal.Fail:FailureStatus
+    // value of type DA.Internal.Fail.Types:FailureStatus
     Expr failure_status = 2;
   }
   
