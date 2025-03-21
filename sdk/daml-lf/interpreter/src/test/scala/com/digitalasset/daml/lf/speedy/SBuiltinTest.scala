@@ -1877,7 +1877,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         "fails with incorrect secp256k1 public key" in {
           val incorrectPublicKey =
             Bytes
-              .fromByteArray(data.cctp.MessageSignatureUtil.generateKeyPair.getPublic.getEncoded)
+              .fromByteArray(cctp.MessageSignatureUtil.generateKeyPair.getPublic.getEncoded)
               .toHexString
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
