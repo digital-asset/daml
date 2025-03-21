@@ -75,18 +75,16 @@ secp256k1 _ msg _ | not (Text.isHex msg) = error $ "Message argument is not a he
 secp256k1 _ _ pk = error $ "Public key argument is not a DER encoded hex string: " <> pk
 
 class HasToHex a where
+  -- | Converts a typed data value into a hex encoded string.
   toHex: a -> BytesHex
 
 class HasFromHex a where
-  fomHex: BytesHex -> a
+  -- | Converts a hex encoded string into a typed data value.
+  fromHex: BytesHex -> a
 
 instance HasToHex Text where
-  -- | Converts an arbitrary UTF-8 encoded text string into a hex encoded string.
-  toHex : Text -> BytesHex
   toHex = primitive @"BETextToHex"
 
 instance HasFromHex Text where
-  -- | Converts a hex encoded string into a UTF-8 encoded text string.
-  fromHex : BytesHex -> Text
   fromHex arg | Text.isHex arg = primitive @"BEHexToText" (Text.asciiToLower arg)
   fromHex arg = error $ "Argument is not a hex string: " <> arg
