@@ -5,8 +5,6 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.daml.crypto.MessageSignaturePrototypeUtil
-import com.daml.lf.data
-import com.daml.lf.data.cctp.MessageSignatureUtil
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data._
@@ -1824,14 +1822,14 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "SECP256K1_BOOL" - {
-      val keyPair = MessageSignatureUtil.generateKeyPair
+      val keyPair = cctp.MessageSignatureUtil.generateKeyPair
 
       "valid secp256k1 signature and public key" - {
         "correctly verify signed message" in {
           val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = data.cctp.MessageSignatureUtil.sign(message, privateKey)
+          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
 
           eval(e"""SECP256K1_BOOL "$signature" "$message" "$publicKey"""") shouldBe Right(
             SBool(true)
@@ -1843,7 +1841,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
           val invalidMessage = Ref.HexString.assertFromString("deadbeefdeadbeef")
-          val signature = data.cctp.MessageSignatureUtil.sign(message, privateKey)
+          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
 
           eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""") shouldBe Right(
             SBool(false)
@@ -1855,7 +1853,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
           val invalidMessage = "DeadBeef"
-          val signature = data.cctp.MessageSignatureUtil.sign(message, privateKey)
+          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
 
           inside(eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""")) {
             case Left(
@@ -1883,7 +1881,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
               .toHexString
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = data.cctp.MessageSignatureUtil.sign(message, privateKey)
+          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
 
           eval(e"""SECP256K1_BOOL "$signature" "$message" "$incorrectPublicKey"""") shouldBe Right(
             SBool(false)
@@ -1898,7 +1896,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             .toHexString
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = data.cctp.MessageSignatureUtil.sign(message, privateKey)
+          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
 
           inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
             case Left(
@@ -1920,7 +1918,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val invalidPublicKey = keyPair.getPublic
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = data.cctp.MessageSignatureUtil.sign(message, privateKey)
+          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
 
           inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
             case Left(
