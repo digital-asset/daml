@@ -92,10 +92,10 @@ convertPrim _ "BESha256Text" (TText :-> TText) =
     pure $ EBuiltinFun BESha256Text
 convertPrim _ "BEKecCak256Text" (TText :-> TText) =
     pure $ EBuiltinFun BEKecCak256Text
-convertPrim _ "BETextToHex" (TText :-> TText) =
-    pure $ EBuiltinFun BETextToHex
-convertPrim _ "BEHexToText" (TText :-> TText) =
-    pure $ EBuiltinFun BEHexToText
+convertPrim _ "BEEncodeHex" (TText :-> TText) =
+    pure $ EBuiltinFun BEEncodeHex
+convertPrim _ "BEDecodeHex" (TText :-> TText) =
+    pure $ EBuiltinFun BEDecodeHex
 convertPrim _ "BETextToParty" (TText :-> TOptional TParty) =
     pure $ EBuiltinFun BETextToParty
 convertPrim _ "BETextToInt64" (TText :-> TOptional TInt64) =

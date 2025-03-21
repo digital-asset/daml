@@ -698,7 +698,7 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  final case object SBHexToText extends SBuiltinFun(1) {
+  final case object SBDecodeHex extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -725,7 +725,7 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  final case object SBTextToHex extends SBuiltinPure(1) {
+  final case object SBEncodeHex extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
       val arg = getSText(args, 0)
       val hexArg = Ref.HexString.encode(Bytes.fromByteArray(arg.getBytes(StandardCharsets.UTF_8)))
