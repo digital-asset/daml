@@ -33,6 +33,7 @@ import scalaz.syntax.traverse._
 import scalaz.{Foldable, OneAnd}
 
 import java.security.KeyFactory
+import java.security.spec.PKCS8EncodedKeySpec
 import java.time.Clock
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -993,7 +994,11 @@ object ScriptF {
 
   private def parseSecp256k1Sign(v: SValue): Either[String, Secp256k1Sign] =
     v match {
-      case SRecord(_, _, ArrayList(pk, msg)) => Right(Secp256k1Sign(pk, msg))
+      case SRecord(_, _, ArrayList(pk, msg)) =>
+        for {
+          pk <- toText(pk)
+          msg <- toText(msg)
+        } yield Secp256k1Sign(pk, msg)
       case _ => Left(s"Expected Secp256k1Sign payload but got $v")
     }
 

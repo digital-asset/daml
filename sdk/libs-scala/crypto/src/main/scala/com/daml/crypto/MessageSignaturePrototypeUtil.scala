@@ -7,6 +7,8 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider
 
 import java.security.{PrivateKey, Security, Signature}
 
+// The following utility methods should only be used within a testing context.
+// They have been moved into a main project scope so that daml-script runners may access this code.
 class MessageSignaturePrototypeUtil(val algorithm: String) {
   Security.addProvider(new BouncyCastleProvider)
 
