@@ -23,6 +23,9 @@ target
 /dev-env/jdk
 /dev-env/var/
 
+# direnv
+.direnv
+
 # Bazel
 .bazel-cache
 /bazel-*
