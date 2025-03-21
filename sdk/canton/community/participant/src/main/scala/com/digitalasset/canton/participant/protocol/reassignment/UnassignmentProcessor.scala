@@ -77,7 +77,7 @@ class UnassignmentProcessor(
       submissionParam: UnassignmentProcessingSteps.SubmissionParam
   ): MetricsContext =
     MetricsContext(
-      "application-id" -> submissionParam.submitterMetadata.applicationId,
+      "user-id" -> submissionParam.submitterMetadata.userId,
       "type" -> "unassignment",
     )
 

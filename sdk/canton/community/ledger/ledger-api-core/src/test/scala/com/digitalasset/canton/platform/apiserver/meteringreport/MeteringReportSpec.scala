@@ -19,15 +19,15 @@ class MeteringReportSpec extends AsyncWordSpec with Matchers {
 
     "serialize and deserialize as JSON" in {
 
-      val application = Ref.ApplicationId.assertFromString("a0")
+      val user = Ref.UserId.assertFromString("a0")
       val from = Timestamp.now()
       val to = from.add(Duration.of(1, ChronoUnit.DAYS))
 
       val expected = ParticipantReport(
         participant = Ref.ParticipantId.assertFromString("p0"),
-        request = Request(from, Some(to), Some(application)),
+        request = Request(from, Some(to), Some(user)),
         `final` = false,
-        applications = Seq(ApplicationReport(application, 272)),
+        applications = Seq(ApplicationReport(user, 272)),
         check = Some(Check("community", "digest0")),
       )
 

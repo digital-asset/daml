@@ -133,7 +133,7 @@ class TransactionTreeFactoryImpl(
       submitterMetadata <- SubmitterMetadata
         .fromSubmitterInfo(cryptoOps)(
           submitterActAs = submitterInfo.actAs,
-          submitterApplicationId = submitterInfo.applicationId,
+          submitterUserId = submitterInfo.userId,
           submitterCommandId = submitterInfo.commandId,
           submitterSubmissionId = submitterInfo.submissionId,
           submitterDeduplicationPeriod = submitterInfo.deduplicationPeriod,

@@ -187,7 +187,7 @@ object RouteSetup {
     withEnrichedLoggingContext(
       LoggingContextOf.label[JwtPayloadTag],
       "act_as" -> jwtPayload.actAs.toString,
-      "application_id" -> jwtPayload.applicationId.toString,
+      "user_id" -> jwtPayload.userId.toString,
       "read_as" -> jwtPayload.readAs.toString,
     ).run(fn(traceContext))
 

@@ -23,8 +23,8 @@ import scala.reflect.ClassTag
 
 object JsonProtocol extends JsonProtocolLow {
 
-  implicit val ApplicationIdFormat: JsonFormat[lar.ApplicationId] =
-    taggedJsonFormat[String, lar.ApplicationIdTag]
+  implicit val UserIdFormat: JsonFormat[lar.UserId] =
+    taggedJsonFormat[String, lar.UserIdTag]
 
   implicit val PartyFormat: JsonFormat[http.Party] =
     taggedJsonFormat

@@ -11,13 +11,13 @@ import java.util.List;
 public interface CommandCompletionClient {
 
   Flowable<CompletionStreamResponse> completionStream(
-      String applicationId, Long offset, List<String> parties);
+      String userId, Long offset, List<String> parties);
 
   Flowable<CompletionStreamResponse> completionStream(
-      String applicationId, Long offset, List<String> parties, String accessToken);
+      String userId, Long offset, List<String> parties, String accessToken);
 
-  Flowable<CompletionStreamResponse> completionStream(String applicationId, List<String> parties);
+  Flowable<CompletionStreamResponse> completionStream(String userId, List<String> parties);
 
   Flowable<CompletionStreamResponse> completionStream(
-      String applicationId, List<String> parties, String accessToken);
+      String userId, List<String> parties, String accessToken);
 }

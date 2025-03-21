@@ -129,7 +129,7 @@ message SubmitterMetadata {
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   repeated string act_as = 2;
-  string application_id = 3;
+  string user_id = 3;
   string command_id = 4;
   string submitting_participant_uid = 5;
   string submission_id = 6; // optional; absent if not specified by submitter

@@ -207,7 +207,7 @@ class UserBasedOngoingAuthorizationSpec
       observer = delegate,
       originalClaims = ClaimSet.Claims.Empty.copy(
         resolvedFromUser = true,
-        applicationId = Some("some_user_id"),
+        userId = Some("some_user_id"),
         // the expiration claim will be invalid in the next second
         expiration = expiration,
       ),

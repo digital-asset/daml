@@ -286,7 +286,7 @@ trait ReassignmentProcessingSteps[
 
     lazy val completionInfo = CompletionInfo(
       actAs = List(submitterMetadata.submitter),
-      applicationId = submitterMetadata.applicationId,
+      userId = submitterMetadata.userId,
       commandId = submitterMetadata.commandId,
       optDeduplicationPeriod = None,
       submissionId = None,
@@ -296,7 +296,6 @@ trait ReassignmentProcessingSteps[
         completionInfo,
         rejection,
         synchronizerId.unwrap,
-        sc,
         ts,
       )
     )
@@ -314,7 +313,7 @@ trait ReassignmentProcessingSteps[
     val completionInfoO = Option.when(isSubmittingParticipant)(
       CompletionInfo(
         actAs = List(pendingReassignment.submitterMetadata.submitter),
-        applicationId = pendingReassignment.submitterMetadata.applicationId,
+        userId = pendingReassignment.submitterMetadata.userId,
         commandId = pendingReassignment.submitterMetadata.commandId,
         optDeduplicationPeriod = None,
         submissionId = pendingReassignment.submitterMetadata.submissionId,
@@ -328,7 +327,6 @@ trait ReassignmentProcessingSteps[
         info,
         rejection,
         synchronizerId.unwrap,
-        pendingReassignment.requestSequencerCounter,
         pendingReassignment.requestId.unwrap,
       )
     )

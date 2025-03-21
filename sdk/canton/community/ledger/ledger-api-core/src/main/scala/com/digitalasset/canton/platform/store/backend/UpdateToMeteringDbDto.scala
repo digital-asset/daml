@@ -34,20 +34,19 @@ object UpdateToMeteringDbDto {
         (completionInfo, transactionAccepted) <- input.iterator
           .collect { case (_, ta: TransactionAccepted) => ta }
           .flatMap(ta => ta.completionInfoO.iterator.map(_ -> ta))
-        applicationId = completionInfo.applicationId
+        userId = completionInfo.userId
         statistics = TransactionNodeStatistics(transactionAccepted.transaction, excludedPackageIds)
-      } yield (applicationId, statistics.committed.actions + statistics.rolledBack.actions)).toList
+      } yield (userId, statistics.committed.actions + statistics.rolledBack.actions)).toList
         .groupMapReduce(_._1)(_._2)(_ + _)
         .toList
         .filter(_._2 != 0)
         .sortBy(_._1)
-        .map { case (applicationId, count) =>
-          withExtraMetricLabels(IndexerMetrics.Labels.applicationId -> applicationId) {
-            implicit mc =>
-              metrics.meteredEventsMeter.mark(count.toLong)
+        .map { case (userId, count) =>
+          withExtraMetricLabels(IndexerMetrics.Labels.userId -> userId) { implicit mc =>
+            metrics.meteredEventsMeter.mark(count.toLong)
           }
           DbDto.TransactionMetering(
-            application_id = applicationId,
+            user_id = userId,
             action_count = count,
             metering_timestamp = time,
             ledger_offset = ledgerOffset,

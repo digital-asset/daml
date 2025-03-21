@@ -17,7 +17,7 @@ import com.digitalasset.canton.sequencing.protocol.{MessageId, SequencerErrors}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{BaseTest, DefaultDamlValues, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, DefaultDamlValues}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
@@ -89,9 +89,9 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
     TraceContext.empty,
   )
   lazy val sequencedSubmission1 =
-    SequencedSubmission(SequencerCounter(10), CantonTimestamp.Epoch.plusSeconds(1))
+    SequencedSubmission(CantonTimestamp.Epoch.plusSeconds(1))
   lazy val sequencedSubmission2 =
-    SequencedSubmission(SequencerCounter(20), CantonTimestamp.Epoch.plusSeconds(11))
+    SequencedSubmission(CantonTimestamp.Epoch.plusSeconds(11))
 
   def inFlightSubmissionStore(mk: () => InFlightSubmissionStore): Unit = {
 

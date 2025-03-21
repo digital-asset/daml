@@ -27,7 +27,7 @@ private[backend] trait StorageBackendTestsWriteMetering
 
     val metering = Vector(7L, 8L, 9L, 10L).map { i =>
       TransactionMetering(
-        someApplicationId,
+        someUserId,
         actionCount = 1,
         meteringTimestamp = someTime.addMicros(i),
         ledgerOffset = offset(i),
@@ -67,7 +67,7 @@ private[backend] trait StorageBackendTestsWriteMetering
       val expected = metering
         .filter(_.ledgerOffset > firstOffset)
         .filter(_.ledgerOffset <= nextLastOffset)
-        .groupMapReduce(_.applicationId)(_.actionCount)(_ + _)
+        .groupMapReduce(_.userId)(_.actionCount)(_ + _)
       val actual = executeSql(
         backend.metering.write.selectTransactionMetering(
           Some(firstOffset),
@@ -110,7 +110,7 @@ private[backend] trait StorageBackendTestsWriteMetering
 
       val expected = Vector(7L, 8L, 9L).map { i =>
         ParticipantMetering(
-          Ref.ApplicationId.assertFromString("App100"),
+          Ref.UserId.assertFromString("App100"),
           someTime.addMicros(i),
           someTime.addMicros(i + 1),
           actionCount = 1,

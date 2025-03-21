@@ -58,8 +58,8 @@ trait CantonFixtureWithResource[A]
   protected lazy val timeProviderType: TimeProviderType = TimeProviderType.WallClock
   protected lazy val tlsEnable: Boolean = false
   protected lazy val bootstrapScript: Option[String] = Option.empty
-  protected lazy val applicationId: Option[Ref.ApplicationId] =
-    Some(Ref.ApplicationId.assertFromString(getClass.getName))
+  protected lazy val userId: Option[Ref.UserId] =
+    Some(Ref.UserId.assertFromString(getClass.getName))
   protected lazy val cantonJar: Path = CantonRunner.cantonPath
   protected lazy val targetScope: Option[String] = Option.empty
 
@@ -161,7 +161,7 @@ trait CantonFixtureWithResource[A]
       token: Option[String] = None,
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   )(implicit ec: ExecutionContext): Future[LedgerClient] =
-    config.ledgerClient(ports.head, token, applicationId, maxInboundMessageSize)
+    config.ledgerClient(ports.head, token, userId, maxInboundMessageSize)
 
 }
 

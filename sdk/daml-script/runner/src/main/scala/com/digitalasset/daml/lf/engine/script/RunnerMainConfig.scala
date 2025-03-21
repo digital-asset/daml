@@ -21,7 +21,7 @@ case class RunnerMainConfig(
     // While we do have a default application id, we
     // want to differentiate between not specifying the application id
     // and specifying the default for better error messages.
-    applicationId: Option[Option[Ref.ApplicationId]],
+    userId: Option[Option[Ref.UserId]],
     uploadDar: Boolean,
 )
 
@@ -72,7 +72,7 @@ private[script] case class RunnerMainConfigIntermediate(
     // While we do have a default application id, we
     // want to differentiate between not specifying the application id
     // and specifying the default for better error messages.
-    applicationId: Option[Option[Ref.ApplicationId]],
+    userId: Option[Option[Ref.UserId]],
     uploadDar: Boolean,
 ) {
   import RunnerMainConfigIntermediate._
@@ -112,7 +112,7 @@ private[script] case class RunnerMainConfigIntermediate(
         accessTokenFile = accessTokenFile,
         tlsConfig = tlsConfig,
         maxInboundMessageSize = maxInboundMessageSize,
-        applicationId = applicationId,
+        userId = userId,
         uploadDar = uploadDar,
       )
     } yield config
@@ -232,13 +232,11 @@ private[script] object RunnerMainConfigIntermediate {
 
     opt[String]("application-id")
       .action((x, c) =>
-        c.copy(applicationId =
-          Some(Some(x).filter(_.nonEmpty).map(Ref.ApplicationId.assertFromString))
-        )
+        c.copy(userId = Some(Some(x).filter(_.nonEmpty).map(Ref.UserId.assertFromString)))
       )
       .optional()
       .text(
-        s"Application ID used to interact with the ledger. Defaults to ${Runner.DEFAULT_APPLICATION_ID}"
+        s"Application ID used to interact with the ledger. Defaults to ${Runner.DEFAULT_USER_ID}"
       )
 
     opt[Boolean]("upload-dar")
@@ -308,7 +306,7 @@ private[script] object RunnerMainConfigIntermediate {
         accessTokenFile = None,
         tlsConfig = TlsConfiguration(false, None, None, None),
         maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
-        applicationId = None,
+        userId = None,
         uploadDar = false,
       ),
     )

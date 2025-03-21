@@ -11,7 +11,7 @@ import "scalapb/scalapb.proto";
 
 message CompletionInfo {
   repeated string act_as = 1;
-  string application_id = 2;
+  string user_id = 2;
   string command_id = 3;
   com.digitalasset.canton.protocol.v30.DeduplicationPeriod opt_deduplication_period = 4;
   string submission_id = 5;

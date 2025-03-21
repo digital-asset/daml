@@ -50,6 +50,7 @@ import com.digitalasset.canton.sequencing.client.channel.SequencerChannelClient
 import com.digitalasset.canton.sequencing.handlers.EnvelopeOpener
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.SequencedEventStore.{
+  ByTimestamp,
   ByTimestampRange,
   PossiblyIgnoredSequencedEvent,
 }
@@ -752,6 +753,30 @@ final class SyncStateInspection(
           .cleanSynchronizerIndex(state.indexedSynchronizer.synchronizerId)
       )
 
+  def lookupCleanSequencerCounter(synchronizerAlias: SynchronizerAlias)(implicit
+      traceContext: TraceContext
+  ): Either[String, FutureUnlessShutdown[Option[SequencerCounter]]] =
+    getPersistentStateE(synchronizerAlias)
+      .map(state =>
+        participantNodePersistentState.value.ledgerApiStore
+          .cleanSynchronizerIndex(state.indexedSynchronizer.synchronizerId)
+          .flatMap(
+            _.flatMap(_.sequencerIndex)
+              .traverse(sequencerIndex =>
+                state.sequencedEventStore
+                  .find(ByTimestamp(sequencerIndex.sequencerTimestamp))
+                  .value
+                  .map(
+                    _.getOrElse(
+                      ErrorUtil.invalidState(
+                        s"SequencerIndex with timestamp ${sequencerIndex.sequencerTimestamp} is not found in sequenced event store"
+                      )
+                    ).counter
+                  )
+              )
+          )
+      )
+
   def requestStateInJournal(rc: RequestCounter, synchronizerAlias: SynchronizerAlias)(implicit
       traceContext: TraceContext
   ): Either[String, FutureUnlessShutdown[Option[RequestJournal.RequestData]]] =
@@ -1034,14 +1059,27 @@ final class SyncStateInspection(
         timeouts.inspection.await(functionFullName)(
           participantNodePersistentState.value.ledgerApiStore
             .cleanSynchronizerIndex(synchronizerState.indexedSynchronizer.synchronizerId)
-            .flatMap { synchronizerIndexO =>
-              val nextSequencerCounter = synchronizerIndexO
-                .flatMap(_.sequencerIndex)
-                .map(
-                  _.counter.increment
-                    .getOrElse(
-                      throw new IllegalStateException("sequencer counter cannot be increased")
+            .flatMap(
+              _.flatMap(_.sequencerIndex)
+                .traverse(sequencerIndex =>
+                  synchronizerState.sequencedEventStore
+                    .find(ByTimestamp(sequencerIndex.sequencerTimestamp))
+                    .value
+                    .map(
+                      _.getOrElse(
+                        ErrorUtil.invalidState(
+                          s"SequencerIndex with timestamp ${sequencerIndex.sequencerTimestamp} is not found in sequenced event store"
+                        )
+                      ).counter
                     )
+                )
+            )
+            .flatMap { sequencerCounterO =>
+              val nextSequencerCounter = sequencerCounterO
+                .map(
+                  _.increment.getOrElse(
+                    throw new IllegalStateException("sequencer counter cannot be increased")
+                  )
                 )
                 .getOrElse(SequencerCounter.Genesis)
               logger.info(

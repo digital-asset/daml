@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.logging.entries.LoggingEntry
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
@@ -154,7 +153,6 @@ private class JdbcLedgerDao(
               completionInfo = info,
               reasonTemplate = reason,
               synchronizerId = SynchronizerId.tryFromString("invalid::deadbeef"),
-              sequencerCounter = SequencerCounter(1),
             )
           ),
         )
@@ -475,7 +473,6 @@ private class JdbcLedgerDao(
                 override def iterator: Iterator[(ContractId, Bytes)] = Iterator.empty
               }, // only for tests
               synchronizerId = SynchronizerId.tryFromString("invalid::deadbeef"),
-              sequencerCounter = SequencerCounter(1),
               recordTime = CantonTimestamp(recordTime),
             )
           ),
@@ -488,10 +485,10 @@ private class JdbcLedgerDao(
   override def meteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
-      applicationId: Option[ApplicationId],
+      userId: Option[UserId],
   )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData] =
     dbDispatcher.executeSql(metrics.index.db.lookupConfiguration)(
-      readStorageBackend.meteringStorageBackend.reportData(from, to, applicationId)
+      readStorageBackend.meteringStorageBackend.reportData(from, to, userId)
     )
 }
 

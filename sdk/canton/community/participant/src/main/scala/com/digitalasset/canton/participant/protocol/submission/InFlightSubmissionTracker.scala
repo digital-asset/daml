@@ -78,13 +78,10 @@ class InFlightSubmissionTracker(
               messageId = MessageId.fromUuid(messageUuid),
             )
 
-          case PublishSource.Sequencer(requestSequencerCounter, sequencerTimestamp) =>
+          case PublishSource.Sequencer(sequencerTimestamp) =>
             InFlightBySequencingInfo(
               synchronizerId = publication.submissionSynchronizerId,
-              sequenced = SequencedSubmission(
-                sequencerCounter = requestSequencerCounter,
-                sequencingTime = sequencerTimestamp,
-              ),
+              sequenced = SequencedSubmission(sequencerTimestamp),
             )
         }
       )

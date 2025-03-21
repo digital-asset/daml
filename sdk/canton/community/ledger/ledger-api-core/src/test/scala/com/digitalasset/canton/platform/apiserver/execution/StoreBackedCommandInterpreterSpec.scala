@@ -151,7 +151,7 @@ class StoreBackedCommandInterpreterSpec
   ) =
     Commands(
       workflowId = None,
-      applicationId = Ref.ApplicationId.assertFromString("applicationId"),
+      userId = Ref.UserId.assertFromString("userId"),
       commandId = CommandId(Ref.CommandId.assertFromString("commandId")),
       submissionId = None,
       actAs = Set.empty,
@@ -334,7 +334,7 @@ class StoreBackedCommandInterpreterSpec
 
       val commands = Commands(
         workflowId = None,
-        applicationId = Ref.ApplicationId.assertFromString("applicationId"),
+        userId = Ref.UserId.assertFromString("userId"),
         commandId = CommandId(Ref.CommandId.assertFromString("commandId")),
         submissionId = None,
         actAs = Set.empty,

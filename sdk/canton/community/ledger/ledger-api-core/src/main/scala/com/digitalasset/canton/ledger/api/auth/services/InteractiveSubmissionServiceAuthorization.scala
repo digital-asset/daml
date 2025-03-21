@@ -39,7 +39,7 @@ final class InteractiveSubmissionServiceAuthorization(
       RequiredClaims.submissionClaims(
         actAs = Set.empty, // At preparation time the actAs parties are only reading
         readAs = effectiveSubmitters.readAs ++ effectiveSubmitters.actAs,
-        applicationIdL = Lens.unit[PrepareSubmissionRequest].applicationId,
+        userIdL = Lens.unit[PrepareSubmissionRequest].userId,
       )*
     )(request)
   }
@@ -59,7 +59,7 @@ final class InteractiveSubmissionServiceAuthorization(
       RequiredClaims.submissionClaims(
         actAs = actAs.toSet[String],
         readAs = Set.empty[String],
-        applicationIdL = Lens.unit[ExecuteSubmissionRequest].applicationId,
+        userIdL = Lens.unit[ExecuteSubmissionRequest].userId,
       )*
     )(request)
   }

@@ -20,7 +20,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.version.HashingSchemeVersion
-import com.digitalasset.daml.lf.data.Ref.{ApplicationId, SubmissionId}
+import com.digitalasset.daml.lf.data.Ref.{SubmissionId, UserId}
 import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKey, SubmittedTransaction}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -39,7 +39,7 @@ object InteractiveSubmissionService {
   )
 
   final case class ExecuteRequest(
-      applicationId: ApplicationId,
+      userId: UserId,
       submissionId: SubmissionId,
       deduplicationPeriod: DeduplicationPeriod,
       signatures: Map[PartyId, Seq[Signature]],

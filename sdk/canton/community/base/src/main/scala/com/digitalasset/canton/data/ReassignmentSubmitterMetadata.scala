@@ -19,7 +19,7 @@ final case class ReassignmentSubmitterMetadata(
     submittingParticipant: ParticipantId,
     commandId: LedgerCommandId,
     submissionId: Option[LedgerSubmissionId],
-    applicationId: LedgerApplicationId,
+    userId: LedgerUserId,
     workflowId: Option[LfWorkflowId],
 ) extends PrettyPrinting
     with HasSubmissionTrackerData {
@@ -32,7 +32,7 @@ final case class ReassignmentSubmitterMetadata(
       submittingParticipantUid = submittingParticipant.uid.toProtoPrimitive,
       commandId = commandId,
       submissionId = submissionId.getOrElse(""),
-      applicationId = applicationId,
+      userId = userId,
       workflowId = workflowId.getOrElse(""),
     )
 
@@ -41,7 +41,7 @@ final case class ReassignmentSubmitterMetadata(
     param("submitting participant", _.submittingParticipant),
     param("command id", _.commandId),
     paramIfDefined("submission id", _.submissionId),
-    param("application id", _.applicationId),
+    param("user id", _.userId),
     param("workflow id", _.workflowId),
   )
 
@@ -57,7 +57,7 @@ object ReassignmentSubmitterMetadata {
       submittingParticipantP,
       commandIdP,
       submissionIdP,
-      applicationIdP,
+      userIdP,
       workflowIdP,
     ) = reassignmentSubmitterMetadataP
 
@@ -69,14 +69,14 @@ object ReassignmentSubmitterMetadata {
           .map(ParticipantId(_))
       commandId <- ProtoConverter.parseCommandId(commandIdP)
       submissionId <- ProtoConverter.parseLFSubmissionIdO(submissionIdP)
-      applicationId <- ProtoConverter.parseLFApplicationId(applicationIdP)
+      userId <- ProtoConverter.parseLFUserId(userIdP)
       workflowId <- ProtoConverter.parseLFWorkflowIdO(workflowIdP)
     } yield ReassignmentSubmitterMetadata(
       submitter,
       submittingParticipant,
       commandId,
       submissionId,
-      applicationId,
+      userId,
       workflowId,
     )
   }

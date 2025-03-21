@@ -89,7 +89,7 @@ class CommandClientImplTest
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
 
-      service.getLastCommands.value.applicationId shouldBe params.getApplicationId
+      service.getLastCommands.value.userId shouldBe params.getUserId
       service.getLastCommands.value.commandId shouldBe params.getCommandId
       service.getLastCommands.value.actAs shouldBe params.getActAs.asScala
       service.getLastCommands.value.readAs shouldBe params.getReadAs.asScala

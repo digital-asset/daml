@@ -47,8 +47,8 @@ final class MeteringAggregatorSpec
 
   "MeteringAggregator" should {
 
-    val applicationA = Ref.ApplicationId.assertFromString("appA")
-    val applicationB = Ref.ApplicationId.assertFromString("appB")
+    val userA = Ref.UserId.assertFromString("appA")
+    val userB = Ref.UserId.assertFromString("appB")
 
     class TestSetup {
 
@@ -90,7 +90,7 @@ final class MeteringAggregatorSpec
       ): Future[Unit] = {
 
         val applicationCounts = transactionMetering
-          .groupMapReduce(_.applicationId)(_.actionCount)(_ + _)
+          .groupMapReduce(_.userId)(_.actionCount)(_ + _)
 
         val ledgerEndOffset: Offset =
           (maybeLedgerEnd, transactionMetering.lastOption) match {
@@ -145,7 +145,7 @@ final class MeteringAggregatorSpec
 
       val transactionMetering = Vector(10, 15, 20).map { i =>
         TransactionMetering(
-          applicationId = applicationA,
+          userId = userA,
           actionCount = i,
           meteringTimestamp = toTS(lastAggEndTime.plusMinutes(i.toLong)),
           ledgerOffset = Offset.tryFromLong(i.toLong),
@@ -153,7 +153,7 @@ final class MeteringAggregatorSpec
       }
 
       val expected: ParticipantMetering = ParticipantMetering(
-        applicationId = applicationA,
+        userId = userA,
         from = toTS(lastAggEndTime),
         to = toTS(nextAggEndTime),
         actionCount = transactionMetering.map(_.actionCount).sum,
@@ -182,13 +182,13 @@ final class MeteringAggregatorSpec
       verifyNoMoreInteractions(meteringStore)
     }
 
-    "aggregate over multiple applications" in new TestSetup {
+    "aggregate over multiple users" in new TestSetup {
 
-      val expected = Set(applicationA, applicationB)
+      val expected = Set(userA, userB)
 
       val transactionMetering = expected.toVector.map { a =>
         TransactionMetering(
-          applicationId = a,
+          userId = a,
           actionCount = 1,
           meteringTimestamp = toTS(lastAggEndTime.plusMinutes(1)),
           ledgerOffset = Offset.tryFromLong(16L),
@@ -199,7 +199,7 @@ final class MeteringAggregatorSpec
 
       val participantMeteringCaptor = ArgCaptor[Vector[ParticipantMetering]]
       verify(meteringStore).insertParticipantMetering(participantMeteringCaptor)(any[Connection])
-      participantMeteringCaptor.value.map(_.applicationId).toSet shouldBe expected
+      participantMeteringCaptor.value.map(_.userId).toSet shouldBe expected
 
     }
 
@@ -217,7 +217,7 @@ final class MeteringAggregatorSpec
 
       val transactionMetering = Vector(
         TransactionMetering(
-          applicationId = applicationA,
+          userId = userA,
           actionCount = 1,
           meteringTimestamp = toTS(lastAggEndTime.plusMinutes(1)),
           ledgerOffset = Offset.tryFromLong(3L),

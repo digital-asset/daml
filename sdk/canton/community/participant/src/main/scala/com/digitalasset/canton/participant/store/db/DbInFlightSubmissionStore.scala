@@ -85,7 +85,7 @@ class DbInFlightSubmissionStore(
   ): FutureUnlessShutdown[Seq[InFlightSubmission[SequencedSubmission]]] = {
     val query =
       sql"""
-        select change_id_hash, submission_id, submission_synchronizer_id, message_id, root_hash_hex, sequencer_counter, sequencing_time, trace_context
+        select change_id_hash, submission_id, submission_synchronizer_id, message_id, root_hash_hex, sequencing_time, trace_context
         from par_in_flight_submission where submission_synchronizer_id = $synchronizerId and sequencing_time <= $sequencingTimeInclusive
         """.as[InFlightSubmission[SequencedSubmission]]
     storage.query(query, "lookup sequenced in-flight submission")
@@ -96,7 +96,7 @@ class DbInFlightSubmissionStore(
   ): FutureUnlessShutdown[Option[InFlightSubmission[SubmissionSequencingInfo]]] = {
     val query =
       sql"""
-        select change_id_hash, submission_id, submission_synchronizer_id, message_id, root_hash_hex, sequencing_timeout, sequencer_counter, sequencing_time, tracking_data, trace_context
+        select change_id_hash, submission_id, submission_synchronizer_id, message_id, root_hash_hex, sequencing_timeout, sequencing_time, tracking_data, trace_context
         from par_in_flight_submission where submission_synchronizer_id = $synchronizerId and message_id = $messageId
         #${storage.limit(1)}
         """.as[InFlightSubmission[SubmissionSequencingInfo]].headOption
@@ -164,13 +164,12 @@ class DbInFlightSubmissionStore(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val updateQuery =
       """update par_in_flight_submission
-         set sequencing_timeout = null, tracking_data = null, sequencer_counter = ?, sequencing_time = ?
+         set sequencing_timeout = null, tracking_data = null, sequencing_time = ?
          where submission_synchronizer_id = ? and message_id = ? and sequencing_timeout is not null
       """
     val batchUpdate = DbStorage.bulkOperation_(updateQuery, submissions.toSeq, storage.profile) {
       pp => submission =>
-        val (messageId, SequencedSubmission(sequencerCounter, sequencingTime)) = submission
-        pp >> sequencerCounter
+        val (messageId, SequencedSubmission(sequencingTime)) = submission
         pp >> sequencingTime
         pp >> synchronizerId
         pp >> messageId
@@ -201,9 +200,8 @@ class DbInFlightSubmissionStore(
         ): FutureUnlessShutdown[Iterable[Unit]] = {
           def setParams(pp: PositionedParameters)(data: Traced[SequencedRootHash]): Unit = {
             val Traced(SequencedRootHash(rootHash, submission)) = data
-            val SequencedSubmission(sc, ts) = submission
+            val SequencedSubmission(ts) = submission
 
-            pp >> sc
             pp >> ts
             pp >> rootHash
             pp >> ts
@@ -211,7 +209,7 @@ class DbInFlightSubmissionStore(
 
           val action = DbStorage.bulkOperation_(
             """update par_in_flight_submission
-               set sequencing_timeout = null, tracking_data = null, sequencer_counter = ?, sequencing_time = ?
+               set sequencing_timeout = null, tracking_data = null, sequencing_time = ?
                where root_hash_hex = ? and (sequencing_timeout is not null or ? < sequencing_time)
             """,
             items,
@@ -255,14 +253,13 @@ class DbInFlightSubmissionStore(
     }
 
     val bySequencingQuery =
-      "delete from par_in_flight_submission where submission_synchronizer_id = ? and sequencing_time = ? and sequencer_counter = ?"
+      "delete from par_in_flight_submission where submission_synchronizer_id = ? and sequencing_time = ?"
     val batchBySequencing =
       DbStorage.bulkOperation_(bySequencingQuery, bySequencing, storage.profile) {
         pp => submission =>
           val InFlightBySequencingInfo(synchronizerId, sequenced) = submission
           pp >> synchronizerId
           pp >> sequenced.sequencingTime
-          pp >> sequenced.sequencerCounter
       }
 
     // No need for synchronous commits across DB replicas because this is driven off the Ledger API Indexer,
@@ -345,7 +342,7 @@ class DbInFlightSubmissionStore(
       changeIdHash: ChangeIdHash
   ): DbAction.ReadTransactional[Option[InFlightSubmission[SubmissionSequencingInfo]]] =
     sql"""
-        select change_id_hash, submission_id, submission_synchronizer_id, message_id, root_hash_hex, sequencing_timeout, sequencer_counter, sequencing_time, tracking_data, trace_context
+        select change_id_hash, submission_id, submission_synchronizer_id, message_id, root_hash_hex, sequencing_timeout, sequencing_time, tracking_data, trace_context
         from par_in_flight_submission where change_id_hash = $changeIdHash
         """.as[InFlightSubmission[SubmissionSequencingInfo]].headOption
 }
@@ -440,11 +437,11 @@ object DbInFlightSubmissionStore {
         """insert into par_in_flight_submission(
              change_id_hash, submission_id,
              submission_synchronizer_id, message_id, root_hash_hex,
-             sequencing_timeout, sequencer_counter, sequencing_time, tracking_data,
+             sequencing_timeout, sequencing_time, tracking_data,
              trace_context)
            values (?, ?,
                    ?, ?, ?,
-                   ?, NULL, NULL, ?,
+                   ?, NULL, ?,
                    ?)
            on conflict do nothing"""
       implicit val loggingContext: ErrorLoggingContext =
@@ -491,7 +488,7 @@ object DbInFlightSubmissionStore {
     ): ReadOnly[immutable.Iterable[CheckData]] = {
       import DbStorage.Implicits.BuilderChain.*
       val query = sql"""
-              select change_id_hash, submission_id, submission_synchronizer_id, message_id, root_hash_hex, sequencing_timeout, sequencer_counter, sequencing_time, tracking_data, trace_context
+              select change_id_hash, submission_id, submission_synchronizer_id, message_id, root_hash_hex, sequencing_timeout, sequencing_time, tracking_data, trace_context
               from par_in_flight_submission where """ ++ DbStorage.toInClause(
         "change_id_hash",
         submissionsToCheck,

@@ -195,7 +195,7 @@ class StreamAuthorizationComponentSpec
     val claimSetFixture = ClaimSet.Claims(
       claims = List[Claim](ClaimPublic, ClaimReadAsParty(partyId1), ClaimReadAsParty(partyId2)),
       participantId = Some(participantId),
-      applicationId = Some(userId),
+      userId = Some(userId),
       expiration = Some(nowRef.get().plusSeconds(10)),
       identityProviderId = None,
       resolvedFromUser = true,

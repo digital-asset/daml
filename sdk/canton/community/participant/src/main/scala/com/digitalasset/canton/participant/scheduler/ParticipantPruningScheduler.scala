@@ -258,7 +258,7 @@ final class ParticipantPruningScheduler(
 
   private def buildLedgerClient()(implicit traceContext: TraceContext): Future[LedgerClient] = {
     val clientConfig = LedgerClientConfiguration(
-      applicationId = "admin-prune",
+      userId = "admin-prune",
       commandClient = CommandClientConfiguration.default,
       token = Some(adminToken.secret),
     )

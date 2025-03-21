@@ -47,9 +47,9 @@ package object http {
   type ResolvedContractRef[LfV] =
     (ContractTypeId.Template.RequiredPkg, LfV) \/ (ContractTypeId.RequiredPkg, ContractId)
 
-  type ApplicationIdTag = lar.ApplicationIdTag
-  type ApplicationId = lar.ApplicationId
-  val ApplicationId = lar.ApplicationId
+  type UserIdTag = lar.UserIdTag
+  type UserId = lar.UserId
+  val UserId = lar.UserId
 
   type Choice = lar.Choice
   val Choice = lar.Choice
@@ -97,7 +97,7 @@ package http {
   trait JwtPayloadTag
 
   trait JwtPayloadG {
-    val applicationId: ApplicationId
+    val userId: UserId
     val readAs: List[Party]
     val actAs: List[Party]
     val parties: PartySet
@@ -107,7 +107,7 @@ package http {
   // (only the first one is used for pre-multiparty ledgers)
   // but we can have multiple parties in readAs.
   final case class JwtWritePayload(
-      applicationId: ApplicationId,
+      userId: UserId,
       submitter: NonEmptyList[Party],
       readAs: List[Party],
   ) extends JwtPayloadG {
@@ -119,7 +119,7 @@ package http {
 // As with JwtWritePayload, but supports empty `actAs`.  At least one of
 // `actAs` or `readAs` must be non-empty.
   sealed abstract case class JwtPayload private (
-      applicationId: ApplicationId,
+      userId: UserId,
       readAs: List[Party],
       actAs: List[Party],
       parties: PartySet,
@@ -127,14 +127,14 @@ package http {
 
   object JwtPayload {
     def apply(
-        applicationId: ApplicationId,
+        userId: UserId,
         readAs: List[Party],
         actAs: List[Party],
     ): Option[JwtPayload] =
       (readAs ++ actAs) match {
         case NonEmpty(ps) =>
           Some(
-            new JwtPayload(applicationId, readAs, actAs, ps.toSet) {}
+            new JwtPayload(userId, readAs, actAs, ps.toSet) {}
           )
         case _ => None
       }

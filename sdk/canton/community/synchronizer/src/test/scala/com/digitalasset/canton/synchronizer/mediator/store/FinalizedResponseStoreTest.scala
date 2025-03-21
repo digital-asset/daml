@@ -25,7 +25,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.HasTestCloseContext
-import com.digitalasset.canton.{ApplicationId, BaseTest, CommandId, LfPartyId}
+import com.digitalasset.canton.{BaseTest, CommandId, LfPartyId, UserId}
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, BeforeAndAfterAll}
 
@@ -69,7 +69,7 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
     )
     val submitterMetadata = SubmitterMetadata(
       NonEmpty(Set, alice),
-      ApplicationId.assertFromString("kaese"),
+      UserId.assertFromString("kaese"),
       CommandId.assertFromString("wurst"),
       participantId,
       salt = s(6638),

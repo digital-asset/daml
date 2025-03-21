@@ -168,7 +168,7 @@ class AuthServicePrivilegedJWT private[auth] (
         claims = claims,
         identityProviderId = None,
         participantId = payload.participantId,
-        applicationId = Option.when(payload.userId.nonEmpty)(payload.userId),
+        userId = Option.when(payload.userId.nonEmpty)(payload.userId),
         expiration = payload.exp,
         resolvedFromUser = false,
       )

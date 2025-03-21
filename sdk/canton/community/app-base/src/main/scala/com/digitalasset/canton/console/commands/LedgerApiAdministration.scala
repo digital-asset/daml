@@ -112,13 +112,13 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
 
   protected val name: String
 
-  protected lazy val applicationId: String = token
+  protected lazy val userId: String = token
     .flatMap(encodedToken => JwtDecoder.decode(Jwt(encodedToken)).toOption)
     .flatMap(decodedToken => AuthServiceJWTCodec.readFromString(decodedToken.payload).toOption)
     .map { case s: StandardJWTPayload =>
       s.userId
     }
-    .getOrElse(LedgerApiCommands.defaultApplicationId)
+    .getOrElse(LedgerApiCommands.defaultUserId)
 
   protected def optionallyAwait[Tx](
       tx: Tx,
@@ -637,7 +637,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           minLedgerTimeAbs: Option[Instant] = None,
           readAs: Seq[PartyId] = Seq.empty,
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
-          applicationId: String = applicationId,
+          userId: String = userId,
           userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
           verboseHashing: Boolean = false,
           prefetchContractKeys: Seq[PrefetchContractKey] = Seq.empty,
@@ -652,7 +652,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               minLedgerTimeAbs,
               disclosedContracts,
               synchronizerId,
-              applicationId,
+              userId,
               userPackageSelectionPreference,
               verboseHashing,
               prefetchContractKeys,
@@ -676,7 +676,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           transactionSignatures: Map[PartyId, Seq[Signature]],
           submissionId: String,
           hashingSchemeVersion: HashingSchemeVersion,
-          applicationId: String = applicationId,
+          userId: String = userId,
           deduplicationPeriod: Option[DeduplicationPeriod] = None,
           minLedgerTimeAbs: Option[Instant] = None,
       ): ExecuteResponseProto =
@@ -686,7 +686,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               preparedTransaction,
               transactionSignatures,
               submissionId = submissionId,
-              applicationId = applicationId,
+              userId = userId,
               deduplicationPeriod = deduplicationPeriod,
               minLedgerTimeAbs = minLedgerTimeAbs,
               hashingSchemeVersion = hashingSchemeVersion,
@@ -725,7 +725,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           minLedgerTimeAbs: Option[Instant] = None,
           readAs: Seq[PartyId] = Seq.empty,
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
-          applicationId: String = applicationId,
+          userId: String = userId,
           userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
       ): TransactionTreeProto = {
         val tx = consoleEnvironment.run {
@@ -741,7 +741,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               minLedgerTimeAbs,
               disclosedContracts,
               synchronizerId,
-              applicationId,
+              userId,
               userPackageSelectionPreference,
             )
           )
@@ -775,7 +775,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           minLedgerTimeAbs: Option[Instant] = None,
           readAs: Seq[PartyId] = Seq.empty,
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
-          applicationId: String = applicationId,
+          userId: String = userId,
           userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
       ): TransactionV2 = {
         val tx = consoleEnvironment.run {
@@ -791,7 +791,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               minLedgerTimeAbs,
               disclosedContracts,
               synchronizerId,
-              applicationId,
+              userId,
               userPackageSelectionPreference,
             )
           )
@@ -815,7 +815,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           minLedgerTimeAbs: Option[Instant] = None,
           readAs: Seq[PartyId] = Seq.empty,
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
-          applicationId: String = applicationId,
+          userId: String = userId,
           userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
       ): Unit = check(FeatureFlag.Testing) {
         consoleEnvironment.run {
@@ -831,7 +831,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               minLedgerTimeAbs,
               disclosedContracts,
               synchronizerId,
-              applicationId,
+              userId,
               userPackageSelectionPreference,
             )
           )
@@ -886,7 +886,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           source: SynchronizerId,
           target: SynchronizerId,
           workflowId: String = "",
-          applicationId: String = applicationId,
+          userId: String = userId,
           submissionId: String = UUID.randomUUID().toString,
           waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
@@ -898,7 +898,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             source = source,
             target = target,
             workflowId = workflowId,
-            applicationId = applicationId,
+            userId = userId,
             commandId = commandId,
             submissionId = submissionId,
           )
@@ -925,7 +925,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           source: SynchronizerId,
           target: SynchronizerId,
           workflowId: String = "",
-          applicationId: String = applicationId,
+          userId: String = userId,
           submissionId: String = UUID.randomUUID().toString,
           waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
@@ -937,7 +937,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             source = source,
             target = target,
             workflowId = workflowId,
-            applicationId = applicationId,
+            userId = userId,
             commandId = commandId,
             submissionId = submissionId,
           )
@@ -960,7 +960,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           source: SynchronizerId,
           target: SynchronizerId,
           workflowId: String = "",
-          applicationId: String = applicationId,
+          userId: String = userId,
           submissionId: String = UUID.randomUUID().toString,
           waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
@@ -971,7 +971,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           source,
           target,
           workflowId,
-          applicationId,
+          userId,
           submissionId,
           waitForParticipants,
           timeout,
@@ -982,7 +982,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           source,
           target,
           workflowId,
-          applicationId,
+          userId,
           submissionId,
           waitForParticipants,
           timeout,
@@ -1037,7 +1037,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           source: SynchronizerId,
           target: SynchronizerId,
           workflowId: String = "",
-          applicationId: String = applicationId,
+          userId: String = userId,
           commandId: String = UUID.randomUUID().toString,
           submissionId: String = UUID.randomUUID().toString,
       ): Unit = check(FeatureFlag.Testing) {
@@ -1045,7 +1045,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           ledgerApiCommand(
             LedgerApiCommands.CommandSubmissionService.SubmitAssignCommand(
               workflowId = workflowId,
-              applicationId = applicationId,
+              userId = userId,
               commandId = commandId,
               submitter = submitter.toLf,
               submissionId = submissionId,
@@ -1068,7 +1068,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           source: SynchronizerId,
           target: SynchronizerId,
           workflowId: String = "",
-          applicationId: String = applicationId,
+          userId: String = userId,
           commandId: String = UUID.randomUUID().toString,
           submissionId: String = UUID.randomUUID().toString,
       ): Unit = check(FeatureFlag.Testing) {
@@ -1076,7 +1076,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           ledgerApiCommand(
             LedgerApiCommands.CommandSubmissionService.SubmitUnassignCommand(
               workflowId = workflowId,
-              applicationId = applicationId,
+              userId = userId,
               commandId = commandId,
               submitter = submitter.toLf,
               submissionId = submissionId,
@@ -1598,7 +1598,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           partyId: PartyId,
           atLeastNumCompletions: Int,
           beginOffsetExclusive: Long,
-          applicationId: String = applicationId,
+          userId: String = userId,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           filter: Completion => Boolean = _ => true,
       ): Seq[Completion] =
@@ -1609,7 +1609,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               beginOffsetExclusive,
               atLeastNumCompletions,
               timeout.asJavaApproximation,
-              applicationId,
+              userId,
             )(filter, consoleEnvironment.environment.scheduler)
           )
         })
@@ -1627,7 +1627,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           observer: StreamObserver[Completion],
           parties: Seq[PartyId],
           beginOffsetExclusive: Long = 0L,
-          applicationId: String = applicationId,
+          userId: String = userId,
       ): AutoCloseable =
         check(FeatureFlag.Testing)(
           consoleEnvironment.run {
@@ -1636,7 +1636,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 observer,
                 parties.map(_.toLf),
                 beginOffsetExclusive,
-                applicationId,
+                userId,
               )
             )
           }
@@ -1741,7 +1741,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
 
       @Help.Summary("Create a user with the given id", FeatureFlag.Testing)
       @Help.Description(
-        """Users are used to dynamically managing the rights given to Daml applications.
+        """Users are used to dynamically managing the rights given to Daml users.
           |They allow us to link a stable local identifier (of an application) with a set of parties.
           id: the id used to identify the given user
           actAs: the set of parties this user is allowed to act as
@@ -2025,19 +2025,19 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
       @Help.Description("""Returns the current ledger metering report
            from: required from timestamp (inclusive)
            to: optional to timestamp
-           application_id: optional application id to which we want to restrict the report
+           user_id: optional user id to which we want to restrict the report
           """)
       def get_report(
           from: CantonTimestamp,
           to: Option[CantonTimestamp] = None,
-          applicationId: Option[String] = None,
+          userId: Option[String] = None,
       ): String =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.Metering.GetReport(
               from,
               to,
-              applicationId,
+              userId,
             )
           )
         })
@@ -2107,7 +2107,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             minLedgerTimeAbs: Option[Instant] = None,
             readAs: Seq[PartyId] = Seq.empty,
             disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
-            applicationId: String = applicationId,
+            userId: String = userId,
             userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
             verboseHashing: Boolean = false,
             prefetchContractKeys: Seq[javab.data.PrefetchContractKey] = Seq.empty,
@@ -2122,7 +2122,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 minLedgerTimeAbs,
                 disclosedContracts.map(c => DisclosedContract.fromJavaProto(c.toProto)),
                 synchronizerId,
-                applicationId,
+                userId,
                 userPackageSelectionPreference,
                 verboseHashing,
                 prefetchContractKeys.map(k => PrefetchContractKey.fromJavaProto(k.toProto)),
@@ -2161,7 +2161,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             minLedgerTimeAbs: Option[Instant] = None,
             readAs: Seq[PartyId] = Seq.empty,
             disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
-            applicationId: String = applicationId,
+            userId: String = userId,
             userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
         ): TransactionTree = check(FeatureFlag.Testing) {
           val tx = consoleEnvironment.run {
@@ -2177,7 +2177,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 minLedgerTimeAbs,
                 disclosedContracts.map(c => DisclosedContract.fromJavaProto(c.toProto)),
                 synchronizerId,
-                applicationId,
+                userId,
                 userPackageSelectionPreference,
               )
             )
@@ -2216,7 +2216,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             minLedgerTimeAbs: Option[Instant] = None,
             readAs: Seq[PartyId] = Seq.empty,
             disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
-            applicationId: String = applicationId,
+            userId: String = userId,
             userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
         ): Transaction = check(FeatureFlag.Testing) {
           val tx = consoleEnvironment.run {
@@ -2232,7 +2232,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 minLedgerTimeAbs,
                 disclosedContracts.map(c => DisclosedContract.fromJavaProto(c.toProto)),
                 synchronizerId,
-                applicationId,
+                userId,
                 userPackageSelectionPreference,
               )
             )
@@ -2260,7 +2260,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             minLedgerTimeAbs: Option[Instant] = None,
             readAs: Seq[PartyId] = Seq.empty,
             disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
-            applicationId: String = applicationId,
+            userId: String = userId,
         ): Unit =
           ledger_api.commands.submit_async(
             actAs,
@@ -2273,7 +2273,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             minLedgerTimeAbs,
             readAs,
             disclosedContracts.map(c => DisclosedContract.fromJavaProto(c.toProto)),
-            applicationId,
+            userId,
           )
 
         @Help.Summary(
@@ -2293,7 +2293,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             source: SynchronizerId,
             target: SynchronizerId,
             workflowId: String = "",
-            applicationId: String = applicationId,
+            userId: String = userId,
             submissionId: String = UUID.randomUUID().toString,
             waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
@@ -2305,7 +2305,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               source,
               target,
               workflowId,
-              applicationId,
+              userId,
               submissionId,
               waitForParticipants,
               timeout,
@@ -2332,7 +2332,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             source: SynchronizerId,
             target: SynchronizerId,
             workflowId: String = "",
-            applicationId: String = applicationId,
+            userId: String = userId,
             submissionId: String = UUID.randomUUID().toString,
             waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
@@ -2344,7 +2344,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               source,
               target,
               workflowId,
-              applicationId,
+              userId,
               submissionId,
               waitForParticipants,
               timeout,

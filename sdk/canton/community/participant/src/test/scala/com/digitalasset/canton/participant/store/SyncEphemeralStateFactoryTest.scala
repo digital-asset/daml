@@ -89,10 +89,7 @@ class SyncEphemeralStateFactoryTest
             ses,
             Some(
               SynchronizerIndex.of(
-                SequencerIndex(
-                  counter = sc,
-                  timestamp = ts,
-                )
+                SequencerIndex(ts)
               )
             ),
           )
@@ -142,10 +139,7 @@ class SyncEphemeralStateFactoryTest
             ses,
             Some(
               SynchronizerIndex.of(
-                SequencerIndex(
-                  counter = sc,
-                  timestamp = ts0,
-                )
+                SequencerIndex(ts0)
               )
             ),
           )
@@ -154,10 +148,7 @@ class SyncEphemeralStateFactoryTest
             ses,
             Some(
               SynchronizerIndex.of(
-                SequencerIndex(
-                  counter = sc + 1L,
-                  timestamp = ts1,
-                )
+                SequencerIndex(ts1)
               )
             ),
           )
@@ -165,10 +156,7 @@ class SyncEphemeralStateFactoryTest
             SynchronizerIndex(
               repairIndex = None,
               sequencerIndex = Some(
-                SequencerIndex(
-                  counter = sc + 3L,
-                  timestamp = ts3,
-                )
+                SequencerIndex(ts3)
               ),
               recordTime = ts3,
             )
@@ -197,10 +185,7 @@ class SyncEphemeralStateFactoryTest
               SynchronizerIndex(
                 repairIndex = None,
                 sequencerIndex = Some(
-                  SequencerIndex(
-                    counter = sc + 4L,
-                    timestamp = ts4,
-                  )
+                  SequencerIndex(ts4)
                 ),
                 recordTime = ts4,
               )
@@ -316,10 +301,7 @@ class SyncEphemeralStateFactoryTest
               ses,
               Some(
                 SynchronizerIndex.of(
-                  SequencerIndex(
-                    counter = sc,
-                    timestamp = ts0,
-                  )
+                  SequencerIndex(ts0)
                 )
               ),
             )
@@ -328,10 +310,7 @@ class SyncEphemeralStateFactoryTest
               ses,
               Some(
                 SynchronizerIndex.of(
-                  SequencerIndex(
-                    counter = sc + 1L,
-                    timestamp = ts1,
-                  )
+                  SequencerIndex(ts1)
                 )
               ),
             )
@@ -378,7 +357,11 @@ class SyncEphemeralStateFactoryTest
 
           for {
             _ <- ses.store(
-              Seq(dummyEvent(synchronizerId)(sc, ts0), dummyEvent(synchronizerId)(sc + 1L, ts1))
+              Seq(
+                dummyEvent(synchronizerId)(sc, ts0),
+                dummyEvent(synchronizerId)(sc + 1L, ts1),
+                dummyEvent(synchronizerId)(sc + 2L, ts2),
+              )
             )
             noRepair <- SyncEphemeralStateFactory.startingPoints(
               rjs,
@@ -387,10 +370,7 @@ class SyncEphemeralStateFactoryTest
                 SynchronizerIndex(
                   repairIndex = None,
                   sequencerIndex = Some(
-                    SequencerIndex(
-                      counter = sc,
-                      timestamp = ts0,
-                    )
+                    SequencerIndex(ts0)
                   ),
                   recordTime = ts0,
                 )
@@ -408,10 +388,7 @@ class SyncEphemeralStateFactoryTest
                     )
                   ),
                   sequencerIndex = Some(
-                    SequencerIndex(
-                      counter = sc + 1L,
-                      timestamp = ts1,
-                    )
+                    SequencerIndex(ts1)
                   ),
                   recordTime = ts1,
                 )
@@ -445,10 +422,7 @@ class SyncEphemeralStateFactoryTest
                     )
                   ),
                   sequencerIndex = Some(
-                    SequencerIndex(
-                      counter = sc,
-                      timestamp = ts2,
-                    )
+                    SequencerIndex(ts2)
                   ),
                   recordTime = ts2,
                 )
@@ -494,12 +468,12 @@ class SyncEphemeralStateFactoryTest
             )
             repairFollowedBySequencedEvent.cleanReplay shouldBe MessageCleanReplayStartingPoint(
               RequestCounter.Genesis,
-              sc + 1L,
+              sc + 3L,
               ts2,
             )
             repairFollowedBySequencedEvent.processing shouldBe MessageProcessingStartingPoint(
               RequestCounter.Genesis,
-              sc + 1L,
+              sc + 3L,
               ts2,
               ts2,
               RepairCounter.Genesis, // repair counter starts a genesis at the new record time ts2

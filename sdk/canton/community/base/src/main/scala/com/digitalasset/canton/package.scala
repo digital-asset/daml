@@ -37,17 +37,13 @@ package object canton {
   type LedgerCommandId = Ref.CommandId
   val LedgerCommandId: Ref.CommandId.type = Ref.CommandId
 
-  // Ledger application id
-  type LedgerApplicationId = Ref.ApplicationId
-  val LedgerApplicationId: Ref.ApplicationId.type = Ref.ApplicationId
+  // Ledger user id
+  type LedgerUserId = Ref.UserId
+  val LedgerUserId: Ref.UserId.type = Ref.UserId
 
   // Ledger transaction id
   type LedgerTransactionId = Ref.TransactionId
   val LedgerTransactionId: Ref.TransactionId.type = Ref.TransactionId
-
-  // Application Id
-  type LfApplicationId = Ref.ApplicationId
-  val LfApplicationId: Ref.ApplicationId.type = Ref.ApplicationId
 
   // Command Id
   type LfCommandId = Ref.CommandId

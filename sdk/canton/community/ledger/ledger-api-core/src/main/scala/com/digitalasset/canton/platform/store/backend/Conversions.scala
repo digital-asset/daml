@@ -65,16 +65,16 @@ private[backend] object Conversions {
   def ledgerString(columnName: String): RowParser[Ref.LedgerString] =
     SqlParser.get[Ref.LedgerString](columnName)(columnToLedgerString)
 
-  // ApplicationId
+  // UserId
 
-  private implicit val columnToApplicationId: Column[Ref.ApplicationId] =
-    stringColumnToX(Ref.ApplicationId.fromString)
+  private implicit val columnToUserId: Column[Ref.UserId] =
+    stringColumnToX(Ref.UserId.fromString)
 
-  implicit val applicationIdToStatement: ToStatement[Ref.ApplicationId] =
-    new SubTypeOfStringToStatement[Ref.ApplicationId]
+  implicit val userIdToStatement: ToStatement[Ref.UserId] =
+    new SubTypeOfStringToStatement[Ref.UserId]
 
-  def applicationId(columnName: String): RowParser[Ref.ApplicationId] =
-    SqlParser.get[Ref.ApplicationId](columnName)(columnToApplicationId)
+  def userId(columnName: String): RowParser[Ref.UserId] =
+    SqlParser.get[Ref.UserId](columnName)(columnToUserId)
 
   // ParticipantId
 

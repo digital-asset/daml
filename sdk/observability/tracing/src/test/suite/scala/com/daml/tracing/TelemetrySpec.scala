@@ -26,7 +26,7 @@ class TelemetrySpec extends AsyncWordSpec with TelemetrySpecBase with Matchers {
       val scope = span.makeCurrent()
       try {
         val context = telemetry.contextFromGrpcThreadLocalContext()
-        context.setAttribute(anApplicationIdSpanAttribute._1, anApplicationIdSpanAttribute._2)
+        context.setAttribute(anUserIdSpanAttribute._1, anUserIdSpanAttribute._2)
       } finally {
         scope.close()
         span.end()
@@ -34,7 +34,7 @@ class TelemetrySpec extends AsyncWordSpec with TelemetrySpecBase with Matchers {
 
       val attributes = spanExporter.finishedSpanAttributes
       attributes should contain(SpanAttribute("existingKey") -> "existingValue")
-      attributes should contain(anApplicationIdSpanAttribute)
+      attributes should contain(anUserIdSpanAttribute)
     }
 
     "return a no-op context" in {
@@ -92,13 +92,13 @@ class TelemetrySpec extends AsyncWordSpec with TelemetrySpecBase with Matchers {
         .runInSpan(
           aSpanName,
           SpanKind.Internal,
-          anApplicationIdSpanAttribute,
+          anUserIdSpanAttribute,
         ) { telemetryContext =>
           telemetryContext.setAttribute(aCommandIdSpanAttribute._1, aCommandIdSpanAttribute._2)
         }
 
       val attributes = spanExporter.finishedSpanAttributes
-      attributes should contain(anApplicationIdSpanAttribute)
+      attributes should contain(anUserIdSpanAttribute)
       attributes should contain(aCommandIdSpanAttribute)
     }
 
@@ -108,13 +108,13 @@ class TelemetrySpec extends AsyncWordSpec with TelemetrySpecBase with Matchers {
           .runInSpan(
             aSpanName,
             SpanKind.Internal,
-            anApplicationIdSpanAttribute,
+            anUserIdSpanAttribute,
           ) { _ =>
             throw anException
           }
       )
       val spanAttributes = spanExporter.finishedSpanAttributes
-      spanAttributes should contain(anApplicationIdSpanAttribute)
+      spanAttributes should contain(anUserIdSpanAttribute)
 
       assertExceptionRecorded
     }
@@ -126,14 +126,14 @@ class TelemetrySpec extends AsyncWordSpec with TelemetrySpecBase with Matchers {
         .runFutureInSpan(
           aSpanName,
           SpanKind.Internal,
-          anApplicationIdSpanAttribute,
+          anUserIdSpanAttribute,
         ) { telemetryContext =>
           telemetryContext.setAttribute(aCommandIdSpanAttribute._1, aCommandIdSpanAttribute._2)
           Future.unit
         }
         .map { _ =>
           val attributes = spanExporter.finishedSpanAttributes
-          attributes should contain(anApplicationIdSpanAttribute)
+          attributes should contain(anUserIdSpanAttribute)
           attributes should contain(aCommandIdSpanAttribute)
         }
     }
@@ -143,13 +143,13 @@ class TelemetrySpec extends AsyncWordSpec with TelemetrySpecBase with Matchers {
         .runFutureInSpan(
           aSpanName,
           SpanKind.Internal,
-          anApplicationIdSpanAttribute,
+          anUserIdSpanAttribute,
         ) { _ =>
           Future.failed(anException)
         }
         .recover { case _ =>
           val spanAttributes = spanExporter.finishedSpanAttributes
-          spanAttributes should contain(anApplicationIdSpanAttribute)
+          spanAttributes should contain(anUserIdSpanAttribute)
 
           assertExceptionRecorded
         }

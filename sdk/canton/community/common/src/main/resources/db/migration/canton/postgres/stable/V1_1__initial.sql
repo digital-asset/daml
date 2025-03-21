@@ -586,9 +586,6 @@ create table par_in_flight_submission (
   -- Sequencer timestamp after which this submission will not be sequenced any more, in microsecond precision relative to EPOCH
   -- If set, this submission is considered unsequenced.
   sequencing_timeout bigint,
-  -- Sequencer counter assigned to this submission.
-  -- Must be set iff sequencing_timeout is not set.
-  sequencer_counter bigint,
   -- Sequencer timestamp assigned to this submission, in microsecond precision relative to EPOCH
   -- Must be set iff sequencing_timeout is not set.
   sequencing_time bigint,
@@ -618,11 +615,11 @@ create table par_settings(
 );
 
 create table par_command_deduplication (
-  -- hash of the change ID (application_id + command_id + act_as) as a hex string
+  -- hash of the change ID (user_id + command_id + act_as) as a hex string
   change_id_hash varchar collate "C" primary key,
 
-  -- the application ID that requested the change
-  application_id varchar collate "C" not null,
+  -- the user ID that requested the change
+  user_id varchar collate "C" not null,
   -- the command ID
   command_id varchar collate "C" not null,
   -- the act as parties serialized as a Protobuf blob

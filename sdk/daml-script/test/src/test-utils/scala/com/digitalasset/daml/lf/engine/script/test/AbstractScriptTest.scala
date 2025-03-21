@@ -92,7 +92,7 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
         host = "localhost",
         port = ports.ledgerPort.value,
         access_token = token,
-        application_id = None,
+        user_id = None,
         adminPort = if (provideAdminPorts) Some(ports.adminPort.value) else None,
       )
     }

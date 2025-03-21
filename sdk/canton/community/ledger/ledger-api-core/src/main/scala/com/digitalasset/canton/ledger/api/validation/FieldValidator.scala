@@ -99,14 +99,6 @@ object FieldValidator {
   ): Either[StatusRuntimeException, Ref.UserId] =
     requireNonEmptyParsedId(Ref.UserId.fromString)(s, fieldName)
 
-  def requireApplicationId(
-      s: String,
-      fieldName: String,
-  )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Ref.ApplicationId] =
-    requireNonEmptyParsedId(Ref.ApplicationId.fromString)(s, fieldName)
-
   def requireLedgerString(
       s: String,
       fieldName: String,

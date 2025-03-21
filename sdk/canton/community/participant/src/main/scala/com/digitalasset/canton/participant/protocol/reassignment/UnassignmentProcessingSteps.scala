@@ -558,10 +558,7 @@ class UnassignmentProcessingSteps(
               else EitherT.pure[FutureUnlessShutdown, ReassignmentProcessorError](())
 
             reassignmentAccepted <- EitherT.fromEither[FutureUnlessShutdown](
-              unassignmentValidationResult.createReassignmentAccepted(
-                participantId,
-                requestSequencerCounter,
-              )
+              unassignmentValidationResult.createReassignmentAccepted(participantId)
             )
           } yield CommitAndStoreContractsAndPublishEvent(
             commitSetFO,

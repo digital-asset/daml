@@ -7,7 +7,7 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.daml.lf.data.Ref
 
 final case class CompletionStreamRequest(
-    applicationId: Ref.ApplicationId,
+    userId: Ref.UserId,
     parties: Set[Ref.Party],
     offset: Option[Offset],
 )

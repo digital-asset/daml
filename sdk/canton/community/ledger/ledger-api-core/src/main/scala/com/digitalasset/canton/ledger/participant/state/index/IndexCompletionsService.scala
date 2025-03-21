@@ -16,7 +16,7 @@ import org.apache.pekko.stream.scaladsl.Source
 trait IndexCompletionsService extends LedgerEndService {
   def getCompletions(
       begin: Option[Offset],
-      applicationId: Ref.ApplicationId,
+      userId: Ref.UserId,
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Source[CompletionStreamResponse, NotUsed]
 }

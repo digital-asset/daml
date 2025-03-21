@@ -139,10 +139,12 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
     })
   }
 
-  override def deleteSince(fromInclusive: RequestCounter)(implicit
+  override def deleteSinceRequestTimestamp(fromInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
-    FutureUnlessShutdown.pure(requestTable.filterInPlace((rc, _) => rc < fromInclusive))
+    FutureUnlessShutdown.pure(
+      requestTable.filterInPlace((_, rd) => rd.requestTimestamp < fromInclusive)
+    )
 
   override def lastRequestTimeWithRequestTimestampBeforeOrAt(requestTimestamp: CantonTimestamp)(
       implicit traceContext: TraceContext

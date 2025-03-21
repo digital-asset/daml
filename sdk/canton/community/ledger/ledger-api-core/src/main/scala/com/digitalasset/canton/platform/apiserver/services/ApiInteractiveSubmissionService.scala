@@ -55,7 +55,7 @@ class ApiInteractiveSubmissionService(
 
   override def prepareSubmission(request: PrepareRequestP): Future[PrepareResponseP] = {
     implicit val traceContext = getPrepareRequestTraceContext(
-      request.applicationId,
+      request.userId,
       request.commandId,
       request.actAs,
       telemetry,
@@ -104,7 +104,7 @@ class ApiInteractiveSubmissionService(
   ): Future[ExecuteSubmissionResponse] = {
     val submitterInfo = request.preparedTransaction.flatMap(_.metadata.flatMap(_.submitterInfo))
     implicit val traceContext: TraceContext = getExecuteRequestTraceContext(
-      request.applicationId,
+      request.userId,
       submitterInfo.map(_.commandId),
       submitterInfo.map(_.actAs).toList.flatten,
       telemetry,

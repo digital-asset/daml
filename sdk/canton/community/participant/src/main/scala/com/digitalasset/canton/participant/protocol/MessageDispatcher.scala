@@ -576,7 +576,7 @@ trait MessageDispatcher { this: NamedLogging =>
             _,
           ) =>
         // The event was submitted by the current participant iff the message ID is set.
-        messageIdO.map(_ -> SequencedSubmission(counter, timestamp))
+        messageIdO.map(_ -> SequencedSubmission(timestamp))
       case DeliverError(
             _counter,
             _previousTimestamp,

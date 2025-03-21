@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.value.Value
 
 final case class SubmitReassignmentRequest(
     submitter: Ref.Party,
-    applicationId: Ref.ApplicationId,
+    userId: Ref.UserId,
     commandId: Ref.CommandId,
     submissionId: Ref.SubmissionId,
     workflowId: Option[Ref.WorkflowId],
