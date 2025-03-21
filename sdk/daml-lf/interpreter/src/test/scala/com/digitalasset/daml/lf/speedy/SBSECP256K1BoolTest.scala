@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package speedy
 
-import com.digitalasset.daml.lf.data.cctp.MessageSignatureUtil
+import com.daml.lf.data.cctp.MessageSignatureUtil
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBSECP256K1Bool
 import org.bouncycastle.jce.provider.BouncyCastleProvider

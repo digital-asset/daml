@@ -8,6 +8,7 @@ package v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.daml.lf.CompiledPackages
+import com.digitalasset.daml.lf.data.cctp.MessageSignatureUtil
 import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -530,7 +531,6 @@ object ScriptF {
       val privateKey = KeyFactory.getInstance("EC", "BC").generatePrivate(keySpec)
       val message = HexString.assertFromString(msg)
 
-      // FIXME: do we have access to the `test` scope code?
       SEValue(SText(MessageSignatureUtil.sign(message, privateKey)))
     }
   }

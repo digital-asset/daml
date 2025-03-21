@@ -4,6 +4,8 @@
 package com.digitalasset.daml.lf.data
 package cctp
 
+import com.daml.lf.data.cctp.MessageSignatureUtil
+
 import java.security.{InvalidKeyException, KeyPairGenerator, SignatureException}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers

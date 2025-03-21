@@ -6,9 +6,11 @@ package cctp
 
 import com.daml.crypto.MessageSignaturePrototypeUtil
 
-import java.security.{KeyPair, KeyPairGenerator, PrivateKey}
 import java.security.spec.ECGenParameterSpec
+import java.security.{KeyPair, KeyPairGenerator, PrivateKey}
 
+// The following utility methods should only be used within a testing context.
+// They have been moved into a main project scope so that daml-script runners may access this code.
 object MessageSignatureUtil {
   def sign(message: Ref.HexString, privateKey: PrivateKey): Ref.HexString = {
     val signature =
