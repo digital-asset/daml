@@ -26,7 +26,7 @@ import org.scalatest.wordspec.FixtureAsyncWordSpec
 
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.Future
 
 class MockTimeRequestSubmitter extends TimeProofRequestSubmitter {
   private val hasRequestedRef = new AtomicBoolean(false)
@@ -34,8 +34,6 @@ class MockTimeRequestSubmitter extends TimeProofRequestSubmitter {
   def hasRequestedTime: Boolean = hasRequestedRef.get()
 
   def resetHasRequestedTime(): Unit = hasRequestedRef.set(false)
-
-  val fetchResult = Promise[TimeProof]()
 
   override def fetchTimeProof()(implicit traceContext: TraceContext): Unit =
     hasRequestedRef.set(true)

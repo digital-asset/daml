@@ -7,7 +7,7 @@ import com.daml.ledger.api.v2.admin.package_management_service.*
 import com.daml.ledger.api.v2.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.logging.LoggingContext
 import com.daml.tracing.Telemetry
-import com.digitalasset.base.error.DamlError
+import com.digitalasset.base.error.DamlRpcError
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.participant.state.{PackageSyncService, SubmissionResult}
@@ -115,7 +115,7 @@ private[apiserver] object ApiPackageManagementService {
     )
 
   implicit class ErrorValidations[E, R](result: Either[E, R]) {
-    def handleError(toSelfServiceErrorCode: E => DamlError): Try[R] =
+    def handleError(toSelfServiceErrorCode: E => DamlRpcError): Try[R] =
       result.left.map { err =>
         toSelfServiceErrorCode(err).asGrpcError
       }.toTry

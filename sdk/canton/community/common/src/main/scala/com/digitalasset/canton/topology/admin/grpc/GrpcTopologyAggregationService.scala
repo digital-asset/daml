@@ -6,9 +6,9 @@ package com.digitalasset.canton.topology.admin.grpc
 import cats.data.EitherT
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
+import com.digitalasset.base.error.CantonRpcError
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
@@ -45,7 +45,7 @@ class GrpcTopologyAggregationService(
 
   private def snapshots(synchronizerIds: Set[SynchronizerId], asOf: Option[ProtoTimestamp])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonError, List[(SynchronizerId, TopologySnapshotLoader)]] =
+  ): EitherT[FutureUnlessShutdown, CantonRpcError, List[(SynchronizerId, TopologySnapshotLoader)]] =
     for {
       asOfO <- wrapErrUS(asOf.traverse(CantonTimestamp.fromProtoTimestamp))
     } yield {
@@ -117,12 +117,12 @@ class GrpcTopologyAggregationService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val v30.ListPartiesRequest(asOfP, limit, synchronizerIdsP, filterParty, filterParticipant) =
       request
-    val res: EitherT[FutureUnlessShutdown, CantonError, v30.ListPartiesResponse] = for {
+    val res: EitherT[FutureUnlessShutdown, CantonRpcError, v30.ListPartiesResponse] = for {
       synchronizerIds <- EitherT
         .fromEither[FutureUnlessShutdown](
           synchronizerIdsP.traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_ids"))
         )
-        .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
+        .leftMap(ProtoDeserializationFailure.Wrap(_): CantonRpcError)
       matched <- snapshots(synchronizerIds.toSet, asOfP)
       parties <- EitherT.right(
         findMatchingParties(matched, filterParty, filterParticipant, limit)
@@ -157,17 +157,17 @@ class GrpcTopologyAggregationService(
       request: v30.ListKeyOwnersRequest
   ): Future[v30.ListKeyOwnersResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val res: EitherT[FutureUnlessShutdown, CantonError, v30.ListKeyOwnersResponse] = for {
+    val res: EitherT[FutureUnlessShutdown, CantonRpcError, v30.ListKeyOwnersResponse] = for {
       keyOwnerTypeO <- wrapErrUS(
         OptionUtil
           .emptyStringAsNone(request.filterKeyOwnerType)
           .traverse(code => MemberCode.fromProtoPrimitive(code, "filterKeyOwnerType"))
-      ): EitherT[FutureUnlessShutdown, CantonError, Option[MemberCode]]
+      ): EitherT[FutureUnlessShutdown, CantonRpcError, Option[MemberCode]]
       synchronizerIds <- EitherT
         .fromEither[FutureUnlessShutdown](
           request.synchronizerIds.traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_ids"))
         )
-        .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
+        .leftMap(ProtoDeserializationFailure.Wrap(_): CantonRpcError)
 
       matched <- snapshots(synchronizerIds.toSet, request.asOf)
       res <- EitherT.right(matched.parTraverse { case (storeId, client) =>

@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.apiserver
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.tracing.Telemetry
+import com.digitalasset.canton
 import com.digitalasset.canton.auth.{AuthService, Authorizer}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{
@@ -115,6 +116,7 @@ object ApiServiceOwner {
       interactiveSubmissionServiceConfig: InteractiveSubmissionServiceConfig,
       lfValueTranslation: LfValueTranslation,
       keepAlive: Option[KeepAliveServerConfig],
+      clock: canton.time.Clock,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -195,6 +197,7 @@ object ApiServiceOwner {
         dynParamGetter = dynParamGetter,
         interactiveSubmissionServiceConfig = interactiveSubmissionServiceConfig,
         lfValueTranslation = lfValueTranslation,
+        clock = clock,
         logger = loggerFactory.getTracedLogger(this.getClass),
       )(materializer, executionSequencerFactory, tracer).withServices(otherServices)
       // for all the top level gRPC servicing apparatus we use the writeApiServicesExecutionContext

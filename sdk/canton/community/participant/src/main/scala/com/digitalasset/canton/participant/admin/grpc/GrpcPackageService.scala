@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.implicits.catsSyntaxOptionId
 import cats.syntax.either.*
 import cats.syntax.traverse.*
+import com.digitalasset.base.error.CantonRpcError
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.ProtoDeserializationError.{
   ProtoDeserializationFailure,
@@ -17,7 +18,6 @@ import com.digitalasset.canton.admin.participant.v30.{
   GetPackageReferencesRequest,
   GetPackageReferencesResponse,
 }
-import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -219,7 +219,7 @@ class GrpcPackageService(
         .getDar(mainPackageId)
         .toRight(
           CantonPackageServiceError.Fetching.DarNotFound
-            .Reject("getDar", mainPackageId.unwrap): CantonError
+            .Reject("getDar", mainPackageId.unwrap): CantonRpcError
         )
     } yield v30.GetDarResponse(
       payload = ByteString.copyFrom(dar.bytes),
@@ -287,7 +287,7 @@ class GrpcPackageService(
         .getDarContents(mainPackageId)
         .toRight(
           CantonPackageServiceError.Fetching.DarNotFound
-            .Reject("getDarContents", mainPackageId.unwrap): CantonError
+            .Reject("getDarContents", mainPackageId.unwrap): CantonRpcError
         )
     } yield {
       v30.GetDarContentsResponse(
@@ -311,7 +311,9 @@ class GrpcPackageService(
 
   private def parsePackageId(
       packageIdProto: String
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, CantonError, LfPackageId] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CantonRpcError, LfPackageId] =
     EitherT.fromEither[FutureUnlessShutdown](
       LfPackageId
         .fromString(packageIdProto)
@@ -324,7 +326,7 @@ class GrpcPackageService(
   ): Future[v30.GetPackageContentsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val v30.GetPackageContentsRequest(packageIdProto) = request
-    def notFound(pkg: LfPackageId): CantonError =
+    def notFound(pkg: LfPackageId): CantonRpcError =
       CantonPackageServiceError.Fetching.InvalidPackageId.NotFound(pkg)
     val ret = for {
       packageId <- parsePackageId(packageIdProto)
@@ -351,7 +353,7 @@ class GrpcPackageService(
     val v30.GetPackageReferencesRequest(packageIdProto) = request
     val ret = for {
       packageId <- parsePackageId(packageIdProto)
-      dars <- EitherT.right[CantonError](service.getPackageReferences(packageId))
+      dars <- EitherT.right[CantonRpcError](service.getPackageReferences(packageId))
     } yield v30.GetPackageReferencesResponse(
       dars = dars.map(darDescriptionToProto)
     )

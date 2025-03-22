@@ -193,34 +193,19 @@ object ConsensusSegment {
 
       lazy val stored: PrePrepareStored = PrePrepareStored(blockMetadata, viewNumber)
 
+      /** The hash of the PrePrepare covers all fields of the message, including both the:
+        *   - originating node's chosen content (e.g., OrderingBlock, CanonicalCommitSet)
+        *   - common block metadata (e.g., BlockNumber, EpochNumber, ViewNumber)
+        *
+        * While only the originating node's chosen content is required, it is safe and convenient to
+        * use a hash over the entire PrePrepare because we (a) ensure that the content of the
+        * PrePrepare does not change across views (if the PrePrepare is bound), and (b) can leverage
+        * the `getCryptographicEvidence` paradigm for efficiency and determinism.
+        */
       lazy val hash: Hash = {
         val builder = Hash
           .build(HashPurpose.BftOrderingPbftBlock, HashAlgorithm.Sha256)
-          .add(blockMetadata.blockNumber)
-          .add(blockMetadata.epochNumber)
-          .add(localTimestamp.toMicros)
-          .add(from)
-          .add(block.proofs.size)
-          .add(canonicalCommitSet.sortedCommits.size)
-
-        block.proofs
-          .foreach { proof =>
-            builder.add(proof.batchId.hash.getCryptographicEvidence)
-            builder.add(proof.acks.size)
-            proof.acks.foreach { ack =>
-              builder.add(ack.from)
-              // TODO(#17337): We should probably not rely on Protobuf when calculating hashes (due to a potential non-determinism).
-              builder.add(ack.signature.toByteString(ProtocolVersion.dev))
-            }
-          }
-
-        canonicalCommitSet.sortedCommits.foreach { commit =>
-          builder.add(commit.message.blockMetadata.blockNumber)
-          builder.add(commit.message.blockMetadata.epochNumber)
-          builder.add(commit.message.hash.getCryptographicEvidence)
-          builder.add(commit.message.localTimestamp.toMicros)
-        }
-
+          .add(getCryptographicEvidence)
         builder.finish()
       }
 

@@ -14,7 +14,6 @@ import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry.{AllExceptionRetryPolicy, Backoff, Success}
 import com.digitalasset.canton.util.{FutureUtil, HasFlushFuture, retry}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.atomic.AtomicReference
@@ -145,13 +144,12 @@ object TimeProofRequestSubmitter {
       config: TimeProofRequestConfig,
       clock: Clock,
       sequencerClient: SequencerClient,
-      protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): TimeProofRequestSubmitter =
     new TimeProofRequestSubmitterImpl(
       config,
-      TimeProof.sendRequest(sequencerClient, protocolVersion)(_),
+      TimeProof.sendRequest(sequencerClient)(_),
       clock,
       timeouts,
       loggerFactory,

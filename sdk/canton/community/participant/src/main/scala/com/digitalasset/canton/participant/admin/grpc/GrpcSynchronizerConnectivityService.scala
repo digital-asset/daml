@@ -55,7 +55,7 @@ class GrpcSynchronizerConnectivityService(
   private def _mapErrNewEUS[C](res: EitherT[FutureUnlessShutdown, CantonBaseError, C])(implicit
       ec: ExecutionContext,
       errorLoggingContext: ErrorLoggingContext,
-  ): Future[C] = CantonGrpcUtil.mapErrNewEUS(res.leftMap(_.toCantonError))
+  ): Future[C] = CantonGrpcUtil.mapErrNewEUS(res.leftMap(_.toCantonRpcError))
 
   private def waitUntilActiveIfSuccess(success: Boolean, synchronizerAlias: SynchronizerAlias)(
       implicit traceContext: TraceContext

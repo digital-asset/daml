@@ -7,15 +7,10 @@ import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.SessionSigningKeysConfig
-import com.digitalasset.canton.crypto.EncryptionAlgorithmSpec.RsaOaepSha256
-import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
-import com.digitalasset.canton.crypto.SymmetricKeyScheme.Aes128Gcm
-import com.digitalasset.canton.crypto.provider.jce.JcePureCrypto
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore
 import com.digitalasset.canton.crypto.{
   CryptoPrivateApi,
   Hash,
-  PbkdfScheme,
   Signature,
   SignatureCheckError,
   SigningKeyUsage,
@@ -23,10 +18,10 @@ import com.digitalasset.canton.crypto.{
   SynchronizerCryptoPureApi,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
-import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
@@ -35,7 +30,7 @@ import scala.concurrent.ExecutionContext
   * require a topology snapshot to ensure the correct signing keys are used, based on the current
   * state (i.e., OwnerToKeyMappings).
   */
-trait SyncCryptoSigner {
+trait SyncCryptoSigner extends NamedLogging {
 
   /** Signs a given hash using the currently active signing keys in the current topology state.
     */
@@ -90,7 +85,7 @@ trait SyncCryptoSigner {
 
 object SyncCryptoSigner {
 
-  def create(
+  def createWithLongTermKeys(
       staticSynchronizerParameters: StaticSynchronizerParameters,
       member: Member,
       pureCrypto: SynchronizerCryptoPureApi,
@@ -99,7 +94,7 @@ object SyncCryptoSigner {
       verificationParallelismLimit: PositiveInt,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext) =
-    new SyncCryptoSignerDefault(
+    new SyncCryptoSignerWithLongTermKeys(
       member,
       new SynchronizerCryptoPureApi(staticSynchronizerParameters, pureCrypto),
       privateCrypto,
@@ -109,6 +104,7 @@ object SyncCryptoSigner {
     )
 
   def createWithOptionalSessionKeys(
+      synchronizerId: SynchronizerId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       member: Member,
       pureCrypto: SynchronizerCryptoPureApi,
@@ -119,26 +115,17 @@ object SyncCryptoSigner {
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): SyncCryptoSigner =
     if (sessionSigningKeysConfig.enabled) {
-      // Except for the signing algorithm and key specifications, all other schemes are not needed for
-      // the ProtocolSigner. Therefore, we use fixed schemes (i.e. placeholders) for the other crypto parameters.
-      // TODO(#23731): Split up pure crypto into smaller modules and only use the signing module here
-      val pureCryptoForSessionKeys = new JcePureCrypto(
-        Aes128Gcm,
-        sessionSigningKeysConfig.signingAlgorithmSpec,
+      new SyncCryptoSignerWithSessionKeys(
+        synchronizerId,
+        member,
+        staticSynchronizerParameters,
+        privateCrypto,
+        sessionSigningKeysConfig,
         pureCrypto.supportedSigningAlgorithmSpecs,
-        RsaOaepSha256,
-        NonEmpty.mk(Set, RsaOaepSha256),
-        Sha256,
-        PbkdfScheme.Argon2idMode1,
         loggerFactory,
       )
-
-      new SyncCryptoSignerWithSessionKeys(
-        new SynchronizerCryptoPureApi(staticSynchronizerParameters, pureCryptoForSessionKeys),
-        verificationParallelismLimit,
-      )
     } else
-      SyncCryptoSigner.create(
+      SyncCryptoSigner.createWithLongTermKeys(
         staticSynchronizerParameters,
         member,
         pureCrypto,

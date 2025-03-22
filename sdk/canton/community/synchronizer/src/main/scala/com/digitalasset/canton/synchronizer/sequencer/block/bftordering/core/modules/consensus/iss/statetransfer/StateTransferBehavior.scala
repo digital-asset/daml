@@ -131,7 +131,7 @@ final class StateTransferBehavior[E <: Env[E]](
       case Consensus.SegmentCancelledEpoch =>
         cancelled += 1
         if (initialState.epochState.epoch.segments.sizeIs == cancelled) {
-          if (stateTransferManager.inBlockTransfer) {
+          if (stateTransferManager.inStateTransfer) {
             abort(
               s"$messageType: $stateTransferType state transfer cannot be already in progress during another state transfer"
             )
@@ -164,14 +164,14 @@ final class StateTransferBehavior[E <: Env[E]](
             lastBlockFromPreviousEpochMode,
           ) =>
         val currentEpochInfo = epochState.epoch.info
+        val currentEpochNumber = currentEpochInfo.number
+        stateTransferManager.epochTransferred(currentEpochNumber)(abort)
         if (lastBlockFromPreviousEpochMode == Mode.StateTransfer.LastBlock) {
           logger.info(
-            s"$messageType: received first epoch (${newEpochTopologyMessage.epochNumber}) after $stateTransferType " +
-              s"state transfer, storing it"
+            s"$messageType: received first epoch ($newEpochNumber) after $stateTransferType state transfer, storing it"
           )
           completeStateTransfer(newEpochTopologyMessage, messageType)
         } else {
-          val currentEpochNumber = currentEpochInfo.number
           if (newEpochNumber == currentEpochNumber + 1) {
             val newEpochInfo =
               currentEpochInfo.next(
@@ -195,10 +195,14 @@ final class StateTransferBehavior[E <: Env[E]](
         }
 
       case Consensus.NewEpochStored(newEpochInfo, membership, cryptoProvider: CryptoProvider[E]) =>
-        logger.debug(
-          s"$messageType: setting new epoch ${newEpochInfo.number} during $stateTransferType state transfer"
-        )
-        setNewEpochState(newEpochInfo, membership, cryptoProvider)
+        // Mainly so that the onboarding state transfer start epoch is not set as the latest completed epoch initially.
+        // A new event can be introduced to avoid branching.
+        if (newEpochInfo != epochState.epoch.info) {
+          logger.debug(
+            s"$messageType: setting new epoch ${newEpochInfo.number} during $stateTransferType state transfer"
+          )
+          setNewEpochState(newEpochInfo, membership, cryptoProvider)
+        }
         stateTransferManager.stateTransferNewEpoch(
           newEpochInfo.number,
           membership,
@@ -279,15 +283,6 @@ final class StateTransferBehavior[E <: Env[E]](
           activeTopologyInfo.currentMembership,
           initialState.topologyInfo.currentCryptoProvider, // used only for signing the request
         )(abort)
-
-      case StateTransferMessageResult.BlockTransferCompleted(
-            endEpochNumber,
-            numberOfTransferredEpochs,
-          ) =>
-        logger.info(
-          s"$messageType: $stateTransferType block transfer completed at epoch $endEpochNumber with " +
-            s"$numberOfTransferredEpochs epochs transferred"
-        )
     }
 
   private def storeEpochs(

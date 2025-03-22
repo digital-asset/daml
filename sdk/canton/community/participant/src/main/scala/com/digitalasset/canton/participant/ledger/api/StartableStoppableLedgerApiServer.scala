@@ -359,6 +359,7 @@ class StartableStoppableLedgerApiServer(
         interactiveSubmissionServiceConfig = config.serverConfig.interactiveSubmissionService,
         lfValueTranslation = lfValueTranslationForInteractiveSubmission,
         keepAlive = config.serverConfig.keepAliveServer,
+        clock = config.clock,
       )
       _ <- startHttpApiIfEnabled(timedSyncService)
       _ <- config.serverConfig.userManagementService.additionalAdminUserId

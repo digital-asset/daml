@@ -313,7 +313,7 @@ trait MessageDispatcher { this: NamedLogging =>
         case None => pureProcessingResult
       }
 
-    def processRequest(goodRequest: GoodRequest) =
+    def processRequest(goodRequest: GoodRequest): ProcessingResult =
       withNewRequestCounter { rc =>
         val rootHashMessage: goodRequest.rootHashMessage.type = goodRequest.rootHashMessage
         val viewType: rootHashMessage.viewType.type = rootHashMessage.viewType

@@ -19,8 +19,7 @@ import pureconfig.{ConfigReader, ConfigWriter}
 
 import scala.concurrent.ExecutionContext
 
-private[reference] abstract class BaseReferenceSequencerDriverFactory
-    extends SequencerDriverFactory {
+abstract class BaseReferenceSequencerDriverFactory extends SequencerDriverFactory {
 
   override final type ConfigType = ReferenceSequencerDriver.Config[StorageConfig]
 

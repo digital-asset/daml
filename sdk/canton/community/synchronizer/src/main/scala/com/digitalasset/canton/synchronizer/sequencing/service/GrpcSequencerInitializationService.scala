@@ -5,8 +5,8 @@ package com.digitalasset.canton.synchronizer.sequencing.service
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import com.digitalasset.base.error.CantonRpcError
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
-import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
@@ -70,7 +70,7 @@ class GrpcSequencerInitializationService(
   ): Future[InitializeSequencerFromGenesisStateResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
-    val res: EitherT[Future, CantonError, InitializeSequencerFromGenesisStateResponse] = for {
+    val res: EitherT[Future, CantonRpcError, InitializeSequencerFromGenesisStateResponse] = for {
       topologyState <- EitherT.fromEither[Future](
         StoredTopologyTransactions
           .fromTrustedByteString(topologySnapshot)
@@ -159,7 +159,7 @@ class GrpcSequencerInitializationService(
         .leftMap(FailedToInitialiseSynchronizerNode.Failure(_))
         .onShutdown(Left(FailedToInitialiseSynchronizerNode.Shutdown())): EitherT[
         Future,
-        CantonError,
+        CantonRpcError,
         InitializeSequencerResponse,
       ]
     } yield InitializeSequencerFromGenesisStateResponse(result.replicated)
@@ -179,7 +179,7 @@ class GrpcSequencerInitializationService(
 
   private def initializeSequencerFromOnboardingState(onboardingState: ByteString) = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val res: EitherT[Future, CantonError, InitializeSequencerFromOnboardingStateResponse] = for {
+    val res: EitherT[Future, CantonRpcError, InitializeSequencerFromOnboardingStateResponse] = for {
       onboardingState <- EitherT.fromEither[Future](
         OnboardingStateForSequencer
           // according to @rgugliel-da, this is safe to do here.
@@ -199,7 +199,7 @@ class GrpcSequencerInitializationService(
         .leftMap(FailedToInitialiseSynchronizerNode.Failure(_))
         .onShutdown(Left(FailedToInitialiseSynchronizerNode.Shutdown())): EitherT[
         Future,
-        CantonError,
+        CantonRpcError,
         InitializeSequencerResponse,
       ]
     } yield InitializeSequencerFromOnboardingStateResponse(result.replicated)

@@ -6,12 +6,12 @@ package com.digitalasset.canton.participant.admin.grpc
 import cats.data.EitherT
 import cats.syntax.all.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.base.error.CantonRpcError
 import com.digitalasset.canton.ProtoDeserializationError.TimestampConversionError
 import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.data.CantonTimestamp.fromProtoPrimitive
-import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
@@ -141,7 +141,7 @@ final class GrpcParticipantRepairService(
         .leftMap(RepairServiceError.fromAcsInspectionError(_, logger))
     } yield ()
 
-    mapErrNewEUS(res.leftMap(_.toCantonError))
+    mapErrNewEUS(res.leftMap(_.toCantonRpcError))
   }
 
   override def importAcs(
@@ -529,7 +529,7 @@ final class GrpcParticipantRepairService(
           .leftMap(_.toString)
           .leftMap(RepairServiceError.InvalidArgument.Error(_))
       )
-      _ <- sync.purgeDeactivatedSynchronizer(synchronizerAlias).leftWiden[CantonError]
+      _ <- sync.purgeDeactivatedSynchronizer(synchronizerAlias).leftWiden[CantonRpcError]
     } yield ()
 
     EitherTUtil

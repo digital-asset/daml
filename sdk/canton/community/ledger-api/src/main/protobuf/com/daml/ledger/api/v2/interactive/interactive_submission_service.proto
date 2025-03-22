@@ -8,6 +8,7 @@ package com.daml.ledger.api.v2.interactive;
 import "com/daml/ledger/api/v2/commands.proto";
 import "com/daml/ledger/api/v2/interactive/interactive_submission_common_data.proto";
 import "com/daml/ledger/api/v2/interactive/transaction/v1/interactive_submission_data.proto";
+import "com/daml/ledger/api/v2/package_reference.proto";
 import "com/daml/ledger/api/v2/value.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
@@ -16,7 +17,9 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2.Interactive";
 option java_outer_classname = "InteractiveSubmissionServiceOuterClass";
 option java_package = "com.daml.ledger.api.v2.interactive";
 
-// The InteractiveSubmissionService allows to submit commands in 2-steps:
+// Service allowing interactive construction of command submissions
+//
+// The prepare and execute endpoints allow to submit commands in 2-steps:
 //
 // 1. prepare transaction from commands,
 // 2. submit the prepared transaction
@@ -26,6 +29,18 @@ service InteractiveSubmissionService {
   // Requires `readAs` scope for the submitting party when LAPI User authorization is enabled
   rpc PrepareSubmission(PrepareSubmissionRequest) returns (PrepareSubmissionResponse);
   rpc ExecuteSubmission(ExecuteSubmissionRequest) returns (ExecuteSubmissionResponse);
+
+  // A preferred package is the highest-versioned package for a provided package-name
+  // that is vetted by all the participants hosting the provided parties.
+  //
+  // Ledger API clients should use this endpoint for constructing command submissions
+  // that are compatible with the provided preferred package, by making informed decisions on:
+  // - which are the compatible packages that can be used to create contracts
+  // - which contract or exercise choice argument version can be used in the command
+  // - which choices can be executed on a template or interface of a contract
+  //
+  // Can be accessed by any Ledger API client with a valid token when Ledger API authorization is enabled.
+  rpc GetPreferredPackageVersion(GetPreferredPackageVersionRequest) returns (GetPreferredPackageVersionResponse);
 }
 
 message PrepareSubmissionRequest {
@@ -330,4 +345,41 @@ message DamlTransaction {
   repeated Node nodes = 3;
   // Node seeds are values associated with certain nodes used for generating cryptographic salts
   repeated NodeSeed node_seeds = 4;
+}
+
+message GetPreferredPackageVersionRequest {
+  // The parties whose participants' vetting state should be considered when resolving the preferred package.
+  // Required
+  repeated string parties = 1;
+  // The package-name for which the preferred package should be resolved.
+  // Required
+  string package_name = 2;
+
+  // The synchronizer whose vetting state to use for resolving this query.
+  // If not specified, the vetting state of all the synchronizers the participant is connected to will be used.
+  // Optional
+  string synchronizer_id = 3;
+
+  // The timestamp at which the package vetting validity should be computed
+  // on the latest topology snapshot as seen by the participant.
+  // If not provided, the participant's current clock time is used.
+  // Optional
+  google.protobuf.Timestamp vetting_valid_at = 4;
+}
+
+message GetPreferredPackageVersionResponse {
+  // Not populated when no preferred package is found
+  // Optional
+  PackagePreference package_preference = 1;
+}
+
+message PackagePreference {
+  // The package reference of the preferred package.
+  // Required
+  PackageReference package_reference = 1;
+
+  // The synchronizer for which the preferred package was computed.
+  // If the synchronizer_id was specified in the request, then it matches the request synchronizer_id.
+  // Required
+  string synchronizer_id = 2;
 }

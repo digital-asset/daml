@@ -42,8 +42,7 @@ class BftNodeShufflerTest extends AnyWordSpec with BftSequencerBaseTest {
       shuffled1.headOption should contain oneElementOf nodes
       shuffled1.tail.size shouldBe 2
       shuffled1.tail.distinct.size shouldBe 2
-      shuffled2.tail should not contain shuffled1.headOption
-      shuffled2.tail should contain atLeastOneElementOf nodes
+      shuffled1.tail should contain atLeastOneElementOf nodes
 
       // The purpose of the below checks is to show that, for a certain seed, nodes can be shuffled
       //  in a completely different order each time the shuffling happens (resulting in more even load balancing).

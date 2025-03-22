@@ -7,9 +7,13 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.Interac
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionRequest,
   ExecuteSubmissionResponse,
+  GetPreferredPackageVersionRequest,
+  GetPreferredPackageVersionResponse,
+  PackagePreference,
   PrepareSubmissionRequest as PrepareRequestP,
   PrepareSubmissionResponse as PrepareResponseP,
 }
+import com.daml.ledger.api.v2.package_reference.PackageReference
 import com.daml.metrics.Timed
 import com.daml.tracing.Telemetry
 import com.digitalasset.base.error.ContextualizedErrorLogger
@@ -17,7 +21,11 @@ import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.PrepareRequest
-import com.digitalasset.canton.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
+import com.digitalasset.canton.ledger.api.validation.{
+  CommandsValidator,
+  GetPreferredPackageVersionRequestValidator,
+  SubmitRequestValidator,
+}
 import com.digitalasset.canton.ledger.api.{SubmissionIdGenerator, ValidationLogger}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.TimerAndTrackOnShutdownSyntax
@@ -128,6 +136,42 @@ class ApiInteractiveSubmissionService(
         interactiveSubmissionService.execute(_),
       )
       .asGrpcResponse
+  }
+
+  override def getPreferredPackageVersion(
+      request: GetPreferredPackageVersionRequest
+  ): Future[GetPreferredPackageVersionResponse] = {
+    implicit val loggingContextWithTrace: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory, telemetry)
+
+    implicit val traceContext: TraceContext = loggingContextWithTrace.traceContext
+
+    val responseFUS = for {
+      (parties, packageName, synchronizerIdO, vettingValidAtO) <-
+        FutureUnlessShutdown.fromTry(
+          GetPreferredPackageVersionRequestValidator.validate(request).toTry
+        )
+      preferenceO <- interactiveSubmissionService.getPreferredPackageVersion(
+        parties = parties,
+        packageName = packageName,
+        synchronizerId = synchronizerIdO,
+        vettingValidAt = vettingValidAtO,
+      )
+      protoPreference = preferenceO.map { case (packageReference, synchronizerId) =>
+        PackagePreference(
+          packageReference = Some(
+            PackageReference(
+              packageId = packageReference.pkdId,
+              packageName = packageReference.packageName,
+              packageVersion = packageReference.version.toString(),
+            )
+          ),
+          synchronizerId = synchronizerId.toProtoPrimitive,
+        )
+      }
+    } yield GetPreferredPackageVersionResponse(protoPreference)
+
+    responseFUS.asGrpcResponse
   }
 
   override def close(): Unit = {}

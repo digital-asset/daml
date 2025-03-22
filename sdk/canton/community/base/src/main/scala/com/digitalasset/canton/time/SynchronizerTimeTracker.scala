@@ -30,7 +30,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
@@ -71,7 +70,7 @@ class SynchronizerTimeTracker(
     with FlagCloseable
     with HasFlushFuture {
 
-  // timestamps that we are waiting to observe held in an ascending order queue
+  // timestamps that we are waiting to observe held in ascending order queue
   // modifications to pendingTicks must be made while holding the `lock`
   private val pendingTicks: PriorityBlockingQueue[AwaitingTick] =
     new PriorityBlockingQueue[AwaitingTick](
@@ -376,16 +375,19 @@ class SynchronizerTimeTracker(
       // Fine to repeatedly call without guards as the submitter will make no more than one request in-flight at once
       // The next call to update will complete the promise in `timestampRef.get().next`.
       timeRequestSubmitter.fetchTimeProof()
+
     if (clock.isSimClock && immediately) updateNow()
     else {
-      nextScheduledCheck() foreach { updateBy =>
+      nextScheduledCheck().foreach { updateBy =>
         // if we've already surpassed when we wanted to see a time, just ask for one
         // means that we're waiting on a timestamp and we're not receiving regular updates
         val now = clock.now
         if (updateBy <= now) updateNow()
         else {
-          def updateCondition(current: Option[CantonTimestamp]): Boolean =
-            !current.exists(ts => now < ts && ts <= updateBy)
+          def updateCondition(current: Option[CantonTimestamp]): Boolean = current match {
+            case Some(ts) => ts <= now || updateBy < ts
+            case None => true
+          }
 
           val current = nextScheduledUpdate.getAndUpdate { current =>
             if (updateCondition(current)) updateBy.some else current
@@ -496,7 +498,6 @@ object SynchronizerTimeTracker {
       config: SynchronizerTimeTrackerConfig,
       clock: Clock,
       sequencerClient: SequencerClient,
-      protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): SynchronizerTimeTracker =
@@ -507,7 +508,6 @@ object SynchronizerTimeTracker {
         config.timeRequest,
         clock,
         sequencerClient,
-        protocolVersion,
         timeouts,
         loggerFactory,
       ),

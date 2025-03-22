@@ -175,6 +175,8 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
 
   /** The sequencer counter at which the first subscription starts */
   protected def initialCounterLowerBound: SequencerCounter
+
+  def protocolVersion: ProtocolVersion
 }
 
 trait RichSequencerClient extends SequencerClient {

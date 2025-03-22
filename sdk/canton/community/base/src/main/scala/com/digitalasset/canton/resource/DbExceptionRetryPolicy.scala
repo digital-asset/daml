@@ -43,7 +43,7 @@ object DbExceptionRetryPolicy extends ExceptionRetryPolicy {
     case exn: java.util.concurrent.RejectedExecutionException =>
       // This occurs when slick's task queue is full
 
-      // Create a CantonError so that the error code gets logged.
+      // Create a CantonRpcError so that the error code gets logged.
       DatabaseTaskRejected(exn.toString)(
         ErrorLoggingContext.fromTracedLogger(logger)
       ).discard

@@ -9,7 +9,7 @@ import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
-import com.digitalasset.base.error.{DamlError, ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.digitalasset.base.error.{DamlRpcError, ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -164,7 +164,7 @@ class AdminWorkflowServices(
     } yield pkgRes.forall(pkgResponse => pkgResponse.packageStatus.isPackageStatusRegistered)
 
   private def handleDamlErrorDuringPackageLoading(
-      res: EitherT[FutureUnlessShutdown, DamlError, Unit]
+      res: EitherT[FutureUnlessShutdown, DamlRpcError, Unit]
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, IllegalStateException, Unit] =

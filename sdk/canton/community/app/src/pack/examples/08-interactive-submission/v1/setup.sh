@@ -93,6 +93,7 @@ generate_grpc_code "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/trace_context.p
 generate_grpc_code "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/transaction.proto"
 generate_grpc_code "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/transaction_filter.proto"
 generate_grpc_code "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/topology_transaction.proto"
+generate_grpc_code "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/package_reference.proto"
 generate_grpc_code "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/interactive/transaction/v1/interactive_submission_data.proto"
 generate_grpc_code "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/interactive/interactive_submission_common_data.proto"
 generate_grpc_code "$COMMUNITY_PROTO_PATH" "$PROTOCOL_PROTO_PATH/topology.proto"

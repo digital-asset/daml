@@ -131,6 +131,13 @@ trait CryptoPrivateStoreApi
 sealed trait SyncCryptoError extends Product with Serializable with PrettyPrinting
 object SyncCryptoError {
 
+  final case class SyncCryptoSessionKeyGenerationError(error: SigningKeyGenerationError)
+      extends SyncCryptoError {
+    override protected def pretty: Pretty[SyncCryptoSessionKeyGenerationError] = prettyOfParam(
+      _.error
+    )
+  }
+
   /** error thrown if there is no key available as per identity providing service */
   final case class KeyNotAvailable(
       owner: Member,
@@ -161,6 +168,17 @@ object SyncCryptoError {
   final case class StoreError(error: CryptoPrivateStoreError) extends SyncCryptoError {
     override protected def pretty: Pretty[StoreError] =
       prettyOfClass(unnamedParam(_.error))
+  }
+
+  /** Thrown when invariant checks fail during the creation of a signature delegation. This can
+    * occur if the session key or the generated signature does not follow the correct format.
+    */
+  final case class SyncCryptoDelegationSignatureCreationError(error: String)
+      extends SyncCryptoError {
+    override protected def pretty: Pretty[SyncCryptoDelegationSignatureCreationError] =
+      prettyOfClass(
+        unnamedParam(_.error.unquoted)
+      )
   }
 }
 

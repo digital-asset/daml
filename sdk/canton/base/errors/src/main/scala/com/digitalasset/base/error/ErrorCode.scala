@@ -153,7 +153,7 @@ object ErrorCode {
     val e = StatusProto.toStatusRuntimeException(status)
     // Stripping stacktrace
     err match {
-      case _: DamlError =>
+      case _: DamlRpcError =>
         new ErrorCode.LoggedApiException(e.getStatus, e.getTrailers)
       case _ => new ErrorCode.ApiException(e.getStatus, e.getTrailers)
     }
