@@ -5,7 +5,7 @@ package com.daml.ledger.javaapi.data
 
 import com.daml.ledger.api.*
 import com.daml.ledger.api.v2.CommandsOuterClass
-import com.google.protobuf.{ByteString, Empty}
+import com.google.protobuf.{ByteString, Empty, Timestamp}
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
 
@@ -188,6 +188,11 @@ object Generators {
       v2.ValueOuterClass.Value.newBuilder().setTimestamp(instant.toEpochMilli * 1000).build()
     )
 
+  def protoTimestampGen: Gen[Timestamp] =
+    instantGen.map(instant =>
+      Timestamp.newBuilder().setNanos(instant.getNano).setSeconds(instant.getEpochSecond).build()
+    )
+
   def instantGen: Gen[Instant] =
     Gen
       .chooseNum(
@@ -268,11 +273,41 @@ object Generators {
 
   val packageNameGen: Gen[String] = Arbitrary.arbString.arbitrary.suchThat(_.nonEmpty)
 
+  val packageVersionGen: Gen[String] = for {
+    major <- Gen.choose(0, 100)
+    minor <- Gen.choose(0, 100)
+    patch <- Gen.choose(0, 100)
+  } yield new PackageVersion(Array(major, minor, patch)).toString
+
+  val packagePreferenceGen: Gen[
+    v2.interactive.InteractiveSubmissionServiceOuterClass.PackagePreference
+  ] =
+    for {
+      packageId <- Arbitrary.arbString.arbitrary
+      packageVersion <- packageVersionGen
+      packageName <- packageNameGen
+      synchronizerId <- Arbitrary.arbString.arbitrary
+    } yield {
+      v2.interactive.InteractiveSubmissionServiceOuterClass.PackagePreference
+        .newBuilder()
+        .setPackageReference(
+          v2.PackageReferenceOuterClass.PackageReference
+            .newBuilder()
+            .setPackageId(packageId)
+            .setPackageName(packageName)
+            .setPackageVersion(packageVersion)
+            .build()
+        )
+        .setSynchronizerId(synchronizerId)
+        .build()
+    }
+
   def createdEventGen(nodeId: Integer): Gen[v2.EventOuterClass.CreatedEvent] =
     for {
       contractId <- contractIdValueGen.map(_.getContractId)
       templateId <- identifierGen
       packageName <- packageNameGen
+      createdAt <- protoTimestampGen
       createArgument <- recordGen
       createEventBlob <- byteStringGen
       interfaceViews <- Gen.listOf(interfaceViewGen)
@@ -282,6 +317,7 @@ object Generators {
       observers <- Gen.listOf(Gen.asciiPrintableStr)
     } yield v2.EventOuterClass.CreatedEvent
       .newBuilder()
+      .setCreatedAt(createdAt)
       .setContractId(contractId)
       .setTemplateId(templateId)
       .setPackageName(packageName)
@@ -669,6 +705,37 @@ object Generators {
       .pipe(builder => optCreated.fold(builder)(c => builder.setCreated(c)))
       .pipe(builder => optArchived.fold(builder)(a => builder.setArchived(a)))
       .build()
+  }
+
+  def getPreferredPackageVersionRequestGen: Gen[
+    v2.interactive.InteractiveSubmissionServiceOuterClass.GetPreferredPackageVersionRequest
+  ] = {
+    import v2.interactive.InteractiveSubmissionServiceOuterClass.GetPreferredPackageVersionRequest as Request
+    for {
+      packageNameGen <- packageNameGen
+      synchronizerId <- Arbitrary.arbOption[String].arbitrary
+      vettingValidAt <- protoTimestampGen
+      parties <- Gen.listOf(Arbitrary.arbString.arbitrary)
+    } yield {
+      val intermediate = Request
+        .newBuilder()
+        .setPackageName(packageNameGen)
+        .addAllParties(parties.asJava)
+        .setVettingValidAt(vettingValidAt)
+      synchronizerId.fold(intermediate)(intermediate.setSynchronizerId).build()
+    }
+  }
+
+  def getPreferredPackageVersionResponseGen: Gen[
+    v2.interactive.InteractiveSubmissionServiceOuterClass.GetPreferredPackageVersionResponse
+  ] = {
+    import v2.interactive.InteractiveSubmissionServiceOuterClass.GetPreferredPackageVersionResponse as Response
+    for {
+      packagePreferenceO <- Gen.option(packagePreferenceGen)
+    } yield {
+      val builder = Response.newBuilder()
+      packagePreferenceO.map(builder.setPackagePreference).getOrElse(builder).build()
+    }
   }
 
   def completionStreamRequestGen

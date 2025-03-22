@@ -4,12 +4,17 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.interactive.interactive_submission_service
-import com.daml.ledger.api.v2.interactive.interactive_submission_service.InteractiveSubmissionServiceGrpc
+import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  GetPreferredPackageVersionRequest,
+  InteractiveSubmissionServiceGrpc,
+}
+import com.daml.ledger.api.v2.package_reference
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput, v2Endpoint}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf
 import io.circe.*
@@ -18,6 +23,7 @@ import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
 import sttp.tapir.{AnyEndpoint, Schema, stringToPath}
 
+import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 
 class JsInteractiveSubmissionService(
@@ -46,6 +52,10 @@ class JsInteractiveSubmissionService(
       JsInteractiveSubmissionService.executeEndpoint,
       execute,
     ),
+    withServerLogic(
+      JsInteractiveSubmissionService.preferredPackageVersionEndpoint,
+      preferredPackageVersion,
+    ),
   )
 
   def prepare(callerContext: CallerContext): TracedInput[JsPrepareSubmissionRequest] => Future[
@@ -69,6 +79,26 @@ class JsInteractiveSubmissionService(
       grpcReq <- protocolConverters.ExecuteSubmissionRequest.fromJson(req.in)
       grpcResp <- interactiveSubmissionServiceClient(token).executeSubmission(grpcReq).resultToRight
     } yield grpcResp
+  }
+
+  private def preferredPackageVersion(
+      callerContext: CallerContext
+  ): TracedInput[(List[String], String, Option[Instant], Option[String])] => Future[
+    Either[JsCantonError, interactive_submission_service.GetPreferredPackageVersionResponse]
+  ] = { (tracedInput: TracedInput[(List[String], String, Option[Instant], Option[String])]) =>
+    implicit val token: Option[String] = callerContext.token()
+    implicit val tc: TraceContext = tracedInput.traceContext
+    val (parties, packageName, vettingValidAt, synchronizerId) = tracedInput.in
+    interactiveSubmissionServiceClient(token)
+      .getPreferredPackageVersion(
+        GetPreferredPackageVersionRequest(
+          parties = parties,
+          packageName = packageName,
+          vettingValidAt = vettingValidAt.map(ProtoConverter.InstantConverter.toProtoPrimitive),
+          synchronizerId = synchronizerId.getOrElse(""),
+        )
+      )
+      .resultToRight
   }
 }
 
@@ -105,6 +135,15 @@ object JsInteractiveSubmissionService extends DocumentationEndpoints {
   import JsInteractiveSubmissionServiceCodecs.*
   private lazy val interactiveSubmission =
     v2Endpoint.in(sttp.tapir.stringToPath("interactive-submission"))
+
+  private lazy val preferredPackageVersion =
+    interactiveSubmission.in(sttp.tapir.stringToPath("preferred-package-version"))
+
+  private val partiesQueryParam = "parties"
+  private val packageNameQueryParam = "package-name"
+  private val timestampVettingValidityQueryParam = "vetting_valid_at"
+  private val synchronizerIdQueryParam = "synchronizer-id"
+
   val prepareEndpoint = interactiveSubmission.post
     .in(stringToPath("prepare"))
     .in(jsonBody[JsPrepareSubmissionRequest])
@@ -117,7 +156,19 @@ object JsInteractiveSubmissionService extends DocumentationEndpoints {
     .out(jsonBody[interactive_submission_service.ExecuteSubmissionResponse])
     .description("Execute a signed transaction")
 
-  override def documentation: Seq[AnyEndpoint] = Seq(prepareEndpoint, executeEndpoint)
+  val preferredPackageVersionEndpoint =
+    preferredPackageVersion.get
+      .in(sttp.tapir.query[List[String]](partiesQueryParam))
+      .in(sttp.tapir.query[String](packageNameQueryParam))
+      .in(sttp.tapir.query[Option[Instant]](timestampVettingValidityQueryParam))
+      .in(sttp.tapir.query[Option[String]](synchronizerIdQueryParam))
+      .out(jsonBody[interactive_submission_service.GetPreferredPackageVersionResponse])
+      .description(
+        "Get the preferred package version for constructing a command submission"
+      )
+
+  override def documentation: Seq[AnyEndpoint] =
+    Seq(prepareEndpoint, executeEndpoint, preferredPackageVersionEndpoint)
 }
 
 object JsInteractiveSubmissionServiceCodecs {
@@ -182,6 +233,14 @@ object JsInteractiveSubmissionServiceCodecs {
     deriveCodec
 
   implicit val jsExecuteSubmissionRequestRW: Codec[JsExecuteSubmissionRequest] =
+    deriveCodec
+
+  implicit val packageReference: Codec[package_reference.PackageReference] =
+    deriveCodec
+  implicit val packagePreference: Codec[interactive_submission_service.PackagePreference] =
+    deriveCodec
+  implicit val getPreferredPackageVersionResponse
+      : Codec[interactive_submission_service.GetPreferredPackageVersionResponse] =
     deriveCodec
 
   // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs

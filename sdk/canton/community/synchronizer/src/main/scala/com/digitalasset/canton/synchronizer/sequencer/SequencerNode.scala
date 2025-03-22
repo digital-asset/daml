@@ -817,7 +817,6 @@ class SequencerNodeBootstrap(
             config.timeTracker,
             clock,
             sequencerClient,
-            staticSynchronizerParameters.protocolVersion,
             timeouts,
             loggerFactory,
           )

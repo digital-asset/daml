@@ -4,7 +4,7 @@
 package com.digitalasset.canton.health
 
 import cats.Eval
-import com.digitalasset.canton.error.CantonError
+import com.digitalasset.base.error.CantonRpcError
 import com.digitalasset.canton.health.ComponentHealthState.UnhealthyState
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -33,12 +33,12 @@ trait AtomicHealthComponent extends AtomicHealthElement with HealthComponent {
   /** Report that the component is now degraded. Note that this will override the component state,
     * even if it is currently failed!
     */
-  def degradationOccurred(error: CantonError)(implicit tc: TraceContext): Unit =
+  def degradationOccurred(error: CantonRpcError)(implicit tc: TraceContext): Unit =
     reportHealthState(ComponentHealthState.Degraded(UnhealthyState(None, Some(error))))
 
   /** Report that the component is now failed
     */
-  def failureOccurred(error: CantonError)(implicit tc: TraceContext): Unit =
+  def failureOccurred(error: CantonRpcError)(implicit tc: TraceContext): Unit =
     reportHealthState(ComponentHealthState.Failed(UnhealthyState(None, Some(error))))
 
   /** Report that the component is now degraded. Note that this will override the component state,

@@ -17,6 +17,7 @@ import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionResponse as ExecuteResponseProto,
   HashingSchemeVersion,
+  PackagePreference,
   PrepareSubmissionResponse as PrepareResponseProto,
   PreparedTransaction,
 }
@@ -89,7 +90,7 @@ import com.digitalasset.canton.platform.apiserver.execution.CommandStatus
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.NoTracing
-import com.digitalasset.canton.{LfPackageId, LfPartyId, config}
+import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPartyId, config}
 import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.StatusRuntimeException
@@ -691,6 +692,41 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               minLedgerTimeAbs = minLedgerTimeAbs,
               hashingSchemeVersion = hashingSchemeVersion,
             )
+          )
+        }
+
+      @Help.Summary("Get the preferred package version for constructing a command submission")
+      @Help.Description(
+        """A preferred package is the highest-versioned package for a provided package-name
+           that is vetted by all the participants hosting the provided parties.
+           Ledger API clients should use this endpoint for constructing command submissions
+           that are compatible with the provided preferred package, by making informed decisions on:
+             - which are the compatible packages that can be used to create contracts
+             - which contract or exercise choice argument version can be used in the command
+             - which choices can be executed on a template or interface of a contract
+           parties: The parties whose vetting state should be considered when computing the preferred package
+           packageName: The package name for which the preferred package is requested
+           synchronizerId: The synchronizer whose topology state to use for resolving this query.
+                           If not specified. the topology state of all the synchronizers the participant is connected to will be used.
+           vettingValidAt: The timestamp at which the package vetting validity should be computed
+                           If not provided, the participant's current clock time is used.
+          """
+      )
+      def preferred_package_version(
+          parties: Set[PartyId],
+          packageName: LfPackageName,
+          synchronizerId: Option[SynchronizerId] = None,
+          vettingValidAt: Option[CantonTimestamp] = None,
+      ): Option[PackagePreference] =
+        consoleEnvironment.run {
+          ledgerApiCommand(
+            LedgerApiCommands.InteractiveSubmissionService
+              .PreferredPackageVersion(
+                parties.map(_.toLf),
+                packageName,
+                synchronizerId,
+                vettingValidAt,
+              )
           )
         }
     }
@@ -1561,14 +1597,14 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           |used immediately thereafter, a command might bounce due to missing package vettings.""")
       def upload_dar(darPath: String): Unit = check(FeatureFlag.Testing) {
         consoleEnvironment.run {
-          ledgerApiCommand(LedgerApiCommands.PackageService.UploadDarFile(darPath))
+          ledgerApiCommand(LedgerApiCommands.PackageManagementService.UploadDarFile(darPath))
         }
       }
 
       @Help.Summary("List Daml Packages", FeatureFlag.Testing)
       def list(limit: PositiveInt = defaultLimit): Seq[PackageDetails] =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
-          ledgerApiCommand(LedgerApiCommands.PackageService.ListKnownPackages(limit))
+          ledgerApiCommand(LedgerApiCommands.PackageManagementService.ListKnownPackages(limit))
         })
 
       @Help.Summary("Validate a DAR against the current participants' state", FeatureFlag.Testing)
@@ -1578,10 +1614,9 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
       )
       def validate_dar(darPath: String): Unit = check(FeatureFlag.Testing) {
         consoleEnvironment.run {
-          ledgerApiCommand(LedgerApiCommands.PackageService.ValidateDarFile(darPath))
+          ledgerApiCommand(LedgerApiCommands.PackageManagementService.ValidateDarFile(darPath))
         }
       }
-
     }
 
     @Help.Summary("Monitor progress of commands", FeatureFlag.Testing)

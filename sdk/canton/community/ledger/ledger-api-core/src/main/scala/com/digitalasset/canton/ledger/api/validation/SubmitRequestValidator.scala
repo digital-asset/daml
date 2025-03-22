@@ -14,7 +14,7 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   SinglePartySignatures,
 }
 import com.daml.ledger.api.v2.reassignment_command.ReassignmentCommand
-import com.digitalasset.base.error.{ContextualizedErrorLogger, DamlError}
+import com.digitalasset.base.error.{ContextualizedErrorLogger, DamlRpcError}
 import com.digitalasset.canton.crypto.{
   Fingerprint,
   Signature,
@@ -206,7 +206,7 @@ class SubmitRequestValidator(
 
   private def validateSynchronizerId(string: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[DamlError, SynchronizerId] =
+  ): Either[DamlRpcError, SynchronizerId] =
     SynchronizerId
       .fromString(string)
       .leftMap(err =>
@@ -216,7 +216,7 @@ class SubmitRequestValidator(
 
   private def validateHashingSchemeVersion(protoVersion: iss.HashingSchemeVersion)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[DamlError, HashingSchemeVersion] = protoVersion match {
+  ): Either[DamlRpcError, HashingSchemeVersion] = protoVersion match {
     case iss.HashingSchemeVersion.HASHING_SCHEME_VERSION_V1 => Right(V1)
     case iss.HashingSchemeVersion.HASHING_SCHEME_VERSION_UNSPECIFIED =>
       Left(

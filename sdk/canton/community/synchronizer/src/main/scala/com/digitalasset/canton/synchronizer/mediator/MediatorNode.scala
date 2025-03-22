@@ -678,7 +678,6 @@ class MediatorNodeBootstrap(
         config.timeTracker,
         clock,
         sequencerClient,
-        synchronizerConfig.synchronizerParameters.protocolVersion,
         timeouts,
         loggerFactory,
       )

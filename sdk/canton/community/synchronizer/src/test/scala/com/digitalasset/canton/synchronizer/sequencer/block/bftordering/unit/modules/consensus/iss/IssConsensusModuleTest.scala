@@ -243,7 +243,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
       "start segment modules only once after restart with delayed Start signal" in {
         val segmentModuleMock = mock[ModuleRef[ConsensusSegment.Message]]
         val stateTransferManagerMock = mock[StateTransferManager[ProgrammableUnitTestEnv]]
-        when(stateTransferManagerMock.inBlockTransfer).thenReturn(true)
+        when(stateTransferManagerMock.inStateTransfer).thenReturn(true)
         val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
         val cryptoProvider = failingCryptoProvider[ProgrammableUnitTestEnv]
 

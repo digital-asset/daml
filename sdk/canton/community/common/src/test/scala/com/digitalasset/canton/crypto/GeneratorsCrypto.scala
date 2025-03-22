@@ -112,10 +112,11 @@ object GeneratorsCrypto {
   implicit val signatureArb: Arbitrary[Signature] = Arbitrary(
     for {
       signature <- Arbitrary.arbitrary[ByteString]
-      signedBy <- Arbitrary.arbitrary[Fingerprint]
+      longTermKey <- Arbitrary.arbitrary[Fingerprint]
       signingAlgorithmSpec <- Arbitrary.arbitrary[Option[SigningAlgorithmSpec]]
       format <- Arbitrary.arbitrary[SignatureFormat]
       signatureDelegation <- Arbitrary.arbitrary[Option[SignatureDelegation]]
+      signedBy = signatureDelegation.map(_.sessionKey.id).getOrElse(longTermKey)
     } yield Signature.create(format, signature, signedBy, signingAlgorithmSpec, signatureDelegation)
   )
 

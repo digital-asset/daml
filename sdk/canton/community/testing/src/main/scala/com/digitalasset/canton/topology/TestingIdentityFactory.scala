@@ -48,7 +48,9 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.{ErrorUtil, MapsUtil}
 import com.digitalasset.canton.{BaseTest, FutureHelpers, LfPackageId, LfPartyId}
+import com.google.common.annotations.VisibleForTesting
 
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
@@ -115,7 +117,7 @@ final case class TestingTopology(
     synchronizerParameters: List[
       SynchronizerParameters.WithValidity[DynamicSynchronizerParameters]
     ] = defaultSynchronizerParams,
-    freshKeys: Boolean = false,
+    freshKeys: AtomicBoolean = new AtomicBoolean(false),
     sessionSigningKeysConfig: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
 ) {
   def mediators: Seq[MediatorId] = mediatorGroups.toSeq.flatMap(_.all)
@@ -130,7 +132,7 @@ final case class TestingTopology(
   def withDynamicSynchronizerParameters(
       dynamicSynchronizerParameters: DynamicSynchronizerParameters,
       validFrom: CantonTimestamp = CantonTimestamp.Epoch,
-  ) =
+  ): TestingTopology =
     copy(
       synchronizerParameters = List(
         SynchronizerParameters.WithValidity(
@@ -177,7 +179,7 @@ final case class TestingTopology(
     this.copy(keyPurposes = keyPurposes)
 
   def withFreshKeys(freshKeys: Boolean): TestingTopology =
-    this.copy(freshKeys = freshKeys)
+    this.copy(freshKeys = new AtomicBoolean(freshKeys))
 
   /** Define the topology as a simple map of party to participant */
   def withTopology(
@@ -316,6 +318,9 @@ class TestingIdentityFactory(
     with FutureHelpers {
   protected implicit val directExecutionContext: ExecutionContext =
     DirectExecutionContext(noTracingLogger)
+
+  @VisibleForTesting
+  def getTopology(): TestingTopology = this.topology
 
   def forOwner(
       owner: Member,
@@ -476,7 +481,8 @@ class TestingIdentityFactory(
           MapsUtil.extendedMapWith(acc, permissionByParticipant)(ParticipantPermission.higherOf)
       }
 
-    val participantTxs = participantsTxs(defaultPermissionByParticipant, topology.packages)
+    val participantTxs =
+      participantsTxs(defaultPermissionByParticipant, topology.packages)
 
     val synchronizerMembers =
       (topology.sequencerGroup.active ++ topology.sequencerGroup.passive ++ topology.mediators)
@@ -584,6 +590,8 @@ class TestingIdentityFactory(
   ): Seq[SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]] = {
     implicit val traceContext: TraceContext = TraceContext.empty
 
+    val withFreshKeys = topology.freshKeys.get()
+
     val keyPurposes = topology.keyPurposes
     val keyName = owner.toProtoPrimitive
 
@@ -617,7 +625,7 @@ class TestingIdentityFactory(
             .futureValueUS
         )
 
-    if (topology.freshKeys)
+    if (withFreshKeys)
       crypto match {
         case crypto: SymbolicCrypto =>
           crypto.setRandomKeysFlag(true)
@@ -629,7 +637,7 @@ class TestingIdentityFactory(
         val authKeyName = KeyName.tryCreate(authName)
         val sigKeyName = KeyName.tryCreate(sigName)
 
-        if (topology.freshKeys)
+        if (withFreshKeys)
           Seq(
             crypto
               .generateSigningKey(
@@ -663,7 +671,7 @@ class TestingIdentityFactory(
       if (keyPurposes.contains(KeyPurpose.Encryption)) {
         val encKeyName = KeyName.tryCreate(keyName)
 
-        if (topology.freshKeys)
+        if (withFreshKeys)
           Seq(
             crypto
               .generateEncryptionKey(name = Some(encKeyName))
@@ -674,7 +682,7 @@ class TestingIdentityFactory(
           Seq(getOrGenerateEncryptionKey(keyName = encKeyName))
       } else Nil
 
-    if (topology.freshKeys)
+    if (withFreshKeys)
       crypto match {
         case crypto: SymbolicCrypto =>
           crypto.setRandomKeysFlag(false)

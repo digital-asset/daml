@@ -142,6 +142,7 @@ class RetransmissionsManager[E <: Env[E]](
           currentEpoch match {
             case Some(epochState) =>
               val epochNumber = epochState.epoch.info.number
+              // TODO(#23440) further validate commit certs
               val wrongEpochs =
                 commitCertificates.view
                   .map(_.prePrepare.message.blockMetadata.epochNumber)
