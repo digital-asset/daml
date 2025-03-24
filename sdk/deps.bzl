@@ -70,7 +70,7 @@ rules_jvm_external_sha256 = "735602f50813eb2ea93ca3f5e43b1959bd80b213b836a07a62a
 rules_go_version = "0.40.0"
 rules_go_sha256 = "bfc5ce70b9d1634ae54f4e7b495657a18a04e0d596785f672d35d5f505ab491a"
 bazel_gazelle_version = "0.42.0"
-bazel_gazelle_sha256 = "b9bd60e869ac69b083e818a5e4c6803fea17442576d111a2d05f7a314f34b466"
+bazel_gazelle_sha256 = "5d80e62a70314f39cc764c1c3eaa800c5936c9f1ea91625006227ce4d20cd086"
 rules_bazel_common_version = "9e3880428c1837db9fb13335ed390b7e33e346a7"
 rules_bazel_common_sha256 = "5290e0c8e0b7639f20b70f8d0046b50ad340cb55a4733545f6ec8f43af8727fe"
 go_googleapis_version = "83c3605afb5a39952bf0a0809875d41cf2a558ca"
@@ -234,9 +234,8 @@ def daml_deps():
         http_archive(
             name = "bazel_gazelle",
             urls = [
-                "https://github.com/bazelbuild/bazel-gazelle/archive/{version}/bazel-gazelle-v{version}.tar.gz".format(version = bazel_gazelle_version),
+                "https://github.com/bazel-contrib/bazel-gazelle/releases/download/v{}/bazel-gazelle-v{}.tar.gz".format(bazel_gazelle_version, bazel_gazelle_version),
             ],
-            strip_prefix = "bazel-gazelle-{version}".format(version = bazel_gazelle_version),
             sha256 = bazel_gazelle_sha256,
         )
 
