@@ -70,7 +70,7 @@ object Commands {
     )
 
   def submitAndWaitRequest(
-      applicationId: lar.ApplicationId,
+      userId: lar.UserId,
       commandId: lar.CommandId,
       actAs: NonEmptyList[lar.Party],
       readAs: List[lar.Party],
@@ -83,7 +83,7 @@ object Commands {
       packageIdSelectionPreference: Seq[Ref.PackageId],
   ): lav2.command_service.SubmitAndWaitRequest = {
     val commands = lav2.commands.Commands(
-      applicationId = applicationId.unwrap,
+      userId = userId.unwrap,
       commandId = commandId.unwrap,
       actAs = lar.Party.unsubst(actAs.toList),
       readAs = lar.Party.unsubst(readAs),
@@ -92,6 +92,11 @@ object Commands {
       synchronizerId = synchronizerId.map(_.toProtoPrimitive).getOrElse(""),
       packageIdSelectionPreference = packageIdSelectionPreference,
       commands = Seq(lav2.commands.Command(command)),
+      workflowId = workflowId.map(_.toString).getOrElse(""),
+      submissionId = submissionId.map(_.toString).getOrElse(""),
+      minLedgerTimeAbs = None,
+      minLedgerTimeRel = None,
+      prefetchContractKeys = Nil,
     )
     val commandsWithSubmissionId =
       http.SubmissionId.unsubst(submissionId).map(commands.withSubmissionId).getOrElse(commands)

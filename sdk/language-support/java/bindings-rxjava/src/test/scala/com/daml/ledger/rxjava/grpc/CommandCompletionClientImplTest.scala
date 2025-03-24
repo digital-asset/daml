@@ -31,7 +31,7 @@ class CommandCompletionClientImplTest
   behavior of "[4.3] CommandCompletionClientImpl.completionStream"
 
   it should "return a stream with all the completions" in {
-    val applicationId = "applicationId"
+    val userId = "userId"
     val completion1 = Completion("cid1", Option(new Status(0)), "1", offset = offset1)
     val completion2 = Completion("cid2", Option(new Status(1)), offset = offset2)
 
@@ -43,7 +43,7 @@ class CommandCompletionClientImplTest
       completionResponses
     ) { (client, _) =>
       val completions = client
-        .completionStream(applicationId, 0L, List("Alice").asJava)
+        .completionStream(userId, 0L, List("Alice").asJava)
         .take(2)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingIterable()
@@ -64,7 +64,7 @@ class CommandCompletionClientImplTest
   behavior of "[4.4] CommandCompletionClientImpl.completionStream"
 
   it should "send the request with the correct arguments" in {
-    val applicationId = "applicationId"
+    val userId = "userId"
     val completion1 = Completion("cid1", Option(new Status(0)), offset = offset1)
     val completionResponse =
       CompletionStreamResponse(CompletionResponse.Completion(completion1))
@@ -73,10 +73,10 @@ class CommandCompletionClientImplTest
       List(completionResponse)
     ) { (client, serviceImpl) =>
       client
-        .completionStream(applicationId, 0L, parties.asJava)
+        .completionStream(userId, 0L, parties.asJava)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingFirst()
-      serviceImpl.getLastCompletionStreamRequest.value.applicationId shouldBe applicationId
+      serviceImpl.getLastCompletionStreamRequest.value.userId shouldBe userId
       serviceImpl.getLastCompletionStreamRequest.value.beginExclusive shouldBe 0L
       serviceImpl.getLastCompletionStreamRequest.value.parties should contain theSameElementsAs parties
     }
@@ -101,7 +101,7 @@ class CommandCompletionClientImplTest
       withClue("completionStream") {
         expectUnauthenticated {
           client
-            .completionStream("appId", 0L, List(someParty).asJava)
+            .completionStream("userId", 0L, List(someParty).asJava)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingFirst()
         }
@@ -109,7 +109,7 @@ class CommandCompletionClientImplTest
       withClue("completionStream unbounded") {
         expectUnauthenticated {
           client
-            .completionStream("appId", List(someParty).asJava)
+            .completionStream("userId", List(someParty).asJava)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingFirst()
         }
@@ -123,7 +123,7 @@ class CommandCompletionClientImplTest
         expectPermissionDenied {
           client
             .completionStream(
-              "appId",
+              "userId",
               0L,
               List(someParty).asJava,
               someOtherPartyReadToken,
@@ -135,7 +135,7 @@ class CommandCompletionClientImplTest
       withClue("completionStream unbounded") {
         expectPermissionDenied {
           client
-            .completionStream("appId", List(someParty).asJava, someOtherPartyReadToken)
+            .completionStream("userId", List(someParty).asJava, someOtherPartyReadToken)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingFirst()
         }
@@ -148,7 +148,7 @@ class CommandCompletionClientImplTest
       withClue("completionStream") {
         client
           .completionStream(
-            "appId",
+            "userId",
             0L,
             List(someParty).asJava,
             somePartyReadToken,
@@ -158,7 +158,7 @@ class CommandCompletionClientImplTest
       }
       withClue("completionStream unbounded") {
         client
-          .completionStream("appId", List(someParty).asJava, somePartyReadToken)
+          .completionStream("userId", List(someParty).asJava, somePartyReadToken)
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
           .blockingFirst()
       }

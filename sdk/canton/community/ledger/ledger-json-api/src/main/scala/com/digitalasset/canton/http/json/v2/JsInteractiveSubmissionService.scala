@@ -73,7 +73,7 @@ class JsInteractiveSubmissionService(
 }
 
 final case class JsPrepareSubmissionRequest(
-    applicationId: String,
+    userId: String,
     commandId: String,
     commands: Seq[JsCommand.Command],
     minLedgerTime: Option[interactive_submission_service.MinLedgerTime],
@@ -97,7 +97,7 @@ final case class JsExecuteSubmissionRequest(
     partySignatures: Option[interactive_submission_service.PartySignatures],
     deduplicationPeriod: interactive_submission_service.ExecuteSubmissionRequest.DeduplicationPeriod,
     submissionId: String,
-    applicationId: String,
+    userId: String,
     hashingSchemeVersion: interactive_submission_service.HashingSchemeVersion,
 )
 

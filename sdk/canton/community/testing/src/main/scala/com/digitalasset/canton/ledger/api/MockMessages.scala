@@ -9,6 +9,7 @@ import com.daml.ledger.api.v2.command_service.{
 }
 import com.daml.ledger.api.v2.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v2.commands.Commands
+import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
 import com.daml.ledger.api.v2.transaction_filter.{EventFormat, Filters, TransactionFormat}
 import com.google.protobuf.timestamp.Timestamp
@@ -16,21 +17,37 @@ import com.google.protobuf.timestamp.Timestamp
 object MockMessages {
 
   val workflowId = "workflowId"
-  val applicationId = "applicationId"
+  val userId = "userId"
   val commandId = "commandId"
   val party = "party"
   val party2 = "party2"
   val ledgerEffectiveTime: Timestamp = Timestamp(0L, 0)
 
   val commands: Commands =
-    Commands(workflowId, applicationId, commandId, Nil, actAs = Seq(party))
+    Commands(
+      workflowId = workflowId,
+      userId = userId,
+      commandId = commandId,
+      commands = Nil,
+      deduplicationPeriod = DeduplicationPeriod.Empty,
+      minLedgerTimeAbs = None,
+      minLedgerTimeRel = None,
+      actAs = Seq(party),
+      readAs = Nil,
+      submissionId = "",
+      disclosedContracts = Nil,
+      synchronizerId = "",
+      packageIdSelectionPreference = Nil,
+      prefetchContractKeys = Nil,
+    )
 
   val submitRequest: SubmitRequest = SubmitRequest(Some(commands))
 
   private val transactionFormat = TransactionFormat(
     eventFormat = Some(
       EventFormat(
-        filtersByParty = Map(party -> Filters()),
+        filtersByParty = Map(party -> Filters(cumulative = Nil)),
+        filtersForAnyParty = None,
         verbose = true,
       )
     ),

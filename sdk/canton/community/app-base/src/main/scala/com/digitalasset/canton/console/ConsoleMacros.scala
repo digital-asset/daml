@@ -529,7 +529,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         template: String,
         arguments: Map[String, Any],
     ): Command =
-      Command().withCreate(
+      Command.defaultInstance.withCreate(
         CreateCommand(
           // TODO(#16362): Support encoding of the package-name
           templateId = Some(buildIdentifier(packageId, module, template)),
@@ -546,7 +546,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         arguments: Map[String, Any],
         contractId: String,
     ): Command =
-      Command().withExercise(
+      Command.defaultInstance.withExercise(
         ExerciseCommand(
           // TODO(#16362): Support encoding of the package-name
           templateId = Some(buildIdentifier(packageId, module, template)),

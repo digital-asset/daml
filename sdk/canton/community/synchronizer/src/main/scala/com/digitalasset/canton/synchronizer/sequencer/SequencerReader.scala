@@ -209,7 +209,83 @@ class SequencerReader(
         registeredTopologyClientMember.memberId,
         loggerFactoryForMember,
       )
-      reader.from(offset, initialReadState)
+      reader.from(_.counter < offset, initialReadState)
+    })
+
+  def readV2(member: Member, timestampInclusive: Option[CantonTimestamp])(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+    performUnlessClosingEitherUSF(functionFullName)(for {
+      registeredTopologyClientMember <- EitherT
+        .fromOptionF(
+          store.lookupMember(topologyClientMember),
+          CreateSubscriptionError.UnknownMember(topologyClientMember),
+        )
+        .leftWiden[CreateSubscriptionError]
+      registeredMember <- EitherT
+        .fromOptionF(
+          store.lookupMember(member),
+          CreateSubscriptionError.UnknownMember(member),
+        )
+        .leftWiden[CreateSubscriptionError]
+      // check they haven't been disabled
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+        registeredMember.enabled,
+        CreateSubscriptionError.MemberDisabled(member): CreateSubscriptionError,
+      )
+      // We use the sequencing time of the topology transaction that registered the member on the synchronizer
+      // as the latestTopologyClientRecipientTimestamp
+      memberOnboardingTxSequencingTime <- EitherT.right(
+        syncCryptoApi.headSnapshot.ipsSnapshot
+          .memberFirstKnownAt(member)
+          .map {
+            case Some((sequencedTime, _)) => sequencedTime.value
+            case None =>
+              ErrorUtil.invalidState(
+                s"Member $member unexpectedly not known to the topology client"
+              )
+          }
+      )
+      initialReadState <- EitherT.right(
+        startFromClosestCounterCheckpointV2(
+          ReadState.initial(
+            member,
+            registeredMember,
+            latestTopologyClientRecipientTimestamp = memberOnboardingTxSequencingTime,
+          ),
+          timestampInclusive,
+        )
+      )
+      // validate we are in the bounds of the data that this sequencer can serve
+      lowerBoundO <- EitherT.right(store.fetchLowerBound())
+      _ <- EitherT
+        .cond[FutureUnlessShutdown](
+          lowerBoundO.forall(_ <= initialReadState.nextReadTimestamp),
+          (), {
+            val lowerBoundText = lowerBoundO.map(_.toString).getOrElse("epoch")
+            val timestampText = timestampInclusive
+              .map(timestamp => s"$timestamp (inclusive)")
+              .getOrElse("the beginning")
+            val errorMessage =
+              show"Subscription for $member from $timestampText would require reading data from ${initialReadState.nextReadTimestamp} but our lower bound is ${lowerBoundText.unquoted}."
+
+            logger.error(errorMessage)
+            CreateSubscriptionError.EventsUnavailableForTimestamp(timestampInclusive, errorMessage)
+          },
+        )
+        .leftWiden[CreateSubscriptionError]
+    } yield {
+      val loggerFactoryForMember = loggerFactory.append("subscriber", member.toString)
+      val reader = new EventsReader(
+        member,
+        registeredMember,
+        registeredTopologyClientMember.memberId,
+        loggerFactoryForMember,
+      )
+      reader.from(
+        event => timestampInclusive.exists(event.unvalidatedEvent.timestamp < _),
+        initialReadState,
+      )
     })
 
   private[SequencerReader] class EventsReader(
@@ -595,7 +671,10 @@ class SequencerReader(
             .tapOnShutdown(validatedSnapshotsWithEvents.killSwitch.shutdown())
         )
 
-    def from(startAt: SequencerCounter, initialReadState: ReadState)(implicit
+    def from(
+        dropWhile: ValidatedSnapshotWithEvent[IdOrPayload] => Boolean,
+        initialReadState: ReadState,
+    )(implicit
         traceContext: TraceContext
     ): Sequencer.EventSource = {
       val unvalidatedEventsSrc = unvalidatedEventsSourceFromCheckpoint(initialReadState)
@@ -605,7 +684,7 @@ class SequencerReader(
       val eventsSource =
         validatedEventSrc
           // drop events we don't care about before fetching payloads
-          .dropWhile(_.counter < startAt)
+          .dropWhile(dropWhile)
           .viaMat(KillSwitches.single)(Keep.both)
           .injectKillSwitch { case (_, killSwitch) => killSwitch }
           .via(fetchPayloadsForEventsBatch())
@@ -877,6 +956,30 @@ class SequencerReader(
       val startText = closestCheckpoint.fold("the beginning")(_.toString)
       logger.debug(
         s"Subscription for ${readState.member} at $requestedCounter will start from $startText"
+      )
+      closestCheckpoint.fold(readState)(checkpoint =>
+        readState.startFromCheckpoint(checkpoint, previousEventTimestamp)
+      )
+    }
+
+  /** Update the read state to start from the closest counter checkpoint if available */
+  private def startFromClosestCounterCheckpointV2(
+      readState: ReadState,
+      timestampInclusive: Option[CantonTimestamp],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[ReadState] =
+    for {
+      closestCheckpoint <- store.fetchClosestCheckpointBeforeV2(
+        readState.memberId,
+        timestampInclusive,
+      )
+      previousEventTimestamp <-
+        closestCheckpoint.fold(FutureUnlessShutdown.pure(None: Option[CantonTimestamp]))(
+          checkpoint => store.fetchPreviousEventTimestamp(readState.memberId, checkpoint.timestamp)
+        )
+    } yield {
+      val startText = closestCheckpoint.fold("the beginning")(_.toString)
+      logger.debug(
+        s"Subscription for ${readState.member} at $timestampInclusive (inclusive) will start from $startText"
       )
       closestCheckpoint.fold(readState)(checkpoint =>
         readState.startFromCheckpoint(checkpoint, previousEventTimestamp)

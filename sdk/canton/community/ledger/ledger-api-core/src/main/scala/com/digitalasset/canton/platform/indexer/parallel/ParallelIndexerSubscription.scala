@@ -373,27 +373,22 @@ object ParallelIndexerSubscription {
       case None => ()
 
       case Some(prevIndex) =>
-        def err(where: String, fromTo: String): String =
-          s"Monotonicity violation detected: $where decreases $fromTo at offset $offset and synchronizer $synchronizerId"
         assert(
           prevIndex.recordTime <= synchronizerIndex.recordTime,
-          err("record time", s"from ${prevIndex.recordTime} to ${synchronizerIndex.recordTime}"),
+          s"Monotonicity violation detected: record time decreases from ${prevIndex.recordTime} to ${synchronizerIndex.recordTime} at offset $offset and synchronizer $synchronizerId",
         )
         prevIndex.sequencerIndex.zip(synchronizerIndex.sequencerIndex).foreach {
           case (prevSeqIndex, currSeqIndex) =>
             assert(
-              prevSeqIndex.counter <= currSeqIndex.counter,
-              err(
-                "sequencer counter",
-                s"from ${prevSeqIndex.counter} to ${currSeqIndex.counter}",
-              ),
+              prevSeqIndex.sequencerTimestamp < currSeqIndex.sequencerTimestamp,
+              s"Monotonicity violation detected: sequencer timestamp did not increase from ${prevSeqIndex.sequencerTimestamp} to ${currSeqIndex.sequencerTimestamp} at offset $offset and synchronizer $synchronizerId",
             )
         }
         prevIndex.repairIndex.zip(synchronizerIndex.repairIndex).foreach {
           case (prevRepairIndex, currRepairIndex) =>
             assert(
               prevRepairIndex <= currRepairIndex,
-              err("repair index", s"from $prevRepairIndex to $currRepairIndex"),
+              s"Monotonicity violation detected: repair index decreases from $prevRepairIndex to $currRepairIndex at offset $offset and synchronizer $synchronizerId",
             )
         }
     }

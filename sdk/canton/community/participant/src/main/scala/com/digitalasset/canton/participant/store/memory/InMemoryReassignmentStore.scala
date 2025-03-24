@@ -236,7 +236,6 @@ class InMemoryReassignmentStore(
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
     val newEntry = ReassignmentEntry(
       assignmentData.reassignmentId,
-      assignmentData.sourceProtocolVersion,
       assignmentData.contract,
       None,
       CantonTimestamp.Epoch,
@@ -321,6 +320,7 @@ class InMemoryReassignmentStore(
             .tryCreate(
               entry.sourceSynchronizer,
               entry.unassignmentTs,
+              entry.unassignmentRequest,
               entry.reassignmentGlobalOffset,
               validAt,
             )
@@ -397,7 +397,7 @@ class InMemoryReassignmentStore(
             ) &&
             completionTs.forall(ts => entry.assignmentTs.forall(ts == _))
           }
-          .collect { case (reassignmentId, ReassignmentEntry(_, _, _, Some(request), _, _, _, _)) =>
+          .collect { case (reassignmentId, ReassignmentEntry(_, _, Some(request), _, _, _, _)) =>
             (request.contract.contractId, reassignmentId)
           }
           .groupBy(_._1)

@@ -28,7 +28,7 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
         ),
         // Not part of the membership
         (
-          BlockTransferRequest.create(EpochNumber.First, GenesisEpochNumber, otherId),
+          BlockTransferRequest.create(EpochNumber.First, otherId),
           aMembershipWithOnlySelf,
           Left(
             s"'$otherId' is requesting state transfer while not being active, active nodes are: List($myId)"
@@ -36,19 +36,13 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
         ),
         // Genesis start epoch
         (
-          BlockTransferRequest.create(GenesisEpochNumber, GenesisEpochNumber, otherId),
+          BlockTransferRequest.create(GenesisEpochNumber, otherId),
           aMembershipWith2Nodes,
           Left("state transfer is supported only after genesis, but start epoch -1 received"),
         ),
-        // Too old start epoch
-        (
-          BlockTransferRequest.create(EpochNumber.First, EpochNumber.First, otherId),
-          aMembershipWith2Nodes,
-          Left("start epoch 0 is not greater than latest completed epoch 0"),
-        ),
         // Correct
         (
-          BlockTransferRequest.create(EpochNumber(1L), EpochNumber.First, otherId),
+          BlockTransferRequest.create(EpochNumber(1L), otherId),
           aMembershipWith2Nodes,
           Right(()),
         ),

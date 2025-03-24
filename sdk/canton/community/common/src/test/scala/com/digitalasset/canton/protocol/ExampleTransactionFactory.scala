@@ -380,7 +380,7 @@ object ExampleTransactionFactory {
 
   // Request metadata
 
-  val applicationId: ApplicationId = DefaultDamlValues.applicationId()
+  val userId: UserId = DefaultDamlValues.userId()
   val commandId: CommandId = DefaultDamlValues.commandId()
   val workflowId: WorkflowId = WorkflowId.assertFromString("testWorkflowId")
 
@@ -782,7 +782,7 @@ class ExampleTransactionFactory(
   val submitterMetadata: SubmitterMetadata =
     SubmitterMetadata(
       NonEmpty(Set, submitter),
-      applicationId,
+      userId,
       commandId,
       submittingParticipant,
       Salt.tryDeriveSalt(transactionSeed, 0, cryptoOps),

@@ -37,9 +37,9 @@ private[auth] final class UserRightsChangeAsyncChecker(
   )(implicit loggingContext: LoggingContextWithTrace): () => Unit = {
     val delay = userRightsCheckIntervalInSeconds.seconds
     val identityProviderId = originalClaims.identityProviderId
-    val userId = originalClaims.applicationId.fold[Ref.UserId](
+    val userId = originalClaims.userId.fold[Ref.UserId](
       throw new RuntimeException(
-        "Claims were resolved from a user but userId (applicationId) is missing in the claims."
+        "Claims were resolved from a user but userId is missing in the claims."
       )
     )(Ref.UserId.assertFromString)
     assert(

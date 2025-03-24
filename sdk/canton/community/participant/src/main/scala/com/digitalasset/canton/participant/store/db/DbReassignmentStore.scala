@@ -46,7 +46,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.SingletonTraverse.syntax.SingletonTraverseOps
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 import com.google.common.collect.HashBiMap
 import com.google.protobuf.ByteString
 import slick.jdbc.GetResult.GetInt
@@ -104,9 +104,11 @@ class DbReassignmentStore(
         )
       )
 
-  private def parseFullUnassignmentTree(sourcePV: Source[ProtocolVersion], bytes: Array[Byte]) =
+  private def parseFullUnassignmentTree(
+      bytes: Array[Byte]
+  ) =
     FullUnassignmentTree
-      .fromByteString(cryptoApi, sourcePV)(
+      .fromByteString(cryptoApi, Source(ProtocolVersionValidation.NoValidation))(
         ByteString.copyFrom(bytes)
       )
       .valueOr(error =>
@@ -115,18 +117,11 @@ class DbReassignmentStore(
         )
       )
 
-  private def getResultFullUnassignmentTree(
-      sourcePV: Source[ProtocolVersion]
-  ): GetResult[FullUnassignmentTree] =
-    GetResult(r => parseFullUnassignmentTree(sourcePV, r.nextBytes()))
+  implicit val getResultFullUnassignmentTree: GetResult[FullUnassignmentTree] =
+    GetResult(r => parseFullUnassignmentTree(r.nextBytes()))
 
-  private def getResultFullUnassignmentTreeO(
-      sourcePv: Source[ProtocolVersion]
-  ): GetResult[Option[FullUnassignmentTree]] =
-    GetResult(r =>
-      r.nextBytesOption()
-        .map(bytes => parseFullUnassignmentTree(sourcePv, bytes))
-    )
+  implicit val getResultFullUnassignmentTreeO: GetResult[Option[FullUnassignmentTree]] =
+    GetResult(r => r.nextBytesOption().map(parseFullUnassignmentTree))
 
   private implicit val setResultFullUnassignmentTree: SetParameter[FullUnassignmentTree] =
     (r: FullUnassignmentTree, pp: PositionedParameters) => pp >> r.toByteString.toByteArray
@@ -142,7 +137,8 @@ class DbReassignmentStore(
   private implicit val getResultOptionRawDeliveredUnassignmentResult
       : GetResult[Option[RawDeliveredUnassignmentResult]] = GetResult { r =>
     r.nextBytesOption().map { bytes =>
-      RawDeliveredUnassignmentResult(bytes, GetResult[ProtocolVersion].apply(r))
+      // This hardcoded value is admissible because of the upcoming removal of the delivered unassignment result
+      RawDeliveredUnassignmentResult(bytes)
     }
   }
 
@@ -159,13 +155,15 @@ class DbReassignmentStore(
   private implicit val setParameterSerializableContract: SetParameter[SerializableContract] =
     SerializableContract.getVersionedSetParameter(targetSynchronizerProtocolVersion.unwrap)
 
-  private def getResultDeliveredUnassignmentResult(
-      sourceProtocolVersion: Source[ProtocolVersion]
-  ): GetResult[Option[DeliveredUnassignmentResult]] =
+  private def getResultDeliveredUnassignmentResult: GetResult[Option[DeliveredUnassignmentResult]] =
     GetResult(r =>
       r.nextBytesOption().map { bytes =>
         DbReassignmentStore
-          .tryCreateDeliveredUnassignmentResult(cryptoApi)(bytes, sourceProtocolVersion)
+          .tryCreateDeliveredUnassignmentResult(cryptoApi)(
+            bytes,
+            // This hardcoded value is admissible because of the upcoming removal of the delivered unassignment result
+            Source(ProtocolVersion.latest),
+          )
       }
     )
 
@@ -185,15 +183,13 @@ class DbReassignmentStore(
 
   private implicit val getResultReassignmentEntryRaw: GetResult[ReassignmentEntryRaw] = GetResult {
     r =>
-      val sourceProtocolVersion = Source(GetResult[ProtocolVersion].apply(r))
       ReassignmentEntryRaw(
         sourceSynchronizerIndex = GetResult[Int].apply(r),
         unassignmentTs = GetResult[CantonTimestamp].apply(r),
-        sourceProtocolVersion = sourceProtocolVersion,
         contract = GetResult[SerializableContract].apply(r),
-        unassignmentRequest = getResultFullUnassignmentTreeO(sourceProtocolVersion).apply(r),
+        unassignmentRequest = getResultFullUnassignmentTreeO.apply(r),
         unassignmentDecisionTime = GetResult[CantonTimestamp].apply(r),
-        unassignmentResult = getResultDeliveredUnassignmentResult(sourceProtocolVersion).apply(r),
+        unassignmentResult = getResultDeliveredUnassignmentResult.apply(r),
         reassignmentGlobalOffset = ReassignmentGlobalOffset
           .create(
             r.nextLongOption().map(Offset.tryFromLong),
@@ -230,7 +226,7 @@ class DbReassignmentStore(
       // once we remove the computation of incomplete reassignments from the reassignmentStore
       sqlu"""
         insert into par_reassignments(target_synchronizer_idx, source_synchronizer_idx, unassignment_timestamp,
-        unassignment_request, unassignment_decision_time, unassignment_result, source_protocol_version, contract)
+        unassignment_request, unassignment_decision_time, unassignment_result, contract)
         values (
           $indexedTargetSynchronizer,
           ${dbReassignmentId.indexedSourceSynchronizer},
@@ -238,7 +234,6 @@ class DbReassignmentStore(
           ${reassignmentData.unassignmentRequest},
           ${reassignmentData.unassignmentDecisionTime},
           ${reassignmentData.unassignmentResult},
-          ${reassignmentData.sourceProtocolVersion},
           ${reassignmentData.contract}
         )
       """
@@ -253,7 +248,7 @@ class DbReassignmentStore(
           set
             unassignment_request=${entry.unassignmentRequest}, unassignment_decision_time=${entry.unassignmentDecisionTime},
             unassignment_result=${entry.unassignmentResult},
-            unassignment_global_offset=${entry.unassignmentGlobalOffset}, assignment_global_offset=${entry.assignmentGlobalOffset}, source_protocol_version=${entry.sourceProtocolVersion}, contract=${entry.contract}
+            unassignment_global_offset=${entry.unassignmentGlobalOffset}, assignment_global_offset=${entry.assignmentGlobalOffset}, contract=${entry.contract}
            where
               target_synchronizer_idx=$indexedTargetSynchronizer and source_synchronizer_idx=${id.indexedSourceSynchronizer} and unassignment_timestamp=${entry.reassignmentId.unassignmentTs}
           """
@@ -294,7 +289,7 @@ class DbReassignmentStore(
     def insert(indexedSourceSynchronizer: Source[IndexedSynchronizer]) =
       sqlu"""
       insert into par_reassignments(target_synchronizer_idx, source_synchronizer_idx, unassignment_timestamp,
-        unassignment_request, unassignment_decision_time, unassignment_result, unassignment_global_offset, assignment_global_offset, source_protocol_version, contract)
+        unassignment_request, unassignment_decision_time, unassignment_result, unassignment_global_offset, assignment_global_offset, contract)
         values (
           $indexedTargetSynchronizer,
           $indexedSourceSynchronizer,
@@ -304,7 +299,6 @@ class DbReassignmentStore(
           NULL, -- unassignment_result
           NULL, -- unassignment_global_offset
           NULL, -- assignment_global_offset
-          ${assignmentData.sourceProtocolVersion},
           ${assignmentData.contract}
         )
           ON conflict do nothing;
@@ -328,13 +322,12 @@ class DbReassignmentStore(
   ): EitherT[FutureUnlessShutdown, ReassignmentStore.ReassignmentLookupError, UnassignmentData] = {
     logger.debug(s"Looking up reassignment $reassignmentId in store")
     findReassignmentEntry(reassignmentId).flatMap {
-      case ReassignmentEntry(_, _, _, None, _, _, _, None) =>
+      case ReassignmentEntry(_, _, None, _, _, _, None) =>
         EitherT.leftT(AssignmentStartingBeforeUnassignment(reassignmentId))
-      case ReassignmentEntry(_, _, _, _, _, _, _, Some(tsCompletion)) =>
+      case ReassignmentEntry(_, _, _, _, _, _, Some(tsCompletion)) =>
         EitherT.leftT(ReassignmentCompleted(reassignmentId, tsCompletion))
       case ReassignmentEntry(
             reassignmentId,
-            _sourceProtocolVersion,
             _contract,
             Some(unassignmentRequest),
             unassignmentDecisionTime,
@@ -355,7 +348,7 @@ class DbReassignmentStore(
 
   private def entryExists(id: DbReassignmentId): DbAction.ReadOnly[Option[ReassignmentEntryRaw]] =
     sql"""
-     select source_protocol_version, source_synchronizer_idx, unassignment_timestamp, contract, unassignment_request, unassignment_decision_time,
+     select source_synchronizer_idx, unassignment_timestamp, contract, unassignment_request, unassignment_decision_time,
      unassignment_result, unassignment_global_offset, assignment_global_offset, assignment_timestamp
      from par_reassignments
      where target_synchronizer_idx=$indexedTargetSynchronizer and source_synchronizer_idx=${id.indexedSourceSynchronizer}
@@ -373,7 +366,7 @@ class DbReassignmentStore(
 
     def exists(id: DbReassignmentId) = {
       val existsRaw: DbAction.ReadOnly[Option[Option[RawDeliveredUnassignmentResult]]] = sql"""
-       select unassignment_result, source_protocol_version
+       select unassignment_result
        from par_reassignments
        where
           target_synchronizer_idx=$indexedTargetSynchronizer and source_synchronizer_idx=${id.indexedSourceSynchronizer} and unassignment_timestamp=${id.unassignmentTs}
@@ -624,7 +617,7 @@ class DbReassignmentStore(
       else sql" "
 
     val base: SQLActionBuilder = sql"""
-     select source_protocol_version, source_synchronizer_idx, unassignment_timestamp, contract, unassignment_request, unassignment_decision_time,
+     select source_synchronizer_idx, unassignment_timestamp, contract, unassignment_request, unassignment_decision_time,
      unassignment_result, unassignment_global_offset, assignment_global_offset, assignment_timestamp
      from par_reassignments
      where
@@ -703,7 +696,7 @@ class DbReassignmentStore(
               storage.limitSql(numberOfItems = DbReassignmentStore.dbQueryLimit, skipItems = start)
 
             val base: SQLActionBuilder =
-              sql"""select source_synchronizer_idx, unassignment_timestamp, contract, unassignment_global_offset, assignment_global_offset
+              sql"""select source_synchronizer_idx, unassignment_timestamp, unassignment_request, contract, unassignment_global_offset, assignment_global_offset
               from par_reassignments
               where target_synchronizer_idx=$indexedTargetSynchronizer"""
 
@@ -712,6 +705,7 @@ class DbReassignmentStore(
                 (
                     Int,
                     CantonTimestamp,
+                    Option[FullUnassignmentTree],
                     SerializableContract,
                     Option[ReassignmentGlobalOffset],
                 )
@@ -721,10 +715,17 @@ class DbReassignmentStore(
         )
 
       incompletes <- MonadUtil.sequentialTraverse(res) {
-        case (synchronizerIndex, unassignmentTs, contract, reassignmentGlobalOffset) =>
+        case (
+              synchronizerIndex,
+              unassignmentTs,
+              unassignmentRequest,
+              contract,
+              reassignmentGlobalOffset,
+            ) =>
           synchronizerIdF(synchronizerIndex, "source_synchronizer_idx").map(sourceSynchronizer =>
             InternalIncompleteReassignmentData(
               ReassignmentId(Source(sourceSynchronizer), unassignmentTs),
+              unassignmentRequest,
               reassignmentGlobalOffset,
               contract,
             )
@@ -870,20 +871,7 @@ class DbReassignmentStore(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[LfContractId, Seq[ReassignmentId]]] = {
-
     import DbStorage.Implicits.BuilderChain.*
-
-    implicit val getResultReassignmentEntry
-        : GetResult[(ProtocolVersion, Int, CantonTimestamp, FullUnassignmentTree)] =
-      GetResult { r =>
-        val sourceProtocolVersion = GetResult[ProtocolVersion].apply(r)
-        (
-          sourceProtocolVersion,
-          GetResult[Int].apply(r),
-          GetResult[CantonTimestamp].apply(r),
-          getResultFullUnassignmentTree(Source(sourceProtocolVersion)).apply(r),
-        )
-      }
 
     for {
       indexedSourceSynchronizerO <- sourceSynchronizer.fold(
@@ -920,15 +908,15 @@ class DbReassignmentStore(
           .toActionBuilder
 
       query =
-        sql"select source_protocol_version, source_synchronizer_idx, unassignment_timestamp, unassignment_request from par_reassignments where 1=1 and (" ++ filter ++ sql")"
+        sql"select source_synchronizer_idx, unassignment_timestamp, unassignment_request from par_reassignments where 1=1 and (" ++ filter ++ sql")"
 
       res <- storage
         .query(
-          query.as[(ProtocolVersion, Int, CantonTimestamp, FullUnassignmentTree)],
+          query.as[(Int, CantonTimestamp, FullUnassignmentTree)],
           functionFullName,
         )
         .map(_.collect {
-          case (_, sourceForeachEntryIdx, unassignTs, unassignmentRequest)
+          case (sourceForeachEntryIdx, unassignTs, unassignmentRequest)
               if contractIds.contains(unassignmentRequest.contract.contractId) =>
             synchronizerIdF(sourceForeachEntryIdx, "source_synchronizer_idx").map(synchronizerId =>
               unassignmentRequest.contract.contractId -> ReassignmentId(
@@ -1020,7 +1008,6 @@ object DbReassignmentStore {
   private final case class ReassignmentEntryRaw(
       sourceSynchronizerIndex: Int,
       unassignmentTs: CantonTimestamp,
-      sourceProtocolVersion: Source[ProtocolVersion],
       contract: SerializableContract,
       unassignmentRequest: Option[FullUnassignmentTree],
       unassignmentDecisionTime: CantonTimestamp,
@@ -1031,7 +1018,6 @@ object DbReassignmentStore {
 
     def toReassignmentEntry(synchronizerId: SynchronizerId): ReassignmentEntry = ReassignmentEntry(
       ReassignmentId(Source(synchronizerId), unassignmentTs),
-      sourceProtocolVersion,
       contract,
       unassignmentRequest,
       unassignmentDecisionTime,
@@ -1049,15 +1035,15 @@ object DbReassignmentStore {
     depends on the ProtocolVersion of the source synchronizer.
    */
   final case class RawDeliveredUnassignmentResult(
-      result: Array[Byte],
-      sourceProtocolVersion: ProtocolVersion,
+      result: Array[Byte]
   ) {
     def tryCreateDeliveredUnassignmentResul(
         cryptoApi: CryptoPureApi
     ): DeliveredUnassignmentResult =
       tryCreateDeliveredUnassignmentResult(cryptoApi)(
         bytes = result,
-        sourceProtocolVersion = Source(sourceProtocolVersion),
+        // This hardcoded value is admissible because of the upcoming removal of the delivered unassignment result
+        sourceProtocolVersion = Source(ProtocolVersion.v33),
       )
   }
 

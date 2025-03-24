@@ -25,10 +25,9 @@ object AuthorizationError {
       s"Claims are only valid for participantId '$authorized', actual participantId is '$actual'"
   }
 
-  final case class InvalidApplication(authorized: String, actual: String)
-      extends AuthorizationError {
+  final case class InvalidUser(authorized: String, actual: String) extends AuthorizationError {
     override val reason =
-      s"Claims are only valid for applicationId '$authorized', actual applicationId is '$actual'"
+      s"Claims are only valid for userId '$authorized', actual userId is '$actual'"
   }
 
   case object MissingPublicClaim extends AuthorizationError {

@@ -6,6 +6,7 @@ package speedy
 
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.crypto.Hash.hashContractInstance
 import com.digitalasset.daml.lf.data.Numeric.Scale
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
@@ -32,6 +33,7 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.{Value => V}
 
+import java.nio.charset.StandardCharsets
 import java.security.{
   InvalidKeyException,
   KeyFactory,
@@ -693,6 +695,42 @@ private[lf] object SBuiltinFun {
       val byteEncodedPublicKey = Ref.HexString.decode(hexEncodedPublicKey).toByteArray
 
       KeyFactory.getInstance("EC").generatePublic(new X509EncodedKeySpec(byteEncodedPublicKey))
+    }
+  }
+
+  final case object SBDecodeHex extends SBuiltinFun(1) {
+    override private[speedy] def execute[Q](
+        args: util.ArrayList[SValue],
+        machine: Machine[Q],
+    ): Control[Q] = {
+      try {
+        val hexArg = Ref.HexString.assertFromString(getSText(args, 0))
+        val arg = new String(Ref.HexString.decode(hexArg).toByteArray, StandardCharsets.UTF_8)
+
+        Control.Value(SText(arg))
+      } catch {
+        case _: IllegalArgumentException =>
+          Control.Error(
+            IE.Dev(
+              NameOf.qualifiedNameOfCurrentFunc,
+              IE.Dev.CCTP(
+                IE.Dev.CCTP.MalformedByteEncoding(
+                  getSText(args, 0),
+                  cause = "can not parse hex string argument",
+                )
+              ),
+            )
+          )
+      }
+    }
+  }
+
+  final case object SBEncodeHex extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+      val arg = getSText(args, 0)
+      val hexArg = Ref.HexString.encode(Bytes.fromByteArray(arg.getBytes(StandardCharsets.UTF_8)))
+
+      SText(hexArg)
     }
   }
 
@@ -1403,13 +1441,11 @@ private[lf] object SBuiltinFun {
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control.Expression = {
-      val txVersion = machine.tmplId2TxVersion(interfaceId)
       val e = SEBuiltinFun(
         SBUInsertFetchNode(
           getSAnyContract(args, 0)._1,
           byKey = false,
-          interfaceId =
-            Option.when(txVersion >= TransactionVersion.minFetchInterfaceId)(interfaceId),
+          interfaceId = Some(interfaceId),
         )
       )
       Control.Expression(e)
@@ -2137,11 +2173,31 @@ private[lf] object SBuiltinFun {
       )
       val recomputed = contractInfo.toCreateNode(contract.contractId)
       val provided = contract.toCreateNode
-      if (provided != recomputed) {
-        val mismatchingFields =
-          provided.productElementNames.zipWithIndex.collect {
-            case (field, i) if provided.productElement(i) != recomputed.productElement(i) => field
-          }
+      val mismatchingFields =
+        provided.productElementNames.zipWithIndex.flatMap {
+          // Because [recomputed] was obtained by creating a normal value out of the svalue obtained by translating the
+          // original contract, the following line is basically testing that
+          // translateValue(arg, typ).toNormalizedValue == arg modulo None values.
+          // It would seem as if that's a law that should hold for all args, and thus doesn't need testing. But this is
+          // not the case: if arg contains a numeric value that is not in normal form w.r.t. its scale
+          // (e.g. 1.12 of scale 5), then the renormalized value will be different from the original one.
+          // We want to catch and rejects such cases. The only difference we want to allow is for Nones to be dropped.
+          case ("arg", _) =>
+            Option.when(
+              hashContractInstance(
+                provided.packageName,
+                provided.templateId,
+                provided.arg,
+              ) != hashContractInstance(
+                recomputed.packageName,
+                recomputed.templateId,
+                recomputed.arg,
+              )
+            )("arg")
+          case (field, i) =>
+            Option.when(provided.productElement(i) != recomputed.productElement(i))(field)
+        }
+      if (mismatchingFields.nonEmpty) {
         Control.Error(
           IE.Dev(
             NameOf.qualifiedNameOfCurrentFunc,

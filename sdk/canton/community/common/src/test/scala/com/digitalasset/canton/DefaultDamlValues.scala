@@ -16,9 +16,9 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 
 /** Default values for objects from the Daml repo for unit testing */
 object DefaultDamlValues {
-  def lfApplicationId(index: Int = 0): Ref.ApplicationId =
-    Ref.ApplicationId.assertFromString(s"application-id-$index")
-  def applicationId(index: Int = 0): ApplicationId = ApplicationId(lfApplicationId(index))
+  def lfUserId(index: Int = 0): Ref.UserId =
+    Ref.UserId.assertFromString(s"user-id-$index")
+  def userId(index: Int = 0): UserId = UserId(lfUserId(index))
 
   def lfCommandId(index: Int = 0): Ref.CommandId =
     Ref.CommandId.assertFromString(s"command-id-$index")

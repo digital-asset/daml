@@ -108,12 +108,9 @@ main = tests
   , subtree "Changed key type"
     [ subtree "Unchanged key value (modulo trailing `None`s)"
       [ ("queryContractKey, src=v1 tgt=v2", queryKeyUpgraded)
-      -- TODO(https://github.com/DACH-NY/canton/issues/23826): restore once keys are normalized
-      , broken ("exerciseByKeyCmd, src=v1 tgt=v2", exerciseCmdKeyUpgraded)
-      -- TODO(https://github.com/DACH-NY/canton/issues/23826): restore once keys are normalized
-      , broken ("fetch, src=v1 tgt=v2", fetchKeyUpgraded)
-      -- TODO(https://github.com/DACH-NY/canton/issues/23826): restore once keys are normalized
-      , broken ("exerciseByKey, src=v1 tgt=v2", exerciseUpdateKeyUpgraded)
+      , ("exerciseByKeyCmd, src=v1 tgt=v2", exerciseCmdKeyUpgraded)
+      , ("fetch, src=v1 tgt=v2", fetchKeyUpgraded)
+      , ("exerciseByKey, src=v1 tgt=v2", exerciseUpdateKeyUpgraded)
       ]
     ]
   ]

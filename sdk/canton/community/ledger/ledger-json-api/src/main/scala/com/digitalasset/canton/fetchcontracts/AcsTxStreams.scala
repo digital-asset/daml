@@ -179,6 +179,7 @@ object AcsTxStreams extends NoTracing {
                   InterfaceFilter(
                     interfaceId = Some(apiIdentifier(interfaceId)),
                     includeInterfaceView = true,
+                    includeCreatedEventBlob = false,
                   )
                 )
               )
@@ -186,7 +187,8 @@ object AcsTxStreams extends NoTracing {
     )
 
     lav2.transaction_filter.TransactionFilter(
-      Party.unsubst((parties: Set[Party]).toVector).map(_ -> filters).toMap
+      filtersByParty = Party.unsubst((parties: Set[Party]).toVector).map(_ -> filters).toMap,
+      filtersForAnyParty = None,
     )
   }
 

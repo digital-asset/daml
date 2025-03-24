@@ -1,0 +1,22 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SUPPORTS-LF-FEATURE DAML_CCTP
+
+module HexEncodingDecoding where
+
+import DA.Assert ((===))
+import DA.Crypto.Text
+import Daml.Script
+
+main =
+  script do
+    ((toHex "") === "")
+    ((fromHex "") === "")
+    ((toHex "Hello world!") === "48656c6c6f20776f726c6421")
+    ((fromHex "48656c6c6f20776f726c6421") === "Hello world!")
+    ((toHex "DeadBeef") === "4465616442656566")
+    ((fromHex "4465616442656566") === "DeadBeef")
+    ((toHex "843d0824-9133-4bc9-b0e8-7cb4e8487dd1") === "38343364303832342d393133332d346263392d623065382d376362346538343837646431")
+    ((fromHex "38343364303832342d393133332d346263392d623065382d376362346538343837646431") === "843d0824-9133-4bc9-b0e8-7cb4e8487dd1")
+    pure ()

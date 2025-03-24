@@ -34,7 +34,7 @@ trait SyncServiceError extends Serializable with Product with ContextualizedCant
 
 object SyncServiceInjectionError extends InjectionErrorGroup {
 
-  import com.digitalasset.daml.lf.data.Ref.{ApplicationId, CommandId}
+  import com.digitalasset.daml.lf.data.Ref.{UserId, CommandId}
 
   @Explanation("This error results if a command is submitted to the passive replica.")
   @Resolution("Send the command to the active replica.")
@@ -43,7 +43,7 @@ object SyncServiceInjectionError extends InjectionErrorGroup {
         id = "NODE_IS_PASSIVE_REPLICA",
         ErrorCategory.TransientServerFailure,
       ) {
-    final case class Error(applicationId: ApplicationId, commandId: CommandId)
+    final case class Error(userId: UserId, commandId: CommandId)
         extends TransactionErrorImpl(
           cause = "Cannot process submitted command. This participant is the passive replica."
         )

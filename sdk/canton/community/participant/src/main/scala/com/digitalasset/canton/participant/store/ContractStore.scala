@@ -66,6 +66,7 @@ trait ContractStore extends ContractLookup with Purgeable with FlagCloseable {
 
   def contractCount()(implicit traceContext: TraceContext): FutureUnlessShutdown[Int]
 
+  // TODO(i24535): implement this on db level
   def hasActiveContracts(
       partyId: PartyId,
       contractIds: Iterator[LfContractId],
@@ -74,6 +75,7 @@ trait ContractStore extends ContractLookup with Purgeable with FlagCloseable {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean] = {
     val lfParty = partyId.toLf
+
     contractIds
       .grouped(batchSize)
       .toList
@@ -87,6 +89,7 @@ trait ContractStore extends ContractLookup with Purgeable with FlagCloseable {
       .map(_.nonEmpty)
   }
 
+  // TODO(i24535): implement this on db level
   def isSignatoryOnActiveContracts(
       partyId: PartyId,
       contractIds: Iterator[LfContractId],

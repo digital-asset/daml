@@ -64,8 +64,6 @@ object TransactionVersion {
 
   private[lf] val minPackageVersion = LanguageVersion.Features.persistedPackageVersion
 
-  private[lf] val minFetchInterfaceId = LanguageVersion.v2_dev
-
   val VDev = LanguageVersion.v2_dev
 
   private[lf] def txVersion(tx: Transaction) = {

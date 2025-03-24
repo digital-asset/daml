@@ -31,13 +31,7 @@ import com.digitalasset.canton.participant.protocol.validation.ModelConformanceC
 }
 import com.digitalasset.canton.participant.store.ExtendedContractLookup
 import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.participant.util.DAMLe.{
-  CreateNodeEnricher,
-  HasReinterpret,
-  PackageResolver,
-  ReInterpretationResult,
-  TransactionEnricher,
-}
+import com.digitalasset.canton.participant.util.DAMLe.*
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.{
   WithSuffixes,
@@ -51,7 +45,8 @@ import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, MapsUtil}
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
-import com.digitalasset.canton.{LfCreateCommand, LfKeyResolver, LfPartyId, checked}
+import com.digitalasset.canton.{LfCreateCommand, LfKeyResolver, LfPartyId, LfValue, checked}
+import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref.{CommandId, Identifier, PackageId, PackageName}
 import com.digitalasset.daml.lf.transaction.FatContractInstance
 
@@ -209,12 +204,13 @@ class ModelConformanceChecker(
     view.tryFlattenToParticipantViews
       .flatMap(_.viewParticipantData.coreInputs)
       .parTraverse { case (cid, InputContract(contract, _)) =>
+        val templateId = contract.rawContractInstance.contractInstance.unversioned.template
         validateContract(contract, getEngineAbortStatus, traceContext)
           .leftMap {
             case DAMLeFailure(error) =>
               DAMLeError(error, view.viewHash): Error
-            case ContractMismatch(actual, _) =>
-              InvalidInputContract(cid, actual.templateId, view.viewHash): Error
+            case ContractMismatch(_, _) | ArgumentHashingFailure(_) =>
+              InvalidInputContract(cid, templateId, view.viewHash): Error
           }
           .map(_ => cid -> contract)
       }
@@ -515,8 +511,13 @@ object ModelConformanceChecker {
   }
 
   private[validation] sealed trait ContractValidationFailure
+
   private[validation] final case class DAMLeFailure(error: DAMLe.ReinterpretationError)
       extends ContractValidationFailure
+
+  private[validation] final case class ArgumentHashingFailure(error: lf.crypto.Hash.HashingError)
+      extends ContractValidationFailure
+
   private[validation] final case class ContractMismatch(
       actual: LfNodeCreate,
       expected: LfNodeCreate,
@@ -529,7 +530,7 @@ object ModelConformanceChecker {
         TraceContext,
     ) => EitherT[FutureUnlessShutdown, ContractValidationFailure, Unit]
 
-  private def validateSerializedContract(damlE: DAMLe)(
+  def validateSerializedContract(damlE: DAMLe)(
       contract: SerializableContract,
       getEngineAbortStatus: GetEngineAbortStatus,
       traceContext: TraceContext,
@@ -540,6 +541,28 @@ object ModelConformanceChecker {
     val instance = contract.rawContractInstance
     val unversioned = instance.contractInstance.unversioned
     val metadata = contract.metadata
+
+    // The upgrade friendly hash computes that same hash for both normalized and un-normalized values
+    def upgradeFriendlyHash(
+        arg: LfValue
+    ): EitherT[FutureUnlessShutdown, ContractValidationFailure, LfHash] =
+      EitherT.fromEither(
+        lf.crypto.Hash
+          .hashContractInstance(unversioned.packageName, unversioned.template, arg)
+          .leftMap(ArgumentHashingFailure(_))
+      )
+
+    // The normalized equivalence of two values could be established by recursively comparing the two values
+    // ignoring trailing None where record values are encountered. As no such method is currently available in LF
+    // the equivalence is checked by checking the equality of he upgrade friendly hash
+    def normalizedEquivalence(
+        arg1: LfValue,
+        arg2: LfValue,
+    ): EitherT[FutureUnlessShutdown, ContractValidationFailure, Boolean] =
+      for {
+        hash1 <- upgradeFriendlyHash(arg1)
+        hash2 <- upgradeFriendlyHash(arg2)
+      } yield hash1 == hash2
 
     for {
       actual <- damlE
@@ -564,8 +587,12 @@ object ModelConformanceChecker {
         keyOpt = metadata.maybeKeyWithMaintainers,
         version = instance.contractInstance.version,
       )
+
+      // Since 3.3 all Create nodes contain normalized values. As the input value may have been created
+      // prior to 3.3 we need to check that the normalized representation of both arguments is equal.
+      argumentsEqual <- normalizedEquivalence(actual.arg, expected.arg)
       _ <- EitherT.cond[FutureUnlessShutdown](
-        actual == expected,
+        actual == expected.copy(arg = actual.arg) && argumentsEqual,
         (),
         ContractMismatch(actual, expected): ContractValidationFailure,
       )

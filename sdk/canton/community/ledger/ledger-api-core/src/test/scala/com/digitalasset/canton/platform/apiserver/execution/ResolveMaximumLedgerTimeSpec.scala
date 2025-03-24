@@ -3,16 +3,16 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
-import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.participant.state.index.{
   MaximumLedgerTime,
   MaximumLedgerTimeService,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
+import com.digitalasset.canton.platform.apiserver.FatContractInstanceHelper
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageName, PackageVersion}
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Time}
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -77,8 +77,10 @@ class ResolveMaximumLedgerTimeSpec
     ).futureValueUS shouldBe archived
   }
 
+  val alice = Ref.Party.assertFromString("alice")
+
   private def buildProcessedDisclosedContract(cId: ContractId, createdAt: Time.Timestamp) =
-    ProcessedDisclosedContract(
+    FatContractInstanceHelper.buildFatContractInstance(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
       packageName = PackageName.assertFromString("pkg-name"),
       packageVersion = Some(PackageVersion.assertFromString("0.1.2")),
@@ -86,8 +88,8 @@ class ResolveMaximumLedgerTimeSpec
       argument = Value.ValueNil,
       createdAt = createdAt,
       driverMetadata = Bytes.Empty,
-      signatories = Set.empty,
-      stakeholders = Set.empty,
+      signatories = Set(alice),
+      stakeholders = Set(alice),
       keyOpt = None,
       // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
       version = LanguageVersion.v2_dev,

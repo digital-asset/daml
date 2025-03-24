@@ -121,6 +121,11 @@ trait ParameterStorageBackend {
     */
   def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd]
 
+  /** The latest SynchronizerIndex for a synchronizerId until all events are processed fully and
+    * published to the Ledger API DB. The Update which from this SynchronizerIndex originate has
+    * smaller or equal offset than the current LedgerEnd: LedgerEnd and SynchronizerIndexes are
+    * persisted consistently in one transaction.
+    */
   def cleanSynchronizerIndex(synchronizerId: SynchronizerId)(
       connection: Connection
   ): Option[SynchronizerIndex]
@@ -222,7 +227,7 @@ trait CompletionStorageBackend {
   def commandCompletions(
       startInclusive: Offset,
       endInclusive: Offset,
-      applicationId: ApplicationId,
+      userId: UserId,
       parties: Set[Party],
       limit: Int,
   )(connection: Connection): Vector[CompletionStreamResponse]
@@ -620,7 +625,7 @@ trait MeteringStorageReadBackend {
   def reportData(
       from: Timestamp,
       to: Option[Timestamp],
-      applicationId: Option[ApplicationId],
+      userId: Option[UserId],
   )(connection: Connection): ReportData
 }
 
@@ -641,7 +646,7 @@ trait MeteringStorageWriteBackend {
     */
   def selectTransactionMetering(from: Option[Offset], to: Offset)(
       connection: Connection
-  ): Map[ApplicationId, Int]
+  ): Map[UserId, Int]
 
   /** This method will delete transaction metering records between the from offset (exclusive) and
     * the to offset (inclusive). It is called following aggregation.

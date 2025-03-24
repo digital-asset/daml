@@ -104,7 +104,7 @@ final class GeneratorsData(
   implicit val submitterMetadataArb: Arbitrary[SubmitterMetadata] = Arbitrary(
     for {
       actAs <- nonEmptySet(lfPartyIdArb).arbitrary
-      applicationId <- applicationIdArb.arbitrary
+      userId <- userIdArb.arbitrary
       commandId <- commandIdArb.arbitrary
       submittingParticipant <- Arbitrary.arbitrary[ParticipantId]
       salt <- Arbitrary.arbitrary[Salt]
@@ -114,7 +114,7 @@ final class GeneratorsData(
       externalAuthorization <- Gen.option(Arbitrary.arbitrary[ExternalAuthorization])
     } yield SubmitterMetadata(
       actAs,
-      applicationId,
+      userId,
       commandId,
       submittingParticipant,
       salt,
@@ -489,7 +489,7 @@ final class GeneratorsData(
     Arbitrary(
       for {
         submitter <- Arbitrary.arbitrary[LfPartyId]
-        applicationId <- applicationIdArb.arbitrary.map(_.unwrap)
+        userId <- userIdArb.arbitrary.map(_.unwrap)
         submittingParticipant <- Arbitrary.arbitrary[ParticipantId]
         commandId <- commandIdArb.arbitrary.map(_.unwrap)
         submissionId <- Gen.option(ledgerSubmissionIdArb.arbitrary)
@@ -500,7 +500,7 @@ final class GeneratorsData(
         submittingParticipant,
         commandId,
         submissionId,
-        applicationId,
+        userId,
         workflowId,
       )
     )
@@ -630,7 +630,6 @@ final class GeneratorsData(
         salt,
         contract,
         unassignmentResultEvent,
-        sourceProtocolVersion,
         targetProtocolVersion,
         reassignmentCounter,
       )

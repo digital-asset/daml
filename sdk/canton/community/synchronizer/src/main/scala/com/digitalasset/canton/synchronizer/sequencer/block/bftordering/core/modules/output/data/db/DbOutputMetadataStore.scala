@@ -3,12 +3,15 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.db
 
+import cats.data.EitherT
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.resource.DbStorage.DbAction.ReadOnly
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
+import com.digitalasset.canton.resource.DbStorage.dbEitherT
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
@@ -23,6 +26,8 @@ import com.digitalasset.canton.tracing.TraceContext
 import slick.jdbc.GetResult
 
 import scala.concurrent.ExecutionContext
+
+import DbStorage.Implicits.*
 
 class DbOutputMetadataStore(
     override protected val storage: DbStorage,
@@ -52,6 +57,14 @@ class DbOutputMetadataStore(
       OutputEpochMetadata(
         EpochNumber(r.nextLong()),
         r.nextBoolean(),
+      )
+    }
+
+  private implicit val readLowerBound: GetResult[OutputMetadataStore.LowerBound] =
+    GetResult { r =>
+      OutputMetadataStore.LowerBound(
+        EpochNumber(r.nextLong()),
+        BlockNumber(r.nextLong()),
       )
     }
 
@@ -266,12 +279,23 @@ class DbOutputMetadataStore(
 
   private def getSingleBlock(epochNumber: EpochNumber, name: String, order: String)(implicit
       traceContext: TraceContext
-  ) = {
+  ): PekkoFutureUnlessShutdown[Option[OutputBlockMetadata]] = {
     val future = () =>
       storage.performUnlessClosingUSF(name) {
         storage
           .query(
-            sql"""
+            getSingleBlockDBIO(epochNumber, order),
+            functionFullName,
+          )
+      }
+    PekkoFutureUnlessShutdown(name, future)
+  }
+
+  private def getSingleBlockDBIO(
+      epochNumber: EpochNumber,
+      order: String,
+  ): ReadOnly[Option[OutputBlockMetadata]] =
+    sql"""
           select
             epoch_number,
             block_number,
@@ -280,13 +304,7 @@ class DbOutputMetadataStore(
           where epoch_number = $epochNumber
           order by block_number #$order
           limit 1
-          """.as[OutputBlockMetadata],
-            functionFullName,
-          )
-          .map(_.headOption)
-      }
-    PekkoFutureUnlessShutdown(name, future)
-  }
+          """.as[OutputBlockMetadata].headOption
 
   override def getLastConsecutiveBlock(implicit
       traceContext: TraceContext
@@ -296,20 +314,115 @@ class DbOutputMetadataStore(
       storage.performUnlessClosingUSF(name) {
         storage
           .query(
-            sql"""
-          select
-            t.epoch_number,
-            t.block_number,
-            t.bft_ts
-          from (select *, row_number() over (order by block_number) as idx from ord_metadata_output_blocks) t
-          where t.idx = t.block_number + 1
-          order by t.block_number desc
-          limit 1
-          """.as[OutputBlockMetadata],
+            for {
+              initialBlock <-
+                sql"select block_number from ord_output_lower_bound"
+                  .as[Long]
+                  .headOption
+                  .map(_.fold(BlockNumber.First)(BlockNumber(_)))
+              result <- sql"""
+                select
+                  t.epoch_number,
+                  t.block_number,
+                  t.bft_ts
+                from (select *, row_number() over (order by block_number) as idx from ord_metadata_output_blocks) t
+                where t.idx + $initialBlock = t.block_number + 1
+                order by t.block_number desc
+                limit 1
+                """.as[OutputBlockMetadata].headOption
+            } yield result,
             functionFullName,
           )
-          .map(_.headOption)
       }
     PekkoFutureUnlessShutdown(name, future)
   }
+
+  override def loadNumberOfRecords(implicit
+      traceContext: TraceContext
+  ): PekkoFutureUnlessShutdown[NumberOfRecords] =
+    PekkoFutureUnlessShutdown(
+      loadNumberOfRecordsName,
+      () =>
+        storage.query(
+          (for {
+            numberOfEpochs <- sql"""select count(*) from ord_metadata_output_epochs""".as[Long].head
+            numberOfBlocks <- sql"""select count(*) from ord_metadata_output_blocks""".as[Long].head
+          } yield NumberOfRecords(numberOfEpochs, numberOfBlocks)),
+          functionFullName,
+        ),
+    )
+
+  override def prune(epochNumberExclusive: EpochNumber)(implicit
+      traceContext: TraceContext
+  ): PekkoFutureUnlessShutdown[NumberOfRecords] = PekkoFutureUnlessShutdown(
+    pruneName(epochNumberExclusive),
+    () =>
+      for {
+        epochsDeleted <- storage.update(
+          sqlu""" delete from ord_metadata_output_epochs where epoch_number < $epochNumberExclusive """,
+          functionFullName,
+        )
+        blocksDeleted <- storage.update(
+          sqlu""" delete from ord_metadata_output_blocks where epoch_number < $epochNumberExclusive """,
+          functionFullName,
+        )
+      } yield NumberOfRecords(
+        epochsDeleted.toLong,
+        blocksDeleted.toLong,
+      ),
+  )
+
+  override def getLowerBound()(implicit
+      traceContext: TraceContext
+  ): PekkoFutureUnlessShutdown[Option[LowerBound]] =
+    PekkoFutureUnlessShutdown(
+      getLowerBoundActionName,
+      () =>
+        storage.query(
+          sql"select epoch_number, block_number from ord_output_lower_bound"
+            .as[LowerBound]
+            .headOption,
+          functionFullName,
+        ),
+    )
+
+  override def saveLowerBound(epoch: EpochNumber)(implicit
+      traceContext: TraceContext
+  ): PekkoFutureUnlessShutdown[Either[String, Unit]] = PekkoFutureUnlessShutdown(
+    saveLowerBoundName(epoch),
+    () =>
+      storage.queryAndUpdate(
+        ((for {
+          existingLowerBoundEpoch <- dbEitherT[String](
+            sql"select epoch_number from ord_output_lower_bound".as[Long].headOption
+          ).map(_.map(EpochNumber(_)))
+          _ <- EitherT.fromEither[DBIO](
+            existingLowerBoundEpoch
+              .filter(_ > epoch)
+              .map(existing => s"Cannot save lower bound $epoch earlier than existing $existing")
+              .toLeft(())
+          )
+          block <-
+            dbEitherT(
+              getSingleBlockDBIO(epoch, "asc")
+                .map {
+                  case None =>
+                    Left(
+                      s"Cannot save lower bound at epoch $epoch because there are no blocks saved at this epoch"
+                    )
+                  case Some(blockNumber) => Right(blockNumber)
+                }
+            )
+          _ <- dbEitherT[String](
+            existingLowerBoundEpoch.fold(
+              sqlu"insert into ord_output_lower_bound (epoch_number, block_number) values ($epoch, ${block.blockNumber})"
+            )(_ =>
+              sqlu"update ord_output_lower_bound set epoch_number = $epoch, block_number = ${block.blockNumber}"
+            )
+          )
+        } yield ()).value),
+        functionFullName,
+      ),
+  )
+
 }

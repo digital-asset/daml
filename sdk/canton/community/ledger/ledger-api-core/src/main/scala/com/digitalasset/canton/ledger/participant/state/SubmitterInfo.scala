@@ -24,10 +24,9 @@ import java.util.UUID
   * @param readAs
   *   the parties on whose behalf (in addition to all parties listed in [[actAs]]) contracts can be
   *   retrieved.
-  * @param applicationId
-  *   an identifier for the Daml application that submitted the command. This is used for
-  *   monitoring, command deduplication, and to allow Daml applications subscribe to their own
-  *   submissions only.
+  * @param userId
+  *   an identifier for the user that submitted the command. This is used for monitoring, command
+  *   deduplication, and to allow Daml applications subscribe to their own submissions only.
   * @param commandId
   *   a submitter-provided identifier to identify an intended ledger change within all the
   *   submissions by the same parties and application.
@@ -52,7 +51,7 @@ import java.util.UUID
 final case class SubmitterInfo(
     actAs: List[Ref.Party],
     readAs: List[Ref.Party],
-    applicationId: Ref.ApplicationId,
+    userId: Ref.UserId,
     commandId: Ref.CommandId,
     deduplicationPeriod: DeduplicationPeriod,
     submissionId: Option[Ref.SubmissionId],
@@ -60,12 +59,12 @@ final case class SubmitterInfo(
 ) {
 
   /** The ID for the ledger change */
-  val changeId: ChangeId = ChangeId(applicationId, commandId, actAs.toSet)
+  val changeId: ChangeId = ChangeId(userId, commandId, actAs.toSet)
 
   def toCompletionInfo: CompletionInfo =
     CompletionInfo(
       actAs,
-      applicationId,
+      userId,
       commandId,
       Some(deduplicationPeriod),
       submissionId,
@@ -95,7 +94,7 @@ object SubmitterInfo {
     case SubmitterInfo(
           actAs,
           readAs,
-          applicationId,
+          userId,
           commandId,
           deduplicationPeriod,
           submissionId,
@@ -104,7 +103,7 @@ object SubmitterInfo {
       LoggingValue.Nested.fromEntries(
         "actAs " -> actAs,
         "readAs" -> readAs,
-        "applicationId " -> applicationId,
+        "userId " -> userId,
         "commandId " -> commandId,
         "deduplicationPeriod " -> deduplicationPeriod,
         "submissionId" -> submissionId,

@@ -33,7 +33,7 @@ class CantonCryptoProvider(cryptoApi: SynchronizerSnapshotSyncCryptoApi)(implici
   ): PekkoFutureUnlessShutdown[Either[SyncCryptoError, Signature]] =
     PekkoFutureUnlessShutdown(
       "sign",
-      () => cryptoApi.sign(hash, SigningKeyUsage.ProtocolOnly).value,
+      () => cryptoApi.sign(hash, BftOrderingSigningKeyUsage).value,
     )
 
   override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](

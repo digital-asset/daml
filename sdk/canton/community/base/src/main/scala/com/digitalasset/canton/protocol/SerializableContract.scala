@@ -6,7 +6,7 @@ package com.digitalasset.canton.protocol
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.crypto.Salt
-import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting, PrettyUtil}
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
@@ -14,6 +14,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{LfTimestamp, admin, crypto, protocol}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, Versioned}
 import com.digitalasset.daml.lf.value.ValueCoder
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
@@ -67,8 +68,7 @@ case class SerializableContract(
       contractSalt = Some(contractSalt.toProtoV30),
     )
 
-  def toAdminProtoV30: admin.participant.v30.Contract = {
-    import Salt.TransformerImplicits.*
+  def toAdminProtoV30: admin.participant.v30.Contract =
     admin.participant.v30.Contract(
       contractId = contractId.toProtoPrimitive,
       rawContractInstance = rawContractInstance.getCryptographicEvidence,
@@ -79,7 +79,6 @@ case class SerializableContract(
       // Contract salt can be empty for contracts created in protocol versions < 4.
       contractSalt = Some(contractSalt.toProtoV30.transformInto[admin.crypto.v30.Salt]),
     )
-  }
 
   override protected def pretty: Pretty[SerializableContract] = prettyOfClass(
     param("contractId", _.contractId),
@@ -143,15 +142,14 @@ object SerializableContract
       )
 
   def fromDisclosedContract(
-      disclosedContract: ProcessedDisclosedContract
+      fat: FatContractInstance
   ): Either[String, SerializableContract] = {
-    val create = disclosedContract.create
-    val ledgerTime = CantonTimestamp(disclosedContract.createdAt)
-    val driverContractMetadataBytes = disclosedContract.driverMetadata.toByteArray
+    val ledgerTime = CantonTimestamp(fat.createdAt)
+    val driverContractMetadataBytes = fat.cantonData.toByteArray
 
     for {
       _disclosedContractIdVersion <- CantonContractIdVersion
-        .extractCantonContractIdVersion(disclosedContract.contractId)
+        .extractCantonContractIdVersion(fat.contractId)
         .leftMap(err => s"Invalid disclosed contract id: ${err.toString}")
       salt <- {
         if (driverContractMetadataBytes.isEmpty)
@@ -164,14 +162,15 @@ object SerializableContract
             .leftMap(err => s"Failed parsing disclosed contract driver contract metadata: $err")
             .map(_.salt)
       }
-      contractInstance = create.versionedCoinst
+      contractInstance = Versioned(fat.version, fat.toCreateNode.coinst)
       cantonContractMetadata <- ContractMetadata.create(
-        signatories = create.signatories,
-        stakeholders = create.stakeholders,
-        maybeKeyWithMaintainersVersioned = create.versionedKeyOpt,
+        signatories = fat.signatories,
+        stakeholders = fat.stakeholders,
+        maybeKeyWithMaintainersVersioned =
+          fat.contractKeyWithMaintainers.map(Versioned(fat.version, _)),
       )
       contract <- SerializableContract(
-        contractId = disclosedContract.contractId,
+        contractId = fat.contractId,
         contractInstance = contractInstance,
         metadata = cantonContractMetadata,
         ledgerTime = ledgerTime,
@@ -207,7 +206,6 @@ object SerializableContract
   def fromAdminProtoV30(
       contractP: admin.participant.v30.Contract
   ): ParsingResult[SerializableContract] = {
-    import Salt.TransformerImplicits.*
     val admin.participant.v30.Contract(
       contractIdP,
       rawP,

@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.store
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse.CompletionResponse
 import com.daml.ledger.api.v2.completion.Completion
+import com.daml.ledger.api.v2.completion.Completion.DeduplicationPeriod.Empty
 import com.daml.ledger.api.v2.offset_checkpoint.SynchronizerTime
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
@@ -15,7 +16,7 @@ import com.google.protobuf.duration.Duration
 import com.google.rpc.status.Status as StatusProto
 import io.grpc.Status
 
-// Turn a stream of transactions into a stream of completions for a given application and set of parties
+// Turn a stream of transactions into a stream of completions for a given user and set of parties
 object CompletionFromTransaction {
   val OkStatus = StatusProto.of(Status.Code.OK.value(), "", Seq.empty)
   private val RejectionUpdateId = ""
@@ -26,7 +27,7 @@ object CompletionFromTransaction {
       offset: Offset,
       commandId: String,
       updateId: String,
-      applicationId: String,
+      userId: String,
       synchronizerId: String,
       traceContext: TraceContext,
       optSubmissionId: Option[String] = None,
@@ -40,7 +41,7 @@ object CompletionFromTransaction {
           submitters = submitters,
           commandId = commandId,
           updateId = updateId,
-          applicationId = applicationId,
+          userId = userId,
           traceContext = traceContext,
           optStatus = Some(OkStatus),
           optSubmissionId = optSubmissionId,
@@ -59,7 +60,7 @@ object CompletionFromTransaction {
       offset: Offset,
       commandId: String,
       status: StatusProto,
-      applicationId: String,
+      userId: String,
       synchronizerId: String,
       traceContext: TraceContext,
       optSubmissionId: Option[String] = None,
@@ -73,7 +74,7 @@ object CompletionFromTransaction {
           submitters = submitters,
           commandId = commandId,
           updateId = RejectionUpdateId,
-          applicationId = applicationId,
+          userId = userId,
           traceContext = traceContext,
           optStatus = Some(status),
           optSubmissionId = optSubmissionId,
@@ -99,7 +100,7 @@ object CompletionFromTransaction {
       submitters: Set[String],
       commandId: String,
       updateId: String,
-      applicationId: String,
+      userId: String,
       traceContext: TraceContext,
       optStatus: Option[StatusProto],
       optSubmissionId: Option[String],
@@ -110,11 +111,13 @@ object CompletionFromTransaction {
       synchronizerTime: Option[SynchronizerTime],
   ): Completion = {
     val completionWithMandatoryFields = Completion(
-      actAs = submitters.toSeq,
       commandId = commandId,
       status = optStatus,
       updateId = updateId,
-      applicationId = applicationId,
+      userId = userId,
+      actAs = submitters.toSeq,
+      submissionId = "", // will be adapted later
+      deduplicationPeriod = Empty, // will be adapted later
       traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
       offset = offset,
       synchronizerTime = synchronizerTime,

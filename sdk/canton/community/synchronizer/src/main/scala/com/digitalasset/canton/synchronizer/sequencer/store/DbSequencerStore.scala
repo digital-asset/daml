@@ -1556,6 +1556,35 @@ class DbSequencerStore(
     storage.query(checkpointQuery, functionFullName)
   }
 
+  def fetchClosestCheckpointBeforeV2(
+      memberId: SequencerMemberId,
+      timestampInclusive: Option[CantonTimestamp],
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CounterCheckpoint]] = {
+    val checkpointQuery = for {
+      // This query has been modified to use the safe watermark, due to a possibility that crash recovery resets the watermark,
+      // thus we prevent members from reading data after the watermark. This matters only for the db sequencer.
+      safeWatermarkO <- safeWaterMarkDBIO
+      safeWatermark = safeWatermarkO.getOrElse(CantonTimestamp.MaxValue)
+      checkpoint <-
+        timestampInclusive match {
+          case Some(timestamp) =>
+            sql"""
+             select counter, ts, latest_sequencer_event_ts
+             from sequencer_counter_checkpoints
+             where member = $memberId
+               and ts <= $timestamp
+               and ts <= $safeWatermark
+             order by counter desc , ts desc
+              #${storage.limit(1)}
+             """.as[CounterCheckpoint].headOption
+          case None => DBIO.successful(None)
+        }
+    } yield checkpoint
+    storage.query(checkpointQuery, functionFullName)
+  }
+
   override def fetchPreviousEventTimestamp(
       memberId: SequencerMemberId,
       timestampInclusive: CantonTimestamp,

@@ -343,7 +343,7 @@ class DAMLe(
       } yield create
     }
 
-  def contractWithMetadata(
+  private def contractWithMetadata(
       contractInstance: LfContractInst,
       supersetOfSignatories: Set[LfPartyId],
       getEngineAbortStatus: GetEngineAbortStatus,

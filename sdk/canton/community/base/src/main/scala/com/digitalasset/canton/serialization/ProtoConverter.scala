@@ -26,9 +26,9 @@ import com.digitalasset.canton.config.RequireTypes.{
 }
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.{
-  LedgerApplicationId,
   LedgerParticipantId,
   LedgerSubmissionId,
+  LedgerUserId,
   LfPartyId,
   LfWorkflowId,
   ProtoDeserializationError,
@@ -157,8 +157,8 @@ object ProtoConverter {
   def parseLfParticipantId(party: String, field: String): ParsingResult[LedgerParticipantId] =
     parseString(party, field = Some(field))(LedgerParticipantId.fromString)
 
-  def parseLFApplicationId(applicationId: String): ParsingResult[LedgerApplicationId] =
-    parseString(applicationId, field = None)(LedgerApplicationId.fromString)
+  def parseLFUserId(userId: String): ParsingResult[LedgerUserId] =
+    parseString(userId, field = None)(LedgerUserId.fromString)
 
   def parseLFSubmissionIdO(submissionId: String): ParsingResult[Option[LedgerSubmissionId]] =
     Option

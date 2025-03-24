@@ -24,7 +24,7 @@ import scala.concurrent.{ExecutionContext, Future}
 sealed abstract class ContractIdsImportProcessor(
     protocolVersionGetter: Traced[SynchronizerId] => Option[ProtocolVersion]
 ) extends NamedLogging {
-  def apply(contracts: Seq[RepairContract])(implicit
+  def process(contracts: Seq[RepairContract])(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[Future, String, (Seq[RepairContract], Map[LfContractId, LfContractId])]
@@ -45,24 +45,6 @@ sealed abstract class ContractIdsImportProcessor(
 }
 
 object ContractIdsImportProcessor {
-
-  /** Accept contract IDs as they are, that is neither contract ID validation nor recomputation is
-    * going to be performed.
-    *
-    * This exists so that the import time can be shorted as even validation may take significant
-    * time.
-    */
-  private final class AcceptContractIdSuffixes(
-      protocolVersionGetter: Traced[SynchronizerId] => Option[ProtocolVersion],
-      override val loggerFactory: NamedLoggerFactory,
-  ) extends ContractIdsImportProcessor(protocolVersionGetter) {
-
-    override def apply(contracts: Seq[RepairContract])(implicit
-        ec: ExecutionContext,
-        tc: TraceContext,
-    ): EitherT[Future, String, (Seq[RepairContract], Map[LfContractId, LfContractId])] =
-      EitherT.rightT((contracts, Map.empty))
-  }
 
   /** Verify that all contract IDs have a version greater or equal to the contract ID version
     * associated with the protocol version of the synchronizer to which the contract is assigned. If
@@ -90,7 +72,7 @@ object ContractIdsImportProcessor {
             )
       } yield contract
 
-    override def apply(contracts: Seq[RepairContract])(implicit
+    override def process(contracts: Seq[RepairContract])(implicit
         ec: ExecutionContext,
         tc: TraceContext,
     ): EitherT[Future, String, (Seq[RepairContract], Map[LfContractId, LfContractId])] =
@@ -147,15 +129,16 @@ object ContractIdsImportProcessor {
       for {
         discriminator <- EitherT.fromEither[Future](getDiscriminator(contract))
         depsRemapping <- contract.contractInstance.unversioned.cids.toSeq
-          .parTraverse { contractId =>
-            fullRemapping
-              .get(contractId)
-              .fold {
-                logger.warn(
-                  s"Missing dependency with contract ID '${contractId.coid}'. The contract might have been archived. Its contract ID cannot be recomputed."
-                )
-                EitherT.rightT[Future, String](contractId -> contractId)
-              }(_.value.map(contract => contractId -> contract.contract.contractId))
+          .parTraverse {
+            contractId => // parTraverse use is fine because computation is in-memory only
+              fullRemapping
+                .get(contractId)
+                .fold {
+                  logger.warn(
+                    s"Missing dependency with contract ID '${contractId.coid}'. The contract might have been archived. Its contract ID cannot be recomputed."
+                  )
+                  EitherT.rightT[Future, String](contractId -> contractId)
+                }(_.value.map(contract => contractId -> contract.contract.contractId))
           }
           .map(_.toMap)
         newRawContractInstance <- EitherT
@@ -252,6 +235,7 @@ object ContractIdsImportProcessor {
           .discard
       }
       for {
+        // parTraverse use is fine because computation is in-memory only
         completedRemapping <- fullRemapping.view.valuesIterator.toSeq.parTraverse(_.value)
         contractIdRemapping <- fullRemapping.toSeq.parTraverseFilter { case (cid, v) =>
           v.value.map(c => Option.when(cid != c.contract.contractId)(cid -> c.contract.contractId))
@@ -259,7 +243,7 @@ object ContractIdsImportProcessor {
       } yield completedRemapping -> contractIdRemapping.toMap
     }
 
-    override def apply(contracts: Seq[RepairContract])(implicit
+    override def process(contracts: Seq[RepairContract])(implicit
         ec: ExecutionContext,
         tc: TraceContext,
     ): EitherT[Future, String, (Seq[RepairContract], Map[LfContractId, LfContractId])] =
@@ -269,23 +253,27 @@ object ContractIdsImportProcessor {
       } yield completedRemapping
   }
 
-  /** Creates an object that ensures that all contract IDs comply with the scheme associated to the
-    * synchronizer where the contracts are assigned.
-    * @param cryptoOps
-    *   If defined, the contract IDs will be recomputed using the provided cryptoOps. Else, the
-    *   contract IDs will only be verified.
+  /** Ensures that all contract IDs comply with the scheme associated to the synchronizer where the
+    * contracts are assigned.
     */
   def apply(
       loggerFactory: NamedLoggerFactory,
       protocolVersionGetter: Traced[SynchronizerId] => Option[ProtocolVersion],
       cryptoOps: HashOps & HmacOps,
-      contractIdSuffixRecomputation: ContractIdImportMode,
-  ): ContractIdsImportProcessor =
-    contractIdSuffixRecomputation match {
-      case Accept => new AcceptContractIdSuffixes(protocolVersionGetter, loggerFactory)
-      case Validation => new VerifyContractIdSuffixes(protocolVersionGetter, loggerFactory)
+      contractIdImportMode: ContractIdImportMode,
+  )(contracts: Seq[RepairContract])(implicit
+      ec: ExecutionContext,
+      tc: TraceContext,
+  ): EitherT[Future, String, (Seq[RepairContract], Map[LfContractId, LfContractId])] =
+    contractIdImportMode match {
+      // Accept contract IDs as they are.
+      case Accept => EitherT.rightT((contracts, Map.empty))
+      case Validation =>
+        new VerifyContractIdSuffixes(protocolVersionGetter, loggerFactory)
+          .process(contracts)
       case Recomputation =>
         new RecomputeContractIdSuffixes(protocolVersionGetter, cryptoOps, loggerFactory)
+          .process(contracts)
     }
 
 }

@@ -158,7 +158,7 @@ class PrettyPrintingTest extends AnyWordSpec with BaseTest {
     show"$nullInfix" shouldBe "null"
   }
 
-  "catch exception when pretty printing invalid control-chars" in {
+  "catch exception when pretty printing invalid control-chars" ifCrashOnPrettyPrintingErrors {
     final case class Invalid(str: String) extends PrettyPrinting {
       override protected[pretty] def pretty: Pretty[Invalid] = prettyOfString(_.str)
     }
@@ -223,5 +223,11 @@ class PrettyPrintingTest extends AnyWordSpec with BaseTest {
         })
         .show shouldBe "Object()"
     }
+  }
+
+  implicit class TestSelectionSupport(label: String) {
+    def ifCrashOnPrettyPrintingErrors(test: => org.scalatest.compatible.Assertion) =
+      if (Pretty.crashOnPrettyPrintingErrors) label in test
+      else ()
   }
 }

@@ -86,7 +86,7 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside with No
 
 object CommandServiceTest extends BaseTest {
   private val multiPartyJwp = JwtWritePayload(
-    ApplicationId("myapp"),
+    UserId("myapp"),
     submitter = Party subst NonEmptyList("foo", "bar"),
     readAs = Party subst List("baz", "quux"),
   )
@@ -97,7 +97,7 @@ object CommandServiceTest extends BaseTest {
       "Baz",
     )
 
-  private[http] val applicationId: ApplicationId = ApplicationId("test")
+  private[http] val userId: UserId = UserId("test")
 
   implicit private val ignoredLoggingContext
       : LoggingContextOf[HLogging.InstanceUUID with HLogging.RequestID] =
@@ -109,7 +109,7 @@ object CommandServiceTest extends BaseTest {
       val standardJwtPayload: AuthServiceJWTPayload =
         StandardJWTPayload(
           issuer = None,
-          userId = applicationId.unwrap,
+          userId = userId.unwrap,
           participantId = None,
           exp = None,
           format = StandardJWTTokenFormat.Scope,
@@ -146,7 +146,7 @@ object CommandServiceTest extends BaseTest {
                 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters.apiIdentifier
                 val creation = Event(
                   Created(
-                    CreatedEvent(
+                    CreatedEvent.defaultInstance.copy(
                       templateId = Some(apiIdentifier(tplId)),
                       createArguments = Some(lav2.value.Record()),
                     )
@@ -154,7 +154,7 @@ object CommandServiceTest extends BaseTest {
                 )
                 \/-(
                   SubmitAndWaitForTransactionResponse(
-                    Some(Transaction(events = Seq(creation), offset = 1))
+                    Some(Transaction.defaultInstance.copy(events = Seq(creation), offset = 1))
                   )
                 )
               },
@@ -162,7 +162,7 @@ object CommandServiceTest extends BaseTest {
           _ =>
             Future {
               trees.add(req)
-              \/-(SubmitAndWaitForTransactionTreeResponse(Some(TransactionTree())))
+              \/-(SubmitAndWaitForTransactionTreeResponse(Some(TransactionTree.defaultInstance)))
             },
         loggerFactory = loggerFactory,
       ),

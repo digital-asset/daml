@@ -41,29 +41,26 @@ public class CommandCompletionClientImpl implements CommandCompletionClient {
 
   @Override
   public Flowable<CompletionStreamResponse> completionStream(
-      String applicationId, Long offset, List<String> parties) {
-    return completionStream(
-        new CompletionStreamRequest(applicationId, parties, offset), Optional.empty());
+      String userId, Long offset, List<String> parties) {
+    return completionStream(new CompletionStreamRequest(userId, parties, offset), Optional.empty());
   }
 
   @Override
   public Flowable<CompletionStreamResponse> completionStream(
-      String applicationId, Long offset, List<String> parties, String accessToken) {
+      String userId, Long offset, List<String> parties, String accessToken) {
     return completionStream(
-        new CompletionStreamRequest(applicationId, parties, offset), Optional.of(accessToken));
+        new CompletionStreamRequest(userId, parties, offset), Optional.of(accessToken));
+  }
+
+  @Override
+  public Flowable<CompletionStreamResponse> completionStream(String userId, List<String> parties) {
+    return completionStream(new CompletionStreamRequest(userId, parties, 0L), Optional.empty());
   }
 
   @Override
   public Flowable<CompletionStreamResponse> completionStream(
-      String applicationId, List<String> parties) {
+      String userId, List<String> parties, String accessToken) {
     return completionStream(
-        new CompletionStreamRequest(applicationId, parties, 0L), Optional.empty());
-  }
-
-  @Override
-  public Flowable<CompletionStreamResponse> completionStream(
-      String applicationId, List<String> parties, String accessToken) {
-    return completionStream(
-        new CompletionStreamRequest(applicationId, parties, 0L), Optional.of(accessToken));
+        new CompletionStreamRequest(userId, parties, 0L), Optional.of(accessToken));
   }
 }

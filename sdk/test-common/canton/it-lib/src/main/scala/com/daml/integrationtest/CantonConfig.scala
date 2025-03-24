@@ -121,7 +121,7 @@ final case class CantonConfig(
   def ledgerClient(
       port: Port,
       token: Option[String],
-      applicationId: Option[Ref.ApplicationId],
+      userId: Option[Ref.UserId],
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   )(implicit
       ec: ExecutionContext,
@@ -132,7 +132,7 @@ final case class CantonConfig(
     LedgerClient(
       channel = channel(port, maxInboundMessageSize),
       config = LedgerClientConfiguration(
-        applicationId = token.fold(applicationId.getOrElse(""))(_ => ""),
+        userId = token.fold(userId.getOrElse(""))(_ => ""),
         commandClient = CommandClientConfiguration.default,
         token = token,
       ),

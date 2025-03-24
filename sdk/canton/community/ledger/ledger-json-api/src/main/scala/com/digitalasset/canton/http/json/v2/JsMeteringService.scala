@@ -29,11 +29,11 @@ class JsMeteringService(
       (input: Endpoints.TracedInput[
         (String, protobuf.timestamp.Timestamp, Option[protobuf.timestamp.Timestamp])
       ]) => {
-        val (applicationId, from, to) = input.in
+        val (userId, from, to) = input.in
         val req = metering_report_service.GetMeteringReportRequest(
           from = Some(from),
           to = to,
-          applicationId = applicationId,
+          userId = userId,
         )
         val resp = meteringReportClient
           .getMeteringReport(req, caller.token())(input.traceContext)
@@ -57,7 +57,7 @@ object JsMeteringService extends DocumentationEndpoints {
   val reportEndpoint =
     metering
       .in("report")
-      .in(path[String]("application-id"))
+      .in(path[String]("user-id"))
       .in(query[protobuf.timestamp.Timestamp]("from"))
       .in(query[Option[protobuf.timestamp.Timestamp]]("to"))
       .out(jsonBody[metering_report_service.GetMeteringReportResponse])

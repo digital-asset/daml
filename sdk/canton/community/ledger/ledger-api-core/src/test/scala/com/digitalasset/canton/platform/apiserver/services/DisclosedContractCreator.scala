@@ -95,6 +95,7 @@ object DisclosedContractCreator {
           throw new RuntimeException(s"Cannot serialize createdEventBlob: ${err.errorMessage}"),
         identity,
       ),
+    synchronizerId = "",
   )
 
 }

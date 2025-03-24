@@ -352,7 +352,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           case Some(Availability.Consensus.CreateProposal(o, _, e, ackO)) =>
             o.nodes shouldBe Set(myId)
             e shouldBe EpochNumber.First
-            ackO shouldBe None
+            ackO shouldBe empty
         }
         consensus.allFuturesHaveFinished shouldBe true
       }
@@ -379,7 +379,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           case Some(Availability.Consensus.CreateProposal(o, _, e, ackO)) =>
             o.nodes shouldBe Set(myId)
             e shouldBe SecondEpochNumber
-            ackO shouldBe None
+            ackO shouldBe empty
         }
         availabilityCell.set(None)
         context.delayedMessages should contain only PbftNormalTimeout(
@@ -468,7 +468,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           case Some(Availability.Consensus.CreateProposal(o, _, e, ackO)) =>
             o.nodes shouldBe Set(myId)
             e shouldBe SecondEpochNumber
-            ackO shouldBe Some(Availability.Consensus.Ack(Seq(aBatchId)))
+            ackO shouldBe Seq(aBatchId)
         }
         context.delayedMessages should matchPattern {
           case Seq(_: PbftNormalTimeout, _: PbftNormalTimeout) =>
@@ -503,7 +503,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           case Seq(Availability.Consensus.CreateProposal(t, _, e, ackO)) =>
             t shouldBe fullTopology
             e shouldBe SecondEpochNumber
-            ackO shouldBe None
+            ackO shouldBe empty
         }
         availabilityBuffer.clear()
         context.delayedMessages should matchPattern { case Seq(_: PbftNormalTimeout) => }
@@ -604,7 +604,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           case Seq(Availability.Consensus.CreateProposal(t, _, e, ackO)) =>
             t shouldBe fullTopology
             e shouldBe SecondEpochNumber
-            ackO shouldBe Some(Availability.Consensus.Ack(Seq(aBatchId)))
+            ackO shouldBe Seq(aBatchId)
         }
         context.delayedMessages should matchPattern {
           case Seq(_: PbftNormalTimeout, _: PbftNormalTimeout) =>
@@ -816,7 +816,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           case Seq(Availability.Consensus.CreateProposal(t, _, e, ackO)) =>
             t.nodes shouldBe Set(myId)
             e shouldBe SecondEpochNumber
-            ackO shouldBe Some(Availability.Consensus.Ack(Seq(aBatchId)))
+            ackO shouldBe Seq(aBatchId)
         }
         p2pBuffer.clear()
         availabilityBuffer.clear()
@@ -1087,7 +1087,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           case Seq(Availability.Consensus.CreateProposal(t, _, e, ackO)) =>
             t.nodes shouldBe Set(myId)
             e shouldBe SecondEpochNumber
-            ackO shouldBe None
+            ackO shouldBe empty
         }
         availabilityBuffer.clear()
 
@@ -1254,7 +1254,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           )
         )
         parentBuffer.clear()
-        availabilityBuffer should contain only Availability.Consensus.Ack(Seq(aBatchId))
+        availabilityBuffer should contain only Availability.Consensus.Ordered(Seq(aBatchId))
         consensus.allFuturesHaveFinished shouldBe true
       }
 
@@ -1317,7 +1317,10 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
 
         // Run the pipeToSelf, should then store the PrePrepare and send the Prepare
         val prePrareStored =
-          PrePrepareStored(remotePrePrepare.message.blockMetadata, ViewNumber.First)
+          MessageFromPipeToSelf(
+            Some(PrePrepareStored(remotePrePrepare.message.blockMetadata, ViewNumber.First)),
+            FutureId(1),
+          )
         context.runPipedMessages() should contain only prePrareStored
         context.blockingAwait(store.loadEpochProgress(epochInfo)) shouldBe EpochInProgress(
           Seq.empty,
@@ -1347,7 +1350,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { message =>
           message shouldBe MessageFromPipeToSelf(
             Some(preparesStored),
-            FutureId(2),
+            FutureId(3),
           )
         }
         val progress = context.blockingAwait(store.loadEpochProgress(epochInfo))
@@ -1716,7 +1719,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
       p2pNetworkOutModuleRef: ModuleRef[P2PNetworkOut.Message] =
         fakeIgnoringModule[P2PNetworkOut.Message],
       parentModuleRef: ModuleRef[Consensus.Message[E]] = fakeIgnoringModule[Consensus.Message[E]],
-      cryptoProvider: CryptoProvider[E] = new FakeCryptoProvider[E],
+      cryptoProvider: CryptoProvider[E] = new FailingCryptoProvider[E],
       leader: BftNodeId = myId,
       epochLength: EpochLength = DefaultEpochLength,
       latestCompletedEpochLastCommits: Seq[SignedMessage[Commit]] = GenesisEpoch.lastBlockCommits,

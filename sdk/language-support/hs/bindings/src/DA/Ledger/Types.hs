@@ -17,7 +17,7 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     Party(..),
     Timestamp(..),
     -- TODO[SW] Can this be deleted?
-    ApplicationId(..),
+    UserId(..),
     PackageId(..),
     ParticipantId(..),
     ) where
@@ -33,9 +33,9 @@ data Timestamp = Timestamp
     }
     deriving (Eq,Ord,Show)
 
-newtype ApplicationId = ApplicationId { unApplicationId :: Text } deriving (Eq,Ord,Show)
-instance A.FromJSON ApplicationId where
-  parseJSON v = ApplicationId <$> A.parseJSON v
+newtype UserId = UserId { unUserId :: Text } deriving (Eq,Ord,Show)
+instance A.FromJSON UserId where
+  parseJSON v = UserId <$> A.parseJSON v
 
 newtype ParticipantId = ParticipantId { unParticipantId :: Text} deriving (Eq,Ord,Show)
 instance A.FromJSON ParticipantId where

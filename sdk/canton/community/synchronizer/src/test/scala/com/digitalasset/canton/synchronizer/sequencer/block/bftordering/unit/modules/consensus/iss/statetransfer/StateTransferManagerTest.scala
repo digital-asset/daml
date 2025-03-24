@@ -30,6 +30,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   EpochInfo,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.{
+  CommitCertificate,
   OrderedBlock,
   OrderedBlockForOutput,
 }
@@ -55,6 +56,7 @@ import org.scalatest.wordspec.AnyWordSpec
 class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
   import StateTransferManagerTest.*
 
+  // TODO(#24524) test `stateTransferNewEpoch`
   "StateTransferManager" should {
     "start and try to restart" in {
       implicit val context: ContextType = new ProgrammableUnitTestContext
@@ -68,7 +70,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       stateTransferManager.inBlockTransfer shouldBe false
 
       val startEpoch = EpochNumber(7L)
-      stateTransferManager.startStateTransfer(
+      stateTransferManager.startCatchUp(
         membership,
         ProgrammableUnitTestEnv.noSignatureCryptoProvider,
         latestCompletedEpoch = Genesis.GenesisEpoch,
@@ -79,11 +81,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       stateTransferManager.inBlockTransfer shouldBe true
 
       val blockTransferRequest = StateTransferMessage.BlockTransferRequest
-        .create(
-          startEpoch,
-          latestCompletedEpoch = Genesis.GenesisEpochNumber,
-          from = myId,
-        )
+        .create(startEpoch, from = myId)
         .fakeSign
 
       assertBlockTransferRequestHasBeenSent(
@@ -94,9 +92,9 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       )
 
       // Try to start state transfer (with no effect) while another one is in progress.
-      stateTransferManager.startStateTransfer(
+      stateTransferManager.startCatchUp(
         membership,
-        fakeCryptoProvider,
+        failingCryptoProvider,
         latestCompletedEpoch = Genesis.GenesisEpoch,
         startEpoch,
       )(abort = fail(_))
@@ -115,7 +113,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       // Initiate state transfer so that it's in progress.
       val latestCompletedEpoch = Genesis.GenesisEpoch
       val startEpoch = EpochNumber(7L)
-      stateTransferManager.startStateTransfer(
+      stateTransferManager.startCatchUp(
         membership,
         ProgrammableUnitTestEnv.noSignatureCryptoProvider,
         latestCompletedEpoch,
@@ -124,15 +122,10 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       context.runPipedMessages() shouldBe List()
 
       val blockTransferRequest = StateTransferMessage.BlockTransferRequest
-        .create(
-          startEpoch,
-          latestCompletedEpoch = Genesis.GenesisEpochNumber,
-          from = myId,
-        )
+        .create(startEpoch, from = myId)
         .fakeSign
       stateTransferManager.handleStateTransferMessage(
-        StateTransferMessage
-          .ResendBlockTransferRequest(blockTransferRequest, to = otherId),
+        StateTransferMessage.RetryBlockTransferRequest(blockTransferRequest),
         aTopologyInfo,
         latestCompletedEpoch,
       )(abort = fail(_)) shouldBe StateTransferMessageResult.Continue
@@ -164,8 +157,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       stateTransferManager.handleStateTransferMessage(
         VerifiedStateTransferMessage(
           StateTransferMessage.BlockTransferRequest.create(
-            startEpoch = EpochNumber.First,
-            latestCompletedEpoch = Genesis.GenesisEpochNumber,
+            epoch = EpochNumber.First,
             from = otherId,
           )
         ),
@@ -177,15 +169,15 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       context.selfMessages shouldBe empty
       context.runPipedMessages()
 
-      // Should have sent a block transfer response with empty pre-prepares.
+      // Should have sent a block transfer response with an empty commit certificate.
       verify(p2pNetworkOutRef, times(1))
         .asyncSend(
           P2PNetworkOut.send(
             P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(
               StateTransferMessage.BlockTransferResponse
                 .create(
+                  commitCertificate = None,
                   latestCompletedEpochLocally.info.number,
-                  prePrepares = Seq.empty,
                   from = myId,
                 )
                 .fakeSign
@@ -207,9 +199,9 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         )
 
       // Store a block that will be sent by the serving node.
-      val prePrepare = aPrePrepare()
+      val commitCert = aCommitCert()
       context.pipeToSelf(
-        epochStore.addOrderedBlock(prePrepare, commitMessages = Seq.empty)
+        epochStore.addOrderedBlock(commitCert.prePrepare, commitCert.commits)
       )(
         _.map(_ => None).getOrElse(fail("Storing the pre-prepare failed"))
       )
@@ -224,8 +216,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       stateTransferManager.handleStateTransferMessage(
         VerifiedStateTransferMessage(
           StateTransferMessage.BlockTransferRequest.create(
-            startEpoch = EpochNumber.First,
-            latestCompletedEpoch = Genesis.GenesisEpochNumber,
+            epoch = EpochNumber.First,
             from = otherId,
           )
         ),
@@ -239,15 +230,15 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       // Should have never referenced self, e.g., to send new epoch state.
       context.selfMessages shouldBe empty
 
-      // Should have sent a block transfer response with a single epoch containing a single block.
+      // Should have sent a block transfer response with a single commit certificate.
       verify(p2pNetworkOutRef, times(1))
         .asyncSend(
           P2PNetworkOut.send(
             P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(
               StateTransferMessage.BlockTransferResponse
                 .create(
+                  Some(commitCert),
                   latestCompletedEpochLocally.info.number,
-                  Seq(prePrepare),
                   from = myId,
                 )
                 .fakeSign
@@ -258,7 +249,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     }
   }
 
-  "store, then send block to Output and complete block transfer on response for onboarding" in {
+  "verify, store, send block to Output, and complete block transfer on response for onboarding" in {
     implicit val context: ProgrammableUnitTestContext[Consensus.Message[ProgrammableUnitTestEnv]] =
       new ProgrammableUnitTestContext()
 
@@ -271,7 +262,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
     // Initiate state transfer so that it's in progress.
     val latestCompletedEpochLocally = Genesis.GenesisEpoch
-    stateTransferManager.startStateTransfer(
+    stateTransferManager.startCatchUp(
       membership,
       ProgrammableUnitTestEnv.noSignatureCryptoProvider,
       latestCompletedEpochLocally,
@@ -279,18 +270,18 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     )(abort = fail(_))
     context.runPipedMessages()
 
-    val blockMetadata = BlockMetadata.mk(EpochNumber.First, BlockNumber.First)
-    val prePrepare = aPrePrepare(blockMetadata)
+    val blockMetadata = aBlockMetadata
+    val commitCert = aCommitCert(blockMetadata)
     val latestCompletedEpochRemotely =
       EpochStore.Epoch(
         EpochInfo.mk(EpochNumber.First, startBlockNumber = BlockNumber.First, length = 1),
         lastBlockCommits = Seq.empty, // not used
       )
 
-    // Handle a block transfer response with a single epoch containing a single block.
+    // Handle a block transfer response with a single commit certificate.
     val blockTransferResponse = StateTransferMessage.BlockTransferResponse.create(
+      Some(commitCert),
       latestCompletedEpochRemotely.info.number,
-      Seq(prePrepare),
       from = otherId,
     )
     val topologyInfo = OrderingTopologyInfo(
@@ -299,7 +290,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       ProgrammableUnitTestEnv.noSignatureCryptoProvider,
       membership.leaders,
       previousTopology = membershipBeforeOnboarding.orderingTopology,
-      previousCryptoProvider = fakeCryptoProvider,
+      previousCryptoProvider = failingCryptoProvider,
       membershipBeforeOnboarding.leaders,
     )
     stateTransferManager.handleStateTransferMessage(
@@ -308,17 +299,33 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       latestCompletedEpochLocally,
     )(abort = fail(_)) shouldBe StateTransferMessageResult.Continue
 
+    // Verify the block.
+    val blockVerifiedMessage = context.runPipedMessages()
+    blockVerifiedMessage should contain only StateTransferMessage.BlockVerified(
+      commitCert,
+      latestCompletedEpochRemotely.info.number,
+      from = otherId,
+    )
+    stateTransferManager.handleStateTransferMessage(
+      blockVerifiedMessage.headOption
+        .getOrElse(fail("There should be just a single block verified message"))
+        .asInstanceOf[StateTransferMessage.BlockVerified[ProgrammableUnitTestEnv]],
+      topologyInfo,
+      latestCompletedEpochLocally,
+    )(fail(_))
+
     // Store the block.
     val blockStoredMessage = context.runPipedMessages()
-    blockStoredMessage should contain only StateTransferMessage.BlocksStored(
-      Seq(prePrepare.message),
+    blockStoredMessage should contain only StateTransferMessage.BlockStored(
+      commitCert,
       latestCompletedEpochRemotely.info.number,
+      from = otherId,
     )
 
     val result = stateTransferManager.handleStateTransferMessage(
       blockStoredMessage.headOption
         .getOrElse(fail("There should be just a single block stored message"))
-        .asInstanceOf[StateTransferMessage.BlocksStored[ProgrammableUnitTestEnv]],
+        .asInstanceOf[StateTransferMessage.BlockStored[ProgrammableUnitTestEnv]],
       topologyInfo,
       latestCompletedEpochLocally,
     )(fail(_))
@@ -327,20 +334,20 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     result shouldBe StateTransferMessageResult.BlockTransferCompleted(
       endEpochNumber = EpochNumber.First,
       numberOfTransferredEpochs = 1L,
-      numberOfTransferredBlocks = 1L,
     )
 
     // Should have sent an ordered block to the Output module.
+    val prePrepare = commitCert.prePrepare.message
     verify(outputRef, times(1)).asyncSend(
       Output.BlockOrdered(
         OrderedBlockForOutput(
           OrderedBlock(
             blockMetadata,
-            prePrepare.message.block.proofs,
-            prePrepare.message.canonicalCommitSet,
+            prePrepare.block.proofs,
+            prePrepare.canonicalCommitSet,
           ),
-          prePrepare.message.viewNumber,
-          from = prePrepare.from,
+          prePrepare.viewNumber,
+          from = commitCert.prePrepare.from,
           isLastInEpoch = true,
           mode = OrderedBlockForOutput.Mode.StateTransfer.LastBlock,
         )
@@ -359,7 +366,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
     // Initiate state transfer so that it's in progress.
     val latestCompletedEpochLocally = Genesis.GenesisEpoch
-    stateTransferManager.startStateTransfer(
+    stateTransferManager.startCatchUp(
       membership,
       ProgrammableUnitTestEnv.noSignatureCryptoProvider,
       latestCompletedEpochLocally,
@@ -374,8 +381,8 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
     // Handle an empty block transfer response.
     val blockTransferResponse = StateTransferMessage.BlockTransferResponse.create(
+      commitCertificate = None,
       latestCompletedEpochRemotely.info.number,
-      prePrepares = Seq.empty,
       from = otherId,
     )
     context.runPipedMessages() shouldBe List()
@@ -383,7 +390,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       VerifiedStateTransferMessage(blockTransferResponse),
       aTopologyInfo,
       latestCompletedEpochLocally,
-    )(abort = fail(_)) shouldBe StateTransferMessageResult.NothingToStateTransfer
+    )(abort = fail(_)) shouldBe StateTransferMessageResult.NothingToStateTransfer(from = otherId)
   }
 
   "drop messages when not in state transfer" in {
@@ -404,17 +411,18 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       )
 
     val aBlockTransferResponse = StateTransferMessage.BlockTransferResponse.create(
+      commitCertificate = None,
       latestCompletedEpochRemotely.info.number,
-      prePrepares = Seq.empty,
       from = otherId,
     )
 
     forAll(
       List[StateTransferMessage](
         VerifiedStateTransferMessage(aBlockTransferResponse),
-        StateTransferMessage.BlocksStored(
-          prePrepares = Seq.empty,
+        StateTransferMessage.BlockStored(
+          aCommitCert(),
           latestCompletedEpochRemotely.info.number,
+          from = otherId,
         ),
       )
     ) { message =>
@@ -457,10 +465,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
   )(implicit context: ContextType): Unit = {
     // Should have scheduled a retry.
     context.lastDelayedMessage shouldBe Some(
-      numberOfTimes -> StateTransferMessage.ResendBlockTransferRequest(
-        blockTransferRequest,
-        to = otherId,
-      )
+      numberOfTimes -> StateTransferMessage.RetryBlockTransferRequest(blockTransferRequest)
     )
     // Should have sent a block transfer request to the other node only.
     val order = inOrder(p2pNetworkOutRef)
@@ -494,13 +499,16 @@ object StateTransferManagerTest {
     ProgrammableUnitTestEnv.noSignatureCryptoProvider,
     membership.leaders,
     previousTopology = membership.orderingTopology,
-    previousCryptoProvider = fakeCryptoProvider,
+    previousCryptoProvider = failingCryptoProvider,
     membership.leaders,
   )
 
-  private def aPrePrepare(
-      blockMetadata: BlockMetadata = BlockMetadata.mk(EpochNumber.First, BlockNumber.First)
-  ) =
+  private val aBlockMetadata: BlockMetadata = BlockMetadata.mk(EpochNumber.First, BlockNumber.First)
+
+  private def aCommitCert(blockMetadata: BlockMetadata = aBlockMetadata) =
+    CommitCertificate(aPrePrepare(blockMetadata), Seq.empty)
+
+  private def aPrePrepare(blockMetadata: BlockMetadata) =
     PrePrepare
       .create(
         blockMetadata = blockMetadata,

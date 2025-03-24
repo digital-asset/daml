@@ -57,7 +57,7 @@ abstract class SequencerApiTest
 
     lazy val sequencer: CantonSequencer = {
       val sequencer = SequencerApiTest.this.createSequencer(
-        topologyFactory.forOwnerAndSynchronizer(owner = mediatorId, synchronizerId)
+        topologyFactory.forOwnerAndSynchronizer(owner = sequencerId, synchronizerId)
       )
       registerAllTopologyMembers(topologyFactory.topologySnapshot(), sequencer)
       sequencer
@@ -995,7 +995,12 @@ trait SequencerApiTestUtils
     members
       .parTraverseFilter { member =>
         for {
-          source <- valueOrFail(sequencer.read(member, firstSequencerCounter))(
+          source <- valueOrFail(
+            if (firstSequencerCounter == SequencerCounter.Genesis)
+              sequencer.readV2(member, None)
+            else
+              sequencer.read(member, firstSequencerCounter)
+          )(
             s"Read for $member"
           )
           events <- FutureUnlessShutdown.outcomeF(

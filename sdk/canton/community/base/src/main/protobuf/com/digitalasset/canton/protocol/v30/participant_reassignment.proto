@@ -76,7 +76,7 @@ message ReassignmentSubmitterMetadata {
   string submitting_participant_uid = 2;
   string command_id = 3;
   string submission_id = 4; // optional
-  string application_id = 5;
+  string user_id = 5;
   string workflow_id = 6; // optional
 }
 
@@ -98,6 +98,5 @@ message AssignmentView {
   v30.SerializableContract contract = 2;
   // Serialized SignedContent[SequencedEvent]
   bytes unassignment_result_event = 3;
-  int32 source_protocol_version = 4;
-  int64 reassignment_counter = 5;
+  int64 reassignment_counter = 4;
 }

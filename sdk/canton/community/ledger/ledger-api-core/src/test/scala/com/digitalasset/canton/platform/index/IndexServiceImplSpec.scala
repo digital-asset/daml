@@ -72,7 +72,6 @@ class IndexServiceImplSpec
           )
         ),
         alwaysPopulateArguments = false,
-        enableTopologyEvents = false,
       )
     memoFunc() shouldBe None
   }
@@ -95,13 +94,11 @@ class IndexServiceImplSpec
       getPackageMetadataSnapshot = getPackageMetadata,
       updateFormat = updateFormatForTransactions(eventFormat),
       alwaysPopulateArguments = false,
-      enableTopologyEvents = false,
     )
     val memoFuncReassignments = memoizedInternalUpdateFormat(
       getPackageMetadataSnapshot = getPackageMetadata,
       updateFormat = updateFormatForReassignments(eventFormat),
       alwaysPopulateArguments = false,
-      enableTopologyEvents = false,
     )
     memoFuncTransactions() shouldBe None // no template implementing iface1
     memoFuncReassignments() shouldBe None // no template implementing iface1
@@ -177,7 +174,6 @@ class IndexServiceImplSpec
         )
       ),
       alwaysPopulateArguments = true,
-      enableTopologyEvents = false,
     )
     memoFunc() shouldBe Some(
       internalUpdateFormatForTransactions(

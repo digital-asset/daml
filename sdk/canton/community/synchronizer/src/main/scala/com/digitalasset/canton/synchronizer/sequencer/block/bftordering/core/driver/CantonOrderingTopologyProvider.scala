@@ -43,6 +43,10 @@ private[driver] final class CantonOrderingTopologyProvider(
 ) extends OrderingTopologyProvider[PekkoEnv]
     with NamedLogging {
 
+  logger.debug(s"CantonOrderingTopologyProvider created with cryptoApi for ${cryptoApi.member}")(
+    TraceContext.empty
+  )
+
   override def getOrderingTopologyAt(activationTime: TopologyActivationTime)(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Option[(OrderingTopology, CryptoProvider[PekkoEnv])]] = {
@@ -98,6 +102,9 @@ private[driver] final class CantonOrderingTopologyProvider(
         ) { sequencers =>
           snapshot.ipsSnapshot.signingKeys(sequencers, BftOrderingSigningKeyUsage)
         }
+      _ = logger.debug(
+        s"Found sequencer keys ${maybeSequencerKeys.view.mapValues(_.map(_.id.toProtoPrimitive)).toSeq} on snapshot at $snapshotTimestamp"
+      )
       maybeSequencersFirstKnownAt <-
         maybeSequencers
           .map(computeFirstKnownAtTimestamps(_, snapshot))

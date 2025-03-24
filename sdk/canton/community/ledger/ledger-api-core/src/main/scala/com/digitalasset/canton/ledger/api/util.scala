@@ -90,7 +90,7 @@ object CumulativeFilter {
 
 final case class Commands(
     workflowId: Option[WorkflowId],
-    applicationId: Ref.ApplicationId,
+    userId: Ref.UserId,
     commandId: CommandId,
     submissionId: Option[SubmissionId],
     actAs: Set[Ref.Party],
@@ -111,7 +111,7 @@ final case class Commands(
     prettyOfClass(
       param("commandId", _.commandId.unwrap),
       paramIfDefined("submissionId", _.submissionId.map(_.unwrap)),
-      param("applicationId", _.applicationId),
+      param("userId", _.userId),
       param("actAs", _.actAs),
       paramIfNonEmpty("readAs", _.readAs),
       param("submittedAt", _.submittedAt),
@@ -135,7 +135,7 @@ object Commands {
   implicit val `Commands to LoggingValue`: ToLoggingValue[Commands] = commands => {
     LoggingValue.Nested.fromEntries(
       "workflowId" -> commands.workflowId,
-      "applicationId" -> commands.applicationId,
+      "userId" -> commands.userId,
       "submissionId" -> commands.submissionId,
       "commandId" -> commands.commandId,
       "actAs" -> commands.actAs,

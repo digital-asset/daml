@@ -70,7 +70,7 @@ final class ApiCommandCompletionService(
               completionsService
                 .getCompletions(
                   request.offset,
-                  request.applicationId,
+                  request.userId,
                   request.parties,
                 )
                 .via(

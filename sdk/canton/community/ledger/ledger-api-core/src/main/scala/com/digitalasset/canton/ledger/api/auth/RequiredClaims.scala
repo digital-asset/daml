@@ -19,9 +19,9 @@ object RequiredClaims {
   def submissionClaims[Req](
       actAs: Set[String],
       readAs: Set[String],
-      applicationIdL: Lens[Req, String],
+      userIdL: Lens[Req, String],
   ): List[RequiredClaim[Req]] =
-    RequiredClaim.MatchApplicationId(applicationIdL)
+    RequiredClaim.MatchUserId(userIdL)
       :: actAs.view.map(RequiredClaim.ActAs[Req]).toList
       ::: readAs.view.map(RequiredClaim.ReadAs[Req]).toList
 

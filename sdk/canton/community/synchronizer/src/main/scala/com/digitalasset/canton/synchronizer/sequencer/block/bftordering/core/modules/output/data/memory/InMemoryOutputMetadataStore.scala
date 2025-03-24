@@ -29,6 +29,9 @@ abstract class GenericInMemoryOutputMetadataStore[E <: Env[E]] extends OutputMet
 
   private val epochs: TrieMap[EpochNumber, OutputEpochMetadata] = TrieMap.empty
 
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  private var lowerBound: Option[OutputMetadataStore.LowerBound] = None
+
   protected def createFuture[T](action: String)(value: () => Try[T]): E#FutureUnlessShutdownT[T]
 
   override def insertBlockIfMissing(
@@ -97,8 +100,11 @@ abstract class GenericInMemoryOutputMetadataStore[E <: Env[E]] extends OutputMet
       epochNumber: EpochNumber
   )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Option[OutputBlockMetadata]] =
     createFuture(getFirstInEpochActionName(epochNumber)) { () =>
-      Success(sortedBlocksForEpoch(epochNumber).headOption)
+      Success(firstBlockInEpoch(epochNumber))
     }
+
+  private def firstBlockInEpoch(epochNumber: EpochNumber): Option[OutputBlockMetadata] =
+    sortedBlocksForEpoch(epochNumber).headOption
 
   override def getLastBlockInEpoch(
       epochNumber: EpochNumber
@@ -134,15 +140,66 @@ abstract class GenericInMemoryOutputMetadataStore[E <: Env[E]] extends OutputMet
   override def getLastConsecutiveBlock(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Option[OutputBlockMetadata]] =
-    createFuture(lastConsecutiveActionName)(() =>
+    createFuture(lastConsecutiveActionName) { () =>
+      val initialBlockNumber = lowerBound.map(_.blockNumber).getOrElse(BlockNumber.First)
       Success(
         blocks.keySet.toSeq.sorted.zipWithIndex
-          .takeWhile { case (blockNumber, index) => blockNumber == index }
+          .takeWhile { case (blockNumber, index) =>
+            blockNumber == BlockNumber(initialBlockNumber + index)
+          }
           .map { case (blockNumber, _) => blockNumber }
           .maxOption
           .map(blocks)
       )
-    )
+    }
+
+  override def loadNumberOfRecords(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[OutputMetadataStore.NumberOfRecords] =
+    createFuture(loadNumberOfRecordsName) { () =>
+      Success(
+        OutputMetadataStore.NumberOfRecords(
+          epochs.size.toLong,
+          blocks.size.toLong,
+        )
+      )
+    }
+
+  override def prune(epochNumberExclusive: EpochNumber)(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[OutputMetadataStore.NumberOfRecords] =
+    createFuture(pruneName(epochNumberExclusive)) { () =>
+      val epochsToDelete = epochs.filter(_._1 < epochNumberExclusive).keys
+      epochs --= epochsToDelete
+
+      val blocksToDelete = blocks.filter(_._2.epochNumber < epochNumberExclusive).keys
+      blocks --= blocksToDelete
+
+      Success(
+        OutputMetadataStore.NumberOfRecords(
+          epochsToDelete.size.toLong,
+          blocksToDelete.size.toLong,
+        )
+      )
+    }
+
+  override def saveLowerBound(
+      epoch: EpochNumber
+  )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Either[String, Unit]] =
+    createFuture(saveLowerBoundName(epoch)) { () =>
+      lowerBound = {
+        firstBlockInEpoch(epoch).map(blockNumber =>
+          OutputMetadataStore.LowerBound(epoch, blockNumber.blockNumber)
+        )
+      }
+      Success(Right(()))
+    }
+
+  override def getLowerBound()(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[Option[OutputMetadataStore.LowerBound]] =
+    createFuture(getLowerBoundActionName)(() => Success(lowerBound))
+
 }
 
 class InMemoryOutputMetadataStore(

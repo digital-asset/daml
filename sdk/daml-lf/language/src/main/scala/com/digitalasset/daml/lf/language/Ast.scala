@@ -518,6 +518,8 @@ object Ast {
   final case object BSHA256Text extends BuiltinFunction // : Text -> Text
 
   final case object BKECCAK256Text extends BuiltinFunction // : Text -> Text
+  final case object BDecodeHex extends BuiltinFunction // : Text -> Text
+  final case object BEncodeHex extends BuiltinFunction // : Text -> Text
 
   // Errors
   final case object BError extends BuiltinFunction // : ∀a. Text → a

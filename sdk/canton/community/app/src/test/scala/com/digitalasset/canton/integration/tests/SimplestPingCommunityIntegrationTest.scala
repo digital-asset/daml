@@ -9,9 +9,9 @@ import com.digitalasset.canton.config.StorageConfig
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
 import com.digitalasset.canton.integration.{
-  CommunityEnvironmentDefinition,
   CommunityIntegrationTest,
   ConfigTransforms,
+  EnvironmentDefinition,
   SharedEnvironment,
 }
 
@@ -19,8 +19,8 @@ sealed trait SimplestPingCommunityIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment {
 
-  override def environmentDefinition: CommunityEnvironmentDefinition =
-    CommunityEnvironmentDefinition.simpleTopology
+  override def environmentDefinition: EnvironmentDefinition =
+    EnvironmentDefinition.simpleTopology
       .addConfigTransforms(ConfigTransforms.globallyUniquePorts)
       .addConfigTransforms(ConfigTransforms.setProtocolVersion(testedProtocolVersion)*)
       .withManualStart
@@ -46,8 +46,7 @@ sealed trait SimplestPingCommunityIntegrationTest
       Seq(mediator1),
       Seq[InstanceReference](sequencer1, mediator1),
       PositiveInt.two,
-      staticSynchronizerParameters =
-        CommunityEnvironmentDefinition.defaultStaticSynchronizerParameters,
+      staticSynchronizerParameters = EnvironmentDefinition.defaultStaticSynchronizerParameters,
     )
 
     sequencer1.health.status shouldBe a[NodeStatus.Success[?]]

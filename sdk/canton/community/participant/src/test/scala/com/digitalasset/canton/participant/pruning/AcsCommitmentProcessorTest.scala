@@ -1443,10 +1443,7 @@ class AcsCommitmentProcessorTest
             requestJournalStore,
             Some(
               SynchronizerIndex.of(
-                SequencerIndex(
-                  counter = SequencerCounter(0L),
-                  timestamp = CantonTimestamp.Epoch,
-                )
+                SequencerIndex(CantonTimestamp.Epoch)
               )
             ),
             constantSortedReconciliationIntervalsProvider(defaultReconciliationInterval),
@@ -1552,10 +1549,7 @@ class AcsCommitmentProcessorTest
               SynchronizerIndex(
                 None,
                 Some(
-                  SequencerIndex(
-                    counter = SequencerCounter(3L),
-                    timestamp = ts2,
-                  )
+                  SequencerIndex(ts2)
                 ),
                 recordTime = ts2, // record time cannot include pending request at ts3
               )
@@ -1581,12 +1575,7 @@ class AcsCommitmentProcessorTest
             Some(
               SynchronizerIndex(
                 None,
-                Some(
-                  SequencerIndex(
-                    counter = SequencerCounter(4L),
-                    timestamp = ts3,
-                  )
-                ),
+                Some(SequencerIndex(ts3)),
                 recordTime = ts3,
               )
             ),
@@ -1652,10 +1641,7 @@ class AcsCommitmentProcessorTest
                   )
                 ),
                 Some(
-                  SequencerIndex(
-                    counter = SequencerCounter(4L),
-                    timestamp = tsCleanRequest,
-                  )
+                  SequencerIndex(tsCleanRequest)
                 ),
                 recordTime = tsCleanRequest, // record time cannot include pending request at ts3
               )
@@ -1738,7 +1724,7 @@ class AcsCommitmentProcessorTest
         _ <- inFlightSubmissionStore
           .observeSequencing(
             submission2.submissionSynchronizerId,
-            Map(submission2.messageId -> SequencedSubmission(SequencerCounter(2), tsCleanRequest)),
+            Map(submission2.messageId -> SequencedSubmission(tsCleanRequest)),
           )
         testeeSafeToPrune = () =>
           PruningProcessor
@@ -1752,12 +1738,7 @@ class AcsCommitmentProcessorTest
                       counter = RepairCounter.Genesis,
                     )
                   ),
-                  Some(
-                    SequencerIndex(
-                      counter = SequencerCounter(1L),
-                      timestamp = tsCleanRequest2,
-                    )
-                  ),
+                  Some(SequencerIndex(tsCleanRequest2)),
                   recordTime = tsCleanRequest2,
                 )
               ),

@@ -128,7 +128,7 @@ class TransactionProcessor(
       submissionParam: TransactionProcessingSteps.SubmissionParam
   ): MetricsContext =
     MetricsContext(
-      "application-id" -> submissionParam.submitterInfo.applicationId,
+      "user-id" -> submissionParam.submitterInfo.userId,
       "type" -> "send-confirmation-request",
     )
 

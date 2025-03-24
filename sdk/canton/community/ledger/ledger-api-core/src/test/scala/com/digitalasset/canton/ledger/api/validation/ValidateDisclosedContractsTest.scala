@@ -48,7 +48,7 @@ class ValidateDisclosedContractsTest
 
   it should "fail validation on missing created event blob" in {
     val withMissingBlob =
-      ProtoCommands(disclosedContracts =
+      ProtoCommands.defaultInstance.withDisclosedContracts(
         scala.Seq(
           api.protoDisclosedContract.copy(
             createdEventBlob = ByteString.EMPTY
@@ -227,7 +227,7 @@ class ValidateDisclosedContractsTest
   it should "fail validation on invalid synchronizer_id" in {
     requestMustFailWith(
       request = validateDisclosedContracts(
-        ProtoCommands(disclosedContracts =
+        ProtoCommands.defaultInstance.copy(disclosedContracts =
           scala.Seq(api.protoDisclosedContract.copy(synchronizerId = "cantBe!"))
         )
       ),
@@ -268,10 +268,11 @@ object ValidateDisclosedContractsTest {
             throw new RuntimeException(s"Cannot serialize createdEventBlob: ${err.errorMessage}"),
           identity,
         ),
+      synchronizerId = "",
     )
 
     val protoCommands: ProtoCommands =
-      ProtoCommands(disclosedContracts = scala.Seq(api.protoDisclosedContract))
+      ProtoCommands.defaultInstance.copy(disclosedContracts = scala.Seq(api.protoDisclosedContract))
   }
 
   private object lf {

@@ -169,7 +169,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
           Consensus.NewEpochTopology(
             EpochNumber(2L),
             aMembership,
-            fakeCryptoProvider,
+            failingCryptoProvider,
             aTimestamp,
             Mode.FromConsensus,
           )
@@ -226,7 +226,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                 ),
                 allIds,
               ),
-              fakeCryptoProvider,
+              failingCryptoProvider,
               GenesisPreviousEpochMaxBftTime,
               Mode.FromConsensus,
             )
@@ -245,7 +245,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         val stateTransferManagerMock = mock[StateTransferManager[ProgrammableUnitTestEnv]]
         when(stateTransferManagerMock.inBlockTransfer).thenReturn(true)
         val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
-        val cryptoProvider = fakeCryptoProvider[ProgrammableUnitTestEnv]
+        val cryptoProvider = failingCryptoProvider[ProgrammableUnitTestEnv]
 
         val aTopologyActivationTime = Genesis.GenesisTopologyActivationTime
         val aPreviousEpochMaxBftTime = Genesis.GenesisPreviousEpochMaxBftTime
@@ -389,7 +389,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
           Consensus.NewEpochTopology(
             EpochNumber(1L),
             aMembership,
-            fakeCryptoProvider,
+            failingCryptoProvider,
             GenesisPreviousEpochMaxBftTime,
             Mode.FromConsensus,
           )
@@ -439,7 +439,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
               Consensus.NewEpochTopology(
                 EpochNumber(1L),
                 aMembership,
-                fakeCryptoProvider,
+                failingCryptoProvider,
                 GenesisPreviousEpochMaxBftTime,
                 Mode.FromConsensus,
               )
@@ -499,7 +499,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                     ),
                     nodes,
                   ),
-                  fakeCryptoProvider,
+                  failingCryptoProvider,
                   GenesisPreviousEpochMaxBftTime,
                   Mode.FromConsensus,
                 )
@@ -678,7 +678,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         val newEpochTopologyMsg = NewEpochTopology(
           EpochNumber.First,
           aMembership,
-          fakeCryptoProvider,
+          failingCryptoProvider,
           GenesisPreviousEpochMaxBftTime,
           Mode.FromConsensus,
         )
@@ -889,7 +889,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
       createSegmentModuleRefFactory(segmentModuleFactoryFunction)(
         context,
         epochStateEpoch,
-        fakeCryptoProvider,
+        failingCryptoProvider,
         Seq.empty,
         EpochStore.EpochInProgress(),
       ),
@@ -952,7 +952,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
           val segmentModuleRefFactory = createSegmentModuleRefFactory(segmentModuleFactoryFunction)(
             context,
             epoch,
-            fakeCryptoProvider,
+            failingCryptoProvider,
             latestCompletedEpochFromStore.lastBlockCommits,
             epochStore.loadEpochProgress(latestEpochFromStore.info)(TraceContext.empty)(),
           )
@@ -1026,7 +1026,7 @@ private[iss] object IssConsensusModuleTest {
   private val anOrderingTopology = OrderingTopology.forTesting(allIds.toSet)
   private val aMembership = Membership(myId, anOrderingTopology, allIds)
   private val aFakeCryptoProviderInstance: CryptoProvider[ProgrammableUnitTestEnv] =
-    fakeCryptoProvider
+    failingCryptoProvider
   private val aTopologyInfo = OrderingTopologyInfo[ProgrammableUnitTestEnv](
     myId,
     anOrderingTopology,

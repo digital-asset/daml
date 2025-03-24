@@ -7,6 +7,7 @@ import cats.Eval
 import cats.data.EitherT
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -28,6 +29,7 @@ import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.db.DbTopologyStore
+import com.digitalasset.canton.topology.transaction.HostingParticipant
 import com.digitalasset.canton.topology.{
   ForceFlags,
   ParticipantId,
@@ -183,6 +185,25 @@ class DbSyncPersistentState(
         partyId,
         forceFlags,
         acsInspections = () => Map(indexedSynchronizer.synchronizerId -> acsInspection),
+      )
+
+    override def checkInsufficientSignatoryAssigningParticipantsForParty(
+        partyId: PartyId,
+        currentThreshold: PositiveInt,
+        nextThreshold: Option[PositiveInt],
+        nextConfirmingParticipants: Seq[HostingParticipant],
+        forceFlags: ForceFlags,
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
+      checkInsufficientSignatoryAssigningParticipantsForParty(
+        partyId,
+        currentThreshold,
+        nextThreshold,
+        nextConfirmingParticipants,
+        forceFlags,
+        () => Map(indexedSynchronizer.synchronizerId -> reassignmentStore),
+        () => ledgerApiStore.value.ledgerEnd,
       )
 
     override def checkInsufficientParticipantPermissionForSignatoryParty(

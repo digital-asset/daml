@@ -134,7 +134,7 @@ class AssignmentProcessingStepsTest
       participant,
       LedgerCommandId.assertFromString("assignment-processing-steps-command-id"),
       submissionId = None,
-      LedgerApplicationId.assertFromString("tests"),
+      LedgerUserId.assertFromString("tests"),
       workflowId = None,
     )
 
@@ -415,7 +415,7 @@ class AssignmentProcessingStepsTest
         metadata = ContractMetadata.tryCreate(Set(), Set(party3), None),
       )
 
-      val reassignmentData2 = ReassignmentStoreTest.mkReassignmentDataForSynchronizer(
+      val reassignmentData2 = ReassignmentStoreTest.mkUnassignmentDataForSynchronizer(
         reassignmentId,
         sourceMediator,
         party3,
@@ -963,7 +963,6 @@ class AssignmentProcessingStepsTest
         targetMediator,
         unassignmentResult,
         uuid,
-        Source(testedProtocolVersion),
         Target(testedProtocolVersion),
         reassigningParticipants = reassigningParticipants,
       )

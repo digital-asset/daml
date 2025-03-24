@@ -77,7 +77,7 @@ class JwtPartiesTest
 }
 
 object JwtPartiesTest {
-  private val irrelevantAppId = http.ApplicationId("bar")
+  private val irrelevantUserId = http.UserId("bar")
 
   private implicit val arbParty: Arbitrary[http.Party] = Arbitrary(
     http.Party.subst(partyGen: Gen[String])
@@ -88,7 +88,7 @@ object JwtPartiesTest {
       case (neAct, extra, actAs, readAs) =>
         http
           .JwtPayload(
-            irrelevantAppId,
+            irrelevantUserId,
             actAs = if (neAct) extra :: actAs else actAs,
             readAs = if (!neAct) extra :: readAs else readAs,
           )
@@ -99,7 +99,7 @@ object JwtPartiesTest {
     Arbitrary(
       arbitrary[(NonEmptyList[http.Party], List[http.Party])].map { case (submitter, readAs) =>
         JwtWritePayload(
-          irrelevantAppId,
+          irrelevantUserId,
           submitter = submitter,
           readAs = readAs,
         )

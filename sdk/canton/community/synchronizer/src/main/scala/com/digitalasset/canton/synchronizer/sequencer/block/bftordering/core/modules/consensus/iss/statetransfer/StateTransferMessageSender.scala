@@ -46,67 +46,69 @@ final class StateTransferMessageSender[E <: Env[E]](
       blockTransferRequest: SignedMessage[StateTransferMessage.BlockTransferRequest],
       to: BftNodeId,
   )(implicit traceContext: TraceContext): Unit = {
-    logger.debug(s"State transfer: sending a block transfer request to $to")
+    logger.debug(
+      s"State transfer: sending a block transfer request for epoch ${blockTransferRequest.message.epoch} to '$to'"
+    )
     consensusDependencies.p2pNetworkOut.asyncSend(
       P2PNetworkOut.send(wrapSignedMessage(blockTransferRequest), to)
     )
   }
 
-  def sendBlockTransferResponse(
+  def sendBlockTransferResponses(
       activeCryptoProvider: CryptoProvider[E],
       to: BftNodeId,
-      startEpoch: EpochNumber,
+      forEpoch: EpochNumber,
       latestCompletedEpoch: EpochStore.Epoch,
   )(
       abort: String => Nothing
   )(implicit context: E#ActorContextT[Consensus.Message[E]], traceContext: TraceContext): Unit = {
-    val lastEpochToTransfer = latestCompletedEpoch.info.number
-    if (lastEpochToTransfer < startEpoch) {
+    val latestCompletedEpochNumber = latestCompletedEpoch.info.number
+    if (latestCompletedEpochNumber < forEpoch) {
       logger.info(
-        s"State transfer: nothing to transfer to '$to', start epoch was $startEpoch, " +
-          s"latest locally completed epoch is $lastEpochToTransfer"
+        s"State transfer: nothing to transfer to '$to' for epoch $forEpoch, " +
+          s"latest locally completed epoch is $latestCompletedEpochNumber"
       )
       val response = StateTransferMessage.BlockTransferResponse
-        .create(lastEpochToTransfer, prePrepares = Seq.empty, from = thisNode)
-      respond(response, activeCryptoProvider, to)
+        .create(commitCertificate = None, latestCompletedEpochNumber, from = thisNode)
+      sendResponse(response, activeCryptoProvider, to)
     } else {
-      val blocksToTransfer = (lastEpochToTransfer - startEpoch + 1) * epochLength
-      logger.info(
-        s"State transfer: loading blocks from epochs $startEpoch to $lastEpochToTransfer " +
-          s"(blocksToTransfer = $blocksToTransfer)"
-      )
+      logger.info(s"State transfer: loading blocks from epoch $forEpoch (length=$epochLength)")
       context.pipeToSelf(
-        epochStore.loadCompleteBlocks(startEpoch, lastEpochToTransfer)
+        // We load only one epoch at a time to avoid OOM errors.
+        epochStore.loadCompleteBlocks(forEpoch, forEpoch)
       ) {
         case Success(blocks) =>
-          if (blocks.length != blocksToTransfer) {
+          if (blocks.length != epochLength) {
             abort(
               "Internal invariant violation: " +
                 s"only whole epochs with blocks that have been ordered can be state transferred, but ${blocks.length} " +
-                s"blocks have been loaded instead of $blocksToTransfer"
+                s"blocks have been loaded instead of $epochLength"
             )
           }
-          val prePrepares = blocks.map(_.commitCertificate.prePrepare)
+          val commitCerts = blocks.map(_.commitCertificate)
           val startBlockNumber = blocks.map(_.blockNumber).minOption
           logger.info(
-            s"State transfer: sending blocks starting from epoch $startEpoch (block number = $startBlockNumber) up to " +
-              s"$lastEpochToTransfer (inclusive) to $to"
+            s"State transfer: sending block responses from epoch $forEpoch (start block number = $startBlockNumber) to '$to'"
           )
-          val response = StateTransferMessage.BlockTransferResponse
-            .create(lastEpochToTransfer, prePrepares, from = thisNode)
-          respond(response, activeCryptoProvider, to)
+          commitCerts.foreach { commitCert =>
+            // We send only one block at a time to avoid exceeding the max gRPC message size.
+            val response = StateTransferMessage.BlockTransferResponse
+              .create(Some(commitCert), latestCompletedEpochNumber, from = thisNode)
+            sendResponse(response, activeCryptoProvider, to)
+          }
           None // do not send anything back
         case Failure(exception) => Some(Consensus.ConsensusMessage.AsyncException(exception))
       }
     }
   }
 
-  def sendBlockToOutput(prePrepare: PrePrepare, endEpoch: EpochNumber): Unit = {
+  def sendBlockToOutput(
+      prePrepare: PrePrepare,
+      lastInEpoch: Boolean,
+      endEpoch: EpochNumber,
+  ): Unit = {
     val blockMetadata = prePrepare.blockMetadata
-    // TODO(#19289) support variable epoch lengths
-    val isLastInEpoch = (blockMetadata.blockNumber + 1) % epochLength == 0
-    val isLastStateTransferred =
-      blockMetadata.blockNumber == (endEpoch * epochLength) + epochLength - 1
+    val lastStateTransferred = lastInEpoch && blockMetadata.epochNumber == endEpoch
 
     consensusDependencies.output.asyncSend(
       Output.BlockOrdered(
@@ -118,9 +120,9 @@ final class StateTransferMessageSender[E <: Env[E]](
           ),
           prePrepare.viewNumber,
           prePrepare.from,
-          isLastInEpoch,
+          lastInEpoch,
           mode =
-            if (isLastStateTransferred) OrderedBlockForOutput.Mode.StateTransfer.LastBlock
+            if (lastStateTransferred) OrderedBlockForOutput.Mode.StateTransfer.LastBlock
             else OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
         )
       )
@@ -155,7 +157,7 @@ final class StateTransferMessageSender[E <: Env[E]](
         None
     }
 
-  private def respond[Message <: StateTransferMessage.StateTransferNetworkMessage](
+  private def sendResponse[Message <: StateTransferMessage.StateTransferNetworkMessage](
       response: Message,
       cryptoProvider: CryptoProvider[E],
       to: BftNodeId,

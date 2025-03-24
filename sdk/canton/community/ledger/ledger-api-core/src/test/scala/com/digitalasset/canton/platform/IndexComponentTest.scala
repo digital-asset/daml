@@ -154,7 +154,6 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
         indexService <- new IndexServiceOwner(
           dbSupport = dbSupport,
           config = IndexServiceConfig(),
-          experimentalEnableTopologyEvents = true,
           participantId = Ref.ParticipantId.assertFromString(IndexComponentTest.TestParticipantId),
           metrics = LedgerApiServerMetrics.ForTesting,
           inMemoryState = inMemoryState,

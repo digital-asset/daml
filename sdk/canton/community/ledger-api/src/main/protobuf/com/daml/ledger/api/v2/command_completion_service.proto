@@ -32,11 +32,11 @@ service CommandCompletionService {
 }
 
 message CompletionStreamRequest {
-  // Only completions of commands submitted with the same application_id will be visible in the stream.
-  // Must be a valid ApplicationIdString (as described in ``value.proto``).
-  // Required unless authentication is used with a user token or a custom token specifying an application-id.
-  // In that case, the token's user-id, respectively application-id, will be used for the request's application_id.
-  string application_id = 1;
+  // Only completions of commands submitted with the same user_id will be visible in the stream.
+  // Must be a valid UserIdString (as described in ``value.proto``).
+  // Required unless authentication is used with a user token.
+  // In that case, the token's user-id will be used for the request's user_id.
+  string user_id = 1;
 
   // Non-empty list of parties whose data should be included.
   // Only completions of commands for which at least one of the ``act_as`` parties is in the given set of parties

@@ -85,7 +85,7 @@ object Pretty extends ShowUtil with PrettyUtil with PrettyInstances {
     final def toTree: Tree = implicitly[Pretty[T]].treeOf(value)
   }
 
-  private lazy val crashOnPrettyPrintingErrors: Boolean =
+  lazy val crashOnPrettyPrintingErrors: Boolean =
     sys.env
       .get("CANTON_CRASH_ON_PRETTY_PRINTING_ERRORS")
       .exists(_.toBoolean)

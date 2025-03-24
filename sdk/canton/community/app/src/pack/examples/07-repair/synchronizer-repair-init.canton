@@ -8,7 +8,7 @@ bootstrap.synchronizer(
   mediators = Seq(mediator1),
   synchronizerOwners = Seq(sequencer1, mediator1),
   synchronizerThreshold = PositiveInt.two,
-  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.forSynchronizer),
 )
 
 // upload the Daml model to all participants

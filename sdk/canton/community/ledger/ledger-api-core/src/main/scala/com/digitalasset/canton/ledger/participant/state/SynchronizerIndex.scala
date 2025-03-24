@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
+import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.{RepairCounter, SequencerCounter}
 
 final case class SynchronizerIndex(
     repairIndex: Option[RepairIndex],
@@ -18,7 +18,7 @@ final case class SynchronizerIndex(
         .maxByOption(identity),
       sequencerIndex = sequencerIndex.iterator
         .++(otherSynchronizerIndex.sequencerIndex.iterator)
-        .maxByOption(_.counter),
+        .maxByOption(_.sequencerTimestamp),
       recordTime = recordTime max otherSynchronizerIndex.recordTime,
     )
 
@@ -38,7 +38,7 @@ object SynchronizerIndex {
     SynchronizerIndex(
       None,
       Some(sequencerIndex),
-      sequencerIndex.timestamp,
+      sequencerIndex.sequencerTimestamp,
     )
 
   def of(recordTime: CantonTimestamp): SynchronizerIndex =
@@ -49,7 +49,7 @@ object SynchronizerIndex {
     )
 }
 
-final case class SequencerIndex(counter: SequencerCounter, timestamp: CantonTimestamp)
+final case class SequencerIndex(sequencerTimestamp: CantonTimestamp)
 
 final case class RepairIndex(timestamp: CantonTimestamp, counter: RepairCounter)
 

@@ -243,7 +243,7 @@ final case class JsCommands(
     commands: Seq[JsCommand.Command],
     commandId: String,
     actAs: Seq[String],
-    applicationId: Option[String] = None,
+    userId: Option[String] = None,
     readAs: Seq[String] = Seq.empty,
     workflowId: Option[String] = None,
     deduplicationPeriod: Option[DeduplicationPeriod] = None,

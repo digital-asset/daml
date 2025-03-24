@@ -43,7 +43,6 @@ import scala.util.control.NoStackTrace
 
 final class IndexServiceOwner(
     config: IndexServiceConfig,
-    experimentalEnableTopologyEvents: Boolean,
     dbSupport: DbSupport,
     metrics: LedgerApiServerMetrics,
     participantId: Ref.ParticipantId,
@@ -90,7 +89,6 @@ final class IndexServiceOwner(
         lfValueTranslation = lfValueTranslation,
         metrics = metrics,
         eventProcessingParallelism = config.bufferedEventsProcessingParallelism,
-        experimentalEnableTopologyEvents = experimentalEnableTopologyEvents,
         loggerFactory = loggerFactory,
       )(queryExecutionContext)
 
@@ -114,7 +112,6 @@ final class IndexServiceOwner(
         metrics = metrics,
         loggerFactory = loggerFactory,
         idleStreamOffsetCheckpointTimeout = config.idleStreamOffsetCheckpointTimeout,
-        experimentalEnableTopologyEvents = experimentalEnableTopologyEvents,
       )
     } yield new TimedIndexService(indexService, metrics)
   }
@@ -204,7 +201,6 @@ final class IndexServiceOwner(
       transactionTreeStreamsConfig = config.transactionTreeStreams,
       globalMaxEventIdQueries = config.globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = config.globalMaxEventPayloadQueries,
-      experimentalEnableTopologyEvents = experimentalEnableTopologyEvents,
       tracer = tracer,
       loggerFactory = loggerFactory,
       incompleteOffsets = incompleteOffsets,

@@ -74,7 +74,7 @@ class CompletionFromTransactionSpec
             Offset.firstOffset,
             "commandId",
             "transactionId",
-            "applicationId",
+            "userId",
             "synchronizer id",
             traceContext,
             submissionId,
@@ -89,7 +89,7 @@ class CompletionFromTransactionSpec
 
           completion.commandId shouldBe "commandId"
           completion.updateId shouldBe "transactionId"
-          completion.applicationId shouldBe "applicationId"
+          completion.userId shouldBe "userId"
           completion.submissionId shouldBe expectedSubmissionId
           completion.deduplicationPeriod shouldBe expectedDeduplicationPeriod
           completion.actAs.toSet shouldBe Set("party1", "party2")
@@ -111,7 +111,7 @@ class CompletionFromTransactionSpec
             Offset.firstOffset,
             "commandId",
             "transactionId",
-            "applicationId",
+            "userId",
             "synchronizer id",
             traceContext,
             Some("submissionId"),
@@ -131,7 +131,7 @@ class CompletionFromTransactionSpec
         Offset.tryFromLong(2L),
         "commandId",
         status,
-        "applicationId",
+        "userId",
         "synchronizer id",
         traceContext,
         Some("submissionId"),
@@ -142,7 +142,7 @@ class CompletionFromTransactionSpec
       completion.offset shouldBe 2L
 
       completion.commandId shouldBe "commandId"
-      completion.applicationId shouldBe "applicationId"
+      completion.userId shouldBe "userId"
       completion.submissionId shouldBe "submissionId"
       completion.status shouldBe Some(status)
       completion.actAs shouldBe Seq("party")

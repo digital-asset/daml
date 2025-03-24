@@ -78,7 +78,7 @@ private[participant] object AutomaticAssignment {
               participantId,
               unassignmentSubmitterMetadata.commandId,
               submissionId = None,
-              unassignmentSubmitterMetadata.applicationId,
+              unassignmentSubmitterMetadata.userId,
               workflowId = None,
             ),
             id,

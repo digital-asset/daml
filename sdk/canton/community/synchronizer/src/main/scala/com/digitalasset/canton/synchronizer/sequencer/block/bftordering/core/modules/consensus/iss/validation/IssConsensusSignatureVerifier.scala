@@ -13,18 +13,24 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   OrderingBlock,
   ProofOfAvailability,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.ConsensusCertificate
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.{
+  CommitCertificate,
+  ConsensusCertificate,
+  PrepareCertificate,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopologyInfo
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
+  Commit,
   PbftNetworkMessage,
   PrePrepare,
   Prepare,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
-  Consensus,
-  ConsensusSegment,
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
+  Env,
+  FutureContext,
+  PureFun,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, PureFun}
 import com.digitalasset.canton.tracing.TraceContext
 
 /** If the verifier approves a message then the message is from whom it says it is, recursively
@@ -39,7 +45,7 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
       message: SignedMessage[ConsensusSegment.ConsensusMessage.PbftNetworkMessage],
       topologyInfo: OrderingTopologyInfo[E],
   )(implicit
-      context: E#ActorContextT[Consensus.Message[E]],
+      context: FutureContext[E],
       traceContext: TraceContext,
   ): VerificationResult =
     validateSignedMessage[ConsensusSegment.ConsensusMessage.PbftNetworkMessage](
@@ -54,7 +60,7 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
       message: ConsensusSegment.ConsensusMessage.PbftNetworkMessage,
       topologyInfo: OrderingTopologyInfo[E],
   )(implicit
-      context: E#ActorContextT[Consensus.Message[E]],
+      context: FutureContext[E],
       traceContext: TraceContext,
   ): VerificationResult = {
     implicit val implicitCryptoProvider: CryptoProvider[E] = topologyInfo.currentCryptoProvider
@@ -93,7 +99,7 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
   private def validateProofOfAvailability(
       proofOfAvailability: ProofOfAvailability
   )(implicit
-      context: E#ActorContextT[Consensus.Message[E]],
+      context: FutureContext[E],
       cryptoProvider: CryptoProvider[E],
       traceContext: TraceContext,
   ): VerificationResult = collectFutures[SignatureCheckError] {
@@ -110,7 +116,7 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
   private def validateOrderingBlock(
       block: OrderingBlock
   )(implicit
-      context: E#ActorContextT[Consensus.Message[E]],
+      context: FutureContext[E],
       cryptoProvider: CryptoProvider[E],
       traceContext: TraceContext,
   ): VerificationResult =
@@ -120,7 +126,7 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
       message: PrePrepare,
       topologyInfo: OrderingTopologyInfo[E],
   )(implicit
-      context: E#ActorContextT[Consensus.Message[E]],
+      context: FutureContext[E],
       traceContext: TraceContext,
   ): VerificationResult = message match {
     case PrePrepare(
@@ -131,11 +137,12 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
           canonicalCommitSet,
           from,
         ) =>
+      implicit val cryptoProvider: CryptoProvider[E] = topologyInfo.currentCryptoProvider
       // Canonical commit sets are validated in more detail later in the process
       val maybeCanonicalCommitSetEpochNumber =
         canonicalCommitSet.sortedCommits.map(_.message.blockMetadata.epochNumber).headOption
       val prePrepareEpochNumber = blockMetadata.epochNumber
-      implicit val cryptoProvider: CryptoProvider[E] =
+      val cryptoProviderForCanonicalCommits =
         if (maybeCanonicalCommitSetEpochNumber.contains(prePrepareEpochNumber)) {
           topologyInfo.currentCryptoProvider
         } else {
@@ -143,16 +150,26 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
         }
       collectFuturesAndFlatten(
         canonicalCommitSet.sortedCommits.map(
-          validateSignedMessage(_ => context.pureFuture(Either.unit[Seq[SignatureCheckError]]))
+          validateCommit(_, cryptoProviderForCanonicalCommits)
         ) :+ validateOrderingBlock(block)
       )
+  }
+
+  private def validateCommit(
+      commit: SignedMessage[Commit],
+      cryptoProvider: CryptoProvider[E],
+  )(implicit context: FutureContext[E], traceContext: TraceContext) = {
+    implicit val cp: CryptoProvider[E] = cryptoProvider
+    validateSignedMessage((_: PbftNetworkMessage) =>
+      context.pureFuture(Either.unit[Seq[SignatureCheckError]])
+    )(commit)
   }
 
   private def validateViewChange(
       message: ConsensusSegment.ConsensusMessage.ViewChange,
       topologyInfo: OrderingTopologyInfo[E],
   )(implicit
-      context: E#ActorContextT[Consensus.Message[E]],
+      context: FutureContext[E],
       traceContext: TraceContext,
   ): VerificationResult = message match {
     case ConsensusSegment.ConsensusMessage.ViewChange(
@@ -166,21 +183,30 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
       collectFuturesAndFlatten(certs.map(validateConsensusCertificate(_, topologyInfo)))
   }
 
-  private def validateConsensusCertificate(
+  def validateConsensusCertificate(
       certificate: ConsensusCertificate,
       topologyInfo: OrderingTopologyInfo[E],
   )(implicit
-      context: E#ActorContextT[Consensus.Message[E]],
+      context: FutureContext[E],
       traceContext: TraceContext,
   ): VerificationResult = {
     implicit val implicitCryptoProvider: CryptoProvider[E] = topologyInfo.currentCryptoProvider
-    validateSignedMessage[PrePrepare](validatePrePrepare(_, topologyInfo))(certificate.prePrepare)
+    val prePrepareValidationF =
+      validateSignedMessage[PrePrepare](validatePrePrepare(_, topologyInfo))(certificate.prePrepare)
+    val reminderValidationF: VerificationResult = certificate match {
+      case CommitCertificate(_, commits) =>
+        collectFuturesAndFlatten(commits.map(validateCommit(_, topologyInfo.currentCryptoProvider)))
+      case PrepareCertificate(_, _) =>
+        // TODO(#18194) implement
+        context.pureFuture(Either.unit[Seq[SignatureCheckError]])
+    }
+    collectFuturesAndFlatten(Seq(prePrepareValidationF, reminderValidationF))
   }
 
   private def validateSignedMessage[A <: PbftNetworkMessage](
       validator: A => VerificationResult
   )(signedMessage: SignedMessage[A])(implicit
-      context: E#ActorContextT[Consensus.Message[E]],
+      context: FutureContext[E],
       cryptoProvider: CryptoProvider[E],
       traceContext: TraceContext,
   ): VerificationResult =
@@ -203,14 +229,14 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
   private def collectFutures[Err](
       futures: Seq[E#FutureUnlessShutdownT[Either[Err, Unit]]]
   )(implicit
-      context: E#ActorContextT[Consensus.Message[E]]
+      context: FutureContext[E]
   ): E#FutureUnlessShutdownT[Either[Seq[Err], Unit]] =
     context.mapFuture(context.sequenceFuture(futures))(PureFun.Util.CollectErrors())
 
   private def collectFuturesAndFlatten[Err](
       futures: Seq[E#FutureUnlessShutdownT[Either[Seq[Err], Unit]]]
   )(implicit
-      context: E#ActorContextT[Consensus.Message[E]]
+      context: FutureContext[E]
   ): E#FutureUnlessShutdownT[Either[Seq[Err], Unit]] =
     context.mapFuture(collectFutures(futures))(PureFun.Either.LeftMap(PureFun.Seq.Flatten()))
 }

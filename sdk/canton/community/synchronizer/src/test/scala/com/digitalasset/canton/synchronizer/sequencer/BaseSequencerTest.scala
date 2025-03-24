@@ -123,6 +123,15 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
           .mapMaterializedValue(_ -> FutureUnlessShutdown.pure(Done))
       )
 
+    override def readInternalV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+      EitherT.rightT[FutureUnlessShutdown, CreateSubscriptionError](
+        Source.empty
+          .viaMat(KillSwitches.single)(Keep.right)
+          .mapMaterializedValue(_ -> FutureUnlessShutdown.pure(Done))
+      )
+
     override protected def acknowledgeSignedInternal(
         signedAcknowledgeRequest: SignedContent[AcknowledgeRequest]
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = ???

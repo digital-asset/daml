@@ -38,12 +38,19 @@ object PartyManagementClient {
   private val getParticipantIdRequest = GetParticipantIdRequest()
 
   private def listKnownPartiesRequest(pageToken: String, pageSize: Int) =
-    ListKnownPartiesRequest(pageToken, pageSize)
+    ListKnownPartiesRequest(
+      pageToken = pageToken,
+      pageSize = pageSize,
+      identityProviderId = "",
+    )
 
   private def getPartiesRequest(parties: OneAnd[Set, Ref.Party]) = {
     import scalaz.std.iterable.*
     import scalaz.syntax.foldable.*
-    GetPartiesRequest(parties.toList)
+    GetPartiesRequest(
+      parties = parties.toList,
+      identityProviderId = "",
+    )
   }
 }
 
@@ -86,7 +93,13 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(implicit
   )(implicit traceContext: TraceContext): Future[PartyDetails] =
     LedgerClient
       .stubWithTracing(service, token)
-      .allocateParty(new AllocatePartyRequest(hint.getOrElse("")))
+      .allocateParty(
+        AllocatePartyRequest(
+          partyIdHint = hint.getOrElse(""),
+          localMetadata = None,
+          identityProviderId = "",
+        )
+      )
       .map(_.partyDetails.getOrElse(sys.error("No PartyDetails in response.")))
       .map(PartyManagementClient.details)
 

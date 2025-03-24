@@ -62,10 +62,10 @@ abstract class AbstractMessageProcessor(
         eventO.getOrElse(
           SequencerIndexMoved(
             synchronizerId = synchronizerId,
-            sequencerCounter = requestSequencerCounter,
             recordTime = requestTimestamp,
           )
         ),
+        requestSequencerCounter,
         Some(requestCounter),
       )
     } yield ()

@@ -77,7 +77,7 @@ class AssignmentProcessor(
       submissionParam: AssignmentProcessingSteps.SubmissionParam
   ): MetricsContext =
     MetricsContext(
-      "application-id" -> submissionParam.submitterMetadata.applicationId,
+      "user-id" -> submissionParam.submitterMetadata.userId,
       "type" -> "assignment",
     )
 

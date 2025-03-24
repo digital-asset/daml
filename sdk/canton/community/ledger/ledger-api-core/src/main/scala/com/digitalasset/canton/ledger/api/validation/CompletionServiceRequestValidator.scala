@@ -19,14 +19,14 @@ object CompletionServiceRequestValidator {
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, CompletionStreamRequest] =
     for {
-      appId <- requireApplicationId(request.applicationId, "application_id")
+      userId <- requireUserId(request.userId, "user_id")
       parties <- requireParties(request.parties.toSet)
       offsetO <- ParticipantOffsetValidator.validateNonNegative(
         request.beginExclusive,
         "begin_exclusive",
       )
     } yield CompletionStreamRequest(
-      appId,
+      userId,
       parties,
       offsetO,
     )

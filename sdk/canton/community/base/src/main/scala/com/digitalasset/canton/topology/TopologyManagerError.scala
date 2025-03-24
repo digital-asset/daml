@@ -12,7 +12,7 @@ import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
 import com.digitalasset.canton.error.CantonErrorGroups.TopologyManagementErrorGroup.TopologyManagerErrorGroup
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError, ContextualizedCantonError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.protocol.OnboardingRestriction
+import com.digitalasset.canton.protocol.{OnboardingRestriction, ReassignmentId}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
@@ -871,6 +871,68 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
                 s"Set the ForceFlag.DisablePartyWithActiveContracts if you really know what you are doing."
           )
           with TopologyManagerError
+    }
+
+    @Explanation(
+      """This error indicates that a dangerous PartyToParticipant mapping was rejected.
+        |If the command is run, there will no longer be enough signatory-assigning participants
+        |(i.e., reassigning participants with confirmation permissions for assignments) to complete the ongoing reassignments, these reassignments
+        |will remain stuck.
+        | """
+    )
+    @Resolution(
+      "Set the ForceFlag.AllowInsufficientSignatoryAssigningParticipantsForParty if you really know what you are doing."
+    )
+    object InsufficientSignatoryAssigningParticipantsForParty
+        extends ErrorCode(
+          id = "TOPOLOGY_INSUFFICIENT_SIGNATORY_ASSIGNING_PARTICIPANTS",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      final case class RejectRemovingParty(
+          partyId: PartyId,
+          synchronizerId: SynchronizerId,
+          reassignmentId: ReassignmentId,
+      )(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
+            cause =
+              s"Disable party $partyId failed because there are incomplete reassignments, such as $reassignmentId, on synchronizer $synchronizerId involving the party. " +
+                s"Set the ForceFlag.AllowInsufficientSignatoryAssigningParticipantsForParty if you really know what you are doing."
+          )
+          with TopologyManagerError
+
+      final case class RejectThresholdIncrease(
+          partyId: PartyId,
+          synchronizerId: SynchronizerId,
+          reassignmentId: ReassignmentId,
+          nextThreshold: PositiveInt,
+          signatoryAssigningParticipants: Set[ParticipantId],
+      )(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
+            cause =
+              s"Increasing the threshold to $nextThreshold for the party $partyId would result in insufficient signatory-assigning participants for reassignment $reassignmentId " +
+                s"on synchronizer $synchronizerId. The signatory assigning participants for this reassignment are: $signatoryAssigningParticipants. " +
+                s"Set the ForceFlag.AllowInsufficientSignatoryAssigningParticipantsForParty if you really know what you are doing."
+          )
+          with TopologyManagerError
+
+      final case class RejectNotEnoughSignatoryAssigningParticipants(
+          partyId: PartyId,
+          synchronizerId: SynchronizerId,
+          reassignmentId: ReassignmentId,
+          threshold: PositiveInt,
+          signatoryAssigningParticipants: Set[ParticipantId],
+      )(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
+            cause =
+              s"Changing the party to participant mapping for party $partyId would result in insufficient signatory-assigning participants for reassignment $reassignmentId " +
+                s"on synchronizer $synchronizerId. Completing the assignment requires $threshold signatory-assigning participants, but only $signatoryAssigningParticipants would be available. " +
+                s"Set the ForceFlag.AllowInsufficientSignatoryAssigningParticipantsForParty if you are certain about proceeding with this change."
+          )
+          with TopologyManagerError
+
     }
 
     @Explanation(

@@ -19,14 +19,24 @@ class TraceIdentifiersTest extends AnyWordSpec {
   "extract identifiers from Transaction" should {
     "set non-empty values" in {
       val observed = TraceIdentifiers.fromTransaction(
-        Transaction("transaction-id", "command-id", "workflow-id", None, Seq(), 12345678L)
+        Transaction(
+          "transaction-id",
+          "command-id",
+          "workflow-id",
+          None,
+          Seq(),
+          12345678L,
+          "",
+          None,
+          None,
+        )
       )
       observed shouldEqual expected
     }
 
     "not set empty values" in {
       val observed =
-        TraceIdentifiers.fromTransaction(Transaction())
+        TraceIdentifiers.fromTransaction(Transaction.defaultInstance)
       observed shouldBe empty
     }
   }
@@ -34,14 +44,24 @@ class TraceIdentifiersTest extends AnyWordSpec {
   "extract identifiers from TransactionTree" should {
     "set non-empty values" in {
       val observed = TraceIdentifiers.fromTransactionTree(
-        TransactionTree("transaction-id", "command-id", "workflow-id", None, 12345678L, Map())
+        TransactionTree(
+          "transaction-id",
+          "command-id",
+          "workflow-id",
+          None,
+          12345678L,
+          Map(),
+          "",
+          None,
+          None,
+        )
       )
       observed shouldEqual expected
     }
 
     "not set empty values" in {
       val observed =
-        TraceIdentifiers.fromTransaction(Transaction())
+        TraceIdentifiers.fromTransaction(Transaction.defaultInstance)
       observed shouldBe empty
     }
   }

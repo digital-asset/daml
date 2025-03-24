@@ -32,9 +32,9 @@ message GetMeteringReportRequest {
   // If not provided, the server will default to its current time.
   google.protobuf.Timestamp to = 2;
 
-  // If set to a non-empty value, then the report will only be generated for that application.
+  // If set to a non-empty value, then the report will only be generated for that user.
   // Optional.
-  string application_id = 3;
+  string user_id = 3;
 }
 
 message GetMeteringReportResponse {

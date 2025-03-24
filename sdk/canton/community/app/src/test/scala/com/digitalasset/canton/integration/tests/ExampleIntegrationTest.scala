@@ -7,17 +7,16 @@ import better.files.*
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.PreparedTransaction
 import com.digitalasset.canton.ConsoleScriptRunner
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.InteractiveSubmission
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.integration.plugins.{UseCommunityReferenceBlockSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.ExampleIntegrationTest.*
 import com.digitalasset.canton.integration.{
-  CommunityEnvironmentDefinition,
   CommunityIntegrationTest,
   ConfigTransform,
-  ConfigTransforms,
+  EnvironmentDefinition,
   IsolatedEnvironments,
 }
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.TransactionData
@@ -25,7 +24,6 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLogging}
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionEncoder
 import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ConcurrentBufferedLogger, HexString, ResourceUtil}
 import com.digitalasset.canton.version.HashingSchemeVersion
@@ -45,21 +43,9 @@ abstract class ExampleIntegrationTest(configPaths: File*)
   protected def additionalConfigTransform: Seq[ConfigTransform] =
     Seq.empty
 
-  override lazy val environmentDefinition: CommunityEnvironmentDefinition =
-    CommunityEnvironmentDefinition
+  override lazy val environmentDefinition: EnvironmentDefinition =
+    EnvironmentDefinition
       .fromFiles(configPaths*)
-      .addConfigTransforms(
-        // lets not share databases
-        ConfigTransforms.uniqueH2DatabaseNames,
-        _.focus(_.monitoring.tracing.propagation).replace(TracingConfig.Propagation.Enabled),
-        ConfigTransforms.updateAllParticipantConfigs { case (_, config) =>
-          // to make sure that the picked up time for the snapshot is the most recent one
-          config
-            .focus(_.parameters.reassignmentTimeProofFreshnessProportion)
-            .replace(NonNegativeInt.zero)
-        },
-        ConfigTransforms.globallyUniquePorts,
-      )
       .addConfigTransforms(additionalConfigTransform*)
 }
 
@@ -108,6 +94,7 @@ sealed abstract class SimplePingExampleIntegrationTest
 }
 
 final class SimplePingExampleReferenceIntegrationTestH2 extends SimplePingExampleIntegrationTest {
+  registerPlugin(new UseH2(loggerFactory))
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 }
 

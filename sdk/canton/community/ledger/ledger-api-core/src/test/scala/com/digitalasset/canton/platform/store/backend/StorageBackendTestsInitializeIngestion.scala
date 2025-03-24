@@ -28,7 +28,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
   private def dtoMetering(app: String, offset: Offset) =
     dtoTransactionMetering(
       TransactionMetering(
-        applicationId = Ref.ApplicationId.assertFromString(app),
+        userId = Ref.UserId.assertFromString(app),
         actionCount = 1,
         meteringTimestamp = someTime,
         ledgerOffset = offset,

@@ -7,7 +7,6 @@ import com.daml.ledger.api.v2.event.{ArchivedEvent, CreatedEvent, Event}
 import com.digitalasset.canton.platform.store.dao.events.TransactionConversion.removeTransient
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.value.Value
-import com.google.protobuf.ByteString
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -17,16 +16,8 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
     def create(contractId: Value.ContractId): Event =
       Event.of(
         Event.Event.Created(
-          CreatedEvent(
-            contractId = contractId.coid,
-            templateId = None,
-            contractKey = None,
-            createArguments = None,
-            createdEventBlob = ByteString.EMPTY,
-            interfaceViews = Seq.empty,
-            witnessParties = Seq.empty,
-            signatories = Seq.empty,
-            observers = Seq.empty,
+          CreatedEvent.defaultInstance.withContractId(
+            contractId.coid
           )
         )
       )
@@ -35,10 +26,8 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
     val create2 = create(contractId2)
     val archive1 = Event.of(
       Event.Event.Archived(
-        ArchivedEvent(
-          contractId = contractId1.coid,
-          templateId = None,
-          witnessParties = Seq.empty,
+        ArchivedEvent.defaultInstance.copy(
+          contractId = contractId1.coid
         )
       )
     )

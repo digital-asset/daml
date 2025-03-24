@@ -771,6 +771,14 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CounterCheckpoint]]
 
+  /** Fetch a checkpoint with a counter value less than the provided counter. */
+  def fetchClosestCheckpointBeforeV2(
+      memberId: SequencerMemberId,
+      timestamp: Option[CantonTimestamp],
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CounterCheckpoint]]
+
   /** Fetch previous event timestamp for a member for a given inclusive timestamp. */
   def fetchPreviousEventTimestamp(memberId: SequencerMemberId, timestampInclusive: CantonTimestamp)(
       implicit traceContext: TraceContext

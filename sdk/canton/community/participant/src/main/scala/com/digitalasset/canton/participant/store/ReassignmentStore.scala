@@ -28,7 +28,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, CheckedT, EitherTUtil, MonadUtil}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -303,7 +302,6 @@ object ReassignmentStore {
   /** The data for a reassignment and possible when the reassignment was completed. */
   final case class ReassignmentEntry(
       reassignmentId: ReassignmentId,
-      sourceProtocolVersion: Source[ProtocolVersion],
       contract: SerializableContract,
       unassignmentRequest: Option[FullUnassignmentTree],
       unassignmentDecisionTime: CantonTimestamp,
@@ -371,11 +369,25 @@ object ReassignmentStore {
     ): ReassignmentEntry =
       ReassignmentEntry(
         reassignmentData.reassignmentId,
-        reassignmentData.sourceProtocolVersion,
         reassignmentData.contract,
         Some(reassignmentData.unassignmentRequest),
         reassignmentData.unassignmentDecisionTime,
         reassignmentData.unassignmentResult,
+        reassignmentGlobalOffset,
+        tsCompletion,
+      )
+
+    def apply(
+        assignmentData: AssignmentData,
+        reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
+        tsCompletion: Option[CantonTimestamp],
+    ): ReassignmentEntry =
+      ReassignmentEntry(
+        assignmentData.reassignmentId,
+        assignmentData.contract,
+        None,
+        assignmentData.unassignmentDecisionTime,
+        None,
         reassignmentGlobalOffset,
         tsCompletion,
       )

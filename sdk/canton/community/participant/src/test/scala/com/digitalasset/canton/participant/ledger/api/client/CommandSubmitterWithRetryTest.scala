@@ -30,9 +30,9 @@ class CommandSubmitterWithRetryTest
     with HasExecutionContext {
 
   private val timeout = 5.seconds
-  private val commands = Commands(
+  private val commands = Commands.defaultInstance.copy(
     workflowId = "workflowId",
-    applicationId = "applicationId",
+    userId = "userId",
     commandId = "commandId",
     actAs = Seq("party"),
     commands = Nil,
@@ -52,7 +52,9 @@ class CommandSubmitterWithRetryTest
       val simClock = new SimClock(loggerFactory = loggerFactory)
       when(synchronousCommandClient.submitAndWait(expectedCommands, Some(timeout)))
         .thenAnswer(
-          result.map(_.map(updateId => SubmitAndWaitResponse(updateId = updateId)))
+          result.map(
+            _.map(updateId => SubmitAndWaitResponse(updateId = updateId, completionOffset = 0))
+          )
         )
       sut = new CommandSubmitterWithRetry(
         synchronousCommandClient,

@@ -48,7 +48,12 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
   )(implicit traceContext: TraceContext): Future[User] =
     LedgerClient
       .stubWithTracing(service, token)
-      .getUser(proto.GetUserRequest())
+      .getUser(
+        proto.GetUserRequest(
+          userId = "",
+          identityProviderId = "",
+        )
+      )
       .flatMap(res => fromOptionalProtoUser(res.user))
 
   def deleteUser(userId: UserId, token: Option[String] = None, identityProviderId: String = "")(
@@ -120,7 +125,12 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
   )(implicit traceContext: TraceContext): Future[Seq[UserRight]] =
     LedgerClient
       .stubWithTracing(service, token)
-      .listUserRights(proto.ListUserRightsRequest())
+      .listUserRights(
+        proto.ListUserRightsRequest(
+          userId = "",
+          identityProviderId = "",
+        )
+      )
       .map(_.rights.view.collect(fromProtoRight.unlift).toSeq)
 
   /** Utility method for json services

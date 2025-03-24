@@ -10,9 +10,9 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{CommandFailure, InstanceReference}
 import com.digitalasset.canton.integration.plugins.{UseCommunityReferenceBlockSequencer, UseH2}
 import com.digitalasset.canton.integration.{
-  CommunityEnvironmentDefinition,
   CommunityIntegrationTest,
   ConfigTransforms,
+  EnvironmentDefinition,
   SharedEnvironment,
 }
 
@@ -25,8 +25,8 @@ sealed trait CommunityPruningSmokeIntegrationTest
 
   private val synchronizerAlias = "da"
 
-  override def environmentDefinition: CommunityEnvironmentDefinition =
-    CommunityEnvironmentDefinition.simpleTopology
+  override def environmentDefinition: EnvironmentDefinition =
+    EnvironmentDefinition.simpleTopology
       .addConfigTransforms(ConfigTransforms.globallyUniquePorts)
       .addConfigTransforms(ConfigTransforms.setProtocolVersion(testedProtocolVersion)*)
       .withManualStart
@@ -51,8 +51,7 @@ sealed trait CommunityPruningSmokeIntegrationTest
           Seq(mediator1),
           Seq[InstanceReference](sequencer1, mediator1),
           PositiveInt.two,
-          staticSynchronizerParameters =
-            CommunityEnvironmentDefinition.defaultStaticSynchronizerParameters,
+          staticSynchronizerParameters = EnvironmentDefinition.defaultStaticSynchronizerParameters,
         )
 
         sequencer1.health.wait_for_initialized()

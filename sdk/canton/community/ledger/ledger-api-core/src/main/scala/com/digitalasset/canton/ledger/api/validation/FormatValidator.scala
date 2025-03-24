@@ -82,7 +82,7 @@ object FormatValidator {
             Seq(
               ProtoCumulativeFilter(
                 ProtoCumulativeFilter.IdentifierFilter
-                  .WildcardFilter(WildcardFilter())
+                  .WildcardFilter(WildcardFilter(includeCreatedEventBlob = false))
               )
             )
           )

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.logging.entries.LoggingEntry
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
@@ -55,7 +54,6 @@ private class JdbcLedgerDao(
     transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
     globalMaxEventIdQueries: Int,
     globalMaxEventPayloadQueries: Int,
-    experimentalEnableTopologyEvents: Boolean,
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
     incompleteOffsets: (
@@ -155,7 +153,6 @@ private class JdbcLedgerDao(
               completionInfo = info,
               reasonTemplate = reason,
               synchronizerId = SynchronizerId.tryFromString("invalid::deadbeef"),
-              sequencerCounter = SequencerCounter(1),
             )
           ),
         )
@@ -322,7 +319,6 @@ private class JdbcLedgerDao(
   private val topologyTransactionsStreamReader = new TopologyTransactionsStreamReader(
     globalIdQueriesLimiter = globalIdQueriesLimiter,
     globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
-    experimentalEnableTopologyEvents = experimentalEnableTopologyEvents,
     dbDispatcher = dbDispatcher,
     queryValidRange = queryValidRange,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
@@ -477,7 +473,6 @@ private class JdbcLedgerDao(
                 override def iterator: Iterator[(ContractId, Bytes)] = Iterator.empty
               }, // only for tests
               synchronizerId = SynchronizerId.tryFromString("invalid::deadbeef"),
-              sequencerCounter = SequencerCounter(1),
               recordTime = CantonTimestamp(recordTime),
             )
           ),
@@ -490,10 +485,10 @@ private class JdbcLedgerDao(
   override def meteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
-      applicationId: Option[ApplicationId],
+      userId: Option[UserId],
   )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData] =
     dbDispatcher.executeSql(metrics.index.db.lookupConfiguration)(
-      readStorageBackend.meteringStorageBackend.reportData(from, to, applicationId)
+      readStorageBackend.meteringStorageBackend.reportData(from, to, userId)
     )
 }
 
@@ -521,7 +516,6 @@ private[platform] object JdbcLedgerDao {
       transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
       globalMaxEventIdQueries: Int,
       globalMaxEventPayloadQueries: Int,
-      experimentalEnableTopologyEvents: Boolean,
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
       incompleteOffsets: (
@@ -550,7 +544,6 @@ private[platform] object JdbcLedgerDao {
       transactionTreeStreamsConfig = transactionTreeStreamsConfig,
       globalMaxEventIdQueries = globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
-      experimentalEnableTopologyEvents = experimentalEnableTopologyEvents,
       tracer = tracer,
       loggerFactory = loggerFactory,
       incompleteOffsets = incompleteOffsets,
@@ -572,7 +565,6 @@ private[platform] object JdbcLedgerDao {
       transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
       globalMaxEventIdQueries: Int,
       globalMaxEventPayloadQueries: Int,
-      experimentalEnableTopologyEvents: Boolean,
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
       contractLoader: ContractLoader = ContractLoader.dummyLoader,
@@ -596,7 +588,6 @@ private[platform] object JdbcLedgerDao {
       transactionTreeStreamsConfig = transactionTreeStreamsConfig,
       globalMaxEventIdQueries = globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
-      experimentalEnableTopologyEvents = experimentalEnableTopologyEvents,
       tracer = tracer,
       loggerFactory = loggerFactory,
       incompleteOffsets = (_, _, _) => FutureUnlessShutdown.pure(Vector.empty),

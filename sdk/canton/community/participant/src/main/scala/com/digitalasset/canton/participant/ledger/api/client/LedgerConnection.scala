@@ -14,7 +14,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
 import com.daml.ledger.api.v2.value.Identifier
 import com.daml.ledger.javaapi
 import com.digitalasset.canton.config.ClientConfig
-import com.digitalasset.canton.ledger.api.refinements.ApiTypes.ApplicationId
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes.UserId
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -31,7 +31,7 @@ import scala.concurrent.ExecutionContextExecutor
 
 object LedgerConnection {
   def createLedgerClient(
-      applicationId: ApplicationId,
+      userId: UserId,
       config: ClientConfig,
       commandClientConfiguration: CommandClientConfiguration,
       tracerProvider: TracerProvider,
@@ -42,7 +42,7 @@ object LedgerConnection {
       executionSequencerFactory: ExecutionSequencerFactory,
   ): LedgerClient = {
     val clientConfig = LedgerClientConfiguration(
-      applicationId = ApplicationId.unwrap(applicationId),
+      userId = UserId.unwrap(userId),
       commandClient = commandClientConfiguration,
       token = token,
     )
@@ -64,15 +64,18 @@ object LedgerConnection {
   }
 
   def transactionFilterByParty(filter: Map[PartyId, Seq[Identifier]]): TransactionFilter =
-    TransactionFilter(filter.map {
-      case (p, Nil) => p.toProtoPrimitive -> Filters.defaultInstance
-      case (p, ts) =>
-        p.toProtoPrimitive -> Filters(
-          ts.map(tf =>
-            CumulativeFilter(IdentifierFilter.TemplateFilter(TemplateFilter(Some(tf), false)))
+    TransactionFilter(
+      filter.map {
+        case (p, Nil) => p.toProtoPrimitive -> Filters.defaultInstance
+        case (p, ts) =>
+          p.toProtoPrimitive -> Filters(
+            ts.map(tf =>
+              CumulativeFilter(IdentifierFilter.TemplateFilter(TemplateFilter(Some(tf), false)))
+            )
           )
-        )
-    })
+      },
+      None,
+    )
 
   def mapTemplateIds(id: javaapi.data.Identifier): Identifier =
     Identifier(

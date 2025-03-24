@@ -4,10 +4,9 @@
 package com.digitalasset.canton.ledger.participant.state
 
 import com.digitalasset.canton.LfKeyResolver
-import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.SubmittedTransaction
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, SubmittedTransaction}
 
 import java.util.concurrent.CompletionStage
 
@@ -96,7 +95,7 @@ trait SubmissionSyncService {
       // TODO(#23334): Consider removing since it's currently not used
       _estimatedInterpretationCost: Long,
       keyResolver: LfKeyResolver,
-      processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+      processedDisclosedContracts: ImmArray[FatContractInstance],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult]
@@ -111,10 +110,9 @@ trait SubmissionSyncService {
     *
     * @param submitter
     *   The submitter of the reassignment.
-    * @param applicationId
-    *   An identifier for the Daml application that submitted the command. This is used for
-    *   monitoring, command deduplication, and to allow Daml applications subscribe to their own
-    *   submissions only.
+    * @param userId
+    *   An identifier for the user that submitted the command. This is used for monitoring, command
+    *   deduplication, and to allow Daml applications subscribe to their own submissions only.
     * @param commandId
     *   A submitter-provided identifier to identify an intended ledger change within all the
     *   submissions by the same parties and application.
@@ -129,7 +127,7 @@ trait SubmissionSyncService {
     */
   def submitReassignment(
       submitter: Ref.Party,
-      applicationId: Ref.ApplicationId,
+      userId: Ref.UserId,
       commandId: Ref.CommandId,
       submissionId: Option[Ref.SubmissionId],
       workflowId: Option[Ref.WorkflowId],
