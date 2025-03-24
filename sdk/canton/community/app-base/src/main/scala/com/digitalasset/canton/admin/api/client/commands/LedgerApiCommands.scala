@@ -86,9 +86,12 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.Interac
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionRequest,
   ExecuteSubmissionResponse,
+  GetPreferredPackageVersionRequest,
+  GetPreferredPackageVersionResponse,
   HashingSchemeVersion,
   InteractiveSubmissionServiceGrpc,
   MinLedgerTime,
+  PackagePreference,
   PartySignatures,
   PrepareSubmissionRequest,
   PrepareSubmissionResponse,
@@ -171,7 +174,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.util.ReassignmentTag.Source
-import com.digitalasset.canton.{LfPackageId, LfPartyId}
+import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPartyId}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.*
@@ -337,7 +340,7 @@ object LedgerApiCommands {
     }
   }
 
-  object PackageService {
+  object PackageManagementService {
 
     abstract class BaseCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
       override type Svc = PackageManagementServiceStub
@@ -405,7 +408,6 @@ object LedgerApiCommands {
       ): Either[String, Seq[PackageDetails]] =
         Right(response.packageDetails.take(limit.value))
     }
-
   }
 
   object CommandInspectionService {
@@ -1566,6 +1568,37 @@ object LedgerApiCommands {
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
     }
 
+    final case class PreferredPackageVersion(
+        parties: Set[LfPartyId],
+        packageName: LfPackageName,
+        synchronizerIdO: Option[SynchronizerId],
+        vettingValidAt: Option[CantonTimestamp],
+    ) extends BaseCommand[
+          GetPreferredPackageVersionRequest,
+          GetPreferredPackageVersionResponse,
+          Option[PackagePreference],
+        ] {
+
+      override protected def submitRequest(
+          service: InteractiveSubmissionServiceStub,
+          request: GetPreferredPackageVersionRequest,
+      ): Future[GetPreferredPackageVersionResponse] =
+        service.getPreferredPackageVersion(request)
+
+      override protected def createRequest(): Either[String, GetPreferredPackageVersionRequest] =
+        Right(
+          GetPreferredPackageVersionRequest(
+            parties = parties.toSeq,
+            packageName = packageName,
+            synchronizerId = synchronizerIdO.map(_.toProtoPrimitive).getOrElse(""),
+            vettingValidAt = vettingValidAt.map(_.toProtoTimestamp),
+          )
+        )
+
+      override protected def handleResponse(
+          response: GetPreferredPackageVersionResponse
+      ): Either[String, Option[PackagePreference]] = Right(response.packagePreference)
+    }
   }
 
   object CommandService {

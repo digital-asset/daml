@@ -545,10 +545,10 @@ class UnassignmentProcessingSteps(
                   UnassignmentProcessorError
                     .InvalidResult(unassignmentValidationResult.reassignmentId, err)
                 )
-                .flatMap(deliveredResult =>
+                .flatMap { deliveredResult =>
                   reassignmentCoordination
                     .addUnassignmentResult(targetSynchronizer, deliveredResult)
-                )
+                }
             }
 
             notInitiator = pendingSubmissionData.isEmpty

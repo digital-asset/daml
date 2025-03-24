@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.admin
 
 import cats.data.EitherT
 import cats.implicits.{catsSyntaxParallelTraverse1, toBifunctorOps, toTraverseOps}
-import com.digitalasset.base.error.{ContextualizedErrorLogger, DamlError}
+import com.digitalasset.base.error.{ContextualizedErrorLogger, DamlRpcError}
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -77,7 +77,7 @@ class PackageUploader(
       darName: String,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DamlError, DarMainPackageId] =
+  ): EitherT[FutureUnlessShutdown, DamlRpcError, DarMainPackageId] =
     performUnlessClosingEitherUSF("validate DAR") {
       val stream = new ZipInputStream(payload.newInput())
       for {
@@ -104,7 +104,7 @@ class PackageUploader(
       expectedMainPackageId: Option[LfPackageId],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DamlError, (LfPackageId, List[LfPackageId])] =
+  ): EitherT[FutureUnlessShutdown, DamlRpcError, (LfPackageId, List[LfPackageId])] =
     performUnlessClosingEitherUSF("upload DAR") {
 
       for {
@@ -156,7 +156,7 @@ class PackageUploader(
       submissionId: LedgerSubmissionId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DamlError, DarMainPackageId] = {
+  ): EitherT[FutureUnlessShutdown, DamlRpcError, DarMainPackageId] = {
     val allPackages = mainPackage +: dependencies
     def persist(
         dar: Dar,
@@ -186,7 +186,7 @@ class PackageUploader(
 
     def parseMetadata(
         pkg: (DamlLf.Archive, (LfPackageId, Ast.Package))
-    ): Either[DamlError, PackageInfo] = {
+    ): Either[DamlRpcError, PackageInfo] = {
       val (_, (packageId, ast)) = pkg
       PackageInfo
         .fromPackageMetadata(ast.metadata)
@@ -207,7 +207,7 @@ class PackageUploader(
       toUpload <- EitherT.fromEither[FutureUnlessShutdown](
         allPackages.traverse(x => parseMetadata(x).map(_ -> x._1))
       )
-      _ <- EitherT.right[DamlError](
+      _ <- EitherT.right[DamlRpcError](
         handleUploadResult(persist(darDescriptor, toUpload, uploadTime), submissionId)
       )
     } yield mainPackageId
@@ -241,13 +241,13 @@ class PackageUploader(
       packages: List[(LfPackageId, Ast.Package)]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DamlError, Unit] =
+  ): EitherT[FutureUnlessShutdown, DamlRpcError, Unit] =
     for {
       _ <- EitherT.fromEither[FutureUnlessShutdown](
         engine
           .validatePackages(packages.toMap)
           .leftMap(
-            PackageServiceErrors.Validation.handleLfEnginePackageError(_): DamlError
+            PackageServiceErrors.Validation.handleLfEnginePackageError(_): DamlRpcError
           )
       )
       _ <-
@@ -258,13 +258,13 @@ class PackageUploader(
           logger.info(
             s"Skipping upgrade validation for packages ${packages.map(_._1).sorted.mkString(", ")}"
           )
-          EitherT.pure[FutureUnlessShutdown, DamlError](())
+          EitherT.pure[FutureUnlessShutdown, DamlRpcError](())
         }
     } yield ()
 
   private def readDarFromPayload(darPayload: ByteString, description: Option[String])(implicit
       errorLogger: ContextualizedErrorLogger
-  ): EitherT[FutureUnlessShutdown, DamlError, LfDar[DamlLf.Archive]] = {
+  ): EitherT[FutureUnlessShutdown, DamlRpcError, LfDar[DamlLf.Archive]] = {
     val zipInputStream = new ZipInputStream(darPayload.newInput())
     catchUpstreamErrors(
       DarParser.readArchive(description.getOrElse("unknown-file-name"), zipInputStream)
@@ -276,7 +276,7 @@ class PackageUploader(
 
 object PackageUploader {
   implicit class ErrorValidations[E, R](result: Either[E, R]) {
-    def handleError(toSelfServiceErrorCode: E => DamlError): Try[R] =
+    def handleError(toSelfServiceErrorCode: E => DamlRpcError): Try[R] =
       result.left.map { err =>
         toSelfServiceErrorCode(err).asGrpcError
       }.toTry

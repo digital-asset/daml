@@ -40,6 +40,11 @@ object CantonPackageServiceError extends PackageServiceErrorGroup {
     override def asGrpcStatus: com.google.rpc.Status = ErrorCode.asGrpcStatus(this)(loggingContext)
 
     override def mixinContext: Map[String, String] = Map("action" -> "package-vetting")
+
+    override def correlationId: Option[String] = loggingContext.correlationId
+
+    override def traceId: Option[String] = loggingContext.traceId
+
   }
 
   @Explanation("Package fetching errors")

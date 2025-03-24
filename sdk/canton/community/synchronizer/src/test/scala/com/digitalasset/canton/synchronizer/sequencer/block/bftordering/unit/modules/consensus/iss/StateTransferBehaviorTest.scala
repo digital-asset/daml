@@ -96,7 +96,7 @@ class StateTransferBehaviorTest
           val epochStateMock = mock[EpochState[ProgrammableUnitTestEnv]]
           when(epochStateMock.epoch) thenReturn anEpoch
           val stateTransferManagerMock = mock[StateTransferManager[ProgrammableUnitTestEnv]]
-          when(stateTransferManagerMock.inBlockTransfer) thenReturn false
+          when(stateTransferManagerMock.inStateTransfer) thenReturn false
           val epochStoreMock = mock[EpochStore[ProgrammableUnitTestEnv]]
           when(
             epochStoreMock.latestEpoch(includeInProgress = eqTo(false))(any[TraceContext])
@@ -235,8 +235,12 @@ class StateTransferBehaviorTest
       when(
         epochStoreMock.loadEpochProgress(eqTo(anEpochStoreEpoch.info))(any[TraceContext])
       ) thenReturn (() => EpochInProgress())
+      val stateTransferManagerMock = mock[StateTransferManager[ProgrammableUnitTestEnv]]
       val (context, stateTransferBehavior) =
-        createStateTransferBehavior(epochStore = epochStoreMock)
+        createStateTransferBehavior(
+          epochStore = epochStoreMock,
+          maybeOnboardingStateTransferManager = Some(stateTransferManagerMock),
+        )
       implicit val ctx: ContextType = context
 
       val startEpochNumber = anEpochInfo.number
