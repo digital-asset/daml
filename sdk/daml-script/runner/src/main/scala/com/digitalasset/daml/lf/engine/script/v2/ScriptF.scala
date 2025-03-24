@@ -97,6 +97,15 @@ object ScriptF {
         case Left(err) => Left(err.pretty)
       }
 
+    def lookupVariantConstructorRank(
+        tyCon: Identifier,
+        consName: Name,
+    ): Either[String, Int] =
+      compiledPackages.pkgInterface.lookupVariantConstructor(tyCon, consName) match {
+        case Right(info) => Right(info.rank)
+        case Left(err) => Left(err.pretty)
+      }
+
     def translateValue(ty: Ast.Type, value: Value): Either[String, SValue] =
       valueTranslator.strictTranslateValue(ty, value).left.map(_.toString)
 
@@ -820,6 +829,15 @@ object ScriptF {
     ): Future[SExpr] = Future.failed(new NotImplementedError)
   }
 
+  final case class FailWithStatus(failureStatus: IE.FailureStatus) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      Future.failed(free.InterpretationError(SError.SErrorDamlException(failureStatus)))
+  }
+
   final case class Ctx(knownPackages: Map[String, PackageId], compiledPackages: CompiledPackages)
 
   final case class KnownPackages(pkgs: Map[String, PackageId])
@@ -1113,6 +1131,30 @@ object ScriptF {
       case _ => Left(s"Expected TryCommands payload but got $v")
     }
 
+  private def parseFailWithStatus(v: SValue): Either[String, FailWithStatus] =
+    v match {
+      case SRecord(
+            _,
+            _,
+            ArrayList(
+              SRecord(
+                _,
+                _,
+                ArrayList(SText(errorId), SInt64(categoryId), SText(message), SMap(false, treeMap)),
+              )
+            ),
+          ) =>
+        treeMap.toList
+          .traverse {
+            case (SText(key), SText(value)) => Right((key, value))
+            case v => Left(s"Expected (Text, Text) but got $v")
+          }
+          .map(meta =>
+            FailWithStatus(IE.FailureStatus(errorId, categoryId.toInt, message, Map.from(meta)))
+          )
+      case _ => Left(s"Expected FailWithStatus payload but got $v")
+    }
+
   def parse(
       commandName: String,
       version: Long,
@@ -1148,6 +1190,7 @@ object ScriptF {
       case ("VetDar", 1) => parseDarVettingChange(v, VetDar)
       case ("UnvetDar", 1) => parseDarVettingChange(v, UnvetDar)
       case ("TryCommands", 1) => parseTryCommands(v)
+      case ("FailWithStatus", 1) => parseFailWithStatus(v)
       case _ => Left(s"Unknown command $commandName - Version $version")
     }
 
