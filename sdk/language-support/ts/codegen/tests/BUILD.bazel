@@ -159,8 +159,8 @@ sh_test(
         ":npmcheck2.dar",
         "//:daml2js",
         "@jq_dev_env//:jq",
-        "@nodejs//:npm_bin",
         "@nodejs//:node",
+        "@nodejs//:npm_bin",
     ],
     deps = [
         "@bazel_tools//tools/bash/runfiles",
