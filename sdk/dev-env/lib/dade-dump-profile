@@ -150,4 +150,5 @@ echo "# Used when running Bazel commands with --config=oracle"
 echo "export ORACLE_USERNAME=system"
 echo "export ORACLE_PWD=hunter2"
 echo "export ORACLE_PORT=1521"
-
+# disable golang proxy
+echo "export GOPROXY=direct"
