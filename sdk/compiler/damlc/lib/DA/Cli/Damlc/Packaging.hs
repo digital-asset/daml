@@ -527,6 +527,7 @@ baseImports =
           , "DA.Random.Types"
           , "DA.Stack.Types"
           , "DA.Internal.Fail"
+          , "DA.Internal.Fail.Types"
           ]
        )
     ]
