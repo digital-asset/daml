@@ -100,8 +100,6 @@ in rec {
     # Nix development
     cabal2nix = pkgs.cabal2nix;
 
-    pypi2nix  = pkgs.pypi2nix;
-
     # Web development
     node        = bazel_dependencies.nodejs;
     npm         = bazel_dependencies.nodejs;
