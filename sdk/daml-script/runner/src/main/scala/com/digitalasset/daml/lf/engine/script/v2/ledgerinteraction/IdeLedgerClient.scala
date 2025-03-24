@@ -354,8 +354,7 @@ class IdeLedgerClient(
       case ContractIdInContractKey(_) => SubmitError.ContractIdInContractKey()
       case ContractIdComparability(cid) => SubmitError.ContractIdComparability(cid.toString)
       case ValueNesting(limit) => SubmitError.ValueNesting(limit)
-      // Todo[sw]: Replace Unhandled exception here with FailureStatus
-      case FailureStatus(errorId, _, _, _) => SubmitError.UnknownError(errorId)
+      case e: FailureStatus => SubmitError.FailureStatusError(e)
       case e @ Upgrade(innerError: Upgrade.ValidationFailed) =>
         SubmitError.UpgradeError.ValidationFailed(
           innerError.coid,

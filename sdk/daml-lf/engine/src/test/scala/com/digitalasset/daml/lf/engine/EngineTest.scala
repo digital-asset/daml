@@ -2437,7 +2437,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       for {
         lv <- compatibleLanguageVersions.filter(_ <= devVersion)
         eng = engine(min = lv, max = devVersion)
-        _ = System.err.println(stablePackages.map(_.name))
         pkg <- stablePackages
         pkgId = pkg.packageId
         pkg <- allPackagesDev.get(pkgId).toList
