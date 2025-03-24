@@ -536,6 +536,26 @@ object ScriptF {
     }
   }
 
+  final case class Secp256k1GenerateKeyPair() extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = Future {
+      val keyPair = MessageSignatureUtil.generateKeyPair
+      val privateKey = HexString.encode(Bytes.fromByteArray(keyPair.getPrivate.getEncoded))
+      val publicKey = HexString.encode(Bytes.fromByteArray(keyPair.getPublic.getEncoded))
+
+      SEValue(
+        SRecord(
+          Identifier.assertFromString("Daml.Script.Internal.Questions.Crypto.Text.KeyPair"),
+          ImmArray(Name.assertFromString("privateKey"), Name.assertFromString("publicKey")),
+          ArrayList.double(SText(privateKey), SText(publicKey)),
+        )
+      )
+    }
+  }
+
   final case class ValidateUserId(
       userName: String
   ) extends Cmd {
@@ -1159,6 +1179,7 @@ object ScriptF {
       case ("SetTime", 1) => parseSetTime(v)
       case ("Sleep", 1) => parseSleep(v)
       case ("Secp256k1Sign", 1) => parseSecp256k1Sign(v)
+      case ("Secp256k1GenerateKeyPair", 1) => parseEmpty(Secp256k1GenerateKeyPair())(v)
       case ("Catch", 1) => parseCatch(v)
       case ("Throw", 1) => parseThrow(v)
       case ("ValidateUserId", 1) => parseValidateUserId(v)
