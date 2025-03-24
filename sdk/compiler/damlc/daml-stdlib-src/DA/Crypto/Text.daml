@@ -15,6 +15,13 @@ module DA.Crypto.Text
   , BytesHex
   , PublicKeyHex
   , SignatureHex
+  , byteCount
+  , isBytes32Hex
+  , isUInt32Hex
+  , isUInt64Hex
+  , isUInt256Hex
+  , packHexBytes
+  , sliceHexBytes
   ) where
 
 import DA.Text qualified as Text
@@ -30,6 +37,7 @@ type PublicKeyHex = Text
 -- | A DER formatted SECP256K1 signature
 type SignatureHex = Text
 
+-- | HIDE
 hexByteToInt : Text -> Int
 hexByteToInt "0" = 0
 hexByteToInt "1" = 1
@@ -78,14 +86,91 @@ class HasToHex a where
   -- | Converts a typed data value into a hex encoded string.
   toHex: a -> BytesHex
 
+instance HasToHex Text where
+  toHex = primitive @"BEEncodeHex"
+
+instance HasToHex Int64 where
+  toHex n = ???
+
+instance HasToHex (Numeric n) where
+  toHex num = ???
+
+instance HasToHex Party where
+  toHex p = toHex(partyToText p)
+
+instance HasToHex (ContractId a) where
+  toHex cid = ???
+
 class HasFromHex a where
   -- | Converts a hex encoded string into a typed data value.
   fromHex: BytesHex -> a
 
-instance HasToHex Text where
-  toHex = primitive @"BEEncodeHex"
-
-instance HasFromHex Text where
+instance HasFromHex (Optional Text) where
   fromHex "" = ""
-  fromHex arg | Text.isHex arg = primitive @"BEDecodeHex" (Text.asciiToLower arg)
-  fromHex arg = error $ "Argument is not a hex string: " <> arg
+  fromHex hex | Text.isHex hex = Some(primitive @"BEDecodeHex" (Text.asciiToLower hex))
+  fromHex _ = None
+
+instance HasFromHex (Optional Int64) where
+  fromHex hex | Text.isHex hex = Some(???)
+  fromHex _ = None
+
+instance HasFromHex (Optional(Numeric n)) where
+  fromHex hex | Text.isHex hex = Some(???)
+  fromHex _ = None
+
+instance HasFromHex (Optional Party) where
+  fromHex hex | Text.isHex hex = (fromHex hex) map partyFromText
+  fromHex _ = None
+
+instance HasFromHex (Optional(ContractId a)) where
+  fromHex hex | Text.isHex hex = ???
+  fromHex _ = None
+
+-- | Number of bytes present in a byte encoded string.
+byteCount: BytesHex -> Optional Int64
+byteCount hex | Text.isHex hex = Some((Text.length hex) / 2)
+byteCount _ = None
+
+-- | Validate that the byte encoded string is Bytes32Hex
+isBytes32Hex: BytesHex -> Optional Bool
+isBytes32Hex hex | Text.isHex hex = byteCount hex == Some(32)
+isBytes32Hex _ = None
+
+-- | Validate that the byte encoded string is UInt32Hex
+isUInt32Hex: BytesHex -> Optional Bool
+isUInt32Hex hex | Text.isHex hex = byteCount hex == Some(5)
+isUInt32Hex _ = None
+
+-- | Validate that the byte encoded string is UInt64Hex
+isUInt64Hex: BytesHex -> Optional Bool
+isUInt64Hex hex | Text.isHex hex = byteCount hex == Some(6)
+isUInt64Hex _ = None
+
+-- | Validate that the byte encoded string is UInt256Hex
+isUInt256Hex: BytesHex -> Optional Bool
+isUInt256Hex hex | Text.isHex hex = byteCount hex == Some(8)
+isUInt256Hex _ = None
+
+-- | Pack a byte encoded string to a given byte count size. If the byte string is shorter than the pad
+-- size, then prefix with 00 byte strings. If the byte string is larger, then truncate the byte string.
+packHexBytes: BytesHex -> Int64 -> Optional BytesHex
+packHexBytes hex pad | Text.isHex hex && 0 <= pad && byteCount hex <= pad = Some(??? <> hex)
+packHexBytes hex pad | Text.isHex hex && 0 <= pad = Some(Text.drop ((pad - byteCount hex) * 2) hex)
+packHexBytes _ _ = None
+
+-- | Extract the byte string starting at startByte up to, but excluding, endByte. Byte indexing starts at 1.
+sliceHexBytes: BytesHex -> Int64 -> Int64 -> Optional BytesHex
+sliceHexBytes hex startByte endByte | Text.isHex hex && 1 <= startByte && startByte <= endByte && endByte <= (byteCount hex) + 1 = Some(Text.substring (startByte * 2) ((endByte - startByte) * 2) hex)
+sliceHexBytes _ _ _ = None
+
+-- | Validate that the byte encoded hex string is a valid Ethereum address.
+-- Only hex string formats (and not ICAP address formats) are supported.
+isEthereumAddress: BytesHex -> Optional Bool
+isEthereumAddress hex | Text.isHex hex && byteCount hex == 20 && Text.take 1 hex != "0" && Text.take 1 (Text.reverse hex) != "0" && getEthereumChecksumAddress hex == Some(hex) = Some(true)
+isEthereumAddress hex | Text.isHex hex = Some(false)
+isEthereumAddress _ = None
+
+-- | HIDE
+getEthereumChecksumAddress: BytesHex -> Optional BytesHex
+getEthereumChecksumAddress hex | Text.isHex hex = Some(???)
+getEthereumChecksumAddress _ = None
