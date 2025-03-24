@@ -403,6 +403,10 @@ common_ghc_flags = [
 haskell_register_ghc_nixpkgs(
     attribute_path = "ghcDwarf" if enable_ghc_dwarf else "ghc",
     build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
+    compiler_flags_select = {
+        "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
+        "//conditions:default": [],
+    },
 
     # -fexternal-dynamic-refs is required so that we produce position-independent
     # relocations against some functions (-fPIC alone isn’t sufficient).
@@ -424,10 +428,6 @@ haskell_register_ghc_nixpkgs(
         "-framework=Security",
         "-framework=Foundation",
     ] if is_darwin else ["-optl-s"])),
-    compiler_flags_select = {
-        "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
-        "//conditions:default": [],
-    },
     locale_archive = "@glibc_locales//:locale-archive",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
@@ -709,6 +709,7 @@ dev_env_tool(
 
 # Setup the Node.js toolchain
 load("@build_bazel_rules_nodejs//:repositories.bzl", "build_bazel_rules_nodejs_dependencies")
+
 build_bazel_rules_nodejs_dependencies()
 
 load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories", "yarn_install")

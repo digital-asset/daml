@@ -257,7 +257,7 @@ def daml_deps():
             urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/{}/rules_nodejs-{}.tar.gz".format(rules_nodejs_version, rules_nodejs_version)],
             sha256 = rules_nodejs_sha256,
             patches = [
-              "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_hotfix.patch",
+                "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_hotfix.patch",
             ],
             # # TODO Those must be backported? or can we jump directly to rules_js?
             #  # Work around for https://github.com/bazelbuild/rules_nodejs/issues/1565
