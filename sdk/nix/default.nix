@@ -116,11 +116,11 @@ in rec {
     });
 
     # Python development
-    pip3        = pkgs.python38Packages.pip;
-    python      = pkgs.python38Packages.python;
+    pip3        = pkgs.python39Packages.pip;
+    python      = pkgs.python39Packages.python;
     python3     = python;
 
-    yapf = pkgs.python38Packages.yapf;
+    yapf = pkgs.python39Packages.yapf;
 
     pipenv = pkgs.pipenv;
 
