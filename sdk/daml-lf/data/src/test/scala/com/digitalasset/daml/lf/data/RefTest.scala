@@ -305,13 +305,11 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
 
   testOrdered("Indenfitiers", identifiersInOrder)
 
-  "Party, PackageId, LedgerString, and ApplicationId" - {
+  "Party, PackageId and LedgerString" - {
 
     val packageIdChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_ "
     val partyIdChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:-_ "
     val ledgerStringChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-#/ "
-    val applicationIdChars =
-      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-#/ !|@^$`+'~"
 
     def makeString(c: Char): String = s"the character $c is not US-ASCII"
 
@@ -319,7 +317,6 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
       PackageId.fromString("") shouldBe a[Left[_, _]]
       Party.fromString("") shouldBe a[Left[_, _]]
       LedgerString.fromString("") shouldBe a[Left[_, _]]
-      ApplicationId.fromString("") shouldBe a[Left[_, _]]
     }
 
     "treats US-ASCII characters as expected" in {
@@ -331,8 +328,6 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
                                       else a[Left[_, _]])
         LedgerString.fromString(s) shouldBe (if (ledgerStringChars.contains(c)) a[Right[_, _]]
                                              else a[Left[_, _]])
-        ApplicationId.fromString(s) shouldBe (if (applicationIdChars.contains(c)) a[Right[_, _]]
-                                              else a[Left[_, _]])
       }
     }
 
@@ -343,14 +338,12 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
       PackageId.fromString(negativeTestCase) shouldBe a[Right[_, _]]
       Party.fromString(negativeTestCase) shouldBe a[Right[_, _]]
       LedgerString.fromString(negativeTestCase) shouldBe a[Right[_, _]]
-      ApplicationId.fromString(negativeTestCase) shouldBe a[Right[_, _]]
 
       for (c <- '\u0080' to '\u00ff') {
         val positiveTestCase = makeString(c)
         PackageId.fromString(positiveTestCase) shouldBe a[Left[_, _]]
         Party.fromString(positiveTestCase) shouldBe a[Left[_, _]]
         LedgerString.fromString(positiveTestCase) shouldBe a[Left[_, _]]
-        ApplicationId.fromString(positiveTestCase) shouldBe a[Left[_, _]]
       }
       for (
         positiveTestCase <- List(
@@ -362,7 +355,6 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
         Party.fromString(positiveTestCase) shouldBe a[Left[_, _]]
         PackageId.fromString(positiveTestCase) shouldBe a[Left[_, _]]
         LedgerString.fromString(positiveTestCase) shouldBe a[Left[_, _]]
-        ApplicationId.fromString(positiveTestCase) shouldBe a[Left[_, _]]
       }
     }
 
@@ -373,8 +365,6 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
       PackageId.fromString("p" * 65) shouldBe a[Left[_, _]]
       LedgerString.fromString("p" * 255) shouldBe a[Right[_, _]]
       LedgerString.fromString("p" * 256) shouldBe a[Left[_, _]]
-      ApplicationId.fromString("p" * 255) shouldBe a[Right[_, _]]
-      ApplicationId.fromString("p" * 256) shouldBe a[Left[_, _]]
     }
   }
 
@@ -444,10 +434,6 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
 
     "accept valid user ids" in {
       validUserIds.foreach(userId => UserId.fromString(userId) shouldBe a[Right[_, _]])
-    }
-
-    "accept valid user ids as application ids" in {
-      validUserIds.foreach(userId => ApplicationId.fromString(userId) shouldBe a[Right[_, _]])
     }
 
     "reject user ids containing invalid characters" in {
