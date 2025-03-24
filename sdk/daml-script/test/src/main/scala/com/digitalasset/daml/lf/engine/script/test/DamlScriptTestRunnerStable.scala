@@ -101,6 +101,11 @@ class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
           |TestExceptions:try_catch_then_abort FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "expected exception" })
           |TestExceptions:try_catch_then_error FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "expected exception" })
           |TestExceptions:try_catch_then_fail FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "expected exception" })
+          |TestFailWithStatus:attemptToOverwriteMetadata SUCCESS
+          |TestFailWithStatus:cannotCatch SUCCESS
+          |TestFailWithStatus:haltsExecution SUCCESS
+          |TestFailWithStatus:pureFailEagerness SUCCESS
+          |TestFailWithStatus:roundtrip SUCCESS
           |TestInterfaces:test SUCCESS
           |TestInterfaces:test_queryInterface SUCCESS
           |""".stripMargin,

@@ -40,6 +40,7 @@ load(
       cp -L $(location :daml/TestContractId.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestExceptions.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestInterfaces.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/TestFailWithStatus.daml) $$TMP_DIR/daml
       cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
       cp -L $(locations //compiler/damlc/tests:divulgence-daml-test-files) $$TMP_DIR/daml
       cat << EOF >> $$TMP_DIR/daml/ScriptExample.daml

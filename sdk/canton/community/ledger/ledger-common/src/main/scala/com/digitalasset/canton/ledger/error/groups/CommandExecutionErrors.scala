@@ -763,7 +763,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
           implicit loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(cause = cause)(code = mkErrorCode(err), loggingContext = loggingContext) {
         override def context: Map[String, String] =
-          super.context ++ List(("error_id", err.errorId)) ++ err.metadata
+          super.context ++ err.metadata ++ List(("error_id", err.errorId))
       }
     }
 
