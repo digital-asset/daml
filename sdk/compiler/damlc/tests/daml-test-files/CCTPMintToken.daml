@@ -8,6 +8,7 @@ module CCTPMintToken where
 import DA.Assert ((===))
 import DA.Crypto.Text
 import Daml.Script
+import Daml.Script.Crypto.Text
 
 type Bytes32Hex = Text
 type UInt32Hex = Text
@@ -58,7 +59,7 @@ main =
       invalidSignature = "30450221009944dfb75e1e46006dd6922ba41145ab47dd00da2af75027a95589764fb5e72902200ac5c17d31d102dbdde75e4f5809dccbba9a118cf4a6bffd50108e8444bb69b5"
   in
     script do
-      actualBurnMessageSignature <- Text.secp256k1sign privateKey (serialize burnMessage)
+      actualBurnMessageSignature <- secp256k1sign privateKey (serialize burnMessage)
       (actualBurnMessageSignature === burnMessageSignature)
       alice <- allocateParty "Alice"
       submitMustFail alice do
