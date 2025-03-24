@@ -151,7 +151,7 @@ let shared = rec {
   } ;
 
   sphinx-exts = pkgs.python3Packages.sphinx.overridePythonAttrs (attrs: rec {
-    propagatedBuildInputs = attrs.propagatedBuildInputs ++ [sphinx-copybutton];
+    propagatedBuildInputs = [sphinx-copybutton];
   });
 
   script = pkgs.unixtools.script;
