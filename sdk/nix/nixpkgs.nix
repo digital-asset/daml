@@ -11,7 +11,6 @@ let
   # package overrides
   overrides = _: pkgs: rec {
     nodejs = pkgs.nodejs-18_x;
-    nodejs14 = pkgs.nodejs-14_x;
     ephemeralpg = pkgs.ephemeralpg.overrideAttrs(oldAttrs: {
       installPhase = ''
         mkdir -p $out
@@ -58,13 +57,6 @@ let
 
     config.allowUnfree = true;
     config.allowBroken = true;
-
-    # FIXME Remove once we upgrade to rules_js and more recent nodejs
-    config.permittedInsecurePackages = [
-      # Those are only requiered on CI
-      "nodejs-14.21.3"
-      "openssl-1.1.1u"
-    ];
   };
 in
   nixpkgs
