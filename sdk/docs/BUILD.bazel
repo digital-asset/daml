@@ -467,7 +467,6 @@ daml_test(
     for version in ENGINE_LF_DEV_VERSIONS
 ]
 
-
 daml_test(
     name = "quickstart-daml-test",
     srcs = glob(
@@ -666,7 +665,7 @@ pkg_tar(
         ["source/sdk/component-howtos/ledger_interaction/daml-script/template-root/**"],
         exclude = ["**/*~"],
     ),
-    strip_prefix = "source/daml-script/template-root",
+    strip_prefix = "source/sdk/component-howtos/ledger_interaction/daml-script/template-root",
     visibility = ["//visibility:public"],
 )
 
