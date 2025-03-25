@@ -528,8 +528,9 @@ object ScriptF {
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] = Future {
-      val keySpec = new PKCS8EncodedKeySpec(HexString.assertFromString(pk).getBytes)
-      val privateKey = KeyFactory.getInstance("EC", "BC").generatePrivate(keySpec)
+      val keySpec =
+        new PKCS8EncodedKeySpec(HexString.decode(HexString.assertFromString(pk)).toByteArray)
+      val privateKey = KeyFactory.getInstance("EC").generatePrivate(keySpec)
       val message = HexString.assertFromString(msg)
 
       SEValue(SText(MessageSignatureUtil.sign(message, privateKey)))

@@ -1,13 +1,9 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE CPP #-}
-
 module Daml.Script.Internal.Questions
   ( module Daml.Script.Internal.Questions.Commands
-#ifdef DAML_CCTP
   , module Daml.Script.Internal.Questions.Crypto
-#endif
   , module Daml.Script.Internal.Questions.Exceptions
   , module Daml.Script.Internal.Questions.Packages
   , module Daml.Script.Internal.Questions.PartyManagement
@@ -21,9 +17,7 @@ module Daml.Script.Internal.Questions
   ) where
 
 import Daml.Script.Internal.Questions.Commands
-#ifdef DAML_CCTP
 import Daml.Script.Internal.Questions.Crypto
-#endif
 import Daml.Script.Internal.Questions.Exceptions
 import Daml.Script.Internal.Questions.Packages
 import Daml.Script.Internal.Questions.PartyManagement
