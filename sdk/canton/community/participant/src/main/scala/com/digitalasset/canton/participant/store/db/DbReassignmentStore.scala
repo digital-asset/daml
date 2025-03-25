@@ -947,6 +947,25 @@ class DbReassignmentStore(
       )
     } yield res
 
+  override def listInFlightReassignmentIds()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[ReassignmentId]] =
+    for {
+      ids <- storage.query(
+        sql"""SELECT source_synchronizer_idx, unassignment_timestamp
+             FROM par_reassignments
+             WHERE target_synchronizer_idx = $indexedTargetSynchronizer AND assignment_timestamp IS NULL"""
+          .as[(Int, CantonTimestamp)],
+        functionFullName,
+      )
+      reassignmentIds <- MonadUtil.sequentialTraverse(ids) {
+        case (synchronizerIndex, unassignmentTs) =>
+          synchronizerIdF(synchronizerIndex, "source_synchronizer_idx").map(synchronizerId =>
+            ReassignmentId(Source(synchronizerId), unassignmentTs)
+          )
+      }
+    } yield reassignmentIds
+
   private def insertDependentDeprecated[E, W, A, R](
       dbReassignmentId: DbReassignmentId,
       exists: DbReassignmentId => DBIO[Option[A]],

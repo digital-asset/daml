@@ -8,8 +8,8 @@ import org.scalacheck.{Arbitrary, Gen}
 object ErrorGenerator {
   final case class RichTestError(
       errorCode: ErrorCode,
-      correlationId: Option[String] = None,
-      traceId: Option[String] = None,
+      override val correlationId: Option[String] = None,
+      override val traceId: Option[String] = None,
       contextMap: Map[String, Any] = Map(),
       loggingProperties: Map[String, String] = Map(),
       override val cause: String,

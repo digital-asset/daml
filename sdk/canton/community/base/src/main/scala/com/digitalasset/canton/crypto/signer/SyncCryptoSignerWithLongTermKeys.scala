@@ -29,7 +29,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * for key lookup. This approach uses the signing APIs registered in Canton's
   * [[com.digitalasset.canton.crypto.Crypto]] object at node startup.
   */
-class SyncCryptoSignerDefault(
+class SyncCryptoSignerWithLongTermKeys(
     member: Member,
     signPublicApi: SynchronizerCryptoPureApi,
     signPrivateApi: SigningPrivateOps,
@@ -51,6 +51,7 @@ class SyncCryptoSignerDefault(
       existingKeys <- signingKeys.toList
         .parFilterA(pk => cryptoPrivateStore.existsSigningKey(pk.fingerprint))
         .leftMap[SyncCryptoError](SyncCryptoError.StoreError.apply)
+      // TODO(#24468): Create a wrapper/method to find the newest key and use it everywhere.
       // use lastOption to retrieve latest key (newer keys are at the end)
       kk <- existingKeys.lastOption
         .toRight[SyncCryptoError](

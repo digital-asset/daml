@@ -487,4 +487,9 @@ trait ReassignmentLookup {
   def findReassignmentEntry(reassignmentId: ReassignmentId)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, UnknownReassignmentId, ReassignmentEntry]
+
+  @VisibleForTesting
+  def listInFlightReassignmentIds()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[ReassignmentId]]
 }

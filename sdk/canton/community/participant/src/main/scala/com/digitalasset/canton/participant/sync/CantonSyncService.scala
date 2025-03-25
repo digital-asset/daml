@@ -11,7 +11,7 @@ import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.base.error.{ContextualizedErrorLogger, DamlError}
+import com.digitalasset.base.error.{CantonRpcError, ContextualizedErrorLogger, DamlRpcError}
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -510,7 +510,7 @@ class CantonSyncService(
 
   def pruneInternally(
       pruneUpToInclusive: Offset
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, CantonRpcError, Unit] =
     (for {
       _pruned <- pruningProcessor.pruneLedgerEvents(pruneUpToInclusive)
     } yield ()).transform(pruningErrorToCantonError)
@@ -1332,7 +1332,7 @@ class CantonSyncService(
       )
 
     def handleCloseDegradation(connectedSynchronizer: ConnectedSynchronizer, fatal: Boolean)(
-        err: CantonError
+        err: CantonRpcError
     ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
       if (fatal && parameters.exitOnFatalFailures) {
         FatalError.exitOnFatalError(err, logger)
@@ -1400,7 +1400,6 @@ class CantonSyncService(
                   synchronizerConnectionConfig.config.timeTracker,
                   clock,
                   synchronizerHandle.sequencerClient,
-                  synchronizerHandle.staticParameters.protocolVersion,
                   timeouts,
                   synchronizerLoggerFactory,
                 )
@@ -1778,14 +1777,14 @@ class CantonSyncService(
           connectedSynchronizer <- EitherT.fromOption[Future](
             readyConnectedSynchronizerById(synchronizerId),
             ifNone = RequestValidationErrors.InvalidArgument
-              .Reject(s"Synchronizer id not found: $synchronizerId"): DamlError,
+              .Reject(s"Synchronizer id not found: $synchronizerId"): DamlRpcError,
           )
           _ <- reassign(connectedSynchronizer)
             .leftMap(error =>
               RequestValidationErrors.InvalidArgument
                 .Reject(
                   error.message
-                ): DamlError // TODO(i13240): Improve reassignment-submission Ledger API errors
+                ): DamlRpcError // TODO(i13240): Improve reassignment-submission Ledger API errors
             )
             .mapK(FutureUnlessShutdown.outcomeK)
             .semiflatMap(Predef.identity)

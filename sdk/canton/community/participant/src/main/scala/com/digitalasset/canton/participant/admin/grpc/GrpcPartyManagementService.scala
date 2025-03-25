@@ -170,7 +170,7 @@ class GrpcPartyManagementService(
         .mapK(FutureUnlessShutdown.outcomeK)
     } yield ()
 
-    mapErrNewEUS(res.leftMap(_.toCantonError))
+    mapErrNewEUS(res.leftMap(_.toCantonRpcError))
   }
 }
 

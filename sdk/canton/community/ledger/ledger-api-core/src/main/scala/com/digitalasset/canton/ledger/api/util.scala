@@ -7,6 +7,7 @@ import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPackageVersion}
 import com.digitalasset.daml.lf.command.{ApiCommands as LfCommands, ApiContractKey}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.logging.*
@@ -159,6 +160,26 @@ final case class DisclosedContract(
       indicateOmittedFields,
     )
   }
+}
+
+// TODO(#23334): Deduplicate with logic from TopologyAwareCommandExecutor
+// Wrapper used for ordering package ids by version
+final case class PackageReference(
+    pkdId: LfPackageId,
+    version: LfPackageVersion,
+    packageName: LfPackageName,
+)
+
+object PackageReference {
+  implicit val packageReferenceOrdering: Ordering[PackageReference] =
+    (x: PackageReference, y: PackageReference) =>
+      if (x.packageName != y.packageName) {
+        throw new RuntimeException(
+          s"Cannot compare package-ids with different package names: $x and $y"
+        )
+      } else
+        Ordering[(LfPackageVersion, LfPackageId)]
+          .compare(x.version -> x.pkdId, y.version -> y.pkdId)
 }
 
 object Logging {

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss.statetransfer
 
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.{
@@ -20,17 +19,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   BlockNumber,
   EpochLength,
   EpochNumber,
-  ViewNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.OrderingBlock
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.bfttime.CanonicalCommitSet
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.{
-  BlockMetadata,
-  EpochInfo,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.{
-  CommitCertificate,
   OrderedBlock,
   OrderedBlockForOutput,
 }
@@ -42,7 +34,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage.VerifiedStateTransferMessage
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Consensus,
@@ -51,6 +42,12 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss.InMemoryUnitTestEpochStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss.statetransfer.StateTransferTestHelpers.{
+  aBlockMetadata,
+  aCommitCert,
+  myId,
+  otherId,
+}
 import org.scalatest.wordspec.AnyWordSpec
 
 class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
@@ -67,18 +64,18 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
           p2pNetworkOutModuleRef = p2pNetworkOutRef
         )
 
-      stateTransferManager.inBlockTransfer shouldBe false
+      stateTransferManager.inStateTransfer shouldBe false
 
       val startEpoch = EpochNumber(7L)
       stateTransferManager.startCatchUp(
-        membership,
+        aMembership,
         ProgrammableUnitTestEnv.noSignatureCryptoProvider,
         latestCompletedEpoch = Genesis.GenesisEpoch,
         startEpoch,
       )(abort = fail(_))
       context.runPipedMessages()
 
-      stateTransferManager.inBlockTransfer shouldBe true
+      stateTransferManager.inStateTransfer shouldBe true
 
       val blockTransferRequest = StateTransferMessage.BlockTransferRequest
         .create(startEpoch, from = myId)
@@ -93,7 +90,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
       // Try to start state transfer (with no effect) while another one is in progress.
       stateTransferManager.startCatchUp(
-        membership,
+        aMembership,
         failingCryptoProvider,
         latestCompletedEpoch = Genesis.GenesisEpoch,
         startEpoch,
@@ -114,7 +111,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       val latestCompletedEpoch = Genesis.GenesisEpoch
       val startEpoch = EpochNumber(7L)
       stateTransferManager.startCatchUp(
-        membership,
+        aMembership,
         ProgrammableUnitTestEnv.noSignatureCryptoProvider,
         latestCompletedEpoch,
         startEpoch,
@@ -249,7 +246,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     }
   }
 
-  "verify, store, send block to Output, and complete block transfer on response for onboarding" in {
+  "verify, store, send block to Output, and continue on response for onboarding" in {
     implicit val context: ProgrammableUnitTestContext[Consensus.Message[ProgrammableUnitTestEnv]] =
       new ProgrammableUnitTestContext()
 
@@ -263,7 +260,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     // Initiate state transfer so that it's in progress.
     val latestCompletedEpochLocally = Genesis.GenesisEpoch
     stateTransferManager.startCatchUp(
-      membership,
+      aMembership,
       ProgrammableUnitTestEnv.noSignatureCryptoProvider,
       latestCompletedEpochLocally,
       startEpoch = EpochNumber.First,
@@ -286,12 +283,12 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     )
     val topologyInfo = OrderingTopologyInfo(
       myId,
-      membership.orderingTopology,
+      aMembershipBeforeOnboarding.orderingTopology,
       ProgrammableUnitTestEnv.noSignatureCryptoProvider,
-      membership.leaders,
-      previousTopology = membershipBeforeOnboarding.orderingTopology,
+      aMembershipBeforeOnboarding.leaders,
+      previousTopology = aMembershipBeforeOnboarding.orderingTopology,
       previousCryptoProvider = failingCryptoProvider,
-      membershipBeforeOnboarding.leaders,
+      aMembershipBeforeOnboarding.leaders,
     )
     stateTransferManager.handleStateTransferMessage(
       VerifiedStateTransferMessage(blockTransferResponse),
@@ -330,11 +327,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       latestCompletedEpochLocally,
     )(fail(_))
 
-    // Should have completed the block transfer.
-    result shouldBe StateTransferMessageResult.BlockTransferCompleted(
-      endEpochNumber = EpochNumber.First,
-      numberOfTransferredEpochs = 1L,
-    )
+    result shouldBe StateTransferMessageResult.Continue
 
     // Should have sent an ordered block to the Output module.
     val prePrepare = commitCert.prePrepare.message
@@ -367,7 +360,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     // Initiate state transfer so that it's in progress.
     val latestCompletedEpochLocally = Genesis.GenesisEpoch
     stateTransferManager.startCatchUp(
-      membership,
+      aMembership,
       ProgrammableUnitTestEnv.noSignatureCryptoProvider,
       latestCompletedEpochLocally,
       startEpoch = EpochNumber.First,
@@ -484,10 +477,8 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 object StateTransferManagerTest {
   private type ContextType = ProgrammableUnitTestContext[Consensus.Message[ProgrammableUnitTestEnv]]
 
-  private val myId = BftNodeId("self")
-  private val otherId = BftNodeId("other")
-  private val membership = Membership.forTesting(myId, Set(otherId))
-  private val membershipBeforeOnboarding =
+  private val aMembership = Membership.forTesting(myId, Set(otherId))
+  private val aMembershipBeforeOnboarding =
     Membership(
       myId,
       OrderingTopology.forTesting(Set(otherId), SequencingParameters.Default),
@@ -495,28 +486,11 @@ object StateTransferManagerTest {
     )
   private val aTopologyInfo = OrderingTopologyInfo[ProgrammableUnitTestEnv](
     myId,
-    membership.orderingTopology,
+    aMembership.orderingTopology,
     ProgrammableUnitTestEnv.noSignatureCryptoProvider,
-    membership.leaders,
-    previousTopology = membership.orderingTopology,
+    aMembership.leaders,
+    previousTopology = aMembership.orderingTopology,
     previousCryptoProvider = failingCryptoProvider,
-    membership.leaders,
+    aMembership.leaders,
   )
-
-  private val aBlockMetadata: BlockMetadata = BlockMetadata.mk(EpochNumber.First, BlockNumber.First)
-
-  private def aCommitCert(blockMetadata: BlockMetadata = aBlockMetadata) =
-    CommitCertificate(aPrePrepare(blockMetadata), Seq.empty)
-
-  private def aPrePrepare(blockMetadata: BlockMetadata) =
-    PrePrepare
-      .create(
-        blockMetadata = blockMetadata,
-        viewNumber = ViewNumber.First,
-        localTimestamp = CantonTimestamp.Epoch,
-        block = OrderingBlock(Seq.empty),
-        canonicalCommitSet = CanonicalCommitSet.empty,
-        from = otherId,
-      )
-      .fakeSign
 }
