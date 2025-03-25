@@ -395,8 +395,8 @@ object ErrorCategory {
   * it is expected that this category is replaced by the time the error is thrown (by overriding `code` in `DamlErrorWithDefiniteAnswer` and the like)
   * as such, all definitions in this Error Category are errors
   */
-  final case class MetaErrorCategory(overrideText: String) extends ErrorCategory {
-    private def unimplemented = throw new IllegalArgumentException("Attempted to use MetaErrorCategory in thrown error. This should be replaced at construction")
+  final case class OverrideDocStringErrorCategory(overrideText: String) extends ErrorCategory {
+    private def unimplemented = throw new IllegalArgumentException("Attempted to use OverrideDocStringErrorCategory in thrown error. This should be replaced at construction")
     override def grpcCode: Option[Code] = unimplemented
     override def logLevel: Level = unimplemented
     override def retryable: Option[ErrorCategoryRetry] = unimplemented

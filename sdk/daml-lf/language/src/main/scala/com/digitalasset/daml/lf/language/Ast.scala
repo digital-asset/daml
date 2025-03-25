@@ -417,6 +417,7 @@ object Ast {
       extends Equals
       with Product
       with Serializable
+  // FailureCategory names and IDs must be kept up to date with canton error categories defined in `CommandExecutionErrors.scala`
   final case object FCInvalidIndependentOfSystemState
       extends FailureCategory("InvalidIndependentOfSystemState", 8)
   final case object FCInvalidGivenCurrentSystemStateOther

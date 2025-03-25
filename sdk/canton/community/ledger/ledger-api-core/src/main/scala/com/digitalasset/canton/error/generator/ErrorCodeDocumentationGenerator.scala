@@ -61,7 +61,7 @@ object ErrorCodeDocumentationGenerator {
         ErrorCodeDocItem(
           errorCodeClassName = errorCode.getClass.getName,
           category = errorCode.category match {
-            case ErrorCategory.MetaErrorCategory(message) => message
+            case ErrorCategory.OverrideDocStringErrorCategory(message) => message
             case cat => simpleClassName(cat)
           },
           hierarchicalGrouping = errorCode.parent,

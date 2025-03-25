@@ -13,6 +13,8 @@ import GHC.Types (primitive)
 instance Eq FailureCategory where
   (==) = primitive @"BEEqual"
 
+-- | Categories are ordered by their corresponding [canton category ID](https://docs.daml.com/canton/reference/error_codes.html#error-categories-inventory)
+-- not by the constructor order, though they will likely match.
 instance Ord FailureCategory where
   (<)  = primitive @"BELess"
   (<=) = primitive @"BELessEq"

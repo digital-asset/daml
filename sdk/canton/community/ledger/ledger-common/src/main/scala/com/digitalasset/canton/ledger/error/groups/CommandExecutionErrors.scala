@@ -750,19 +750,21 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     @Explanation("This error is thrown by use of `failWithStatus` in daml code. The Daml code determines the canton error category, and thus the grpc status code.")
     @Resolution("Either your choice body has a bug, or you are using a contract incorrectly.")
     object FailureStatus
-        extends ErrorCode(id = "DAML_FAILURE", ErrorCategory.MetaErrorCategory("<determined by daml code>")) {
+        extends ErrorCode(id = "DAML_FAILURE", ErrorCategory.OverrideDocStringErrorCategory("<determined by daml code>")) {
 
       // Override the code to change the category, otherwise inherit frokm FailureStatus
       private def mkErrorCode(err: LfInterpretationError.FailureStatus): ErrorCode =
         new ErrorCode(id = FailureStatus.id, ErrorCategory.fromInt(err.failureCategory).getOrElse(FailureStatus.category))(FailureStatus.parent) {}
 
-      // Building conveyance string from MetaErrorCategory will fail, and would be wrong
+      // Building conveyance string from OverrideDocStringErrorCategory will fail, and would be wrong
       override def errorConveyanceDocString: Option[String] = Some("Conveyance is determined by the category, which is selected in daml code")
 
       final case class Reject(override val cause: String, err: LfInterpretationError.FailureStatus)(
           implicit loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(cause = cause)(code = mkErrorCode(err), loggingContext = loggingContext) {
         override def context: Map[String, String] =
+          // ++ on maps takes last key, we don't want users to override `error_id`, so we add this last
+          // SerializableErrorCodeComponents also puts `context` first, so fields added by canton cannot be overwritten
           super.context ++ err.metadata ++ List(("error_id", err.errorId))
       }
     }
