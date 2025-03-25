@@ -691,7 +691,7 @@ pkg_tar(
         ["source/daml-script/template-root/**"],
         exclude = ["**/*~"],
     ),
-    strip_prefix = "source/daml-script/template-root",
+    strip_prefix = "source/sdk/component-howtos/ledger_interaction/daml-script/template-root",
     visibility = ["//visibility:public"],
 )
 
