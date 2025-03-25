@@ -40,7 +40,7 @@ import scala.util.{Failure, Success}
 /** grpc service to allow modifying party hosting on participants
   */
 class GrpcPartyManagementService(
-    adminWorkflow: PartyReplicationAdminWorkflow,
+    adminWorkflowO: Option[PartyReplicationAdminWorkflow],
     processingTimeout: ProcessingTimeout,
     sync: CantonSyncService,
     protected val loggerFactory: NamedLoggerFactory,
@@ -58,6 +58,16 @@ class GrpcPartyManagementService(
       status.withDescription(err).asRuntimeException()
 
     EitherTUtil.toFuture(for {
+      adminWorkflow <- EitherT
+        .fromEither[Future](adminWorkflowO match {
+          case Some(value) => Right(value)
+          case None =>
+            Left(
+              "The add_party_async command requires the `unsafe_online_party_replication` configuration"
+            )
+        })
+        .leftMap(toStatusRuntimeException(Status.UNIMPLEMENTED))
+
       args <- EitherT.fromEither[Future](
         verifyArguments(request).leftMap(toStatusRuntimeException(Status.INVALID_ARGUMENT))
       )

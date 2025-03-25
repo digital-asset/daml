@@ -42,7 +42,7 @@ public class CommandClientImpl implements CommandClient {
   public Single<Transaction> submitAndWaitForTransaction(
       CommandsSubmission submission, TransactionFormat transactionFormat) {
     CommandServiceOuterClass.SubmitAndWaitForTransactionRequest request =
-        SubmitAndWaitForTransactionRequest.toProto(submission, transactionFormat);
+        new SubmitAndWaitForTransactionRequest(submission, transactionFormat).toProto();
 
     return Single.fromFuture(
             StubHelper.authenticating(this.serviceStub, submission.getAccessToken())

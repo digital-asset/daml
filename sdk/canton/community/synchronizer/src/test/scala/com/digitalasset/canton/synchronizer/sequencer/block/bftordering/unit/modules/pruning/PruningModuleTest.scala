@@ -21,6 +21,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   BlockNumber,
   EpochNumber,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequestBatch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Pruning
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.{
   ProgrammableUnitTestContext,
@@ -142,10 +143,13 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           mock[EpochStore[ProgrammableUnitTestEnv]]
         val outputStore: OutputMetadataStore[ProgrammableUnitTestEnv] =
           mock[OutputMetadataStore[ProgrammableUnitTestEnv]]
+        val availabilityStore: AvailabilityStore[ProgrammableUnitTestEnv] =
+          mock[AvailabilityStore[ProgrammableUnitTestEnv]]
 
         val module = createPruningModule[ProgrammableUnitTestEnv](
           epochStore = epochStore,
           outputStore = outputStore,
+          availabilityStore = availabilityStore,
         )
 
         when(epochStore.prune(EpochNumber(40))(traceContext)).thenReturn(() =>
@@ -154,6 +158,11 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         when(outputStore.prune(EpochNumber(40))(traceContext)).thenReturn(() =>
           OutputMetadataStore.NumberOfRecords(10L, 10L)
         )
+        when(
+          availabilityStore.prune(
+            EpochNumber(40 - OrderingRequestBatch.BatchValidityDurationEpochs + 1L)
+          )(traceContext)
+        ).thenReturn(() => AvailabilityStore.NumberOfRecords(10L))
 
         module.receiveInternal(Pruning.PerformPruning(EpochNumber(40)))
         context.runPipedMessages() should contain only Pruning.SchedulePruning
@@ -176,10 +185,11 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       pruningFrequency: FiniteDuration = 1.hour,
       epochStore: EpochStore[E] = mock[EpochStore[E]],
       outputStore: OutputMetadataStore[E] = mock[OutputMetadataStore[E]],
+      availabilityStore: AvailabilityStore[E] = mock[AvailabilityStore[E]],
   ): PruningModule[E] = {
     val stores = BftOrderingStores[E](
       mock[P2PEndpointsStore[E]],
-      mock[AvailabilityStore[E]],
+      availabilityStore,
       epochStore,
       mock[EpochStoreReader[E]],
       outputStore,

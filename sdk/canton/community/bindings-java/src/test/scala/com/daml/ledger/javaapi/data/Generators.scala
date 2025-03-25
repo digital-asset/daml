@@ -4,7 +4,7 @@
 package com.daml.ledger.javaapi.data
 
 import com.daml.ledger.api.*
-import com.daml.ledger.api.v2.CommandsOuterClass
+import com.daml.ledger.api.v2.{CommandsOuterClass, TransactionFilterOuterClass}
 import com.google.protobuf.{ByteString, Empty, Timestamp}
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
@@ -1387,5 +1387,40 @@ object Generators {
       .newBuilder()
       .setTemplateId(templateId)
       .setContractKey(contractKey)
+      .build()
+
+  val eventFormatGen: Gen[TransactionFilterOuterClass.EventFormat] =
+    for {
+      filtersByParty <- Gen.mapOf(partyWithFiltersGen)
+      filterForAnyPartyO <- Gen.option(filtersGen)
+      verbose <- Gen.oneOf(true, false)
+    } yield {
+      val builder = TransactionFilterOuterClass.EventFormat
+        .newBuilder()
+        .putAllFiltersByParty(filtersByParty.asJava)
+        .setVerbose(verbose)
+
+      filterForAnyPartyO match {
+        case None =>
+          builder.build()
+        case Some(filterForAnyParty) =>
+          builder
+            .setFiltersForAnyParty(filterForAnyParty)
+            .build()
+      }
+    }
+
+  val transactionFormatGen: Gen[TransactionFilterOuterClass.TransactionFormat] =
+    for {
+      eventFormat <- eventFormatGen
+      transactionShape <-
+        Gen.oneOf(
+          TransactionFilterOuterClass.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA,
+          TransactionFilterOuterClass.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS,
+        )
+    } yield TransactionFilterOuterClass.TransactionFormat
+      .newBuilder()
+      .setEventFormat(eventFormat)
+      .setTransactionShape(transactionShape)
       .build()
 }

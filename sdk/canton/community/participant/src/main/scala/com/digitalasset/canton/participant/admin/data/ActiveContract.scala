@@ -83,6 +83,7 @@ private[canton] object ActiveContract extends VersioningCompanion[ActiveContract
       protocolVersionRepresentativeFor(protocolVersion)
     )
 
+  // TODO(#24728) - Remove, do not depend on reading ACS from file directly
   private[canton] def fromFile(fileInput: File): Iterator[ActiveContract] =
     ResourceUtil.withResource(fileInput.newGzipInputStream(8192)) { fileInput =>
       loadFromSource(fileInput) match {

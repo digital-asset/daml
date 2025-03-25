@@ -271,7 +271,6 @@ object PreIssConsensusModuleTest {
               .create(
                 BlockMetadata.mk(epochNumber, BlockNumber(blockNumber.toLong)),
                 ViewNumber.First,
-                CantonTimestamp.Epoch,
                 OrderingBlock(Seq()),
                 CanonicalCommitSet.empty,
                 from = BftNodeId("self"),

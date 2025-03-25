@@ -75,7 +75,6 @@ class PreviousEpochsRetransmissionsTrackerTest extends AnyWordSpec with BftSeque
             .create(
               BlockMetadata.mk(epochNumber, BlockNumber(blockNumber.toLong)),
               ViewNumber.First,
-              CantonTimestamp.Epoch,
               OrderingBlock(Seq()),
               canonicalCommitSet,
               from = myId,

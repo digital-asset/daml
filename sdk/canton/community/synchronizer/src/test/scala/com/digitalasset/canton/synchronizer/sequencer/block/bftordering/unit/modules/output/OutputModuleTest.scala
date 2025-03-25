@@ -454,7 +454,8 @@ class OutputModuleTest
           initialBlock,
           batches = Seq(
             OrderingRequestBatch.create(
-              Seq(Traced(OrderingRequest(aTag, ByteString.EMPTY)))
+              Seq(Traced(OrderingRequest(aTag, ByteString.EMPTY))),
+              EpochNumber.First,
             )
           ).map(x => BatchId.from(x) -> x),
         )
@@ -1117,7 +1118,8 @@ class OutputModuleTest
       ),
       batches = Seq(
         OrderingRequestBatch.create(
-          Seq(Traced(OrderingRequest(aTag, ByteString.EMPTY)))
+          Seq(Traced(OrderingRequest(aTag, ByteString.EMPTY))),
+          epochNumber,
         )
       ).map(x => BatchId.from(x) -> x),
     )

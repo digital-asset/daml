@@ -7,7 +7,6 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Signature
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -92,6 +91,9 @@ final class AvailabilityModule[E <: Env[E]](
 
   private val thisNode = initialMembership.myId
   private val nodeShuffler = new BftNodeShuffler(random)
+
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  private var lastKnownEpochNumber = EpochNumber.First
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var activeMembership = initialMembership
@@ -189,7 +191,10 @@ final class AvailabilityModule[E <: Env[E]](
     lazy val messageType = shortType(disseminationMessage)
 
     disseminationMessage match {
-      case Availability.LocalDissemination.LocalBatchCreated(batchId, batch) =>
+      case Availability.LocalDissemination.LocalBatchCreated(requests) =>
+        val batch = OrderingRequestBatch.create(requests, lastKnownEpochNumber)
+        val batchId = BatchId.from(batch)
+
         logger.debug(s"$messageType: received $batchId from local mempool")
         pipeToSelf(availabilityStore.addBatch(batchId, batch)) {
           case Failure(exception) =>
@@ -202,9 +207,9 @@ final class AvailabilityModule[E <: Env[E]](
         logger.debug(s"$messageType: persisted local batches ${batches.map(_._1)}, now signing")
         signLocalBatchesAndContinue(batches)
 
-      case Availability.LocalDissemination.RemoteBatchStored(batchId, expirationTime, from) =>
+      case Availability.LocalDissemination.RemoteBatchStored(batchId, epochNumber, from) =>
         logger.debug(s"$messageType: local store persisted $batchId from $from, signing")
-        signRemoteBatchAndContinue(batchId, expirationTime, from)
+        signRemoteBatchAndContinue(batchId, epochNumber, from)
 
       case LocalDissemination.LocalBatchesStoredSigned(batches) =>
         disseminateLocalBatches(messageType, batches)
@@ -233,7 +238,7 @@ final class AvailabilityModule[E <: Env[E]](
 
   private def signRemoteBatchAndContinue(
       batchId: BatchId,
-      expirationTime: CantonTimestamp,
+      epochNumber: EpochNumber,
       from: BftNodeId,
   )(implicit
       context: E#ActorContextT[Availability.Message[E]],
@@ -241,7 +246,7 @@ final class AvailabilityModule[E <: Env[E]](
   ): Unit =
     pipeToSelf(
       activeCryptoProvider.signHash(
-        AvailabilityAck.hashFor(batchId, expirationTime, activeMembership.myId)
+        AvailabilityAck.hashFor(batchId, epochNumber, activeMembership.myId)
       )
     )(handleFailure(s"Failed to sign $batchId") { signature =>
       LocalDissemination.RemoteBatchStoredSigned(batchId, from, signature)
@@ -254,7 +259,7 @@ final class AvailabilityModule[E <: Env[E]](
     pipeToSelf(
       context.sequenceFuture(batches.map { case (batchId, batch) =>
         activeCryptoProvider.signHash(
-          AvailabilityAck.hashFor(batchId, batch.expirationTime, activeMembership.myId)
+          AvailabilityAck.hashFor(batchId, batch.epochNumber, activeMembership.myId)
         )
       })
     ) {
@@ -297,7 +302,7 @@ final class AvailabilityModule[E <: Env[E]](
             signature =>
               DisseminationProgress(
                 activeMembership.orderingTopology,
-                InProgressBatchMetadata(batchId, batch.expirationTime, batch.stats),
+                InProgressBatchMetadata(batchId, batch.epochNumber, batch.stats),
                 Set(AvailabilityAck(thisNode, signature)),
               ),
           )
@@ -392,6 +397,7 @@ final class AvailabilityModule[E <: Env[E]](
             forEpochNumber,
             ordered,
           ) =>
+        lastKnownEpochNumber = forEpochNumber
         handleConsensusProposalRequest(
           messageType,
           orderingTopology,
@@ -657,19 +663,19 @@ final class AvailabilityModule[E <: Env[E]](
 
               case Success(_) =>
                 Availability.LocalDissemination
-                  .RemoteBatchStored(batchId, batch.expirationTime, from)
+                  .RemoteBatchStored(batchId, batch.epochNumber, from)
             },
         )
 
       case Availability.RemoteDissemination.RemoteBatchAcknowledged(batchId, from, signature) =>
         disseminationProtocolState.disseminationProgress
           .get(batchId)
-          .map(_.batchMetadata.expirationTime) match {
-          case Some(expirationTime) =>
+          .map(_.batchMetadata.epochNumber) match {
+          case Some(epochNumber) =>
             pipeToSelf(
               activeCryptoProvider
                 .verifySignature(
-                  AvailabilityAck.hashFor(batchId, expirationTime, from),
+                  AvailabilityAck.hashFor(batchId, epochNumber, from),
                   from,
                   signature,
                 )

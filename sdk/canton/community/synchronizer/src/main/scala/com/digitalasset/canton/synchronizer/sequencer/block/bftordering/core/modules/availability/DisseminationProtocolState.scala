@@ -34,7 +34,7 @@ final case class DisseminationProgress(
     val reviewedAcks = reviewAcks(acks, orderingTopology)
     if (AvailabilityModule.hasQuorum(orderingTopology, reviewedAcks.size))
       Some(
-        ProofOfAvailability(batchMetadata.batchId, reviewedAcks.toSeq, batchMetadata.expirationTime)
+        ProofOfAvailability(batchMetadata.batchId, reviewedAcks.toSeq, batchMetadata.epochNumber)
       )
     else
       None
@@ -60,7 +60,7 @@ object DisseminationProgress {
     val inProgressMetadata =
       InProgressBatchMetadata(
         batchMetadata.proofOfAvailability.batchId,
-        batchMetadata.expirationTime,
+        batchMetadata.epochNumber,
         batchMetadata.stats,
       )
     val reviewedAcks = reviewAcks(batchMetadata.proofOfAvailability.acks, orderingTopology)

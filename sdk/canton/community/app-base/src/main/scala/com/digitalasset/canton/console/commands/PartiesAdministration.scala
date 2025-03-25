@@ -458,7 +458,7 @@ class ParticipantPartiesAdministrationGroup(
     "Export active contracts for the given set of parties to a file.",
     FeatureFlag.Preview,
   )
-  @Help.Description(
+  @Help.Description( // TODO(#24326) - update description when replacing export_acs with export_acs_new
     """This command exports the current Active Contract Set (ACS) of a given set of
       |parties to a GZIP compressed ACS snapshot file. Afterwards, the `import_acs_new`
       |repair command imports it into a participant's ACS again.
@@ -468,7 +468,7 @@ class ParticipantPartiesAdministrationGroup(
       |
       |The arguments are:
       |- parties: Identifying contracts having at least one stakeholder from the given set.
-      |- exportFileName: The file name where to store the data.
+      |- exportFilePath: The path denoting the file where the ACS snapshot will be stored.
       |- filterSynchronizerId: When defined, restricts the export to the given synchronizer.
       |- ledgerOffset: The offset at which the ACS snapshot is exported.
       |- contractSynchronizerRenames: Changes the associated synchronizer id of contracts
@@ -480,7 +480,8 @@ class ParticipantPartiesAdministrationGroup(
   def export_acs_new(
       parties: Set[PartyId],
       // TODO(#24065) - handle `partiesOffboarding: Boolean,` = true in repair.party_migration
-      exportFileName: String = "canton-acs-export-new.gz",
+      exportFilePath: String =
+        "canton-acs-export-new.gz", // TODO(#24326) - update when replacing export_acs with export_acs_new
       filterSynchronizerId: Option[SynchronizerId] = None,
       ledgerOffset: NonNegativeLong,
       contractSynchronizerRenames: Map[SynchronizerId, SynchronizerId] = Map.empty,
@@ -488,7 +489,7 @@ class ParticipantPartiesAdministrationGroup(
   ): Unit =
     check(FeatureFlag.Preview) {
       consoleEnvironment.run {
-        val file = File(exportFileName)
+        val file = File(exportFilePath)
         val responseObserver = new FileStreamObserver[ExportAcsNewResponse](file, _.chunk)
 
         def call: ConsoleCommandResult[Context.CancellableContext] =

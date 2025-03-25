@@ -708,6 +708,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       clock.advance(Duration.ofMinutes(5))
 
       val prepare = createPrepare(myId)
+      val cryptoEvidence = prepare.message.getCryptographicEvidence
 
       assertNoLogs(blockState.processMessage(prepare)) shouldBe true
       assertNoLogs(blockState.advance()) shouldBe empty
@@ -725,9 +726,9 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         case Seq(
               SendPbftMessage(SignedMessage(p, _), _)
             ) =>
-          // if a new prepare had been created, its timestamp would have been influenced by the clock advancement
-          // but that didn't happen, we know the rehydrated prepare was picked
-          p.localTimestamp shouldBe CantonTimestamp.Epoch
+          // if a new prepare had been created, its memoized bytes should be different,
+          // but that didn't happen, so we know the rehydrated prepare was picked
+          p.getCryptographicEvidence shouldBe cryptoEvidence
       }
       clock.reset()
       succeed
@@ -890,7 +891,6 @@ object PbftBlockStateTest {
       .create(
         BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
         ViewNumber.First,
-        CantonTimestamp.Epoch,
         OrderingBlock(Seq()),
         canonicalCommitSet,
         from = p,
@@ -907,7 +907,6 @@ object PbftBlockStateTest {
         BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
         view,
         hash,
-        CantonTimestamp.Epoch,
         from = p,
       )
       .fakeSign

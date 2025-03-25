@@ -8,8 +8,6 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequestBatch
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.BatchId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Availability,
   Mempool,
@@ -130,22 +128,13 @@ class MempoolModule[E <: Env[E]](
   private def createAndSendBatch(
       messageType: String
   )(implicit context: E#ActorContextT[Mempool.Message]): Unit = {
-    val batch = OrderingRequestBatch.create(
-      dequeueN(mempoolState.receivedOrderRequests, config.maxRequestsInBatch)
-        .map(_.tx)
-    )
-    val batchId = BatchId.from(batch)
+    val requests = dequeueN(mempoolState.receivedOrderRequests, config.maxRequestsInBatch).map(_.tx)
     context.withNewTraceContext { implicit traceContext =>
       logger.debug(
-        s"$messageType: mempool sending batch with ID $batchId to local availability with the following tids ${batch.requests
+        s"$messageType: mempool sending batch to local availability with the following tids ${requests
             .flatMap(_.traceContext.traceId)}"
       )
-      availability.asyncSendTraced(
-        Availability.LocalDissemination.LocalBatchCreated(
-          batchId,
-          batch,
-        )
-      )
+      availability.asyncSendTraced(Availability.LocalDissemination.LocalBatchCreated(requests))
     }
     emitStateStats(metrics, mempoolState)
   }

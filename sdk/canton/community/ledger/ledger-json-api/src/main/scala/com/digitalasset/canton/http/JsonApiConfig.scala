@@ -34,7 +34,6 @@ final case class WebsocketConfig(
     maxBurst: Int = WSC.DefaultMaxBurst,
     mode: ThrottleMode = WSC.DefaultThrottleMode,
     heartbeatPeriod: FiniteDuration = WSC.DefaultHeartbeatPeriod,
-    closeDelay: FiniteDuration = WSC.DefaultCloseDelay,
     httpListMaxElementsLimit: Long = WSC.DefaultHttpListMaxElementsLimit,
     httpListWaitTime: FiniteDuration = WSC.DefaultHttpListWaitTime,
 )
@@ -50,7 +49,7 @@ object WebsocketConfig {
   val DefaultMaxBurst: Int = 20
   val DefaultThrottleMode: ThrottleMode = ThrottleMode.Shaping
   val DefaultHeartbeatPeriod: FiniteDuration = 5.second
-  val DefaultCloseDelay: FiniteDuration = 3.seconds
-  val DefaultHttpListMaxElementsLimit: Long = 1024
+  // Canton transactions can be quite big (20kb) so we keep max number of returned transactions in list low by default
+  val DefaultHttpListMaxElementsLimit: Long = 200
   val DefaultHttpListWaitTime: FiniteDuration = 0.5.seconds
 }

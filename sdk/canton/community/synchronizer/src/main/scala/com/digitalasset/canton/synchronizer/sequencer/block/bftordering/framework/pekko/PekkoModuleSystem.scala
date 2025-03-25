@@ -272,6 +272,18 @@ object PekkoModuleSystem {
     ): PekkoFutureUnlessShutdown[(X, Y)] =
       future1.zip(future2)(executionContext)
 
+    override def zipFuture[X, Y, Z](
+        future1: PekkoFutureUnlessShutdown[X],
+        future2: PekkoFutureUnlessShutdown[Y],
+        future3: PekkoFutureUnlessShutdown[Z],
+    ): PekkoFutureUnlessShutdown[(X, Y, Z)] =
+      future1
+        .zip(future2)(executionContext)
+        .zip(future3)(executionContext)
+        .map { case ((x, y), z) =>
+          (x, y, z)
+        }(executionContext)
+
     override def sequenceFuture[A, F[_]](
         futures: F[PekkoFutureUnlessShutdown[A]]
     )(implicit

@@ -16,6 +16,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModuleMetrics.emitNonCompliance
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequestBatch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.AvailabilityAck.ValidationError
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.ProofOfAvailability
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
@@ -88,11 +89,20 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
         _ <- validateProofOfAvailabilityAgainstCurrentTopology(poa, prePrepare)
 
         _ <- Either.cond(
-          poa.expirationTime > epoch.info.previousEpochMaxBftTime,
+          poa.epochNumber <= epoch.info.number,
+          (), {
+            emitNonComplianceMetrics(prePrepare)
+            s"The PrePrepare for block ${prePrepare.blockMetadata} has a proof of availability for future epoch " +
+              s"${poa.epochNumber} (current epoch is ${epoch.info.number})"
+          },
+        )
+        _ <- Either.cond(
+          poa.epochNumber > epoch.info.number - OrderingRequestBatch.BatchValidityDurationEpochs,
           (), {
             emitNonComplianceMetrics(prePrepare)
             s"The PrePrepare for block ${prePrepare.blockMetadata} has an expired proof of availability " +
-              s"at ${poa.expirationTime} (current time is ${epoch.info.previousEpochMaxBftTime})"
+              s"at ${poa.epochNumber}, which is ${OrderingRequestBatch.BatchValidityDurationEpochs} " +
+              s"epochs or more older than current epoch ${epoch.info.number}."
           },
         )
         _ <- Either.cond(

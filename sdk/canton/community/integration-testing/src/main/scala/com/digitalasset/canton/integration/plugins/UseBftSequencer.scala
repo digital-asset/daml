@@ -69,6 +69,9 @@ final class UseBftSequencer(
               internalPort = Some(selfEndpoint.port),
               externalAddress = selfEndpoint.address,
               externalPort = selfEndpoint.port,
+              externalTlsConfig = Some(
+                TlsClientConfig(trustCollectionFile = None, clientCert = None, enabled = false)
+              ),
             ),
             peerEndpoints = otherInitialEndpoints,
           )

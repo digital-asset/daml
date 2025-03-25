@@ -86,7 +86,7 @@ class ApiPackageManagementServiceSpec
           span.end()
         }
         .map { _ =>
-          testTelemetrySetup.reportedSpanAttributes should contain(anApplicationIdSpanAttribute)
+          testTelemetrySetup.reportedSpanAttributes should contain(anUserIdSpanAttribute)
           succeed
         }
     }
@@ -139,8 +139,8 @@ object ApiPackageManagementServiceSpec {
     ): Future[SubmissionResult] = {
       val telemetryContext = traceContext.toDamlTelemetryContext(tracer)
       telemetryContext.setAttribute(
-        anApplicationIdSpanAttribute._1,
-        anApplicationIdSpanAttribute._2,
+        anUserIdSpanAttribute._1,
+        anUserIdSpanAttribute._2,
       )
       Future.successful(state.SubmissionResult.Acknowledged)
     }
@@ -150,8 +150,8 @@ object ApiPackageManagementServiceSpec {
     ): Future[SubmissionResult] = {
       val telemetryContext = traceContext.toDamlTelemetryContext(tracer)
       telemetryContext.setAttribute(
-        anApplicationIdSpanAttribute._1,
-        anApplicationIdSpanAttribute._2,
+        anUserIdSpanAttribute._1,
+        anUserIdSpanAttribute._2,
       )
       Future.successful(state.SubmissionResult.Acknowledged)
     }

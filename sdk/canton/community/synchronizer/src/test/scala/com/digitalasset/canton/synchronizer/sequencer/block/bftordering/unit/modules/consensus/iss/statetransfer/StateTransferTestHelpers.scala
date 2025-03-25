@@ -38,7 +38,6 @@ object StateTransferTestHelpers {
       .create(
         blockMetadata = blockMetadata,
         viewNumber = ViewNumber.First,
-        localTimestamp = CantonTimestamp.Epoch,
         block = OrderingBlock(Seq.empty),
         canonicalCommitSet = CanonicalCommitSet.empty,
         from = otherId,

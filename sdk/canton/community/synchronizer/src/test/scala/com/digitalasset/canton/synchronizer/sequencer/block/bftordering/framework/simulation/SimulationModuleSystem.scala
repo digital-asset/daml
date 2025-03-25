@@ -113,6 +113,13 @@ object SimulationModuleSystem {
     ): SimulationFuture[(X, Y)] =
       SimulationFuture.Zip(future1, future2)
 
+    override def zipFuture[X, Y, Z](
+        future1: SimulationFuture[X],
+        future2: SimulationFuture[Y],
+        future3: SimulationFuture[Z],
+    ): SimulationFuture[(X, Y, Z)] =
+      SimulationFuture.Zip3(future1, future2, future3)
+
     override def sequenceFuture[A, F[_]](futures: F[SimulationFuture[A]])(implicit
         ev: Traverse[F]
     ): SimulationFuture[F[A]] =

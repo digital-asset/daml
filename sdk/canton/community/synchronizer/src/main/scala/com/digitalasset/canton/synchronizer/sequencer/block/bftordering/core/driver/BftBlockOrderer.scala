@@ -82,6 +82,7 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{Member, SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import io.grpc.stub.StreamObserver
 import io.grpc.{ServerInterceptors, ServerServiceDefinition}
@@ -116,6 +117,8 @@ final class BftBlockOrderer(
     extends BlockOrderer
     with NamedLogging
     with FlagCloseableAsync {
+
+  import BftBlockOrderer.*
 
   require(
     sequencerSubscriptionInitialHeight >= BlockNumber.First,
@@ -199,9 +202,7 @@ final class BftBlockOrderer(
           sequencerId,
           authenticationServices,
           authenticationTokenManagerConfig,
-          serverEndpoint = config.initialNetwork.map { initialNetwork =>
-            P2PEndpoint.fromEndpointConfig(initialNetwork.serverEndpoint.clientConfig)
-          },
+          getServerToClientAuthenticationEndpoint(config),
           clock,
         )
       }
@@ -575,4 +576,17 @@ final class BftBlockOrderer(
         f.futureUnlessShutdown().failOnShutdownToAbortException(description)
       )(ErrorLoggingContext.fromTracedLogger(logger))
   }
+}
+
+object BftBlockOrderer {
+
+  @VisibleForTesting
+  private[driver] def getServerToClientAuthenticationEndpoint(
+      config: BftBlockOrdererConfig
+  ): Option[P2PEndpoint] =
+    config.initialNetwork.map { initialNetwork =>
+      P2PEndpoint.fromEndpointConfig(
+        initialNetwork.serverEndpoint.serverToClientAuthenticationEndpointConfig
+      )
+    }
 }
