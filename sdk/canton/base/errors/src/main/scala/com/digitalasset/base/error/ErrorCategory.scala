@@ -391,8 +391,10 @@ object ErrorCategory {
 
   implicit val orderingErrorType: Ordering[ErrorCategory] = Ordering.by[ErrorCategory, Int](_.rank)
 
-  /** Special error category that isn't included in ErrorCategory.all, purely for overriding the displayed text in the generated logs
-  * it is expected that this category is replaced by the time the error is thrown (by overriding `code` in `DamlErrorWithDefiniteAnswer` and the like)
+  /** Special error category that isn't included in [[ErrorCategory.all]] and is meant purely for overriding
+  * the error category text in the generated error code documentation.
+  * It is expected that this category is replaced by an existing category from ErrorCategory.all in the 
+  * error code implementation of [[RpcError.code]] when the actual error is instantiated. 
   * as such, all definitions in this Error Category are errors
   */
   final case class OverrideDocStringErrorCategory(overrideText: String) extends ErrorCategory {
