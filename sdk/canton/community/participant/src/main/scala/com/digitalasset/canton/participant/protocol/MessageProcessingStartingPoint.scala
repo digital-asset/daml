@@ -8,7 +8,6 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.ProcessingStartingPoints.InvalidStartingPointsException
-import com.digitalasset.canton.participant.util.TimeOfChange
 import com.google.common.annotations.VisibleForTesting
 
 /** Summarizes the counters and timestamps where request processing
@@ -52,8 +51,6 @@ final case class MessageProcessingStartingPoint(
       nextSequencerCounter,
       lastSequencerTimestamp,
     )
-
-  def timeOfChange: TimeOfChange = TimeOfChange(currentRecordTime, Some(nextRepairCounter))
 }
 
 object MessageProcessingStartingPoint {

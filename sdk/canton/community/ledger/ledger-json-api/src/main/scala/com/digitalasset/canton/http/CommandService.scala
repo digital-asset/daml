@@ -255,7 +255,7 @@ class CommandService(
           s"Submitting $commandKind command, ${lc.makeString}"
         )
         Commands.submitAndWaitRequest(
-          jwtPayload.applicationId,
+          jwtPayload.userId,
           commandId,
           actAs,
           readAs,

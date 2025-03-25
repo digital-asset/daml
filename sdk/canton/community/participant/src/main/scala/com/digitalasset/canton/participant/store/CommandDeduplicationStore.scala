@@ -24,7 +24,7 @@ import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
-import com.digitalasset.canton.{ApplicationId, CommandId, LedgerSubmissionId}
+import com.digitalasset.canton.{CommandId, LedgerSubmissionId, UserId}
 import slick.jdbc.GetResult
 
 import scala.concurrent.ExecutionContext
@@ -180,12 +180,12 @@ object CommandDeduplicationData {
       getResultByteArray: GetResult[Array[Byte]],
       getResultByteArrayO: GetResult[Option[Array[Byte]]],
   ): GetResult[CommandDeduplicationData] = GetResult { r =>
-    val applicationId = r.<<[ApplicationId]
+    val userId = r.<<[UserId]
     val commandId = r.<<[CommandId]
     val actAs = r.<<[StoredParties]
     val latestDefiniteAnswer = r.<<[DefiniteAnswerEvent]
     val latestAcceptance = r.<<[Option[DefiniteAnswerEvent]]
-    val changeId = ChangeId(applicationId.unwrap, commandId.unwrap, actAs.parties)
+    val changeId = ChangeId(userId.unwrap, commandId.unwrap, actAs.parties)
     create(changeId, latestDefiniteAnswer, latestAcceptance).valueOr(err =>
       throw new DbDeserializationException(
         s"Failed to deserialize command deduplication data: $err"

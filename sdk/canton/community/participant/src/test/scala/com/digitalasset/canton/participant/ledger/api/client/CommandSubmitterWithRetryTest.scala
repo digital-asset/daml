@@ -32,7 +32,7 @@ class CommandSubmitterWithRetryTest
   private val timeout = 5.seconds
   private val commands = Commands.defaultInstance.copy(
     workflowId = "workflowId",
-    applicationId = "applicationId",
+    userId = "userId",
     commandId = "commandId",
     actAs = Seq("party"),
     commands = Nil,

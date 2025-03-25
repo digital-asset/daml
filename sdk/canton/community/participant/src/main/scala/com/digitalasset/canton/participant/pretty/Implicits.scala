@@ -12,7 +12,7 @@ object Implicits {
   import com.digitalasset.canton.logging.pretty.Pretty.*
 
   implicit def prettyChangeId: Pretty[ChangeId] = prettyOfClass(
-    param("application Id", _.applicationId),
+    param("user Id", _.userId),
     param("command Id", _.commandId),
     param("act as", _.actAs),
   )

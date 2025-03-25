@@ -25,12 +25,12 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{
-  ApplicationId,
   BaseTest,
   CommandId,
   FailOnShutdown,
   HasExecutionContext,
   LfPartyId,
+  UserId,
 }
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -75,7 +75,7 @@ class MediatorStateTest
       )
       val submitterMetadata = SubmitterMetadata(
         NonEmpty(Set, alice),
-        ApplicationId.assertFromString("kaese"),
+        UserId.assertFromString("kaese"),
         CommandId.assertFromString("wurst"),
         participantId,
         salt = s(6638),

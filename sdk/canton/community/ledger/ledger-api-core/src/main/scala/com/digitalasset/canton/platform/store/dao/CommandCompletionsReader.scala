@@ -9,7 +9,7 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.CompletionStorageBackend
 import com.digitalasset.canton.platform.store.dao.events.QueryValidRange
-import com.digitalasset.canton.platform.{ApplicationId, Party}
+import com.digitalasset.canton.platform.{Party, UserId}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -38,7 +38,7 @@ private[dao] final class CommandCompletionsReader(
   override def getCommandCompletions(
       startInclusive: Offset,
       endInclusive: Offset,
-      applicationId: ApplicationId,
+      userId: UserId,
       parties: Set[Party],
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -57,7 +57,7 @@ private[dao] final class CommandCompletionsReader(
           storageBackend.commandCompletions(
             startInclusive = range.startInclusive,
             endInclusive = range.endInclusive,
-            applicationId = applicationId,
+            userId = userId,
             parties = parties,
             limit = pageSize,
           )(connection)

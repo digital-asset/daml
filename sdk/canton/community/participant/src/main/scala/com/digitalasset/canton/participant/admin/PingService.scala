@@ -110,7 +110,7 @@ class PingService(
     vacuumStaleContracts(synchronizerId)
   })
 
-  private def applicationId = "PingService"
+  private def userId = "PingService"
 
   override def onClosed(): Unit =
     // Note that we can not time out pings nicely here on shutdown as the admin
@@ -154,7 +154,7 @@ class PingService(
     retrySubmitter.submitCommands(
       Commands(
         workflowId = workflowId.map(Tag.unwrap).getOrElse(""),
-        applicationId = applicationId,
+        userId = userId,
         commandId = commandId,
         commands = cmds.map(LedgerClientUtils.javaCodegenToScalaProto),
         deduplicationPeriod = DeduplicationDuration(deduplicationDuration.toProtoPrimitive),

@@ -28,9 +28,9 @@ object ApiTypes {
   type InterfaceId = Identifier @@ InterfaceIdTag
   val InterfaceId = Tag.of[InterfaceIdTag]
 
-  sealed trait ApplicationIdTag
-  type ApplicationId = String @@ ApplicationIdTag
-  val ApplicationId = Tag.of[ApplicationIdTag]
+  sealed trait UserIdTag
+  type UserId = String @@ UserIdTag
+  val UserId = Tag.of[UserIdTag]
 
   sealed trait ContractIdTag
   type ContractId = String @@ ContractIdTag

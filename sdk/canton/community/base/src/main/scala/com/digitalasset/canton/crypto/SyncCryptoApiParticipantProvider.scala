@@ -409,7 +409,7 @@ object SynchronizerCryptoClient {
   )(implicit
       executionContext: ExecutionContext
   ): SynchronizerCryptoClient = {
-    val syncCryptoSignerDefault = SyncCryptoSigner.create(
+    val syncCryptoSignerWithLongTermKeys = SyncCryptoSigner.createWithLongTermKeys(
       staticSynchronizerParameters,
       member,
       pureCrypto,
@@ -423,7 +423,7 @@ object SynchronizerCryptoClient {
       synchronizerId,
       ips,
       crypto,
-      syncCryptoSignerDefault,
+      syncCryptoSignerWithLongTermKeys,
       staticSynchronizerParameters,
       timeouts,
       futureSupervisor,
@@ -450,6 +450,7 @@ object SynchronizerCryptoClient {
       executionContext: ExecutionContext
   ): SynchronizerCryptoClient = {
     val syncCryptoSignerWithSessionKeys = SyncCryptoSigner.createWithOptionalSessionKeys(
+      synchronizerId,
       staticSynchronizerParameters,
       member,
       pureCrypto,

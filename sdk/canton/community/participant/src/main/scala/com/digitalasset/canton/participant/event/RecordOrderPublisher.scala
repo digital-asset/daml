@@ -115,11 +115,13 @@ class RecordOrderPublisher(
     *
     * @param event
     *   The update event to be published.
+    * @param sequencerCounter
+    *   The SequencerCounter of the sequenced event which resulted in this event
     * @param rcO
     *   The optional request counter for logging as RCs are more human-readable than timestamps.
     */
-  def tick(event: SequencedUpdate, rcO: Option[RequestCounter])(implicit
-      traceContext: TraceContext
+  def tick(event: SequencedUpdate, sequencerCounter: SequencerCounter, rcO: Option[RequestCounter])(
+      implicit traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     performUnlessClosingF(functionFullName) {
       if (event.recordTime > initTimestamp) {
@@ -128,11 +130,11 @@ class RecordOrderPublisher(
             logger.debug(s"Schedule publication for request counter $requestCounter")
           )
         onlyForTestingRecordAcceptedTransactions(event)
-        taskScheduler.scheduleTask(EventPublicationTask(event))
+        taskScheduler.scheduleTask(EventPublicationTask(event, sequencerCounter))
         logger.debug(
-          s"Observing time ${event.recordTime} for sequencer counter ${event.sequencerCounter} for publishing (with event:$event, requestCounterO:$rcO)"
+          s"Observing time ${event.recordTime} for sequencer counter $sequencerCounter for publishing (with event:$event, requestCounterO:$rcO)"
         )
-        taskScheduler.addTick(event.sequencerCounter, event.recordTime)
+        taskScheduler.addTick(sequencerCounter, event.recordTime)
         // this adds backpressure from indexer queue to protocol processing:
         //   indexer pekko source queue back-pressures via offer Future,
         //   this propagates via in RecoveringQueue,
@@ -141,7 +143,7 @@ class RecordOrderPublisher(
         taskScheduler.flush()
       } else {
         logger.debug(
-          s"Skipping tick at sequencerCounter:${event.sequencerCounter} timestamp:${event.recordTime} (publication of event $event)"
+          s"Skipping tick at sequencerCounter:$sequencerCounter timestamp:${event.recordTime} (publication of event $event)"
         )
         Future.unit
       }
@@ -361,12 +363,13 @@ class RecordOrderPublisher(
   }
 
   /** Task to publish the event `event` if defined. */
-  private[RecordOrderPublisher] case class EventPublicationTask(event: SequencedUpdate)(implicit
-      val traceContext: TraceContext
-  ) extends SequencedPublicationTask {
+  private[RecordOrderPublisher] case class EventPublicationTask(
+      event: SequencedUpdate,
+      override val sequencerCounter: SequencerCounter,
+  )(implicit val traceContext: TraceContext)
+      extends SequencedPublicationTask {
 
     override val timestamp: CantonTimestamp = event.recordTime
-    override val sequencerCounter: SequencerCounter = event.sequencerCounter
 
     override def perform(): FutureUnlessShutdown[Unit] =
       publishOrBuffer(event, s"event with synchronizer index ${event.synchronizerIndex}")

@@ -33,11 +33,11 @@ class ApiMeteringReportServiceSpec
 
   private val someParticipantId = Ref.ParticipantId.assertFromString("test-participant")
 
-  private val appIdA = Ref.ApplicationId.assertFromString("AppA")
-  private val appIdB = Ref.ApplicationId.assertFromString("AppB")
+  private val userIdA = Ref.UserId.assertFromString("AppA")
+  private val userIdB = Ref.UserId.assertFromString("AppB")
 
   private val reportData =
-    ReportData(applicationData = Map(appIdB -> 2, appIdA -> 4), isFinal = false)
+    ReportData(applicationData = Map(userIdB -> 2, userIdA -> 4), isFinal = false)
 
   "the metering report service" should {
 
@@ -102,25 +102,25 @@ class ApiMeteringReportServiceSpec
           () => expectedGenTime,
         )
 
-      val appId = Ref.ApplicationId.assertFromString("AppT")
+      val userId = Ref.UserId.assertFromString("AppT")
 
       val request = GetMeteringReportRequest.defaultInstance
         .withFrom(toProtoTimestamp(from))
         .withTo(toProtoTimestamp(to))
-        .withApplicationId(appId)
+        .withUserId(userId)
 
       val expected =
         new MeteringReportGenerator(someParticipantId, CommunityKey.key).generate(
           request,
           from,
           Some(to),
-          Some(appId),
+          Some(userId),
           reportData,
           expectedGenTime,
         )
 
       when(
-        store.getMeteringReportData(eqTo(from), eqTo(Some(to)), eqTo(Some(appId)))(
+        store.getMeteringReportData(eqTo(from), eqTo(Some(to)), eqTo(Some(userId)))(
           any[LoggingContextWithTrace]
         )
       )

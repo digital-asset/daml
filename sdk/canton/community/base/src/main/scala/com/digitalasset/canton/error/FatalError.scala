@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.error
 
+import com.digitalasset.base.error.CantonRpcError
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.StackTraceUtil.formatStackTrace
@@ -27,7 +28,7 @@ object FatalError {
     sys.exit(117)
   }
 
-  def exitOnFatalError(error: CantonError, logger: TracedLogger)(implicit
+  def exitOnFatalError(error: CantonRpcError, logger: TracedLogger)(implicit
       traceContext: TraceContext
   ): Nothing =
     exitOnFatalError(error.toString, None, logger)

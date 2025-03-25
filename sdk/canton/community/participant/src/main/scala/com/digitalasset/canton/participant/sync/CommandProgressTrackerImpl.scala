@@ -204,7 +204,7 @@ class CommandProgressTrackerImpl(
 
   }
 
-  // command key is (commandId, applicationId, actAs, submissionId)
+  // command key is (commandId, userId, actAs, submissionId)
   private type CommandKey = (String, String, Set[String], Option[String])
 
   private val pending = new mutable.LinkedHashMap[CommandKey, MyCommandResultHandle]()
@@ -242,7 +242,7 @@ class CommandProgressTrackerImpl(
   override def registerCommand(
       commandId: String,
       submissionId: Option[String],
-      applicationId: String,
+      userId: String,
       commands: Seq[Command],
       actAs: Set[String],
   )(implicit traceContext: TraceContext): CommandResultHandle = if (
@@ -250,7 +250,7 @@ class CommandProgressTrackerImpl(
   ) {
     CommandResultHandle.NoOp
   } else {
-    val key = (commandId, applicationId, actAs, submissionId)
+    val key = (commandId, userId, actAs, submissionId)
     logger.debug(s"Registering handle for $key")
     val status = CommandStatus(
       started = clock.now,
@@ -259,7 +259,7 @@ class CommandProgressTrackerImpl(
         submitters = Set.empty,
         commandId = commandId,
         updateId = "",
-        applicationId = applicationId,
+        userId = userId,
         traceContext = traceContext,
         optStatus = None,
         optSubmissionId = submissionId,
@@ -288,13 +288,13 @@ class CommandProgressTrackerImpl(
 
   override def findHandle(
       commandId: String,
-      applicationId: String,
+      userId: String,
       actAs: Seq[String],
       submissionId: Option[String],
   ): CommandResultHandle =
     lock.synchronized {
       pending.getOrElse(
-        (commandId, applicationId, actAs.toSet, submissionId),
+        (commandId, userId, actAs.toSet, submissionId),
         CommandResultHandle.NoOp,
       )
     }
@@ -317,7 +317,7 @@ class CommandProgressTrackerImpl(
         rejected.completionStreamResponse.completionResponse.completion.foreach { completionInfo =>
           val key = (
             completionInfo.commandId,
-            completionInfo.applicationId,
+            completionInfo.userId,
             completionInfo.actAs.toSet,
             Option.when(completionInfo.submissionId.nonEmpty)(completionInfo.submissionId),
           )
@@ -336,7 +336,7 @@ class CommandProgressTrackerImpl(
           .foreach { completion =>
             val key = (
               completion.commandId,
-              completion.applicationId,
+              completion.userId,
               completion.actAs.toSet,
               Option.when(completion.submissionId.nonEmpty)(completion.submissionId),
             )

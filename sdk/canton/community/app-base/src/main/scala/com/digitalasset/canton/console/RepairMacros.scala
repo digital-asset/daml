@@ -330,7 +330,11 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
     @Help.Description(
       "Expects a file name. Returns a streaming iterator of serializable contracts."
     )
-    def import_acs_from_file(source: String): Iterator[(SynchronizerId, SerializableContract)] =
+    def import_acs_from_file(
+        source: String
+    ): Iterator[
+      (SynchronizerId, SerializableContract)
+    ] = // TODO(#24728) - Remove, use import_acs and then the LAPI
       ActiveContract.fromFile(File(source)).map {
         case ActiveContract(synchronizerId, contract, _) =>
           synchronizerId -> contract

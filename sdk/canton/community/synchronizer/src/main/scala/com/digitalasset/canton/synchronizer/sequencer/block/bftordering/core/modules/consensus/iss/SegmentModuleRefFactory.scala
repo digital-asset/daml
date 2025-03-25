@@ -16,7 +16,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ConsensusSegment,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleName}
-import com.digitalasset.canton.time.Clock
 
 import EpochState.Epoch
 
@@ -37,7 +36,6 @@ final class SegmentModuleRefFactoryImpl[E <: Env[E]](
     storePbftMessages: Boolean,
     epochStore: EpochStore[E],
     dependencies: ConsensusModuleDependencies[E],
-    clock: Clock,
     loggerFactory: NamedLoggerFactory,
     timeouts: ProcessingTimeout,
 ) extends SegmentModuleRefFactory[E] {
@@ -57,7 +55,6 @@ final class SegmentModuleRefFactoryImpl[E <: Env[E]](
       metricsAccumulator,
       storePbftMessages,
       epochStore,
-      clock,
       cryptoProvider,
       latestCompletedEpochLastCommits,
       epochInProgress,

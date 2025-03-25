@@ -30,7 +30,6 @@ CREATE TABLE lapi_post_processing_end (
 
 CREATE TABLE lapi_ledger_end_synchronizer_index (
   synchronizer_id INTEGER PRIMARY KEY NOT NULL,
-  sequencer_counter BIGINT,
   sequencer_timestamp BIGINT,
   repair_timestamp BIGINT,
   repair_counter BIGINT,
@@ -70,7 +69,7 @@ CREATE TABLE lapi_command_completions (
     completion_offset BIGINT NOT NULL,
     record_time BIGINT NOT NULL,
     publication_time BIGINT NOT NULL,
-    application_id VARCHAR NOT NULL,
+    user_id VARCHAR NOT NULL,
     submitters INTEGER ARRAY NOT NULL,
     command_id VARCHAR NOT NULL,
     -- The update ID is `NULL` for rejected transactions/reassignments.
@@ -95,12 +94,11 @@ CREATE TABLE lapi_command_completions (
     rejection_status_details BINARY LARGE OBJECT,
     synchronizer_id INTEGER NOT NULL,
     message_uuid VARCHAR,
-    request_sequencer_counter BIGINT,
     is_transaction BOOLEAN NOT NULL,
     trace_context BINARY LARGE OBJECT
 );
 
-CREATE INDEX lapi_command_completions_application_id_offset_idx ON lapi_command_completions USING btree (application_id, completion_offset);
+CREATE INDEX lapi_command_completions_user_id_offset_idx ON lapi_command_completions USING btree (user_id, completion_offset);
 CREATE INDEX lapi_command_completions_offset_idx ON lapi_command_completions USING btree (completion_offset);
 CREATE INDEX lapi_command_completions_publication_time_idx ON lapi_command_completions USING btree (publication_time, completion_offset);
 CREATE INDEX lapi_command_completions_synchronizer_record_time_idx ON lapi_command_completions USING btree (synchronizer_id, record_time);
@@ -124,7 +122,7 @@ CREATE TABLE lapi_events_create (
 
     -- * submitter info (only visible on submitting participant)
     command_id VARCHAR,
-    application_id VARCHAR,
+    user_id VARCHAR,
     submitters INTEGER ARRAY,
 
     -- * shared event information
@@ -185,7 +183,7 @@ CREATE TABLE lapi_events_consuming_exercise (
 
     -- * submitter info (only visible on submitting participant)
     command_id VARCHAR,
-    application_id VARCHAR,
+    user_id VARCHAR,
     submitters INTEGER ARRAY,
 
     -- * shared event information
@@ -242,7 +240,7 @@ CREATE TABLE lapi_events_non_consuming_exercise (
 
     -- * submitter info (only visible on submitting participant)
     command_id VARCHAR,
-    application_id VARCHAR,
+    user_id VARCHAR,
     submitters INTEGER ARRAY,
 
     -- * shared event information
@@ -516,7 +514,7 @@ CREATE INDEX lapi_transaction_meta_synchronizer_offset_idx ON lapi_transaction_m
 -- This table is written for every transaction and stores its metrics.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_transaction_metering (
-    application_id VARCHAR NOT NULL,
+    user_id VARCHAR NOT NULL,
     action_count INTEGER NOT NULL,
     metering_timestamp BIGINT NOT NULL,
     ledger_offset BIGINT
@@ -540,14 +538,14 @@ CREATE TABLE lapi_metering_parameters (
 -- This table is written periodically to store partial sums of transaction metrics.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_participant_metering (
-    application_id VARCHAR NOT NULL,
+    user_id VARCHAR NOT NULL,
     from_timestamp BIGINT NOT NULL,
     to_timestamp BIGINT NOT NULL,
     action_count INTEGER NOT NULL,
     ledger_offset BIGINT
 );
 
-CREATE UNIQUE INDEX lapi_participant_metering_from_to_application_idx ON lapi_participant_metering(from_timestamp, to_timestamp, application_id);
+CREATE UNIQUE INDEX lapi_participant_metering_from_to_user_idx ON lapi_participant_metering(from_timestamp, to_timestamp, user_id);
 
 
 -- NOTE: We keep participant user and party record tables independent from indexer-based tables, such that

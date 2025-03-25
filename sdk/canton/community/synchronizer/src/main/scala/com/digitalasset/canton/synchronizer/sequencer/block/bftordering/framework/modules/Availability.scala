@@ -5,7 +5,6 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.Signature
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
@@ -26,6 +25,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
   MessageFrom,
+  OrderingRequest,
   OrderingRequestBatch,
   SignedMessage,
 }
@@ -33,6 +33,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, Module}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.AvailabilityMessage
+import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWrapper,
   HasRepresentativeProtocolVersion,
@@ -80,7 +81,7 @@ object Availability {
 
   object LocalDissemination {
 
-    final case class LocalBatchCreated(batchId: BatchId, batch: OrderingRequestBatch)
+    final case class LocalBatchCreated(requests: Seq[Traced[OrderingRequest]])
         extends LocalDissemination
 
     final case class LocalBatchesStored(batches: Seq[(BatchId, OrderingRequestBatch)])
@@ -98,7 +99,7 @@ object Availability {
 
     final case class RemoteBatchStored(
         batchId: BatchId,
-        expirationTime: CantonTimestamp,
+        epochNumber: EpochNumber,
         from: BftNodeId,
     ) extends LocalDissemination
 
@@ -171,7 +172,7 @@ object Availability {
           batch <- storeRequest.batch match {
             case Some(batch) =>
               OrderingRequestBatch.fromProtoV30(batch)
-            case None => Right(OrderingRequestBatch.create(Seq.empty))
+            case None => Left(ProtoDeserializationError.FieldNotSet("batch"))
           }
           rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
         } yield Availability.RemoteDissemination.RemoteBatch(id, batch, from)(
@@ -444,7 +445,7 @@ object Availability {
           batch <- value.batch match {
             case Some(batch) =>
               OrderingRequestBatch.fromProtoV30(batch)
-            case None => Right(OrderingRequestBatch.create(Seq.empty))
+            case None => Left(ProtoDeserializationError.FieldNotSet("batch"))
           }
           rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
         } yield Availability.RemoteOutputFetch.RemoteBatchDataFetched(from, id, batch)(

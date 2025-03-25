@@ -61,7 +61,7 @@ import com.digitalasset.canton.platform.{
   TemplatePartiesFilter,
 }
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{ApplicationId, Identifier, PackageRef, TypeConRef}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageRef, TypeConRef, UserId}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.value.Value.{ContractId, VersionedContractInstance}
@@ -279,7 +279,7 @@ private[index] class IndexServiceImpl(
 
   override def getCompletions(
       startExclusive: Option[Offset],
-      applicationId: Ref.ApplicationId,
+      userId: Ref.UserId,
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Source[CompletionStreamResponse, NotUsed] =
     Source
@@ -293,7 +293,7 @@ private[index] class IndexServiceImpl(
                 .getCommandCompletions(
                   startInclusive,
                   endInclusive,
-                  applicationId,
+                  userId,
                   parties,
                 )
                 .via(
@@ -502,12 +502,12 @@ private[index] class IndexServiceImpl(
   override def getMeteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
-      applicationId: Option[ApplicationId],
+      userId: Option[UserId],
   )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData] =
     ledgerDao.meteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
-      applicationId: Option[ApplicationId],
+      userId: Option[UserId],
     )
 
   override def currentLedgerEnd(): Future[Option[Offset]] =

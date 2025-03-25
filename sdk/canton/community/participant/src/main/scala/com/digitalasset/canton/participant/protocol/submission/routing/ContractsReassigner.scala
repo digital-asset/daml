@@ -44,7 +44,7 @@ private[routing] class ContractsReassigner(
               submittingParticipant,
               submitterInfo.commandId,
               submitterInfo.submissionId,
-              submitterInfo.applicationId,
+              submitterInfo.userId,
               workflowId = None,
             ),
             cid,

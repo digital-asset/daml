@@ -207,7 +207,6 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
             storePbftMessages = true,
             stores.epochStore,
             dependencies,
-            clock,
             loggerFactory,
             timeouts,
           )

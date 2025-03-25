@@ -545,10 +545,10 @@ class UnassignmentProcessingSteps(
                   UnassignmentProcessorError
                     .InvalidResult(unassignmentValidationResult.reassignmentId, err)
                 )
-                .flatMap(deliveredResult =>
+                .flatMap { deliveredResult =>
                   reassignmentCoordination
                     .addUnassignmentResult(targetSynchronizer, deliveredResult)
-                )
+                }
             }
 
             notInitiator = pendingSubmissionData.isEmpty
@@ -558,10 +558,7 @@ class UnassignmentProcessingSteps(
               else EitherT.pure[FutureUnlessShutdown, ReassignmentProcessorError](())
 
             reassignmentAccepted <- EitherT.fromEither[FutureUnlessShutdown](
-              unassignmentValidationResult.createReassignmentAccepted(
-                participantId,
-                requestSequencerCounter,
-              )
+              unassignmentValidationResult.createReassignmentAccepted(participantId)
             )
           } yield CommitAndStoreContractsAndPublishEvent(
             commitSetFO,

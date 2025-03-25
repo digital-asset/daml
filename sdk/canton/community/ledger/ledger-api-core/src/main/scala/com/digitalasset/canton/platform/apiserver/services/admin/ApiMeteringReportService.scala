@@ -26,7 +26,7 @@ import com.digitalasset.canton.platform.apiserver.meteringreport.{
 }
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiMeteringReportService.*
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.ApplicationId
+import com.digitalasset.daml.lf.data.Ref.UserId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
@@ -60,29 +60,29 @@ private[apiserver] final class ApiMeteringReportService(
       request: GetMeteringReportRequest
   )(implicit
       errorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, (Timestamp, Option[Timestamp], Option[ApplicationId])] =
+  ): Either[StatusRuntimeException, (Timestamp, Option[Timestamp], Option[UserId])] =
     (for {
       protoFrom <- request.from.toRight("from date must be specified")
       from <- toTimestamp(protoFrom)
       to <- request.to.fold[Either[String, Option[Timestamp]]](Right(None))(t =>
         toTimestamp(t).map(Some.apply)
       )
-      applicationId <- toOption(request.applicationId)
-        .fold[Either[String, Option[Ref.ApplicationId]]](Right(None))(t =>
-          Ref.ApplicationId.fromString(t).map(Some.apply)
+      userId <- toOption(request.userId)
+        .fold[Either[String, Option[Ref.UserId]]](Right(None))(t =>
+          Ref.UserId.fromString(t).map(Some.apply)
         )
-    } yield (from, to, applicationId)).left.map(ValidationErrors.invalidArgument)
+    } yield (from, to, userId)).left.map(ValidationErrors.invalidArgument)
 
   private def generateReport(
       request: GetMeteringReportRequest,
       from: Timestamp,
       to: Option[Timestamp],
-      applicationId: Option[Ref.ApplicationId],
+      userId: Option[Ref.UserId],
       reportData: ReportData,
   )(implicit
       errorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, GetMeteringReportResponse] =
-    generator.generate(request, from, to, applicationId, reportData, clock()).left.map { e =>
+    generator.generate(request, from, to, userId, reportData, clock()).left.map { e =>
       AdminServiceErrors.InternallyInvalidKey.Reject(e).asGrpcError
     }
 
@@ -102,9 +102,9 @@ private[apiserver] final class ApiMeteringReportService(
     }
 
     for {
-      (from, to, applicationId) <- validateRequest(request).toFuture
-      reportData <- store.getMeteringReportData(from, to, applicationId)
-      report <- generateReport(request, from, to, applicationId, reportData).toFuture
+      (from, to, userId) <- validateRequest(request).toFuture
+      reportData <- store.getMeteringReportData(from, to, userId)
+      report <- generateReport(request, from, to, userId, reportData).toFuture
     } yield report
   }
 }

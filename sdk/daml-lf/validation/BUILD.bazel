@@ -50,7 +50,7 @@ da_scala_library(
     unused_dependency_checker_mode = "off",
     visibility = ["//visibility:public"],
     deps = [
-        "//canton:base_daml-errors",
+        "//canton:base_errors",
         "//canton:community_base",
         "//canton:community_ledger_ledger-api-core",
         "//canton:community_ledger_ledger-common",

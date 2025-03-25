@@ -137,7 +137,7 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         val batchCreated = batchCreatedCell
           .get()
           .getOrElse(fail("No batch sent"))
-        batchCreated.batch.requests.size should be(1)
+        batchCreated.requests.size should be(1)
         mempoolState.receivedOrderRequests shouldBe empty
         mempoolState.toBeProvidedToAvailability shouldBe 0
       }
@@ -167,7 +167,7 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         val batchCreated = batchCreatedCell
           .get()
           .getOrElse(fail("No batch sent"))
-        batchCreated.batch.requests.size should be(2)
+        batchCreated.requests.size should be(2)
         mempoolState.receivedOrderRequests shouldBe empty
         mempoolState.toBeProvidedToAvailability shouldBe 0
       }
@@ -208,7 +208,7 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         val batchCreated = batchCreatedCell
           .get()
           .getOrElse(fail("No batch sent"))
-        batchCreated.batch.requests.size should be(1)
+        batchCreated.requests.size should be(1)
         mempoolState.receivedOrderRequests shouldBe empty
         mempoolState.toBeProvidedToAvailability shouldBe 0
 
@@ -241,7 +241,7 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       val batchCreated = batchCreatedCell
         .get()
         .getOrElse(fail("No batch sent"))
-      batchCreated.batch.requests.size should be(1)
+      batchCreated.requests.size should be(1)
       mempoolState.receivedOrderRequests should contain only AnOrderRequest
       mempoolState.toBeProvidedToAvailability shouldBe 0
     }
@@ -269,7 +269,7 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       val batchCreated = batchCreatedCell
         .get()
         .getOrElse(fail("No batch sent"))
-      batchCreated.batch.requests.size should be(1)
+      batchCreated.requests.size should be(1)
       mempoolState.receivedOrderRequests shouldBe empty
       mempoolState.toBeProvidedToAvailability shouldBe 0
     }

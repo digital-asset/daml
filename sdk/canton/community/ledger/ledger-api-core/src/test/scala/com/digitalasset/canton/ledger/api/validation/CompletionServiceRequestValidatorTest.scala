@@ -17,12 +17,12 @@ class CompletionServiceRequestValidatorTest
     with MockitoSugar {
   private implicit val noLogging: ContextualizedErrorLogger = NoLogging
   private val grpcCompletionReq = GrpcCompletionStreamRequest(
-    expectedApplicationId,
+    expectedUserId,
     List(party),
     offsetLong,
   )
   private val completionReq = CompletionStreamRequest(
-    Ref.ApplicationId.assertFromString(expectedApplicationId),
+    Ref.UserId.assertFromString(expectedUserId),
     List(party).toSet,
     offset,
   )
@@ -41,14 +41,14 @@ class CompletionServiceRequestValidatorTest
         }
       }
 
-      "return the correct error on missing application ID" in {
+      "return the correct error on missing user ID" in {
         requestMustFailWith(
           request = validator.validateGrpcCompletionStreamRequest(
-            grpcCompletionReq.withApplicationId("")
+            grpcCompletionReq.withUserId("")
           ),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: application_id",
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: user_id",
           metadata = Map.empty,
         )
       }
@@ -87,7 +87,7 @@ class CompletionServiceRequestValidatorTest
             grpcCompletionReq.withBeginExclusive(0L)
           )
         ) { case Right(req) =>
-          req.applicationId shouldEqual expectedApplicationId
+          req.userId shouldEqual expectedUserId
           req.parties shouldEqual Set(party)
           req.offset shouldBe empty
         }
@@ -139,7 +139,7 @@ class CompletionServiceRequestValidatorTest
             ledgerEnd,
           )
         ) { case Right(req) =>
-          req.applicationId shouldEqual expectedApplicationId
+          req.userId shouldEqual expectedUserId
           req.parties shouldEqual Set(party)
           req.offset shouldBe empty
         }

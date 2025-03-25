@@ -18,8 +18,8 @@ object Generators {
     Gen.stringOfN(256, Gen.alphaNumChar).map(ByteString.copyFromUtf8)
   )
 
-  implicit val applicationIdArb: Arbitrary[ApplicationId] = Arbitrary(
-    Gen.stringOfN(32, Gen.alphaNumChar).map(ApplicationId.assertFromString)
+  implicit val userIdArb: Arbitrary[UserId] = Arbitrary(
+    Gen.stringOfN(32, Gen.alphaNumChar).map(UserId.assertFromString)
   )
   implicit val commandIdArb: Arbitrary[CommandId] = Arbitrary(
     Gen.stringOfN(32, Gen.alphaNumChar).map(CommandId.assertFromString)

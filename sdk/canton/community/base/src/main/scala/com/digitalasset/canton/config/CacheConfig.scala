@@ -67,6 +67,7 @@ final case class CacheConfigWithTimeout(
     expireAfterTimeout: PositiveFiniteDuration = PositiveFiniteDuration.ofMinutes(10),
 ) extends UniformCantonConfigValidation {
 
+  // TODO(#24566): Use scheduler instead of expireAfter
   def buildScaffeine()(implicit executionContext: ExecutionContext): Scaffeine[Any, Any] =
     Scaffeine()
       .maximumSize(maximumSize.value)

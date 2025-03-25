@@ -100,32 +100,31 @@ object CommandId {
     pp >> v.toLengthLimitedString
 }
 
-/** Application identifier for identifying customer applications in the ledger api
+/** User identifier for identifying customer users in the ledger api
   * @param id
-  *   ledger string representing application
+  *   ledger string representing user
   */
-final case class ApplicationId(private val id: LedgerApplicationId) extends PrettyPrinting {
-  def unwrap: LedgerApplicationId = id
+final case class UserId(private val id: LedgerUserId) extends PrettyPrinting {
+  def unwrap: LedgerUserId = id
   def toProtoPrimitive: String = unwrap
   def toLengthLimitedString: String255 =
-    checked(String255.tryCreate(id)) // LedgerApplicationId is limited to 255 chars
-  override protected def pretty: Pretty[ApplicationId] = prettyOfParam(_.unwrap)
+    checked(String255.tryCreate(id)) // LedgerUserId is limited to 255 chars
+  override protected def pretty: Pretty[UserId] = prettyOfParam(_.unwrap)
 }
 
-object ApplicationId {
-  def assertFromString(str: String) = ApplicationId(LedgerApplicationId.assertFromString(str))
-  def fromProtoPrimitive(str: String): Either[String, ApplicationId] =
-    LedgerApplicationId.fromString(str).map(ApplicationId(_))
+object UserId {
+  def assertFromString(str: String) = UserId(LedgerUserId.assertFromString(str))
+  def fromProtoPrimitive(str: String): Either[String, UserId] =
+    LedgerUserId.fromString(str).map(UserId(_))
 
-  implicit val getResultApplicationId: GetResult[ApplicationId] =
+  implicit val getResultUserId: GetResult[UserId] =
     GetResult(r => r.nextString()).andThen {
       fromProtoPrimitive(_).valueOr(err =>
-        throw new DbDeserializationException(s"Failed to deserialize application id: $err")
+        throw new DbDeserializationException(s"Failed to deserialize user id: $err")
       )
     }
 
-  implicit val setParameterApplicationId: SetParameter[ApplicationId] = (v, pp) =>
-    pp >> v.toLengthLimitedString
+  implicit val setParameterUserId: SetParameter[UserId] = (v, pp) => pp >> v.toLengthLimitedString
 }
 
 /** Workflow identifier for identifying customer workflows, i.e. individual requests, in the ledger

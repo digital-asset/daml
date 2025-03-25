@@ -14,7 +14,7 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   SinglePartySignatures,
 }
 import com.daml.ledger.api.v2.reassignment_command.ReassignmentCommand
-import com.digitalasset.base.error.{ContextualizedErrorLogger, DamlError}
+import com.digitalasset.base.error.{ContextualizedErrorLogger, DamlRpcError}
 import com.digitalasset.canton.crypto.{
   Fingerprint,
   Signature,
@@ -164,7 +164,7 @@ class SubmitRequestValidator(
       partySignaturesOP,
       deduplicationPeriodP,
       submissionIdP,
-      applicationIdP,
+      userIdP,
       hashingSchemeVersionP,
     ) = req
     for {
@@ -173,7 +173,7 @@ class SubmitRequestValidator(
         .map(
           _.getOrElse(submissionIdGenerator.generate())
         )
-      applicationId <- requireApplicationId(applicationIdP, "application_id")
+      userId <- requireUserId(userIdP, "user_id")
       deduplicationPeriod <- commandsValidator.validateExecuteDeduplicationPeriod(
         deduplicationPeriodP,
         maxDeduplicationDuration,
@@ -193,7 +193,7 @@ class SubmitRequestValidator(
       synchronizerId <- validateSynchronizerId(synchronizerIdString).leftMap(_.asGrpcError)
     } yield {
       ExecuteRequest(
-        applicationId,
+        userId,
         submissionId,
         deduplicationPeriod,
         partySignatures,
@@ -206,7 +206,7 @@ class SubmitRequestValidator(
 
   private def validateSynchronizerId(string: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[DamlError, SynchronizerId] =
+  ): Either[DamlRpcError, SynchronizerId] =
     SynchronizerId
       .fromString(string)
       .leftMap(err =>
@@ -216,7 +216,7 @@ class SubmitRequestValidator(
 
   private def validateHashingSchemeVersion(protoVersion: iss.HashingSchemeVersion)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[DamlError, HashingSchemeVersion] = protoVersion match {
+  ): Either[DamlRpcError, HashingSchemeVersion] = protoVersion match {
     case iss.HashingSchemeVersion.HASHING_SCHEME_VERSION_V1 => Right(V1)
     case iss.HashingSchemeVersion.HASHING_SCHEME_VERSION_UNSPECIFIED =>
       Left(
@@ -238,7 +238,7 @@ class SubmitRequestValidator(
     for {
       reassignmentCommand <- requirePresence(req.reassignmentCommand, "reassignment_command")
       submitter <- requirePartyField(reassignmentCommand.submitter, "submitter")
-      applicationId <- requireApplicationId(reassignmentCommand.applicationId, "application_id")
+      userId <- requireUserId(reassignmentCommand.userId, "user_id")
       commandId <- requireCommandId(reassignmentCommand.commandId, "command_id")
       submissionId <- requireSubmissionId(reassignmentCommand.submissionId, "submission_id")
       workflowId <- validateOptional(Some(reassignmentCommand.workflowId).filter(_.nonEmpty))(
@@ -280,7 +280,7 @@ class SubmitRequestValidator(
       }
     } yield submission.SubmitReassignmentRequest(
       submitter = submitter,
-      applicationId = applicationId,
+      userId = userId,
       commandId = commandId,
       submissionId = submissionId,
       workflowId = workflowId,

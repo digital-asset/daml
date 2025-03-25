@@ -37,7 +37,7 @@ import qualified Data.Scientific as Scientific
 data MeteringRequestByDay = MeteringRequestByDay {
   from :: Day
 , to :: Maybe Day
-, application :: Maybe ApplicationId
+, application :: Maybe UserId
 } deriving (Show, Eq)
 
 instance ToJSON MeteringRequestByDay where
@@ -47,7 +47,7 @@ instance ToJSON MeteringRequestByDay where
       "from" .= show from
     ]
     ++ maybeToList (fmap (("to" .=) . show) to)
-    ++ maybeToList (fmap (("application" .=) . unApplicationId) application)
+    ++ maybeToList (fmap (("application" .=) . unUserId) application)
     )
 
 timestampToSystemTime :: Timestamp -> System.SystemTime
@@ -109,8 +109,8 @@ raiseGetMeteringReportResponse (LL.GetMeteringReportResponse _ _ (Just reportStr
   Right $ toRawAesonValue $ S.Value $ Just $ S.ValueKindStructValue reportStruct
 raiseGetMeteringReportResponse response = Left $ Unexpected ("raiseMeteredReport unable to parse response: " <> show response)
 
-getMeteringReport :: Timestamp -> Maybe Timestamp -> Maybe ApplicationId -> LedgerService A.Value
-getMeteringReport from to applicationId =
+getMeteringReport :: Timestamp -> Maybe Timestamp -> Maybe UserId -> LedgerService A.Value
+getMeteringReport from to userId =
     makeLedgerService $ \timeout config mdm ->
     withGRPCClient config $ \client -> do
         service <- LL.meteringReportServiceClient client
@@ -118,7 +118,7 @@ getMeteringReport from to applicationId =
           LL.MeteringReportService {meteringReportServiceGetMeteringReport=rpc} = service
           gFrom = Just $ lowerTimestamp from
           gTo = fmap lowerTimestamp to
-          gApp = maybe TL.empty unApplicationId applicationId
+          gApp = maybe TL.empty unUserId userId
           request = LL.GetMeteringReportRequest gFrom gTo gApp
         rpc (ClientNormalRequest request timeout mdm)
             >>= unwrap

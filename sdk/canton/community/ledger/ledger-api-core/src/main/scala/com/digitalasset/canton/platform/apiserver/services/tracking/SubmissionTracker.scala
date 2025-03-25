@@ -139,7 +139,7 @@ object SubmissionTracker {
   final case class SubmissionKey(
       commandId: String,
       submissionId: String,
-      applicationId: String,
+      userId: String,
       parties: Set[String],
   )
 
@@ -148,7 +148,7 @@ object SubmissionTracker {
       SubmissionKey(
         commandId = completion.commandId,
         submissionId = completion.submissionId,
-        applicationId = completion.applicationId,
+        userId = completion.userId,
         parties = completion.actAs.toSet,
       )
   }

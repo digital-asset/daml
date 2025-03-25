@@ -57,7 +57,7 @@ class SyncEphemeralStateFactoryTest
     "there is no clean request" should {
       "return the default" in {
         val rjs = new InMemoryRequestJournalStore(loggerFactory)
-        val ses = new InMemorySequencedEventStore(loggerFactory)
+        val ses = new InMemorySequencedEventStore(loggerFactory, timeouts)
 
         for {
           startingPoints <- SyncEphemeralStateFactory.startingPoints(
@@ -77,22 +77,20 @@ class SyncEphemeralStateFactoryTest
     "there is only the clean head request" should {
       "return the clean head" in {
         val rjs = new InMemoryRequestJournalStore(loggerFactory)
-        val ses = new InMemorySequencedEventStore(loggerFactory)
+        val ses = new InMemorySequencedEventStore(loggerFactory, timeouts)
         val rc = RequestCounter(0)
         val sc = SequencerCounter(10)
         val ts = CantonTimestamp.Epoch
         for {
           _ <- rjs.insert(RequestData.clean(rc, ts, ts.plusSeconds(1)))
+          _ <- ses.reinitializeFromDbOrSetLowerBound(sc - 1L)
           _ <- ses.store(Seq(dummyEvent(synchronizerId)(sc, ts)))
           withCleanSc <- SyncEphemeralStateFactory.startingPoints(
             rjs,
             ses,
             Some(
               SynchronizerIndex.of(
-                SequencerIndex(
-                  counter = sc,
-                  timestamp = ts,
-                )
+                SequencerIndex(ts)
               )
             ),
           )
@@ -111,7 +109,7 @@ class SyncEphemeralStateFactoryTest
     "there are several requests" should {
       "return the right result" in {
         val rjs = new InMemoryRequestJournalStore(loggerFactory)
-        val ses = new InMemorySequencedEventStore(loggerFactory)
+        val ses = new InMemorySequencedEventStore(loggerFactory, timeouts)
         val rc = RequestCounter(0)
         val sc = SequencerCounter(10)
         val ts0 = CantonTimestamp.ofEpochSecond(0)
@@ -126,6 +124,7 @@ class SyncEphemeralStateFactoryTest
           _ <- rjs.insert(RequestData.clean(rc, ts0, ts0.plusSeconds(2)))
           _ <- rjs.insert(RequestData.clean(rc + 1L, ts1, ts1.plusSeconds(1)))
           _ <- rjs.insert(RequestData.clean(rc + 2L, ts2, ts2.plusSeconds(4)))
+          _ <- ses.reinitializeFromDbOrSetLowerBound(sc - 1L)
           _ <- ses.store(
             Seq(
               dummyEvent(synchronizerId)(sc, ts0),
@@ -142,10 +141,7 @@ class SyncEphemeralStateFactoryTest
             ses,
             Some(
               SynchronizerIndex.of(
-                SequencerIndex(
-                  counter = sc,
-                  timestamp = ts0,
-                )
+                SequencerIndex(ts0)
               )
             ),
           )
@@ -154,10 +150,7 @@ class SyncEphemeralStateFactoryTest
             ses,
             Some(
               SynchronizerIndex.of(
-                SequencerIndex(
-                  counter = sc + 1L,
-                  timestamp = ts1,
-                )
+                SequencerIndex(ts1)
               )
             ),
           )
@@ -165,10 +158,7 @@ class SyncEphemeralStateFactoryTest
             SynchronizerIndex(
               repairIndex = None,
               sequencerIndex = Some(
-                SequencerIndex(
-                  counter = sc + 3L,
-                  timestamp = ts3,
-                )
+                SequencerIndex(ts3)
               ),
               recordTime = ts3,
             )
@@ -197,10 +187,7 @@ class SyncEphemeralStateFactoryTest
               SynchronizerIndex(
                 repairIndex = None,
                 sequencerIndex = Some(
-                  SequencerIndex(
-                    counter = sc + 4L,
-                    timestamp = ts4,
-                  )
+                  SequencerIndex(ts4)
                 ),
                 recordTime = ts4,
               )
@@ -291,7 +278,7 @@ class SyncEphemeralStateFactoryTest
       "the commit times are reversed" should {
         "reprocess the clean request" in {
           val rjs = new InMemoryRequestJournalStore(loggerFactory)
-          val ses = new InMemorySequencedEventStore(loggerFactory)
+          val ses = new InMemorySequencedEventStore(loggerFactory, timeouts)
           val rc = RequestCounter(0)
           val sc = SequencerCounter(10)
           val ts0 = CantonTimestamp.ofEpochSecond(0)
@@ -303,6 +290,7 @@ class SyncEphemeralStateFactoryTest
             _ <- rjs.insert(RequestData.clean(rc, ts0, ts0.plusSeconds(5)))
             _ <- rjs.insert(RequestData.clean(rc + 1L, ts1, ts1.plusSeconds(3)))
             _ <- rjs.insert(RequestData.initial(rc + 2L, ts3))
+            _ <- ses.reinitializeFromDbOrSetLowerBound(sc - 1)
             _ <- ses.store(
               Seq(
                 dummyEvent(synchronizerId)(sc, ts0),
@@ -316,10 +304,7 @@ class SyncEphemeralStateFactoryTest
               ses,
               Some(
                 SynchronizerIndex.of(
-                  SequencerIndex(
-                    counter = sc,
-                    timestamp = ts0,
-                  )
+                  SequencerIndex(ts0)
                 )
               ),
             )
@@ -328,10 +313,7 @@ class SyncEphemeralStateFactoryTest
               ses,
               Some(
                 SynchronizerIndex.of(
-                  SequencerIndex(
-                    counter = sc + 1L,
-                    timestamp = ts1,
-                  )
+                  SequencerIndex(ts1)
                 )
               ),
             )
@@ -369,7 +351,7 @@ class SyncEphemeralStateFactoryTest
       "when there is a repair request" should {
         "return the right result" in {
           val rjs = new InMemoryRequestJournalStore(loggerFactory)
-          val ses = new InMemorySequencedEventStore(loggerFactory)
+          val ses = new InMemorySequencedEventStore(loggerFactory, timeouts)
           val repairCounter = RepairCounter.Genesis
           val sc = SequencerCounter(10)
           val ts0 = CantonTimestamp.ofEpochSecond(0)
@@ -377,8 +359,13 @@ class SyncEphemeralStateFactoryTest
           val ts2 = CantonTimestamp.ofEpochSecond(2)
 
           for {
+            _ <- ses.reinitializeFromDbOrSetLowerBound(sc - 1)
             _ <- ses.store(
-              Seq(dummyEvent(synchronizerId)(sc, ts0), dummyEvent(synchronizerId)(sc + 1L, ts1))
+              Seq(
+                dummyEvent(synchronizerId)(sc, ts0),
+                dummyEvent(synchronizerId)(sc + 1L, ts1),
+                dummyEvent(synchronizerId)(sc + 2L, ts2),
+              )
             )
             noRepair <- SyncEphemeralStateFactory.startingPoints(
               rjs,
@@ -387,10 +374,7 @@ class SyncEphemeralStateFactoryTest
                 SynchronizerIndex(
                   repairIndex = None,
                   sequencerIndex = Some(
-                    SequencerIndex(
-                      counter = sc,
-                      timestamp = ts0,
-                    )
+                    SequencerIndex(ts0)
                   ),
                   recordTime = ts0,
                 )
@@ -408,10 +392,7 @@ class SyncEphemeralStateFactoryTest
                     )
                   ),
                   sequencerIndex = Some(
-                    SequencerIndex(
-                      counter = sc + 1L,
-                      timestamp = ts1,
-                    )
+                    SequencerIndex(ts1)
                   ),
                   recordTime = ts1,
                 )
@@ -445,10 +426,7 @@ class SyncEphemeralStateFactoryTest
                     )
                   ),
                   sequencerIndex = Some(
-                    SequencerIndex(
-                      counter = sc,
-                      timestamp = ts2,
-                    )
+                    SequencerIndex(ts2)
                   ),
                   recordTime = ts2,
                 )
@@ -494,12 +472,12 @@ class SyncEphemeralStateFactoryTest
             )
             repairFollowedBySequencedEvent.cleanReplay shouldBe MessageCleanReplayStartingPoint(
               RequestCounter.Genesis,
-              sc + 1L,
+              sc + 3L,
               ts2,
             )
             repairFollowedBySequencedEvent.processing shouldBe MessageProcessingStartingPoint(
               RequestCounter.Genesis,
-              sc + 1L,
+              sc + 3L,
               ts2,
               ts2,
               RepairCounter.Genesis, // repair counter starts a genesis at the new record time ts2
@@ -511,7 +489,7 @@ class SyncEphemeralStateFactoryTest
       "there are only repair requests" should {
         "skip over the clean repair requests" in {
           val rjs = new InMemoryRequestJournalStore(loggerFactory)
-          val ses = new InMemorySequencedEventStore(loggerFactory)
+          val ses = new InMemorySequencedEventStore(loggerFactory, timeouts)
           val repairTs = CantonTimestamp.MinValue
 
           for {

@@ -90,6 +90,9 @@ class LedgerApiStore(
       integrityStorageBackend.onlyForTestingNumberOfAcceptedTransactionsFor(synchronizerId)
     )
 
+  /** The latest SynchronizerIndex for a synchronizerId until all events are processed fully and
+    * published to the Ledger API DB.
+    */
   def cleanSynchronizerIndex(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,

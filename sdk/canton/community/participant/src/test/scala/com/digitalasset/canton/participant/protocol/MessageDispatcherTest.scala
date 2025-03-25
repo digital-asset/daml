@@ -198,7 +198,11 @@ trait MessageDispatcherTest {
         new RequestCounterAllocatorImpl(initRc, cleanReplaySequencerCounter, loggerFactory)
       val recordOrderPublisher = mock[RecordOrderPublisher]
       when(
-        recordOrderPublisher.tick(any[SequencedUpdate], any[Option[RequestCounter]])(
+        recordOrderPublisher.tick(
+          any[SequencedUpdate],
+          any[SequencerCounter],
+          any[Option[RequestCounter]],
+        )(
           any[TraceContext]
         )
       )
@@ -463,10 +467,8 @@ trait MessageDispatcherTest {
         ts: CantonTimestamp,
     ): Assertion = {
       verify(sut.recordOrderPublisher).tick(
-        argThat[SequencedUpdate](event =>
-          event.sequencerCounter == sc &&
-            event.recordTime == ts
-        ),
+        argThat[SequencedUpdate](_.recordTime == ts),
+        argThat[SequencerCounter](_ == sc),
         argThat[Option[RequestCounter]](_.isEmpty),
       )(anyTraceContext)
       succeed
@@ -1260,11 +1262,8 @@ trait MessageDispatcherTest {
         checkObserveSequencing(
           sut,
           Map(
-            messageId1 -> SequencedSubmission(SequencerCounter(0), CantonTimestamp.Epoch),
-            messageId2 -> SequencedSubmission(
-              SequencerCounter(1),
-              CantonTimestamp.ofEpochSecond(1),
-            ),
+            messageId1 -> SequencedSubmission(CantonTimestamp.Epoch),
+            messageId2 -> SequencedSubmission(CantonTimestamp.ofEpochSecond(1)),
           ),
         )
         checkObserveDeliverError(sut, deliverError4)
@@ -1318,14 +1317,8 @@ trait MessageDispatcherTest {
         checkObserveSequencing(
           sut,
           Map(
-            messageId1 -> SequencedSubmission(
-              SequencerCounter(0),
-              CantonTimestamp.Epoch,
-            ),
-            messageId2 -> SequencedSubmission(
-              SequencerCounter(1),
-              CantonTimestamp.ofEpochSecond(1),
-            ),
+            messageId1 -> SequencedSubmission(CantonTimestamp.Epoch),
+            messageId2 -> SequencedSubmission(CantonTimestamp.ofEpochSecond(1)),
           ),
         )
 

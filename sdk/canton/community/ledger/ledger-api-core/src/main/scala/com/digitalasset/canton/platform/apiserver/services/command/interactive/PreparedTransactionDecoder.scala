@@ -413,7 +413,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         // Read as is unused for the execution as the transaction has already been run through Daml engine at this point
         .withFieldConst(_.readAs, List.empty)
         .withFieldConst(_.submissionId, Some(executeRequest.submissionId))
-        .withFieldConst(_.applicationId, executeRequest.applicationId)
+        .withFieldConst(_.userId, executeRequest.userId)
         .withFieldConstPartial(
           _.commandId,
           submitterInfoProto.commandId.transformIntoPartial[lf.data.Ref.CommandId],

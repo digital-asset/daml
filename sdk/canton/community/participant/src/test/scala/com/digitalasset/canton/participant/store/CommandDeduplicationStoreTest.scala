@@ -11,21 +11,21 @@ import com.digitalasset.canton.participant.protocol.submission.ChangeIdHash
 import com.digitalasset.canton.participant.store.CommandDeduplicationStore.OffsetAndPublicationTime
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
-import com.digitalasset.canton.{ApplicationId, BaseTest, CommandId, DefaultDamlValues, LfPartyId}
+import com.digitalasset.canton.{BaseTest, CommandId, DefaultDamlValues, LfPartyId, UserId}
 import org.scalatest.wordspec.AsyncWordSpec
 
 trait CommandDeduplicationStoreTest extends BaseTest { this: AsyncWordSpec =>
 
-  private lazy val applicationId1 = ApplicationId.assertFromString("applicationId-1")
-  private lazy val applicationId2 = ApplicationId.assertFromString("applicationId-2")
+  private lazy val userId1 = UserId.assertFromString("userId-1")
+  private lazy val userId2 = UserId.assertFromString("userId-2")
   private lazy val commandId1 = CommandId.assertFromString("commandId1")
   private lazy val commandId2 = CommandId.assertFromString("commandId2")
   private lazy val alice = LfPartyId.assertFromString("Alice")
   private lazy val bob = LfPartyId.assertFromString("Bob")
 
-  private lazy val changeId1a = ChangeId(applicationId1.unwrap, commandId1.unwrap, Set(alice))
-  private lazy val changeId1ab = ChangeId(applicationId1.unwrap, commandId1.unwrap, Set(alice, bob))
-  private lazy val changeId2 = ChangeId(applicationId2.unwrap, commandId2.unwrap, Set(alice))
+  private lazy val changeId1a = ChangeId(userId1.unwrap, commandId1.unwrap, Set(alice))
+  private lazy val changeId1ab = ChangeId(userId1.unwrap, commandId1.unwrap, Set(alice, bob))
+  private lazy val changeId2 = ChangeId(userId2.unwrap, commandId2.unwrap, Set(alice))
 
   private lazy val answer1 = DefiniteAnswerEvent(
     Offset.tryFromLong(1),

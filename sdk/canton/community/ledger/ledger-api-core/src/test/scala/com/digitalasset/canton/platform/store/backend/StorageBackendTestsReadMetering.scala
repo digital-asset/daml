@@ -12,7 +12,7 @@ import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.{
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.ApplicationId
+import com.digitalasset.daml.lf.data.Ref.UserId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -29,22 +29,22 @@ private[backend] trait StorageBackendTestsReadMetering
   {
     behavior of "StorageBackend (metering report data)"
 
-    val appIdA: Ref.ApplicationId = Ref.ApplicationId.assertFromString("appA")
-    val appIdB: Ref.ApplicationId = Ref.ApplicationId.assertFromString("appB")
+    val userIdA: Ref.UserId = Ref.UserId.assertFromString("appA")
+    val userIdB: Ref.UserId = Ref.UserId.assertFromString("appB")
 
     def buildTransactionMetering(
         index: Long,
-        appId: Ref.ApplicationId,
+        userId: Ref.UserId,
         aggregated: Boolean = false,
     ) = TransactionMetering(
-      applicationId = appId,
+      userId = userId,
       actionCount = if (aggregated) 1000 else index.toInt, // Should not be used in tests below
       meteringTimestamp = someTime.addMicros(index),
       ledgerOffset = offset(index),
     )
 
-    def buildParticipantMetering(index: Long, appId: Ref.ApplicationId) = ParticipantMetering(
-      applicationId = appId,
+    def buildParticipantMetering(index: Long, userId: Ref.UserId) = ParticipantMetering(
+      userId = userId,
       from = someTime.addMicros(index - 1),
       to = someTime.addMicros(index),
       actionCount = index.toInt,
@@ -52,11 +52,11 @@ private[backend] trait StorageBackendTestsReadMetering
     )
 
     val participantMetering = Vector(
-      buildParticipantMetering(1, appIdA),
-      buildParticipantMetering(2, appIdA),
-      buildParticipantMetering(3, appIdB),
-      buildParticipantMetering(4, appIdA),
-      buildParticipantMetering(5, appIdA),
+      buildParticipantMetering(1, userIdA),
+      buildParticipantMetering(2, userIdA),
+      buildParticipantMetering(3, userIdB),
+      buildParticipantMetering(4, userIdA),
+      buildParticipantMetering(5, userIdA),
     )
     discard(participantMetering)
     val ledgerMeteringEnd =
@@ -65,19 +65,19 @@ private[backend] trait StorageBackendTestsReadMetering
 
     // Aggregated transaction metering should never be read
     val aggregatedTransactionMetering = Vector(
-      buildTransactionMetering(1, appIdA, aggregated = true),
-      buildTransactionMetering(2, appIdA, aggregated = true),
-      buildTransactionMetering(3, appIdB, aggregated = true),
-      buildTransactionMetering(4, appIdA, aggregated = true),
-      buildTransactionMetering(5, appIdA, aggregated = true),
+      buildTransactionMetering(1, userIdA, aggregated = true),
+      buildTransactionMetering(2, userIdA, aggregated = true),
+      buildTransactionMetering(3, userIdB, aggregated = true),
+      buildTransactionMetering(4, userIdA, aggregated = true),
+      buildTransactionMetering(5, userIdA, aggregated = true),
     )
 
     val transactionMetering = Vector(
-      buildTransactionMetering(11, appIdA),
-      buildTransactionMetering(12, appIdA),
-      buildTransactionMetering(13, appIdB),
-      buildTransactionMetering(14, appIdA),
-      buildTransactionMetering(15, appIdA),
+      buildTransactionMetering(11, userIdA),
+      buildTransactionMetering(12, userIdA),
+      buildTransactionMetering(13, userIdB),
+      buildTransactionMetering(14, userIdA),
+      buildTransactionMetering(15, userIdA),
     )
 
     def populate(): Unit = {
@@ -97,24 +97,24 @@ private[backend] trait StorageBackendTestsReadMetering
     def execute(
         from: Timestamp,
         to: Option[Timestamp],
-        applicationId: Option[ApplicationId],
+        userId: Option[UserId],
     ): ReportData = {
 
       val participantMap =
         participantMetering
           .filter(_.from >= from)
           .filter(m => to.fold(true)(m.to <= _))
-          .filter(m => applicationId.fold(true)(m.applicationId == _))
-          .groupMapReduce(_.applicationId)(_.actionCount.toLong)(_ + _)
+          .filter(m => userId.fold(true)(m.userId == _))
+          .groupMapReduce(_.userId)(_.actionCount.toLong)(_ + _)
 
       val transactionMap =
         transactionMetering
           .filter(tm => Option(tm.ledgerOffset) > ledgerMeteringEnd.offset)
           .filter(m => to.fold(true)(m.meteringTimestamp < _))
-          .filter(m => applicationId.fold(true)(m.applicationId == _))
-          .groupMapReduce(_.applicationId)(_.actionCount.toLong)(_ + _)
+          .filter(m => userId.fold(true)(m.userId == _))
+          .groupMapReduce(_.userId)(_.actionCount.toLong)(_ + _)
 
-      val apps: Set[ApplicationId] = participantMap.keySet ++ transactionMap.keySet
+      val apps: Set[UserId] = participantMap.keySet ++ transactionMap.keySet
 
       val metering = apps.toList.map { a =>
         a -> (participantMap.getOrElse(a, 0L) + transactionMap.getOrElse(a, 0L))
@@ -129,15 +129,15 @@ private[backend] trait StorageBackendTestsReadMetering
     def check(
         fromIdx: Long,
         toIdx: Option[Long],
-        applicationId: Option[ApplicationId],
+        userId: Option[UserId],
     ): Assertion = {
       populate()
       val from = someTime.addMicros(fromIdx)
       val to = toIdx.map(someTime.addMicros)
       val actual = executeSql(
-        backend.metering.read.reportData(from, to, applicationId)
+        backend.metering.read.reportData(from, to, userId)
       )
-      val expected = execute(from, to, applicationId)
+      val expected = execute(from, to, userId)
       actual shouldBe expected
     }
 
@@ -145,8 +145,8 @@ private[backend] trait StorageBackendTestsReadMetering
       check(2, toIdx = Some(4), None)
     }
 
-    it should "create a final report for a given application" in {
-      check(2, toIdx = Some(4), Some(appIdA))
+    it should "create a final report for a given user" in {
+      check(2, toIdx = Some(4), Some(userIdA))
     }
 
     it should "only include transaction metering after the from-date" in {
@@ -157,8 +157,8 @@ private[backend] trait StorageBackendTestsReadMetering
       check(12, toIdx = Some(14), None)
     }
 
-    it should "only include transaction metering for a given application" in {
-      check(12, None, Some(appIdA))
+    it should "only include transaction metering for a given user" in {
+      check(12, None, Some(userIdA))
     }
 
     it should "combine participant and transaction metering" in {

@@ -7,6 +7,7 @@ import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPackageVersion}
 import com.digitalasset.daml.lf.command.{ApiCommands as LfCommands, ApiContractKey}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.logging.*
@@ -90,7 +91,7 @@ object CumulativeFilter {
 
 final case class Commands(
     workflowId: Option[WorkflowId],
-    applicationId: Ref.ApplicationId,
+    userId: Ref.UserId,
     commandId: CommandId,
     submissionId: Option[SubmissionId],
     actAs: Set[Ref.Party],
@@ -111,7 +112,7 @@ final case class Commands(
     prettyOfClass(
       param("commandId", _.commandId.unwrap),
       paramIfDefined("submissionId", _.submissionId.map(_.unwrap)),
-      param("applicationId", _.applicationId),
+      param("userId", _.userId),
       param("actAs", _.actAs),
       paramIfNonEmpty("readAs", _.readAs),
       param("submittedAt", _.submittedAt),
@@ -135,7 +136,7 @@ object Commands {
   implicit val `Commands to LoggingValue`: ToLoggingValue[Commands] = commands => {
     LoggingValue.Nested.fromEntries(
       "workflowId" -> commands.workflowId,
-      "applicationId" -> commands.applicationId,
+      "userId" -> commands.userId,
       "submissionId" -> commands.submissionId,
       "commandId" -> commands.commandId,
       "actAs" -> commands.actAs,
@@ -159,6 +160,26 @@ final case class DisclosedContract(
       indicateOmittedFields,
     )
   }
+}
+
+// TODO(#23334): Deduplicate with logic from TopologyAwareCommandExecutor
+// Wrapper used for ordering package ids by version
+final case class PackageReference(
+    pkdId: LfPackageId,
+    version: LfPackageVersion,
+    packageName: LfPackageName,
+)
+
+object PackageReference {
+  implicit val packageReferenceOrdering: Ordering[PackageReference] =
+    (x: PackageReference, y: PackageReference) =>
+      if (x.packageName != y.packageName) {
+        throw new RuntimeException(
+          s"Cannot compare package-ids with different package names: $x and $y"
+        )
+      } else
+        Ordering[(LfPackageVersion, LfPackageId)]
+          .compare(x.version -> x.pkdId, y.version -> y.pkdId)
 }
 
 object Logging {

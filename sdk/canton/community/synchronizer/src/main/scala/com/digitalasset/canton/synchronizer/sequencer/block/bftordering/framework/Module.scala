@@ -189,9 +189,52 @@ trait CancellableEvent {
   def cancel(): Boolean
 }
 
+/** FutureContext contains functions for creating and combining E#FutureUnlessShutdown that will be
+  * safe to use in pipeToSelf.
+  */
+trait FutureContext[E <: Env[E]] {
+
+  def timeFuture[X](timer: Timer, futureUnlessShutdown: => E#FutureUnlessShutdownT[X])(implicit
+      mc: MetricsContext
+  ): E#FutureUnlessShutdownT[X]
+
+  def pureFuture[X](x: X): E#FutureUnlessShutdownT[X]
+
+  /** [[mapFuture]] requires a [[PureFun]] instead of a normal [[scala.Function1]] since we need to
+    * be careful not to mutate state of the modules in the [[Env#FutureUnlessShutdownT]], as this
+    * would violate the assumptions we use when writing [[Module]]s.
+    */
+  def mapFuture[X, Y](future: E#FutureUnlessShutdownT[X])(
+      fun: PureFun[X, Y]
+  ): E#FutureUnlessShutdownT[Y]
+
+  def zipFuture[X, Y](
+      future1: E#FutureUnlessShutdownT[X],
+      future2: E#FutureUnlessShutdownT[Y],
+  ): E#FutureUnlessShutdownT[(X, Y)]
+
+  def zipFuture[X, Y, Z](
+      future1: E#FutureUnlessShutdownT[X],
+      future2: E#FutureUnlessShutdownT[Y],
+      future3: E#FutureUnlessShutdownT[Z],
+  ): E#FutureUnlessShutdownT[(X, Y, Z)]
+
+  def sequenceFuture[A, F[_]](futures: F[E#FutureUnlessShutdownT[A]])(implicit
+      ev: Traverse[F]
+  ): E#FutureUnlessShutdownT[F[A]]
+
+  /** [[flatMapFuture]] requires a [[PureFun]] instead of a normal [[scala.Function1]] for similar
+    * reason as [[mapFuture]]
+    */
+  def flatMapFuture[R1, R2](
+      future1: E#FutureUnlessShutdownT[R1],
+      future2: PureFun[R1, E#FutureUnlessShutdownT[R2]],
+  ): E#FutureUnlessShutdownT[R2]
+}
+
 /** An abstraction of actor contexts for deterministic simulation testing purposes.
   */
-trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging {
+trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging with FutureContext[E] {
 
   // Client API, used by system construction logic
 
@@ -222,33 +265,41 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging {
     */
   def withNewTraceContext[A](fn: TraceContext => A): A
 
-  def timeFuture[X](timer: Timer, futureUnlessShutdown: => E#FutureUnlessShutdownT[X])(implicit
+  def futureContext: FutureContext[E]
+
+  final override def timeFuture[X](
+      timer: Timer,
+      futureUnlessShutdown: => E#FutureUnlessShutdownT[X],
+  )(implicit
       mc: MetricsContext
-  ): E#FutureUnlessShutdownT[X]
+  ): E#FutureUnlessShutdownT[X] =
+    futureContext.timeFuture(timer, futureUnlessShutdown)
 
-  def pureFuture[X](x: X): E#FutureUnlessShutdownT[X]
+  final override def pureFuture[X](x: X): E#FutureUnlessShutdownT[X] = futureContext.pureFuture(x)
 
-  /** [[mapFuture]] requires a [[PureFun]] instead of a normal [[scala.Function1]] since we need to
-    * be careful not to mutate state of the modules in the [[Env#FutureUnlessShutdownT]], as this
-    * would violate the assumptions we use when writing [[Module]]s.
-    */
-  def mapFuture[X, Y](future: E#FutureUnlessShutdownT[X])(
+  final override def mapFuture[X, Y](future: E#FutureUnlessShutdownT[X])(
       fun: PureFun[X, Y]
-  ): E#FutureUnlessShutdownT[Y]
+  ): E#FutureUnlessShutdownT[Y] = futureContext.mapFuture(future)(fun)
 
-  def zipFuture[X, Y](
+  final override def zipFuture[X, Y](
       future1: E#FutureUnlessShutdownT[X],
       future2: E#FutureUnlessShutdownT[Y],
-  ): E#FutureUnlessShutdownT[(X, Y)]
+  ): E#FutureUnlessShutdownT[(X, Y)] = futureContext.zipFuture(future1, future2)
 
-  def sequenceFuture[A, F[_]](futures: F[E#FutureUnlessShutdownT[A]])(implicit
+  final override def zipFuture[X, Y, Z](
+      future1: E#FutureUnlessShutdownT[X],
+      future2: E#FutureUnlessShutdownT[Y],
+      future3: E#FutureUnlessShutdownT[Z],
+  ): E#FutureUnlessShutdownT[(X, Y, Z)] = futureContext.zipFuture(future1, future2, future3)
+
+  final override def sequenceFuture[A, F[_]](futures: F[E#FutureUnlessShutdownT[A]])(implicit
       ev: Traverse[F]
-  ): E#FutureUnlessShutdownT[F[A]]
+  ): E#FutureUnlessShutdownT[F[A]] = futureContext.sequenceFuture(futures)
 
-  def flatMapFuture[R1, R2](
+  final override def flatMapFuture[R1, R2](
       future1: E#FutureUnlessShutdownT[R1],
       future2: PureFun[R1, E#FutureUnlessShutdownT[R2]],
-  ): E#FutureUnlessShutdownT[R2]
+  ): E#FutureUnlessShutdownT[R2] = futureContext.flatMapFuture(future1, future2)
 
   def pipeToSelf[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(
       fun: Try[X] => Option[MessageT]
@@ -311,6 +362,8 @@ trait Env[E <: Env[E]] {
 trait ModuleSystem[E <: Env[E]] {
 
   def rootActorContext: E#ActorContextT[?]
+
+  def futureContext: FutureContext[E]
 
   def newModuleRef[AcceptedMessageT](
       moduleName: ModuleName

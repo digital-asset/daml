@@ -500,7 +500,6 @@ create or replace view debug.par_in_flight_submission as
     submission_synchronizer_id,
     message_id,
     debug.canton_timestamp(sequencing_timeout) as sequencing_timeout,
-    sequencer_counter,
     debug.canton_timestamp(sequencing_time) as sequencing_time,
     tracking_data,
     root_hash_hex,
@@ -519,7 +518,7 @@ create or replace view debug.par_settings as
 create or replace view debug.par_command_deduplication as
   select
     change_id_hash,
-    application_id,
+    user_id,
     command_id,
     act_as,
     offset_definite_answer,
@@ -635,7 +634,8 @@ create or replace view debug.ord_epochs as
 create or replace view debug.ord_availability_batch as
   select
     id,
-    batch
+    batch,
+    epoch_number
   from ord_availability_batch;
 
 create or replace view debug.ord_pbft_messages_in_progress as

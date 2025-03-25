@@ -404,7 +404,6 @@ object EpochStoreTest {
     .create(
       BlockMetadata.mk(epochNumber, blockNumber),
       ViewNumber(viewNumber),
-      CantonTimestamp.Epoch,
       OrderingBlock(Seq.empty),
       CanonicalCommitSet(Set.empty),
       from = BftNodeId("address"),
@@ -421,7 +420,6 @@ object EpochStoreTest {
         BlockMetadata.mk(epochNumber, blockNumber),
         ViewNumber(viewNumber),
         Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
-        CantonTimestamp.Epoch,
         from = BftNodeId("address"),
       )
       .fakeSign
@@ -452,7 +450,6 @@ object EpochStoreTest {
         BlockMetadata.mk(epochNumber, segmentNumber),
         0,
         ViewNumber(viewNumber),
-        CantonTimestamp.Epoch,
         consensusCerts = Seq.empty,
         BftNodeId("address"),
       )
@@ -468,7 +465,6 @@ object EpochStoreTest {
         BlockMetadata.mk(epochNumber, segmentNumber),
         segmentIndex = 0,
         viewNumber = ViewNumber(viewNumber),
-        localTimestamp = CantonTimestamp.Epoch,
         viewChanges = Seq.empty,
         prePrepares = Seq.empty,
         BftNodeId("address"),

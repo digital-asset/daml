@@ -69,7 +69,7 @@ class InMemorySyncPersistentState(
     )
   val reassignmentStore =
     new InMemoryReassignmentStore(Target(indexedSynchronizer.item), loggerFactory)
-  val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory)
+  val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory, timeouts)
   val requestJournalStore = new InMemoryRequestJournalStore(loggerFactory)
   val acsCommitmentStore =
     new InMemoryAcsCommitmentStore(

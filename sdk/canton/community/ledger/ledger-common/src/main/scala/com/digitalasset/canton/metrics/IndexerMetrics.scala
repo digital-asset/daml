@@ -180,7 +180,7 @@ class IndexerMetrics(
       qualification = MetricQualification.Debug,
       labelsWithDescription = Map(
         "participant_id" -> "The id of the participant.",
-        "application_id" -> "The application generating the events.",
+        "user_id" -> "The user generating the events.",
       ),
     )
   )
@@ -195,7 +195,7 @@ class IndexerMetrics(
         qualification = MetricQualification.Debug,
         labelsWithDescription = Map(
           "participant_id" -> "The id of the participant.",
-          "application_id" -> "The application generating the events.",
+          "user_id" -> "The user generating the events.",
           "event_type" -> "The type of ledger event processed (transaction, reassignment, party_allocation).",
           "status" -> "Indicates if the event was accepted or not. Possible values accepted|rejected.",
         ),
@@ -206,7 +206,7 @@ class IndexerMetrics(
 object IndexerMetrics {
 
   object Labels {
-    val applicationId = "application_id"
+    val userId = "user_id"
     val grpcCode = "grpc_code"
     object eventType {
 

@@ -42,8 +42,8 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
     "WARN  org.jline - Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)"
   private lazy val jsonTtyWarning =
     "\"message\":\"Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)\",\"logger_name\":\"org.jline\",\"thread_name\":\"main\",\"level\":\"WARN\""
-  private lazy val commitmentCatchUpWarning =
-    "\"message\":\"The participant has activated ACS catchup mode to combat computation problem\",\"logger_name\":\"c.d.c.p.p.AcsCommitmentProcessor\",\"level\":\"WARN\""
+  private lazy val regexpCommitmentCatchUpWarning =
+    "WARN  c\\.d\\.c\\.p\\.p\\.AcsCommitmentProcessor:(.)*ACS_COMMITMENT_DEGRADATION(.)*The participant has activated ACS catchup mode to combat computation problem.(.)*"
 
   // Message printed out by the bootstrap script if Canton is started successfully
   private lazy val successMsg = "The last emperor is always the worst."
@@ -269,7 +269,7 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
       logger.debug(s"The process has ended now with $exitCode")
       // slow participants might activate ACS commitment catch-up mode, and we want to filter out the resulting
       // ACS commitment degradation warnings, otherwise the CI complains
-      val out = processLogger.output().replace(commitmentCatchUpWarning, "")
+      val out = processLogger.output().replaceAll(regexpCommitmentCatchUpWarning, "")
       logger.debug("Stdout is\n" + out)
       exitCode shouldBe 0
       out should include(successMsg)
@@ -383,14 +383,15 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
       "last-errors",
       // slow ExecutionContextMonitor warnings
       "WARN  c.d.c.c.ExecutionContextMonitor - Execution context",
-      // slow participants might activate ACS commitment catch-up mode
-      commitmentCatchUpWarning,
     )
     val log = filters
       .foldLeft(logger.output()) { case (log, filter) =>
         log.replace(filter, "")
       }
       .toLowerCase
+      // slow participants might activate ACS commitment catch-up mode
+      .replaceAll(regexpCommitmentCatchUpWarning, "")
+
     shouldContain.foreach(str => assert(log.contains(str.toLowerCase())))
     shouldNotContain.foreach(str => assert(!log.contains(str.toLowerCase())))
     val undesirables = Seq("warn", "error", "exception")

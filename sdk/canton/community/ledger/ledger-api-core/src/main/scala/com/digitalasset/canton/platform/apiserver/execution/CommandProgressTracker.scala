@@ -181,14 +181,14 @@ trait CommandProgressTracker {
   def registerCommand(
       commandId: String,
       submissionId: Option[String],
-      applicationId: String,
+      userId: String,
       commands: Seq[Command],
       actAs: Set[String],
   )(implicit traceContext: TraceContext): CommandResultHandle
 
   def findHandle(
       commandId: String,
-      applicationId: String,
+      userId: String,
       actAs: Seq[String],
       submissionId: Option[String],
   ): CommandResultHandle
@@ -208,14 +208,14 @@ object CommandProgressTracker {
     override def registerCommand(
         commandId: String,
         submissionId: Option[String],
-        applicationId: String,
+        userId: String,
         commands: Seq[Command],
         actAs: Set[String],
     )(implicit traceContext: TraceContext): CommandResultHandle = CommandResultHandle.NoOp
 
     override def findHandle(
         commandId: String,
-        applicationId: String,
+        userId: String,
         actAs: Seq[String],
         submissionId: Option[String],
     ): CommandResultHandle =

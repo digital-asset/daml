@@ -87,7 +87,7 @@ class AssignmentValidationTest
       submittingParticipant,
       LedgerCommandId.assertFromString("assignment-validation-command-id"),
       submissionId = None,
-      LedgerApplicationId.assertFromString("tests"),
+      LedgerUserId.assertFromString("tests"),
       workflowId = None,
     )
 

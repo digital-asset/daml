@@ -149,7 +149,7 @@ class ApiPartyManagementServiceSpec
       // Wait for tracker to complete
       future.futureValue
 
-      testTelemetrySetup.reportedSpanAttributes should contain(anApplicationIdSpanAttribute)
+      testTelemetrySetup.reportedSpanAttributes should contain(anUserIdSpanAttribute)
     }
 
     "close while allocating party" in {
@@ -296,8 +296,8 @@ object ApiPartyManagementServiceSpec {
     ): CompletionStage[state.SubmissionResult] = {
       val telemetryContext = traceContext.toDamlTelemetryContext(tracer)
       telemetryContext.setAttribute(
-        anApplicationIdSpanAttribute._1,
-        anApplicationIdSpanAttribute._2,
+        anUserIdSpanAttribute._1,
+        anUserIdSpanAttribute._2,
       )
       CompletableFuture.completedFuture(state.SubmissionResult.Acknowledged)
     }

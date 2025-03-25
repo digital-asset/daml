@@ -24,7 +24,7 @@ import com.digitalasset.canton.store.db.DbSerializationException
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
-import com.digitalasset.canton.{ApplicationId, CommandId}
+import com.digitalasset.canton.{CommandId, UserId}
 import slick.jdbc.SetParameter
 
 import java.util.concurrent.atomic.AtomicReference
@@ -58,7 +58,7 @@ class DbCommandDeduplicationStore(
   ): OptionT[FutureUnlessShutdown, CommandDeduplicationData] = {
     val query =
       sql"""
-        select application_id, command_id, act_as,
+        select user_id, command_id, act_as,
           offset_definite_answer, publication_time_definite_answer, submission_id_definite_answer, trace_context_definite_answer,
           offset_acceptance, publication_time_acceptance, submission_id_acceptance, trace_context_acceptance
         from par_command_deduplication
@@ -75,7 +75,7 @@ class DbCommandDeduplicationStore(
         """
           insert into par_command_deduplication(
             change_id_hash,
-            application_id, command_id, act_as,
+            user_id, command_id, act_as,
             offset_definite_answer, publication_time_definite_answer, submission_id_definite_answer, trace_context_definite_answer,
             offset_acceptance, publication_time_acceptance, submission_id_acceptance, trace_context_acceptance
           )
@@ -102,7 +102,7 @@ class DbCommandDeduplicationStore(
           merge into par_command_deduplication using
              (select
                 cast(? as varchar) as change_id_hash,
-                cast(? as varchar) as application_id,
+                cast(? as varchar) as user_id,
                 cast(? as varchar) as command_id,
                 cast(? as bytea) as act_as,
                 cast(? as bigint) as offset_definite_answer,
@@ -128,7 +128,7 @@ class DbCommandDeduplicationStore(
             when not matched then
               insert (
                 change_id_hash,
-                application_id, command_id, act_as,
+                user_id, command_id, act_as,
                 offset_definite_answer, publication_time_definite_answer,
                 submission_id_definite_answer, trace_context_definite_answer,
                 offset_acceptance, publication_time_acceptance,
@@ -136,7 +136,7 @@ class DbCommandDeduplicationStore(
               )
               values (
                 excluded.change_id_hash,
-                excluded.application_id, excluded.command_id, excluded.act_as,
+                excluded.user_id, excluded.command_id, excluded.act_as,
                 excluded.offset_definite_answer, excluded.publication_time_definite_answer,
                 excluded.submission_id_definite_answer, excluded.trace_context_definite_answer,
                 excluded.offset_acceptance, excluded.publication_time_acceptance,
@@ -153,7 +153,7 @@ class DbCommandDeduplicationStore(
         val (changeId, definiteAnswerEvent, accepted) = update
         val acceptance = if (accepted) definiteAnswerEvent.some else None
         pp >> ChangeIdHash(changeId)
-        pp >> ApplicationId(changeId.applicationId)
+        pp >> UserId(changeId.userId)
         pp >> CommandId(changeId.commandId)
         pp >> StoredParties.fromIterable(changeId.actAs)
         pp >> definiteAnswerEvent.offset

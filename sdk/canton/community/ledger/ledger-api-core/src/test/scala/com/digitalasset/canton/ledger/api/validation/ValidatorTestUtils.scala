@@ -20,7 +20,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
 
   protected val includedModule = "includedModule"
   protected val includedTemplate = "includedTemplate"
-  protected val expectedApplicationId = "expectedApplicationId"
+  protected val expectedUserId = "expectedUserId"
   protected val packageName = Ref.PackageName.assertFromString("somePackageName")
   protected val packageNameRefEncoded = Ref.PackageRef.Name(packageName).toString
   protected val templateQualifiedName =

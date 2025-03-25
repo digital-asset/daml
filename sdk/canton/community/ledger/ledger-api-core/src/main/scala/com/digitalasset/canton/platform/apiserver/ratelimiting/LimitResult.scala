@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.ratelimiting
 
-import com.digitalasset.base.error.DamlError
+import com.digitalasset.base.error.DamlRpcError
 
 import scala.annotation.tailrec
 
@@ -38,7 +38,7 @@ object LimitResult {
     override def flatMap(f: Unit => LimitResult): LimitResult = f(())
   }
 
-  final case class OverLimit(error: DamlError) extends LimitResult {
+  final case class OverLimit(error: DamlRpcError) extends LimitResult {
     override def flatMap(f: Unit => LimitResult): LimitResult = this
   }
 

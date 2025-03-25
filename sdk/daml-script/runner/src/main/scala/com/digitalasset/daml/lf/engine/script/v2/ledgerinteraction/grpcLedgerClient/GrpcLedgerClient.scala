@@ -59,7 +59,7 @@ import scala.concurrent.duration.DurationInt
 
 class GrpcLedgerClient(
     val grpcClient: LedgerClient,
-    val applicationId: Option[Ref.ApplicationId],
+    val userId: Option[Ref.UserId],
     val oAdminClient: Option[AdminLedgerClient],
     val compiledPackages: CompiledPackages,
 ) extends ScriptLedgerClient {
@@ -326,7 +326,7 @@ class GrpcLedgerClient(
         actAs = actAs.toList,
         readAs = readAs.toList,
         commands = ledgerCommands,
-        applicationId = applicationId.getOrElse(""),
+        userId = userId.getOrElse(""),
         commandId = UUID.randomUUID.toString,
         disclosedContracts = ledgerDisclosures,
         prefetchContractKeys = ledgerPrefetchContractKeys,

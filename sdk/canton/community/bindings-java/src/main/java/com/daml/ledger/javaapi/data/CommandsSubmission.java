@@ -26,7 +26,7 @@ import static java.util.Optional.empty;
  *
  * Usage:
  * <pre>
- *   var submission = CommandsSubmission.create(applicationId, commandId, synchronizerId, commands)
+ *   var submission = CommandsSubmission.create(userId, commandId, synchronizerId, commands)
  *                                   .withAccessToken(token)
  *                                   .withWorkflowId(workflowId)
  *                                   .with...
@@ -36,7 +36,7 @@ public final class CommandsSubmission {
 
   @NonNull private final Optional<String> workflowId;
 
-  @NonNull private final String applicationId;
+  @NonNull private final String userId;
   @NonNull private final String commandId;
   @NonNull private final List<@NonNull ? extends HasCommands> commands;
   @NonNull private final Optional<Duration> deduplicationDuration;
@@ -54,7 +54,7 @@ public final class CommandsSubmission {
 
   protected CommandsSubmission(
       @NonNull Optional<String> workflowId,
-      @NonNull String applicationId,
+      @NonNull String userId,
       @NonNull String commandId,
       @NonNull List<@NonNull ? extends HasCommands> commands,
       @NonNull Optional<Duration> deduplicationDuration,
@@ -70,7 +70,7 @@ public final class CommandsSubmission {
       @NonNull List<String> packageIdSelectionPreference,
       @NonNull List<@NonNull PrefetchContractKey> prefetchContractKeys) {
     this.workflowId = workflowId;
-    this.applicationId = applicationId;
+    this.userId = userId;
     this.commandId = commandId;
     this.commands = commands;
     this.deduplicationDuration = deduplicationDuration;
@@ -88,13 +88,13 @@ public final class CommandsSubmission {
   }
 
   public static CommandsSubmission create(
-      String applicationId,
+      String userId,
       String commandId,
       String synchronizerId,
       @NonNull List<@NonNull ? extends HasCommands> commands) {
     return new CommandsSubmission(
         empty(),
-        applicationId,
+        userId,
         commandId,
         commands,
         empty(),
@@ -122,8 +122,8 @@ public final class CommandsSubmission {
   }
 
   @NonNull
-  public String getApplicationId() {
-    return applicationId;
+  public String getUserId() {
+    return userId;
   }
 
   @NonNull
@@ -193,7 +193,7 @@ public final class CommandsSubmission {
   public CommandsSubmission withWorkflowId(String workflowId) {
     return new CommandsSubmission(
         Optional.of(workflowId),
-        applicationId,
+        userId,
         commandId,
         commands,
         deduplicationDuration,
@@ -213,7 +213,7 @@ public final class CommandsSubmission {
   public CommandsSubmission withActAs(String actAs) {
     return new CommandsSubmission(
         workflowId,
-        applicationId,
+        userId,
         commandId,
         commands,
         deduplicationDuration,
@@ -233,7 +233,7 @@ public final class CommandsSubmission {
   public CommandsSubmission withActAs(List<@NonNull String> actAs) {
     return new CommandsSubmission(
         workflowId,
-        applicationId,
+        userId,
         commandId,
         commands,
         deduplicationDuration,
@@ -253,7 +253,7 @@ public final class CommandsSubmission {
   public CommandsSubmission withReadAs(List<@NonNull String> readAs) {
     return new CommandsSubmission(
         workflowId,
-        applicationId,
+        userId,
         commandId,
         commands,
         deduplicationDuration,
@@ -273,7 +273,7 @@ public final class CommandsSubmission {
   public CommandsSubmission withMinLedgerTimeAbs(@NonNull Instant minLedgerTimeAbs) {
     return new CommandsSubmission(
         workflowId,
-        applicationId,
+        userId,
         commandId,
         commands,
         deduplicationDuration,
@@ -293,7 +293,7 @@ public final class CommandsSubmission {
   public CommandsSubmission withMinLedgerTimeRel(@NonNull Duration minLedgerTimeRel) {
     return new CommandsSubmission(
         workflowId,
-        applicationId,
+        userId,
         commandId,
         commands,
         deduplicationDuration,
@@ -318,7 +318,7 @@ public final class CommandsSubmission {
         });
     return new CommandsSubmission(
         workflowId,
-        applicationId,
+        userId,
         commandId,
         commands,
         Optional.of(deduplicationDuration),
@@ -343,7 +343,7 @@ public final class CommandsSubmission {
         });
     return new CommandsSubmission(
         workflowId,
-        applicationId,
+        userId,
         commandId,
         commands,
         deduplicationDuration,
@@ -363,7 +363,7 @@ public final class CommandsSubmission {
   public CommandsSubmission withCommands(List<@NonNull ? extends HasCommands> commands) {
     return new CommandsSubmission(
         workflowId,
-        applicationId,
+        userId,
         commandId,
         commands,
         deduplicationDuration,
@@ -383,7 +383,7 @@ public final class CommandsSubmission {
   public CommandsSubmission withAccessToken(@NonNull String accessToken) {
     return new CommandsSubmission(
         workflowId,
-        applicationId,
+        userId,
         commandId,
         commands,
         deduplicationDuration,
@@ -404,7 +404,7 @@ public final class CommandsSubmission {
       List<@NonNull DisclosedContract> disclosedContracts) {
     return new CommandsSubmission(
         workflowId,
-        applicationId,
+        userId,
         commandId,
         commands,
         deduplicationDuration,
@@ -425,7 +425,7 @@ public final class CommandsSubmission {
       List<@NonNull String> packageIdSelectionPreference) {
     return new CommandsSubmission(
         workflowId,
-        applicationId,
+        userId,
         commandId,
         commands,
         deduplicationDuration,
@@ -446,7 +446,7 @@ public final class CommandsSubmission {
       @NonNull List<@NonNull PrefetchContractKey> prefetchContractKeys) {
     return new CommandsSubmission(
         workflowId,
-        applicationId,
+        userId,
         commandId,
         commands,
         deduplicationDuration,
@@ -478,7 +478,7 @@ public final class CommandsSubmission {
 
     CommandsOuterClass.Commands.Builder builder =
         CommandsOuterClass.Commands.newBuilder()
-            .setApplicationId(applicationId)
+            .setUserId(userId)
             .setCommandId(commandId)
             .addAllCommands(commandsConverted)
             .addAllActAs(actAs)
@@ -508,7 +508,7 @@ public final class CommandsSubmission {
         commands.getWorkflowId().isEmpty()
             ? Optional.empty()
             : Optional.of(commands.getWorkflowId());
-    String applicationId = commands.getApplicationId();
+    String userId = commands.getUserId();
     String commandId = commands.getCommandId();
 
     List<? extends HasCommands> listOfCommands =
@@ -556,7 +556,7 @@ public final class CommandsSubmission {
 
     return new CommandsSubmission(
         workflowId,
-        applicationId,
+        userId,
         commandId,
         listOfCommands,
         deduplicationDuration,
@@ -579,8 +579,8 @@ public final class CommandsSubmission {
         + "workflowId='"
         + workflowId
         + '\''
-        + ", applicationId='"
-        + applicationId
+        + ", userId='"
+        + userId
         + '\''
         + ", commandId='"
         + commandId
@@ -620,7 +620,7 @@ public final class CommandsSubmission {
     if (o == null || getClass() != o.getClass()) return false;
     CommandsSubmission commandsSubmission = (CommandsSubmission) o;
     return Objects.equals(workflowId, commandsSubmission.workflowId)
-        && Objects.equals(applicationId, commandsSubmission.applicationId)
+        && Objects.equals(userId, commandsSubmission.userId)
         && Objects.equals(commandId, commandsSubmission.commandId)
         && Objects.equals(commands, commandsSubmission.commands)
         && Objects.equals(deduplicationDuration, commandsSubmission.deduplicationDuration)
@@ -641,7 +641,7 @@ public final class CommandsSubmission {
   public int hashCode() {
     return Objects.hash(
         workflowId,
-        applicationId,
+        userId,
         commandId,
         commands,
         deduplicationDuration,

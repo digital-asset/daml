@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.indexer.parallel
 
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update.{
   SequencedCommandRejected,
@@ -20,7 +19,7 @@ import java.util.UUID
 final case class PostPublishData(
     submissionSynchronizerId: SynchronizerId,
     publishSource: PublishSource,
-    applicationId: Ref.ApplicationId,
+    userId: Ref.UserId,
     commandId: Ref.CommandId,
     actAs: Set[Ref.Party],
     offset: Offset,
@@ -45,7 +44,7 @@ object PostPublishData {
       PostPublishData(
         submissionSynchronizerId = synchronizerId,
         publishSource = publishSource,
-        applicationId = completionInfo.applicationId,
+        userId = completionInfo.userId,
         commandId = completionInfo.commandId,
         actAs = completionInfo.actAs.toSet,
         offset = offset,
@@ -61,10 +60,7 @@ object PostPublishData {
         u.completionInfoO.map(completionInfo =>
           from(
             synchronizerId = u.synchronizerId,
-            publishSource = PublishSource.Sequencer(
-              requestSequencerCounter = u.sequencerCounter,
-              sequencerTimestamp = u.recordTime,
-            ),
+            publishSource = PublishSource.Sequencer(u.recordTime),
             completionInfo = completionInfo,
             accepted = true,
           )
@@ -75,10 +71,7 @@ object PostPublishData {
         Some(
           from(
             synchronizerId = u.synchronizerId,
-            publishSource = PublishSource.Sequencer(
-              requestSequencerCounter = u.sequencerCounter,
-              sequencerTimestamp = u.recordTime,
-            ),
+            publishSource = PublishSource.Sequencer(u.recordTime),
             completionInfo = u.completionInfo,
             accepted = false,
           )
@@ -104,8 +97,5 @@ object PostPublishData {
 sealed trait PublishSource extends Product with Serializable
 object PublishSource {
   final case class Local(messageUuid: UUID) extends PublishSource
-  final case class Sequencer(
-      requestSequencerCounter: SequencerCounter,
-      sequencerTimestamp: CantonTimestamp,
-  ) extends PublishSource
+  final case class Sequencer(sequencerTimestamp: CantonTimestamp) extends PublishSource
 }

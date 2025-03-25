@@ -9,6 +9,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   FetchBatches,
   GC,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.BatchId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
   OrderingRequest,
@@ -50,8 +51,13 @@ class Generator(random: Random, inMemoryStore: InMemoryAvailabilityStore) {
     )
   }
 
+  def genEpochNumber: Gen[EpochNumber] = _ => EpochNumber(random.nextLong())
+
   def genBatch: Gen[OrderingRequestBatch] = _ => {
-    OrderingRequestBatch.create(genSeq(genTraced(genOrderingRequest)).apply(()))
+    OrderingRequestBatch.create(
+      genSeq(genTraced(genOrderingRequest)).apply(()),
+      genEpochNumber.apply(()),
+    )
   }
 
   def generateCommand: Gen[Command] = _ => {

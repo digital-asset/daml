@@ -209,7 +209,7 @@ final class GrpcNetworking(
     private def openGrpcChannel(serverEndpoint: P2PEndpoint): OpenChannel = {
       implicit val executor: Executor = (command: Runnable) => executionContext.execute(command)
       val channel = createChannelBuilder(serverEndpoint.endpointConfig).build()
-      val maybeGrpcSequencerClientAuthAndServerEndpoint =
+      val maybeAuthenticationContext =
         authenticationInitialState.map(auth =>
           new GrpcSequencerClientAuth(
             auth.synchronizerId,
@@ -222,25 +222,31 @@ final class GrpcNetworking(
             clock = auth.clock,
             timeouts = timeouts,
             loggerFactory = loggerFactory,
-          ) -> auth.serverEndpoint
+          ) ->
+            auth.serverToClientAuthenticationEndpoint
         )
       mutex(this) {
         channels.put(serverEndpoint, channel).discard
-        maybeGrpcSequencerClientAuthAndServerEndpoint.foreach { case (auth, _) =>
-          grpcSequencerClientAuths.put(serverEndpoint, auth).discard
+        maybeAuthenticationContext.foreach { case (grpcSequencerClientAuth, _) =>
+          grpcSequencerClientAuths.put(serverEndpoint, grpcSequencerClientAuth).discard
         }
         logger.debug(s"Created gRPC channel to endpoint in server role $serverEndpoint")
       }
 
       def maybeAuthenticateStub[S <: AbstractStub[S]](stub: S) =
-        maybeGrpcSequencerClientAuthAndServerEndpoint.fold(stub) { case (auth, serverEndpoint) =>
-          serverEndpoint.fold(stub) { serverEndpoint =>
-            auth.apply(
-              stub.withInterceptors(
-                new AddEndpointHeaderClientInterceptor(serverEndpoint, loggerFactory)
-              )
-            )
-          }
+        maybeAuthenticationContext.fold(stub) {
+          case (auth, maybeServerToClientAuthenticationEndpoint) =>
+            maybeServerToClientAuthenticationEndpoint.fold(stub) {
+              serverToClientAuthenticationEndpoint =>
+                auth.apply(
+                  stub.withInterceptors(
+                    new AddEndpointHeaderClientInterceptor(
+                      serverToClientAuthenticationEndpoint,
+                      loggerFactory,
+                    )
+                  )
+                )
+            }
         }
 
       val (checkedChannel, maybeSequencerIdFromAuthenticationPromise) =
@@ -580,7 +586,7 @@ object GrpcNetworking {
       sequencerId: SequencerId,
       authenticationServices: AuthenticationServices,
       authTokenConfig: AuthenticationTokenManagerConfig,
-      serverEndpoint: Option[P2PEndpoint],
+      serverToClientAuthenticationEndpoint: Option[P2PEndpoint],
       clock: Clock,
   )
 

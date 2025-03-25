@@ -78,7 +78,7 @@ private[platform] trait LedgerDaoCommandCompletionsReader {
   def getCommandCompletions(
       startInclusive: Offset,
       endInclusive: Offset,
-      applicationId: ApplicationId,
+      userId: UserId,
       parties: Set[Party],
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -159,7 +159,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   def meteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
-      applicationId: Option[ApplicationId],
+      userId: Option[UserId],
   )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData]
 
 }

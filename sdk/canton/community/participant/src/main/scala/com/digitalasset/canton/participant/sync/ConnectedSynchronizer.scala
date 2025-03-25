@@ -635,7 +635,7 @@ class ConnectedSynchronizer(
               tc =>
                 participantNodePersistentState.value.ledgerApiStore
                   .cleanSynchronizerIndex(synchronizerId)(tc, ec)
-                  .map(_.flatMap(_.sequencerIndex).map(_.timestamp)),
+                  .map(_.flatMap(_.sequencerIndex).map(_.sequencerTimestamp)),
             )(initializationTraceContext)
           )
 

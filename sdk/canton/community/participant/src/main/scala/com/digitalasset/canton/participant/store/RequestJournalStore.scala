@@ -99,10 +99,10 @@ trait RequestJournalStore { this: NamedLogging =>
       implicit traceContext: TraceContext
   ): FutureUnlessShutdown[Int]
 
-  /** Deletes all the requests with a request counter equal to or higher than the given request
-    * counter.
+  /** Deletes all the requests with a request timestamp equal to or higher than the given request
+    * timestamp.
     */
-  def deleteSince(fromInclusive: RequestCounter)(implicit
+  def deleteSinceRequestTimestamp(fromInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 

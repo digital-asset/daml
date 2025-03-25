@@ -26,19 +26,27 @@ class LogReporter extends Reporter {
     case _: RunStarting => logger.info("Starting test run...")
     case _: RunCompleted => logger.info("Completed test run.")
     case _: RunStopped => logger.warn("Stopped test run.")
-    case _: RunAborted => logger.warn("Aborted test run.")
+    case event: RunAborted => warnWithThrowable("Aborted test run.", event.throwable)
     case event: SuiteStarting => logger.info(s"Starting test suite '${event.suiteName}'...")
     case event: SuiteCompleted => logger.info(s"Completed test suite '${event.suiteName}'.")
-    case event: SuiteAborted => logger.warn(s"Aborted test suite '${event.suiteName}'.")
+    case event: SuiteAborted =>
+      warnWithThrowable(s"Aborted test suite '${event.suiteName}'.", event.throwable)
     case event: ScopeOpened => logger.info(s"Entering '${event.message}'")
     case event: ScopeClosed => logger.info(s"Leaving '${event.message}'")
     case event: TestStarting => logger.info(s"Starting '${event.suiteName}/${event.testName}'...")
     case event: TestSucceeded =>
       logger.info(s"Test succeeded: '${event.suiteName}/${event.testName}'")
-    case event: TestFailed => logger.warn(s"Test failed: '${event.suiteName}/${event.testName}'")
+    case event: TestFailed =>
+      warnWithThrowable(s"Test failed: '${event.suiteName}/${event.testName}'", event.throwable)
     case event: TestCanceled =>
       logger.info(s"Test canceled: '${event.suiteName}/${event.testName}'")
     case event: TestIgnored => logger.info(s"Test ignored: '${event.suiteName}/${event.testName}'")
     case _ =>
   }
+
+  private def warnWithThrowable(message: String, throwableO: Option[Throwable]): Unit =
+    throwableO match {
+      case Some(throwable) => logger.warn(message, throwable)
+      case None => logger.warn(message)
+    }
 }

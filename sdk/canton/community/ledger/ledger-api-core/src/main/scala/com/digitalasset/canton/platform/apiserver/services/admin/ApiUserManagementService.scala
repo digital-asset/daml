@@ -603,7 +603,7 @@ object ApiUserManagementService {
   object AuthenticatedUserContext {
     def apply(claims: Claims): AuthenticatedUserContext = claims match {
       case claims: Claims if claims.resolvedFromUser =>
-        AuthenticatedUserContext(claims.applicationId, claims.claims.contains(ClaimAdmin))
+        AuthenticatedUserContext(claims.userId, claims.claims.contains(ClaimAdmin))
       case claims: Claims =>
         AuthenticatedUserContext(None, claims.claims.contains(ClaimAdmin))
     }

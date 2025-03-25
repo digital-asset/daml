@@ -36,7 +36,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.{BaseTest, LfKeyResolver, LfPackageId, LfPartyId}
-import com.digitalasset.daml.lf.data.Ref.{ApplicationId, CommandId, Party, SubmissionId, WorkflowId}
+import com.digitalasset.daml.lf.data.Ref.{CommandId, Party, SubmissionId, UserId, WorkflowId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.{FatContractInstance, SubmittedTransaction}
 import com.google.protobuf.ByteString
@@ -86,7 +86,7 @@ class ApiPackageManagementServiceSpec
           span.end()
         }
         .map { _ =>
-          testTelemetrySetup.reportedSpanAttributes should contain(anApplicationIdSpanAttribute)
+          testTelemetrySetup.reportedSpanAttributes should contain(anUserIdSpanAttribute)
           succeed
         }
     }
@@ -139,8 +139,8 @@ object ApiPackageManagementServiceSpec {
     ): Future[SubmissionResult] = {
       val telemetryContext = traceContext.toDamlTelemetryContext(tracer)
       telemetryContext.setAttribute(
-        anApplicationIdSpanAttribute._1,
-        anApplicationIdSpanAttribute._2,
+        anUserIdSpanAttribute._1,
+        anUserIdSpanAttribute._2,
       )
       Future.successful(state.SubmissionResult.Acknowledged)
     }
@@ -150,8 +150,8 @@ object ApiPackageManagementServiceSpec {
     ): Future[SubmissionResult] = {
       val telemetryContext = traceContext.toDamlTelemetryContext(tracer)
       telemetryContext.setAttribute(
-        anApplicationIdSpanAttribute._1,
-        anApplicationIdSpanAttribute._2,
+        anUserIdSpanAttribute._1,
+        anUserIdSpanAttribute._2,
       )
       Future.successful(state.SubmissionResult.Acknowledged)
     }
@@ -185,7 +185,7 @@ object ApiPackageManagementServiceSpec {
 
     override def submitReassignment(
         submitter: Party,
-        applicationId: ApplicationId,
+        userId: UserId,
         commandId: CommandId,
         submissionId: Option[SubmissionId],
         workflowId: Option[WorkflowId],
