@@ -53,13 +53,14 @@ main =
       invalidPublicKey = "30569f300d06092a864886f70d010101050003818d00308189028181009107a23dd899451c443f40f00c43361b5476794ba1c04b83da5a46dc8c6b7ff86e58de42a0a798fc4a85d8b3c63f75b5410a76f2e501c86de2eeeb"
       incorrectPublicKey = "3056301006072a8648ce3d020106052b8104000a03420004c1741ea55443e7f2a93673b176d4fa6af7b53492b3ebe72e858561ca6280f4d2c5ed8d7bf6897d70ac105a992812a7a5ab1689867d0ac730ee119c60e5646c10"
       expectedDigest = "b03c694bc07762ef8f08a0260d68dd6ecc9da10a6fe1c1abfb6a21f71e88ff1c"
-      burnMessageSignature = "3046022100dc16ffc58ba73eab033821a7b2dd26e95162bd414fa149e9a58c66ca98780a46022100a376f59ed0769c1564666c89d0d54ed973a9bfc2fe52c4ae64f816421e2984b4"
+      burnMessageSignature = "3046022100bdbe3c37aa32885baedc4f3b6a6fdf3064ccb841e1ed7e269b8735b289743a4c0221009d31a1fe4175a2133d74dabf75afb77aec8eeb40d3089487d9333d05ae13793c"
       malformedSignature = "3046beefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
       invalidSignature = "30450221009944dfb75e1e46006dd6922ba41145ab47dd00da2af75027a95589764fb5e72902200ac5c17d31d102dbdde75e4f5809dccbba9a118cf4a6bffd50108e8444bb69b5"
   in
     script do
       -- Secp256k1 signing is non-deterministic, so we simply validate that our daml-script question runs successively here
-      actualBurnMessageSignature <- secp256k1sign privateKey (serialize burnMessage)
+      actualBurnMessageSignature <- secp256k1sign privateKey (keccak256 (serialize burnMessage))
+      (burnMessageSignature === actualBurnMessageSignature)
       alice <- allocateParty "Alice"
       submitMustFail alice do
         createCmd MintToken with
