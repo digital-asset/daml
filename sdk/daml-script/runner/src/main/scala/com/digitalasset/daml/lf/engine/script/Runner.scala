@@ -263,8 +263,8 @@ object Runner {
       traceContext: TraceContext,
   ): Future[GrpcLedgerClient] = {
     val userId = params.user_id.getOrElse(
-      // If an application id was not supplied, but an access token was,
-      // we leave the application id empty so that the ledger will
+      // If a user id was not supplied, but an access token was,
+      // we leave the user id empty so that the ledger will
       // determine it from the access token.
       if (params.access_token.nonEmpty) BLANK_USER_ID else DEFAULT_USER_ID
     )

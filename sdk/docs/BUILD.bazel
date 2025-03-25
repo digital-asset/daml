@@ -15,14 +15,6 @@ load(
     "lf_version_configuration",
 )
 
-exports_files(
-    [
-        "source/tools/export/output-root/Export.daml",
-        "source/tools/export/output-root/args.json",
-        "source/tools/export/output-root/daml.yaml",
-    ],
-)
-
 genrule(
     name = "hoogle_db",
     srcs = [
@@ -86,16 +78,16 @@ genrule(
         cp -rL docs/source source
 
         # Copy in Stdlib
-        mkdir -p source/daml/stdlib
+        mkdir -p source/sdk/reference/daml/stdlib
         tar xf $(location //compiler/damlc:daml-base-rst.tar.gz) \\
             --strip-components 1 \\
-            -C source/daml/stdlib
+            -C source/sdk/reference/daml/stdlib
 
         # Copy in daml-script documentation
-        mkdir -p source/daml-script/api/
+        mkdir -p source/sdk/reference/daml-script/api/
         tar xf $(location //daml-script/daml:daml-script-rst.tar.gz) \\
             --strip-components 1 \\
-            -C source/daml-script/api/
+            -C source/sdk/reference/daml-script/api/
 
         # Copy in License and Notices
         cp -L $(location //:LICENSE) source/LICENSE
@@ -183,11 +175,6 @@ genrule(
 
     cp $(location configs/pdf/logo.png) $$DIR/docs/configs/pdf
 
-    # Copy templates for code snippets in getting started guide
-    CODE_DIR=$$DIR/docs/source/getting-started/code/
-    mkdir -p $$CODE_DIR
-    tar -zxf $(location //templates:templates-tarball) -C $$CODE_DIR
-
     TEMPLATES_DIR=$$DIR/docs/source/_templates
     mkdir -p $$TEMPLATES_DIR
     tar xf $(location //templates:templates-tarball) -C $$TEMPLATES_DIR --strip-components=1
@@ -216,11 +203,6 @@ genrule(
     mkdir -p $$DIR/docs
 
     tar xf $(location :sources) -C $$DIR/docs
-
-    # Copy templates for code snippets in getting started guide
-    CODE_DIR=$$DIR/docs/source/getting-started/code/
-    mkdir -p $$CODE_DIR
-    tar -zxf $(location //templates:templates-tarball) -C $$CODE_DIR --strip-components=1
 
     MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
     OUT_PATH=$$PWD/$@
@@ -261,22 +243,22 @@ genrule(
     set -eou pipefail
     DIR=$$(mktemp -d)
     trap "rm -rf DIR" EXIT
-    mkdir -p $$DIR/html/app-dev/bindings-java/javadocs
+    mkdir -p $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-java/javadocs
 
     # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary. Note flag to overwrite
-    unzip -q -o $(locations //language-support/java:javadoc) -d $$DIR/html/app-dev/bindings-java/javadocs
+    unzip -q -o $(locations //language-support/java:javadoc) -d $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-java/javadocs
     # Remove JAR metadata
-    rm -r $$DIR/html/app-dev/bindings-java/javadocs/com/daml/ledger/api/v2/interactive/transaction/v1/InteractiveSubmissionDataOuterClass* \
-          $$DIR/html/app-dev/bindings-java/javadocs/com/daml/ledger/api/v2/interactive/transaction/v1/class-use/InteractiveSubmissionDataOuterClass*
-    rm -r $$DIR/html/app-dev/bindings-java/javadocs/META-INF
+    rm -r $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-java/javadocs/com/daml/ledger/api/v2/interactive/transaction/v1/InteractiveSubmissionDataOuterClass* \
+          $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-java/javadocs/com/daml/ledger/api/v2/interactive/transaction/v1/class-use/InteractiveSubmissionDataOuterClass*
+    rm -r $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-java/javadocs/META-INF
 
     # Copy generated documentation for typescript libraries
-    mkdir -p $$DIR/html/app-dev/bindings-ts/daml-react
-    mkdir -p $$DIR/html/app-dev/bindings-ts/daml-ledger
-    mkdir -p $$DIR/html/app-dev/bindings-ts/daml-types
-    tar -xzf $(location //language-support/ts/daml-react:docs) --strip-components 1 -C $$DIR/html/app-dev/bindings-ts/daml-react/
-    tar -xzf $(location //language-support/ts/daml-ledger:docs) --strip-components 1 -C $$DIR/html/app-dev/bindings-ts/daml-ledger/
-    tar -xzf $(location //language-support/ts/daml-types:docs) --strip-components 1 -C $$DIR/html/app-dev/bindings-ts/daml-types/
+    mkdir -p $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-ts/daml-react
+    mkdir -p $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-ts/daml-ledger
+    mkdir -p $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-ts/daml-types
+    tar -xzf $(location //language-support/ts/daml-react:docs) --strip-components 1 -C $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-ts/daml-react/
+    tar -xzf $(location //language-support/ts/daml-ledger:docs) --strip-components 1 -C $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-ts/daml-ledger/
+    tar -xzf $(location //language-support/ts/daml-types:docs) --strip-components 1 -C $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-ts/daml-types/
 
     # Get the daml cheat sheet
     mkdir -p $$DIR/html/cheat-sheet
@@ -324,11 +306,11 @@ genrule(
 filegroup(
     name = "daml-assistant-iou-setup",
     srcs = glob(
-        ["source/app-dev/bindings-java/quickstart/template-root/*"],
+        ["source/sdk/tutorials/quickstart/template-root/*"],
         # excluding quickstart-java stuff
         exclude = [
-            "source/app-dev/bindings-java/quickstart/template-root/src",
-            "source/app-dev/bindings-java/quickstart/template-root/pom.xml",
+            "source/sdk/tutorials/quickstart/template-root/src",
+            "source/sdk/tutorials/quickstart/template-root/pom.xml",
         ],
         exclude_directories = 0,
     ),
@@ -337,14 +319,14 @@ filegroup(
 
 genrule(
     name = "quickstart-java",
-    srcs = glob(["source/app-dev/bindings-java/quickstart/template-root/**"]),
+    srcs = glob(["source/sdk/tutorials/quickstart/template-root/**"]),
     outs = ["quickstart-java.tar.gz"],
     cmd = """
         set -eou pipefail
         TMP_DIR=$$(mktemp -d)
         trap "rm -rf $$TMP_DIR" EXIT
         mkdir -p $$TMP_DIR/quickstart-java
-        cp -rL docs/source/app-dev/bindings-java/quickstart/template-root/* $$TMP_DIR/quickstart-java/
+        cp -rL docs/source/sdk/tutorials/quickstart/template-root/* $$TMP_DIR/quickstart-java/
         sed -i "s/__VERSION__/{mvn}/" $$TMP_DIR/quickstart-java/pom.xml
         $(execpath //bazel_tools/sh:mktgz) $@ -C $$TMP_DIR quickstart-java
     """.format(mvn = mvn_version),
@@ -357,9 +339,9 @@ load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
 genrule(
     name = "quickstart-model",
     srcs = [
-        "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/Main.daml",
-        "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/Iou.daml",
-        "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/IouTrade.daml",
+        "//docs:source/sdk/tutorials/quickstart/template-root/daml/Main.daml",
+        "//docs:source/sdk/tutorials/quickstart/template-root/daml/Iou.daml",
+        "//docs:source/sdk/tutorials/quickstart/template-root/daml/IouTrade.daml",
         "//daml-script/daml:daml-script.dar",
     ],
     outs = ["quickstart-model.dar"],
@@ -367,9 +349,9 @@ genrule(
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
-      cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/Main.daml) $$TMP_DIR/daml/
-      cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/Iou.daml) $$TMP_DIR/daml/
-      cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/IouTrade.daml) $$TMP_DIR/daml/
+      cp -R -L $(location //docs:source/sdk/tutorials/quickstart/template-root/daml/Main.daml) $$TMP_DIR/daml/
+      cp -R -L $(location //docs:source/sdk/tutorials/quickstart/template-root/daml/Iou.daml) $$TMP_DIR/daml/
+      cp -R -L $(location //docs:source/sdk/tutorials/quickstart/template-root/daml/IouTrade.daml) $$TMP_DIR/daml/
       cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
@@ -397,7 +379,7 @@ dar_to_java(
 
 java_binary(
     name = "quickstart-java-lib",
-    srcs = glob(["source/app-dev/bindings-java/quickstart/template-root/src/main/java/**/*.java"]) + [":quickstart-model-java-src.jar"],
+    srcs = glob(["source/sdk/tutorials/quickstart/template-root/src/main/java/**/*.java"]) + [":quickstart-model-java-src.jar"],
     main_class = "com.daml.quickstart.iou.IouMain",
     deps = [
         "//canton:bindings-java",
@@ -415,7 +397,7 @@ java_binary(
 
 daml_test(
     name = "ledger-api-daml-test",
-    srcs = glob(["source/app-dev/code-snippets/**/*.daml"]),
+    srcs = glob(["source/sdk/sdlc-howtos/applications/integrate/grpc/code-snippets/**/*.daml"]),
     additional_compiler_flags = [
         "-Wupgrade-interfaces",
         "-Wupgrade-exceptions",
@@ -429,7 +411,7 @@ daml_test(
 
 daml_test(
     name = "bindings-java-daml-test",
-    srcs = glob(["source/app-dev/bindings-java/code-snippets/**/*.daml"]),
+    srcs = glob(["source/sdk/sdlc-howtos/applications/integrate/bindings-java/code-snippets/**/*.daml"]),
     additional_compiler_flags = [
         "-Wupgrade-interfaces",
         "-Wupgrade-exceptions",
@@ -442,27 +424,27 @@ daml_test(
 
 daml_test(
     name = "patterns-daml-test",
-    srcs = glob(["source/daml/patterns/daml/**/*.daml"]),
+    srcs = glob(["source/sdk/sdlc-howtos/smart_contracts/develop/patterns/daml/**/*.daml"]),
     deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 pkg_tar(
     name = "daml-patterns",
-    srcs = glob(["source/daml/patterns/daml/**/*.daml"]) + ["source/daml/patterns/daml.yaml.template"],
-    strip_prefix = "/docs/source/daml/patterns",
+    srcs = glob(["source/sdk/sdlc-howtos/smart_contracts/develop/patterns/daml/**/*.daml"]) + ["source/sdk/sdlc-howtos/smart_contracts/develop/patterns/daml.yaml.template"],
+    strip_prefix = "/docs/source/sdk/sdlc-howtos/smart_contracts/develop/patterns",
     visibility = ["//visibility:public"],
 )
 
 daml_test(
     name = "daml-studio-daml-test",
-    srcs = glob(["source/daml/daml-studio/daml/**/*.daml"]),
+    srcs = glob(["source/sdk/component-howtos/smart_contracts/daml-studio/daml/**/*.daml"]),
     deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_test(
     name = "daml-ref-daml-test",
     timeout = "long",
-    srcs = glob(["source/daml/code-snippets/**/*.daml"]),
+    srcs = glob(["source/sdk/reference/daml/code-snippets/**/*.daml"]),
     additional_compiler_flags = [
         "-Wupgrade-interfaces",
         "-Wupgrade-exceptions",
@@ -477,7 +459,7 @@ daml_test(
     daml_test(
         name = "daml-ref-daml-test-{}".format(version),
         timeout = "long",
-        srcs = glob(["source/daml/code-snippets-dev/**/*.daml"]),
+        srcs = glob(["source/sdk/reference/daml/code-snippets-dev/**/*.daml"]),
         additional_compiler_flags = [
             "-Wupgrade-interfaces",
             "-Wupgrade-exceptions",
@@ -489,40 +471,35 @@ daml_test(
 ]
 
 daml_test(
-    name = "introduction-daml-test",
-    srcs = glob(["source/getting-started/introduction/code/**/*.daml"]),
-)
-
-daml_test(
     name = "quickstart-daml-test",
     srcs = glob(
-        include = ["source/app-dev/bindings-java/quickstart/template-root/daml/**/*.daml"],
+        include = ["source/sdk/tutorials/quickstart/template-root/daml/**/*.daml"],
     ),
     deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_test(
     name = "ledger-model-daml-test",
-    srcs = glob(["source/concepts/ledger-model/daml/**/*.daml"]),
+    srcs = glob(["source/overview/explanations/ledger-model/daml/**/*.daml"]),
     deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_test(
     name = "java-bindings-docs-daml-test",
-    srcs = glob(["source/app-dev/bindings-java/daml/**/*.daml"]),
+    srcs = glob(["source/sdk/sdlc-howtos/applications/integrate/bindings-java/daml/**/*.daml"]),
 )
 
 daml_test(
     name = "daml-intro-daml-test-excl-8-9-10-12-13",
     srcs = glob(
-        ["source/daml/intro/daml/**/*.daml"],
+        ["source/sdk/sdlc-howtos/smart_contracts/develop/language/daml/**/*.daml"],
         exclude = [
-            "source/daml/intro/daml/daml-intro-8/**",
-            "source/daml/intro/daml/daml-intro-9/**",
-            "source/daml/intro/daml/daml-intro-10/**",
-            "source/daml/intro/daml/daml-intro-12-part1/**",
-            "source/daml/intro/daml/daml-intro-12-part2/**",
-            "source/daml/intro/daml/daml-intro-13/**",
+            "source/sdk/sdlc-howtos/smart_contracts/develop/language/daml/daml-intro-8/**",
+            "source/sdk/sdlc-howtos/smart_contracts/develop/language/daml/daml-intro-9/**",
+            "source/sdk/sdlc-howtos/smart_contracts/develop/language/daml/daml-intro-10/**",
+            "source/sdk/sdlc-howtos/smart_contracts/develop/language/daml/daml-intro-12-part1/**",
+            "source/sdk/sdlc-howtos/smart_contracts/develop/language/daml/daml-intro-12-part2/**",
+            "source/sdk/sdlc-howtos/smart_contracts/develop/language/daml/daml-intro-13/**",
         ],
     ),
     # TODO(https://github.com/digital-asset/daml/issues/18457): remove contract keys from the
@@ -534,7 +511,7 @@ daml_test(
 daml_test(
     name = "daml-intro-daml-13-test",
     srcs = glob(
-        ["source/daml/intro/daml/daml-intro-13/**/*.daml"],
+        ["source/sdk/sdlc-howtos/smart_contracts/develop/language/daml/daml-intro-13/**/*.daml"],
     ),
     additional_compiler_flags = ["-Wupgrade-interfaces"],
     enable_interfaces = True,
@@ -545,7 +522,7 @@ daml_test(
 daml_test(
     name = "daml-intro-daml-12-part1-test",
     srcs = glob(
-        ["source/daml/intro/daml/daml-intro-12-part1/**/*.daml"],
+        ["source/sdk/sdlc-howtos/smart_contracts/develop/language/daml/daml-intro-12-part1/**/*.daml"],
     ),
     additional_compiler_flags = [
         "-Wupgrade-interfaces",
@@ -559,7 +536,7 @@ daml_test(
 daml_compile(
     name = "daml-intro12-part1",
     srcs = glob(
-        ["source/daml/intro/daml/daml-intro-12-part1/**/*.daml"],
+        ["source/sdk/sdlc-howtos/smart_contracts/develop/language/daml/daml-intro-12-part1/**/*.daml"],
     ),
     dependencies = ["//daml-script/daml:daml-script-2.1.dar"],
     enable_interfaces = True,
@@ -569,7 +546,7 @@ daml_compile(
 daml_test(
     name = "daml-intro-daml-12-part2-test",
     srcs = glob(
-        ["source/daml/intro/daml/daml-intro-12-part2/**/*.daml"],
+        ["source/sdk/sdlc-howtos/smart_contracts/develop/language/daml/daml-intro-12-part2/**/*.daml"],
     ),
     additional_compiler_flags = [
         "-Wupgrade-interfaces",
@@ -584,7 +561,7 @@ daml_test(
 daml_test(
     name = "daml-intro-daml-10-test",
     srcs = glob(
-        ["source/daml/intro/daml/daml-intro-10/**/*.daml"],
+        ["source/sdk/sdlc-howtos/smart_contracts/develop/language/daml/daml-intro-10/**/*.daml"],
     ),
     additional_compiler_flags = ["--ghc-option=-Wwarn=incomplete-patterns"],
     deps = ["//daml-script/daml:daml-script.dar"],
@@ -592,7 +569,7 @@ daml_test(
 
 daml_test(
     name = "daml-intro-9-daml-test",
-    srcs = glob(["source/daml/intro/daml/daml-intro-9/**/*.daml"]),
+    srcs = glob(["source/sdk/sdlc-howtos/smart_contracts/develop/language/daml/daml-intro-9/**/*.daml"]),
     data_deps = [":daml-intro-7.dar"],
     deps = ["//daml-script/daml:daml-script.dar"],
 )
@@ -600,7 +577,7 @@ daml_test(
 [
     daml_test(
         name = "daml-intro-8-daml-test-{}".format(version),
-        srcs = glob(["source/daml/intro/daml/daml-intro-8/**/*.daml"]),
+        srcs = glob(["source/sdk/sdlc-howtos/smart_contracts/develop/language/daml/daml-intro-8/**/*.daml"]),
         additional_compiler_flags = ["-Wupgrade-exceptions"],
         target = version,
         deps = ["//daml-script/daml:daml-script-{}.dar".format(version)],
@@ -614,7 +591,7 @@ daml_build_test(
     dar_dict = {
         "//daml-script/daml:daml-script.dar": "daml-script.dar",
     },
-    project_dir = "source/daml/intro/daml/daml-intro-7",
+    project_dir = "source/sdk/sdlc-howtos/smart_contracts/develop/language/daml/daml-intro-7",
 )
 
 daml_build_test(
@@ -625,12 +602,12 @@ daml_build_test(
         # version.
         "//daml-script/daml:daml-script-2.dev.dar": "daml-script.dar",
     },
-    project_dir = "source/upgrade/example/carbon-1.0.0",
+    project_dir = "source/sdk/sdlc-howtos/smart_contracts/upgrade/example/carbon-1.0.0",
 )
 
 daml_build_test(
     name = "daml-upgrade-example-v2",
-    project_dir = "source/upgrade/example/carbon-2.0.0",
+    project_dir = "source/sdk/sdlc-howtos/smart_contracts/upgrade/example/carbon-2.0.0",
 )
 
 daml_build_test(
@@ -639,7 +616,7 @@ daml_build_test(
         ":daml-upgrade-example-v1": "path/to/carbon-1.0.0.dar",
         ":daml-upgrade-example-v2": "path/to/carbon-2.0.0.dar",
     },
-    project_dir = "source/upgrade/example/carbon-upgrade",
+    project_dir = "source/sdk/sdlc-howtos/smart_contracts/upgrade/example/carbon-upgrade",
 )
 
 daml_build_test(
@@ -647,7 +624,7 @@ daml_build_test(
     dar_dict = {
         ":daml-upgrade-example-v1": "path/to/carbon-1.0.0.dar",
     },
-    project_dir = "source/upgrade/example/carbon-label",
+    project_dir = "source/sdk/sdlc-howtos/smart_contracts/upgrade/example/carbon-label",
 )
 
 daml_build_test(
@@ -661,17 +638,17 @@ daml_build_test(
         # version.
         "//daml-script/daml:daml-script-2.dev.dar": "daml-script.dar",
     },
-    project_dir = "source/upgrade/example/carbon-initiate-upgrade",
+    project_dir = "source/sdk/sdlc-howtos/smart_contracts/upgrade/example/carbon-initiate-upgrade",
 )
 
 filegroup(
     name = "daml-intro-1",
     srcs = glob(
-        ["source/daml/intro/daml/1_Token/**/*"],
+        ["source/sdk/sdlc-howtos/smart_contracts/develop/language/daml/1_Token/**/*"],
         # excluding quickstart-java stuff
         exclude = [
-            "source/app-dev/bindings-java/quickstart/template-root/src",
-            "source/app-dev/bindings-java/quickstart/template-root/pom.xml",
+            "source/sdk/tutorials/quickstart/template-root/src",
+            "source/sdk/tutorials/quickstart/template-root/pom.xml",
         ],
         exclude_directories = 0,
     ),
@@ -680,15 +657,15 @@ filegroup(
 
 pkg_tar(
     name = "daml-intro-templates",
-    srcs = glob(["source/daml/intro/daml/**"]),
-    strip_prefix = "source/daml/intro/daml",
+    srcs = glob(["source/sdk/sdlc-howtos/smart_contracts/develop/language/daml/**"]),
+    strip_prefix = "source/sdk/sdlc-howtos/smart_contracts/develop/language/daml",
     visibility = ["//visibility:public"],
 )
 
 pkg_tar(
     name = "script-example-template",
     srcs = glob(
-        ["source/daml-script/template-root/**"],
+        ["source/sdk/component-howtos/ledger_interaction/daml-script/template-root/**"],
         exclude = ["**/*~"],
     ),
     strip_prefix = "source/sdk/component-howtos/ledger_interaction/daml-script/template-root",
@@ -696,5 +673,5 @@ pkg_tar(
 )
 
 exports_files([
-    "source/daml-script/template-root/src/ScriptExample.daml",
+    "source/sdk/component-howtos/ledger_interaction/daml-script/template-root/src/ScriptExample.daml",
 ])

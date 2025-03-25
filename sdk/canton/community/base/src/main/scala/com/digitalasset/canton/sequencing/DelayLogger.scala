@@ -27,7 +27,7 @@ class DelayLogger(
   private val caughtUp = new AtomicBoolean(false)
 
   def checkForDelay(event: PossiblyIgnoredSequencedEvent[_]): Unit = event match {
-    case OrdinarySequencedEvent(signedEvent) =>
+    case OrdinarySequencedEvent(_, signedEvent) =>
       implicit val traceContext: TraceContext = event.traceContext
       signedEvent.content match {
         case Deliver(counter, _, ts, _, _, _, _, _) =>

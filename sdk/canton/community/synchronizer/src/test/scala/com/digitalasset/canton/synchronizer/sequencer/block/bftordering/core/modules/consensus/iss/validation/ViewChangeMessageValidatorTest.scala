@@ -63,7 +63,6 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
     .create(
       BlockMetadata.mk(epochNumber, blockNumber),
       ViewNumber(viewNumber),
-      CantonTimestamp.Epoch,
       block,
       CanonicalCommitSet(Set.empty),
       from = myId,
@@ -82,7 +81,6 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
         BlockMetadata.mk(epochNumber, blockNumber),
         ViewNumber(viewNumber),
         hash,
-        CantonTimestamp.Epoch,
         from,
       )
       .fakeSign
@@ -115,7 +113,6 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       BlockMetadata(EpochNumber(epochNumber), BlockNumber(segment)),
       0,
       viewNumber,
-      CantonTimestamp.Epoch,
       consensusCerts,
       from,
     )
@@ -129,7 +126,6 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
     BlockMetadata(EpochNumber(0), BlockNumber(0)),
     0,
     viewNumber,
-    CantonTimestamp.Epoch,
     viewChanges,
     prePrepares,
     from,
@@ -602,7 +598,7 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
               ProofOfAvailability(
                 BatchId.createForTesting("hash"),
                 Seq.empty,
-                CantonTimestamp.MaxValue,
+                epochNumber,
               )
             )
           ),

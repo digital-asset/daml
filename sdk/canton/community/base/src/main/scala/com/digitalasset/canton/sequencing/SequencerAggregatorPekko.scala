@@ -235,7 +235,7 @@ class SequencerAggregatorPekko(
         exclusiveStart: SequencerCounter,
         priorElement: Option[PriorElement],
     ): Source[OrdinarySerializedEvent, (KillSwitch, Future[Done], HealthComponent)] = {
-      val prior = priorElement.collect { case event @ OrdinarySequencedEvent(_) => event }
+      val prior = priorElement.collect { case event @ OrdinarySequencedEvent(_, _) => event }
       val eventValidator = createEventValidator(
         SequencerClient.loggerFactoryWithSequencerId(loggerFactory, sequencerId)
       )

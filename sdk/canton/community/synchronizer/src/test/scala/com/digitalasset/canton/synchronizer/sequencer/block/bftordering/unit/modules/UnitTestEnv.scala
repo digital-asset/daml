@@ -64,6 +64,12 @@ class UnsupportedFutureContext[E <: Env[E]] extends FutureContext[E] {
   ): E#FutureUnlessShutdownT[(X, Y)] =
     unsupported()
 
+  override def zipFuture[X, Y, Z](
+      future1: E#FutureUnlessShutdownT[X],
+      future2: E#FutureUnlessShutdownT[Y],
+      future3: E#FutureUnlessShutdownT[Z],
+  ): E#FutureUnlessShutdownT[(X, Y, Z)] = unsupported()
+
   override def sequenceFuture[A, F[_]](futures: F[E#FutureUnlessShutdownT[A]])(implicit
       ev: Traverse[F]
   ): E#FutureUnlessShutdownT[F[A]] =
@@ -179,6 +185,12 @@ class FunctionFutureContext[E <: BaseIgnoringUnitTestEnv[E]] extends FutureConte
 
   override def zipFuture[X, Y](future1: () => X, future2: () => Y): () => (X, Y) = () =>
     (future1(), future2())
+
+  override def zipFuture[X, Y, Z](
+      future1: () => X,
+      future2: () => Y,
+      future3: () => Z,
+  ): () => (X, Y, Z) = () => (future1(), future2(), future3())
 
   override def sequenceFuture[A, F[_]](futures: F[() => A])(implicit ev: Traverse[F]): () => F[A] =
     ev.sequence(futures)

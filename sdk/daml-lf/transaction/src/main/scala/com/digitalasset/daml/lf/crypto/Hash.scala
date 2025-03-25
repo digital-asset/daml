@@ -1025,12 +1025,12 @@ object Hash {
     handleError(assertHashContractInstance(templateId, arg, packageName, upgradeFriendly = true))
 
   def hashChangeId(
-      applicationIdOrUserId: String, // TODO(https://github.com/DACH-NY/canton/issues/24590) change to userId: Ref.UserId after canton application ID -> user ID done
+      userId: Ref.UserId,
       commandId: Ref.CommandId,
       actAs: Set[Ref.Party],
   ): Hash =
     builder(Purpose.ChangeId, noCid2String, upgradeFriendly = true)
-      .addString(applicationIdOrUserId)
+      .addString(userId)
       .addString(commandId)
       .addStringSet(actAs)
       .build

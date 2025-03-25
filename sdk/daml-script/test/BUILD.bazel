@@ -27,7 +27,7 @@ load(
         srcs =
             glob(["**/*.daml"]) + [
                 "//daml-script/daml:daml-script-{}.dar".format(target),
-                "//docs:source/daml-script/template-root/src/ScriptExample.daml",
+                "//docs:source/sdk/component-howtos/ledger_interaction/daml-script/template-root/src/ScriptExample.daml",
                 "//compiler/damlc/tests:divulgence-daml-test-files",
             ],
         outs = ["script-test-v{}.dar".format(name)],
@@ -41,7 +41,7 @@ load(
       cp -L $(location :daml/TestExceptions.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestInterfaces.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestFailWithStatus.daml) $$TMP_DIR/daml
-      cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
+      cp -L $(location //docs:source/sdk/component-howtos/ledger_interaction/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
       cp -L $(locations //compiler/damlc/tests:divulgence-daml-test-files) $$TMP_DIR/daml
       cat << EOF >> $$TMP_DIR/daml/ScriptExample.daml
 initializeFixed : Script ()
@@ -136,7 +136,7 @@ genrule(
     srcs =
         glob(["**/*.daml"]) + [
             "//daml-script/daml:daml-script-{}.dar".format(LF_DEFAULT_DEV_VERSION),
-            "//docs:source/daml-script/template-root/src/ScriptExample.daml",
+            "//docs:source/sdk/component-howtos/ledger_interaction/daml-script/template-root/src/ScriptExample.daml",
         ],
     outs = ["script-test-no-ledger.dar"],
     cmd = """

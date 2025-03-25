@@ -213,6 +213,12 @@ trait FutureContext[E <: Env[E]] {
       future2: E#FutureUnlessShutdownT[Y],
   ): E#FutureUnlessShutdownT[(X, Y)]
 
+  def zipFuture[X, Y, Z](
+      future1: E#FutureUnlessShutdownT[X],
+      future2: E#FutureUnlessShutdownT[Y],
+      future3: E#FutureUnlessShutdownT[Z],
+  ): E#FutureUnlessShutdownT[(X, Y, Z)]
+
   def sequenceFuture[A, F[_]](futures: F[E#FutureUnlessShutdownT[A]])(implicit
       ev: Traverse[F]
   ): E#FutureUnlessShutdownT[F[A]]
@@ -279,6 +285,12 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging with FutureConte
       future1: E#FutureUnlessShutdownT[X],
       future2: E#FutureUnlessShutdownT[Y],
   ): E#FutureUnlessShutdownT[(X, Y)] = futureContext.zipFuture(future1, future2)
+
+  final override def zipFuture[X, Y, Z](
+      future1: E#FutureUnlessShutdownT[X],
+      future2: E#FutureUnlessShutdownT[Y],
+      future3: E#FutureUnlessShutdownT[Z],
+  ): E#FutureUnlessShutdownT[(X, Y, Z)] = futureContext.zipFuture(future1, future2, future3)
 
   final override def sequenceFuture[A, F[_]](futures: F[E#FutureUnlessShutdownT[A]])(implicit
       ev: Traverse[F]

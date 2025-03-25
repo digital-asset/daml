@@ -15,6 +15,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.store.SequencedEventStore.{
   OrdinarySequencedEvent,
   PossiblyIgnoredSequencedEvent,
+  SequencedEventWithTraceContext,
 }
 import com.digitalasset.canton.tracing.Traced
 
@@ -71,6 +72,8 @@ package object sequencing {
 
   /** Default type for serialized events. Contains trace context and signature.
     */
+  type SequencedSerializedEvent = BoxedEnvelope[SequencedEventWithTraceContext, ClosedEnvelope]
+
   type OrdinarySerializedEvent = BoxedEnvelope[OrdinarySequencedEvent, ClosedEnvelope]
 
   type PossiblyIgnoredSerializedEvent = BoxedEnvelope[PossiblyIgnoredSequencedEvent, ClosedEnvelope]

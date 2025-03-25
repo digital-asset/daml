@@ -13,6 +13,7 @@ import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequestBatch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.BatchId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem.{
@@ -35,6 +36,7 @@ class DbAvailabilityStore(
 
   import storage.api.*
   private val profile = storage.profile
+  private val converters = storage.converters
 
   implicit object SetSeqBatchId extends SetParameter[Seq[BatchId]] {
     override def apply(v1: Seq[BatchId], pp: PositionedParameters): Unit =
@@ -42,8 +44,8 @@ class DbAvailabilityStore(
   }
 
   private implicit def readOrderingRequestBatch: GetResult[OrderingRequestBatch] =
-    GetResult { r =>
-      ProtoConverter.protoParserArray(v30.Batch.parseFrom)(r.nextBytes()) match {
+    converters.getResultByteArray.andThen { bytes =>
+      ProtoConverter.protoParserArray(v30.Batch.parseFrom)(bytes) match {
         case Left(error) =>
           throw new DbDeserializationException(s"Could not deserialize proto request batch: $error")
         case Right(value) =>
@@ -55,8 +57,10 @@ class DbAvailabilityStore(
       }
     }
 
-  private implicit val setOrderingRequestBatch: SetParameter[OrderingRequestBatch] =
-    (or, pp) => pp.setBytes(or.toProtoV30.toByteArray)
+  private implicit val setOrderingRequestBatch: SetParameter[OrderingRequestBatch] = { (or, pp) =>
+    val array = or.toProtoV30.toByteArray
+    converters.setParameterByteArray(array, pp)
+  }
 
   private implicit def readBatchId: GetResult[BatchId] = GetResult { r =>
     BatchId.fromHexString(r.nextString()) match {
@@ -86,14 +90,15 @@ class DbAvailabilityStore(
           profile match {
             case _: Postgres =>
               sqlu"""insert into ord_availability_batch
-                 values ($batchId, $batch)
+                 values ($batchId, $batch, ${batch.epochNumber})
                  on conflict (id) do nothing"""
             case _: H2 =>
-              sqlu"""merge into ord_availability_batch
-                 using values ($batchId, $batch) s(id,batch)
-                 on ord_availability_batch.id = s.id
-                 when not matched then insert values (s.id, s.batch)
-                 """
+              sqlu"""merge into ord_availability_batch using dual
+                     on (id = $batchId)
+                     when not matched then
+                       insert (id, batch, epoch_number)
+                       values ($batchId, $batch, ${batch.epochNumber})
+                  """
           },
           functionFullName,
         )
@@ -159,4 +164,33 @@ class DbAvailabilityStore(
         functionFullName,
       )
     }
+
+  override def loadNumberOfRecords(implicit
+      traceContext: TraceContext
+  ): PekkoFutureUnlessShutdown[AvailabilityStore.NumberOfRecords] =
+    PekkoFutureUnlessShutdown(
+      loadNumberOfRecordsName,
+      () =>
+        storage.query(
+          (for {
+            numberOfBatches <- sql"""select count(*) from ord_availability_batch""".as[Long].head
+          } yield AvailabilityStore.NumberOfRecords(numberOfBatches)),
+          functionFullName,
+        ),
+    )
+
+  override def prune(epochNumberExclusive: EpochNumber)(implicit
+      traceContext: TraceContext
+  ): PekkoFutureUnlessShutdown[AvailabilityStore.NumberOfRecords] = PekkoFutureUnlessShutdown(
+    pruneName(epochNumberExclusive),
+    () =>
+      for {
+        batchesDeleted <- storage.update(
+          sqlu""" delete from ord_availability_batch where epoch_number < $epochNumberExclusive """,
+          functionFullName,
+        )
+      } yield AvailabilityStore.NumberOfRecords(
+        batchesDeleted.toLong
+      ),
+  )
 }

@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.BatchId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
   OrderingRequest,
@@ -28,11 +29,11 @@ trait AvailabilityStoreTest extends AsyncWordSpec with BftSequencerBaseTest {
     OrderingRequest("tag", ByteString.copyFromUtf8("payload3"))
   )
 
-  private val batch1 = OrderingRequestBatch.create(Seq(request1, request3))
+  private val batch1 = OrderingRequestBatch.create(Seq(request1, request3), EpochNumber.First)
   private val batch1Id = BatchId.from(batch1)
-  private val batch2 = OrderingRequestBatch.create(Seq(request2, request3))
+  private val batch2 = OrderingRequestBatch.create(Seq(request2, request3), EpochNumber(1L))
   private val batch2Id = BatchId.from(batch2)
-  private val batchEmpty = OrderingRequestBatch.create(Seq())
+  private val batchEmpty = OrderingRequestBatch.create(Seq(), EpochNumber(2L))
   private val batchEmptyId = BatchId.from(batchEmpty)
 
   private val missingBatchId1 = BatchId.createForTesting("A missing batchId")
@@ -127,6 +128,34 @@ trait AvailabilityStoreTest extends AsyncWordSpec with BftSequencerBaseTest {
         } yield {
           batches shouldBe AvailabilityStore.AllBatches(Seq(batch1Id -> batch1))
         }
+      }
+
+      "prune batches" in {
+        val store = createStore()
+
+        val batch1 = OrderingRequestBatch.create(Seq(request1), EpochNumber.First)
+        val batch1Id = BatchId.from(batch1)
+
+        val batch2 = OrderingRequestBatch.create(Seq(request1), EpochNumber(1L))
+        val batch2Id = BatchId.from(batch2)
+
+        val batch3 = OrderingRequestBatch.create(Seq(request1), EpochNumber(2L))
+        val batch3Id = BatchId.from(batch3)
+
+        for {
+          _ <- store.addBatch(batch1Id, batch1)
+          _ <- store.addBatch(batch2Id, batch2)
+          _ <- store.addBatch(batch3Id, batch3)
+
+          numberOfRecords <- store.loadNumberOfRecords
+
+          _ = numberOfRecords.batches shouldBe (3)
+
+          _ <- store.prune(EpochNumber(2L))
+
+          numberOfRecordsAfterPruning <- store.loadNumberOfRecords
+
+        } yield numberOfRecordsAfterPruning.batches shouldBe (1)
       }
     }
   }

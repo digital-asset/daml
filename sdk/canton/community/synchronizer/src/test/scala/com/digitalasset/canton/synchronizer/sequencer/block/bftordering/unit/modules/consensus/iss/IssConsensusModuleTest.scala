@@ -277,7 +277,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                 .create(
                   BlockMetadata(aStartEpoch.number, blockNum),
                   ViewNumber.First,
-                  aTopologyActivationTime.value,
                   OrderingBlock.empty,
                   CanonicalCommitSet.empty,
                   myId,
@@ -611,7 +610,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                   .create(
                     BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
                     ViewNumber.First,
-                    CantonTimestamp.Epoch,
                     OrderingBlock.empty,
                     CanonicalCommitSet.empty,
                     from = myId,
@@ -707,7 +705,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
           val prePrepare = PrePrepare.create(
             blockMetadata4Nodes(n),
             ViewNumber.First,
-            clock.now,
             OrderingBlock(oneRequestOrderingBlock.proofs),
             CanonicalCommitSet(Set.empty),
             leaderOfBlock,
@@ -807,7 +804,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
               PrePrepare.create( // Just to trigger the catch-up check
                 blockMetadata4Nodes(1),
                 ViewNumber.First,
-                clock.now,
                 OrderingBlock(oneRequestOrderingBlock.proofs),
                 CanonicalCommitSet(Set.empty),
                 allIds(1),
@@ -1020,7 +1016,7 @@ private[iss] object IssConsensusModuleTest {
   val allIds: Seq[BftNodeId] = (myId +: otherIds).sorted
   val aBatchId: BatchId = BatchId.createForTesting("A batch id")
   val oneRequestOrderingBlock: OrderingBlock = OrderingBlock(
-    Seq(ProofOfAvailability(aBatchId, Seq.empty, CantonTimestamp.MaxValue))
+    Seq(ProofOfAvailability(aBatchId, Seq.empty, EpochNumber.First))
   )
 
   private val anOrderingTopology = OrderingTopology.forTesting(allIds.toSet)

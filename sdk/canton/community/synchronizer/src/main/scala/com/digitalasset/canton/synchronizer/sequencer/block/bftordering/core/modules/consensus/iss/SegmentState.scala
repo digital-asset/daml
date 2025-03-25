@@ -512,8 +512,7 @@ class SegmentState(
     viewState.shouldCreateNewView && !viewState.haveSignedPrePrepares && thisViewChangeIsInProgress
   } { case (viewNumber, viewState) =>
     _ =>
-      val now = clock.now
-      val prePrepares = viewState.constructPrePreparesForNewView(viewChangeBlockMetadata, now)
+      val prePrepares = viewState.constructPrePreparesForNewView(viewChangeBlockMetadata)
       Seq(
         SignPrePreparesForNewView(
           viewChangeBlockMetadata,
@@ -535,7 +534,6 @@ class SegmentState(
         .createNewViewMessage(
           viewChangeBlockMetadata,
           segmentIdx = originalLeaderIndex,
-          clock.now,
           prePrepares,
         )
       Seq(SignPbftMessage(newViewMessage))
@@ -582,7 +580,6 @@ class SegmentState(
       viewChangeBlockMetadata,
       segmentIndex = originalLeaderIndex,
       newViewNumber,
-      clock.now,
       consensusCerts,
       from = membership.myId,
     )

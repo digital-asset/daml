@@ -16,7 +16,6 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsTransaction,
   JsTransactionTree,
 }
-import com.digitalasset.canton.http.json.v2.Protocol.Protocol
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.Codecs.*
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -156,8 +155,7 @@ class JsUpdateService(
     }
 
   private def getFlats(
-      caller: CallerContext,
-      protocol: Protocol,
+      caller: CallerContext
   ): TracedInput[Unit] => Flow[update_service.GetUpdatesRequest, JsGetUpdatesResponse, NotUsed] =
     req => {
       implicit val token = caller.token()
@@ -165,14 +163,11 @@ class JsUpdateService(
       prepareSingleWsStream(
         updateServiceClient(caller.token())(TraceContext.empty).getUpdates,
         (r: update_service.GetUpdatesResponse) => protocolConverters.GetUpdatesResponse.toJson(r),
-        protocol = protocol,
-        withCloseDelay = true,
       )
     }
 
   private def getTrees(
-      caller: CallerContext,
-      protocol: Protocol,
+      caller: CallerContext
   ): TracedInput[Unit] => Flow[
     update_service.GetUpdatesRequest,
     JsGetUpdateTreesResponse,
@@ -185,8 +180,6 @@ class JsUpdateService(
         updateServiceClient(caller.token()).getUpdateTrees,
         (r: update_service.GetUpdateTreesResponse) =>
           protocolConverters.GetUpdateTreesResponse.toJson(r),
-        protocol = protocol,
-        withCloseDelay = true,
       )
     }
 

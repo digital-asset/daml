@@ -5,7 +5,6 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
@@ -144,7 +143,6 @@ object BlockedProgressDetectorTest {
           .create(
             BlockMetadata(epochNumber, blockNumber),
             ViewNumber.First,
-            CantonTimestamp.Epoch,
             OrderingBlock(Seq.empty),
             CanonicalCommitSet(Set.empty),
             myId,

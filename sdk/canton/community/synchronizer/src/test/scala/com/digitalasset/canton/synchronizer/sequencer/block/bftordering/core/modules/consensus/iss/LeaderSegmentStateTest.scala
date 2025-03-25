@@ -84,7 +84,6 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
                 .create(
                   BlockMetadata(EpochNumber.First, n),
                   ViewNumber.First,
-                  CantonTimestamp.Epoch,
                   OrderingBlock(Seq.empty),
                   CanonicalCommitSet(Set.empty),
                   myId,
@@ -198,7 +197,6 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         .create(
           metadata,
           ViewNumber.First,
-          CantonTimestamp.Epoch,
           OrderingBlock.empty,
           CanonicalCommitSet.empty,
           from = segmentState.segment.originalLeader,
@@ -211,7 +209,7 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
     otherIds.foreach { node =>
       val prepare =
         Prepare
-          .create(metadata, ViewNumber.First, ppHash, CantonTimestamp.Epoch, from = node)
+          .create(metadata, ViewNumber.First, ppHash, from = node)
           .fakeSign
       val _ = assertNoLogs(segmentState.processEvent(PbftSignedNetworkMessage(prepare)))
     }
