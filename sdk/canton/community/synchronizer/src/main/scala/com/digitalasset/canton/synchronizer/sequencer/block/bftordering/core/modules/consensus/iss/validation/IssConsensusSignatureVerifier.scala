@@ -72,7 +72,6 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
             blockMetadata,
             viewNumber,
             hash,
-            localTimestamp,
             from,
           ) =>
         context.pureFuture(Either.unit[Seq[SignatureCheckError]])
@@ -84,7 +83,6 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
             blockMetadata,
             segmentIndex,
             viewNumber,
-            localTimestamp,
             viewChanges,
             prePrepares,
             from,
@@ -106,7 +104,7 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
     proofOfAvailability.acks.map { ack =>
       val hash = AvailabilityAck.hashFor(
         proofOfAvailability.batchId,
-        proofOfAvailability.expirationTime,
+        proofOfAvailability.epochNumber,
         ack.from,
       )
       cryptoProvider.verifySignature(hash, ack.from, ack.signature)
@@ -132,7 +130,6 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
     case PrePrepare(
           blockMetadata,
           viewNumber,
-          localTimestamp,
           block,
           canonicalCommitSet,
           from,
@@ -176,7 +173,6 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
           _blockMetadata,
           _segmentIndex,
           _viewNumber,
-          _localTimestamp,
           certs,
           _from,
         ) =>

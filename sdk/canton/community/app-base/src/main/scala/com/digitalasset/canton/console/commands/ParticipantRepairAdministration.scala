@@ -261,7 +261,7 @@ class ParticipantRepairAdministration(
     "Import active contracts from an Active Contract Set (ACS) snapshot file.",
     FeatureFlag.Preview,
   )
-  @Help.Description(
+  @Help.Description( // TODO(#24326) - update description when replacing import_acs with import_acs_new
     """This command imports contracts from an ACS snapshot file into the participant's
       |ACS. It expects the given ACS snapshot file to be the result of a previous
       |`export_acs_new` command invocation.
@@ -292,10 +292,19 @@ class ParticipantRepairAdministration(
       |If the import process succeeds, the mapping from the old contract IDs to the new
       |contract IDs will be returned. An empty map means that all contract IDs were valid,
       |or have been accept as they are, and no contract ID was recomputed.
+      |
+      |The arguments are:
+      |- importFilePath: The path denoting the file from where the ACS snapshot will be read.
+      |                  Defaults to "canton-acs-export-new.gz" when undefined.
+      |- workflowIdPrefix: Prefixes the workflow ID for the import. Defaults to
+      |                  "import-<random_UUID>" when undefined.
+      |- contractIdImportMode: Governs contract ID processing on import. Options include
+      |                        Validation (default), [Accept, Recomputation].
       """
   )
   def import_acs_new(
-      inputFile: String = "canton-acs-export-new.gz",
+      importFilePath: String =
+        "canton-acs-export-new.gz", // TODO(#24326) - update when replacing export_acs with export_acs_new, also in description
       workflowIdPrefix: String = "",
       contractIdImportMode: ContractIdImportMode = Validation,
   ): Map[LfContractId, LfContractId] =
@@ -304,7 +313,7 @@ class ParticipantRepairAdministration(
         consoleEnvironment.run {
           runner.adminCommand(
             ParticipantAdminCommands.ParticipantRepairManagement.ImportAcsNew(
-              ByteString.copyFrom(File(inputFile).loadBytes),
+              ByteString.copyFrom(File(importFilePath).loadBytes),
               if (workflowIdPrefix.nonEmpty) workflowIdPrefix else s"import-${UUID.randomUUID}",
               contractIdImportMode = contractIdImportMode,
             )

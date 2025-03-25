@@ -13,7 +13,9 @@ class SequencedEventStoreTestInMemory
     with SequencedEventStoreTest {
 
   "MessageStoreTestInMemory" should {
-    behave like sequencedEventStore(ec => new InMemorySequencedEventStore(loggerFactory)(ec))
+    behave like sequencedEventStore(ec =>
+      new InMemorySequencedEventStore(loggerFactory, timeouts)(ec)
+    )
   }
 
 }

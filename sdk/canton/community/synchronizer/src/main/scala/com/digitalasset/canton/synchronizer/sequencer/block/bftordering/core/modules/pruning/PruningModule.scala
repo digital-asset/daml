@@ -11,6 +11,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   BlockNumber,
   EpochNumber,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequestBatch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Pruning
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   CancellableEvent,
@@ -98,14 +99,19 @@ final class PruningModule[E <: Env[E]](
         val pruneFuture = context.zipFuture(
           stores.outputStore.prune(epochNumber),
           stores.epochStore.prune(epochNumber),
-          // TODO(#23297): add availability stores
+          stores.availabilityStore.prune(
+            EpochNumber(epochNumber - OrderingRequestBatch.BatchValidityDurationEpochs + 1L)
+          ),
         )
         pipeToSelf(pruneFuture) {
-          case Success((outputStorePrunedRecords, epochStorePrunedRecords)) =>
+          case Success(
+                (outputStorePrunedRecords, epochStorePrunedRecords, availabilityStorePrunedRecords)
+              ) =>
             logger.info(
-              s"Pruning complete. " +
+              s"Pruning at epoch $epochNumber complete. " +
                 s"EpochStore: pruned ${epochStorePrunedRecords.epochs} epochs, ${epochStorePrunedRecords.pbftMessagesCompleted} pbft messages. " +
-                s"OutputStore: pruned ${outputStorePrunedRecords.epochs} and ${outputStorePrunedRecords.blocks} blocks."
+                s"OutputStore: pruned ${outputStorePrunedRecords.epochs} and ${outputStorePrunedRecords.blocks} blocks. " +
+                s"AvailabilityStore: pruned ${availabilityStorePrunedRecords.batches} batches."
             )
             Pruning.SchedulePruning
           case Failure(exception) =>

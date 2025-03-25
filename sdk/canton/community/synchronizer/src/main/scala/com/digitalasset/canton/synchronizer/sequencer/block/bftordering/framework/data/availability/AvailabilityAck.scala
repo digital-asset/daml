@@ -4,10 +4,12 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability
 
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose, Signature, v30}
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.FingerprintKeyId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  EpochNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.AvailabilityAck.ValidationError
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.AvailabilityAck as ProtoAvailabilityAck
@@ -51,13 +53,13 @@ object AvailabilityAck {
       originatingNode = BftNodeId(ack.from)
     } yield AvailabilityAck(originatingNode, sig)
 
-  def hashFor(batchId: BatchId, expirationTime: CantonTimestamp, from: BftNodeId): Hash = Hash
+  def hashFor(batchId: BatchId, epoch: EpochNumber, from: BftNodeId): Hash = Hash
     .build(
       HashPurpose.BftAvailabilityAck,
       HashAlgorithm.Sha256,
     )
     .add(batchId.getCryptographicEvidence)
+    .add(epoch)
     .add(from)
-    .add(expirationTime.toMicros)
     .finish()
 }

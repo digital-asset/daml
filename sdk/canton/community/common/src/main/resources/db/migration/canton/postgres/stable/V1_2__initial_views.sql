@@ -634,7 +634,8 @@ create or replace view debug.ord_epochs as
 create or replace view debug.ord_availability_batch as
   select
     id,
-    batch
+    batch,
+    epoch_number
   from ord_availability_batch;
 
 create or replace view debug.ord_pbft_messages_in_progress as

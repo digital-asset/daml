@@ -121,22 +121,19 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
 
     override def ready(self: ModuleRef[Mempool.Message]): Unit =
       (1 to RequestsPerNode).foreach { _ =>
-        val batch =
-          OrderingRequestBatch.create(
-            Seq(
-              Traced(
-                OrderingRequest(
-                  "tx",
-                  ByteString.copyFromUtf8(
-                    f"$thisNode-request-${simulationModel.requestIndex}"
-                  ),
-                )
-              )(
-                TraceContext.empty
-              )
+        val requests = Seq(
+          Traced(
+            OrderingRequest(
+              "tx",
+              ByteString.copyFromUtf8(
+                f"$thisNode-request-${simulationModel.requestIndex}"
+              ),
             )
+          )(
+            TraceContext.empty
           )
-        val request = Availability.LocalDissemination.LocalBatchCreated(BatchId.from(batch), batch)
+        )
+        val request = Availability.LocalDissemination.LocalBatchCreated(requests)
         simulationModel.requestIndex += 1
         availability.asyncSend(request)
       }

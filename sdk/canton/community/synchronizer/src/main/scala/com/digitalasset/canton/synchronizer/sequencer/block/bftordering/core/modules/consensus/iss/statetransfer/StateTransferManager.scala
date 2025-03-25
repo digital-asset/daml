@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer
 
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.TimeoutManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
@@ -25,8 +26,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.utils.BftNodeShuffler
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.SingleUseCell
+import com.google.common.annotations.VisibleForTesting
 
-import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Random, Success}
 
 /** Manages a single state transfer instance in a client role and multiple state transfer instances
@@ -42,9 +43,8 @@ class StateTransferManager[E <: Env[E]](
     epochLength: EpochLength, // TODO(#19289) support variable epoch lengths
     epochStore: EpochStore[E],
     override val loggerFactory: NamedLoggerFactory,
-) extends NamedLogging {
-
-  import StateTransferManager.*
+)(implicit config: BftBlockOrdererConfig)
+    extends NamedLogging {
 
   private val stateTransferStartEpoch = new SingleUseCell[EpochNumber]
 
@@ -58,7 +58,8 @@ class StateTransferManager[E <: Env[E]](
     loggerFactory,
   )
 
-  private val maybeBlockTransferResponseTimeoutManager =
+  @VisibleForTesting
+  private[bftordering] val maybeBlockTransferResponseTimeoutManager =
     new SingleUseCell[TimeoutManager[E, Consensus.Message[E], EpochNumber]]
   private def blockTransferResponseTimeoutManager(abort: String => Nothing) =
     maybeBlockTransferResponseTimeoutManager.getOrElse(
@@ -132,7 +133,7 @@ class StateTransferManager[E <: Env[E]](
       .putIfAbsent(
         new TimeoutManager[E, Consensus.Message[E], EpochNumber](
           loggerFactory,
-          BlockTransferResponseRetryTimeout,
+          config.epochStateTransferRetryTimeout,
           timeoutId = startEpoch, // reuse the start epoch number, not relevant
         )
       )
@@ -340,7 +341,7 @@ class StateTransferManager[E <: Env[E]](
     val blockMetadata = prePrepare.blockMetadata
     // TODO(#19289) support variable epoch lengths
     val blockLastInEpoch = (blockMetadata.blockNumber + 1) % epochLength == 0
-    // TODO(#24524) calculate reasonably
+    // TODO(#24717) calculate reasonably
     // Right now, the state transfer end epoch is the latest remotely completed epoch according to the last received
     //  block transfer response, so slow/malicious nodes can significantly impact the process.
     val endEpoch = remoteLatestCompleteEpoch
@@ -350,15 +351,6 @@ class StateTransferManager[E <: Env[E]](
     logger.debug(s"State transfer: sending block $blockMetadata to Output")
     messageSender.sendBlockToOutput(prePrepare, blockLastInEpoch, endEpoch)
   }
-}
-
-object StateTransferManager {
-
-  /** Currently, this timeout covers periods from requesting blocks from a single epoch up to
-    * receiving all the corresponding batches which, depending on the epoch length, among others,
-    * can take some time.
-    */
-  private val BlockTransferResponseRetryTimeout = 15.seconds
 }
 
 sealed trait StateTransferMessageResult extends Product with Serializable

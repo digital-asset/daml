@@ -5,6 +5,8 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mo
 
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.TimeoutManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.{
   EpochStore,
   Genesis,
@@ -53,9 +55,10 @@ import org.scalatest.wordspec.AnyWordSpec
 class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
   import StateTransferManagerTest.*
 
-  // TODO(#24524) test `stateTransferNewEpoch`
+  implicit private val config: BftBlockOrdererConfig = BftBlockOrdererConfig()
+
   "StateTransferManager" should {
-    "start and try to restart" in {
+    "start catch-up and try to restart" in {
       implicit val context: ContextType = new ProgrammableUnitTestContext
 
       val p2pNetworkOutRef = mock[ModuleRef[P2PNetworkOut.Message]]
@@ -96,6 +99,39 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         startEpoch,
       )(abort = fail(_))
       context.extractSelfMessages() shouldBe empty
+    }
+
+    "state transfer new epoch (start onboarding)" in {
+      implicit val context: ContextType = new ProgrammableUnitTestContext
+
+      val p2pNetworkOutRef = mock[ModuleRef[P2PNetworkOut.Message]]
+      val stateTransferManager =
+        createStateTransferManager[ProgrammableUnitTestEnv](
+          p2pNetworkOutModuleRef = p2pNetworkOutRef
+        )
+
+      stateTransferManager.inStateTransfer shouldBe false
+
+      val startEpoch = EpochNumber(7L)
+      stateTransferManager.stateTransferNewEpoch(
+        startEpoch,
+        aMembershipBeforeOnboarding,
+        ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+      )(abort = fail(_))
+      context.runPipedMessages()
+
+      stateTransferManager.inStateTransfer shouldBe true
+
+      val blockTransferRequest = StateTransferMessage.BlockTransferRequest
+        .create(startEpoch, from = myId)
+        .fakeSign
+
+      assertBlockTransferRequestHasBeenSent(
+        p2pNetworkOutRef,
+        blockTransferRequest,
+        to = otherId,
+        numberOfTimes = 1,
+      )
     }
 
     "schedule a retry and send block transfer request" in {
@@ -384,6 +420,24 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       aTopologyInfo,
       latestCompletedEpochLocally,
     )(abort = fail(_)) shouldBe StateTransferMessageResult.NothingToStateTransfer(from = otherId)
+  }
+
+  "cancel a timeout" when {
+    "an epoch is transferred" in {
+      val stateTransferManager =
+        createStateTransferManager[ProgrammableUnitTestEnv](p2pNetworkOutModuleRef =
+          fakeIgnoringModule
+        )
+      val timeoutManager = mock[TimeoutManager[ProgrammableUnitTestEnv, Consensus.Message[
+        ProgrammableUnitTestEnv
+      ], EpochNumber]]
+      stateTransferManager.maybeBlockTransferResponseTimeoutManager.putIfAbsent(timeoutManager)
+
+      stateTransferManager.epochTransferred(EpochNumber.First)(fail(_))
+
+      verify(timeoutManager, times(1)).cancelTimeout()
+      succeed
+    }
   }
 
   "drop messages when not in state transfer" in {

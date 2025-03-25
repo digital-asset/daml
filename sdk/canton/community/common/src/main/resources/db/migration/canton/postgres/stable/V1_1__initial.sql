@@ -826,6 +826,8 @@ create table ord_epochs (
 create table ord_availability_batch (
   id varchar collate "C" not null,
   batch bytea not null,
+  -- assigned at batch creation and used to calculate epoch expiration
+  epoch_number bigint not null,
   primary key (id)
 );
 

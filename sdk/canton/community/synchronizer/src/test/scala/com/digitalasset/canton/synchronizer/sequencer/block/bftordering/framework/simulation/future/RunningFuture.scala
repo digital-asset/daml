@@ -92,6 +92,27 @@ object RunningFuture {
       } yield (x, y)
   }
 
+  final case class Zip3[X, Y, Z](
+      fut1: RunningFuture[X],
+      fut2: RunningFuture[Y],
+      fut3: RunningFuture[Z],
+  ) extends RunningFuture[(X, Y, Z)] {
+    override def name: String = s"(${fut1.name}).zip(${fut2.name}.zip(${fut3.name})"
+
+    override def minimumScheduledTime: Option[CantonTimestamp] =
+      (fut1.minimumScheduledTime.toList ++ fut2.minimumScheduledTime.toList ++ fut3.minimumScheduledTime.toList).minOption
+
+    override protected def runIfBelow(time: CantonTimestamp): RunningFuture[(X, Y, Z)] =
+      Zip3(fut1.runIfBelow(time), fut2.runIfBelow(time), fut3.runIfBelow(time))
+
+    override protected def resolve: Try[(X, Y, Z)] =
+      for {
+        x <- fut1.resolve
+        y <- fut2.resolve
+        z <- fut3.resolve
+      } yield (x, y, z)
+  }
+
   final case class Sequence[X, F[_]](in: F[RunningFuture[X]], ev: Traverse[F])
       extends RunningFuture[F[X]] {
     override def name: String =

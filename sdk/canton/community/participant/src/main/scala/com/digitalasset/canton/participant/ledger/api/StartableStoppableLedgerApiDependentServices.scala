@@ -22,6 +22,7 @@ import com.digitalasset.canton.participant.admin.grpc.{
   GrpcPartyManagementService,
   GrpcPingService,
 }
+import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow
 import com.digitalasset.canton.participant.admin.{AdminWorkflowServices, PackageService}
 import com.digitalasset.canton.participant.config.LocalParticipantConfig
 import com.digitalasset.canton.participant.sync.CantonSyncService
@@ -66,7 +67,7 @@ class StartableStoppableLedgerApiDependentServices(
   private type PackageServiceGrpc = ServerServiceDefinition
   private type PingServiceGrpc = ServerServiceDefinition
   private type ApiInfoServiceGrpc = ServerServiceDefinition
-  private type MaybePartyManagementGrpc = Option[ServerServiceDefinition]
+  private type PartyManagementGrpc = ServerServiceDefinition
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   @volatile private var servicesRef =
@@ -76,7 +77,7 @@ class StartableStoppableLedgerApiDependentServices(
           PackageServiceGrpc,
           PingServiceGrpc,
           ApiInfoServiceGrpc,
-          MaybePartyManagementGrpc,
+          PartyManagementGrpc,
       )
     ]
 
@@ -139,22 +140,26 @@ class StartableStoppableLedgerApiDependentServices(
                   )
                 )
 
-            // Conditionally bind the party management grpc service
-            val (partyManagementGrpc, _) = adminWorkflowServices.partyManagementO.map {
-              case (_, partyReplicationCoordinator) =>
-                registry
-                  .addService(
-                    PartyManagementServiceGrpc.bindService(
-                      new GrpcPartyManagementService(
-                        partyReplicationCoordinator,
-                        parameters.processingTimeouts,
-                        syncService,
-                        loggerFactory,
-                      ),
-                      ec,
-                    )
+            val (partyManagementGrpc, _) = {
+              // Party replication coordinator is available through a feature flag only!
+              val partyReplicationCoordinator: Option[PartyReplicationAdminWorkflow] =
+                adminWorkflowServices.partyManagementO.flatMap {
+                  case (_, partyReplicationCoordinator) => Some(partyReplicationCoordinator)
+                  case _ => None
+                }
+              registry
+                .addService(
+                  PartyManagementServiceGrpc.bindService(
+                    new GrpcPartyManagementService(
+                      partyReplicationCoordinator,
+                      parameters.processingTimeouts,
+                      syncService,
+                      loggerFactory,
+                    ),
+                    ec,
                   )
-            }.unzip
+                )
+            }
 
             servicesRef = Some(
               (
@@ -187,7 +192,7 @@ class StartableStoppableLedgerApiDependentServices(
             registry.removeServiceU(pingGrpcService)
             registry.removeServiceU(packageServiceGrpc)
             registry.removeServiceU(apiInfoServiceGrpc)
-            partyManagementGrpc.foreach(registry.removeServiceU)
+            registry.removeServiceU(partyManagementGrpc)
             adminWorkflowServices.close()
           case None =>
             logger.debug("Ledger API-dependent Canton services already stopped")(TraceContext.empty)
