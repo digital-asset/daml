@@ -715,16 +715,7 @@ build_bazel_rules_nodejs_dependencies()
 load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories", "yarn_install")
 
 node_repositories(
-    node_version = "16.18.1",
-    # TODO vendored_node support was dropped in latest rules_nodejs,
-    # maybe we can recover this behavior when moving to rule_js.
-    #
-    # # Using `dev_env_tool` introduces an additional layer of symlink
-    # # indirection. Bazel doesn't track dependencies through symbolic links.
-    # # Occasionally, this can cause build failures on CI if a build is not
-    # # invalidated despite a change of an original source. To avoid such issues
-    # # we use the `nixpkgs_package` directly.
-    # vendored_node = "@nodejs_dev_env" if is_windows else "@node_nix",
+    node_version = "18.12.1",
 )
 
 # TODO use fine-grained managed dependency
