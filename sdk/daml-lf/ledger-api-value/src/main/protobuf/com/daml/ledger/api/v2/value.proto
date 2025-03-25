@@ -19,7 +19,6 @@ option java_package = "com.daml.ledger.api.v2";
 // - PackageIdStrings are strings with length <= 64 that match the regexp ``[A-Za-z0-9\-_ ]+``.
 // - PartyIdStrings are strings with length <= 255 that match the regexp ``[A-Za-z0-9:\-_ ]+``.
 // - LedgerStrings are strings with length <= 255 that match the regexp ``[A-Za-z0-9#:\-_/ ]+``.
-// - ApplicationIdStrings are strings with length <= 255 that match the regexp ``[A-Za-z0-9#:\-_/ @\|]+``.
 // - UserIdStrings are strings with length <= 128 that match the regexp ``[a-zA-Z0-9@^$.!`\-#+'~_|:]+``.
 //
 message Value {

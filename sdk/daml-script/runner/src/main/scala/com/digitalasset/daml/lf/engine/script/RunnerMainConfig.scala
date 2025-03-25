@@ -18,8 +18,8 @@ case class RunnerMainConfig(
     accessTokenFile: Option[Path],
     tlsConfig: TlsConfiguration,
     maxInboundMessageSize: Int,
-    // While we do have a default application id, we
-    // want to differentiate between not specifying the application id
+    // While we do have a default user id, we
+    // want to differentiate between not specifying the user id
     // and specifying the default for better error messages.
     userId: Option[Option[Ref.UserId]],
     uploadDar: Boolean,
@@ -69,8 +69,8 @@ private[script] case class RunnerMainConfigIntermediate(
     accessTokenFile: Option[Path],
     tlsConfig: TlsConfiguration,
     maxInboundMessageSize: Int,
-    // While we do have a default application id, we
-    // want to differentiate between not specifying the application id
+    // While we do have a default user id, we
+    // want to differentiate between not specifying the user id
     // and specifying the default for better error messages.
     userId: Option[Option[Ref.UserId]],
     uploadDar: Boolean,
@@ -230,13 +230,13 @@ private[script] object RunnerMainConfigIntermediate {
         s"Optional max inbound message size in bytes. Defaults to ${RunnerMainConfig.DefaultMaxInboundMessageSize}"
       )
 
-    opt[String]("application-id")
+    opt[String]("user-id")
       .action((x, c) =>
         c.copy(userId = Some(Some(x).filter(_.nonEmpty).map(Ref.UserId.assertFromString)))
       )
       .optional()
       .text(
-        s"Application ID used to interact with the ledger. Defaults to ${Runner.DEFAULT_USER_ID}"
+        s"User ID used to interact with the ledger. Defaults to ${Runner.DEFAULT_USER_ID}"
       )
 
     opt[Boolean]("upload-dar")
