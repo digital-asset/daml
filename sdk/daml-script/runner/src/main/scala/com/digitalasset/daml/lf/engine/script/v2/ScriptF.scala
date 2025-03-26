@@ -9,7 +9,7 @@ package v2
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.data.cctp.MessageSignatureUtil
-import com.digitalasset.daml.lf.data.FrontStack
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
@@ -547,6 +547,28 @@ object ScriptF {
       val message = HexString.assertFromString(msg)
 
       SEValue(SText(MessageSignatureUtil.sign(message, privateKey, deterministicRandomSrc)))
+    }
+  }
+
+  final case class Secp256k1GenerateKeyPair() extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = Future {
+      val keyPair = MessageSignatureUtil.generateKeyPair
+      val privateKey = HexString.encode(Bytes.fromByteArray(keyPair.getPrivate.getEncoded))
+      val publicKey = HexString.encode(Bytes.fromByteArray(keyPair.getPublic.getEncoded))
+
+      import com.daml.script.converter.Converter.record
+      SEValue(
+        record(
+          env.scriptIds
+            .damlScriptModule("Daml.Script.Internal.Questions.Crypto.Text", "Secp256k1KeyPair"),
+          "privateKey" -> SText(privateKey),
+          "publicKey" -> SText(publicKey),
+        )
+      )
     }
   }
 
@@ -1206,6 +1228,7 @@ object ScriptF {
       case ("SetTime", 1) => parseSetTime(v)
       case ("Sleep", 1) => parseSleep(v)
       case ("Secp256k1Sign", 1) => parseSecp256k1Sign(v)
+      case ("Secp256k1GenerateKeyPair", 1) => parseEmpty(Secp256k1GenerateKeyPair())(v)
       case ("Catch", 1) => parseCatch(v)
       case ("Throw", 1) => parseThrow(v)
       case ("ValidateUserId", 1) => parseValidateUserId(v)
