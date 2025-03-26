@@ -113,7 +113,7 @@ module Daml.Script
   , tryToEither
 
 #ifdef DAML_CCTP
-  , module Daml.Script.Crypto
+  , secp256k1sign
 #endif
 
   , -- Upgrades features

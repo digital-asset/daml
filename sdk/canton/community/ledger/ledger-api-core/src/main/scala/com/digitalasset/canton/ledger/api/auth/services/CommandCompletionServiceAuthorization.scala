@@ -44,8 +44,8 @@ object CommandCompletionServiceAuthorization {
   def completionStreamClaims(
       request: CompletionStreamRequest
   ): List[RequiredClaim[CompletionStreamRequest]] =
-    RequiredClaim.MatchApplicationId(
-      requestStringL = Lens.unit[CompletionStreamRequest].applicationId,
-      skipApplicationIdValidationForAnyPartyReaders = true,
+    RequiredClaim.MatchUserId(
+      requestStringL = Lens.unit[CompletionStreamRequest].userId,
+      skipUserIdValidationForAnyPartyReaders = true,
     ) :: request.parties.view.map(RequiredClaim.ReadAs[CompletionStreamRequest]).toList
 }

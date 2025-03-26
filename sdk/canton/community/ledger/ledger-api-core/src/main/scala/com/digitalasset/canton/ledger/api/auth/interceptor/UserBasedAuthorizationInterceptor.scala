@@ -75,7 +75,7 @@ class UserBasedAuthorizationInterceptor(
                 ClaimSet.Claims(
                   claims = convertUserRightsToClaims(userRights),
                   participantId = participantId,
-                  applicationId = Some(userId),
+                  userId = Some(userId),
                   expiration = expiration,
                   resolvedFromUser = true,
                   identityProviderId = identityProviderId,

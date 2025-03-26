@@ -15,7 +15,6 @@ import com.digitalasset.canton.http.json.v2.JsContractEntry.{
 }
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.{JsCantonError, JsEvent}
-import com.digitalasset.canton.http.json.v2.Protocol.Protocol
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
@@ -104,8 +103,7 @@ class JsStateService(
       .resultToRight
 
   private def getActiveContractsStream(
-      caller: CallerContext,
-      protocol: Protocol,
+      caller: CallerContext
   ): TracedInput[Unit] => Flow[
     state_service.GetActiveContractsRequest,
     JsGetActiveContractsResponse,
@@ -118,8 +116,6 @@ class JsStateService(
         stateServiceClient(caller.token())(TraceContext.empty).getActiveContracts,
         (r: state_service.GetActiveContractsResponse) =>
           protocolConverters.GetActiveContractsResponse.toJson(r),
-        protocol = protocol,
-        withCloseDelay = true,
       )
     }
 

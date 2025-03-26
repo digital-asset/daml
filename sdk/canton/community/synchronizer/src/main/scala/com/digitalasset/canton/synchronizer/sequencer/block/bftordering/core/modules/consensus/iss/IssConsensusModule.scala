@@ -92,7 +92,7 @@ final class IssConsensusModule[E <: Env[E]](
     override val dependencies: ConsensusModuleDependencies[E],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
-    // TODO(#23618): we cannot queue all messages (e.g., during state transfer) due to a potential OOM error
+    // TODO(#23484): we cannot queue all messages (e.g., during state transfer) due to a potential OOM error
     private val futurePbftMessageQueue: mutable.Queue[SignedMessage[PbftNetworkMessage]] =
       new mutable.Queue(),
     private val queuedConsensusMessages: Seq[Consensus.Message[E]] = Seq.empty,
@@ -818,7 +818,6 @@ object IssConsensusModule {
           ConsensusSegment.ConsensusMessage.PrePrepare.fromProto(
             header.blockMetadata,
             header.viewNumber,
-            header.timestamp,
             value,
             from,
           )(originalByteString)
@@ -826,7 +825,6 @@ object IssConsensusModule {
           ConsensusSegment.ConsensusMessage.Prepare.fromProto(
             header.blockMetadata,
             header.viewNumber,
-            header.timestamp,
             value,
             from,
           )(originalByteString)
@@ -834,7 +832,6 @@ object IssConsensusModule {
           ConsensusSegment.ConsensusMessage.Commit.fromProto(
             header.blockMetadata,
             header.viewNumber,
-            header.timestamp,
             value,
             from,
           )(originalByteString)
@@ -842,7 +839,6 @@ object IssConsensusModule {
           ConsensusSegment.ConsensusMessage.ViewChange.fromProto(
             header.blockMetadata,
             header.viewNumber,
-            header.timestamp,
             value,
             from,
           )(originalByteString)
@@ -850,7 +846,6 @@ object IssConsensusModule {
           ConsensusSegment.ConsensusMessage.NewView.fromProto(
             header.blockMetadata,
             header.viewNumber,
-            header.timestamp,
             value,
             from,
           )(originalByteString)

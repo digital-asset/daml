@@ -94,7 +94,7 @@ class CommandDeduplicatorImpl(
       publications.map(publication =>
         (
           ChangeId(
-            applicationId = publication.applicationId,
+            userId = publication.userId,
             commandId = publication.commandId,
             actAs = publication.actAs,
           ),

@@ -30,7 +30,7 @@ final case class SerializableCompletionInfo(completionInfo: CompletionInfo) {
   def toProtoV30: v30.CompletionInfo = {
     val CompletionInfo(
       actAs,
-      applicationId,
+      userId,
       commandId,
       deduplicateUntil,
       submissionId,
@@ -38,7 +38,7 @@ final case class SerializableCompletionInfo(completionInfo: CompletionInfo) {
       completionInfo
     v30.CompletionInfo(
       actAs,
-      applicationId,
+      userId,
       commandId,
       deduplicateUntil.map(SerializableDeduplicationPeriod(_).toProtoV30),
       submissionId.getOrElse(""),
@@ -50,17 +50,17 @@ object SerializableCompletionInfo {
   def fromProtoV30(
       completionInfoP: v30.CompletionInfo
   ): ParsingResult[CompletionInfo] = {
-    val v30.CompletionInfo(actAsP, applicationIdP, commandIdP, deduplicateUntilP, submissionIdP) =
+    val v30.CompletionInfo(actAsP, userIdP, commandIdP, deduplicateUntilP, submissionIdP) =
       completionInfoP
     for {
       actAs <- actAsP.toList.traverse(ProtoConverter.parseLfPartyId(_, "act_as"))
-      applicationId <- ProtoConverter.parseLFApplicationId(applicationIdP)
+      userId <- ProtoConverter.parseLFUserId(userIdP)
       commandId <- ProtoConverter.parseCommandId(commandIdP)
       deduplicateUntil <- deduplicateUntilP.traverse(SerializableDeduplicationPeriod.fromProtoV30)
       submissionId <- ProtoConverter.parseLFSubmissionIdO(submissionIdP)
     } yield CompletionInfo(
       actAs,
-      applicationId,
+      userId,
       commandId,
       deduplicateUntil,
       submissionId,

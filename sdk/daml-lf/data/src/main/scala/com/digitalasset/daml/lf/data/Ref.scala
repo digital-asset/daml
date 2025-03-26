@@ -44,18 +44,10 @@ object Ref {
   type LedgerString = IdString.LedgerString
   val LedgerString: IdString.LedgerString.type = IdString.LedgerString
 
-  /** Identifiers for submitting client applications. */
-  type ApplicationId = IdString.ApplicationId
-  val ApplicationId: IdString.ApplicationId.type = IdString.ApplicationId
-
   /** Identifiers for participant node users, which act as clients to the Ledger API.
     *
     * The concept of participant node users has been introduced after the concept
     * of client applications, which is why the code contains both of them.
-    * The [[UserId]] identifiers for participant node users are a strict subset of the
-    * [[ApplicationId]] identifiers for Ledger API client applications.
-    * The Ledger API and its backing code use [[UserId]] where possible
-    * and [[ApplicationId]] otherwise.
     */
   type UserId = IdString.UserId
   val UserId: IdString.UserId.type = IdString.UserId

@@ -31,7 +31,7 @@ object ApiMocks {
     Ref.LedgerString.assertFromString("deadbeef")
   )
 
-  val applicationId: IdString.ApplicationId = Ref.ApplicationId.assertFromString("applicationId")
+  val userId: IdString.UserId = Ref.UserId.assertFromString("userId")
 
   val workflowId: IdString.LedgerString @@ WorkflowIdTag = WorkflowId(
     Ref.LedgerString.assertFromString("workflowId")

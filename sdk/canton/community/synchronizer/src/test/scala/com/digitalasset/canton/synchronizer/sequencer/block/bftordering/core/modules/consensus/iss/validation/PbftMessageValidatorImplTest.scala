@@ -25,6 +25,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   EpochNumber,
   ViewNumber,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequestBatch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
   AvailabilityAck,
   BatchId,
@@ -138,7 +139,7 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
         // positive: block is not empty, and it's the first epoch, but it's not the first block in the segment
         (
           createPrePrepare(
-            OrderingBlock(Seq(createPoa())),
+            OrderingBlock(Seq(createPoa(epochNumber = EpochNumber.First))),
             CanonicalCommitSet(
               Set(createCommit(BlockMetadata(EpochNumber.First, BlockNumber.First)))
             ),
@@ -389,26 +390,60 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
         // negative: don't allow an expired poa
         (
           createPrePrepare(
-            OrderingBlock(Seq(createPoa(expirationTime = previousEpochMaxBftTime))),
+            OrderingBlock(Seq(createPoa(epochNumber = EpochNumber(5L)))),
             CanonicalCommitSet(Set(createCommit())),
+            BlockMetadata(
+              EpochNumber(5L + OrderingRequestBatch.BatchValidityDurationEpochs),
+              BlockNumber(100),
+            ),
           ),
           aSegment,
           aMembership,
           aMembership,
           Left(
-            "The PrePrepare for block BlockMetadata(1,12) has an expired proof of availability " +
-              "at 2024-03-08T12:00:00Z (current time is 2024-03-08T12:00:00Z)"
+            s"The PrePrepare for block BlockMetadata(${5L + OrderingRequestBatch.BatchValidityDurationEpochs},100) " +
+              s"has an expired proof of availability at 5, " +
+              s"which is ${OrderingRequestBatch.BatchValidityDurationEpochs} epochs or more " +
+              s"older than current epoch ${5L + OrderingRequestBatch.BatchValidityDurationEpochs}."
           ),
         ),
-        // positive: poa with expiration time immediately after the considered current time is good
+        // negative: don't allow a poa from a future epoch
         (
           createPrePrepare(
-            OrderingBlock(
-              Seq(createPoa(expirationTime = previousEpochMaxBftTime.immediateSuccessor))
-            ),
+            OrderingBlock(Seq(createPoa(epochNumber = EpochNumber(6L)))),
             CanonicalCommitSet(Set(createCommit())),
+            BlockMetadata(
+              EpochNumber(5L),
+              BlockNumber(100),
+            ),
           ),
           aSegment,
+          aMembership,
+          aMembership,
+          Left(
+            "The PrePrepare for block BlockMetadata(5,100) has a proof of availability for future epoch 6 (current epoch is 5)"
+          ),
+        ),
+        // positive: poa just one epoch away from expiration is good
+        (
+          createPrePrepare(
+            OrderingBlock(Seq(createPoa(epochNumber = EpochNumber(5L)))),
+            CanonicalCommitSet(
+              Set(
+                createCommit(
+                  BlockMetadata(
+                    EpochNumber(5L + OrderingRequestBatch.BatchValidityDurationEpochs - 1L),
+                    BlockNumber(99L),
+                  )
+                )
+              )
+            ),
+            BlockMetadata(
+              EpochNumber(5L + OrderingRequestBatch.BatchValidityDurationEpochs - 1L),
+              BlockNumber(100),
+            ),
+          ),
+          Segment(myId, NonEmpty(Seq, BlockNumber(99L), BlockNumber(100L))),
           aMembership,
           aMembership,
           Right(()),
@@ -534,7 +569,6 @@ object PbftMessageValidatorImplTest {
     PrePrepare.create(
       blockMetadata,
       ViewNumber.First,
-      CantonTimestamp.Epoch,
       orderingBlock,
       canonicalCommitSet,
       from = myId,
@@ -564,8 +598,8 @@ object PbftMessageValidatorImplTest {
   private def createPoa(
       batchId: BatchId = BatchId.createForTesting("test"),
       acks: Seq[AvailabilityAck] = acksWithMeOnly,
-      expirationTime: CantonTimestamp = CantonTimestamp.MaxValue,
+      epochNumber: EpochNumber = EpochNumber(1L),
   ) =
-    ProofOfAvailability(batchId, acks, expirationTime)
+    ProofOfAvailability(batchId, acks, epochNumber)
 
 }

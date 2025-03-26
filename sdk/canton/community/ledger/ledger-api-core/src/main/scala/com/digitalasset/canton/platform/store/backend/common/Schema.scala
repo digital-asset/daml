@@ -97,7 +97,7 @@ private[backend] object AppendOnlySchema {
         "ledger_effective_time" -> fieldStrategy.bigint(_ => _.ledger_effective_time),
         "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
-        "application_id" -> fieldStrategy.stringOptional(_ => _.application_id),
+        "user_id" -> fieldStrategy.stringOptional(_ => _.user_id),
         "submitters" -> fieldStrategy.intArrayOptional(stringInterning =>
           _.submitters.map(_.map(stringInterning.party.unsafe.internalize))
         ),
@@ -154,7 +154,7 @@ private[backend] object AppendOnlySchema {
         "node_id" -> fieldStrategy.int(_ => _.node_id),
         "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
-        "application_id" -> fieldStrategy.stringOptional(_ => _.application_id),
+        "user_id" -> fieldStrategy.stringOptional(_ => _.user_id),
         "submitters" -> fieldStrategy.intArrayOptional(stringInterning =>
           _.submitters.map(_.map(stringInterning.party.unsafe.internalize))
         ),
@@ -332,7 +332,7 @@ private[backend] object AppendOnlySchema {
         "completion_offset" -> fieldStrategy.bigint(_ => _.completion_offset),
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),
         "publication_time" -> fieldStrategy.bigint(_ => _.publication_time),
-        "application_id" -> fieldStrategy.string(_ => _.application_id),
+        "user_id" -> fieldStrategy.string(_ => _.user_id),
         "submitters" -> fieldStrategy.intArray(stringInterning =>
           _.submitters.map(stringInterning.party.unsafe.internalize)
         ),
@@ -353,9 +353,6 @@ private[backend] object AppendOnlySchema {
           dbDto => stringInterning.synchronizerId.unsafe.internalize(dbDto.synchronizer_id)
         ),
         "message_uuid" -> fieldStrategy.stringOptional(_ => _.message_uuid),
-        "request_sequencer_counter" -> fieldStrategy.bigintOptional(_ =>
-          _.request_sequencer_counter
-        ),
         "is_transaction" -> fieldStrategy.boolean(_ => _.is_transaction),
         "trace_context" -> fieldStrategy.bytea(_ => _.trace_context),
       )
@@ -460,7 +457,7 @@ private[backend] object AppendOnlySchema {
 
     val transactionMetering: Table[DbDto.TransactionMetering] =
       fieldStrategy.insert("lapi_transaction_metering")(
-        fields = "application_id" -> fieldStrategy.string(_ => _.application_id),
+        fields = "user_id" -> fieldStrategy.string(_ => _.user_id),
         "action_count" -> fieldStrategy.int(_ => _.action_count),
         "metering_timestamp" -> fieldStrategy.bigint(_ => _.metering_timestamp),
         "ledger_offset" -> fieldStrategy.bigint(_ => _.ledger_offset),

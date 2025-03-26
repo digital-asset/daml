@@ -20,6 +20,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   CancellableEvent,
   Env,
+  FutureContext,
   Module,
   ModuleContext,
   ModuleName,
@@ -41,6 +42,47 @@ import UnitTestContext.DelayCount
 class UnitTestEnv extends Env[UnitTestEnv] {
   override type ActorContextT[MessageT] = UnitTestContext[UnitTestEnv, MessageT]
   override type FutureUnlessShutdownT[_] = Unit
+}
+
+class UnsupportedFutureContext[E <: Env[E]] extends FutureContext[E] {
+  override def timeFuture[X](timer: Timer, futureUnlessShutdown: => E#FutureUnlessShutdownT[X])(
+      implicit mc: MetricsContext
+  ): E#FutureUnlessShutdownT[X] =
+    unsupported()
+
+  override def pureFuture[X](x: X): E#FutureUnlessShutdownT[X] =
+    unsupported()
+
+  override def mapFuture[X, Y](future: E#FutureUnlessShutdownT[X])(
+      fun: PureFun[X, Y]
+  ): E#FutureUnlessShutdownT[Y] =
+    unsupported()
+
+  override def zipFuture[X, Y](
+      future1: E#FutureUnlessShutdownT[X],
+      future2: E#FutureUnlessShutdownT[Y],
+  ): E#FutureUnlessShutdownT[(X, Y)] =
+    unsupported()
+
+  override def zipFuture[X, Y, Z](
+      future1: E#FutureUnlessShutdownT[X],
+      future2: E#FutureUnlessShutdownT[Y],
+      future3: E#FutureUnlessShutdownT[Z],
+  ): E#FutureUnlessShutdownT[(X, Y, Z)] = unsupported()
+
+  override def sequenceFuture[A, F[_]](futures: F[E#FutureUnlessShutdownT[A]])(implicit
+      ev: Traverse[F]
+  ): E#FutureUnlessShutdownT[F[A]] =
+    unsupported()
+
+  override def flatMapFuture[R1, R2](
+      future1: E#FutureUnlessShutdownT[R1],
+      future2: PureFun[R1, E#FutureUnlessShutdownT[R2]],
+  ): E#FutureUnlessShutdownT[R2] =
+    unsupported()
+
+  private def unsupported() =
+    fail("Unsupported by unit tests")
 }
 
 class UnitTestContext[E <: Env[E], MessageT] extends ModuleContext[E, MessageT] {
@@ -65,31 +107,7 @@ class UnitTestContext[E <: Env[E], MessageT] extends ModuleContext[E, MessageT] 
   ): CancellableEvent =
     unsupported()
 
-  // Metrics are not produced in unit tests
-  override def timeFuture[X](timer: Timer, futureUnlessShutdown: => E#FutureUnlessShutdownT[X])(
-      implicit mc: MetricsContext
-  ): E#FutureUnlessShutdownT[X] =
-    unsupported()
-
-  override def zipFuture[X, Y](
-      future1: E#FutureUnlessShutdownT[X],
-      future2: E#FutureUnlessShutdownT[Y],
-  ): E#FutureUnlessShutdownT[(X, Y)] = unsupported()
-
-  override def sequenceFuture[A, F[_]](futures: F[E#FutureUnlessShutdownT[A]])(implicit
-      ev: Traverse[F]
-  ): E#FutureUnlessShutdownT[F[A]] = unsupported()
-
-  override def flatMapFuture[R1, R2](
-      future1: E#FutureUnlessShutdownT[R1],
-      future2: PureFun[R1, E#FutureUnlessShutdownT[R2]],
-  ): E#FutureUnlessShutdownT[R2] = unsupported()
-
-  override def mapFuture[X, Y](future: E#FutureUnlessShutdownT[X])(
-      fun: PureFun[X, Y]
-  ): E#FutureUnlessShutdownT[Y] = unsupported()
-
-  override def pureFuture[X](x: X): E#FutureUnlessShutdownT[X] = unsupported()
+  override def futureContext: FutureContext[E] = new UnsupportedFutureContext[E]
 
   override def pipeToSelfInternal[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(
       fun: Try[X] => Option[MessageT]
@@ -152,8 +170,33 @@ object SelfContext {
 /** Convenience unit test [[Env]] ignoring messages.
   */
 abstract class BaseIgnoringUnitTestEnv[E <: BaseIgnoringUnitTestEnv[E]] extends Env[E] {
-  override type FutureUnlessShutdownT[X] = () => X
+  final override type FutureUnlessShutdownT[X] = () => X
   // override type ModuleRefT[-MessageT] = ModuleRef[MessageT]
+}
+
+class FunctionFutureContext[E <: BaseIgnoringUnitTestEnv[E]] extends FutureContext[E] {
+  override def timeFuture[X](timer: Timer, futureUnlessShutdown: => () => X)(implicit
+      mc: MetricsContext
+  ): () => X = futureUnlessShutdown
+
+  override def pureFuture[X](x: X): () => X = () => x
+
+  override def mapFuture[X, Y](future: () => X)(fun: PureFun[X, Y]): () => Y = () => fun(future())
+
+  override def zipFuture[X, Y](future1: () => X, future2: () => Y): () => (X, Y) = () =>
+    (future1(), future2())
+
+  override def zipFuture[X, Y, Z](
+      future1: () => X,
+      future2: () => Y,
+      future3: () => Z,
+  ): () => (X, Y, Z) = () => (future1(), future2(), future3())
+
+  override def sequenceFuture[A, F[_]](futures: F[() => A])(implicit ev: Traverse[F]): () => F[A] =
+    ev.sequence(futures)
+
+  override def flatMapFuture[R1, R2](future1: () => R1, future2: PureFun[R1, () => R2]): () => R2 =
+    () => future2(future1())()
 }
 
 class IgnoringUnitTestEnv extends BaseIgnoringUnitTestEnv[IgnoringUnitTestEnv] {
@@ -237,31 +280,16 @@ final case class FakePipeToSelfCellUnitTestContext[MessageT](
     with WithTraceContext[FakePipeToSelfCellUnitTestEnv, MessageT] {
   override def self: ModuleRef[MessageT] = new IgnoringModuleRef()
 
-  override def timeFuture[X](timer: Timer, futureUnlessShutdown: => () => X)(implicit
-      mc: MetricsContext
-  ): () => X =
-    futureUnlessShutdown
-
-  override def sequenceFuture[A, F[_]](futures: F[() => A])(implicit
-      ev: Traverse[F]
-  ): () => F[A] =
-    ev.sequence(futures)
-
-  override def zipFuture[X, Y](future1: () => X, future2: () => Y): () => (X, Y) = () =>
-    (future1(), future2())
+  override def futureContext: FutureContext[FakePipeToSelfCellUnitTestEnv] =
+    new FunctionFutureContext[FakePipeToSelfCellUnitTestEnv]
 
   override def pipeToSelfInternal[X](futureUnlessShutdown: () => X)(
       fun: Try[X] => Option[MessageT]
   )(implicit traceContext: TraceContext): Unit =
     cell.set(Some(() => fun(Try(futureUnlessShutdown()))))
 
-  override def flatMapFuture[R1, R2](future1: () => R1, future2: PureFun[R1, () => R2]): () => R2 =
-    () => future2(future1())()
-
   override def blockingAwait[X](future: () => X): X = future()
   override def blockingAwait[X](future: () => X, duration: FiniteDuration): X = future()
-
-  override def pureFuture[X](x: X): () => X = () => x
 
   override def delayedEvent(delay: FiniteDuration, message: MessageT): CancellableEvent = () => true
 }
@@ -279,10 +307,8 @@ final case class FakePipeToSelfQueueUnitTestContext[MessageT](
 ) extends UnitTestContext[FakePipeToSelfQueueUnitTestEnv, MessageT] {
   override def self: ModuleRef[MessageT] = new IgnoringModuleRef()
 
-  override def timeFuture[X](timer: Timer, futureUnlessShutdown: => () => X)(implicit
-      mc: MetricsContext
-  ): () => X =
-    futureUnlessShutdown
+  override def futureContext: FutureContext[FakePipeToSelfQueueUnitTestEnv] =
+    new FunctionFutureContext[FakePipeToSelfQueueUnitTestEnv]
 
   override def pipeToSelfInternal[X](future: () => X)(fun: Try[X] => Option[MessageT])(implicit
       traceContext: TraceContext
@@ -292,7 +318,6 @@ final case class FakePipeToSelfQueueUnitTestContext[MessageT](
 
 class ProgrammableUnitTestEnv extends BaseIgnoringUnitTestEnv[ProgrammableUnitTestEnv] {
   override type ActorContextT[X] = ProgrammableUnitTestContext[X]
-  override type FutureUnlessShutdownT[X] = () => X
   override type ModuleRefT[X] = ModuleRef[X]
 }
 
@@ -344,6 +369,9 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
       true
     }
   }
+
+  override def futureContext: FutureContext[ProgrammableUnitTestEnv] =
+    new FunctionFutureContext[ProgrammableUnitTestEnv]
 
   override def pipeToSelfInternal[X](future: () => X)(fun: Try[X] => Option[MessageT])(implicit
       traceContext: TraceContext
@@ -416,24 +444,6 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
 
   override def blockingAwait[X](future: () => X, duration: FiniteDuration): X =
     blockingAwait(future)
-
-  override def timeFuture[X](timer: Timer, futureUnlessShutdown: => () => X)(implicit
-      mc: MetricsContext
-  ): () => X = futureUnlessShutdown
-
-  override def pureFuture[X](x: X): () => X = () => x
-
-  override def zipFuture[X, Y](future1: () => X, future2: () => Y): () => (X, Y) =
-    () => (future1(), future2())
-
-  override def sequenceFuture[A, F[_]](futures: F[() => A])(implicit ev: Traverse[F]): () => F[A] =
-    ev.sequence(futures)
-
-  override def mapFuture[X, Y](future: () => X)(fun: PureFun[X, Y]): () => Y =
-    () => fun(future())
-
-  override def flatMapFuture[R1, R2](future1: () => R1, future2: PureFun[R1, () => R2]): () => R2 =
-    () => future2(future1())()
 
   override def become(module: Module[ProgrammableUnitTestEnv, MessageT]): Unit =
     becomesQueue.enqueue(module)

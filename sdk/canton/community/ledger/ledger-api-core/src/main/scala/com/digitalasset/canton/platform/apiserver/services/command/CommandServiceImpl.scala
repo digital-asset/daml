@@ -174,7 +174,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
         submissionKey = SubmissionKey(
           commandId = commands.commandId,
           submissionId = commands.submissionId,
-          applicationId = commands.applicationId,
+          userId = commands.userId,
           parties = commands.actAs.toSet,
         ),
         timeout = nonNegativeTimeout,

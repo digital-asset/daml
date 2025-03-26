@@ -73,14 +73,14 @@ class JcsSpec extends AnyWordSpec with Matchers {
       serialize(JsObject(Map("n" -> badNumber))).isLeft shouldBe true
     }
     "serialize report" in {
-      val application = Ref.ApplicationId.assertFromString("a0")
+      val user = Ref.UserId.assertFromString("a0")
       val from = Timestamp.assertFromInstant(Instant.parse("2022-01-01T00:00:00Z"))
       val to = Timestamp.assertFromInstant(Instant.parse("2022-01-01T00:00:00Z"))
       val report = ParticipantReport(
         participant = Ref.ParticipantId.assertFromString("p0"),
-        request = Request(from, Some(to), Some(application)),
+        request = Request(from, Some(to), Some(user)),
         `final` = false,
-        applications = Seq(ApplicationReport(application, 272)),
+        applications = Seq(ApplicationReport(user, 272)),
         check = None,
       )
       val reportJson: JsValue = report.toJson
@@ -88,15 +88,15 @@ class JcsSpec extends AnyWordSpec with Matchers {
         reportJson,
         expected = "{" +
           "\"applications\":[{" +
-          "\"application\":\"a0\"," +
-          "\"events\":272" +
+          "\"events\":272," +
+          "\"user\":\"a0\"" +
           "}]," +
           "\"final\":false," +
           "\"participant\":\"p0\"," +
           "\"request\":{" +
-          "\"application\":\"a0\"," +
           "\"from\":\"2022-01-01T00:00:00Z\"," +
-          "\"to\":\"2022-01-01T00:00:00Z\"" +
+          "\"to\":\"2022-01-01T00:00:00Z\"," +
+          "\"user\":\"a0\"" +
           "}" +
           "}",
       )

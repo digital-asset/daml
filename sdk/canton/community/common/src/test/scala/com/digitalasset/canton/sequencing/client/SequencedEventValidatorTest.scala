@@ -62,7 +62,7 @@ class SequencedEventValidatorTest
       ).futureValueUS
       assert(sig != priorEvent.signedEvent.signature)
       val eventWithNewSig =
-        priorEvent.copy(priorEvent.signedEvent.copy(signatures = NonEmpty(Seq, sig)))(
+        priorEvent.copy(signedEvent = priorEvent.signedEvent.copy(signatures = NonEmpty(Seq, sig)))(
           fixtureTraceContext
         )
       validator

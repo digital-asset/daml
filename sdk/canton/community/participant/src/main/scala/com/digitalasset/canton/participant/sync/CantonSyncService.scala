@@ -11,7 +11,7 @@ import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.base.error.{ContextualizedErrorLogger, DamlError}
+import com.digitalasset.base.error.{CantonRpcError, ContextualizedErrorLogger, DamlRpcError}
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -422,7 +422,7 @@ class CantonSyncService(
     commandProgressTracker
       .findHandle(
         submitterInfo.commandId,
-        submitterInfo.applicationId,
+        submitterInfo.userId,
         submitterInfo.actAs,
         submitterInfo.submissionId,
       )
@@ -510,7 +510,7 @@ class CantonSyncService(
 
   def pruneInternally(
       pruneUpToInclusive: Offset
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, CantonRpcError, Unit] =
     (for {
       _pruned <- pruningProcessor.pruneLedgerEvents(pruneUpToInclusive)
     } yield ()).transform(pruningErrorToCantonError)
@@ -566,7 +566,7 @@ class CantonSyncService(
         error: TransactionError
     ): Either[SubmissionResult, FutureUnlessShutdown[_]] = {
       error.logWithContext(
-        Map("commandId" -> submitterInfo.commandId, "applicationId" -> submitterInfo.applicationId)
+        Map("commandId" -> submitterInfo.commandId, "userId" -> submitterInfo.userId)
       )
       Left(SubmissionResult.SynchronousError(error.rpcStatus()))
     }
@@ -576,11 +576,11 @@ class CantonSyncService(
     } else if (!isActive()) {
       // this is the only error we can not really return with a rejection, as this is the passive replica ...
       val err = SyncServiceInjectionError.PassiveReplica.Error(
-        submitterInfo.applicationId,
+        submitterInfo.userId,
         submitterInfo.commandId,
       )
       err.logWithContext(
-        Map("commandId" -> submitterInfo.commandId, "applicationId" -> submitterInfo.applicationId)
+        Map("commandId" -> submitterInfo.commandId, "userId" -> submitterInfo.userId)
       )
       Future.successful(Left(SubmissionResult.SynchronousError(err.rpcStatus())))
     } else if (!routingSynchronizerState.existsReadySynchronizer()) {
@@ -666,7 +666,7 @@ class CantonSyncService(
           case Failure(PassiveInstanceException(_)) |
               Success(UnlessShutdown.AbortedDueToShutdown) =>
             val err = SyncServiceInjectionError.PassiveReplica.Error(
-              submitterInfo.applicationId,
+              submitterInfo.userId,
               submitterInfo.commandId,
             )
             Left(SubmissionResult.SynchronousError(err.rpcStatus()))
@@ -1332,7 +1332,7 @@ class CantonSyncService(
       )
 
     def handleCloseDegradation(connectedSynchronizer: ConnectedSynchronizer, fatal: Boolean)(
-        err: CantonError
+        err: CantonRpcError
     ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
       if (fatal && parameters.exitOnFatalFailures) {
         FatalError.exitOnFatalError(err, logger)
@@ -1400,7 +1400,6 @@ class CantonSyncService(
                   synchronizerConnectionConfig.config.timeTracker,
                   clock,
                   synchronizerHandle.sequencerClient,
-                  synchronizerHandle.staticParameters.protocolVersion,
                   timeouts,
                   synchronizerLoggerFactory,
                 )
@@ -1754,7 +1753,7 @@ class CantonSyncService(
 
   override def submitReassignment(
       submitter: Party,
-      applicationId: Ref.ApplicationId,
+      userId: Ref.UserId,
       commandId: Ref.CommandId,
       submissionId: Option[SubmissionId],
       workflowId: Option[Ref.WorkflowId],
@@ -1778,14 +1777,14 @@ class CantonSyncService(
           connectedSynchronizer <- EitherT.fromOption[Future](
             readyConnectedSynchronizerById(synchronizerId),
             ifNone = RequestValidationErrors.InvalidArgument
-              .Reject(s"Synchronizer id not found: $synchronizerId"): DamlError,
+              .Reject(s"Synchronizer id not found: $synchronizerId"): DamlRpcError,
           )
           _ <- reassign(connectedSynchronizer)
             .leftMap(error =>
               RequestValidationErrors.InvalidArgument
                 .Reject(
                   error.message
-                ): DamlError // TODO(i13240): Improve reassignment-submission Ledger API errors
+                ): DamlRpcError // TODO(i13240): Improve reassignment-submission Ledger API errors
             )
             .mapK(FutureUnlessShutdown.outcomeK)
             .semiflatMap(Predef.identity)
@@ -1818,7 +1817,7 @@ class CantonSyncService(
               _.submitUnassignment(
                 submitterMetadata = ReassignmentSubmitterMetadata(
                   submitter = submitter,
-                  applicationId = applicationId,
+                  userId = userId,
                   submittingParticipant = participantId,
                   commandId = commandId,
                   submissionId = submissionId,
@@ -1838,7 +1837,7 @@ class CantonSyncService(
             _.submitAssignment(
               submitterMetadata = ReassignmentSubmitterMetadata(
                 submitter = submitter,
-                applicationId = applicationId,
+                userId = userId,
                 submittingParticipant = participantId,
                 commandId = commandId,
                 submissionId = submissionId,

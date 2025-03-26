@@ -701,7 +701,7 @@ abstract class ProtocolProcessor[
         // This looks like a preplay attack, and we mark the request as sequenced in the in-flight
         // submission tracker to avoid the situation that our original submission never gets sequenced
         // and gets picked up by a timely rejection, which would emit a duplicate command completion.
-        val sequenced = SequencedSubmission(sc, ts)
+        val sequenced = SequencedSubmission(ts)
         inFlightSubmissionSynchronizerTracker.observeSequencedRootHash(
           rootHash,
           sequenced,

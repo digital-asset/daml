@@ -67,13 +67,13 @@ scala_library(
     srcs = [":community_buildinfo_src"],
 )
 
-### base/daml-errors ###
+### base/errors ###
 
 da_scala_library(
-    name = "base_daml-errors",
-    srcs = glob(["base/daml-errors/src/main/**/*.scala"]),
+    name = "base_errors",
+    srcs = glob(["base/errors/src/main/**/*.scala"]),
     override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    tags = ["maven_coordinates=com.daml:base-daml-errors:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:base-errors:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
         "//daml-lf/validation:__subpackages__",
@@ -254,7 +254,7 @@ da_scala_library(
         "//test-common/canton:__subpackages__",
     ],
     deps = [
-        ":base_daml-errors",
+        ":base_errors",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/data",
         "//libs-scala/contextualized-logging",
@@ -304,7 +304,7 @@ da_scala_library(
         "//test-common/canton:__subpackages__",
     ],
     deps = [
-        ":base_daml-errors",
+        ":base_errors",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         "@maven//:com_chuusai_shapeless_2_13",
@@ -334,7 +334,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:base-util-external:__VERSION__"],
     unused_dependency_checker_mode = "error",
     deps = [
-        ":base_daml-errors",
+        ":base_errors",
         ":ledger_api_proto_scala",
         "@maven//:com_chuusai_shapeless_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
@@ -390,7 +390,7 @@ da_scala_library(
         "//test-common/canton:__subpackages__",
     ],
     deps = [
-        ":base_daml-errors",
+        ":base_errors",
         ":base_grpc-utils",
         ":base_util-external",
         ":community_util-logging",
@@ -515,9 +515,9 @@ scala_library(
         "@maven//:org_apache_pekko_pekko_slf4j_2_13",
     ],
     deps = [
-        ":base_daml-errors",
         ":base_daml-jwt",
         ":base_daml-tls",
+        ":base_errors",
         ":base_grpc-utils",
         ":base_util-external",
         ":bindings-java",
@@ -613,8 +613,8 @@ scala_library(
         "@maven//:org_apache_pekko_pekko_slf4j_2_13",
     ],
     deps = [
-        ":base_daml-errors",
         ":base_daml-jwt",
+        ":base_errors",
         ":base_util-external",
         ":community_admin-api",
         ":community_base",
@@ -737,9 +737,9 @@ scala_library(
         "//language-support/java:__subpackages__",
     ],
     deps = [
-        ":base_daml-errors",
         ":base_daml-jwt",
         ":base_daml-tls",
+        ":base_errors",
         ":base_util-external",
         ":bindings-java",
         ":community_base",
@@ -834,8 +834,8 @@ scala_library(
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     deps = [
-        ":base_daml-errors",
         ":base_daml-jwt",
+        ":base_errors",
         ":base_util-external",
         ":bindings-java",
         ":community_base",
@@ -982,8 +982,8 @@ scala_library(
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     deps = [
-        ":base_daml-errors",
         ":base_daml-jwt",
+        ":base_errors",
         ":base_util-external",
         ":community_admin-api",
         ":community_base",
@@ -1111,9 +1111,9 @@ scala_library(
         "@maven//:io_netty_netty_handler",
     ],
     deps = [
-        ":base_daml-errors",
         ":base_daml-jwt",
         ":base_daml-tls",
+        ":base_errors",
         ":base_util-external",
         ":bindings-java",
         ":community_admin-api",
@@ -1212,7 +1212,7 @@ scala_library(
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     deps = [
-        ":base_daml-errors",
+        ":base_errors",
         ":base_util-external",
         ":community_base",
         ":community_lib_slick_slick-fork",
@@ -1302,8 +1302,8 @@ scala_library(
     unused_dependency_checker_mode = "error",
     runtime_deps = [":community_reference-driver"],
     deps = [
-        ":base_daml-errors",
         ":base_daml-jwt",
+        ":base_errors",
         ":base_grpc-utils",
         ":base_util-external",
         ":bindings-java",
@@ -1402,8 +1402,8 @@ scala_library(
         "@maven//:org_codehaus_janino_janino",  # for parsing conditionals in logback configuration
     ],
     deps = [
-        ":base_daml-errors",
         ":base_daml-jwt",
+        ":base_errors",
         ":base_util-external",
         ":community_app-base",
         ":community_base",

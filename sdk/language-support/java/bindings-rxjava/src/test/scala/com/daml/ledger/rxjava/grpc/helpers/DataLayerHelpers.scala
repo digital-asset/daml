@@ -39,7 +39,7 @@ trait DataLayerHelpers {
   ): CommandsSubmission = {
     CommandsSubmission
       .create(
-        "applicationId",
+        "userId",
         "commandId",
         synchronizerId.getOrElse("synchronizerId"),
         commands.asJava,

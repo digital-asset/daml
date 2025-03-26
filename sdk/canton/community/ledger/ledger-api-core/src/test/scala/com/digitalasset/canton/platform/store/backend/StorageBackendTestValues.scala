@@ -52,11 +52,11 @@ private[store] object StorageBackendTestValues {
   val someParty: Ref.Party = Ref.Party.assertFromString("party")
   val someParty2: Ref.Party = Ref.Party.assertFromString("party2")
   val someParty3: Ref.Party = Ref.Party.assertFromString("party3")
-  val someApplicationId: Ref.ApplicationId = Ref.ApplicationId.assertFromString("application_id")
+  val someUserId: Ref.UserId = Ref.UserId.assertFromString("user_id")
   val someSubmissionId: Ref.SubmissionId = Ref.SubmissionId.assertFromString("submission_id")
   val someLedgerMeteringEnd: LedgerMeteringEnd = LedgerMeteringEnd(None, someTime)
-  val someDriverMetadata = Bytes.assertFromString("00abcd")
-  val someDriverMetadataBytes = someDriverMetadata.toByteArray
+  val someDriverMetadata: Bytes = Bytes.assertFromString("00abcd")
+  val someDriverMetadataBytes: Array[Byte] = someDriverMetadata.toByteArray
 
   val someArchive: DamlLf.Archive = DamlLf.Archive.newBuilder
     .setHash("00001")
@@ -115,7 +115,7 @@ private[store] object StorageBackendTestValues {
       ledger_effective_time = ledgerEffectiveTime.micros,
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
-      application_id = Some(someApplicationId),
+      user_id = Some(someUserId),
       submitters = None,
       node_id = 0,
       contract_id = contractId.toBytes.toByteArray,
@@ -167,7 +167,7 @@ private[store] object StorageBackendTestValues {
       ledger_effective_time = someTime.micros,
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
-      application_id = Some(someApplicationId),
+      user_id = Some(someUserId),
       submitters = Some(Set(actor)),
       node_id = 0,
       contract_id = contractId.toBytes.toByteArray,
@@ -298,7 +298,7 @@ private[store] object StorageBackendTestValues {
       offset: Offset,
       submitters: Set[String] = Set("signatory"),
       commandId: String = UUID.randomUUID().toString,
-      applicationId: String = someApplicationId,
+      userId: String = someUserId,
       submissionId: Option[String] = Some(UUID.randomUUID().toString),
       deduplicationOffset: Option[Long] = None,
       deduplicationDurationSeconds: Option[Long] = None,
@@ -310,13 +310,12 @@ private[store] object StorageBackendTestValues {
       updateId: Option[String] = Some(""),
       publicationTime: Timestamp = someTime,
       isTransaction: Boolean = true,
-      requestSequencerCounter: Option[Long] = None,
   ): DbDto.CommandCompletion =
     DbDto.CommandCompletion(
       completion_offset = offset.unwrap,
       record_time = recordTime.micros,
       publication_time = publicationTime.micros,
-      application_id = applicationId,
+      user_id = userId,
       submitters = submitters,
       command_id = commandId,
       update_id = updateId.filter(_ == "").map(_ => updateIdFromOffset(offset)),
@@ -329,7 +328,6 @@ private[store] object StorageBackendTestValues {
       deduplication_duration_nanos = deduplicationDurationNanos,
       synchronizer_id = synchronizerId,
       message_uuid = messageUuid,
-      request_sequencer_counter = requestSequencerCounter,
       is_transaction = isTransaction,
       trace_context = traceContext,
     )
@@ -357,7 +355,7 @@ private[store] object StorageBackendTestValues {
   ): DbDto.TransactionMetering = {
     import metering.*
     DbDto.TransactionMetering(
-      applicationId,
+      userId,
       actionCount,
       meteringTimestamp.micros,
       ledgerOffset.unwrap,
@@ -408,12 +406,12 @@ private[store] object StorageBackendTestValues {
       case _ => sys.error(s"$dto does not have a offset id")
     }
 
-  def dtoApplicationId(dto: DbDto): Ref.ApplicationId =
+  def dtoUserId(dto: DbDto): Ref.UserId =
     dto match {
-      case e: DbDto.EventCreate => Ref.ApplicationId.assertFromString(e.application_id.get)
-      case e: DbDto.EventExercise => Ref.ApplicationId.assertFromString(e.application_id.get)
-      case e: DbDto.CommandCompletion => Ref.ApplicationId.assertFromString(e.application_id)
-      case _ => sys.error(s"$dto does not have an application id")
+      case e: DbDto.EventCreate => Ref.UserId.assertFromString(e.user_id.get)
+      case e: DbDto.EventExercise => Ref.UserId.assertFromString(e.user_id.get)
+      case e: DbDto.CommandCompletion => Ref.UserId.assertFromString(e.user_id)
+      case _ => sys.error(s"$dto does not have an user id")
     }
 
   def metaFromSingle(dbDto: DbDto): DbDto.TransactionMeta = DbDto.TransactionMeta(

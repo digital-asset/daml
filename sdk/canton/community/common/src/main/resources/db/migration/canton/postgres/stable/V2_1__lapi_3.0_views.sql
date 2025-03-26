@@ -106,7 +106,7 @@ create or replace view debug.lapi_metering_parameters as
 
 create or replace view debug.lapi_participant_metering as
   select
-    application_id,
+    user_id,
     debug.canton_timestamp(from_timestamp) as from_timestamp,
     debug.canton_timestamp(to_timestamp) as to_timestamp,
     action_count,
@@ -115,7 +115,7 @@ create or replace view debug.lapi_participant_metering as
 
 create or replace view debug.lapi_transaction_metering as
   select
-    application_id,
+    user_id,
     action_count,
     debug.canton_timestamp(metering_timestamp) as metering_timestamp,
     ledger_offset
@@ -137,7 +137,7 @@ create or replace view debug.lapi_command_completions as
     completion_offset,
     debug.canton_timestamp(record_time) as record_time,
     debug.canton_timestamp(publication_time) as publication_time,
-    application_id,
+    user_id,
     debug.resolve_lapi_interned_strings(submitters) as submitters,
     command_id,
     update_id,
@@ -150,7 +150,6 @@ create or replace view debug.lapi_command_completions as
     rejection_status_details,
     debug.resolve_lapi_interned_string(synchronizer_id) as synchronizer_id,
     message_uuid,
-    request_sequencer_counter,
     is_transaction,
     trace_context
   from lapi_command_completions;
@@ -196,7 +195,7 @@ create or replace view debug.lapi_events_consuming_exercise as
     update_id,
     workflow_id,
     command_id,
-    application_id,
+    user_id,
     debug.resolve_lapi_interned_strings(submitters) as submitters,
     lower(encode(contract_id, 'hex')) as contract_id,
     debug.resolve_lapi_interned_string(template_id) as template_id,
@@ -226,7 +225,7 @@ create or replace view debug.lapi_events_create as
     update_id,
     workflow_id,
     command_id,
-    application_id,
+    user_id,
     debug.resolve_lapi_interned_strings(submitters) as submitters,
     lower(encode(contract_id, 'hex')) as contract_id,
     debug.resolve_lapi_interned_string(template_id) as template_id,
@@ -257,7 +256,7 @@ create or replace view debug.lapi_events_non_consuming_exercise as
     update_id,
     workflow_id,
     command_id,
-    application_id,
+    user_id,
     debug.resolve_lapi_interned_strings(submitters) as submitters,
     lower(encode(contract_id, 'hex')) as contract_id,
     debug.resolve_lapi_interned_string(template_id) as template_id,
@@ -446,7 +445,6 @@ create or replace view debug.lapi_string_interning as
 create or replace view debug.lapi_ledger_end_synchronizer_index as
   select
     debug.resolve_lapi_interned_string(synchronizer_id) as synchronizer_id,
-    sequencer_counter,
     debug.canton_timestamp(sequencer_timestamp) as sequencer_timestamp,
     debug.canton_timestamp(repair_timestamp) as repair_timestamp,
     repair_counter,

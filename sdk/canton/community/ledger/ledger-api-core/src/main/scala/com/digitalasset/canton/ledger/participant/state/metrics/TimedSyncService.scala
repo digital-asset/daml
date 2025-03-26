@@ -65,7 +65,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
 
   def submitReassignment(
       submitter: Ref.Party,
-      applicationId: Ref.ApplicationId,
+      userId: Ref.UserId,
       commandId: Ref.CommandId,
       submissionId: Option[Ref.SubmissionId],
       workflowId: Option[Ref.WorkflowId],
@@ -78,7 +78,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       metrics.services.write.submitReassignmentRunning,
       delegate.submitReassignment(
         submitter,
-        applicationId,
+        userId,
         commandId,
         submissionId,
         workflowId,

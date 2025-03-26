@@ -4,12 +4,20 @@
 package com.digitalasset.canton.store
 
 import cats.data.EitherT
+import cats.implicits.showInterpolator
 import cats.syntax.traverse.*
+import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.{
+  CloseContext,
+  FlagCloseable,
+  FutureUnlessShutdown,
+  HasCloseContext,
+}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.{DefaultOpenEnvelope, ProtocolMessage}
@@ -21,6 +29,7 @@ import com.digitalasset.canton.sequencing.{
   OrdinarySerializedEvent,
   PossiblyIgnoredProtocolEvent,
   PossiblyIgnoredSerializedEvent,
+  SequencedSerializedEvent,
 }
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -29,28 +38,198 @@ import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequence
 import com.digitalasset.canton.store.db.DbSequencedEventStore
 import com.digitalasset.canton.store.db.DbSequencedEventStore.SequencedEventDbType
 import com.digitalasset.canton.store.memory.InMemorySequencedEventStore
-import com.digitalasset.canton.tracing.{HasTraceContext, SerializableTraceContext, TraceContext}
+import com.digitalasset.canton.tracing.{
+  HasTraceContext,
+  SerializableTraceContext,
+  TraceContext,
+  Traced,
+}
+import com.digitalasset.canton.util.{ErrorUtil, Thereafter}
 import com.digitalasset.canton.version.ProtocolVersion
+import com.google.common.annotations.VisibleForTesting
 
-import scala.concurrent.ExecutionContext
+import java.util.concurrent.Semaphore
+import java.util.concurrent.atomic.AtomicReference
+import scala.concurrent.{ExecutionContext, blocking}
+import scala.math.Ordered.orderingToOrdered
+import scala.util.Failure
 
 /** Persistent store for [[com.digitalasset.canton.sequencing.protocol.SequencedEvent]]s received
   * from the sequencer. The store may assume that sequencer counters strictly increase with
   * timestamps without checking this precondition.
   */
-trait SequencedEventStore extends PrunableByTime with NamedLogging with AutoCloseable {
+trait SequencedEventStore
+    extends PrunableByTime
+    with NamedLogging
+    with FlagCloseable
+    with HasCloseContext {
+
+  /** Semaphore to prevent concurrent writes to the db. Concurrent calls can be problematic because
+    * they may introduce gaps in the stored sequencer counters. The methods [[store]],
+    * [[storeSequenced]], [[ignoreEvents]] and [[unignoreEvents]], are not meant to be executed
+    * concurrently.
+    */
+  private[this] val semaphore: Semaphore = new Semaphore(1)
+
+  protected[this] def withLock[F[_], A](caller: String)(body: => F[A])(implicit
+      thereafter: Thereafter[F],
+      traceContext: TraceContext,
+  ): F[A] = {
+    import Thereafter.syntax.*
+    // Avoid unnecessary call to blocking, if a permit is available right away.
+    if (!semaphore.tryAcquire()) {
+      // This should only occur when the caller is ignoring events, so ok to log with info level.
+      logger.info(s"Delaying call to $caller, because another write is in progress.")
+      blocking(semaphore.acquireUninterruptibly())
+    }
+    body.thereafter(_ => semaphore.release())
+  }
+
+  protected[this] def fetchLastCounterAndTimestamp(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CounterAndTimestamp]]
+
+  private[this] val lowerBound: AtomicReference[Option[CounterAndTimestamp]] = new AtomicReference(
+    None
+  )
+
+  /** Initializes the sequencer counter allocator and timestamp lower bound with data from the store
+    * * itself.
+    */
+  def reinitializeLowerBoundFromDb()(implicit
+      tc: TraceContext
+  ): FutureUnlessShutdown[CounterAndTimestamp] =
+    reinitializeFromDbOrSetLowerBound()
+
+  /** Initializes the sequencer counter allocator and timestamp lower bound with data from the store
+    * itself. The parameter `counterIfEmpty` is intended for tests only, where we start with an
+    * empty store and will be ignored if the store is not empty.
+    */
+  @VisibleForTesting
+  def reinitializeFromDbOrSetLowerBound(
+      counterIfEmpty: SequencerCounter =
+        SequencerCounter.Genesis - 1 // to start from 0 we need to subtract 1
+  )(implicit tc: TraceContext): FutureUnlessShutdown[CounterAndTimestamp] =
+    fetchLastCounterAndTimestamp.map { fromDb =>
+      val newLowerBound =
+        fromDb.getOrElse(CounterAndTimestamp(counterIfEmpty, CantonTimestamp.MinValue))
+      logger.debug(s"Initialized the lower bound from the database: $newLowerBound")
+      lowerBound.set(Some(newLowerBound))
+      newLowerBound
+    }
+
+  /** Calls `f` with the current `lowerBound`, updates it only on success with the returned value.
+    */
+  private def withLowerBoundUpdate[T](
+      f: CounterAndTimestamp => FutureUnlessShutdown[(CounterAndTimestamp, T)]
+  )(implicit tc: TraceContext): FutureUnlessShutdown[T] =
+    for {
+      lowerBoundBefore <- lowerBound
+        .get()
+        .fold(reinitializeLowerBoundFromDb())(FutureUnlessShutdown.pure)
+      (lowerBoundAfter, result) <- f(lowerBoundBefore).transform {
+        case failure @ Failure(_) =>
+          // In case of failure we set the lower bound to the `None` to force its reinitialization
+          // on a subsequent call to allow the db failure retry to sync with the actual state in the db
+          logger.debug(
+            s"SequencedEventStore.store operation has failed, the state has been reset to reinitialize from db",
+            failure.exception,
+          )
+          lowerBound.set(None)
+          failure
+        case x => x
+      }
+    } yield {
+      if (lowerBoundBefore < lowerBoundAfter) {
+        val storedCount = lowerBoundAfter.lastCounter - lowerBoundBefore.lastCounter
+        lowerBound.set(Some(lowerBoundAfter))
+        logger.debug(
+          s"Successfully stored $storedCount events and updated the lower bound from $lowerBoundBefore to $lowerBoundAfter"
+        )
+      } else if (lowerBoundBefore > lowerBoundAfter) {
+        ErrorUtil.invalidState(
+          s"SequencedEventStore's lower bound is not expected to decrease, observed a decrease: $lowerBoundBefore -> $lowerBoundAfter"
+        )
+      }
+      result
+    }
 
   import SequencedEventStore.SearchCriterion
 
   implicit val ec: ExecutionContext
   protected def kind: String = "sequenced events"
 
-  /** Stores the given [[com.digitalasset.canton.sequencing.protocol.SequencedEvent]]s. If an event
-    * with the same timestamp already exist, the event may remain unchanged or overwritten.
+  /** Assigns counters & stores the given
+    * [[com.digitalasset.canton.sequencing.protocol.SequencedEvent]]s. If an event with the same
+    * timestamp already exist, the event may remain unchanged or overwritten.
     */
   def store(signedEvents: Seq[OrdinarySerializedEvent])(implicit
       traceContext: TraceContext,
       externalCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Unit] =
+    storeSequenced(signedEvents.map(_.asSequencedSerializedEvent))(
+      traceContext,
+      externalCloseContext,
+    )
+      .map(_ => ())
+
+  /** Assigns counters & stores the given
+    * [[com.digitalasset.canton.sequencing.protocol.SequencedEvent]]s. If an event with the same
+    * timestamp already exist, the event may remain unchanged or overwritten.
+    */
+  def storeSequenced(signedEvents: Seq[SequencedSerializedEvent])(implicit
+      traceContext: TraceContext,
+      externalCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Seq[OrdinarySerializedEvent]] =
+    if (signedEvents.isEmpty) FutureUnlessShutdown.pure(Seq.empty)
+    else {
+      withLock(functionFullName) {
+        CloseContext.withCombinedContext(closeContext, externalCloseContext, timeouts, logger) {
+          combinedCloseContext =>
+            withLowerBoundUpdate { lowerBound =>
+              val CounterAndTimestamp(lastCounter, lastTimestamp) = lowerBound
+              val (skippedEvents, eventsToStore) = signedEvents.partition(
+                _.value.content.timestamp <= lastTimestamp
+              )
+              if (skippedEvents.nonEmpty) {
+                logger.warn(
+                  s"Skipping ${skippedEvents.size} events with timestamp <= $lastTimestamp (presumed already processed)"
+                )
+              }
+              val noUpdates =
+                FutureUnlessShutdown.pure((lowerBound, Seq.empty[OrdinarySerializedEvent]))
+              NonEmpty.from(eventsToStore).fold(noUpdates) { eventsToStoreNE =>
+                val eventsWithCounters =
+                  eventsToStoreNE.zipWithIndex.map { case (signedEvent, idx) =>
+                    val counter = lastCounter + 1 + idx
+                    OrdinarySequencedEvent(counter, signedEvent.value)(
+                      signedEvent.traceContext
+                    )
+                  }
+                logger.debug(
+                  show"Storing delivery events from ${eventsWithCounters.head1.timestamp} / ${eventsWithCounters.head1.counter} to ${eventsWithCounters.last1.timestamp} / ${eventsWithCounters.last1.counter}."
+                )
+                val storeEventsF =
+                  storeEventsInternal(eventsWithCounters)(traceContext, combinedCloseContext)
+                val updatedLowerBound =
+                  CounterAndTimestamp(
+                    eventsWithCounters.last1.counter,
+                    eventsWithCounters.last1.timestamp,
+                  )
+                storeEventsF.map(_ => (updatedLowerBound, eventsWithCounters))
+              }
+            }
+        }
+      }
+    }
+
+  /** The actual store operation implementation to perform on the database.
+    */
+  protected def storeEventsInternal(
+      eventsNE: NonEmpty[Seq[OrdinarySerializedEvent]]
+  )(implicit
+      traceContext: TraceContext,
+      closeContext: CloseContext,
   ): FutureUnlessShutdown[Unit]
 
   /** Looks up an event by the given criterion.
@@ -84,7 +263,17 @@ trait SequencedEventStore extends PrunableByTime with NamedLogging with AutoClos
     *   [[ChangeWouldResultInGap]] if there would be a gap between the highest sequencer counter in
     *   the store and `from`.
     */
-  def ignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(implicit
+  final def ignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit] =
+    ignoreEventsInternal(fromInclusive, toInclusive)
+      .flatMap(_ => EitherT.right[ChangeWouldResultInGap](reinitializeLowerBoundFromDb()))
+      .map(_ => ())
+
+  protected def ignoreEventsInternal(
+      fromInclusive: SequencerCounter,
+      toInclusive: SequencerCounter,
+  )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit]
 
@@ -94,21 +283,40 @@ trait SequencedEventStore extends PrunableByTime with NamedLogging with AutoClos
     *   [[ChangeWouldResultInGap]] if deleting empty ignored events between `from` and `to` would
     *   result in a gap in sequencer counters.
     */
-  def unignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(implicit
+  final def unignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit] =
+    unignoreEventsInternal(fromInclusive, toInclusive)
+      .flatMap(_ => EitherT.right[ChangeWouldResultInGap](reinitializeLowerBoundFromDb()))
+      .map(_ => ())
+
+  protected def unignoreEventsInternal(
+      fromInclusive: SequencerCounter,
+      toInclusive: SequencerCounter,
+  )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit]
 
   /** Deletes all events with sequencer counter greater than or equal to `from`.
     */
-  private[canton] def delete(fromInclusive: SequencerCounter)(implicit
+  final private[canton] def delete(fromInclusive: SequencerCounter)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    deleteInternal(fromInclusive)
+      .flatMap(_ => reinitializeLowerBoundFromDb())
+      .map(_ => ())
+
+  protected def deleteInternal(fromInclusive: SequencerCounter)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
   /** Purges all data from the store.
     */
-  def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = delete(
-    SequencerCounter.Genesis
-  )
+  final def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    delete(
+      SequencerCounter.Genesis
+    ).flatMap(_ => reinitializeLowerBoundFromDb())
+      .map(_ => ())
 
   /** Look up a TraceContext for a sequenced event
     *
@@ -132,7 +340,7 @@ object SequencedEventStore {
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): SequencedEventStore =
     storage match {
-      case _: MemoryStorage => new InMemorySequencedEventStore(loggerFactory)
+      case _: MemoryStorage => new InMemorySequencedEventStore(loggerFactory, timeouts)
       case dbStorage: DbStorage =>
         new DbSequencedEventStore(
           dbStorage,
@@ -142,6 +350,16 @@ object SequencedEventStore {
           loggerFactory,
         )
     }
+
+  final case class CounterAndTimestamp(
+      lastCounter: SequencerCounter,
+      lastTimestamp: CantonTimestamp,
+  )
+
+  object CounterAndTimestamp {
+    implicit val ord: Ordering[CounterAndTimestamp] =
+      Ordering.by(x => (x.lastTimestamp, x.lastCounter))
+  }
 
   sealed trait SearchCriterion extends Product with Serializable
 
@@ -181,6 +399,9 @@ object SequencedEventStore {
       param("upper inclusive", _.upperInclusive),
     )
   }
+
+  type SequencedEventWithTraceContext[+Env <: Envelope[_]] =
+    Traced[SignedContent[SequencedEvent[Env]]]
 
   /** Encapsulates an event stored in the SequencedEventStore.
     */
@@ -281,16 +502,19 @@ object SequencedEventStore {
     * contains a trace context.
     */
   final case class OrdinarySequencedEvent[+Env <: Envelope[_]](
-      signedEvent: SignedContent[SequencedEvent[Env]]
+      override val counter: SequencerCounter,
+      signedEvent: SignedContent[SequencedEvent[Env]],
   )(
       override val traceContext: TraceContext
   ) extends PossiblyIgnoredSequencedEvent[Env] {
+    require(
+      counter == signedEvent.content.counter,
+      s"For event at timestamp $timestamp, counter $counter doesn't match the underlying SequencedEvent's counter ${signedEvent.content.counter}",
+    )
 
     override def previousTimestamp: Option[CantonTimestamp] = signedEvent.content.previousTimestamp
 
     override def timestamp: CantonTimestamp = signedEvent.content.timestamp
-
-    override def counter: SequencerCounter = signedEvent.content.counter
 
     override def underlyingEventBytes: Array[Byte] = signedEvent.toByteArray
 
@@ -307,12 +531,23 @@ object SequencedEventStore {
 
     override def asOrdinaryEvent: PossiblyIgnoredSequencedEvent[Env] = this
 
+    def asSequencedSerializedEvent: SequencedEventWithTraceContext[Env] =
+      Traced(signedEvent)(traceContext)
+
     override protected def pretty: Pretty[OrdinarySequencedEvent[Envelope[_]]] = prettyOfClass(
       param("signedEvent", _.signedEvent)
     )
   }
 
   object OrdinarySequencedEvent {
+
+    // #TODO(#11834): This is an old constructor when we used counter from the SequencedEvent,
+    //   to be removed once the counter is gone from the SequencedEvent
+    def apply[Env <: Envelope[_]](signedEvent: SignedContent[SequencedEvent[Env]])(
+        traceContext: TraceContext
+    ): OrdinarySequencedEvent[Env] =
+      OrdinarySequencedEvent(signedEvent.content.counter, signedEvent)(traceContext)
+
     def openEnvelopes(event: OrdinarySequencedEvent[ClosedEnvelope])(
         protocolVersion: ProtocolVersion,
         hashOps: HashOps,

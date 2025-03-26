@@ -123,7 +123,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           blockMetaData,
           allIds.indexOf(originalLeader),
           nextView,
-          clock.now,
           Seq.empty,
           myId,
         )
@@ -153,7 +152,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           blockMetaData,
           0,
           nextView,
-          clock.now,
           Seq.empty,
           myId,
         )
@@ -168,7 +166,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           blockMetaData,
           0,
           nextView,
-          clock.now,
           Seq(
             viewChangeMessage
           ),
@@ -300,7 +297,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           blockMetaData,
           0,
           nextView,
-          clock.now,
           Seq(commitCertificate),
           myId,
         )
@@ -310,7 +306,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           blockMetaData,
           0,
           nextView,
-          clock.now,
           Seq(
             viewChangeMessage
           ),
@@ -445,7 +440,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           blockMetaData,
           segmentIndex,
           view2,
-          clock.now,
           Seq(commitCertificate),
           otherId1,
         )
@@ -455,7 +449,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           blockMetaData,
           segmentIndex,
           view2,
-          clock.now,
           Seq(
             viewChangeMessage,
             createViewChange(view2, otherId2),
@@ -500,7 +493,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           blockMetaData,
           segmentIndex,
           view3,
-          clock.now,
           Seq(commitCertificate),
           myId,
         )
@@ -546,7 +538,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           blockMetaData,
           allIds.indexOf(originalLeader),
           nextView,
-          clock.now,
           Seq.empty,
           from = myId,
         )
@@ -598,7 +589,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           blockMetaData,
           originalSegmentIndex,
           nextView,
-          clock.now,
           Seq.empty,
           from = myId,
         )
@@ -608,7 +598,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           blockMetaData,
           originalSegmentIndex,
           nextView,
-          clock.now,
           Seq(
             viewChangeMessage(),
             viewChangeMessage(from = otherId2),
@@ -688,7 +677,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           blockMetaData,
           allIds.indexOf(originalLeader),
           futureView,
-          clock.now,
           Seq.empty,
           from = myId,
         )
@@ -728,7 +716,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           blockMetaData,
           allIds.indexOf(originalLeader),
           evenFurtherView,
-          clock.now,
           Seq.empty,
           from = myId,
         )
@@ -836,7 +823,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           blockMetaData,
           nextView,
           prepare1().message.hash,
-          prepare1().message.localTimestamp,
+          CantonTimestamp.Epoch,
           from = myId,
         )
       assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(prepare1()))) shouldBe List(
@@ -882,7 +869,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           blockMetaData,
           segmentIndex = originalLeaderIndex,
           secondView,
-          clock.now,
           Seq.empty,
           myId,
         )
@@ -931,7 +917,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           blockMetaData,
           allIds.indexOf(originalLeader),
           thirdView,
-          clock.now,
           Seq.empty,
           myId,
         )
@@ -1100,7 +1085,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           PbftSignedNetworkMessage(createCommit(block1, view1, otherId2, pp1.message.hash))
         )
       )
-      // note: local commit from myId is already created as part of processing logic
       segment.confirmCompleteBlockStored(block1)
       segment.isBlockComplete(block1) shouldBe true
 
@@ -1127,13 +1111,15 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       segment.isSegmentComplete shouldBe false
 
       // Simulate completing a view change with View Change message(s) and New View message
-      def viewChangeMsgForView2(from: BftNodeId = otherId1) = createViewChange(
+      def viewChangeMsgForView2(from: BftNodeId) = createViewChange(
         view2,
         from,
         originalLeader,
         Seq(slotNumbers(0) -> view1),
       )
-      val _ = assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(viewChangeMsgForView2())))
+      val _ = assertNoLogs(
+        segment.processEvent(PbftSignedNetworkMessage(viewChangeMsgForView2(from = otherId1)))
+      )
       segment.isViewChangeInProgress shouldBe true
       val _ = assertNoLogs(
         segment.processEvent(PbftSignedNetworkMessage(viewChangeMsgForView2(from = otherId2)))
@@ -1154,7 +1140,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
                 originalLeader,
                 Seq(
                   viewChangeMsgForView2(from = myId),
-                  viewChangeMsgForView2(),
+                  viewChangeMsgForView2(from = otherId1),
                   viewChangeMsgForView2(from = otherId2),
                 ),
                 Seq(pp1, ppBottom2, ppBottom3),
@@ -1164,7 +1150,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       )
       val _ = assertNoLogs(segment.processEvent(createNewViewStored(view2)))
 
-      // Confirm first view change (from view0 to view1) is now complete
+      // Confirm first view change (from view1 to view2) is now complete
       segment.isViewChangeInProgress shouldBe false
 
       // All [[myPrepares]] get signed
@@ -1172,21 +1158,21 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(prepare)))
       }
 
-      // Next, simulate some progress being made when view1 is active
-      // Suppose block1 (slot0) achieves a fresh prepare certificate in view2 (note: myPrepare already processed)
+      // Next, simulate some progress being made when view2 is active
+      // For block1, which is already complete, no progress should be made (processing stops early)
       val _ = assertNoLogs(
         segment.processEvent(
           PbftSignedNetworkMessage(createPrepare(block1, view2, otherId2, pp1.message.hash))
-        )
+        ) shouldBe empty
       )
       val _ = assertNoLogs(
         segment.processEvent(
           PbftSignedNetworkMessage(createPrepare(block1, view2, otherId3, pp1.message.hash))
-        )
+        ) shouldBe empty
       )
-      val _ = assertNoLogs(segment.processEvent(createPreparesStored(block1, view2)))
 
-      // Suppose block2 (slot1) achieves a prepare certificate in view2 (note: myPrepare already processed)
+      // For block2, suppose node obtains a prepare certificate in view2
+      // Note that the local Prepare was already processed during NewView message processing
       val _ =
         assertNoLogs(
           segment.processEvent(
@@ -1610,7 +1596,6 @@ object SegmentStateTest {
       .create(
         BlockMetadata(epochInfo.number, blockNumber),
         ViewNumber(view),
-        CantonTimestamp.Epoch,
         OrderingBlock(Seq.empty),
         CanonicalCommitSet(Set.empty),
         from,
@@ -1626,7 +1611,6 @@ object SegmentStateTest {
       .create(
         BlockMetadata.mk(epochInfo.number, blockNumber),
         ViewNumber(view),
-        CantonTimestamp.Epoch,
         OrderingBlock(Seq.empty),
         CanonicalCommitSet(Set.empty),
         from,
@@ -1644,7 +1628,6 @@ object SegmentStateTest {
         BlockMetadata.mk(epochInfo.number, blockNumber),
         ViewNumber(view),
         hash,
-        CantonTimestamp.Epoch,
         from,
       )
       .fakeSign
@@ -1710,7 +1693,6 @@ object SegmentStateTest {
         blockMetaData,
         originalLeaderIndex,
         ViewNumber(viewNumber),
-        CantonTimestamp.Epoch,
         consensusCerts = certs,
         from,
       )
@@ -1739,7 +1721,6 @@ object SegmentStateTest {
         blockMetaData,
         segmentIndex = allIds.indexOf(originalLeader),
         viewNumber = ViewNumber(viewNumber),
-        localTimestamp = CantonTimestamp.Epoch,
         viewChanges = vcSet,
         prePrepares = ppSet,
         from,

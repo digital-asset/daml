@@ -31,10 +31,10 @@ message Completion {
   // Must be a valid LedgerString (as described in ``value.proto``).
   string update_id = 3;
 
-  // The application-id or user-id that was used for the submission, as described in ``commands.proto``.
-  // Must be a valid ApplicationIdString (as described in ``value.proto``).
+  // The user-id that was used for the submission, as described in ``commands.proto``.
+  // Must be a valid UserIdString (as described in ``value.proto``).
   // Optional for historic completions where this data is not available.
-  string application_id = 4;
+  string user_id = 4;
 
   // The set of parties on whose behalf the commands were executed.
   // Contains the ``act_as`` parties from ``commands.proto``

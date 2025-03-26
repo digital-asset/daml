@@ -151,7 +151,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         .map(cc =>
           lapi.commands.Commands(
             workflowId = workflowId.getOrElse(""),
-            applicationId = applicationId.getOrElse(""),
+            userId = userId.getOrElse(""),
             commandId = commandId,
             commands = cc.map(lapi.commands.Command(_)),
             deduplicationPeriod = deduplicationPeriod.getOrElse(
@@ -247,7 +247,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           JsCommands(
             commands = cmds,
             workflowId = Some(lapiCommands.workflowId),
-            applicationId = Some(lapiCommands.applicationId),
+            userId = Some(lapiCommands.userId),
             commandId = lapiCommands.commandId,
             deduplicationPeriod = Some(lapiCommands.deduplicationPeriod),
             disclosedContracts = lapiCommands.disclosedContracts,
@@ -1298,7 +1298,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     ): Future[lapi.interactive.interactive_submission_service.PrepareSubmissionRequest] = for {
       commands <- convertCommands(obj.commands)
     } yield lapi.interactive.interactive_submission_service.PrepareSubmissionRequest(
-      applicationId = obj.applicationId,
+      userId = obj.userId,
       commandId = obj.commandId,
       commands = commands.map(lapi.commands.Command(_)),
       minLedgerTime = obj.minLedgerTime,
@@ -1350,7 +1350,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           partySignatures = obj.partySignatures,
           deduplicationPeriod = obj.deduplicationPeriod,
           submissionId = obj.submissionId,
-          applicationId = obj.applicationId,
+          userId = obj.userId,
           hashingSchemeVersion = obj.hashingSchemeVersion,
         )
       }

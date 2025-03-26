@@ -20,7 +20,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{ApplicationId, BaseTest, CommandId, LfPartyId}
+import com.digitalasset.canton.{BaseTest, CommandId, LfPartyId, UserId}
 import org.scalatest.funspec.PathAnyFunSpec
 
 import java.time.Duration
@@ -101,7 +101,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
 
     val submitterMetadata = SubmitterMetadata(
       NonEmpty(Set, alice),
-      ApplicationId.assertFromString("kaese"),
+      UserId.assertFromString("kaese"),
       CommandId.assertFromString("wurst"),
       participantId,
       salt = salt(6638),

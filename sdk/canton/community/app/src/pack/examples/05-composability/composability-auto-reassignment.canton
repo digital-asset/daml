@@ -11,7 +11,7 @@ val iouId = bootstrap.synchronizer(
   mediators = Seq(iou_mediator),
   synchronizerOwners = Seq(iouSynchronizerOwner),
   synchronizerThreshold = PositiveInt.one,
-  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.forSynchronizer),
 )
 
 val paintSynchronizerOwner = paint_sequencer
@@ -21,7 +21,7 @@ val paintId = bootstrap.synchronizer(
   mediators = Seq(paint_mediator),
   synchronizerOwners = Seq(paintSynchronizerOwner),
   synchronizerThreshold = PositiveInt.one,
-  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.forSynchronizer),
 )
 
 // update parameters

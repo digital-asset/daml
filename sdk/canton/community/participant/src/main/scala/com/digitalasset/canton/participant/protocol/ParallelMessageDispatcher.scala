@@ -172,7 +172,7 @@ class ParallelMessageDispatcher(
 
     withSpan("MessageDispatcher.handle") { implicit traceContext => _ =>
       val processingResult: ProcessingResult = eventE.event match {
-        case OrdinarySequencedEvent(signedEvent) =>
+        case OrdinarySequencedEvent(_, signedEvent) =>
           val signedEventE = eventE.map(_ => signedEvent)
           processOrdinary(signedEventE)
 
@@ -245,9 +245,9 @@ class ParallelMessageDispatcher(
         recordOrderPublisher.tick(
           SequencerIndexMoved(
             synchronizerId = synchronizerId,
-            sequencerCounter = sc,
             recordTime = ts,
           ),
+          sequencerCounter = sc,
           rcO = None,
         )
       } else {

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.submission
 
 import cats.Functor
+import com.digitalasset.canton.LedgerSubmissionId
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.store.InFlightSubmissionStore.InFlightByMessageId
@@ -12,7 +13,6 @@ import com.digitalasset.canton.sequencing.protocol.MessageId
 import com.digitalasset.canton.store.db.DbSerializationException
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
-import com.digitalasset.canton.{LedgerSubmissionId, SequencerCounter}
 import slick.jdbc.GetResult
 
 import java.util.UUID
@@ -74,8 +74,8 @@ final case class InFlightSubmission[+SequencingInfo <: SubmissionSequencingInfo]
 
   private[participant] def associatedTimestamp: CantonTimestamp =
     (sequencingInfo: @unchecked) match {
-      case UnsequencedSubmission(timeout, _trackingData) => timeout
-      case SequencedSubmission(_sequencerCounter, sequencingTime) => sequencingTime
+      case UnsequencedSubmission(timeout, _) => timeout
+      case SequencedSubmission(sequencingTime) => sequencingTime
     }
 
   override protected def pretty: Pretty[InFlightSubmission.this.type] = prettyOfClass(
@@ -131,18 +131,17 @@ object SubmissionSequencingInfo {
       getResultByteArrayO: GetResult[Option[Array[Byte]]]
   ): GetResult[SubmissionSequencingInfo] = { r =>
     val timeoutO = r.<<[Option[CantonTimestamp]]
-    val sequencerCounterO = r.<<[Option[SequencerCounter]]
     val sequencingTimeO = r.<<[Option[CantonTimestamp]]
     val trackingDataO = r.<<[Option[SubmissionTrackingData]]
 
-    (timeoutO, sequencerCounterO, sequencingTimeO, trackingDataO) match {
-      case (Some(timeout), None, None, Some(trackingData)) =>
+    (timeoutO, sequencingTimeO, trackingDataO) match {
+      case (Some(timeout), None, Some(trackingData)) =>
         UnsequencedSubmission(timeout, trackingData)
-      case (None, Some(sequencerCounter), Some(sequencingTime), None) =>
-        SequencedSubmission(sequencerCounter, sequencingTime)
+      case (None, Some(sequencingTime), None) =>
+        SequencedSubmission(sequencingTime)
       case _ =>
         throw new DbSerializationException(
-          s"Invalid submission sequencing info: timeout=$timeoutO, sequencer counter=$sequencerCounterO, sequencing time=$sequencingTimeO, tracking data=$trackingDataO"
+          s"Invalid submission sequencing info: timeout=$timeoutO, sequencing time=$sequencingTimeO, tracking data=$trackingDataO"
         )
     }
   }
@@ -185,31 +184,25 @@ object UnsequencedSubmission {
 
 /** The observed sequencing information of an [[InFlightSubmission]]
   *
-  * @param sequencerCounter
-  *   The [[com.digitalasset.canton.SequencerCounter]] assigned to the
-  *   [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest]]
   * @param sequencingTime
   *   The sequencer timestamp assigned to the
   *   [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest]]
   */
 final case class SequencedSubmission(
-    sequencerCounter: SequencerCounter,
-    sequencingTime: CantonTimestamp,
+    sequencingTime: CantonTimestamp
 ) extends SubmissionSequencingInfo {
 
   override def asUnsequenced: None.type = None
   override def asSequenced: Some[SequencedSubmission] = Some(this)
 
   override protected def pretty: Pretty[SequencedSubmission] = prettyOfClass(
-    param("sequencer counter", _.sequencerCounter),
-    param("sequencing time", _.sequencingTime),
+    param("sequencing time", _.sequencingTime)
   )
 }
 
 object SequencedSubmission {
   implicit val getResultSequencedSubmission: GetResult[SequencedSubmission] = GetResult { r =>
-    val sequencerCounter = r.<<[SequencerCounter]
     val timestamp = r.<<[CantonTimestamp]
-    SequencedSubmission(sequencerCounter, timestamp)
+    SequencedSubmission(timestamp)
   }
 }

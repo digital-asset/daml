@@ -55,8 +55,8 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-script-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//canton:base_daml-errors",
         "//canton:base_daml-tls",
+        "//canton:base_errors",
         "//canton:base_grpc-utils",
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-logging",

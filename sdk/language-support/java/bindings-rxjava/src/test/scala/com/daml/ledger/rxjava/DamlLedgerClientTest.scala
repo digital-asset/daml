@@ -149,10 +149,10 @@ class DamlLedgerClientTest
   ): Assertion = {
     withClue(clueFor("CommandCompletionClient")) {
       commandCompletionClient
-        .completionStream("applicationId", 0L, List(someParty).asJava)
+        .completionStream("userId", 0L, List(someParty).asJava)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingFirst()
-      commandCompletionServiceImpl.getLastCompletionStreamRequest.value.applicationId shouldBe "applicationId"
+      commandCompletionServiceImpl.getLastCompletionStreamRequest.value.userId shouldBe "userId"
     }
   }
 

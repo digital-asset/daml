@@ -113,7 +113,7 @@ object UserManagementServiceAuthorization {
       userIdL: Lens[Req, String],
       identityProviderIdL: Lens[Req, String],
   ): List[RequiredClaim[Req]] = List(
-    RequiredClaim.MatchUserId(userIdL),
+    RequiredClaim.MatchUserIdForUserManagement(userIdL),
     RequiredClaim.MatchIdentityProviderId(identityProviderIdL),
   )
 

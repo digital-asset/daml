@@ -16,15 +16,12 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.ViewChange
-import com.digitalasset.canton.time.SimClock
 import org.scalatest.wordspec.AsyncWordSpec
 import org.slf4j.event.Level.{INFO, WARN}
 
 class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
   import SegmentStateTest.*
-
-  private val clock = new SimClock(loggerFactory = loggerFactory)
 
   private implicit val mc: MetricsContext = MetricsContext.Empty
   private val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
@@ -145,7 +142,7 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         vcSet.foreach(vcState.processMessage)
         vcState.shouldCreateNewView shouldBe true
 
-        val maybePrePrepares = vcState.constructPrePreparesForNewView(blockMetaData, clock.now)
+        val maybePrePrepares = vcState.constructPrePreparesForNewView(blockMetaData)
         val prePrepares = maybePrePrepares.collect { case Right(r) => r }
 
         prePrepares.size should be(maybePrePrepares.size)
@@ -165,11 +162,10 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         vcSet.foreach(vcState.processMessage)
         vcState.shouldCreateNewView shouldBe true
 
-        val maybePrePrepares = vcState.constructPrePreparesForNewView(blockMetaData, clock.now)
+        val maybePrePrepares = vcState.constructPrePreparesForNewView(blockMetaData)
         val nv = vcState.createNewViewMessage(
           blockMetaData,
           segmentIndex,
-          clock.now,
           maybePrePrepares.map {
             case Right(r) => r
             case Left(toSign) => toSign.fakeSign
@@ -198,7 +194,7 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         vcSet.foreach(vcState.processMessage)
         vcState.shouldCreateNewView shouldBe true
 
-        val maybePrePrepares = vcState.constructPrePreparesForNewView(blockMetaData, clock.now)
+        val maybePrePrepares = vcState.constructPrePreparesForNewView(blockMetaData)
         val prePrepares = maybePrePrepares.collect { case Right(r) => r }
 
         prePrepares.size should be(maybePrePrepares.size)
@@ -227,7 +223,7 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         vcSet.foreach(vcState.processMessage)
         vcState.shouldCreateNewView shouldBe true
 
-        val maybePrePrepares = vcState.constructPrePreparesForNewView(blockMetaData, clock.now)
+        val maybePrePrepares = vcState.constructPrePreparesForNewView(blockMetaData)
         val prePrepares = maybePrePrepares.map {
           case Right(r) => r
           case Left(l) => l.fakeSign

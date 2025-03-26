@@ -146,7 +146,6 @@ object EpochStateTest {
       .create(
         BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
         ViewNumber.First,
-        CantonTimestamp.Epoch,
         OrderingBlock.empty,
         CanonicalCommitSet.empty,
         from = myId,

@@ -26,7 +26,6 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsTransaction,
   JsTransactionTree,
 }
-import com.digitalasset.canton.http.json.v2.Protocol.Protocol
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.Codecs.*
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -105,8 +104,7 @@ class JsCommandService(
   )
 
   private def commandCompletionStream(
-      caller: CallerContext,
-      protocol: Protocol,
+      caller: CallerContext
   ): TracedInput[Unit] => Flow[
     command_completion_service.CompletionStreamRequest,
     command_completion_service.CompletionStreamResponse,
@@ -116,8 +114,6 @@ class JsCommandService(
     prepareSingleWsStream(
       commandCompletionServiceClient(caller.token()).completionStream,
       Future.successful[command_completion_service.CompletionStreamResponse],
-      protocol = protocol,
-      withCloseDelay = false,
     )
   }
 
@@ -243,7 +239,7 @@ final case class JsCommands(
     commands: Seq[JsCommand.Command],
     commandId: String,
     actAs: Seq[String],
-    applicationId: Option[String] = None,
+    userId: Option[String] = None,
     readAs: Seq[String] = Seq.empty,
     workflowId: Option[String] = None,
     deduplicationPeriod: Option[DeduplicationPeriod] = None,

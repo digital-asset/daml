@@ -5,7 +5,13 @@ package com.digitalasset.canton.participant.admin.grpc
 
 import cats.data.EitherT
 import cats.implicits.*
-import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.digitalasset.base.error.{
+  CantonRpcError,
+  ErrorCategory,
+  ErrorCode,
+  Explanation,
+  Resolution,
+}
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.admin.grpc.{GrpcPruningScheduler, HasPruningScheduler}
 import com.digitalasset.canton.admin.participant.v30.*
@@ -208,7 +214,7 @@ class GrpcPruningService(
             .acsSetNoWaitCommitmentsFrom(noWaitDistinct),
           err => PruningServiceError.InternalServerError.Error(err.toString),
         )
-        .leftWiden[CantonError]
+        .leftWiden[CantonRpcError]
     } yield {
       v30.SetNoWaitCommitmentsFromResponse()
     }
@@ -235,14 +241,14 @@ class GrpcPruningService(
           sync.pruningProcessor.acsGetNoWaitCommitmentsFrom(synchronizers, participants),
           err => PruningServiceError.InternalServerError.Error(err.toString),
         )
-        .leftWiden[CantonError]
+        .leftWiden[CantonRpcError]
 
       allParticipants <- EitherTUtil
         .fromFuture(
           findAllKnownParticipants(synchronizers, participants),
           err => PruningServiceError.InternalServerError.Error(err.toString),
         )
-        .leftWiden[CantonError]
+        .leftWiden[CantonRpcError]
 
       allParticipantsFiltered = allParticipants
         .map { case (synchronizerId, participants) =>
@@ -286,7 +292,7 @@ class GrpcPruningService(
             sync.pruningProcessor.acsResetNoWaitCommitmentsFrom(configs),
             err => PruningServiceError.InternalServerError.Error(err.toString),
           )
-          .leftWiden[CantonError]
+          .leftWiden[CantonRpcError]
 
       } yield v30.ResetNoWaitCommitmentsFromResponse()
     CantonGrpcUtil.mapErrNewEUS(result)

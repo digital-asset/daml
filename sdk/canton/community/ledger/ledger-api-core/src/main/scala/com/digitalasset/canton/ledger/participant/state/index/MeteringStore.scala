@@ -7,7 +7,7 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.ApplicationId
+import com.digitalasset.daml.lf.data.Ref.UserId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 
 import scala.concurrent.Future
@@ -17,24 +17,24 @@ trait MeteringStore {
   def getMeteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
-      applicationId: Option[Ref.ApplicationId],
+      userId: Option[Ref.UserId],
   )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData]
 
 }
 
 object MeteringStore {
 
-  final case class ReportData(applicationData: Map[ApplicationId, Long], isFinal: Boolean)
+  final case class ReportData(applicationData: Map[UserId, Long], isFinal: Boolean)
 
   final case class TransactionMetering(
-      applicationId: Ref.ApplicationId,
+      userId: Ref.UserId,
       actionCount: Int,
       meteringTimestamp: Timestamp,
       ledgerOffset: Offset,
   )
 
   final case class ParticipantMetering(
-      applicationId: Ref.ApplicationId,
+      userId: Ref.UserId,
       from: Timestamp,
       to: Timestamp,
       actionCount: Int,

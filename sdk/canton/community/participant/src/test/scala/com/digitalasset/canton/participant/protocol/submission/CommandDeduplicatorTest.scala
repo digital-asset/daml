@@ -67,7 +67,7 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
     PostPublishData(
       submissionSynchronizerId = synchronizerId,
       publishSource = PublishSource.Local(messageUuid),
-      applicationId = completionInfo.applicationId,
+      userId = completionInfo.userId,
       commandId = completionInfo.commandId,
       actAs = completionInfo.actAs.toSet,
       offset = Offset.tryFromLong(longOffset),

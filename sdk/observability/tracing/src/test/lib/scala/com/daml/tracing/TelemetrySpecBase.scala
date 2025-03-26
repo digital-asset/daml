@@ -59,8 +59,8 @@ trait TelemetrySpecBase extends BeforeAndAfterEach { self: Suite =>
 
 object TelemetrySpecBase {
   val aSpanName = "aSpan"
-  val anApplicationIdSpanAttribute: (SpanAttribute, String) =
-    SpanAttribute.ApplicationId -> "anApplicationId"
+  val anUserIdSpanAttribute: (SpanAttribute, String) =
+    SpanAttribute.UserId -> "anUserId"
   val aCommandIdSpanAttribute: (SpanAttribute, String) =
     SpanAttribute.CommandId -> "aCommandId"
 }

@@ -86,9 +86,12 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.Interac
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionRequest,
   ExecuteSubmissionResponse,
+  GetPreferredPackageVersionRequest,
+  GetPreferredPackageVersionResponse,
   HashingSchemeVersion,
   InteractiveSubmissionServiceGrpc,
   MinLedgerTime,
+  PackagePreference,
   PartySignatures,
   PrepareSubmissionRequest,
   PrepareSubmissionResponse,
@@ -171,7 +174,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.util.ReassignmentTag.Source
-import com.digitalasset.canton.{LfPackageId, LfPartyId}
+import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPartyId}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.*
@@ -185,7 +188,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object LedgerApiCommands {
 
-  final val defaultApplicationId = "CantonConsole"
+  final val defaultUserId = "CantonConsole"
 
   object PartyManagementService {
     abstract class BaseCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
@@ -337,7 +340,7 @@ object LedgerApiCommands {
     }
   }
 
-  object PackageService {
+  object PackageManagementService {
 
     abstract class BaseCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
       override type Svc = PackageManagementServiceStub
@@ -405,7 +408,6 @@ object LedgerApiCommands {
       ): Either[String, Seq[PackageDetails]] =
         Right(response.packageDetails.take(limit.value))
     }
-
   }
 
   object CommandInspectionService {
@@ -959,7 +961,7 @@ object LedgerApiCommands {
     final case class GetReport(
         from: CantonTimestamp,
         to: Option[CantonTimestamp],
-        applicationId: Option[String],
+        userId: Option[String],
     ) extends BaseCommand[
           GetMeteringReportRequest,
           GetMeteringReportResponse,
@@ -977,7 +979,7 @@ object LedgerApiCommands {
           GetMeteringReportRequest(
             from = Some(from.toProtoTimestamp),
             to = to.map(_.toProtoTimestamp),
-            applicationId = applicationId.getOrElse(""),
+            userId = userId.getOrElse(""),
           )
         )
 
@@ -1267,12 +1269,12 @@ object LedgerApiCommands {
     def minLedgerTimeAbs: Option[Instant]
     def disclosedContracts: Seq[DisclosedContract]
     def synchronizerId: Option[SynchronizerId]
-    def applicationId: String
+    def userId: String
     def packageIdSelectionPreference: Seq[LfPackageId]
 
     protected def mkCommand: Commands = Commands(
       workflowId = workflowId,
-      applicationId = applicationId,
+      userId = userId,
       commandId = if (commandId.isEmpty) UUID.randomUUID().toString else commandId,
       actAs = actAs,
       readAs = readAs,
@@ -1329,7 +1331,7 @@ object LedgerApiCommands {
         override val minLedgerTimeAbs: Option[Instant],
         override val disclosedContracts: Seq[DisclosedContract],
         override val synchronizerId: Option[SynchronizerId],
-        override val applicationId: String,
+        override val userId: String,
         override val packageIdSelectionPreference: Seq[LfPackageId],
     ) extends SubmitCommand
         with BaseCommand[SubmitRequest, SubmitResponse, Unit] {
@@ -1353,7 +1355,7 @@ object LedgerApiCommands {
 
     final case class SubmitAssignCommand(
         workflowId: String,
-        applicationId: String,
+        userId: String,
         commandId: String,
         submitter: LfPartyId,
         submissionId: String,
@@ -1366,7 +1368,7 @@ object LedgerApiCommands {
           Some(
             ReassignmentCommand(
               workflowId = workflowId,
-              applicationId = applicationId,
+              userId = userId,
               commandId = commandId,
               submitter = submitter.toString,
               command = ReassignmentCommand.Command.AssignCommand(
@@ -1396,7 +1398,7 @@ object LedgerApiCommands {
 
     final case class SubmitUnassignCommand(
         workflowId: String,
-        applicationId: String,
+        userId: String,
         commandId: String,
         submitter: LfPartyId,
         submissionId: String,
@@ -1409,7 +1411,7 @@ object LedgerApiCommands {
           Some(
             ReassignmentCommand(
               workflowId = workflowId,
-              applicationId = applicationId,
+              userId = userId,
               commandId = commandId,
               submitter = submitter.toString,
               command = ReassignmentCommand.Command.UnassignCommand(
@@ -1453,7 +1455,7 @@ object LedgerApiCommands {
         minLedgerTimeAbs: Option[Instant],
         disclosedContracts: Seq[DisclosedContract],
         synchronizerId: Option[SynchronizerId],
-        applicationId: String,
+        userId: String,
         packageIdSelectionPreference: Seq[LfPackageId],
         verboseHashing: Boolean,
         prefetchContractKeys: Seq[PrefetchContractKey],
@@ -1466,7 +1468,7 @@ object LedgerApiCommands {
       override protected def createRequest(): Either[String, PrepareSubmissionRequest] =
         Right(
           PrepareSubmissionRequest(
-            applicationId = applicationId,
+            userId = userId,
             commandId = commandId,
             commands = commands,
             minLedgerTime = minLedgerTimeAbs
@@ -1502,7 +1504,7 @@ object LedgerApiCommands {
         preparedTransaction: PreparedTransaction,
         transactionSignatures: Map[PartyId, Seq[Signature]],
         submissionId: String,
-        applicationId: String,
+        userId: String,
         minLedgerTimeAbs: Option[Instant],
         deduplicationPeriod: Option[DeduplicationPeriod],
         hashingSchemeVersion: HashingSchemeVersion,
@@ -1546,7 +1548,7 @@ object LedgerApiCommands {
             preparedTransaction = Some(preparedTransaction),
             partySignatures = Some(makePartySignatures),
             submissionId = submissionId,
-            applicationId = applicationId,
+            userId = userId,
             deduplicationPeriod = serializeDeduplicationPeriod(deduplicationPeriod),
             hashingSchemeVersion = hashingSchemeVersion,
           )
@@ -1566,6 +1568,37 @@ object LedgerApiCommands {
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
     }
 
+    final case class PreferredPackageVersion(
+        parties: Set[LfPartyId],
+        packageName: LfPackageName,
+        synchronizerIdO: Option[SynchronizerId],
+        vettingValidAt: Option[CantonTimestamp],
+    ) extends BaseCommand[
+          GetPreferredPackageVersionRequest,
+          GetPreferredPackageVersionResponse,
+          Option[PackagePreference],
+        ] {
+
+      override protected def submitRequest(
+          service: InteractiveSubmissionServiceStub,
+          request: GetPreferredPackageVersionRequest,
+      ): Future[GetPreferredPackageVersionResponse] =
+        service.getPreferredPackageVersion(request)
+
+      override protected def createRequest(): Either[String, GetPreferredPackageVersionRequest] =
+        Right(
+          GetPreferredPackageVersionRequest(
+            parties = parties.toSeq,
+            packageName = packageName,
+            synchronizerId = synchronizerIdO.map(_.toProtoPrimitive).getOrElse(""),
+            vettingValidAt = vettingValidAt.map(_.toProtoTimestamp),
+          )
+        )
+
+      override protected def handleResponse(
+          response: GetPreferredPackageVersionResponse
+      ): Either[String, Option[PackagePreference]] = Right(response.packagePreference)
+    }
   }
 
   object CommandService {
@@ -1586,7 +1619,7 @@ object LedgerApiCommands {
         override val minLedgerTimeAbs: Option[Instant],
         override val disclosedContracts: Seq[DisclosedContract],
         override val synchronizerId: Option[SynchronizerId],
-        override val applicationId: String,
+        override val userId: String,
         override val packageIdSelectionPreference: Seq[LfPackageId],
     ) extends SubmitCommand
         with BaseCommand[
@@ -1629,7 +1662,7 @@ object LedgerApiCommands {
         override val minLedgerTimeAbs: Option[Instant],
         override val disclosedContracts: Seq[DisclosedContract],
         override val synchronizerId: Option[SynchronizerId],
-        override val applicationId: String,
+        override val userId: String,
         override val packageIdSelectionPreference: Seq[LfPackageId],
     ) extends SubmitCommand
         with BaseCommand[
@@ -1796,7 +1829,7 @@ object LedgerApiCommands {
         beginOffsetExclusive: Long,
         expectedCompletions: Int,
         timeout: java.time.Duration,
-        applicationId: String,
+        userId: String,
     )(filter: Completion => Boolean, scheduler: ScheduledExecutorService)
         extends BaseCommand[
           CompletionStreamRequest,
@@ -1807,7 +1840,7 @@ object LedgerApiCommands {
       override protected def createRequest(): Either[String, CompletionStreamRequest] =
         Right(
           CompletionStreamRequest(
-            applicationId = applicationId,
+            userId = userId,
             parties = Seq(partyId),
             beginExclusive = beginOffsetExclusive,
           )
@@ -1841,7 +1874,7 @@ object LedgerApiCommands {
         observer: StreamObserver[Completion],
         parties: Seq[String],
         offset: Long,
-        applicationId: String,
+        userId: String,
     )(implicit loggingContext: ErrorLoggingContext)
         extends BaseCommand[CompletionStreamRequest, AutoCloseable, AutoCloseable] {
       // The subscription should never be cut short because of a gRPC timeout
@@ -1849,7 +1882,7 @@ object LedgerApiCommands {
 
       override protected def createRequest(): Either[String, CompletionStreamRequest] = Right {
         CompletionStreamRequest(
-          applicationId = applicationId,
+          userId = userId,
           parties = parties,
           beginExclusive = offset,
         )

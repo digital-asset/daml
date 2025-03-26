@@ -19,13 +19,15 @@ import DA.Stack
 
 -- | A DER formatted private key to be used for ECDSA message signing
 type PrivateKeyHex = BytesHex
+
 data Secp256k1Sign = Secp256k1Sign with
   privateKey: PublicKeyHex
   message: BytesHex
-
 instance IsQuestion Secp256k1Sign BytesHex where command = "Secp256k1Sign"
 
 -- | Using a DER formatted private key (encoded as a hex string) use Secp256k1 to sign a hex encoded string message.
+--
+-- Note that this implementation uses a random source with a fixed PRNG and seed, ensuring it behaves deterministically during testing.
 --
 -- For example, CCTP attestation services may be mocked in daml-script code.
 secp256k1sign : HasCallStack => PrivateKeyHex -> BytesHex -> Script BytesHex

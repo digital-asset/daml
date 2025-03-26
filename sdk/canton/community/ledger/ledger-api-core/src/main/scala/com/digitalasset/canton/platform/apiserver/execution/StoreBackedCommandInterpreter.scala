@@ -159,7 +159,7 @@ final class StoreBackedCommandInterpreter(
           submitterInfo = state.SubmitterInfo(
             commands.actAs.toList,
             commands.readAs.toList,
-            commands.applicationId,
+            commands.userId,
             commands.commandId.unwrap,
             commands.deduplicationPeriod,
             commands.submissionId.map(_.unwrap),
