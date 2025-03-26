@@ -103,7 +103,7 @@ intToHexByte n | n < 256 = (intToHexByte(n / 16)) <> (intToHexByte(n % 16))
 intToHexByte n = (intToHexByte(n / 256)) <> (intToHexByte(n % 256))
 
 instance HasToHex Int where
-  toHex n | 0 <= n && n <= 9 = show n
+  toHex n | 0 <= n && n <= 9 = "0" <> (show n)
   toHex 10 = "0a"
   toHex 11 = "0b"
   toHex 12 = "0c"
@@ -114,6 +114,9 @@ instance HasToHex Int where
 
 instance HasToHex Party where
   toHex p = toHex(partyToText p)
+
+instance NumericScale n => HasToHex (Numeric n) where
+  toHex num = toHex(show num)
 
 class HasFromHex a where
   -- | Converts a hex encoded string into a typed data value.
@@ -138,8 +141,13 @@ instance HasFromHex Party where
   fromHex hex | Text.isHex hex = fromSome(partyFromText(fromHex hex))
   fromHex arg = error $ "Expected a hex encoded string but argument was: " <> arg
 
+instance NumericScale n => HasFromHex (Numeric n) where
+  fromHex hex | Text.isHex hex = fromSome(Text.parseNumeric(fromHex hex))
+  fromHex arg = error $ "Expected a hex encoded string but argument was: " <> arg
+
 -- | Number of bytes present in a byte encoded string.
 byteCount: BytesHex -> Int
+byteCount "" = 0
 byteCount hex | Text.isHex hex = (Text.length hex) / 2
 byteCount arg = error $ "Expected a hex encoded string but argument was: " <> arg
 
@@ -177,5 +185,7 @@ packHexBytes arg _ = error $ "Expected a hex encoded string but argument was: " 
 
 -- | Extract the byte string starting at startByte up to, but excluding, endByte. Byte indexing starts at 1.
 sliceHexBytes: BytesHex -> Int -> Int -> BytesHex
-sliceHexBytes hex startByte endByte | Text.isHex hex && 1 <= startByte && startByte <= endByte && endByte <= (byteCount hex) + 1 = Text.substring (startByte * 2) ((endByte - startByte) * 2) hex
+sliceHexBytes hex startByte endByte | Text.isHex hex && 1 <= startByte && startByte <= endByte && endByte <= (byteCount hex) + 1 = Text.substring ((startByte - 1) * 2) ((endByte - startByte) * 2) hex
+sliceHexBytes hex startByte _ | Text.isHex hex && startByte < 1 =  error $ "Expected start byte to be >= 1, was: " <> show startByte
+sliceHexBytes hex startByte endByte | Text.isHex hex && 1 <= startByte =  error $ "Expected end byte to be >= " <> show(startByte) <> " and <= " <> show((byteCount hex) + 1) <> " was: " <> show(endByte)
 sliceHexBytes arg _ _ =  error $ "Expected a hex encoded string but argument was: " <> arg

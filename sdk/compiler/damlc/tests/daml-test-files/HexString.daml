@@ -1,0 +1,79 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SUPPORTS-LF-FEATURE DAML_CCTP
+
+module HexString where
+
+import DA.Assert ((===))
+import DA.Crypto.Text
+import Daml.Script
+
+main =
+  script do
+    -- `HasToHex Int` and `HasFromHex Int`
+    toHex 0 === "00"
+    toHex 1 === "01"
+    toHex 15 === "0f"
+    toHex 16 === "10"
+    toHex 255 === "ff"
+    -- FIXME: toHex 256 === "0100"
+    toHex 3735928559 === "deadbeef"
+    fromHex "" === 0
+    fromHex "00" === 0
+    fromHex "01" === 1
+    fromHex "0a" === 10
+    fromHex "0F" === 15
+    fromHex "10" === 16
+    fromHex "Ff" === 255
+    fromHex "0100" === 256
+    fromHex "DeadBeef" === 3735928559
+
+    -- `HasToHex Text` and `HasFromHex Text`
+    toHex "" === ""
+    toHex " " === "20"
+    toHex "a" === "61"
+    toHex "Hello World!" === "48656c6c6f20576f726c6421"
+    toHex "DeadBeef" === "4465616442656566"
+    fromHex "" === ""
+    fromHex "20" === " "
+    fromHex "61" === "a"
+    fromHex "48656c6c6f20576f726c6421" === "Hello World!"
+    fromHex "4465616442656566" === "DeadBeef"
+
+    -- `HasToHex Party` and `HasFromHex Party`
+    alice <- allocateParty "Alice"
+    alice === fromHex(toHex alice)
+
+    -- `HasToHex(Numeric 10)` and `HasFromHex(Numeric 10)`
+    -- TODO:
+
+    -- byteCount
+    byteCount "" === 0
+    byteCount "00" === 1
+    byteCount "0000" === 2
+    byteCount "000000" === 3
+
+    -- packHexBytes
+    packHexBytes "01" 1 === "01"
+    packHexBytes "01" 2 === "0001"
+    packHexBytes "01" 3 === "000001"
+    packHexBytes "0102" 3 === "000102"
+
+    -- sliceHexBytes
+    sliceHexBytes "12" 1 2 === "12"
+    sliceHexBytes "DeadBeef" 2 3 === "ad"
+    sliceHexBytes "DeadBeef" 3 4 === "Be"
+    sliceHexBytes "DeadBeef" 2 4 === "adBe"
+    sliceHexBytes "DeadBeef" 2 5 === "adBeef"
+    sliceHexBytes "DeadBeef" 3 5 === "Beef"
+
+    -- isBytes*Hex
+    isBytes32Hex(packHexBytes "00" 32) === True
+    isBytes32Hex(packHexBytes "DeadBeef" 32) === True
+    isUInt32Hex(packHexBytes "00" 5) === True
+    isUInt32Hex(packHexBytes "000001" 5) === True
+    isUInt64Hex(packHexBytes "00" 6) === True
+    isUInt256Hex(packHexBytes "00" 8) === True
+
+    pure ()
