@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction
 
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
@@ -323,6 +324,27 @@ object GrpcErrorParser {
               ) =>
             SubmitError.UpgradeError.DowngradeFailed(expectedType, message)
         }
+
+      case "DAML_FAILURE" => {
+        // Fields added automatically by canton, and not by the user
+        // Removed in GrpcLedgerClient to be consistent with IDELedgerClient, which will not add these fields
+        val cantonFields =
+          Seq("commands", "definite_answer", "tid", "category", "participant", "error_id")
+        val oStatus =
+          for {
+            errorInfo <- oErrorInfoDetail
+            errorId <- errorInfo.metadata.get("error_id")
+            category <- errorInfo.metadata.get("category").map(_.toInt)
+            metadata = errorInfo.metadata.toMap.removedAll(cantonFields)
+            // Drop prefix so we give back the exact message in the throwing daml code
+            messageWithoutPrefix <- "^.+?error category \\d+\\): (.*)$".r
+              .findFirstMatchIn(message)
+              .map(_.group(1))
+          } yield SubmitError.FailureStatusError(
+            IE.FailureStatus(errorId, category, messageWithoutPrefix, metadata)
+          )
+        oStatus.getOrElse(new SubmitError.TruncatedError("FailureStatusError", message))
+      }
 
       case "INTERPRETATION_DEV_ERROR" =>
         caseErr { case Seq((ErrorResource.DevErrorType, errorType)) =>

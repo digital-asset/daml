@@ -51,3 +51,10 @@ instance CanAssert Script where
 instance CanAssert Script where
   assertFail = abort
 #endif
+
+data FailWithStatus = FailWithStatus with
+  status: FailureStatus
+instance IsQuestion FailWithStatus t where command = "FailWithStatus"
+
+instance ActionFailWithStatus Script where
+  failWithStatus = lift . FailWithStatus

@@ -36,6 +36,7 @@ private[daml] abstract class StablePackages {
   val Tuple2: Ref.TypeConName
   val Tuple3: Ref.TypeConName
   val Either: Ref.TypeConName
+  val FailureStatus: Ref.TypeConName
 
   final def packagesMap: Map[Ref.PackageId, Ast.Package] =
     allPackages.view.map(sp => sp.packageId -> sp.pkg).toMap

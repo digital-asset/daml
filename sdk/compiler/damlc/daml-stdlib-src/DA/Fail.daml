@@ -1,0 +1,62 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | Fail, for FailureStatus
+module DA.Fail (module DA.Fail, module DA.Internal.Fail, module DA.Internal.Fail.Types) where
+
+import DA.Internal.Fail
+import DA.Internal.Fail.Types
+import DA.Internal.Record
+import DA.Map (Map)
+import GHC.Types (primitive)
+
+instance Eq FailureCategory where
+  (==) = primitive @"BEEqual"
+
+-- | Categories are ordered by their corresponding [canton category ID](https://docs.daml.com/canton/reference/error_codes.html#error-categories-inventory)
+-- not by the constructor order, though they will likely match.
+instance Ord FailureCategory where
+  (<)  = primitive @"BELess"
+  (<=) = primitive @"BELessEq"
+  (>=) = primitive @"BEGreaterEq"
+  (>)  = primitive @"BEGreater"
+
+instance Show FailureCategory where
+  show InvalidIndependentOfSystemState = "InvalidIndependentOfSystemState"
+  show InvalidGivenCurrentSystemStateOther = "InvalidGivenCurrentSystemStateOther"
+
+deriving instance Eq FailureStatus
+deriving instance Ord FailureStatus
+deriving instance Show FailureStatus
+
+instance GetField "errorId" FailureStatus Text where
+  getField (FailureStatus {..}) = errorId
+instance SetField "errorId" FailureStatus Text where
+  setField errorId (FailureStatus _ category message meta) =
+    FailureStatus errorId category message meta
+
+instance GetField "category" FailureStatus FailureCategory where
+  getField (FailureStatus {..}) = category
+instance SetField "category" FailureStatus FailureCategory where
+  setField category (FailureStatus errorId _ message meta) =
+    FailureStatus errorId category message meta
+
+instance GetField "message" FailureStatus Text where
+  getField (FailureStatus {..}) = message
+instance SetField "message" FailureStatus Text where
+  setField message (FailureStatus errorId category _ meta) =
+    FailureStatus errorId category message meta
+
+instance GetField "meta" FailureStatus (Map Text Text) where
+  getField (FailureStatus {..}) = meta
+instance SetField "meta" FailureStatus (Map Text Text) where
+  setField meta (FailureStatus errorId category message _) =
+    FailureStatus errorId category message meta
+
+-- | Alternative name for `InvalidIndependentOfSystemState`.
+invalidArgument : FailureCategory
+invalidArgument = InvalidIndependentOfSystemState
+
+-- | Alternative name for `InvalidGivenCurrentSystemStateOther`.
+failedPrecondition : FailureCategory
+failedPrecondition = InvalidGivenCurrentSystemStateOther

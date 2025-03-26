@@ -162,13 +162,6 @@ instance Applicative Update where
 instance Action Update where
     (>>=) = primitive @"UBind"
 
-instance ActionFail Update where
-#ifdef DAML_EXCEPTIONS
-    fail m = pure () >>= \_ -> error m
-#else
-    fail = primitive @"UAbort"
-#endif
-
 -- | The `HasTime` class is for where the time is available: `Update`
 class HasTime m where
     -- | Get the current time.
@@ -181,9 +174,6 @@ instance HasTime Update where
 class (Action m) => CanAbort m where
     -- | Abort the current action with a message.
     abort : Text -> m a
-
-instance CanAbort Update where
-    abort = fail
 
 instance CanAbort (Either Text) where
     abort = fail

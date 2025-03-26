@@ -34,6 +34,8 @@ Typeclasses
 
   **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`Catch <type-daml-script-internal-questions-exceptions-catch-84605>` (`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `AnyException <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-anyexception-7004>`_ x)
 
+  **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`FailWithStatus <type-daml-script-internal-questions-exceptions-failwithstatus-68689>` t
+
   **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`Throw <type-daml-script-internal-questions-exceptions-throw-53740>` t
 
   **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`ListAllPackages <type-daml-script-internal-questions-packages-listallpackages-28931>` \[:ref:`PackageName <type-daml-script-internal-questions-packages-packagename-68696>`\]
@@ -194,6 +196,8 @@ Data Types
   **instance** `ActionCatch <https://docs.daml.com/daml/stdlib/DA-Exception.html#class-da-internal-exception-actioncatch-69238>`_ `Script <type-daml-script-internal-lowlevel-script-4781_>`_
 
   **instance** `ActionThrow <https://docs.daml.com/daml/stdlib/DA-Exception.html#class-da-internal-exception-actionthrow-37623>`_ `Script <type-daml-script-internal-lowlevel-script-4781_>`_
+
+  **instance** `ActionFailWithStatus <https://docs.daml.com/daml/stdlib/DA-Fail.html#class-da-internal-fail-actionfailwithstatus-58664>`_ `Script <type-daml-script-internal-lowlevel-script-4781_>`_
 
   **instance** `CanAbort <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-lf-canabort-29060>`_ `Script <type-daml-script-internal-lowlevel-script-4781_>`_
 
