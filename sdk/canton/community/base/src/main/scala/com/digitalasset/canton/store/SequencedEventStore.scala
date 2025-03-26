@@ -46,7 +46,6 @@ import com.digitalasset.canton.tracing.{
 }
 import com.digitalasset.canton.util.{ErrorUtil, Thereafter}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.AtomicReference
@@ -94,18 +93,9 @@ trait SequencedEventStore
   )
 
   /** Initializes the sequencer counter allocator and timestamp lower bound with data from the store
-    * * itself.
-    */
-  def reinitializeLowerBoundFromDb()(implicit
-      tc: TraceContext
-  ): FutureUnlessShutdown[CounterAndTimestamp] =
-    reinitializeFromDbOrSetLowerBound()
-
-  /** Initializes the sequencer counter allocator and timestamp lower bound with data from the store
     * itself. The parameter `counterIfEmpty` is intended for tests only, where we start with an
     * empty store and will be ignored if the store is not empty.
     */
-  @VisibleForTesting
   def reinitializeFromDbOrSetLowerBound(
       counterIfEmpty: SequencerCounter =
         SequencerCounter.Genesis - 1 // to start from 0 we need to subtract 1
@@ -126,7 +116,7 @@ trait SequencedEventStore
     for {
       lowerBoundBefore <- lowerBound
         .get()
-        .fold(reinitializeLowerBoundFromDb())(FutureUnlessShutdown.pure)
+        .fold(reinitializeFromDbOrSetLowerBound())(FutureUnlessShutdown.pure)
       (lowerBoundAfter, result) <- f(lowerBoundBefore).transform {
         case failure @ Failure(_) =>
           // In case of failure we set the lower bound to the `None` to force its reinitialization
@@ -267,7 +257,7 @@ trait SequencedEventStore
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit] =
     ignoreEventsInternal(fromInclusive, toInclusive)
-      .flatMap(_ => EitherT.right[ChangeWouldResultInGap](reinitializeLowerBoundFromDb()))
+      .flatMap(_ => EitherT.right[ChangeWouldResultInGap](reinitializeFromDbOrSetLowerBound()))
       .map(_ => ())
 
   protected def ignoreEventsInternal(
@@ -287,7 +277,7 @@ trait SequencedEventStore
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit] =
     unignoreEventsInternal(fromInclusive, toInclusive)
-      .flatMap(_ => EitherT.right[ChangeWouldResultInGap](reinitializeLowerBoundFromDb()))
+      .flatMap(_ => EitherT.right[ChangeWouldResultInGap](reinitializeFromDbOrSetLowerBound()))
       .map(_ => ())
 
   protected def unignoreEventsInternal(
@@ -303,7 +293,7 @@ trait SequencedEventStore
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     deleteInternal(fromInclusive)
-      .flatMap(_ => reinitializeLowerBoundFromDb())
+      .flatMap(_ => reinitializeFromDbOrSetLowerBound())
       .map(_ => ())
 
   protected def deleteInternal(fromInclusive: SequencerCounter)(implicit
@@ -315,7 +305,7 @@ trait SequencedEventStore
   final def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     delete(
       SequencerCounter.Genesis
-    ).flatMap(_ => reinitializeLowerBoundFromDb())
+    ).flatMap(_ => reinitializeFromDbOrSetLowerBound())
       .map(_ => ())
 
   /** Look up a TraceContext for a sequenced event

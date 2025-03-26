@@ -558,6 +558,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
       availability: ModuleRef[Availability.Message[ProgrammableUnitTestEnv]] = fakeIgnoringModule,
       consensus: ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]] = fakeIgnoringModule,
       output: ModuleRef[Output.Message[ProgrammableUnitTestEnv]] = fakeIgnoringModule,
+      pruning: ModuleRef[Pruning.Message] = fakeIgnoringModule,
       p2pEndpointsStore: P2PEndpointsStore[ProgrammableUnitTestEnv] =
         new InMemoryUnitTestP2PEndpointsStore(
           otherInitialEndpoints.toSet
@@ -577,6 +578,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
       availability,
       consensus,
       output,
+      pruning,
       state,
       p2pEndpointsStore,
     )
@@ -596,6 +598,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
       availability: ModuleRef[Availability.Message[ProgrammableUnitTestEnv]],
       consensus: ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]],
       output: ModuleRef[Output.Message[ProgrammableUnitTestEnv]],
+      pruning: ModuleRef[Pruning.Message],
       state: BftP2PNetworkOut.State,
       p2pEndpointsStore: P2PEndpointsStore[ProgrammableUnitTestEnv],
   ): BftP2PNetworkOut[ProgrammableUnitTestEnv] = {
@@ -606,6 +609,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
       availability,
       consensus,
       output,
+      pruning,
     )
     new BftP2PNetworkOut[ProgrammableUnitTestEnv](
       selfNode,

@@ -160,7 +160,6 @@ final class StateTransferBehavior[E <: Env[E]](
             newEpochNumber,
             newMembership,
             newCryptoProvider: CryptoProvider[E],
-            previousEpochMaxBftTime,
             lastBlockFromPreviousEpochMode,
           ) =>
         val currentEpochInfo = epochState.epoch.info
@@ -177,7 +176,6 @@ final class StateTransferBehavior[E <: Env[E]](
               currentEpochInfo.next(
                 epochLength,
                 newMembership.orderingTopology.activationTime,
-                previousEpochMaxBftTime,
               )
             storeEpochs(
               currentEpochInfo,

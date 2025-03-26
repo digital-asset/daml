@@ -5,10 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.{
-  GenesisEpoch,
-  GenesisPreviousEpochMaxBftTime,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.SequencerSnapshotAdditionalInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
@@ -54,8 +51,6 @@ object BootstrapDetector {
           activeAt.epochTopologyQueryTimestamp.getOrElse(
             abort("No starting epoch's topology query timestamp found for new node onboarding")
           ),
-          // This parameter is used just for validation in the Consensus module, it's not relevant during state transfer.
-          GenesisPreviousEpochMaxBftTime,
         )
 
         BootstrapKind.Onboarding(startEpochInfo)

@@ -44,6 +44,14 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     blockBftTime = aTimestamp,
   )
 
+  val retentionPeriod: FiniteDuration = 3.days
+  val minNumberOfBlocksToKeep: Int = 10
+
+  val blockAtEpoch50 =
+    Some(OutputBlockMetadata(EpochNumber(50), BlockNumber(500), CantonTimestamp.Epoch))
+  val blockAtEpoch40 =
+    Some(OutputBlockMetadata(EpochNumber(40), BlockNumber(400), CantonTimestamp.Epoch))
+
   "PruningModule" when {
     "performing pruning" should {
       "try to perform pruning with latest pruning point when starting module" in {
@@ -96,19 +104,11 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         val outputStore: OutputMetadataStore[ProgrammableUnitTestEnv] =
           mock[OutputMetadataStore[ProgrammableUnitTestEnv]]
 
-        val retentionPeriod: FiniteDuration = 3.days
-        val minNumberOfBlocksToKeep: Int = 10
-
         val module = createPruningModule[ProgrammableUnitTestEnv](
           retentionPeriod,
           minNumberOfBlocksToKeep,
           outputStore = outputStore,
         )
-
-        val blockAtEpoch50 =
-          Some(OutputBlockMetadata(EpochNumber(50), BlockNumber(500), CantonTimestamp.Epoch))
-        val blockAtEpoch40 =
-          Some(OutputBlockMetadata(EpochNumber(40), BlockNumber(400), CantonTimestamp.Epoch))
 
         val pruningTimestamp = latestBlock.blockBftTime.minus(retentionPeriod.toJava)
         when(outputStore.getLatestBlockAtOrBefore(pruningTimestamp)(traceContext))
@@ -120,6 +120,56 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         module.receiveInternal(Pruning.ComputePruningPoint(latestBlock))
 
         context.runPipedMessages() should contain only Pruning.SaveNewLowerBound(EpochNumber(40))
+      }
+
+      "when missing pruning point from retentionPeriod, schedule new pruning attempt" in {
+        implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
+          new ProgrammableUnitTestContext()
+        val outputStore: OutputMetadataStore[ProgrammableUnitTestEnv] =
+          mock[OutputMetadataStore[ProgrammableUnitTestEnv]]
+
+        val module = createPruningModule[ProgrammableUnitTestEnv](
+          retentionPeriod,
+          minNumberOfBlocksToKeep,
+          outputStore = outputStore,
+        )
+
+        // missing
+        val pruningTimestamp = latestBlock.blockBftTime.minus(retentionPeriod.toJava)
+        when(outputStore.getLatestBlockAtOrBefore(pruningTimestamp)(traceContext))
+          .thenReturn(() => None)
+
+        val number = BlockNumber(latestBlock.blockNumber - minNumberOfBlocksToKeep)
+        when(outputStore.getBlock(number)(traceContext)).thenReturn(() => blockAtEpoch50)
+
+        module.receiveInternal(Pruning.ComputePruningPoint(latestBlock))
+
+        context.runPipedMessages() should contain only Pruning.SchedulePruning
+      }
+
+      "when missing pruning point from minNumberOfBlocksToKeep, schedule new pruning attempt" in {
+        implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
+          new ProgrammableUnitTestContext()
+        val outputStore: OutputMetadataStore[ProgrammableUnitTestEnv] =
+          mock[OutputMetadataStore[ProgrammableUnitTestEnv]]
+
+        val module = createPruningModule[ProgrammableUnitTestEnv](
+          retentionPeriod,
+          minNumberOfBlocksToKeep,
+          outputStore = outputStore,
+        )
+
+        val pruningTimestamp = latestBlock.blockBftTime.minus(retentionPeriod.toJava)
+        when(outputStore.getLatestBlockAtOrBefore(pruningTimestamp)(traceContext))
+          .thenReturn(() => blockAtEpoch50)
+
+        // missing
+        val number = BlockNumber(latestBlock.blockNumber - minNumberOfBlocksToKeep)
+        when(outputStore.getBlock(number)(traceContext)).thenReturn(() => None)
+
+        module.receiveInternal(Pruning.ComputePruningPoint(latestBlock))
+
+        context.runPipedMessages() should contain only Pruning.SchedulePruning
       }
 
       "save new lower bound" in {

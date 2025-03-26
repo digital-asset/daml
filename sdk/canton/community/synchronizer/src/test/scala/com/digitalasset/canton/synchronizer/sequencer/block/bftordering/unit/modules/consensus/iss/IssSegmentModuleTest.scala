@@ -104,7 +104,6 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
     BlockNumber(10L),
     DefaultEpochLength,
     Genesis.GenesisTopologyActivationTime,
-    Genesis.GenesisPreviousEpochMaxBftTime,
   )
   private val block9Commits1Node = Seq(
     Commit
@@ -1712,7 +1711,6 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
       epochInfo: EpochInfo = GenesisEpoch.info.next(
         epochLength,
         Genesis.GenesisTopologyActivationTime,
-        Genesis.GenesisPreviousEpochMaxBftTime,
       )
   ): IssSegmentModule[E] = {
     implicit val metricsContext: MetricsContext = MetricsContext.Empty

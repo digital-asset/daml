@@ -229,12 +229,10 @@ abstract class CantonAppDriver extends App with NamedLogging with NoTracing {
 
   val environment = environmentFactory.create(cantonConfig, loggerFactory)
   environmentRef.set(Some(environment)) // registering for graceful shutdown
-  environment.startAndReconnect() match {
+  environment.startAndReconnect(runner.run(environment)) match {
     case Right(()) =>
     case Left(_) => sys.exit(1)
   }
-
-  runner.run(environment)
 
   def loadConfig(config: Config): Either[CantonConfigError, CantonConfig]
 

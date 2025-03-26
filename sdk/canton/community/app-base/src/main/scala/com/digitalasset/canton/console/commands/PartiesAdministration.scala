@@ -164,8 +164,8 @@ class ParticipantPartiesAdministrationGroup(
       participants: Seq[ParticipantId] = Seq(participantId),
       threshold: PositiveInt = PositiveInt.one,
       // TODO(i10809) replace wait for synchronizer for a clean topology synchronisation using the dispatcher info
-      waitForSynchronizer: SynchronizerChoice = SynchronizerChoice.Only(Seq()),
-      synchronizeParticipants: Seq[ParticipantReference] = Seq(),
+      waitForSynchronizer: SynchronizerChoice = SynchronizerChoice.All,
+      synchronizeParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
       mustFullyAuthorize: Boolean = true,
       synchronize: Option[NonNegativeDuration] = Some(
         consoleEnvironment.commandTimeouts.unbounded

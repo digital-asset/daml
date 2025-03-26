@@ -14,7 +14,6 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStoreReader
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisPreviousEpochMaxBftTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.memory.GenericInMemoryEpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule.{
   DefaultRequestInspector,
@@ -697,7 +696,6 @@ class OutputModuleTest
             piped3 should contain only Output.TopologyFetched(
               lastBlockMode,
               EpochNumber(1L), // Epoch number
-              anotherTimestamp,
               newOrderingTopology,
               newCryptoProvider,
             )
@@ -723,7 +721,6 @@ class OutputModuleTest
                       Output.MetadataStoredForNewEpoch(
                         `lastBlockMode`,
                         1L, // Epoch number
-                        _,
                         `newOrderingTopology`,
                         _, // A fake crypto provider instance
                       )
@@ -746,7 +743,6 @@ class OutputModuleTest
                 secondEpochNumber,
                 Membership(BftNodeId("node1"), newOrderingTopology, Seq.empty),
                 any[CryptoProvider[ProgrammableUnitTestEnv]],
-                GenesisPreviousEpochMaxBftTime,
                 lastBlockMode,
               )
             )
@@ -785,7 +781,6 @@ class OutputModuleTest
           TopologyFetched(
             aBlockMode,
             secondEpochNumber,
-            GenesisPreviousEpochMaxBftTime,
             anOrderingTopology,
             aCryptoProvider,
           )
@@ -796,7 +791,6 @@ class OutputModuleTest
             secondEpochNumber,
             aNewMembership,
             aCryptoProvider,
-            GenesisPreviousEpochMaxBftTime,
             aBlockMode,
           )
         )
@@ -805,7 +799,6 @@ class OutputModuleTest
           TopologyFetched(
             aBlockMode,
             EpochNumber.First,
-            GenesisPreviousEpochMaxBftTime,
             anOrderingTopology,
             aCryptoProvider,
           )
@@ -819,7 +812,6 @@ class OutputModuleTest
               EpochNumber.First,
               aNewMembership,
               aCryptoProvider,
-              GenesisPreviousEpochMaxBftTime,
               aBlockMode,
             )
           )
@@ -830,7 +822,6 @@ class OutputModuleTest
               secondEpochNumber,
               aNewMembership,
               aCryptoProvider,
-              GenesisPreviousEpochMaxBftTime,
               aBlockMode,
             )
           )
@@ -920,7 +911,6 @@ class OutputModuleTest
             secondEpochNumber,
             Membership.forTesting(BftNodeId("node1")),
             any[CryptoProvider[ProgrammableUnitTestEnv]],
-            GenesisPreviousEpochMaxBftTime,
             OrderedBlockForOutput.Mode.FromConsensus,
           )
         )
@@ -971,7 +961,6 @@ class OutputModuleTest
             BlockNumber.First,
             DefaultEpochLength,
             topologyActivationTime,
-            GenesisPreviousEpochMaxBftTime,
           )
         )
         .apply()

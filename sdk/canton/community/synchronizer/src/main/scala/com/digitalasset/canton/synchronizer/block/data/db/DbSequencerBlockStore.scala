@@ -91,12 +91,24 @@ class DbSequencerBlockStore(
       .as[BlockInfo]
       .headOption
 
-  private def findBlockContainingTimestamp(
+  private def findBlockContainingTimestampDBIO(
       timestamp: CantonTimestamp
   ): DBIOAction[Option[BlockInfo], NoStream, Effect.Read] =
     (sql"""select height, latest_event_ts, latest_sequencer_event_ts from seq_block_height where latest_event_ts >= $timestamp order by height """ ++ topRow)
       .as[BlockInfo]
       .headOption
+
+  override def findBlockContainingTimestamp(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SequencerError, BlockInfo] =
+    EitherT(
+      storage
+        .query(findBlockContainingTimestampDBIO(timestamp), functionFullName)
+        .map {
+          case Some(block) => Right(block)
+          case None => Left(BlockNotFound.InvalidTimestamp(timestamp))
+        }
+    )
 
   override def readStateForBlockContainingTimestamp(
       timestamp: CantonTimestamp
@@ -106,7 +118,7 @@ class DbSequencerBlockStore(
     EitherT(
       storage.query(
         for {
-          heightAndTimestamp <- findBlockContainingTimestamp(timestamp)
+          heightAndTimestamp <- findBlockContainingTimestampDBIO(timestamp)
           state <- heightAndTimestamp match {
             case None => DBIO.successful(Left(BlockNotFound.InvalidTimestamp(timestamp)))
             case Some(block) => readAtBlock(block).map(Right.apply)
