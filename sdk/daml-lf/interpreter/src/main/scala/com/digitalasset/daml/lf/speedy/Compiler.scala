@@ -23,6 +23,7 @@ import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.{SExpr => t, SExpr0 => s}
 import com.digitalasset.daml.lf.stablepackages.{StablePackages, StablePackagesV2}
 import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
+import com.digitalasset.daml.lf.value.Value
 import org.slf4j.LoggerFactory
 
 import scala.annotation.nowarn
@@ -359,14 +360,16 @@ private[lf] final class Compiler(
     def addDef(binding: (t.SDefinitionRef, SDefinition)): Unit = discard(builder += binding)
 
     module.exceptions.foreach { case (defName, GenDefException(message)) =>
-      val ref = t.ExceptionMessageDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
-      builder += (ref -> SDefinition(withLabelT(ref, compileExp(message))))
+      val exceptionId = Identifier(pkgId, QualifiedName(module.name, defName))
+      val ref = t.ExceptionMessageDefRef(exceptionId)
+      addDef(ref -> SDefinition(withLabelT(ref, compileExp(message))))
+      addDef(compileThrowExceptionAsFailureStatus(exceptionId))
     }
 
     module.definitions.foreach {
       case (defName, DValue(_, body)) =>
         val ref = t.LfDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
-        builder += (ref -> SDefinition(withLabelT(ref, compileExp(body))))
+        addDef(ref -> SDefinition(withLabelT(ref, compileExp(body))))
       case _ =>
     }
 
@@ -870,6 +873,48 @@ private[lf] final class Compiler(
     val env2 = env.bindExprVar(template.param, contractPos)
     SBUCreate(templateId)(env2.toSEVar(contractPos))
   }
+
+  private[this] def compileThrowExceptionAsFailureStatus(
+      exceptionId: Identifier
+  ): (t.SDefinitionRef, SDefinition) = {
+    topLevelFunction1(t.ThrowExceptionAsFailureStatusDefRef(exceptionId))((exceptionPos, env) =>
+      let(env, s.SEVal(t.ExceptionMessageDefRef(exceptionId))) { (getMessagePos, env) =>
+        let(env, s.SEApp(env.toSEVar(getMessagePos), List(env.toSEVar(exceptionPos)))) {
+          (messagePos, env) =>
+            val fields = Seq("errorId", "category", "message", "meta")
+            val constr = s.SEBuiltin(
+              SBRecCon(
+                StablePackagesV2.FailureStatus,
+                ImmArray.from(fields.map(Name.assertFromString)),
+              )
+            )
+            let(
+              env,
+              s.SEApp(
+                constr,
+                List(
+                  s.SEValue(SText("UNHANDLED_EXCEPTION/" + exceptionId.qualifiedName.toString)),
+                  s.SEValue(SInt64(FCInvalidGivenCurrentSystemStateOther.cantonCategoryId.toLong)),
+                  env.toSEVar(messagePos),
+                  s.SEValue(SMap(false)),
+                ),
+              ),
+            ) { (failureStatusPos, env) =>
+              SBFailWithStatus(env.toSEVar(failureStatusPos))
+            }
+        }
+      }
+    )
+  }
+
+  def throwExceptionAsFailureStatusSExpr(exceptionId: TypeConName, exceptionValue: Value): t.SExpr =
+    t.SELet1(
+      t.SEImportValue(TTyCon(exceptionId), exceptionValue),
+      t.SELet1(
+        t.SEVal(t.ThrowExceptionAsFailureStatusDefRef(exceptionId)),
+        t.SEAppAtomic(t.SELocS(1), Array(t.SELocS(2))),
+      ),
+    )
 
   private[this] def compileCreate(
       tmplId: Identifier,

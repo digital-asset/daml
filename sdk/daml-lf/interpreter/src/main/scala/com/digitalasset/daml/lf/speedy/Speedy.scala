@@ -375,7 +375,9 @@ private[lf] object Speedy {
       */
     private[speedy] override def handleException(excep: SValue.SAny): Control[Nothing] = {
       @tailrec
-      def unwind(ptx: PartialTransaction): Option[KTryCatchHandler] =
+      def unwind(
+          ptx: PartialTransaction
+      ): Option[Either[KTryCatchHandler, KConvertingException[Question.Update]]] =
         if (kontDepth() == 0) {
           None
         } else {
@@ -385,7 +387,7 @@ private[lf] object Speedy {
               // This may cause the transaction trace to report the error from the handler's location.
               // Ideally we should embed the trace into the exception directly.
               this.ptx = ptx.rollbackTry()
-              Some(handler)
+              Some(Left(handler))
             case _: KCloseExercise =>
               unwind(ptx.abortExercises)
             case k: KCheckChoiceGuard =>
@@ -395,19 +397,23 @@ private[lf] object Speedy {
               abort()
               k.abort()
             case KPreventException() =>
-              abort()
               None
+            case converting: KConvertingException[Question.Update] =>
+              abort()
+              Some(Right(converting))
             case _ =>
               unwind(ptx)
           }
         }
 
       unwind(ptx) match {
-        case Some(kh) =>
+        case Some(Left(kh)) =>
           kh.restore()
           popTempStackToBase()
           pushEnv(excep) // payload on stack where handler expects it
           Control.Expression(kh.handler)
+        case Some(Right(KConvertingException(originalExceptionId))) =>
+          unhandledException(excep, Some(originalExceptionId))
         case None =>
           unhandledException(excep)
       }
@@ -787,6 +793,7 @@ private[lf] object Speedy {
       /* Profile of the run when the packages haven been compiled with profiling enabled. */
       override val profile: Profile,
       override val iterationsBetweenInterruptions: Long,
+      override val convertLegacyExceptions: Boolean,
   )(implicit loggingContext: LoggingContext)
       extends Machine[Nothing] {
 
@@ -796,7 +803,7 @@ private[lf] object Speedy {
       throw SErrorCrash(location, "unexpected pure machine")
 
     /** Pure Machine does not handle exceptions */
-    private[speedy] override def handleException(excep: SValue.SAny): Control.Error =
+    private[speedy] override def handleException(excep: SValue.SAny): Control[Nothing] =
       unhandledException(excep)
 
     @nowarn("msg=dead code following this construct")
@@ -827,6 +834,11 @@ private[lf] object Speedy {
     /* number of iteration between cooperation interruption */
     val iterationsBetweenInterruptions: Long
 
+    /* Should Daml Exceptions be automatically converted to FailureStatus before throwing from the engine
+       Daml-script needs to disable this behaviour in 3.3, thus the flag.
+    */
+    val convertLegacyExceptions: Boolean = true
+
     private val stablePackages = StablePackages(
       compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
     )
@@ -843,9 +855,42 @@ private[lf] object Speedy {
 
     private[speedy] def handleException(excep: SValue.SAny): Control[Nothing]
 
-    protected final def unhandledException(excep: SValue.SAny): Control.Error = {
+    // Triggers conversion of exception to failure status and throws.
+    // if the computation of the exception message also throws an exception, this will be called with
+    // originalExceptionId as the original exceptionId, and we won't trigger a conversion
+    protected final def unhandledException(
+        excep: SValue.SAny,
+        originalExceptionId: Option[TypeConName] = None,
+    ): Control[Nothing] = {
       abort()
-      Control.Error(IError.UnhandledException(excep.ty, excep.value.toUnnormalizedValue))
+      if (convertLegacyExceptions) {
+        val exceptionId = excep.ty match {
+          case TTyCon(exceptionId) => exceptionId
+          case _ =>
+            throw SErrorCrash(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"Tried to convert a non-grounded exception type ${excep.ty.pretty} to Failure Status",
+            )
+        }
+
+        originalExceptionId match {
+          case None =>
+            pushKont(KConvertingException(exceptionId))
+            Control.Expression(
+              compiledPackages.compiler
+                .throwExceptionAsFailureStatusSExpr(exceptionId, excep.value.toUnnormalizedValue)
+            )
+          case Some(originalExceptionId) =>
+            Control.Error(
+              interpretation.Error.FailureStatus(
+                "UNHANDLED_EXCEPTION/" + originalExceptionId.qualifiedName.toString,
+                FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
+                s"<Failed to calculate message as ${exceptionId.qualifiedName.toString} was thrown during conversion>",
+                Map(),
+              )
+            )
+        }
+      } else Control.Error(IError.UnhandledException(excep.ty, excep.value.toUnnormalizedValue))
     }
 
     /* The machine control is either an expression or a value. */
@@ -1462,6 +1507,7 @@ private[lf] object Speedy {
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
         profile: Profile = newProfile,
+        convertLegacyExceptions: Boolean = true,
     )(implicit loggingContext: LoggingContext): PureMachine =
       new PureMachine(
         sexpr = expr,
@@ -1470,6 +1516,7 @@ private[lf] object Speedy {
         compiledPackages = compiledPackages,
         profile = profile,
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
+        convertLegacyExceptions = convertLegacyExceptions,
       )
 
     @throws[PackageNotFound]
@@ -2068,6 +2115,16 @@ private[lf] object Speedy {
   }
 
   private[speedy] final case class KPreventException[Q]() extends Kont[Q] {
+    override def execute(v: SValue): Control.Value = {
+      Control.Value(v)
+    }
+  }
+
+  // For when converting an exception to a failure status
+  // if an exception is thrown during that conversion, we need to know to not try to convert that too,
+  // but instead give back the original exception with a replacement message
+  private[speedy] final case class KConvertingException[Q](exceptionId: TypeConName)
+      extends Kont[Q] {
     override def execute(v: SValue): Control.Value = {
       Control.Value(v)
     }

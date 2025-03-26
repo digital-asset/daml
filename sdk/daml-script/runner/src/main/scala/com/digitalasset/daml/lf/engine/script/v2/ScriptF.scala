@@ -50,7 +50,7 @@ object ScriptF {
   )
 
   sealed trait Cmd {
-    private[lf] def executeWithRunner(env: Env, @annotation.unused runner: v2.Runner)(implicit
+    private[lf] def executeWithRunner(env: Env, @annotation.unused runner: v2.Runner, @annotation.unused convertLegacyExceptions: Boolean)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -134,12 +134,12 @@ object ScriptF {
   }
 
   final case class Catch(act: SValue) extends Cmd {
-    override def executeWithRunner(env: Env, runner: v2.Runner)(implicit
+    override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
-      runner.run(SEAppAtomic(SEValue(act), Array(SEValue(SUnit)))).transformWith {
+      runner.run(SEAppAtomic(SEValue(act), Array(SEValue(SUnit))), convertLegacyExceptions = false).transformWith {
         case Success(v) =>
           Future.successful(SEAppAtomic(right, Array(SEValue(v))))
         case Failure(
@@ -826,12 +826,12 @@ object ScriptF {
   }
 
   final case class TryCommands(act: SValue) extends Cmd {
-    override def executeWithRunner(env: Env, runner: v2.Runner)(implicit
+    override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
-      runner.run(SEValue(act)).transformWith {
+      runner.run(SEValue(act), convertLegacyExceptions).transformWith {
         case Success(v) =>
           Future.successful(SEAppAtomic(right, Array(SEValue(v))))
         case Failure(
