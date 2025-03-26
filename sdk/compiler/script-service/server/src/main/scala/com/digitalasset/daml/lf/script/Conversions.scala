@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package script
 
 import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref}
-import com.digitalasset.daml.lf.language.Ast.PackageMetadata
+import com.digitalasset.daml.lf.language.Ast.{FailureCategory, PackageMetadata}
 import com.digitalasset.daml.lf.script.api.{v1 => proto}
 import com.digitalasset.daml.lf.speedy.{SError, SValue, TraceLog, Warning, WarningLog}
 import com.digitalasset.daml.lf.transaction.{
@@ -225,8 +225,27 @@ final class Conversions(
                 builder.setComparableValueError(proto.Empty.newBuilder)
               case ValueNesting(_) =>
                 builder.setValueExceedsMaxNesting(proto.Empty.newBuilder)
-              case FailureStatus(errorId, _, _, _) =>
+              case FailureStatus(errorId, categoryId, message, metadata) =>
                 builder.setCrash(s"Failure status: $errorId")
+                builder.setFailureStatusError(
+                  proto.ScriptError.FailureStatusError.newBuilder
+                    .setErrorId(errorId)
+                    .setCategoryName(
+                      FailureCategory.all.find(cat =>
+                        cat.cantonCategoryId == categoryId
+                      ).fold(s"UnknownCategoryID $categoryId")(_.toString)
+                    )
+                    .setMessage(message)
+                    .addAllMetadata(
+                      metadata.toList.map{ case (k, v) =>
+                        proto.ScriptError.FailureStatusError.MetadataEntry.newBuilder
+                          .setKey(k)
+                          .setValue(v)
+                          .build
+                      }.asJava
+                    )
+                    .build
+                )
               case Dev(_, devError) if devMode =>
                 devError match {
                   case Dev.Conformance(_, _, _) =>
