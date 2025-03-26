@@ -4,6 +4,8 @@
 
 set -euo pipefail
 
+yarn cache clean
+
 DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 cd "$DIR"
