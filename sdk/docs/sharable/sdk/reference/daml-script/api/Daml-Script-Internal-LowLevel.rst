@@ -28,6 +28,8 @@ Typeclasses
   `makeQuestion <function-daml-script-internal-lowlevel-makequestion-25300_>`_
     \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> req \-\> `Question <type-daml-script-internal-lowlevel-question-76582_>`_ req res res
 
+  **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`Secp256k1Sign <type-daml-script-internal-questions-crypto-text-secp256k1sign-62642>` `BytesHex <https://docs.daml.com/daml/stdlib/DA-Crypto-Text.html#type-da-crypto-text-byteshex-47880>`_
+
   **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`Catch <type-daml-script-internal-questions-exceptions-catch-84605>` (`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `AnyException <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-anyexception-7004>`_ x)
 
   **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`FailWithStatus <type-daml-script-internal-questions-exceptions-failwithstatus-68689>` t
