@@ -24,6 +24,7 @@ module DA.Crypto.Text
   , sliceHexBytes
   ) where
 
+import DA.Optional (fromSome)
 import DA.Text qualified as Text
 import GHC.Types (primitive)
 
@@ -89,88 +90,92 @@ class HasToHex a where
 instance HasToHex Text where
   toHex = primitive @"BEEncodeHex"
 
-instance HasToHex Int64 where
-  toHex n = ???
+-- | HIDE
+intToHexByte: Int -> BytesHex
+intToHexByte n | 0 <= n && n <= 9 = show n
+intToHexByte 10 = "a"
+intToHexByte 11 = "b"
+intToHexByte 12 = "c"
+intToHexByte 13 = "d"
+intToHexByte 14 = "e"
+intToHexByte 15 = "f"
+intToHexByte n | n < 256 = (intToHexByte(n / 16)) <> (intToHexByte(n % 16))
+intToHexByte n = (intToHexByte(n / 256)) <> (intToHexByte(n % 256))
 
-instance HasToHex (Numeric n) where
-  toHex num = ???
+instance HasToHex Int where
+  toHex n | 0 <= n && n <= 9 = show n
+  toHex 10 = "0a"
+  toHex 11 = "0b"
+  toHex 12 = "0c"
+  toHex 13 = "0d"
+  toHex 14 = "0e"
+  toHex 15 = "0f"
+  toHex n = intToHexByte n
 
 instance HasToHex Party where
   toHex p = toHex(partyToText p)
-
-instance HasToHex (ContractId a) where
-  toHex cid = ???
 
 class HasFromHex a where
   -- | Converts a hex encoded string into a typed data value.
   fromHex: BytesHex -> a
 
-instance HasFromHex (Optional Text) where
+instance HasFromHex Text where
   fromHex "" = ""
-  fromHex hex | Text.isHex hex = Some(primitive @"BEDecodeHex" (Text.asciiToLower hex))
-  fromHex _ = None
+  fromHex hex | Text.isHex hex = primitive @"BEDecodeHex" (Text.asciiToLower hex)
+  fromHex arg = error $ "Expected a hex encoded string but argument was: " <> arg
 
-instance HasFromHex (Optional Int64) where
-  fromHex hex | Text.isHex hex = Some(???)
-  fromHex _ = None
+instance HasFromHex Int where
+  fromHex "" = 0
+  fromHex hex | Text.isHex hex && Text.length hex == 2 = hexByteToInt hex
+  fromHex hex | Text.isHex hex =
+    let right = fromHex(Text.substring ((Text.length hex) - 2) 2 hex)
+        left = fromHex(Text.substring 0 ((Text.length hex) - 2) hex)
+    in
+      left * 256 + right
+  fromHex arg = error $ "Expected a hex encoded string but argument was: " <> arg
 
-instance HasFromHex (Optional(Numeric n)) where
-  fromHex hex | Text.isHex hex = Some(???)
-  fromHex _ = None
-
-instance HasFromHex (Optional Party) where
-  fromHex hex | Text.isHex hex = (fromHex hex) map partyFromText
-  fromHex _ = None
-
-instance HasFromHex (Optional(ContractId a)) where
-  fromHex hex | Text.isHex hex = ???
-  fromHex _ = None
+instance HasFromHex Party where
+  fromHex hex | Text.isHex hex = fromSome(partyFromText(fromHex hex))
+  fromHex arg = error $ "Expected a hex encoded string but argument was: " <> arg
 
 -- | Number of bytes present in a byte encoded string.
-byteCount: BytesHex -> Optional Int64
-byteCount hex | Text.isHex hex = Some((Text.length hex) / 2)
-byteCount _ = None
+byteCount: BytesHex -> Int
+byteCount hex | Text.isHex hex = (Text.length hex) / 2
+byteCount arg = error $ "Expected a hex encoded string but argument was: " <> arg
 
 -- | Validate that the byte encoded string is Bytes32Hex
-isBytes32Hex: BytesHex -> Optional Bool
-isBytes32Hex hex | Text.isHex hex = byteCount hex == Some(32)
-isBytes32Hex _ = None
+isBytes32Hex: BytesHex -> Bool
+isBytes32Hex hex | Text.isHex hex = byteCount hex == 32
+isBytes32Hex arg = error $ "Expected a hex encoded string but argument was: " <> arg
 
 -- | Validate that the byte encoded string is UInt32Hex
-isUInt32Hex: BytesHex -> Optional Bool
-isUInt32Hex hex | Text.isHex hex = byteCount hex == Some(5)
-isUInt32Hex _ = None
+isUInt32Hex: BytesHex -> Bool
+isUInt32Hex hex | Text.isHex hex = byteCount hex == 5
+isUInt32Hex arg = error $ "Expected a hex encoded string but argument was: " <> arg
 
 -- | Validate that the byte encoded string is UInt64Hex
-isUInt64Hex: BytesHex -> Optional Bool
-isUInt64Hex hex | Text.isHex hex = byteCount hex == Some(6)
-isUInt64Hex _ = None
+isUInt64Hex: BytesHex -> Bool
+isUInt64Hex hex | Text.isHex hex = byteCount hex == 6
+isUInt64Hex arg = error $ "Expected a hex encoded string but argument was: " <> arg
 
 -- | Validate that the byte encoded string is UInt256Hex
-isUInt256Hex: BytesHex -> Optional Bool
-isUInt256Hex hex | Text.isHex hex = byteCount hex == Some(8)
-isUInt256Hex _ = None
+isUInt256Hex: BytesHex -> Bool
+isUInt256Hex hex | Text.isHex hex = byteCount hex == 8
+isUInt256Hex arg = error $ "Expected a hex encoded string but argument was: " <> arg
+
+-- | HIDE
+constList: Int -> a -> [a]
+constList 0 _ = []
+constList n x = [x] ++ (constList (n - 1) x)
 
 -- | Pack a byte encoded string to a given byte count size. If the byte string is shorter than the pad
 -- size, then prefix with 00 byte strings. If the byte string is larger, then truncate the byte string.
-packHexBytes: BytesHex -> Int64 -> Optional BytesHex
-packHexBytes hex pad | Text.isHex hex && 0 <= pad && byteCount hex <= pad = Some(??? <> hex)
-packHexBytes hex pad | Text.isHex hex && 0 <= pad = Some(Text.drop ((pad - byteCount hex) * 2) hex)
-packHexBytes _ _ = None
+packHexBytes: BytesHex -> Int -> BytesHex
+packHexBytes hex pad | Text.isHex hex && 0 <= pad && byteCount hex <= pad = (Text.implode(constList (pad - byteCount hex) "00")) <> hex
+packHexBytes hex pad | Text.isHex hex && 0 <= pad = Text.drop ((pad - byteCount hex) * 2) hex
+packHexBytes arg _ = error $ "Expected a hex encoded string but argument was: " <> arg
 
 -- | Extract the byte string starting at startByte up to, but excluding, endByte. Byte indexing starts at 1.
-sliceHexBytes: BytesHex -> Int64 -> Int64 -> Optional BytesHex
-sliceHexBytes hex startByte endByte | Text.isHex hex && 1 <= startByte && startByte <= endByte && endByte <= (byteCount hex) + 1 = Some(Text.substring (startByte * 2) ((endByte - startByte) * 2) hex)
-sliceHexBytes _ _ _ = None
-
--- | Validate that the byte encoded hex string is a valid Ethereum address.
--- Only hex string formats (and not ICAP address formats) are supported.
-isEthereumAddress: BytesHex -> Optional Bool
-isEthereumAddress hex | Text.isHex hex && byteCount hex == 20 && Text.take 1 hex != "0" && Text.take 1 (Text.reverse hex) != "0" && getEthereumChecksumAddress hex == Some(hex) = Some(true)
-isEthereumAddress hex | Text.isHex hex = Some(false)
-isEthereumAddress _ = None
-
--- | HIDE
-getEthereumChecksumAddress: BytesHex -> Optional BytesHex
-getEthereumChecksumAddress hex | Text.isHex hex = Some(???)
-getEthereumChecksumAddress _ = None
+sliceHexBytes: BytesHex -> Int -> Int -> BytesHex
+sliceHexBytes hex startByte endByte | Text.isHex hex && 1 <= startByte && startByte <= endByte && endByte <= (byteCount hex) + 1 = Text.substring (startByte * 2) ((endByte - startByte) * 2) hex
+sliceHexBytes arg _ _ =  error $ "Expected a hex encoded string but argument was: " <> arg
