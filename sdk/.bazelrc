@@ -1,3 +1,4 @@
+build --experimental_ui_max_stdouterr_bytes=3000000
 # Bazel distributed cache, can be temporarily disabled by passing the following
 # flag: --noremote_accept_cached
 build:darwin --remote_cache=https://bazel-cache.da-ext.net/202405/macos
