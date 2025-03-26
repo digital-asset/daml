@@ -58,8 +58,13 @@ main =
       invalidSignature = "30450221009944dfb75e1e46006dd6922ba41145ab47dd00da2af75027a95589764fb5e72902200ac5c17d31d102dbdde75e4f5809dccbba9a118cf4a6bffd50108e8444bb69b5"
   in
     script do
-      -- Secp256k1 signing is non-deterministic, so we simply validate that our daml-script question runs successively here
-      actualBurnMessageSignature <- secp256k1sign privateKey (keccak256 (serialize burnMessage))
+      ((keccak256 (serialize burnMessage)) === expectedDigest)
+
+      testKeyPair <- secp256k1generatekeypair
+      testKeyPairSignature <- secp256k1sign testKeyPair.privateKey expectedDigest
+      (secp256k1 testKeyPairSignature expectedDigest testKeyPair.publicKey === True)
+
+      actualBurnMessageSignature <- secp256k1sign privateKey expectedDigest
       (burnMessageSignature === actualBurnMessageSignature)
       alice <- allocateParty "Alice"
       submitMustFail alice do
@@ -92,7 +97,6 @@ main =
           burnMessage = burnMessage
           signature = malformedSignature
           owner = alice
-      ((keccak256 (serialize burnMessage)) === expectedDigest)
       _ <- submit alice do
         createCmd MintToken with
           publicKey = publicKey

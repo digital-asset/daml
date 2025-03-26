@@ -113,6 +113,8 @@ module Daml.Script
   , tryToEither
 
 #ifdef DAML_CCTP
+  , Secp256k1KeyPair
+  , secp256k1generatekeypair
   , secp256k1sign
 #endif
 

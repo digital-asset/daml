@@ -33,4 +33,15 @@ instance IsQuestion Secp256k1Sign BytesHex where command = "Secp256k1Sign"
 secp256k1sign : HasCallStack => PrivateKeyHex -> BytesHex -> Script BytesHex
 secp256k1sign pk msg = lift(Secp256k1Sign pk msg)
 
+data Secp256k1KeyPair = Secp256k1KeyPair with
+  privateKey: PrivateKeyHex
+  publicKey: PublicKeyHex
+
+data Secp256k1GenerateKeyPair = Secp256k1GenerateKeyPair {}
+instance IsQuestion Secp256k1GenerateKeyPair Secp256k1KeyPair where command = "Secp256k1GenerateKeyPair"
+
+-- | Generate DER formatted Secp256k1 public/private key pairs.
+secp256k1generatekeypair : HasCallStack => Script Secp256k1KeyPair
+secp256k1generatekeypair = lift Secp256k1GenerateKeyPair
+
 #endif
