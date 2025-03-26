@@ -9,6 +9,8 @@ Daml.Script.Internal.Questions.Exceptions
 Orphan Typeclass Instances
 --------------------------
 
+**instance** `ActionFailWithStatus <https://docs.daml.com/daml/stdlib/DA-Fail.html#class-da-internal-fail-actionfailwithstatus-58664>`_ :ref:`Script <type-daml-script-internal-lowlevel-script-4781>`
+
 **instance** `ActionCatch <https://docs.daml.com/daml/stdlib/DA-Exception.html#class-da-internal-exception-actioncatch-69238>`_ :ref:`Script <type-daml-script-internal-lowlevel-script-4781>`
 
 **instance** `ActionThrow <https://docs.daml.com/daml/stdlib/DA-Exception.html#class-da-internal-exception-actionthrow-37623>`_ :ref:`Script <type-daml-script-internal-lowlevel-script-4781>`
@@ -49,6 +51,31 @@ Data Types
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"act\" `Catch <type-daml-script-internal-questions-exceptions-catch-84605_>`_ (() \-\> :ref:`LedgerValue <type-daml-script-internal-lowlevel-ledgervalue-66913>`)
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"dummy\" `Catch <type-daml-script-internal-questions-exceptions-catch-84605_>`_ ()
+
+.. _type-daml-script-internal-questions-exceptions-failwithstatus-68689:
+
+**data** `FailWithStatus <type-daml-script-internal-questions-exceptions-failwithstatus-68689_>`_
+
+  .. _constr-daml-script-internal-questions-exceptions-failwithstatus-27672:
+
+  `FailWithStatus <constr-daml-script-internal-questions-exceptions-failwithstatus-27672_>`_
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - status
+         - `FailureStatus <https://docs.daml.com/daml/stdlib/DA-Fail.html#type-da-internal-fail-types-failurestatus-69615>`_
+         -
+
+  **instance** :ref:`IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227>` `FailWithStatus <type-daml-script-internal-questions-exceptions-failwithstatus-68689_>`_ t
+
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"status\" `FailWithStatus <type-daml-script-internal-questions-exceptions-failwithstatus-68689_>`_ `FailureStatus <https://docs.daml.com/daml/stdlib/DA-Fail.html#type-da-internal-fail-types-failurestatus-69615>`_
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"status\" `FailWithStatus <type-daml-script-internal-questions-exceptions-failwithstatus-68689_>`_ `FailureStatus <https://docs.daml.com/daml/stdlib/DA-Fail.html#type-da-internal-fail-types-failurestatus-69615>`_
 
 .. _type-daml-script-internal-questions-exceptions-throw-53740:
 

@@ -14,6 +14,7 @@ import DA.NonEmpty
 import DA.Text
 import DA.Foldable (foldMap)
 import DA.Exception
+import DA.Fail () -- Show instance for FailureStatus
 
 data UpgradeErrorType
   = ValidationFailed with
@@ -145,6 +146,8 @@ data SubmitError
     UpgradeError with
       errorType : UpgradeErrorType
       errorMessage : Text
+  | FailureStatusError with
+      failureStatus : FailureStatus
   | -- | Development feature exceptions
     DevError with -- We just give the error's simple class name and the prettied message it generates. Scripts doesn't need anything more right now.
       devErrorType : DevErrorType
@@ -190,6 +193,7 @@ instance Show SubmitError where
     LocalVerdictLockedContracts cids -> "Attempted to use locked contracts: " <> show cids
     LocalVerdictLockedKeys _ -> "Attempted to use locked contract keys"
     UpgradeError ty msg -> "UpgradeError: " <> show ty <> "\n with message \"" <> msg <> "\""
+    FailureStatusError failureStatus -> "Failed with Status: " <> show failureStatus
     DevError ty msg -> "DevError of type " <> show ty <> " and message \"" <> msg <> "\""
     UnknownError msg -> "Unknown error: " <> msg
     TruncatedError ty msg -> "TruncatedError of type " <> ty <> " and message \"" <> msg <> "\""

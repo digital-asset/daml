@@ -1,0 +1,92 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module TestFailWithStatus where
+
+import Daml.Script
+import DA.Assert
+import DA.Map
+
+validFailureStatus : FailureStatus
+validFailureStatus = FailureStatus "my-error-code" InvalidGivenCurrentSystemStateOther "Something went wrong!" $ fromList [("thing-that-went-wrong", "something")]
+
+attemptToOverwriteMetadataStatus : FailureStatus
+attemptToOverwriteMetadataStatus = validFailureStatus with meta = fromList [("thing-that-went-wrong", "something"), ("category", "100"), ("error_id", "different-error-code")]
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+    choice ValidFailure : ()
+      controller p
+      do
+        failWithStatus validFailureStatus
+
+    choice TryCatch : ()
+      controller p
+      do
+        try failWithStatus validFailureStatus
+        catch (_ : AnyException) -> pure ()
+
+    choice HaltsExecution : ()
+      controller p
+      do
+        failWithStatus validFailureStatus
+        error "wrong failure"
+
+    choice AttemptToOverwriteMetadata : ()
+      controller p
+      do
+        failWithStatus attemptToOverwriteMetadataStatus
+
+    choice PureFailEagerness : () with
+        shouldFail : Bool
+      controller p
+      do
+        pure $ if shouldFail
+          then failWithStatusPure validFailureStatus
+          else ()
+
+roundtrip : Script ()
+roundtrip = do
+  alice <- allocateParty "alice"
+  res <- alice `trySubmit` createAndExerciseCmd (T alice) ValidFailure
+  case res of
+    Left (FailureStatusError status) -> status === validFailureStatus
+    res -> fail $ "Expected validFailureStatus, got " <> show res
+
+cannotCatch : Script ()
+cannotCatch = do
+  alice <- allocateParty "alice"
+  res <- alice `trySubmit` createAndExerciseCmd (T alice) TryCatch
+  case res of
+    Right _ -> fail "Should not have been caught"
+    _ -> pure ()
+
+haltsExecution : Script ()
+haltsExecution = do
+  alice <- allocateParty "alice"
+  res <- alice `trySubmit` createAndExerciseCmd (T alice) HaltsExecution
+  case res of
+    Left (UnhandledException _) -> fail "Call to error still ran"
+    Left (FailureStatusError _) -> pure ()
+    res -> fail $ "Expected FailureStatusError but got " <> show res
+
+attemptToOverwriteMetadata : Script ()
+attemptToOverwriteMetadata = do
+  alice <- allocateParty "alice"
+  res <- alice `trySubmit` createAndExerciseCmd (T alice) AttemptToOverwriteMetadata
+  case res of
+    -- Compare to original status, as category and error_id should have been dropped, and not changed their respective fields in the resulting FailureStatus
+    Left (FailureStatusError status) -> status === validFailureStatus
+    res -> fail $ "Expected validFailureStatus, got " <> show res
+
+pureFailEagerness : Script ()
+pureFailEagerness = do
+  alice <- allocateParty "alice"
+  resFails <- alice `trySubmit` createAndExerciseCmd (T alice) (PureFailEagerness True)
+  resSucceeds <- alice `trySubmit` createAndExerciseCmd (T alice) (PureFailEagerness False)
+  case (resFails, resSucceeds) of
+    (Left (FailureStatusError _), Right _) -> pure ()
+    res -> fail $ "Expected failureStatus then success, but got " <> show res

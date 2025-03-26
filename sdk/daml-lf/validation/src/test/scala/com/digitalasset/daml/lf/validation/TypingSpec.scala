@@ -96,6 +96,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
         BTArrow -> k"* -> * -> *",
         BTAny -> k"*",
         BTRoundingMode -> k"*",
+        BTFailureCategory -> k"*",
         BTBigNumeric -> k"*",
         BTAnyException -> k"*",
       )

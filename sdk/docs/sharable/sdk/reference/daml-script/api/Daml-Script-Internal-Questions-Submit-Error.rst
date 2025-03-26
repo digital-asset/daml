@@ -440,6 +440,21 @@ Data Types
          - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
          -
 
+  .. _constr-daml-script-internal-questions-submit-error-failurestatuserror-13880:
+
+  `FailureStatusError <constr-daml-script-internal-questions-submit-error-failurestatuserror-13880_>`_
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - failureStatus
+         - `FailureStatus <https://docs.daml.com/daml/stdlib/DA-Fail.html#type-da-internal-fail-types-failurestatus-69615>`_
+         -
+
   .. _constr-daml-script-internal-questions-submit-error-deverror-73533:
 
   `DevError <constr-daml-script-internal-questions-submit-error-deverror-73533_>`_
@@ -532,6 +547,8 @@ Data Types
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"failedTemplateKey\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `AnyContractKey <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_
 
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"failureStatus\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `FailureStatus <https://docs.daml.com/daml/stdlib/DA-Fail.html#type-da-internal-fail-types-failurestatus-69615>`_
+
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"givenKeyHash\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"globalExistingContractId\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
@@ -591,6 +608,8 @@ Data Types
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"expectedTemplateId\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `TemplateTypeRep <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"failedTemplateKey\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `AnyContractKey <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"failureStatus\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `FailureStatus <https://docs.daml.com/daml/stdlib/DA-Fail.html#type-da-internal-fail-types-failurestatus-69615>`_
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"givenKeyHash\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
 

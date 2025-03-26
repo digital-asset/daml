@@ -400,6 +400,11 @@ alphaExpr' env = \case
             && alphaExpr' env e1a e2a
             && alphaExpr' env e1b e2b
         _ -> structuralMismatch
+    EFailWithStatus t1 e1 -> \case
+        EFailWithStatus t2 e2
+            -> alphaType' env t1 t2
+            && alphaExpr' env e1 e2
+        _ -> structuralMismatch
     EExperimental n1 t1 -> \case
         EExperimental n2 t2 -> n1 `eqStructural` n2 && alphaType' env t1 t2
         _ -> structuralMismatch

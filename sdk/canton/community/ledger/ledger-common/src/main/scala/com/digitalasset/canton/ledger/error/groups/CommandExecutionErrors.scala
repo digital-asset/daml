@@ -14,6 +14,7 @@ import com.digitalasset.base.error.{
   Explanation,
   Resolution,
 }
+import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.CommandExecutionErrorGroup
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId}
@@ -745,6 +746,40 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       final case class Reject(override val cause: String, err: LfInterpretationError.ValueNesting)(
           implicit loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(cause = cause) {}
+    }
+
+    @Explanation("This error is thrown by use of `failWithStatus` in daml code. The Daml code determines the canton error category, and thus the grpc status code.")
+    @Resolution("Ensure that you are using the contract correctly, and that the choice implementation does not have a bug.")
+    object FailureStatus
+        extends ErrorCode(id = "DAML_FAILURE", ErrorCategory.OverrideDocStringErrorCategory("<determined by daml code>")) {
+      
+      // Building conveyance string from OverrideDocStringErrorCategory will fail, and would be wrong
+      override def errorConveyanceDocString: Option[String] = Some("Conveyance is determined by the category, which is selected in daml code")
+
+      def Reject(
+        cause: String,
+        err: LfInterpretationError.FailureStatus,
+      )(
+        implicit loggingContext: ContextualizedErrorLogger
+      ) = ErrorCategory.fromInt(err.failureCategory) match {
+        case Some(errorCategory) =>
+          new DamlErrorWithDefiniteAnswer(
+            cause = cause
+          )(
+            code = new ErrorCode(id = FailureStatus.id, errorCategory)(FailureStatus.parent){},
+            loggingContext = loggingContext,
+          ) {
+            override def context: Map[String, String] =
+              // ++ on maps takes last key, we don't want users to override `error_id`, so we add this last
+              // SerializableErrorCodeComponents also puts `context` first, so fields added by canton cannot be overwritten
+              super.context ++ err.metadata ++ List(("error_id", err.errorId))
+          }
+        case None =>
+          LedgerApiErrors.InternalError.Generic(
+            s"Error category ordinal ${err.failureCategory} is not a valid error category. "
+              + s"This is likely a programming bug. Please report this error. Original raised error cause: $cause"
+          )
+      }
     }
 
     @Explanation("Errors that occur when trying to upgrade a contract")
