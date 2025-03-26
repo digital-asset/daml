@@ -8,19 +8,20 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   PrepareSubmissionResponse,
   PreparedTransaction,
 }
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.Signature
-import com.digitalasset.canton.data.DeduplicationPeriod
-import com.digitalasset.canton.ledger.api.Commands
+import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.{
   ExecuteRequest,
   PrepareRequest,
 }
+import com.digitalasset.canton.ledger.api.{Commands, PackageReference}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.version.HashingSchemeVersion
-import com.digitalasset.daml.lf.data.Ref.{ApplicationId, SubmissionId}
+import com.digitalasset.daml.lf.data.Ref.{PackageName, SubmissionId, UserId}
 import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKey, SubmittedTransaction}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -39,7 +40,7 @@ object InteractiveSubmissionService {
   )
 
   final case class ExecuteRequest(
-      applicationId: ApplicationId,
+      userId: UserId,
       submissionId: SubmissionId,
       deduplicationPeriod: DeduplicationPeriod,
       signatures: Map[PartyId, Seq[Signature]],
@@ -59,4 +60,13 @@ trait InteractiveSubmissionService {
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): FutureUnlessShutdown[ExecuteSubmissionResponse]
+
+  def getPreferredPackageVersion(
+      parties: Set[LfPartyId],
+      packageName: PackageName,
+      synchronizerId: Option[SynchronizerId],
+      vettingValidAt: Option[CantonTimestamp],
+  )(implicit
+      loggingContext: LoggingContextWithTrace
+  ): FutureUnlessShutdown[Option[(PackageReference, SynchronizerId)]]
 }

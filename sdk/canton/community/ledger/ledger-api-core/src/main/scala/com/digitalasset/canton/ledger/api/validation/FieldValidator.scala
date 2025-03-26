@@ -99,14 +99,6 @@ object FieldValidator {
   ): Either[StatusRuntimeException, Ref.UserId] =
     requireNonEmptyParsedId(Ref.UserId.fromString)(s, fieldName)
 
-  def requireApplicationId(
-      s: String,
-      fieldName: String,
-  )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Ref.ApplicationId] =
-    requireNonEmptyParsedId(Ref.ApplicationId.fromString)(s, fieldName)
-
   def requireLedgerString(
       s: String,
       fieldName: String,
@@ -205,6 +197,12 @@ object FieldValidator {
   ): Either[StatusRuntimeException, Option[SynchronizerId]] =
     if (s.isEmpty) Right(None)
     else SynchronizerId.fromString(s).left.map(invalidField(fieldName, _)).map(Some(_))
+
+  def requirePackageName(s: String, fieldName: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Ref.PackageName] =
+    if (s.isEmpty) Left(missingField(fieldName))
+    else Ref.PackageName.fromString(s).left.map(invalidField(fieldName, _))
 
   def requireContractId(
       s: String,

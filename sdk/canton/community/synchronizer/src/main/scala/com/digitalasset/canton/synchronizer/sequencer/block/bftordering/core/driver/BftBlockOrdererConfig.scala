@@ -23,6 +23,7 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.{
+  DefaultEpochStateTransferTimeout,
   DefaultMaxBatchCreationInterval,
   DefaultMaxBatchesPerProposal,
   DefaultMaxMempoolQueueSize,
@@ -47,6 +48,9 @@ import scala.concurrent.duration.*
   * @param maxBatchesPerBlockProposal
   *   A maximum number of batches per block proposal (pre-prepare). Needs to be the same across the
   *   network for the BFT time assumptions to hold. It is validated in runtime.
+  * @param epochStateTransferRetryTimeout
+  *   A state transfer retry timeout covering periods from requesting blocks from a single epoch up
+  *   to receiving all the corresponding batches.
   */
 final case class BftBlockOrdererConfig(
     maxRequestPayloadBytes: Int = DefaultMaxRequestPayloadBytes,
@@ -57,6 +61,7 @@ final case class BftBlockOrdererConfig(
     maxBatchCreationInterval: FiniteDuration = DefaultMaxBatchCreationInterval,
     // TODO(#24184) make a dynamic sequencing parameter
     maxBatchesPerBlockProposal: Short = DefaultMaxBatchesPerProposal,
+    epochStateTransferRetryTimeout: FiniteDuration = DefaultEpochStateTransferTimeout,
     outputFetchTimeout: FiniteDuration = DefaultOutputFetchTimeout,
     pruningConfig: PruningConfig = DefaultPruningConfig,
     initialNetwork: Option[P2PNetworkConfig] = None,
@@ -87,6 +92,7 @@ object BftBlockOrdererConfig {
   val DefaultMinRequestsInBatch: Short = 3
   val DefaultMaxBatchCreationInterval: FiniteDuration = 100.milliseconds
   val DefaultMaxBatchesPerProposal: Short = 16
+  val DefaultEpochStateTransferTimeout: FiniteDuration = 10.seconds
   val DefaultOutputFetchTimeout: FiniteDuration = 2.second
   val DefaultPruningConfig: PruningConfig = PruningConfig(
     retentionPeriod = 30.days,
@@ -121,15 +127,18 @@ object BftBlockOrdererConfig {
       CantonConfigValidatorDerivation[P2PNetworkAuthenticationConfig]
   }
 
-  /** If [[externalAddress]] and [[externalPort]] must be configured correctly for the client to
-    * correctly authenticate the server, as the client tells the server its endpoint for
-    * authentication based on this information.
+  /** If [[externalAddress]], [[externalPort]] and [[externalTlsConfig]] must be configured
+    * correctly for the client to correctly authenticate the server, as the client tells the server
+    * its endpoint for authentication based on this information.
     */
   final case class P2PServerConfig(
       override val address: String,
       override val internalPort: Option[Port] = None,
       externalAddress: String,
       externalPort: Port,
+      externalTlsConfig: Option[TlsClientConfig] = Some(
+        TlsClientConfig(trustCollectionFile = None, clientCert = None, enabled = true)
+      ),
       tls: Option[TlsServerConfig] = None,
       override val maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
   ) extends ServerConfig
@@ -144,8 +153,8 @@ object BftBlockOrdererConfig {
 
     override def serverCertChainFile: Option[PemFileOrString] = tls.map(_.certChainFile)
 
-    def clientConfig: P2PEndpointConfig =
-      P2PEndpointConfig(externalAddress, externalPort, tls.map(_.clientConfig))
+    private[core] def serverToClientAuthenticationEndpointConfig: P2PEndpointConfig =
+      P2PEndpointConfig(externalAddress, externalPort, externalTlsConfig)
   }
   object P2PServerConfig {
     implicit val adminServerConfigCantonConfigValidator: CantonConfigValidator[P2PServerConfig] = {

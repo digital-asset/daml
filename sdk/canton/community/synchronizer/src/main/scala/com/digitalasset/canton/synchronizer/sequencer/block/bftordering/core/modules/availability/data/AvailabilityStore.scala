@@ -9,10 +9,12 @@ import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.db.DbAvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.memory.InMemoryAvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequestBatch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.BatchId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem.PekkoEnv
 import com.digitalasset.canton.tracing.TraceContext
+import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
 
@@ -32,6 +34,20 @@ trait AvailabilityStore[E <: Env[E]] extends AutoCloseable {
   def gc(staleBatchIds: Seq[BatchId])(implicit
       traceContext: TraceContext
   ): Unit
+
+  @VisibleForTesting
+  def loadNumberOfRecords(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[AvailabilityStore.NumberOfRecords]
+  protected def loadNumberOfRecordsName: String = s"load number of records"
+
+  def prune(
+      epochNumberExclusive: EpochNumber
+  )(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[AvailabilityStore.NumberOfRecords]
+  protected def pruneName(epochNumberExclusive: EpochNumber): String =
+    s"prune at epoch $epochNumberExclusive (exclusive)"
 }
 
 object AvailabilityStore {
@@ -41,6 +57,9 @@ object AvailabilityStore {
 
   final case class AllBatches(batches: Seq[(BatchId, OrderingRequestBatch)])
       extends FetchBatchesResult
+
+  final case class NumberOfRecords(batches: Long)
+  object NumberOfRecords { val empty = NumberOfRecords(0L) }
 
   def apply(
       storage: Storage,

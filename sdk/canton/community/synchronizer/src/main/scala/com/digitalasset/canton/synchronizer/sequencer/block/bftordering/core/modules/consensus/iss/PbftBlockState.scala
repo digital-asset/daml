@@ -103,7 +103,7 @@ final class PbftBlockState(
       _ =>
         if (!prepareMap.contains(membership.myId)) {
           val prepare =
-            Prepare.create(pp.message.blockMetadata, view, hash, clock.now, membership.myId)
+            Prepare.create(pp.message.blockMetadata, view, hash, membership.myId)
           Seq(SignPbftMessage(prepare))
         } else {
           // We already have a Prepare (potentially from rehydration) so we don't need to generate a new one

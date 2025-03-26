@@ -101,12 +101,6 @@ sealed abstract class IdString {
   /** Identifiers for contracts */
   type ContractIdString <: String
 
-  /** Identifiers for applications submitting requests to the Ledger API.
-    * See the comments on the actual definitions below for details on application and
-    * user ids and their relation.
-    */
-  type ApplicationId <: String
-
   /** Identifiers for participant node users */
   type UserId <: String
 
@@ -118,7 +112,6 @@ sealed abstract class IdString {
   val ParticipantId: StringModule[ParticipantId]
   val LedgerString: ConcatenableStringModule[LedgerString, HexString]
   val ContractIdString: StringModule[ContractIdString]
-  val ApplicationId: StringModule[ApplicationId]
   val UserId: StringModule[UserId]
 }
 
@@ -328,7 +321,6 @@ private[data] final class IdStringImpl extends IdString {
     * transactionId, ... We use the same type for those ids, because we
     * construct some by concatenating the others.
     */
-  // We allow space because the navigator's applicationId used it.
   override type LedgerString = String
   override val LedgerString: ConcatenableStringModule[LedgerString, HexString] =
     new ConcatenableMatchingStringModule("Daml-LF Ledger String", "._:-#/ ", 255)
@@ -341,14 +333,6 @@ private[data] final class IdStringImpl extends IdString {
   override type ContractIdString = String
   override val ContractIdString: StringModule[ContractIdString] =
     new MatchingStringModule("Daml-LF Contract ID", """#[\w._:\-#/ ]{0,254}""")
-
-  /** Identifiers for applications as used in custom tokens and requests.
-    * They used to be equal to [[LedgerString]], but additionally allow the symbols
-    * "!|@^$`+'~" when introducing participant users to ensure that they are a superset of [[UserId]].
-    */
-  override type ApplicationId = String
-  override val ApplicationId: ConcatenableStringModule[LedgerString, HexString] =
-    new ConcatenableMatchingStringModule("Application ID", "._:-#/!|@^$`+'~ ", 255)
 
   /** Identifiers for participant node users are non-empty strings with a length <= 128 that consist of
     * ASCII alphanumeric characters and the symbols "@^$.!`-#+'~_|:".

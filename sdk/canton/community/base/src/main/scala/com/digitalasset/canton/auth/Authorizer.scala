@@ -84,8 +84,8 @@ final class Authorizer(
       claims: ClaimSet.Claims
   ): Either[AuthorizationError, Option[String]] =
     if (claims.resolvedFromUser)
-      claims.applicationId match {
-        case Some(applicationId) => Right(Some(applicationId))
+      claims.userId match {
+        case Some(userId) => Right(Some(userId))
         case None =>
           Left(
             AuthorizationError.InternalAuthorizationError(
@@ -97,24 +97,24 @@ final class Authorizer(
     else
       Right(None)
 
-  /** Compute the application-id for a request, defaulting to the one in the claims in case the
-    * request does not specify an application-id.
+  /** Compute the user-id for a request, defaulting to the one in the claims in case the request
+    * does not specify an user-id.
     */
-  private def defaultApplicationId(
-      reqApplicationId: String,
+  private def defaultUserId(
+      reqUserId: String,
       claims: ClaimSet.Claims,
   ): Either[AuthorizationError, String] =
-    if (reqApplicationId.isEmpty)
-      claims.applicationId match {
-        case Some(applicationId) if applicationId.nonEmpty => Right(applicationId)
+    if (reqUserId.isEmpty)
+      claims.userId match {
+        case Some(userId) if userId.nonEmpty => Right(userId)
         case _ =>
           Left(
             AuthorizationError.MissingUserId(
-              "Cannot default application_id field because claims do not specify an application-id or user-id. Is authentication turned on?"
+              "Cannot default user_id field because claims do not specify an user-id. Is authentication turned on?"
             )
           )
       }
-    else Right(reqApplicationId)
+    else Right(reqUserId)
 
   private def authorizationErrorAsGrpc[T](
       errOrV: Either[AuthorizationError, T]
@@ -231,20 +231,20 @@ final class Authorizer(
           .flatMap(validateRequestIdentityProviderId(_, claims))
           .map(_ => modifiedRequest)
 
-      case RequiredClaim.MatchApplicationId(_, skipApplicationIdValidationForAnyPartyReaders) =>
-        val applicationIdL = requiredClaim.requestStringL
-        defaultApplicationId(applicationIdL.get(req), claims).flatMap(defaultedApplicationId =>
+      case RequiredClaim.MatchUserId(_, skipUserIdValidationForAnyPartyReaders) =>
+        val userIdL = requiredClaim.requestStringL
+        defaultUserId(userIdL.get(req), claims).flatMap(defaultedUserId =>
           Option
             .when(
-              skipApplicationIdValidationForAnyPartyReaders && claims.claims.contains(
+              skipUserIdValidationForAnyPartyReaders && claims.claims.contains(
                 ClaimReadAsAnyParty
               )
             )(Either.unit)
-            .getOrElse(claims.validForApplication(defaultedApplicationId))
-            .map(_ => applicationIdL.set(defaultedApplicationId)(req))
+            .getOrElse(claims.validForUser(defaultedUserId))
+            .map(_ => userIdL.set(defaultedUserId)(req))
         )
 
-      case RequiredClaim.MatchUserId(_) =>
+      case RequiredClaim.MatchUserIdForUserManagement(_) =>
         val userIdL = requiredClaim.requestStringL
         defaultToAuthenticatedUser(
           claims = claims,
@@ -334,11 +334,12 @@ object RequiredClaim {
   final case class ActAs[Req](party: String) extends RequiredClaim[Req]
   final case class MatchIdentityProviderId[Req](override val requestStringL: Lens[Req, String])
       extends RequiredClaim[Req]
-  final case class MatchApplicationId[Req](
+  // TODO(i24590) consolidate these two
+  final case class MatchUserId[Req](
       override val requestStringL: Lens[Req, String],
-      skipApplicationIdValidationForAnyPartyReaders: Boolean = false,
+      skipUserIdValidationForAnyPartyReaders: Boolean = false,
   ) extends RequiredClaim[Req]
-  final case class MatchUserId[Req](override val requestStringL: Lens[Req, String])
+  final case class MatchUserIdForUserManagement[Req](override val requestStringL: Lens[Req, String])
       extends RequiredClaim[Req]
   final case class Admin[Req]() extends RequiredClaim[Req]
   final case class AdminOrIdpAdmin[Req]() extends RequiredClaim[Req]

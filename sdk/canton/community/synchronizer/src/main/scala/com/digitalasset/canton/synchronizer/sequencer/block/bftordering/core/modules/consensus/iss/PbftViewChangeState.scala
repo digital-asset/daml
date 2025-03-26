@@ -6,7 +6,6 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 import cats.instances.map.*
 import cats.syntax.functor.*
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
@@ -133,8 +132,7 @@ class PbftViewChangeState(
     signedPrePreparesForSegment
 
   def constructPrePreparesForNewView(
-      metadata: BlockMetadata,
-      timestamp: CantonTimestamp,
+      metadata: BlockMetadata
   ): Seq[Either[PrePrepare, SignedMessage[PrePrepare]]] = {
 
     val viewChangeSet =
@@ -153,7 +151,6 @@ class PbftViewChangeState(
             PrePrepare.create(
               metadata.copy(blockNumber = blockNum),
               view,
-              timestamp,
               OrderingBlock.empty,
               // We define the correct canonical commit set of bottom blocks as the empty set,
               //  because the previous ordered block from which to grab a canonical commit set is non-trivial
@@ -169,7 +166,6 @@ class PbftViewChangeState(
   def createNewViewMessage(
       metadata: BlockMetadata,
       segmentIdx: Int,
-      timestamp: CantonTimestamp,
       prePrepares: Seq[SignedMessage[PrePrepare]],
   ): NewView = {
 
@@ -181,7 +177,6 @@ class PbftViewChangeState(
       metadata,
       segmentIdx,
       view,
-      timestamp,
       viewChangeSet,
       prePrepares,
       from = membership.myId,

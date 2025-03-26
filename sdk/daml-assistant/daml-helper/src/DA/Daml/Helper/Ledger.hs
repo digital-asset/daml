@@ -71,7 +71,7 @@ import DA.Daml.Project.Util (fromMaybeM)
 import qualified DA.Ledger as L
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
-import DA.Ledger.Types (ApplicationId(..))
+import DA.Ledger.Types (UserId(..))
 import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.Time.Calendar (Day(..))
 import qualified Data.Aeson as Aeson
@@ -466,7 +466,7 @@ allocateParty args name = do
 --                         ]
 --                     , lid = ledgerId
 --                     , wid = Nothing
---                     , aid = L.ApplicationId "ledger-reset"
+--                     , uid = L.UserId "ledger-reset"
 --                     , cid = L.CommandId $ TL.fromStrict $ UUID.toText cmdId
 --                     , actAs = parties
 --                     , readAs = []
@@ -521,7 +521,7 @@ runWithLedgerArgs LedgerArgs{host,port,tokM,timeout, sslConfigM, grpcArgs} ls = 
     L.runLedgerService ls' timeout ledgerClientConfig
 
 -- | Report on Ledger Use.
-runLedgerMeteringReport :: LedgerFlags -> Day -> Maybe Day -> Maybe ApplicationId -> Bool -> IO ()
+runLedgerMeteringReport :: LedgerFlags -> Day -> Maybe Day -> Maybe UserId -> Bool -> IO ()
 runLedgerMeteringReport flags fromIso toIso application compactOutput = do
     args <- getDefaultArgs flags
     report <- meteringReport args fromIso toIso application
@@ -531,7 +531,7 @@ runLedgerMeteringReport flags fromIso toIso application compactOutput = do
     let output = BSC.unpack bsc
     putStrLn output
 
-meteringReport :: LedgerArgs -> Day -> Maybe Day -> Maybe ApplicationId -> IO Aeson.Value
+meteringReport :: LedgerArgs -> Day -> Maybe Day -> Maybe UserId -> IO Aeson.Value
 meteringReport args from to application =
     runWithLedgerArgs args $
         do L.getMeteringReport (L.utcDayToTimestamp from) (fmap L.utcDayToTimestamp to) application

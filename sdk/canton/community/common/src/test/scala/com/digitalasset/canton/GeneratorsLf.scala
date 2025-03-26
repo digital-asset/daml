@@ -32,8 +32,8 @@ object GeneratorsLf {
     Arbitrary.arbitrary[CantonTimestamp].map(_.underlying)
   )
 
-  implicit val lfApplicationIdArb: Arbitrary[LfApplicationId] = Arbitrary(
-    Gen.stringOfN(8, Gen.alphaChar).map(LfApplicationId.assertFromString)
+  implicit val LedgerUserIdArb: Arbitrary[LedgerUserId] = Arbitrary(
+    Gen.stringOfN(8, Gen.alphaChar).map(LedgerUserId.assertFromString)
   )
 
   implicit val lfCommandIdArb: Arbitrary[LfCommandId] = Arbitrary(

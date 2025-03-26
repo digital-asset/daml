@@ -9,11 +9,11 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.base.error.CantonRpcError
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode.PackageInUse
@@ -35,7 +35,7 @@ import scala.concurrent.ExecutionContext
 trait PackageOps extends NamedLogging {
   def hasVettedPackageEntry(packageId: PackageId)(implicit
       tc: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonError, Boolean]
+  ): EitherT[FutureUnlessShutdown, CantonRpcError, Boolean]
 
   def checkPackageUnused(packageId: PackageId)(implicit
       tc: TraceContext
@@ -54,7 +54,7 @@ trait PackageOps extends NamedLogging {
       darDescriptor: DarDescription,
   )(implicit
       tc: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonError, Unit]
+  ): EitherT[FutureUnlessShutdown, CantonRpcError, Unit]
 }
 
 class PackageOpsImpl(
@@ -106,7 +106,7 @@ class PackageOpsImpl(
     */
   override def hasVettedPackageEntry(
       packageId: PackageId
-  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Boolean] = {
+  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, CantonRpcError, Boolean] = {
     // Use the aliasManager to query all synchronizers, even those that are currently disconnected
     val snapshotsForSynchronizers: List[TopologySnapshot] =
       stateManager.getAll.view.keys
@@ -154,13 +154,13 @@ class PackageOpsImpl(
       mainPkg: LfPackageId,
       packages: List[LfPackageId],
       darDescriptor: DarDescription,
-  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Unit] =
+  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, CantonRpcError, Unit] =
     vettingExecutionQueue.executeEUS(
       {
         val packagesToUnvet = packages.toSet
 
         modifyVettedPackages(_.filterNot(vp => packagesToUnvet(vp.packageId)))
-          .leftWiden[CantonError]
+          .leftWiden[CantonRpcError]
           .void
       },
       "revoke vetting",

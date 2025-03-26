@@ -32,7 +32,7 @@ import os
 import json
 # [Imports End]
 
-application_id = "demo_python_app"
+user_id = "demo_python_app"
 # Path to the Canton ports file - This file is created when canton starts using the configuration in this folder
 # and stores the ports for the Ledger and Admin API.
 json_file_path = "canton_ports.json"
@@ -145,7 +145,7 @@ def execute_and_get_contract_id(
     # Create the execute request
     execute_request = interactive_submission_service_pb2.ExecuteSubmissionRequest(
         prepared_transaction=prepared_transaction,
-        application_id=application_id,
+        user_id=user_id,
         party_signatures=interactive_submission_service_pb2.PartySignatures(
             signatures=[
                 interactive_submission_service_pb2.SinglePartySignatures(
@@ -171,7 +171,7 @@ def execute_and_get_contract_id(
 
     # [Waiting for the transaction to show on the completion stream]
     update_request = command_completion_service_pb2.CompletionStreamRequest(
-        application_id=application_id, parties=[party]
+        user_id=user_id, parties=[party]
     )
     completion_stream = ccs_client.CompletionStream(update_request)
     for update in completion_stream:
@@ -230,7 +230,7 @@ def prepare_create_ping_contract(
     # Prepare the submission request
     prepare_create_request = (
         interactive_submission_service_pb2.PrepareSubmissionRequest(
-            application_id=application_id,
+            user_id=user_id,
             command_id=str(uuid.uuid4()),
             act_as=[initiator],
             read_as=[initiator],
@@ -312,7 +312,7 @@ def exercise_respond_choice(
     print("Preparing exercise Respond choice transaction")
     # [Prepare the exercise command]
     prepare_exercise_request = interactive_submission_service_pb2.PrepareSubmissionRequest(
-        application_id=application_id,
+        user_id=user_id,
         command_id=str(uuid.uuid4()),
         act_as=[responder],
         read_as=[responder],

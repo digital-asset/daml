@@ -24,11 +24,11 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
   behavior of "submissionClaims"
 
   it should "compute the correct claims in the happy path" in {
-    val applicationIdL: Lens[String, String] = Lens.unit
+    val userIdL: Lens[String, String] = Lens.unit
     RequiredClaims.submissionClaims(
       actAs = Set("1", "2", "3"),
       readAs = Set("a", "b", "c"),
-      applicationIdL = applicationIdL,
+      userIdL = userIdL,
     ) should contain theSameElementsAs RequiredClaims[String](
       RequiredClaim.ReadAs("a"),
       RequiredClaim.ReadAs("b"),
@@ -36,32 +36,32 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
       RequiredClaim.ActAs("1"),
       RequiredClaim.ActAs("2"),
       RequiredClaim.ActAs("3"),
-      RequiredClaim.MatchApplicationId(applicationIdL),
+      RequiredClaim.MatchUserId(userIdL),
     )
   }
 
   it should "compute the correct claims if no actAs" in {
-    val applicationIdL: Lens[String, String] = Lens.unit
+    val userIdL: Lens[String, String] = Lens.unit
     RequiredClaims.submissionClaims(
       actAs = Set.empty,
       readAs = Set("a", "b", "c"),
-      applicationIdL = applicationIdL,
+      userIdL = userIdL,
     ) should contain theSameElementsAs RequiredClaims[String](
       RequiredClaim.ReadAs("a"),
       RequiredClaim.ReadAs("b"),
       RequiredClaim.ReadAs("c"),
-      RequiredClaim.MatchApplicationId(applicationIdL),
+      RequiredClaim.MatchUserId(userIdL),
     )
   }
 
   it should "compute the correct claims if no ActAs and no ReadAs" in {
-    val applicationIdL: Lens[String, String] = Lens.unit
+    val userIdL: Lens[String, String] = Lens.unit
     RequiredClaims.submissionClaims(
       actAs = Set.empty,
       readAs = Set.empty,
-      applicationIdL = applicationIdL,
+      userIdL = userIdL,
     ) should contain theSameElementsAs RequiredClaims[String](
-      RequiredClaim.MatchApplicationId(applicationIdL)
+      RequiredClaim.MatchUserId(userIdL)
     )
   }
 

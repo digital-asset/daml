@@ -258,11 +258,11 @@ trait RequestJournalStoreTest extends FailOnShutdown {
     }
 
     "deleteSince" should {
-      "remove all requests from the given counter on" in {
+      "remove all requests from the given request timestamp on" in {
         val store = mk()
         for {
           _ <- setupRequests(store)
-          _ <- store.deleteSince(RequestCounter(2))
+          _ <- store.deleteSinceRequestTimestamp(tsWithSecs(3))
           result0 <- valueOrFailUS(
             store.query(RequestCounter(0))
           )("Request 0 is retained")
@@ -274,11 +274,11 @@ trait RequestJournalStoreTest extends FailOnShutdown {
         }
       }
 
-      "remove all requests even if there is no request for the counter" in {
+      "remove all requests even if there is no request for the timestamp" in {
         val store = mk()
         for {
           _ <- store.insert(RequestData(RequestCounter(-3), Pending, tsWithSecs(-1)))
-          _ <- store.deleteSince(RequestCounter(-5))
+          _ <- store.deleteSinceRequestTimestamp(tsWithSecs(-1).immediatePredecessor)
           result <- store.query(RequestCounter(-3)).value
         } yield {
           result shouldBe None
@@ -289,7 +289,7 @@ trait RequestJournalStoreTest extends FailOnShutdown {
         val store = mk()
         for {
           _ <- store.insert(RequestData(RequestCounter(0), Pending, tsWithSecs(0)))
-          _ <- store.deleteSince(RequestCounter(1))
+          _ <- store.deleteSinceRequestTimestamp(tsWithSecs(0).immediateSuccessor)
           result <- valueOrFailUS(
             store.query(RequestCounter(0))
           )("Lookup request 0")

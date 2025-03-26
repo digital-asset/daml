@@ -104,7 +104,7 @@ da_scala_test_suite(
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
         "//libs-scala/contextualized-logging",
-        "//libs-scala/crypto:crypto-tests",
+        "//libs-scala/crypto",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_bouncycastle_bcprov_jdk15on",
         "@maven//:org_scalatest_scalatest_compatible",

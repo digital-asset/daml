@@ -42,7 +42,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Module,
   ModuleRef,
 }
-import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
@@ -59,7 +58,6 @@ class IssSegmentModule[E <: Env[E]](
     metricsAccumulator: EpochMetricsAccumulator,
     storePbftMessages: Boolean,
     epochStore: EpochStore[E],
-    clock: Clock,
     cryptoProvider: CryptoProvider[E],
     latestCompletedEpochLastCommits: Seq[SignedMessage[Commit]],
     epochInProgress: EpochInProgress,
@@ -334,7 +332,6 @@ class IssSegmentModule[E <: Env[E]](
       ConsensusSegment.ConsensusMessage.PrePrepare.create(
         orderedBlock.metadata,
         ViewNumber.First,
-        clock.now,
         orderingBlock,
         orderedBlock.canonicalCommitSet,
         from = thisNode,

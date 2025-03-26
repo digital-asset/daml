@@ -17,7 +17,7 @@ import com.google.protobuf.timestamp.Timestamp
 object MockMessages {
 
   val workflowId = "workflowId"
-  val applicationId = "applicationId"
+  val userId = "userId"
   val commandId = "commandId"
   val party = "party"
   val party2 = "party2"
@@ -26,7 +26,7 @@ object MockMessages {
   val commands: Commands =
     Commands(
       workflowId = workflowId,
-      applicationId = applicationId,
+      userId = userId,
       commandId = commandId,
       commands = Nil,
       deduplicationPeriod = DeduplicationPeriod.Empty,

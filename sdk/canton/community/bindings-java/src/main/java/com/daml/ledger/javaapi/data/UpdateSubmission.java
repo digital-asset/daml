@@ -21,14 +21,14 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  *
  * Usage:
  * <pre>
- *   var submission = UpdateSubmission.create(applicationId, commandId, update)
+ *   var submission = UpdateSubmission.create(userId, commandId, update)
  *                                   .withAccessToken(token)
  *                                   .withParty(party)
  *                                   .with...
  * <pre/>
  */
 public final class UpdateSubmission<U> {
-  @NonNull private final String applicationId;
+  @NonNull private final String userId;
   @NonNull private final String commandId;
   @NonNull private final Update<U> update;
 
@@ -47,7 +47,7 @@ public final class UpdateSubmission<U> {
   @NonNull private final String synchronizerId;
 
   private UpdateSubmission(
-      @NonNull String applicationId,
+      @NonNull String userId,
       @NonNull String commandId,
       @NonNull Update<U> update,
       @NonNull List<@NonNull String> actAs,
@@ -63,7 +63,7 @@ public final class UpdateSubmission<U> {
       @NonNull List<@NonNull String> packageIdSelectionPreference,
       @NonNull List<@NonNull PrefetchContractKey> prefetchContractKeys) {
     this.workflowId = workflowId;
-    this.applicationId = applicationId;
+    this.userId = userId;
     this.commandId = commandId;
     this.actAs = actAs;
     this.readAs = readAs;
@@ -79,10 +79,9 @@ public final class UpdateSubmission<U> {
     this.prefetchContractKeys = prefetchContractKeys;
   }
 
-  public static <U> UpdateSubmission<U> create(
-      String applicationId, String commandId, Update<U> update) {
+  public static <U> UpdateSubmission<U> create(String userId, String commandId, Update<U> update) {
     return new UpdateSubmission<U>(
-        applicationId,
+        userId,
         commandId,
         update,
         emptyList(),
@@ -103,8 +102,8 @@ public final class UpdateSubmission<U> {
     return workflowId;
   }
 
-  public String getApplicationId() {
-    return applicationId;
+  public String getUserId() {
+    return userId;
   }
 
   public String getCommandId() {
@@ -161,7 +160,7 @@ public final class UpdateSubmission<U> {
 
   public UpdateSubmission<U> withWorkflowId(String workflowId) {
     return new UpdateSubmission<U>(
-        applicationId,
+        userId,
         commandId,
         update,
         actAs,
@@ -180,7 +179,7 @@ public final class UpdateSubmission<U> {
 
   public UpdateSubmission<U> withActAs(String actAs) {
     return new UpdateSubmission<U>(
-        applicationId,
+        userId,
         commandId,
         update,
         List.of(actAs),
@@ -199,7 +198,7 @@ public final class UpdateSubmission<U> {
 
   public UpdateSubmission<U> withActAs(List<@NonNull String> actAs) {
     return new UpdateSubmission<U>(
-        applicationId,
+        userId,
         commandId,
         update,
         actAs,
@@ -218,7 +217,7 @@ public final class UpdateSubmission<U> {
 
   public UpdateSubmission<U> withReadAs(List<@NonNull String> readAs) {
     return new UpdateSubmission<U>(
-        applicationId,
+        userId,
         commandId,
         update,
         actAs,
@@ -237,7 +236,7 @@ public final class UpdateSubmission<U> {
 
   public UpdateSubmission<U> withMinLedgerTimeAbs(Optional<Instant> minLedgerTimeAbs) {
     return new UpdateSubmission<U>(
-        applicationId,
+        userId,
         commandId,
         update,
         actAs,
@@ -256,7 +255,7 @@ public final class UpdateSubmission<U> {
 
   public UpdateSubmission<U> withMinLedgerTimeRel(Optional<Duration> minLedgerTimeRel) {
     return new UpdateSubmission<U>(
-        applicationId,
+        userId,
         commandId,
         update,
         actAs,
@@ -275,7 +274,7 @@ public final class UpdateSubmission<U> {
 
   public UpdateSubmission<U> withDeduplicationDuration(Optional<Duration> deduplicationDuration) {
     return new UpdateSubmission<U>(
-        applicationId,
+        userId,
         commandId,
         update,
         actAs,
@@ -294,7 +293,7 @@ public final class UpdateSubmission<U> {
 
   public UpdateSubmission<U> withDeduplicationOffset(Optional<Long> deduplicationOffset) {
     return new UpdateSubmission<U>(
-        applicationId,
+        userId,
         commandId,
         update,
         actAs,
@@ -313,7 +312,7 @@ public final class UpdateSubmission<U> {
 
   public UpdateSubmission<U> withAccessToken(Optional<String> accessToken) {
     return new UpdateSubmission<U>(
-        applicationId,
+        userId,
         commandId,
         update,
         actAs,
@@ -332,7 +331,7 @@ public final class UpdateSubmission<U> {
 
   public UpdateSubmission<U> withSynchronizerId(String synchronizerId) {
     return new UpdateSubmission<U>(
-        applicationId,
+        userId,
         commandId,
         update,
         actAs,
@@ -352,7 +351,7 @@ public final class UpdateSubmission<U> {
   public UpdateSubmission<U> withDisclosedContracts(
       List<@NonNull DisclosedContract> disclosedContracts) {
     return new UpdateSubmission<U>(
-        applicationId,
+        userId,
         commandId,
         update,
         actAs,
@@ -372,7 +371,7 @@ public final class UpdateSubmission<U> {
   public UpdateSubmission<U> withPackageIdSelectionPreference(
       List<@NonNull String> packageIdSelectionPreference) {
     return new UpdateSubmission<U>(
-        applicationId,
+        userId,
         commandId,
         update,
         actAs,
@@ -392,7 +391,7 @@ public final class UpdateSubmission<U> {
   public UpdateSubmission<U> withPrefetchContractKeys(
       List<PrefetchContractKey> prefetchContractKeys) {
     return new UpdateSubmission<U>(
-        applicationId,
+        userId,
         commandId,
         update,
         actAs,
@@ -412,7 +411,7 @@ public final class UpdateSubmission<U> {
   public CommandsSubmission toCommandsSubmission() {
     return new CommandsSubmission(
         workflowId,
-        applicationId,
+        userId,
         commandId,
         update.commands(),
         deduplicationDuration,

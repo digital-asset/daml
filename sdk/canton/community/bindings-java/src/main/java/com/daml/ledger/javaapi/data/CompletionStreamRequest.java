@@ -12,24 +12,24 @@ import java.util.Optional;
 
 public final class CompletionStreamRequest {
 
-  @NonNull private final String applicationId;
+  @NonNull private final String userId;
 
   @NonNull private final List<@NonNull String> parties;
 
   @NonNull private final Long beginExclusive;
 
   public CompletionStreamRequest(
-      @NonNull String applicationId,
+      @NonNull String userId,
       @NonNull List<@NonNull String> parties,
       @NonNull Long beginExclusive) {
-    this.applicationId = applicationId;
+    this.userId = userId;
     this.parties = List.copyOf(parties);
     this.beginExclusive = beginExclusive;
   }
 
   @NonNull
-  public String getApplicationId() {
-    return applicationId;
+  public String getUserId() {
+    return userId;
   }
 
   @NonNull
@@ -44,13 +44,13 @@ public final class CompletionStreamRequest {
   public static CompletionStreamRequest fromProto(
       CommandCompletionServiceOuterClass.CompletionStreamRequest request) {
     return new CompletionStreamRequest(
-        request.getApplicationId(), request.getPartiesList(), request.getBeginExclusive());
+        request.getUserId(), request.getPartiesList(), request.getBeginExclusive());
   }
 
   public CommandCompletionServiceOuterClass.CompletionStreamRequest toProto() {
     CommandCompletionServiceOuterClass.CompletionStreamRequest.Builder builder =
         CommandCompletionServiceOuterClass.CompletionStreamRequest.newBuilder()
-            .setApplicationId(applicationId)
+            .setUserId(userId)
             .addAllParties(parties)
             .setBeginExclusive(beginExclusive);
 
@@ -62,7 +62,7 @@ public final class CompletionStreamRequest {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     CompletionStreamRequest that = (CompletionStreamRequest) o;
-    return Objects.equals(applicationId, that.applicationId)
+    return Objects.equals(userId, that.userId)
         && Objects.equals(parties, that.parties)
         && Objects.equals(beginExclusive, that.beginExclusive);
   }
@@ -70,14 +70,14 @@ public final class CompletionStreamRequest {
   @Override
   public int hashCode() {
 
-    return Objects.hash(applicationId, parties, beginExclusive);
+    return Objects.hash(userId, parties, beginExclusive);
   }
 
   @Override
   public String toString() {
     return "CompletionStreamRequest{"
-        + "applicationId="
-        + applicationId
+        + "userId="
+        + userId
         + ", parties="
         + parties
         + ", beginExclusive="

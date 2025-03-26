@@ -12,7 +12,7 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
 import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.canton.topology.GeneratorsTopology.*
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.{LfApplicationId, LfPackageId, LfPartyId}
+import com.digitalasset.canton.{LedgerUserId, LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Time}
@@ -132,14 +132,14 @@ object InteractiveSubmissionGenerators {
   private implicit val submitterInfoGen: Gen[SubmitterInfo] = for {
     actAs <- Arbitrary.arbitrary[List[LfPartyId]]
     readAs <- Arbitrary.arbitrary[List[LfPartyId]]
-    applicationId <- Arbitrary.arbitrary[LfApplicationId]
+    userId <- Arbitrary.arbitrary[LedgerUserId]
     commandId <- lfCommandIdArb.arbitrary
     deduplicationPeriod <- genDeduplicationPeriodArb.arbitrary
     submissionIdO <- Gen.option(lfSubmissionIdArb.arbitrary)
   } yield SubmitterInfo(
     actAs,
     readAs,
-    applicationId,
+    userId,
     commandId,
     deduplicationPeriod,
     submissionIdO,

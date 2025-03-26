@@ -58,7 +58,7 @@ final class CommandsValidator(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Commands] =
     for {
-      appId <- requireApplicationId(prepareRequest.applicationId, "application_id")
+      userId <- requireUserId(prepareRequest.userId, "user_id")
       commandId <- requireLedgerString(prepareRequest.commandId, "command_id").map(
         CommandId(_)
       )
@@ -89,7 +89,7 @@ final class CommandsValidator(
     } yield Commands(
       // Not used for external submissions
       workflowId = None,
-      applicationId = appId,
+      userId = userId,
       commandId = commandId,
       // Will be provided in "execute"
       submissionId = None,
@@ -125,7 +125,7 @@ final class CommandsValidator(
   ): Either[StatusRuntimeException, Commands] =
     for {
       workflowId <- validateWorkflowId(commands.workflowId)
-      appId <- requireApplicationId(commands.applicationId, "application_id")
+      userId <- requireUserId(commands.userId, "user_id")
       commandId <- requireLedgerString(commands.commandId, "command_id").map(CommandId(_))
       submissionId <- validateSubmissionId(commands.submissionId)
       submitters <- validateSubmitters(effectiveSubmitters(commands))
@@ -158,7 +158,7 @@ final class CommandsValidator(
       prefetchKeys <- validatePrefetchContractKeys(commands.prefetchContractKeys)
     } yield Commands(
       workflowId = workflowId,
-      applicationId = appId,
+      userId = userId,
       commandId = commandId,
       submissionId = submissionId,
       actAs = submitters.actAs,

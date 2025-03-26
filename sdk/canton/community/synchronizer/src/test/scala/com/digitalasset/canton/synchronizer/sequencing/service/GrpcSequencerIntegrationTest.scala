@@ -227,7 +227,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     .build()
     .start()
 
-  private val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory)
+  private val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory, timeouts)
   private val sendTrackerStore = new InMemorySendTrackerStore()
   private val connection =
     GrpcSequencerConnection(

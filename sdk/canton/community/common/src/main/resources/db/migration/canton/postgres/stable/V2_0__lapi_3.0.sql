@@ -17,14 +17,14 @@ CREATE TABLE lapi_metering_parameters (
 -- This table is written periodically to store partial sums of transaction metrics.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_participant_metering (
-    application_id varchar collate "C" not null,
+    user_id varchar collate "C" not null,
     from_timestamp bigint not null,
     to_timestamp bigint not null,
     action_count integer not null,
     ledger_offset bigint
 );
 
-CREATE UNIQUE INDEX lapi_participant_metering_from_to_application_idx ON lapi_participant_metering(from_timestamp, to_timestamp, application_id);
+CREATE UNIQUE INDEX lapi_participant_metering_from_to_user_idx ON lapi_participant_metering(from_timestamp, to_timestamp, user_id);
 
 ---------------------------------------------------------------------------------------------------
 -- Metering raw entries
@@ -32,7 +32,7 @@ CREATE UNIQUE INDEX lapi_participant_metering_from_to_application_idx ON lapi_pa
 -- This table is written for every transaction and stores its metrics.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_transaction_metering (
-    application_id varchar collate "C" not null,
+    user_id varchar collate "C" not null,
     action_count integer not null,
     metering_timestamp bigint not null,
     ledger_offset bigint
@@ -73,7 +73,6 @@ CREATE TABLE lapi_post_processing_end (
 
 CREATE TABLE lapi_ledger_end_synchronizer_index (
   synchronizer_id INTEGER PRIMARY KEY not null,
-  sequencer_counter BIGINT,
   sequencer_timestamp BIGINT,
   repair_timestamp BIGINT,
   repair_counter BIGINT,
@@ -87,16 +86,16 @@ CREATE TABLE lapi_command_completions (
     completion_offset bigint not null,
     record_time bigint not null,
     publication_time bigint not null,
-    application_id varchar collate "C" not null,
+    user_id varchar collate "C" not null,
     submitters integer[] not null,
     command_id varchar collate "C" not null,
     -- The update ID is `NULL` for rejected transactions/reassignments.
     update_id varchar collate "C",
-    -- The submission ID will be provided by the participant or driver if the application didn't provide one.
+    -- The submission ID will be provided by the participant or driver if the user didn't provide one.
     -- Nullable to support historical data.
     submission_id varchar collate "C",
     -- The three alternatives below are mutually exclusive, i.e. the deduplication
-    -- interval could have specified by the application as one of:
+    -- interval could have specified by the user as one of:
     -- 1. an initial offset
     -- 2. an initial timestamp
     -- 3. a duration (split into two columns, seconds and nanos, mapping protobuf's 1:1)
@@ -114,12 +113,11 @@ CREATE TABLE lapi_command_completions (
 
     synchronizer_id integer not null,
     message_uuid varchar collate "C",
-    request_sequencer_counter bigint,
     is_transaction boolean not null,
     trace_context bytea
 );
 
-CREATE INDEX lapi_command_completions_application_id_offset_idx ON lapi_command_completions USING btree (application_id, completion_offset);
+CREATE INDEX lapi_command_completions_user_id_offset_idx ON lapi_command_completions USING btree (user_id, completion_offset);
 CREATE INDEX lapi_command_completions_offset_idx ON lapi_command_completions USING btree (completion_offset);
 CREATE INDEX lapi_command_completions_publication_time_idx ON lapi_command_completions USING btree (publication_time, completion_offset);
 CREATE INDEX lapi_command_completions_synchronizer_record_time_idx ON lapi_command_completions USING btree (synchronizer_id, record_time);
@@ -202,7 +200,7 @@ CREATE TABLE lapi_events_consuming_exercise (
 
     -- * submitter info (only visible on submitting participant)
     command_id varchar collate "C",
-    application_id varchar collate "C",
+    user_id varchar collate "C",
     submitters integer[],
 
     -- * shared event information
@@ -259,7 +257,7 @@ CREATE TABLE lapi_events_create (
 
     -- * submitter info (only visible on submitting participant)
     command_id varchar collate "C",
-    application_id varchar collate "C",
+    user_id varchar collate "C",
     submitters integer[],
 
     -- * shared event information
@@ -317,7 +315,7 @@ CREATE TABLE lapi_events_non_consuming_exercise (
 
     -- * submitter info (only visible on submitting participant)
     command_id varchar collate "C",
-    application_id varchar collate "C",
+    user_id varchar collate "C",
     submitters integer[],
 
     -- * shared event information

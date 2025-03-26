@@ -68,7 +68,7 @@ case class ApiParameters(
     host: String,
     port: Int,
     access_token: Option[String],
-    application_id: Option[Option[Ref.ApplicationId]],
+    user_id: Option[Option[Ref.UserId]],
     adminPort: Option[Int] = None,
 )
 case class Participants[+T](
@@ -165,12 +165,12 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
         case _ => deserializationError("ContractId must be a string")
       }
     }
-  implicit object ApplicationIdFormat extends JsonFormat[Option[Ref.ApplicationId]] {
+  implicit object UserIdFormat extends JsonFormat[Option[Ref.UserId]] {
     def read(value: JsValue) = value match {
-      case JsString(s) => Some(s).filter(_.nonEmpty).map(Ref.ApplicationId.assertFromString)
-      case _ => deserializationError("Expected ApplicationId string")
+      case JsString(s) => Some(s).filter(_.nonEmpty).map(Ref.UserId.assertFromString)
+      case _ => deserializationError("Expected UserId string")
     }
-    def write(id: Option[Ref.ApplicationId]) = JsString(id.getOrElse(""))
+    def write(id: Option[Ref.UserId]) = JsString(id.getOrElse(""))
   }
   implicit val apiParametersFormat: RootJsonFormat[ApiParameters] = jsonFormat5(ApiParameters)
   implicit val participantsFormat: RootJsonFormat[Participants[ApiParameters]] = jsonFormat3(
@@ -249,9 +249,9 @@ object Runner {
 
   val namedLoggerFactory: NamedLoggerFactory = NamedLoggerFactory("daml-script", "")
 
-  val BLANK_APPLICATION_ID: Option[Ref.ApplicationId] = None
-  val DEFAULT_APPLICATION_ID: Option[Ref.ApplicationId] = Some(
-    Ref.ApplicationId.assertFromString("daml-script")
+  val BLANK_USER_ID: Option[Ref.UserId] = None
+  val DEFAULT_USER_ID: Option[Ref.UserId] = Some(
+    Ref.UserId.assertFromString("daml-script")
   )
   private[script] def connectApiParameters(
       params: ApiParameters,
@@ -262,14 +262,14 @@ object Runner {
       seq: ExecutionSequencerFactory,
       traceContext: TraceContext,
   ): Future[GrpcLedgerClient] = {
-    val applicationId = params.application_id.getOrElse(
-      // If an application id was not supplied, but an access token was,
-      // we leave the application id empty so that the ledger will
+    val userId = params.user_id.getOrElse(
+      // If a user id was not supplied, but an access token was,
+      // we leave the user id empty so that the ledger will
       // determine it from the access token.
-      if (params.access_token.nonEmpty) BLANK_APPLICATION_ID else DEFAULT_APPLICATION_ID
+      if (params.access_token.nonEmpty) BLANK_USER_ID else DEFAULT_USER_ID
     )
     val clientConfig = LedgerClientConfiguration(
-      applicationId = applicationId.getOrElse(""),
+      userId = userId.getOrElse(""),
       commandClient = CommandClientConfiguration.default,
       token = params.access_token,
     )
@@ -282,7 +282,7 @@ object Runner {
       .map(
         new GrpcLedgerClient(
           _,
-          applicationId,
+          userId,
           params.adminPort.map(p =>
             AdminLedgerClient.singleHost(params.host, p, clientConfig.token, clientChannelConfig)
           ),

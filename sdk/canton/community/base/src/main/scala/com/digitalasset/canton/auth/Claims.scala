@@ -78,8 +78,8 @@ object ClaimSet {
     *   List of [[Claim]]s describing the authorization this object describes.
     * @param participantId
     *   If set, the claims will only be valid on the given participant identifier.
-    * @param applicationId
-    *   If set, the claims will only be valid on the given application identifier.
+    * @param userId
+    *   If set, the claims will only be valid on the given user identifier.
     * @param expiration
     *   If set, the claims will cease to be valid at the given time.
     * @param resolvedFromUser
@@ -90,7 +90,7 @@ object ClaimSet {
   final case class Claims(
       claims: Seq[Claim],
       participantId: Option[String],
-      applicationId: Option[String],
+      userId: Option[String],
       expiration: Option[Instant],
       identityProviderId: Option[LfLedgerString],
       resolvedFromUser: Boolean,
@@ -102,9 +102,9 @@ object ClaimSet {
         case _ => Right(())
       }
 
-    def validForApplication(id: String): Either[AuthorizationError, Unit] =
-      applicationId match {
-        case Some(a) if a != id => Left(AuthorizationError.InvalidApplication(a, id))
+    def validForUser(id: String): Either[AuthorizationError, Unit] =
+      userId match {
+        case Some(a) if a != id => Left(AuthorizationError.InvalidUser(a, id))
         case _ => Right(())
       }
 
@@ -212,7 +212,7 @@ object ClaimSet {
     val Empty: Claims = Claims(
       claims = List.empty[Claim],
       participantId = None,
-      applicationId = None,
+      userId = None,
       expiration = None,
       resolvedFromUser = false,
       identityProviderId = None,

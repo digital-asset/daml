@@ -21,7 +21,7 @@ public final class Completion {
 
   private final @NonNull String updateId;
 
-  private final @NonNull String applicationId;
+  private final @NonNull String userId;
 
   private final @NonNull List<@NonNull String> actAs;
 
@@ -42,7 +42,7 @@ public final class Completion {
       @NonNull String commandId,
       @NonNull Status status,
       @NonNull String updateId,
-      @NonNull String applicationId,
+      @NonNull String userId,
       @NonNull List<@NonNull String> actAs,
       @NonNull String submissionId,
       @NonNull Optional<Long> deduplicationOffset,
@@ -53,7 +53,7 @@ public final class Completion {
     this.commandId = commandId;
     this.status = status;
     this.updateId = updateId;
-    this.applicationId = applicationId;
+    this.userId = userId;
     this.actAs = List.copyOf(actAs);
     this.submissionId = submissionId;
     this.deduplicationOffset = deduplicationOffset;
@@ -67,7 +67,7 @@ public final class Completion {
       @NonNull String commandId,
       @NonNull Status status,
       @NonNull String updateId,
-      @NonNull String applicationId,
+      @NonNull String userId,
       @NonNull List<@NonNull String> actAs,
       @NonNull String submissionId,
       @NonNull Long deduplicationOffset,
@@ -78,7 +78,7 @@ public final class Completion {
         commandId,
         status,
         updateId,
-        applicationId,
+        userId,
         actAs,
         submissionId,
         Optional.of(deduplicationOffset),
@@ -92,7 +92,7 @@ public final class Completion {
       @NonNull String commandId,
       @NonNull Status status,
       @NonNull String updateId,
-      @NonNull String applicationId,
+      @NonNull String userId,
       @NonNull List<@NonNull String> actAs,
       @NonNull String submissionId,
       @NonNull Duration deduplicationDuration,
@@ -103,7 +103,7 @@ public final class Completion {
         commandId,
         status,
         updateId,
-        applicationId,
+        userId,
         actAs,
         submissionId,
         Optional.empty(),
@@ -129,8 +129,8 @@ public final class Completion {
   }
 
   @NonNull
-  public String getApplicationId() {
-    return applicationId;
+  public String getUserId() {
+    return userId;
   }
 
   @NonNull
@@ -175,7 +175,7 @@ public final class Completion {
     return Objects.equals(commandId, that.commandId)
         && Objects.equals(status, that.status)
         && Objects.equals(updateId, that.updateId)
-        && Objects.equals(applicationId, that.applicationId)
+        && Objects.equals(userId, that.userId)
         && Objects.equals(actAs, that.actAs)
         && Objects.equals(submissionId, that.submissionId)
         && Objects.equals(deduplicationOffset, that.deduplicationOffset)
@@ -191,7 +191,7 @@ public final class Completion {
         commandId,
         status,
         updateId,
-        applicationId,
+        userId,
         actAs,
         submissionId,
         deduplicationOffset,
@@ -212,8 +212,8 @@ public final class Completion {
         + ", updateId='"
         + updateId
         + '\''
-        + ", applicationId="
-        + applicationId
+        + ", userId="
+        + userId
         + ", actAs="
         + actAs
         + ", submissionId="
@@ -238,7 +238,7 @@ public final class Completion {
             .setCommandId(commandId)
             .setStatus(status)
             .setUpdateId(updateId)
-            .setApplicationId(applicationId)
+            .setUserId(userId)
             .addAllActAs(actAs)
             .setSubmissionId(submissionId)
             .setTraceContext(traceContext)
@@ -255,7 +255,7 @@ public final class Completion {
         completion.getCommandId(),
         completion.getStatus(),
         completion.getUpdateId(),
-        completion.getApplicationId(),
+        completion.getUserId(),
         completion.getActAsList(),
         completion.getSubmissionId(),
         completion.hasDeduplicationOffset()

@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
@@ -20,7 +21,6 @@ import com.digitalasset.canton.store.{
   SequencedEventStore,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ShowUtil.*
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable
@@ -28,7 +28,10 @@ import scala.concurrent.{ExecutionContext, blocking}
 
 /** In memory implementation of a [[SequencedEventStore]].
   */
-class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactory)(implicit
+class InMemorySequencedEventStore(
+    override protected val loggerFactory: NamedLoggerFactory,
+    override protected val timeouts: ProcessingTimeout,
+)(implicit
     val ec: ExecutionContext
 ) extends SequencedEventStore
     with NamedLogging
@@ -48,22 +51,19 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
   private val timestampOfCounter: mutable.SortedMap[SequencerCounter, CantonTimestamp] =
     mutable.SortedMap.empty
 
-  def store(
-      events: Seq[OrdinarySerializedEvent]
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[Unit] =
-    NonEmpty.from(events).fold(FutureUnlessShutdown.unit) { events =>
-      logger.debug(
-        show"Storing delivery events from ${events.head1.timestamp} to ${events.last1.timestamp}."
-      )
-
-      blocking(lock.synchronized {
-        events.foreach { e =>
-          eventByTimestamp.getOrElseUpdate(e.timestamp, e).discard
-          timestampOfCounter.getOrElseUpdate(e.counter, e.timestamp).discard
-        }
-      })
-      FutureUnlessShutdown.unit
+  /** The actual store operation implementation to perform on the database.
+    */
+  override protected def storeEventsInternal(
+      eventsNE: NonEmpty[Seq[OrdinarySerializedEvent]]
+  )(implicit
+      traceContext: TraceContext,
+      closeContext: CloseContext,
+  ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.pure(
+    eventsNE.foreach { e =>
+      eventByTimestamp.getOrElseUpdate(e.timestamp, e).discard
+      timestampOfCounter.getOrElseUpdate(e.counter, e.timestamp).discard
     }
+  )
 
   override def find(criterion: SequencedEventStore.SearchCriterion)(implicit
       traceContext: TraceContext
@@ -131,7 +131,10 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
     counter.get()
   }
 
-  override def ignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(implicit
+  override protected def ignoreEventsInternal(
+      fromInclusive: SequencerCounter,
+      toInclusive: SequencerCounter,
+  )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit] =
     EitherT.fromEither {
@@ -189,8 +192,11 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
       eventByTimestamp.addAll(newEvents)
     }
 
-  override def unignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(
-      implicit traceContext: TraceContext
+  override protected def unignoreEventsInternal(
+      fromInclusive: SequencerCounter,
+      toInclusive: SequencerCounter,
+  )(implicit
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit] =
     EitherT.fromEither {
       blocking(lock.synchronized {
@@ -240,7 +246,7 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
     }
   }
 
-  private[canton] override def delete(
+  override protected def deleteInternal(
       fromInclusive: SequencerCounter
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     timestampOfCounter.rangeFrom(fromInclusive).foreach { case (sc, ts) =>
@@ -251,5 +257,14 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
     FutureUnlessShutdown.unit
   }
 
-  override def close(): Unit = ()
+  override protected[this] def fetchLastCounterAndTimestamp(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CounterAndTimestamp]] =
+    FutureUnlessShutdown.pure(
+      blocking(
+        lock.synchronized(
+          timestampOfCounter.lastOption.map((CounterAndTimestamp.apply _).tupled)
+        )
+      )
+    )
 }

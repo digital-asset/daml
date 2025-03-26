@@ -15,7 +15,7 @@ import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.protocol.*
-import com.digitalasset.canton.participant.util.TimeOfRequest
+import com.digitalasset.canton.participant.util.{TimeOfChange, TimeOfRequest}
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.store.SequencedEventStore.ByTimestamp
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
@@ -78,7 +78,7 @@ class SyncEphemeralStateFactoryImpl(
         synchronizerIndex,
       )
 
-      _ <- SyncEphemeralStateFactory.cleanupPersistentState(persistentState, startingPoints)
+      _ <- SyncEphemeralStateFactory.cleanupPersistentState(persistentState, synchronizerIndex)
 
       recordOrderPublisher = new RecordOrderPublisher(
         persistentState.indexedSynchronizer.synchronizerId,
@@ -170,28 +170,28 @@ object SyncEphemeralStateFactory {
         .flatTraverse(si =>
           requestJournalStore.lastRequestTimeWithRequestTimestampBeforeOrAt(si.recordTime)
         )
+      sequencerCounterO <- synchronizerIndexO
+        .flatMap(_.sequencerIndex)
+        .traverse(sequencerIndex =>
+          sequencedEventStore
+            .find(ByTimestamp(sequencerIndex.sequencerTimestamp))
+            .value
+            .map(
+              _.getOrElse(
+                ErrorUtil.invalidState(
+                  s"SequencerIndex with timestamp ${sequencerIndex.sequencerTimestamp} is not found in sequenced event store"
+                )
+              ).counter
+            )
+        )
       messageProcessingStartingPoint = MessageProcessingStartingPoint(
         nextRequestCounter = requestCounterO.map(_.rc + 1).getOrElse(RequestCounter.Genesis),
-        nextSequencerCounter = synchronizerIndexO
-          .flatMap(_.sequencerIndex)
-          .map(_.counter + 1)
+        nextSequencerCounter = sequencerCounterO
+          .map(_ + 1)
           .getOrElse(SequencerCounter.Genesis),
-        lastSequencerTimestamp = synchronizerIndexO
-          .flatMap(_.sequencerIndex)
-          .map(_.timestamp)
-          .getOrElse(CantonTimestamp.MinValue),
-        currentRecordTime = synchronizerIndexO
-          .map(_.recordTime)
-          .getOrElse(CantonTimestamp.MinValue),
-        nextRepairCounter = synchronizerIndexO
-          .flatMap(si =>
-            si.repairIndex.collect {
-              // Filter out repairs that are not at the record time, as the repair counter
-              // is relative to its associated timestamp and restarts are genesis on new timestamps.
-              case ri if ri.timestamp == si.recordTime => ri.counter + 1
-            }
-          )
-          .getOrElse(RepairCounter.Genesis),
+        lastSequencerTimestamp = lastSequencerTimestamp(synchronizerIndexO),
+        currentRecordTime = currentRecordTime(synchronizerIndexO),
+        nextRepairCounter = nextRepairCounter(synchronizerIndexO),
       )
       replayOpt <- requestJournalStore
         .firstRequestWithCommitTimeAfter(
@@ -239,6 +239,33 @@ object SyncEphemeralStateFactory {
     }
   }
 
+  private def lastSequencerTimestampO(
+      synchronizerIndexO: Option[SynchronizerIndex]
+  ): Option[CantonTimestamp] =
+    synchronizerIndexO
+      .flatMap(_.sequencerIndex)
+      .map(_.sequencerTimestamp)
+
+  def lastSequencerTimestamp(synchronizerIndexO: Option[SynchronizerIndex]): CantonTimestamp =
+    lastSequencerTimestampO(synchronizerIndexO)
+      .getOrElse(CantonTimestamp.MinValue)
+
+  def currentRecordTime(synchronizerIndexO: Option[SynchronizerIndex]): CantonTimestamp =
+    synchronizerIndexO
+      .map(_.recordTime)
+      .getOrElse(CantonTimestamp.MinValue)
+
+  def nextRepairCounter(synchronizerIndexO: Option[SynchronizerIndex]): RepairCounter =
+    synchronizerIndexO
+      .flatMap(si =>
+        si.repairIndex.collect {
+          // Filter out repairs that are not at the record time, as the repair counter
+          // is relative to its associated timestamp and restarts are genesis on new timestamps.
+          case ri if ri.timestamp == si.recordTime => ri.counter + 1
+        }
+      )
+      .getOrElse(RepairCounter.Genesis)
+
   /** Returns an upper bound for the timestamps up to which pruning may remove data from the stores
     * (inclusive) so that crash recovery will still work.
     */
@@ -281,28 +308,34 @@ object SyncEphemeralStateFactory {
       // TODO(i21246): Note for unifying crashRecoveryPruningBoundInclusive and startingPoints: This minimum building is not needed anymore, as the request timestamp is also smaller than the sequencer timestamp.
       cleanSequencerIndexTs = cleanSynchronizerIndexO
         .flatMap(_.sequencerIndex)
-        .fold(CantonTimestamp.MinValue)(_.timestamp.immediatePredecessor)
+        .fold(CantonTimestamp.MinValue)(_.sequencerTimestamp.immediatePredecessor)
     } yield requestReplayTs.min(cleanSequencerIndexTs)
 
   def cleanupPersistentState(
       persistentState: SyncPersistentState,
-      startingPoints: ProcessingStartingPoints,
+      synchronizerIndexO: Option[SynchronizerIndex],
   )(implicit
       ec: ExecutionContext,
       loggingContext: ErrorLoggingContext,
   ): FutureUnlessShutdown[Unit] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     val logger = loggingContext.logger
-    val processingStartingPoint = startingPoints.processing
+    val nextSequencerTimestamp = lastSequencerTimestampO(synchronizerIndexO)
+      .map(_.immediateSuccessor)
+      .getOrElse(CantonTimestamp.MinValue)
+    val nextTimeOfChange = TimeOfChange(
+      ts = currentRecordTime(synchronizerIndexO),
+      counterO = Some(nextRepairCounter(synchronizerIndexO)),
+    )
     logger.debug("Deleting dirty requests")
     for {
-      _ <- persistentState.requestJournalStore.deleteSince(
-        processingStartingPoint.nextRequestCounter
+      _ <- persistentState.requestJournalStore.deleteSinceRequestTimestamp(
+        // The nextSequencerTimestamp is a lower bound (smaller or equal than to) for the requestTimestamp for the nextSequencerCounter
+        nextSequencerTimestamp
       )
       _ = logger.debug("Deleting contract activeness changes")
-      _ <- persistentState.activeContractStore.deleteSince(processingStartingPoint.timeOfChange)
+      _ <- persistentState.activeContractStore.deleteSince(nextTimeOfChange)
       _ = logger.debug("Deleting reassignment completions")
-      nextSequencerTimestamp = processingStartingPoint.lastSequencerTimestamp.immediateSuccessor
       _ <- persistentState.reassignmentStore.deleteCompletionsSince(nextSequencerTimestamp)
       _ = logger.debug("Deleting registered fresh requests")
       _ <- persistentState.submissionTrackerStore.deleteSince(nextSequencerTimestamp)

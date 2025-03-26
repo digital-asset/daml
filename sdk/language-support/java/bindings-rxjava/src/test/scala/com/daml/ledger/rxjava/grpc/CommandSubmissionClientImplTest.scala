@@ -83,7 +83,7 @@ class CommandSubmissionClientImplTest
       val receivedCommands = serviceImpl.getSubmittedRequest.value.getCommands
 
       receivedCommands.synchronizerId shouldBe synchronizerId
-      receivedCommands.applicationId shouldBe params.getApplicationId
+      receivedCommands.userId shouldBe params.getUserId
       receivedCommands.workflowId shouldBe params.getWorkflowId.get()
       receivedCommands.commandId shouldBe params.getCommandId
       receivedCommands.minLedgerTimeAbs.map(

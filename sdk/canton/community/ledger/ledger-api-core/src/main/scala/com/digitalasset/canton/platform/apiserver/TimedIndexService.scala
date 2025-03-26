@@ -21,7 +21,7 @@ import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.Repo
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{ApplicationId, Party}
+import com.digitalasset.daml.lf.data.Ref.{Party, UserId}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.value.Value
@@ -39,12 +39,12 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
 
   override def getCompletions(
       begin: Option[Offset],
-      applicationId: Ref.ApplicationId,
+      userId: Ref.UserId,
       parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Source[CompletionStreamResponse, NotUsed] =
     Timed.source(
       metrics.services.index.getCompletions,
-      delegate.getCompletions(begin, applicationId, parties),
+      delegate.getCompletions(begin, userId, parties),
     )
 
   override def updates(
@@ -175,11 +175,11 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
   override def getMeteringReportData(
       from: Timestamp,
       to: Option[Timestamp],
-      applicationId: Option[ApplicationId],
+      userId: Option[UserId],
   )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData] =
     Timed.future(
       metrics.services.index.getTransactionMetering,
-      delegate.getMeteringReportData(from, to, applicationId),
+      delegate.getMeteringReportData(from, to, userId),
     )
 
   override def lookupContractState(contractId: Value.ContractId)(implicit

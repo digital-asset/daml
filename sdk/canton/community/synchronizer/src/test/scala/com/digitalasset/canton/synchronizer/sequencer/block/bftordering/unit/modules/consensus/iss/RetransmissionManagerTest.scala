@@ -348,7 +348,6 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
           .create(
             BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
             ViewNumber.First,
-            CantonTimestamp.Epoch,
             OrderingBlock(Seq()),
             CanonicalCommitSet.empty,
             from = self,

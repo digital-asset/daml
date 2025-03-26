@@ -32,7 +32,7 @@ import scalaz.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{Foldable, OneAnd}
 
-import java.security.KeyFactory
+import java.security.{KeyFactory, SecureRandom}
 import java.security.spec.PKCS8EncodedKeySpec
 import java.time.Clock
 import scala.concurrent.{ExecutionContext, Future}
@@ -528,11 +528,16 @@ object ScriptF {
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] = Future {
-      val keySpec = new PKCS8EncodedKeySpec(HexString.assertFromString(pk).getBytes)
-      val privateKey = KeyFactory.getInstance("EC", "BC").generatePrivate(keySpec)
+      // By using a deterministic PRNG and setting the seed to a fixed value each time we sign a message, we ensure
+      // that secp256k1 signing uses a deterministic source of randomness and so behaves deterministically.
+      val deterministicRandomSrc: SecureRandom = SecureRandom.getInstance("SHA1PRNG")
+      deterministicRandomSrc.setSeed(1)
+      val keySpec =
+        new PKCS8EncodedKeySpec(HexString.decode(HexString.assertFromString(pk)).toByteArray)
+      val privateKey = KeyFactory.getInstance("EC").generatePrivate(keySpec)
       val message = HexString.assertFromString(msg)
 
-      SEValue(SText(MessageSignatureUtil.sign(message, privateKey)))
+      SEValue(SText(MessageSignatureUtil.sign(message, privateKey, deterministicRandomSrc)))
     }
   }
 

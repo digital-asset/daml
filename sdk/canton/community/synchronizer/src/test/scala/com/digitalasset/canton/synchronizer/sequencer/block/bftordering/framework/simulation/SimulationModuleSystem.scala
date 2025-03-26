@@ -24,6 +24,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   CancellableEvent,
   ClientP2PNetworkManager,
   Env,
+  FutureContext,
   Module,
   ModuleContext,
   ModuleName,
@@ -92,13 +93,19 @@ object SimulationModuleSystem {
     }
   }
 
-  private[simulation] trait SimulationModuleContext[MessageT]
-      extends ModuleContext[SimulationEnv, MessageT] {
-
-    // Metrics are not produced in simulation tests
+  private[simulation] case object SimulationFutureContext extends FutureContext[SimulationEnv] {
     override def timeFuture[X](timer: Timer, futureUnlessShutdown: => SimulationFuture[X])(implicit
         mc: MetricsContext
-    ): SimulationFuture[X] = futureUnlessShutdown
+    ): SimulationFuture[X] =
+      futureUnlessShutdown
+
+    override def pureFuture[X](x: X): SimulationFuture[X] =
+      new SimulationFuture.Pure(s"pure($x)", () => Try(x))
+
+    override def mapFuture[X, Y](future: SimulationFuture[X])(
+        fun: PureFun[X, Y]
+    ): SimulationFuture[Y] =
+      SimulationFuture.Map(future, fun)
 
     override def zipFuture[X, Y](
         future1: SimulationFuture[X],
@@ -106,23 +113,29 @@ object SimulationModuleSystem {
     ): SimulationFuture[(X, Y)] =
       SimulationFuture.Zip(future1, future2)
 
+    override def zipFuture[X, Y, Z](
+        future1: SimulationFuture[X],
+        future2: SimulationFuture[Y],
+        future3: SimulationFuture[Z],
+    ): SimulationFuture[(X, Y, Z)] =
+      SimulationFuture.Zip3(future1, future2, future3)
+
     override def sequenceFuture[A, F[_]](futures: F[SimulationFuture[A]])(implicit
         ev: Traverse[F]
     ): SimulationFuture[F[A]] =
       SimulationFuture.Sequence(futures)
-
-    override def mapFuture[X, Y](future: SimulationFuture[X])(
-        fun: PureFun[X, Y]
-    ): SimulationFuture[Y] = SimulationFuture.Map(future, fun)
-
-    override def pureFuture[X](x: X): SimulationFuture[X] =
-      new SimulationFuture.Pure(s"pure($x)", () => Try(x))
 
     override def flatMapFuture[R1, R2](
         future1: SimulationFuture[R1],
         future2: PureFun[R1, SimulationFuture[R2]],
     ): SimulationFuture[R2] =
       SimulationFuture.FlatMap(future1, future2)
+  }
+
+  private[simulation] trait SimulationModuleContext[MessageT]
+      extends ModuleContext[SimulationEnv, MessageT] {
+
+    override def futureContext: FutureContext[SimulationEnv] = SimulationFutureContext
 
     override def abort(): Nothing =
       fail("Simulation failed in call to abort")
@@ -296,6 +309,8 @@ object SimulationModuleSystem {
 
     override def rootActorContext: SimulationModuleContext[?] =
       new SimulationModuleSystemContext(collector, loggerFactory)
+
+    override def futureContext: FutureContext[SimulationEnv] = SimulationFutureContext
 
     override def newModuleRef[MessageT](
         moduleName: ModuleName // Must be unique per ref, else it will crash on spawn

@@ -414,4 +414,11 @@ class InMemoryReassignmentStore(
       )
     )
 
+  override def listInFlightReassignmentIds()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[ReassignmentId]] =
+    FutureUnlessShutdown.pure(
+      reassignmentEntryMap.filter { case (_, entry) => entry.assignmentTs.isEmpty }.keys.toSeq
+    )
+
 }

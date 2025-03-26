@@ -28,7 +28,7 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement with 
       completions <- getCompletions(
         from.fold(Offset.firstOffset)(_.lastOffset.increment),
         to.map(_.lastOffset).getOrElse(fail("ledger end should not have been empty")),
-        defaultAppId,
+        defaultUserId,
         Set(alice),
       )
     } yield {
@@ -51,7 +51,7 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement with 
       completions <- getCompletions(
         from.fold(Offset.firstOffset)(_.lastOffset.increment),
         to.map(_.lastOffset).getOrElse(fail("ledger end should not have been empty")),
-        defaultAppId,
+        defaultUserId,
         Set(alice),
       )
     } yield {

@@ -437,7 +437,7 @@ private[reassignment] class AssignmentProcessingSteps(
     val PendingAssignment(
       requestId,
       _requestCounter,
-      requestSequencerCounter,
+      _requestSequencerCounter,
       assignmentValidationResult,
       _,
       _locallyRejectedF,
@@ -491,7 +491,6 @@ private[reassignment] class AssignmentProcessingSteps(
                 participantId,
                 targetProtocolVersion,
                 requestId.unwrap,
-                requestSequencerCounter,
               )
             )
           } yield CommitAndStoreContractsAndPublishEvent(

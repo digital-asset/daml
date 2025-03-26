@@ -134,7 +134,7 @@ class AssignmentProcessingStepsTest
       participant,
       LedgerCommandId.assertFromString("assignment-processing-steps-command-id"),
       submissionId = None,
-      LedgerApplicationId.assertFromString("tests"),
+      LedgerUserId.assertFromString("tests"),
       workflowId = None,
     )
 

@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.client.configuration
 
-/** @param applicationId
-  *   The string that will be used as an application identifier when issuing commands and retrieving
+/** @param userId
+  *   The string that will be used as an user identifier when issuing commands and retrieving
   *   transactions
   * @param commandClient
   *   The [[CommandClientConfiguration]] that defines how the command client should be setup with
@@ -14,7 +14,7 @@ package com.digitalasset.canton.ledger.client.configuration
   *   calls (mostly useful for short-lived applications)
   */
 final case class LedgerClientConfiguration(
-    applicationId: String,
+    userId: String,
     commandClient: CommandClientConfiguration,
     token: Option[String] = None,
 )

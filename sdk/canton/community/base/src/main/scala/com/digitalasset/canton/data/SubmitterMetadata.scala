@@ -20,7 +20,7 @@ import com.google.protobuf.ByteString
 /** Information about the submitters of the transaction */
 final case class SubmitterMetadata private (
     actAs: NonEmpty[Set[LfPartyId]],
-    applicationId: ApplicationId,
+    userId: UserId,
     commandId: CommandId,
     submittingParticipant: ParticipantId,
     salt: Salt,
@@ -50,7 +50,7 @@ final case class SubmitterMetadata private (
 
   override protected def pretty: Pretty[SubmitterMetadata] = prettyOfClass(
     param("act as", _.actAs),
-    param("application id", _.applicationId),
+    param("user id", _.userId),
     param("command id", _.commandId),
     param("submitting participant", _.submittingParticipant),
     param("salt", _.salt),
@@ -64,7 +64,7 @@ final case class SubmitterMetadata private (
 
   protected def toProtoV30: v30.SubmitterMetadata = v30.SubmitterMetadata(
     actAs = actAs.toSeq,
-    applicationId = applicationId.toProtoPrimitive,
+    userId = userId.toProtoPrimitive,
     commandId = commandId.toProtoPrimitive,
     submittingParticipantUid = submittingParticipant.uid.toProtoPrimitive,
     salt = Some(salt.toProtoV30),
@@ -91,7 +91,7 @@ object SubmitterMetadata
 
   def apply(
       actAs: NonEmpty[Set[LfPartyId]],
-      applicationId: ApplicationId,
+      userId: UserId,
       commandId: CommandId,
       submittingParticipant: ParticipantId,
       salt: Salt,
@@ -103,7 +103,7 @@ object SubmitterMetadata
       protocolVersion: ProtocolVersion,
   ): SubmitterMetadata = SubmitterMetadata(
     actAs, // Canton ignores SubmitterInfo.readAs per https://github.com/digital-asset/daml/pull/12136
-    applicationId,
+    userId,
     commandId,
     submittingParticipant,
     salt,
@@ -115,7 +115,7 @@ object SubmitterMetadata
 
   def fromSubmitterInfo(hashOps: HashOps)(
       submitterActAs: List[Ref.Party],
-      submitterApplicationId: Ref.ApplicationId,
+      submitterUserId: Ref.UserId,
       submitterCommandId: Ref.CommandId,
       submitterSubmissionId: Option[Ref.SubmissionId],
       submitterDeduplicationPeriod: DeduplicationPeriod,
@@ -129,7 +129,7 @@ object SubmitterMetadata
       actAsNes =>
         SubmitterMetadata(
           actAsNes, // Canton ignores SubmitterInfo.readAs per https://github.com/digital-asset/daml/pull/12136
-          ApplicationId(submitterApplicationId),
+          UserId(submitterUserId),
           CommandId(submitterCommandId),
           submittingParticipant,
           salt,
@@ -148,7 +148,7 @@ object SubmitterMetadata
     val v30.SubmitterMetadata(
       saltOP,
       actAsP,
-      applicationIdP,
+      userIdP,
       commandIdP,
       submittingParticipantUidP,
       submissionIdP,
@@ -169,9 +169,9 @@ object SubmitterMetadata
           .parseLfPartyId(_, "act_as")
           .leftMap(e => ProtoDeserializationError.ValueConversionError("actAs", e.message))
       )
-      applicationId <- ApplicationId
-        .fromProtoPrimitive(applicationIdP)
-        .leftMap(ProtoDeserializationError.ValueConversionError("applicationId", _))
+      userId <- UserId
+        .fromProtoPrimitive(userIdP)
+        .leftMap(ProtoDeserializationError.ValueConversionError("userId", _))
       commandId <- CommandId
         .fromProtoPrimitive(commandIdP)
         .leftMap(ProtoDeserializationError.ValueConversionError("commandId", _))
@@ -206,7 +206,7 @@ object SubmitterMetadata
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield SubmitterMetadata(
       actAsNes,
-      applicationId,
+      userId,
       commandId,
       submittingParticipant,
       salt,

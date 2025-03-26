@@ -207,15 +207,14 @@ object RunnerMain {
             .map(params =>
               params.copy(
                 access_token = params.access_token.orElse(token),
-                application_id = params.application_id.orElse(config.applicationId),
+                user_id = params.user_id.orElse(config.userId),
               )
             )
         connectApiParameters(config, params)
       case ParticipantMode.RemoteParticipantHost(host, port, oAdminPort) =>
         val params =
           Participants(
-            default_participant =
-              Some(ApiParameters(host, port, token, config.applicationId, oAdminPort)),
+            default_participant = Some(ApiParameters(host, port, token, config.userId, oAdminPort)),
             participants = Map.empty,
             party_participants = Map.empty,
           )

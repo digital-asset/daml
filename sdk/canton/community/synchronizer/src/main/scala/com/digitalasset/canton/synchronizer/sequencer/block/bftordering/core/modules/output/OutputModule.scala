@@ -127,7 +127,7 @@ class OutputModule[E <: Env[E]](
       )
     )
 
-  // TODO(#23707) consider removing when changing state transfer to use commit certs
+  // TODO(#24737) consider removing
   // We sequence NewEpochTopology messages because state transfer can process blocks from multiple epochs
   //  resulting in fetching multiple topologies concurrently.
   @VisibleForTesting
@@ -737,7 +737,7 @@ class OutputModule[E <: Env[E]](
       blockBftTime: CantonTimestamp,
   ): Seq[Traced[OrderedRequest]] =
     blockData.requestsView.zipWithIndex.map {
-      case (tracedRequest @ Traced(OrderingRequest(tag, body, _, _)), index) =>
+      case (tracedRequest @ Traced(OrderingRequest(tag, body, _)), index) =>
         val timestamp = BftTime.requestBftTime(blockBftTime, index)
         Traced(OrderedRequest(timestamp.toMicros, tag, body))(tracedRequest.traceContext)
     }.toSeq

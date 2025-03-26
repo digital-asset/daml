@@ -14,7 +14,7 @@ import com.digitalasset.canton.http.endpoints.MeteringReportEndpoint.{
 }
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.http.{MeteringReportService, OkResponse, SyncResponse}
-import com.digitalasset.daml.lf.data.Ref.ApplicationId
+import com.digitalasset.daml.lf.data.Ref.UserId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.protobuf
 import com.google.protobuf.struct.Struct
@@ -32,7 +32,7 @@ object MeteringReportEndpoint {
   final case class MeteringReportDateRequest(
       from: LocalDate,
       to: Option[LocalDate],
-      application: Option[ApplicationId],
+      user: Option[UserId],
   )
 
   import DefaultJsonProtocol.*
@@ -41,8 +41,8 @@ object MeteringReportEndpoint {
   implicit val LocalDateFormat: RootJsonFormat[LocalDate] =
     xemapStringJsonFormat(s => Try(LocalDate.parse(s)).toEither.left.map(_.getMessage))(_.toString)
 
-  implicit val ApplicationIdFormat: RootJsonFormat[ApplicationId] =
-    xemapStringJsonFormat(ApplicationId.fromString)(identity)
+  implicit val UserIdFormat: RootJsonFormat[UserId] =
+    xemapStringJsonFormat(UserId.fromString)(identity)
 
   implicit val MeteringReportDateRequestFormat: RootJsonFormat[MeteringReportDateRequest] =
     jsonFormat3(MeteringReportDateRequest.apply)
@@ -64,8 +64,8 @@ object MeteringReportEndpoint {
     metering_report_service.GetMeteringReportRequest(
       from = Some(toPbTimestamp(toTimestamp(request.from))),
       to = to.map(toTimestamp).map(toPbTimestamp),
-      applicationId = application.fold(
-        metering_report_service.GetMeteringReportRequest.defaultInstance.applicationId
+      userId = user.fold(
+        metering_report_service.GetMeteringReportRequest.defaultInstance.userId
       )(identity),
     )
   }

@@ -7,11 +7,13 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.Interac
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionRequest,
   ExecuteSubmissionResponse,
+  GetPreferredPackageVersionRequest,
+  GetPreferredPackageVersionResponse,
   InteractiveSubmissionServiceGrpc,
   PrepareSubmissionRequest,
   PrepareSubmissionResponse,
 }
-import com.digitalasset.canton.auth.Authorizer
+import com.digitalasset.canton.auth.{Authorizer, RequiredClaim}
 import com.digitalasset.canton.ledger.api.ProxyCloseable
 import com.digitalasset.canton.ledger.api.auth.RequiredClaims
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
@@ -39,7 +41,7 @@ final class InteractiveSubmissionServiceAuthorization(
       RequiredClaims.submissionClaims(
         actAs = Set.empty, // At preparation time the actAs parties are only reading
         readAs = effectiveSubmitters.readAs ++ effectiveSubmitters.actAs,
-        applicationIdL = Lens.unit[PrepareSubmissionRequest].applicationId,
+        userIdL = Lens.unit[PrepareSubmissionRequest].userId,
       )*
     )(request)
   }
@@ -59,10 +61,15 @@ final class InteractiveSubmissionServiceAuthorization(
       RequiredClaims.submissionClaims(
         actAs = actAs.toSet[String],
         readAs = Set.empty[String],
-        applicationIdL = Lens.unit[ExecuteSubmissionRequest].applicationId,
+        userIdL = Lens.unit[ExecuteSubmissionRequest].userId,
       )*
     )(request)
   }
+
+  override def getPreferredPackageVersion(
+      request: GetPreferredPackageVersionRequest
+  ): Future[GetPreferredPackageVersionResponse] =
+    authorizer.rpc(service.getPreferredPackageVersion)(RequiredClaim.Public())(request)
 
   override def bindService(): ServerServiceDefinition =
     InteractiveSubmissionServiceGrpc.bindService(this, executionContext)

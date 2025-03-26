@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.CantonRequireTypes.String3
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -17,14 +18,14 @@ import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.protocol.{SequencedEvent, SignedContent}
 import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, PossiblyIgnoredSerializedEvent}
 import com.digitalasset.canton.store.*
+import com.digitalasset.canton.store.SequencedEventStore.CounterAndTimestamp
 import com.digitalasset.canton.store.db.DbSequencedEventStore.*
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
-import com.digitalasset.canton.util.{EitherTUtil, Thereafter}
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import slick.jdbc.{GetResult, SetParameter}
 
-import java.util.concurrent.Semaphore
-import scala.concurrent.{ExecutionContext, blocking}
+import scala.concurrent.ExecutionContext
 
 class DbSequencedEventStore(
     override protected val storage: DbStorage,
@@ -40,26 +41,6 @@ class DbSequencedEventStore(
   override protected[this] val partitionKey: IndexedSynchronizer = indexedSynchronizer
 
   override protected[this] def pruning_status_table: String = "common_sequenced_event_store_pruning"
-
-  /** Semaphore to prevent concurrent writes to the db. Concurrent calls can be problematic because
-    * they may introduce gaps in the stored sequencer counters. The methods [[ignoreEvents]] and
-    * [[unignoreEvents]] are not meant to be executed concurrently.
-    */
-  private val semaphore: Semaphore = new Semaphore(1)
-
-  private def withLock[F[_], A](caller: String)(body: => F[A])(implicit
-      thereafter: Thereafter[F],
-      traceContext: TraceContext,
-  ): F[A] = {
-    import Thereafter.syntax.*
-    // Avoid unnecessary call to blocking, if a permit is available right away.
-    if (!semaphore.tryAcquire()) {
-      // This should only occur when the caller is ignoring events, so ok to log with info level.
-      logger.info(s"Delaying call to $caller, because another write is in progress.")
-      blocking(semaphore.acquireUninterruptibly())
-    }
-    body.thereafter(_ => semaphore.release())
-  }
 
   import com.digitalasset.canton.store.SequencedEventStore.*
   import storage.api.*
@@ -97,7 +78,7 @@ class DbSequencedEventStore(
               traceContext
             )
           } else {
-            OrdinarySequencedEvent(signedEvent)(
+            OrdinarySequencedEvent(sequencerCounter, signedEvent)(
               traceContext
             )
           }
@@ -107,26 +88,13 @@ class DbSequencedEventStore(
   private implicit val traceContextSetParameter: SetParameter[SerializableTraceContext] =
     SerializableTraceContext.getVersionedSetParameter(protocolVersion)
 
-  override def store(
-      events: Seq[OrdinarySerializedEvent]
+  override protected def storeEventsInternal(
+      eventsNE: NonEmpty[Seq[OrdinarySerializedEvent]]
   )(implicit
       traceContext: TraceContext,
-      externalCloseContext: CloseContext,
+      closeContext: CloseContext,
   ): FutureUnlessShutdown[Unit] =
-    if (events.isEmpty) FutureUnlessShutdown.unit
-    else {
-      withLock(functionFullName) {
-        CloseContext.withCombinedContext(closeContext, externalCloseContext, timeouts, logger) {
-          combinedCloseContext =>
-            storage
-              .queryAndUpdate(bulkInsertQuery(events), functionFullName)(
-                traceContext,
-                combinedCloseContext,
-              )
-              .void
-        }
-      }
-    }
+    storage.queryAndUpdate(bulkInsertQuery(eventsNE), functionFullName)(traceContext, closeContext)
 
   private def bulkInsertQuery(
       events: Seq[PossiblyIgnoredSerializedEvent]
@@ -226,7 +194,10 @@ class DbSequencedEventStore(
       }
   }
 
-  override def ignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(implicit
+  override protected def ignoreEventsInternal(
+      fromInclusive: SequencerCounter,
+      toInclusive: SequencerCounter,
+  )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit] =
     withLock(functionFullName) {
@@ -287,8 +258,11 @@ class DbSequencedEventStore(
       functionFullName,
     )
 
-  override def unignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(
-      implicit traceContext: TraceContext
+  override protected def unignoreEventsInternal(
+      fromInclusive: SequencerCounter,
+      toInclusive: SequencerCounter,
+  )(implicit
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit] =
     withLock(functionFullName) {
       for {
@@ -340,7 +314,7 @@ class DbSequencedEventStore(
       )
     } yield ()
 
-  private[canton] override def delete(
+  override protected def deleteInternal(
       fromInclusive: SequencerCounter
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     storage.update_(
@@ -362,6 +336,23 @@ class DbSequencedEventStore(
         functionFullName,
       )
       .map(_.unwrap)
+      .value
+  }
+
+  override protected[this] def fetchLastCounterAndTimestamp(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CounterAndTimestamp]] = {
+    val query =
+      sql"""select sequencer_counter, ts
+            from common_sequenced_events
+            where synchronizer_idx = $partitionKey
+            order by sequencer_counter desc
+            limit 1"""
+    storage
+      .querySingle(
+        query.as[CounterAndTimestamp].headOption,
+        functionFullName,
+      )
       .value
   }
 }
@@ -398,4 +389,7 @@ object DbSequencedEventStore {
       }
     )
   }
+
+  implicit val getResultCounterAndTimestamp: GetResult[CounterAndTimestamp] =
+    GetResult(r => CounterAndTimestamp(r.<<, r.<<))
 }

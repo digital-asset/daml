@@ -67,8 +67,6 @@ da_scala_test(
     ],
     deps = [
         ":data",
-        "//libs-scala/crypto:crypto-tests",
-        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 

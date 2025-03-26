@@ -56,7 +56,7 @@ class ApiCommandSubmissionServiceSpec
           .submit(aSubmitRequest)
           .map { _ =>
             val spanAttributes = testTelemetrySetup.reportedSpanAttributes
-            spanAttributes should contain(SpanAttribute.ApplicationId -> applicationId)
+            spanAttributes should contain(SpanAttribute.UserId -> userId)
             spanAttributes should contain(SpanAttribute.CommandId -> commandId)
             spanAttributes should contain(SpanAttribute.Submitter -> party)
             spanAttributes should contain(SpanAttribute.WorkflowId -> workflowId)

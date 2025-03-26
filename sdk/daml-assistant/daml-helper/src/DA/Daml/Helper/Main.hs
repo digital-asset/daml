@@ -24,7 +24,7 @@ import DA.Daml.Helper.Start
 import DA.Daml.Helper.Studio
 import DA.Daml.Helper.Util
 import DA.Daml.Helper.Codegen
-import DA.Ledger.Types (ApplicationId(..))
+import DA.Ledger.Types (UserId(..))
 import Data.Text.Lazy (pack)
 import Data.Time.Calendar (Day(..))
 
@@ -71,7 +71,7 @@ data Command
     | LedgerExport { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
     | PackagesList {flags :: LedgerFlags}
-    | LedgerMeteringReport { flags :: LedgerFlags, from :: Day, to :: Maybe Day, application :: Maybe ApplicationId, compactOutput :: Bool }
+    | LedgerMeteringReport { flags :: LedgerFlags, from :: Day, to :: Maybe Day, application :: Maybe UserId, compactOutput :: Bool }
     | CantonSandbox
         { cantonOptions :: CantonOptions
         , portFileM :: Maybe FilePath
@@ -330,8 +330,8 @@ commandParser = subparser $ fold
           <$> ledgerFlags
           <*> (("script":) <$> many (argument str (metavar "ARG" <> help "Arguments forwarded to export.")))
 
-    app :: ReadM ApplicationId
-    app = fmap (ApplicationId . pack) str
+    app :: ReadM UserId
+    app = fmap (UserId . pack) str
 
     ledgerMeteringReportCmd = LedgerMeteringReport
         <$> ledgerFlags

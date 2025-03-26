@@ -81,7 +81,7 @@ class PartyReplicationAdminWorkflow(
         .submitCommands(
           Commands(
             workflowId = "",
-            applicationId = applicationId,
+            userId = userId,
             commandId = s"proposal-$partyReplicationIdS",
             commands = proposal.create.commands.asScala.toSeq
               .map(LedgerClientUtils.javaCodegenToScalaProto),
@@ -163,7 +163,7 @@ class PartyReplicationAdminWorkflow(
           retrySubmitter.submitCommands(
             Commands(
               workflowId = "",
-              applicationId = applicationId,
+              userId = userId,
               commandId = commandId,
               commands = exercise.asScala.toSeq.map(LedgerClientUtils.javaCodegenToScalaProto),
               deduplicationPeriod =
@@ -308,7 +308,7 @@ object PartyReplicationAdminWorkflow {
       sourceParticipantIdO: Option[ParticipantId],
       serialO: Option[PositiveInt],
   )
-  private def applicationId = "PartyReplicationAdminWorkflow"
+  private def userId = "PartyReplicationAdminWorkflow"
 
   private def apiIdentifierFromJavaIdentifier(javaIdentifier: JavaIdentifier): Identifier =
     Identifier(
