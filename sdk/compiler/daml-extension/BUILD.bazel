@@ -69,6 +69,10 @@ genrule(
 
         # cd node_modules/bazel-out/k8-opt/bin/external/daml_extension_deps
 
+        ls -l node_modules
+        ls -l node_modules/typescript
+        ls -l node_modules/typescript/bin
+
         # $(execpath //bazel_tools/sh:mktgz) $@ --exclude="node_modules/.cache/*" node_modules
         $(execpath //bazel_tools/sh:mktgz) $@ node_modules
     """,
@@ -120,7 +124,16 @@ genrule(
         $$DIR/$(location //:yarn) compile
         # vsce needs Yarn or NPM in path and for some reason NPM
         # fails to find npm-cli.js so we use Yarn.
-        PATH=$$(dirname $$DIR/$(location //:yarn)):$$PATH $$DIR/$(location @daml_extension_deps//vsce/bin:vsce) package --yarn -o $$DIR/$@
+        PATH=$$(dirname $$DIR/$(location //:yarn)):$$PATH 
+
+        ls -l node_modules
+        ls -l node_modules/typescript
+        ls -l node_modules/typescript/bin
+
+        echo "DEBUG.PATH"
+        pwd
+
+        $$DIR/$(location @daml_extension_deps//vsce/bin:vsce) package --yarn -o $$DIR/$@
     """.format(npm = npm_version),
     tools = [
         "//:yarn",
