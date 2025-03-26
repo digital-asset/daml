@@ -27,6 +27,8 @@ Typeclasses
 
   **instance** `HasToHex <class-da-crypto-text-hastohex-92431_>`_ :ref:`Int <type-ghc-types-int-37261>`
 
+  **instance** :ref:`NumericScale <class-ghc-classes-numericscale-83720>` n \=\> `HasToHex <class-da-crypto-text-hastohex-92431_>`_ (:ref:`Numeric <type-ghc-types-numeric-891>` n)
+
   **instance** `HasToHex <class-da-crypto-text-hastohex-92431_>`_ :ref:`Text <type-ghc-types-text-51952>`
 
 .. _class-da-crypto-text-hasfromhex-84972:
@@ -43,6 +45,8 @@ Typeclasses
   **instance** `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ :ref:`Party <type-da-internal-lf-party-57932>`
 
   **instance** `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ :ref:`Int <type-ghc-types-int-37261>`
+
+  **instance** :ref:`NumericScale <class-ghc-classes-numericscale-83720>` n \=\> `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ (:ref:`Numeric <type-ghc-types-numeric-891>` n)
 
   **instance** `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ :ref:`Text <type-ghc-types-text-51952>`
 
