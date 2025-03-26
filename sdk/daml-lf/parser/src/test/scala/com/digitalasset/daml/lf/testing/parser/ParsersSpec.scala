@@ -79,6 +79,7 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
         "RoundingMode" -> BTRoundingMode,
         "AnyException" -> BTAnyException,
         "TypeRep" -> BTTypeRep,
+        "FailureCategory" -> BTFailureCategory,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltinType) =>

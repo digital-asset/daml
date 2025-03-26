@@ -110,6 +110,7 @@ serializabilityConditionsType world0 mbCurrentModule vars = go
         BTTypeRep -> Left URTypeRep
         BTRoundingMode -> Left URRoundingMode
         BTBigNumeric -> Left URBigNumeric
+        BTFailureCategory -> Left URFailureCategory
       TForall{} -> Left URForall
       TStruct{} -> Left URStruct
 

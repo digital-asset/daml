@@ -192,7 +192,7 @@ infixr 1 :->
 pattern (:->) :: Type -> Type -> Type
 pattern a :-> b = TArrow `TApp` a `TApp` b
 
-pattern TUnit, TBool, TInt64, TText, TTimestamp, TParty, TDate, TArrow, TNumeric10, TAny, TNat10, TTypeRep, TAnyException, TRoundingMode, TBigNumeric :: Type
+pattern TUnit, TBool, TInt64, TText, TTimestamp, TParty, TDate, TArrow, TNumeric10, TAny, TNat10, TTypeRep, TAnyException, TRoundingMode, TBigNumeric, TFailureCategory :: Type
 pattern TUnit       = TBuiltin BTUnit
 pattern TBool       = TBuiltin BTBool
 pattern TInt64      = TBuiltin BTInt64
@@ -208,6 +208,7 @@ pattern TTypeRep    = TBuiltin BTTypeRep
 pattern TRoundingMode = TBuiltin BTRoundingMode
 pattern TBigNumeric  = TBuiltin BTBigNumeric
 pattern TAnyException = TBuiltin BTAnyException
+pattern TFailureCategory = TBuiltin BTFailureCategory
 
 pattern TList, TOptional, TTextMap, TUpdate, TContractId, TNumeric :: Type -> Type
 pattern TList typ = TApp (TBuiltin BTList) typ
@@ -233,6 +234,15 @@ pattern Tuple2TCon = (Qualified
     (ImportedPackageId (PackageId "5aee9b21b8e9a4c4975b5f4c4198e6e6e8469df49e2010820e792f393db870f4"))
     (ModuleName ["DA", "Types"])
     (TypeConName ["Tuple2"])
+  )
+
+pattern TFailureStatus :: Type
+pattern TFailureStatus = TCon (Qualified
+  -- We cannot look up these stable IDs using stablePackageByModuleName because
+  -- it would introduce a cyclic dependency with StablePackages.
+    (ImportedPackageId (PackageId "765e60a9b6a45dde59f48a97b8a12b4c91c981503ca9410a4c195fb4065cca11"))
+    (ModuleName ["DA", "Internal", "Fail", "Types"])
+    (TypeConName ["FailureStatus"])
   )
 
 pattern TConApp :: Qualified TypeConName -> [Type] -> Type

@@ -180,6 +180,8 @@ enum BuiltinType {
   ARROW = 16;
   // Builtin type 'Update'
   UPDATE = 17;
+  // Builtin type for FailureCategory
+  FAILURE_CATEGORY = 18;
 
   // Builtin type 'TTextMap`
   // *Available in versions >= 2.dev*
@@ -393,6 +395,11 @@ message BuiltinLit {
     UNNECESSARY = 7;
   }
 
+  enum FailureCategory {
+    INVALID_INDEPENDENT_OF_SYSTEM_STATE = 0;
+    INVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER = 1;
+  }
+
   oneof Sum {
     //  64-bit integer literal ('LitInt64')
     sint64 int64 = 1;
@@ -404,6 +411,8 @@ message BuiltinLit {
     int32 text_interned_str = 4;
     // *Must be a valid date*
     int32 date = 5;
+    // *Failure category for failWithStatus*
+    FailureCategory failure_category = 6;
     // rounding mode for arithmetic operation
     // *Available in versions >= 2.dev*
     RoundingMode rounding_mode = 1001;
@@ -742,6 +751,15 @@ message Expr {
     Expr choice_arg_expr = 4;
   }
 
+  // Fail with status.
+  message FailWithStatus {
+    // Overall type of the "failWithStatus" expression.
+    Type return_type = 1;
+    // value of type DA.Internal.Fail.Types:FailureStatus
+    Expr failure_status = 2;
+  }
+  
+
   message Experimental {
     string name = 1;
     Type type = 2 ;
@@ -867,6 +885,9 @@ message Expr {
     ToRequiredInterface to_required_interface = 41;
     FromRequiredInterface from_required_interface = 42;
     UnsafeFromRequiredInterface unsafe_from_required_interface = 43;
+
+    // Throw strictly formed error to affect ledger-api grpc status+metadata (replacement for exceptions)
+    FailWithStatus fail_with_status = 44;
 
     // Obtain the controllers for a choice.
     // *Available in versions >= 2.dev*

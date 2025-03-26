@@ -450,6 +450,13 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           builder.setDate(date.days)
         case BLRoundingMode(rounding) =>
           builder.setRoundingModeValue(rounding.ordinal())
+        case BLFailureCategory(category) =>
+          builder.setFailureCategory(category match {
+            case FCInvalidIndependentOfSystemState =>
+              PLF.BuiltinLit.FailureCategory.INVALID_INDEPENDENT_OF_SYSTEM_STATE
+            case FCInvalidGivenCurrentSystemStateOther =>
+              PLF.BuiltinLit.FailureCategory.INVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER
+          })
       }
       builder.build()
     }

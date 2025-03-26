@@ -749,6 +749,7 @@ tests TestArgs{..} =
               , "module A where"
               , "import DA.Record"
               , "import DA.Validation"
+              , "import DA.Map"
               -- test typeclass export
               , "class Foo t where"
               , "  foo : Int -> t"
@@ -813,6 +814,13 @@ tests TestArgs{..} =
               , "type NestedConstraintTuple a b c d = (BigConstraint a b c, Show d)"
               , "nestedConstraintTupleFn : NestedConstraintTuple a b c d => a -> b -> c -> d -> Text"
               , "nestedConstraintTupleFn x y z w = show x <> show y <> show z <> show w"
+
+              -- Ensure failure status and FailWithStatus work
+              , "failureStatus : FailureStatus"
+              , "failureStatus = FailureStatus \"error_id\" InvalidGivenCurrentSystemStateOther \"Bad\" $ fromList []"
+
+              , "failsWithStatus : ActionFailWithStatus m => m a"
+              , "failsWithStatus = failWithStatus failureStatus"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -902,6 +910,11 @@ tests TestArgs{..} =
               , "useNestedConstraintTupleFn = nestedConstraintTupleFn 10 20 30 40"
               , "nestedConstraintTupleFn2 : NestedConstraintTuple a b c d => a -> b -> c -> d -> Text"
               , "nestedConstraintTupleFn2 x y z w = show x <> show y <> show z <> show w"
+              -- Test failure status type and ActionFailWithStatus class is compatible
+              , "tryFailsWithStatus : Update ()"
+              , "tryFailsWithStatus = do"
+              , "  failsWithStatus"
+              , "  failWithStatus failureStatus"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion

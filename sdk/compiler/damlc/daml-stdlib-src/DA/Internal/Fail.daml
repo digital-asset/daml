@@ -1,0 +1,37 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE CPP #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
+
+-- | MOVE DA.Fail
+module DA.Internal.Fail (module DA.Internal.Fail, module DA.Internal.Fail.Types) where
+
+import DA.Internal.Fail.Types
+import GHC.Types (primitive)
+import DA.Internal.Prelude
+import DA.Internal.LF (Update, CanAbort (..))
+
+class Action m => ActionFailWithStatus m where
+  -- | Fail with a failure status
+  failWithStatus : FailureStatus -> m a
+
+-- | Fail with a failure status in a pure context
+failWithStatusPure : FailureStatus -> a
+failWithStatusPure = primitive @"EFailWithStatus"
+
+instance ActionFailWithStatus Update where
+  failWithStatus s = pure () >>= \_ -> failWithStatusPure s
+
+-- In 3.4, fail will be redefined using failWithStatus, so instance is moved here
+-- | MOVE Prelude
+instance ActionFail Update where
+#ifdef DAML_EXCEPTIONS
+  fail m = pure () >>= \_ -> error m
+#else
+  fail = primitive @"UAbort"
+#endif
+
+instance CanAbort Update where
+  abort = fail
