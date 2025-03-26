@@ -42,6 +42,6 @@ instance IsQuestion Secp256k1GenerateKeyPair Secp256k1KeyPair where command = "S
 
 -- | Generate DER formatted Secp256k1 public/private key pairs.
 secp256k1generatekeypair : HasCallStack => Script Secp256k1KeyPair
-secp256k1generatekeypair = lift(Secp256k1GenerateKeyPair {})
+secp256k1generatekeypair = lift Secp256k1GenerateKeyPair
 
 #endif

@@ -9,7 +9,7 @@ package v2
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.data.cctp.MessageSignatureUtil
-import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray}
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
@@ -551,12 +551,13 @@ object ScriptF {
       val privateKey = HexString.encode(Bytes.fromByteArray(keyPair.getPrivate.getEncoded))
       val publicKey = HexString.encode(Bytes.fromByteArray(keyPair.getPublic.getEncoded))
 
+      import com.daml.script.converter.Converter.record
       SEValue(
-        SRecord(
+        record(
           env.scriptIds
             .damlScriptModule("Daml.Script.Internal.Questions.Crypto.Text", "Secp256k1KeyPair"),
-          ImmArray(Name.assertFromString("privateKey"), Name.assertFromString("publicKey")),
-          ArrayList.double(SText(privateKey), SText(publicKey)),
+          "privateKey" -> SText(privateKey),
+          "publicKey" -> SText(publicKey),
         )
       )
     }
