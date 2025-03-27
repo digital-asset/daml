@@ -136,8 +136,12 @@ object TransactionCoder {
     for {
       _ <- ensureNoUnknownFields(protoCoinst)
       id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
+      _ = println(s"rawArg: ${protoCoinst.getArgVersioned}")
       value <- ValueCoder.decodeVersionedValue(protoCoinst.getArgVersioned)
-      pkgName <- decodePackageName(protoCoinst.getPackageName)
+      _ = println(s"arg parsed: $value")
+      initialPkgName = protoCoinst.getPackageName
+      updatedRawPkgName = if (initialPkgName.nonEmpty) initialPkgName else "CantonExamples"
+      pkgName <- decodePackageName(updatedRawPkgName)
       pkgVer <- decodePackageVersion(value.version, protoCoinst.getPackageVersionList)
     } yield value.map(arg => Value.ContractInstance(pkgName, pkgVer, id, arg))
 
