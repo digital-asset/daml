@@ -1334,9 +1334,7 @@ private[lf] object SBuiltinFun {
       k: PackageId => Control[Q]
   ): Control[Q] = {
     machine.packageResolution.get(pkgName) match {
-      // TODO https://github.com/digital-asset/daml/issues/17995
-      //  We need a proper interpretation error here
-      case None => crash(s"cannot resolve package $pkgName")
+      case None => Control.Error(IE.PackageNotFound(pkgName))
       case Some(pkgId) => k(pkgId)
     }
   }
