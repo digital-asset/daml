@@ -72,6 +72,7 @@ import AvailabilityModuleMetrics.{emitDisseminationStateStats, emitInvalidMessag
   */
 final class AvailabilityModule[E <: Env[E]](
     initialMembership: Membership,
+    initialEpochNumber: EpochNumber,
     initialCryptoProvider: CryptoProvider[E],
     availabilityStore: data.AvailabilityStore[E],
     config: AvailabilityModuleConfig,
@@ -93,7 +94,7 @@ final class AvailabilityModule[E <: Env[E]](
   private val nodeShuffler = new BftNodeShuffler(random)
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  private var lastKnownEpochNumber = EpochNumber.First
+  private var lastKnownEpochNumber = initialEpochNumber
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var activeMembership = initialMembership
@@ -1142,6 +1143,25 @@ final class AvailabilityModule[E <: Env[E]](
           emitInvalidMessage(metrics, from)
           s"Batch $batchId from '$from' contains more requests (${batch.requests.size}) than allowed " +
             s"(${config.maxRequestsInBatch}), skipping"
+        },
+      )
+
+      _ <- Either.cond(
+        batch.epochNumber > lastKnownEpochNumber - OrderingRequestBatch.BatchValidityDurationEpochs,
+        (), {
+          emitInvalidMessage(metrics, from)
+          s"Batch $batchId from '$from' contains an expired batch at epoch number ${batch.epochNumber} " +
+            s"which is ${OrderingRequestBatch.BatchValidityDurationEpochs} " +
+            s"epochs or more older than last known epoch $lastKnownEpochNumber, skipping"
+        },
+      )
+
+      _ <- Either.cond(
+        batch.epochNumber < lastKnownEpochNumber + OrderingRequestBatch.BatchValidityDurationEpochs * 2,
+        (), {
+          emitInvalidMessage(metrics, from)
+          s"Batch $batchId from '$from' contains a batch whose epoch number ${batch.epochNumber} is too far in the future " +
+            s"compared to last known epoch $lastKnownEpochNumber, skipping"
         },
       )
     } yield ()

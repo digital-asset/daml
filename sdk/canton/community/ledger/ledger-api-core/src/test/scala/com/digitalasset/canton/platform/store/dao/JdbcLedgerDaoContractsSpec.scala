@@ -12,16 +12,13 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
   KeyUnassigned,
 }
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.daml.lf.data.Ref.PackageVersion
-import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Versioned}
-import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance, ValueText}
+import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
+import com.digitalasset.daml.lf.value.Value.{ContractId, ValueText}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{Assertion, Inside, LoneElement, OptionValues}
+import org.scalatest.{Inside, LoneElement, OptionValues}
 
 import scala.concurrent.Future
-import scala.math.Ordering.Implicits.infixOrderingOps
 
 private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside with OptionValues {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
@@ -47,63 +44,6 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
         (active.contract, active.stakeholders, active.signatories)
       } shouldEqual Some((someVersionedContractInstance, Set(alice, bob), Set(alice, bob)))
     }
-  }
-
-  it should "be able to persist and load contracts with package-version populated dependent on transaction version" in {
-    def testCreatePackageVersionLookup(
-        testedTransactionVersion: LanguageVersion,
-        expectedPackageVersion: Option[PackageVersion],
-    ): Future[Assertion] = for {
-      (offset, tx) <- store(
-        singleCreate(
-          createNode(
-            _,
-            Set(alice),
-            Set(alice),
-            // Package version is not set in the transaction version 31
-            packageVersion = expectedPackageVersion,
-            transactionVersion = testedTransactionVersion,
-          )
-        )
-      )
-      result <- contractsReader.lookupContractState(
-        nonTransient(tx).loneElement,
-        offset,
-      )
-    } yield {
-      result.collect { case active: LedgerDaoContractsReader.ActiveContract =>
-        (active.contract, active.stakeholders, active.signatories)
-      } shouldEqual Some(
-        (
-          Versioned(
-            testedTransactionVersion,
-            ContractInstance(
-              packageName = somePackageName,
-              packageVersion = expectedPackageVersion,
-              template = someTemplateId,
-              arg = someContractArgument,
-            ),
-          ),
-          Set(alice),
-          Set(alice),
-        )
-      )
-    }
-
-    for {
-      // TODO(#19494): Remove once TransactionVersion V31 becomes minimum supoported
-      _ <- testCreatePackageVersionLookup(
-        testedTransactionVersion = LanguageVersion.AllV2.min,
-        expectedPackageVersion =
-          // Package version is set only for contracts created in LF > 2.1
-          Option.when(LanguageVersion.AllV2.min > LanguageVersion.v2_dev)(somePackageVersion),
-      )
-      _ <- testCreatePackageVersionLookup(
-        // TODO(#19494): Replace with minVersion
-        testedTransactionVersion = LanguageVersion.v2_dev,
-        expectedPackageVersion = Some(somePackageVersion),
-      )
-    } yield succeed
   }
 
   it should "store contracts with a transient contract in the global divulgence" in {

@@ -22,7 +22,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.{
   GenesisEpoch,
   GenesisEpochInfo,
-  GenesisPreviousEpochMaxBftTime,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.RetransmissionsManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.*
@@ -212,14 +211,12 @@ final class IssConsensusModule[E <: Env[E]](
             newEpochNumber,
             newMembership,
             newCryptoProvider: CryptoProvider[E],
-            previousEpochMaxBftTime,
             lastBlockFromPreviousEpochMode,
           ) =>
         val currentEpochInfo = epochState.epoch.info
         val newEpochInfo = currentEpochInfo.next(
           epochLength,
           newMembership.orderingTopology.activationTime,
-          previousEpochMaxBftTime,
         )
         // Init is currently not complete for state transfer
         if (lastBlockFromPreviousEpochMode == Mode.StateTransfer.LastBlock) {
@@ -494,7 +491,6 @@ final class IssConsensusModule[E <: Env[E]](
                 newEpochNumber,
                 newMembership,
                 cryptoProvider,
-                previousEpochMaxBftTime,
                 _,
               )
             ) =>
@@ -502,7 +498,6 @@ final class IssConsensusModule[E <: Env[E]](
           val newEpochInfo = currentEpochInfo.next(
             epochLength,
             newMembership.orderingTopology.activationTime,
-            previousEpochMaxBftTime,
           )
           if (newEpochNumber != newEpochInfo.number) {
             abort(
@@ -533,7 +528,6 @@ final class IssConsensusModule[E <: Env[E]](
           EpochNumber.First,
           activeTopologyInfo.currentMembership,
           activeTopologyInfo.currentCryptoProvider,
-          GenesisPreviousEpochMaxBftTime,
           lastBlockFromPreviousEpochMode = Mode.FromConsensus,
         )
       )

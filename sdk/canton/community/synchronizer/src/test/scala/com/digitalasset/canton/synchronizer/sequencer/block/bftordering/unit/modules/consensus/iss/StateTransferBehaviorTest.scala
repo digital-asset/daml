@@ -14,7 +14,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.EpochInProgress
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisPreviousEpochMaxBftTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferBehavior.StateTransferType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
@@ -244,13 +243,11 @@ class StateTransferBehaviorTest
 
       val startEpochNumber = anEpochInfo.number
       val newEpochNumber = EpochNumber(startEpochNumber + 1)
-      val previousEpochMaxBftTime = CantonTimestamp.Epoch
       val newEpoch = EpochInfo(
         newEpochNumber,
         BlockNumber(11L),
         DefaultEpochLength,
         TopologyActivationTime(CantonTimestamp.MinValue),
-        previousEpochMaxBftTime,
       )
 
       stateTransferBehavior.receive(
@@ -258,7 +255,6 @@ class StateTransferBehaviorTest
           newEpochNumber,
           aMembership,
           aFakeCryptoProviderInstance,
-          previousEpochMaxBftTime,
           Mode.StateTransfer.MiddleBlock,
         )
       )
@@ -290,7 +286,6 @@ class StateTransferBehaviorTest
             EpochNumber.First,
             aMembership,
             aFakeCryptoProviderInstance,
-            GenesisPreviousEpochMaxBftTime,
             Mode.StateTransfer.LastBlock,
           )
         )
@@ -471,7 +466,6 @@ object StateTransferBehaviorTest {
     BlockNumber(1),
     DefaultEpochLength,
     TopologyActivationTime(CantonTimestamp.Epoch),
-    CantonTimestamp.MinValue,
   )
   private val aMembership =
     Membership.forTesting(myId, otherNodes = Set(BftNodeId("other")))

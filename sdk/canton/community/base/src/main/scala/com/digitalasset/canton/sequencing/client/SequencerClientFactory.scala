@@ -133,7 +133,7 @@ object SequencerClientFactory {
           // Reinitialize the sequencer counter allocator to ensure that passive->active replica transitions
           // correctly track the counters produced by other replicas
           _ <- EitherT.right(
-            sequencedEventStore.reinitializeLowerBoundFromDb()
+            sequencedEventStore.reinitializeFromDbOrSetLowerBound()
           )
           // Find the timestamp of the last known sequenced event, we'll use that timestamp to initialize
           // the traffic state

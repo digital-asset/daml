@@ -201,6 +201,14 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
         traceContext: TraceContext
     ): FutureUnlessShutdown[Boolean] =
       FutureUnlessShutdown.pure(existingMembers.contains(member))
+
+    /** Return the last timestamp of the containing block of the provided timestamp. This is needed
+      * to determine the effective timestamp to observe in topology processing, required to produce
+      * a correct snapshot.
+      */
+    override def awaitContainingBlockLastTimestamp(timestamp: CantonTimestamp)(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, SequencerError, CantonTimestamp] = ???
   }
 
   "sendAsyncSigned" should {

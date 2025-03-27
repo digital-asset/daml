@@ -104,7 +104,7 @@ message User {
   // Modifiable
   ObjectMeta metadata = 4;
 
-  // The id of the identity provider configured by ``Identity Provider Config``
+  // The ID of the identity provider configured by ``Identity Provider Config``
   // Optional, if not set, assume the user is managed by the default identity provider.
   string identity_provider_id = 5;
 }
@@ -325,9 +325,9 @@ message ListUserRightsResponse {
 message UpdateUserIdentityProviderIdRequest {
   // User to update
   string user_id = 1;
-  // Current identity provider id of the user
+  // Current identity provider ID of the user
   string source_identity_provider_id = 2;
-  // Target identity provider id of the user
+  // Target identity provider ID of the user
   string target_identity_provider_id = 3;
 }
 

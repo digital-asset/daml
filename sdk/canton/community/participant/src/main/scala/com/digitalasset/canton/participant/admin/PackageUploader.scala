@@ -123,7 +123,7 @@ class PackageUploader(
         foundMainPackageId = mainPackage._2._1
         _ <- expectedMainPackageId.traverse(expected =>
           EitherT.cond[FutureUnlessShutdown](
-            mainPackage._2._1 == expected,
+            foundMainPackageId == expected,
             (),
             PackageServiceErrors.Reading.MainPackageInDarDoesNotMatchExpected
               .Reject(foundMainPackageId, expected),
@@ -142,7 +142,7 @@ class PackageUploader(
           ),
           description = "store DAR",
         )
-      } yield (mainPackage._2._1, dependencies.map(_._2._1))
+      } yield (foundMainPackageId, dependencies.map(_._2._1))
     }
 
   // This stage must be run sequentially to exclude the possibility
@@ -164,11 +164,7 @@ class PackageUploader(
         uploadedAt: CantonTimestamp,
     ): FutureUnlessShutdown[Unit] =
       for {
-        _ <- packagesDarsStore.append(
-          pkgs = packages,
-          uploadedAt = uploadedAt,
-          dar = dar,
-        )
+        _ <- packagesDarsStore.append(packages, uploadedAt, dar)
         _ = logger.debug(
           s"Managed to upload one or more archives for submissionId $submissionId"
         )
@@ -182,7 +178,7 @@ class PackageUploader(
     val uploadTime = clock.monotonicTime()
     val mainPackageId = DarMainPackageId.tryCreate(mainPackage._2._1)
     val persistedDescription =
-      description.getOrElse(String255.tryCreate(s"DAR_$mainPackageId"))
+      description.getOrElse(String255.tryCreate(s"DAR_${mainPackageId.value}"))
 
     def parseMetadata(
         pkg: (DamlLf.Archive, (LfPackageId, Ast.Package))
@@ -208,25 +204,16 @@ class PackageUploader(
         allPackages.traverse(x => parseMetadata(x).map(_ -> x._1))
       )
       _ <- EitherT.right[DamlRpcError](
-        handleUploadResult(persist(darDescriptor, toUpload, uploadTime), submissionId)
+        handlePersistResult(persist(darDescriptor, toUpload, uploadTime), submissionId)
       )
     } yield mainPackageId
   }
 
-  private def handleUploadResult(
+  private def handlePersistResult(
       res: FutureUnlessShutdown[Unit],
       submissionId: LedgerSubmissionId,
   )(implicit tc: TraceContext): FutureUnlessShutdown[Unit] =
     res.transformWith {
-      case Success(UnlessShutdown.Outcome(_)) => FutureUnlessShutdown.unit
-      case Success(UnlessShutdown.AbortedDueToShutdown) =>
-        // Possibly LedgerSyncEvent.PublicPackageUpload was not emitted but
-        // the packages and DARs were already stored in the packagesDarsStore.
-        // There is nothing we can do about it since the node is shutting down.
-        // However, this situation is acceptable since the user can
-        // retry uploading the DARs (DAR uploads are idempotent).
-        logger.info("Aborting DAR upload due to shutdown.")
-        FutureUnlessShutdown.abortedDueToShutdown
       case Failure(e) =>
         logger.warn(
           s"Failed to upload one or more archives in submissionId $submissionId",
@@ -235,6 +222,7 @@ class PackageUploader(
         // If JDBC insertion call failed, we don't know whether the DB was updated or not
         // hence ensure the package metadata view stays in sync by re-initializing it from the DB.
         packageMetadataView.refreshState.transformWith(_ => FutureUnlessShutdown.failed(e))
+      case success: Success[UnlessShutdown[Unit]] => FutureUnlessShutdown.lift(success.value)
     }
 
   private def validatePackages(

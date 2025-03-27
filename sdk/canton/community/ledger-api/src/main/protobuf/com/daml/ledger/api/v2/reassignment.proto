@@ -40,7 +40,7 @@ message Reassignment {
     AssignedEvent assigned_event = 6;
   }
 
-  // Optional; ledger api trace context
+  // Optional; ledger API trace context
   //
   // The trace context transported in this message corresponds to the trace context supplied
   // by the client application in a HTTP2 header of the original command submission.
