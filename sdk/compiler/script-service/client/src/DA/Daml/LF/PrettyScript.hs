@@ -335,6 +335,11 @@ prettyScriptErrorError lvl (Just err) =  do
               (prettyValue' lvl False 0 world)
               scriptError_CreateEmptyContractKeyMaintainersKey
         ]
+    ScriptErrorErrorPackageNotFound ScriptError_PackageNotFound{..} ->
+      pure $ vcat
+        [ "Cound not find package with given package name."
+        , label_ "Package name:" $ ltext scriptError_PackageNotFoundPackageName
+        ]
     ScriptErrorErrorFetchEmptyContractKeyMaintainers ScriptError_FetchEmptyContractKeyMaintainers{..} ->
       pure $ vcat
         [ "Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers"

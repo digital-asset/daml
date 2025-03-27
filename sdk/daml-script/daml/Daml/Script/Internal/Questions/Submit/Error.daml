@@ -69,6 +69,9 @@ data SubmitError
   | -- | Contract with given contract key could not be found
     ContractKeyNotFound with
       contractKey : AnyContractKey
+  | -- | No package with given package name could be found
+    PackageNotFound with
+      packageName : Text
   | -- | Generic authorization failure, included missing party authority, invalid signatories, etc.
     AuthorizationError with
       authorizationErrorMessage : Text -- We can't pass over the data at the moment, so we just give the full string error here, for anyone that wants to check it
@@ -169,6 +172,7 @@ instance Show SubmitError where
       "Could not find contract with ID(s) " <> intercalate ", " (toList unknownContractIds) <> "."
       <> foldMap (\info -> " Additional debugging info: " <> show info) additionalDebuggingInfo
     ContractKeyNotFound contractKey -> "Could not find contract with given key"
+    PackageNotFound packageName -> "Could not find any package with name " <> packageName
     AuthorizationError errMessage -> "Authorization failure: " <> errMessage
     DisclosedContractKeyHashingError contractId contractKey contractKeyHash ->
       "Disclosed contract with ID " <> show contractId <> " used incorrect payload - contract key hash: " <> contractKeyHash

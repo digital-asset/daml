@@ -323,6 +323,7 @@ class IdeLedgerClient(
           Some(SubmitError.ContractNotFound.AdditionalInfo.NotFound()),
         )
       case ContractKeyNotFound(key) => SubmitError.ContractKeyNotFound(key)
+      case PackageNotFound(packageName) => SubmitError.PackageNotFound(packageName)
       case e: FailedAuthorization =>
         SubmitError.AuthorizationError(Pretty.prettyDamlException(e).renderWideStream.mkString)
       case ContractNotActive(cid, tid, _) =>
