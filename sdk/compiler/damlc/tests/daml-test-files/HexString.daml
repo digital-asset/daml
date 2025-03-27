@@ -9,6 +9,15 @@ import DA.Assert ((===))
 import DA.Crypto.Text
 import Daml.Script
 
+n3: Numeric 3
+n3 = 0.123
+
+n7: Numeric 7
+n7 = 0.12345_67
+
+n10: Numeric 10
+n10 = 0.12345_67890
+
 main =
   script do
     -- `HasToHex Int` and `HasFromHex Int`
@@ -17,7 +26,8 @@ main =
     toHex 15 === "0f"
     toHex 16 === "10"
     toHex 255 === "ff"
-    -- FIXME: toHex 256 === "0100"
+    toHex 256 === "0100"
+    toHex 257 === "0101"
     toHex 3735928559 === "deadbeef"
     fromHex "" === 0
     fromHex "00" === 0
@@ -27,6 +37,7 @@ main =
     fromHex "10" === 16
     fromHex "Ff" === 255
     fromHex "0100" === 256
+    fromHex "0101" === 257
     fromHex "DeadBeef" === 3735928559
 
     -- `HasToHex Text` and `HasFromHex Text`
@@ -45,8 +56,13 @@ main =
     alice <- allocateParty "Alice"
     alice === fromHex(toHex alice)
 
-    -- `HasToHex(Numeric 10)` and `HasFromHex(Numeric 10)`
-    -- TODO:
+    -- `HasToHex(Numeric n)` and `HasFromHex(Numeric n)`
+    toHex n3 === "302e313233"
+    toHex n7 === "302e31323334353637"
+    toHex n10 === "302e313233343536373839"
+    fromHex "302e313233" === n3
+    fromHex "302e31323334353637" === n7
+    fromHex "302e313233343536373839" === n10
 
     -- byteCount
     byteCount "" === 0
@@ -68,7 +84,7 @@ main =
     sliceHexBytes "DeadBeef" 2 5 === "adBeef"
     sliceHexBytes "DeadBeef" 3 5 === "Beef"
 
-    -- isBytes*Hex
+    -- isBytes32Hex, isUInt32Hex, isUInt64Hex, isUInt256Hex
     isBytes32Hex(packHexBytes "00" 32) === True
     isBytes32Hex(packHexBytes "DeadBeef" 32) === True
     isUInt32Hex(packHexBytes "00" 5) === True

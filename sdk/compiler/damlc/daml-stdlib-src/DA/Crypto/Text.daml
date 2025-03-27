@@ -100,7 +100,7 @@ intToHexByte 13 = "d"
 intToHexByte 14 = "e"
 intToHexByte 15 = "f"
 intToHexByte n | n < 256 = (intToHexByte(n / 16)) <> (intToHexByte(n % 16))
-intToHexByte n = (intToHexByte(n / 256)) <> (intToHexByte(n % 256))
+intToHexByte n = error $ "Int should be in range [0, 256): " <> show n
 
 instance HasToHex Int where
   toHex n | 0 <= n && n <= 9 = "0" <> (show n)
@@ -110,7 +110,8 @@ instance HasToHex Int where
   toHex 13 = "0d"
   toHex 14 = "0e"
   toHex 15 = "0f"
-  toHex n = intToHexByte n
+  toHex n | n < 256 = intToHexByte n
+  toHex n = (toHex(n / 256)) <> (toHex(n % 256))
 
 instance HasToHex Party where
   toHex p = toHex(partyToText p)
