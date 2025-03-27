@@ -348,7 +348,12 @@ enum BuiltinFunction {
 
   ANY_EXCEPTION_MESSAGE = 59;
 
-  // Next id is 60.
+  KECCAK256_TEXT = 60;
+  SECP256K1_BOOL = 61;
+  HEX_TO_TEXT = 62;
+  TEXT_TO_HEX = 63;
+
+  // Next id is 64.
 
   /* Dev Builtins */
 
@@ -372,11 +377,6 @@ enum BuiltinFunction {
   BIGNUMERIC_TO_TEXT = 2010;           // *Available in versions >= 2.dev*
 
   TYPE_REP_TYCON_NAME = 3011;          // *Available in versions >= 2.dev*
-
-  KECCAK256_TEXT = 4000;               // *Available in versions >= 2.dev*
-  SECP256K1_BOOL = 4001;               // *Available in versions >= 2.dev*
-  HEX_TO_TEXT = 4002;                  // *Available in versions >= 2.dev*
-  TEXT_TO_HEX = 4003;                  // *Available in versions >= 2.dev*
 }
 
 // Builtin literals
