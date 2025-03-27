@@ -15,11 +15,14 @@ object TransactionVersion {
 
   private[this] val fromStringMapping = Map(
     "2.1" -> LanguageVersion.v2_1,
+    "14" -> LanguageVersion.v2_dev,
+    "1.4" -> LanguageVersion.v2_dev,
     "dev" -> LanguageVersion.v2_dev,
   )
 
   private[this] val fromIntMapping = Map(
     1 -> LanguageVersion.v2_1,
+    14 -> LanguageVersion.v2_dev,
     Int.MaxValue -> LanguageVersion.v1_dev,
   )
 
