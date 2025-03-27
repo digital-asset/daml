@@ -400,7 +400,6 @@ class OutputModule[E <: Env[E]](
           case TopologyFetched(
                 lastBlockFromPreviousEpochMode,
                 newEpochNumber,
-                previousEpochMaxBftTime,
                 orderingTopology,
                 cryptoProvider: CryptoProvider[E],
               ) =>
@@ -420,7 +419,6 @@ class OutputModule[E <: Env[E]](
                   MetadataStoredForNewEpoch(
                     lastBlockFromPreviousEpochMode,
                     newEpochNumber,
-                    previousEpochMaxBftTime,
                     orderingTopology,
                     cryptoProvider,
                   )
@@ -431,14 +429,12 @@ class OutputModule[E <: Env[E]](
                 Some(orderingTopology -> cryptoProvider),
                 lastBlockFromPreviousEpochMode,
                 epochMetadataStored = false,
-                previousEpochMaxBftTime,
               )
             }
 
           case MetadataStoredForNewEpoch(
                 lastBlockFromPreviousEpochMode,
                 newEpochNumber,
-                previousEpochMaxBftTime,
                 orderingTopology,
                 cryptoProvider: CryptoProvider[E],
               ) =>
@@ -450,7 +446,6 @@ class OutputModule[E <: Env[E]](
               Some(orderingTopology -> cryptoProvider),
               lastBlockFromPreviousEpochMode,
               epochMetadataStored = true,
-              previousEpochMaxBftTime,
             )
 
           case snapshotMessage: SequencerSnapshotMessage =>
@@ -647,7 +642,6 @@ class OutputModule[E <: Env[E]](
           TopologyFetched(
             lastBlockMode,
             newEpochNumber,
-            epochEndBftTime,
             orderingTopology,
             cryptoProvider,
           )
@@ -661,7 +655,6 @@ class OutputModule[E <: Env[E]](
         None,
         lastBlockMode,
         epochMetadataStored = false,
-        epochEndBftTime,
       )
     }
   }
@@ -671,7 +664,6 @@ class OutputModule[E <: Env[E]](
       newOrderingTopologyAndCryptoProvider: Option[(OrderingTopology, CryptoProvider[E])],
       lastBlockFromPreviousEpochMode: OrderedBlockForOutput.Mode,
       epochMetadataStored: Boolean,
-      previousEpochMaxBftTime: CantonTimestamp,
   )(implicit
       context: E#ActorContextT[Message[E]],
       traceContext: TraceContext,
@@ -694,7 +686,6 @@ class OutputModule[E <: Env[E]](
         newEpochNumber,
         newMembership,
         cryptoProvider,
-        previousEpochMaxBftTime,
         lastBlockFromPreviousEpochMode,
       ),
     )

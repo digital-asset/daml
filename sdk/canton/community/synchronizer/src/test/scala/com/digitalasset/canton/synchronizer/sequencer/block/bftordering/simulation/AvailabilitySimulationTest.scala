@@ -108,6 +108,21 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
     val disseminationProtocolState: DisseminationProtocolState = new DisseminationProtocolState()
     val mainOutputFetchProtocolState: MainOutputFetchProtocolState =
       new MainOutputFetchProtocolState
+
+    private val newProposalsToCheckQueue
+        : mutable.ArrayBuffer[Consensus.LocalAvailability.ProposalCreated] =
+      mutable.ArrayBuffer()
+
+    def addNewProposal(proposal: Consensus.LocalAvailability.ProposalCreated): Unit = {
+      proposalsToConsensus.addOne(proposal)
+      newProposalsToCheckQueue.addOne(proposal)
+    }
+
+    def newProposalsToCheck: Seq[Consensus.LocalAvailability.ProposalCreated] = {
+      val proposals = newProposalsToCheckQueue.toSeq
+      newProposalsToCheckQueue.clear()
+      proposals
+    }
   }
 
   class MempoolSimulationFake[E <: Env[E]](
@@ -181,7 +196,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
 
         case proposal @ Consensus.LocalAvailability.ProposalCreated(OrderingBlock(batches), _) =>
           if (proposalsRequested) {
-            simulationModel.proposalsToConsensus.addOne(proposal)
+            simulationModel.addNewProposal(proposal)
             dependencies.output.asyncSend(
               Output.BlockOrdered(
                 OrderedBlockForOutput(
@@ -233,6 +248,14 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
     override protected def timeouts: ProcessingTimeout = ProcessingTimeout()
   }
 
+  class PruningSimulationFake[E <: Env[E]](override val loggerFactory: NamedLoggerFactory)
+      extends Pruning[E] {
+    override def receiveInternal(
+        message: Pruning.Message
+    )(implicit context: E#ActorContextT[Pruning.Message], traceContext: TraceContext): Unit = ()
+    override protected def timeouts: ProcessingTimeout = ProcessingTimeout()
+  }
+
   private def availabilityOnlySystemInitializer(
       thisNode: BftNodeId,
       config: BftBlockOrdererConfig,
@@ -260,6 +283,8 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
       .newModuleRef[Consensus.Message[SimulationEnv]](ModuleName("consensus"))
     val outputRef = moduleSystem
       .newModuleRef[Output.Message[SimulationEnv]](ModuleName("output"))
+    val pruningRef = moduleSystem
+      .newModuleRef[Pruning.Message](ModuleName("pruning"))
 
     val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
     implicit val metricsContext: MetricsContext = MetricsContext.Empty
@@ -287,6 +312,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
       availabilityRef,
       consensusRef,
       outputRef,
+      pruningRef,
     )
     val p2pNetworkOut =
       new BftP2PNetworkOut[SimulationEnv](
@@ -320,6 +346,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
     )
     val availability = new AvailabilityModule[SimulationEnv](
       membership,
+      initialEpochNumber = EpochNumber.First,
       cryptoProvider,
       availabilityStore,
       availabilityConfig,
@@ -353,6 +380,8 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
         consensusRef,
         loggerFactoryWithSequencerId,
       )
+    val pruningSimulationFake =
+      new PruningSimulationFake[SimulationEnv](loggerFactoryWithSequencerId)
 
     moduleSystem.setModule(mempoolRef, mempoolSimulationFake)
     moduleSystem.setModule(p2pNetworkInRef, p2pNetworkIn)
@@ -360,6 +389,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
     moduleSystem.setModule(availabilityRef, availability)
     moduleSystem.setModule(consensusRef, consensusSimulationFake)
     moduleSystem.setModule(outputRef, outputSimulationFake)
+    moduleSystem.setModule(pruningRef, pruningSimulationFake)
 
     mempoolSimulationFake.ready(mempoolRef)
     p2pNetworkOut.ready(p2pNetworkOutRef)
@@ -476,7 +506,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
       simulation.run {
         SimulationVerifier.onlyCheckInvariant { _ =>
           simulationModels.forall { simulationModel =>
-            simulationModel.proposalsToConsensus.forall { proposal =>
+            simulationModel.newProposalsToCheck.forall { proposal =>
               proposal.orderingBlock.proofs.forall { proofOfAvailability =>
                 simulationModels.count { simulationModel =>
                   simulationModel.availabilityStorage.contains(proofOfAvailability.batchId) &&

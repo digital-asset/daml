@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data
 
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
   OrderingTopologyProvider,
   TopologyActivationTime,
@@ -25,7 +24,6 @@ object Genesis {
   val GenesisEpochNumber: EpochNumber = EpochNumber(-1L)
   val GenesisTopologyActivationTime: TopologyActivationTime =
     OrderingTopologyProvider.InitialOrderingTopologyActivationTime
-  val GenesisPreviousEpochMaxBftTime: CantonTimestamp = CantonTimestamp.MinValue
 
   val GenesisEpochInfo: EpochInfo =
     EpochInfo(
@@ -33,7 +31,6 @@ object Genesis {
       GenesisStartBlockNumber,
       GenesisEpochLength,
       GenesisTopologyActivationTime,
-      GenesisPreviousEpochMaxBftTime,
     )
 
   // Note that the genesis epoch does not contain commits, which results in using empty canonical commit sets for

@@ -9,11 +9,11 @@ import com.digitalasset.canton.ledger.participant.state.index.{
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.apiserver.FatContractInstanceHelper
+import com.digitalasset.canton.protocol.LfTransactionVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageName, PackageVersion}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageName}
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.mockito.captor.{ArgCaptor, Captor}
@@ -83,7 +83,7 @@ class ResolveMaximumLedgerTimeSpec
     FatContractInstanceHelper.buildFatContractInstance(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
       packageName = PackageName.assertFromString("pkg-name"),
-      packageVersion = Some(PackageVersion.assertFromString("0.1.2")),
+      packageVersion = None,
       contractId = cId,
       argument = Value.ValueNil,
       createdAt = createdAt,
@@ -91,8 +91,7 @@ class ResolveMaximumLedgerTimeSpec
       signatories = Set(alice),
       stakeholders = Set(alice),
       keyOpt = None,
-      // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
-      version = LanguageVersion.v2_dev,
+      version = LfTransactionVersion.minVersion,
     )
 
   private def contractId(id: Int): ContractId =

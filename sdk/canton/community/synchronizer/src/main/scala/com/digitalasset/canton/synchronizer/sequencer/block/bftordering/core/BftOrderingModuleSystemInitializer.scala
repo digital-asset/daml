@@ -105,7 +105,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
       networkManager: ClientP2PNetworkManager[E, BftOrderingServiceReceiveRequest],
   ): SystemInitializationResult[BftOrderingServiceReceiveRequest, Mempool.Message] = {
     implicit val c: BftBlockOrdererConfig = config
-    val bootstrapTopologyInfo = fetchBootstrapTopologyInfo(moduleSystem)
+    val (initialEpoch, bootstrapTopologyInfo) = fetchBootstrapTopologyInfo(moduleSystem)
 
     val thisNodeFirstKnownAt =
       sequencerSnapshotAdditionalInfo.flatMap(_.nodeActiveAt.get(bootstrapTopologyInfo.thisNode))
@@ -151,26 +151,33 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
             loggerFactory,
             timeouts,
           ),
-        p2pNetworkOut =
-          (networkManager, p2pNetworkInRef, mempoolRef, availabilityRef, consensusRef, outputRef) =>
-            {
-              val dependencies = P2PNetworkOutModuleDependencies(
-                networkManager,
-                p2pNetworkInRef,
-                mempoolRef,
-                availabilityRef,
-                consensusRef,
-                outputRef,
-              )
-              new BftP2PNetworkOut(
-                bootstrapTopologyInfo.thisNode,
-                stores.p2pEndpointsStore,
-                metrics,
-                dependencies,
-                loggerFactory,
-                timeouts,
-              )
-            },
+        p2pNetworkOut = (
+            networkManager,
+            p2pNetworkInRef,
+            mempoolRef,
+            availabilityRef,
+            consensusRef,
+            outputRef,
+            pruningRef,
+        ) => {
+          val dependencies = P2PNetworkOutModuleDependencies(
+            networkManager,
+            p2pNetworkInRef,
+            mempoolRef,
+            availabilityRef,
+            consensusRef,
+            outputRef,
+            pruningRef,
+          )
+          new BftP2PNetworkOut(
+            bootstrapTopologyInfo.thisNode,
+            stores.p2pEndpointsStore,
+            metrics,
+            dependencies,
+            loggerFactory,
+            timeouts,
+          )
+        },
         availability = (mempoolRef, networkOutRef, consensusRef, outputRef) => {
           val cfg = AvailabilityModuleConfig(
             config.maxRequestsInBatch,
@@ -185,6 +192,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
           )
           new AvailabilityModule[E](
             bootstrapTopologyInfo.currentMembership,
+            initialEpoch,
             bootstrapTopologyInfo.currentCryptoProvider,
             stores.availabilityStore,
             cfg,
@@ -250,7 +258,9 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
     ).initialize(moduleSystem, networkManager)
   }
 
-  private def fetchBootstrapTopologyInfo(moduleSystem: ModuleSystem[E]): OrderingTopologyInfo[E] = {
+  private def fetchBootstrapTopologyInfo(
+      moduleSystem: ModuleSystem[E]
+  ): (EpochNumber, OrderingTopologyInfo[E]) = {
     import TraceContext.Implicits.Empty.*
 
     val (
@@ -271,18 +281,21 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
 
     val previousLeaders = getLeadersFrom(previousTopology, EpochNumber(initialEpochNumber - 1))
 
-    OrderingTopologyInfo(
-      node,
-      // Use the previous topology (not containing this node) as current topology when onboarding.
-      //  This prevents relying on newly onboarded nodes for state transfer.
-      currentTopology = if (onboarding) previousTopology else initialTopology,
-      // Note that, when onboarding, the crypto provider corresponds to the onboarding node activation timestamp
-      //  (so that its signing key is present), and, as a consequence, it might be more recent than the current topology.
-      initialCryptoProvider,
-      currentLeaders = if (onboarding) previousLeaders else initialLeaders,
-      previousTopology,
-      previousCryptoProvider,
-      previousLeaders,
+    (
+      initialEpochNumber,
+      OrderingTopologyInfo(
+        node,
+        // Use the previous topology (not containing this node) as current topology when onboarding.
+        //  This prevents relying on newly onboarded nodes for state transfer.
+        currentTopology = if (onboarding) previousTopology else initialTopology,
+        // Note that, when onboarding, the crypto provider corresponds to the onboarding node activation timestamp
+        //  (so that its signing key is present), and, as a consequence, it might be more recent than the current topology.
+        initialCryptoProvider,
+        currentLeaders = if (onboarding) previousLeaders else initialLeaders,
+        previousTopology,
+        previousCryptoProvider,
+        previousLeaders,
+      ),
     )
   }
 

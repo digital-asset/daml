@@ -8,7 +8,9 @@ package com.digitalasset.canton.admin.participant.v30;
 import "scalapb/scalapb.proto";
 
 // Schema definition for the exported active contract
-message ActiveContractNew { // TODO(#24326) - rename to ActiveContract after the old versio has been removed
+message ActiveContractNew {
+  // TODO(#24326) - rename to ActiveContract after the old versio has been removed
+
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   // Opaque active contract, assumed to be the bytes of a LAPI active contract

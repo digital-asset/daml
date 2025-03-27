@@ -36,8 +36,8 @@ import scala.util.Failure
 
 /** Sequencer connection specialized for gRPC transport.
   */
-class GrpcSequencerConnectionX private (
-    config: ConnectionXConfig,
+class GrpcSequencerConnectionX private[sequencing] (
+    override val config: ConnectionXConfig,
     clientProtocolVersions: NonEmpty[Seq[ProtocolVersion]],
     minimumProtocolVersion: Option[ProtocolVersion],
     clientFactory: SequencerConnectionXClientFactory,
@@ -67,6 +67,7 @@ class GrpcSequencerConnectionX private (
     override protected def combineDependentStates: SequencerConnectionXState =
       (connection.health.getState, localState.get) match {
         case (_, LocalState.Fatal) => SequencerConnectionXState.Fatal
+        case (ConnectionXState.Stopped, LocalState.Initial) => SequencerConnectionXState.Initial
         case (ConnectionXState.Stopped, LocalState.Starting) => SequencerConnectionXState.Starting
         case (ConnectionXState.Stopped, _) => SequencerConnectionXState.Stopped
         case (ConnectionXState.Started, LocalState.Stopping) => SequencerConnectionXState.Stopping
@@ -351,23 +352,23 @@ object GrpcSequencerConnectionX {
       override protected def pretty: Pretty[Validated.type] = prettyOfObject[Validated.type]
     }
   }
+}
 
-  def create(
-      config: ConnectionXConfig,
-      clientProtocolVersions: NonEmpty[Seq[ProtocolVersion]],
-      minimumProtocolVersion: Option[ProtocolVersion],
-      clientFactory: SequencerConnectionXClientFactory,
-      futureSupervisor: FutureSupervisor,
-      timeouts: ProcessingTimeout,
-      loggerFactory: NamedLoggerFactory,
-  )(implicit
-      ec: ExecutionContextExecutor
-  ): SequencerConnectionX =
+class GrpcSequencerConnectionXFactory(
+    clientProtocolVersions: NonEmpty[Seq[ProtocolVersion]],
+    minimumProtocolVersion: Option[ProtocolVersion],
+    futureSupervisor: FutureSupervisor,
+    timeouts: ProcessingTimeout,
+    loggerFactory: NamedLoggerFactory,
+) extends SequencerConnectionXFactory {
+  override def create(
+      config: ConnectionXConfig
+  )(implicit ec: ExecutionContextExecutor): SequencerConnectionX =
     new GrpcSequencerConnectionX(
       config,
       clientProtocolVersions,
       minimumProtocolVersion,
-      clientFactory,
+      clientFactory = SequencerConnectionXClientFactoryImpl,
       futureSupervisor,
       timeouts,
       loggerFactory.append("connection", config.name),

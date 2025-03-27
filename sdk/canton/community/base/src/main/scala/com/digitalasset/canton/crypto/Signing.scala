@@ -10,7 +10,6 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
@@ -350,12 +349,12 @@ object Signature
 
 /** Defines the validity period of a session signing key delegation within a specific synchronizer
   * timeframe. This period starts at a creation 'from' timestamp and extends for a specified
-  * duration, covering both the initial and end times inclusively.
+  * duration.
   *
   * @param fromInclusive
   *   the inclusive timestamp, indicating when a delegation to the session key was created
   * @param periodLength
-  *   the inclusive validity duration of the session key delegation in seconds
+  *   the validity duration of the session key delegation in seconds
   */
 final case class SignatureDelegationValidityPeriod(
     fromInclusive: CantonTimestamp,
@@ -364,8 +363,7 @@ final case class SignatureDelegationValidityPeriod(
     // we never deserialize this object from a byte string, so we don't need to define a fromByteString method in the companion object
     with HasCryptographicEvidence {
 
-  // TODO(#24565): Set the end of the signature delegation validity period to "exclusive"
-  val toInclusive: CantonTimestamp =
+  val toExclusive: CantonTimestamp =
     Either
       .catchOnly[IllegalArgumentException](fromInclusive + periodLength)
       .getOrElse(CantonTimestamp.MaxValue)
@@ -373,7 +371,7 @@ final case class SignatureDelegationValidityPeriod(
   override protected def pretty: Pretty[SignatureDelegationValidityPeriod] =
     prettyOfClass(
       param("fromInclusive", _.fromInclusive),
-      param("toInclusive", _.toInclusive),
+      param("periodLength", _.periodLength),
     )
 
   /** Encodes the start time and period length deterministically. This is later used together with
@@ -386,12 +384,8 @@ final case class SignatureDelegationValidityPeriod(
         DeterministicEncoding.encodeLong(periodLength.duration.toSeconds)
       )
 
-  def computeCutOffTimestamp(cutOff: PositiveNumeric[Double]): Either[Throwable, CantonTimestamp] =
-    Either
-      .catchOnly[ArithmeticException] {
-        this.periodLength.tryMultiply(cutOff)
-      }
-      .map(cutOffPeriod => this.fromInclusive.add(cutOffPeriod.duration))
+  def computeCutOffTimestamp(cutOffDuration: PositiveSeconds): CantonTimestamp =
+    this.toExclusive.minus(cutOffDuration.duration)
 }
 
 /** An extension to the signature to accommodate the necessary information to be able to use session
@@ -426,14 +420,14 @@ final case class SignatureDelegation private[crypto] (
   def delegatingKeyId: Fingerprint = signature.signedBy
 
   def isValidAt(timestamp: CantonTimestamp): Boolean =
-    timestamp >= validityPeriod.fromInclusive && timestamp <= validityPeriod.toInclusive
+    timestamp >= validityPeriod.fromInclusive && timestamp < validityPeriod.toExclusive
 
   def toProtoV30: v30.SignatureDelegation =
     v30.SignatureDelegation(
       sessionKey = sessionKey.key,
       sessionKeySpec = sessionKey.keySpec.toProtoEnum,
       validityPeriodFromInclusive = validityPeriod.fromInclusive.toProtoPrimitive,
-      validityPeriodDurationInclusive = validityPeriod.periodLength.duration.toSeconds.toInt,
+      validityPeriodDurationSeconds = validityPeriod.periodLength.duration.toSeconds.toInt,
       format = signature.format.toProtoEnum,
       // In this case, we send the raw content of the signature because the remaining parameters for deserialization are
       // already included in the v30.SignatureDelegation message (e.g. format).
@@ -505,15 +499,15 @@ object SignatureDelegation {
         CantonTimestamp.fromProtoPrimitive(
           signatureP.validityPeriodFromInclusive
         )
-      validityPeriodDurationInclusive <-
+      validityPeriodDurationSeconds <-
         ProtoConverter.parsePositiveInt(
-          "validity_period_duration_inclusive",
-          signatureP.validityPeriodDurationInclusive,
+          "validity_period_duration_seconds",
+          signatureP.validityPeriodDurationSeconds,
         )
       // Duration is already validated as positive and non-zero during parsing,
       // so calling Positive.create method here is unnecessary.
       periodLength = PositiveSeconds.tryCreate(
-        Duration.ofSeconds(validityPeriodDurationInclusive.value.toLong)
+        Duration.ofSeconds(validityPeriodDurationSeconds.value.toLong)
       )
       signatureRaw = signatureP.signature
       signatureFormat <- SignatureFormat.fromProtoEnum("format", signatureP.format)

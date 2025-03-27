@@ -6,9 +6,8 @@ package com.digitalasset.canton.crypto.signer
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config
-import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
-import com.digitalasset.canton.config.{PositiveDurationSeconds, SessionSigningKeysConfig}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.SessionSigningKeysConfig
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.EncryptionAlgorithmSpec.RsaOaepSha256
 import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
@@ -82,31 +81,20 @@ class SyncCryptoSignerWithSessionKeys(
   /** The key specification for the session signing keys. */
   private val sessionKeySpec = sessionSigningKeysConfig.signingKeySpec
 
-  /** A cut-off percentage for the validity period of a session signing key. This helps define the
-    * point at which the session key stops being used (i.e. a new one is generated). For example, if
-    * we set a validity period of 5 minutes and a cutoff percentage of 70%, the key will stop being
-    * used 3.5 minutes after its creation. This is important because a participant will use this key
-    * to sign submission requests, for which the timestamp assigned by the sequencer is unknown. The
-    * sequencer and other protocol participants will use this timestamp to check the validity of the
-    * delegation. If a session signing key is created only when the old session signing key's
-    * validity period has expired, several submissions may fail the signature check because the
-    * sequencing timestamp at that time exceeds the validity period. TODO(#24537): Make
-    * cutOff/evictionTime configurable
+  /** A cut-off duration that determines when the key should stop being used to prevent signature
+    * verification failures due to unpredictable sequencing timestamps.
     */
   @VisibleForTesting
-  private[crypto] val cutOffValidityPercentage: PositiveNumeric[Double] =
-    PositiveNumeric.tryCreate(0.70)
+  private[crypto] val cutOffDuration =
+    PositiveSeconds.fromConfig(sessionSigningKeysConfig.cutOffDuration)
 
-  /** This defines how long the private session signing key remains in memory. This is distinct from
-    * the validity period in the sense that we can be asked to sign arbitrarily old timestamps, and
-    * so we want to persist the key for longer times so we can re-use it. The eviction period should
-    * be longer than [[sessionKeyValidityPeriod]] and at least as long as the majority of
-    * confirmation request decision latencies (for the mediator) or confirmation request response
-    * latencies (for participants). TODO(#24537): Make cutOff/evictionTime configurable
+  /** The duration a session signing key is retained in memory. It is defined as an AtomicReference
+    * only so it can be changed for tests.
     */
   @VisibleForTesting
-  private[crypto] val sessionKeyEvictionPeriod: AtomicReference[config.PositiveDurationSeconds] =
-    new AtomicReference[PositiveDurationSeconds](PositiveDurationSeconds.ofMinutes(10))
+  private[crypto] val sessionKeyEvictionPeriod = new AtomicReference(
+    PositiveSeconds.fromConfig(sessionSigningKeysConfig.keyEvictionPeriod)
+  )
 
   /** Caches the session signing private key and corresponding signature delegation, indexed by the
     * session key ID. The removal of entries from the cache is controlled by a separate parameter,
@@ -119,7 +107,7 @@ class SyncCryptoSignerWithSessionKeys(
     Scaffeine()
       // TODO(#24566): Use scheduler instead of expireAfter
       .expireAfter[Fingerprint, SessionKeyAndDelegation](
-        create = (_, _) => sessionKeyEvictionPeriod.get().underlying,
+        create = (_, _) => sessionKeyEvictionPeriod.get().toFiniteDuration,
         update = (_, _, d) => d,
         read = (_, _, d) => d,
       )
@@ -218,9 +206,8 @@ class SyncCryptoSignerWithSessionKeys(
       skD.signatureDelegation.isValidAt(topologySnapshot.timestamp) &&
       // If sufficient time has passed and the cut-off threshold has been reached,
       // the current signing key is no longer used, and a different or new key must be used.
-      skD.signatureDelegation.validityPeriod
-        .computeCutOffTimestamp(cutOffValidityPercentage)
-        .exists(topologySnapshot.timestamp <= _)
+      topologySnapshot.timestamp < skD.signatureDelegation.validityPeriod
+        .computeCutOffTimestamp(cutOffDuration)
     }
 
     for {

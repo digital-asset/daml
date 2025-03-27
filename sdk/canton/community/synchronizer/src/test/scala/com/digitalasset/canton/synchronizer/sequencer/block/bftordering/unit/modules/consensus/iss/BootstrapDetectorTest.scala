@@ -66,7 +66,6 @@ class BootstrapDetectorTest extends AnyWordSpec with BftSequencerBaseTest {
               BlockNumber(70L),
               EpochLength(10L),
               Genesis.GenesisTopologyActivationTime,
-              Genesis.GenesisPreviousEpochMaxBftTime,
             ),
             lastBlockCommits = Seq.empty,
           ),
@@ -83,7 +82,6 @@ class BootstrapDetectorTest extends AnyWordSpec with BftSequencerBaseTest {
               BlockNumber(15000L),
               DefaultEpochLength,
               topologyActivationTime = TopologyActivationTime(CantonTimestamp.MinValue),
-              Genesis.GenesisPreviousEpochMaxBftTime,
             )
           ),
         ),
