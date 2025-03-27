@@ -197,6 +197,10 @@ message ScriptError {
       Value key = 2;
   }
 
+  message PackageNotFound {
+    string package_name = 1;
+  }
+
   message ContractNotActive {
     ContractRef contract_ref = 1;
     NodeId consumed_by = 2; // optional. A contract whose create was rolled back will not have this set.
@@ -341,6 +345,7 @@ message ScriptError {
     ContractNotActive update_local_contract_not_active = 15;
     CreateEmptyContractKeyMaintainers create_empty_contract_key_maintainers = 16;
     FetchEmptyContractKeyMaintainers fetch_empty_contract_key_maintainers = 17;
+    PackageNotFound package_not_found = 45;
 
     // Errors related to script interpretation
     ContractNotEffective script_contract_not_effective = 18;
@@ -366,7 +371,7 @@ message ScriptError {
     Empty cancelledByRequest = 41;
     LookupError lookup_error = 43;
     UpgradeError upgrade_error = 44;
-    // next is 45;
+    // next is 46;
   }
 }
 
