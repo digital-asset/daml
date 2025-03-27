@@ -31,10 +31,10 @@ class DamlScriptTestRunnerDev extends DamlScriptTestRunner {
            |Submit:contractNotActive ${expectedContractNotActiveResponse}
            |Submit:createEmptyContractKeyMaintainers SUCCESS
            |Submit:devError SUCCESS
+           |Submit:failureStatusError SUCCESS
            |Submit:fetchEmptyContractKeyMaintainers SUCCESS
            |Submit:prefetchContractKeys SUCCESS
            |Submit:truncatedError FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "EXPECTED_TRUNCATED_ERROR" })
-           |Submit:unhandledException SUCCESS
            |Submit:wronglyTypedContract SUCCESS
            |""".stripMargin,
       )

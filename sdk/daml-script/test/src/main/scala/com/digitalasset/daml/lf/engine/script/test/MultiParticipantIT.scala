@@ -119,7 +119,7 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion
                 case Success(_) => fail("unexpected success")
                 case Failure(exception) => Success(exception)
               }
-        } yield error.getMessage should include regex """Unhandled Daml exception\: DA\.Exception\.GeneralError\:GeneralError\@[a-f0-9]{8}\{ message \= \"Here\" \}"""
+        } yield error.getMessage should include("User failure: UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError (error category 9): Here")
       }
     }
   }
