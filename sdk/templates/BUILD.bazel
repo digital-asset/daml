@@ -66,7 +66,7 @@ genrule(
         tar xf $(location //docs:script-example-template) -C $$OUT/script-example
 
         mkdir -p $$OUT/daml-patterns
-        tar xf $(location //docs:daml-patterns) --strip-components=1 -C $$OUT/daml-patterns
+        tar xf $(location //docs:daml-patterns) -C $$OUT/daml-patterns
 
         # daml finance quickstarter
         mkdir -p $$OUT/quickstart-finance
