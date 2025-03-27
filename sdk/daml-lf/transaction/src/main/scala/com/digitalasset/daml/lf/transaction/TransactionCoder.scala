@@ -66,19 +66,12 @@ object TransactionCoder {
       builder.build()
     }
 
-  def decodePackageName(s: String): Either[DecodeError, Ref.PackageName] =
-    Either
-      .cond(
-        s.nonEmpty,
-        s,
-        DecodeError(s"packageName must not be empty"),
-      )
-      .flatMap(
-        Ref.PackageName
-          .fromString(_)
-          .left
-          .map(err => DecodeError(s"Invalid package name '$s': $err"))
-      )
+  def decodePackageName(s: String, packageId: String): Either[DecodeError, Ref.PackageName] = {
+    Ref.PackageName
+      .fromString(if (s.nonEmpty) s else packageId)
+      .left
+      .map(err => DecodeError(s"Invalid package name '$s': $err"))
+  }
 
   def encodePackageVersion(
       txVer: TransactionVersion,
@@ -137,7 +130,10 @@ object TransactionCoder {
       _ <- ensureNoUnknownFields(protoCoinst)
       id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
       value <- ValueCoder.decodeVersionedValue(protoCoinst.getArgVersioned)
-      pkgName <- decodePackageName(protoCoinst.getPackageName)
+      pkgName <- decodePackageName(
+        protoCoinst.getPackageName,
+        protoCoinst.getTemplateId.getPackageId,
+      )
       pkgVer <- decodePackageVersion(value.version, protoCoinst.getPackageVersionList)
     } yield value.map(arg => Value.ContractInstance(pkgName, pkgVer, id, arg))
 
@@ -463,7 +459,7 @@ object TransactionCoder {
       _ <- ensureNoUnknownFields(msg)
       nodeVersion <- decodeActionNodeVersion(txVersion, nodeVersionStr)
       cid <- decodeCoid(msg.getContractId)
-      pkgName <- decodePackageName(msg.getPackageName)
+      pkgName <- decodePackageName(msg.getPackageName, msg.getTemplateId.getPackageId)
       templateId <- ValueCoder.decodeIdentifier(msg.getTemplateId)
       interfaceId <-
         if (msg.hasInterfaceId) {
@@ -571,7 +567,7 @@ object TransactionCoder {
         (),
         DecodeError(s"Contract ket not supported by ${nodeVersion.pretty}"),
       )
-      pkgName <- decodePackageName(msg.getPackageName)
+      pkgName <- decodePackageName(msg.getPackageName, msg.getTemplateId.getPackageId)
       templateId <- ValueCoder.decodeIdentifier(msg.getTemplateId)
       key <-
         decodeKeyWithMaintainers(
@@ -819,7 +815,7 @@ object TransactionCoder {
     for {
       _ <- ValueCoder.ensureNoUnknownFields(msg)
       contractId <- ValueCoder.decodeCoid(msg.getContractId)
-      pkgName <- decodePackageName(msg.getPackageName)
+      pkgName <- decodePackageName(msg.getPackageName, msg.getTemplateId.getPackageId)
       pkgVer <- decodePackageVersion(txVersion, msg.getPackageVersionList)
       templateId <- ValueCoder.decodeIdentifier(msg.getTemplateId)
       createArg <- ValueCoder.decodeValue(version = txVersion, bytes = msg.getCreateArg)
