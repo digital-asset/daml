@@ -33,7 +33,7 @@ sendPackageDiagnostic miState ideData = do
           IdeDataDisabled {iddSeverity, iddMessage} -> fullFileDiagnostic iddSeverity $ T.unpack iddMessage
           _ -> clearDiagnostics
       files = (unPackageHome (ideDataHome ideData) </> "daml.yaml") : fmap unDamlFile (Set.toList $ ideDataOpenFiles ideData)
-   in traverse_ (sendClientSTM miState) $ makeMessage <$> files 
+   in traverse_ (sendClientSTM miState . makeMessage) files
 
 onOpenFiles :: MultiIdeState -> PackageHome -> (Set.Set DamlFile -> Set.Set DamlFile) -> STM ()
 onOpenFiles miState home f = modifyTMVarM_ (misSubIdesVar miState) $ \ides -> do
@@ -95,7 +95,7 @@ handleCreatedPackageOpenFiles :: MultiIdeState -> PackageHome -> IO ()
 handleCreatedPackageOpenFiles miState home = withIDEsAtomic_ miState $ \ides -> do
   -- Iterate ides, return a list of open files, update ides and run monadically
   let shouldConsiderIde :: PackageHome -> Bool
-      shouldConsiderIde oldHome = 
+      shouldConsiderIde oldHome =
         oldHome == misDefaultPackagePath miState ||
           unPackageHome oldHome `isPrefixOf` unPackageHome home && oldHome /= home
       shouldMoveFile :: DamlFile -> Bool
