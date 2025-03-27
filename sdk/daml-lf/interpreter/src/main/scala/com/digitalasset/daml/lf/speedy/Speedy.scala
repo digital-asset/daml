@@ -836,7 +836,7 @@ private[lf] object Speedy {
 
     /* Should Daml Exceptions be automatically converted to FailureStatus before throwing from the engine
        Daml-script needs to disable this behaviour in 3.3, thus the flag.
-    */
+     */
     val convertLegacyExceptions: Boolean = true
 
     private val stablePackages = StablePackages(

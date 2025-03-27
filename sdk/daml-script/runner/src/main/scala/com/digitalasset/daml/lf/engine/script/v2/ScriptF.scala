@@ -50,7 +50,11 @@ object ScriptF {
   )
 
   sealed trait Cmd {
-    private[lf] def executeWithRunner(env: Env, @annotation.unused runner: v2.Runner, @annotation.unused convertLegacyExceptions: Boolean)(implicit
+    private[lf] def executeWithRunner(
+        env: Env,
+        @annotation.unused runner: v2.Runner,
+        @annotation.unused convertLegacyExceptions: Boolean,
+    )(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -134,36 +138,39 @@ object ScriptF {
   }
 
   final case class Catch(act: SValue) extends Cmd {
-    override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(implicit
+    override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
+        implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
-      runner.run(SEAppAtomic(SEValue(act), Array(SEValue(SUnit))), convertLegacyExceptions = false).transformWith {
-        case Success(v) =>
-          Future.successful(SEAppAtomic(right, Array(SEValue(v))))
-        case Failure(
-              free.InterpretationError(
-                SError.SErrorDamlException(IE.UnhandledException(typ, value))
-              )
-            ) =>
-          env.translateValue(typ, value) match {
-            case Right(sVal) =>
-              Future.successful(
-                SELet1(
-                  SEAppAtomic(SEBuiltinFun(SBToAny(typ)), Array(SEValue(sVal))),
-                  SEAppAtomic(left, Array(SELocS(1))),
+      runner
+        .run(SEAppAtomic(SEValue(act), Array(SEValue(SUnit))), convertLegacyExceptions = false)
+        .transformWith {
+          case Success(v) =>
+            Future.successful(SEAppAtomic(right, Array(SEValue(v))))
+          case Failure(
+                free.InterpretationError(
+                  SError.SErrorDamlException(IE.UnhandledException(typ, value))
                 )
-              )
-            // This shouldn't ever happen, as these can only come from our engine
-            case Left(err) =>
-              Future.failed(
-                new RuntimeException(s"Daml-script thrown error couldn't be translated: $err")
-              )
-          }
+              ) =>
+            env.translateValue(typ, value) match {
+              case Right(sVal) =>
+                Future.successful(
+                  SELet1(
+                    SEAppAtomic(SEBuiltinFun(SBToAny(typ)), Array(SEValue(sVal))),
+                    SEAppAtomic(left, Array(SELocS(1))),
+                  )
+                )
+              // This shouldn't ever happen, as these can only come from our engine
+              case Left(err) =>
+                Future.failed(
+                  new RuntimeException(s"Daml-script thrown error couldn't be translated: $err")
+                )
+            }
 
-        case Failure(e) => Future.failed(e)
-      }
+          case Failure(e) => Future.failed(e)
+        }
 
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
@@ -826,7 +833,8 @@ object ScriptF {
   }
 
   final case class TryCommands(act: SValue) extends Cmd {
-    override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(implicit
+    override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
+        implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,

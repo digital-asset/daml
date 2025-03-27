@@ -424,7 +424,8 @@ object Ast {
       extends FailureCategory("InvalidGivenCurrentSystemStateOther", 9)
 
   object FailureCategory {
-    def all: Seq[FailureCategory] = Seq(FCInvalidIndependentOfSystemState, FCInvalidGivenCurrentSystemStateOther)
+    def all: Seq[FailureCategory] =
+      Seq(FCInvalidIndependentOfSystemState, FCInvalidGivenCurrentSystemStateOther)
   }
 
   //

@@ -329,7 +329,15 @@ object GrpcErrorParser {
         // Fields added automatically by canton, and not by the user
         // Removed in GrpcLedgerClient to be consistent with IDELedgerClient, which will not add these fields
         val cantonFields =
-          Seq("commands", "definite_answer", "tid", "category", "participant", "error_id", "exercise_trace")
+          Seq(
+            "commands",
+            "definite_answer",
+            "tid",
+            "category",
+            "participant",
+            "error_id",
+            "exercise_trace",
+          )
         val oStatus =
           for {
             errorInfo <- oErrorInfoDetail

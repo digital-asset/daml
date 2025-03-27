@@ -231,13 +231,13 @@ final class Conversions(
                   proto.ScriptError.FailureStatusError.newBuilder
                     .setErrorId(errorId)
                     .setCategoryName(
-                      FailureCategory.all.find(cat =>
-                        cat.cantonCategoryId == categoryId
-                      ).fold(s"UnknownCategoryID $categoryId")(_.toString)
+                      FailureCategory.all
+                        .find(cat => cat.cantonCategoryId == categoryId)
+                        .fold(s"UnknownCategoryID $categoryId")(_.toString)
                     )
                     .setMessage(message)
                     .addAllMetadata(
-                      metadata.toList.map{ case (k, v) =>
+                      metadata.toList.map { case (k, v) =>
                         proto.ScriptError.FailureStatusError.MetadataEntry.newBuilder
                           .setKey(k)
                           .setValue(v)
