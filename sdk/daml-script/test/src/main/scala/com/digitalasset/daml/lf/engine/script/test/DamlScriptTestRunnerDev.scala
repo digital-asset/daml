@@ -20,7 +20,7 @@ class DamlScriptTestRunnerDev extends DamlScriptTestRunner {
   override lazy val darFiles = List(trySubmitTestDarPath)
 
   val expectedContractNotActiveResponse =
-    """FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "contractNotActive no additional info" })"""
+    """FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError (error category 9): contractNotActive no additional info)"""
 
   "daml-script command line" should {
     "pick up all scripts and returns somewhat sensible outputs for daml-script features" in
@@ -34,7 +34,7 @@ class DamlScriptTestRunnerDev extends DamlScriptTestRunner {
            |Submit:failureStatusError SUCCESS
            |Submit:fetchEmptyContractKeyMaintainers SUCCESS
            |Submit:prefetchContractKeys SUCCESS
-           |Submit:truncatedError FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "EXPECTED_TRUNCATED_ERROR" })
+           |Submit:truncatedError FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError (error category 9): EXPECTED_TRUNCATED_ERROR)
            |Submit:wronglyTypedContract SUCCESS
            |""".stripMargin,
       )
