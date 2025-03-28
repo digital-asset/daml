@@ -290,6 +290,12 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
     }
   }
 
+  "reverse" should {
+    "work" in {
+      NonEmpty(Seq, 1, 3, 2).reverse should ===(NonEmpty(Seq, 2, 3, 1))
+    }
+  }
+
   "flatMap" should {
     "'work' on sets, so to speak" in {
       val r = NonEmpty(Set, 1, 2) flatMap (n => NonEmpty(List, n + 3, n + 5))
