@@ -15,8 +15,16 @@ module DA.Crypto.Text
   , BytesHex
   , PublicKeyHex
   , SignatureHex
+  , byteCount
+  , isBytes32Hex
+  , isUInt32Hex
+  , isUInt64Hex
+  , isUInt256Hex
+  , packHexBytes
+  , sliceHexBytes
   ) where
 
+import DA.Optional (fromSome)
 import DA.Text qualified as Text
 import GHC.Types (primitive)
 
@@ -30,6 +38,7 @@ type PublicKeyHex = Text
 -- | A DER formatted SECP256K1 signature
 type SignatureHex = Text
 
+-- | HIDE
 hexByteToInt : Text -> Int
 hexByteToInt "0" = 0
 hexByteToInt "1" = 1
@@ -78,14 +87,106 @@ class HasToHex a where
   -- | Converts a typed data value into a hex encoded string.
   toHex: a -> BytesHex
 
+instance HasToHex Text where
+  toHex = primitive @"BEEncodeHex"
+
+-- | HIDE
+intToHexByte: Int -> BytesHex
+intToHexByte n | 0 <= n && n <= 9 = show n
+intToHexByte 10 = "a"
+intToHexByte 11 = "b"
+intToHexByte 12 = "c"
+intToHexByte 13 = "d"
+intToHexByte 14 = "e"
+intToHexByte 15 = "f"
+intToHexByte n | n < 256 = (intToHexByte(n / 16)) <> (intToHexByte(n % 16))
+intToHexByte n = error $ "Int should be in range [0, 256): " <> show n
+
+instance HasToHex Int where
+  toHex n | 0 <= n && n <= 9 = "0" <> (show n)
+  toHex 10 = "0a"
+  toHex 11 = "0b"
+  toHex 12 = "0c"
+  toHex 13 = "0d"
+  toHex 14 = "0e"
+  toHex 15 = "0f"
+  toHex n | n < 256 = intToHexByte n
+  toHex n = (toHex(n / 256)) <> (toHex(n % 256))
+
+instance HasToHex Party where
+  toHex p = toHex(partyToText p)
+
+instance NumericScale n => HasToHex (Numeric n) where
+  toHex num = toHex(show num)
+
 class HasFromHex a where
   -- | Converts a hex encoded string into a typed data value.
   fromHex: BytesHex -> a
 
-instance HasToHex Text where
-  toHex = primitive @"BEEncodeHex"
-
 instance HasFromHex Text where
   fromHex "" = ""
-  fromHex arg | Text.isHex arg = primitive @"BEDecodeHex" (Text.asciiToLower arg)
-  fromHex arg = error $ "Argument is not a hex string: " <> arg
+  fromHex hex | Text.isHex hex = primitive @"BEDecodeHex" (Text.asciiToLower hex)
+  fromHex arg = error $ "Expected a hex encoded string but argument was: " <> arg
+
+instance HasFromHex Int where
+  fromHex "" = 0
+  fromHex hex | Text.isHex hex && Text.length hex == 2 = hexByteToInt hex
+  fromHex hex | Text.isHex hex =
+    let right = fromHex(Text.substring ((Text.length hex) - 2) 2 hex)
+        left = fromHex(Text.substring 0 ((Text.length hex) - 2) hex)
+    in
+      left * 256 + right
+  fromHex arg = error $ "Expected a hex encoded string but argument was: " <> arg
+
+instance HasFromHex Party where
+  fromHex hex | Text.isHex hex = fromSome(partyFromText(fromHex hex))
+  fromHex arg = error $ "Expected a hex encoded string but argument was: " <> arg
+
+instance NumericScale n => HasFromHex (Numeric n) where
+  fromHex hex | Text.isHex hex = fromSome(Text.parseNumeric(fromHex hex))
+  fromHex arg = error $ "Expected a hex encoded string but argument was: " <> arg
+
+-- | Number of bytes present in a byte encoded string.
+byteCount: BytesHex -> Int
+byteCount "" = 0
+byteCount hex | Text.isHex hex = (Text.length hex) / 2
+byteCount arg = error $ "Expected a hex encoded string but argument was: " <> arg
+
+-- | Validate that the byte encoded string is Bytes32Hex
+isBytes32Hex: BytesHex -> Bool
+isBytes32Hex hex | Text.isHex hex = byteCount hex == 32
+isBytes32Hex arg = error $ "Expected a hex encoded string but argument was: " <> arg
+
+-- | Validate that the byte encoded string is UInt32Hex
+isUInt32Hex: BytesHex -> Bool
+isUInt32Hex hex | Text.isHex hex = byteCount hex == 5
+isUInt32Hex arg = error $ "Expected a hex encoded string but argument was: " <> arg
+
+-- | Validate that the byte encoded string is UInt64Hex
+isUInt64Hex: BytesHex -> Bool
+isUInt64Hex hex | Text.isHex hex = byteCount hex == 6
+isUInt64Hex arg = error $ "Expected a hex encoded string but argument was: " <> arg
+
+-- | Validate that the byte encoded string is UInt256Hex
+isUInt256Hex: BytesHex -> Bool
+isUInt256Hex hex | Text.isHex hex = byteCount hex == 8
+isUInt256Hex arg = error $ "Expected a hex encoded string but argument was: " <> arg
+
+-- | HIDE
+constList: Int -> a -> [a]
+constList 0 _ = []
+constList n x = [x] ++ (constList (n - 1) x)
+
+-- | Pack a byte encoded string to a given byte count size. If the byte string is shorter than the pad
+-- size, then prefix with 00 byte strings. If the byte string is larger, then truncate the byte string.
+packHexBytes: BytesHex -> Int -> BytesHex
+packHexBytes hex pad | Text.isHex hex && 0 <= pad && byteCount hex <= pad = (Text.implode(constList (pad - byteCount hex) "00")) <> hex
+packHexBytes hex pad | Text.isHex hex && 0 <= pad = Text.drop ((pad - byteCount hex) * 2) hex
+packHexBytes arg _ = error $ "Expected a hex encoded string but argument was: " <> arg
+
+-- | Extract the byte string starting at startByte up to, but excluding, endByte. Byte indexing starts at 1.
+sliceHexBytes: BytesHex -> Int -> Int -> BytesHex
+sliceHexBytes hex startByte endByte | Text.isHex hex && 1 <= startByte && startByte <= endByte && endByte <= (byteCount hex) + 1 = Text.substring ((startByte - 1) * 2) ((endByte - startByte) * 2) hex
+sliceHexBytes hex startByte _ | Text.isHex hex && startByte < 1 =  error $ "Expected start byte to be >= 1, was: " <> show startByte
+sliceHexBytes hex startByte endByte | Text.isHex hex && 1 <= startByte =  error $ "Expected end byte to be >= " <> show(startByte) <> " and <= " <> show((byteCount hex) + 1) <> " was: " <> show(endByte)
+sliceHexBytes arg _ _ =  error $ "Expected a hex encoded string but argument was: " <> arg

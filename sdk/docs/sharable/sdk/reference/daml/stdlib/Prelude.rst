@@ -1523,6 +1523,10 @@ Data Types
 
   The ``Party`` type represents a party to a contract\.
 
+  **instance** :ref:`HasFromHex <class-da-crypto-text-hasfromhex-84972>` `Party <type-da-internal-lf-party-57932_>`_
+
+  **instance** :ref:`HasToHex <class-da-crypto-text-hastohex-92431>` `Party <type-da-internal-lf-party-57932_>`_
+
   **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ `Party <type-da-internal-lf-party-57932_>`_
 
   **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ (`Optional <type-da-internal-prelude-optional-37153_>`_ `Party <type-da-internal-lf-party-57932_>`_)
