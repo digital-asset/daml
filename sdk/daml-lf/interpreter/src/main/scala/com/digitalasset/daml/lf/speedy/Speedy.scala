@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.speedy.PartialTransaction.NodeSeeds
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.speedy.SValue.SArithmeticError
+import com.digitalasset.daml.lf.speedy.SValue.{SAnyException, SArithmeticError, SRecord, SText}
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyMapping
@@ -875,11 +875,26 @@ private[lf] object Speedy {
 
         originalExceptionId match {
           case None =>
-            pushKont(KConvertingException(exceptionId))
-            Control.Expression(
-              compiledPackages.compiler
-                .throwExceptionAsFailureStatusSExpr(exceptionId, excep.value.toUnnormalizedValue)
-            )
+            (exceptionId, excep) match {
+              case (
+                    valueArithmeticError.tyCon,
+                    SAnyException(SRecord(_, _, ArrayList(SText(message)))),
+                  ) =>
+                Control.Error(
+                  interpretation.Error.FailureStatus(
+                    "UNHANDLED_EXCEPTION/" + exceptionId.qualifiedName.toString,
+                    FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
+                    message,
+                    Map(),
+                  )
+                )
+              case _ =>
+                pushKont(KConvertingException(exceptionId))
+                Control.Expression(
+                  compiledPackages.compiler
+                    .throwExceptionAsFailureStatusSExpr(exceptionId, excep.value)
+                )
+            }
           case Some(originalExceptionId) =>
             Control.Error(
               interpretation.Error.FailureStatus(

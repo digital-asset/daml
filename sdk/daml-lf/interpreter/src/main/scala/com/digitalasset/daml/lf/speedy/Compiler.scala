@@ -23,7 +23,6 @@ import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.{SExpr => t, SExpr0 => s}
 import com.digitalasset.daml.lf.stablepackages.{StablePackages, StablePackagesV2}
 import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
-import com.digitalasset.daml.lf.value.Value
 import org.slf4j.LoggerFactory
 
 import scala.annotation.nowarn
@@ -907,13 +906,13 @@ private[lf] final class Compiler(
     )
   }
 
-  def throwExceptionAsFailureStatusSExpr(exceptionId: TypeConName, exceptionValue: Value): t.SExpr =
+  def throwExceptionAsFailureStatusSExpr(
+      exceptionId: TypeConName,
+      exceptionValue: SValue,
+  ): t.SExpr =
     t.SELet1(
-      t.SEImportValue(TTyCon(exceptionId), exceptionValue),
-      t.SELet1(
-        t.SEVal(t.ThrowExceptionAsFailureStatusDefRef(exceptionId)),
-        t.SEAppAtomic(t.SELocS(1), Array(t.SELocS(2))),
-      ),
+      t.SEVal(t.ThrowExceptionAsFailureStatusDefRef(exceptionId)),
+      t.SEAppAtomic(t.SELocS(1), Array(t.SEValue(exceptionValue))),
     )
 
   private[this] def compileCreate(
