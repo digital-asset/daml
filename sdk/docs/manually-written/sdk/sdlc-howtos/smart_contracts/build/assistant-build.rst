@@ -6,6 +6,8 @@
 Build Daml Projects
 ###################
 
+.. _assistant-manual-build-a-project:
+
 Build a project
 *******************
 
@@ -44,6 +46,9 @@ You can use multi-package builds to:
    changes
 -  Build all of the packages in a project simultaneously, using ``daml build --all``
 -  Clean all build artifacts in a project, using ``daml clean --all``
+
+Daml Studio also supports multi-package projects, which is covered
+:ref:`here <daml-studio-packages>`.
 
 Overview
 ========
@@ -514,3 +519,9 @@ To clear out project build artifacts you no longer need, use ``daml clean``:
 When a ``multi-package.yaml`` file is in place, the ``--all``
 flag clears the build artifacts of all packages in the
 project.
+
+Multi-Package Builds and Upgrades
+=================================
+
+Multi-package builds can make testing and developing upgrades much easier. For
+more on this, consult the the documentation for :ref:`multi-package builds in upgrades <upgrades-multi-package>`.
