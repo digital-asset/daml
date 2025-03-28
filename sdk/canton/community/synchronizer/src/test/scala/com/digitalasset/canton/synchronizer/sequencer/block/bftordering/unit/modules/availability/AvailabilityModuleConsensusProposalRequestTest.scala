@@ -7,7 +7,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.AvailabilityModuleConfig.EmptyBlockCreationInterval
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftKeyId,
+  EpochNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
   OrderingRequestBatch,
@@ -20,8 +23,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.UnitTestContext.DelayCount
 import com.digitalasset.canton.time.SimClock
 import org.scalatest.wordspec.AnyWordSpec
+import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.AtomicReference
+import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.*
@@ -58,7 +63,6 @@ class AvailabilityModuleConsensusProposalRequestTest
           disseminationProtocolState.disseminationProgress should be(empty)
           disseminationProtocolState.toBeProvidedToConsensus should contain only AToBeProvidedToConsensus
           disseminationProtocolState.batchesReadyForOrdering should be(empty)
-
         }
       }
 
@@ -66,7 +70,7 @@ class AvailabilityModuleConsensusProposalRequestTest
       "some time has passed with no batches ready for ordering" should {
 
         "record the proposal request and " +
-          "send empty block proposal to local consensus" in {
+          "send an empty block proposal to local consensus" in {
             val disseminationProtocolState = new DisseminationProtocolState()
             val mempoolCell = new AtomicReference[Option[Mempool.Message]](None)
             val consensusCell = new AtomicReference[Option[Consensus.ProtocolMessage]](None)
@@ -382,8 +386,8 @@ class AvailabilityModuleConsensusProposalRequestTest
 
     "it receives Consensus.CreateProposal (from local consensus), " +
       "there are no batches ready for ordering but " +
-      "topology becomes strictly smaller and " +
-      "an in-progress batch is ready in the new topology" should {
+      "the new topology has a smaller weak quorum and " +
+      "an in-progress batch already has a new weak quorum" should {
 
         "move the in-progress batch to ready and " +
           "send it in a proposal to local consensus" in {
@@ -434,8 +438,8 @@ class AvailabilityModuleConsensusProposalRequestTest
 
     "it receives Consensus.CreateProposal (from local consensus) and " +
       "there is a batch ready for ordering but " +
-      "the topology becomes strictly bigger and " +
-      "the batch is not ready for ordering in the new topology" should {
+      "the new topology has a bigger weak quorum and " +
+      "the batch that was ready for ordering doesn't have a new weak quorum" should {
 
         "complete batch dissemination" in {
           val disseminationProtocolState = new DisseminationProtocolState()
@@ -451,9 +455,7 @@ class AvailabilityModuleConsensusProposalRequestTest
             BatchReadyForOrderingNode0Vote
           )
           val availabilityStore = new FakeAvailabilityStore[FakePipeToSelfQueueUnitTestEnv](
-            mutable.Map[BatchId, OrderingRequestBatch](
-              ABatchId -> ABatch
-            )
+            TrieMap[BatchId, OrderingRequestBatch](ABatchId -> ABatch)
           )
           val availability = createAvailability[FakePipeToSelfQueueUnitTestEnv](
             disseminationProtocolState = disseminationProtocolState,
@@ -491,15 +493,16 @@ class AvailabilityModuleConsensusProposalRequestTest
 
     "it receives Consensus.CreateProposal (from local consensus), " +
       "there are multiple pending pulls from consensus and" +
-      "there are batches ready for ordering," +
-      "there are batches in progress but " +
-      "the topology becomes strictly smaller; after that " +
-      "some in-progress batches are ready in the new topology and " +
-      "some batches ready for ordering are not ready anymore in the new topology" should {
+      "there is a batch ready for ordering," +
+      "there is a batch in progress but " +
+      "the new topology has a smaller weak quorum; after that " +
+      "the in-progress batch has a new weak quorum and " +
+      "the batch that was ready for ordering doesn't have a new weak quorum" should {
 
-        "move the previously in-progress and now completed batches to ready, " +
-          "propose them to local consensus and " +
-          "complete dissemination of the batches previously ready for ordering that are not ready anymore" in {
+        "move the previously in-progress batch to ready, " +
+          "move the previously ready batch to in-progress, " +
+          "propose only the ready batch to local consensus and " +
+          "complete dissemination of the in-progress batch" in {
             val disseminationProtocolState = new DisseminationProtocolState()
             val consensusBuffer =
               new ArrayBuffer[Consensus.Message[FakePipeToSelfQueueUnitTestEnv]]()
@@ -530,9 +533,7 @@ class AvailabilityModuleConsensusProposalRequestTest
               ToBeProvidedToConsensus(1, EpochNumber.First)
             )
             val availabilityStore = new FakeAvailabilityStore[FakePipeToSelfQueueUnitTestEnv](
-              mutable.Map[BatchId, OrderingRequestBatch](
-                AnotherBatchId -> ABatch
-              )
+              TrieMap[BatchId, OrderingRequestBatch](AnotherBatchId -> ABatch)
             )
             val availability = createAvailability[FakePipeToSelfQueueUnitTestEnv](
               disseminationProtocolState = disseminationProtocolState,
@@ -575,4 +576,220 @@ class AvailabilityModuleConsensusProposalRequestTest
           }
       }
   }
+
+  "it receives Consensus.CreateProposal (from local consensus), " +
+    "there is a batch ready for ordering but " +
+    "the new topology has the same size but different keys and " +
+    "invalidates one of its acks from other nodes" should {
+
+      "move the previously ready batch to in-progress and " +
+        "complete dissemination of the in-progress batch" in {
+          val disseminationProtocolState = new DisseminationProtocolState()
+          val consensusBuffer =
+            new ArrayBuffer[Consensus.Message[FakePipeToSelfQueueUnitTestEnv]]()
+          val pipeToSelfQueue =
+            new mutable.Queue[() => Option[
+              Availability.Message[FakePipeToSelfQueueUnitTestEnv]
+            ]]()
+          implicit val selfPipeRecordingContext: FakePipeToSelfQueueUnitTestContext[
+            Availability.Message[FakePipeToSelfQueueUnitTestEnv]
+          ] =
+            FakePipeToSelfQueueUnitTestContext(pipeToSelfQueue)
+
+          // This ready batch will become stale in the new topology
+          disseminationProtocolState.batchesReadyForOrdering.addOne(
+            AnotherBatchReadyForOrdering6NodesQuorumNodes0And4To6Votes
+          )
+
+          val availabilityStore = new FakeAvailabilityStore[FakePipeToSelfQueueUnitTestEnv](
+            TrieMap[BatchId, OrderingRequestBatch](
+              AnotherBatchId -> ABatch
+            )
+          )
+          val availability = createAvailability[FakePipeToSelfQueueUnitTestEnv](
+            disseminationProtocolState = disseminationProtocolState,
+            availabilityStore = availabilityStore,
+            consensus = fakeRecordingModule(consensusBuffer),
+          )
+          val newTopology =
+            OrderingTopologyNodes0To6.copy(
+              nodesTopologyInfo =
+                OrderingTopologyNodes0To6.nodesTopologyInfo.map { case (nodeId, nodeInfo) =>
+                  // Change the key of node5 and node6 so that the PoA is only left with 2 valid acks < f+1 = 3
+                  nodeId -> (if (nodeId == "node5" || nodeId == "node6")
+                               nodeInfo.copy(keyIds =
+                                 Set(BftKeyId(anotherNoSignature.signedBy.toProtoPrimitive))
+                               )
+                             else nodeInfo)
+                }
+            )
+          availability.receive(
+            Availability.Consensus
+              .CreateProposal(
+                newTopology,
+                failingCryptoProvider,
+                EpochNumber.First,
+              )
+          )
+
+          val reviewedProgress =
+            DisseminationProgress
+              .reviewReadyForOrdering(
+                AnotherBatchReadyForOrdering6NodesQuorumNodes0And4To6Votes._2,
+                newTopology,
+              )
+
+          disseminationProtocolState.disseminationProgress should contain only (AnotherBatchId -> reviewedProgress)
+          disseminationProtocolState.toBeProvidedToConsensus should contain only
+            ToBeProvidedToConsensus(16, EpochNumber.First)
+          disseminationProtocolState.batchesReadyForOrdering shouldBe empty
+          consensusBuffer shouldBe empty
+          val selfMessages = pipeToSelfQueue.flatMap(_.apply())
+          selfMessages should contain only Availability.LocalDissemination
+            .LocalBatchesStoredSigned(
+              Seq(LocalBatchStoredSigned(AnotherBatchId, ABatch, Left(reviewedProgress)))
+            )
+        }
+    }
+
+  "it receives Consensus.CreateProposal (from local consensus), " +
+    "there is a batch ready for ordering but " +
+    "the new topology has the same size but different keys and " +
+    "invalidates the ack from the disseminating node" should {
+
+      "move the previously ready batch to in-progress, " +
+        "sign the batch again and " +
+        "re-disseminate the in-progress batch" in {
+          val disseminationProtocolState = new DisseminationProtocolState()
+          val consensusBuffer =
+            new ArrayBuffer[Consensus.Message[FakePipeToSelfQueueUnitTestEnv]]()
+          val pipeToSelfQueue =
+            new mutable.Queue[() => Option[
+              Availability.Message[FakePipeToSelfQueueUnitTestEnv]
+            ]]()
+          implicit val selfPipeRecordingContext: FakePipeToSelfQueueUnitTestContext[
+            Availability.Message[FakePipeToSelfQueueUnitTestEnv]
+          ] =
+            FakePipeToSelfQueueUnitTestContext(pipeToSelfQueue)
+
+          // This ready batch will become stale in the new topology
+          disseminationProtocolState.batchesReadyForOrdering.addOne(
+            AnotherBatchReadyForOrdering6NodesQuorumNodes0And4To6Votes
+          )
+
+          val availabilityStore = new FakeAvailabilityStore[FakePipeToSelfQueueUnitTestEnv](
+            TrieMap[BatchId, OrderingRequestBatch](
+              AnotherBatchId -> ABatch
+            )
+          )
+          val availability = createAvailability[FakePipeToSelfQueueUnitTestEnv](
+            disseminationProtocolState = disseminationProtocolState,
+            availabilityStore = availabilityStore,
+            consensus = fakeRecordingModule(consensusBuffer),
+          )
+          val newTopology =
+            OrderingTopologyNodes0To6.copy(
+              nodesTopologyInfo =
+                OrderingTopologyNodes0To6.nodesTopologyInfo.map { case (nodeId, nodeInfo) =>
+                  // Change the key of node0 so that the batch has to be re-signed and re-disseminated
+                  nodeId -> (if (nodeId == "node0")
+                               nodeInfo.copy(keyIds =
+                                 Set(BftKeyId(anotherNoSignature.signedBy.toProtoPrimitive))
+                               )
+                             else nodeInfo)
+                }
+            )
+          availability.receive(
+            Availability.Consensus
+              .CreateProposal(
+                newTopology,
+                failingCryptoProvider,
+                EpochNumber.First,
+              )
+          )
+
+          disseminationProtocolState.disseminationProgress shouldBe empty
+          disseminationProtocolState.toBeProvidedToConsensus should contain only
+            ToBeProvidedToConsensus(16, EpochNumber.First)
+          disseminationProtocolState.batchesReadyForOrdering shouldBe empty
+          consensusBuffer shouldBe empty
+          val selfMessages = pipeToSelfQueue.flatMap(_.apply())
+          selfMessages should contain only Availability.LocalDissemination
+            .LocalBatchesStored(
+              Seq(AnotherBatchId -> ABatch)
+            )
+        }
+    }
+
+  "it receives Consensus.CreateProposal (from local consensus), " +
+    "there are expired batches ready for ordering" should {
+
+      "only propose non-expired batches and remove the expired batches from ready for ordering " in {
+        val disseminationProtocolState = new DisseminationProtocolState()
+        val consensusCell = new AtomicReference[Option[Consensus.ProtocolMessage]](None)
+        val initialEpochNumber = EpochNumber(OrderingRequestBatch.BatchValidityDurationEpochs + 1L)
+        val availability = createAvailability[IgnoringUnitTestEnv](
+          consensus = fakeCellModule(consensusCell),
+          disseminationProtocolState = disseminationProtocolState,
+          initialEpochNumber = EpochNumber(initialEpochNumber - 1L),
+        )
+
+        val (validBatchIds, expiredBatchIds) = {
+          val numberOfBatchesReadyForOrdering =
+            BftBlockOrdererConfig.DefaultMaxBatchesPerProposal.toInt
+          val batchIds =
+            (0 until numberOfBatchesReadyForOrdering).map(i =>
+              BatchId.createForTesting(s"batch $i")
+            )
+          (
+            batchIds.take(numberOfBatchesReadyForOrdering / 2),
+            batchIds.drop(numberOfBatchesReadyForOrdering / 2),
+          )
+        }
+
+        {
+          def batchIdWithMetadata(batchId: BatchId, epochNumber: EpochNumber) =
+            batchId -> InProgressBatchMetadata(
+              batchId,
+              epochNumber,
+              OrderingRequestBatchStats.ForTesting,
+            ).complete(
+              ProofOfAvailabilityNode0AckNode0InTopology.copy(batchId = batchId).acks
+            )
+          val validBatchIdsWithMetadata =
+            validBatchIds.map(batchId => batchIdWithMetadata(batchId, initialEpochNumber))
+          val expiredBatchIdsWithMetadata =
+            expiredBatchIds.map(batchId => batchIdWithMetadata(batchId, EpochNumber.First))
+          disseminationProtocolState.batchesReadyForOrdering.addAll(
+            validBatchIdsWithMetadata ++ expiredBatchIdsWithMetadata
+          )
+        }
+
+        loggerFactory.assertLogs(
+          availability.receive(
+            Availability.Consensus
+              .CreateProposal(OrderingTopologyNode0, failingCryptoProvider, initialEpochNumber)
+          ),
+          log => {
+            log.level shouldBe Level.WARN
+            log.message should include regex (
+              s"Discarding the batches with the following ids .* because they are expired"
+            )
+          },
+        )
+
+        inside(consensusCell.get()) {
+          case Some(
+                Consensus.LocalAvailability
+                  .ProposalCreated(
+                    OrderingBlock(poas),
+                    `initialEpochNumber`,
+                  )
+              ) =>
+            poas.map(_.batchId) should contain theSameElementsAs validBatchIds
+        }
+
+        disseminationProtocolState.batchesReadyForOrdering.keys should contain theSameElementsAs validBatchIds
+      }
+    }
 }

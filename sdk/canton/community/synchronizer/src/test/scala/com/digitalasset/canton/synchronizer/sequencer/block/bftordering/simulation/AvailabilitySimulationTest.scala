@@ -80,6 +80,7 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.google.protobuf.ByteString
 import org.scalatest.flatspec.AnyFlatSpec
 
+import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.util.Random
@@ -102,12 +103,26 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
       mutable.ArrayBuffer()
     val fetchedOutputBlocks: mutable.ArrayBuffer[CompleteBlockData] = mutable.ArrayBuffer()
 
-    val availabilityStorage: mutable.SortedMap[BatchId, OrderingRequestBatch] =
-      mutable.SortedMap()
+    val availabilityStorage: TrieMap[BatchId, OrderingRequestBatch] = TrieMap.empty
 
     val disseminationProtocolState: DisseminationProtocolState = new DisseminationProtocolState()
     val mainOutputFetchProtocolState: MainOutputFetchProtocolState =
       new MainOutputFetchProtocolState
+
+    private val newProposalsToCheckQueue
+        : mutable.ArrayBuffer[Consensus.LocalAvailability.ProposalCreated] =
+      mutable.ArrayBuffer()
+
+    def addNewProposal(proposal: Consensus.LocalAvailability.ProposalCreated): Unit = {
+      proposalsToConsensus.addOne(proposal)
+      newProposalsToCheckQueue.addOne(proposal)
+    }
+
+    def newProposalsToCheck: Seq[Consensus.LocalAvailability.ProposalCreated] = {
+      val proposals = newProposalsToCheckQueue.toSeq
+      newProposalsToCheckQueue.clear()
+      proposals
+    }
   }
 
   class MempoolSimulationFake[E <: Env[E]](
@@ -181,7 +196,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
 
         case proposal @ Consensus.LocalAvailability.ProposalCreated(OrderingBlock(batches), _) =>
           if (proposalsRequested) {
-            simulationModel.proposalsToConsensus.addOne(proposal)
+            simulationModel.addNewProposal(proposal)
             dependencies.output.asyncSend(
               Output.BlockOrdered(
                 OrderedBlockForOutput(
@@ -249,7 +264,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
       orderingTopology: OrderingTopology,
       cryptoProvider: CryptoProvider[SimulationEnv],
       clock: Clock,
-      store: mutable.Map[BatchId, OrderingRequestBatch] => AvailabilityStore[SimulationEnv],
+      store: TrieMap[BatchId, OrderingRequestBatch] => AvailabilityStore[SimulationEnv],
   ): SystemInitializer[
     SimulationEnv,
     BftOrderingServiceReceiveRequest,
@@ -331,7 +346,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
     )
     val availability = new AvailabilityModule[SimulationEnv](
       membership,
-      initialEpochNumber = EpochNumber.First,
+      initialEpochNumber = Genesis.GenesisEpochNumber,
       cryptoProvider,
       availabilityStore,
       availabilityConfig,
@@ -491,7 +506,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
       simulation.run {
         SimulationVerifier.onlyCheckInvariant { _ =>
           simulationModels.forall { simulationModel =>
-            simulationModel.proposalsToConsensus.forall { proposal =>
+            simulationModel.newProposalsToCheck.forall { proposal =>
               proposal.orderingBlock.proofs.forall { proofOfAvailability =>
                 simulationModels.count { simulationModel =>
                   simulationModel.availabilityStorage.contains(proofOfAvailability.batchId) &&

@@ -51,9 +51,8 @@ class SyncCryptoSignerWithLongTermKeys(
       existingKeys <- signingKeys.toList
         .parFilterA(pk => cryptoPrivateStore.existsSigningKey(pk.fingerprint))
         .leftMap[SyncCryptoError](SyncCryptoError.StoreError.apply)
-      // TODO(#24468): Create a wrapper/method to find the newest key and use it everywhere.
-      // use lastOption to retrieve latest key (newer keys are at the end)
-      kk <- existingKeys.lastOption
+      kk <- PublicKey
+        .getLatestKey(existingKeys)
         .toRight[SyncCryptoError](
           SyncCryptoError
             .KeyNotAvailable(

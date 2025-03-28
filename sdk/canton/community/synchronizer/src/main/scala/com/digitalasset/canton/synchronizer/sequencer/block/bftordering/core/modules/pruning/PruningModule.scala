@@ -37,17 +37,20 @@ final class PruningModule[E <: Env[E]](
   )(implicit context: E#ActorContextT[Pruning.Message], traceContext: TraceContext): Unit =
     message match {
       case Pruning.Start =>
-        pipeToSelf(stores.outputStore.getLowerBound()) {
-          case Success(Some(lowerBound)) =>
-            Pruning.PerformPruning(lowerBound.epochNumber)
-          case Success(None) =>
-            Pruning.SchedulePruning
-          case Failure(exception) =>
-            Pruning.FailedDatabaseOperation(
-              "Failed to fetch initial pruning lower bound",
-              exception,
-            )
-        }
+        if (!config.enabled)
+          logger.info("Pruning module won't start because pruning is disabled by config")
+        else
+          pipeToSelf(stores.outputStore.getLowerBound()) {
+            case Success(Some(lowerBound)) =>
+              Pruning.PerformPruning(lowerBound.epochNumber)
+            case Success(None) =>
+              Pruning.SchedulePruning
+            case Failure(exception) =>
+              Pruning.FailedDatabaseOperation(
+                "Failed to fetch initial pruning lower bound",
+                exception,
+              )
+          }
       case Pruning.KickstartPruning =>
         logger.info(s"Kick-starting new pruning operation")
 

@@ -380,6 +380,32 @@ final class AvailabilityModule[E <: Env[E]](
     )
   }
 
+  private def updateLastKnownEpochNumberAndForgetExpiredBatches(
+      currentEpoch: EpochNumber
+  )(implicit
+      traceContext: TraceContext,
+      context: E#ActorContextT[Availability.Message[E]],
+  ): Unit =
+    if (currentEpoch < lastKnownEpochNumber) {
+      abort(
+        s"Trying to update lastKnownEpochNumber in Availability module to $currentEpoch which is lower than the current value $lastKnownEpochNumber"
+      )
+    } else if (lastKnownEpochNumber != currentEpoch) {
+      lastKnownEpochNumber = currentEpoch
+
+      val expiredBatchIds = disseminationProtocolState.batchesReadyForOrdering.collect {
+        case (batchId, metadata)
+            if metadata.epochNumber <= lastKnownEpochNumber - OrderingRequestBatch.BatchValidityDurationEpochs =>
+          batchId
+      }
+      if (expiredBatchIds.nonEmpty) {
+        logger.warn(
+          s"Discarding the batches with the following ids $expiredBatchIds because they are expired"
+        )
+        disseminationProtocolState.batchesReadyForOrdering --= expiredBatchIds
+      }
+    }
+
   private def handleConsensusMessage(
       consensusMessage: Availability.Consensus[E]
   )(implicit
@@ -398,7 +424,7 @@ final class AvailabilityModule[E <: Env[E]](
             forEpochNumber,
             ordered,
           ) =>
-        lastKnownEpochNumber = forEpochNumber
+        updateLastKnownEpochNumberAndForgetExpiredBatches(forEpochNumber)
         handleConsensusProposalRequest(
           messageType,
           orderingTopology,

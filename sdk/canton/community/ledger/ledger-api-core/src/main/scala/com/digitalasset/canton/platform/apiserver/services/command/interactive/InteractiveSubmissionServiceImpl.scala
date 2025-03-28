@@ -562,6 +562,11 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       packageIdMapSnapshot
         // Optionality is supported since utility packages are not in the packageIdMapSnapshot,
         // since they are not upgradable
+        // TODO(#23334): Querying for parties not hosted on the current participant is problematic
+        //               since it can be that on their hosting participants, such parties have higher-versioned packages
+        //               in their package store. In such cases, the answer on non-hosting participants can be deceiving
+        //               as they are restricted by the non-hosting participant's package store and not only by the
+        //               vetting state on the commonly-connected synchronizer
         .get(pkgId)
         .iterator
         .collect {

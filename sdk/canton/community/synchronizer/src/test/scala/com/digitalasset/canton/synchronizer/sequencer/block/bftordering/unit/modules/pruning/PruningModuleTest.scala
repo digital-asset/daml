@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.pruning
 
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.PruningConfig
@@ -28,6 +29,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mod
   ProgrammableUnitTestEnv,
 }
 import org.scalatest.wordspec.AnyWordSpec
+import org.slf4j.event.Level
 
 import java.time.Instant
 import scala.concurrent.duration.*
@@ -226,6 +228,23 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         context.lastDelayedMessage should contain((1, Pruning.KickstartPruning))
       }
 
+      "do nothing when starting if pruning is configured to be disabled" in {
+        implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
+          new ProgrammableUnitTestContext()
+        val module = createPruningModule[ProgrammableUnitTestEnv](enabled = false)
+
+        loggerFactory.assertLogs(SuppressionRule.Level(Level.INFO))(
+          module.receiveInternal(Pruning.Start),
+          log => {
+            log.level shouldBe Level.INFO
+            log.message should include(
+              "Pruning module won't start because pruning is disabled by config"
+            )
+          },
+        )
+
+        context.runPipedMessages() shouldBe empty
+      }
     }
   }
 
@@ -233,6 +252,7 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       retentionPeriod: FiniteDuration = 30.days,
       minNumberOfBlocksToKeep: Int = 100,
       pruningFrequency: FiniteDuration = 1.hour,
+      enabled: Boolean = true,
       epochStore: EpochStore[E] = mock[EpochStore[E]],
       outputStore: OutputMetadataStore[E] = mock[OutputMetadataStore[E]],
       availabilityStore: AvailabilityStore[E] = mock[AvailabilityStore[E]],
@@ -245,7 +265,7 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       outputStore,
     )
     val pruning = new PruningModule[E](
-      PruningConfig(retentionPeriod, minNumberOfBlocksToKeep, pruningFrequency),
+      PruningConfig(enabled, retentionPeriod, minNumberOfBlocksToKeep, pruningFrequency),
       stores,
       loggerFactory,
       timeouts,

@@ -32,6 +32,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.AtomicReference
+import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
 
 class AvailabilityModuleOutputFetchTest
@@ -595,7 +596,7 @@ class AvailabilityModuleOutputFetchTest
                 mode = OrderedBlockForOutput.Mode.FromConsensus,
               )
             )
-            val storage = mutable.Map[BatchId, OrderingRequestBatch]()
+            val storage = TrieMap[BatchId, OrderingRequestBatch]()
             implicit val context
                 : ProgrammableUnitTestContext[Availability.Message[ProgrammableUnitTestEnv]] =
               new ProgrammableUnitTestContext
@@ -750,8 +751,7 @@ class AvailabilityModuleOutputFetchTest
     "it receives OutputFetch.FetchedBlockDataFromStorage and there are no missing batches" should {
 
       "send to output" in {
-        val storage = mutable.Map[BatchId, OrderingRequestBatch]()
-        storage.addOne(ABatchId -> ABatch)
+        val storage = TrieMap[BatchId, OrderingRequestBatch](ABatchId -> ABatch)
         val availabilityStore =
           spy(new FakeAvailabilityStore[FakePipeToSelfCellUnitTestEnv](storage))
         val cellContextFake =
@@ -861,8 +861,7 @@ class AvailabilityModuleOutputFetchTest
     "it receives OutputFetch.LoadBatchData and the batch is present" should {
 
       "reply to local availability with the batch" in {
-        val storage = mutable.Map[BatchId, OrderingRequestBatch]()
-        storage.addOne(ABatchId -> ABatch)
+        val storage = TrieMap[BatchId, OrderingRequestBatch](ABatchId -> ABatch)
         val cellContextFake =
           new AtomicReference[
             Option[() => Option[Availability.Message[FakePipeToSelfCellUnitTestEnv]]]

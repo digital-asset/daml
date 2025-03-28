@@ -42,11 +42,11 @@ import com.digitalasset.canton.participant.admin.repair.RepairService.{
 }
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
-import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
+import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.participant.topology.TopologyComponentFactory
-import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
+import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{LfChoiceName, *}
 import com.digitalasset.canton.store.SequencedEventStore
@@ -92,7 +92,7 @@ final class RepairService(
     participantId: ParticipantId,
     syncCrypto: SyncCryptoApiParticipantProvider,
     packageDependencyResolver: PackageDependencyResolver,
-    damle: DAMLe,
+    contractAuthenticator: ContractAuthenticator,
     contractStore: Eval[ContractStore],
     ledgerApiIndexer: Eval[LedgerApiIndexer],
     aliasManager: SynchronizerAliasManager,
@@ -217,29 +217,13 @@ final class RepairService(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Option[ContractToAdd]] =
     for {
-      // Able to recompute contract signatories and stakeholders (and sanity check
-      // repairContract metadata otherwise ignored matches real metadata)
-      contractMetadata <- damle
-        .contractMetadata(
-          repairContract.contract.rawContractInstance.contractInstance,
-          repairContract.contract.metadata.signatories,
-          // There is currently no mechanism in place through which another service command can ask to abort the
-          // engine computation for a previously sent contract. When therefore tell then engine to always continue.
-          getEngineAbortStatus = () => EngineAbortStatus.notAborted,
+      _ <- EitherT
+        .fromEither[FutureUnlessShutdown](
+          contractAuthenticator.authenticateSerializable(repairContract.contract)
         )
         .leftMap(e =>
-          log(s"Failed to compute contract ${repairContract.contract.contractId} metadata: $e")
+          log(s"Failed to authenticate contract with id: ${repairContract.contract.contractId}: $e")
         )
-      _ = if (repairContract.contract.metadata.signatories != contractMetadata.signatories) {
-        logger.info(
-          s"Contract ${repairContract.contract.contractId} metadata signatories ${repairContract.contract.metadata.signatories} differ from actual signatories ${contractMetadata.signatories}"
-        )
-      }
-      _ = if (repairContract.contract.metadata.stakeholders != contractMetadata.stakeholders) {
-        logger.info(
-          s"Contract ${repairContract.contract.contractId} metadata stakeholders ${repairContract.contract.metadata.stakeholders} differ from actual stakeholders ${contractMetadata.stakeholders}"
-        )
-      }
       contractToAdd <- contractToAdd(
         repairContract,
         ignoreAlreadyAdded = ignoreAlreadyAdded,

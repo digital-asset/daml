@@ -748,25 +748,34 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       ) extends DamlErrorWithDefiniteAnswer(cause = cause) {}
     }
 
-    @Explanation("This error is thrown by use of `failWithStatus` in daml code. The Daml code determines the canton error category, and thus the grpc status code.")
-    @Resolution("Ensure that you are using the contract correctly, and that the choice implementation does not have a bug.")
+    @Explanation(
+      "This error is thrown by use of `failWithStatus` in daml code. The Daml code determines the canton error category, and thus the grpc status code."
+    )
+    @Resolution(
+      "Ensure that you are using the contract correctly, and that the choice implementation does not have a bug."
+    )
     object FailureStatus
-        extends ErrorCode(id = "DAML_FAILURE", ErrorCategory.OverrideDocStringErrorCategory("<determined by daml code>")) {
-      
+        extends ErrorCode(
+          id = "DAML_FAILURE",
+          ErrorCategory.OverrideDocStringErrorCategory("<determined by daml code>"),
+        ) {
+
       // Building conveyance string from OverrideDocStringErrorCategory will fail, and would be wrong
-      override def errorConveyanceDocString: Option[String] = Some("Conveyance is determined by the category, which is selected in daml code")
+      override def errorConveyanceDocString: Option[String] = Some(
+        "Conveyance is determined by the category, which is selected in daml code. Refer to the documentation of the actual error category encoded in the raised error for details."
+      )
 
       def Reject(
-        cause: String,
-        err: LfInterpretationError.FailureStatus,
-      )(
-        implicit loggingContext: ContextualizedErrorLogger
+          cause: String,
+          err: LfInterpretationError.FailureStatus,
+      )(implicit
+          loggingContext: ContextualizedErrorLogger
       ) = ErrorCategory.fromInt(err.failureCategory) match {
         case Some(errorCategory) =>
           new DamlErrorWithDefiniteAnswer(
             cause = cause
           )(
-            code = new ErrorCode(id = FailureStatus.id, errorCategory)(FailureStatus.parent){},
+            code = new ErrorCode(id = FailureStatus.id, errorCategory)(FailureStatus.parent) {},
             loggingContext = loggingContext,
           ) {
             override def context: Map[String, String] =

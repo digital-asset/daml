@@ -759,6 +759,4 @@ class AvailabilityModuleDisseminationTest
         disseminationProtocolState.toBeProvidedToConsensus should contain only AToBeProvidedToConsensus
       }
     }
-
-  // TODO(#24403): add tests about key rotations
 }

@@ -4,7 +4,8 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.availability
 
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.crypto.{Hash, Signature}
+import com.digitalasset.canton.crypto.{Fingerprint, Hash, Signature, SignatureFormat}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
@@ -20,9 +21,13 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   ToBeProvidedToConsensus,
   data,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
+  CryptoProvider,
+  TopologyActivationTime,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftKeyId,
   BftNodeId,
   EpochNumber,
   ViewNumber,
@@ -40,6 +45,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   OrderedBlock,
   OrderedBlockForOutput,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology.NodeTopologyInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
   Membership,
   OrderingTopology,
@@ -73,7 +79,7 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.google.protobuf.ByteString
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.collection.mutable
+import scala.collection.concurrent.TrieMap
 import scala.util.{Random, Try}
 
 private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBaseTest =>
@@ -142,10 +148,17 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
   protected val FirstFourNodesQuorumAcks = (0 until quorum(numberOfNodes = 4)).map { idx =>
     AvailabilityAck(from = node(idx), Signature.noSignature)
   }
-  protected val Nodes0And4To6QuorumAcks =
-    (Range.inclusive(0, 0) ++ (4 until quorum(numberOfNodes = 7))).map { idx =>
+  protected val Nodes0And4To6Acks =
+    (Range.inclusive(0, 0) ++ (4 until 7)).map { idx =>
       AvailabilityAck(from = node(idx), Signature.noSignature)
     }
+  protected val anotherNoSignature =
+    Signature.create(
+      SignatureFormat.Symbolic,
+      ByteString.EMPTY,
+      Fingerprint.tryFromString("another-no-fingerprint"),
+      None,
+    )
   protected val Node1And2Acks = Seq(
     AvailabilityAck(from = Node1, Signature.noSignature),
     AvailabilityAck(from = Node2, Signature.noSignature),
@@ -254,7 +267,7 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
   )
   protected val ProofOfAvailability6NodesQuorumVotesNodes0And4To6InTopology = ProofOfAvailability(
     ABatchId,
-    Nodes0And4To6QuorumAcks,
+    Nodes0And4To6Acks,
     anEpochNumber,
   )
   protected val BatchReadyForOrderingNode0And1Votes =
@@ -303,13 +316,15 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
       BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
       EpochNumber.First,
     )
+  protected val Node0To6 = (0 to 6).map(node).toSet
+  protected val OrderingTopologyNodes0To6 = OrderingTopology.forTesting(Node0To6)
 
   protected implicit val fakeTimerIgnoringUnitTestContext
       : IgnoringUnitTestContext[Availability.Message[IgnoringUnitTestEnv]] =
     IgnoringUnitTestContext()
 
   protected class FakeAvailabilityStore[E <: BaseIgnoringUnitTestEnv[E]](
-      storage: mutable.Map[BatchId, OrderingRequestBatch] = mutable.Map.empty
+      storage: TrieMap[BatchId, OrderingRequestBatch] = TrieMap.empty
   ) extends GenericInMemoryAvailabilityStore[E](storage) {
     override def createFuture[A](action: String)(x: () => Try[A]): () => A = () => x().success.value
     override def close(): Unit = ()
@@ -318,6 +333,7 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
   protected def createAvailability[E <: BaseIgnoringUnitTestEnv[E]](
       myId: BftNodeId = Node0,
       otherNodes: Set[BftNodeId] = Set.empty,
+      otherNodesCustomKeys: Map[BftNodeId, BftKeyId] = Map.empty,
       initialEpochNumber: EpochNumber = EpochNumber.First,
       maxRequestsInBatch: Short = BftBlockOrdererConfig.DefaultMaxRequestsInBatch,
       maxBatchesPerProposal: Short = BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
@@ -343,7 +359,13 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
       output,
     )
     val availability = new AvailabilityModule[E](
-      Membership.forTesting(myId, otherNodes),
+      Membership.forTesting(
+        myId,
+        otherNodes,
+        nodesTopologyInfos = otherNodesCustomKeys.map { case (nodeId, keyId) =>
+          nodeId -> NodeTopologyInfo(TopologyActivationTime(CantonTimestamp.MinValue), Set(keyId))
+        },
+      ),
       initialEpochNumber,
       cryptoProvider,
       availabilityStore,
