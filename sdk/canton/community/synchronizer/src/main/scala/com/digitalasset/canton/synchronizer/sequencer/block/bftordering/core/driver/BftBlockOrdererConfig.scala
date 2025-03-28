@@ -95,6 +95,7 @@ object BftBlockOrdererConfig {
   val DefaultEpochStateTransferTimeout: FiniteDuration = 10.seconds
   val DefaultOutputFetchTimeout: FiniteDuration = 2.second
   val DefaultPruningConfig: PruningConfig = PruningConfig(
+    enabled = true,
     retentionPeriod = 30.days,
     minNumberOfBlocksToKeep = 100,
     pruningFrequency = 1.hour,
@@ -188,6 +189,7 @@ object BftBlockOrdererConfig {
   )
 
   final case class PruningConfig(
+      enabled: Boolean,
       retentionPeriod: FiniteDuration,
       minNumberOfBlocksToKeep: Int,
       pruningFrequency: FiniteDuration,

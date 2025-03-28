@@ -49,6 +49,7 @@ import com.digitalasset.canton.participant.admin.repair.RepairService
 import com.digitalasset.canton.participant.admin.repair.RepairService.SynchronizerLookup
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
+import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.SubmissionDuringShutdown
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmissionFailure,
@@ -79,7 +80,6 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
 import com.digitalasset.canton.participant.synchronizer.*
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
-import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.*
@@ -328,14 +328,6 @@ class CantonSyncService(
     }
   }
 
-  private val repairServiceDAMLe =
-    new DAMLe(
-      pkgId => traceContext => packageService.value.getPackage(pkgId)(traceContext),
-      engine,
-      parameters.engine.validationPhaseLogging,
-      loggerFactory,
-    )
-
   private val connectQueue = {
     val queueName = "sync-service-connect-and-repair-queue"
 
@@ -348,11 +340,13 @@ class CantonSyncService(
     )
   }
 
+  private val contractAuthenticator = ContractAuthenticator(syncCrypto.pureCrypto)
+
   val repairService: RepairService = new RepairService(
     participantId,
     syncCrypto,
     packageService.value.packageDependencyResolver,
-    repairServiceDAMLe,
+    contractAuthenticator,
     participantNodePersistentState.map(_.contractStore),
     ledgerApiIndexer.asEval(TraceContext.empty),
     aliasManager,
@@ -383,8 +377,6 @@ class CantonSyncService(
         }
 
     },
-    // Share the sync service queue with the repair service, so that repair operations cannot run concurrently with
-    // synchronizer connections.
     connectQueue,
     loggerFactory,
   )

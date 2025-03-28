@@ -194,12 +194,6 @@ final class UnassignmentProcessingStepsTest
       clock,
     )
 
-  private lazy val damle = DAMLeTestInstance(
-    submittingParticipant,
-    signatories = Set(submitter),
-    stakeholders = Set(submitter, party1),
-  )(loggerFactory)
-
   private lazy val unassignmentRequest = UnassignmentRequest(
     submitterMetadata = submitterMetadata(party1),
     reassigningParticipants = Set(submittingParticipant),
@@ -287,7 +281,6 @@ final class UnassignmentProcessingStepsTest
     new UnassignmentProcessingSteps(
       sourceSynchronizer,
       submittingParticipant,
-      damle,
       reassignmentCoordination,
       seedGenerator,
       Source(defaultStaticSynchronizerParameters),

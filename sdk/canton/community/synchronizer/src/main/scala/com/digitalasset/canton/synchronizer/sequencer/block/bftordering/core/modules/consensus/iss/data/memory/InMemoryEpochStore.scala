@@ -369,8 +369,8 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
       val epochsToDelete = epochs.filter(_._1 < epochNumberExclusive)
       val blocksToDelete =
         blocks.filter(_._2.prePrepare.message.blockMetadata.epochNumber < epochNumberExclusive)
-      epochs --= epochsToDelete.keys
-      blocks --= blocksToDelete.keys
+      epochsToDelete.keys.foreach(epochs.remove(_).discard)
+      blocksToDelete.keys.foreach(blocks.remove(_).discard)
 
       val blockNumbersToDeleteInProgressMessages = epochsToDelete
         .maxByOption(_._1)
@@ -388,10 +388,12 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
             newViewsMap.get(blockNumber).map(_.size).getOrElse(0)
         }.sum
 
-      prePreparesMap --= blockNumbersToDeleteInProgressMessages
-      preparesMap --= blockNumbersToDeleteInProgressMessages
-      viewChangesMap --= blockNumbersToDeleteInProgressMessages
-      newViewsMap --= blockNumbersToDeleteInProgressMessages
+      blockNumbersToDeleteInProgressMessages.foreach { blockNumber =>
+        prePreparesMap.remove(blockNumber).discard
+        preparesMap.remove(blockNumber).discard
+        viewChangesMap.remove(blockNumber).discard
+        newViewsMap.remove(blockNumber).discard
+      }
 
       Success(
         EpochStore.NumberOfRecords(

@@ -4,8 +4,7 @@
 package com.digitalasset.canton.crypto.signer
 
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config
-import com.digitalasset.canton.config.{PositiveDurationSeconds, SessionSigningKeysConfig}
+import com.digitalasset.canton.config.SessionSigningKeysConfig
 import com.digitalasset.canton.crypto.{
   Signature,
   SignatureDelegationValidityPeriod,
@@ -18,11 +17,10 @@ import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
 
 class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSignerTest {
-  private lazy val validityDuration = config.PositiveDurationSeconds.ofSeconds(10)
-
   override protected lazy val sessionSigningKeysConfig: SessionSigningKeysConfig =
     SessionSigningKeysConfig.default
-      .copy(keyValidityDuration = validityDuration)
+
+  private lazy val validityDuration = sessionSigningKeysConfig.keyValidityDuration
 
   private def sessionKeysCache(p: SynchronizerCryptoClient) =
     p.syncCryptoSigner
@@ -36,12 +34,12 @@ class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSig
       .sessionKeysSigningCache
       .invalidateAll()
 
-  private def cutOffValidityPercentage(p: SynchronizerCryptoClient) =
-    p.syncCryptoSigner.asInstanceOf[SyncCryptoSignerWithSessionKeys].cutOffValidityPercentage
+  private def cutOffDuration(p: SynchronizerCryptoClient) =
+    p.syncCryptoSigner.asInstanceOf[SyncCryptoSignerWithSessionKeys].cutOffDuration
 
   private def setSessionKeyEvictionPeriod(
       p: SynchronizerCryptoClient,
-      newPeriod: config.PositiveDurationSeconds,
+      newPeriod: PositiveSeconds,
   ): Unit =
     p.syncCryptoSigner
       .asInstanceOf[SyncCryptoSignerWithSessionKeys]
@@ -113,13 +111,10 @@ class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSig
       // select a timestamp that is after the cut-off period
       val cutOffTimestamp =
         currentSessionKey.signatureDelegation.validityPeriod
-          .computeCutOffTimestamp(
-            cutOffValidityPercentage(p1)
-          )
-          .valueOrFail("fail to compute the cut-off timestamp")
+          .computeCutOffTimestamp(cutOffDuration(p1))
 
       val afterCutOffSnapshot =
-        testingTopology.topologySnapshot(timestampOfSnapshot = cutOffTimestamp.addMicros(100))
+        testingTopology.topologySnapshot(timestampOfSnapshot = cutOffTimestamp)
 
       val signature = syncCryptoSignerP1
         .sign(
@@ -178,7 +173,7 @@ class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSig
     "session signing key is removed from the cache after the eviction period" in {
       cleanUpSessionKeysCache(p1)
 
-      val newEvictionPeriod = PositiveDurationSeconds.ofSeconds(5)
+      val newEvictionPeriod = PositiveSeconds.tryOfSeconds(5)
 
       setSessionKeyEvictionPeriod(p1, newEvictionPeriod)
       sessionKeysCache(p1) shouldBe empty

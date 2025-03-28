@@ -10,7 +10,6 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
@@ -385,12 +384,8 @@ final case class SignatureDelegationValidityPeriod(
         DeterministicEncoding.encodeLong(periodLength.duration.toSeconds)
       )
 
-  def computeCutOffTimestamp(cutOff: PositiveNumeric[Double]): Either[Throwable, CantonTimestamp] =
-    // TODO (#24537): Remove when cutOff is set as a Duration instead of a Double.
-    Either
-      .catchOnly[ArithmeticException] {
-        this.fromInclusive.add(this.periodLength.tryMultiply(cutOff).duration)
-      }
+  def computeCutOffTimestamp(cutOffDuration: PositiveSeconds): CantonTimestamp =
+    this.toExclusive.minus(cutOffDuration.duration)
 }
 
 /** An extension to the signature to accommodate the necessary information to be able to use session
