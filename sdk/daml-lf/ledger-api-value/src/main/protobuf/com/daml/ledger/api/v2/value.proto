@@ -117,9 +117,21 @@ message RecordField {
 
 // Unique identifier of an entity.
 message Identifier {
+  // Both package_id and package_name is provided as reading from the Ledger API
+  // If provided in Ledger API requests the following rules apply:
+  //
+  // - If package_name is provided and package_id is provided referring to a package name (``#`` notation): name based package selection is preferred, and the defined package name must match.
+  // - If package_name is provided and package_id is provided referring to a package ID: ID based package selection is preferred, and the package name of the package with the package_id should match the package_name.
+  // - If package_name is provided and package_id is not provided: name based package selection is preferred.
+  // - If package_name is not provided and package_id is provided referring to a package name (``#`` notation): name based package selection is preferred.
+  // - If package_name is not provided and package_id is provided referring to a package ID: ID based package selection is preferred.
+  // - If package_name is not provided and package_id is not provided: this is illegal.
+
   // The identifier of the Daml package that contains the entity.
   // Must be a valid PackageIdString.
-  // Required
+  // This is always provided as reading from the Ledger API.
+  // This is not required as provided on Ledger API commands/requests.
+  // Optional
   string package_id = 1;
 
   // The dot-separated module name of the identifier.
@@ -129,6 +141,12 @@ message Identifier {
   // The dot-separated name of the entity (e.g. record, template, ...) within the module.
   // Required
   string entity_name = 3;
+
+  // Name of the package.
+  // This is always provided as reading from the Ledger API.
+  // This is not required as provided on Ledger API commands/requests.
+  // Optional
+  string package_name = 4;
 }
 
 // A value with alternative representations.

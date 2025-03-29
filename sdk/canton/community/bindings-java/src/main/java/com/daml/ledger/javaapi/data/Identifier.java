@@ -14,10 +14,23 @@ public final class Identifier {
   private final String entityName;
 
   public Identifier(
-      @NonNull String packageId, @NonNull String moduleName, @NonNull String entityName) {
-    this.packageId = packageId;
+          @NonNull String packageId,
+          @NonNull String packageName,
+          @NonNull String moduleName,
+          @NonNull String entityName) {
+    // for backwards compatibility currently omitting
+    if (packageId.isEmpty()) {
+      this.packageId = "#" + packageName;
+    } else {
+      this.packageId = packageId;
+    }
     this.moduleName = moduleName;
     this.entityName = entityName;
+  }
+
+  public Identifier(
+          @NonNull String packageId, @NonNull String moduleName, @NonNull String entityName) {
+    this(packageId, "", moduleName, entityName);
   }
 
   @NonNull
