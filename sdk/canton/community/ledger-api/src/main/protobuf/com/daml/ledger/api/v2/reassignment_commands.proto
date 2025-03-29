@@ -9,7 +9,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "ReassignmentCommandOuterClass";
 option java_package = "com.daml.ledger.api.v2";
 
-message ReassignmentCommand {
+message ReassignmentCommands {
   // Identifier of the on-ledger workflow that this command is a part of.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
@@ -35,11 +35,6 @@ message ReassignmentCommand {
   // Required
   string submitter = 4;
 
-  oneof command {
-    UnassignCommand unassign_command = 5;
-    AssignCommand assign_command = 6;
-  }
-
   // A unique identifier to distinguish completions for different submissions with the same change ID.
   // Typically a random UUID. Applications are expected to use a different UUID for each retry of a submission
   // with the same change ID.
@@ -47,7 +42,17 @@ message ReassignmentCommand {
   //
   // If omitted, the participant or the committer may set a value of their choice.
   // Optional
-  string submission_id = 7;
+  string submission_id = 5;
+
+  // Individual elements of this reassignment. Must be non-empty.
+  repeated ReassignmentCommand commands = 6;
+}
+
+message ReassignmentCommand {
+  oneof command {
+    UnassignCommand unassign_command = 1;
+    AssignCommand assign_command = 2;
+  }
 }
 
 // Unassign a contract

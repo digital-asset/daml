@@ -25,6 +25,7 @@ object InteractiveConsole extends NoTracing {
       noTty: Boolean = false,
       bootstrapScript: Option[CantonScript] = None,
       logger: TracedLogger,
+      postScriptCallback: => Unit,
   ): Boolean = {
 
     val (_lock, baseOptions) = AmmoniteConsoleConfig.create(
@@ -101,6 +102,7 @@ object InteractiveConsole extends NoTracing {
             // now run the repl or exit if the bootstrap script failed
             initRes match {
               case Some(Res.Success(_)) | None =>
+                postScriptCallback
                 val exitValue = Res.Success(repl.run())
                 (exitValue.map(repl.beforeExit), repl.interp.watchedValues.toSeq)
               case Some(a @ Res.Exception(x, y)) =>

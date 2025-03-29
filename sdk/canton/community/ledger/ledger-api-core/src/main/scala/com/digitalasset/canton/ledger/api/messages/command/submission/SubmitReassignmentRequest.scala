@@ -14,7 +14,7 @@ final case class SubmitReassignmentRequest(
     commandId: Ref.CommandId,
     submissionId: Ref.SubmissionId,
     workflowId: Option[Ref.WorkflowId],
-    reassignmentCommand: Either[AssignCommand, UnassignCommand],
+    reassignmentCommands: Seq[Either[AssignCommand, UnassignCommand]],
 )
 
 final case class UnassignCommand(

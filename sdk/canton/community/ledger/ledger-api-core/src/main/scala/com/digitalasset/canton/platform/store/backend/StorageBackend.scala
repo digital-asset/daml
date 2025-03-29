@@ -503,6 +503,7 @@ object EventStorageBackend {
       packageName: PackageName,
       witnessParties: Set[String],
       assignmentExclusivity: Option[Timestamp],
+      nodeId: Int,
   )
 
   final case class RawAssignEvent(

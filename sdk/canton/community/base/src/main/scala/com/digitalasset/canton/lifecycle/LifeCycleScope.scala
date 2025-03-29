@@ -12,21 +12,59 @@ import com.digitalasset.canton.util.{LazyValWithContext, Thereafter, TracedLazyV
 import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.atomic.AtomicReference
+import scala.annotation.implicitNotFound
 import scala.util.{Failure, Success, Try}
+
+/** Tracks the [[LifeCycleManager]]s that have been accumulated as part of processing the current
+  * call. This trait is typically used only in the forms of
+  * [[HasLifeCycleScope.ContextLifeCycleScope]] and [[HasLifeCycleScope.OwnLifeCycleScope]].
+  *
+  * Unlike `LifeCycleScopeImpl`, this trait does not expose any synchronization methods. This
+  * ensures that client code cannot accidentally call them on
+  * [[HasLifeCycleScope.ContextLifeCycleScope]]s, which could miss out on the manager of a
+  * [[ManagedLifeCycle]] object.
+  *
+  * @tparam Discriminator
+  *   Phantom type parameter to tie a life cycle scope to individual [[HasLifeCycleScope]]
+  *   instances, and to distinguish within such an individual [[HasLifeCycleScope]] between
+  *   [[HasLifeCycleScope.ContextLifeCycleScope]] and [[HasLifeCycleScope.OwnLifeCycleScope]].
+  */
+@implicitNotFound(
+  "Could not find a suitable LifeCycleScope for discriminator ${Discriminator}.\nIf the desired discriminator is a 'x.OwnLifeCycleScopeDiscriminator',\nmake sure that the call site is in the scope of `x`.\nOtherwise, the called method should take its `ContextLifeCycleScope` instead of `OwnLifeCycleScope`."
+)
+sealed trait LifeCycleScope[Discriminator] {
+
+  /** Witnesses that the discriminator is a phantom type */
+  private[lifecycle] def coerce[D]: LifeCycleScope[D]
+
+  /** The set of accumulated [[LifeCycleManager]]s */
+  private[lifecycle] def managers: Set[LifeCycleManager]
+}
 
 /** Combines multiple [[LifeCycleManager]]s into a single scope such that
   *   - [[RunOnClosing]] tasks of the scope are run when the first manager closes.
   *   - [[HasSynchronizeWithClosing.synchronizeWithClosingF]] synchronizes with all the managers in
   *     the scope.
+  *
+  * @tparam Discriminator
+  *   Phantom type argument. Technically, we should not need this phantom type in this
+  *   implementation class. It would suffice to add the phantom type argument to [[LifeCycleScope]]
+  *   as part of making [[LifeCycleScope]] an abstract type with implementation
+  *   [[LifeCycleScopeImpl]]. Unfortunately, as of March 2025, IntelliJ's implicit resolution for
+  *   Scala cannot deal with the necessary implicit conversions for [[LifeCycleScope]]s with
+  *   different discriminators with abstract types. As a consequence, most of our codebase would be
+  *   flagged as compile errors. We therefore take the less elegant route of polluting the
+  *   implementation with this phantom type.
   */
-private[lifecycle] final class LifeCycleScopeImpl(
-    private[lifecycle] val managers: Set[LifeCycleManager]
+private[lifecycle] final class LifeCycleScopeImpl[Discriminator](
+    private[lifecycle] override val managers: Set[LifeCycleManager]
 ) extends HasSynchronizeWithClosing
+    with LifeCycleScope[Discriminator]
     with PrettyPrinting {
 
   import LifeCycleScopeImpl.*
 
-  override protected def pretty: Pretty[LifeCycleScopeImpl] =
+  override protected def pretty: Pretty[this.type] =
     prettyNode("LifeCycleScope", param("managers", _.managers.map(_.name.unquoted)))
 
   override def isClosing: Boolean = managers.exists(_.isClosing)
@@ -84,6 +122,10 @@ private[lifecycle] final class LifeCycleScopeImpl(
   override protected[this] def runTaskUnlessDone(task: RunOnClosing)(implicit
       traceContext: TraceContext
   ): Unit = if (!task.done) task.run()
+
+  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
+  private[lifecycle] final override def coerce[DD]: LifeCycleScopeImpl[DD] =
+    this.asInstanceOf[LifeCycleScopeImpl[DD]]
 }
 
 private[lifecycle] object LifeCycleScopeImpl {
@@ -91,7 +133,8 @@ private[lifecycle] object LifeCycleScopeImpl {
   /** The empty scope without managers. This is not very useful for synchronizing on, but is the
     * neutral element in the scope monoid defined by taking unions of [[LifeCycleManager]]s.
     */
-  val empty: LifeCycleScopeImpl = new LifeCycleScopeImpl(Set.empty)
+  private val EMPTY: LifeCycleScopeImpl[Any] = new LifeCycleScopeImpl[Any](Set.empty)
+  def empty[X]: LifeCycleScopeImpl[X] = EMPTY.coerce[X]
 
   private def deregisterHandles(handles: Seq[LifeCycleRegistrationHandle]): Unit =
     handles.foreach(_.cancel().discard[Boolean])

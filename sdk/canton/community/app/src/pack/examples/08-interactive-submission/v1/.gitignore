@@ -9,3 +9,6 @@ synchronizer_id
 participant_id
 daml_commit
 canton_ports.json
+**.der
+**.bin
+**.binpb

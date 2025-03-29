@@ -3,17 +3,19 @@
 
 package com.digitalasset.canton.sequencing.protocol
 
-import com.digitalasset.base.error.{ErrorCategory, ErrorClass, ErrorCode, Explanation, Resolution}
+import com.digitalasset.base.error.{
+  Alarm,
+  AlarmErrorCode,
+  ErrorCategory,
+  ErrorClass,
+  ErrorCode,
+  Explanation,
+  Resolution,
+}
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
-import com.digitalasset.canton.error.{
-  Alarm,
-  AlarmErrorCode,
-  CantonBaseError,
-  TransactionError,
-  TransactionErrorImpl,
-}
+import com.digitalasset.canton.error.{CantonBaseError, TransactionError, TransactionErrorImpl}
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.topology.Member
 import com.google.rpc.status.Status

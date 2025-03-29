@@ -16,7 +16,7 @@ import com.daml.metrics.api.MetricQualification
 import com.daml.metrics.{HistogramDefinition, MetricsFilterConfig}
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
-import com.digitalasset.canton.auth.AccessLevel
+import com.digitalasset.canton.auth.{AccessLevel, AuthorizedUser}
 import com.digitalasset.canton.config.CantonRequireTypes.*
 import com.digitalasset.canton.config.ConfigErrors.{
   CannotParseFilesError,
@@ -867,6 +867,8 @@ object CantonConfig {
       deriveReader[JwtTimestampLeeway]
 
     lazy implicit final val authServiceConfigReader: ConfigReader[AuthServiceConfig] = {
+      implicit val authorizedUserReader: ConfigReader[AuthorizedUser] =
+        deriveReader[AuthorizedUser]
       implicit val authServiceAccessLevelReader: ConfigReader[AccessLevel] =
         deriveEnumerationReader[AccessLevel]
       implicit val authServiceConfigUnsafeJwtHmac256Reader
@@ -1462,6 +1464,10 @@ object CantonConfig {
       deriveWriter[JwtTimestampLeeway]
 
     lazy implicit final val authServiceConfigWriter: ConfigWriter[AuthServiceConfig] = {
+      implicit val authorizedUserWriter: ConfigWriter[AuthorizedUser] =
+        confidentialWriter[AuthorizedUser](
+          _.copy(userId = "****")
+        )
       implicit val authServiceAccessLevelWriter: ConfigWriter[AccessLevel] =
         deriveEnumerationWriter[AccessLevel]
       implicit val authServiceConfigJwtEs256CrtWriter: ConfigWriter[AuthServiceConfig.JwtEs256Crt] =

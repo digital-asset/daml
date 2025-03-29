@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.availability
 
+import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.*
@@ -772,8 +773,8 @@ class AvailabilityModuleConsensusProposalRequestTest
           ),
           log => {
             log.level shouldBe Level.WARN
-            log.message should include regex (
-              s"Discarding the batches with the following ids .* because they are expired"
+            log.message should include(
+              "Discarding from batchesReadyForOrdering the expired batches"
             )
           },
         )
@@ -790,6 +791,66 @@ class AvailabilityModuleConsensusProposalRequestTest
         }
 
         disseminationProtocolState.batchesReadyForOrdering.keys should contain theSameElementsAs validBatchIds
+      }
+    }
+
+  "it receives Consensus.CreateProposal (from local consensus), " +
+    "there are expired batches being disseminated" should {
+
+      "remove the expired batches from dissemination" in {
+        val disseminationProtocolState = new DisseminationProtocolState()
+        val consensusCell = new AtomicReference[Option[Consensus.ProtocolMessage]](None)
+        val initialEpochNumber = EpochNumber(OrderingRequestBatch.BatchValidityDurationEpochs + 1L)
+        val availability = createAvailability[IgnoringUnitTestEnv](
+          consensus = fakeCellModule(consensusCell),
+          disseminationProtocolState = disseminationProtocolState,
+          initialEpochNumber = EpochNumber(initialEpochNumber - 1L),
+        )
+
+        val (validBatchIds, expiredBatchIds) = {
+          val numberOfBatchesInDissemination = 10
+          val batchIds =
+            (0 until numberOfBatchesInDissemination).map(i => BatchId.createForTesting(s"batch $i"))
+          (
+            batchIds.take(numberOfBatchesInDissemination / 2),
+            batchIds.drop(numberOfBatchesInDissemination / 2),
+          )
+        }
+
+        {
+          def batchIdWithMetadata(batchId: BatchId, epochNumber: EpochNumber) =
+            batchId -> DisseminationProgress(
+              OrderingTopologyNodes0To3,
+              InProgressBatchMetadata(
+                batchId,
+                epochNumber,
+                OrderingRequestBatchStats.ForTesting,
+              ),
+              Set(AvailabilityAck(Node0, Signature.noSignature)),
+            )
+          val validBatchIdsWithMetadata =
+            validBatchIds.map(batchId => batchIdWithMetadata(batchId, initialEpochNumber))
+          val expiredBatchIdsWithMetadata =
+            expiredBatchIds.map(batchId => batchIdWithMetadata(batchId, EpochNumber.First))
+          disseminationProtocolState.disseminationProgress.addAll(
+            validBatchIdsWithMetadata ++ expiredBatchIdsWithMetadata
+          )
+        }
+
+        loggerFactory.assertLogs(
+          availability.receive(
+            Availability.Consensus
+              .CreateProposal(OrderingTopologyNodes0To3, failingCryptoProvider, initialEpochNumber)
+          ),
+          log => {
+            log.level shouldBe Level.WARN
+            log.message should include(
+              "Discarding from disseminationProgress the expired batches"
+            )
+          },
+        )
+
+        disseminationProtocolState.disseminationProgress.keys should contain theSameElementsAs validBatchIds
       }
     }
 }

@@ -3,10 +3,9 @@
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
-import com.digitalasset.base.error.{Explanation, Resolution}
+import com.digitalasset.base.error.{Alarm, AlarmErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LocalRejectionGroup
-import com.digitalasset.canton.error.{Alarm, AlarmErrorCode}
 import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}

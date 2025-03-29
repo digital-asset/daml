@@ -220,19 +220,23 @@ class PartyReplicationAdminWorkflow(
 
   override private[admin] def processReassignment(tx: Reassignment): Unit =
     if (
-      tx.event.assignedEvent.exists(
-        _.createdEvent
-          .exists(_.templateId.exists(isTemplatePartyReplicationRelated))
-      ) ||
-      tx.event.unassignedEvent.exists(
-        _.templateId.exists(isTemplatePartyReplicationRelated)
-      )
+      tx.events
+        .flatMap(_.event.assigned)
+        .exists(
+          _.createdEvent
+            .exists(_.templateId.exists(isTemplatePartyReplicationRelated))
+        ) ||
+      tx.events
+        .flatMap(_.event.unassigned)
+        .exists(
+          _.templateId.exists(isTemplatePartyReplicationRelated)
+        )
     ) {
       implicit val traceContext: TraceContext =
         LedgerClient.traceContextFromLedgerApi(tx.traceContext)
       // TODO(#20638): Should we archive unexpectedly reassigned party replication contracts or only warn?
       logger.warn(
-        s"Received unexpected reassignment of party replication related contract: ${tx.event}"
+        s"Received unexpected reassignment of party replication related contract: ${tx.events}"
       )
     }
 

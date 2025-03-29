@@ -381,7 +381,8 @@ final class AvailabilityModule[E <: Env[E]](
   }
 
   private def updateLastKnownEpochNumberAndForgetExpiredBatches(
-      currentEpoch: EpochNumber
+      actingOnMessageType: => String,
+      currentEpoch: EpochNumber,
   )(implicit
       traceContext: TraceContext,
       context: E#ActorContextT[Availability.Message[E]],
@@ -393,17 +394,32 @@ final class AvailabilityModule[E <: Env[E]](
     } else if (lastKnownEpochNumber != currentEpoch) {
       lastKnownEpochNumber = currentEpoch
 
-      val expiredBatchIds = disseminationProtocolState.batchesReadyForOrdering.collect {
-        case (batchId, metadata)
-            if metadata.epochNumber <= lastKnownEpochNumber - OrderingRequestBatch.BatchValidityDurationEpochs =>
-          batchId
+      def deleteExpiredBatches[M](
+          map: mutable.Map[BatchId, M],
+          mapName: String,
+      )(getEpochNumber: M => EpochNumber): Unit = {
+        def isBatchExpired(batchEpochNumber: EpochNumber) =
+          batchEpochNumber <= lastKnownEpochNumber - OrderingRequestBatch.BatchValidityDurationEpochs
+        val expiredBatchIds = map.collect {
+          case (batchId, metadata) if isBatchExpired(getEpochNumber(metadata)) => batchId
+        }
+        if (expiredBatchIds.nonEmpty) {
+          logger.warn(
+            s"$actingOnMessageType: Discarding from $mapName the expired batches: $expiredBatchIds"
+          )
+          map --= expiredBatchIds
+        }
       }
-      if (expiredBatchIds.nonEmpty) {
-        logger.warn(
-          s"Discarding the batches with the following ids $expiredBatchIds because they are expired"
-        )
-        disseminationProtocolState.batchesReadyForOrdering --= expiredBatchIds
-      }
+
+      deleteExpiredBatches(
+        disseminationProtocolState.batchesReadyForOrdering,
+        "batchesReadyForOrdering",
+      )(_.epochNumber)
+
+      deleteExpiredBatches(
+        disseminationProtocolState.disseminationProgress,
+        "disseminationProgress",
+      )(_.batchMetadata.epochNumber)
     }
 
   private def handleConsensusMessage(
@@ -424,7 +440,7 @@ final class AvailabilityModule[E <: Env[E]](
             forEpochNumber,
             ordered,
           ) =>
-        updateLastKnownEpochNumberAndForgetExpiredBatches(forEpochNumber)
+        updateLastKnownEpochNumberAndForgetExpiredBatches(messageType, forEpochNumber)
         handleConsensusProposalRequest(
           messageType,
           orderingTopology,
@@ -508,8 +524,6 @@ final class AvailabilityModule[E <: Env[E]](
       context: E#ActorContextT[Availability.Message[E]],
       traceContext: TraceContext,
   ): Unit = {
-    // TODO(#23297): drop expired batches
-
     val currentOrderingTopology = activeMembership.orderingTopology
 
     reviewInProgressBatches(actingOnMessageType)
@@ -661,10 +675,7 @@ final class AvailabilityModule[E <: Env[E]](
       // Dissemination completed: remove it now from the progress to avoids clashes with delayed / unneeded ACKs
       disseminationProtocolState.disseminationProgress.remove(batchId).discard
       disseminationProtocolState.batchesReadyForOrdering
-        .put(
-          batchId,
-          disseminationProgress.batchMetadata.complete(proof.acks),
-        )
+        .put(batchId, disseminationProgress.batchMetadata.complete(proof.acks))
         .discard
       true
     }
