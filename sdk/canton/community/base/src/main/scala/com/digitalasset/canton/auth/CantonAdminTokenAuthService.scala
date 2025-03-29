@@ -29,7 +29,8 @@ object CantonAdminToken {
   */
 class CantonAdminTokenAuthService(adminTokenO: Option[CantonAdminToken]) extends AuthService {
   override def decodeMetadata(
-      headers: Metadata
+      headers: Metadata,
+      serviceName: String,
   )(implicit traceContext: TraceContext): Future[ClaimSet] = {
     val bearerTokenRegex = "Bearer (.*)".r
     val authToken = for {

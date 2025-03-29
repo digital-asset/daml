@@ -7,9 +7,9 @@ import com.digitalasset.base.error.utils.ErrorDetails
 import com.digitalasset.base.error.{
   BaseError,
   ContextualizedErrorLogger,
-  DamlRpcError,
   ErrorCode,
   ErrorsAssertions,
+  RpcError,
 }
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.auth.AuthorizationChecksErrors
@@ -685,7 +685,7 @@ class ErrorFactoriesSpec
   }
 
   private def assertError(
-      error: => DamlRpcError
+      error: => RpcError
   )(
       code: Code,
       message: String,

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.http.json.v2
 
+import cats.implicits.toTraverseOps
 import com.daml.ledger.api.v2 as lapi
 import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.http.json.v2.JsContractEntry.JsContractEntry
@@ -1064,17 +1065,17 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
   }
 
   object ReassignmentEvent
-      extends ProtocolConverter[lapi.reassignment.Reassignment.Event, JsReassignmentEvent] {
-    def toJson(v: lapi.reassignment.Reassignment.Event)(implicit
+      extends ProtocolConverter[lapi.reassignment.ReassignmentEvent.Event, JsReassignmentEvent] {
+    def toJson(v: lapi.reassignment.ReassignmentEvent.Event)(implicit
         token: Option[String],
         contextualizedErrorLogger: ContextualizedErrorLogger,
     ): Future[JsReassignmentEvent] =
       v match {
-        case lapi.reassignment.Reassignment.Event.Empty =>
-          illegalValue(lapi.reassignment.Reassignment.Event.Empty.toString())
-        case lapi.reassignment.Reassignment.Event.UnassignedEvent(value) =>
+        case lapi.reassignment.ReassignmentEvent.Event.Empty =>
+          illegalValue(lapi.reassignment.ReassignmentEvent.Event.Empty.toString())
+        case lapi.reassignment.ReassignmentEvent.Event.Unassigned(value) =>
           Future(JsReassignmentEvent.JsUnassignedEvent(value))
-        case lapi.reassignment.Reassignment.Event.AssignedEvent(value) =>
+        case lapi.reassignment.ReassignmentEvent.Event.Assigned(value) =>
           CreatedEvent
             .toJson(value.getCreatedEvent)
             .map(ce =>
@@ -1092,13 +1093,13 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def fromJson(jsObj: JsReassignmentEvent)(implicit
         token: Option[String],
         contextualizedErrorLogger: ContextualizedErrorLogger,
-    ): Future[lapi.reassignment.Reassignment.Event] =
+    ): Future[lapi.reassignment.ReassignmentEvent.Event] =
       jsObj match {
         case event: JsReassignmentEvent.JsAssignmentEvent =>
           CreatedEvent
             .fromJson(event.createdEvent)
             .map(ce =>
-              lapi.reassignment.Reassignment.Event.AssignedEvent(
+              lapi.reassignment.ReassignmentEvent.Event.Assigned(
                 value = lapi.reassignment.AssignedEvent(
                   source = event.source,
                   target = event.target,
@@ -1111,24 +1112,23 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
             )
 
         case JsReassignmentEvent.JsUnassignedEvent(value) =>
-          Future.successful(lapi.reassignment.Reassignment.Event.UnassignedEvent(value))
+          Future.successful(lapi.reassignment.ReassignmentEvent.Event.Unassigned(value))
       }
 
   }
-
   object Reassignment extends ProtocolConverter[lapi.reassignment.Reassignment, JsReassignment] {
     def toJson(v: lapi.reassignment.Reassignment)(implicit
         token: Option[String],
         contextualizedErrorLogger: ContextualizedErrorLogger,
-    ): Future[JsReassignment] = ReassignmentEvent
-      .toJson(v.event)
+    ): Future[JsReassignment] = v.events
+      .traverse(e => ReassignmentEvent.toJson(e.event))
       .map(e =>
         JsReassignment(
           updateId = v.updateId,
           commandId = v.commandId,
           workflowId = v.workflowId,
           offset = v.offset,
-          event = e,
+          events = e,
           traceContext = v.traceContext,
           recordTime = v.getRecordTime,
         )
@@ -1138,15 +1138,15 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         token: Option[String],
         contextualizedErrorLogger: ContextualizedErrorLogger,
     ): Future[lapi.reassignment.Reassignment] =
-      ReassignmentEvent
-        .fromJson(value.event)
+      value.events
+        .traverse(e => ReassignmentEvent.fromJson(e))
         .map(re =>
           lapi.reassignment.Reassignment(
             updateId = value.updateId,
             commandId = value.commandId,
             workflowId = value.workflowId,
             offset = value.offset,
-            event = re,
+            events = re.map(lapi.reassignment.ReassignmentEvent(_)),
             traceContext = value.traceContext,
             recordTime = Some(value.recordTime),
           )

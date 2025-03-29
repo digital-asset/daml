@@ -3,9 +3,16 @@
 
 package com.digitalasset.canton.sequencing.traffic
 
-import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.digitalasset.base.error.{
+  Alarm,
+  AlarmErrorCode,
+  ErrorCategory,
+  ErrorCode,
+  Explanation,
+  Resolution,
+}
 import com.digitalasset.canton.error.CantonErrorGroups.TrafficControlErrorGroup
-import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError, ContextualizedCantonError}
+import com.digitalasset.canton.error.{CantonError, ContextualizedCantonError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 

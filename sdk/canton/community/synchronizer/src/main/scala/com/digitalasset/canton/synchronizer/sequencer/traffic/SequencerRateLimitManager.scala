@@ -4,11 +4,11 @@
 package com.digitalasset.canton.synchronizer.sequencer.traffic
 
 import cats.data.EitherT
+import com.digitalasset.base.error.{Alarm, AlarmErrorCode}
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.crypto.{Fingerprint, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
-import com.digitalasset.canton.error.{Alarm, AlarmErrorCode}
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.TrafficControlParameters

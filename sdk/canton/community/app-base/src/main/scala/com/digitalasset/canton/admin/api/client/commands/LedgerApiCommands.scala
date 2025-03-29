@@ -98,10 +98,16 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   PreparedTransaction,
   SinglePartySignatures,
 }
-import com.daml.ledger.api.v2.reassignment.{AssignedEvent, Reassignment, UnassignedEvent}
-import com.daml.ledger.api.v2.reassignment_command.{
+import com.daml.ledger.api.v2.reassignment.{
+  AssignedEvent,
+  Reassignment,
+  ReassignmentEvent,
+  UnassignedEvent,
+}
+import com.daml.ledger.api.v2.reassignment_commands.{
   AssignCommand,
   ReassignmentCommand,
+  ReassignmentCommands,
   UnassignCommand,
 }
 import com.daml.ledger.api.v2.state_service.StateServiceGrpc.StateServiceStub
@@ -1032,43 +1038,44 @@ object LedgerApiCommands {
       override def synchronizerId: String = topologyTransaction.synchronizerId
     }
     sealed trait ReassignmentWrapper extends UpdateTreeWrapper with UpdateWrapper {
+      override def updateId: String = reassignment.updateId
+
       def reassignment: Reassignment
-      def unassignId: String = reassignment.getUnassignedEvent.unassignId
-      def reassignmentId: ReassignmentId = ReassignmentId(
-        Source(SynchronizerId.tryFromString(reassignment.getUnassignedEvent.source)),
-        CantonTimestamp.assertFromLong(unassignId.toLong),
-      )
+      def event: ReassignmentEvent.Event
       def offset: Long = reassignment.offset
     }
+
     object ReassignmentWrapper {
-      def apply(reassignment: Reassignment): ReassignmentWrapper = {
-        val event = reassignment.event
-        event.assignedEvent
-          .map[ReassignmentWrapper](AssignedWrapper(reassignment, _))
-          .orElse(
-            event.unassignedEvent.map[ReassignmentWrapper](UnassignedWrapper(reassignment, _))
-          )
-          .getOrElse(
+      def apply(reassignment: Reassignment): ReassignmentWrapper =
+        reassignment.events match {
+          case Seq(ReassignmentEvent(ReassignmentEvent.Event.Assigned(evt))) =>
+            AssignedWrapper(reassignment, evt)
+          case Seq(ReassignmentEvent(ReassignmentEvent.Event.Unassigned(evt))) =>
+            UnassignedWrapper(reassignment, evt)
+          case _ =>
             throw new IllegalStateException(
-              s"Invalid reassignment event (only supported UnassignedEvent and AssignedEvent): ${reassignment.event}"
+              s"Invalid reassignment event (only supported single UnassignedEvent and AssignedEvent): ${reassignment.events}"
             )
-          )
-      }
+        }
     }
+
     final case class AssignedWrapper(reassignment: Reassignment, assignedEvent: AssignedEvent)
         extends ReassignmentWrapper {
-      override def updateId: String = reassignment.updateId
       override def isUnassignment: Boolean = false
-
       override def synchronizerId: String = assignedEvent.target
+      override def event = ReassignmentEvent.Event.Assigned(assignedEvent)
     }
     final case class UnassignedWrapper(reassignment: Reassignment, unassignedEvent: UnassignedEvent)
         extends ReassignmentWrapper {
-      override def updateId: String = reassignment.updateId
       override def isUnassignment: Boolean = true
-
       override def synchronizerId: String = unassignedEvent.source
+      override def event = ReassignmentEvent.Event.Unassigned(unassignedEvent)
 
+      def unassignId: String = unassignedEvent.unassignId
+      def reassignmentId: ReassignmentId = ReassignmentId(
+        Source(SynchronizerId.tryFromString(unassignedEvent.source)),
+        CantonTimestamp.assertFromLong(unassignId.toLong),
+      )
     }
 
     trait BaseCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
@@ -1366,16 +1373,20 @@ object LedgerApiCommands {
       override protected def createRequest(): Either[String, SubmitReassignmentRequest] = Right(
         SubmitReassignmentRequest(
           Some(
-            ReassignmentCommand(
+            ReassignmentCommands(
               workflowId = workflowId,
               userId = userId,
               commandId = commandId,
               submitter = submitter.toString,
-              command = ReassignmentCommand.Command.AssignCommand(
-                AssignCommand(
-                  unassignId = unassignId,
-                  source = source.toProtoPrimitive,
-                  target = target.toProtoPrimitive,
+              commands = Seq(
+                ReassignmentCommand(
+                  ReassignmentCommand.Command.AssignCommand(
+                    AssignCommand(
+                      unassignId = unassignId,
+                      source = source.toProtoPrimitive,
+                      target = target.toProtoPrimitive,
+                    )
+                  )
                 )
               ),
               submissionId = submissionId,
@@ -1409,16 +1420,20 @@ object LedgerApiCommands {
       override protected def createRequest(): Either[String, SubmitReassignmentRequest] = Right(
         SubmitReassignmentRequest(
           Some(
-            ReassignmentCommand(
+            ReassignmentCommands(
               workflowId = workflowId,
               userId = userId,
               commandId = commandId,
               submitter = submitter.toString,
-              command = ReassignmentCommand.Command.UnassignCommand(
-                UnassignCommand(
-                  contractId = contractId.coid.toString,
-                  source = source.toProtoPrimitive,
-                  target = target.toProtoPrimitive,
+              commands = Seq(
+                ReassignmentCommand(
+                  ReassignmentCommand.Command.UnassignCommand(
+                    UnassignCommand(
+                      contractId = contractId.coid.toString,
+                      source = source.toProtoPrimitive,
+                      target = target.toProtoPrimitive,
+                    )
+                  )
                 )
               ),
               submissionId = submissionId,

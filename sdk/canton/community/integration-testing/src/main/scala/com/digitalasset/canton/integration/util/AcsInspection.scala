@@ -4,7 +4,7 @@
 package com.digitalasset.canton.integration.util
 
 import com.daml.ledger.api.v2.event.CreatedEvent
-import com.daml.ledger.api.v2.reassignment.AssignedEvent
+import com.daml.ledger.api.v2.reassignment.{AssignedEvent, UnassignedEvent}
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse.ContractEntry
 import com.daml.ledger.api.v2.state_service.IncompleteUnassigned
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedContractEntry
@@ -297,15 +297,21 @@ trait AcsInspection {
   ): M.iou.Iou.Contract =
     participant.ledger_api.javaapi.state.acs.await(M.iou.Iou.COMPANION)(submitter, predicate)
 
-  private def comparableEvent(createdEvent: Option[CreatedEvent]): Option[CreatedEvent] =
+  private def comparableCreatedEvent(createdEvent: Option[CreatedEvent]): Option[CreatedEvent] =
     createdEvent.map(_.copy(offset = 0L, nodeId = 0))
+
+  protected def comparableUnassignedEvent(unassignedEvent: UnassignedEvent): UnassignedEvent =
+    unassignedEvent.copy(offset = 0L, nodeId = 0)
 
   // remove the offset and nodeIds from the IncompleteUnassigned since they are participant-specific
   protected def comparableIncompleteUnassigned(
       incompleteUnassigned: IncompleteUnassigned
   ): IncompleteUnassigned =
     incompleteUnassigned.update(
-      _.optionalCreatedEvent := comparableEvent(incompleteUnassigned.createdEvent)
+      _.optionalCreatedEvent := comparableCreatedEvent(incompleteUnassigned.createdEvent),
+      _.optionalUnassignedEvent := incompleteUnassigned.unassignedEvent.map(
+        comparableUnassignedEvent
+      ),
     )
 
   // remove the offset and nodeIds from the AssignedEvent since they are participant-specific
@@ -323,7 +329,7 @@ trait AcsInspection {
         case ContractEntry.ActiveContract(active) =>
           ContractEntry.ActiveContract(
             active.update(
-              _.optionalCreatedEvent := comparableEvent(active.createdEvent)
+              _.optionalCreatedEvent := comparableCreatedEvent(active.createdEvent)
             )
           )
         case ContractEntry.IncompleteUnassigned(unassigned) =>
@@ -337,7 +343,7 @@ trait AcsInspection {
                 assigned.assignedEvent.map(
                   _.update(
                     _.optionalCreatedEvent :=
-                      comparableEvent(assigned.assignedEvent.flatMap(_.createdEvent))
+                      comparableCreatedEvent(assigned.assignedEvent.flatMap(_.createdEvent))
                   )
                 )
             )

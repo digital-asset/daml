@@ -5,10 +5,10 @@ package com.digitalasset.canton.synchronizer.block
 
 import cats.data.{EitherT, Nested}
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.base.error.BaseAlarm
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.error.BaseAlarm
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.block

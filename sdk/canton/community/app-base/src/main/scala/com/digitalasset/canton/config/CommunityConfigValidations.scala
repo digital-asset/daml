@@ -74,7 +74,9 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
       warnIfUnsafeMinProtocolVersion,
       adminTokenSafetyCheckParticipants,
       adminTokensMatchOnParticipants,
+      eitherUserListsOrPrivilegedTokensOnParticipants,
       sessionSigningKeysOnlyWithKms,
+      distinctScopesAndAudiencesOnAuthServices,
     )
 
   /** Group node configs by db access to find matching db storage configs. Overcomplicated types
@@ -286,5 +288,61 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
     }
 
     toValidated(errors)
+  }
+
+  private def eitherUserListsOrPrivilegedTokensOnParticipants(
+      config: CantonConfig
+  ): Validated[NonEmpty[Seq[String]], Unit] = {
+    val errors = config.participants.toSeq
+      .flatMap { case (name, participantConfig) =>
+        participantConfig.adminApi.authServices.map(name -> _) ++
+          participantConfig.ledgerApi.authServices.map(name -> _)
+      }
+      .mapFilter { case (name, authService) =>
+        Option.when(
+          authService.privileged && authService.users.nonEmpty
+        )(
+          s"Authorization service cannot be configured to accept both privileged tokens and tokens for user-lists in ${name.unwrap}"
+        )
+      }
+    NonEmpty
+      .from(errors)
+      .map(Validated.invalid[NonEmpty[Seq[String]], Unit])
+      .getOrElse(Validated.Valid(()))
+  }
+
+  private def distinctScopesAndAudiencesOnAuthServices(
+      config: CantonConfig
+  ): Validated[NonEmpty[Seq[String]], Unit] = {
+    def checkDuplicates(
+        name: String,
+        attrName: String,
+        extract: AuthServiceConfig => Option[String],
+        authServices: Seq[AuthServiceConfig],
+    ) = {
+      val attributes = authServices.flatMap(extract)
+      Option
+        .when(
+          attributes.sizeIs != attributes.distinct.sizeIs
+        )(
+          s"Multiple authorization service configured with the same $attrName in $name"
+        )
+        .toList
+    }
+    val errors = config.participants.toSeq
+      .flatMap { case (name, participantConfig) =>
+        List(
+          name -> participantConfig.adminApi.authServices,
+          name -> participantConfig.ledgerApi.authServices,
+        )
+      }
+      .flatMap { case (name, authServices) =>
+        checkDuplicates(name.unwrap, "scope", _.targetScope, authServices) ++
+          checkDuplicates(name.unwrap, "audience", _.targetAudience, authServices)
+      }
+    NonEmpty
+      .from(errors)
+      .map(Validated.invalid[NonEmpty[Seq[String]], Unit])
+      .getOrElse(Validated.Valid(()))
   }
 }

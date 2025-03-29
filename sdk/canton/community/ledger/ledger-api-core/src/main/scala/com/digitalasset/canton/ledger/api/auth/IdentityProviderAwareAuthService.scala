@@ -32,7 +32,8 @@ class IdentityProviderAwareAuthService(
     with NamedLogging {
 
   def decodeMetadata(
-      headers: Metadata
+      headers: Metadata,
+      serviceName: String,
   )(implicit traceContext: TraceContext): Future[ClaimSet] =
     getAuthorizationHeader(headers) match {
       case None => Future.successful(ClaimSet.Unauthenticated)

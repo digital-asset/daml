@@ -539,7 +539,7 @@ class PruningProcessor(
       synchronizerOffsets,
     )
 
-  private def lookUpContractsArchivedBeforeOrAt(
+  private def lookUpContractsArchived(
       fromExclusive: Option[Offset],
       upToInclusive: Offset,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[LfContractId]] =
@@ -586,7 +586,10 @@ class PruningProcessor(
     for {
       cutoffs <- lookUpSynchronizerAndParticipantPruningCutoffs(fromExclusive, upToInclusive)
 
-      archivedContracts <- lookUpContractsArchivedBeforeOrAt(fromExclusive, upToInclusive)
+      archivedContracts <- lookUpContractsArchived(
+        fromExclusive = fromExclusive,
+        upToInclusive = upToInclusive,
+      )
 
       // We must prune the contract store even if the event log is empty, because there is not necessarily an
       // archival event reassigned-away contracts.

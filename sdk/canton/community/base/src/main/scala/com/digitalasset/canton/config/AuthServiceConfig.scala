@@ -5,7 +5,13 @@ package com.digitalasset.canton.config
 
 import com.auth0.jwt.algorithms.Algorithm
 import com.daml.jwt.*
-import com.digitalasset.canton.auth.{AccessLevel, AuthService, AuthServiceJWT, AuthServiceWildcard}
+import com.digitalasset.canton.auth.{
+  AccessLevel,
+  AuthService,
+  AuthServiceJWT,
+  AuthServiceWildcard,
+  AuthorizedUser,
+}
 import com.digitalasset.canton.config.CantonRequireTypes.*
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -15,6 +21,10 @@ sealed trait AuthServiceConfig extends UniformCantonConfigValidation {
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
       loggerFactory: NamedLoggerFactory,
   ): AuthService
+  def privileged: Boolean = false
+  def users: Seq[AuthorizedUser] = Seq.empty
+  def targetAudience: Option[String] = None
+  def targetScope: Option[String] = None
 }
 
 object AuthServiceConfig {
@@ -38,10 +48,11 @@ object AuthServiceConfig {
     */
   final case class UnsafeJwtHmac256(
       secret: NonEmptyString,
-      targetAudience: Option[String],
-      targetScope: Option[String],
-      privileged: Boolean = false,
+      override val targetAudience: Option[String],
+      override val targetScope: Option[String],
+      override val privileged: Boolean = false,
       accessLevel: AccessLevel = AccessLevel.Wildcard,
+      override val users: Seq[AuthorizedUser] = Seq.empty,
   ) extends AuthServiceConfig {
     private def verifier(jwtTimestampLeeway: Option[JwtTimestampLeeway]): JwtVerifier =
       HMAC256Verifier(secret.unwrap, jwtTimestampLeeway).valueOr(err =>
@@ -60,6 +71,7 @@ object AuthServiceConfig {
         privileged,
         accessLevel,
         loggerFactory,
+        users,
       )
 
   }
@@ -69,10 +81,11 @@ object AuthServiceConfig {
     */
   final case class JwtRs256Crt(
       certificate: String,
-      targetAudience: Option[String],
-      targetScope: Option[String],
-      privileged: Boolean = false,
+      override val targetAudience: Option[String],
+      override val targetScope: Option[String],
+      override val privileged: Boolean = false,
       accessLevel: AccessLevel = AccessLevel.Wildcard,
+      override val users: Seq[AuthorizedUser] = Seq.empty,
   ) extends AuthServiceConfig {
     private def verifier(jwtTimestampLeeway: Option[JwtTimestampLeeway]) = RSA256Verifier
       .fromCrtFile(certificate, jwtTimestampLeeway)
@@ -88,6 +101,7 @@ object AuthServiceConfig {
         privileged,
         accessLevel,
         loggerFactory,
+        users,
       )
 
   }
@@ -97,10 +111,11 @@ object AuthServiceConfig {
     */
   final case class JwtEs256Crt(
       certificate: String,
-      targetAudience: Option[String],
-      targetScope: Option[String],
-      privileged: Boolean = false,
+      override val targetAudience: Option[String],
+      override val targetScope: Option[String],
+      override val privileged: Boolean = false,
       accessLevel: AccessLevel = AccessLevel.Wildcard,
+      override val users: Seq[AuthorizedUser] = Seq.empty,
   ) extends AuthServiceConfig {
     @SuppressWarnings(Array("org.wartremover.warts.Null"))
     private def verifier(jwtTimestampLeeway: Option[JwtTimestampLeeway]) = ECDSAVerifier
@@ -119,6 +134,7 @@ object AuthServiceConfig {
         privileged,
         accessLevel,
         loggerFactory,
+        users,
       )
 
   }
@@ -128,10 +144,11 @@ object AuthServiceConfig {
     */
   final case class JwtEs512Crt(
       certificate: String,
-      targetAudience: Option[String],
-      targetScope: Option[String],
-      privileged: Boolean = false,
+      override val targetAudience: Option[String],
+      override val targetScope: Option[String],
+      override val privileged: Boolean = false,
       accessLevel: AccessLevel = AccessLevel.Wildcard,
+      override val users: Seq[AuthorizedUser] = Seq.empty,
   ) extends AuthServiceConfig {
     @SuppressWarnings(Array("org.wartremover.warts.Null"))
     private def verifier(jwtTimestampLeeway: Option[JwtTimestampLeeway]) = ECDSAVerifier
@@ -150,6 +167,7 @@ object AuthServiceConfig {
         privileged,
         accessLevel,
         loggerFactory,
+        users,
       )
 
   }
@@ -159,10 +177,11 @@ object AuthServiceConfig {
     */
   final case class JwtJwks(
       url: NonEmptyString,
-      targetAudience: Option[String],
-      targetScope: Option[String],
-      privileged: Boolean = false,
+      override val targetAudience: Option[String],
+      override val targetScope: Option[String],
+      override val privileged: Boolean = false,
       accessLevel: AccessLevel = AccessLevel.Wildcard,
+      override val users: Seq[AuthorizedUser] = Seq.empty,
   ) extends AuthServiceConfig {
     private def verifier(jwtTimestampLeeway: Option[JwtTimestampLeeway]) =
       JwksVerifier(url.unwrap, jwtTimestampLeeway)
@@ -177,6 +196,7 @@ object AuthServiceConfig {
         privileged,
         accessLevel,
         loggerFactory,
+        users,
       )
   }
 

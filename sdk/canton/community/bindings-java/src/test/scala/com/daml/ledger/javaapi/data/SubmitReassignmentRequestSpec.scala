@@ -18,8 +18,8 @@ class SubmitReassignmentRequestSpec
     PropertyCheckConfiguration(minSize = 1, sizeRange = 3)
 
   "SubmitReassignmentRequest.fromProto" should "convert Protoc-generated instances to data instances" in forAll(
-    reassignmentCommandGen.map(
-      SubmitReassignmentRequestProto.newBuilder().setReassignmentCommand(_).build
+    reassignmentCommandsGen.map(
+      SubmitReassignmentRequestProto.newBuilder().setReassignmentCommands(_).build
     )
   ) { request =>
     val commands = SubmitReassignmentRequest.fromProto(request)

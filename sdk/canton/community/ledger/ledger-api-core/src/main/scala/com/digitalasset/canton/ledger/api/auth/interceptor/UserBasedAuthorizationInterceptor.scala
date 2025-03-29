@@ -38,11 +38,12 @@ class UserBasedAuthorizationInterceptor(
   import UserBasedAuthorizationInterceptor.*
 
   override def headerToClaims(
-      headers: Metadata
+      headers: Metadata,
+      serviceName: String,
   )(implicit loggingContextWithTrace: LoggingContextWithTrace): Future[ClaimSet] = {
     implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
     super
-      .headerToClaims(headers)
+      .headerToClaims(headers, serviceName)
       .flatMap(resolveAuthenticatedUserRights)
   }
 

@@ -10,10 +10,11 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
+import com.digitalasset.base.error.BaseAlarm
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.error.{BaseAlarm, CantonBaseError}
+import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.GroupAddressResolver

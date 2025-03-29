@@ -517,6 +517,9 @@ object GrpcNetworking {
       // Used for metrics
       lazy val url = s"${if (transportSecurity) "https" else "http"}://$address:$port"
 
+      // Used for logs
+      lazy val logString = s"${if (transportSecurity) "https" else "http"}_${address}_$port"
+
       override def compare(that: Id): Int =
         Id.unapply(this).compare(Id.unapply(that))
 

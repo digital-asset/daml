@@ -28,7 +28,6 @@ object CantonPackageServiceError extends PackageServiceErrorGroup {
       val loggingContext: ErrorLoggingContext,
       override val code: ErrorCode,
   ) extends ContextualizedDamlError(parent.cause)
-      with ContextualizedCantonError
       with ParentCantonError[ParticipantTopologyManagerError] {
 
     override val cause: String = parent.cause

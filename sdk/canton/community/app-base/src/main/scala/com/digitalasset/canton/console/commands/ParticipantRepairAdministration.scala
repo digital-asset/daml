@@ -24,7 +24,6 @@ import com.digitalasset.canton.participant.admin.data.{
   ActiveContract,
   ContractIdImportMode,
   RepairContract,
-  Validation,
 }
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
@@ -306,7 +305,7 @@ class ParticipantRepairAdministration(
       importFilePath: String =
         "canton-acs-export-new.gz", // TODO(#24326) - update when replacing export_acs with export_acs_new, also in description
       workflowIdPrefix: String = "",
-      contractIdImportMode: ContractIdImportMode = Validation,
+      contractIdImportMode: ContractIdImportMode = ContractIdImportMode.Validation,
   ): Map[LfContractId, LfContractId] =
     check(FeatureFlag.Repair) {
       check(FeatureFlag.Preview) {

@@ -49,9 +49,8 @@ object ConfigErrors extends ConfigErrorGroup {
 
     def exceptions: Seq[ConfigException]
 
-    override def log(): Unit = {
-      super.log()
-
+    override def logError(): Unit = {
+      super.logError()
       exceptions.foreach { e =>
         loggingContext.logger.debug(
           code.toMsg(

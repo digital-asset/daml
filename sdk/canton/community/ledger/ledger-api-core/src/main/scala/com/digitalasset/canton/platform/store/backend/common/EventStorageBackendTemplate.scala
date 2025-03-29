@@ -500,7 +500,8 @@ object EventStorageBackendTemplate {
       byteArray("driver_metadata") ~
       byteArray("trace_context").? ~
       timestampFromMicros("record_time") ~
-      long("event_sequential_id")
+      long("event_sequential_id") ~
+      int("node_id")
 
   private def assignEventParser(
       allQueryingPartiesO: Option[Set[Int]],
@@ -533,7 +534,8 @@ object EventStorageBackendTemplate {
           driverMetadata ~
           traceContext ~
           recordTime ~
-          eventSequentialId =>
+          eventSequentialId ~
+          nodeId =>
         Entry(
           offset = offset,
           updateId = updateId,
@@ -556,7 +558,7 @@ object EventStorageBackendTemplate {
             rawCreatedEvent = RawCreatedEvent(
               updateId = updateId,
               offset = offset,
-              nodeId = 0,
+              nodeId = nodeId,
               contractId = contractId,
               templateId = stringInterning.templateId.externalize(templateId),
               packageName = stringInterning.packageName.externalize(packageName),
@@ -601,7 +603,8 @@ object EventStorageBackendTemplate {
       timestampFromMicros("assignment_exclusivity").? ~
       byteArray("trace_context").? ~
       timestampFromMicros("record_time") ~
-      long("event_sequential_id")
+      long("event_sequential_id") ~
+      int("node_id")
 
   private def unassignEventParser(
       allQueryingPartiesO: Option[Set[Int]],
@@ -624,7 +627,8 @@ object EventStorageBackendTemplate {
           assignmentExclusivity ~
           traceContext ~
           recordTime ~
-          eventSequentialId =>
+          eventSequentialId ~
+          nodeId =>
         Entry(
           offset = offset,
           updateId = updateId,
@@ -653,6 +657,7 @@ object EventStorageBackendTemplate {
               stringInterning,
             ),
             assignmentExclusivity = assignmentExclusivity,
+            nodeId = nodeId,
           ),
         )
     }

@@ -61,13 +61,14 @@ class ServerRunner(
 class ConsoleInteractiveRunner(
     noTty: Boolean = false,
     bootstrapScript: Option[CantonScript],
+    postScriptCallback: => Unit,
     override val loggerFactory: NamedLoggerFactory,
 ) extends Runner {
   def run(environment: Environment): Unit = {
     val success =
       try {
         val consoleEnvironment = environment.createConsole()
-        InteractiveConsole(consoleEnvironment, noTty, bootstrapScript, logger)
+        InteractiveConsole(consoleEnvironment, noTty, bootstrapScript, logger, postScriptCallback)
       } catch {
         case NonFatal(_) => false
       }

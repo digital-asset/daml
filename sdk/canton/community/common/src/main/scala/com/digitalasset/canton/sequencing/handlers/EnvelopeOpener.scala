@@ -4,11 +4,16 @@
 package com.digitalasset.canton.sequencing.handlers
 
 import cats.instances.either.*
-import com.digitalasset.base.error.{ContextualizedErrorLogger, Explanation, Resolution}
+import com.digitalasset.base.error.{
+  Alarm,
+  AlarmErrorCode,
+  ContextualizedErrorLogger,
+  Explanation,
+  Resolution,
+}
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
-import com.digitalasset.canton.error.{Alarm, AlarmErrorCode}
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope}
 import com.digitalasset.canton.sequencing.{ApplicationHandler, EnvelopeBox, HandlerResult}

@@ -217,7 +217,8 @@ private[backend] object AppendOnlySchema {
         "submitter" -> fieldStrategy.intOptional(stringInterning =>
           _.submitter.map(stringInterning.party.unsafe.internalize)
         ),
-        "contract_id" -> fieldStrategy.bytea(_ => _.contract_id),
+        "node_id" -> fieldStrategy.int(_ => _.node_id),
+        "contract_id" -> fieldStrategy.bytea(_ => u => u.contract_id.toArray),
         "template_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.templateId.unsafe.internalize(dbDto.template_id)
         ),
@@ -250,6 +251,7 @@ private[backend] object AppendOnlySchema {
         "submitter" -> fieldStrategy.intOptional(stringInterning =>
           _.submitter.map(stringInterning.party.unsafe.internalize)
         ),
+        "node_id" -> fieldStrategy.int(_ => _.node_id),
         "contract_id" -> fieldStrategy.bytea(_ => _.contract_id),
         "template_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.templateId.unsafe.internalize(dbDto.template_id)

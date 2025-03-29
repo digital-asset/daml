@@ -6,7 +6,7 @@ syntax = "proto3";
 package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v2/commands.proto";
-import "com/daml/ledger/api/v2/reassignment_command.proto";
+import "com/daml/ledger/api/v2/reassignment_commands.proto";
 
 option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "CommandSubmissionServiceOuterClass";
@@ -46,7 +46,7 @@ message SubmitResponse {}
 message SubmitReassignmentRequest {
   // The reassignment command to be submitted.
   // Required
-  ReassignmentCommand reassignment_command = 1;
+  ReassignmentCommands reassignment_commands = 1;
 }
 
 message SubmitReassignmentResponse {}

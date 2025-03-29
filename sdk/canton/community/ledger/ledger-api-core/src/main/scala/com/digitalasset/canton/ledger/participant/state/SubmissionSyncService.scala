@@ -122,8 +122,8 @@ trait SubmissionSyncService {
     * @param workflowId
     *   A submitter-provided identifier used for monitoring and to traffic-shape the work handled by
     *   Daml applications communicating over the ledger.
-    * @param reassignmentCommand
-    *   The command specifying this reassignment further.
+    * @param reassignmentCommands
+    *   The commands specifying this reassignment further.
     */
   def submitReassignment(
       submitter: Ref.Party,
@@ -131,7 +131,7 @@ trait SubmissionSyncService {
       commandId: Ref.CommandId,
       submissionId: Option[Ref.SubmissionId],
       workflowId: Option[Ref.WorkflowId],
-      reassignmentCommand: ReassignmentCommand,
+      reassignmentCommands: Seq[ReassignmentCommand],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult]

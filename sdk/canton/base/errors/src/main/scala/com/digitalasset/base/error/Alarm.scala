@@ -1,10 +1,9 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.error
+package com.digitalasset.base.error
 
 import com.digitalasset.base.error.ErrorCategory.{SecurityAlert, UnredactedSecurityAlert}
-import com.digitalasset.base.error.{BaseError, ContextualizedErrorLogger, ErrorClass, ErrorCode}
 import io.grpc.StatusRuntimeException
 
 /** An alarm indicates that a different node is behaving maliciously. Alarms include situations
@@ -28,6 +27,7 @@ trait BaseAlarm extends BaseError {
   def report()(implicit logger: ContextualizedErrorLogger): Unit = logWithContext()
 
   /** Reports the alarm to the logger.
+    *
     * @return
     *   this alarm
     */

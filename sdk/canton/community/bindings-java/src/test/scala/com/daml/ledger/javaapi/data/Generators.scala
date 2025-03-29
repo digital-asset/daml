@@ -1034,6 +1034,19 @@ object Generators {
       .build()
   }
 
+  def reassignmentEventGen: Gen[v2.ReassignmentOuterClass.ReassignmentEvent] = {
+    import v2.ReassignmentOuterClass.ReassignmentEvent
+    for {
+      event <- Gen.oneOf(
+        unassignedEventGen.map(e => (b: ReassignmentEvent.Builder) => b.setUnassigned(e)),
+        assignedEventGen.map(e => (b: ReassignmentEvent.Builder) => b.setAssigned(e)),
+      )
+    } yield ReassignmentEvent
+      .newBuilder()
+      .pipe(event)
+      .build()
+  }
+
   def reassignmentGen: Gen[v2.ReassignmentOuterClass.Reassignment] = {
     import v2.ReassignmentOuterClass.Reassignment
     for {
@@ -1041,12 +1054,7 @@ object Generators {
       commandId <- Arbitrary.arbString.arbitrary
       workflowId <- Arbitrary.arbString.arbitrary
       offset <- Arbitrary.arbLong.arbitrary
-      event <- Gen.oneOf(
-        unassignedEventGen.map(unassigned =>
-          (b: Reassignment.Builder) => b.setUnassignedEvent(unassigned)
-        ),
-        assignedEventGen.map(assigned => (b: Reassignment.Builder) => b.setAssignedEvent(assigned)),
-      )
+      events <- Gen.listOf(reassignmentEventGen)
       traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
       recordTime <- instantGen
     } yield Reassignment
@@ -1055,7 +1063,7 @@ object Generators {
       .setCommandId(commandId)
       .setWorkflowId(workflowId)
       .setOffset(offset)
-      .pipe(event)
+      .addAllEvents(events.asJava)
       .setTraceContext(traceContext)
       .setRecordTime(Utils.instantToProto(recordTime))
       .build()
@@ -1292,57 +1300,61 @@ object Generators {
       .build()
   }
 
-  val unassignCommandGen: Gen[v2.ReassignmentCommandOuterClass.UnassignCommand] = {
-    import v2.ReassignmentCommandOuterClass.UnassignCommand
+  val unassignCommandGen: Gen[v2.ReassignmentCommandOuterClass.ReassignmentCommand] = {
+    import v2.ReassignmentCommandOuterClass.{UnassignCommand, ReassignmentCommand}
     for {
       contractId <- Arbitrary.arbString.arbitrary
       source <- Arbitrary.arbString.arbitrary
       target <- Arbitrary.arbString.arbitrary
-    } yield UnassignCommand
+    } yield ReassignmentCommand
       .newBuilder()
-      .setContractId(contractId)
-      .setSource(source)
-      .setTarget(target)
+      .setUnassignCommand(
+        UnassignCommand
+          .newBuilder()
+          .setContractId(contractId)
+          .setSource(source)
+          .setTarget(target)
+      )
       .build()
   }
 
-  val assignCommandGen: Gen[v2.ReassignmentCommandOuterClass.AssignCommand] = {
-    import v2.ReassignmentCommandOuterClass.AssignCommand
+  val assignCommandGen: Gen[v2.ReassignmentCommandOuterClass.ReassignmentCommand] = {
+    import v2.ReassignmentCommandOuterClass.{AssignCommand, ReassignmentCommand}
     for {
       unassignId <- Arbitrary.arbString.arbitrary
       source <- Arbitrary.arbString.arbitrary
       target <- Arbitrary.arbString.arbitrary
-    } yield AssignCommand
+    } yield ReassignmentCommand
       .newBuilder()
-      .setUnassignId(unassignId)
-      .setSource(source)
-      .setTarget(target)
+      .setAssignCommand(
+        AssignCommand
+          .newBuilder()
+          .setUnassignId(unassignId)
+          .setSource(source)
+          .setTarget(target)
+      )
       .build()
   }
 
-  val reassignmentCommandGen: Gen[v2.ReassignmentCommandOuterClass.ReassignmentCommand] = {
-    import v2.ReassignmentCommandOuterClass.ReassignmentCommand
+  val reassignmentCommandGen: Gen[v2.ReassignmentCommandOuterClass.ReassignmentCommand] =
+    Gen.oneOf(unassignCommandGen, assignCommandGen)
+
+  val reassignmentCommandsGen: Gen[v2.ReassignmentCommandOuterClass.ReassignmentCommands] = {
+    import v2.ReassignmentCommandOuterClass.ReassignmentCommands
     for {
       workflowId <- Arbitrary.arbString.arbitrary
       userId <- Arbitrary.arbString.arbitrary
       commandId <- Arbitrary.arbString.arbitrary
       submitter <- Arbitrary.arbString.arbitrary
-      command <- Gen.oneOf(
-        unassignCommandGen.map(unassign =>
-          (b: ReassignmentCommand.Builder) => b.setUnassignCommand(unassign)
-        ),
-        assignCommandGen.map(assign =>
-          (b: ReassignmentCommand.Builder) => b.setAssignCommand(assign)
-        ),
-      )
+      commands <- Gen.listOf(reassignmentCommandGen)
       submissionId <- Arbitrary.arbString.arbitrary
-    } yield ReassignmentCommand
+    } yield ReassignmentCommands
       .newBuilder()
       .setWorkflowId(workflowId)
       .setUserId(userId)
       .setCommandId(commandId)
       .setSubmitter(submitter)
-      .pipe(command)
+      .addAllCommands(commands.asJava)
       .setSubmissionId(submissionId)
       .build()
   }

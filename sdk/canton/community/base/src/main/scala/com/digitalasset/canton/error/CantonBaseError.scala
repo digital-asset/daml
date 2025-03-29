@@ -6,13 +6,13 @@ package com.digitalasset.canton.error
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.{
   BaseError,
-  CantonRpcError,
   ContextualizedErrorLogger,
-  DamlRpcError,
   ErrorCategory,
   ErrorCode,
   ErrorResource,
+  LogOnCreation,
   NoLogging,
+  RpcError,
 }
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.google.rpc.Status
@@ -52,7 +52,7 @@ object ErrorCodeUtils {
   * CREATION TO ENSURE WE DON'T LOSE THE ERROR MESSAGE.
   *
   * In many cases, we return errors that are communicated to clients as a Left. For such cases, we
-  * should use [[com.digitalasset.base.error.CantonRpcError]] to report them.
+  * should use [[com.digitalasset.base.error.RpcError]] to report them.
   *
   * For an actual error instance, you should extend one of the given abstract error classes such as
   * [[CantonError.Impl]] further below (or transaction error).
@@ -95,7 +95,7 @@ trait CantonBaseError extends BaseError {
   def asGoogleGrpcStatus(implicit loggingContext: ErrorLoggingContext): com.google.rpc.Status =
     ErrorCode.asGrpcStatus(this)(loggingContext)
 
-  def toCantonRpcError(implicit loggingContext: ErrorLoggingContext): CantonRpcError = {
+  def toCantonRpcError(implicit loggingContext: ErrorLoggingContext): RpcError = {
     val base = this
     GenericCantonRpcError(
       asGrpcError = base.asGrpcError(loggingContext),
@@ -110,33 +110,27 @@ trait CantonBaseError extends BaseError {
   }
 }
 
-trait ContextualizedCantonError extends CantonBaseError with CantonRpcError {
+trait ContextualizedCantonError extends CantonBaseError with RpcError with LogOnCreation {
 
   /** The logging context obtained when we created the error, usually passed in as implicit via
     * [[com.digitalasset.canton.logging.NamedLogging]]
     */
   def loggingContext: ErrorLoggingContext
 
-  /** Flag to control if an error should be logged at creation
-    *
-    * Generally, we do want to log upon creation, except in the case of "nested" or combined errors,
-    * where we just nest the error but don't want it to be logged twice. See
-    * [[com.digitalasset.canton.error.ParentCantonError]] as an example.
-    */
-  def logOnCreation: Boolean = true
+  override def logger: ContextualizedErrorLogger = loggingContext
 
-  def log(): Unit = logWithContext()(loggingContext)
+  /** Flag to control if an error should be logged at creation Generally, we do want to log upon
+    * creation, except in the case of "nested" or combined errors, where we just nest the error but
+    * don't want it to be logged twice. See [[com.digitalasset.canton.error.ParentCantonError]] as
+    * an example.
+    */
+  override def logOnCreation: Boolean = true
 
   def asGrpcError: StatusRuntimeException =
     ErrorCode.asGrpcError(this)(loggingContext)
 
   def asGrpcStatus: com.google.rpc.Status =
     ErrorCode.asGrpcStatus(this)(loggingContext)
-
-  // automatically log the error on generation
-  if (logOnCreation) {
-    log()
-  }
 
   def correlationId: Option[String] = loggingContext.correlationId
 
@@ -199,7 +193,7 @@ object CantonError {
       extends ContextualizedCantonError
 
   def stringFromContext(
-      error: CantonRpcError
+      error: RpcError
   )(implicit loggingContext: ErrorLoggingContext): String =
     error match {
       case error: CombinedError =>
@@ -218,19 +212,6 @@ object CantonError {
           errorCodeMsg
         }
     }
-
-  def stringFromContext(
-      error: DamlRpcError
-  )(implicit loggingContext: ErrorLoggingContext): String = {
-    val contextMap = error.context ++ loggingContext.properties
-    val errorCodeMsg =
-      error.code.toMsg(error.cause, loggingContext.traceContext.traceId, limit = None)
-    if (contextMap.nonEmpty) {
-      errorCodeMsg + "; " + ContextualizedErrorLogger.formatContextAsString(contextMap)
-    } else {
-      errorCodeMsg
-    }
-  }
 
 }
 
@@ -283,13 +264,13 @@ trait ParentCantonError[+T <: CantonBaseError] extends CantonBaseError {
   * Useful for situations with [[com.digitalasset.canton.util.CheckedT]] collecting several user
   * errors.
   */
-trait CombinedError extends CantonRpcError {
+trait CombinedError extends RpcError {
 
   def loggingContext: ErrorLoggingContext
 
-  def errors: NonEmpty[Seq[CantonRpcError]]
+  def errors: NonEmpty[Seq[RpcError]]
 
-  lazy val orderedErrors: NonEmpty[Seq[CantonRpcError]] = errors.sortBy(_.code.category.rank)
+  lazy val orderedErrors: NonEmpty[Seq[RpcError]] = errors.sortBy(_.code.category.rank)
 
   def cause: String = s"A series of ${errors.length} failures occurred"
 
@@ -309,4 +290,4 @@ final case class GenericCantonRpcError(
     traceId: Option[String],
     asGrpcStatus: Status,
     asGrpcError: StatusRuntimeException,
-) extends CantonRpcError {}
+) extends RpcError {}

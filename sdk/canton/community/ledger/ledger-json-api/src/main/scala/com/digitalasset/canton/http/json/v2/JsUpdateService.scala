@@ -298,7 +298,7 @@ final case class JsReassignment(
     commandId: String,
     workflowId: String,
     offset: Long,
-    event: JsReassignmentEvent.JsReassignmentEvent,
+    events: Seq[JsReassignmentEvent.JsReassignmentEvent],
     traceContext: Option[com.daml.ledger.api.v2.trace_context.TraceContext],
     recordTime: com.google.protobuf.timestamp.Timestamp,
 )

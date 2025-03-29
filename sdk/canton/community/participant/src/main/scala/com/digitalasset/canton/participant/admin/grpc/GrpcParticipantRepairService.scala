@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.admin.grpc
 import cats.data.EitherT
 import cats.syntax.all.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.base.error.CantonRpcError
+import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.ProtoDeserializationError.TimestampConversionError
 import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
@@ -17,12 +17,7 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory,
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.data.ActiveContract.loadFromByteString
-import com.digitalasset.canton.participant.admin.data.{
-  ContractIdImportMode,
-  Recomputation,
-  RepairContract,
-  Validation,
-}
+import com.digitalasset.canton.participant.admin.data.{ContractIdImportMode, RepairContract}
 import com.digitalasset.canton.participant.admin.grpc.GrpcParticipantRepairService.ValidExportAcsRequest
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
 import com.digitalasset.canton.participant.admin.repair.{
@@ -231,7 +226,8 @@ final class GrpcParticipantRepairService(
     importAcsContracts(
       loadFromByteString(data).map(contracts => contracts.map(_.toRepairContract)),
       workflowIdPrefix,
-      if (allowContractIdSuffixRecomputation) Recomputation else Validation,
+      if (allowContractIdSuffixRecomputation) ContractIdImportMode.Recomputation
+      else ContractIdImportMode.Validation,
     )
 
   override def importAcsNew(
@@ -529,7 +525,7 @@ final class GrpcParticipantRepairService(
           .leftMap(_.toString)
           .leftMap(RepairServiceError.InvalidArgument.Error(_))
       )
-      _ <- sync.purgeDeactivatedSynchronizer(synchronizerAlias).leftWiden[CantonRpcError]
+      _ <- sync.purgeDeactivatedSynchronizer(synchronizerAlias).leftWiden[RpcError]
     } yield ()
 
     EitherTUtil

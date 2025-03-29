@@ -9,7 +9,7 @@ import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
-import com.digitalasset.base.error.{CantonRpcError, ContextualizedErrorLogger, DamlRpcError}
+import com.digitalasset.base.error.{ContextualizedErrorLogger, RpcError}
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTimeout}
@@ -60,14 +60,14 @@ trait DarService {
       synchronizeVetting: PackageVettingSynchronization,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DamlRpcError, Seq[DarMainPackageId]]
+  ): EitherT[FutureUnlessShutdown, RpcError, Seq[DarMainPackageId]]
 
   def validateDar(
       payload: ByteString,
       filename: String,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DamlRpcError, DarMainPackageId]
+  ): EitherT[FutureUnlessShutdown, RpcError, DarMainPackageId]
 
   def getDar(mainPackageId: DarMainPackageId)(implicit
       traceContext: TraceContext
@@ -129,7 +129,7 @@ class PackageService(
       force: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonRpcError, Unit] =
+  ): EitherT[FutureUnlessShutdown, RpcError, Unit] =
     if (force) {
       logger.info(s"Forced removal of package $packageId")
       EitherT.right(packagesDarsStore.removePackage(packageId))
@@ -140,7 +140,7 @@ class PackageService(
       val checkNotVetted =
         packageOps
           .hasVettedPackageEntry(packageId)
-          .flatMap[CantonRpcError, Unit] {
+          .flatMap[RpcError, Unit] {
             case true => EitherT.leftT(new PackageVetted(packageId))
             case false => EitherT.rightT(())
           }
@@ -156,7 +156,7 @@ class PackageService(
 
   def removeDar(mainPackageId: DarMainPackageId)(implicit
       tc: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonRpcError, Unit] =
+  ): EitherT[FutureUnlessShutdown, RpcError, Unit] =
     ifDarExists(mainPackageId)(removeDarLf(_, _))(ifNotExistsOperationFailed =
       "DAR archive removal"
     )
@@ -166,16 +166,16 @@ class PackageService(
       synchronizeVetting: PackageVettingSynchronization,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonRpcError, Unit] =
+  ): EitherT[FutureUnlessShutdown, RpcError, Unit] =
     ifDarExists(mainPackageId) { (_, darLf) =>
       packageOps
         .vetPackages(darLf.all.map(readPackageId), synchronizeVetting)
-        .leftWiden[CantonRpcError]
+        .leftWiden[RpcError]
     }(ifNotExistsOperationFailed = "DAR archive vetting")
 
   def unvetDar(mainPackageId: DarMainPackageId)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonRpcError, Unit] =
+  ): EitherT[FutureUnlessShutdown, RpcError, Unit] =
     ifDarExists(mainPackageId) { (descriptor, lfArchive) =>
       val packages = lfArchive.all.map(readPackageId)
       val mainPkg = readPackageId(lfArchive.main)
@@ -186,10 +186,10 @@ class PackageService(
       action: (
           DarDescription,
           archive.Dar[DamlLf.Archive],
-      ) => EitherT[FutureUnlessShutdown, CantonRpcError, Unit]
+      ) => EitherT[FutureUnlessShutdown, RpcError, Unit]
   )(ifNotExistsOperationFailed: => String)(implicit
       tc: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonRpcError, Unit] =
+  ): EitherT[FutureUnlessShutdown, RpcError, Unit] =
     for {
       dar <- packagesDarsStore
         .getDar(mainPackageId)
@@ -223,7 +223,7 @@ class PackageService(
       dar: archive.Dar[DamlLf.Archive],
   )(implicit
       tc: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonRpcError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, RpcError, Unit] = {
     // Can remove the DAR if:
     // 1. The main package of the dar is unused
     // 2. For all dependencies of the DAR, either:
@@ -276,7 +276,7 @@ class PackageService(
       _removed <- {
         logger.info(s"Removing dar ${darDescriptor.mainPackageId}")
         EitherT
-          .liftF[FutureUnlessShutdown, CantonRpcError, Unit](
+          .liftF[FutureUnlessShutdown, RpcError, Unit](
             packagesDarsStore.removeDar(darDescriptor.mainPackageId)
           )
       }
@@ -289,12 +289,12 @@ class PackageService(
       darDescriptor: DarDescription,
   )(implicit
       tc: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonRpcError, Unit] =
+  ): EitherT[FutureUnlessShutdown, RpcError, Unit] =
     packageOps
       .hasVettedPackageEntry(mainPkg)
       .flatMap { isVetted =>
         if (!isVetted)
-          EitherT.pure[FutureUnlessShutdown, CantonRpcError](
+          EitherT.pure[FutureUnlessShutdown, RpcError](
             logger.info(
               s"Package with id $mainPkg is already unvetted. Doing nothing for the unvet operation"
             )
@@ -339,7 +339,7 @@ class PackageService(
       expectedMainPackageId: Option[LfPackageId],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DamlRpcError, DarMainPackageId] =
+  ): EitherT[FutureUnlessShutdown, RpcError, DarMainPackageId] =
     upload(
       Seq(UploadDarData(darBytes, description, expectedMainPackageId)),
       submissionIdO,
@@ -393,7 +393,7 @@ class PackageService(
       synchronizeVetting: PackageVettingSynchronization,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DamlRpcError, Seq[DarMainPackageId]] = {
+  ): EitherT[FutureUnlessShutdown, RpcError, Seq[DarMainPackageId]] = {
     val submissionId =
       submissionIdO.getOrElse(LedgerSubmissionId.assertFromString(UUID.randomUUID().toString))
     for {
@@ -426,7 +426,7 @@ class PackageService(
       darName: String,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DamlRpcError, DarMainPackageId] =
+  ): EitherT[FutureUnlessShutdown, RpcError, DarMainPackageId] =
     packageUploader.validateDar(payload, darName)
 
   override def getDar(mainPackageId: DarMainPackageId)(implicit
@@ -449,10 +449,10 @@ class PackageService(
       synchronizeVetting: PackageVettingSynchronization,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DamlRpcError, Unit] =
+  ): EitherT[FutureUnlessShutdown, RpcError, Unit] =
     packageOps
       .vetPackages(packages, synchronizeVetting)
-      .leftMap[DamlRpcError] { err =>
+      .leftMap[RpcError] { err =>
         implicit val code = err.code
         CantonPackageServiceError.IdentityManagerParentError(err)
       }
@@ -602,7 +602,7 @@ object PackageService {
   )(implicit
       executionContext: ExecutionContext,
       contextualizedErrorLogger: ContextualizedErrorLogger,
-  ): EitherT[FutureUnlessShutdown, DamlRpcError, E] =
+  ): EitherT[FutureUnlessShutdown, RpcError, E] =
     EitherT.fromEither(attempt match {
       case Right(value) => Right(value)
       case Left(LfArchiveError.InvalidDar(entries, cause)) =>

@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.admin
 
 import better.files.*
 import cats.data.EitherT
-import com.digitalasset.base.error.{CantonRpcError, DamlRpcError}
+import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.BaseTest.getResourcePath
 import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -373,7 +373,7 @@ class PackageServiceTest
 
   "The DAR referenced by the requested hash does not exist" when {
     def rejectOnMissingDar(
-        req: PackageService => EitherT[FutureUnlessShutdown, CantonRpcError, Unit],
+        req: PackageService => EitherT[FutureUnlessShutdown, RpcError, Unit],
         mainPackageId: DarMainPackageId,
         op: String,
     ): Env => Future[Assertion] = { env =>
@@ -422,7 +422,7 @@ class PackageServiceTest
         upgradeIncompatibleDars.map { case (darName, archive) =>
           val payload = encodeDarArchive(archive)
           EitherT
-            .rightT[FutureUnlessShutdown, DamlRpcError](())
+            .rightT[FutureUnlessShutdown, RpcError](())
             // Delegate the future within
             .flatMap(_ =>
               sut.upload(

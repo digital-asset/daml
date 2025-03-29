@@ -39,9 +39,9 @@ final class CommandSubmissionServiceAuthorization(
   ): Future[SubmitReassignmentResponse] =
     authorizer.rpc(service.submitReassignment)(
       RequiredClaims.submissionClaims(
-        actAs = request.reassignmentCommand.map(_.submitter).toList.toSet,
+        actAs = request.reassignmentCommands.map(_.submitter).toList.toSet,
         readAs = Set.empty,
-        userIdL = Lens.unit[SubmitReassignmentRequest].reassignmentCommand.userId,
+        userIdL = Lens.unit[SubmitReassignmentRequest].reassignmentCommands.userId,
       )*
     )(request)
 

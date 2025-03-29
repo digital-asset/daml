@@ -41,29 +41,47 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
   private val portsFiles =
     (interactiveSubmissionV1Folder / "canton_ports.json").deleteOnExit()
   override protected def additionalConfigTransform: Seq[ConfigTransform] = Seq(
-    _.focus(_.parameters.portsFile).replace(Some(portsFiles.pathAsString))
+    _.focus(_.parameters.portsFile).replace(Option(portsFiles.pathAsString))
   )
-  private val processLogger = new ConcurrentBufferedLogger {
+  private def mkProcessLogger(logErrors: Boolean = true) = new ConcurrentBufferedLogger {
     override def out(s: => String): Unit = {
       logger.info(s)
       super.out(s)
     }
     override def err(s: => String): Unit = {
-      logger.error(s)
+      if (logErrors) logger.error(s)
       super.err(s)
     }
   }
+  private val processLogger = mkProcessLogger()
 
-  private def runAndAssertCommandSuccess(pb: scala.sys.process.ProcessBuilder) = {
-    val exitCode = pb.!
+  private def runAndAssertCommandSuccess(
+      pb: scala.sys.process.ProcessBuilder,
+      processLogger: ConcurrentBufferedLogger,
+  ): Unit = {
+    val exitCode = pb.!(processLogger)
     if (exitCode != 0) {
       fail(s"Command failed:\n\n ${processLogger.output()}")
     }
   }
 
+  private def runAndAssertCommandFailure(
+      pb: scala.sys.process.ProcessBuilder,
+      processLogger: ConcurrentBufferedLogger,
+      expectedFailure: String,
+  ): Unit = {
+    val exitCode = pb.!(processLogger)
+    if (exitCode == 0) {
+      fail(s"Expected command failure but it succeeded")
+    } else {
+      processLogger.output() should include(expectedFailure)
+    }
+  }
+
   override def beforeAll(): Unit = {
     runAndAssertCommandSuccess(
-      Process(Seq("./setup.sh"), cwd = interactiveSubmissionV1Folder.toJava)
+      Process(Seq("./setup.sh"), cwd = interactiveSubmissionV1Folder.toJava),
+      processLogger,
     )
     super.beforeAll()
   }
@@ -80,11 +98,15 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
     ).foreach(_.delete(swallowIOExceptions = true))
   }
 
+  private def setupTest(implicit env: FixtureParam): Unit = {
+    import env.environment
+    runScript(interactiveSubmissionV1Folder / "bootstrap.canton")(environment)
+    environment.writePortsFile()
+  }
+
   "run the interactive submission demo" in { implicit env =>
     import env.*
-    runScript(interactiveSubmissionV1Folder / "bootstrap.canton")(environment)
-
-    env.environment.writePortsFile()
+    setupTest
 
     runAndAssertCommandSuccess(
       Process(
@@ -96,9 +118,11 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
           "--participant-id",
           participant1.id.uid.toProtoPrimitive,
           "run-demo",
+          "-a", // Automatically accept all transactions (by default the script stops to ask users to explicitly confirm)
         ),
         cwd = interactiveSubmissionV1Folder.toJava,
-      )
+      ),
+      processLogger,
     )
   }
 
@@ -187,6 +211,81 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
 
         timeouts.default.await_("Encoding")(result)
     }
+  }
+
+  "run the interactive topology bash demo" in { implicit env =>
+    import env.*
+    setupTest
+
+    runAndAssertCommandSuccess(
+      Process(
+        Seq(
+          "./interactive_topology_example.sh",
+          participant1.config.adminApi.address + ":" + participant1.config.adminApi.port.unwrap.toString,
+          sequencer1.synchronizer_id.toProtoPrimitive,
+        ),
+        cwd = interactiveSubmissionV1Folder.toJava,
+      ),
+      processLogger,
+    )
+  }
+
+  "do error handling in bash" in { implicit env =>
+    import env.*
+    runScript(interactiveSubmissionV1Folder / "bootstrap.canton")(environment)
+
+    env.environment.writePortsFile()
+
+    runAndAssertCommandFailure(
+      Process(
+        Seq(
+          "./interactive_topology_example.sh",
+          participant1.config.adminApi.address + ":" + participant1.config.adminApi.port.unwrap.toString,
+          "invalid_Store",
+        ),
+        cwd = interactiveSubmissionV1Folder.toJava,
+      ),
+      processLogger,
+      "Invalid unique identifier `invalid_Store` with missing namespace",
+    )
+  }
+
+  "run the interactive topology python demo" in { implicit env =>
+    import env.*
+    setupTest
+
+    runAndAssertCommandSuccess(
+      Process(
+        Seq(
+          "python",
+          (interactiveSubmissionV1Folder / "interactive_topology_example.py").pathAsString,
+          "--synchronizer-id",
+          sequencer1.synchronizer_id.toProtoPrimitive,
+          "run-demo",
+        ),
+        cwd = interactiveSubmissionV1Folder.toJava,
+      ),
+      processLogger,
+    )
+  }
+
+  "do error handling in python" in { implicit env =>
+    setupTest
+
+    runAndAssertCommandFailure(
+      Process(
+        Seq(
+          "python",
+          (interactiveSubmissionV1Folder / "interactive_topology_example.py").pathAsString,
+          "--synchronizer-id",
+          "invalid_Store",
+          "run-demo",
+        ),
+        cwd = interactiveSubmissionV1Folder.toJava,
+      ),
+      mkProcessLogger(logErrors = false),
+      "Invalid unique identifier `invalid_Store` with missing namespace",
+    )
   }
 }
 
