@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.codegen.backend.java.inner
 
 import com.digitalasset.daml.lf.data.Ref
-import Ref.{ChoiceName, PackageId, PackageName, PackageRef, PackageVersion}
+import Ref.{ChoiceName, PackageId, PackageName, PackageVersion}
 import com.digitalasset.daml.lf.typesig.{DefDataType, Record, TypeCon}
 import com.digitalasset.daml.lf.typesig.PackageSignature.TypeDecl
 import java.util.Optional
@@ -62,8 +62,7 @@ private[inner] object ClassGenUtils {
       moduleName: String,
       name: String,
   ): Seq[FieldSpec] = {
-    val packageRef = PackageRef.Name(pkgName)
-    def idField(fieldName: String, pkg: String) =
+    def idField(fieldName: String, packageId: String) =
       FieldSpec
         .builder(
           ClassName.get(classOf[javaapi.data.Identifier]),
@@ -73,16 +72,17 @@ private[inner] object ClassGenUtils {
           Modifier.PUBLIC,
         )
         .initializer(
-          "new $T($S, $S, $S)",
+          "new $T($S, $S, $S, $S)",
           classOf[javaapi.data.Identifier],
-          pkg,
+          packageId,
+          pkgName,
           moduleName,
           name,
         )
         .build()
     Seq(
-      idField(templateIdFieldName, packageRef.toString),
-      idField(templateIdWithPackageIdFieldName, pkgId.toString),
+      idField(templateIdFieldName, ""),
+      idField(templateIdWithPackageIdFieldName, pkgId),
     )
   }
 
