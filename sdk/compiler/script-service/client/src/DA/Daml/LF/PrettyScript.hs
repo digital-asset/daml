@@ -278,6 +278,22 @@ prettyScriptErrorError lvl (Just err) =  do
     ScriptErrorErrorCrash reason -> pure $ text "CRASH:" <-> ltext reason
     ScriptErrorErrorUserError reason -> pure $ text "Aborted: " <-> ltext reason
     ScriptErrorErrorUnhandledException exc -> pure $ text "Unhandled exception: " <-> prettyValue' lvl True 0 world exc
+    ScriptErrorErrorFailureStatusError ScriptError_FailureStatusError{..} ->
+      pure $ vcat $
+        [ "Failed with status of category"
+            <-> ltext scriptError_FailureStatusErrorCategoryName
+            <> ":"
+            <-> ltext scriptError_FailureStatusErrorErrorId
+            <> ":"
+            <-> ltext scriptError_FailureStatusErrorMessage
+        ] ++ concat
+        [ [ "Including the following metadata:"
+          , nest 2 $
+              vcat $ flip mapV scriptError_FailureStatusErrorMetadata $ \ScriptError_FailureStatusError_MetadataEntry{..} ->
+                label_ (TL.unpack scriptError_FailureStatusError_MetadataEntryKey <> ":") $ ltext scriptError_FailureStatusError_MetadataEntryValue
+          ]
+        | not $ null scriptError_FailureStatusErrorMetadata
+        ]
     ScriptErrorErrorTemplatePrecondViolated ScriptError_TemplatePreconditionViolated{..} -> do
       pure $
         "Template precondition violated in:"
