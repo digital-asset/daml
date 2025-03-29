@@ -367,21 +367,104 @@ To fix this issue the party 'Bob' should be made a controlling party in one of t
 
 .. _daml-studio-packages:
 
-Work with Multiple Packages
-***************************
+Multi-Package Support
+*********************
 
-Often a Daml project consists of multiple packages, e.g., one
-containing your templates and one containing a Daml trigger so that
-you can keep the templates stable while modifying the trigger.  It is
-possible to work on multiple packages in a single session of Daml
-studio but you have to keep some things in mind. You can see the
-directory structure of a simple multi-package project consisting of
-two packages ``pkga`` and ``pkgb`` below:
+Following the Multi-Package support added to ``daml build`` (:ref:`see here <multi-package-build>`),
+Daml Studio also supports projects that utilize the ``multi-package.yaml`` file.
+You should become familiar with multi-package builds
+before continuing in this section.
+The Daml Studio Multi-IDE feature runs separate package environments for
+each package in your project, and allows cross-package jump-to-definition for
+any packages listed in a top level ``multi-package.yaml`` file.
+
+Multi-package.yaml Location
+===========================
+Daml Studio only uses the ``multi-package.yaml`` file if it sits at the
+VS Code Workspace Root, that is, in the root directory in which Daml Studio was opened.
+If no ``multi-package.yaml`` is found, the cross-package jump-to-definition feature
+cannot jump to the real on-disk source code, however, other Multi-IDE features still work as normal.
+
+Package Environments and Hot-Loading
+====================================
+The Multi-IDE runs a separate package environment for each package in the project,
+allowing the IDE to replicate properties such as dependencies, module-prefixes, and build-options
+of each package individually, without clashing with other packages in the project.
+A package's environment automatically reloads if its ``daml.yaml`` file changes,
+or any of the dependency DAR files change.  
+
+Note, however, that the Multi-IDE does not hold "live" copies of DARs, therefore any changes
+to a package that is a dependency of another package are not visible in that second package until
+you run ``daml build``.  
+You can run ``daml build --all`` to rebuild all relevant DARs. The IDE accounts for this
+and reloads environments as necessary.  
+
+Jumping to definition on non-local dependencies (those not listed in ``multi-package.yaml``)
+also uses the correct environment, giving correct diagnostics for that package, and allowing
+further jumps down the stack. However, this can only jump to a package for which the source code is available, that is packages to which the DAR can be found in any of the following places:
+- The ``data-dependencies`` field of the current package or any other packages known to the ``multi-package.yaml``
+- Under the added ``dars`` field in the ``multi-package.yaml``, which is shown below:
+
+.. code:: yaml
+
+  packages:
+  - my-package
+  - libs/my-lib
+  dars:
+  # Given my-package depends on some DAR, which then depends on my-transitive-dependency
+  - ./dars/my-transitive-dependency-1.0.0.dar
+
+Adding DAR paths to this field has no effect on building, serving only for the IDE to jump to.
+
+Multiple Daml SDK Versions
+==========================
+Separate package environments can run in different Daml SDK versions (though some features may
+not work correctly in versions <= 2.8). When opening a file, or jumping to a location
+in a package running a Daml version that is not currently installed, Daml Studio prompts
+you to install the missing Daml SDK, and then handles the installation, progress reporting, and
+cancellation within a notification.
+
+Directory Envrionment Tools (direnv)
+====================================
+Tools like ``direnv`` are commonly used to set up dependencies and import environment variables
+for use with :ref:`environment variable interpolation support <environment-variable-interpolation>`. To make this work in Daml Studio,
+you need a VSCode extension that sets this up for other extensions.
+In the case of ``direnv`` specifically (i.e. you have a ``.envrc`` file), we
+recommend using `this direnv extension by Martin Kühl <https://marketplace.visualstudio.com/items?itemName=mkhl.direnv>`__, which we have verified is compatible.
+Other direnv extensions may not correctly pass environment information to the Daml Studio extension.
+
+If the Daml extension detects a ``.envrc`` file, it recommends this extension within the IDE with the
+following message:
+
+..code::
+
+  Found an .envrc file but the recommended direnv VSCode extension is not installed. Daml IDE may fail to start due to missing environment variables.
+  Would you like to install the recommended direnv extension or attempt to continue without it?
+
+It also provides a link to the extension on the VS Code extension marketplace.
+
+Limitations in 2.10.0-rc
+========================
+These limitations are for the Release Candidate only, not for the 2.10 full release.
+
+* Jumping to non-local dependencies does not currently retain the build-options and module-prefixes
+  for that package. This means that if you jump to a dependency that requires either of these to build,
+  the editor shows errors in the source code.
+* Some links in the Script Results tab may not resolve correctly cross-package.
+* Packages with symlinks between the daml.yaml and source files may not give correct intelligence.
+
+Setting Multi-IDE SDK Version
+=============================
+The Multi-IDE selects the correct SDK version for each package you interact with. However the
+Multi-IDE itself runs from your most recently installed SDK version. You can override this using
+an additional ``daml.yaml`` file at the root of your project (next to the ``multi-package.yaml``)
+containing only an SDK Version, as follows:
 
 .. code-block:: none
 
     .
     ├── daml.yaml
+    ├── multi-package.yaml
     ├── pkga
     │   ├── daml
     │   │   └── A.daml
@@ -391,22 +474,17 @@ two packages ``pkga`` and ``pkgb`` below:
         │   └── B.daml
         └── daml.yaml
 
-``pkga`` and ``pkgb`` are regular Daml projects with a ``daml.yaml``
-and a Daml module. In addition to the ``daml.yaml`` files for the
-respective packages, you also need to add a ``daml.yaml`` to the root
-of your project. This file only needs to specify the SDK
-version. Replace ``X.Y.Z`` by the SDK version you specified in the
-``daml.yaml`` files of the individual packages.
+The root ``daml.yaml`` contains only the ``sdk-version`` field, as shown below.
+Note that Multi-IDE is only supported in 2.10+.
 
 .. code-block:: yaml
 
-    sdk-version: X.Y.Z
+  sdk-version: 2.10.0
 
-You can then open Daml Studio once in the root of your project and
-work on files in both packages. Note that if ``pkgb`` refers to
-``pkga.dar`` in its ``dependencies`` field, changes will not be picked
-up automatically. This is always the case even if you open Daml Studio
-in ``pkgb``. However, for multi-package projects there is an
-additional caveat: You have to both rebuild ``pkga.dar`` using ``daml
-build`` and then build ``pkgb`` using ``daml build`` before restarting
-Daml Studio.
+This feature can also be used when Multi-IDE is inactive, as described below.
+
+Deactivating Multi-IDE
+======================
+The Multi-IDE feature can be deactivated by going to VSCode settings (``ctrl + ,``), searching for 
+``Daml: Multi Package Ide Support``, and unticking the box. You do not need to restart your editor.
+If you are deactivating this feature due to a bug, please report it on the `forums <https://discuss.daml.com/>`__.
