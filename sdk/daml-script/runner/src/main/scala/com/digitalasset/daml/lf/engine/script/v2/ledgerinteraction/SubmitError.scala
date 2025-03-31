@@ -15,7 +15,6 @@ import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2

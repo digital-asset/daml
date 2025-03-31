@@ -66,6 +66,15 @@ class GrpcLedgerClient(
   override val transport = "gRPC API"
   implicit val traceContext: TraceContext = TraceContext.empty
 
+  private def resolvePackageName(packageId: PackageId): PackageName =
+    compiledPackages.pkgInterface
+      .lookupPackage(packageId)
+      .fold(
+        err => throw new IllegalStateException(s"Cannot find package ID $packageId: $err"),
+        identity,
+      )
+      .pkgName
+
   override def query(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
@@ -81,7 +90,7 @@ class GrpcLedgerClient(
       identifier: Identifier,
       explicitPackageId: Boolean,
   ): api.Identifier = {
-    val converted = toApiIdentifier(identifier)
+    val converted = toApiIdentifier(resolvePackageName)(identifier)
 
     compiledPackages.pkgInterface
       .lookupPackage(identifier.packageId)
@@ -120,7 +129,7 @@ class GrpcLedgerClient(
         Seq(
           CumulativeFilter(
             IdentifierFilter.InterfaceFilter(
-              InterfaceFilter(Some(toApiIdentifier(interfaceId)), true)
+              InterfaceFilter(Some(toApiIdentifier(resolvePackageName)(interfaceId)), true)
             )
           )
         )
@@ -308,7 +317,7 @@ class GrpcLedgerClient(
     val ledgerDisclosures =
       disclosures.map { case Disclosure(tmplId, cid, blob) =>
         DisclosedContract(
-          templateId = Some(toApiIdentifier(tmplId)),
+          templateId = Some(toApiIdentifier(resolvePackageName)(tmplId)),
           contractId = cid.coid,
           createdEventBlob = blob.toByteString,
         )
@@ -438,7 +447,7 @@ class GrpcLedgerClient(
     cmd.command match {
       case command.CreateCommand(tmplRef, argument) =>
         for {
-          arg <- lfValueToApiRecord(true, argument)
+          arg <- lfValueToApiRecord(true, argument, resolvePackageName)
         } yield Command().withCreate(
           CreateCommand(
             Some(toApiIdentifierUpgrades(tmplRef.assertToTypeConName, cmd.explicitPackageId)),
@@ -447,7 +456,7 @@ class GrpcLedgerClient(
         )
       case command.ExerciseCommand(typeRef, contractId, choice, argument) =>
         for {
-          arg <- lfValueToApiValue(true, argument)
+          arg <- lfValueToApiValue(true, argument, resolvePackageName)
         } yield Command().withExercise(
           // TODO: https://github.com/digital-asset/daml/issues/14747
           //  Fix once the new field interface_id have been added to the API Exercise Command
@@ -460,8 +469,8 @@ class GrpcLedgerClient(
         )
       case command.ExerciseByKeyCommand(tmplRef, key, choice, argument) =>
         for {
-          key <- lfValueToApiValue(true, key)
-          argument <- lfValueToApiValue(true, argument)
+          key <- lfValueToApiValue(true, key, resolvePackageName)
+          argument <- lfValueToApiValue(true, argument, resolvePackageName)
         } yield Command().withExerciseByKey(
           ExerciseByKeyCommand(
             Some(toApiIdentifierUpgrades(tmplRef.assertToTypeConName, cmd.explicitPackageId)),
@@ -472,8 +481,8 @@ class GrpcLedgerClient(
         )
       case command.CreateAndExerciseCommand(tmplRef, template, choice, argument) =>
         for {
-          template <- lfValueToApiRecord(true, template)
-          argument <- lfValueToApiValue(true, argument)
+          template <- lfValueToApiRecord(true, template, resolvePackageName)
+          argument <- lfValueToApiValue(true, argument, resolvePackageName)
         } yield Command().withCreateAndExercise(
           CreateAndExerciseCommand(
             Some(toApiIdentifierUpgrades(tmplRef.assertToTypeConName, cmd.explicitPackageId)),
@@ -486,7 +495,7 @@ class GrpcLedgerClient(
 
   private def toPrefetchContractKey(key: AnyContractKey): Either[String, PrefetchContractKey] = {
     for {
-      contractKey <- lfValueToApiValue(true, key.key.toUnnormalizedValue)
+      contractKey <- lfValueToApiValue(true, key.key.toUnnormalizedValue, resolvePackageName)
     } yield PrefetchContractKey(
       templateId = Some(toApiIdentifierUpgrades(key.templateId, false)),
       contractKey = Some(contractKey),

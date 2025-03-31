@@ -19,7 +19,6 @@ import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
-import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.daml.script.converter.ConverterException
 import com.digitalasset.canton.ledger.api.{PartyDetails, User, UserRight}
 import scalaz.std.list._
@@ -186,7 +185,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       ("getAnyChoice", SAny(choice.argBinder._2, translated)),
       (
         "getAnyChoiceTemplateTypeRep",
-        fromTemplateTypeRep(toApiIdentifier(interfaceId.getOrElse(templateId))),
+        fromTemplateTypeRep(interfaceId.getOrElse(templateId)),
       ),
     )
   }
