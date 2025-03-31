@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.implicits.catsSyntaxOptionId
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.digitalasset.base.error.CantonRpcError
+import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.ProtoDeserializationError.{
   ProtoDeserializationFailure,
@@ -219,7 +219,7 @@ class GrpcPackageService(
         .getDar(mainPackageId)
         .toRight(
           CantonPackageServiceError.Fetching.DarNotFound
-            .Reject("getDar", mainPackageId.unwrap): CantonRpcError
+            .Reject("getDar", mainPackageId.unwrap): RpcError
         )
     } yield v30.GetDarResponse(
       payload = ByteString.copyFrom(dar.bytes),
@@ -287,7 +287,7 @@ class GrpcPackageService(
         .getDarContents(mainPackageId)
         .toRight(
           CantonPackageServiceError.Fetching.DarNotFound
-            .Reject("getDarContents", mainPackageId.unwrap): CantonRpcError
+            .Reject("getDarContents", mainPackageId.unwrap): RpcError
         )
     } yield {
       v30.GetDarContentsResponse(
@@ -313,7 +313,7 @@ class GrpcPackageService(
       packageIdProto: String
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonRpcError, LfPackageId] =
+  ): EitherT[FutureUnlessShutdown, RpcError, LfPackageId] =
     EitherT.fromEither[FutureUnlessShutdown](
       LfPackageId
         .fromString(packageIdProto)
@@ -326,7 +326,7 @@ class GrpcPackageService(
   ): Future[v30.GetPackageContentsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val v30.GetPackageContentsRequest(packageIdProto) = request
-    def notFound(pkg: LfPackageId): CantonRpcError =
+    def notFound(pkg: LfPackageId): RpcError =
       CantonPackageServiceError.Fetching.InvalidPackageId.NotFound(pkg)
     val ret = for {
       packageId <- parsePackageId(packageIdProto)
@@ -353,7 +353,7 @@ class GrpcPackageService(
     val v30.GetPackageReferencesRequest(packageIdProto) = request
     val ret = for {
       packageId <- parsePackageId(packageIdProto)
-      dars <- EitherT.right[CantonRpcError](service.getPackageReferences(packageId))
+      dars <- EitherT.right[RpcError](service.getPackageReferences(packageId))
     } yield v30.GetPackageReferencesResponse(
       dars = dars.map(darDescriptionToProto)
     )

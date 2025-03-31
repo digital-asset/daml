@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.admin
 
-import com.digitalasset.base.error.DamlRpcError
+import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTimeout}
@@ -262,7 +262,7 @@ class PackageUploaderTest
 
   private def checkUpgradeValidation(
       withInitializedTestEnv: WithInitializedTestEnv,
-      expectedErrorAssertionOnIncompatibleUpload: Option[DamlRpcError => Assertion],
+      expectedErrorAssertionOnIncompatibleUpload: Option[RpcError => Assertion],
   ) = {
     import withInitializedTestEnv.*
     val darV1 = PackageTestUtils

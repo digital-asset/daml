@@ -4,14 +4,20 @@
 package com.digitalasset.canton.participant.sync
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.base.error.{ErrorCategory, ErrorCode, ErrorGroup, Explanation, Resolution}
+import com.digitalasset.base.error.{
+  Alarm,
+  AlarmErrorCode,
+  ErrorCategory,
+  ErrorCode,
+  ErrorGroup,
+  Explanation,
+  Resolution,
+}
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader.LoadSequencerEndpointInformationResult
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.SyncServiceErrorGroup
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.InjectionErrorGroup
 import com.digitalasset.canton.error.{
-  Alarm,
-  AlarmErrorCode,
   CantonError,
   CombinedError,
   ContextualizedCantonError,

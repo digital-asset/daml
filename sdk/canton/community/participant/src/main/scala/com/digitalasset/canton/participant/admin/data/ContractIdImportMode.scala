@@ -16,6 +16,28 @@ sealed trait ContractIdImportMode extends Product with Serializable with PrettyP
 }
 
 object ContractIdImportMode {
+
+  case object Accept extends ContractIdImportMode {
+    override def toProtoV30: v30.ContractIdImportMode =
+      v30.ContractIdImportMode.CONTRACT_ID_IMPORT_MODE_ACCEPT
+
+    override def pretty: Pretty[Accept.type] = prettyOfObject[Accept.type]
+  }
+
+  case object Validation extends ContractIdImportMode {
+    override def toProtoV30: v30.ContractIdImportMode =
+      v30.ContractIdImportMode.CONTRACT_ID_IMPORT_MODE_VALIDATION
+
+    override def pretty: Pretty[Validation.type] = prettyOfObject[Validation.type]
+  }
+
+  case object Recomputation extends ContractIdImportMode {
+    override def toProtoV30: v30.ContractIdImportMode =
+      v30.ContractIdImportMode.CONTRACT_ID_IMPORT_MODE_RECOMPUTATION
+
+    override def pretty: Pretty[Recomputation.type] = prettyOfObject[Recomputation.type]
+  }
+
   def fromProtoV30(
       contractIdReComputationModeP: v30.ContractIdImportMode
   ): ParsingResult[ContractIdImportMode] =
@@ -31,25 +53,4 @@ object ContractIdImportMode {
       case v30.ContractIdImportMode.Unrecognized(value) =>
         Left(UnrecognizedEnum(contractIdReComputationModeP.name, value))
     }
-}
-
-case object Accept extends ContractIdImportMode {
-  override def toProtoV30: v30.ContractIdImportMode =
-    v30.ContractIdImportMode.CONTRACT_ID_IMPORT_MODE_ACCEPT
-
-  override def pretty: Pretty[Accept.type] = prettyOfObject[Accept.type]
-}
-
-case object Validation extends ContractIdImportMode {
-  override def toProtoV30: v30.ContractIdImportMode =
-    v30.ContractIdImportMode.CONTRACT_ID_IMPORT_MODE_VALIDATION
-
-  override def pretty: Pretty[Validation.type] = prettyOfObject[Validation.type]
-}
-
-case object Recomputation extends ContractIdImportMode {
-  override def toProtoV30: v30.ContractIdImportMode =
-    v30.ContractIdImportMode.CONTRACT_ID_IMPORT_MODE_RECOMPUTATION
-
-  override def pretty: Pretty[Recomputation.type] = prettyOfObject[Recomputation.type]
 }

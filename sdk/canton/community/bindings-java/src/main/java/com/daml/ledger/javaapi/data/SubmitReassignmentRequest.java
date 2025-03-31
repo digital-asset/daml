@@ -9,14 +9,14 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 public final class SubmitReassignmentRequest {
 
   public static CommandSubmissionServiceOuterClass.SubmitReassignmentRequest toProto(
-      @NonNull ReassignmentCommand command) {
+      @NonNull ReassignmentCommands command) {
     return CommandSubmissionServiceOuterClass.SubmitReassignmentRequest.newBuilder()
-        .setReassignmentCommand(command.toProto())
+        .setReassignmentCommands(command.toProto())
         .build();
   }
 
-  public static ReassignmentCommand fromProto(
+  public static ReassignmentCommands fromProto(
       CommandSubmissionServiceOuterClass.@NonNull SubmitReassignmentRequest request) {
-    return ReassignmentCommand.fromProto(request.getReassignmentCommand());
+    return ReassignmentCommands.fromProto(request.getReassignmentCommands());
   }
 }

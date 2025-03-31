@@ -58,6 +58,7 @@ download_if_not_exists "https://raw.githubusercontent.com/digital-asset/daml/$DA
 download_if_not_exists "https://raw.githubusercontent.com/googleapis/googleapis/3597f7db2191c00b100400991ef96e52d62f5841/google/rpc/status.proto" "google/rpc/status.proto"
 download_if_not_exists "https://raw.githubusercontent.com/protocolbuffers/protobuf/407aa2d9319f5db12964540810b446fecc22d419/src/google/protobuf/empty.proto" "google/protobuf/empty.proto"
 download_if_not_exists "https://raw.githubusercontent.com/scalapb/ScalaPB/6291978a7ca8b48bd69cc98aa04cb28bc18a44a9/protobuf/scalapb/scalapb.proto" "scalapb/scalapb.proto"
+download_if_not_exists "https://raw.githubusercontent.com/googleapis/googleapis/9415ba048aa587b1b2df2b96fc00aa009c831597/google/rpc/error_details.proto" "google/rpc/error_details.proto"
 
 # Generate python code for protobuf messages
 generate_grpc_code() {
@@ -99,12 +100,14 @@ generate_grpc_code "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/interactive/int
 generate_grpc_code "$COMMUNITY_PROTO_PATH" "$PROTOCOL_PROTO_PATH/topology.proto"
 generate_grpc_code "$COMMUNITY_PROTO_PATH" "$TOPOLOGY_ADMIN_PROTO_PATH/common.proto"
 generate_grpc_code "$COMMUNITY_PROTO_PATH" "$PROTOCOL_PROTO_PATH/synchronizer_parameters.proto"
+generate_grpc_code "$COMMUNITY_PROTO_PATH" "$COMMUNITY_CANTON_PROTO_PATH/version/v1/untyped_versioned_message.proto"
 generate_grpc_code "$COMMUNITY_PROTO_PATH" "$PROTOCOL_PROTO_PATH/traffic_control_parameters.proto"
 generate_grpc_code "$COMMUNITY_PROTO_PATH" "$PROTOCOL_PROTO_PATH/sequencing_parameters.proto"
 generate_grpc_code "$COMMUNITY_PROTO_PATH" "$CRYPTO_PROTO_PATH/crypto.proto"
 generate_grpc_code "." "scalapb/scalapb.proto"
 generate_grpc_code "." "google/rpc/status.proto"
 generate_grpc_code "." "google/protobuf/empty.proto"
+generate_grpc_code "." "google/rpc/error_details.proto"
 generate_grpc_code "." "com/daml/ledger/api/v2/value.proto"
 
 # gRPC services

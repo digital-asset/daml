@@ -32,6 +32,16 @@ object AccessLevel {
   case object Wildcard extends AccessLevel
 }
 
+final case class AuthorizedUser(
+    userId: String,
+    allowedServices: Seq[String],
+) extends UniformCantonConfigValidation
+
+object AuthorizedUser {
+  implicit val accessLevelCantonConfigValidator: CantonConfigValidator[AuthorizedUser] =
+    CantonConfigValidatorDerivation[AuthorizedUser]
+}
+
 /** An AuthService that reads a JWT token from a `Authorization: Bearer` HTTP header. The token is
   * expected to use the format as defined in [[com.daml.jwt.AuthServiceJWTPayload]]:
   */
@@ -43,25 +53,28 @@ abstract class AuthServiceJWTBase(
     with NamedLogging {
 
   override def decodeMetadata(
-      headers: Metadata
+      headers: Metadata,
+      serviceName: String,
   )(implicit traceContext: TraceContext): Future[ClaimSet] =
     Future.successful {
       getAuthorizationHeader(headers) match {
         case None => ClaimSet.Unauthenticated
-        case Some(header) => parseHeader(header)
+        case Some(header) => parseHeader(header, serviceName)
       }
     }
 
   private[this] def getAuthorizationHeader(headers: Metadata): Option[String] =
     Option.apply(headers.get(AUTHORIZATION_KEY))
 
-  private[this] def parseHeader(header: String)(implicit traceContext: TraceContext): ClaimSet =
+  private[this] def parseHeader(header: String, serviceName: String)(implicit
+      traceContext: TraceContext
+  ): ClaimSet =
     parseJWTPayload(header).fold(
       error => {
         logger.warn("Authorization error: " + error.message)
         ClaimSet.Unauthenticated
       },
-      payloadToClaims,
+      payloadToClaims(serviceName),
     )
 
   private[this] def parsePayload(jwtPayload: String): Either[Error, AuthServiceJWTPayload] = {
@@ -126,7 +139,7 @@ abstract class AuthServiceJWTBase(
       parsed <- parsePayload(decoded.payload)
     } yield parsed
 
-  protected[this] def payloadToClaims: AuthServiceJWTPayload => ClaimSet
+  protected[this] def payloadToClaims(serviceName: String): AuthServiceJWTPayload => ClaimSet
 }
 
 class AuthServiceJWT(
@@ -135,7 +148,7 @@ class AuthServiceJWT(
     targetScope: Option[String],
     val loggerFactory: NamedLoggerFactory,
 ) extends AuthServiceJWTBase(verifier, targetAudience, targetScope) {
-  protected[this] def payloadToClaims: AuthServiceJWTPayload => ClaimSet = {
+  protected[this] def payloadToClaims(serviceName: String): AuthServiceJWTPayload => ClaimSet = {
     case payload: StandardJWTPayload =>
       ClaimSet.AuthenticatedUser(
         identityProviderId = None,
@@ -143,6 +156,22 @@ class AuthServiceJWT(
         userId = payload.userId,
         expiration = payload.exp,
       )
+  }
+}
+
+class UserConfigAuthService private[auth] (
+    verifier: JwtVerifierBase,
+    targetAudience: Option[String],
+    targetScope: Option[String],
+    users: Seq[AuthorizedUser],
+    val loggerFactory: NamedLoggerFactory,
+) extends AuthServiceJWTBase(verifier, targetAudience, targetScope) {
+  protected[this] def payloadToClaims(serviceName: String): AuthServiceJWTPayload => ClaimSet = {
+    case payload: StandardJWTPayload =>
+      users
+        .find(_.userId == payload.userId)
+        .flatMap(_.allowedServices.find(_ == serviceName))
+        .fold[ClaimSet](ClaimSet.Unauthenticated)(_ => ClaimSet.Claims.Admin)
   }
 }
 
@@ -162,7 +191,7 @@ class AuthServicePrivilegedJWT private[auth] (
     case AccessLevel.Admin => ClaimSet.Claims.Admin.claims
     case AccessLevel.Wildcard => ClaimSet.Claims.Wildcard.claims
   }
-  protected[this] def payloadToClaims: AuthServiceJWTPayload => ClaimSet = {
+  protected[this] def payloadToClaims(serviceName: String): AuthServiceJWTPayload => ClaimSet = {
     case payload: StandardJWTPayload =>
       ClaimSet.Claims(
         claims = claims,
@@ -183,17 +212,26 @@ object AuthServiceJWT {
       privileged: Boolean,
       accessLevel: AccessLevel,
       loggerFactory: NamedLoggerFactory,
+      users: Seq[AuthorizedUser],
   ): AuthServiceJWTBase =
-    (privileged, targetScope, targetAudience) match {
-      case (true, Some(scope), _) =>
+    (privileged, targetScope, targetAudience, users) match {
+      case (_, _, _, authorizedUsers) if authorizedUsers.nonEmpty =>
+        new UserConfigAuthService(
+          verifier,
+          targetAudience,
+          targetScope,
+          authorizedUsers,
+          loggerFactory,
+        )
+      case (true, Some(scope), _, _) =>
         new AuthServicePrivilegedJWT(verifier, None, Some(scope), accessLevel, loggerFactory)
-      case (true, None, Some(audience)) =>
+      case (true, None, Some(audience), _) =>
         new AuthServicePrivilegedJWT(verifier, Some(audience), None, accessLevel, loggerFactory)
-      case (true, None, None) =>
+      case (true, None, None, _) =>
         throw new IllegalArgumentException(
           "Missing targetScope or targetAudience in the definition of a privileged JWT AuthService"
         )
-      case (false, _, _) =>
+      case (false, _, _, _) =>
         new AuthServiceJWT(verifier, targetAudience, targetScope, loggerFactory)
     }
 }

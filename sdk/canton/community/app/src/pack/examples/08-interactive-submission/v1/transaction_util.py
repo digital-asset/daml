@@ -6,9 +6,9 @@
 import com.daml.ledger.api.v2.interactive.interactive_submission_service_pb2 as interactive_submission_service_pb2
 from google.protobuf.json_format import MessageToJson
 import argparse
-import sys
 import hashlib
 import struct
+import base64
 
 
 def encode_bool(value):
@@ -247,9 +247,7 @@ def encode_metadata(metadata):
             encode_int64,
         )
         + encode_int64(metadata.submission_time)
-        + encode_repeated(
-            metadata.input_contracts, encode_input_contract
-        )
+        + encode_repeated(metadata.input_contracts, encode_input_contract)
     )
 
 
@@ -341,7 +339,9 @@ if __name__ == "__main__":
         epilog="""
         Examples:
           python transaction_util.py --decode transaction.bin
+          python transaction_util.py --decode --base64 <base64 encoded prepared transaction>
           python transaction_util.py --hash transaction.bin
+          python transaction_util.py --hash --base64 <base64 encoded prepared transaction>
         """,
     )
     parser.add_argument(
@@ -351,21 +351,31 @@ if __name__ == "__main__":
         action="store_true",
     )
     parser.add_argument("--hash", help="Hash Transaction", action="store_true")
-    parser.add_argument("filename")
+    parser.add_argument(
+        "--base64",
+        "-b",
+        help="Expect the input as a base64 encoded string instead of a file",
+        action="store_true",
+    )
+    parser.add_argument("input")
 
     args = parser.parse_args()
 
-    input_file = args.filename
+    input_arg = args.input
 
     prepared_transaction = interactive_submission_service_pb2.PreparedTransaction()
-    with open(input_file, "rb") as f:
-        prepared_transaction.ParseFromString(f.read())
-        if args.decode:
-            print(MessageToJson(prepared_transaction))
-        elif args.hash:
-            encoded_hash = encode_prepared_transaction(
-                prepared_transaction, create_nodes_dict(prepared_transaction)
-            )
-            print(encoded_hash.hex())
-        else:
-            parser.print_help()
+    if args.base64:
+        prepared_transaction.ParseFromString(base64.b64decode(input_arg))
+    else:
+        with open(input_arg, "rb") as f:
+            prepared_transaction.ParseFromString(f.read())
+
+    if args.decode:
+        print(MessageToJson(prepared_transaction))
+    elif args.hash:
+        encoded_hash = encode_prepared_transaction(
+            prepared_transaction, create_nodes_dict(prepared_transaction)
+        )
+        print(encoded_hash.hex())
+    else:
+        parser.print_help()

@@ -289,8 +289,10 @@ private[dao] object UpdateReader {
       .fold(Vector.empty[A])(_ :+ _)
       .concatSubstreams
 
-  def toUnassignedEvent(rawUnassignEvent: RawUnassignEvent): UnassignedEvent =
+  def toUnassignedEvent(entry: Entry[RawUnassignEvent]): UnassignedEvent = {
+    val rawUnassignEvent = entry.event
     UnassignedEvent(
+      offset = entry.offset,
       unassignId = rawUnassignEvent.unassignId,
       contractId = rawUnassignEvent.contractId.coid,
       templateId = Some(LfEngineToApi.toApiIdentifier(rawUnassignEvent.templateId)),
@@ -302,7 +304,9 @@ private[dao] object UpdateReader {
       assignmentExclusivity =
         rawUnassignEvent.assignmentExclusivity.map(TimestampConversion.fromLf),
       witnessParties = rawUnassignEvent.witnessParties.toSeq,
+      nodeId = rawUnassignEvent.nodeId,
     )
+  }
 
   def toAssignedEvent(
       rawAssignEvent: RawAssignEvent,

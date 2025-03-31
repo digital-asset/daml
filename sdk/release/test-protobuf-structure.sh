@@ -57,7 +57,7 @@ com/daml/ledger/api/v2/update_service.proto
 com/daml/ledger/api/v2/transaction_filter.proto
 com/daml/ledger/api/v2/value.proto
 com/daml/ledger/api/v2/event_query_service.proto
-com/daml/ledger/api/v2/reassignment_command.proto
+com/daml/ledger/api/v2/reassignment_commands.proto
 com/daml/ledger/api/v2/admin/command_inspection_service.proto
 com/daml/ledger/api/v2/admin/metering_report_service.proto
 com/daml/ledger/api/v2/admin/participant_pruning_service.proto

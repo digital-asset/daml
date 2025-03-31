@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.functor.*
-import com.digitalasset.base.error.CantonRpcError
+import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
 import com.digitalasset.canton.data.CantonTimestamp
@@ -190,7 +190,7 @@ class GrpcSequencerAdministrationService(
               )
           )
         case Right(timestamp) =>
-          EitherT.rightT[FutureUnlessShutdown, CantonRpcError](EffectiveTime(timestamp))
+          EitherT.rightT[FutureUnlessShutdown, RpcError](EffectiveTime(timestamp))
       }
 
       /* wait for the sequencer snapshot that contains a sequenced timestamp that is >= the reference/onboarding effective time
@@ -219,15 +219,15 @@ class GrpcSequencerAdministrationService(
       // trigger a tick.
       _ <- synchronizerTimeTracker
         .awaitTick(sequencerSnapshotTimestamp)
-        .map(EitherTUtil.rightUS[CantonRpcError, CantonTimestamp](_).void)
-        .getOrElse(EitherTUtil.unitUS[CantonRpcError])
+        .map(EitherTUtil.rightUS[RpcError, CantonTimestamp](_).void)
+        .getOrElse(EitherTUtil.unitUS[RpcError])
 
       // wait for the sequencer snapshot's lastTs to be observed by the topology client,
       // which implies that all topology transactions with a sequenced time up to including the
       // sequencer snapshot's lastTs will have been properly processed and stored (albeit maybe not yet effective,
       // but that's not relevent for the purpose of the topology snapshot to export).
       _ <- EitherT
-        .right[CantonRpcError](
+        .right[RpcError](
           topologyClient
             .awaitSequencedTimestamp(SequencedTime(sequencerSnapshotTimestamp))
             .getOrElse(FutureUnlessShutdown.unit)
@@ -238,7 +238,7 @@ class GrpcSequencerAdministrationService(
         .leftMap(_.toCantonRpcError)
 
       topologySnapshot <- EitherT
-        .right[CantonRpcError](
+        .right[RpcError](
           topologyStore.findEssentialStateAtSequencedTime(
             asOfInclusive = SequencedTime(sequencerSnapshot.lastTs),
             // we need to include the rejected transactions as well, because they might have an impact on the TopologyTimestampPlusEpsilonTracker
@@ -298,7 +298,7 @@ class GrpcSequencerAdministrationService(
           sequencerClient,
           synchronizerTimeTracker,
         )
-        .leftWiden[CantonRpcError]
+        .leftWiden[RpcError]
     } yield SetTrafficPurchasedResponse()
 
     mapErrNewEUS(result)

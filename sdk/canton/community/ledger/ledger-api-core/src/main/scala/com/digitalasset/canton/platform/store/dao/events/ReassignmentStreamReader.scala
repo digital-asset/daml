@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.daml.ledger.api.v2.reassignment.Reassignment
+import com.daml.ledger.api.v2.reassignment.{Reassignment, ReassignmentEvent}
 import com.daml.ledger.api.v2.trace_context.TraceContext as DamlTraceContext
 import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.digitalasset.canton.data.Offset
@@ -194,8 +194,12 @@ class ReassignmentStreamReader(
           commandId = rawUnassignEntry.commandId.getOrElse(""),
           workflowId = rawUnassignEntry.workflowId.getOrElse(""),
           offset = rawUnassignEntry.offset,
-          event = Reassignment.Event.UnassignedEvent(
-            UpdateReader.toUnassignedEvent(rawUnassignEntry.event)
+          events = Seq(
+            ReassignmentEvent(
+              ReassignmentEvent.Event.Unassigned(
+                UpdateReader.toUnassignedEvent(rawUnassignEntry)
+              )
+            )
           ),
           recordTime = Some(TimestampConversion.fromLf(rawUnassignEntry.recordTime)),
           traceContext = rawUnassignEntry.traceContext.map(DamlTraceContext.parseFrom),
@@ -220,10 +224,14 @@ class ReassignmentStreamReader(
               commandId = rawAssignEntry.commandId.getOrElse(""),
               workflowId = rawAssignEntry.workflowId.getOrElse(""),
               offset = rawAssignEntry.offset,
-              event = Reassignment.Event.AssignedEvent(
-                UpdateReader.toAssignedEvent(
-                  rawAssignEntry.event,
-                  createdEvent,
+              events = Seq(
+                ReassignmentEvent(
+                  ReassignmentEvent.Event.Assigned(
+                    UpdateReader.toAssignedEvent(
+                      rawAssignEntry.event,
+                      createdEvent,
+                    )
+                  )
                 )
               ),
               recordTime = Some(TimestampConversion.fromLf(rawAssignEntry.recordTime)),

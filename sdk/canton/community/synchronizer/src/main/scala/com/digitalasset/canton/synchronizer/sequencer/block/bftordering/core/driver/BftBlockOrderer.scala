@@ -152,11 +152,22 @@ final class BftBlockOrderer(
 
   override def firstBlockHeight: Long = sequencerSubscriptionInitialHeight
 
+  private val loggedP2PEndpoint = config.initialNetwork
+    .map(endpointConfig =>
+      P2PEndpoint
+        .fromEndpointConfig(
+          endpointConfig.serverEndpoint.serverToClientAuthenticationEndpointConfig
+        )
+        .id
+        .logString
+    )
+    .getOrElse("unknown")
+
   override protected val loggerFactory: NamedLoggerFactory =
     namedLoggerFactory
       .append(
-        "bftOrderingEndpoint",
-        config.initialNetwork.map(_.serverEndpoint.toString).getOrElse("unknown"),
+        "p2pEndpoint",
+        loggedP2PEndpoint,
       )
 
   private val closeable = FlagCloseable(loggerFactory.getTracedLogger(getClass), timeouts)
