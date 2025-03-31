@@ -1523,7 +1523,7 @@ Data Types
 
   The ``Party`` type represents a party to a contract\.
 
-  **instance** :ref:`HasFromHex <class-da-crypto-text-hasfromhex-84972>` `Party <type-da-internal-lf-party-57932_>`_
+  **instance** :ref:`HasFromHex <class-da-crypto-text-hasfromhex-84972>` (`Optional <type-da-internal-prelude-optional-37153_>`_ `Party <type-da-internal-lf-party-57932_>`_)
 
   **instance** :ref:`HasToHex <class-da-crypto-text-hastohex-92431>` `Party <type-da-internal-lf-party-57932_>`_
 
@@ -1606,6 +1606,14 @@ Data Types
 
   `Some <constr-da-internal-prelude-some-71164_>`_ a
 
+
+  **instance** :ref:`HasFromHex <class-da-crypto-text-hasfromhex-84972>` (`Optional <type-da-internal-prelude-optional-37153_>`_ `Party <type-da-internal-lf-party-57932_>`_)
+
+  **instance** :ref:`HasFromHex <class-da-crypto-text-hasfromhex-84972>` (`Optional <type-da-internal-prelude-optional-37153_>`_ `Int <type-ghc-types-int-37261_>`_)
+
+  **instance** `NumericScale <class-ghc-classes-numericscale-83720_>`_ n \=\> :ref:`HasFromHex <class-da-crypto-text-hasfromhex-84972>` (`Optional <type-da-internal-prelude-optional-37153_>`_ (`Numeric <type-ghc-types-numeric-891_>`_ n))
+
+  **instance** :ref:`HasFromHex <class-da-crypto-text-hasfromhex-84972>` (`Optional <type-da-internal-prelude-optional-37153_>`_ `Text <type-ghc-types-text-51952_>`_)
 
   **instance** :ref:`Foldable <class-da-foldable-foldable-25994>` `Optional <type-da-internal-prelude-optional-37153_>`_
 

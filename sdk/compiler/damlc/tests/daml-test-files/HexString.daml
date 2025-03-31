@@ -6,6 +6,7 @@
 module HexString where
 
 import DA.Assert ((===))
+import DA.Optional (fromSome)
 import DA.Crypto.Text
 import Daml.Script
 
@@ -29,16 +30,16 @@ main =
     toHex 256 === "0100"
     toHex 257 === "0101"
     toHex 3735928559 === "deadbeef"
-    fromHex "" === 0
-    fromHex "00" === 0
-    fromHex "01" === 1
-    fromHex "0a" === 10
-    fromHex "0F" === 15
-    fromHex "10" === 16
-    fromHex "Ff" === 255
-    fromHex "0100" === 256
-    fromHex "0101" === 257
-    fromHex "DeadBeef" === 3735928559
+    fromHex "" === Some 0
+    fromHex "00" === Some 0
+    fromHex "01" === Some 1
+    fromHex "0a" === Some 10
+    fromHex "0F" === Some 15
+    fromHex "10" === Some 16
+    fromHex "Ff" === Some 255
+    fromHex "0100" === Some 256
+    fromHex "0101" === Some 257
+    fromHex "DeadBeef" === Some 3735928559
 
     -- `HasToHex Text` and `HasFromHex Text`
     toHex "" === ""
@@ -46,23 +47,23 @@ main =
     toHex "a" === "61"
     toHex "Hello World!" === "48656c6c6f20576f726c6421"
     toHex "DeadBeef" === "4465616442656566"
-    fromHex "" === ""
-    fromHex "20" === " "
-    fromHex "61" === "a"
-    fromHex "48656c6c6f20576f726c6421" === "Hello World!"
-    fromHex "4465616442656566" === "DeadBeef"
+    fromHex "" === (None: Optional Text)
+    fromHex "20" === Some " "
+    fromHex "61" === Some "a"
+    fromHex "48656c6c6f20576f726c6421" === Some "Hello World!"
+    fromHex "4465616442656566" === Some "DeadBeef"
 
     -- `HasToHex Party` and `HasFromHex Party`
     alice <- allocateParty "Alice"
-    alice === fromHex(toHex alice)
+    Some alice === fromHex(toHex alice)
 
     -- `HasToHex(Numeric n)` and `HasFromHex(Numeric n)`
     toHex n3 === "302e313233"
     toHex n7 === "302e31323334353637"
     toHex n10 === "302e313233343536373839"
-    fromHex "302e313233" === n3
-    fromHex "302e31323334353637" === n7
-    fromHex "302e313233343536373839" === n10
+    fromHex "302e313233" === Some n3
+    fromHex "302e31323334353637" === Some n7
+    fromHex "302e313233343536373839" === Some n10
 
     -- byteCount
     byteCount "" === 0
@@ -71,25 +72,36 @@ main =
     byteCount "000000" === 3
 
     -- packHexBytes
-    packHexBytes "01" 1 === "01"
-    packHexBytes "01" 2 === "0001"
-    packHexBytes "01" 3 === "000001"
-    packHexBytes "0102" 3 === "000102"
+    packHexBytes "01" 1 === Some "01"
+    packHexBytes "01" 2 === Some "0001"
+    packHexBytes "01" 3 === Some "000001"
+    packHexBytes "0102" 3 === Some "000102"
 
     -- sliceHexBytes
-    sliceHexBytes "12" 1 2 === "12"
-    sliceHexBytes "DeadBeef" 2 3 === "ad"
-    sliceHexBytes "DeadBeef" 3 4 === "Be"
-    sliceHexBytes "DeadBeef" 2 4 === "adBe"
-    sliceHexBytes "DeadBeef" 2 5 === "adBeef"
-    sliceHexBytes "DeadBeef" 3 5 === "Beef"
+    sliceHexBytes "12" 1 2 === Right "12"
+    sliceHexBytes "DeadBeef" 2 3 === Right "ad"
+    sliceHexBytes "DeadBeef" 3 4 === Right "Be"
+    sliceHexBytes "DeadBeef" 2 4 === Right "adBe"
+    sliceHexBytes "DeadBeef" 2 5 === Right "adBeef"
+    sliceHexBytes "DeadBeef" 3 5 === Right "Beef"
+    sliceHexBytes "DeadBeef" 0 2 === Left "Expected start byte to be >= 1, was: 0"
+    sliceHexBytes "DeadBeef" 3 6 === Left "Expected end byte to be >= 3 and <= 5 was: 6"
+    sliceHexBytes "DeadBeef" 3 2 === Left "Expected end byte to be >= 3 and <= 5 was: 2"
 
     -- isBytes32Hex, isUInt32Hex, isUInt64Hex, isUInt256Hex
-    isBytes32Hex(packHexBytes "00" 32) === True
-    isBytes32Hex(packHexBytes "DeadBeef" 32) === True
-    isUInt32Hex(packHexBytes "00" 5) === True
-    isUInt32Hex(packHexBytes "000001" 5) === True
-    isUInt64Hex(packHexBytes "00" 6) === True
-    isUInt256Hex(packHexBytes "00" 8) === True
+    isBytes32Hex(fromSome(packHexBytes "00" 32)) === True
+    isBytes32Hex(fromSome(packHexBytes "DeadBeef" 32)) === True
+    isBytes32Hex(fromSome(packHexBytes "00" 31)) === False
+    isBytes32Hex(fromSome(packHexBytes "00" 33)) === False
+    isUInt32Hex(fromSome(packHexBytes "00" 5)) === True
+    isUInt32Hex(fromSome(packHexBytes "000001" 5)) === True
+    isUInt32Hex(fromSome(packHexBytes "00" 4)) === False
+    isUInt32Hex(fromSome(packHexBytes "00" 6)) === False
+    isUInt64Hex(fromSome(packHexBytes "00" 6)) === True
+    isUInt64Hex(fromSome(packHexBytes "00" 5)) === False
+    isUInt64Hex(fromSome(packHexBytes "00" 7)) === False
+    isUInt256Hex(fromSome(packHexBytes "00" 8)) === True
+    isUInt256Hex(fromSome(packHexBytes "00" 7)) === False
+    isUInt256Hex(fromSome(packHexBytes "00" 9)) === False
 
     pure ()

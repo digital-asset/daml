@@ -42,13 +42,13 @@ Typeclasses
 
     Converts a hex encoded string into a typed data value\.
 
-  **instance** `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ :ref:`Party <type-da-internal-lf-party-57932>`
+  **instance** `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ (:ref:`Optional <type-da-internal-prelude-optional-37153>` :ref:`Party <type-da-internal-lf-party-57932>`)
 
-  **instance** `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ :ref:`Int <type-ghc-types-int-37261>`
+  **instance** `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ (:ref:`Optional <type-da-internal-prelude-optional-37153>` :ref:`Int <type-ghc-types-int-37261>`)
 
-  **instance** :ref:`NumericScale <class-ghc-classes-numericscale-83720>` n \=\> `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ (:ref:`Numeric <type-ghc-types-numeric-891>` n)
+  **instance** :ref:`NumericScale <class-ghc-classes-numericscale-83720>` n \=\> `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ (:ref:`Optional <type-da-internal-prelude-optional-37153>` (:ref:`Numeric <type-ghc-types-numeric-891>` n))
 
-  **instance** `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ :ref:`Text <type-ghc-types-text-51952>`
+  **instance** `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ (:ref:`Optional <type-da-internal-prelude-optional-37153>` :ref:`Text <type-ghc-types-text-51952>`)
 
 Data Types
 ----------
@@ -128,7 +128,7 @@ Functions
 .. _function-da-crypto-text-packhexbytes-55939:
 
 `packHexBytes <function-da-crypto-text-packhexbytes-55939_>`_
-  \: `BytesHex <type-da-crypto-text-byteshex-47880_>`_ \-\> :ref:`Int <type-ghc-types-int-37261>` \-\> `BytesHex <type-da-crypto-text-byteshex-47880_>`_
+  \: `BytesHex <type-da-crypto-text-byteshex-47880_>`_ \-\> :ref:`Int <type-ghc-types-int-37261>` \-\> :ref:`Optional <type-da-internal-prelude-optional-37153>` `BytesHex <type-da-crypto-text-byteshex-47880_>`_
 
   Pack a byte encoded string to a given byte count size\. If the byte string is shorter than the pad
   size, then prefix with 00 byte strings\. If the byte string is larger, then truncate the byte string\.
@@ -136,6 +136,6 @@ Functions
 .. _function-da-crypto-text-slicehexbytes-22633:
 
 `sliceHexBytes <function-da-crypto-text-slicehexbytes-22633_>`_
-  \: `BytesHex <type-da-crypto-text-byteshex-47880_>`_ \-\> :ref:`Int <type-ghc-types-int-37261>` \-\> :ref:`Int <type-ghc-types-int-37261>` \-\> `BytesHex <type-da-crypto-text-byteshex-47880_>`_
+  \: `BytesHex <type-da-crypto-text-byteshex-47880_>`_ \-\> :ref:`Int <type-ghc-types-int-37261>` \-\> :ref:`Int <type-ghc-types-int-37261>` \-\> :ref:`Either <type-da-types-either-56020>` :ref:`Text <type-ghc-types-text-51952>` `BytesHex <type-da-crypto-text-byteshex-47880_>`_
 
   Extract the byte string starting at startByte up to, but excluding, endByte\. Byte indexing starts at 1\.
