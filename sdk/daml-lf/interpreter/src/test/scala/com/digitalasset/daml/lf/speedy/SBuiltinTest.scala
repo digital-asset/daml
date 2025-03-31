@@ -25,7 +25,6 @@ import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value
-// import com.digitalasset.daml.lf.value.Value.ValueArithmeticError
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers

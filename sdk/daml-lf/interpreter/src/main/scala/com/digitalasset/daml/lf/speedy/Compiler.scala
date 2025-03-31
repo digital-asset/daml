@@ -873,6 +873,9 @@ private[lf] final class Compiler(
     SBUCreate(templateId)(env2.toSEVar(contractPos))
   }
 
+  // Since deprecation/removal of daml exceptions, keep a definition for converting from legacy exception to failure status
+  // this def calls the existing message function on the exception.
+  // Note that this cannot be called for Arithmetic exception, as this is constructed without the need for its package
   private[this] def compileThrowExceptionAsFailureStatus(
       exceptionId: Identifier
   ): (t.SDefinitionRef, SDefinition) = {
@@ -906,6 +909,7 @@ private[lf] final class Compiler(
     )
   }
 
+  // Convenience function for creating a call to the above ThrowExceptionAsFailureStatusDefRef
   def throwExceptionAsFailureStatusSExpr(
       exceptionId: TypeConName,
       exceptionValue: SValue,

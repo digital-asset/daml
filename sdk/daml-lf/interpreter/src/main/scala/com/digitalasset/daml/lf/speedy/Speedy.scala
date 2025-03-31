@@ -873,6 +873,16 @@ private[lf] object Speedy {
             )
         }
 
+        def buildFailureStatus(exceptionId: Identifier, message: String) =
+          Control.Error(
+            interpretation.Error.FailureStatus(
+              "UNHANDLED_EXCEPTION/" + exceptionId.qualifiedName.toString,
+              FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
+              message,
+              Map(),
+            )
+          )
+
         originalExceptionId match {
           case None =>
             (exceptionId, excep) match {
@@ -880,14 +890,7 @@ private[lf] object Speedy {
                     valueArithmeticError.tyCon,
                     SAnyException(SRecord(_, _, ArrayList(SText(message)))),
                   ) =>
-                Control.Error(
-                  interpretation.Error.FailureStatus(
-                    "UNHANDLED_EXCEPTION/" + exceptionId.qualifiedName.toString,
-                    FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
-                    message,
-                    Map(),
-                  )
-                )
+                buildFailureStatus(exceptionId, message)
               case _ =>
                 pushKont(KConvertingException(exceptionId))
                 Control.Expression(
@@ -896,13 +899,9 @@ private[lf] object Speedy {
                 )
             }
           case Some(originalExceptionId) =>
-            Control.Error(
-              interpretation.Error.FailureStatus(
-                "UNHANDLED_EXCEPTION/" + originalExceptionId.qualifiedName.toString,
-                FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
-                s"<Failed to calculate message as ${exceptionId.qualifiedName.toString} was thrown during conversion>",
-                Map(),
-              )
+            buildFailureStatus(
+              originalExceptionId,
+              s"<Failed to calculate message as ${exceptionId.qualifiedName.toString} was thrown during conversion>",
             )
         }
       } else Control.Error(IError.UnhandledException(excep.ty, excep.value.toUnnormalizedValue))
