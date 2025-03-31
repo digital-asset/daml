@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.speedy.SBuiltinFun.{SBToAny, SBVariantCon}
+import com.digitalasset.daml.lf.speedy.SBuiltinFun.{SBThrow, SBToAny, SBVariantCon}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.{ArrayList, SError, SValue}
@@ -129,12 +129,7 @@ object ScriptF {
     override def execute(
         env: Env
     )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
-      Future.failed(
-        free.InterpretationError(
-          SError
-            .SErrorDamlException(IE.UnhandledException(exc.ty, exc.value.toUnnormalizedValue))
-        )
-      )
+      Future.successful(SBThrow(SEValue(exc)))
   }
 
   final case class Catch(act: SValue) extends Cmd {
