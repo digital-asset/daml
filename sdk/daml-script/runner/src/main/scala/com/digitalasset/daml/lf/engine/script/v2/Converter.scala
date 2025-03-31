@@ -16,7 +16,6 @@ import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.{ArrayList, SValue}
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.value.Value.ContractId
-import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.canton.ledger.api.util.TransactionTreeOps.TransactionTreeOps
 import scalaz.std.list._
 import scalaz.std.either._
@@ -413,4 +412,13 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       ("version", SText(packageName.version.toString)),
     )
   }
+
+  import com.daml.ledger.api.v2.value
+  def toApiIdentifier(identifier: Identifier): value.Identifier =
+    value.Identifier(
+      packageId = identifier.packageId,
+      packageName = "",
+      moduleName = identifier.qualifiedName.module.toString(),
+      entityName = identifier.qualifiedName.name.toString(),
+    )
 }
