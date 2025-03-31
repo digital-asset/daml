@@ -103,7 +103,7 @@ import com.digitalasset.canton.util.OptionUtils.OptionExtension
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.archive.DamlLf
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, SubmissionId}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, Party, SubmissionId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.transaction.FatContractInstance
@@ -426,7 +426,7 @@ class CantonSyncService(
         submitterInfo.actAs,
         submitterInfo.submissionId,
       )
-      .recordTransactionImpact(transaction)
+      .recordTransactionImpact(transaction, resolvePackageName)
 
   // Submit a transaction (write service implementation)
   override def submitTransaction(
@@ -1982,6 +1982,15 @@ class CantonSyncService(
       traceContext: TraceContext
   ): RoutingSynchronizerState =
     RoutingSynchronizerStateFactory.create(connectedSynchronizersLookup)
+
+  private val elcForResolvePackageName = ErrorLoggingContext.forClass(loggerFactory, this.getClass)
+  override def resolvePackageName(id: PackageId): PackageName =
+    // TODO perhaps wire the right error context
+    getPackageMetadataSnapshot(elcForResolvePackageName).packages
+      // TODO ensure this is fine - should be used only places where this makes sense
+      .getOrElse(id, throw new IllegalStateException(s"Package with ID $id not found"))
+      .metadata
+      .name
 }
 
 object CantonSyncService {

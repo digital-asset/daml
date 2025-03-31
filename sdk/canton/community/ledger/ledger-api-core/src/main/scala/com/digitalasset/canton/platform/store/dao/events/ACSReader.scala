@@ -672,7 +672,8 @@ class ACSReader(
             contractEntry = GetActiveContractsResponse.ContractEntry.IncompleteUnassigned(
               IncompleteUnassigned(
                 createdEvent = Some(createdEvent),
-                unassignedEvent = Some(UpdateReader.toUnassignedEvent(rawUnassignEntry.event)),
+                unassignedEvent =
+                  Some(UpdateReader.toUnassignedEvent(lfValueTranslation)(rawUnassignEntry.event)),
               )
             ),
           )

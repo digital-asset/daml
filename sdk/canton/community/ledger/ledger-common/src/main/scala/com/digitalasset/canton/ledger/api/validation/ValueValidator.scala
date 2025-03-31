@@ -209,6 +209,24 @@ abstract class ValueValidator {
       packageId <- requirePackageId(identifier.packageId, "package_id")
     } yield Ref.Identifier(packageId, qualifiedName)
 
+  def validatePackageName(
+      s: String,
+      fieldName: String,
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Ref.PackageName] =
+    requireNonEmptyParsedId(Ref.PackageName.fromString)(s, fieldName)
+
+  def validateIdentifierWithPackageNameO(identifier: api.Identifier)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, (Ref.Identifier, Option[Ref.PackageName])] =
+    for {
+      refIdentifier <- validateIdentifier(identifier)
+      refPackageNameO <- validateOptionalString(identifier.packageName)(
+        validatePackageName(_, "package_name")
+      )
+    } yield (refIdentifier, refPackageNameO)
+
   def validateTemplateQualifiedName(moduleName: String, entityName: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Ref.QualifiedName] =
@@ -216,6 +234,12 @@ abstract class ValueValidator {
       mn <- requireDottedName(moduleName, "module_name")
       en <- requireDottedName(entityName, "entity_name")
     } yield Ref.QualifiedName(mn, en)
+
+  def validateOptionalString[T](s: String)(
+      validate: String => Either[StatusRuntimeException, T]
+  ): Either[StatusRuntimeException, Option[T]] =
+    if (s.isEmpty) Right(None)
+    else validate(s).map(Some(_))
 
 }
 

@@ -1367,11 +1367,22 @@ object IdentifierConverter extends ProtocolConverter[lapi.value.Identifier, Stri
           moduleName = moduleName,
           entityName = entityName,
         )
-      case _ => invalidArgument(jsIdentifier, "<package>:<moduleName>:<entityName>")
+      case Seq(packageId, packageName, moduleName, entityName) =>
+        lapi.value.Identifier(
+          packageId = packageId,
+          packageName = packageName,
+          moduleName = moduleName,
+          entityName = entityName,
+        )
+      case _ =>
+        invalidArgument(
+          jsIdentifier,
+          "<package>:<moduleName>:<entityName> or <packageId>:<packageName>:<moduleName>:<entityName> ",
+        )
     }
 
   def toJson(lapiIdentifier: lapi.value.Identifier): String =
-    s"${lapiIdentifier.packageId}:${lapiIdentifier.moduleName}:${lapiIdentifier.entityName}"
+    s"${lapiIdentifier.packageId}:${lapiIdentifier.packageName}:${lapiIdentifier.moduleName}:${lapiIdentifier.entityName}"
 }
 
 object JsStatusConverter extends ProtocolConverter[com.google.rpc.status.Status, JsStatus] {

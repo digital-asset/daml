@@ -7,6 +7,7 @@ import com.daml.ledger.api.v2 as lav2
 import com.digitalasset.canton.http
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.daml.lf
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.typesig
 import scalaz.std.string.*
 import scalaz.{-\/, \/, \/-}
@@ -15,7 +16,10 @@ import spray.json.JsValue
 import JsValueToApiValueConverter.LfTypeLookup
 import JsonProtocol.LfValueCodec
 
-class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
+class JsValueToApiValueConverter(
+    lfTypeLookup: LfTypeLookup,
+    resolvePackageName: Ref.PackageId => Ref.PackageName,
+) {
   import com.digitalasset.canton.http.util.ErrorOps.*
 
   def jsValueToLfValue(
@@ -37,7 +41,7 @@ class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
   def jsValueToApiValue(lfType: http.LfType, jsValue: JsValue): JsonError \/ lav2.value.Value =
     for {
       lfValue <- jsValueToLfValue(lfType, jsValue)
-      apiValue <- JsValueToApiValueConverter.lfValueToApiValue(lfValue)
+      apiValue <- JsValueToApiValueConverter.lfValueToApiValue(lfValue, resolvePackageName)
     } yield apiValue
 }
 
@@ -46,8 +50,12 @@ object JsValueToApiValueConverter {
 
   type LfTypeLookup = lf.data.Ref.Identifier => Option[lf.typesig.DefDataType.FWT]
 
-  def lfValueToApiValue(lfValue: http.LfValue): JsonError \/ lav2.value.Value =
-    \/.fromEither(LfEngineToApi.lfValueToApiValue(verbose = true, lfValue)).liftErr(JsonError)
+  def lfValueToApiValue(
+      lfValue: http.LfValue,
+      resolvePackageName: Ref.PackageId => Ref.PackageName,
+  ): JsonError \/ lav2.value.Value =
+    \/.fromEither(LfEngineToApi.lfValueToApiValue(verbose = true, lfValue, resolvePackageName))
+      .liftErr(JsonError)
 
   def mustBeApiRecord(a: lav2.value.Value): JsonError \/ lav2.value.Record = a.sum match {
     case lav2.value.Value.Sum.Record(b) => \/-(b)

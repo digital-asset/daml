@@ -59,7 +59,7 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.CantonOnly
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.google.common.annotations.VisibleForTesting
 import org.slf4j.event.Level
 
@@ -1335,7 +1335,8 @@ object RepairService {
       )
 
     def contractInstanceToData(
-        contract: SerializableContract
+        contract: SerializableContract,
+        resolvePackageName: Ref.PackageId => Ref.PackageName,
     ): Either[
       String,
       (
@@ -1352,7 +1353,7 @@ object RepairService {
     ] = {
       val contractInstance = contract.rawContractInstance.contractInstance
       LfEngineToApi
-        .lfValueToApiRecord(verbose = true, contractInstance.unversioned.arg)
+        .lfValueToApiRecord(verbose = true, contractInstance.unversioned.arg, resolvePackageName)
         .bimap(
           e =>
             s"Failed to convert contract instance to data due to issue with create-arguments: $e",
@@ -1360,7 +1361,10 @@ object RepairService {
             val signatories = contract.metadata.signatories.map(_.toString)
             val stakeholders = contract.metadata.stakeholders.map(_.toString)
             (
-              LfEngineToApi.toApiIdentifier(contractInstance.unversioned.template),
+              LfEngineToApi.toApiIdentifier(
+                contractInstance.unversioned.template,
+                contractInstance.unversioned.packageName,
+              ),
               contractInstance.unversioned.packageName,
               contractInstance.unversioned.packageVersion,
               record,

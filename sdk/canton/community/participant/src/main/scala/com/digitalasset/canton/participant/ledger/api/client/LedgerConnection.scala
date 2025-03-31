@@ -80,6 +80,7 @@ object LedgerConnection {
   def mapTemplateIds(id: javaapi.data.Identifier): Identifier =
     Identifier(
       packageId = id.getPackageId,
+      packageName = id.getPackageName,
       moduleName = id.getModuleName,
       entityName = id.getEntityName,
     )

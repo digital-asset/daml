@@ -195,7 +195,7 @@ class ReassignmentStreamReader(
           workflowId = rawUnassignEntry.workflowId.getOrElse(""),
           offset = rawUnassignEntry.offset,
           event = Reassignment.Event.UnassignedEvent(
-            UpdateReader.toUnassignedEvent(rawUnassignEntry.event)
+            UpdateReader.toUnassignedEvent(lfValueTranslation)(rawUnassignEntry.event)
           ),
           recordTime = Some(TimestampConversion.fromLf(rawUnassignEntry.recordTime)),
           traceContext = rawUnassignEntry.traceContext.map(DamlTraceContext.parseFrom),

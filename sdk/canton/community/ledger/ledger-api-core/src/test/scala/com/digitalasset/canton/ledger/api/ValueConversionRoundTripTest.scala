@@ -23,14 +23,18 @@ class ValueConversionRoundTripTest
     with MockitoSugar {
 
   private val recordId =
-    api.Identifier(packageId, moduleName = "Mod", entityName = "Record")
+    api.Identifier(packageId, packageName = packageName, moduleName = "Mod", entityName = "Record")
 
   private val constructor: String = "constructor"
 
   private def roundTrip(v: api.Value): Either[String, api.Value] =
     for {
       lfValue <- ValueValidator.validateValue(v)(NoLogging).left.map(_.getMessage)
-      apiValue <- LfEngineToApi.lfValueToApiValue(true, lfValue)
+      apiValue <- LfEngineToApi.lfValueToApiValue(
+        true,
+        lfValue,
+        _ => packageName,
+      )
     } yield apiValue
 
   "round trip" should {

@@ -23,9 +23,9 @@ object DisclosedContractCreator {
   private val testTxVersion = LanguageVersion.v2_dev
 
   private object api {
-    val templateId: Identifier =
-      Identifier("package", moduleName = "module", entityName = "entity")
     val packageName: String = "pkg-name"
+    val templateId: Identifier =
+      Identifier("package", packageName = packageName, moduleName = "module", entityName = "entity")
 
     val contractId: String = "00" + "00" * 31 + "ef"
     val alice: Ref.Party = Ref.Party.assertFromString("alice")

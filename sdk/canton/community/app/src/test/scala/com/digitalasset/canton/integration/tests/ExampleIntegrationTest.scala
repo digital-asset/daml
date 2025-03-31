@@ -27,7 +27,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ConcurrentBufferedLogger, HexString, ResourceUtil}
 import com.digitalasset.canton.version.HashingSchemeVersion
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import monocle.macros.syntax.lens.*
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
@@ -110,7 +110,10 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
 
   private implicit val loggingContext: LoggingContextWithTrace = LoggingContextWithTrace.ForTesting
 
-  private val encoder = new PreparedTransactionEncoder(loggerFactory)
+  private val encoder = new PreparedTransactionEncoder(
+    _ => Ref.PackageName.assertFromString("fakePackageNameForTest"),
+    loggerFactory,
+  )
   private val portsFiles =
     (interactiveSubmissionV1Folder / "canton_ports.json").deleteOnExit()
   override protected def additionalConfigTransform: Seq[ConfigTransform] = Seq(

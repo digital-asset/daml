@@ -83,6 +83,7 @@ final class LfValueTranslation(
         LfPackageId,
         LoggingContextWithTrace,
     ) => Future[Option[com.digitalasset.daml.lf.archive.DamlLf.Archive]],
+    val resolvePackageName: Ref.PackageId => Ref.PackageName,
     val loggerFactory: NamedLoggerFactory,
 ) extends LfValueSerialization
     with NamedLogging {
@@ -214,6 +215,7 @@ final class LfValueTranslation(
         .lfValueToApiValue(
           verbose = verbose,
           value0 = enrichedValue,
+          resolvePackageName = resolvePackageName,
         ),
     )
   }
@@ -298,10 +300,10 @@ final class LfValueTranslation(
       nodeId = rawExercisedEvent.nodeId,
       contractId = rawExercisedEvent.contractId.coid,
       templateId = Some(
-        LfEngineToApi.toApiIdentifier(rawExercisedEvent.templateId)
+        LfEngineToApi.toApiIdentifier(resolvePackageName)(rawExercisedEvent.templateId)
       ),
       interfaceId = interfaceId.map(
-        LfEngineToApi.toApiIdentifier
+        LfEngineToApi.toApiIdentifier(resolvePackageName)
       ),
       choice = choiceName,
       choiceArgument = Some(choiceArgument),
@@ -330,7 +332,7 @@ final class LfValueTranslation(
       nodeId = rawArchivedEvent.nodeId,
       contractId = rawArchivedEvent.contractId.coid,
       templateId = Some(
-        LfEngineToApi.toApiIdentifier(rawArchivedEvent.templateId)
+        LfEngineToApi.toApiIdentifier(resolvePackageName)(rawArchivedEvent.templateId)
       ),
       witnessParties = rawArchivedEvent.witnessParties.toSeq,
       packageName = rawArchivedEvent.packageName,
@@ -412,7 +414,10 @@ final class LfValueTranslation(
       nodeId = rawCreatedEvent.nodeId,
       contractId = rawCreatedEvent.contractId.coid,
       templateId = Some(
-        LfEngineToApi.toApiIdentifier(rawCreatedEvent.templateId)
+        LfEngineToApi.toApiIdentifier(
+          rawCreatedEvent.templateId,
+          resolvePackageName(rawCreatedEvent.templateId.packageId),
+        )
       ),
       contractKey = apiContractData.contractKey,
       createArguments = apiContractData.createArguments,
@@ -492,7 +497,7 @@ final class LfValueTranslation(
     .render(witnessParties, templateId)
     .interfaces
     .view
-    .map(LfEngineToApi.toApiIdentifier)
+    .map(LfEngineToApi.toApiIdentifier(resolvePackageName))
     .toSeq
 
   private def toInterfaceView(verbose: Boolean, interfaceId: Identifier)(
@@ -505,7 +510,7 @@ final class LfValueTranslation(
       case Left(errorStatus) =>
         Future.successful(
           InterfaceView(
-            interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
+            interfaceId = Some(LfEngineToApi.toApiIdentifier(resolvePackageName)(interfaceId)),
             viewStatus = Some(ProtoStatus.fromJavaProto(errorStatus)),
             viewValue = None,
           )
@@ -537,16 +542,24 @@ final class LfValueTranslation(
     )
 
   private def toContractArgumentApi(verbose: Boolean)(value: Value): ApiRecord =
-    toApi(verbose, LfEngineToApi.lfValueToApiRecord, "create argument")(value)
+    toApi(verbose, LfEngineToApi.lfValueToApiRecord(_, _, resolvePackageName), "create argument")(
+      value
+    )
 
   private def toContractKeyApi(verbose: Boolean)(value: Value): ApiValue =
-    toApi(verbose, LfEngineToApi.lfValueToApiValue, "create key")(value)
+    toApi(verbose, LfEngineToApi.lfValueToApiValue(_, _, resolvePackageName), "create key")(value)
 
   private def toInterfaceViewApi(verbose: Boolean, interfaceId: Identifier)(value: Value) =
     InterfaceView(
-      interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
+      interfaceId = Some(LfEngineToApi.toApiIdentifier(resolvePackageName)(interfaceId)),
       viewStatus = Some(ProtoStatus.of(Code.OK.value(), "", Seq.empty)),
-      viewValue = Some(toApi(verbose, LfEngineToApi.lfValueToApiRecord, "interface view")(value)),
+      viewValue = Some(
+        toApi(
+          verbose,
+          LfEngineToApi.lfValueToApiRecord(_, _, resolvePackageName),
+          "interface view",
+        )(value)
+      ),
     )
 
   private def computeInterfaceView(

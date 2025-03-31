@@ -18,6 +18,8 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils with
     val identifier = Identifier("package", moduleName = "module", entityName = "entity")
   }
 
+  // FIXME add tests for package_name validation
+
   "validating identifiers" should {
     "convert a valid identifier" in {
       ValueValidator.validateIdentifier(api.identifier) shouldEqual Right(ApiMocks.identifier)

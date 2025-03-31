@@ -31,7 +31,8 @@ class UpdateServiceRequestValidatorTest
     with MockitoSugar {
   private implicit val noLogging: ContextualizedErrorLogger = NoLogging
 
-  private val templateId = Identifier(packageId, includedModule, includedTemplate)
+  private val templateId =
+    Identifier(packageId, moduleName = includedModule, entityName = includedTemplate)
 
   private def txReqBuilderLegacy(templateIdsForParty: Seq[Identifier]) = GetUpdatesRequest(
     beginExclusive = 0L,
@@ -201,6 +202,8 @@ class UpdateServiceRequestValidatorTest
         )
       ),
     )
+
+  // FIXME add tests for variations in Identifier for interfaces/templates
 
   "UpdateRequestValidation" when {
 

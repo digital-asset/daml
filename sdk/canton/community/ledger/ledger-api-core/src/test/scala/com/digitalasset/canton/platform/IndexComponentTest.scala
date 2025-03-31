@@ -167,6 +167,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
             engineO = Some(engine),
             // Not used
             loadPackage = (_, _) => Future(None),
+            resolvePackageName = _ => throw new IllegalStateException("should not be used here"),
             loggerFactory = loggerFactory,
           ),
           queryExecutionContext = executorService,

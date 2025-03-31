@@ -120,8 +120,8 @@ components:
           description: |-
             Only completions of commands submitted with the same user_id will be visible in the stream.
             Must be a valid UserIdString (as described in ``value.proto``).
-            Required unless authentication is used with a user token or a custom token specifying an user-id.
-            In that case, the token's user-id, respectively user-id, will be used for the request's user_id.
+            Required unless authentication is used with a user token.
+            In that case, the token's user-id will be used for the request's user_id.
           type: string
         parties:
           description: |-
@@ -223,7 +223,7 @@ components:
           type: string
         userId:
           description: |-
-            The user-id or user-id that was used for the submission, as described in ``commands.proto``.
+            The user-id that was used for the submission, as described in ``commands.proto``.
             Must be a valid UserIdString (as described in ``value.proto``).
             Optional for historic completions where this data is not available.
           type: string
@@ -270,9 +270,9 @@ components:
             The synchronizer along with its record time.
             The synchronizer id provided, in case of
 
-              - successful/failed transactions: identifies the synchronizer of the transaction
-              - for successful/failed unassign commands: identifies the source synchronizer
-              - for successful/failed assign commands: identifies the target synchronizer
+            - successful/failed transactions: identifies the synchronizer of the transaction
+            - for successful/failed unassign commands: identifies the source synchronizer
+            - for successful/failed assign commands: identifies the target synchronizer
 
             Required
     Status:
@@ -311,8 +311,13 @@ components:
     DeduplicationPeriod:
       title: DeduplicationPeriod
       description: |-
-        Specifies the deduplication period for the change ID (See PrepareSubmissionRequest).
-        If omitted, the participant will assume the configured maximum deduplication time.
+        The actual deduplication window used for the submission, which is derived from
+        ``Commands.deduplication_period``. The ledger may convert the deduplication period into other
+        descriptions and extend the period in implementation-specified ways.
+
+        Used to audit the deduplication guarantee described in ``commands.proto``.
+
+        Optional; the deduplication guarantee applies even if the completion omits this field.
       oneOf:
       - type: object
         required:
@@ -417,8 +422,8 @@ components:
       description: |-
         OffsetCheckpoints may be used to:
 
-        * detect time out of commands.
-        * provide an offset which can be used to restart consumption.
+        - detect time out of commands.
+        - provide an offset which can be used to restart consumption.
       type: object
       required:
       - value
@@ -430,8 +435,8 @@ components:
       description: |-
         OffsetCheckpoints may be used to:
 
-        * detect time out of commands.
-        * provide an offset which can be used to restart consumption.
+        - detect time out of commands.
+        - provide an offset which can be used to restart consumption.
       type: object
       required:
       - offset
@@ -487,9 +492,9 @@ components:
             TRANSACTION_SHAPE_ACS_DELTA.
             Optional for backwards compatibility, defaults to an EventFormat where:
 
-              - filters_by_party is the filter.filters_by_party from this request
-              - filters_for_any_party is the filter.filters_for_any_party from this request
-              - verbose is the verbose field from this request
+            - filters_by_party is the filter.filters_by_party from this request
+            - filters_for_any_party is the filter.filters_for_any_party from this request
+            - verbose is the verbose field from this request
     TransactionFilter:
       title: TransactionFilter
       description: |-
@@ -506,13 +511,13 @@ components:
             The interpretation of the filter depends on the transaction-shape being filtered:
 
             1. For **transaction trees** (used in GetUpdateTreesResponse for backwards compatibility) all party keys used as
-                wildcard filters, and all subtrees whose root has one of the listed parties as an informee are returned.
-                If there are ``CumulativeFilter``s, those will control returned ``CreatedEvent`` fields where applicable, but will
-                not be used for template/interface filtering.
+               wildcard filters, and all subtrees whose root has one of the listed parties as an informee are returned.
+               If there are ``CumulativeFilter``s, those will control returned ``CreatedEvent`` fields where applicable, but will
+               not be used for template/interface filtering.
             2. For **ledger-effects** create and exercise events are returned, for which the witnesses include at least one of
-                the listed parties and match the per-party filter.
+               the listed parties and match the per-party filter.
             3. For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
-                stakeholders include at least one of the listed parties and match the per-party filter.
+               stakeholders include at least one of the listed parties and match the per-party filter.
 
             Required
         filtersForAnyParty:
@@ -675,9 +680,9 @@ components:
             The interpretation of the filter depends on the transaction-shape being filtered:
 
             1. For **ledger-effects** create and exercise events are returned, for which the witnesses include at least one of
-                the listed parties and match the per-party filter.
+               the listed parties and match the per-party filter.
             2. For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
-                stakeholders include at least one of the listed parties and match the per-party filter.
+               stakeholders include at least one of the listed parties and match the per-party filter.
 
             Optional
         filtersForAnyParty:
@@ -794,7 +799,7 @@ components:
       properties:
         offset:
           description: |-
-            The offset of origin, which has contextual meaning, please see description at usage.
+            The offset of origin, which has contextual meaning, please see description at messages that include a CreatedEvent.
             Offsets are managed by the participant nodes.
             Transactions can thus NOT be assumed to have the same offsets on different participant nodes.
             Required, it is a valid absolute offset (positive integer)
@@ -803,7 +808,7 @@ components:
         nodeId:
           description: |-
             The position of this event in the originating transaction or reassignment.
-            The origin has contextual meaning, please see description at usage.
+            The origin has contextual meaning, please see description at messages that include a CreatedEvent.
             Node ids are not necessarily equal across participants,
             as these may see different projections/parts of transactions.
             Required, must be valid node ID (non-negative integer)
@@ -838,9 +843,9 @@ components:
             Interface views specified in the transaction filter.
             Includes an ``InterfaceView`` for each interface for which there is a ``InterfaceFilter`` with
 
-              - its party in the ``witness_parties`` of this event,
-              - and which is implemented by the template of this event,
-              - and which has ``include_interface_view`` set.
+            - its party in the ``witness_parties`` of this event,
+            - and which is implemented by the template of this event,
+            - and which has ``include_interface_view`` set.
 
             Optional
           type: array
@@ -858,6 +863,20 @@ components:
             ActiveContract or IncompleteUnassigned (so the event is related to
             an assignment or unassignment): this will include all parties of the
             ``TransactionFilter`` that are stakeholders of the contract.
+
+            The behavior of reading create events visible to parties not hosted
+            on the participant node serving the Ledger API is undefined. Concretely,
+            there is neither a guarantee that the participant node will serve all their
+            create events on the ACS stream, nor is there a guarantee that matching archive
+            events are delivered for such create events.
+
+            For most clients this is not a problem, as they only read events for parties
+            that are hosted on the participant node. If you need to read events
+            for parties that may not be hosted at all times on the participant node,
+            subscribe to the ``TopologyEvent``s for that party by setting a corresponding
+            ``UpdateFormat``.  Using these events, query the ACS as-of an offset where the
+            party is hosted on the participant node, and ignore create events at offsets
+            where the party is not hosted on the participant node.
             Required
           type: array
           items:
@@ -1137,13 +1156,13 @@ components:
             Must be unset for GetUpdateTrees request.
             Optional for backwards compatibility for GetUpdates request: defaults to an UpdateFormat where:
 
-              - include_transactions.event_format.filters_by_party = the filter.filters_by_party on this request
-              - include_transactions.event_format.filters_for_any_party = the filter.filters_for_any_party on this request
-              - include_transactions.event_format.verbose = the same flag specified on this request
-              - include_transactions.transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
-              - include_reassignments.filter = the same filter specified on this request
-              - include_reassignments.verbose = the same flag specified on this request
-              - include_topology_events.include_participant_authorization_events.parties = all the parties specified in filter
+            - include_transactions.event_format.filters_by_party = the filter.filters_by_party on this request
+            - include_transactions.event_format.filters_for_any_party = the filter.filters_for_any_party on this request
+            - include_transactions.event_format.verbose = the same flag specified on this request
+            - include_transactions.transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
+            - include_reassignments.filter = the same filter specified on this request
+            - include_reassignments.verbose = the same flag specified on this request
+            - include_topology_events.include_participant_authorization_events.parties = all the parties specified in filter
     UpdateFormat:
       title: UpdateFormat
       description: A format specifying what updates to include and how to render them.
@@ -1277,8 +1296,8 @@ components:
       description: |-
         OffsetCheckpoints may be used to:
 
-        * detect time out of commands.
-        * provide an offset which can be used to restart consumption.
+        - detect time out of commands.
+        - provide an offset which can be used to restart consumption.
       type: object
       required:
       - value
@@ -1464,8 +1483,10 @@ components:
       title: Event
       description: |-
         Events in transactions can have two primary shapes:
-          - ACS delta: events can be CreatedEvent or ArchivedEvent
-          - ledger effects: events can be CreatedEvent or ExercisedEvent
+
+        - ACS delta: events can be CreatedEvent or ArchivedEvent
+        - ledger effects: events can be CreatedEvent or ExercisedEvent
+
         In the update service the events are restricted to the events
         visible for the parties specified in the transaction filter. Each
         event message type below contains a ``witness_parties`` field which
@@ -1558,8 +1579,8 @@ components:
             The collection of events.
             Contains:
 
-              - ``CreatedEvent`` or ``ArchivedEvent`` in case of ACS_DELTA transaction shape
-              - ``CreatedEvent`` or ``ExercisedEvent`` in case of LEDGER_EFFECTS transaction shape
+            - ``CreatedEvent`` or ``ArchivedEvent`` in case of ACS_DELTA transaction shape
+            - ``CreatedEvent`` or ``ExercisedEvent`` in case of LEDGER_EFFECTS transaction shape
 
             Required
           type: array
@@ -1599,8 +1620,10 @@ components:
       title: Event
       description: |-
         Events in transactions can have two primary shapes:
-          - ACS delta: events can be CreatedEvent or ArchivedEvent
-          - ledger effects: events can be CreatedEvent or ExercisedEvent
+
+        - ACS delta: events can be CreatedEvent or ArchivedEvent
+        - ledger effects: events can be CreatedEvent or ExercisedEvent
+
         In the update service the events are restricted to the events
         visible for the parties specified in the transaction filter. Each
         event message type below contains a ``witness_parties`` field which
@@ -1848,8 +1871,8 @@ components:
       description: |-
         OffsetCheckpoints may be used to:
 
-        * detect time out of commands.
-        * provide an offset which can be used to restart consumption.
+        - detect time out of commands.
+        - provide an offset which can be used to restart consumption.
       type: object
       required:
       - value
@@ -1986,48 +2009,10 @@ components:
       title: ExercisedTreeEvent
       type: object
       required:
-      - offset
-      - nodeId
-      - contractId
-      - templateId
-      - choice
-      - choiceArgument
-      - consuming
-      - exerciseResult
-      - packageName
-      - lastDescendantNodeId
+      - value
       properties:
-        offset:
-          type: integer
-          format: int64
-        nodeId:
-          type: integer
-          format: int32
-        contractId:
-          type: string
-        templateId:
-          type: string
-        interfaceId:
-          type: string
-        choice:
-          type: string
-        choiceArgument: {}
-        actingParties:
-          type: array
-          items:
-            type: string
-        consuming:
-          type: boolean
-        witnessParties:
-          type: array
-          items:
-            type: string
-        exerciseResult: {}
-        packageName:
-          type: string
-        lastDescendantNodeId:
-          type: integer
-          format: int32
+        value:
+          $ref: '#/components/schemas/ExercisedEvent'
   messages:
     CompletionStreamRequest:
       payload:

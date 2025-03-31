@@ -2578,6 +2578,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             val javaTemplateId = templateCompanion.getTemplateIdWithPackageId
             val templateId = TemplateId(
               templateCompanion.PACKAGE.id,
+              templateCompanion.PACKAGE.name,
               javaTemplateId.getModuleName,
               javaTemplateId.getEntityName,
             )

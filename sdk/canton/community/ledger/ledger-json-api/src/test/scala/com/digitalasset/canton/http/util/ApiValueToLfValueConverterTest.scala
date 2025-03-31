@@ -4,6 +4,7 @@
 package com.digitalasset.canton.http.util
 
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.lfValueToApiValue
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value as V
 import com.digitalasset.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.digitalasset.daml.lf.value.test.ValueGenerators.coidGen
@@ -28,7 +29,11 @@ class ApiValueToLfValueConverterTest
       forAll(minSuccessful(20)) { (v: va.Inj) =>
         val vv = va.inj(v)
         val roundTrip =
-          lfValueToApiValue(true, vv).toOption flatMap (x => apiValueToLfValue(x).toMaybe.toOption)
+          lfValueToApiValue(
+            true,
+            vv,
+            _ => Ref.PackageName.assertFromString("testPackageName"),
+          ).toOption flatMap (x => apiValueToLfValue(x).toMaybe.toOption)
         roundTrip shouldBe Some(vv)
       }
     }

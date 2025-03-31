@@ -202,6 +202,7 @@ class HttpService(
             debugLoggingOfHttpBodies,
             resolveUser,
             ledgerClient.userManagementClient,
+            packageSyncService.resolvePackageName,
             loggerFactory,
           )
 
@@ -335,7 +336,15 @@ object HttpService extends NoTracing {
   )(implicit ec: ExecutionContext): (ApiJsonEncoder, ApiJsonDecoder) = {
 
     val lfTypeLookup = LedgerReader.damlLfTypeLookup(() => packageService.packageStore) _
-    val jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
+    val jsValueToApiValueConverter = new JsValueToApiValueConverter(
+      lfTypeLookup,
+      packageId =>
+        packageService.packageStore
+          .getOrElse(packageId, throw new IllegalStateException(s"Package ID $packageId not found"))
+          .pack
+          .metadata
+          .name,
+    )
 
     val apiValueToJsValueConverter = new ApiValueToJsValueConverter(
       ApiValueToLfValueConverter.apiValueToLfValue

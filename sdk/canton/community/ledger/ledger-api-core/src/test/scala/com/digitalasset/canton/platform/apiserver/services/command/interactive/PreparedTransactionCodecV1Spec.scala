@@ -9,7 +9,7 @@ import com.digitalasset.canton.platform.apiserver.services.command.interactive.I
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionCodec.*
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.{NodeId, VersionedTransaction}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -24,7 +24,10 @@ class PreparedTransactionCodecV1Spec
 
   private implicit val loggingContext: LoggingContextWithTrace = LoggingContextWithTrace.ForTesting
 
-  private val encoder = new PreparedTransactionEncoder(loggerFactory)
+  private val encoder = new PreparedTransactionEncoder(
+    _ => Ref.PackageName.assertFromString("fakePackageNameForTest"),
+    loggerFactory,
+  )
   private val decoder = new PreparedTransactionDecoder(loggerFactory)
 
   "Prepared transaction" should {

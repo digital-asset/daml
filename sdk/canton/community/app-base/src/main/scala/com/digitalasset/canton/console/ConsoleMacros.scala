@@ -292,6 +292,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         )
       }
 
+    // FIXME drop this alongside ContractData
     @Help.Summary("Convert a contract instance to contract data.")
     @Help.Description(
       """The `utils.contract_instance_to_data` converts a Canton "contract instance" to "contract data", a format more
@@ -304,9 +305,25 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         contract: SerializableContract
     )(implicit env: ConsoleEnvironment): ContractData =
       env.runE(
-        RepairService.ContractConverter.contractInstanceToData(contract).map {
-          case (
-                templateId,
+        RepairService.ContractConverter
+          .contractInstanceToData(
+            contract,
+            _ => throw new UnsupportedOperationException("are we using this?"),
+          )
+          .map {
+            case (
+                  templateId,
+                  packageName,
+                  packageVersion,
+                  createArguments,
+                  signatories,
+                  observers,
+                  contractId,
+                  contractSaltO,
+                  ledgerCreateTime,
+                ) =>
+              ContractData(
+                TemplateId.fromIdentifier(templateId),
                 packageName,
                 packageVersion,
                 createArguments,
@@ -314,20 +331,9 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
                 observers,
                 contractId,
                 contractSaltO,
-                ledgerCreateTime,
-              ) =>
-            ContractData(
-              TemplateId.fromIdentifier(templateId),
-              packageName,
-              packageVersion,
-              createArguments,
-              signatories,
-              observers,
-              contractId,
-              contractSaltO,
-              Some(ledgerCreateTime.ts.underlying),
-            )
-        }
+                Some(ledgerCreateTime.ts.underlying),
+              )
+          }
       )
 
     @Help.Summary("Recompute authenticated contract ids.")
@@ -464,9 +470,15 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
   @Help.Group("Ledger Api Testing")
   object ledger_api_utils extends Helpful {
 
-    private def buildIdentifier(packageId: String, module: String, template: String): IdentifierV1 =
+    private def buildIdentifier(
+        packageId: String,
+        packageName: String,
+        module: String,
+        template: String,
+    ): IdentifierV1 =
       IdentifierV1(
         packageId = packageId,
+        packageName = packageName,
         moduleName = module,
         entityName = template,
       )
@@ -532,7 +544,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       Command.defaultInstance.withCreate(
         CreateCommand(
           // TODO(#16362): Support encoding of the package-name
-          templateId = Some(buildIdentifier(packageId, module, template)),
+          templateId = Some(buildIdentifier(packageId, "", module, template)),
           createArguments = Some(buildArguments(arguments)),
         )
       )
@@ -549,7 +561,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       Command.defaultInstance.withExercise(
         ExerciseCommand(
           // TODO(#16362): Support encoding of the package-name
-          templateId = Some(buildIdentifier(packageId, module, template)),
+          templateId = Some(buildIdentifier(packageId, "", module, template)),
           choice = choice,
           choiceArgument = Some(Value(Value.Sum.Record(buildArguments(arguments)))),
           contractId = contractId,

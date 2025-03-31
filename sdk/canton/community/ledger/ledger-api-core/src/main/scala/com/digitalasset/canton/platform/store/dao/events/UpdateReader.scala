@@ -289,11 +289,17 @@ private[dao] object UpdateReader {
       .fold(Vector.empty[A])(_ :+ _)
       .concatSubstreams
 
-  def toUnassignedEvent(rawUnassignEvent: RawUnassignEvent): UnassignedEvent =
+  def toUnassignedEvent(
+      lfValueTranslation: LfValueTranslation
+  )(rawUnassignEvent: RawUnassignEvent): UnassignedEvent =
     UnassignedEvent(
       unassignId = rawUnassignEvent.unassignId,
       contractId = rawUnassignEvent.contractId.coid,
-      templateId = Some(LfEngineToApi.toApiIdentifier(rawUnassignEvent.templateId)),
+      templateId = Some(
+        LfEngineToApi.toApiIdentifier(lfValueTranslation.resolvePackageName)(
+          rawUnassignEvent.templateId
+        )
+      ),
       packageName = rawUnassignEvent.packageName,
       source = rawUnassignEvent.sourceSynchronizerId,
       target = rawUnassignEvent.targetSynchronizerId,

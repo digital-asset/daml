@@ -85,7 +85,9 @@ class SubmitRequestValidatorTest
     val commandWithPackageNameScoping = commandDef(packageNameEncoded)
     val prefetchKey = PrefetchContractKey(Some(identifier), Some(ApiMocks.values.validApiParty))
     val prefetchKeyWithPackageNameScoping =
-      prefetchKey.copy(templateId = Some(Identifier(packageNameEncoded, moduleName, entityName)))
+      prefetchKey.copy(templateId =
+        Some(Identifier(packageNameEncoded, moduleName = moduleName, entityName = entityName))
+      )
 
     val commands = Commands(
       workflowId = workflowId.unwrap,
@@ -219,6 +221,8 @@ class SubmitRequestValidatorTest
   )
 
   private val testedValueValidator = ValueValidator
+
+  // FIXME add tests for variations of the Identifier Ref extraction
 
   "CommandSubmissionRequestValidator" when {
     "validating SubmitAndWaitRequestValidator" should {

@@ -261,6 +261,7 @@ class StartableStoppableLedgerApiServer(
           engineO = Some(config.engine),
           loadPackage = (packageId, loggingContext) =>
             timedSyncService.getLfArchive(packageId)(loggingContext.traceContext),
+          resolvePackageName = timedSyncService.resolvePackageName,
           loggerFactory = loggerFactory,
         ),
         queryExecutionContext = queryExecutionContext,
@@ -303,6 +304,7 @@ class StartableStoppableLedgerApiServer(
           Some(new Engine(config.engine.config.copy(requireSuffixedGlobalContractId = false))),
         loadPackage = (packageId, loggingContext) =>
           timedSyncService.getLfArchive(packageId)(loggingContext.traceContext),
+        resolvePackageName = timedSyncService.resolvePackageName,
         loggerFactory = loggerFactory,
       )
 
