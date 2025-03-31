@@ -77,6 +77,12 @@ module BuiltinMod {
     TEXT_TO_CODE_POINTS;
   val sha256Text: Text -> Text =
     SHA256_TEXT;
+  val keccak256Text: Text -> Text =
+    KECCAK256_TEXT;
+  val secp256k1Bool: Text -> Text -> Text -> Bool =
+    SECP256K1_BOOL;
+  val textToHex: Text -> Text = TEXT_TO_HEX;
+  val hexToText: Text -> Text = HEX_TO_TEXT;
   val dateToUnixDays: Date -> Int64 =
     DATE_TO_UNIX_DAYS;
   val explodeText: Text -> List Text =
