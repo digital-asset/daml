@@ -413,7 +413,10 @@ private[lf] object Speedy {
       }
     }
 
-    /* Flag to trace usage of get_time builtins */
+    /** Tracks the lower and upper bounds on the ledger time for a given Daml interpretation
+     * run. At any point during interpretation, the interpretation up to then is invariant
+     * for any ledger time within these bounds.
+     */
     private[this] var timeBoundaries: Time.Boundaries = Time.Boundaries.unconstrained
 
     // global contract discriminators, that are discriminators from contract created in previous transactions
