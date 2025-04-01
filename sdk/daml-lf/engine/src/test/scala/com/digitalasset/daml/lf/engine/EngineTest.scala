@@ -70,7 +70,6 @@ class EngineTestV2 extends EngineTest(LanguageMajorVersion.V2)
     "org.wartremover.warts.Product",
   )
 )
-@nowarn("msg=deprecated")
 class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Matchers

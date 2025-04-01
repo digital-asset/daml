@@ -202,7 +202,6 @@ class DAMLe(
     }
   }
 
-  @scala.annotation.nowarn("msg=deprecated")
   override def reinterpret(
       contracts: ContractLookupAndVerification,
       submitters: Set[LfPartyId],

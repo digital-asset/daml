@@ -689,7 +689,6 @@ object Transaction {
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
       disclosedEvents: ImmArray[Node.Create],
   ) {
-    @deprecated("use timeBoundaries", "3.3.0")
     def dependsOnTime: Boolean =
       timeBoundaries != Time.Range.unconstrained
   }
