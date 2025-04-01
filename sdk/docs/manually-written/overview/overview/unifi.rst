@@ -16,22 +16,22 @@ and network infrastructure.
 
 Unifi services and products are:
 
-- **Tokenization Utilities**: These are tools and services that enable enterprises to create,
+**Tokenization Utilities**: These are tools and services that enable enterprises to create,
 manage, and trade digital assets on the Canton Network. They provide a secure and efficient
 way to tokenize real-world assets and facilitate their transfer between parties.
 
-- **SDK**: The Software Development Kit (SDK) is a set of tools and libraries to allow developers
+**SDK**: The Software Development Kit (SDK) is a set of tools and libraries to allow developers
 to build applications for the Canton Network. Whether you integrate with an existing application
 or whether you build one from scratch, the SDK provides the necessary tools to get started.
 
-- **Participant**: The Participant is a core component of the Canton Network. Participants
+**Participant**: The Participant is a core component of the Canton Network. Participants
 are the nodes that run the distributed applications and maintain the privacy preserving
 state of the network. The Unifi Participant is an enterprise grade version of its open source
 counterpart, providing the necessary additional features and support required by enterprises.
 
-- **Synchronizer**: The synchronizer is a component of the Canton Network that enables new
+**Synchronizer**: The synchronizer is a component of the Canton Network that enables new
 networks to be created to extend the existing network infrastructure. The Unifi Synchronizer
-provides a set of highly available and highly performant synchronizers component that can be used
+2provides a set of highly available and highly performant synchronizers component that can be used
 for high volume applications.
 
 
