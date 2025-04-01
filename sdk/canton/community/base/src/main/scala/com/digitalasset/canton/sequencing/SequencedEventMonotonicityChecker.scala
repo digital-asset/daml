@@ -5,7 +5,6 @@ package com.digitalasset.canton.sequencing
 
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.protocol.ClosedEnvelope
@@ -16,9 +15,12 @@ import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
 
-/** Checks that the sequenced events' sequencer counters are a gap-free increasing sequencing
-  * starting at `firstSequencerCounter` and their timestamps increase strictly monotonically. When a
-  * violation is detected, an error is logged and the processing is aborted.
+/** Checks that the sequenced events' stream is gap-free:
+  *   - We expect event timestamps to be monotonically increasing
+  *   - The sequence should start with `previousTimestamp = None`.
+  *   - For each subsequent event, we expect `previousTimestamp` to be set to the timestamp of the
+  *     previous event.
+  *   - When a violation is detected, an error is logged and the processing is aborted.
   *
   * This is normally ensured by the
   * [[com.digitalasset.canton.sequencing.client.SequencedEventValidator]] for individual sequencer
@@ -28,8 +30,7 @@ import org.apache.pekko.stream.scaladsl.Flow
   * downstream.
   */
 class SequencedEventMonotonicityChecker(
-    firstSequencerCounter: SequencerCounter,
-    firstTimestampLowerBoundInclusive: CantonTimestamp,
+    previousEventTimestamp: Option[CantonTimestamp],
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
   import SequencedEventMonotonicityChecker.*
@@ -89,22 +90,21 @@ class SequencedEventMonotonicityChecker(
     }
   }
 
-  private def initialState: State =
-    GoodState(firstSequencerCounter, firstTimestampLowerBoundInclusive)
+  private def initialState: State = GoodState(previousEventTimestamp)
 
   private def onNext(
       state: State,
       event: OrdinarySerializedEvent,
   ): (State, Action[OrdinarySerializedEvent]) = state match {
     case Failed => (state, Drop)
-    case GoodState(nextSequencerCounter, lowerBoundTimestamp) =>
-      val monotonic =
-        event.counter == nextSequencerCounter && event.timestamp >= lowerBoundTimestamp
+    case GoodState(previousEventTimestamp) =>
+      val monotonic = event.previousTimestamp == previousEventTimestamp
+        && event.previousTimestamp.forall(event.timestamp > _)
       if (monotonic) {
-        val nextState = GoodState(event.counter + 1, event.timestamp.immediateSuccessor)
+        val nextState = GoodState(Some(event.timestamp))
         nextState -> Emit(event)
       } else {
-        val error = MonotonicityFailure(nextSequencerCounter, lowerBoundTimestamp, event)
+        val error = MonotonicityFailure(previousEventTimestamp, event)
         Failed -> error
       }
   }
@@ -122,12 +122,11 @@ object SequencedEventMonotonicityChecker {
     override def map[B](f: Nothing => B): this.type = this
   }
   private final case class MonotonicityFailure(
-      expectedSequencerCounter: SequencerCounter,
-      timestampLowerBound: CantonTimestamp,
+      previousEventTimestamp: Option[CantonTimestamp],
       event: OrdinarySerializedEvent,
   ) extends Action[Nothing] {
     def message: String =
-      s"Sequencer counters and timestamps do not increase monotonically. Expected next counter=$expectedSequencerCounter with timestamp lower bound $timestampLowerBound, but received ${event.signedEvent.content}"
+      s"Timestamps do not increase monotonically or previous event timestamp does not match. Expected previousTimestamp=$previousEventTimestamp, but received ${event.signedEvent.content}"
 
     def asException: Exception = new MonotonicityFailureException(message)
 
@@ -139,7 +138,6 @@ object SequencedEventMonotonicityChecker {
   private sealed trait State extends Product with Serializable
   private case object Failed extends State
   private final case class GoodState(
-      nextSequencerCounter: SequencerCounter,
-      lowerBoundTimestamp: CantonTimestamp,
+      previousEventTimestamp: Option[CantonTimestamp]
   ) extends State
 }

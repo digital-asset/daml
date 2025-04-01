@@ -762,14 +762,14 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
       override def bucketOf(elem: Elem): Bucket = elem.bucket
       override def orderingOffset: Ordering[Offset] = implicitly[Ordering[Offset]]
       override def offsetOfBucket(bucket: Bucket): Offset = bucket.offset
-      override def exclusiveLowerBoundForBegin: Offset = 10
+      override def initialOffset: Offset = 10
       override def priorElement: Option[Elem] = Some(mkElem("prior", 10))
       override def toPriorElement(output: OutputElement[Name, Elem]): Elem = output.elem.head1._2
       override def traceContextOf(elem: Elem): TraceContext = TraceContext.empty
       override def makeSource(
           name: Name,
           config: Config,
-          exclusiveStart: Offset,
+          startFrom: Offset,
           priorElement: Option[Elem],
       ): Source[Elem, (KillSwitch, Future[Done], M)] = {
         priors.getAndUpdate(_ :+ (name -> priorElement)).discard

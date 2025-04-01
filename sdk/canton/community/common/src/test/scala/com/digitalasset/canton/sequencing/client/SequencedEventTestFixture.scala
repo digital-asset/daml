@@ -96,6 +96,7 @@ class SequencedEventTestFixture(
   lazy val aliceEvents: Seq[OrdinarySerializedEvent] = (1 to 5).map(s =>
     createEvent(
       timestamp = CantonTimestamp.Epoch.plusSeconds(s.toLong),
+      previousTimestamp = Option.when(s > 1)(CantonTimestamp.Epoch.plusSeconds(s.toLong - 1)),
       counter = updatedCounter + s.toLong,
       signatureOverride = Some(signatureAlice),
     ).onShutdown(throw new RuntimeException("failed to create alice event")).futureValue
@@ -103,6 +104,8 @@ class SequencedEventTestFixture(
   lazy val bobEvents: Seq[OrdinarySerializedEvent] = (1 to 5).map(s =>
     createEvent(
       timestamp = CantonTimestamp.Epoch.plusSeconds(s.toLong),
+      previousTimestamp =
+        if (s > 1) Some(CantonTimestamp.Epoch.plusSeconds(s.toLong - 1)) else None,
       counter = updatedCounter + s.toLong,
       signatureOverride = Some(signatureBob),
     ).onShutdown(throw new RuntimeException("failed to create bob event")).futureValue
@@ -110,6 +113,8 @@ class SequencedEventTestFixture(
   lazy val carlosEvents: Seq[OrdinarySerializedEvent] = (1 to 5).map(s =>
     createEvent(
       timestamp = CantonTimestamp.Epoch.plusSeconds(s.toLong),
+      previousTimestamp =
+        if (s > 1) Some(CantonTimestamp.Epoch.plusSeconds(s.toLong - 1)) else None,
       counter = updatedCounter + s.toLong,
       signatureOverride = Some(signatureCarlos),
     ).onShutdown(throw new RuntimeException("failed to create carlos event")).futureValue
@@ -156,6 +161,7 @@ class SequencedEventTestFixture(
       serializedOverride: Option[ByteString] = None,
       counter: Long = updatedCounter,
       timestamp: CantonTimestamp = CantonTimestamp.Epoch,
+      previousTimestamp: Option[CantonTimestamp] = None,
       topologyTimestamp: Option[CantonTimestamp] = None,
   ): FutureUnlessShutdown[OrdinarySerializedEvent] = {
     import cats.syntax.option.*
@@ -173,7 +179,7 @@ class SequencedEventTestFixture(
     )
     val deliver: Deliver[ClosedEnvelope] = Deliver.create[ClosedEnvelope](
       SequencerCounter(counter),
-      None, // TODO(#11834): Make sure that tests using createEvent are not affected by this after counters are gone
+      previousTimestamp = previousTimestamp,
       timestamp,
       synchronizerId,
       MessageId.tryCreate("test").some,

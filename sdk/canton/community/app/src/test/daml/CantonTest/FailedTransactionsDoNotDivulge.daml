@@ -1,0 +1,99 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module FailedTransactionsDoNotDivulge where
+
+import Daml.Script
+
+template One
+  with 
+    p: Party
+  where
+    signatory p
+
+template Two
+  with
+    sig: Party
+    obs: Party
+  where
+    signatory sig
+    observer obs
+
+    nonconsuming choice DivulgeAnArchivedContract: ContractId One
+      with
+        otherTwo: ContractId Two
+        reallyArchive: Bool
+      controller sig
+        do
+          coid <- create One with p = sig
+          exercise otherTwo FetchOne with one = coid
+          if reallyArchive then exercise coid Archive else pure ()
+          pure coid
+
+    nonconsuming choice FetchOne: ()
+      with
+        one: ContractId One
+      controller obs
+        do
+          fetch one
+          pure ()
+
+    nonconsuming choice FetchTwoAndOne: ()
+      with
+        left: ContractId One
+        right: ContractId Two
+        one: ContractId One
+      controller obs
+        do
+          fetch left
+          exercise right FetchOne with one = one
+          pure ()
+
+
+failedTransactionsDoNotDivulgeFail = failedTransactionsDoNotDivulge True
+failedTransactionsDoNotDivulgeSucceed = failedTransactionsDoNotDivulge False
+
+failedTransactionsDoNotDivulge reallyArchive =
+  script do
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
+    charlie <- allocateParty "Charlie"
+
+    aliceCharlie <- submit alice do
+      createCmd $ Two with sig = alice; obs = charlie
+
+    charlieAlice <- submit charlie do
+      createCmd $ Two with sig = charlie; obs = alice
+
+    -- archivedOneDivulgedToAlice is divulged to Alice
+    -- if reallyArchive is set, then will also be archived (without Alice noticing)
+    archivedOneDivulgedToAlice <- submit charlie do
+      exerciseCmd charlieAlice DivulgeAnArchivedContract with 
+        otherTwo = aliceCharlie
+        reallyArchive = reallyArchive
+
+    bobAlice <- submit bob do
+      createCmd $ Two with sig = bob; obs = alice
+
+    aliceOne <- submit alice do
+      createCmd $ One with p = alice
+
+    -- divulges aliceOne to Bob, but fails if archivedOneDivulgedToAlice is archived
+    (if reallyArchive then submitMustFail else submit) alice do
+        exerciseCmd charlieAlice FetchTwoAndOne
+          with
+            left = archivedOneDivulgedToAlice
+            right = bobAlice
+            one = aliceOne
+
+    aliceBob <- submit alice do
+      createCmd $ Two with sig = alice; obs = bob
+
+    -- fetches the divulged aliceOne, which should only be visible to Bob if divulging transaction succeeds
+    (if reallyArchive then submitMustFail else submit) bob do
+      exerciseCmd aliceBob FetchOne with one = aliceOne
+
+    pure ()
+  
+
+

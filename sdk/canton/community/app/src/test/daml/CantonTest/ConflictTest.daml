@@ -1,0 +1,51 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module ConflictTest where
+
+template Single
+  with
+    sig: Party
+  where
+    signatory sig
+
+    choice FetchAndArchive: ()
+      with
+        fetched: ContractId Many
+      controller sig
+        do
+          _ <- fetch fetched
+          pure ()
+
+    nonconsuming choice FetchOnly: ()
+      with
+        fetched: ContractId Many
+      controller sig
+        do
+          _ <- fetch fetched
+          pure ()
+
+    nonconsuming choice FetchAsExercise: Single
+      controller sig
+        do
+          pure this
+
+    choice Delete: ()
+      controller sig
+        do
+          pure ()
+
+
+template Many
+  with
+    sig: Party
+    obs: [Party]
+  where
+    signatory sig
+    observer obs
+
+    choice DeleteMany: () with
+        actor: Party
+      controller actor
+      do
+        pure ()

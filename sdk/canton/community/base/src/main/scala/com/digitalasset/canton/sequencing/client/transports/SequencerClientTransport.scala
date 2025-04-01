@@ -68,7 +68,7 @@ trait SequencerClientTransport extends SequencerClientTransportCommon {
     * [[com.digitalasset.canton.sequencing.client.SubscriptionCloseReason.SubscriptionError]]. The
     * transport is not expected to provide retries of subscriptions.
     */
-  def subscribe[E](request: SubscriptionRequest, handler: SerializedEventHandler[E])(implicit
+  def subscribe[E](request: SubscriptionRequestV2, handler: SerializedEventHandler[E])(implicit
       traceContext: TraceContext
   ): SequencerSubscription[E]
 

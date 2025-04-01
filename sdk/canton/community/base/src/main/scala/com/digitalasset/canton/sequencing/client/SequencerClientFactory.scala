@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.traverse.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
@@ -36,7 +37,6 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{SequencerAlias, SequencerCounter}
 import io.grpc.{CallOptions, ManagedChannel}
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
@@ -242,7 +242,6 @@ object SequencerClientFactory {
           exitOnTimeout,
           loggerFactory,
           futureSupervisor,
-          SequencerCounter.Genesis,
         )
       }
 

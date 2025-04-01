@@ -416,11 +416,6 @@ class ProgrammableSequencer(
     }
   }
 
-  override private[sequencer] def firstSequencerCounterServeableForSequencer(implicit
-      traceContext: TraceContext
-  ) =
-    baseSequencer.firstSequencerCounterServeableForSequencer
-
   override def setTrafficPurchased(
       member: Member,
       serial: PositiveInt,
