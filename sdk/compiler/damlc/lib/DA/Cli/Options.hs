@@ -587,13 +587,10 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
 
     optDamlWarningFlags :: Parser (WarningFlags.DamlWarningFlags ErrorOrWarning)
     optDamlWarningFlags =
-      WarningFlags.mkDamlWarningFlags damlWarningFlagParser <$> many optRawDamlWarningFlag
-
-    optRawDamlWarningFlag :: Parser (WarningFlags.DamlWarningFlag ErrorOrWarning)
-    optRawDamlWarningFlag =
-      Options.Applicative.option
-        (eitherReader (WarningFlags.parseRawDamlWarningFlag damlWarningFlagParser))
-        (short 'W' <> helpDoc (Just helpStr))
+      WarningFlags.mkDamlWarningFlags damlWarningFlagParser <$>
+        many (Options.Applicative.option
+          (eitherReader (WarningFlags.parseRawDamlWarningFlag damlWarningFlagParser))
+          (short 'W' <> helpDoc (Just helpStr)))
       where
       helpStr =
         PAL.vcat
