@@ -28,4 +28,3 @@ Overview
   - Key components of the SDK
     - What are the different tools
     - What are the different APIs and Ledger Services that exist
-  - Enterprise or Open Source
