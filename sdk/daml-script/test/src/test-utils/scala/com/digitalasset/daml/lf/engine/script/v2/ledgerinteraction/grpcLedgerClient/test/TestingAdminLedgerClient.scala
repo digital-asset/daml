@@ -10,8 +10,6 @@ package test
 import com.digitalasset.canton.admin.participant.{v30 => admin_package_service}
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.canton.ledger.client.GrpcChannel
-import com.digitalasset.canton.protocol.v30.Enums.TopologyChangeOp
-import com.digitalasset.canton.topology.admin.{v30 => admin_topology_service}
 import com.google.protobuf.ByteString
 import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
@@ -21,14 +19,9 @@ import scala.concurrent.{ExecutionContext, Future}
 class TestingAdminLedgerClient(
     channel: Channel,
     token: Option[String],
+    participantId: String,
 )(implicit ec: ExecutionContext)
-    extends AdminLedgerClient(channel, token) {
-
-  private val topologyServiceStub =
-    AdminLedgerClient.stub(
-      admin_topology_service.TopologyManagerReadServiceGrpc.stub(channel),
-      token,
-    )
+    extends AdminLedgerClient(channel, token, participantId) {
 
   def uploadDar(file: File): Future[Either[String, String]] =
     packageServiceStub
@@ -51,31 +44,6 @@ class TestingAdminLedgerClient(
           case UploadDarResponse(hash) => Right(hash.head)
         }
       }
-
-  // Map from participantName (in the form PAR::name::hash) to list of packages
-  def listVettedPackages(): Future[Map[String, Seq[String]]] = {
-    topologyServiceStub
-      .listVettedPackages(
-        admin_topology_service.ListVettedPackagesRequest(
-          baseQuery = Some(
-            admin_topology_service.BaseQuery(
-              store = None,
-              proposals = false,
-              operation = TopologyChangeOp.TOPOLOGY_CHANGE_OP_UNSPECIFIED,
-              timeQuery = admin_topology_service.BaseQuery.TimeQuery
-                .HeadState(com.google.protobuf.empty.Empty()),
-              filterSignedKey = "",
-              protocolVersion = None,
-            )
-          ),
-          filterParticipant = "",
-        )
-      )
-      .map(
-        _.results
-          .groupMapReduce(_.item.get.participantUid)(_.item.get.packages.map(_.packageId))(_ ++ _)
-      )
-  }
 }
 
 object TestingAdminLedgerClient {
@@ -88,17 +56,20 @@ object TestingAdminLedgerClient {
       port: Int,
       token: Option[String] = None,
       channelConfig: LedgerClientChannelConfiguration,
+      participantId: String,
   )(implicit
       ec: ExecutionContext
   ): TestingAdminLedgerClient =
-    fromBuilder(channelConfig.builderFor(hostIp, port), token)
+    fromBuilder(channelConfig.builderFor(hostIp, port), token, participantId)
 
   def fromBuilder(
       builder: NettyChannelBuilder,
       token: Option[String] = None,
+      participantId: String,
   )(implicit ec: ExecutionContext): TestingAdminLedgerClient =
     new TestingAdminLedgerClient(
       GrpcChannel.withShutdownHook(builder),
       token,
+      participantId,
     )
 }

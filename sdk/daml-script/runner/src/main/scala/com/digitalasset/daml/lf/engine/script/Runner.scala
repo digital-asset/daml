@@ -5,8 +5,9 @@ package com.digitalasset.daml.lf
 package engine
 package script
 
-import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.logging.LoggingContext
+import com.daml.script.converter.ConverterException
 import com.daml.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.client.configuration.{
@@ -14,6 +15,8 @@ import com.digitalasset.canton.ledger.client.configuration.{
   LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
 }
+import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref._
@@ -23,9 +26,10 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
   IdeLedgerClient,
   ScriptLedgerClient,
 }
-import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
-import com.digitalasset.daml.lf.typesig.EnvironmentSignature
-import com.digitalasset.daml.lf.typesig.reader.SignatureReader
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.{
+  AdminLedgerClient,
+  IdentityServiceClient,
+}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.language.LanguageVersionRangeOps._
@@ -42,13 +46,12 @@ import com.digitalasset.daml.lf.speedy.{
   TraceLog,
   WarningLog,
 }
+import com.digitalasset.daml.lf.typesig.EnvironmentSignature
+import com.digitalasset.daml.lf.typesig.reader.SignatureReader
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
-import com.daml.logging.LoggingContext
-import com.daml.script.converter.ConverterException
-import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.tracing.TraceContext
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.pekko.stream.Materializer
 import scalaz.OneAnd._
 import scalaz.std.either._
 import scalaz.std.map._
@@ -277,17 +280,36 @@ object Runner {
       sslContext = tlsConfig.client(),
       maxInboundMessageSize = maxInboundMessageSize,
     )
-    LedgerClient
-      .singleHost(params.host, params.port, clientConfig, clientChannelConfig, namedLoggerFactory)
-      .map(
-        new GrpcLedgerClient(
-          _,
-          userId,
-          params.adminPort.map(p =>
-            AdminLedgerClient.singleHost(params.host, p, clientConfig.token, clientChannelConfig)
-          ),
-        )
+    for {
+      ledgerClient <- LedgerClient.singleHost(
+        params.host,
+        params.port,
+        clientConfig,
+        clientChannelConfig,
+        namedLoggerFactory,
       )
+      maybeAdminLedgerClient <- params.adminPort
+        .traverse(adminPort => {
+          for {
+            participantId <- {
+              val identityServiceClient = IdentityServiceClient
+                .singleHost(params.host, adminPort, clientConfig.token, clientChannelConfig)
+              val future = identityServiceClient.getId()
+              val _ = future.onComplete(_ => identityServiceClient.close())
+              future
+            }
+          } yield AdminLedgerClient
+            .singleHost(
+              params.host,
+              adminPort,
+              clientConfig.token,
+              clientChannelConfig,
+              participantId.getOrElse(
+                throw new IllegalStateException("unexpected uninitialized participant")
+              ),
+            )
+        })
+    } yield GrpcLedgerClient(ledgerClient, userId, maybeAdminLedgerClient)
   }
   // We might want to have one config per participant at some point but for now this should be sufficient.
   def connect(
