@@ -167,10 +167,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
       FutureUnlessShutdown.pure(SequencerHealthStatus(isActive = true))
 
     override def adminStatus: SequencerAdminStatus = ???
-    override private[sequencer] def firstSequencerCounterServeableForSequencer(implicit
-        traceContext: TraceContext
-    ): FutureUnlessShutdown[SequencerCounter] =
-      ???
+
     override def trafficStatus(members: Seq[Member], selector: TimestampSelector)(implicit
         traceContext: TraceContext
     ): FutureUnlessShutdown[SequencerTrafficStatus] = ???

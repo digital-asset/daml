@@ -1,0 +1,20 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module ExplicitDisclosure where
+
+template PriceQuotation
+  with
+    issuer: Party
+    stockName: Text
+    value: Int
+  where
+    signatory issuer
+
+    -- Helper choice to allow the controller to fetch this contract without being a stakeholder.
+    -- By fetching this contract, the controller (i.e. `fetcher`) proves
+    -- that this contract is active and represents the current market value for this stock.
+    nonconsuming choice PriceQuotation_Fetch: PriceQuotation
+      with fetcher: Party
+      controller fetcher
+      do pure this

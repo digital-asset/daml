@@ -4,7 +4,6 @@
 package com.digitalasset.canton.synchronizer.sequencing.service
 
 import cats.data.EitherT
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -30,44 +29,6 @@ class DirectSequencerSubscriptionFactory(
     extends NamedLogging {
 
   /** Create a subscription for an event handler to observe sequencer events for this member. By
-    * connecting from `startingAt` it is assumed that all prior events have been successfully read
-    * by the member (and may be removed by a separate administrative process). Closing the returned
-    * subscription should disconnect the handler. If member is unknown by the sequencer a
-    * [[sequencer.errors.CreateSubscriptionError.UnknownMember]] error will be returned. If the
-    * counter is invalid (currently will only happen if counter <0) a
-    * [[sequencer.errors.CreateSubscriptionError.InvalidCounter]] error will be returned.
-    *
-    * @param startingAt
-    *   Counter of the next event to observe. (e.g. 0 will return the first event when it is
-    *   available)
-    * @param member
-    *   Member to subscribe on behalf of.
-    * @param handler
-    *   The handler to invoke with sequencer events
-    * @return
-    *   A running subscription
-    */
-  def create[E](
-      startingAt: SequencerCounter,
-      member: Member,
-      handler: SerializedEventOrErrorHandler[E],
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, SequencerSubscription[E]] = {
-    logger.debug(show"Creating subscription for $member from $startingAt...")
-    for {
-      source <- sequencer.read(member, startingAt)
-    } yield {
-      val subscription =
-        new DirectSequencerSubscription[E](member, source, handler, timeouts, loggerFactory)
-      logger.debug(
-        show"Created sequencer subscription for $member from $startingAt (may still be starting)"
-      )
-      subscription
-    }
-  }
-
-  /** Create a subscription for an event handler to observe sequencer events for this member. By
     * connecting from inclusive `timestamp` it is assumed that all prior events have been
     * successfully read by the member (and may be removed by a separate administrative process).
     * Closing the returned subscription should disconnect the handler. If member is unknown by the
@@ -89,14 +50,15 @@ class DirectSequencerSubscriptionFactory(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, SequencerSubscription[E]] = {
-    logger.debug(show"Creating subscription for $member from $timestamp...")
+    val timestampString = timestamp.map(_.toString).getOrElse("the beginning")
+    logger.debug(show"Creating subscription for $member from $timestampString...")
     for {
       source <- sequencer.readV2(member, timestamp)
     } yield {
       val subscription =
         new DirectSequencerSubscription[E](member, source, handler, timeouts, loggerFactory)
       logger.debug(
-        show"Created sequencer subscription for $member from $timestamp (may still be starting)"
+        show"Created sequencer subscription for $member from $timestampString (may still be starting)"
       )
       subscription
     }

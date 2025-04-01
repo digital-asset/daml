@@ -76,7 +76,7 @@ class ReplayingEventsSequencerClientTransport(
     EitherT.pure(GetTrafficStateForMemberResponse(None, protocolVersion))
 
   /** Replays all events in `replayPath` to the handler. */
-  override def subscribe[E](request: SubscriptionRequest, handler: SerializedEventHandler[E])(
+  override def subscribe[E](request: SubscriptionRequestV2, handler: SerializedEventHandler[E])(
       implicit traceContext: TraceContext
   ): ReplayingSequencerSubscription[E] = {
     logger.info("Loading messages for replaying...")
@@ -132,7 +132,7 @@ class ReplayingEventsSequencerClientTransport(
 
   override type SubscriptionError = Nothing
 
-  override def subscribe(request: SubscriptionRequest)(implicit
+  override def subscribe(request: SubscriptionRequestV2)(implicit
       traceContext: TraceContext
   ): SequencerSubscriptionPekko[SubscriptionError] =
     // TODO(#13789) figure out how to implement this

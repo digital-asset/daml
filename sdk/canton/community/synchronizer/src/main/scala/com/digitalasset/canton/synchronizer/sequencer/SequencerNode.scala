@@ -761,16 +761,6 @@ class SequencerNodeBootstrap(
           )
           _ = sequencerServiceCell.putIfAbsent(sequencerService)
 
-          firstSequencerCounterServeableForSequencer <-
-            EitherT
-              .right[String](sequencer.firstSequencerCounterServeableForSequencer)
-
-          _ <- EitherT.right[String](
-            sequencedEventStore.reinitializeFromDbOrSetLowerBound(
-              firstSequencerCounterServeableForSequencer - 1L
-            )
-          )
-
           _ = addCloseable(sequencedEventStore)
           sequencerClient = new SequencerClientImplPekko[
             DirectSequencerClientTransport.SubscriptionError
@@ -817,7 +807,6 @@ class SequencerNodeBootstrap(
             parameters.exitOnFatalFailures,
             loggerFactory,
             futureSupervisor,
-            firstSequencerCounterServeableForSequencer, // TODO(#18401): Review this value
           )
           timeTracker = SynchronizerTimeTracker(
             config.timeTracker,

@@ -6,11 +6,13 @@ package com.digitalasset.canton.sequencing
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.health.ComponentHealthState
-import com.digitalasset.canton.logging.LogEntry
+import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.sequencing.SequencerConnectionXPool.SequencerConnectionXPoolError
+import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
+import org.slf4j.event.Level.WARN
 
 class SequencerConnectionXPoolImplTest
     extends AnyWordSpec
@@ -68,7 +70,7 @@ class SequencerConnectionXPoolImplTest
         },
         expectedSynchronizerIdO = Some(testSynchronizerId(1)),
       ) { case (pool, _createdConnections, _listener) =>
-        loggerFactory.assertLoggedWarningsAndErrorsSeq(
+        loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(WARN))(
           {
             pool.start()
 
@@ -76,15 +78,29 @@ class SequencerConnectionXPoolImplTest
               pool.nbSequencers shouldBe NonNegativeInt.tryCreate(2)
             }
           },
-          LogEntry.assertLogSeq(
-            mustContainWithClue = Seq(),
-            mayContain = Seq(
-              // Connections validated before the threshold is reached
-              badSynchronizerAssertion(goodSynchronizerId = 1, badSynchronizerId = 2),
-              // Connections validated after the threshold is reached
-              badBootstrapAssertion(goodSynchronizerId = 1, badSynchronizerId = 2),
-            ),
-          ),
+          logEntries => {
+            // All 8 connections on the wrong synchronizer should be rejected either before or after
+            // the threshold is reached.
+            // There can be more than 1 warning for a given connection if it is poked more than once when validated.
+
+            forAll(logEntries) { entry =>
+              forExactly(
+                1,
+                Seq(
+                  // Connections validated before the threshold is reached
+                  badSynchronizerAssertion(goodSynchronizerId = 1, badSynchronizerId = 2),
+                  // Connections validated after the threshold is reached
+                  badBootstrapAssertion(goodSynchronizerId = 1, badSynchronizerId = 2),
+                ),
+              )(assertion => assertion(entry))
+            }
+
+            // The 8 connections must be represented
+            val rx = raw"(?s).* internal-sequencer-connection-test-(\d+) .*".r
+            logEntries.collect {
+              _.warningMessage match { case rx(number) => number }
+            }.distinct should have size 8
+          },
         )
 
         pool.synchronizerId shouldBe Some(testSynchronizerId(1))
@@ -125,13 +141,16 @@ class SequencerConnectionXPoolImplTest
         createdConnections should have size 3
 
         eventually() {
-          pool.contents shouldBe Map(
-            testSequencerId(2) -> Set(initialConnections(2)),
-            testSequencerId(3) -> Set(initialConnections(3)),
-            testSequencerId(4) -> Set(initialConnections(4)),
-            testSequencerId(11) -> Set(createdConnections(11)),
-            testSequencerId(12) -> Set(createdConnections(12)),
-            testSequencerId(13) -> Set(createdConnections(13)),
+          contentsShouldEqual(
+            pool.contents,
+            Map(
+              testSequencerId(2) -> Set(initialConnections(2)),
+              testSequencerId(3) -> Set(initialConnections(3)),
+              testSequencerId(4) -> Set(initialConnections(4)),
+              testSequencerId(11) -> Set(createdConnections(11)),
+              testSequencerId(12) -> Set(createdConnections(12)),
+              testSequencerId(13) -> Set(createdConnections(13)),
+            ),
           )
         }
       }
@@ -164,13 +183,16 @@ class SequencerConnectionXPoolImplTest
           .valueOrFail("update config")
         createdConnections should have size 1
         createdConnections(0) should not be initialConnections(0)
-        createdConnections(0).config.endpoint shouldBe newConnectionConfig.endpoint
+        createdConnections(0).config shouldBe newConnectionConfig
 
         eventually() {
-          pool.contents shouldBe Map(
-            testSequencerId(0) -> Set(createdConnections(0)),
-            testSequencerId(1) -> Set(initialConnections(1)),
-            testSequencerId(2) -> Set(initialConnections(2)),
+          contentsShouldEqual(
+            pool.contents,
+            Map(
+              testSequencerId(0) -> Set(createdConnections(0)),
+              testSequencerId(1) -> Set(initialConnections(1)),
+              testSequencerId(2) -> Set(initialConnections(2)),
+            ),
           )
         }
       }
@@ -315,22 +337,22 @@ class SequencerConnectionXPoolImplTest
         }
         pool.synchronizerId shouldBe Some(testSynchronizerId(1))
 
+        val createdConfigs = (0 to 5).map(createdConnections.apply).map(_.config)
+
         clue("one connection per sequencer") {
           val received = pool.getConnections(3, exclusions = Set.empty)
 
-          received.map(_.attributes.map(_.sequencerId)) shouldBe Set(
-            Some(testSequencerId(1)),
-            Some(testSequencerId(2)),
-            Some(testSequencerId(3)),
+          received.map(_.attributes.sequencerId) shouldBe Set(
+            testSequencerId(1),
+            testSequencerId(2),
+            testSequencerId(3),
           )
-          received should ((contain(createdConnections(0)) or contain(
-            createdConnections(1)
-          ) or contain(createdConnections(2)))
-            and (contain(createdConnections(3)) or contain(
-              createdConnections(4)
-            )) and contain(
-              createdConnections(5)
-            ))
+
+          val receivedConfigs = received.map(_.config)
+
+          receivedConfigs.intersect(createdConfigs.slice(0, 3).toSet) should have size 1
+          receivedConfigs.intersect(createdConfigs.slice(3, 5).toSet) should have size 1
+          receivedConfigs.intersect(createdConfigs.slice(5, 6).toSet) should have size 1
         }
 
         clue("round robin") {
@@ -339,12 +361,8 @@ class SequencerConnectionXPoolImplTest
           val received2 = pool.getConnections(1, exclusions)
           val received3 = pool.getConnections(1, exclusions)
 
-          Set(received1, received2, received3)
-            .map(_.loneElement) shouldBe Set(
-            createdConnections(0),
-            createdConnections(1),
-            createdConnections(2),
-          )
+          Set(received1, received2, received3).map(_.loneElement.config) shouldBe
+            Set(createdConfigs(0), createdConfigs(1), createdConfigs(2))
 
           pool.getConnections(1, exclusions) shouldBe received1
         }
@@ -366,7 +384,7 @@ class SequencerConnectionXPoolImplTest
             // Both connections have been restarted and can be obtained
             val received = connectionsOnSeq2.map(_ => pool.getConnections(3, exclusions))
             forAll(received)(_ should have size 1)
-            received.flatten shouldBe connectionsOnSeq2
+            received.flatten.map(_.config) shouldBe connectionsOnSeq2.map(_.config)
           }
 
           connectionsOnSeq2.foreach(_.fatal(reason = "test"))
@@ -421,7 +439,7 @@ class SequencerConnectionXPoolImplTest
   ): LogEntry => Assertion =
     (logEntry: LogEntry) =>
       logEntry.warningMessage should fullyMatch regex
-        raw"(?s)Connection sequencer-connection-test-\d+ has invalid bootstrap info:" +
+        raw"(?s)Connection internal-sequencer-connection-test-\d+ has invalid bootstrap info:" +
         raw" expected BootstrapInfo\(test-synchronizer-$goodSynchronizerId::namespace.*," +
         raw" got BootstrapInfo\(test-synchronizer-$badSynchronizerId::namespace.*"
 
@@ -431,7 +449,17 @@ class SequencerConnectionXPoolImplTest
   ): LogEntry => Assertion =
     (logEntry: LogEntry) =>
       logEntry.warningMessage should fullyMatch regex
-        raw"(?s)Connection sequencer-connection-test-\d+ is not on expected synchronizer:" +
+        raw"(?s)Connection internal-sequencer-connection-test-\d+ is not on expected synchronizer:" +
         raw" expected Some\(test-synchronizer-$goodSynchronizerId::namespace\)," +
         raw" got test-synchronizer-$badSynchronizerId::namespace.*"
+
+  private def contentsShouldEqual(
+      contents: Map[SequencerId, Set[SequencerConnectionX]],
+      created: Map[SequencerId, Set[InternalSequencerConnectionX]],
+  ): Assertion = {
+    // Compare based on connection configs
+    val first = contents.view.mapValues(_.map(_.config)).toMap
+    val second = created.view.mapValues(_.map(_.config)).toMap
+    first shouldBe second
+  }
 }

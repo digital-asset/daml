@@ -17,7 +17,6 @@ import com.digitalasset.canton.{
   BaseTest,
   HasExecutionContext,
   ProtocolVersionChecksFixtureAnyWordSpec,
-  SequencerCounter,
 }
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.scalatest.Outcome
@@ -51,8 +50,7 @@ class SequencedEventMonotonicityCheckerTest
       import env.*
 
       val checker = new SequencedEventMonotonicityChecker(
-        bobEvents(0).counter,
-        bobEvents(0).timestamp,
+        previousEventTimestamp = None,
         loggerFactory,
       )
       val handler = mkHandler()
@@ -68,8 +66,7 @@ class SequencedEventMonotonicityCheckerTest
       import env.*
 
       val checker = new SequencedEventMonotonicityChecker(
-        bobEvents(0).counter,
-        bobEvents(0).timestamp,
+        previousEventTimestamp = None,
         loggerFactory,
       )
       val handler = mkHandler()
@@ -88,16 +85,17 @@ class SequencedEventMonotonicityCheckerTest
 
       val event1 = createEvent(
         timestamp = CantonTimestamp.ofEpochSecond(2),
+        previousTimestamp = Some(CantonTimestamp.ofEpochSecond(1)),
         counter = 2L,
       ).futureValueUS
       val event2 = createEvent(
         timestamp = CantonTimestamp.ofEpochSecond(2),
+        previousTimestamp = Some(CantonTimestamp.ofEpochSecond(2)),
         counter = 3L,
       ).futureValueUS
 
       val checker = new SequencedEventMonotonicityChecker(
-        SequencerCounter(2L),
-        CantonTimestamp.MinValue,
+        previousEventTimestamp = Some(CantonTimestamp.ofEpochSecond(1)),
         loggerFactory,
       )
       val handler = mkHandler()
@@ -116,8 +114,7 @@ class SequencedEventMonotonicityCheckerTest
       import env.*
 
       val checker = new SequencedEventMonotonicityChecker(
-        bobEvents(0).counter,
-        bobEvents(0).timestamp,
+        previousEventTimestamp = None,
         loggerFactory,
       )
       val eventsF = Source(bobEvents)
@@ -133,8 +130,7 @@ class SequencedEventMonotonicityCheckerTest
       import env.*
 
       val checker = new SequencedEventMonotonicityChecker(
-        bobEvents(0).counter,
-        bobEvents(0).timestamp,
+        previousEventTimestamp = None,
         loggerFactory,
       )
       val (batch1, batch2) = bobEvents.splitAt(2)
@@ -146,7 +142,7 @@ class SequencedEventMonotonicityCheckerTest
           .toMat(Sink.seq)(Keep.right)
           .run(),
         _.errorMessage should include(
-          "Sequencer counters and timestamps do not increase monotonically"
+          "Timestamps do not increase monotonically or previous event timestamp does not match."
         ),
       )
       eventsF.futureValue.map(_.value) shouldBe batch1.map(Right(_))
@@ -157,16 +153,17 @@ class SequencedEventMonotonicityCheckerTest
 
       val event1 = createEvent(
         timestamp = CantonTimestamp.ofEpochSecond(2),
+        previousTimestamp = Some(CantonTimestamp.ofEpochSecond(1)),
         counter = 2L,
       ).futureValueUS
       val event2 = createEvent(
         timestamp = CantonTimestamp.ofEpochSecond(2),
+        previousTimestamp = Some(CantonTimestamp.ofEpochSecond(2)),
         counter = 3L,
       ).futureValueUS
 
       val checker = new SequencedEventMonotonicityChecker(
-        SequencerCounter(2L),
-        CantonTimestamp.MinValue,
+        previousEventTimestamp = Some(CantonTimestamp.ofEpochSecond(1)),
         loggerFactory,
       )
       val eventsF = loggerFactory.assertLogs(
@@ -177,7 +174,7 @@ class SequencedEventMonotonicityCheckerTest
           .toMat(Sink.seq)(Keep.right)
           .run(),
         _.errorMessage should include(
-          "Sequencer counters and timestamps do not increase monotonically"
+          "Timestamps do not increase monotonically or previous event timestamp does not match."
         ),
       )
       eventsF.futureValue.map(_.value) shouldBe Seq(Right(event1))

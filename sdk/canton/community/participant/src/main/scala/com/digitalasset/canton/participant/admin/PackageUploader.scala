@@ -17,7 +17,6 @@ import com.digitalasset.canton.lifecycle.{
   LifeCycle,
   UnlessShutdown,
 }
-import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.PackageService.{
   Dar,
@@ -25,8 +24,8 @@ import com.digitalasset.canton.participant.admin.PackageService.{
   DarMainPackageId,
   catchUpstreamErrors,
 }
-import com.digitalasset.canton.participant.store.PackageInfo
 import com.digitalasset.canton.participant.store.memory.MutablePackageMetadataView
+import com.digitalasset.canton.participant.store.{DamlPackageStore, PackageInfo}
 import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.Clock
@@ -45,11 +44,12 @@ import scala.util.{Failure, Success, Try}
 
 class PackageUploader(
     clock: Clock,
+    packageStore: DamlPackageStore,
     engine: Engine,
     enableUpgradeValidation: Boolean,
     futureSupervisor: FutureSupervisor,
-    packageDependencyResolver: PackageDependencyResolver,
     packageMetadataView: MutablePackageMetadataView,
+    packageUpgradeValidator: PackageUpgradeValidator,
     exitOnFatalFailures: Boolean,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -62,14 +62,6 @@ class PackageUploader(
     timeouts,
     loggerFactory,
     crashOnFailure = exitOnFatalFailures,
-  )
-  private val packagesDarsStore = packageDependencyResolver.damlPackageStore
-  private val packageUpgradeValidator = new PackageUpgradeValidator(
-    getPackageMap = implicit loggingContextWithTrace =>
-      packageMetadataView.getSnapshot.packageIdVersionMap,
-    getLfArchive = loggingContextWithTrace =>
-      pkgId => packagesDarsStore.getPackage(pkgId)(loggingContextWithTrace.traceContext),
-    loggerFactory = loggerFactory,
   )
 
   def validateDar(
@@ -164,14 +156,12 @@ class PackageUploader(
         uploadedAt: CantonTimestamp,
     ): FutureUnlessShutdown[Unit] =
       for {
-        _ <- packagesDarsStore.append(packages, uploadedAt, dar)
+        _ <- packageStore.append(packages, uploadedAt, dar)
         _ = logger.debug(
           s"Managed to upload one or more archives for submissionId $submissionId"
         )
         _ = allPackages.foreach { case (_, (pkgId, pkg)) =>
-          if (pkg.supportsUpgrades(pkgId)) {
-            packageMetadataView.update(PackageMetadata.from(pkgId, pkg))
-          }
+          packageMetadataView.update(PackageMetadata.from(pkgId, pkg))
         }
       } yield ()
 
@@ -240,8 +230,11 @@ class PackageUploader(
       )
       _ <-
         if (enableUpgradeValidation) {
+          val packageMetadataSnapshot = packageMetadataView.getSnapshot
           packageUpgradeValidator
-            .validateUpgrade(packages)(LoggingContextWithTrace(loggerFactory))
+            .validateUpgrade(packages, packageMetadataSnapshot)(
+              LoggingContextWithTrace(loggerFactory)
+            )
         } else {
           logger.info(
             s"Skipping upgrade validation for packages ${packages.map(_._1).sorted.mkString(", ")}"
@@ -263,6 +256,38 @@ class PackageUploader(
 }
 
 object PackageUploader {
+  def apply(
+      clock: Clock,
+      engine: Engine,
+      enableUpgradeValidation: Boolean,
+      futureSupervisor: FutureSupervisor,
+      packageDependencyResolver: PackageDependencyResolver,
+      packageMetadataView: MutablePackageMetadataView,
+      exitOnFatalFailures: Boolean,
+      timeouts: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit executionContext: ExecutionContext): PackageUploader = {
+
+    val packageStore = packageDependencyResolver.damlPackageStore
+    val packageUpgradeValidator = new PackageUpgradeValidator(
+      getLfArchive = loggingContextWithTrace =>
+        pkgId => packageStore.getPackage(pkgId)(loggingContextWithTrace.traceContext),
+      loggerFactory = loggerFactory,
+    )
+    new PackageUploader(
+      clock,
+      packageStore,
+      engine,
+      enableUpgradeValidation,
+      futureSupervisor,
+      packageMetadataView,
+      packageUpgradeValidator,
+      exitOnFatalFailures,
+      timeouts,
+      loggerFactory,
+    )
+  }
+
   implicit class ErrorValidations[E, R](result: Either[E, R]) {
     def handleError(toSelfServiceErrorCode: E => RpcError): Try[R] =
       result.left.map { err =>

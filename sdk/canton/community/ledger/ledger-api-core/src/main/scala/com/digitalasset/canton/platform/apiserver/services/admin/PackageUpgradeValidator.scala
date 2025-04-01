@@ -13,10 +13,12 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTr
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPackageManagementService.ErrorValidations
 import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator.PackageMap
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Util.{
   PkgIdWithNameAndVersion,
@@ -33,21 +35,22 @@ object PackageUpgradeValidator {
 // TODO(i16362): Should have unit tests on canton-side for this code as per discussion in https://github.com/DACH-NY/canton/pull/21040#discussion_r1734646573
 // https://github.com/DACH-NY/canton/issues/16362
 class PackageUpgradeValidator(
-    getPackageMap: LoggingContextWithTrace => PackageMap,
     getLfArchive: LoggingContextWithTrace => Ref.PackageId => FutureUnlessShutdown[Option[Archive]],
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
 
   def validateUpgrade(
-      upgradingPackages: List[(Ref.PackageId, Ast.Package)]
+      upgradingPackages: List[(Ref.PackageId, Ast.Package)],
+      packageMetadataSnapshot: PackageMetadata,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): EitherT[FutureUnlessShutdown, RpcError, Unit] = {
     val upgradingPackagesMap = upgradingPackages.toMap
     val packagesInTopologicalOrder =
       dependenciesInTopologicalOrder(upgradingPackages.map(_._1), upgradingPackagesMap)
-    val packageMap = getPackageMap(loggingContext)
+
+    val packageMap = getUpgradablePackageIdVersionMap(packageMetadataSnapshot)
 
     def go(
         packageMap: PackageMap,
@@ -70,6 +73,19 @@ class PackageUpgradeValidator(
     }
     go(packageMap, packagesInTopologicalOrder).map(_ => ())
   }
+
+  private def getUpgradablePackageIdVersionMap(
+      packageMetadataSnapshot: PackageMetadata
+  ): Map[PackageId, (PackageName, Ref.PackageVersion)] =
+    packageMetadataSnapshot.packageIdVersionMap.view.filterKeys { packageId =>
+      packageMetadataSnapshot.packageUpgradabilityMap
+        .getOrElse(
+          packageId,
+          throw new IllegalStateException(
+            s"Inconsistent package metadata: package-id $packageId present in packageIdVersion map, missing from the package upgradability map $packageId"
+          ),
+        )
+    }.toMap
 
   private def validatePackageUpgrade(
       uploadedPackage: (Ref.PackageId, Ast.Package),
