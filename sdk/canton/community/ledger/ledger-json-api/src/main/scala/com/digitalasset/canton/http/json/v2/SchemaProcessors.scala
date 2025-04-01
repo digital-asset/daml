@@ -208,13 +208,17 @@ class SchemaProcessors(
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Future[Ref.Identifier] =
-    PackageRef.fromString(template.packageId) match {
-      case Right(PackageRef.Name(name)) =>
-        loadTemplate(name, template, token).map(IdentifierConverters.lfIdentifier)
-      case Right(PackageRef.Id(_)) =>
-        Future(IdentifierConverters.lfIdentifier(template))
-      case Left(error) =>
-        Future.failed(invalidField("package reference", error))
+    if (template.packageId == "") {
+      loadTemplate(template.packageName, template, token).map(IdentifierConverters.lfIdentifier)
+    } else {
+      PackageRef.fromString(template.packageId) match {
+        case Right(PackageRef.Name(name)) =>
+          loadTemplate(name, template, token).map(IdentifierConverters.lfIdentifier)
+        case Right(PackageRef.Id(_)) =>
+          Future(IdentifierConverters.lfIdentifier(template))
+        case Left(error) =>
+          Future.failed(invalidField("package reference", error))
+      }
     }
 
   private def loadTemplate(
@@ -251,7 +255,12 @@ class SchemaProcessors(
             s"Failed to load template for $template because there were no packages with name $packageName"
           )
         )
-      Identifier(topPackage._1, template.moduleName, template.entityName)
+      Identifier(
+        packageId = topPackage._1,
+        packageName = topPackage._2.metadata.name,
+        moduleName = template.moduleName,
+        entityName = template.entityName,
+      )
     }
   }
 

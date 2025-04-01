@@ -346,7 +346,10 @@ private[events] object TransactionLogUpdatesConversions {
                   offset = exercisedEvent.eventOffset.unwrap,
                   nodeId = exercisedEvent.nodeId,
                   contractId = exercisedEvent.contractId.coid,
-                  templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
+                  templateId = Some(
+                    LfEngineToApi
+                      .toApiIdentifier(exercisedEvent.templateId, exercisedEvent.packageName)
+                  ),
                   packageName = exercisedEvent.packageName,
                   witnessParties = witnessParties,
                   implementedInterfaces = lfValueTranslation.implementedInterfaces(
@@ -411,9 +414,14 @@ private[events] object TransactionLogUpdatesConversions {
                 offset = exercisedEvent.eventOffset.unwrap,
                 nodeId = exercisedEvent.nodeId,
                 contractId = exercisedEvent.contractId.coid,
-                templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
+                templateId = Some(
+                  LfEngineToApi
+                    .toApiIdentifier(exercisedEvent.templateId, exercisedEvent.packageName)
+                ),
                 packageName = exercisedEvent.packageName,
-                interfaceId = exercisedEvent.interfaceId.map(LfEngineToApi.toApiIdentifier),
+                interfaceId = exercisedEvent.interfaceId.map(
+                  LfEngineToApi.toApiIdentifier(lfValueTranslation.resolvePackageName)
+                ),
                 choice = exercisedEvent.choice,
                 choiceArgument = Some(choiceArgument),
                 actingParties = exercisedEvent.actingParties.toSeq,
@@ -640,9 +648,13 @@ private[events] object TransactionLogUpdatesConversions {
             offset = exercisedEvent.eventOffset.unwrap,
             nodeId = exercisedEvent.nodeId,
             contractId = exercisedEvent.contractId.coid,
-            templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
+            templateId = Some(
+              LfEngineToApi.toApiIdentifier(exercisedEvent.templateId, exercisedEvent.packageName)
+            ),
             packageName = exercisedEvent.packageName,
-            interfaceId = exercisedEvent.interfaceId.map(LfEngineToApi.toApiIdentifier),
+            interfaceId = exercisedEvent.interfaceId.map(
+              LfEngineToApi.toApiIdentifier(lfValueTranslation.resolvePackageName)
+            ),
             choice = exercisedEvent.choice,
             choiceArgument = Some(choiceArgument),
             actingParties = exercisedEvent.actingParties.toSeq,
@@ -724,7 +736,8 @@ private[events] object TransactionLogUpdatesConversions {
           offset = createdEvent.eventOffset.unwrap,
           nodeId = createdEvent.nodeId,
           contractId = createdEvent.contractId.coid,
-          templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
+          templateId =
+            Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId, createdEvent.packageName)),
           packageName = createdEvent.packageName,
           contractKey = apiContractData.contractKey,
           createArguments = apiContractData.createArguments,
@@ -803,7 +816,7 @@ private[events] object TransactionLogUpdatesConversions {
                 submitter = info.submitter.getOrElse(""),
                 reassignmentCounter = info.reassignmentCounter,
                 contractId = unassign.contractId.coid,
-                templateId = Some(LfEngineToApi.toApiIdentifier(unassign.templateId)),
+                templateId = Some(LfEngineToApi.toApiIdentifier(unassign.templateId, unassign.packageName)),
                 packageName = unassign.packageName,
                 assignmentExclusivity =
                   unassign.assignmentExclusivity.map(TimestampConversion.fromLf),

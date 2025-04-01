@@ -348,7 +348,7 @@ class OutputModule[E <: Env[E]](
             //  the epoch metadata was stored before sending this message.
             currentEpochMetadataStored = epochCouldAlterOrderingTopology
 
-            emitRequestsOrderingStats(metrics, orderedBlockData)
+            emitRequestsOrderingStats(metrics, orderedBlockData, orderedBlockBftTime)
 
             // Since consensus will wait for the topology before starting the new epoch, and we send it only when all
             //  blocks, including the last block of the previous epoch, are fully fetched, all blocks can always be read

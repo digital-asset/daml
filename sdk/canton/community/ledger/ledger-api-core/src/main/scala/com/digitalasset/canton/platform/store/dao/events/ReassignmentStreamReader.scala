@@ -204,7 +204,7 @@ class ReassignmentStreamReader(
             events = rawUnassignEntries.map(entry =>
               ReassignmentEvent(
                 ReassignmentEvent.Event.Unassigned(
-                  UpdateReader.toUnassignedEvent(first.offset, entry.event)
+                  UpdateReader.toUnassignedEvent(lfValueTranslation)(first.offset, entry.event)
                 )
               )
             ),

@@ -286,10 +286,19 @@ object CommandServiceImplSpec {
   val command = Command.of(
     Command.Command.Create(
       CreateCommand.of(
-        Some(Identifier("package", moduleName = "module", entityName = "entity")),
+        Some(
+          Identifier("package", packageName = "pname", moduleName = "module", entityName = "entity")
+        ),
         Some(
           Record(
-            Some(Identifier("package", moduleName = "module", entityName = "entity")),
+            Some(
+              Identifier(
+                "package",
+                packageName = "pname",
+                moduleName = "module",
+                entityName = "entity",
+              )
+            ),
             Seq(RecordField("something", Some(Value(Value.Sum.Bool(true))))),
           )
         ),

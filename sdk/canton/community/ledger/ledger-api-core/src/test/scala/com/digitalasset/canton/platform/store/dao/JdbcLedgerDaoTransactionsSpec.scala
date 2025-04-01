@@ -369,7 +369,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     } yield {
       inside(result.loneElement.events.loneElement.event.created) { case Some(create) =>
         create.witnessParties.loneElement shouldBe alice
-        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
+        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+          otherTemplateId,
+          somePackageName,
+        )
       }
     }
   }
@@ -424,11 +427,17 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       events should have length 2
       inside(events(0).event.created) { case Some(create) =>
         create.witnessParties.loneElement shouldBe bob
-        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
+        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+          otherTemplateId,
+          somePackageName,
+        )
       }
       inside(events(1).event.created) { case Some(create) =>
         create.witnessParties.loneElement shouldBe alice
-        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
+        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+          otherTemplateId,
+          somePackageName,
+        )
       }
       // clear out commandId since submitter is not in the querying parties for flat transactions in the non-wildcard query
       resultPartyWildcard.loneElement.copy(commandId = "") shouldBe result.loneElement
@@ -488,11 +497,17 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       events should have length 2
       inside(events(0).event.created) { case Some(create) =>
         create.witnessParties.loneElement shouldBe alice
-        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(someTemplateId)
+        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+          someTemplateId,
+          somePackageName,
+        )
       }
       inside(events(1).event.created) { case Some(create) =>
         create.witnessParties.loneElement shouldBe bob
-        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
+        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+          otherTemplateId,
+          somePackageName,
+        )
       }
       val eventsPartyWildcard = resultPartyWildcard.loneElement.events.toArray
       eventsPartyWildcard should have length 3
@@ -550,11 +565,17 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       events should have length 2
       inside(events(0).event.created) { case Some(create) =>
         create.witnessParties.loneElement shouldBe bob
-        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
+        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+          otherTemplateId,
+          somePackageName,
+        )
       }
       inside(events(1).event.created) { case Some(create) =>
         create.witnessParties.loneElement shouldBe alice
-        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
+        create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+          otherTemplateId,
+          somePackageName,
+        )
       }
       // clear out commandId since submitter is not in the querying parties for flat transactions in the non-wildcard query
       resultPartyWildcard.loneElement.copy(commandId = "") shouldBe result.loneElement

@@ -13,6 +13,7 @@ import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
+import com.digitalasset.daml.lf.data.Ref
 import org.apache.pekko.NotUsed
 import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.http.scaladsl.server
@@ -55,6 +56,7 @@ class Endpoints(
     shouldLogHttpBodies: Boolean,
     resolveUser: ResolveUser,
     userManagementClient: UserManagementClient,
+    resolvePackageName: Ref.PackageId => Ref.PackageName,
     val loggerFactory: NamedLoggerFactory,
     maxTimeToCollectRequest: FiniteDuration = FiniteDuration(5, "seconds"),
 )(implicit ec: ExecutionContext, mat: Materializer)
@@ -71,7 +73,13 @@ class Endpoints(
   )
 
   private[this] val commandsHelper: endpoints.CreateAndExercise =
-    new endpoints.CreateAndExercise(routeSetup, decoder, commandService, contractsService)
+    new endpoints.CreateAndExercise(
+      routeSetup,
+      decoder,
+      commandService,
+      contractsService,
+      resolvePackageName,
+    )
   import commandsHelper.*
 
   private[this] val userManagement: endpoints.UserManagement = new endpoints.UserManagement(

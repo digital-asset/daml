@@ -32,7 +32,8 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.protocol.LfSubmittedTransaction
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.daml.lf.data.Ref.TypeConName
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{PackageName, TypeConName}
 import com.digitalasset.daml.lf.transaction.Node.LeafOnlyAction
 import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, Node}
@@ -135,7 +136,8 @@ class CommandProgressTrackerImpl(
         .discard
 
     def recordTransactionImpact(
-        transaction: LfSubmittedTransaction
+        transaction: LfSubmittedTransaction,
+        resolvePackageName: Ref.PackageId => Ref.PackageName,
     ): Unit = {
       val creates = mutable.ListBuffer.empty[Contract]
       val archives = mutable.ListBuffer.empty[Contract]
@@ -146,25 +148,28 @@ class CommandProgressTrackerImpl(
       )
       def mk(
           templateId: TypeConName,
+          packageName: PackageName,
           coid: String,
           keyOpt: Option[GlobalKeyWithMaintainers],
       ): Contract =
         Contract(
           templateId = Some(
             Identifier(
-              templateId.packageId,
-              templateId.qualifiedName.module.toString,
-              templateId.qualifiedName.name.toString,
+              packageId = templateId.packageId,
+              packageName = packageName,
+              moduleName = templateId.qualifiedName.module.toString,
+              entityName = templateId.qualifiedName.name.toString,
             )
           ),
           contractId = coid,
-          contractKey =
-            keyOpt.flatMap(x => LfEngineToApi.lfValueToApiValue(verbose = false, x.value).toOption),
+          contractKey = keyOpt.flatMap(x =>
+            LfEngineToApi.lfValueToApiValue(verbose = false, x.value, resolvePackageName).toOption
+          ),
         )
       def leaf(leafOnlyAction: LeafOnlyAction, stats: Stats): Stats =
         leafOnlyAction match {
           case c: Node.Create =>
-            creates += mk(c.templateId, c.coid.coid, c.keyOpt)
+            creates += mk(c.templateId, c.packageName, c.coid.coid, c.keyOpt)
             stats
           case _: Node.Fetch => stats.copy(fetched = stats.fetched + 1)
           case _: Node.LookupByKey => stats.copy(lookedUpByKey = stats.lookedUpByKey + 1)
@@ -174,6 +179,7 @@ class CommandProgressTrackerImpl(
           if (exerciseNode.consuming) {
             archives += mk(
               exerciseNode.templateId,
+              exerciseNode.packageName,
               exerciseNode.targetCoid.coid,
               exerciseNode.keyOpt,
             )

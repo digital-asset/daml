@@ -139,7 +139,10 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
     } yield {
       val create = result.loneElement
       create.witnessParties.loneElement shouldBe party1
-      create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
+      create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+        otherTemplateId,
+        somePackageName,
+      )
     }
   }
 
@@ -184,11 +187,17 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
 
       val create1 = activeContracts(0)
       create1.witnessParties.loneElement shouldBe party2
-      create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
+      create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+        otherTemplateId,
+        somePackageName,
+      )
 
       val create2 = activeContracts(1)
       create2.witnessParties.loneElement shouldBe party1
-      create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
+      create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+        otherTemplateId,
+        somePackageName,
+      )
     }
   }
 
@@ -233,11 +242,17 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
 
       val create1 = activeContracts(0)
       create1.witnessParties.loneElement shouldBe party2
-      create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId2)
+      create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+        otherTemplateId2,
+        somePackageName,
+      )
 
       val create2 = activeContracts(1)
       create2.witnessParties.loneElement shouldBe party1
-      create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId2)
+      create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+        otherTemplateId2,
+        somePackageName,
+      )
     }
   }
 
@@ -283,11 +298,17 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
 
       val create2 = activeContracts(0)
       create2.witnessParties.loneElement shouldBe party1
-      create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(someTemplateId)
+      create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+        someTemplateId,
+        somePackageName,
+      )
 
       val create1 = activeContracts(1)
       create1.witnessParties.loneElement shouldBe party2
-      create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
+      create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+        otherTemplateId,
+        somePackageName,
+      )
     }
   }
 
@@ -333,11 +354,17 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
 
       val create2 = activeContracts(0)
       create2.witnessParties.loneElement shouldBe party1
-      create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId3)
+      create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+        otherTemplateId3,
+        somePackageName,
+      )
 
       val create1 = activeContracts(1)
       create1.witnessParties.loneElement shouldBe party2
-      create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId4)
+      create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+        otherTemplateId4,
+        somePackageName,
+      )
     }
   }
 
@@ -381,11 +408,17 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
 
       val create2 = activeContracts(0)
       create2.witnessParties.loneElement shouldBe party1
-      create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(someTemplateId)
+      create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+        someTemplateId,
+        somePackageName,
+      )
 
       val create1 = activeContracts(1)
       create1.witnessParties.loneElement shouldBe party2
-      create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
+      create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+        otherTemplateId,
+        somePackageName,
+      )
     }
   }
 
@@ -429,11 +462,17 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
 
       val create2 = activeContracts(0)
       create2.witnessParties.loneElement shouldBe party1
-      create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId5)
+      create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+        otherTemplateId5,
+        somePackageName,
+      )
 
       val create1 = activeContracts(1)
       create1.witnessParties.loneElement shouldBe party2
-      create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
+      create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(
+        otherTemplateId,
+        somePackageName,
+      )
     }
   }
 

@@ -130,6 +130,7 @@ message CreatedEvent {
   // Required
   google.protobuf.Timestamp created_at = 12;
 
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version. Identical with template_id.package_name.
   // The package name of the created contract.
   // Required
   string package_name = 13;
@@ -187,6 +188,7 @@ message ArchivedEvent {
   // Required
   repeated string witness_parties = 5;
 
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version. Identical with template_id.package_name.
   // The package name of the contract.
   // Required
   string package_name = 6;
@@ -268,6 +270,7 @@ message ExercisedEvent {
   // Required
   Value exercise_result = 12;
 
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version. Identical with template_id.package_name.
   // The package name of the contract.
   // Required
   string package_name = 13;

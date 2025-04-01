@@ -227,10 +227,50 @@ object FieldValidator {
   ): Either[StatusRuntimeException, TypeConRef] =
     for {
       qualifiedName <- validateTemplateQualifiedName(identifier.moduleName, identifier.entityName)
-      pkgRef <- Ref.PackageRef
-        .fromString(identifier.packageId)
-        .left
-        .map(invalidField("package reference", _))
+      pkgRefFromId <- validateOptionalString(identifier.packageId)(s =>
+        Ref.PackageRef
+          .fromString(s)
+          .left
+          .map(invalidField("package_id", _))
+      )
+      pkgNameO <- validateOptionalString(identifier.packageName)(s =>
+        Ref.PackageName
+          .fromString(s)
+          .left
+          .map(invalidField("package_name", _))
+      )
+      pkgRef <- (pkgRefFromId, pkgNameO) match {
+        case (Some(idRef: Ref.PackageRef.Id), None) =>
+          Right(idRef)
+
+        case (Some(idRef: Ref.PackageRef.Id), Some(_pkgName)) =>
+          Right(idRef) // FIXME add package name validation
+
+        case (Some(nameRef: Ref.PackageRef.Name), None) =>
+          Right(nameRef)
+
+        case (Some(nameRef: Ref.PackageRef.Name), Some(pkgName)) =>
+          if (pkgName != nameRef.name)
+            Left(
+              invalidField(
+                "package reference",
+                s"Identifier specifies a package_id referencing a package [${nameRef.name}] which differs from package_name [$pkgName]",
+              )
+            )
+          else
+            Right(nameRef)
+
+        case (None, None) =>
+          Left(
+            invalidField(
+              "package reference",
+              "neither package_id nor package_name defined for Identifier",
+            )
+          )
+
+        case (None, Some(pkgName)) =>
+          Right(Ref.PackageRef.Name(pkgName))
+      }
     } yield Ref.TypeConRef(pkgRef, qualifiedName)
 
   def optionalString[T](s: String)(
@@ -270,6 +310,13 @@ object FieldValidator {
       validation: T => Either[StatusRuntimeException, U]
   ): Either[StatusRuntimeException, Option[U]] =
     t.map(validation).map(_.map(Some(_))).getOrElse(Right(None))
+
+  def validateOptionalString[T](s: String)(
+      validation: String => Either[StatusRuntimeException, T]
+  ): Either[StatusRuntimeException, Option[T]] =
+    validateOptional(
+      Option(s).filter(_.nonEmpty)
+    )(validation)
 
   def requireOptional[T, U](t: Option[T], fieldName: String)(
       validation: T => Either[StatusRuntimeException, U]

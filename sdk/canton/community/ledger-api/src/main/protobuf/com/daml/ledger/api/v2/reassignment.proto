@@ -111,6 +111,7 @@ message UnassignedEvent {
   // Required
   repeated string witness_parties = 9;
 
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version. Identical with template_id.package_name.
   // The package name of the contract.
   // Required
   string package_name = 10;

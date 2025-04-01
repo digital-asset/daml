@@ -73,7 +73,8 @@ class ValidateDisclosedContracts(authenticateFatContractInstance: AuthenticateFa
           disclosedContract.templateId,
           "DisclosedContract.template_id",
         )
-        validatedTemplateId <- validateIdentifier(rawTemplateId)
+        validatedTemplateIdWithPackage <- validateIdentifierWithPackageNameO(rawTemplateId)
+        (validatedTemplateId, validatedPackageNameO) = validatedTemplateIdWithPackage
         validatedContractId <- requireContractId(
           disclosedContract.contractId,
           "DisclosedContract.contract_id",
@@ -100,6 +101,13 @@ class ValidateDisclosedContracts(authenticateFatContractInstance: AuthenticateFa
           (),
           invalidArgument(
             s"Mismatch between DisclosedContract.template_id ($validatedTemplateId) and template_id from decoded DisclosedContract.created_event_blob (${fatContractInstance.templateId})"
+          ),
+        )
+        _ <- Either.cond(
+          validatedPackageNameO.forall(_ == fatContractInstance.packageName),
+          (),
+          invalidArgument(
+            s"Mismatch between package_name of DisclosedContract.template_id ($validatedTemplateId) and package_name from decoded DisclosedContract.created_event_blob (${fatContractInstance.packageName})"
           ),
         )
         _ <- authenticateFatContractInstance(fatContractInstance).leftMap { error =>

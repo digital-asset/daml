@@ -20,6 +20,7 @@ message Fetch {
   // Specific LF version of the node
   string lf_version = 1;
   string contract_id = 2;
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version. Identical with template_id.package_name.
   string package_name = 3;
   Identifier template_id = 4;
   repeated string signatories = 5;
@@ -32,6 +33,7 @@ message Exercise {
   // Specific LF version of the node
   string lf_version = 1;
   string contract_id = 2;
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version. Identical with template_id.package_name.
   string package_name = 3;
   Identifier template_id = 4;
   repeated string signatories = 5;
@@ -51,6 +53,7 @@ message Create {
   // Specific LF version of the node
   string lf_version = 1;
   string contract_id = 2;
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version. Identical with template_id.package_name.
   string package_name = 3;
   Identifier template_id = 4;
   Value argument = 5;

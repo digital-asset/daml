@@ -157,6 +157,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
           metrics = metrics,
           engineO = engine,
           loadPackage = (packageId, _) => loadPackage(packageId),
+          resolvePackageName = _ => Ref.PackageName.assertFromString("pkg-name"),
           loggerFactory = loggerFactory,
         ),
       )

@@ -30,6 +30,7 @@ import com.digitalasset.canton.http.{
   ResolvedContractRef,
   SyncResponse,
 }
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value as LfValue
 import org.apache.pekko.http.scaladsl.model.*
 import scalaz.std.scalaFuture.*
@@ -45,6 +46,7 @@ private[http] final class CreateAndExercise(
     decoder: ApiJsonDecoder,
     commandService: CommandService,
     contractsService: ContractsService,
+    resolvePackageName: Ref.PackageId => Ref.PackageName,
 )(implicit ec: ExecutionContext) {
   import CreateAndExercise.*
   import routeSetup.*, RouteSetup.*
@@ -92,7 +94,7 @@ private[http] final class CreateAndExercise(
         _ <- EitherT.pure(parseAndDecodeTimer.stop())
         resolvedRef <- resolveReference(jwt, jwtPayload, cmd.meta, cmd.reference)
 
-        apiArg <- either(lfValueToApiValue(cmd.argument)): ET[ApiValue]
+        apiArg <- either(lfValueToApiValue(cmd.argument, resolvePackageName)): ET[ApiValue]
 
         resolvedCmd = cmd.copy(argument = apiArg, reference = resolvedRef, meta = cmd.meta)
 
@@ -149,7 +151,8 @@ private[http] final class CreateAndExercise(
         reference,
       )
       .flatMap {
-        case -\/((tpId, key)) => EitherT.either(lfValueToApiValue(key).map(k => -\/(tpId -> k)))
+        case -\/((tpId, key)) =>
+          EitherT.either(lfValueToApiValue(key, resolvePackageName).map(k => -\/(tpId -> k)))
         case a @ \/-((_, _)) => EitherT.pure(a)
       }
 }
@@ -157,6 +160,9 @@ private[http] final class CreateAndExercise(
 object CreateAndExercise {
   import com.digitalasset.canton.http.util.ErrorOps.*
 
-  private def lfValueToApiValue(a: LfValue): Error \/ ApiValue =
-    JsValueToApiValueConverter.lfValueToApiValue(a).liftErr(ServerError.fromMsg)
+  private def lfValueToApiValue(
+      a: LfValue,
+      resolvePackageName: Ref.PackageId => Ref.PackageName,
+  ): Error \/ ApiValue =
+    JsValueToApiValueConverter.lfValueToApiValue(a, resolvePackageName).liftErr(ServerError.fromMsg)
 }

@@ -140,7 +140,7 @@ class ValidateDisclosedContractsTest
   }
 
   it should "fail validation on invalid template_id" in {
-    val invalidTemplateId = ProtoIdentifier("pkgId", "", "entity")
+    val invalidTemplateId = ProtoIdentifier("pkgId", moduleName = "", entityName = "entity")
     requestMustFailWith(
       request = validateDisclosedContracts(
         api.protoCommands.copy(
@@ -184,7 +184,8 @@ class ValidateDisclosedContractsTest
   }
 
   it should "fail validation when provided template_id mismatches the one decoded from the created_event_blob" in {
-    val otherTemplateId = ProtoIdentifier("otherPkgId", "otherModule", "otherEntity")
+    val otherTemplateId =
+      ProtoIdentifier("otherPkgId", moduleName = "otherModule", entityName = "otherEntity")
     requestMustFailWith(
       request = validateDisclosedContracts(
         api.protoCommands.copy(
@@ -237,6 +238,8 @@ class ValidateDisclosedContractsTest
       metadata = Map.empty,
     )
   }
+
+  // FIXME add test for package_name validation
 }
 
 object ValidateDisclosedContractsTest {

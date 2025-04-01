@@ -317,6 +317,7 @@ object PartyReplicationAdminWorkflow {
   private def apiIdentifierFromJavaIdentifier(javaIdentifier: JavaIdentifier): Identifier =
     Identifier(
       packageId = javaIdentifier.getPackageId,
+      packageName = javaIdentifier.getPackageName,
       moduleName = javaIdentifier.getModuleName,
       entityName = javaIdentifier.getEntityName,
     )

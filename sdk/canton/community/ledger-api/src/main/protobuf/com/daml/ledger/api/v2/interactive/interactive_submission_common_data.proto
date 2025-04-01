@@ -13,6 +13,7 @@ option java_package = "com.daml.ledger.api.v2.interactive";
 
 message GlobalKey {
   Identifier template_id = 1;
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version. Identical with template_id.package_name.
   string package_name = 2;
   Value key = 3;
   bytes hash = 4;

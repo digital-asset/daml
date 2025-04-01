@@ -7,13 +7,24 @@ package com.digitalasset.transcode
   * https://github.com/DACH-NY/transcode
   */
 package schema {
-  final case class Identifier(packageId: String, moduleName: String, entityName: String) {
+  final case class Identifier(
+      packageId: String,
+      packageName: String,
+      moduleName: String,
+      entityName: String,
+  ) {
     lazy val qualifiedName = s"$moduleName:$entityName"
   }
 
   object Identifier {
     private[transcode] def fromString(str: String): Identifier = str.split(':') match {
-      case Array(pkgId, module, name) => Identifier(pkgId, module, name)
+      case Array(pkgId, pkgName, module, name) =>
+        Identifier(
+          packageId = pkgId,
+          packageName = pkgName,
+          moduleName = module,
+          entityName = name,
+        )
       case other => throw new Exception(s"Unsupported identifier format: $str")
     }
   }

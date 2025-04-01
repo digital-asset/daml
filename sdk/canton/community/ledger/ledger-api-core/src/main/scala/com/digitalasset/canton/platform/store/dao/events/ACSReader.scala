@@ -673,7 +673,7 @@ class ACSReader(
               IncompleteUnassigned(
                 createdEvent = Some(createdEvent),
                 unassignedEvent = Some(
-                  UpdateReader.toUnassignedEvent(rawUnassignEntry.offset, rawUnassignEntry.event)
+                  UpdateReader.toUnassignedEvent(lfValueTranslation)(rawUnassignEntry.offset, rawUnassignEntry.event)
                 ),
               )
             ),

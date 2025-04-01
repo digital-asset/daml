@@ -59,4 +59,7 @@ trait PackageSyncService {
   ): Future[SubmissionResult] =
     throw new UnsupportedOperationException()
 
+  def resolvePackageName(id: Ref.PackageId): Ref.PackageName =
+    throw new UnsupportedOperationException()
+
 }

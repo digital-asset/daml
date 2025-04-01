@@ -19,6 +19,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.data.Ref
 import io.grpc.StatusRuntimeException
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -146,7 +147,8 @@ trait CommandResultHandle {
   def recordEnvelopeSizes(batchSize: Int, numRecipients: Int, numEnvelopes: Int): Unit
 
   def recordTransactionImpact(
-      transaction: com.digitalasset.daml.lf.transaction.SubmittedTransaction
+      transaction: com.digitalasset.daml.lf.transaction.SubmittedTransaction,
+      resolvePackageName: Ref.PackageId => Ref.PackageName,
   ): Unit
 
 }
@@ -158,7 +160,8 @@ object CommandResultHandle {
     override def recordEnvelopeSizes(batchSize: Int, numRecipients: Int, numEnvelopes: Int): Unit =
       ()
     override def recordTransactionImpact(
-        transaction: com.digitalasset.daml.lf.transaction.SubmittedTransaction
+        transaction: com.digitalasset.daml.lf.transaction.SubmittedTransaction,
+        resolvePackageName: Ref.PackageId => Ref.PackageName,
     ): Unit = ()
   }
 }

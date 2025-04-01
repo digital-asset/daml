@@ -37,8 +37,8 @@ class PackageServiceTest
   "PackageService.buildTemplateIdMap" - {
 
     "pass one specific test case that was failing" in {
-      val id0 = ContractTypeId.Template.fromLedgerApi(lav2.value.Identifier("a", "f4", "x"))
-      val id1 = ContractTypeId.Template.fromLedgerApi(lav2.value.Identifier("b", "f4", "x"))
+      val id0 = ContractTypeId.Template.fromLedgerApi(lav2.value.Identifier("a", "", "f4", "x"))
+      val id1 = ContractTypeId.Template.fromLedgerApi(lav2.value.Identifier("b", "", "f4", "x"))
       val map = PackageService.buildTemplateIdMap(noPackageNames, Set(id0, id1))
       map.all.keySet shouldBe Set(id0, id1).map(withPkgRef)
     }

@@ -138,7 +138,8 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
     with Spanning
     with NamedLogging {
 
-  private val transactionEncoder = new PreparedTransactionEncoder(loggerFactory)
+  private val transactionEncoder =
+    new PreparedTransactionEncoder(lfValueTranslation.resolvePackageName, loggerFactory)
   private val transactionDecoder = new PreparedTransactionDecoder(loggerFactory)
 
   override def prepare(

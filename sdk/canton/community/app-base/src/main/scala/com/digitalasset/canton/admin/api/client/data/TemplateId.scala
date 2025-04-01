@@ -9,17 +9,20 @@ import com.daml.ledger.javaapi
 
 final case class TemplateId(
     packageId: String,
+    packageName: String,
     moduleName: String,
     entityName: String,
 ) {
   def toIdentifier: Identifier = Identifier(
     packageId = packageId,
+    packageName = packageName,
     moduleName = moduleName,
     entityName = entityName,
   )
 
   def toJavaIdentifier: javaapi.data.Identifier = new javaapi.data.Identifier(
     packageId,
+    packageName,
     moduleName,
     entityName,
   )
@@ -33,6 +36,7 @@ object TemplateId {
   def fromIdentifier(identifier: Identifier): TemplateId =
     TemplateId(
       packageId = identifier.packageId,
+      packageName = identifier.packageName,
       moduleName = identifier.moduleName,
       entityName = identifier.entityName,
     )

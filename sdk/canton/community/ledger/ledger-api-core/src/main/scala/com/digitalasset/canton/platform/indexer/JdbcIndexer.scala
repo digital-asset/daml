@@ -104,6 +104,7 @@ object JdbcIndexer {
             metrics = metrics,
             engineO = None,
             loadPackage = (_, _) => Future.successful(None),
+            resolvePackageName = _ => throw new IllegalStateException("should not be used here"),
             loggerFactory = loggerFactory,
           ),
           compressionStrategy =

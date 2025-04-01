@@ -96,16 +96,22 @@ private class SchemaProcessor[T](
     PackageInfo(metadata.name, metadata.version)
   }
 
-  private val getIdentifier = { (id: Ref.Identifier) =>
-    Identifier(id.packageId, id.qualifiedName.module.dottedName, id.qualifiedName.name.dottedName)
+  private val getIdentifier = { (id: Ref.Identifier, packageName: Ref.PackageName) =>
+    Identifier(
+      packageId = id.packageId,
+      packageName = packageName,
+      moduleName = id.qualifiedName.module.dottedName,
+      entityName = id.qualifiedName.name.dottedName,
+    )
   }
 
   private val getDefinition = cached { (id: Ref.Identifier) =>
-    val module = getPackage(id.packageId).modules(id.qualifiedName.module)
+    val pkg = getPackage(id.packageId)
+    val module = pkg.modules(id.qualifiedName.module)
     if (module.definitions.contains(id.qualifiedName.name)) {
-      module.definitions(id.qualifiedName.name)
+      module.definitions(id.qualifiedName.name) -> pkg.metadata.name
     } else {
-      module.interfaces(id.qualifiedName.name)
+      module.interfaces(id.qualifiedName.name) -> pkg.metadata.name
     }
   }
 
@@ -180,35 +186,40 @@ private class SchemaProcessor[T](
   // Addressable types that have FQNames
   private val fromDef = cached[(Ref.Identifier, Args), visitor.Type] { case (id, args) =>
     getDefinition(id) match {
-      case Ast.DDataType(_, params, cons) =>
-        fromCons(id, cons, params.toSeq.map { case (n, _) => TypeVarName(n) } zip args)
-      case Ast.DTypeSyn(params, typ) =>
+      case (Ast.DDataType(_, params, cons), pkgName) =>
+        fromCons(id, pkgName, cons, params.toSeq.map { case (n, _) => TypeVarName(n) } zip args)
+      case (Ast.DTypeSyn(params, typ), _) =>
         fromType(typ, params.toSeq.map { case (n, _) => TypeVarName(n) } zip args)
-      case iface: GenDefInterface[_] => fromType(iface.view, Seq.empty)
-      case other => err(s"Data type $other is not supported")
+      case (iface: GenDefInterface[_], _) => fromType(iface.view, Seq.empty)
+      case (other, _) => err(s"Data type $other is not supported")
     }
   }
 
   // Records, Variants and Enums
-  private def fromCons(id: Ref.Identifier, cons: Ast.DataCons, varMap: VarMap): visitor.Type =
+  private def fromCons(
+      id: Ref.Identifier,
+      pkgName: Ref.PackageName,
+      cons: Ast.DataCons,
+      varMap: VarMap,
+  ): visitor.Type =
     cons match {
       case Ast.DataRecord(fields) =>
         lazy val fieldProcessors = fields.toSeq.map { case (name, typ) =>
           FieldName(name) -> fromType(typ, varMap)
         }
-        visitor.record(getIdentifier(id), varMap, fieldProcessors)
+        visitor.record(getIdentifier(id, pkgName), varMap, fieldProcessors)
 
       case Ast.DataVariant(variants) =>
         lazy val cases = variants.toSeq.map { case (name, typ) =>
           VariantConName(name) -> fromType(typ, varMap)
         }
-        visitor.variant(getIdentifier(id), varMap, cases)
+        visitor.variant(getIdentifier(id, pkgName), varMap, cases)
 
       case Ast.DataEnum(constructors) =>
-        visitor.`enum`(getIdentifier(id), constructors.map(EnumConName).toSeq)
+        visitor.`enum`(getIdentifier(id, pkgName), constructors.map(EnumConName).toSeq)
 
       case Ast.DataInterface =>
-        visitor.interface(getIdentifier(id))
+        visitor.interface(getIdentifier(id, pkgName))
     }
 
   // Simple types and type applications

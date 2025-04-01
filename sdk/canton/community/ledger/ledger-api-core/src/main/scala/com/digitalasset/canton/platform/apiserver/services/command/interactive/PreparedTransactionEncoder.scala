@@ -22,7 +22,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
@@ -45,7 +45,8 @@ import scala.concurrent.{ExecutionContext, Future}
   * define Transformers and PartialTransformer for all conversions.
   */
 final class PreparedTransactionEncoder(
-    override val loggerFactory: NamedLoggerFactory
+    resolvePackageName: Ref.PackageId => Ref.PackageName,
+    override val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
   /** Defines the mapping between LF version and Encoding versions. An encoding version can be used
@@ -69,14 +70,10 @@ final class PreparedTransactionEncoder(
    * The downside is we can't easily version this if LF values change significantly,
    * however that should be very rare as LF values need to be stable to guarantee compatibility.
    */
-  private implicit val identifierTransformer
-      : Transformer[lf.data.Ref.Identifier, lapiValue.Identifier] = (src: lf.data.Ref.Identifier) =>
-    LfEngineToApi.toApiIdentifier(src)
-
   private implicit val valueTransformer: PartialTransformer[lf.value.Value, lapiValue.Value] =
     PartialTransformer { lfValue =>
       LfEngineToApi
-        .lfValueToApiValue(verbose = true, value0 = lfValue)
+        .lfValueToApiValue(verbose = true, value0 = lfValue, resolvePackageName)
         .toResult
     }
 
@@ -144,6 +141,10 @@ final class PreparedTransactionEncoder(
       .withFieldRenamed(_.arg, _.argument)
       .withFieldComputed(_.signatories, _.signatories.toSeq.sorted)
       .withFieldComputed(_.stakeholders, _.stakeholders.toSeq.sorted)
+      .withFieldComputed(
+        _.templateId,
+        lfCreate => Some(LfEngineToApi.toApiIdentifier(lfCreate.templateId, lfCreate.packageName)),
+      )
       .withFieldConst(_.lfVersion, languageVersion.transformInto[String])
       .buildTransformer
 
@@ -156,6 +157,18 @@ final class PreparedTransactionEncoder(
       .withFieldComputed(_.stakeholders, _.stakeholders.toSeq.sorted)
       .withFieldComputed(_.actingParties, _.actingParties.toSeq.sorted)
       .withFieldComputed(_.choiceObservers, _.choiceObservers.toSeq.sorted)
+      .withFieldComputed(
+        _.templateId,
+        lfExercise =>
+          Some(LfEngineToApi.toApiIdentifier(lfExercise.templateId, lfExercise.packageName)),
+      )
+      .withFieldComputed(
+        _.interfaceId,
+        lfExercise =>
+          lfExercise.interfaceId.map(
+            LfEngineToApi.toApiIdentifier(resolvePackageName)
+          ),
+      )
       .withFieldConst(_.lfVersion, languageVersion.transformInto[String])
       .buildTransformer
 
@@ -167,6 +180,10 @@ final class PreparedTransactionEncoder(
       .withFieldComputed(_.signatories, _.signatories.toSeq.sorted)
       .withFieldComputed(_.stakeholders, _.stakeholders.toSeq.sorted)
       .withFieldComputed(_.actingParties, _.actingParties.toSeq.sorted)
+      .withFieldComputed(
+        _.templateId,
+        lfFetch => Some(LfEngineToApi.toApiIdentifier(lfFetch.templateId, lfFetch.packageName)),
+      )
       .withFieldConst(_.lfVersion, languageVersion.transformInto[String])
       .buildTransformer
 
@@ -248,7 +265,14 @@ final class PreparedTransactionEncoder(
     .buildTransformer
 
   private implicit val globalKeyTransformer: PartialTransformer[GlobalKey, iscd.GlobalKey] =
-    PartialTransformer.derive
+    Transformer
+      .definePartial[GlobalKey, iscd.GlobalKey]
+      .withFieldComputed(
+        _.templateId,
+        globalKey =>
+          Some(LfEngineToApi.toApiIdentifier(globalKey.templateId, globalKey.packageName)),
+      )
+      .buildTransformer
 
   // Transformer for global key mappings
   private implicit val commandExecutionResultGlobalKeyMappingTransformer
