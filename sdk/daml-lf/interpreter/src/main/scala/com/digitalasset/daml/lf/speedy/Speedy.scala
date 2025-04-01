@@ -414,8 +414,8 @@ private[lf] object Speedy {
     }
 
     /* Flag to trace usage of get_time builtins */
-    private[this] var timeBoundaries: (Time.Timestamp, Time.Timestamp) =
-      (Time.Timestamp.MinValue, Time.Timestamp.MaxValue)
+    private[this] var timeBoundaries: Time.Boundaries = Time.Boundaries.unconstrained
+
     // global contract discriminators, that are discriminators from contract created in previous transactions
 
     private[this] var numInputContracts: Int = 0
@@ -440,9 +440,9 @@ private[lf] object Speedy {
       disclosedContracts.isDefinedAt(contractId)
 
     private[this] def setDependsOnTime(time: Time.Timestamp): Unit =
-      timeBoundaries = (time, time)
+      timeBoundaries = Time.Boundaries(min = time, max = time)
 
-    def getTimeBoundaries: (Time.Timestamp, Time.Timestamp) =
+    def getTimeBoundaries: Time.Boundaries =
       timeBoundaries
 
     val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =

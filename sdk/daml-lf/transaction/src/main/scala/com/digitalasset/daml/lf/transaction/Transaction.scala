@@ -674,8 +674,8 @@ object Transaction {
     *                         in the transaction (by calling [[Node.Action.packageIds]]). The [[usedPackages]] will then
     *                         be this set of packages combined with all packages on which there is a transitive
     *                         dependency (for details see [[com.digitalasset.daml.lf.engine.Engine.deps]]).
-    * @param timeBoundery    Indicates that the transaction computation depends on ledger time.
-    * @param nodeSeeds        An association list that maps the node-id of create and exercise
+    * @param timeBoundery      Indicates that the transaction computation is valid for ledger times within these bounds.    * @param nodeSeeds        An association list that maps the node-id of create and exercise
+    * @param nodeSeeds         An association list that maps the node-id of create and exercise
     *                         nodes to their seed.
     * @param globalKeyMapping Input key mappings inferred during interpretation.
     * @param disclosedEvents  Disclosed create events that have been used in this transaction.
@@ -684,28 +684,14 @@ object Transaction {
       submissionSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       usedPackages: Set[PackageId],
-      timeBoundaries: (Time.Timestamp, Time.Timestamp),
+      timeBoundaries: Time.Boundaries,
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
       disclosedEvents: ImmArray[Node.Create],
   ) {
-    assert(timeBoundaries._1 <= timeBoundaries._2)
-
     @deprecated("use timeBoundaries", "3.3.0")
     def dependsOnTime: Boolean =
-      timeBoundaries == (Time.Timestamp.MinValue, Time.Timestamp.MinValue)
-  }
-
-  object Metadata {
-    def empty(submissionTime: Time.Timestamp): Metadata = Metadata(
-      submissionSeed = None,
-      submissionTime = submissionTime,
-      usedPackages = Set.empty,
-      timeBoundaries = (Time.Timestamp.MinValue, Time.Timestamp.MinValue),
-      nodeSeeds = ImmArray.Empty,
-      globalKeyMapping = Map.empty,
-      disclosedEvents = ImmArray.Empty,
-    )
+      timeBoundaries != Time.Boundaries.unconstrained
   }
 
   def commitTransaction(submittedTransaction: SubmittedTransaction): CommittedTransaction =

@@ -2952,8 +2952,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       keys: Map[GlobalKeyWithMaintainers, ContractId],
       nodes: HashMap[NodeId, Node] = HashMap.empty,
       roots: BackStack[NodeId] = BackStack.empty,
-      timeBoundaries: (Time.Timestamp, Time.Timestamp) =
-        (Time.Timestamp.MinValue, Time.Timestamp.MaxValue),
+      timeBoundaries: Time.Boundaries = Time.Boundaries.unconstrained,
       nodeSeeds: BackStack[(NodeId, crypto.Hash)] = BackStack.empty,
   ) {
     def commit(tr: Tx, meta: Tx.Metadata): ReinterpretState = {
@@ -2970,13 +2969,8 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           )
         case (acc, _) => acc
       }
-      val timeBoundaries: (Time.Timestamp, Time.Timestamp) = {
-        import Ordering.Implicits.infixOrderingOps
-        (
-          meta.timeBoundaries._1 min this.timeBoundaries._1,
-          meta.timeBoundaries._2 max this.timeBoundaries._2,
-        )
-      }
+      val timeBoundaries: Time.Boundaries =
+        meta.timeBoundaries intersect this.timeBoundaries
 
       ReinterpretState(
         newContracts,
