@@ -22,22 +22,17 @@ import "ghc-lib" TyCoRep
 
 damlWarningFlagParserLFConversion :: DamlWarningFlagParser ErrorOrWarning
 damlWarningFlagParserLFConversion =
-  DamlWarningFlagParser
-    { dwfpFlagParsers = [(warnLargeTuplesName, warnLargeTuplesFlag)]
-    , dwfpDefault = \case
-        LargeTuple _ -> AsWarning
-    }
+  mkDamlWarningFlagParser
+    (\case
+        LargeTuple _ -> AsWarning)
+    [warnLargeTuplesFlagSpec]
 
-warnLargeTuplesName :: String
-warnLargeTuplesName = "large-tuples"
-
-warnLargeTuplesFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
-warnLargeTuplesFlag status = RawDamlWarningFlag
-  { rfName = warnLargeTuplesName
-  , rfStatus = status
-  , rfFilter = \case
-      LargeTuple _ -> True
-  }
+warnLargeTuplesFlagSpec :: DamlWarningFlagSpec ErrorOrWarning
+warnLargeTuplesFlagSpec = DamlWarningFlagSpec
+  "large-tuples"
+  True
+  (\case
+      LargeTuple _ -> True)
 
 data ConversionState = ConversionState
     { freshTmVarCounter :: Int

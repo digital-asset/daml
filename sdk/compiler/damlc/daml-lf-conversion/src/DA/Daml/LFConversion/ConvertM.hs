@@ -19,7 +19,6 @@ module DA.Daml.LFConversion.ConvertM (
     ErrorOrWarning(..),
     InvalidInterfaceError(..),
     damlWarningFlagParserLFConversion,
-    warnLargeTuplesFlag
   ) where
 
 import           DA.Daml.LFConversion.Errors
