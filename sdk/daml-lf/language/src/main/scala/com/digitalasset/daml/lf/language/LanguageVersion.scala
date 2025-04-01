@@ -135,12 +135,12 @@ object LanguageVersion {
     val bigNumeric = v1_13
     val exceptions = v1_14
     val basicInterfaces = v1_15
-    val choiceFuncs = v1_dev
+    val choiceFuncs = v1_17
     val choiceAuthority = v1_dev
     val natTypeErasure = v1_dev
     val packageUpgrades = v1_dev
     val dynamicExercise = v1_dev
-    val sharedKeys = v1_dev
+    val sharedKeys = v1_17
 
     /** TYPE_REP_TYCON_NAME builtin */
     val templateTypeRepToText = v1_dev
