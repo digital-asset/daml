@@ -67,8 +67,7 @@ class GrpcLedgerClient(
   implicit val traceContext: TraceContext = TraceContext.empty
 
   private def resolvePackageName(packageId: PackageId): PackageName =
-    compiledPackages
-      .pkgInterface
+    compiledPackages.pkgInterface
       .lookupPackage(packageId)
       .fold(
         err => throw new IllegalStateException(s"Cannot find package ID $packageId: $err"),
