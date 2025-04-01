@@ -123,6 +123,8 @@ Typeclasses
 
   **instance** :ref:`Ord <class-ghc-classes-ord-6395>` k \=\> `Foldable <class-da-foldable-foldable-25994_>`_ (:ref:`Map <type-da-internal-lf-map-90052>` k)
 
+  **instance** `Foldable <class-da-foldable-foldable-25994_>`_ :ref:`TextMap <type-da-internal-lf-textmap-11691>`
+
   **instance** `Foldable <class-da-foldable-foldable-25994_>`_ :ref:`Optional <type-da-internal-prelude-optional-37153>`
 
   **instance** `Foldable <class-da-foldable-foldable-25994_>`_ :ref:`NonEmpty <type-da-nonempty-types-nonempty-16010>`

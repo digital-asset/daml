@@ -77,7 +77,7 @@ message Value {
 
     Map map = 12;
 
-    TextMap text_map = 1001;  // *Available in versions >= 2.dev
+    TextMap text_map = 16;
 
     // user-defined datas
 
