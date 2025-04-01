@@ -13,6 +13,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray}
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.engine.script.test.DarUtil.Dar
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.IdentityServiceClient
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.test.TestingAdminLedgerClient
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
@@ -89,14 +90,30 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
 
           // Connection
           clients <- scriptClients(provideAdminPorts = true)
-          adminClients = ledgerPorts.map { portInfo =>
-            (
+          adminClients <- traverseSequential(ledgerPorts) { portInfo =>
+            for {
+              participantId <- {
+                val identityServiceClient = IdentityServiceClient
+                  .singleHost(
+                    "localhost",
+                    portInfo.adminPort.value,
+                    None,
+                    LedgerClientChannelConfiguration.InsecureDefaults,
+                  )
+                val future = identityServiceClient.getId()
+                val _ = future.onComplete(_ => identityServiceClient.close())
+                future
+              }
+            } yield (
               portInfo.ledgerPort.value,
               TestingAdminLedgerClient.singleHost(
                 "localhost",
                 portInfo.adminPort.value,
                 None,
                 LedgerClientChannelConfiguration.InsecureDefaults,
+                participantId.getOrElse(
+                  throw new IllegalStateException("unexpected uninitialized participant")
+                ),
               ),
             )
           }
@@ -162,12 +179,15 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
   ): Future[Unit] = {
     client
       .listVettedPackages()
-      .map(_.foreach { case (participantId, packageIds) =>
-        deps.foreach { dep =>
-          if (!packageIds.contains(dep.mainPackageId))
-            throw new Exception(
-              s"Couldn't find package ${dep.versionedName} on participant $participantId"
-            )
+      .map(_.foreach {
+        case (participantId, packages) => {
+          val packageIds = packages.view.map(_.packageId).toSet
+          deps.foreach { dep =>
+            if (!packageIds.contains(dep.mainPackageId))
+              throw new Exception(
+                s"Couldn't find package ${dep.versionedName} on participant $participantId"
+              )
+          }
         }
       })
   }

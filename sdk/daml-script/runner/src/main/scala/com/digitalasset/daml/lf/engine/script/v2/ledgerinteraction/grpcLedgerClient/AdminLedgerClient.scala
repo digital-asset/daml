@@ -9,16 +9,22 @@ package grpcLedgerClient
 import com.daml.grpc.AuthCallCredentials
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.canton.ledger.client.GrpcChannel
-import com.digitalasset.canton.admin.participant.{v30 => admin_package_service}
+import com.digitalasset.canton.admin.participant.{v30 => admin_participant}
+import com.digitalasset.canton.topology.admin.v30.ForceFlag
+import com.digitalasset.canton.topology.admin.{v30 => admin_topology}
+import com.digitalasset.canton.protocol.{v30 => protocol}
+import com.digitalasset.daml.lf.data.Ref.{PackageName, PackageVersion}
 import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
+
 import java.io.Closeable
 import scala.concurrent.{ExecutionContext, Future}
 
 class AdminLedgerClient private[grpcLedgerClient] (
     val channel: Channel,
     token: Option[String],
+    participantId: String,
 )(implicit ec: ExecutionContext)
     extends Closeable {
 
@@ -28,37 +34,168 @@ class AdminLedgerClient private[grpcLedgerClient] (
   // If it doesn't, change the filter to all and fold them
 
   private[grpcLedgerClient] val packageServiceStub =
-    AdminLedgerClient.stub(admin_package_service.PackageServiceGrpc.stub(channel), token)
+    AdminLedgerClient.stub(admin_participant.PackageServiceGrpc.stub(channel), token)
+
+  private[grpcLedgerClient] val topologyReadServiceStub =
+    AdminLedgerClient.stub(
+      admin_topology.TopologyManagerReadServiceGrpc.stub(channel),
+      token,
+    )
+
+  private[grpcLedgerClient] val topologyWriteServiceStub =
+    AdminLedgerClient.stub(
+      admin_topology.TopologyManagerWriteServiceGrpc.stub(channel),
+      token,
+    )
 
   def vetDarByHash(darHash: String): Future[Unit] =
-    packageServiceStub.vetDar(admin_package_service.VetDarRequest(darHash, true)).map(_ => ())
+    packageServiceStub.vetDar(admin_participant.VetDarRequest(darHash, true)).map(_ => ())
 
-  def unvetDarByHash(darHash: String): Future[Unit] =
-    packageServiceStub.unvetDar(admin_package_service.UnvetDarRequest(darHash)).map(_ => ())
+  def listVettedPackages(): Future[Map[String, Seq[protocol.VettedPackages.VettedPackage]]] =
+    topologyReadServiceStub
+      .listVettedPackages(makeListVettedPackagesRequest())
+      .map(_.results.view.map(res => (res.item.get.participantUid -> res.item.get.packages)).toMap)
 
-  // Gets all (first 1000) dar names and hashes
-  def listDars(): Future[Seq[(String, String)]] =
+  private[this] def makeListVettedPackagesRequest() =
+    admin_topology.ListVettedPackagesRequest(
+      baseQuery = Some(
+        admin_topology.BaseQuery(
+          store = Some(
+            admin_topology.StoreId(
+              admin_topology.StoreId.Store.Authorized(admin_topology.StoreId.Authorized())
+            )
+          ),
+          proposals = false,
+          operation = protocol.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_UNSPECIFIED,
+          timeQuery = admin_topology.BaseQuery.TimeQuery
+            .HeadState(com.google.protobuf.empty.Empty()),
+          filterSignedKey = "",
+          protocolVersion = None,
+        )
+      ),
+      filterParticipant = "",
+    )
+
+  def vetPackagesById(packageIds: Iterable[String]): Future[Unit] = {
+    for {
+      vettedPackages <- listVettedPackages()
+      newVettedPackages = packageIds.map(pkgId =>
+        protocol.VettedPackages.VettedPackage(pkgId, None, None)
+      ) ++ vettedPackages(participantId)
+      _ <- topologyWriteServiceStub.authorize(
+        makeAuthorizeRequest(participantId, newVettedPackages)
+      )
+    } yield ()
+  }
+
+  def unvetPackagesById(packageIds: Iterable[String]): Future[Unit] = {
+    val packageIdsSet = packageIds.toSet
+    for {
+      vettedPackages <- listVettedPackages()
+      newVettedPackages = vettedPackages(participantId).filterNot(pkg =>
+        packageIdsSet.contains(pkg.packageId)
+      )
+      _ <- topologyWriteServiceStub.authorize(
+        makeAuthorizeRequest(participantId, newVettedPackages)
+      )
+    } yield ()
+  }
+
+  private[this] def makeAuthorizeRequest(
+      participantId: String,
+      vettedPackages: Iterable[protocol.VettedPackages.VettedPackage],
+  ): admin_topology.AuthorizeRequest =
+    admin_topology.AuthorizeRequest(
+      admin_topology.AuthorizeRequest.Type.Proposal(
+        admin_topology.AuthorizeRequest.Proposal(
+          protocol.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE,
+          0, // will be picked by the participant
+          Some(
+            protocol.TopologyMapping(
+              protocol.TopologyMapping.Mapping.VettedPackages(
+                protocol.VettedPackages(
+                  participantId,
+                  Seq.empty,
+                  vettedPackages.toSeq,
+                )
+              )
+            )
+          ),
+        )
+      ),
+      mustFullyAuthorize = true,
+      forceChanges = Seq(
+        ForceFlag.FORCE_FLAG_ALLOW_UNVET_PACKAGE,
+        ForceFlag.FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS,
+      ),
+      signedBy = Seq.empty,
+      store = Some(
+        admin_topology.StoreId(
+          admin_topology.StoreId.Store.Authorized(admin_topology.StoreId.Authorized())
+        )
+      ),
+      waitToBecomeEffective = None,
+    )
+
+  def unvetPackages(packages: Iterable[ScriptLedgerClient.ReadablePackageId]): Future[Unit] = for {
+    packageMap <- getPackageMap()
+    _ <- unvetPackagesById(
+      packages
+        .map(pkg =>
+          packageMap.getOrElse(
+            pkg,
+            throw new IllegalArgumentException(s"Package $pkg not found on participant"),
+          )
+        )
+    )
+  } yield ()
+
+  def vetPackages(packages: Iterable[ScriptLedgerClient.ReadablePackageId]): Future[Unit] = for {
+    packageMap <- getPackageMap()
+    _ <- vetPackagesById(
+      packages
+        .map(pkg =>
+          packageMap.getOrElse(
+            pkg,
+            throw new IllegalArgumentException(s"Package $pkg not found on participant"),
+          )
+        )
+    )
+  } yield ()
+
+  private[this] def getPackageMap(): Future[Map[ScriptLedgerClient.ReadablePackageId, String]] =
+    for {
+      mainPkgIds <- listMainPackageIds()
+      darContentsResps <- Future.traverse(mainPkgIds)(pkgId =>
+        packageServiceStub.getDarContents(admin_participant.GetDarContentsRequest(pkgId))
+      )
+    } yield {
+      darContentsResps.view
+        .flatMap(_.packages)
+        .map(pkgDesc => {
+          def invalidPackageDesc =
+            throw new IllegalStateException(s"Invalid package description: $pkgDesc")
+          val pname = PackageName.fromString(pkgDesc.name).getOrElse(invalidPackageDesc)
+          val pversion = PackageVersion.fromString(pkgDesc.version).getOrElse(invalidPackageDesc)
+          (ScriptLedgerClient.ReadablePackageId(pname, pversion), pkgDesc.packageId)
+        })
+        .toMap
+    }
+
+  /** Lists the main package IDs of up to 1000 dars hosted on the participant.
+    */
+  private[this] def listMainPackageIds(): Future[Seq[String]] =
     packageServiceStub
       .listDars(
-        admin_package_service.ListDarsRequest(1000, "")
+        admin_participant.ListDarsRequest(1000, "")
       ) // Empty filterName is the default value
       .map { res =>
         if (res.dars.length == 1000)
           println(
             "Warning: AdminLedgerClient.listDars gave the maximum number of results, some may have been truncated."
           )
-        res.dars.map(darDesc => (darDesc.name + "-" + darDesc.version, darDesc.main))
+        res.dars.map(_.main)
       }
-
-  def findDarHash(name: String): Future[String] =
-    listDars().map(_.collectFirst { case (`name`, v) => v }
-      .getOrElse(throw new IllegalArgumentException("Couldn't find DAR name: " + name)))
-
-  def vetDar(name: String): Future[Unit] =
-    findDarHash(name).flatMap(vetDarByHash)
-
-  def unvetDar(name: String): Future[Unit] =
-    findDarHash(name).flatMap(unvetDarByHash)
 
   override def close(): Unit = GrpcChannel.close(channel)
 }
@@ -75,17 +212,20 @@ object AdminLedgerClient {
       port: Int,
       token: Option[String] = None,
       channelConfig: LedgerClientChannelConfiguration,
+      participantId: String,
   )(implicit
       ec: ExecutionContext
   ): AdminLedgerClient =
-    fromBuilder(channelConfig.builderFor(hostIp, port), token)
+    fromBuilder(channelConfig.builderFor(hostIp, port), token, participantId)
 
   def fromBuilder(
       builder: NettyChannelBuilder,
       token: Option[String] = None,
+      participantId: String,
   )(implicit ec: ExecutionContext): AdminLedgerClient =
     new AdminLedgerClient(
       GrpcChannel.withShutdownHook(builder),
       token,
+      participantId,
     )
 }

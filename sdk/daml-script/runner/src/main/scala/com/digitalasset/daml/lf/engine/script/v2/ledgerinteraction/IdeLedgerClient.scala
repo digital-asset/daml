@@ -1006,17 +1006,4 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
     Future.successful(getPackageIdMap().keys.toList)
-
-  // TODO(#17708): Support vetting/unvetting DARs in IDELedgerClient
-  override def vetDar(name: String)(implicit
-      ec: ExecutionContext,
-      esf: ExecutionSequencerFactory,
-      mat: Materializer,
-  ): Future[Unit] = unsupportedOn("vetDar")
-
-  override def unvetDar(name: String)(implicit
-      ec: ExecutionContext,
-      esf: ExecutionSequencerFactory,
-      mat: Materializer,
-  ): Future[Unit] = unsupportedOn("unvetDar")
 }

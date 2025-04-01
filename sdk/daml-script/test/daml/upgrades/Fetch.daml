@@ -144,8 +144,8 @@ main = tests
   , fetchDowngradedSomeDynamicDisclosed
 
   , -- Fetching tests with unvetted sources (IDE ledger doesn't support unvetting)
-    broken ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
-  , broken ("Downgrade a contract with Nones when fetching where the source package (V2) is unvetted", fetchDowngradedNoneSourceUnvetted)
+    brokenOnIDELedger ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
+  , brokenOnIDELedger ("Downgrade a contract with Nones when fetching where the source package (V2) is unvetted", fetchDowngradedNoneSourceUnvetted)
   ]
 
 exerciseV1Util : Choice V1.FetchHelper c r => Party -> c -> Script r
@@ -237,7 +237,7 @@ fetchUpgradedSourceUnvetted = test $ do
   cid <- a `submit` createExactCmd V1.FetchTemplate with party = a
 
   -- Unvet v1, so the engine cannot have type information about the real packageid of the contract
-  withUnvettedDarOnParticipant "fetch-1.0.0" participant0 $ do
+  withUnvettedPackageOnParticipant "fetch" "1.0.0" participant0 $ do
     let v2Cid = coerceContractId @V1.FetchTemplate @V2.FetchTemplate cid
     res <- a `tryExerciseV2Util` V2.DoFetch with cid = v2Cid
     case res of
@@ -250,7 +250,7 @@ fetchDowngradedNoneSourceUnvetted = test $ do
   cid <- a `submit` createCmd V2.FetchTemplate with party = a, newField = None
 
   -- Unvet the upgraded type and ensure downgrade occurs
-  withUnvettedDarOnParticipant "fetch-2.0.0" participant0 $ do
+  withUnvettedPackageOnParticipant "fetch" "2.0.0" participant0 $ do
     let v1Cid = coerceContractId @V2.FetchTemplate @V1.FetchTemplate cid
     res <- a `tryExerciseV1Util` V1.DoFetch with cid = v1Cid
 
