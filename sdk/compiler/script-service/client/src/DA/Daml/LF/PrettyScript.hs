@@ -280,9 +280,7 @@ prettyScriptErrorError lvl (Just err) =  do
     ScriptErrorErrorUnhandledException exc -> pure $ text "Unhandled exception: " <-> prettyValue' lvl True 0 world exc
     ScriptErrorErrorFailureStatusError ScriptError_FailureStatusError{..} ->
       pure $ vcat $
-        [ "Failed with status of category"
-            <-> ltext scriptError_FailureStatusErrorCategoryName
-            <> ":"
+        [ "Failed with status:"
             <-> ltext scriptError_FailureStatusErrorErrorId
             <> ":"
             <-> ltext scriptError_FailureStatusErrorMessage
@@ -293,6 +291,8 @@ prettyScriptErrorError lvl (Just err) =  do
                 label_ (TL.unpack scriptError_FailureStatusError_MetadataEntryKey <> ":") $ ltext scriptError_FailureStatusError_MetadataEntryValue
           ]
         | not $ null scriptError_FailureStatusErrorMetadata
+        ] ++
+        [ "Using Canton Error Category" <-> ltext scriptError_FailureStatusErrorCategoryName
         ]
     ScriptErrorErrorTemplatePrecondViolated ScriptError_TemplatePreconditionViolated{..} -> do
       pure $

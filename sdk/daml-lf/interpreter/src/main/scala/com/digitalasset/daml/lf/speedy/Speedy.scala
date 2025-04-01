@@ -374,6 +374,11 @@ private[lf] object Speedy {
       * producing a text message.
       */
     private[speedy] override def handleException(excep: SValue.SAny): Control[Nothing] = {
+      // Return value meaning:
+      // None: No handler or exception conversion tag, regular unhandled exception
+      // Some(Left): try-catch handler found up the stack, continue using that
+      // Some(Right): exception conversion tag found, meaning this exception was thrown during exception -> failure status
+      //   conversion, pass this information forward to unhandledException
       @tailrec
       def unwind(
           ptx: PartialTransaction
@@ -399,7 +404,6 @@ private[lf] object Speedy {
             case KPreventException() =>
               None
             case converting: KConvertingException[Question.Update] =>
-              abort()
               Some(Right(converting))
             case _ =>
               unwind(ptx)
@@ -886,6 +890,9 @@ private[lf] object Speedy {
         originalExceptionId match {
           case None =>
             (exceptionId, excep) match {
+              // Arithmetic error does not need to be loaded into compiledPackages to be thrown (by arithmetic builtins)
+              // as such, we can't assume the DefRef for calculating its message or converting to failure
+              // status exists. Instead we directly pull out its message field and build a failure status immediately using that.
               case (
                     valueArithmeticError.tyCon,
                     SAnyException(SRecord(_, _, ArrayList(SText(message)))),

@@ -54,6 +54,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eViewInterface |
       eChoiceController |
       eChoiceObserver |
+      eFailWithStatus |
       (id ^? builtinFunctions) ^^ EBuiltinFun |
       experimental |
       caseOf |
@@ -76,13 +77,20 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     )
   }
 
+  private[this] val failureCategories =
+    Map(
+      "INVALID_INDEPENDENT_OF_SYSTEM_STATE" -> FCInvalidIndependentOfSystemState,
+      "INVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER" -> FCInvalidGivenCurrentSystemStateOther,
+    )
+
   private lazy val literal: Parsers.Parser[BuiltinLit] =
     acceptMatch[BuiltinLit]("Number", { case Number(l) => BLInt64(l) }) |
       acceptMatch("Numeric", { case Numeric(d) => BLNumeric(d) }) |
       acceptMatch("Text", { case Text(s) => BLText(s) }) |
       acceptMatch("Timestamp", { case Timestamp(l) => BLTimestamp(l) }) |
       acceptMatch("Date", { case Date(l) => BLDate(l) }) |
-      (id ^? roundingModes) ^^ BLRoundingMode
+      (id ^? roundingModes) ^^ BLRoundingMode |
+      (id ^? failureCategories) ^^ BLFailureCategory
 
   private lazy val primCon =
     Id("True") ^^^ BCTrue |
@@ -300,6 +308,11 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     `choice_observer` ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ {
       case typeId ~ choiceName ~ contract ~ choiceArg =>
         EChoiceObserver(typeId, choiceName, contract, choiceArg)
+    }
+
+  private lazy val eFailWithStatus: Parser[Expr] =
+    `fail_with_status` ~>! argTyp ~ expr0 ^^ { case retType ~ failureStatus =>
+      EFailWithStatus(retType, failureStatus)
     }
 
   private lazy val pattern: Parser[CasePat] =

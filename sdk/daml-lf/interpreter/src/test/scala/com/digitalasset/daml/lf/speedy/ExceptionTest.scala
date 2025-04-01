@@ -52,6 +52,11 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
     s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
   }
 
+  private val failureStatusTyCon: String = {
+    import stablePackages.FailureStatus
+    s"'${FailureStatus.packageId}':${FailureStatus.qualifiedName}"
+  }
+
   private def applyToParty(pkgs: CompiledPackages, e: Expr, p: Party): SExpr = {
     val se = pkgs.compiler.unsafeCompile(e)
     SEApp(se, Array(SParty(p)))
@@ -144,6 +149,17 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
      exception E2 = { message \(e: M:E2) -> throw @Text @M:E1 (M:E1 {}) } ; //throw from the message function
      val unhandled4 : Update Int64 = upure @Int64 (throw @Int64 @M:E2 (M:E2 {})) ;
 
+     record @serializable E3 = { } ;
+     exception E3 = { 
+       message \(e: M:E3) -> fail_with_status @Text ($failureStatusTyCon {
+         errorId = "E3_failure_status",
+         category = INVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER,
+         message = "something went wrong",
+         meta = GENMAP_EMPTY @Text @Text
+       })
+     } ; //throw failure status from the message function
+     val unhandled5 : Update Int64 = upure @Int64 (throw @Int64 @M:E3 (M:E3 {})) ;
+
      val divZero : Update Int64 = upure @Int64 (DIV_INT64 1 0) ;
    }
   """)
@@ -155,6 +171,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       "<Failed to calculate message as M:E1 was thrown during conversion>",
       Map(),
     )
+    val e3 = IE.FailureStatus("E3_failure_status", 9, "something went wrong", Map())
 
     val testCases = Table[String, SError](
       ("expression", "expected"),
@@ -162,6 +179,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       ("M:unhandled2", SErrorDamlException(e1)),
       ("M:unhandled3", SErrorDamlException(e1)),
       ("M:unhandled4", SErrorDamlException(e2)),
+      ("M:unhandled5", SErrorDamlException(e3)),
       (
         "M:divZero",
         SErrorDamlException(
