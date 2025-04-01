@@ -2533,14 +2533,18 @@ private[lf] object SBuiltin {
             coinst.template.packageId,
             language.Reference.Template(coinst.template),
           ) { () =>
-            importValue(machine, coinst.template, coinst.arg) { templateArg =>
-              getContractInfo(
-                machine,
-                coid,
-                coinst.template,
-                templateArg,
-                allowCatchingContractInfoErrors = false,
-              )(importContract)
+            // Validate that the contract is active before checking it has a
+            // valid upgrade in importContract, to avoid leaking information
+            ensureContractActive(machine, coid, coinst.template) {
+              importValue(machine, coinst.template, coinst.arg) { templateArg =>
+                getContractInfo(
+                  machine,
+                  coid,
+                  coinst.template,
+                  templateArg,
+                  allowCatchingContractInfoErrors = false,
+                )(importContract)
+              }
             }
           }
         )
