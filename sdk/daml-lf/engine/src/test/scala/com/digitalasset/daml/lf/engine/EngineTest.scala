@@ -2952,7 +2952,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       keys: Map[GlobalKeyWithMaintainers, ContractId],
       nodes: HashMap[NodeId, Node] = HashMap.empty,
       roots: BackStack[NodeId] = BackStack.empty,
-      timeBoundaries: Time.Boundaries = Time.Boundaries.unconstrained,
+      timeBoundaries: Time.Range = Time.Range.unconstrained,
       nodeSeeds: BackStack[(NodeId, crypto.Hash)] = BackStack.empty,
   ) {
     def commit(tr: Tx, meta: Tx.Metadata): ReinterpretState = {
@@ -2969,7 +2969,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           )
         case (acc, _) => acc
       }
-      val timeBoundaries: Time.Boundaries =
+      val timeBoundaries: Time.Range =
         meta.timeBoundaries intersect this.timeBoundaries
 
       ReinterpretState(

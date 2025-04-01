@@ -684,14 +684,14 @@ object Transaction {
       submissionSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       usedPackages: Set[PackageId],
-      timeBoundaries: Time.Boundaries,
+      timeBoundaries: Time.Range,
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
       disclosedEvents: ImmArray[Node.Create],
   ) {
     @deprecated("use timeBoundaries", "3.3.0")
     def dependsOnTime: Boolean =
-      timeBoundaries != Time.Boundaries.unconstrained
+      timeBoundaries != Time.Range.unconstrained
   }
 
   def commitTransaction(submittedTransaction: SubmittedTransaction): CommittedTransaction =

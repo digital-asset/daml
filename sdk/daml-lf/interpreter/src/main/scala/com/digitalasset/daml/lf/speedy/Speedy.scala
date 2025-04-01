@@ -417,7 +417,7 @@ private[lf] object Speedy {
       * run. At any point during interpretation, the interpretation up to then is invariant
       * for any ledger time within these bounds.
       */
-    private[this] var timeBoundaries: Time.Boundaries = Time.Boundaries.unconstrained
+    private[this] var timeBoundaries: Time.Range = Time.Range.unconstrained
 
     // global contract discriminators, that are discriminators from contract created in previous transactions
 
@@ -443,9 +443,9 @@ private[lf] object Speedy {
       disclosedContracts.isDefinedAt(contractId)
 
     private[this] def setDependsOnTime(time: Time.Timestamp): Unit =
-      timeBoundaries = Time.Boundaries(min = time, max = time)
+      timeBoundaries = Time.Range(min = time, max = time)
 
-    def getTimeBoundaries: Time.Boundaries =
+    def getTimeBoundaries: Time.Range =
       timeBoundaries
 
     val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =

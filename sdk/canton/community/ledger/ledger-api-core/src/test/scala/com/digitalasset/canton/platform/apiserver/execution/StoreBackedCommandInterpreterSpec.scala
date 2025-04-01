@@ -114,7 +114,7 @@ class StoreBackedCommandInterpreterSpec
     submissionSeed = None,
     submissionTime = Time.Timestamp.now(),
     usedPackages = Set.empty,
-    timeBoundaries = Time.Boundaries.unconstrained,
+    timeBoundaries = Time.Range.unconstrained,
     nodeSeeds = ImmArray.Empty,
     globalKeyMapping = Map.empty,
     disclosedEvents = ImmArray.empty,
