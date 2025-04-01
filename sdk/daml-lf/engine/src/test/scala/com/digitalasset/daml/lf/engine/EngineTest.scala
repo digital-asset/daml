@@ -70,6 +70,7 @@ class EngineTestV2 extends EngineTest(LanguageMajorVersion.V2)
     "org.wartremover.warts.Product",
   )
 )
+@nowarn("msg=deprecated")
 class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Matchers
@@ -2867,7 +2868,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           submissionSeed = None,
           submissionTime = txMeta.submissionTime,
           usedPackages = Set.empty,
-          dependsOnTime = state.dependsOnTime,
+          timeBoundaries = state.timeBoundaries,
           nodeSeeds = state.nodeSeeds.toImmArray,
           globalKeyMapping = Map.empty,
           disclosedEvents = ImmArray.empty,
@@ -2951,7 +2952,8 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       keys: Map[GlobalKeyWithMaintainers, ContractId],
       nodes: HashMap[NodeId, Node] = HashMap.empty,
       roots: BackStack[NodeId] = BackStack.empty,
-      dependsOnTime: Boolean = false,
+      timeBoundaries: (Time.Timestamp, Time.Timestamp) =
+        (Time.Timestamp.MinValue, Time.Timestamp.MaxValue),
       nodeSeeds: BackStack[(NodeId, crypto.Hash)] = BackStack.empty,
   ) {
     def commit(tr: Tx, meta: Tx.Metadata): ReinterpretState = {
@@ -2968,12 +2970,20 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           )
         case (acc, _) => acc
       }
+      val timeBoundaries: (Time.Timestamp, Time.Timestamp) = {
+        import Ordering.Implicits.infixOrderingOps
+        (
+          meta.timeBoundaries._1 min this.timeBoundaries._1,
+          meta.timeBoundaries._2 max this.timeBoundaries._2,
+        )
+      }
+
       ReinterpretState(
         newContracts,
         newKeys,
         nodes ++ tr.nodes,
         roots :++ tr.roots,
-        dependsOnTime || meta.dependsOnTime,
+        timeBoundaries,
         nodeSeeds :++ meta.nodeSeeds,
       )
     }

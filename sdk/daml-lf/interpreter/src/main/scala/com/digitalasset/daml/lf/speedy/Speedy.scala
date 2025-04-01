@@ -221,15 +221,15 @@ private[lf] object Speedy {
     // thrown during the question callbacks execution
 
     final private[speedy] def needTime(): Control[Question.Update] = {
-      setDependsOnTime()
       Control.Question(
-        Question.Update.NeedTime(time =>
+        Question.Update.NeedTime { time =>
+          setDependsOnTime(time)
           safelyContinue(
             NameOf.qualifiedNameOfCurrentFunc,
             "NeedTime",
             Control.Value(SValue.STimestamp(time)),
           )
-        )
+        }
       )
     }
 
@@ -414,7 +414,8 @@ private[lf] object Speedy {
     }
 
     /* Flag to trace usage of get_time builtins */
-    private[this] var dependsOnTime: Boolean = false
+    private[this] var timeBoundaries: (Time.Timestamp, Time.Timestamp) =
+      (Time.Timestamp.MinValue, Time.Timestamp.MaxValue)
     // global contract discriminators, that are discriminators from contract created in previous transactions
 
     private[this] var numInputContracts: Int = 0
@@ -438,11 +439,11 @@ private[lf] object Speedy {
     private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
       disclosedContracts.isDefinedAt(contractId)
 
-    private[this] def setDependsOnTime(): Unit =
-      dependsOnTime = true
+    private[this] def setDependsOnTime(time: Time.Timestamp): Unit =
+      timeBoundaries = (time, time)
 
-    def getDependsOnTime: Boolean =
-      dependsOnTime
+    def getTimeBoundaries: (Time.Timestamp, Time.Timestamp) =
+      timeBoundaries
 
     val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
       if (validating) { _ => SVisibleToStakeholders.Visible }

@@ -674,7 +674,7 @@ object Transaction {
     *                         in the transaction (by calling [[Node.Action.packageIds]]). The [[usedPackages]] will then
     *                         be this set of packages combined with all packages on which there is a transitive
     *                         dependency (for details see [[com.digitalasset.daml.lf.engine.Engine.deps]]).
-    * @param dependsOnTime    Indicates that the transaction computation depends on ledger time.
+    * @param timeBoundery    Indicates that the transaction computation depends on ledger time.
     * @param nodeSeeds        An association list that maps the node-id of create and exercise
     *                         nodes to their seed.
     * @param globalKeyMapping Input key mappings inferred during interpretation.
@@ -684,11 +684,29 @@ object Transaction {
       submissionSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       usedPackages: Set[PackageId],
-      dependsOnTime: Boolean,
+      timeBoundaries: (Time.Timestamp, Time.Timestamp),
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
       disclosedEvents: ImmArray[Node.Create],
-  )
+  ) {
+    assert(timeBoundaries._1 <= timeBoundaries._2)
+
+    @deprecated("use timeBoundaries", "3.3.0")
+    def dependsOnTime: Boolean =
+      timeBoundaries == (Time.Timestamp.MinValue, Time.Timestamp.MinValue)
+  }
+
+  object Metadata {
+    def empty(submissionTime: Time.Timestamp): Metadata = Metadata(
+      submissionSeed = None,
+      submissionTime = submissionTime,
+      usedPackages = Set.empty,
+      timeBoundaries = (Time.Timestamp.MinValue, Time.Timestamp.MinValue),
+      nodeSeeds = ImmArray.Empty,
+      globalKeyMapping = Map.empty,
+      disclosedEvents = ImmArray.Empty,
+    )
+  }
 
   def commitTransaction(submittedTransaction: SubmittedTransaction): CommittedTransaction =
     CommittedTransaction(submittedTransaction)
