@@ -81,38 +81,6 @@ Data Types
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"version\" `PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
 
-.. _type-daml-script-internal-questions-packages-unvetdar-94927:
-
-**data** `UnvetDar <type-daml-script-internal-questions-packages-unvetdar-94927_>`_
-
-  .. _constr-daml-script-internal-questions-packages-unvetdar-73038:
-
-  `UnvetDar <constr-daml-script-internal-questions-packages-unvetdar-73038_>`_
-
-    .. list-table::
-       :widths: 15 10 30
-       :header-rows: 1
-
-       * - Field
-         - Type
-         - Description
-       * - darName
-         - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
-         -
-       * - participant
-         - `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
-         -
-
-  **instance** :ref:`IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227>` `UnvetDar <type-daml-script-internal-questions-packages-unvetdar-94927_>`_ ()
-
-  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"darName\" `UnvetDar <type-daml-script-internal-questions-packages-unvetdar-94927_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
-
-  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"participant\" `UnvetDar <type-daml-script-internal-questions-packages-unvetdar-94927_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_)
-
-  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"darName\" `UnvetDar <type-daml-script-internal-questions-packages-unvetdar-94927_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
-
-  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"participant\" `UnvetDar <type-daml-script-internal-questions-packages-unvetdar-94927_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_)
-
 .. _type-daml-script-internal-questions-packages-unvetpackages-98510:
 
 **data** `UnvetPackages <type-daml-script-internal-questions-packages-unvetpackages-98510_>`_
@@ -131,44 +99,19 @@ Data Types
        * - packages
          - \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\]
          -
+       * - participant
+         - `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
 
   **instance** :ref:`IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227>` `UnvetPackages <type-daml-script-internal-questions-packages-unvetpackages-98510_>`_ ()
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"packages\" `UnvetPackages <type-daml-script-internal-questions-packages-unvetpackages-98510_>`_ \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\]
 
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"participant\" `UnvetPackages <type-daml-script-internal-questions-packages-unvetpackages-98510_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_)
+
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"packages\" `UnvetPackages <type-daml-script-internal-questions-packages-unvetpackages-98510_>`_ \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\]
 
-.. _type-daml-script-internal-questions-packages-vetdar-93380:
-
-**data** `VetDar <type-daml-script-internal-questions-packages-vetdar-93380_>`_
-
-  .. _constr-daml-script-internal-questions-packages-vetdar-90757:
-
-  `VetDar <constr-daml-script-internal-questions-packages-vetdar-90757_>`_
-
-    .. list-table::
-       :widths: 15 10 30
-       :header-rows: 1
-
-       * - Field
-         - Type
-         - Description
-       * - darName
-         - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
-         -
-       * - participant
-         - `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
-         -
-
-  **instance** :ref:`IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227>` `VetDar <type-daml-script-internal-questions-packages-vetdar-93380_>`_ ()
-
-  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"darName\" `VetDar <type-daml-script-internal-questions-packages-vetdar-93380_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
-
-  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"participant\" `VetDar <type-daml-script-internal-questions-packages-vetdar-93380_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_)
-
-  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"darName\" `VetDar <type-daml-script-internal-questions-packages-vetdar-93380_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
-
-  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"participant\" `VetDar <type-daml-script-internal-questions-packages-vetdar-93380_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_)
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"participant\" `UnvetPackages <type-daml-script-internal-questions-packages-unvetpackages-98510_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_)
 
 .. _type-daml-script-internal-questions-packages-vetpackages-30455:
 
@@ -188,12 +131,19 @@ Data Types
        * - packages
          - \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\]
          -
+       * - participant
+         - `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
 
   **instance** :ref:`IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227>` `VetPackages <type-daml-script-internal-questions-packages-vetpackages-30455_>`_ ()
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"packages\" `VetPackages <type-daml-script-internal-questions-packages-vetpackages-30455_>`_ \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\]
 
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"participant\" `VetPackages <type-daml-script-internal-questions-packages-vetpackages-30455_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_)
+
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"packages\" `VetPackages <type-daml-script-internal-questions-packages-vetpackages-30455_>`_ \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\]
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"participant\" `VetPackages <type-daml-script-internal-questions-packages-vetpackages-30455_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_)
 
 Functions
 ---------
@@ -203,10 +153,30 @@ Functions
 `vetPackages <function-daml-script-internal-questions-packages-vetpackages-16211_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
 
+.. _function-daml-script-internal-questions-packages-vetpackagesonparticipant-8324:
+
+`vetPackagesOnParticipant <function-daml-script-internal-questions-packages-vetpackagesonparticipant-8324_>`_
+  \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
+
 .. _function-daml-script-internal-questions-packages-unvetpackages-80050:
 
 `unvetPackages <function-daml-script-internal-questions-packages-unvetpackages-80050_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
+
+.. _function-daml-script-internal-questions-packages-unvetpackagesonparticipant-47459:
+
+`unvetPackagesOnParticipant <function-daml-script-internal-questions-packages-unvetpackagesonparticipant-47459_>`_
+  \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
+
+.. _function-daml-script-internal-questions-packages-unsafevetpackages-17811:
+
+`unsafeVetPackages <function-daml-script-internal-questions-packages-unsafevetpackages-17811_>`_
+  \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
+
+.. _function-daml-script-internal-questions-packages-unsafeunvetpackages-73826:
+
+`unsafeUnvetPackages <function-daml-script-internal-questions-packages-unsafeunvetpackages-73826_>`_
+  \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
 
 .. _function-daml-script-internal-questions-packages-listvettedpackages-3001:
 
@@ -222,38 +192,4 @@ Functions
 
 `thenWait <function-daml-script-internal-questions-packages-thenwait-34974_>`_
   \: :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` a \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` a
-
-.. _function-daml-script-internal-questions-packages-vetdar-82008:
-
-`vetDar <function-daml-script-internal-questions-packages-vetdar-82008_>`_
-  \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
-
-.. _function-daml-script-internal-questions-packages-vetdaronparticipant-25873:
-
-`vetDarOnParticipant <function-daml-script-internal-questions-packages-vetdaronparticipant-25873_>`_
-  \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
-
-.. _function-daml-script-internal-questions-packages-unvetdar-83403:
-
-`unvetDar <function-daml-script-internal-questions-packages-unvetdar-83403_>`_
-  \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
-
-.. _function-daml-script-internal-questions-packages-unvetdaronparticipant-8596:
-
-`unvetDarOnParticipant <function-daml-script-internal-questions-packages-unvetdaronparticipant-8596_>`_
-  \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
-
-.. _function-daml-script-internal-questions-packages-unsafevetdaronparticipant-69629:
-
-`unsafeVetDarOnParticipant <function-daml-script-internal-questions-packages-unsafevetdaronparticipant-69629_>`_
-  \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
-
-  This does not wait for the topology transaction to land, be sure to sleep for 1 second between calling this and using a template from the given package
-
-.. _function-daml-script-internal-questions-packages-unsafeunvetdaronparticipant-82816:
-
-`unsafeUnvetDarOnParticipant <function-daml-script-internal-questions-packages-unsafeunvetdaronparticipant-82816_>`_
-  \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
-
-  This does not wait for the topology transaction to land, be sure to sleep for 1 second between calling this and using a template from the given package
 
