@@ -114,12 +114,11 @@ class StoreBackedCommandInterpreterSpec
     submissionSeed = None,
     submissionTime = Time.Timestamp.now(),
     usedPackages = Set.empty,
-    dependsOnTime = false,
+    timeBoundaries = Time.Range.unconstrained,
     nodeSeeds = ImmArray.Empty,
     globalKeyMapping = Map.empty,
     disclosedEvents = ImmArray.empty,
   )
-
   private val resultDone: ResultDone[(SubmittedTransaction, Transaction.Metadata)] =
     ResultDone[(SubmittedTransaction, Transaction.Metadata)](
       (TransactionBuilder.EmptySubmitted, emptyTransactionMetadata)
