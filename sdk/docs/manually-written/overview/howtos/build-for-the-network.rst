@@ -1,4 +1,4 @@
-Build for the Network?
+Build for the Network
 ======================
 
 "Briefly sketch different options how to build applications for the network.

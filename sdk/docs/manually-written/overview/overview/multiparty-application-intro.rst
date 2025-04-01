@@ -6,7 +6,8 @@ Multi-Party Applications
 ########################
 
 .. note::
-    merge this with the TSA docs why daml: https://docs.google.com/presentation/d/170hLvxQlXxoUUEze9lU_VRl-UlrTNMK9sEs3o_si2vg/edit#slide=id.g2ce8206ef6a_0_0
+    align this with the TSA docs, make it crisper and shorter : https://docs.google.com/presentation/d/170hLvxQlXxoUUEze9lU_VRl-UlrTNMK9sEs3o_si2vg/edit#slide=id.g2ce8206ef6a_0_0
+    ensure that we introduce the canton network and the ecosystem
 
 Multi-Party Applications
 ************************
