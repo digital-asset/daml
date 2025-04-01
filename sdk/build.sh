@@ -157,9 +157,15 @@ $bazel query 'deps(//...)' >/dev/null
 # Check that we can load damlc in ghci
 # Disabled on darwin since it sometimes seem to hang and this only
 # tests our dev setup rather than our code so issues are not critical.
-if [[ "$(uname)" != "Darwin" ]]; then
-  da-ghci --data yes //compiler/damlc:damlc -e ':main --help'
-fi
+
+# FIXME For now this is disabled as we are facing a memory allocation issue:
+# ghc-iserv: mmap 131072 bytes at (nil): Cannot allocate memory
+# ghc-iserv: Try specifying an address with +RTS -xm<addr> -RTS
+# ghc-iserv: internal error: m32_allocator_init: Failed to map
+#
+# if [[ "$(uname)" != "Darwin" ]]; then
+#   da-ghci --data yes //compiler/damlc:damlc -e 'Main.main --help'
+# fi
 
 # Test that hls at least builds, we don’t run it since it
 # adds 2-5 minutes to each CI run with relatively little benefit. If
