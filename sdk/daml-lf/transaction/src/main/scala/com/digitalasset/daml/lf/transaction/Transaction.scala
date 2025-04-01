@@ -674,8 +674,8 @@ object Transaction {
     *                         in the transaction (by calling [[Node.Action.packageIds]]). The [[usedPackages]] will then
     *                         be this set of packages combined with all packages on which there is a transitive
     *                         dependency (for details see [[com.digitalasset.daml.lf.engine.Engine.deps]]).
-    * @param timeBoundery      Indicates that the transaction computation is valid for ledger times within these bounds.    * @param nodeSeeds        An association list that maps the node-id of create and exercise
-    * @param nodeSeeds         An association list that maps the node-id of create and exercise
+    * @param timeBoundery     Indicates that the transaction computation is valid for ledger times within these bounds.
+    * @param nodeSeeds        An association list that maps the node-id of create and exercise
     *                         nodes to their seed.
     * @param globalKeyMapping Input key mappings inferred during interpretation.
     * @param disclosedEvents  Disclosed create events that have been used in this transaction.
