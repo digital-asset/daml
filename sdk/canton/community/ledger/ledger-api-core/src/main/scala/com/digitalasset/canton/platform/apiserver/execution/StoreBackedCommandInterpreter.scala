@@ -128,6 +128,7 @@ final class StoreBackedCommandInterpreter(
     }
   }
 
+  @scala.annotation.nowarn("msg=deprecated")
   private def commandInterpretationResult(
       commands: ApiCommands,
       submissionSeed: crypto.Hash,

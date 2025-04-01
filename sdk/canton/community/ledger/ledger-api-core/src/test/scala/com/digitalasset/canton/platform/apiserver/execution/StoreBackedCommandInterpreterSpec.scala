@@ -110,15 +110,8 @@ class StoreBackedCommandInterpreterSpec
     )
   )
 
-  private val emptyTransactionMetadata = Transaction.Metadata(
-    submissionSeed = None,
-    submissionTime = Time.Timestamp.now(),
-    usedPackages = Set.empty,
-    dependsOnTime = false,
-    nodeSeeds = ImmArray.Empty,
-    globalKeyMapping = Map.empty,
-    disclosedEvents = ImmArray.empty,
-  )
+  private val emptyTransactionMetadata =
+    Transaction.Metadata.empty(submissionTime = Time.Timestamp.now())
 
   private val resultDone: ResultDone[(SubmittedTransaction, Transaction.Metadata)] =
     ResultDone[(SubmittedTransaction, Transaction.Metadata)](
