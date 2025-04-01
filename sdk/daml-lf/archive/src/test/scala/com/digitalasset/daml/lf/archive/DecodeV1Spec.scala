@@ -676,8 +676,8 @@ class DecodeV1Spec
       }
     }
 
-    s"decode upgradedPackageId iff version >= ${Features.packageUpgrades} " in {
-      forEveryVersionSuchThat(_ >= Features.packageMetadata) { version =>
+    s"decode upgradedPackageId iff version >= 1.17" in {
+      forEveryVersionSuchThat(_ >= LV.v1_17) { version =>
         val result = Try(
           new DecodeV1(version.minor).decodePackageMetadata(
             DamlLf1.PackageMetadata
@@ -699,7 +699,7 @@ class DecodeV1Spec
           )
         )
 
-        if (version >= Features.packageUpgrades)
+        if (version >= LV.v1_17)
           result shouldBe Success(
             Ast.PackageMetadata(
               Ref.PackageName.assertFromString("foobar"),
