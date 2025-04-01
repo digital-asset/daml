@@ -6,8 +6,6 @@
 
 module Tests.TextMapTest where
 
-#ifdef DAML_TEXTMAP  
-  
 import DA.TextMap
 
 data MapRecord = MapRecord
@@ -49,5 +47,3 @@ template TextMapTestTemplate
         mapVariant : MapVariant Int
     where
         signatory owner
-
-#endif
