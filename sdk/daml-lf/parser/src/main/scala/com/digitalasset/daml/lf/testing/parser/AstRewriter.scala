@@ -162,8 +162,6 @@ private[daml] class AstRewriter(
           EChoiceController(apply(typeId), choiceName, apply(contract), apply(choiceArg))
         case EChoiceObserver(typeId, choiceName, contract, choiceArg) =>
           EChoiceObserver(apply(typeId), choiceName, apply(contract), apply(choiceArg))
-        case EFailWithStatus(typeId, expr) =>
-          EFailWithStatus(apply(typeId), apply(expr))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {

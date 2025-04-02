@@ -310,11 +310,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
         EChoiceObserver(typeId, choiceName, contract, choiceArg)
     }
 
-  private lazy val eFailWithStatus: Parser[Expr] =
-    `fail_with_status` ~>! argTyp ~ expr0 ^^ { case retType ~ failureStatus =>
-      EFailWithStatus(retType, failureStatus)
-    }
-
   private lazy val pattern: Parser[CasePat] =
     Id("_") ^^^ CPDefault |
       primCon ^^ CPBuiltinCon |
@@ -421,6 +416,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "NUMERIC_TO_BIGNUMERIC" -> BNumericToBigNumeric,
     "BIGNUMERIC_TO_TEXT" -> BBigNumericToText,
     "TYPE_REP_TYCON_NAME" -> BTypeRepTyConName,
+    "FAIL_WITH_STATUS" -> BFailWithStatus,
   )
 
   private lazy val eCallInterface: Parser[ECallInterface] =

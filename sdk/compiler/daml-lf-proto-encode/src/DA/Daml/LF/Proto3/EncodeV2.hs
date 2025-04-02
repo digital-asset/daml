@@ -465,6 +465,8 @@ encodeBuiltinExpr = \case
 
     BETypeRepTyConName -> builtin P.BuiltinFunctionTYPE_REP_TYCON_NAME
 
+    BEFailWithStatus -> builtin P.BuiltinFunctionFAIL_WITH_STATUS
+
     where
       builtin = pure . P.ExprSumBuiltin . P.Enumerated . Right
       lit = P.ExprSumBuiltinLit . P.BuiltinLit . Just
@@ -655,10 +657,6 @@ encodeExpr' = \case
         expr_ChoiceObserverContractExpr <- encodeExpr expr1
         expr_ChoiceObserverChoiceArgExpr <- encodeExpr expr2
         pureExpr $ P.ExprSumChoiceObserver P.Expr_ChoiceObserver{..}
-    EFailWithStatus ty failureStatus -> do
-        expr_FailWithStatusReturnType <- encodeType ty
-        expr_FailWithStatusFailureStatus <- encodeExpr failureStatus
-        pureExpr $ P.ExprSumFailWithStatus P.Expr_FailWithStatus{..}
     EExperimental name ty -> do
         let expr_ExperimentalName = encodeString name
         expr_ExperimentalType <- encodeType ty

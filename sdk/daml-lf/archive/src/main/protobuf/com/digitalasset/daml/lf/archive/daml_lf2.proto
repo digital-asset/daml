@@ -355,7 +355,9 @@ enum BuiltinFunction {
 
   ANY_EXCEPTION_MESSAGE = 59;
 
-  // Next id is 60. TEXTMAP_SIZE is 65.
+  FAIL_WITH_STATUS = 66;
+
+  // Next id is 67.
 
   /* Dev Builtins */
   // We use fields above 1000 for dev features
@@ -751,15 +753,6 @@ message Expr {
     Expr choice_arg_expr = 4;
   }
 
-  // Fail with status.
-  message FailWithStatus {
-    // Overall type of the "failWithStatus" expression.
-    Type return_type = 1;
-    // value of type DA.Internal.Fail.Types:FailureStatus
-    Expr failure_status = 2;
-  }
-  
-
   message Experimental {
     string name = 1;
     Type type = 2 ;
@@ -885,9 +878,6 @@ message Expr {
     ToRequiredInterface to_required_interface = 41;
     FromRequiredInterface from_required_interface = 42;
     UnsafeFromRequiredInterface unsafe_from_required_interface = 43;
-
-    // Throw strictly formed error to affect ledger-api grpc status+metadata (replacement for exceptions)
-    FailWithStatus fail_with_status = 44;
 
     // Obtain the controllers for a choice.
     // *Available in versions >= 2.dev*

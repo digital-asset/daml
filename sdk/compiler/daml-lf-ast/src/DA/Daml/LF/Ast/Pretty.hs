@@ -305,6 +305,7 @@ instance Pretty BuiltinExpr where
     BECodePointsToText -> "CODE_POINTS_TO_TEXT"
     BECoerceContractId -> "COERCE_CONTRACT_ID"
     BETypeRepTyConName -> "TYPE_REP_TYCON_NAME"
+    BEFailWithStatus -> "FAIL_WITH_STATUS"
 
     where
       epochToText fmt secs =
@@ -545,8 +546,6 @@ instance Pretty Expr where
         [TyArg (TCon tpl), TmArg (EVar (ExprVarName (unChoiceName ch))), TmArg expr1, TmArg expr2]
     EChoiceObserver tpl ch expr1 expr2 -> pPrintAppKeyword lvl prec "choice_observer"
         [TyArg (TCon tpl), TmArg (EVar (ExprVarName (unChoiceName ch))), TmArg expr1, TmArg expr2]
-    EFailWithStatus ty val -> pPrintAppKeyword lvl prec "failWithStatus"
-        [TyArg ty, TmArg val]
     EExperimental name _ ->  pPrint $ "$" <> name
 
 instance Pretty DefTypeSyn where

@@ -346,6 +346,9 @@ data BuiltinExpr
 
   -- TypeRep
   | BETypeRepTyConName           -- :: TypeRep -> Optional Text
+
+  -- FailureStatus
+  | BEFailWithStatus             -- :: forall a. FailureStatus -> a
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 
@@ -606,10 +609,6 @@ data Expr
     , choiceObserverChoice :: !ChoiceName
     , choiceObserverContract :: !Expr
     , choiceObserverChoiceArg :: !Expr
-    }
-  | EFailWithStatus
-    { fwsReturnType :: !Type
-    , fwsStatusFailure :: !Expr
     }
   -- | Experimental Expression Hook
   | EExperimental !T.Text !Type

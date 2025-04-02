@@ -491,7 +491,7 @@ convertPrim _ "EChoiceObserver"
 
 convertPrim _ "EFailWithStatus"
     (TFailureStatus :-> retTy) =
-    pure $ ETmLam (mkVar "x", TFailureStatus) (EFailWithStatus retTy (EVar (mkVar "x")))
+    pure $ EBuiltinFun BEFailWithStatus `ETyApp` retTy
 
 convertPrim (isDevVersion->True) (L.stripPrefix "$" -> Just builtin) typ =
     pure $

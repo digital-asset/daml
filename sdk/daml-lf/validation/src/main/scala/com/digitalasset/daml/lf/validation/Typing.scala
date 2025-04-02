@@ -89,7 +89,7 @@ private[validation] object Typing {
 
   private def tBinop(typ: Type): Type = typ ->: typ ->: typ
 
-  protected[validation] lazy val typeOfBuiltinFunction = {
+  protected[validation] def typeOfBuiltinFunction(tFailureStatus: Type) = {
     val alpha = TVar(Name.assertFromString("$alpha$"))
     val beta = TVar(Name.assertFromString("$beta$"))
     val gamma = TVar(Name.assertFromString("$gamma$"))
@@ -302,6 +302,8 @@ private[validation] object Typing {
       BAnyExceptionMessage -> (TAnyException ->: TText),
       // TypeRep functions
       BTypeRepTyConName -> (TTypeRep ->: TOptional(TText)),
+      // Failure Status
+      BFailWithStatus -> TForall(alpha.name -> KStar, tFailureStatus ->: alpha),
     )
   }
 
@@ -1413,7 +1415,7 @@ private[validation] object Typing {
       case EVal(ref) =>
         Ret(handleLookup(ctx, pkgInterface.lookupValue(ref)).typ)
       case EBuiltinFun(fun) =>
-        Ret(typeOfBuiltinFunction(fun))
+        Ret(typeOfBuiltinFunction(TFailureStatus)(fun))
       case EBuiltinCon(con) =>
         Ret(typeOfPRimCon(con))
       case EBuiltinLit(lit) =>
@@ -1532,11 +1534,6 @@ private[validation] object Typing {
         typeOfChoiceControllerOrObserver(ty, ch, expr1, expr2)
       case EChoiceObserver(ty, ch, expr1, expr2) =>
         typeOfChoiceControllerOrObserver(ty, ch, expr1, expr2)
-      case EFailWithStatus(returnTyp, body) =>
-        checkType(returnTyp, KStar)
-        checkExpr(body, TFailureStatus) {
-          Ret(returnTyp)
-        }
       case expr: ExprInterface =>
         typOfExprInterface(expr)
       case EExperimental(_, typ) =>

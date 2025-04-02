@@ -356,10 +356,6 @@ private[lf] final class PhaseOne(
             Return(t.ChoiceObserverDefRef(tpl, choiceName)(contract, choiceArg))
           }
         }
-      case EFailWithStatus(_, body) =>
-        compileExp(env, body) { body =>
-          Return(SBFailWithStatus(body))
-        }
       case EExperimental(name, _) =>
         Return(SBExperimental(name))
     }
@@ -488,6 +484,8 @@ private[lf] final class PhaseOne(
             throw CompilationError(s"unexpected $bf")
 
           case BAnyExceptionMessage => SBAnyExceptionMessage
+
+          case BFailWithStatus => SBFailWithStatus
         })
     }
   }
