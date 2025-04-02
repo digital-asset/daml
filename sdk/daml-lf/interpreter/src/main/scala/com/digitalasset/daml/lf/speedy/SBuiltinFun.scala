@@ -1872,6 +1872,7 @@ private[lf] object SBuiltinFun {
     }
   }
 
+  /** $ledgerTimeLT: Token -> Timestamp -> Bool */
   final case object SBULedgerTimeLT extends UpdateBuiltin(2) {
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
@@ -1893,6 +1894,7 @@ private[lf] object SBuiltinFun {
     }
   }
 
+  /** $ledgerTimeLE: Token -> Timestamp -> Bool */
   final case object SBULedgerTimeLE extends UpdateBuiltin(2) {
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
