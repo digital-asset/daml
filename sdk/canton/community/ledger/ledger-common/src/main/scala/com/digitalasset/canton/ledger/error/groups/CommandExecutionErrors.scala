@@ -274,16 +274,16 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     @Explanation("""This error occurs if a Daml transaction fails during interpretation.""")
     @Resolution("This error type occurs if there is an application error.")
     object GenericInterpretationError
-        extends ErrorCode(
-          id = "DAML_INTERPRETATION_ERROR",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
+      extends ErrorCode(
+        id = "DAML_INTERPRETATION_ERROR",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
 
       final case class Error(override val cause: String)(implicit
-          loggingContext: ContextualizedErrorLogger
+        loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
-            cause = cause
-          )
+        cause = cause
+      )
     }
 
     @Explanation(
@@ -291,16 +291,16 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     )
     @Resolution("This error type occurs if there is an application error.")
     object InvalidArgumentInterpretationError
-        extends ErrorCode(
-          id = "DAML_INTERPRETER_INVALID_ARGUMENT",
-          ErrorCategory.InvalidIndependentOfSystemState,
-        ) {
+      extends ErrorCode(
+        id = "DAML_INTERPRETER_INVALID_ARGUMENT",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
 
       final case class Error(override val cause: String)(implicit
-          loggingContext: ContextualizedErrorLogger
+        loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
-            cause = cause
-          )
+        cause = cause
+      )
 
     }
 
@@ -309,14 +309,14 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     )
     @Resolution("This error indicates an application error.")
     object ContractNotActive
-        extends ErrorCode(
-          id = "CONTRACT_NOT_ACTIVE",
-          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-        ) {
+      extends ErrorCode(
+        id = "CONTRACT_NOT_ACTIVE",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+      ) {
 
       object Reject {
         def apply(cause: String, err: LfInterpretationError.ContractNotActive)(implicit
-            loggingContext: ContextualizedErrorLogger
+          loggingContext: ContextualizedErrorLogger
         ): Reject = Reject(
           cause,
           err.coid,
@@ -325,14 +325,14 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       }
 
       final case class Reject(
-          override val cause: String,
-          coid: ContractId,
-          templateIdO: Option[String],
+        override val cause: String,
+        coid: ContractId,
+        templateIdO: Option[String],
       )(implicit
-          loggingContext: ContextualizedErrorLogger
+        loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
-            cause = cause
-          ) {
+        cause = cause
+      ) {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           templateIdO.map(templateId => (ErrorResource.TemplateId, templateId)),
           Some((ErrorResource.ContractId, coid.coid)),
@@ -350,19 +350,19 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       )
       @Resolution("This error type occurs if there is contention on a contract.")
       object ContractKeyNotFound
-          extends ErrorCode(
-            id = "CONTRACT_KEY_NOT_FOUND",
-            ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-          ) {
+        extends ErrorCode(
+          id = "CONTRACT_KEY_NOT_FOUND",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
 
         final case class Reject(
-            override val cause: String,
-            key: GlobalKey,
+          override val cause: String,
+          key: GlobalKey,
         )(implicit
-            loggingContext: ContextualizedErrorLogger
+          loggingContext: ContextualizedErrorLogger
         ) extends DamlErrorWithDefiniteAnswer(
-              cause = cause
-            ) {
+          cause = cause
+        ) {
           override def resources: Seq[(ErrorResource, String)] =
             withEncodedValue(key.key) { encodedKey =>
               Seq(
@@ -371,6 +371,29 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
                 (ErrorResource.PackageName, key.packageName),
               )
             }
+        }
+      }
+
+      // PackageNotFound error for when the engine cannot find any package with the given package name
+      @Explanation(
+        """This error occurs if the Daml engine interpreter cannot resolve a package name to any vetted package. This
+          |can be caused by a commmand using an explicit disclosure produced by a package that hasn't been vetted yet
+          |by the participant or by a command that uses a contract whose creation package has been force-unvetted."""
+      )
+      @Resolution("Ensure the command doesn't use a package that has not been yet vetted or has been unvetted.")
+      object PackageNotFound
+        extends ErrorCode(
+          id = "UNRESOLVED_PACKAGE_NAME",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+
+        final case class Reject(override val cause: String, packageName: Ref.PackageName)(implicit
+          loggingContext: ContextualizedErrorLogger
+        ) extends DamlErrorWithDefiniteAnswer(
+          cause = cause
+        ) {
+          override def resources: Seq[(ErrorResource, String)] =
+            Seq((ErrorResource.PackageName, packageName))
         }
       }
     }
