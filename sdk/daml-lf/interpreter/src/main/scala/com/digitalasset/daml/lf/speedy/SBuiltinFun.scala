@@ -1868,7 +1868,7 @@ private[lf] object SBuiltinFun {
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       checkToken(args, 0)
-      machine.needTime()
+      machine.needTime(time => Control.Value(STimestamp(time)))
     }
   }
 
@@ -1882,15 +1882,7 @@ private[lf] object SBuiltinFun {
 
       val time = getSTimestamp(args, 1)
 
-//      machine.needTime() match {
-//        case Control.Value(STimestamp(now)) =>
-//          Control.Value(SBool(now < time))
-//        case Control.Value(_) =>
-//          crash("Invalid argument type")
-//        case error: Control.Error =>
-//          error
-//      }
-      crash(s"DEBUGGY: $time")
+      machine.needTime(now => Control.Value(SBool(now < time)))
     }
   }
 
@@ -1904,15 +1896,7 @@ private[lf] object SBuiltinFun {
 
       val time = getSTimestamp(args, 1)
 
-//      machine.needTime() match {
-//        case Control.Value(STimestamp(now)) =>
-//          Control.Value(SBool(now <= time))
-//        case Control.Value(_) =>
-//          crash("Invalid argument type")
-//        case error: Control.Error =>
-//          error
-//      }
-      crash(s"DEBUGGY: $time")
+      machine.needTime(now => Control.Value(SBool(now <= time)))
     }
   }
 
