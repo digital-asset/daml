@@ -170,6 +170,7 @@ final class IssConsensusModule[E <: Env[E]](
       case Consensus.Start =>
         val maybeSnapshotAdditionalInfo = initialState.sequencerSnapshotAdditionalInfo
         BootstrapDetector.detect(
+          epochLength,
           maybeSnapshotAdditionalInfo,
           activeTopologyInfo.currentMembership,
           latestCompletedEpoch,
@@ -783,8 +784,6 @@ object IssConsensusModule {
       latestCompletedEpoch: EpochStore.Epoch,
       sequencerSnapshotAdditionalInfo: Option[SequencerSnapshotAdditionalInfo],
   )
-
-  val DefaultEpochLength: EpochLength = EpochLength(10)
 
   val DefaultDatabaseReadTimeout: FiniteDuration = 10.seconds
 
