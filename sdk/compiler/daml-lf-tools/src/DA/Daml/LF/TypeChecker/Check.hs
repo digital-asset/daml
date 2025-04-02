@@ -300,7 +300,7 @@ typeOfBuiltin = \case
 
   BETypeRepTyConName -> pure (TTypeRep :-> TOptional TText)
 
-  BEFailWithStatus -> pure $ TForall (alpha, KStar) $ TFailureStatus :-> tAlpha
+  BEFailWithStatus -> pure $ TForall (alpha, KStar) $ TText :-> TFailureCategory :-> TText :-> TTextMap TText :-> tAlpha
 
   where
     tBinop typ = typ :-> typ :-> typ

@@ -490,7 +490,7 @@ convertPrim _ "EChoiceObserver"
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
 convertPrim _ "EFailWithStatus"
-    (TFailureStatus :-> retTy) =
+    (TText :-> TFailureCategory :-> TText :-> TTextMap TText :-> retTy) =
     pure $ EBuiltinFun BEFailWithStatus `ETyApp` retTy
 
 convertPrim (isDevVersion->True) (L.stripPrefix "$" -> Just builtin) typ =

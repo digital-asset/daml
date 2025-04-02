@@ -54,7 +54,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eViewInterface |
       eChoiceController |
       eChoiceObserver |
-      eFailWithStatus |
       (id ^? builtinFunctions) ^^ EBuiltinFun |
       experimental |
       caseOf |

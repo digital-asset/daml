@@ -861,8 +861,6 @@ private[lf] object Speedy {
     val sArithmeticError: SArithmeticError =
       new SArithmeticError(valueArithmeticError)
 
-    val failureStatusIdentifier: Identifier = stablePackages.FailureStatus
-
     private[speedy] def handleException(excep: SValue.SAny): Control[Nothing]
 
     // Triggers conversion of exception to failure status and throws.

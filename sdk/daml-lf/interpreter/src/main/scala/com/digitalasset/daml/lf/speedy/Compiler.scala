@@ -883,27 +883,12 @@ private[lf] final class Compiler(
       let(env, s.SEVal(t.ExceptionMessageDefRef(exceptionId))) { (getMessagePos, env) =>
         let(env, s.SEApp(env.toSEVar(getMessagePos), List(env.toSEVar(exceptionPos)))) {
           (messagePos, env) =>
-            val fields = Seq("errorId", "category", "message", "meta")
-            val constr = s.SEBuiltin(
-              SBRecCon(
-                StablePackagesV2.FailureStatus,
-                ImmArray.from(fields.map(Name.assertFromString)),
-              )
+            SBFailWithStatus(
+              s.SEValue(SText("UNHANDLED_EXCEPTION/" + exceptionId.qualifiedName.toString)),
+              s.SEValue(SInt64(FCInvalidGivenCurrentSystemStateOther.cantonCategoryId.toLong)),
+              env.toSEVar(messagePos),
+              s.SEValue(SMap(true)),
             )
-            let(
-              env,
-              s.SEApp(
-                constr,
-                List(
-                  s.SEValue(SText("UNHANDLED_EXCEPTION/" + exceptionId.qualifiedName.toString)),
-                  s.SEValue(SInt64(FCInvalidGivenCurrentSystemStateOther.cantonCategoryId.toLong)),
-                  env.toSEVar(messagePos),
-                  s.SEValue(SMap(true)),
-                ),
-              ),
-            ) { (failureStatusPos, env) =>
-              SBFailWithStatus(env.toSEVar(failureStatusPos))
-            }
         }
       }
     )

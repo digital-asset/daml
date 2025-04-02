@@ -348,7 +348,7 @@ data BuiltinExpr
   | BETypeRepTyConName           -- :: TypeRep -> Optional Text
 
   -- FailureStatus
-  | BEFailWithStatus             -- :: forall a. FailureStatus -> a
+  | BEFailWithStatus             -- :: forall a. Text -> FailureCategory -> Text -> TextMap Text -> a
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 

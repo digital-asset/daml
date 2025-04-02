@@ -89,7 +89,7 @@ private[validation] object Typing {
 
   private def tBinop(typ: Type): Type = typ ->: typ ->: typ
 
-  protected[validation] def typeOfBuiltinFunction(tFailureStatus: Type) = {
+  protected[validation] lazy val typeOfBuiltinFunction = {
     val alpha = TVar(Name.assertFromString("$alpha$"))
     val beta = TVar(Name.assertFromString("$beta$"))
     val gamma = TVar(Name.assertFromString("$gamma$"))
@@ -303,7 +303,10 @@ private[validation] object Typing {
       // TypeRep functions
       BTypeRepTyConName -> (TTypeRep ->: TOptional(TText)),
       // Failure Status
-      BFailWithStatus -> TForall(alpha.name -> KStar, tFailureStatus ->: alpha),
+      BFailWithStatus -> TForall(
+        alpha.name -> KStar,
+        TText ->: TFailureCategory ->: TText ->: TTextMap(TText) ->: alpha,
+      ),
     )
   }
 
@@ -424,9 +427,6 @@ private[validation] object Typing {
 
     private[lf] def TTuple2(t1: Type, t2: Type) =
       TApp(TApp(TTyCon(stablePackages.Tuple2), t1), t2)
-
-    private[lf] val TFailureStatus =
-      TTyCon(stablePackages.FailureStatus)
 
     private[lf] def kindOf(typ: Type): Kind = { // testing entry point
       // must *NOT* be used for sub-types
@@ -1415,7 +1415,7 @@ private[validation] object Typing {
       case EVal(ref) =>
         Ret(handleLookup(ctx, pkgInterface.lookupValue(ref)).typ)
       case EBuiltinFun(fun) =>
-        Ret(typeOfBuiltinFunction(TFailureStatus)(fun))
+        Ret(typeOfBuiltinFunction(fun))
       case EBuiltinCon(con) =>
         Ret(typeOfPRimCon(con))
       case EBuiltinLit(lit) =>

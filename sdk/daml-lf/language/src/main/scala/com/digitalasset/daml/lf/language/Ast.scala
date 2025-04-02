@@ -569,7 +569,8 @@ object Ast {
   // TypeRep
   final case object BTypeRepTyConName extends BuiltinFunction // : TypeRep → Optional Text
 
-  final case object BFailWithStatus extends BuiltinFunction // : ∀ a . FailureStatus -> a
+  final case object BFailWithStatus
+      extends BuiltinFunction // : ∀a. Text → FailureCategory → Text → TextMap Text → a
 
   final case class EExperimental(name: String, typ: Type) extends Expr
 
