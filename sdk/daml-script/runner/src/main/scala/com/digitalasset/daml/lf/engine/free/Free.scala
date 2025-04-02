@@ -142,6 +142,7 @@ private[lf] object Free {
       warningLog: WarningLog,
       profile: Profile,
       loggingContext: LoggingContext,
+      convertLegacyExceptions: Boolean,
   ): Result[SValue, Question, SExpr] =
     new Runner(
       expr,
@@ -150,6 +151,7 @@ private[lf] object Free {
       warningLog: WarningLog,
       profile: Profile,
       loggingContext: LoggingContext,
+      convertLegacyExceptions,
     ).getResult()
 
   def getResultF(
@@ -159,6 +161,7 @@ private[lf] object Free {
       warningLog: WarningLog,
       profile: Profile,
       loggingContext: LoggingContext,
+      convertLegacyExceptions: Boolean,
       canceled: () => Option[RuntimeException],
   )(implicit ec: ExecutionContext): Future[Result[SValue, Question, SExpr]] =
     new Runner(
@@ -168,6 +171,7 @@ private[lf] object Free {
       warningLog: WarningLog,
       profile: Profile,
       loggingContext: LoggingContext,
+      convertLegacyExceptions,
       canceled,
     ).getResultF()
 
@@ -178,6 +182,7 @@ private[lf] object Free {
       warningLog: WarningLog,
       profile: Profile,
       loggingContext: LoggingContext,
+      convertLegacyExceptions: Boolean,
       canceled: () => Option[RuntimeException] = () => None,
   ) {
 
@@ -206,6 +211,7 @@ private[lf] object Free {
         traceLog = traceLog,
         warningLog = warningLog,
         profile = profile,
+        convertLegacyExceptions = convertLegacyExceptions,
       )(loggingContext)
 
     @scala.annotation.nowarn("msg=dead code following this construct")

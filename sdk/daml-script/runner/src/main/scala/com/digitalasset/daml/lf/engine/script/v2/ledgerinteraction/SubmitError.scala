@@ -494,7 +494,10 @@ object SubmitError {
     }
   }
 
-  final case class FailureStatusError(failureStatus: IE.FailureStatus) extends SubmitError {
+  final case class FailureStatusError(
+      failureStatus: IE.FailureStatus,
+      exerciseTrace: Option[String],
+  ) extends SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "FailureStatusError",

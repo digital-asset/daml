@@ -8,6 +8,7 @@ import qualified V1.EnsureChanges as V1
 import qualified V2.EnsureChanges as V2
 import qualified V1.IfaceMod as Iface
 import DA.Exception
+import DA.Text
 
 {- PACKAGE
 name: ensure-changes-iface
@@ -79,7 +80,7 @@ testForPreconditionFailed makeV1Contract exerciseChoice = test $ do
   cid <- a `submit` createExactCmd (makeV1Contract a)
   res <-  a `trySubmit` exerciseChoice cid
   case res of
-    Left (UnhandledException (Some (fromAnyException -> Some (PreconditionFailed _)))) -> pure ()
+    Left (FailureStatusError fs) -> assertMsg ("Expected PreconditionFailed, got " <> show fs) $ "PreconditionFailed" `isInfixOf` fs.errorId
     res -> assertFail $ "Expected PreconditionFailed, got " <> show res
 
 ensureClauseBecomesInvalid : Test
