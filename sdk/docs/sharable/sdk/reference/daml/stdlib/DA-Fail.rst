@@ -94,7 +94,7 @@ Data Types
          - :ref:`Text <type-ghc-types-text-51952>`
          - Developer\-facing error message, which should be in English\.
        * - meta
-         - :ref:`Map <type-da-internal-lf-map-90052>` :ref:`Text <type-ghc-types-text-51952>` :ref:`Text <type-ghc-types-text-51952>`
+         - :ref:`TextMap <type-da-internal-lf-textmap-11691>` :ref:`Text <type-ghc-types-text-51952>`
          - Machine\-readable metadata about the error in a key\-value format\. Use this to provide extra context to clients for errors\.  SHOULD be less than \< 512 characters as it MAY be truncated otherwise\.
 
   **instance** :ref:`Eq <class-ghc-classes-eq-22713>` `FailureStatus <type-da-internal-fail-types-failurestatus-69615_>`_
