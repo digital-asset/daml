@@ -56,7 +56,7 @@ main = tests
   , ("Explicitly call a V2 choice on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded. (Nested)", explicitV2ChoiceV1ContractNested)
   , ("Call a V1 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, contract + argument upgraded, daml-script downgrades return type. (Nested)", inferredV1ChoiceV1ContractNested)
   , ("Call a V2 choice without package ID on a V1 contract over the ledger-api, expect V2 implementation used, and contract upgraded. (Nested)", inferredV2ChoiceV1ContractNested)
-  , brokenOnIDELedger ("Call a V2 choice without package ID on a V1 contract over the ledger-api, with V2 unvetted, expect V1 implementation used, argument downgraded, daml-script upgrades return type. (Nested)", inferredV1ChoiceV1ContractWithoutV2Nested)
+  , ("Call a V2 choice without package ID on a V1 contract over the ledger-api, with V2 unvetted, expect V1 implementation used, argument downgraded, daml-script upgrades return type. (Nested)", inferredV1ChoiceV1ContractWithoutV2Nested)
   , ("Explicitly call a V1 choice on a V2 contract over the ledger-api, expect V1 implementation used, and contract downgraded. (Nested)", explicitV1ChoiceV2ContractNested)
   , ("Explicitly call a V2 choice on a V2 contract over the ledger-api, expect V2 implementation used. (Nested)", explicitV2ChoiceV2ContractNested)
   ]
