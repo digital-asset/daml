@@ -15,7 +15,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.{Reassignment, ReassignmentInfo, Update}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.admin.data.ActiveContract
+import com.digitalasset.canton.participant.admin.data.ActiveContractOld
 import com.digitalasset.canton.participant.store.ParticipantNodePersistentState
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizer
 import com.digitalasset.canton.participant.util.TimeOfChange
@@ -112,7 +112,7 @@ class PartyReplicationTargetParticipantProcessor(
             repairCounter = RepairCounter(chunkId.unwrap)
             toc = TimeOfChange(partyToParticipantEffectiveAt, Some(repairCounter))
             missingAssignments = contracts.map {
-              case ActiveContract(synchronizerId, contract, reassignmentCounter) =>
+              case ActiveContractOld(synchronizerId, contract, reassignmentCounter) =>
                 (
                   contract.contractId,
                   ReassignmentTag.Source(synchronizerId),
@@ -183,11 +183,11 @@ class PartyReplicationTargetParticipantProcessor(
 
   private def repairEventFromSerializedContract(
       repairCounter: RepairCounter,
-      activeContracts: NonEmpty[Seq[ActiveContract]],
+      activeContracts: NonEmpty[Seq[ActiveContractOld]],
   )(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): NonEmpty[Seq[Update.RepairReassignmentAccepted]] =
-    activeContracts.map { case ActiveContract(synchronizerId, contract, reassignmentCounter) =>
+    activeContracts.map { case ActiveContractOld(synchronizerId, contract, reassignmentCounter) =>
       def uniqueUpdateId() = {
         // Add the repairCounter and contract-id to the hash to arrive at unique per-OPR updateIds.
         val hash = pureCrypto

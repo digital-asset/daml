@@ -23,6 +23,7 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.{
+  DefaultEpochLength,
   DefaultEpochStateTransferTimeout,
   DefaultMaxBatchCreationInterval,
   DefaultMaxBatchesPerProposal,
@@ -38,6 +39,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.dri
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.AvailabilityModuleConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssSegmentModule.BlockCompletionTimeout
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.time.BftTime
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochLength
 import io.netty.handler.ssl.SslContext
 
 import scala.concurrent.duration.*
@@ -53,6 +55,7 @@ import scala.concurrent.duration.*
   *   to receiving all the corresponding batches.
   */
 final case class BftBlockOrdererConfig(
+    epochLength: Long = DefaultEpochLength,
     maxRequestPayloadBytes: Int = DefaultMaxRequestPayloadBytes,
     maxMempoolQueueSize: Int = DefaultMaxMempoolQueueSize,
     // TODO(#24184) make a dynamic sequencing parameter
@@ -85,6 +88,9 @@ final case class BftBlockOrdererConfig(
   )
 }
 object BftBlockOrdererConfig {
+
+  // Minimum epoch length that allows 16 nodes (i.e., the current CN load test target) to all act as consensus leaders
+  val DefaultEpochLength: EpochLength = EpochLength(16)
 
   val DefaultMaxRequestPayloadBytes: Int = 1 * 1024 * 1024
   val DefaultMaxMempoolQueueSize: Int = 10 * 1024
@@ -198,5 +204,4 @@ object BftBlockOrdererConfig {
     implicit val pruningConfigCantonConfigValidator: CantonConfigValidator[PruningConfig] =
       CantonConfigValidatorDerivation[PruningConfig]
   }
-
 }

@@ -7,7 +7,7 @@ import better.files.File
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands
-import com.digitalasset.canton.admin.participant.v30.ExportAcsResponse
+import com.digitalasset.canton.admin.participant.v30.ExportAcsOldResponse
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
@@ -21,7 +21,7 @@ import com.digitalasset.canton.console.{
 import com.digitalasset.canton.grpc.FileStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.data.{
-  ActiveContract,
+  ActiveContractOld,
   ContractIdImportMode,
   RepairContract,
 }
@@ -151,29 +151,37 @@ class ParticipantRepairAdministration(
       }
     }
 
-  @Help.Summary("Export active contracts for the given set of parties to a file.")
+  // TODO(#24610) – Remove, replaced by `export_acs`
+  @Help.Summary("Export active contracts for the given set of parties to a file. (DEPRECATED)")
   @Help.Description(
-    """This command exports the current Active Contract Set (ACS) of a given set of parties to ACS snapshot file.
-        |Afterwards, the 'import_acs' command allows importing it into a participant's ACS again.
-        |Such ACS export (and import) is interesting for recovery and operational purposes only.
-        |Note that the 'export_acs' command execution may take a long time to complete and may require significant
-        |resources.
+    """This command exports the current Active Contract Set (ACS) of a given set of parties to
+        |ACS snapshot file. Afterwards, the 'import_acs_old' command allows importing it into a
+        |participant's ACS again. Such ACS export (and import) is interesting for recovery and
+        |operational purposes only.
+        |
+        |Note that the 'export_acs_old' command execution may take a long time to complete and may
+        |require significant resources.
+        |
+        |DEPRECATION NOTICE: A future release removes this command, use `export_acs` instead.
         |
         |
-
         |The arguments are:
         |- parties: identifying contracts having at least one stakeholder from the given set
         |- partiesOffboarding: true if the parties will be offboarded (party migration)
-        |- outputFile: the output file name where to store the data. Use .gz as a suffix to get a  compressed file (recommended)
+        |- outputFile: the output file name where to store the data.
         |- filterSynchronizerId: restrict the export to a given synchronizer
-        |- timestamp: optionally a timestamp for which we should take the state (useful to reconcile states of a synchronizer)
-        |- contractSynchronizerRenames: As part of the export, allow to rename the associated synchronizer id of contracts from one synchronizer to another based on the mapping.
+        |- timestamp: optionally a timestamp for which we should take the state (useful to
+        |             reconcile states of a synchronizer)
+        |- contractSynchronizerRenames: As part of the export, allow to rename the associated
+        |                               synchronizer id of contracts from one synchronizer to
+        |                               another based on the mapping.
         |- force: if is set to true, then the check that the timestamp is clean will not be done.
         |         For this option to yield a consistent snapshot, you need to wait at least
-        |         confirmationResponseTimeout + mediatorReactionTimeout after the last submitted request.
+        |         confirmationResponseTimeout + mediatorReactionTimeout after the last submitted
+        |         request.
         """
   )
-  def export_acs(
+  def export_acs_old(
       parties: Set[PartyId],
       partiesOffboarding: Boolean,
       outputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile,
@@ -187,12 +195,12 @@ class ParticipantRepairAdministration(
     check(FeatureFlag.Repair) {
       consoleEnvironment.run {
         val file = File(outputFile)
-        val responseObserver = new FileStreamObserver[ExportAcsResponse](file, _.chunk)
+        val responseObserver = new FileStreamObserver[ExportAcsOldResponse](file, _.chunk)
 
         def call: ConsoleCommandResult[Context.CancellableContext] =
           runner.adminCommand(
             ParticipantAdminCommands.ParticipantRepairManagement
-              .ExportAcs(
+              .ExportAcsOld(
                 parties,
                 partiesOffboarding = partiesOffboarding,
                 filterSynchronizerId,
@@ -213,33 +221,41 @@ class ParticipantRepairAdministration(
       }
     }
 
-  @Help.Summary("Import active contracts from an Active Contract Set (ACS) snapshot file.")
+  // TODO(#24610) – Remove, replaced by `import_acs`
+  @Help.Summary(
+    "Import active contracts from an Active Contract Set (ACS) snapshot file. (DEPRECATED)"
+  )
   @Help.Description(
-    """This command imports contracts from an ACS snapshot file into the participant's ACS.
-        |The given ACS snapshot file needs to be the resulting file from a previous 'export_acs' command invocation.
+    """This command imports contracts from an ACS snapshot file into the participant's ACS. The
+        |given ACS snapshot file needs to be the resulting file from a previous 'export_acs_old'
+        |command invocation.
         |
-        |The contract IDs of the imported contracts will be checked ahead of starting the process. If any contract
-        |ID doesn't match the contract ID scheme associated to the synchronizer where the contract is assigned to, the
-        |whole import process will fail depending on the value of `allowContractIdSuffixRecomputation`.
+        |The contract IDs of the imported contracts will be checked ahead of starting the
+        |process. If any contract ID doesn't match the contract ID scheme associated to the
+        |synchronizer where the contract is assigned to, the whole import process will fail
+        |depending on the value of `allowContractIdSuffixRecomputation`.
         |
-        |By default `allowContractIdSuffixRecomputation` is set to `false`. If set to `true`, any contract ID
-        |that wouldn't pass the check above will be recomputed. Note that the recomputation of contract IDs will
-        |fail under the following circumstances:
+        |By default `allowContractIdSuffixRecomputation` is set to `false`. If set to `true`, any
+        |contract ID that wouldn't pass the check above will be recomputed. Note that the
+        |recomputation of contract IDs fails under the following circumstances:
         | - the contract salt used to compute the contract ID is missing
         | - the contract ID discriminator version is unknown
         |
-        |Note that only the Canton-specific contract ID suffix will be recomputed. The discriminator cannot be
-        |recomputed and will be left as is.
+        |Note that only the Canton-specific contract ID suffix will be recomputed. The
+        |discriminator cannot be recomputed and will be left as is.
         |
-        |The recomputation will not be performed on contract IDs referenced in the payload of some imported contract
-        |but is missing from the import itself (this should mean that the contract was archived, which makes
-        |recomputation unnecessary).
+        |The recomputation will not be performed on contract IDs referenced in the payload of some
+        |imported contract but is missing from the import itself (this should mean that the
+        |contract was archived, which makes recomputation unnecessary).
         |
-        |If the import process succeeds, the mapping from the old contract IDs to the new contract IDs will be returned.
-        |An empty map means that all contract IDs were valid and no contract ID was recomputed.
+        |If the import process succeeds, the mapping from the old contract IDs to the new contract
+        |IDs will be returned. An empty map means that all contract IDs were valid and no contract
+        |ID was recomputed.
+        |
+        |DEPRECATION NOTICE: A future release removes this command, use `export_acs` instead.
         """
   )
-  def import_acs(
+  def import_acs_old(
       inputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile,
       workflowIdPrefix: String = "",
       allowContractIdSuffixRecomputation: Boolean = false,
@@ -247,7 +263,7 @@ class ParticipantRepairAdministration(
     check(FeatureFlag.Repair) {
       consoleEnvironment.run {
         runner.adminCommand(
-          ParticipantAdminCommands.ParticipantRepairManagement.ImportAcs(
+          ParticipantAdminCommands.ParticipantRepairManagement.ImportAcsOld(
             ByteString.copyFrom(File(inputFile).loadBytes),
             if (workflowIdPrefix.nonEmpty) workflowIdPrefix else s"import-${UUID.randomUUID}",
             allowContractIdSuffixRecomputation = allowContractIdSuffixRecomputation,
@@ -256,68 +272,62 @@ class ParticipantRepairAdministration(
       }
     }
 
-  @Help.Summary(
-    "Import active contracts from an Active Contract Set (ACS) snapshot file.",
-    FeatureFlag.Preview,
-  )
-  @Help.Description( // TODO(#24326) - update description when replacing import_acs with import_acs_new
-    """This command imports contracts from an ACS snapshot file into the participant's
-      |ACS. It expects the given ACS snapshot file to be the result of a previous
-      |`export_acs_new` command invocation.
+  @Help.Summary("Import active contracts from an Active Contract Set (ACS) snapshot file.")
+  @Help.Description(
+    """This command imports contracts from an ACS snapshot file into the participant's ACS. It
+      |expects the given ACS snapshot file to be the result of a previous `export_acs` command
+      |invocation.
       |
-      |The contract IDs of the imported contracts may be checked ahead of starting the
-      |process. If any contract ID doesn't match the contract ID scheme associated to
-      |the synchronizer where the contract is assigned to, the whole import process
-      |will fail depending on the value of `contractIdImportMode`.
+      |The contract IDs of the imported contracts may be checked ahead of starting the process.
+      |If any contract ID doesn't match the contract ID scheme associated to the synchronizer
+      |where the contract is assigned to, the whole import process fails depending on the value
+      |of `contractIdImportMode`.
       |
-      |By default `contractIdImportMode` is set to `ContractIdImportMode.Validation`.
-      |If set to `ContractIdImportMode.Recomputation`, any contract ID that wouldn't
-      |pass the check above will be recomputed. Note that the recomputation of contract
-      |IDs will fail under the following circumstances:
+      |By default `contractIdImportMode` is set to `ContractIdImportMode.Validation`. If set to
+      |`ContractIdImportMode.Recomputation`, any contract ID that wouldn't pass the check above
+      |will be recomputed. Note that the recomputation of contract IDs fails under the following
+      |circumstances:
       | - the contract salt used to compute the contract ID is missing
       | - the contract ID discriminator version is unknown
       |
       |Note that only the Canton-specific contract ID suffix will be recomputed. The
       |discriminator cannot be recomputed and will be left as is.
       |
-      |The recomputation will not be performed on contract IDs referenced in the payload
-      |of some imported contract but is missing from the import itself (this should mean
-      |that the contract was archived, which makes recomputation unnecessary).
+      |The recomputation will not be performed on contract IDs referenced in the payload of some
+      |imported contract but is missing from the import itself (this should mean that the
+      |contract was archived, which makes recomputation unnecessary).
       |
-      |Expert only: As validation or recomputation on contract IDs may lengthen the
-      |import significantly, you have the option to simply accept the contract IDs as they
-      |are using `ContractIdImportMode.Accept`.
+      |Expert only: As validation or recomputation on contract IDs may lengthen the import
+      |significantly, you have the option to simply accept the contract IDs as they are using
+      |`ContractIdImportMode.Accept`.
       |
-      |If the import process succeeds, the mapping from the old contract IDs to the new
-      |contract IDs will be returned. An empty map means that all contract IDs were valid,
-      |or have been accept as they are, and no contract ID was recomputed.
+      |If the import process succeeds, the mapping from the old contract IDs to the new contract
+      |IDs will be returned. An empty map means that all contract IDs were valid, or have been
+      |accept as they are, and no contract ID was recomputed.
       |
       |The arguments are:
       |- importFilePath: The path denoting the file from where the ACS snapshot will be read.
-      |                  Defaults to "canton-acs-export-new.gz" when undefined.
+      |                  Defaults to "canton-acs-export.gz" when undefined.
       |- workflowIdPrefix: Prefixes the workflow ID for the import. Defaults to
       |                  "import-<random_UUID>" when undefined.
       |- contractIdImportMode: Governs contract ID processing on import. Options include
       |                        Validation (default), [Accept, Recomputation].
       """
   )
-  def import_acs_new(
-      importFilePath: String =
-        "canton-acs-export-new.gz", // TODO(#24326) - update when replacing export_acs with export_acs_new, also in description
+  def import_acs(
+      importFilePath: String = "canton-acs-export.gz",
       workflowIdPrefix: String = "",
       contractIdImportMode: ContractIdImportMode = ContractIdImportMode.Validation,
   ): Map[LfContractId, LfContractId] =
     check(FeatureFlag.Repair) {
-      check(FeatureFlag.Preview) {
-        consoleEnvironment.run {
-          runner.adminCommand(
-            ParticipantAdminCommands.ParticipantRepairManagement.ImportAcsNew(
-              ByteString.copyFrom(File(importFilePath).loadBytes),
-              if (workflowIdPrefix.nonEmpty) workflowIdPrefix else s"import-${UUID.randomUUID}",
-              contractIdImportMode = contractIdImportMode,
-            )
+      consoleEnvironment.run {
+        runner.adminCommand(
+          ParticipantAdminCommands.ParticipantRepairManagement.ImportAcs(
+            ByteString.copyFrom(File(importFilePath).loadBytes),
+            if (workflowIdPrefix.nonEmpty) workflowIdPrefix else s"import-${UUID.randomUUID}",
+            contractIdImportMode = contractIdImportMode,
           )
-        }
+        )
       }
     }
 
@@ -352,7 +362,7 @@ class ParticipantRepairAdministration(
     ResourceUtil.withResource(outputStream) { outputStream =>
       contracts
         .traverse_ { repairContract =>
-          val activeContract = ActiveContract
+          val activeContract = ActiveContractOld
             .create(synchronizerId, repairContract.contract, repairContract.reassignmentCounter)(
               protocolVersion
             )
@@ -367,7 +377,7 @@ class ParticipantRepairAdministration(
     check(FeatureFlag.Repair) {
       consoleEnvironment.run {
         runner.adminCommand(
-          ParticipantAdminCommands.ParticipantRepairManagement.ImportAcs(
+          ParticipantAdminCommands.ParticipantRepairManagement.ImportAcsOld(
             bytes,
             workflowIdPrefix = s"import-${UUID.randomUUID}",
             allowContractIdSuffixRecomputation = allowContractIdSuffixRecomputation,

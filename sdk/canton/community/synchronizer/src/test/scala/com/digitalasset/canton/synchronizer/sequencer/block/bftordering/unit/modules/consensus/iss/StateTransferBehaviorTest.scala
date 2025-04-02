@@ -11,7 +11,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.*
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.EpochInProgress
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.*
@@ -246,7 +245,7 @@ class StateTransferBehaviorTest
       val newEpoch = EpochInfo(
         newEpochNumber,
         BlockNumber(11L),
-        DefaultEpochLength,
+        TestEpochLength,
         TopologyActivationTime(CantonTimestamp.MinValue),
       )
 
@@ -297,7 +296,7 @@ class StateTransferBehaviorTest
       inside(becomes) {
         case Seq(
               consensusModule @ IssConsensusModule(
-                DefaultEpochLength,
+                TestEpochLength,
                 None, // snapshotAdditionalInfo
                 `aTopologyInfo`,
                 futurePbftMessageQueue,
@@ -330,7 +329,7 @@ class StateTransferBehaviorTest
         // Should have set the new epoch state.
         stateTransferBehavior should matchPattern {
           case StateTransferBehavior(
-                DefaultEpochLength,
+                TestEpochLength,
                 _,
                 _,
                 `anEpochInfo`,
@@ -356,7 +355,7 @@ class StateTransferBehaviorTest
       outputModuleRef: ModuleRef[Output.Message[ProgrammableUnitTestEnv]] =
         fakeModuleExpectingSilence,
       p2pNetworkOutModuleRef: ModuleRef[P2PNetworkOut.Message] = fakeModuleExpectingSilence,
-      epochLength: EpochLength = DefaultEpochLength,
+      epochLength: EpochLength = TestEpochLength,
       topologyInfo: OrderingTopologyInfo[ProgrammableUnitTestEnv] = aTopologyInfo,
       epochStore: EpochStore[ProgrammableUnitTestEnv] =
         new InMemoryUnitTestEpochStore[ProgrammableUnitTestEnv],
@@ -461,10 +460,12 @@ class StateTransferBehaviorTest
 
 object StateTransferBehaviorTest {
 
+  private val TestEpochLength = EpochLength(10L)
+
   private val anEpochInfo: EpochInfo = EpochInfo(
     EpochNumber(1),
     BlockNumber(1),
-    DefaultEpochLength,
+    TestEpochLength,
     TopologyActivationTime(CantonTimestamp.Epoch),
   )
   private val aMembership =

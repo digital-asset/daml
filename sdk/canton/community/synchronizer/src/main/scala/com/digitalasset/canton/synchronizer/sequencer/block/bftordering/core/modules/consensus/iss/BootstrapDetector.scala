@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss
 
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpoch
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.SequencerSnapshotAdditionalInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
@@ -27,6 +27,7 @@ object BootstrapDetector {
     * case of onboarding failures or crashes.
     */
   def detect(
+      epochLength: EpochLength,
       snapshotAdditionalInfo: Option[SequencerSnapshotAdditionalInfo],
       membership: Membership,
       latestCompletedEpoch: EpochStore.Epoch,
@@ -47,7 +48,7 @@ object BootstrapDetector {
           activeAt.firstBlockNumberInEpoch.getOrElse(
             abort("No starting epoch's first block number found for new node onboarding")
           ),
-          DefaultEpochLength, // TODO(#19289) support variable epoch lengths or leave the default if not relevant
+          epochLength,
           activeAt.epochTopologyQueryTimestamp.getOrElse(
             abort("No starting epoch's topology query timestamp found for new node onboarding")
           ),

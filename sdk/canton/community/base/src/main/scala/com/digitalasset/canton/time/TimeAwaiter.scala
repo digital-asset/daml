@@ -19,7 +19,7 @@ import scala.jdk.CollectionConverters.*
 /** Utility to implement a time awaiter
   */
 final class TimeAwaiter(
-    getCurrentKnownTime: () => CantonTimestamp,
+    val getCurrentKnownTime: () => CantonTimestamp,
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
 ) extends FlagCloseable
