@@ -72,11 +72,7 @@ class ResponseFormatsTest
       if (failures.isEmpty)
         Map[String, JsValue]("result" -> JsArray(successes), "status" -> JsNumber("200"))
       else
-        Map[String, JsValue](
-          "result" -> JsArray(successes),
-          "errors" -> JsArray(failures),
-          "status" -> JsNumber("501"),
-        )
+        Map[String, JsValue]("errors" -> JsArray(failures), "status" -> JsNumber("501"))
 
     JsObject(map1 ++ map2)
   }
