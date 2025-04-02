@@ -4,6 +4,7 @@
 package com.daml.http.json
 
 import akka.actor.ActorSystem
+import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
@@ -43,16 +44,20 @@ class ResponseFormatsTest
     val (failures, successes): (Vector[JsString], Vector[JsValue]) =
       input.toVector.partitionMap(_.leftMap(e => JsString(e.shows)).toEither)
 
+    val (wantResponse, wantStatus) = expectedResult(failures, successes, jsValWarnings)
+
     val jsValSource = Source[DummyError \/ JsValue](input)
 
-    val responseF: Future[ByteString] =
-      ResponseFormats
-        .resultJsObject(jsValSource, jsValWarnings)
-        .runFold(ByteString.empty)((b, a) => b ++ a)
-
-    val resultF: Future[Assertion] = responseF.map { str =>
-      JsonParser(str.utf8String) shouldBe expectedResult(failures, successes, jsValWarnings)
-    }
+    @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
+    val resultF: Future[Assertion] = ResponseFormats
+      .resultJsObject(jsValSource, jsValWarnings)
+      .flatMap { case (source, statusCode) =>
+        source.runFold(ByteString.empty)((b, a) => b ++ a).map(bytes => (bytes, statusCode))
+      }
+      .map { case (bytes, statusCode) =>
+        statusCode shouldBe wantStatus
+        JsonParser(bytes.utf8String) shouldBe wantResponse
+      }
 
     Await.result(resultF, 10.seconds)
   }
@@ -61,20 +66,26 @@ class ResponseFormatsTest
       failures: Vector[JsValue],
       successes: Vector[JsValue],
       warnings: Option[JsValue],
-  ): JsObject = {
+  ): (JsObject, StatusCode) = {
 
     val map1: Map[String, JsValue] = warnings match {
       case Some(x) => Map("warnings" -> x)
       case None => Map.empty
     }
 
-    val map2 =
+    val (map2, status) =
       if (failures.isEmpty)
-        Map[String, JsValue]("result" -> JsArray(successes), "status" -> JsNumber("200"))
+        (
+          Map[String, JsValue]("result" -> JsArray(successes), "status" -> JsNumber("200")),
+          StatusCodes.OK,
+        )
       else
-        Map[String, JsValue]("errors" -> JsArray(failures), "status" -> JsNumber("501"))
+        (
+          Map[String, JsValue]("errors" -> JsArray(failures), "status" -> JsNumber("501")),
+          501: StatusCode,
+        )
 
-    JsObject(map1 ++ map2)
+    (JsObject(map1 ++ map2), status)
   }
 
   private lazy val errorOrJsNumber: Gen[DummyError \/ JsValue] = Gen.frequency(

@@ -298,7 +298,7 @@ abstract class FailureTests
         }
       }
       // TODO Document this properly or adjust it
-      _ = status shouldBe StatusCodes.OK
+      _ = status shouldBe 501
       (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
       _ = status shouldBe StatusCodes.ServiceUnavailable
       _ = out shouldBe

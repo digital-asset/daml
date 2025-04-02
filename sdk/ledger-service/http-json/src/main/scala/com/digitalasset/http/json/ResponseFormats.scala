@@ -4,14 +4,17 @@
 package com.daml.http.json
 
 import akka.NotUsed
-import akka.stream.scaladsl.{Concat, Source}
 import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes.OK
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Concat, Sink, Source}
 import akka.util.ByteString
 import scalaz.syntax.show._
-import spray.json.DefaultJsonProtocol._
 import scalaz.{Show, \/, -\/, \/-}
+import spray.json.DefaultJsonProtocol._
 import spray.json._
+
+import scala.concurrent.{ExecutionContext, Future}
 
 private[http] object ResponseFormats {
   val errorStatusCode = 501
@@ -31,38 +34,41 @@ private[http] object ResponseFormats {
   def resultJsObject[E: Show](
       jsVals: Source[E \/ JsValue, NotUsed],
       warnings: Option[JsValue],
-  ): Source[ByteString, NotUsed] = {
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[(Source[ByteString, NotUsed], StatusCode)] =
     jsVals
-      // Collapse the stream of `E \/ JsValue` into a single pair of errors and results,
-      // only one of which may be non-empty.
-      .fold((Vector.empty[E], Vector.empty[JsValue])) {
-        case ((errors, results), \/-(r)) if errors.isEmpty => (Vector.empty, results :+ r)
-        case ((errors, _), \/-(_)) => (errors, Vector.empty)
-        case ((errors, _), -\/(e)) => (errors :+ e, Vector.empty)
-      }
-      // Convert that into a stream containing the appropriate JSON response object
-      .flatMapConcat {
-        case (errors, results) => {
-          val comma = single(",")
-          val (payload, status) = {
-            val (name, vals, statusCode): (String, Iterator[JsValue], StatusCode) =
-              if (errors.nonEmpty)
-                ("errors", errors.iterator.map(e => JsString(e.shows)), errorStatusCode)
-              else
-                ("result", results.iterator, OK)
-            (arrayField(name, vals), scalarField("status", JsNumber(statusCode.intValue)))
+      .runWith {
+        Sink
+          // Collapse the stream of `E \/ JsValue` into a single pair of errors and results,
+          // only one of which may be non-empty.
+          .fold((Vector.empty[E], Vector.empty[JsValue])) {
+            case ((errors, results), \/-(r)) if errors.isEmpty => (Vector.empty, results :+ r)
+            case ((errors, _), \/-(_)) => (errors, Vector.empty)
+            case ((errors, _), -\/(e)) => (errors :+ e, Vector.empty)
           }
-          Source.combine(
-            single("{"),
-            warnings.fold(Source.empty[ByteString])(scalarField("warnings", _) ++ comma),
-            payload,
-            comma,
-            status,
-            single("}"),
-          )(Concat(_))
-        }
       }
-  }
+      .map { case (errors, results) =>
+        // Convert that into a stream containing the appropriate JSON response object
+        val (name, vals, statusCode): (String, Iterator[JsValue], StatusCode) =
+          if (errors.nonEmpty)
+            ("errors", errors.iterator.map(e => JsString(e.shows)), errorStatusCode)
+          else
+            ("result", results.iterator, OK)
+        val payload = arrayField(name, vals)
+        val status = scalarField("status", JsNumber(statusCode.intValue))
+        val comma = single(",")
+        val jsonSource: Source[ByteString, NotUsed] = Source.combine(
+          single("{"),
+          warnings.fold(Source.empty[ByteString])(scalarField("warnings", _) ++ comma),
+          payload,
+          comma,
+          status,
+          single("}"),
+        )(Concat(_))
+        (jsonSource, statusCode)
+      }
 
   private def single(value: String): Source[ByteString, NotUsed] =
     Source.single(ByteString(value))
