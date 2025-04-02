@@ -898,7 +898,7 @@ private[lf] final class Compiler(
                   s.SEValue(SText("UNHANDLED_EXCEPTION/" + exceptionId.qualifiedName.toString)),
                   s.SEValue(SInt64(FCInvalidGivenCurrentSystemStateOther.cantonCategoryId.toLong)),
                   env.toSEVar(messagePos),
-                  s.SEValue(SMap(false)),
+                  s.SEValue(SMap(true)),
                 ),
               ),
             ) { (failureStatusPos, env) =>

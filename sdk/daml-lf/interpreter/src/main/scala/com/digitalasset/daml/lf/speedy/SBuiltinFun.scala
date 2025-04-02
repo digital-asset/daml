@@ -2130,12 +2130,12 @@ private[lf] object SBuiltinFun {
                 SText(errorId),
                 SInt64(categoryId),
                 SText(errorMessage),
-                smap @ SMap(false, treeMap),
+                smap @ SMap(true, treeMap),
               ),
             ) => {
           val meta = treeMap.toMap.map {
             case (SText(key), SText(value)) => (key, value)
-            case _ => unexpectedType(0, "Map Text Text", smap)
+            case _ => unexpectedType(0, "TextMap Text", smap)
           }
           Control.Error(IE.FailureStatus(errorId, categoryId.toInt, errorMessage, meta))
         }

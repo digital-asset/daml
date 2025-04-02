@@ -240,7 +240,7 @@ pattern TFailureStatus :: Type
 pattern TFailureStatus = TCon (Qualified
   -- We cannot look up these stable IDs using stablePackageByModuleName because
   -- it would introduce a cyclic dependency with StablePackages.
-    (ImportedPackageId (PackageId "765e60a9b6a45dde59f48a97b8a12b4c91c981503ca9410a4c195fb4065cca11"))
+    (ImportedPackageId (PackageId "7adc4c2d07fa3a51173c843cba36e610c1168b2dbbf53076e20c0092eae8763d"))
     (ModuleName ["DA", "Internal", "Fail", "Types"])
     (TypeConName ["FailureStatus"])
   )
