@@ -1,5 +1,6 @@
 Script execution failed:
-  Failed with status of category InvalidGivenCurrentSystemStateOther: UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError: ohno
+  Failed with status: UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError: ohno
+  Using Canton Error Category InvalidGivenCurrentSystemStateOther
 
 Ledger time: 1970-01-01T00:00:00Z
 
