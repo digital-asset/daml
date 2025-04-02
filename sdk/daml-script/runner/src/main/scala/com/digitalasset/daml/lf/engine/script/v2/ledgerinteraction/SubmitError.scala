@@ -117,7 +117,7 @@ object SubmitError {
       )
   }
 
-  final case class PackageNotFound(packageName: String) extends SubmitError {
+  final case class PackageNotFound(packageName: PackageName) extends SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "PackageNotFound",
