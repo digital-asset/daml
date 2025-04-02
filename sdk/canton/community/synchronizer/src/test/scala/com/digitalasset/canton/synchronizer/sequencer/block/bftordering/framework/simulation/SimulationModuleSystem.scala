@@ -20,6 +20,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.OnboardingManager
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.OnboardingManager.ReasonForProvide
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   CancellableEvent,
   ClientP2PNetworkManager,
@@ -439,7 +440,7 @@ object SimulationModuleSystem {
       initialSequencersToInitializers.view.map { case (endpoint, simulationInitializer) =>
         val node = Simulation.endpointToNode(endpoint)
         node -> machineInitializer.initialize(
-          onboardingManager.provide(node),
+          onboardingManager.provide(ReasonForProvide.ProvideForInit, node),
           simulationInitializer,
         )
       }.toMap

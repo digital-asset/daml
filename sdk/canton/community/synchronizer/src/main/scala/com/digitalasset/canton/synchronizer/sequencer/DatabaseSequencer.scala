@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer
 
-import cats.data.{EitherT, OptionT}
+import cats.data.EitherT
 import cats.instances.option.*
 import cats.syntax.apply.*
 import cats.syntax.either.*
@@ -515,20 +515,6 @@ class DatabaseSequencer(
         snapshot(timestamp)
       }
   }
-
-  override private[sequencer] def firstSequencerCounterServeableForSequencer(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[SequencerCounter] =
-    if (blockSequencerMode) {
-      val result = for {
-        member <- OptionT(sequencerStore.lookupMember(topologyClientMember))
-        checkpoint <- OptionT(sequencerStore.fetchEarliestCheckpointForMember(member.memberId))
-      } yield checkpoint.counter + 1
-      result.getOrElse(SequencerCounter.Genesis)
-    } else {
-      // Database sequencers are never bootstrapped
-      FutureUnlessShutdown.pure(SequencerCounter.Genesis)
-    }
 
   override def onClosed(): Unit =
     LifeCycle.close(

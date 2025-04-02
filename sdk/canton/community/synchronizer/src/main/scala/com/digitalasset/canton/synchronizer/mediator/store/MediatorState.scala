@@ -8,6 +8,7 @@ import cats.syntax.functor.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.{
   CloseContext,
@@ -24,12 +25,14 @@ import com.digitalasset.canton.synchronizer.mediator.{
   ResponseAggregator,
 }
 import com.digitalasset.canton.synchronizer.metrics.MediatorMetrics
-import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.time.{Clock, TimeAwaiter}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.version.ProtocolVersion
+import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.ConcurrentSkipListMap
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.*
 
@@ -49,7 +52,8 @@ private[mediator] class MediatorState(
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends NamedLogging
+    extends MediatorStateInitialization
+    with NamedLogging
     with FlagCloseable {
 
   // outstanding requests are kept in memory while finalized requests will be stored
@@ -57,8 +61,69 @@ private[mediator] class MediatorState(
   private val pendingRequests =
     new ConcurrentSkipListMap[RequestId, ResponseAggregation[?]](implicitly[Ordering[RequestId]])
 
+  // tracks the highest record time that is safe to query for verdicts, in case there are no pending requests
+  // consider the following scenario:
+  // 1. pending requests: t0, t1, t2
+  // 2. t1 and t2 get finalized before t0
+  // 3. once t0 gets finalized, we want to signal that the verdicts for all requests up to including t2 are now
+  //    save to load from the store without potentially messing up the order
+  @VisibleForTesting
+  private[canton] val youngestFinalizedRequest = new AtomicReference(CantonTimestamp.MinValue)
+
+  // returns either the predecessor of the oldest pending request (because the request itself is not yet finalized),
+  // or the youngest finalized request in case there are no pending requests.
+  private def oldestPendingOrYoungestFinalized: CantonTimestamp =
+    Option(pendingRequests.ceilingKey(RequestId(CantonTimestamp.MinValue)))
+      // the oldest request itself is still pending, therefore we can only query up to the predecessor
+      .map(_.unwrap.immediatePredecessor)
+      .getOrElse(youngestFinalizedRequest.get())
+
+  // the TimeAwaiter that keeps track of recorder order
+  val recordOrderTimeAwaiter =
+    new TimeAwaiter(() => oldestPendingOrYoungestFinalized, timeouts, loggerFactory)
+
   private def updateNumRequests(num: Int): Unit =
     metrics.outstanding.updateValue(_ + num)
+
+  // Initialize the request tracking with
+  override protected def doInitialize(firstEventTs: CantonTimestamp)(implicit
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Unit] =
+    for {
+      recordTimeO <- finalizedResponseStore.highestRecordTime()
+    } yield {
+      val highestValidTimestampBeforeReplayEvent =
+        if (firstEventTs == CantonTimestamp.MinValue) firstEventTs
+        // replay may start at firstEventTs, therefore we consider firstEventTs' predecessor to be the highest
+        // valid timestamp
+        else firstEventTs.immediatePredecessor
+      youngestFinalizedRequest.set(
+        // use the lowest known event timestamp as a safe timestamp up to which we can safely serve verdicts.
+        // consider the following timeline: (rx = request #x, vx = verdict #x, tx = sequencing time at timestamp x)
+        //    t1 t2 t3 t4
+        //   ──┼──┼──┼──┼─>
+        //    r1 r2 v2 v1
+        // scenario 1: highest record time in store is lower than the timestamp of the first replayed event.
+        //    timestamp of first replayed event: t4
+        //    highest record time in store: t2 (from r2)
+        //    We know that any verdict coming for requests lower than t2 will be just ignored, because mediator doesn't do
+        //    crash recovery. Only new requests with a request timestamp (aka record time) >= t4 will be registered and
+        //    properly processed.
+        //
+        // scenario 2: highest record time in store is higher than the record time of the first replayed event.
+        //    timestamp of first replayed event: t1
+        //    highest record time in store: t2 (from r2)
+        //    Since we replay events from before the highest record time, it could be (like in this example) that the
+        //    replayed events contain requests with a lower record time. Since we replay these requests, they will be properly
+        //    processed and the emission of the highest record time must wait for the earlier record times to be processed.
+        recordTimeO
+          .map(_.min(highestValidTimestampBeforeReplayEvent))
+          // if no timestamp was found in the finalized response store, then we can just use the timestamp based on the replay
+          // event as the highest record time that is safe to read from the store
+          .getOrElse(highestValidTimestampBeforeReplayEvent)
+      )
+    }
 
   /** Adds an incoming ResponseAggregation */
   def add(
@@ -66,7 +131,8 @@ private[mediator] class MediatorState(
   )(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): FutureUnlessShutdown[Unit] =
+  ): FutureUnlessShutdown[Unit] = {
+    requireInitialized()
     responseAggregation.asFinalized(protocolVersion) match {
       case None =>
         val requestId = responseAggregation.requestId
@@ -80,14 +146,19 @@ private[mediator] class MediatorState(
         FutureUnlessShutdown.unit
       case Some(finalizedResponse) => add(finalizedResponse)
     }
+  }
 
   def add(
       finalizedResponse: FinalizedResponse
   )(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): FutureUnlessShutdown[Unit] =
-    finalizedResponseStore.store(finalizedResponse)
+  ): FutureUnlessShutdown[Unit] = {
+    requireInitialized()
+    finalizedResponseStore
+      .store(finalizedResponse)
+      .map(_ => checkAndPublishNewRecordTime(finalizedResponse.requestId))
+  }
 
   def fetch(requestId: RequestId)(implicit
       traceContext: TraceContext,
@@ -108,6 +179,7 @@ private[mediator] class MediatorState(
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
   ): FutureUnlessShutdown[Boolean] = {
+    requireInitialized()
     ErrorUtil.requireArgument(
       oldValue.requestId == newValue.requestId,
       s"RequestId ${oldValue.requestId} cannot be replaced with ${newValue.requestId}",
@@ -121,6 +193,7 @@ private[mediator] class MediatorState(
         Option(pendingRequests.remove(requestId)) foreach { _ =>
           updateNumRequests(-1)
         }
+        checkAndPublishNewRecordTime(requestId)
       }
 
     (for {
@@ -154,6 +227,17 @@ private[mediator] class MediatorState(
         }
       }
     } yield true).getOrElse(false)
+  }
+
+  private def checkAndPublishNewRecordTime(
+      requestId: RequestId
+  )(implicit traceContext: TraceContext): Unit = {
+    // remember the timestamp if it's the youngest
+    youngestFinalizedRequest.updateAndGet(_.max(requestId.unwrap)).discard
+    // if there are no more pending requests before this requestId,
+    if (pendingRequestIdsBefore(requestId.unwrap).isEmpty) {
+      recordOrderTimeAwaiter.notifyAwaitedFutures(oldestPendingOrYoungestFinalized)
+    }
   }
 
   /** Fetch pending requests that have a timestamp below the provided `cutoff` */
@@ -207,6 +291,7 @@ private[mediator] class MediatorState(
   override def onClosed(): Unit =
     LifeCycle.close(
       // deduplicationStore, Not closed on purpose, because the deduplication store methods all receive their close context directly from the caller
-      finalizedResponseStore
+      finalizedResponseStore,
+      recordOrderTimeAwaiter,
     )(logger)
 }

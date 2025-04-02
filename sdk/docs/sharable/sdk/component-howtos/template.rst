@@ -16,10 +16,13 @@ Secure
 Operate
 -------------
 
-Optimize
+Observe
 -------------
 
-Observe
+Harden
+-------------
+
+Optimize
 -------------
 
 Upgrade

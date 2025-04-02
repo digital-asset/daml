@@ -181,6 +181,7 @@ object ValueCoder {
           identity,
         )
 
+    @scala.annotation.nowarn("cat=unused")
     def assertSince(minVersion: TransactionVersion, description: => String) =
       if (version < minVersion)
         throw Err(s"$description is not supported by transaction version $version")
@@ -255,7 +256,6 @@ object ValueCoder {
               .to(ImmArray)
             ValueGenMap(entries)
           case proto.Value.SumCase.TEXT_MAP =>
-            assertSince(TransactionVersion.minTextMap, "TextMap")
             val textMap = protoValue.getTextMap
             assertNoUnknownFields(textMap)
             val entries =
@@ -337,6 +337,7 @@ object ValueCoder {
   def encodeValue(valueVersion: TransactionVersion, v0: Value): Either[EncodeError, ByteString] = {
     case class Err(msg: String) extends Throwable(null, null, true, false)
 
+    @scala.annotation.nowarn("cat=unused")
     def assertSince(minVersion: TransactionVersion, description: => String) =
       if (valueVersion < minVersion)
         throw Err(s"$description is not supported by value version $valueVersion")
@@ -404,7 +405,6 @@ object ValueCoder {
             builder.setOptional(protoOption).build()
 
           case ValueTextMap(map) =>
-            assertSince(TransactionVersion.minTextMap, "TextMap")
             val protoMap = proto.Value.TextMap.newBuilder()
             map.toImmArray.foreach { case (key, value) =>
               discard(

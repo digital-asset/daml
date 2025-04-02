@@ -1,0 +1,48 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module DamlDebug where
+
+template DebugTest
+  with
+    party: Party
+  where
+    signatory party
+
+    nonconsuming choice Debug : ()
+      with
+        message: Text
+      controller party
+      do
+        _ <- debug message
+        return ()
+
+    nonconsuming choice DebugRaw : ()
+      with
+        message: Text
+      controller party
+      do
+        _ <- debugRaw message
+        return ()
+
+    nonconsuming choice Trace : ()
+      with
+        message: Text
+      controller party
+      do
+        return (trace message ())
+
+    nonconsuming choice TraceRaw : ()
+      with
+        message: Text
+      controller party
+      do
+        return (traceRaw message ())
+
+    nonconsuming choice TraceId : Text
+      with
+        message: Text
+      controller party
+      do
+        return (traceId message)
+

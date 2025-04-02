@@ -22,7 +22,7 @@ import com.digitalasset.canton.admin.api.client.data.{
   ListPartiesResult,
   PartyDetails,
 }
-import com.digitalasset.canton.admin.participant.v30.ExportAcsNewResponse
+import com.digitalasset.canton.admin.participant.v30.ExportAcsResponse
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.commands.TopologyTxFiltering.{ChangedFilter, RevokedFilter}
@@ -392,33 +392,31 @@ class ParticipantPartiesAdministrationGroup(
       TopologySynchronisation.awaitTopologyObserved(reference, partyAssignment, timeout)
     }
 
-  // TODO(#24326) - Revise description for export_acs(_new) / export_acs_new becomes export_acs
   // TODO(#24827) - Revise filtering such that only transactions are used where a party is really added to a participant
   @Help.Summary("Finds a party's highest activation offset.")
   @Help.Description(
-    """This command locates the highest ledger offset where a party's activation
-      |matches specified criteria.
+    """This command locates the highest ledger offset where a party's activation matches
+      |specified criteria.
       |
-      |It searches the ledger for topology transactions, sequenced by the given
-      |synchronizer (`synchronizerId`), that result in the party (`partyId`)
-      |being newly hosted on the participant (`participantId`). An optional
-      |`validFrom` timestamp filters the topology transactions for their effective
-      |time.
+      |It searches the ledger for topology transactions, sequenced by the given synchronizer
+      |(`synchronizerId`), that result in the party (`partyId`) being newly hosted on the
+      |participant (`participantId`). An optional `validFrom` timestamp filters the topology
+      |transactions for their effective time.
       |
-      |The ledger search occurs within the specified offset range, targeting a
-      |specific number of topology transactions (`completeAfter`).
+      |The ledger search occurs within the specified offset range, targeting a specific number
+      |of topology transactions (`completeAfter`).
       |
-      |The search begins at the ledger start if `beginOffsetExclusive` is default.
-      |If the participant was pruned and `beginOffsetExclusive` is below the pruning
-      |offset, a `NOT_FOUND` error occurs. Use an `beginOffsetExclusive` near, but
-      |before, the desired topology transactions.
+      |The search begins at the ledger start if `beginOffsetExclusive` is default. If the
+      |participant was pruned and `beginOffsetExclusive` is below the pruning offset, a
+      |`NOT_FOUND` error occurs. Use an `beginOffsetExclusive` near, but before, the desired
+      |topology transactions.
       |
-      |If `endOffsetInclusive` is not set (`None`), the search continues until
-      |`completeAfter` number of transactions are found or the `timeout` expires.
-      |Otherwise, the ledger search ends at the specified offset.
+      |If `endOffsetInclusive` is not set (`None`), the search continues until `completeAfter`
+      |number of transactions are found or the `timeout` expires. Otherwise, the ledger search
+      |ends at the specified offset.
       |
-      |This command is useful for creating ACS snapshots with `export_acs_new`, which
-      |requires the party activation ledger offset.
+      |This command is useful for creating ACS snapshots with `export_acs`, which requires the
+      |party activation ledger offset.
       |
       |
       |The arguments are:
@@ -462,28 +460,28 @@ class ParticipantPartiesAdministrationGroup(
 
   @Help.Summary("Finds a party's highest deactivation offset.")
   @Help.Description(
-    """This command locates the highest ledger offset where a party's deactivation
-      |matches specified criteria.
+    """This command locates the highest ledger offset where a party's deactivation matches
+      |specified criteria.
       |
-      |It searches the ledger for topology transactions, sequenced by the given
-      |synchronizer (`synchronizerId`), that result in the party (`partyId`)
-      |being revoked on the participant (`participantId`). An optional `validFrom`
-      |timestamp filters the topology transactions for their effective time.
+      |It searches the ledger for topology transactions, sequenced by the given synchronizer
+      |(`synchronizerId`), that result in the party (`partyId`) being revoked on the participant
+      |(`participantId`). An optional `validFrom` timestamp filters the topology transactions
+      |for their effective time.
       |
-      |The ledger search occurs within the specified offset range, targeting a
-      |specific number of topology transactions (`completeAfter`).
+      |The ledger search occurs within the specified offset range, targeting a specific number
+      |of topology transactions (`completeAfter`).
       |
-      |The search begins at the ledger start if `beginOffsetExclusive` is default.
-      |If the participant was pruned and `beginOffsetExclusive` is below the pruning
-      |offset, a `NOT_FOUND` error occurs. Use an `beginOffsetExclusive` near, but
-      |before, the desired topology transactions.
+      |The search begins at the ledger start if `beginOffsetExclusive` is default. If the
+      |participant was pruned and `beginOffsetExclusive` is below the pruning offset, a
+      |`NOT_FOUND` error occurs. Use an `beginOffsetExclusive` near, but before, the desired
+      |topology transactions.
       |
-      |If `endOffsetInclusive` is not set (`None`), the search continues until
-      |`completeAfter` number of transactions are found or the `timeout` expires.
-      |Otherwise, the ledger search ends at the specified offset.
+      |If `endOffsetInclusive` is not set (`None`), the search continues until `completeAfter`
+      |number of transactions are found or the `timeout` expires. Otherwise, the ledger search
+      |ends at the specified offset.
       |
-      |This command is useful for finding active contracts at the ledger offset where
-      |a party has been off-boarded from a participant.
+      |This command is useful for finding active contracts at the ledger offset where a party
+      |has been off-boarded from a participant.
       |
       |
       |The arguments are:
@@ -558,64 +556,56 @@ class ParticipantPartiesAdministrationGroup(
       )
   }
 
-  @Help.Summary(
-    "Export active contracts for the given set of parties to a file.",
-    FeatureFlag.Preview,
-  )
-  @Help.Description( // TODO(#24326) - update description when replacing export_acs with export_acs_new
-    """This command exports the current Active Contract Set (ACS) of a given set of
-      |parties to a GZIP compressed ACS snapshot file. Afterwards, the `import_acs_new`
-      |repair command imports it into a participant's ACS again.
+  @Help.Summary("Export active contracts for the given set of parties to a file.")
+  @Help.Description(
+    """This command exports the current Active Contract Set (ACS) of a given set of parties to a
+      |GZIP compressed ACS snapshot file. Afterwards, the `import_acs` repair command imports it
+      |into a participant's ACS again.
       |
-      |Note that the `export_acs_new` command execution may take a long time to
-      |complete and may require significant memory (RAM) depending on the size of the ACS.
+      |Note that the `export_acs` command execution may take a long time to complete and may
+      |require significant memory (RAM) depending on the size of the ACS.
       |
       |The arguments are:
       |- parties: Identifying contracts having at least one stakeholder from the given set.
       |- exportFilePath: The path denoting the file where the ACS snapshot will be stored.
       |- filterSynchronizerId: When defined, restricts the export to the given synchronizer.
       |- ledgerOffset: The offset at which the ACS snapshot is exported.
-      |- contractSynchronizerRenames: Changes the associated synchronizer id of contracts
-      |                               from one synchronizer to another based on the mapping.
+      |- contractSynchronizerRenames: Changes the associated synchronizer id of contracts from
+      |                               one synchronizer to another based on the mapping.
       |- timeout: A timeout for this operation to complete.
       |- templateFilter: Template IDs for the contracts to be exported.
-        """
+      """
   )
-  def export_acs_new(
+  def export_acs(
       parties: Set[PartyId],
-      // TODO(#24065) - handle `partiesOffboarding: Boolean,` = true in repair.party_migration
-      exportFilePath: String =
-        "canton-acs-export-new.gz", // TODO(#24326) - update when replacing export_acs with export_acs_new
+      exportFilePath: String = "canton-acs-export.gz",
       filterSynchronizerId: Option[SynchronizerId] = None,
       ledgerOffset: NonNegativeLong,
       contractSynchronizerRenames: Map[SynchronizerId, SynchronizerId] = Map.empty,
       timeout: NonNegativeDuration = timeouts.unbounded,
   ): Unit =
-    check(FeatureFlag.Preview) {
-      consoleEnvironment.run {
-        val file = File(exportFilePath)
-        val responseObserver = new FileStreamObserver[ExportAcsNewResponse](file, _.chunk)
+    consoleEnvironment.run {
+      val file = File(exportFilePath)
+      val responseObserver = new FileStreamObserver[ExportAcsResponse](file, _.chunk)
 
-        def call: ConsoleCommandResult[Context.CancellableContext] =
-          reference.adminCommand(
-            ParticipantAdminCommands.PartyManagement
-              .ExportAcsNew(
-                parties,
-                filterSynchronizerId,
-                ledgerOffset.unwrap,
-                responseObserver,
-                contractSynchronizerRenames,
-              )
+      def call: ConsoleCommandResult[Context.CancellableContext] =
+        reference.adminCommand(
+          ParticipantAdminCommands.PartyManagement.ExportAcs(
+            parties,
+            filterSynchronizerId,
+            ledgerOffset.unwrap,
+            responseObserver,
+            contractSynchronizerRenames,
           )
-
-        processResult(
-          call,
-          responseObserver.result,
-          timeout,
-          request = "exporting acs",
-          cleanupOnError = () => file.delete(),
         )
-      }
+
+      processResult(
+        call,
+        responseObserver.result,
+        timeout,
+        request = "exporting acs",
+        cleanupOnError = () => file.delete(),
+      )
     }
 }
 

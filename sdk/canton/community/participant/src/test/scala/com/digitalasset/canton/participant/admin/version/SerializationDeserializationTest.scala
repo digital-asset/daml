@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.admin.version
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.participant.admin.data.{ActiveContract, GeneratorsData}
+import com.digitalasset.canton.participant.admin.data.{ActiveContractOld, GeneratorsData}
 import com.digitalasset.canton.protocol.GeneratorsProtocol
 import com.digitalasset.canton.version.{ProtocolVersion, SerializationDeserializationTestHelpers}
 import org.scalatest.wordspec.AnyWordSpec
@@ -23,7 +23,7 @@ class SerializationDeserializationTest
 
     s"Serialization and deserialization methods using protocol version $version" should {
       "compose to the identity" in {
-        test(ActiveContract, version)
+        test(ActiveContractOld, version)
       }
     }
   }

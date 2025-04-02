@@ -16,11 +16,15 @@ final class GeneratorsData(
 ) {
   import generatorsProtocol.*
 
-  implicit val activeContractArb: Arbitrary[ActiveContract] =
-    Arbitrary(for {
-      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
-      contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
-      reassignmentCounter <- reassignmentCounterGen
-    } yield ActiveContract.create(synchronizerId, contract, reassignmentCounter)(protocolVersion))
+  implicit val activeContractArb: Arbitrary[ActiveContractOld] =
+    Arbitrary(
+      for {
+        synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
+        contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
+        reassignmentCounter <- reassignmentCounterGen
+      } yield ActiveContractOld.create(synchronizerId, contract, reassignmentCounter)(
+        protocolVersion
+      )
+    )
 
 }

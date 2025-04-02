@@ -16,6 +16,7 @@ import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeV
 import scala.concurrent.{ExecutionContext, Await}
 import scala.concurrent.duration._
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 
 final case class CouldNotReadDar(path: String, err: ArchiveError) {
   val message: String = s"Error reading DAR from ${path}: ${err.msg}"
@@ -37,7 +38,6 @@ case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
   }
 
   val validator = new PackageUpgradeValidator(
-    getPackageMap = _ => Map.empty,
     getLfArchive = _ => _ => FutureUnlessShutdown.pure(None),
     loggerFactory = loggerFactory,
   )
@@ -55,7 +55,10 @@ case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
         archive
       }
 
-      val validation = validator.validateUpgrade(archives.toList)
+      val validation = validator.validateUpgrade(
+        upgradingPackages = archives.toList,
+        packageMetadataSnapshot = new PackageMetadata(),
+      )
       Await.result(validation.value, Duration.Inf) match {
         case UnlessShutdown.Outcome(Left(err: Validation.Upgradeability.Error)) =>
           logger.error(s"Error while checking two DARs:\n${err.cause}")

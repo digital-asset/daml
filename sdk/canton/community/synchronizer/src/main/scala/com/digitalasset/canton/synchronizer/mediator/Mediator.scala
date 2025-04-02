@@ -107,8 +107,7 @@ private[mediator] class Mediator(
   )
 
   private val deduplicator = MediatorEventDeduplicator.create(
-    state.deduplicationStore,
-    state.finalizedResponseStore,
+    state,
     verdictSender,
     syncCrypto.ips,
     protocolVersion,
@@ -133,6 +132,7 @@ private[mediator] class Mediator(
       preheadO <- sequencerCounterTrackerStore.preheadSequencerCounter
       nextTs = preheadO.fold(CantonTimestamp.MinValue)(_.timestamp.immediateSuccessor)
       _ <- state.deduplicationStore.initialize(nextTs)
+      _ <- state.initialize(nextTs)
 
       _ <-
         sequencerClient.subscribeTracking(

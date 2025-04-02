@@ -1,0 +1,59 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module WitnessCreate where
+
+import Daml.Script
+
+-- Test case that all witnesses see create nodes
+
+template Outer
+  with
+    sig: Party
+    obs: Party
+  where
+    signatory sig
+    observer obs
+
+    choice ShowCreate: ContractId Inner
+      with inner: ContractId Inner
+      controller sig
+        do
+          exercise inner CreateAnotherInner
+
+    nonconsuming choice FetchInner: Inner
+      with inner: ContractId Inner
+      controller obs
+        do
+          fetch inner
+
+template Inner
+  with
+    p: Party
+  where
+    signatory p
+
+    choice CreateAnotherInner: ContractId Inner
+      controller p
+        do
+          create Inner with p = p
+
+witnessCreate =
+  script do
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
+
+    inner <- submit alice do
+      createCmd Inner with p = alice
+
+    outer1 <- submit alice do
+      createCmd Outer with sig = alice; obs = bob
+
+    outer2 <- submit alice do
+      createCmd Outer with sig = alice; obs = bob
+
+    witnessedCreate <- submit alice do
+      exerciseCmd outer1 ShowCreate with inner = inner
+
+    submit bob do
+      exerciseCmd outer2 FetchInner with inner = witnessedCreate

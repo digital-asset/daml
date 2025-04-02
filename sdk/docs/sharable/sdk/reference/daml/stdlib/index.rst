@@ -48,6 +48,7 @@ Here is a complete list of modules in the standard library:
 * :doc:`DA.Set <DA-Set>`
 * :doc:`DA.Stack <DA-Stack>`
 * :doc:`DA.Text <DA-Text>`
+* :doc:`DA.TextMap <DA-TextMap>`
 * :doc:`DA.Time <DA-Time>`
 * :doc:`DA.Traversable <DA-Traversable>`
 * :doc:`DA.Tuple <DA-Tuple>`

@@ -759,4 +759,56 @@ class AvailabilityModuleDisseminationTest
         disseminationProtocolState.toBeProvidedToConsensus should contain only AToBeProvidedToConsensus
       }
     }
+
+  "F > 0, " +
+    "it receives `< quorum-1` Dissemination.RemoteBatchAcknowledged (w/ duplicates) from nodes " +
+    "(i.e., proof of availability is incomplete), " +
+    "the batch is being disseminated, " +
+    "there are consensus requests" should {
+
+      "update dissemination progress and ignore duplicates" in {
+        val disseminationProtocolState = new DisseminationProtocolState()
+        disseminationProtocolState.disseminationProgress.addOne(
+          ABatchDisseminationProgressNode0To6WithNode0Vote
+        )
+        disseminationProtocolState.toBeProvidedToConsensus.addOne(AToBeProvidedToConsensus)
+        val cryptoProvider = mock[CryptoProvider[IgnoringUnitTestEnv]]
+        val availability = createAvailability[IgnoringUnitTestEnv](
+          otherNodes = Node1To6,
+          cryptoProvider = cryptoProvider,
+          disseminationProtocolState = disseminationProtocolState,
+        )
+        disseminationProtocolState.disseminationProgress should
+          contain only ABatchDisseminationProgressNode0To6WithNode0Vote
+
+        // First time receiving node1Ack: verified by the cryptoProvider and
+        // added to the in-memory AvailabilityAck set
+        val node1Ack = remoteBatchAcknowledged(1)
+        availability.receive(node1Ack)
+        verify(cryptoProvider, times(1)).verifySignature(
+          AvailabilityAck.hashFor(node1Ack.batchId, anEpochNumber, node1Ack.from),
+          node1Ack.from,
+          node1Ack.signature,
+        )
+        availability.receive(
+          LocalDissemination.RemoteBatchAcknowledgeVerified(
+            node1Ack.batchId,
+            node1Ack.from,
+            node1Ack.signature,
+          )
+        )
+        disseminationProtocolState.disseminationProgress should
+          contain only ABatchDisseminationProgressNode0To6WithNode0And1Votes
+        disseminationProtocolState.batchesReadyForOrdering should be(empty)
+        disseminationProtocolState.toBeProvidedToConsensus should contain only AToBeProvidedToConsensus
+
+        // Second time receiving node1Ack: deduplicated before cryptoProvider.verify
+        availability.receive(node1Ack)
+        verifyNoMoreInteractions(cryptoProvider)
+        disseminationProtocolState.disseminationProgress should
+          contain only ABatchDisseminationProgressNode0To6WithNode0And1Votes
+        disseminationProtocolState.batchesReadyForOrdering should be(empty)
+        disseminationProtocolState.toBeProvidedToConsensus should contain only AToBeProvidedToConsensus
+      }
+    }
 }

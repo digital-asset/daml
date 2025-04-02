@@ -1,0 +1,17 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Loop where
+
+loop : Int -> ()
+loop x = loop (x + 1)
+
+template Helper
+  with
+    p : Party
+  where
+    signatory p
+    choice Loop : ()
+      controller p
+      do
+        pure $ loop 1

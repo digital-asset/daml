@@ -8,15 +8,26 @@ import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.connection.v30
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc.ApiInfoServiceStub
 import com.digitalasset.canton.connection.v30.GetApiInfoResponse
-import com.digitalasset.canton.crypto.Fingerprint
+import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
+import com.digitalasset.canton.crypto.{Crypto, Fingerprint}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
+import com.digitalasset.canton.sequencer.api.v30 as SequencerService
 import com.digitalasset.canton.sequencer.api.v30.SequencerConnect
 import com.digitalasset.canton.sequencer.api.v30.SequencerConnectServiceGrpc.SequencerConnectServiceStub
+import com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.SequencerServiceStub
 import com.digitalasset.canton.sequencing.ConnectionX.ConnectionXConfig
-import com.digitalasset.canton.sequencing.SequencerConnectionX.ConnectionAttributes
+import com.digitalasset.canton.sequencing.InternalSequencerConnectionX.ConnectionAttributes
 import com.digitalasset.canton.sequencing.SequencerConnectionXPool.SequencerConnectionXPoolConfig
-import com.digitalasset.canton.topology.{Namespace, SequencerId, SynchronizerId}
+import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
+import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth
+import com.digitalasset.canton.topology.{
+  Member,
+  Namespace,
+  ParticipantId,
+  SequencerId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.version.{
@@ -25,6 +36,7 @@ import com.digitalasset.canton.version.{
   ReleaseVersion,
 }
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import io.grpc.stub.StreamObserver
 import io.grpc.{CallOptions, Channel, Status}
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
@@ -82,6 +94,11 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
     )
   )
 
+  protected lazy val positiveAcknowledgeResponse
+      : Either[Exception, SequencerService.AcknowledgeSignedResponse] = Right(
+    SequencerService.AcknowledgeSignedResponse()
+  )
+
   protected lazy val correctConnectionAttributes: ConnectionAttributes = ConnectionAttributes(
     testSynchronizerId(1),
     testSequencerId(1),
@@ -103,8 +120,15 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
     seed
   }
 
+  protected lazy val authConfig: AuthenticationTokenManagerConfig =
+    AuthenticationTokenManagerConfig()
+  protected lazy val testCrypto: Crypto =
+    SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
+  protected lazy val testMember: Member = ParticipantId("test")
+
   protected def testSynchronizerId(index: Int): SynchronizerId =
     SynchronizerId.tryFromString(s"test-synchronizer-$index::namespace")
+
   protected def testSequencerId(index: Int): SequencerId =
     SequencerId.tryCreate(
       s"test-sequencer-$index",
@@ -137,15 +161,15 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
 
   protected def withConnection[V](
       testResponses: TestResponses
-  )(f: (SequencerConnectionX, TestHealthListener) => V): V = {
-    val clientFactory = new TestSequencerConnectionXClientFactory(testResponses)
+  )(f: (InternalSequencerConnectionX, TestHealthListener) => V): V = {
+    val stubFactory = new TestSequencerConnectionXStubFactory(testResponses)
     val config = mkDummyConnectionConfig(0)
 
-    val connection = new GrpcSequencerConnectionX(
+    val connection = new GrpcInternalSequencerConnectionX(
       config,
       clientProtocolVersions,
       minimumProtocolVersion,
-      clientFactory,
+      stubFactory,
       futureSupervisor,
       timeouts,
       loggerFactory.append("connection", config.name),
@@ -180,13 +204,19 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
   )(f: (SequencerConnectionXPoolImpl, CreatedConnections, TestHealthListener) => V): V = {
     val config = mkPoolConfig(nbConnections, trustThreshold, expectedSynchronizerIdO)
 
-    val connectionFactory = new TestSequencerConnectionXFactory(attributesForConnection)
+    val connectionFactory =
+      new TestInternalSequencerConnectionXFactory(
+        attributesForConnection
+      )
     val pool =
       SequencerConnectionXPoolFactory
         .create(
           config,
           connectionFactory,
           wallClock,
+          authConfig,
+          testMember,
+          testCrypto,
           seedForRandomnessO = Some(seedForRandomness),
           timeouts,
           loggerFactory,
@@ -199,14 +229,14 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
     ResourceUtil.withResource(pool)(f(_, connectionFactory.createdConnections, listener))
   }
 
-  protected class TestSequencerConnectionXFactory(
+  protected class TestInternalSequencerConnectionXFactory(
       attributesForConnection: Int => ConnectionAttributes
-  ) extends SequencerConnectionXFactory {
+  ) extends InternalSequencerConnectionXFactory {
     val createdConnections = new CreatedConnections
 
     override def create(config: ConnectionXConfig)(implicit
         ec: ExecutionContextExecutor
-    ): SequencerConnectionX = {
+    ): InternalSequencerConnectionX = {
       val s"test-$indexStr" = config.name: @unchecked
       val index = indexStr.toInt
 
@@ -223,15 +253,16 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
         handshakeResponses = Iterator.continually(successfulHandshake),
         synchronizerAndSeqIdResponses = Iterator.continually(correctSynchronizerIdResponse),
         staticParametersResponses = Iterator.continually(correctStaticParametersResponse),
+        acknowledgeResponses = Iterator.continually(positiveAcknowledgeResponse),
       )
 
-      val clientFactory = new TestSequencerConnectionXClientFactory(responses)
+      val stubFactory = new TestSequencerConnectionXStubFactory(responses)
 
-      val connection = new GrpcSequencerConnectionX(
+      val connection = new GrpcInternalSequencerConnectionX(
         config,
         clientProtocolVersions,
         minimumProtocolVersion,
-        clientFactory,
+        stubFactory,
         futureSupervisor,
         timeouts,
         loggerFactory.append("connection", config.name),
@@ -244,11 +275,11 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
   }
 
   protected class CreatedConnections {
-    private val connectionsMap = TrieMap[Int, SequencerConnectionX]()
+    private val connectionsMap = TrieMap[Int, InternalSequencerConnectionX]()
 
-    def apply(index: Int): SequencerConnectionX = connectionsMap.apply(index)
+    def apply(index: Int): InternalSequencerConnectionX = connectionsMap.apply(index)
 
-    def add(index: Int, connection: SequencerConnectionX): Unit =
+    def add(index: Int, connection: InternalSequencerConnectionX): Unit =
       blocking {
         synchronized {
           connectionsMap.updateWith(index) {
@@ -258,7 +289,7 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
         }
       }
 
-    def snapshotAndClear(): Map[Int, SequencerConnectionX] = blocking {
+    def snapshotAndClear(): Map[Int, InternalSequencerConnectionX] = blocking {
       synchronized {
         val snapshot = connectionsMap.readOnlySnapshot().toMap
         connectionsMap.clear()
@@ -279,36 +310,95 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
       staticParametersResponses: Iterator[
         Either[Exception, SequencerConnect.GetSynchronizerParametersResponse]
       ] = Iterator.empty,
+      acknowledgeResponses: Iterator[
+        Either[Exception, SequencerService.AcknowledgeSignedResponse]
+      ] = Iterator.empty,
   ) extends Matchers {
-    val apiSvcFactory: Channel => ApiInfoServiceStub = channel =>
-      new ApiInfoServiceStub(channel) {
-        override def getApiInfo(request: v30.GetApiInfoRequest): Future[v30.GetApiInfoResponse] =
-          nextResponse(apiResponses)
-
-        override def build(channel: Channel, options: CallOptions): ApiInfoServiceStub = this
+    private class TestApiInfoServiceStub(
+        channel: Channel,
+        options: CallOptions = CallOptions.DEFAULT,
+    ) extends ApiInfoServiceStub(channel, options) {
+      override def getApiInfo(request: v30.GetApiInfoRequest): Future[v30.GetApiInfoResponse] = {
+        withClue("call is not authenticated") {
+          options.getCredentials shouldBe null
+        }
+        nextResponse(apiResponses)
       }
 
-    val sequencerConnectSvcFactory: Channel => SequencerConnectServiceStub =
-      channel =>
-        new SequencerConnectServiceStub(channel) {
-          override def handshake(
-              request: SequencerConnect.HandshakeRequest
-          ): Future[SequencerConnect.HandshakeResponse] =
-            nextResponse(handshakeResponses)
+      override def build(channel: Channel, options: CallOptions): ApiInfoServiceStub =
+        new TestApiInfoServiceStub(channel, options)
+    }
 
-          override def getSynchronizerId(
-              request: SequencerConnect.GetSynchronizerIdRequest
-          ): Future[SequencerConnect.GetSynchronizerIdResponse] =
-            nextResponse(synchronizerAndSeqIdResponses)
+    private class TestSequencerConnectServiceStub(
+        channel: Channel,
+        options: CallOptions = CallOptions.DEFAULT,
+    ) extends SequencerConnectServiceStub(channel, options) {
+      override def handshake(
+          request: SequencerConnect.HandshakeRequest
+      ): Future[SequencerConnect.HandshakeResponse] =
+        nextResponse(handshakeResponses)
 
-          override def getSynchronizerParameters(
-              request: SequencerConnect.GetSynchronizerParametersRequest
-          ): Future[SequencerConnect.GetSynchronizerParametersResponse] =
-            nextResponse(staticParametersResponses)
+      override def getSynchronizerId(
+          request: SequencerConnect.GetSynchronizerIdRequest
+      ): Future[SequencerConnect.GetSynchronizerIdResponse] =
+        nextResponse(synchronizerAndSeqIdResponses)
 
-          override def build(channel: Channel, options: CallOptions): SequencerConnectServiceStub =
-            this
+      override def getSynchronizerParameters(
+          request: SequencerConnect.GetSynchronizerParametersRequest
+      ): Future[SequencerConnect.GetSynchronizerParametersResponse] =
+        nextResponse(staticParametersResponses)
+
+      override def build(channel: Channel, options: CallOptions): SequencerConnectServiceStub =
+        new TestSequencerConnectServiceStub(channel, options)
+    }
+
+    private class TestSequencerServiceStub(
+        channel: Channel,
+        options: CallOptions = CallOptions.DEFAULT,
+    ) extends SequencerServiceStub(channel, options) {
+      override def sendAsync(
+          request: SequencerService.SendAsyncRequest
+      ): Future[SequencerService.SendAsyncResponse] = ???
+
+      override def subscribeV2(
+          request: SequencerService.SubscriptionRequestV2,
+          responseObserver: StreamObserver[SequencerService.SubscriptionResponse],
+      ): Unit = ???
+
+      override def acknowledgeSigned(
+          request: SequencerService.AcknowledgeSignedRequest
+      ): scala.concurrent.Future[SequencerService.AcknowledgeSignedResponse] = {
+        withClue("call is authenticated") {
+          Option(options.getCredentials) shouldBe defined
         }
+        nextResponse(acknowledgeResponses)
+      }
+
+      override def downloadTopologyStateForInit(
+          request: SequencerService.DownloadTopologyStateForInitRequest,
+          responseObserver: StreamObserver[
+            SequencerService.DownloadTopologyStateForInitResponse
+          ],
+      ): Unit = ???
+
+      override def getTrafficStateForMember(
+          request: com.digitalasset.canton.sequencer.api.v30.GetTrafficStateForMemberRequest
+      ): scala.concurrent.Future[
+        com.digitalasset.canton.sequencer.api.v30.GetTrafficStateForMemberResponse
+      ] = ???
+
+      override def build(channel: Channel, options: CallOptions): SequencerServiceStub =
+        new TestSequencerServiceStub(channel, options)
+    }
+
+    def apiSvcFactory(channel: Channel): ApiInfoServiceStub =
+      new TestApiInfoServiceStub(channel)
+
+    def sequencerConnectSvcFactory(channel: Channel): SequencerConnectServiceStub =
+      new TestSequencerConnectServiceStub(channel)
+
+    def sequencerSvcFactory(channel: Channel): SequencerServiceStub =
+      new TestSequencerServiceStub(channel)
 
     private def nextResponse[T](responses: Iterator[Either[Exception, T]]): Future[T] =
       if (responses.hasNext) responses.next().fold(Future.failed, Future.successful)
@@ -323,6 +413,9 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
       withClue("Static synchronizer parameters responses:")(
         staticParametersResponses shouldBe empty
       )
+      withClue("Acknowledge responses:")(
+        acknowledgeResponses shouldBe empty
+      )
     }
   }
 
@@ -336,21 +429,25 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
         staticParametersResponses: Seq[
           Either[Exception, SequencerConnect.GetSynchronizerParametersResponse]
         ] = Seq.empty,
+        acknowledgeResponses: Seq[
+          Either[Exception, SequencerService.AcknowledgeSignedResponse]
+        ] = Seq.empty,
     ): TestResponses = new TestResponses(
       apiResponses.iterator,
       handshakeResponses.iterator,
       synchronizerAndSeqIdResponses.iterator,
       staticParametersResponses.iterator,
+      acknowledgeResponses.iterator,
     )
   }
 
-  protected class TestSequencerConnectionXClientFactory(testResponses: TestResponses)
-      extends SequencerConnectionXClientFactory {
-    override def create(connection: ConnectionX)(implicit
+  protected class TestSequencerConnectionXStubFactory(testResponses: TestResponses)
+      extends SequencerConnectionXStubFactory {
+    override def createStub(connection: ConnectionX)(implicit
         ec: ExecutionContextExecutor
-    ): SequencerConnectionXClient = connection match {
+    ): SequencerConnectionXStub = connection match {
       case grpcConnection: GrpcConnectionX =>
-        new GrpcSequencerConnectionXClient(
+        new GrpcSequencerConnectionXStub(
           grpcConnection,
           testResponses.apiSvcFactory,
           testResponses.sequencerConnectSvcFactory,
@@ -358,5 +455,18 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
 
       case _ => throw new IllegalStateException(s"Connection type not supported: $connection")
     }
+
+    override def createUserStub(connection: ConnectionX, clientAuth: GrpcSequencerClientAuth)(
+        implicit ec: ExecutionContextExecutor
+    ): UserSequencerConnectionXStub =
+      connection match {
+        case grpcConnection: GrpcConnectionX =>
+          new GrpcUserSequencerConnectionXStub(
+            grpcConnection,
+            channel => clientAuth(testResponses.sequencerSvcFactory(channel)),
+          )
+
+        case _ => throw new IllegalStateException(s"Connection type not supported: $connection")
+      }
   }
 }

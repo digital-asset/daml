@@ -144,19 +144,6 @@ trait Sequencer
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerAdministrationError, Unit]
 
-  /** The first [[com.digitalasset.canton.SequencerCounter]] that this sequencer can serve for its
-    * sequencer client when the sequencer topology processor's
-    * [[com.digitalasset.canton.store.SequencedEventStore]] is empty. For a sequencer bootstrapped
-    * from a [[SequencerSnapshot]], this should be at least the
-    * [[sequencer.SequencerSnapshot.heads]] for the
-    * [[com.digitalasset.canton.topology.SequencerId]]. For a non-bootstrapped sequencer, this can
-    * be [[com.digitalasset.canton.GenesisSequencerCounter]]. This is sound as pruning ensures that
-    * we never
-    */
-  private[sequencer] def firstSequencerCounterServeableForSequencer(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[SequencerCounter]
-
   /** Return the latest known status of the specified members, either at wall clock time of this
     * sequencer or latest known sequenced event, whichever is the most recent. This method should be
     * used for information purpose only and not to get a deterministic traffic state as the state

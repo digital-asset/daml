@@ -9,13 +9,14 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.ConnectionX.ConnectionXConfig
-import com.digitalasset.canton.sequencing.SequencerConnectionX.{
+import com.digitalasset.canton.sequencing.InternalSequencerConnectionX.{
   ConnectionAttributes,
   SequencerConnectionXState,
 }
@@ -24,8 +25,9 @@ import com.digitalasset.canton.sequencing.SequencerConnectionXPool.{
   SequencerConnectionXPoolError,
   SequencerConnectionXPoolHealth,
 }
+import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{SequencerId, SynchronizerId}
+import com.digitalasset.canton.topology.{Member, SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, SeqUtil, SingleUseCell}
 import com.google.common.annotations.VisibleForTesting
@@ -37,8 +39,11 @@ import scala.util.Random
 
 class SequencerConnectionXPoolImpl private[sequencing] (
     private val initialConfig: SequencerConnectionXPoolConfig,
-    connectionFactory: SequencerConnectionXFactory,
+    connectionFactory: InternalSequencerConnectionXFactory,
     clock: Clock,
+    authConfig: AuthenticationTokenManagerConfig,
+    member: Member,
+    crypto: Crypto,
     seedForRandomnessO: Option[Long],
     override val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -56,8 +61,8 @@ class SequencerConnectionXPoolImpl private[sequencing] (
   private val pool = mutable.Map[SequencerId, NonEmpty[Seq[SequencerConnectionX]]]()
 
   /** Tracks the configured connections, along with their validated status. */
-  private val trackedConnections: mutable.Map[SequencerConnectionX, Boolean] =
-    new mutable.HashMap[SequencerConnectionX, Boolean]()
+  private val trackedConnections: mutable.Map[InternalSequencerConnectionX, Boolean] =
+    new mutable.HashMap[InternalSequencerConnectionX, Boolean]()
 
   /** Bootstrap information once the pool has been initialized */
   private val bootstrapCell = new SingleUseCell[BootstrapInfo]
@@ -126,8 +131,8 @@ class SequencerConnectionXPoolImpl private[sequencing] (
     }
   }
 
-  private class ConnectionHandler(connection: SequencerConnectionX) extends NamedLogging {
-    override protected val loggerFactory: NamedLoggerFactory =
+  private class ConnectionHandler(connection: InternalSequencerConnectionX) extends NamedLogging {
+    protected override val loggerFactory: NamedLoggerFactory =
       SequencerConnectionXPoolImpl.this.loggerFactory
         .append("connection", s"${connection.config.name}")
 
@@ -236,7 +241,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
       }
     }
 
-  private def markValidated(connection: SequencerConnectionX): Unit =
+  private def markValidated(connection: InternalSequencerConnectionX): Unit =
     blocking {
       lock.synchronized {
         require(trackedConnections.contains(connection))
@@ -330,7 +335,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
     super.onClosed()
   }
 
-  private def processValidatedConnection(connection: SequencerConnectionX)(implicit
+  private def processValidatedConnection(connection: InternalSequencerConnectionX)(implicit
       traceContext: TraceContext
   ): Unit = blocking {
     lock.synchronized {
@@ -373,7 +378,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
   }
 
   private def invalidBootstrap(
-      connection: SequencerConnectionX,
+      connection: InternalSequencerConnectionX,
       good: BootstrapInfo,
       bad: BootstrapInfo,
   )(implicit
@@ -386,32 +391,45 @@ class SequencerConnectionXPoolImpl private[sequencing] (
   }
 
   private def addConnectionToPool(
-      connection: SequencerConnectionX,
+      connection: InternalSequencerConnectionX,
       sequencerId: SequencerId,
   )(implicit traceContext: TraceContext): Unit = blocking {
     lock.synchronized {
       logger.debug(s"Adding ${connection.name} to the pool")
 
-      pool
-        .updateWith(sequencerId) {
-          case None => Some(NonEmpty.mk(Seq, connection))
-          case Some(current) if current.contains(connection) =>
-            // Can happen if a connection is poked several times with the 'validated' state
-            logger.debug(
-              s"Connection ${connection.name} is already present in the pool for $sequencerId"
-            )
-            Some(current)
-          case Some(current) =>
-            Some(current :+ connection)
-        }
-        .discard
+      connection
+        .buildUserConnection(authConfig, member, crypto, clock)
+        .map { userConnection =>
+          pool
+            .updateWith(sequencerId) {
+              case None => Some(NonEmpty.mk(Seq, userConnection))
+              // Match on config
+              case Some(current) if current.exists(_.config == connection.config) =>
+                // Can happen if a connection is poked several times with the 'validated' state
+                logger.debug(
+                  s"Connection ${connection.name} is already present in the pool for $sequencerId"
+                )
+                // This user connection instance is discarded
+                userConnection.close()
 
-      updateHealth()
+                Some(current)
+              case Some(current) =>
+                Some(current :+ userConnection)
+            }
+            .discard
+
+          updateHealth()
+        }
+        .valueOr { error =>
+          // Can happen if the connection was closed concurrently (channel not available).
+          // The connection will be restarted if it did not close for a fatal reason.
+          logger.debug(s"Failed to attach authentication to connection ${connection.name}: $error")
+        }
     }
   }
 
   private def removeConnectionFromPool(
-      connection: SequencerConnectionX
+      connection: InternalSequencerConnectionX
   )(implicit traceContext: TraceContext): Unit = blocking {
     lock.synchronized {
       connection.attributes match {
@@ -420,9 +438,10 @@ class SequencerConnectionXPoolImpl private[sequencing] (
 
           pool
             .updateWith(sequencerId) {
-              case Some(current) if current.contains(connection) =>
+              // Match on config
+              case Some(current) if current.exists(_.config == connection.config) =>
                 logger.debug(s"Removing $connection from the pool")
-                val newList = current.filter(_ != connection)
+                val newList = current.filter(_.config != connection.config)
                 NonEmpty.from(newList)
               case None => None
               case Some(current) => Some(current)
@@ -467,7 +486,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
           random,
         )
 
-        val result = randomSeqIds.map { seqId =>
+        val pickedConnections = randomSeqIds.map { seqId =>
           val connections = pool(seqId) // seqIDs were picked from the pool so this cannot fail
 
           // Cheap round-robin: return the head connection and move it to the end
@@ -481,8 +500,8 @@ class SequencerConnectionXPoolImpl private[sequencing] (
           head
         }.toSet
 
-        logger.debug(s"Returning ${result.map(_.config.name)}")
-        result
+        logger.debug(s"Returning ${pickedConnections.map(_.config.name)}")
+        pickedConnections
       }
     }
 }

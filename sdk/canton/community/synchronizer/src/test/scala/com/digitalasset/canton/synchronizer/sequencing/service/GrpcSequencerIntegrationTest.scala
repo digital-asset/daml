@@ -309,8 +309,8 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     // return to caller a subscription that will resolve the unsubscribe promise on close
     when(
       sequencerSubscriptionFactory
-        .create(
-          any[SequencerCounter],
+        .createV2(
+          any[Option[CantonTimestamp]],
           any[Member],
           any[SerializedEventOrErrorHandler[NotUsed]],
         )(any[TraceContext])

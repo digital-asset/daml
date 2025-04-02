@@ -7,7 +7,7 @@ import com.digitalasset.canton.sequencing.client.{
   SequencerSubscriptionPekko,
   SubscriptionErrorRetryPolicyPekko,
 }
-import com.digitalasset.canton.sequencing.protocol.SubscriptionRequest
+import com.digitalasset.canton.sequencing.protocol.SubscriptionRequestV2
 import com.digitalasset.canton.tracing.TraceContext
 
 /** Implementation dependent operations for a client to read and write to a synchronizer sequencer.
@@ -20,7 +20,7 @@ trait SequencerClientTransportPekko extends SequencerClientTransportCommon {
     * the counter defined in the request. The transport is not expected to provide retries of
     * subscriptions.
     */
-  def subscribe(request: SubscriptionRequest)(implicit
+  def subscribe(request: SubscriptionRequestV2)(implicit
       traceContext: TraceContext
   ): SequencerSubscriptionPekko[SubscriptionError]
 

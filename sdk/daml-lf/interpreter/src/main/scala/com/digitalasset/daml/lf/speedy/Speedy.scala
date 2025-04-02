@@ -221,15 +221,15 @@ private[lf] object Speedy {
     // thrown during the question callbacks execution
 
     final private[speedy] def needTime(): Control[Question.Update] = {
-      setDependsOnTime()
       Control.Question(
-        Question.Update.NeedTime(time =>
+        Question.Update.NeedTime { time =>
+          setDependsOnTime(time)
           safelyContinue(
             NameOf.qualifiedNameOfCurrentFunc,
             "NeedTime",
             Control.Value(SValue.STimestamp(time)),
           )
-        )
+        }
       )
     }
 
@@ -413,8 +413,12 @@ private[lf] object Speedy {
       }
     }
 
-    /* Flag to trace usage of get_time builtins */
-    private[this] var dependsOnTime: Boolean = false
+    /** Tracks the lower and upper bounds on the ledger time for a given Daml interpretation
+      * run. At any point during interpretation, the interpretation up to then is invariant
+      * for any ledger time within these bounds.
+      */
+    private[this] var timeBoundaries: Time.Range = Time.Range.unconstrained
+
     // global contract discriminators, that are discriminators from contract created in previous transactions
 
     private[this] var numInputContracts: Int = 0
@@ -438,11 +442,11 @@ private[lf] object Speedy {
     private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
       disclosedContracts.isDefinedAt(contractId)
 
-    private[this] def setDependsOnTime(): Unit =
-      dependsOnTime = true
+    private[this] def setDependsOnTime(time: Time.Timestamp): Unit =
+      timeBoundaries = Time.Range(min = time, max = time)
 
-    def getDependsOnTime: Boolean =
-      dependsOnTime
+    def getTimeBoundaries: Time.Range =
+      timeBoundaries
 
     val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
       if (validating) { _ => SVisibleToStakeholders.Visible }

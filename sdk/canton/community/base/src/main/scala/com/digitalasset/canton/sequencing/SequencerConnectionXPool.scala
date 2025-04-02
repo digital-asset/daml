@@ -7,13 +7,15 @@ import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasRunOnClosing}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencing.ConnectionX.ConnectionXConfig
+import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{SequencerId, SynchronizerId}
+import com.digitalasset.canton.topology.{Member, SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.google.common.annotations.VisibleForTesting
@@ -35,7 +37,7 @@ import scala.concurrent.ExecutionContextExecutor
   * The trust threshold has the following functions:
   *   - It represents the number of connections (to different logical sequencers) that must be
   *     validated (see
-  *     [[com.digitalasset.canton.sequencing.SequencerConnectionX.SequencerConnectionXState.Validated]])
+  *     [[com.digitalasset.canton.sequencing.InternalSequencerConnectionX.SequencerConnectionXState.Validated]])
   *     and agree on bootstrap information (synchronizer ID, static parameters) before the pool is
   *     initialized and starts serving connections.
   *   - It is the threshold determining the pool's health. After initialization and during the life
@@ -196,8 +198,11 @@ object SequencerConnectionXPoolFactory {
 
   def create(
       initialConfig: SequencerConnectionXPoolConfig,
-      connectionFactory: SequencerConnectionXFactory,
+      connectionFactory: InternalSequencerConnectionXFactory,
       clock: Clock,
+      authConfig: AuthenticationTokenManagerConfig,
+      member: Member,
+      crypto: Crypto,
       seedForRandomnessO: Option[Long],
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
@@ -211,6 +216,9 @@ object SequencerConnectionXPoolFactory {
         initialConfig,
         connectionFactory,
         clock,
+        authConfig: AuthenticationTokenManagerConfig,
+        member: Member,
+        crypto: Crypto,
         seedForRandomnessO,
         timeouts,
         loggerFactory,

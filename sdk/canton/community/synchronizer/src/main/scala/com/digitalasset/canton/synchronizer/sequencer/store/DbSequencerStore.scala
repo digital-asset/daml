@@ -71,7 +71,7 @@ class DbSequencerStore(
     bufferedEventsPreloadBatchSize: PositiveInt,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
-    sequencerMember: Member,
+    override val sequencerMember: Member,
     override val blockSequencerMode: Boolean,
     cachingConfigs: CachingConfigs,
     overrideCloseContext: Option[CloseContext] = None,
@@ -1575,7 +1575,22 @@ class DbSequencerStore(
              order by counter desc , ts desc
               #${storage.limit(1)}
              """.as[CounterCheckpoint].headOption
-          case None => DBIO.successful(None)
+          case None =>
+            // for the case of onboarding a sequencer and having a member without events
+            // (counter checkpoint with -1 as a counter)
+            // - e.g. a typical case for the onboarded sequencer itself.
+            // Should there be no such checkpoint it is OK to return None
+            // as then we either have a genesis sequencer that will happily serve from no checkpoint,
+            // or we have an onboarded sequencer that cannot serve this request
+            // as it is below its lower bound.
+            sql"""
+             select counter, ts, latest_sequencer_event_ts
+             from sequencer_counter_checkpoints
+             where member = $memberId
+               and ts <= $safeWatermark
+               and counter = -1
+              #${storage.limit(1)}
+             """.as[CounterCheckpoint].headOption
         }
     } yield checkpoint
     storage.query(checkpointQuery, functionFullName)

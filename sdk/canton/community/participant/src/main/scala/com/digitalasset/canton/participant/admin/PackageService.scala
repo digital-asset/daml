@@ -487,14 +487,14 @@ object PackageService {
       timeouts,
     )
 
-    val packageUploader = new PackageUploader(
+    val packageUploader = PackageUploader(
       clock,
       engine,
       enableUpgradeValidation,
       futureSupervisor,
       packageDependencyResolver,
       mutablePackageMetadataView,
-      exitOnFatalFailures = exitOnFatalFailures,
+      exitOnFatalFailures,
       timeouts,
       loggerFactory,
     )

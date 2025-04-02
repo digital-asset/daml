@@ -33,8 +33,8 @@ final case class RepairContract(
 
 object RepairContract {
 
-  /** Takes an ACS snapshot that has been created with `export_acs_new` command and converts to a
-    * list of contracts.
+  /** Takes an ACS snapshot that has been created with `export_acs` command and converts to a list
+    * of contracts.
     */
   def loadAcsSnapshot(
       acsSnapshot: ByteString
@@ -48,9 +48,9 @@ object RepairContract {
         new ByteArrayInputStream(decompressedBytes.toByteArray)
       ) { inputSource =>
         GrpcStreamingUtils
-          .parseDelimitedFromTrusted[ActiveContractNew](
+          .parseDelimitedFromTrusted[ActiveContract](
             inputSource,
-            ActiveContractNew,
+            ActiveContract,
           )
       }
       repairContracts <- contracts.traverse(c => toRepairContract(c.contract))
