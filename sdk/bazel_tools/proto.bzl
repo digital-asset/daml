@@ -177,7 +177,6 @@ def _proto_scala_srcs(name, grpc):
         "@go_googleapis//google/rpc:code_proto",
         "@go_googleapis//google/rpc:errdetails_proto",
         "@go_googleapis//google/rpc:status_proto",
-        "@com_github_grpc_grpc//src/proto/grpc/health/v1:health_proto_descriptor",
     ] if grpc else [])
 
 def _proto_scala_deps(grpc, proto_deps, java_conversions):
@@ -209,6 +208,7 @@ def proto_jars(
         strip_import_prefix = "",
         grpc = False,
         java_conversions = False,
+        flat_package = False,
         deps = [],
         proto_deps = [],
         java_deps = [],
@@ -299,7 +299,9 @@ def proto_jars(
         srcs = _proto_scala_srcs(name, grpc),
         plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
         plugin_name = "scalapb",
-        plugin_options = (["grpc"] if grpc else []) + (["java_conversions"] if java_conversions else []),
+        plugin_options = (["grpc"] if grpc else []) +
+                         (["java_conversions"] if java_conversions else []) +
+                         (["flat_package"] if flat_package else []),
     )
 
     all_scala_deps = _proto_scala_deps(grpc, proto_deps, java_conversions)
