@@ -762,6 +762,9 @@ data Update
     }
   -- | Retrieve effective ledger time.
   | UGetTime
+  -- | Ledger time functions
+  | ULedgerTimeLT !Expr
+  | ULedgerTimeLE !Expr
   -- | See comment for 'SEmbedExpr'
   | UEmbedExpr
     { updateEmbedType :: !Type

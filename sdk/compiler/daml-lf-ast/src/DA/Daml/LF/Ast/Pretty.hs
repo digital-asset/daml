@@ -424,6 +424,10 @@ instance Pretty Update where
       pPrintAppKeyword lvl prec "fetch_interface" [interfaceArg interface, TmArg cid]
     UGetTime ->
       keyword_ "get_time"
+    ULedgerTimeLT time ->
+      pPrintAppKeyword lvl prec "ledger_time_lt" [TmArg time]
+    ULedgerTimeLE time ->
+      pPrintAppKeyword lvl prec "ledger_time_le" [TmArg time]
     UEmbedExpr typ e ->
       pPrintAppKeyword lvl prec "uembed_expr" [TyArg typ, TmArg e]
     UFetchByKey tmplId ->

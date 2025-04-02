@@ -647,6 +647,12 @@ typeOfUpdate = \case
   UFetch tpl cid -> checkFetch tpl cid $> TUpdate (TCon tpl)
   UFetchInterface tpl cid -> checkFetchInterface tpl cid $> TUpdate (TCon tpl)
   UGetTime -> pure (TUpdate TTimestamp)
+  ULedgerTimeLT e -> do
+    checkExpr e TTimestamp
+    return (TUpdate TBool)
+  ULedgerTimeLE e -> do
+    checkExpr e TTimestamp
+    return (TUpdate TBool)
   UEmbedExpr typ e -> do
     checkExpr e (TUpdate typ)
     return (TUpdate typ)

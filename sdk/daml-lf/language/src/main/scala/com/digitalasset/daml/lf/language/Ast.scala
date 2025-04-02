@@ -621,6 +621,8 @@ object Ast {
       argE: Expr,
   ) extends Update
   case object UpdateGetTime extends Update
+  final case class UpdateLedgerTimeLT(time: Expr) extends Update
+  final case class UpdateLedgerTimeLE(time: Expr) extends Update
   final case class UpdateFetchByKey(templateId: TypeConName) extends Update
   final case class UpdateLookupByKey(templateId: TypeConName) extends Update
   final case class UpdateEmbedExpr(typ: Type, body: Expr) extends Update

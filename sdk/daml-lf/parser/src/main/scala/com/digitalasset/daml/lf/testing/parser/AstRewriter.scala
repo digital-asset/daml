@@ -216,6 +216,8 @@ private[daml] class AstRewriter(
       case UpdateExerciseByKey(templateId, choice, key, arg) =>
         UpdateExerciseByKey(apply(templateId), choice, apply(key), apply(arg))
       case UpdateGetTime => x
+      case UpdateLedgerTimeLT(time) => UpdateLedgerTimeLT(apply(time))
+      case UpdateLedgerTimeLE(time) => UpdateLedgerTimeLE(apply(time))
       case UpdateFetchByKey(rbk) =>
         UpdateFetchByKey(apply(rbk))
       case UpdateLookupByKey(rbk) =>

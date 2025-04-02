@@ -506,6 +506,12 @@ alphaUpdate env = \case
     UGetTime -> \case
         UGetTime -> noMismatch
         _ -> structuralMismatch
+    ULedgerTimeLT e1 -> \case
+        ULedgerTimeLT e2 -> alphaExpr' env e1 e2
+        _ -> structuralMismatch
+    ULedgerTimeLE e1 -> \case
+        ULedgerTimeLE e2 -> alphaExpr' env e1 e2
+        _ -> structuralMismatch
     UEmbedExpr t1 e1 -> \case
         UEmbedExpr t2 e2 -> alphaType' env t1 t2
             && alphaExpr' env e1 e2

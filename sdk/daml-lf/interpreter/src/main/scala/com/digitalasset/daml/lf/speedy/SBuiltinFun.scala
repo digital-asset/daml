@@ -1872,6 +1872,48 @@ private[lf] object SBuiltinFun {
     }
   }
 
+  final case object SBULedgerTimeLT extends UpdateBuiltin(2) {
+    override protected def executeUpdate(
+        args: util.ArrayList[SValue],
+        machine: UpdateMachine,
+    ): Control[Question.Update] = {
+      checkToken(args, 0)
+
+      val time = getSTimestamp(args, 1)
+
+//      machine.needTime() match {
+//        case Control.Value(STimestamp(now)) =>
+//          Control.Value(SBool(now < time))
+//        case Control.Value(_) =>
+//          crash("Invalid argument type")
+//        case error: Control.Error =>
+//          error
+//      }
+      crash(s"DEBUGGY: $time")
+    }
+  }
+
+  final case object SBULedgerTimeLE extends UpdateBuiltin(2) {
+    override protected def executeUpdate(
+        args: util.ArrayList[SValue],
+        machine: UpdateMachine,
+    ): Control[Question.Update] = {
+      checkToken(args, 0)
+
+      val time = getSTimestamp(args, 1)
+
+//      machine.needTime() match {
+//        case Control.Value(STimestamp(now)) =>
+//          Control.Value(SBool(now <= time))
+//        case Control.Value(_) =>
+//          crash("Invalid argument type")
+//        case error: Control.Error =>
+//          error
+//      }
+      crash(s"DEBUGGY: $time")
+    }
+  }
+
   /** $pure :: a -> Token -> a */
   final case object SBPure extends SBuiltinFun(2) {
     override private[speedy] def execute[Q](
