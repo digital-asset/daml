@@ -6,8 +6,10 @@ module DA.Int
   , maxValue
   ) where
 
- minValue : Int
- minValue = -9223372036854775808
+-- | The maximum value that can be represented by a `Int`.  
+minValue : Int
+minValue = -9223372036854775808
 
- maxValue : Int
- maxValue = 9223372036854775807
+-- | The minimum value that can be represented by a `Int`. 
+maxValue : Int
+maxValue = 9223372036854775807
