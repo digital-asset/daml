@@ -221,15 +221,15 @@ roundNumeric i m x =
   where 
     scale = numericScale @n
 
-maxValue0 : Numeric 0
-maxValue0 = 99999999999999999999999999999999999999.0
+maxBound0 : Numeric 0
+maxBound0 = 99999999999999999999999999999999999999.0
 
-minValue0 : Numeric 0
-minValue0 = -maxValue0
+minBound0 : Numeric 0
+minBound0 = -maxBound0
 
 instance NumericScale n => Bounded (Numeric n) where
-    minBound = shift minValue0
-    maxBound = shift maxValue0
+    minBound = shift minBound0
+    maxBound = shift maxBound0
 
 epsilon0 : Numeric 0
 epsilon0 = 1.0
