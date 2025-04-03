@@ -22,7 +22,6 @@ import DA.Exception
 import DA.Fail
 import DA.Foldable
 import DA.Functor
-import DA.Int
 import DA.Internal.Any
 import DA.Internal.Assert
 import DA.Internal.Compatible

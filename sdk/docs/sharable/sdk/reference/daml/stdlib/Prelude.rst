@@ -1577,6 +1577,8 @@ Data Types
 
   **instance** `Ord <class-ghc-classes-ord-6395_>`_ `Time <type-da-internal-lf-time-63886_>`_
 
+  **instance** `Bounded <class-ghc-enum-bounded-34379_>`_ `Time <type-da-internal-lf-time-63886_>`_
+
   **instance** `Show <class-ghc-show-show-65360_>`_ `Time <type-da-internal-lf-time-63886_>`_
 
 .. _type-da-internal-lf-update-68072:

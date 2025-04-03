@@ -13,8 +13,6 @@ module DA.Numeric
  , pi
  , RoundingMode(..)
  , roundNumeric
- , maxValue
- , minValue
  , epsilon
 ) where
 
@@ -226,13 +224,12 @@ roundNumeric i m x =
 maxValue0 : Numeric 0
 maxValue0 = 99999999999999999999999999999999999999.0
 
--- | The minimum value that can be represented by a numeric of scale `n`.
-minValue : forall n. NumericScale n => Numeric n
-minValue = -maxValue
+minValue0 : Numeric 0
+minValue0 = -maxValue0
 
--- | The maximum value that can be represented by a numeric of scale `n`.
-maxValue : forall n. NumericScale n => Numeric n
-maxValue = shift maxValue0
+instance NumericScale n => Bounded (Numeric n) where
+    minBound = shift minValue0
+    maxBound = shift maxValue0
 
 epsilon0 : Numeric 0
 epsilon0 = 1.0

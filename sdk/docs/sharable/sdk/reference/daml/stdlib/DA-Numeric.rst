@@ -132,20 +132,6 @@ Functions
   This will fail when using the ``RoundingUnnecessary`` mode for a number that cannot
   be represented exactly with at most ``n`` decimal places\.
 
-.. _function-da-numeric-minvalue-77678:
-
-`minValue <function-da-numeric-minvalue-77678_>`_
-  \: :ref:`NumericScale <class-ghc-classes-numericscale-83720>` n \=\> :ref:`Numeric <type-ghc-types-numeric-891>` n
-
-  The minimum value that can be represented by a numeric of scale ``n``\.
-
-.. _function-da-numeric-maxvalue-57960:
-
-`maxValue <function-da-numeric-maxvalue-57960_>`_
-  \: :ref:`NumericScale <class-ghc-classes-numericscale-83720>` n \=\> :ref:`Numeric <type-ghc-types-numeric-891>` n
-
-  The maximum value that can be represented by a numeric of scale ``n``\.
-
 .. _function-da-numeric-epsilon-3092:
 
 `epsilon <function-da-numeric-epsilon-3092_>`_

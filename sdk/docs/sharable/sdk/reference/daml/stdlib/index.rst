@@ -30,7 +30,6 @@ Here is a complete list of modules in the standard library:
 * :doc:`DA.Fail <DA-Fail>`
 * :doc:`DA.Foldable <DA-Foldable>`
 * :doc:`DA.Functor <DA-Functor>`
-* :doc:`DA.Int <DA-Int>`
 * :doc:`DA.Internal.Interface.AnyView <DA-Internal-Interface-AnyView>`
 * :doc:`DA.Internal.Interface.AnyView.Types <DA-Internal-Interface-AnyView-Types>`
 * :doc:`DA.List <DA-List>`
