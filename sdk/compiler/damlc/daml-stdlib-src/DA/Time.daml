@@ -86,7 +86,9 @@ deriving instance Additive RelTime
 deriving instance Signed RelTime
 deriving instance Bounded RelTime
 
-instance Bounded Time where
+-- | The minBound corresponds to 0001-01-01T00:00:00.000000Z,
+-- while the maxBound corresponds to 9999-12-31T23:59:59.999999Z.
+instance Bounded Time where 
     minBound = microsecondsSinceEpochToTime (-62135596800000000)
     maxBound = microsecondsSinceEpochToTime 253402300799999999
 

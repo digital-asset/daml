@@ -50,6 +50,7 @@ instance Enum Date where
     enumFrom     x   = enumFromTo     x maxBound
     enumFromThen x y = enumFromThenTo x y (if y >= x then maxBound else minBound)
 
+-- | The minBound corresponds to 0001-01-01, while the maxBound corresponds to 9999-12-31.
 instance Bounded Date where
     minBound = date 1 Jan 1
     maxBound = date 9999 Dec 31
