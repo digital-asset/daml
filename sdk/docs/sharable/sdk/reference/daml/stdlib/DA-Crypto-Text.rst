@@ -103,12 +103,40 @@ Functions
 
   Number of bytes present in a byte encoded string\.
 
+.. _function-da-crypto-text-minbytes32hex-29458:
+
+`minBytes32Hex <function-da-crypto-text-minbytes32hex-29458_>`_
+  \: `BytesHex <type-da-crypto-text-byteshex-47880_>`_
+
+  Minimum Bytes32 hex value
+
+.. _function-da-crypto-text-maxbytes32hex-56560:
+
+`maxBytes32Hex <function-da-crypto-text-maxbytes32hex-56560_>`_
+  \: `BytesHex <type-da-crypto-text-byteshex-47880_>`_
+
+  Maximum Bytes32 hex value
+
 .. _function-da-crypto-text-isbytes32hex-1801:
 
 `isBytes32Hex <function-da-crypto-text-isbytes32hex-1801_>`_
   \: `BytesHex <type-da-crypto-text-byteshex-47880_>`_ \-\> :ref:`Bool <type-ghc-types-bool-66265>`
 
   Validate that the byte encoded string is Bytes32Hex
+
+.. _function-da-crypto-text-minuint32hex-58146:
+
+`minUInt32Hex <function-da-crypto-text-minuint32hex-58146_>`_
+  \: `BytesHex <type-da-crypto-text-byteshex-47880_>`_
+
+  Minimum UInt32 hex value
+
+.. _function-da-crypto-text-maxuint32hex-80016:
+
+`maxUInt32Hex <function-da-crypto-text-maxuint32hex-80016_>`_
+  \: `BytesHex <type-da-crypto-text-byteshex-47880_>`_
+
+  Maximum UInt32 hex value
 
 .. _function-da-crypto-text-isuint32hex-65583:
 
@@ -117,12 +145,40 @@ Functions
 
   Validate that the byte encoded string is UInt32Hex
 
+.. _function-da-crypto-text-minuint64hex-67161:
+
+`minUInt64Hex <function-da-crypto-text-minuint64hex-67161_>`_
+  \: `BytesHex <type-da-crypto-text-byteshex-47880_>`_
+
+  Minimum UInt64 hex value
+
+.. _function-da-crypto-text-maxuint64hex-40555:
+
+`maxUInt64Hex <function-da-crypto-text-maxuint64hex-40555_>`_
+  \: `BytesHex <type-da-crypto-text-byteshex-47880_>`_
+
+  Maximum UInt64 hex value
+
 .. _function-da-crypto-text-isuint64hex-49912:
 
 `isUInt64Hex <function-da-crypto-text-isuint64hex-49912_>`_
   \: `BytesHex <type-da-crypto-text-byteshex-47880_>`_ \-\> :ref:`Bool <type-ghc-types-bool-66265>`
 
   Validate that the byte encoded string is UInt64Hex
+
+.. _function-da-crypto-text-minuint256hex-23801:
+
+`minUInt256Hex <function-da-crypto-text-minuint256hex-23801_>`_
+  \: `BytesHex <type-da-crypto-text-byteshex-47880_>`_
+
+  Minimum UInt256 hex value
+
+.. _function-da-crypto-text-maxuint256hex-58651:
+
+`maxUInt256Hex <function-da-crypto-text-maxuint256hex-58651_>`_
+  \: `BytesHex <type-da-crypto-text-byteshex-47880_>`_
+
+  Maximum UInt256 hex value
 
 .. _function-da-crypto-text-isuint256hex-33362:
 
