@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
-module MaxValues where
+module Bounds where
 
 import Daml.Script
 import DA.Assert
@@ -30,7 +30,7 @@ epsilon0IsTheSmallestStrictlyPositiveNumeric0 = script do
   computeEpsilon @0 1.0 === Numeric.epsilon @0
   
 epsilon37IsTheSmallestStrictlyPositiveNumeric37 = script do
-  computeEpsilon @37 1.0 === Numeric.epsilon @37  
+  computeEpsilon @37 1.0 === Numeric.epsilon @37
 
 -- @ERROR range=36:1-36:37; ArithmeticError while evaluating (ADD_NUMERIC 99999999999999999999999999999999999999.0 1.0)
 maxBoundNumeric0IsTheBiggestNumeric0 = script do
