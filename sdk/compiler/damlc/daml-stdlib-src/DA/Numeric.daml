@@ -55,14 +55,18 @@ shift = primitive @"BEShiftNumeric" (numericOne @n2)
 pi : forall n. NumericScale n => Numeric n
 pi = castAndRound (3.14159_26535_89793_23846_26433_83279_50288_41 : Numeric 37)
 
-zero37 : Numeric 37
-zero37 = 0.0
+epsilon0, minBound0, maxBound0 : Numeric 0
+epsilon0 = 1.0
+minBound0 = -99999999999999999999999999999999999999.0
+maxBound0 =  99999999999999999999999999999999999999.0
 
-one0 : Numeric 0
-one0 = 1.0
+instance NumericScale n => Bounded (Numeric n) where
+    minBound = shift minBound0
+    maxBound = shift maxBound0
 
-delta37 : Numeric 37
-delta37 = shift one0
+-- | The minimum strictly positive value that can be represented by a numeric of scale `n`.
+epsilon : forall n. NumericScale n => Numeric n
+epsilon = shift epsilon0
 
 roundHalfEven : forall n. NumericScale n => Numeric 37 -> Numeric n
 roundHalfEven x = castAndRound @n x
@@ -72,7 +76,7 @@ roundCeiling x =
    if (x <= cast r) then
     r
   else
-    r + shift one0
+    r + epsilon
   where
     r = roundHalfEven x
 
@@ -81,20 +85,20 @@ roundFloor x =
     if (cast r <= x) then
       r
     else
-      r - shift one0
+      r - epsilon
     where
       r = roundHalfEven x
 
 roundUp : NumericScale n => Numeric 37 -> Numeric n
 roundUp x =
-    if (zero37 <= x) then
+    if (0.0 <= x) then
       roundCeiling x
     else
       roundFloor x
 
 roundDown : NumericScale n => Numeric 37 -> Numeric n
 roundDown x =
-    if (zero37 <= x) then
+    if (0.0 <= x) then
       roundFloor x
     else
       roundCeiling x
@@ -104,7 +108,7 @@ roundHalfCeiling x =
     if (x <= cast r) then
       r
     else
-      roundHalfEven (x + delta37)
+      roundHalfEven (x + epsilon)
     where
       r = roundHalfEven x
 
@@ -113,20 +117,20 @@ roundHalfFloor x =
     if (cast r <= x) then
       r
     else
-      roundHalfEven (x - delta37)
+      roundHalfEven (x - epsilon)
     where
       r = roundHalfEven x
 
 roundHalfUp : NumericScale n => Numeric 37 -> Numeric n
 roundHalfUp x =
-    if (zero37 <= x) then
+    if (0.0 <= x) then
      roundHalfCeiling x
     else
       roundHalfFloor x
 
 roundHalfDown : NumericScale n => Numeric 37 -> Numeric n
 roundHalfDown x =
-  if (zero37 <= x) then
+  if (0.0 <= x) then
     roundHalfFloor x
   else
     roundHalfCeiling x
@@ -136,16 +140,16 @@ roundUnnecessary = cast
 
 -- | Rounding modes.
 data RoundingMode
-  = RoundingUp -- ^ Round away from zero37.
-  | RoundingDown -- ^ Round towards zero37.
+  = RoundingUp -- ^ Round away from zero.
+  | RoundingDown -- ^ Round towards zero.
   | RoundingCeiling -- ^ Round towards positive infinity.
   | RoundingFloor -- ^ Round towards negative infinity.
   | RoundingHalfUp
       -- ^ Round towards the nearest neighbor unless both neighbors
-      -- are equidistant, in which case round away from zero37.
+      -- are equidistant, in which case round away from zero.
   | RoundingHalfDown
       -- ^ Round towards the nearest neighbor unless both neighbors
-      -- are equidistant, in which case round towards zero37.
+      -- are equidistant, in which case round towards zero.
   | RoundingHalfEven
       -- ^ Round towards the nearest neighbor unless both neighbors
       -- are equidistant, in which case round towards the even neighbor.
@@ -220,20 +224,3 @@ roundNumeric i m x =
     shift $ (O.fromSome $ M.lookup (37 - scale + i) roundMap) m (shift x)
   where 
     scale = numericScale @n
-
-maxBound0 : Numeric 0
-maxBound0 = 99999999999999999999999999999999999999.0
-
-minBound0 : Numeric 0
-minBound0 = -maxBound0
-
-instance NumericScale n => Bounded (Numeric n) where
-    minBound = shift minBound0
-    maxBound = shift maxBound0
-
-epsilon0 : Numeric 0
-epsilon0 = 1.0
-
--- | The minimum strictly positive value that can be represented by a numeric of scale `n`.
-epsilon : forall n. NumericScale n => Numeric n
-epsilon = shift epsilon0
