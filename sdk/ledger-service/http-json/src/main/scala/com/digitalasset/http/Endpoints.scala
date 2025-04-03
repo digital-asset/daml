@@ -340,7 +340,7 @@ class Endpoints(
         entity = HttpEntity
           .Chunked(ContentTypes.`application/json`, response.map(HttpEntity.ChunkStreamPart(_))),
       )
-     }
+    }
   }
 
   private[this] def filterStreamErrors[A](implicit

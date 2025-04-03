@@ -5,7 +5,7 @@ package com.daml.http.json
 
 import akka.NotUsed
 import akka.http.scaladsl.model.StatusCode
-import akka.http.scaladsl.model.StatusCodes.OK
+import akka.http.scaladsl.model.StatusCodes.{OK, InternalServerError}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Concat, Sink, Source}
 import akka.util.ByteString
@@ -17,7 +17,6 @@ import spray.json._
 import scala.concurrent.{ExecutionContext, Future}
 
 private[http] object ResponseFormats {
-  val errorStatusCode = 501
 
   def errorsJsObject(status: StatusCode, es: String*): JsObject = {
     JsObject(("status", JsNumber(status.intValue)), ("errors", es.toJson))
@@ -53,7 +52,7 @@ private[http] object ResponseFormats {
         // Convert that into a stream containing the appropriate JSON response object
         val (name, vals, statusCode): (String, Iterator[JsValue], StatusCode) =
           if (errors.nonEmpty)
-            ("errors", errors.iterator.map(e => JsString(e.shows)), errorStatusCode)
+            ("errors", errors.iterator.map(e => JsString(e.shows)), InternalServerError)
           else
             ("result", results.iterator, OK)
         val payload = arrayField(name, vals)

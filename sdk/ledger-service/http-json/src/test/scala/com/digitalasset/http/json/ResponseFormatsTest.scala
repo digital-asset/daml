@@ -81,8 +81,8 @@ class ResponseFormatsTest
         )
       else
         (
-          Map[String, JsValue]("errors" -> JsArray(failures), "status" -> JsNumber("501")),
-          501: StatusCode,
+          Map[String, JsValue]("errors" -> JsArray(failures), "status" -> JsNumber("500")),
+          StatusCodes.InternalServerError: StatusCode,
         )
 
     (JsObject(map1 ++ map2), status)

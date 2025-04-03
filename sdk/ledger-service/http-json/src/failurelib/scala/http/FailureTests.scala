@@ -183,11 +183,10 @@ abstract class FailureTests
         )
         _ <- inside(output) { case JsObject(fields) =>
           inside(fields.get("status")) { case Some(JsNumber(code)) =>
-            code shouldBe 501
+            code shouldBe StatusCodes.InternalServerError.intValue
           }
         }
-        // TODO Document this properly or adjust it
-        _ = status shouldBe StatusCodes.OK
+        _ = status shouldBe StatusCodes.InternalServerError
         _ = proxy.enable()
       } yield succeed
   }
@@ -230,11 +229,10 @@ abstract class FailureTests
         )
         _ <- inside(output) { case JsObject(fields) =>
           inside(fields.get("status")) { case Some(JsNumber(code)) =>
-            code shouldBe 501
+            code shouldBe StatusCodes.InternalServerError.intValue
           }
         }
-        // TODO Document this properly or adjust it
-        _ = status shouldBe StatusCodes.OK
+        _ = status shouldBe StatusCodes.InternalServerError
         _ = proxy.enable()
         // eventually doesn’t handle Futures in the version of scalatest we’re using.
         _ <- RetryStrategy.constant(5, 2.seconds)((_, _) =>
@@ -294,11 +292,10 @@ abstract class FailureTests
       )
       _ <- inside(output) { case JsObject(fields) =>
         inside(fields.get("status")) { case Some(JsNumber(code)) =>
-          code shouldBe 501
+          code shouldBe StatusCodes.InternalServerError.intValue
         }
       }
-      // TODO Document this properly or adjust it
-      _ = status shouldBe 501
+      _ = status shouldBe StatusCodes.InternalServerError
       (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
       _ = status shouldBe StatusCodes.ServiceUnavailable
       _ = out shouldBe
