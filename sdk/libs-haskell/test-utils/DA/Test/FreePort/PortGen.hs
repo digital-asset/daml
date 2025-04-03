@@ -20,7 +20,7 @@ newtype PortRange = PortRange (Int, Int) deriving Show -- The main port range
 newtype DynamicPortRange = DynamicPortRange (Int, Int) deriving Show -- Port range to exclude from main port range
 
 defPortRange :: PortRange
-defPortRange = PortRange (1024, 65536)
+defPortRange = PortRange (1024, 65535)
 
 -- | Clamps an integer within a given min max range
 clampInt :: Int -> Int -> Int -> Int
