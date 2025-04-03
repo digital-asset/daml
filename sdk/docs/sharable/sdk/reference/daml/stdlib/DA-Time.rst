@@ -6,6 +6,12 @@
 DA.Time
 =======
 
+This module provides a set of functions to manipulate Time values\.
+The ``Time`` type represents a specific datetime in UTC,
+for example ``time (date 2007 Apr 5) 14 30 05``\.
+The bounds for Time are 0001\-01\-01T00\:00\:00\.000000Z and
+9999\-12\-31T23\:59\:59\.999999Z\.
+
 Data Types
 ----------
 
