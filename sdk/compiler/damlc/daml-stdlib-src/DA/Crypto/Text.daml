@@ -12,6 +12,8 @@ module DA.Crypto.Text
   , secp256k1
   , HasToHex(..)
   , HasFromHex(..)
+  , numericViaStringToHex
+  , numericViaStringFromHex
   , BytesHex
   , PublicKeyHex
   , SignatureHex

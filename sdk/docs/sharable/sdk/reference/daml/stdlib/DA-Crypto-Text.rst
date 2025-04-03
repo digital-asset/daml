@@ -27,8 +27,6 @@ Typeclasses
 
   **instance** `HasToHex <class-da-crypto-text-hastohex-92431_>`_ :ref:`Int <type-ghc-types-int-37261>`
 
-  **instance** :ref:`NumericScale <class-ghc-classes-numericscale-83720>` n \=\> `HasToHex <class-da-crypto-text-hastohex-92431_>`_ (:ref:`Numeric <type-ghc-types-numeric-891>` n)
-
   **instance** `HasToHex <class-da-crypto-text-hastohex-92431_>`_ :ref:`Text <type-ghc-types-text-51952>`
 
 .. _class-da-crypto-text-hasfromhex-84972:
@@ -45,8 +43,6 @@ Typeclasses
   **instance** `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ (:ref:`Optional <type-da-internal-prelude-optional-37153>` :ref:`Party <type-da-internal-lf-party-57932>`)
 
   **instance** `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ (:ref:`Optional <type-da-internal-prelude-optional-37153>` :ref:`Int <type-ghc-types-int-37261>`)
-
-  **instance** :ref:`NumericScale <class-ghc-classes-numericscale-83720>` n \=\> `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ (:ref:`Optional <type-da-internal-prelude-optional-37153>` (:ref:`Numeric <type-ghc-types-numeric-891>` n))
 
   **instance** `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ (:ref:`Optional <type-da-internal-prelude-optional-37153>` :ref:`Text <type-ghc-types-text-51952>`)
 
@@ -89,6 +85,16 @@ Functions
   \: `SignatureHex <type-da-crypto-text-signaturehex-12945_>`_ \-\> `BytesHex <type-da-crypto-text-byteshex-47880_>`_ \-\> `PublicKeyHex <type-da-crypto-text-publickeyhex-51359_>`_ \-\> :ref:`Bool <type-ghc-types-bool-66265>`
 
   Validate the SECP256K1 signature given a hex encoded message and a hex encoded DER formatted public key\.
+
+.. _function-da-crypto-text-numericviastringtohex-44461:
+
+`numericViaStringToHex <function-da-crypto-text-numericviastringtohex-44461_>`_
+  \: :ref:`NumericScale <class-ghc-classes-numericscale-83720>` n \=\> :ref:`Numeric <type-ghc-types-numeric-891>` n \-\> `BytesHex <type-da-crypto-text-byteshex-47880_>`_
+
+.. _function-da-crypto-text-numericviastringfromhex-60098:
+
+`numericViaStringFromHex <function-da-crypto-text-numericviastringfromhex-60098_>`_
+  \: :ref:`NumericScale <class-ghc-classes-numericscale-83720>` n \=\> `BytesHex <type-da-crypto-text-byteshex-47880_>`_ \-\> :ref:`Optional <type-da-internal-prelude-optional-37153>` (:ref:`Numeric <type-ghc-types-numeric-891>` n)
 
 .. _function-da-crypto-text-bytecount-29784:
 

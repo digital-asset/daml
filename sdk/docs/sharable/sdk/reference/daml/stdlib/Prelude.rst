@@ -1611,8 +1611,6 @@ Data Types
 
   **instance** :ref:`HasFromHex <class-da-crypto-text-hasfromhex-84972>` (`Optional <type-da-internal-prelude-optional-37153_>`_ `Int <type-ghc-types-int-37261_>`_)
 
-  **instance** `NumericScale <class-ghc-classes-numericscale-83720_>`_ n \=\> :ref:`HasFromHex <class-da-crypto-text-hasfromhex-84972>` (`Optional <type-da-internal-prelude-optional-37153_>`_ (`Numeric <type-ghc-types-numeric-891_>`_ n))
-
   **instance** :ref:`HasFromHex <class-da-crypto-text-hasfromhex-84972>` (`Optional <type-da-internal-prelude-optional-37153_>`_ `Text <type-ghc-types-text-51952_>`_)
 
   **instance** :ref:`Foldable <class-da-foldable-foldable-25994>` `Optional <type-da-internal-prelude-optional-37153_>`_
