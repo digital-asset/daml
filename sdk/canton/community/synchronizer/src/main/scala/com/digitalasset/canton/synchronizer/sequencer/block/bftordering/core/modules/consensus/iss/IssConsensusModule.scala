@@ -77,7 +77,7 @@ import com.google.protobuf.ByteString
 
 import scala.collection.mutable
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Random, Success}
 
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 final class IssConsensusModule[E <: Env[E]](
@@ -88,6 +88,7 @@ final class IssConsensusModule[E <: Env[E]](
     metrics: BftOrderingMetrics,
     segmentModuleRefFactory: SegmentModuleRefFactory[E],
     retransmissionsManager: RetransmissionsManager[E],
+    random: Random,
     override val dependencies: ConsensusModuleDependencies[E],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
@@ -121,6 +122,7 @@ final class IssConsensusModule[E <: Env[E]](
         dependencies,
         epochLength,
         epochStore,
+        random,
         loggerFactory,
       )
     )
@@ -740,6 +742,7 @@ final class IssConsensusModule[E <: Env[E]](
       clock,
       metrics,
       segmentModuleRefFactory,
+      random,
       dependencies,
       loggerFactory,
       timeouts,

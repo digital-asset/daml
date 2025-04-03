@@ -55,6 +55,7 @@ import scala.concurrent.duration.*
   *   to receiving all the corresponding batches.
   */
 final case class BftBlockOrdererConfig(
+    // TODO(#24184) make a dynamic sequencing parameter
     epochLength: Long = DefaultEpochLength,
     maxRequestPayloadBytes: Int = DefaultMaxRequestPayloadBytes,
     maxMempoolQueueSize: Int = DefaultMaxMempoolQueueSize,
