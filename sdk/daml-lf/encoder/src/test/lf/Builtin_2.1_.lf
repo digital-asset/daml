@@ -121,4 +121,6 @@ module BuiltinMod {
     COERCE_CONTRACT_ID;
   val anyExceptionMessage: AnyException -> Text =
     ANY_EXCEPTION_MESSAGE;
+  val failWithStatus: forall (a: *). Text -> FailureCategory -> Text -> TextMap Text -> a =
+    FAIL_WITH_STATUS;
 }
