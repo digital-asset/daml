@@ -236,3 +236,19 @@ Functions
   The reason for this is that usually the source of Time would be getTime, and getTime returns UTC, and most likely
   the date you want is something local to a location or an exchange\. Consequently the date retrieved this way would be
   yesterday if retrieved when the market opens in say Singapore\.
+
+.. _function-da-date-minvalue-98784:
+
+`minValue <function-da-date-minvalue-98784_>`_
+  \: :ref:`Date <type-da-internal-lf-date-32253>`
+
+  The minimum value that can be represented by a ``Date``\.
+  This corresponds to the date January 1, 0001\.
+
+.. _function-da-date-maxvalue-61622:
+
+`maxValue <function-da-date-maxvalue-61622_>`_
+  \: :ref:`Date <type-da-internal-lf-date-32253>`
+
+  The maximum value that can be represented by a ``Date``\.
+  This corresponds to the date December 31, 9999\.

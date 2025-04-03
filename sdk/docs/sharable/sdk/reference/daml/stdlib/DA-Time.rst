@@ -114,3 +114,19 @@ Functions
 
   Convert microseconds to RelTime
   Use higher level functions instead of the internal microseconds
+
+.. _function-da-time-minvalue-12493:
+
+`minValue <function-da-time-minvalue-12493_>`_
+  \: :ref:`Time <type-da-internal-lf-time-63886>`
+
+  The minimum value that can be represented by a ``Time``\.
+  This corresponds to the date 0001\-01\-01T00\:00\:00\.000000Z\.
+
+.. _function-da-time-maxvalue-13711:
+
+`maxValue <function-da-time-maxvalue-13711_>`_
+  \: :ref:`Time <type-da-internal-lf-time-63886>`
+
+  The minimum value that can be represented by a ``Time``\.
+  This corresponds to the date 9999\-12\-31T23\:59\:59\.999999Z\.
