@@ -19,9 +19,17 @@ module DA.Crypto.Text
   , SignatureHex
   , byteCount
   , isBytes32Hex
+  , minBytes32Hex
+  , maxBytes32Hex
   , isUInt32Hex
+  , minUInt32Hex
+  , maxUInt32Hex
   , isUInt64Hex
+  , minUInt64Hex
+  , maxUInt64Hex
   , isUInt256Hex
+  , minUInt256Hex
+  , maxUInt256Hex
   , packHexBytes
   , sliceHexBytes
   ) where
@@ -169,35 +177,70 @@ byteCount "" = 0
 byteCount hex | Text.isHex hex = (Text.length hex) / 2
 byteCount arg = error $ "Expected a hex encoded string but argument was: " <> arg
 
+-- | HIDE
+constList: Int -> a -> [a]
+constList 0 _ = []
+constList n x = x :: (constList (n - 1) x)
+
+-- | HIDE
+byteRepeat: Int -> BytesHex -> BytesHex
+byteRepeat len byte | Text.isHex byte && byteCount byte == 1 && len >= 0 = Text.implode(constList len byte)
+byteRepeat _ arg | not (Text.isHex arg) = error $ "Expected a hex encoded string but argument was: " <> arg
+byteRepeat _ hex | Text.isHex hex && byteCount hex /= 1 = error $ "Expected a byte value but hex encoded string was: " <> hex
+byteRepeat len _ = error $ "Expected a positive length but argument was: " <> show len
+
+-- | Minimum Bytes32 hex value
+minBytes32Hex: BytesHex
+minBytes32Hex = byteRepeat 32 "00"
+-- | Maximum Bytes32 hex value
+maxBytes32Hex: BytesHex
+maxBytes32Hex = byteRepeat 32 "ff"
+
 -- | Validate that the byte encoded string is Bytes32Hex
 isBytes32Hex: BytesHex -> Bool
 isBytes32Hex hex | Text.isHex hex = byteCount hex == 32
 isBytes32Hex arg = error $ "Expected a hex encoded string but argument was: " <> arg
+
+-- | Minimum UInt32 hex value
+minUInt32Hex: BytesHex
+minUInt32Hex = byteRepeat 5 "00"
+-- | Maximum UInt32 hex value
+maxUInt32Hex: BytesHex
+maxUInt32Hex = byteRepeat 5 "ff"
 
 -- | Validate that the byte encoded string is UInt32Hex
 isUInt32Hex: BytesHex -> Bool
 isUInt32Hex hex | Text.isHex hex = byteCount hex == 5
 isUInt32Hex arg = error $ "Expected a hex encoded string but argument was: " <> arg
 
+-- | Minimum UInt64 hex value
+minUInt64Hex: BytesHex
+minUInt64Hex = byteRepeat 6 "00"
+-- | Maximum UInt64 hex value
+maxUInt64Hex: BytesHex
+maxUInt64Hex = byteRepeat 6 "ff"
+
 -- | Validate that the byte encoded string is UInt64Hex
 isUInt64Hex: BytesHex -> Bool
 isUInt64Hex hex | Text.isHex hex = byteCount hex == 6
 isUInt64Hex arg = error $ "Expected a hex encoded string but argument was: " <> arg
+
+-- | Minimum UInt256 hex value
+minUInt256Hex: BytesHex
+minUInt256Hex = byteRepeat 8 "00"
+-- | Maximum UInt256 hex value
+maxUInt256Hex: BytesHex
+maxUInt256Hex = byteRepeat 8 "ff"
 
 -- | Validate that the byte encoded string is UInt256Hex
 isUInt256Hex: BytesHex -> Bool
 isUInt256Hex hex | Text.isHex hex = byteCount hex == 8
 isUInt256Hex arg = error $ "Expected a hex encoded string but argument was: " <> arg
 
--- | HIDE
-constList: Int -> a -> [a]
-constList 0 _ = []
-constList n x = x :: (constList (n - 1) x)
-
 -- | Pack a byte encoded string to a given byte count size. If the byte string is shorter than the pad
 -- size, then prefix with 00 byte strings. If the byte string is larger, then truncate the byte string.
 packHexBytes: BytesHex -> Int -> Optional BytesHex
-packHexBytes hex pad | Text.isHex hex && 0 <= pad && byteCount hex <= pad = Some((Text.implode(constList (pad - byteCount hex) "00")) <> hex)
+packHexBytes hex pad | Text.isHex hex && 0 <= pad && byteCount hex <= pad = Some((byteRepeat (pad - byteCount hex) "00") <> hex)
 packHexBytes hex pad | Text.isHex hex && 0 <= pad = Some(Text.drop ((pad - byteCount hex) * 2) hex)
 packHexBytes _ _ = None
 
