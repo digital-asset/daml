@@ -222,5 +222,5 @@ roundMap = M.fromList
 roundNumeric: forall n. NumericScale n => Int -> RoundingMode -> Numeric n -> Numeric n
 roundNumeric i m x =
     shift $ (O.fromSome $ M.lookup (37 - scale + i) roundMap) m (shift x)
-  where 
+  where
     scale = numericScale @n

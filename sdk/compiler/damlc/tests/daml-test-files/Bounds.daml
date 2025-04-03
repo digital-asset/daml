@@ -28,7 +28,7 @@ computeEpsilon m =
 
 epsilon0IsTheSmallestStrictlyPositiveNumeric0 = script do
   computeEpsilon @0 1.0 === Numeric.epsilon @0
-  
+
 epsilon37IsTheSmallestStrictlyPositiveNumeric37 = script do
   computeEpsilon @37 1.0 === Numeric.epsilon @37
 
