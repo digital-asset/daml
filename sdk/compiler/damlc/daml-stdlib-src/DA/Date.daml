@@ -21,6 +21,8 @@ module DA.Date
   , toDateUTC
   , daysSinceEpochToDate
   , dateToDaysSinceEpoch
+  , maxValue
+  , minValue
   ) where
 
 import DA.Text (implode)
@@ -154,3 +156,13 @@ datetime year month day h m s = time (date year month day) h m s
 toDateUTC : Time -> Date
 toDateUTC t =
   daysSinceEpochToDate $ (/ microsecondsPerDay) $ timeToMicrosecondsSinceEpoch t
+
+-- | The minimum value that can be represented by a `Date`.
+-- This corresponds to the date January 1, 0001.
+minValue: Date
+minValue = daysSinceEpochToDate (-719162)
+
+-- | The maximum value that can be represented by a `Date`.
+-- This corresponds to the date December 31, 9999.
+maxValue: Date
+maxValue = daysSinceEpochToDate 2932896

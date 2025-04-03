@@ -18,6 +18,8 @@ module DA.Time
   , time
   , convertRelTimeToMicroseconds
   , convertMicrosecondsToRelTime
+  , minValue
+  , maxValue
   ) where
 
 import DA.Time.Types hiding (microseconds)
@@ -79,3 +81,13 @@ deriving instance Ord RelTime
 deriving instance Show RelTime
 deriving instance Additive RelTime
 deriving instance Signed RelTime
+
+-- | The minimum value that can be represented by a `Time`.
+-- This corresponds to the date 0001-01-01T00:00:00.000000Z.
+minValue: Time
+minValue = microsecondsSinceEpochToTime (-62135596800000000)
+
+-- | The minimum value that can be represented by a `Time`.
+-- This corresponds to the date 9999-12-31T23:59:59.999999Z.
+maxValue: Time
+maxValue = microsecondsSinceEpochToTime 253402300799999999

@@ -13,6 +13,9 @@ module DA.Numeric
  , pi
  , RoundingMode(..)
  , roundNumeric
+ , maxValue
+ , minValue
+ , epsilon
 ) where
 
 import GHC.Types (primitive)
@@ -219,4 +222,21 @@ roundNumeric i m x =
     shift $ (O.fromSome $ M.lookup (37 - scale + i) roundMap) m (shift x)
   where 
     scale = numericScale @n
-      
+
+maxValue0 : Numeric 0
+maxValue0 = 99999999999999999999999999999999999999.0
+
+-- | The minimum value that can be represented by a numeric of scale `n`.
+minValue : forall n. NumericScale n => Numeric n
+minValue = -maxValue
+
+-- | The maximum value that can be represented by a numeric of scale `n`.
+maxValue : forall n. NumericScale n => Numeric n
+maxValue = shift maxValue0
+
+epsilon0 : Numeric 0
+epsilon0 = 1.0
+
+-- | The minimum strictly positive value that can be represented by a numeric of scale `n`.
+epsilon : forall n. NumericScale n => Numeric n
+epsilon = shift epsilon0
