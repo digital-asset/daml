@@ -1360,10 +1360,6 @@ private[validation] object Typing {
         checkExpr(time, TTimestamp) {
           Ret(TUpdate(TBool))
         }
-      case UpdateLedgerTimeLE(time) =>
-        checkExpr(time, TTimestamp) {
-          Ret(TUpdate(TBool))
-        }
       case UpdateEmbedExpr(typ, exp) =>
         checkExpr(exp, TUpdate(typ)) {
           Ret(TUpdate(typ))

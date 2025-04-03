@@ -28,8 +28,6 @@ convertPrim _ "UGetTime" (TUpdate TTimestamp) =
     pure $ EUpdate UGetTime
 convertPrim _ "ULedgerTimeLT" (TTimestamp :-> TUpdate TBool) =
     pure $ ETmLam (varV1, TTimestamp) $ EUpdate (ULedgerTimeLT (EVar varV1))
-convertPrim _ "ULedgerTimeLE" (TTimestamp :-> TUpdate TBool) =
-    pure $ ETmLam (varV1, TTimestamp) $ EUpdate (ULedgerTimeLE (EVar varV1))
 
 -- Comparison
 convertPrim _ "BEEqual" (a1 :-> a2 :-> TBool) | a1 == a2 =

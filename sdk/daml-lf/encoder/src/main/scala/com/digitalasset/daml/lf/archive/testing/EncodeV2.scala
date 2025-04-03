@@ -413,8 +413,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           builder.setGetTime(unit)
         case UpdateLedgerTimeLT(time) =>
           builder.setLedgerTimeLt(time)
-        case UpdateLedgerTimeLE(time) =>
-          builder.setLedgerTimeLe(time)
         case UpdateFetchByKey(rbk) =>
           builder.setFetchByKey(rbk)
         case UpdateLookupByKey(rbk) =>

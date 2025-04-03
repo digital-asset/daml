@@ -650,9 +650,6 @@ typeOfUpdate = \case
   ULedgerTimeLT e -> do
     checkExpr e TTimestamp
     return (TUpdate TBool)
-  ULedgerTimeLE e -> do
-    checkExpr e TTimestamp
-    return (TUpdate TBool)
   UEmbedExpr typ e -> do
     checkExpr e (TUpdate typ)
     return (TUpdate typ)

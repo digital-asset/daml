@@ -494,11 +494,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       UpdateLedgerTimeLT(time)
     }
 
-  private lazy val updateLedgerTimeLE =
-    Id("ledger_time_le") ~> expr0 ^^ { case time =>
-      UpdateLedgerTimeLE(time)
-    }
-
   private lazy val updateEmbedExpr =
     Id("uembed_expr") ~> argTyp ~ expr0 ^^ { case t ~ e =>
       UpdateEmbedExpr(t, e)
@@ -525,7 +520,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       updateLookupByKey |
       updateGetTime |
       updateLedgerTimeLT |
-      updateLedgerTimeLE |
       updateEmbedExpr |
       updateCatch
 

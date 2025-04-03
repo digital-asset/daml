@@ -637,8 +637,6 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
     pure (EUpdate UGetTime)
   LF2.UpdateSumLedgerTimeLt time ->
     fmap (EUpdate . ULedgerTimeLT) (decodeExpr time)
-  LF2.UpdateSumLedgerTimeLe time ->
-      fmap (EUpdate . ULedgerTimeLE) (decodeExpr time)
   LF2.UpdateSumEmbedExpr LF2.Update_EmbedExpr{..} ->
     fmap EUpdate $ UEmbedExpr
       <$> mayDecode "update_EmbedExprType" update_EmbedExprType decodeType

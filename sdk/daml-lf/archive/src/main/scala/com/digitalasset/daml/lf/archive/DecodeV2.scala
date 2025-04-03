@@ -1346,12 +1346,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             Ret(UpdateLedgerTimeLT(time))
           }
 
-        case PLF.Update.SumCase.LEDGER_TIME_LE =>
-          val expr = lfUpdate.getLedgerTimeLe
-          decodeExpr(expr, definition) { time =>
-            Ret(UpdateLedgerTimeLE(time))
-          }
-
         case PLF.Update.SumCase.FETCH =>
           val fetch = lfUpdate.getFetch
           decodeExpr(fetch.getCid, definition) { contractId =>

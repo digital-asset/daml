@@ -621,7 +621,6 @@ private[lf] object Pretty {
             case SBFetchTemplate(templateId) => text(s"$$fetchAny($templateId)")
             case SBUGetTime => text("$getTime")
             case SBULedgerTimeLT => text("$ledgerTimeLT")
-            case SBULedgerTimeLE => text("$ledgerTimeLE")
             case _ => str(x)
           }
         case SEAppAtomicGeneral(fun, args) =>
