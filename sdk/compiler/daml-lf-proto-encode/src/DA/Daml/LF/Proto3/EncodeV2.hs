@@ -723,7 +723,7 @@ encodeUpdate = fmap (P.Update . Just) . \case
     UGetTime -> pure $ P.UpdateSumGetTime P.Unit
     ULedgerTimeLT e -> do
         update_LedgerTimeLt <- encodeExpr e
-        pure $ P.UpdateSumLedgerTimeLt (fromJust update_LedgerTimeLt) -- FIXME:
+        pure $ P.UpdateSumLedgerTimeLt (fromJust update_LedgerTimeLt)
     UEmbedExpr typ e -> do
         update_EmbedExprType <- encodeType typ
         update_EmbedExprBody <- encodeExpr e
