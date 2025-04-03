@@ -154,7 +154,7 @@ object RejectionGenerators {
             .Reject(renderedMessage, e)
         case e: LfInterpretationError.FailureStatus =>
           CommandExecutionErrors.Interpreter.FailureStatus
-            .Reject(renderedMessage, e)
+            .Reject(renderedMessage, e, transactionTrace)
         case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.ValidationFailed) =>
           CommandExecutionErrors.Interpreter.UpgradeError.ValidationFailed
             .Reject(renderedMessage, error)
