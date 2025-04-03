@@ -243,16 +243,9 @@ class ContractsService(
       jwtPayload: JwtPayload,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
-  ): SearchResult[Error \/ domain.ActiveContract[LfValue]] =
-    retrieveAll(jwt, toLedgerId(jwtPayload.ledgerId), jwtPayload.parties)
-
-  def retrieveAll(
-      jwt: Jwt,
-      ledgerId: LedgerApiDomain.LedgerId,
-      parties: domain.PartySet,
-  )(implicit
-      lc: LoggingContextOf[InstanceUUID]
-  ): SearchResult[Error \/ domain.ActiveContract[LfValue]] =
+  ): SearchResult[Error \/ domain.ActiveContract[LfValue]] = {
+    val ledgerId = toLedgerId(jwtPayload.ledgerId)
+    val parties = jwtPayload.parties
     domain.OkResponse(
       Source
         .future(allTemplateIds(lc)(jwt, ledgerId))
@@ -261,6 +254,7 @@ class ContractsService(
             .flatMapConcat(x => searchInMemoryOneTpId(jwt, ledgerId, parties, x, _ => true))
         )
     )
+  }
 
   def search(
       jwt: Jwt,
@@ -269,43 +263,29 @@ class ContractsService(
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: Metrics,
-  ): Future[SearchResult[Error \/ domain.ActiveContract[JsValue]]] =
-    search(
-      jwt,
-      toLedgerId(jwtPayload.ledgerId),
-      request.readAs.cata((_.toSet1), jwtPayload.parties),
-      request.templateIds,
-      request.query,
-    )
-
-  def search(
-      jwt: Jwt,
-      ledgerId: LedgerApiDomain.LedgerId,
-      parties: domain.PartySet,
-      templateIds: OneAnd[Set, domain.TemplateId.OptionalPkg],
-      queryParams: Map[String, JsValue],
-  )(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
-  ): Future[SearchResult[Error \/ domain.ActiveContract[JsValue]]] = for {
-    res <- resolveTemplateIds(jwt, ledgerId)(templateIds)
-    (resolvedTemplateIds, unresolvedTemplateIds) = res
-
-    warnings: Option[domain.UnknownTemplateIds] =
-      if (unresolvedTemplateIds.isEmpty) None
-      else Some(domain.UnknownTemplateIds(unresolvedTemplateIds.toList))
-  } yield
-    if (resolvedTemplateIds.isEmpty) {
-      domain.ErrorResponse(
-        errors = List(ErrorMessages.cannotResolveAnyTemplateId),
-        warnings = warnings,
-        status = StatusCodes.BadRequest,
-      )
-    } else {
-      val searchCtx = SearchContext[Set, Id](jwt, parties, resolvedTemplateIds, ledgerId)
-      val source = search.toFinal.search(searchCtx, queryParams)
-      domain.OkResponse(source, warnings)
+  ): Future[SearchResult[Error \/ domain.ActiveContract[JsValue]]] = {
+    val ledgerId = toLedgerId(jwtPayload.ledgerId)
+    val parties = request.readAs.cata((_.toSet1), jwtPayload.parties)
+    val templateIds = request.templateIds
+    val queryParams = request.query
+    resolveTemplateIds(jwt, ledgerId)(templateIds).map {
+      case (resolvedTemplateIds, unresolvedTemplateIds) =>
+        val warnings =
+          if (unresolvedTemplateIds.isEmpty) None
+          else Some(domain.UnknownTemplateIds(unresolvedTemplateIds.toList))
+        if (resolvedTemplateIds.isEmpty) {
+          domain.ErrorResponse(
+            errors = List(ErrorMessages.cannotResolveAnyTemplateId),
+            warnings = warnings,
+            status = StatusCodes.BadRequest,
+          )
+        } else {
+          val searchCtx = SearchContext[Set, Id](jwt, parties, resolvedTemplateIds, ledgerId)
+          val source = search.toFinal.search(searchCtx, queryParams)
+          domain.OkResponse(source, warnings)
+        }
     }
+  }
 
   private[this] val SearchDb: Option[Search { type LfV = JsValue }] = daoAndFetch map {
     case (dao, fetch) =>
@@ -418,7 +398,7 @@ class ContractsService(
             ctx: SearchContext[Set, Id],
             queryParams: Map[String, JsValue],
         )(implicit
-            lc: LoggingContextOf[InstanceUUID],
+            lc: LoggingContextOf[InstanceUUID with RequestID],
             metrics: Metrics,
         ): doobie.ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
           import cats.instances.vector._
