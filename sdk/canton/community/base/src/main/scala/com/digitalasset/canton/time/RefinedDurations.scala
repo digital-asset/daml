@@ -292,11 +292,6 @@ final case class PositiveSeconds private (duration: Duration)
     checked(PositiveSeconds(newDuration))
   }
 
-  def tryMultiply(i: PositiveNumeric[Double]): PositiveSeconds = {
-    val cuttOffSeconds = duration.getSeconds * i.unwrap
-    PositiveSeconds.tryOfSeconds(cuttOffSeconds.round)
-  }
-
 }
 
 object PositiveSeconds extends RefinedDurationCompanion[PositiveSeconds] {

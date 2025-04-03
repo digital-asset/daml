@@ -45,7 +45,7 @@ participant5.synchronizers.connect_local(iou_sequencer, alias = iouAlias)
 // create the parties
 val Bank = participant1.parties.enable("Bank")
 val HouseOwner = participant2.parties.enable("House Owner")
-val Painter = participant3.parties.enable("Painter", waitForSynchronizer = SynchronizerChoice.All)
+val Painter = participant3.parties.enable("Painter")
 
 // Wait until the party enabling has taken effect and has been observed at the participants
 val initialPartyAssignment = Set(Bank -> participant1, HouseOwner -> participant2, Painter -> participant3)

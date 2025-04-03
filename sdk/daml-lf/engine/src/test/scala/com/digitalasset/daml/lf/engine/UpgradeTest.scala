@@ -85,7 +85,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with ParallelTestExecution {
         }
       case ExpectUnhandledException =>
         inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
-          error shouldBe a[IE.UnhandledException]
+          error shouldBe a[IE.FailureStatus]
         }
       case ExpectInternalInterpretationError =>
         inside(result) { case Left(EE.Interpretation(error, _)) =>

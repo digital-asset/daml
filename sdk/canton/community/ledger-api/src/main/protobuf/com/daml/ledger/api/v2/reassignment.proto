@@ -35,12 +35,10 @@ message Reassignment {
   // Required, must be a valid absolute offset (positive integer).
   int64 offset = 4;
 
-  oneof event {
-    UnassignedEvent unassigned_event = 5;
-    AssignedEvent assigned_event = 6;
-  }
+  // The collection of reassignment events. Required.
+  repeated ReassignmentEvent events = 5;
 
-  // Optional; ledger api trace context
+  // Optional; ledger API trace context
   //
   // The trace context transported in this message corresponds to the trace context supplied
   // by the client application in a HTTP2 header of the original command submission.
@@ -49,12 +47,19 @@ message Reassignment {
   // This field will be populated with the trace context contained in the original submission.
   // If that was not provided, a unique ledger-api-server generated trace context will be used
   // instead.
-  TraceContext trace_context = 7;
+  TraceContext trace_context = 6;
 
   // The time at which the reassignment was recorded. The record time refers to the source/target
   // synchronizer for an unassign/assign event respectively.
   // Required
-  google.protobuf.Timestamp record_time = 8;
+  google.protobuf.Timestamp record_time = 7;
+}
+
+message ReassignmentEvent {
+  oneof event {
+    UnassignedEvent unassigned = 1;
+    AssignedEvent assigned = 2;
+  }
 }
 
 // Records that a contract has been unassigned, and it becomes unusable on the source synchronizer
@@ -109,6 +114,18 @@ message UnassignedEvent {
   // The package name of the contract.
   // Required
   string package_name = 10;
+
+  // The offset of origin.
+  // Offsets are managed by the participant nodes.
+  // Reassignments can thus NOT be assumed to have the same offsets on different participant nodes.
+  // Required, it is a valid absolute offset (positive integer)
+  int64 offset = 11;
+
+  // The position of this event in the originating reassignment.
+  // Node ids are not necessarily equal across participants,
+  // as these may see different projections/parts of reassignments.
+  // Required, must be valid node ID (non-negative integer)
+  int32 node_id = 12;
 }
 
 // Records that a contract has been assigned, and it can be used on the target synchronizer.
@@ -143,6 +160,7 @@ message AssignedEvent {
   uint64 reassignment_counter = 5;
 
   // Required
-  // The offset of the emitted event refers to the offset of this assignment, while the node_id is always set to 0.
+  // The offset of this event refers to the offset of the assignment,
+  // while the node_id is the index of within the batch.
   CreatedEvent created_event = 6;
 }

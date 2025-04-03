@@ -109,6 +109,11 @@ class InMemorySequencerBlockStore(
     }
     .maxByOption(_.height)
 
+  override def findBlockContainingTimestamp(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SequencerError, BlockInfo] =
+    readStateForBlockContainingTimestamp(timestamp).map(_.latestBlock)
+
   override def readStateForBlockContainingTimestamp(
       timestamp: CantonTimestamp
   )(implicit

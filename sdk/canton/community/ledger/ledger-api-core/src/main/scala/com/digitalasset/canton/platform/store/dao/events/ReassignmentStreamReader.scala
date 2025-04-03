@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.daml.ledger.api.v2.reassignment.Reassignment
+import com.daml.ledger.api.v2.reassignment.{Reassignment, ReassignmentEvent}
 import com.daml.ledger.api.v2.trace_context.TraceContext as DamlTraceContext
 import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.digitalasset.canton.data.Offset
@@ -33,6 +33,7 @@ import com.digitalasset.canton.platform.store.utils.{
   ConcurrencyLimiter,
   QueueBasedConcurrencyLimiter,
 }
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
@@ -113,12 +114,12 @@ class ReassignmentStreamReader(
         ids: Source[Iterable[Long], NotUsed],
         maxParallelPayloadQueries: Int,
         dbMetric: DatabaseMetrics,
-        payloadDbQuery: PayloadDbQuery[T],
-        deserialize: T => Future[Reassignment],
+        payloadDbQuery: PayloadDbQuery[Entry[T]],
+        deserialize: Seq[Entry[T]] => Future[Option[Reassignment]],
     ): Source[Reassignment, NotUsed] = {
       // Pekko requires for this buffer's size to be a power of two.
       val inputBufferSize = Utils.largestSmallerOrEqualPowerOfTwo(maxParallelPayloadQueries)
-      ids.async
+      val serializedPayloads = ids.async
         .addAttributes(Attributes.inputBuffer(initial = inputBufferSize, max = inputBufferSize))
         .mapAsync(maxParallelPayloadQueries)(ids =>
           payloadQueriesLimiter.execute {
@@ -143,11 +144,14 @@ class ReassignmentStreamReader(
           }
         )
         .mapConcat(identity)
+      UpdateReader
+        .groupContiguous(serializedPayloads)(by = _.updateId)
         .mapAsync(deserializationProcessingParallelism)(t =>
           deserializationQueriesLimiter.execute(
             deserialize(t)
           )
         )
+        .mapConcat(_.toList)
     }
 
     val idsAssign =
@@ -186,48 +190,62 @@ class ReassignmentStreamReader(
       .map(response => Offset.tryFromLong(response.offset) -> response)
   }
 
-  private def toApiUnassigned(rawUnassignEntry: Entry[RawUnassignEvent]): Future[Reassignment] =
+  private def toApiUnassigned(
+      rawUnassignEntries: Seq[Entry[RawUnassignEvent]]
+  ): Future[Option[Reassignment]] =
     Timed.future(
       future = Future {
-        Reassignment(
-          updateId = rawUnassignEntry.updateId,
-          commandId = rawUnassignEntry.commandId.getOrElse(""),
-          workflowId = rawUnassignEntry.workflowId.getOrElse(""),
-          offset = rawUnassignEntry.offset,
-          event = Reassignment.Event.UnassignedEvent(
-            UpdateReader.toUnassignedEvent(rawUnassignEntry.event)
-          ),
-          recordTime = Some(TimestampConversion.fromLf(rawUnassignEntry.recordTime)),
-          traceContext = rawUnassignEntry.traceContext.map(DamlTraceContext.parseFrom),
-        )
+        rawUnassignEntries.headOption map { first =>
+          Reassignment(
+            updateId = first.updateId,
+            commandId = first.commandId.getOrElse(""),
+            workflowId = first.workflowId.getOrElse(""),
+            offset = first.offset,
+            events = rawUnassignEntries.map(entry =>
+              ReassignmentEvent(
+                ReassignmentEvent.Event.Unassigned(
+                  UpdateReader.toUnassignedEvent(first.offset, entry.event)
+                )
+              )
+            ),
+            recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
+            traceContext = first.traceContext.map(DamlTraceContext.parseFrom),
+          )
+        }
       },
       timer = dbMetrics.reassignmentStream.translationTimer,
     )
 
   private def toApiAssigned(eventProjectionProperties: EventProjectionProperties)(
-      rawAssignEntry: Entry[RawAssignEvent]
-  )(implicit lc: LoggingContextWithTrace): Future[Reassignment] =
+      rawAssignEntries: Seq[Entry[RawAssignEvent]]
+  )(implicit lc: LoggingContextWithTrace): Future[Option[Reassignment]] =
     Timed.future(
       future = Future.delegate(
-        lfValueTranslation
-          .deserializeRaw(
-            eventProjectionProperties,
-            rawAssignEntry.event.rawCreatedEvent,
-          )
-          .map(createdEvent =>
-            Reassignment(
-              updateId = rawAssignEntry.updateId,
-              commandId = rawAssignEntry.commandId.getOrElse(""),
-              workflowId = rawAssignEntry.workflowId.getOrElse(""),
-              offset = rawAssignEntry.offset,
-              event = Reassignment.Event.AssignedEvent(
-                UpdateReader.toAssignedEvent(
-                  rawAssignEntry.event,
-                  createdEvent,
-                )
-              ),
-              recordTime = Some(TimestampConversion.fromLf(rawAssignEntry.recordTime)),
-              traceContext = rawAssignEntry.traceContext.map(DamlTraceContext.parseFrom),
+        MonadUtil
+          .sequentialTraverse(rawAssignEntries) { rawAssignEntry =>
+            lfValueTranslation
+              .deserializeRaw(
+                eventProjectionProperties,
+                rawAssignEntry.event.rawCreatedEvent,
+              )
+          }
+          .map(createdEvents =>
+            rawAssignEntries.headOption.map(first =>
+              Reassignment(
+                updateId = first.updateId,
+                commandId = first.commandId.getOrElse(""),
+                workflowId = first.workflowId.getOrElse(""),
+                offset = first.offset,
+                events = rawAssignEntries.zip(createdEvents).map { case (entry, created) =>
+                  ReassignmentEvent(
+                    ReassignmentEvent.Event.Assigned(
+                      UpdateReader.toAssignedEvent(entry.event, created)
+                    )
+                  )
+                },
+                recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
+                traceContext = first.traceContext.map(DamlTraceContext.parseFrom),
+              )
             )
           )
       ),

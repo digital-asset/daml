@@ -18,7 +18,6 @@ import com.digitalasset.canton.participant.protocol.submission.{
 }
 import com.digitalasset.canton.participant.protocol.{ContractAuthenticator, ProtocolProcessor}
 import com.digitalasset.canton.participant.store.SyncEphemeralState
-import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
@@ -31,7 +30,6 @@ import scala.concurrent.ExecutionContext
 class UnassignmentProcessor(
     synchronizerId: Source[SynchronizerId],
     override val participantId: ParticipantId,
-    damle: DAMLe,
     staticSynchronizerParameters: Source[StaticSynchronizerParameters],
     reassignmentCoordination: ReassignmentCoordination,
     inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
@@ -55,7 +53,6 @@ class UnassignmentProcessor(
       new UnassignmentProcessingSteps(
         synchronizerId,
         participantId,
-        damle,
         reassignmentCoordination,
         seedGenerator,
         staticSynchronizerParameters,

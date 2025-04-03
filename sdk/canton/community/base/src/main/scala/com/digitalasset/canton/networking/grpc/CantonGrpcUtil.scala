@@ -8,12 +8,12 @@ import cats.data.EitherT
 import cats.implicits.*
 import com.daml.grpc.AuthCallCredentials
 import com.digitalasset.base.error.{
-  CantonRpcError,
   ErrorCategory,
   ErrorCategoryRetry,
   ErrorCode,
   Explanation,
   Resolution,
+  RpcError,
 }
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.connection.v30.{ApiInfoServiceGrpc, GetApiInfoRequest}
@@ -41,23 +41,21 @@ object CantonGrpcUtil {
   def wrapErrUS[T](value: ParsingResult[T])(implicit
       loggingContext: ErrorLoggingContext,
       ec: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, CantonRpcError, T] =
+  ): EitherT[FutureUnlessShutdown, RpcError, T] =
     wrapErrUS(EitherT.fromEither[FutureUnlessShutdown](value))
 
   def wrapErrUS[T](value: EitherT[FutureUnlessShutdown, ProtoDeserializationError, T])(implicit
       loggingContext: ErrorLoggingContext,
       ec: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, CantonRpcError, T] =
-    value.leftMap(x =>
-      ProtoDeserializationError.ProtoDeserializationFailure.Wrap(x): CantonRpcError
-    )
+  ): EitherT[FutureUnlessShutdown, RpcError, T] =
+    value.leftMap(x => ProtoDeserializationError.ProtoDeserializationFailure.Wrap(x): RpcError)
 
-  def mapErrNew[T <: CantonRpcError, C](value: Either[T, C])(implicit
+  def mapErrNew[T <: RpcError, C](value: Either[T, C])(implicit
       ec: ExecutionContext
   ): EitherT[Future, StatusRuntimeException, C] =
     EitherT.fromEither[Future](value).leftMap(_.asGrpcError)
 
-  def mapErrNewETUS[T <: CantonRpcError, C](value: EitherT[FutureUnlessShutdown, T, C])(implicit
+  def mapErrNewETUS[T <: RpcError, C](value: EitherT[FutureUnlessShutdown, T, C])(implicit
       ec: ExecutionContext,
       errorLoggingContext: ErrorLoggingContext,
   ): EitherT[Future, StatusRuntimeException, C] =
@@ -74,12 +72,12 @@ object CantonGrpcUtil {
   ): EitherT[Future, A, B] =
     value.onShutdown(throw AbortedDueToShutdown.Error().asGrpcError)
 
-  def mapErrNew[T <: CantonRpcError, C](value: EitherT[Future, T, C])(implicit
+  def mapErrNew[T <: RpcError, C](value: EitherT[Future, T, C])(implicit
       ec: ExecutionContext
   ): Future[C] =
     EitherTUtil.toFuture(value.leftMap(_.asGrpcError))
 
-  def mapErrNewEUS[T <: CantonRpcError, C](value: EitherT[FutureUnlessShutdown, T, C])(implicit
+  def mapErrNewEUS[T <: RpcError, C](value: EitherT[FutureUnlessShutdown, T, C])(implicit
       ec: ExecutionContext,
       errorLoggingContext: ErrorLoggingContext,
   ): Future[C] =

@@ -1,0 +1,154 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Universal where
+
+import Daml.Script
+import DA.Assert
+import DA.List
+
+{-
+Template allowing to configure maintainers, signatories, observers, and actors separately.
+Every choice has choice observers that can again be configured via choice parameters.
+The template can be used to create a wide range of transaction structures.
+
+Limitations:
+- It does not contain any rollbacks.
+- It does not attempt to cover all combinations of consuming / non-consuming choices.
+- It does not have any post-consuming choice.
+-}
+template UniversalContract
+  with
+    maintainers: [Party]
+    signatories: [Party]
+    observers: [Party]
+    actors: [Party]
+  where
+    signatory signatories ++ maintainers
+    observer observers
+
+    -- A plain non-consuming choice.
+    nonconsuming choice Touch: ()
+      with
+        touchObservers: [Party]
+      observer touchObservers
+      controller actors
+      do pure ()
+
+    -- A consuming choice that creates a new version of the contract.
+    choice Replace: ContractId UniversalContract
+      with
+        newMaintainers: [Party]
+        newSignatories: [Party]
+        newObservers: [Party]
+        newActors: [Party]
+        replaceObservers: [Party]
+      observer replaceObservers
+      controller actors
+        do
+          cid <- create UniversalContract
+            with
+              maintainers = newMaintainers
+              signatories = newSignatories
+              observers = newObservers
+              actors = newActors
+              ..
+          pure cid
+
+    choice Delete: ()
+      with
+        deleteObservers: [Party]
+      observer deleteObservers
+      controller actors
+      do pure ()
+
+    -- Choice that fetches a universal contract as its consequence.
+    nonconsuming choice DelegateFetch: UniversalContract
+      with
+        cid: ContractId UniversalContract
+        delegateObservers: [Party]
+      observer delegateObservers
+      controller actors
+        do fetch cid
+
+    -- Choice that exercises Touch as its consequence.
+    nonconsuming choice DelegateTouch: ()
+      with
+        cid: ContractId UniversalContract
+        delegateObservers: [Party]
+        touchObservers: [Party]
+      observer delegateObservers
+      controller actors
+        do exercise cid Touch with ..
+
+    -- Choice that exercises Replace as its consequence.
+    nonconsuming choice DelegateReplace: ContractId UniversalContract
+      with
+        cid: ContractId UniversalContract
+        delegateObservers: [Party]
+        newMaintainers: [Party]
+        newSignatories: [Party]
+        newObservers: [Party]
+        newActors: [Party]
+        replaceObservers: [Party]
+      observer delegateObservers
+      controller actors
+        do
+          exercise cid Replace with ..
+
+test: Script ()
+test = script do
+  -- Parties used as maintainer, signatory, observer, or actor.
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
+  eve <- allocateParty "Eve"
+
+  -- Parties used as choice observers.
+  let obsNames = map (\i -> "Observer" <> show i) [0..20]
+  obs <- mapA allocateParty obsNames
+
+  -- Test the simple choices (i.e., not of the form Delegate*)
+
+  -- Firstly, create some universal contract
+  universalProp <- submit alice $ createCmd UniversalContract with
+    maintainers = [alice], signatories = [], observers = [bob], actors = [bob]
+  universal <- submit bob $ exerciseCmd universalProp Replace with
+    newMaintainers = [alice], newSignatories = [bob], newObservers = [charlie], newActors = [eve], replaceObservers = [eve]
+
+  -- touch
+  () <- submit eve $ exerciseCmd universal Touch with touchObservers = [obs!!0]
+
+  -- replace
+  universal <- submit eve $ exerciseCmd universal Replace with
+    newMaintainers = [eve], newSignatories = [alice], newObservers = [bob], newActors = [charlie], replaceObservers = [obs!!1]
+  let universalContract = UniversalContract {maintainers = [eve], signatories = [alice], observers = [bob], actors = [charlie]}
+
+  -- Test the choices of the form Delegate*
+
+  -- Firstly, create contracts used at the transaction root.
+  rootEve <- submit eve $ createCmd UniversalContract with
+    maintainers = [eve], signatories = [], observers = [], actors = [eve]
+
+  rootCharlie <- submit charlie $ createCmd UniversalContract with
+    maintainers = [charlie], signatories = [], observers = [], actors = [charlie]
+
+  rootEveCharlieProp <- submit eve $ createCmd UniversalContract with
+    maintainers = [eve], signatories = [], observers = [charlie], actors = [charlie]
+  rootEveCharlie <- submit charlie $ exerciseCmd rootEveCharlieProp Replace with
+    newMaintainers = [eve], newSignatories = [charlie], newObservers = [], newActors = [eve], replaceObservers = []
+
+  -- delegate fetch
+  delegateFetchContract <- submit eve $ exerciseCmd rootEve DelegateFetch with
+    cid = universal, delegateObservers = [obs!!2]
+  delegateFetchContract === universalContract
+
+  -- delegate touch
+  () <- submit charlie $ exerciseCmd rootCharlie DelegateTouch with
+    cid = universal, delegateObservers = [obs!!6], touchObservers = [obs!!7]
+
+  -- delegate replace
+  universal <- submit charlie $ exerciseCmd rootCharlie DelegateReplace with
+    cid = universal, delegateObservers = [obs!!10], newMaintainers = [eve], newSignatories = [alice], newObservers = [], newActors = [charlie], replaceObservers = [obs!!11]
+
+  pure ()

@@ -10,8 +10,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessResult
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.validation.AuthenticationValidator
-import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingSteps}
-import com.digitalasset.canton.participant.util.DAMLe
+import com.digitalasset.canton.participant.protocol.{ContractAuthenticator, ProcessingSteps}
 import com.digitalasset.canton.protocol.{ReassignmentId, Stakeholders}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -22,7 +21,7 @@ import scala.concurrent.ExecutionContext
 
 private[reassignment] class UnassignmentValidation(
     participantId: ParticipantId,
-    engine: DAMLe,
+    contractAuthenticator: ContractAuthenticator,
 ) {
 
   /** @param targetTopology
@@ -32,7 +31,6 @@ private[reassignment] class UnassignmentValidation(
       sourceTopology: Source[TopologySnapshot],
       targetTopology: Option[Target[TopologySnapshot]],
       activenessF: FutureUnlessShutdown[ActivenessResult],
-      engineController: EngineController,
   )(parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree])(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -50,7 +48,6 @@ private[reassignment] class UnassignmentValidation(
           sourceTopology,
           targetTopology,
           activenessF,
-          engineController,
         )(parsedRequest)
       )
 
@@ -92,7 +89,6 @@ private[reassignment] class UnassignmentValidation(
       sourceTopology: Source[TopologySnapshot],
       targetTopology: Option[Target[TopologySnapshot]],
       activenessF: FutureUnlessShutdown[ActivenessResult],
-      engineController: EngineController,
   )(parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree])(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -100,11 +96,7 @@ private[reassignment] class UnassignmentValidation(
     val fullTree = parsedRequest.fullViewTree
     val recipients = parsedRequest.recipients
 
-    // check asynchronously so that we can complete the pending request
-    // in the Phase37Synchronizer without waiting for it, thereby allowing us to concurrently receive a
-    // mediator verdict.
-    val metadataResultET = new ReassignmentValidation(engine)
-      .checkMetadata(fullTree, () => engineController.abortStatus)
+    val metadataResultET = new ReassignmentValidation(contractAuthenticator).checkMetadata(fullTree)
 
     for {
       activenessResult <- activenessF

@@ -335,7 +335,7 @@ class ACSReader(
               )(connection)
             )
             logger.debug(
-              s"assignEventBatch returned ${ids.size}/${result.size} ${ids.lastOption
+              s"unassignEventBatch returned ${ids.size}/${result.size} ${ids.lastOption
                   .map(last => s"until $last")
                   .getOrElse("")}"
             )
@@ -672,7 +672,9 @@ class ACSReader(
             contractEntry = GetActiveContractsResponse.ContractEntry.IncompleteUnassigned(
               IncompleteUnassigned(
                 createdEvent = Some(createdEvent),
-                unassignedEvent = Some(UpdateReader.toUnassignedEvent(rawUnassignEntry.event)),
+                unassignedEvent = Some(
+                  UpdateReader.toUnassignedEvent(rawUnassignEntry.offset, rawUnassignEntry.event)
+                ),
               )
             ),
           )

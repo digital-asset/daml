@@ -344,11 +344,22 @@ class GrpcLedgerClient(
             results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
           } yield Right((results, tree))
         case Left(status) =>
+          val submitErr = GrpcErrorParser.convertStatusRuntimeException(status)
+          val runtimeErr = StatusProto.toStatusRuntimeException(GoogleStatus.toJavaProto(status))
+
           Future.successful(
             Left(
               ScriptLedgerClient.SubmitFailure(
-                StatusProto.toStatusRuntimeException(GoogleStatus.toJavaProto(status)),
-                GrpcErrorParser.convertStatusRuntimeException(status),
+                submitErr match {
+                  // If we have a trace, place it into the runtime error so it is shown by daml-script runner
+                  case SubmitError.FailureStatusError(_, Some(trace)) =>
+                    new StatusRuntimeException(
+                      runtimeErr.getStatus().augmentDescription(trace),
+                      runtimeErr.getTrailers(),
+                    )
+                  case _ => runtimeErr
+                },
+                submitErr,
               )
             )
           )

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output
 
 import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.CompleteBlockData
 
@@ -14,6 +15,7 @@ private[output] object OutputModuleMetrics {
   def emitRequestsOrderingStats(
       metrics: BftOrderingMetrics,
       orderedBlockData: CompleteBlockData,
+      orderedBlockBftTime: CantonTimestamp,
   )(implicit mc: MetricsContext): Unit = {
     val orderingCompletionInstant = Instant.now
     val requests = orderedBlockData.batches.flatMap(_._2.requests.map(_.value))
@@ -23,6 +25,9 @@ private[output] object OutputModuleMetrics {
     metrics.output.blockSizeBytes.update(bytesOrdered)
     metrics.output.blockSizeRequests.update(requestsOrdered)
     metrics.output.blockSizeBatches.update(batchesOrdered)
+    metrics.output.blockDelay.update(
+      Duration.between(orderedBlockBftTime.toInstant, orderingCompletionInstant)
+    )
     metrics.global.blocksOrdered.mark(1L)
     orderedBlockData.batches.foreach { batch =>
       batch._2.requests.foreach { request =>

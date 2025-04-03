@@ -8,7 +8,7 @@ import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod.DeduplicationDuration
 import com.daml.ledger.api.v2.event.CreatedEvent as ScalaCreatedEvent
 import com.daml.ledger.api.v2.event.Event.Event
-import com.daml.ledger.api.v2.reassignment.Reassignment
+import com.daml.ledger.api.v2.reassignment.{Reassignment, ReassignmentEvent}
 import com.daml.ledger.api.v2.state_service.ActiveContract
 import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
@@ -428,10 +428,10 @@ object PingService {
     override private[admin] def processReassignment(tx: Reassignment): Unit = {
       implicit val traceContext: TraceContext =
         LedgerClient.traceContextFromLedgerApi(tx.traceContext)
-      tx.event match {
-        case Reassignment.Event.UnassignedEvent(value) =>
+      tx.events foreach {
+        case ReassignmentEvent(ReassignmentEvent.Event.Unassigned(value)) =>
         // we only look at assign events
-        case Reassignment.Event.AssignedEvent(event) =>
+        case ReassignmentEvent(ReassignmentEvent.Event.Assigned(event)) =>
           val process = for {
             target <- SynchronizerId.fromProtoPrimitive(event.target, "target")
             created <- ProtoConverter.required("createdEvent", event.createdEvent)
@@ -451,7 +451,7 @@ object PingService {
             logger.error(s"Failed to process reassignment: $err / $event")
           }
 
-        case Reassignment.Event.Empty =>
+        case ReassignmentEvent(ReassignmentEvent.Event.Empty) =>
       }
     }
 

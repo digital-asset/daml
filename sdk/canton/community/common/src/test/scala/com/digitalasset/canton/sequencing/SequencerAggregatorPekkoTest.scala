@@ -4,10 +4,12 @@
 package com.digitalasset.canton.sequencing
 
 import cats.data.EitherT
+import cats.implicits.catsSyntaxOptionId
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{Fingerprint, Signature}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasRunOnClosing, OnShutdownRunner}
 import com.digitalasset.canton.logging.TracedLogger
@@ -33,7 +35,6 @@ import com.digitalasset.canton.{
   BaseTest,
   HasExecutionContext,
   ProtocolVersionChecksFixtureAnyWordSpec,
-  SequencerCounter,
 }
 import com.google.protobuf.ByteString
 import org.apache.pekko.stream.scaladsl.{Keep, Source}
@@ -91,8 +92,10 @@ class SequencerAggregatorPekkoTest
       )
     )(event.traceContext)
 
-  private def mkEvents(start: SequencerCounter, amount: Int): Seq[Event] =
-    (0 until amount).map(i => Event(start + i))
+  private def mkEvents(startingTimestampO: Option[CantonTimestamp], amount: Long): Seq[Event] = {
+    val startTimestamp = startingTimestampO.getOrElse(CantonTimestamp.Epoch)
+    (0L until amount).map(i => Event(startTimestamp.addMicros(i)))
+  }
 
   private class TestAtomicHealthComponent(override val name: String) extends AtomicHealthComponent {
     override protected def initialHealthState: ComponentHealthState =
@@ -108,7 +111,7 @@ class SequencerAggregatorPekkoTest
 
       val aggregator = mkAggregatorPekko()
       val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
-      factory.add(mkEvents(SequencerCounter.Genesis, 3)*)
+      factory.add(mkEvents(startingTimestampO = None, 3)*)
 
       val config = OrderedBucketMergeConfig(
         PositiveInt.one,
@@ -118,18 +121,18 @@ class SequencerAggregatorPekkoTest
         Source.single(config).concat(Source.never).viaMat(KillSwitches.single)(Keep.right)
 
       val ((killSwitch, (doneF, _health)), sink) = configSource
-        .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
+        .viaMat(aggregator.aggregateFlow(Left(None)))(Keep.both)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
       sink.request(5)
-      sink.expectNext() shouldBe Left(NewConfiguration(config, SequencerCounter.Genesis - 1L))
+      sink.expectNext() shouldBe Left(NewConfiguration(config, None))
       sink.expectNext().value shouldBe
-        Event(SequencerCounter.Genesis).asOrdinarySerializedEvent
+        Event(CantonTimestamp.Epoch).asOrdinarySerializedEvent
       sink.expectNext().value shouldBe
-        Event(SequencerCounter.Genesis + 1L).asOrdinarySerializedEvent
+        Event(CantonTimestamp.Epoch.addMicros(1L)).asOrdinarySerializedEvent
       sink.expectNext().value shouldBe
-        Event(SequencerCounter.Genesis + 2L).asOrdinarySerializedEvent
+        Event(CantonTimestamp.Epoch.addMicros(2L)).asOrdinarySerializedEvent
       sink.expectNoMessage()
       killSwitch.shutdown()
       sink.expectComplete()
@@ -151,12 +154,12 @@ class SequencerAggregatorPekkoTest
       val ((killSwitch, (doneF, _health)), sink) = loggerFactory.assertLogs(
         {
           val (handle, sink) = configSource
-            .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
+            .viaMat(aggregator.aggregateFlow(Left(None)))(Keep.both)
             .toMat(TestSink.probe)(Keep.both)
             .run()
 
           sink.request(5)
-          sink.expectNext() shouldBe Left(NewConfiguration(config, SequencerCounter.Genesis - 1L))
+          sink.expectNext() shouldBe Left(NewConfiguration(config, None))
           sink.expectNext() shouldBe Left(ActiveSourceTerminated(sequencerAlice, None))
           sink.expectNext() shouldBe Left(
             DeadlockDetected(Seq.empty, DeadlockTrigger.ActiveSourceTermination)
@@ -192,12 +195,12 @@ class SequencerAggregatorPekkoTest
       val ((killSwitch, (doneF, _health)), sink) = loggerFactory.assertLogs(
         {
           val (handle, sink) = configSource
-            .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
+            .viaMat(aggregator.aggregateFlow(Left(None)))(Keep.both)
             .toMat(TestSink.probe)(Keep.both)
             .run()
 
           sink.request(5)
-          sink.expectNext() shouldBe Left(NewConfiguration(config, SequencerCounter.Genesis - 1L))
+          sink.expectNext() shouldBe Left(NewConfiguration(config, None))
           sink.expectNext() shouldBe Left(ActiveSourceTerminated(sequencerAlice, Some(ex)))
           sink.expectNext() shouldBe Left(
             DeadlockDetected(Seq.empty, DeadlockTrigger.ActiveSourceTermination)
@@ -221,13 +224,13 @@ class SequencerAggregatorPekkoTest
       val aggregator = mkAggregatorPekko()
       val ((source, (doneF, _health)), sink) = Source
         .queue[OrderedBucketMergeConfig[SequencerId, Config]](1)
-        .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
+        .viaMat(aggregator.aggregateFlow(Left(None)))(Keep.both)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
       val factory = TestSequencerSubscriptionFactoryPekko(loggerFactory)
-      factory.add(mkEvents(SequencerCounter.Genesis, 3)*)
-      factory.add(mkEvents(SequencerCounter.Genesis + 2, 3)*)
+      factory.add(mkEvents(startingTimestampO = None, 3)*)
+      factory.add(mkEvents(startingTimestampO = Some(CantonTimestamp.Epoch.addMicros(2L)), 3)*)
       val config1 = OrderedBucketMergeConfig(
         PositiveInt.one,
         NonEmpty(Map, sequencerAlice -> Config("V1")(factory)),
@@ -238,20 +241,22 @@ class SequencerAggregatorPekkoTest
       )
       source.offer(config1) shouldBe QueueOfferResult.Enqueued
       sink.request(10)
-      sink.expectNext() shouldBe Left(NewConfiguration(config1, SequencerCounter.Genesis - 1))
+      sink.expectNext() shouldBe Left(NewConfiguration(config1, None))
       sink.expectNext().value shouldBe
-        Event(SequencerCounter.Genesis).asOrdinarySerializedEvent
+        Event(CantonTimestamp.Epoch).asOrdinarySerializedEvent
       sink.expectNext().value shouldBe
-        Event(SequencerCounter.Genesis + 1).asOrdinarySerializedEvent
+        Event(CantonTimestamp.Epoch.addMicros(1L)).asOrdinarySerializedEvent
       sink.expectNext().value shouldBe
-        Event(SequencerCounter.Genesis + 2).asOrdinarySerializedEvent
+        Event(CantonTimestamp.Epoch.addMicros(2)).asOrdinarySerializedEvent
       sink.expectNoMessage()
       source.offer(config2) shouldBe QueueOfferResult.Enqueued
-      sink.expectNext() shouldBe Left(NewConfiguration(config2, SequencerCounter.Genesis + 2))
+      sink.expectNext() shouldBe Left(
+        NewConfiguration(config2, CantonTimestamp.Epoch.addMicros(2L).some)
+      )
       sink.expectNext().value shouldBe
-        Event(SequencerCounter.Genesis + 3).asOrdinarySerializedEvent
+        Event(CantonTimestamp.Epoch.addMicros(3)).asOrdinarySerializedEvent
       sink.expectNext().value shouldBe
-        Event(SequencerCounter.Genesis + 4).asOrdinarySerializedEvent
+        Event(CantonTimestamp.Epoch.addMicros(4)).asOrdinarySerializedEvent
       sink.expectNoMessage()
       source.complete()
       sink.expectComplete()
@@ -272,7 +277,7 @@ class SequencerAggregatorPekkoTest
         val signatureBob = fakeSignatureFor("Bob")
         val signatureCarlos = fakeSignatureFor("Carlos")
 
-        val events = mkEvents(SequencerCounter.Genesis, 3)
+        val events = mkEvents(startingTimestampO = None, 3)
         factoryAlice.add(events.take(1).map(_.copy(signatures = NonEmpty(Set, signatureAlice)))*)
         factoryBob.add(events.slice(1, 2).map(_.copy(signatures = NonEmpty(Set, signatureBob)))*)
         factoryCarlos.add(events.take(3).map(_.copy(signatures = NonEmpty(Set, signatureCarlos)))*)
@@ -290,21 +295,21 @@ class SequencerAggregatorPekkoTest
           Source.single(config).concat(Source.never).viaMat(KillSwitches.single)(Keep.right)
 
         val ((killSwitch, (doneF, _health)), sink) = configSource
-          .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
+          .viaMat(aggregator.aggregateFlow(Left(None)))(Keep.both)
           .toMat(TestSink.probe)(Keep.both)
           .run()
 
         sink.request(4)
-        sink.expectNext() shouldBe Left(NewConfiguration(config, SequencerCounter.Genesis - 1L))
+        sink.expectNext() shouldBe Left(NewConfiguration(config, None))
         normalize(sink.expectNext().value) shouldBe normalize(
           Event(
-            SequencerCounter.Genesis,
+            timestamp = CantonTimestamp.Epoch,
             NonEmpty(Set, signatureAlice, signatureCarlos),
           ).asOrdinarySerializedEvent
         )
         normalize(sink.expectNext().value) shouldBe normalize(
           Event(
-            SequencerCounter.Genesis + 1L,
+            timestamp = CantonTimestamp.Epoch.addMicros(1L),
             NonEmpty(Set, signatureBob, signatureCarlos),
           ).asOrdinarySerializedEvent
         )
@@ -333,12 +338,12 @@ class SequencerAggregatorPekkoTest
           EitherTUtil.unitUS
       }
 
-      val initialCounter = SequencerCounter(10)
+      val initialTimestamp = CantonTimestamp.Epoch.addMicros(10L)
       val aggregator = mkAggregatorPekko(validator)
       val ((source, (doneF, health_)), sink) = Source
         .queue[OrderedBucketMergeConfig[SequencerId, Config]](1)
         .viaMat(
-          aggregator.aggregateFlow(Right(Event(initialCounter).asOrdinarySerializedEvent))
+          aggregator.aggregateFlow(Right(Event(initialTimestamp).asOrdinarySerializedEvent))
         )(Keep.both)
         .toMat(TestSink.probe)(Keep.both)
         .run()
@@ -370,7 +375,7 @@ class SequencerAggregatorPekkoTest
       val signatureBob = fakeSignatureFor("Bob")
       val signatureCarlos = fakeSignatureFor("Carlos")
 
-      val events = mkEvents(initialCounter, 4)
+      val events = mkEvents(Some(initialTimestamp), 4)
       val events1 = events.take(2)
       // alice reports events 10,11,12,13
       factoryAlice.add(events.map(_.copy(signatures = NonEmpty(Set, signatureAlice)))*)
@@ -389,10 +394,10 @@ class SequencerAggregatorPekkoTest
       source.offer(config1) shouldBe QueueOfferResult.Enqueued
 
       sink.request(10)
-      sink.expectNext() shouldBe Left(NewConfiguration(config1, initialCounter - 1L))
+      sink.expectNext() shouldBe Left(NewConfiguration(config1, initialTimestamp.some))
       normalize(sink.expectNext().value) shouldBe normalize(
         Event(
-          initialCounter + 1,
+          initialTimestamp.addMicros(1L),
           NonEmpty(Set, signatureAlice, signatureBob),
         ).asOrdinarySerializedEvent
       )
@@ -400,12 +405,16 @@ class SequencerAggregatorPekkoTest
       loggerFactory.assertLogs(
         {
           source.offer(config2) shouldBe QueueOfferResult.Enqueued
-          sink.expectNext() shouldBe Left(NewConfiguration(config2, initialCounter + 1))
+          sink.expectNext() shouldBe Left(
+            NewConfiguration(config2, initialTimestamp.addMicros(1L).some)
+          )
           val outputs =
             Set(sink.expectNext(), sink.expectNext()).map(_.map(normalize))
           val expected = Set(
             Left(ActiveSourceTerminated(sequencerBob, None)),
-            Right(Event(initialCounter + 2, NonEmpty(Set, signatureAlice, signatureCarlos))),
+            Right(
+              Event(initialTimestamp.addMicros(2L), NonEmpty(Set, signatureAlice, signatureCarlos))
+            ),
           ).map(_.map(event => normalize(event.asOrdinarySerializedEvent)))
           outputs shouldBe expected
         },
@@ -423,7 +432,8 @@ class SequencerAggregatorPekkoTest
       val aggregator = mkAggregatorPekko()
       val health = new TestAtomicHealthComponent("forward-health-signal-test")
       val factory = new TestSequencerSubscriptionFactoryPekko(health, loggerFactory)
-      factory.add((0 to 2).map(sc => Event(SequencerCounter(sc)))*)
+
+      factory.add((0L to 2L).map(offset => Event(CantonTimestamp.Epoch.addMicros(offset)))*)
       factory.add(Error(UnretryableError))
       val config = OrderedBucketMergeConfig(
         PositiveInt.one,
@@ -433,7 +443,7 @@ class SequencerAggregatorPekkoTest
         Source.single(config).concat(Source.never).viaMat(KillSwitches.single)(Keep.right)
 
       val ((killSwitch, (doneF, reportedHealth)), sink) = configSource
-        .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
+        .viaMat(aggregator.aggregateFlow(Left(None)))(Keep.both)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -441,8 +451,8 @@ class SequencerAggregatorPekkoTest
 
       sink.request(10)
       health.resolveUnhealthy()
-      sink.expectNext() shouldBe Left(NewConfiguration(config, SequencerCounter.Genesis - 1L))
-      sink.expectNext() shouldBe Right(Event(SequencerCounter.Genesis).asOrdinarySerializedEvent)
+      sink.expectNext() shouldBe Left(NewConfiguration(config, None))
+      sink.expectNext() shouldBe Right(Event(CantonTimestamp.Epoch).asOrdinarySerializedEvent)
 
       eventually() {
         reportedHealth.getState shouldBe ComponentHealthState.Ok()
@@ -459,7 +469,7 @@ class SequencerAggregatorPekkoTest
       }
 
       sink.expectNext() shouldBe Right(
-        Event(SequencerCounter.Genesis + 1).asOrdinarySerializedEvent
+        Event(CantonTimestamp.Epoch.addMicros(1L)).asOrdinarySerializedEvent
       )
 
       health.resolveUnhealthy()
@@ -483,9 +493,9 @@ class SequencerAggregatorPekkoTest
       val factoryBob = new TestSequencerSubscriptionFactoryPekko(healthBob, loggerFactory)
       val factoryCarlos = new TestSequencerSubscriptionFactoryPekko(healthCarlos, loggerFactory)
 
-      factoryAlice.add((0 to 2).map(sc => Event(SequencerCounter(sc)))*)
-      factoryBob.add((0 to 2).map(sc => Event(SequencerCounter(sc)))*)
-      factoryCarlos.add((0 to 2).map(sc => Event(SequencerCounter(sc)))*)
+      factoryAlice.add((0L to 2L).map(offset => Event(CantonTimestamp.Epoch.addMicros(offset)))*)
+      factoryBob.add((0L to 2L).map(offset => Event(CantonTimestamp.Epoch.addMicros(offset)))*)
+      factoryCarlos.add((0L to 2L).map(offset => Event(CantonTimestamp.Epoch.addMicros(offset)))*)
 
       val config = OrderedBucketMergeConfig(
         PositiveInt.tryCreate(2),
@@ -500,7 +510,7 @@ class SequencerAggregatorPekkoTest
         Source.single(config).concat(Source.never).viaMat(KillSwitches.single)(Keep.right)
 
       val ((killSwitch, (doneF, reportedHealth)), sink) = configSource
-        .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
+        .viaMat(aggregator.aggregateFlow(Left(None)))(Keep.both)
         .toMat(TestSink.probe)(Keep.both)
         .run()
 
@@ -509,7 +519,7 @@ class SequencerAggregatorPekkoTest
       sink.request(10)
       Seq(healthAlice, healthBob, healthCarlos).foreach(_.resolveUnhealthy())
 
-      sink.expectNext() shouldBe Left(NewConfiguration(config, SequencerCounter.Genesis - 1L))
+      sink.expectNext() shouldBe Left(NewConfiguration(config, None))
 
       eventually() {
         reportedHealth.getState shouldBe ComponentHealthState.Ok()
@@ -582,15 +592,15 @@ class SequencerAggregatorPekkoTest
       val signatureCarlos = fakeSignatureFor("Carlos")
 
       factoryAlice1.add(
-        mkEvents(SequencerCounter.Genesis, 1)
+        mkEvents(startingTimestampO = None, 1)
           .map(_.copy(signatures = NonEmpty(Set, signatureAlice)))*
       )
       factoryBob1.add(
-        mkEvents(SequencerCounter.Genesis, 1)
+        mkEvents(startingTimestampO = None, 1)
           .map(_.copy(signatures = NonEmpty(Set, signatureBob)))*
       )
       factoryCarlos.add(
-        mkEvents(SequencerCounter.Genesis + 3, 1)
+        mkEvents(startingTimestampO = Some(CantonTimestamp.Epoch.addMicros(3L)), 1)
           .map(_.copy(signatures = NonEmpty(Set, signatureCarlos)))*
       )
 
@@ -606,7 +616,7 @@ class SequencerAggregatorPekkoTest
 
       val ((configSource, (doneF, reportedHealth)), sink) = Source
         .queue[OrderedBucketMergeConfig[SequencerId, Config]](1)
-        .viaMat(aggregator.aggregateFlow(Left(SequencerCounter.Genesis)))(Keep.both)
+        .viaMat(aggregator.aggregateFlow(Left(None)))(Keep.both)
         .toMat(TestSink.probe)(Keep.both)
         .run()
       configSource.offer(config1) shouldBe QueueOfferResult.Enqueued
@@ -614,11 +624,11 @@ class SequencerAggregatorPekkoTest
       reportedHealth.getState shouldBe ComponentHealthState.NotInitializedState
 
       sink.request(10)
-      sink.expectNext() shouldBe Left(NewConfiguration(config1, SequencerCounter.Genesis - 1L))
+      sink.expectNext() shouldBe Left(NewConfiguration(config1, None))
       normalize(sink.expectNext().value) shouldBe
         normalize(
           Event(
-            SequencerCounter.Genesis,
+            CantonTimestamp.Epoch,
             NonEmpty(Set, signatureAlice, signatureBob),
           ).asOrdinarySerializedEvent
         )
@@ -634,8 +644,12 @@ class SequencerAggregatorPekkoTest
         val factoryBob2 =
           TestSequencerSubscriptionFactoryPekko(loggerFactory.append("factory", "bob-2"))
 
-        factoryAlice2.add(mkEvents(SequencerCounter.Genesis + 1, 1)*)
-        factoryBob2.add(mkEvents(SequencerCounter.Genesis + 2, 1)*)
+        factoryAlice2.add(
+          mkEvents(startingTimestampO = Some(CantonTimestamp.Epoch.addMicros(1L)), 1)*
+        )
+        factoryBob2.add(
+          mkEvents(startingTimestampO = Some(CantonTimestamp.Epoch.addMicros(2L)), 1)*
+        )
         val config2 = OrderedBucketMergeConfig(
           PositiveInt.tryCreate(2),
           NonEmpty(
@@ -648,7 +662,7 @@ class SequencerAggregatorPekkoTest
         loggerFactory.assertLogs(
           {
             configSource.offer(config2)
-            sink.expectNext() shouldBe Left(NewConfiguration(config2, SequencerCounter.Genesis))
+            sink.expectNext() shouldBe Left(NewConfiguration(config2, CantonTimestamp.Epoch.some))
             inside(sink.expectNext()) {
               case Left(DeadlockDetected(elems, DeadlockTrigger.ElementBucketing)) =>
                 elems should have size 3
@@ -674,9 +688,12 @@ class SequencerAggregatorPekkoTest
           ),
         )
         configSource.offer(config3) shouldBe QueueOfferResult.Enqueued
-        sink.expectNext() shouldBe Left(NewConfiguration(config3, SequencerCounter.Genesis))
+        sink.expectNext() shouldBe Left(NewConfiguration(config3, CantonTimestamp.Epoch.some))
         sink.expectNext().value shouldBe
-          Event(SequencerCounter(3), NonEmpty(Set, signatureCarlos)).asOrdinarySerializedEvent
+          Event(
+            CantonTimestamp.Epoch.addMicros(3L),
+            NonEmpty(Set, signatureCarlos),
+          ).asOrdinarySerializedEvent
 
         eventually() {
           reportedHealth.getState shouldBe ComponentHealthState.Ok()

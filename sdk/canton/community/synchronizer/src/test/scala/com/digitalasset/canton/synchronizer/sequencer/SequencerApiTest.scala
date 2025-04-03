@@ -174,7 +174,6 @@ abstract class SequencerApiTest
 
       "not fail when a block is empty due to suppressed events" in { env =>
         import env.*
-
         val suppressedMessageContent = "suppressed message"
         // TODO(i10412): The sequencer implementations for tests currently do not all behave in the same way.
         // Until this is fixed, we are currently sidestepping the issue by using a different set of recipients
@@ -217,7 +216,8 @@ abstract class SequencerApiTest
                   "to avoid starvation"
                 )) or
                 include("Started gathering segment status") or
-                include("Broadcasting epoch status"))
+                include("Broadcasting epoch status") or
+                include("Scheduling pruning in 1 hour"))
             },
           )
         } yield {

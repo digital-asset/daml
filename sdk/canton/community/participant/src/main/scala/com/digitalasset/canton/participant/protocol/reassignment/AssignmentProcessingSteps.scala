@@ -36,7 +36,6 @@ import com.digitalasset.canton.participant.protocol.{
   ProcessingSteps,
 }
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
@@ -62,10 +61,9 @@ import scala.concurrent.{ExecutionContext, Future}
 private[reassignment] class AssignmentProcessingSteps(
     val synchronizerId: Target[SynchronizerId],
     val participantId: ParticipantId,
-    val engine: DAMLe,
     reassignmentCoordination: ReassignmentCoordination,
     seedGenerator: SeedGenerator,
-    override protected val serializableContractAuthenticator: ContractAuthenticator,
+    override protected val contractAuthenticator: ContractAuthenticator,
     staticSynchronizerParameters: Target[StaticSynchronizerParameters],
     targetProtocolVersion: Target[ProtocolVersion],
     protected val loggerFactory: NamedLoggerFactory,
@@ -100,7 +98,7 @@ private[reassignment] class AssignmentProcessingSteps(
     staticSynchronizerParameters,
     participantId,
     reassignmentCoordination,
-    engine,
+    contractAuthenticator,
     loggerFactory,
   )
 
@@ -361,7 +359,6 @@ private[reassignment] class AssignmentProcessingSteps(
           Target(parsedRequest.snapshot),
           reassignmentDataE,
           activenessResultFuture,
-          engineController,
         )(parsedRequest)
 
     } yield {

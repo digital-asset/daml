@@ -33,7 +33,7 @@ trait AuthService {
     * requests with a PERMISSION_DENIED status. Return a failed future to reject requests with an
     * INTERNAL error status.
     */
-  def decodeMetadata(headers: io.grpc.Metadata)(implicit
+  def decodeMetadata(headers: io.grpc.Metadata, serviceName: String)(implicit
       traceContext: TraceContext
   ): Future[ClaimSet]
 

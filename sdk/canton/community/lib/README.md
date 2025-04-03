@@ -12,3 +12,5 @@ Forked or extended Daml and third-party libraries:
 - [wartremover](http://www.wartremover.org/) - Implementations of custom warts
 
 - [magnolify](https://github.com/spotify/magnolify) - Implementations of our own type class derivations
+
+- [scalatest](https://www.scalatest.org/) - Modified assertions to test for compilation errors

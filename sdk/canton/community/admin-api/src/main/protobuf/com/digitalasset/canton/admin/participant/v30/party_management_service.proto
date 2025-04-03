@@ -15,7 +15,7 @@ service PartyManagementService {
   rpc AddPartyAsync(AddPartyAsyncRequest) returns (AddPartyAsyncResponse);
 
   // Export the ACS for the given parties from the participant
-  rpc ExportAcsNew(ExportAcsNewRequest) returns (stream ExportAcsNewResponse);
+  rpc ExportAcs(ExportAcsRequest) returns (stream ExportAcsResponse);
 }
 
 message AddPartyAsyncRequest {
@@ -45,7 +45,7 @@ message ExportAcsTargetSynchronizer {
   string target_synchronizer_id = 1;
 }
 
-message ExportAcsNewRequest {
+message ExportAcsRequest {
   // The parties for which the ACS should be exported
   // Required
   repeated string party_ids = 1;
@@ -67,7 +67,7 @@ message ExportAcsNewRequest {
   map<string, ExportAcsTargetSynchronizer> contract_synchronizer_renames = 4;
 }
 
-message ExportAcsNewResponse {
+message ExportAcsResponse {
   // The raw binary of the ACS snapshot to be imported
   // This is meant to be streamed and every message should be a chunk of the snapshot
   // Required

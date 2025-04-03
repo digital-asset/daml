@@ -6,7 +6,7 @@ package com.digitalasset.canton.sequencing
 import com.digitalasset.canton.health.{HealthElement, HealthListener}
 import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
 import com.digitalasset.canton.sequencing.ConnectionX.{ConnectionXError, ConnectionXState}
-import com.digitalasset.canton.sequencing.SequencerConnectionXClient.SequencerConnectionXClientError
+import com.digitalasset.canton.sequencing.SequencerConnectionXStub.SequencerConnectionXStubError
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext}
@@ -25,7 +25,7 @@ class GrpcConnectionXTest
     with ConnectionPoolTestHelpers {
 
   "ConnectionX" should {
-    lazy val clientFactory = SequencerConnectionXClientFactoryImpl
+    lazy val stubFactory = SequencerConnectionXStubFactoryImpl
 
     "notify on state changes" in {
       ResourceUtil.withResource(mkConnection()) { connection =>
@@ -43,12 +43,12 @@ class GrpcConnectionXTest
 
     "fail gRPC calls with invalid state if not started" in {
       ResourceUtil.withResource(mkConnection()) { connection =>
-        val client = clientFactory.create(connection)
-        val result = client.getApiName().futureValueUS
+        val stub = stubFactory.createStub(connection)
+        val result = stub.getApiName().futureValueUS
 
         inside(result) {
           case Left(
-                SequencerConnectionXClientError.ConnectionError(
+                SequencerConnectionXStubError.ConnectionError(
                   ConnectionXError.InvalidStateError(message)
                 )
               ) =>
@@ -61,16 +61,16 @@ class GrpcConnectionXTest
       ResourceUtil.withResource(mkConnection()) { connection =>
         connection.start()
 
-        val client = clientFactory.create(connection)
+        val stub = stubFactory.createStub(connection)
 
         val result = loggerFactory.assertLogs(
-          client.getApiName().futureValueUS,
+          stub.getApiName().futureValueUS,
           _.warningMessage should include("Request failed"),
         )
 
         inside(result) {
           case Left(
-                SequencerConnectionXClientError.ConnectionError(
+                SequencerConnectionXStubError.ConnectionError(
                   ConnectionXError.TransportError(
                     GrpcServiceUnavailable(_, _, status, _, _)
                   )

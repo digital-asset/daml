@@ -275,4 +275,15 @@ object MapsUtil {
     m1.map { case (k, values) =>
       k -> values.intersect(m2.getOrElse(k, Set.empty))
     }.filter { case (_, values) => values.nonEmpty }
+
+  /** Transposes an input map of sets (K -> Set[V]) to (V -> Set[K]) */
+  def transpose[K, V](original: Map[K, Set[V]]): Map[V, Set[K]] =
+    original.foldLeft(Map.empty[V, Set[K]]) { case (acc, (k, vs)) =>
+      vs.foldLeft(acc) { case (acc, v) =>
+        acc.updatedWith(v) {
+          case None => Some(Set(k))
+          case Some(ks) => Some(ks + k)
+        }
+      }
+    }
 }

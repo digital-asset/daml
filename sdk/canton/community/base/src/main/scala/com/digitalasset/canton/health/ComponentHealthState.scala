@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.health
 
-import com.digitalasset.base.error.CantonRpcError
+import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.admin.health.v30 as proto
 import com.digitalasset.canton.health.ComponentHealthState.{Degraded, Failed, Fatal, Ok}
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -134,7 +134,7 @@ object ComponentHealthState extends ShowUtil {
     */
   final case class UnhealthyState(
       description: Option[String] = None,
-      error: Option[CantonRpcError] = None,
+      error: Option[RpcError] = None,
       elc: Option[ErrorLoggingContext] = None,
   ) {
     val errorAsStringOpt: Option[String] = error.map { error =>

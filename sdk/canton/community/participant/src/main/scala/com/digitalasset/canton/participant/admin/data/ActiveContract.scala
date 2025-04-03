@@ -3,49 +3,31 @@
 
 package com.digitalasset.canton.participant.admin.data
 
-import better.files.File
-import cats.syntax.either.*
-import com.digitalasset.canton.ReassignmentCounter
+import com.daml.ledger.api.v2.state_service.ActiveContract as LapiActiveContract
 import com.digitalasset.canton.admin.participant.v30
-import com.digitalasset.canton.protocol.messages.HasSynchronizerId
-import com.digitalasset.canton.protocol.{HasSerializableContract, SerializableContract}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.util.{ByteStringUtil, GrpcStreamingUtils, ResourceUtil}
 import com.digitalasset.canton.version.*
-import com.google.protobuf.ByteString
 
-import java.io.{ByteArrayInputStream, InputStream}
-
+/** Intended as small wrapper around a LAPI active contract, so that its use is versioned.
+  */
 final case class ActiveContract(
-    synchronizerId: SynchronizerId,
-    contract: SerializableContract,
-    reassignmentCounter: ReassignmentCounter,
+    contract: LapiActiveContract
 )(override val representativeProtocolVersion: RepresentativeProtocolVersion[ActiveContract.type])
-    extends HasProtocolVersionedWrapper[ActiveContract]
-    with HasSynchronizerId
-    with HasSerializableContract {
+    extends HasProtocolVersionedWrapper[ActiveContract] {
+
+  @SuppressWarnings(Array("com.digitalasset.canton.ProtobufToByteString"))
   def toProtoV30: v30.ActiveContract =
     v30.ActiveContract(
-      synchronizerId.toProtoPrimitive,
-      Some(contract.toAdminProtoV30),
-      reassignmentCounter.toProtoPrimitive,
+      // Fine to call toByteString because it's a LAPI contract which does not use the versioning tooling
+      contract.toByteString
     )
 
   override protected lazy val companionObj: ActiveContract.type = ActiveContract
 
-  private[canton] def withSerializableContract(
-      contract: SerializableContract
-  ): ActiveContract =
-    copy(contract = contract)(representativeProtocolVersion)
-
-  private[admin] def toRepairContract: RepairContract =
-    RepairContract(synchronizerId, contract, reassignmentCounter)
-
 }
 
-private[canton] object ActiveContract extends VersioningCompanion[ActiveContract] {
+object ActiveContract extends VersioningCompanion[ActiveContract] {
 
   override def name: String = "ActiveContract"
 
@@ -56,64 +38,29 @@ private[canton] object ActiveContract extends VersioningCompanion[ActiveContract
     )
   )
 
-  def fromProtoV30(
+  private def fromProtoV30(
       proto: v30.ActiveContract
   ): ParsingResult[ActiveContract] =
     for {
-      synchronizerId <- SynchronizerId.fromProtoPrimitive(proto.synchronizerId, "synchronizer_id")
-      contract <- ProtoConverter.parseRequired(
-        SerializableContract.fromAdminProtoV30,
-        "contract",
-        proto.contract,
+      contract <- ProtoConverter.protoParser(LapiActiveContract.parseFrom)(
+        proto.activeContract
       )
-      reassignmentCounter = proto.reassignmentCounter
       reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield {
-      ActiveContract(synchronizerId, contract, ReassignmentCounter(reassignmentCounter))(
-        reprProtocolVersion
-      )
+    } yield ActiveContract(contract)(reprProtocolVersion)
+
+  def tryCreate(
+      contract: LapiActiveContract
+  ): ActiveContract = {
+    val converters = ActiveContract.versioningTable.converters
+    // Assumption: The probability that we need a second version is quite low
+    if (converters.sizeIs != 1) {
+      throw new IllegalStateException("Only one protocol version is supported for ACS export")
     }
+    val rpv = converters.headOption
+      .getOrElse(throw new IllegalStateException("Versioning table converters are empty"))
+      ._2
+      .fromInclusive
+    ActiveContract(contract)(rpv)
+  }
 
-  def create(
-      synchronizerId: SynchronizerId,
-      contract: SerializableContract,
-      reassignmentCounter: ReassignmentCounter,
-  )(protocolVersion: ProtocolVersion): ActiveContract =
-    ActiveContract(synchronizerId, contract, reassignmentCounter)(
-      protocolVersionRepresentativeFor(protocolVersion)
-    )
-
-  // TODO(#24728) - Remove, do not depend on reading ACS from file directly
-  private[canton] def fromFile(fileInput: File): Iterator[ActiveContract] =
-    ResourceUtil.withResource(fileInput.newGzipInputStream(8192)) { fileInput =>
-      loadFromSource(fileInput) match {
-        case Left(error) => throw new Exception(error)
-        case Right(value) => value.iterator
-      }
-    }
-
-  private[admin] def loadFromByteString(
-      bytes: ByteString
-  ): Either[String, List[ActiveContract]] =
-    for {
-      decompressedBytes <-
-        ByteStringUtil
-          .decompressGzip(bytes, None)
-          .leftMap(err => s"Failed to decompress bytes: $err")
-      contracts <- ResourceUtil.withResource(
-        new ByteArrayInputStream(decompressedBytes.toByteArray)
-      ) { inputSource =>
-        loadFromSource(inputSource)
-      }
-    } yield contracts
-
-  private def loadFromSource(
-      source: InputStream
-  ): Either[String, List[ActiveContract]] =
-    GrpcStreamingUtils
-      .parseDelimitedFromTrusted[ActiveContract](
-        source,
-        ActiveContract,
-      )
-      .map(_.toList)
 }

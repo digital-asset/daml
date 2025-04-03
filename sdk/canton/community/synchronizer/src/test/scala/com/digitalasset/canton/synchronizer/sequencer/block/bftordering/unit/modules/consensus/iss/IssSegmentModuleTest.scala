@@ -10,7 +10,6 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.EpochInProgress
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.{
@@ -102,9 +101,8 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
   private val SecondEpochInfo = EpochInfo(
     SecondEpochNumber,
     BlockNumber(10L),
-    DefaultEpochLength,
+    testEpochLength,
     Genesis.GenesisTopologyActivationTime,
-    Genesis.GenesisPreviousEpochMaxBftTime,
   )
   private val block9Commits1Node = Seq(
     Commit
@@ -177,9 +175,9 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
 
   // Common val for 4-node networks in tests below
   private val blockOrder4Nodes: Seq[BftNodeId] =
-    Iterator.continually(allIds).flatten.take(DefaultEpochLength.toInt).toSeq
+    Iterator.continually(allIds).flatten.take(testEpochLength.toInt).toSeq
   private val blockMetadata4Nodes = blockOrder4Nodes.zipWithIndex.map { case (_, blockNum) =>
-    BlockMetadata.mk(SecondEpochNumber, DefaultEpochLength + blockNum.toLong)
+    BlockMetadata.mk(SecondEpochNumber, testEpochLength + blockNum.toLong)
   }
 
   "IssSegmentModule" when {
@@ -1290,7 +1288,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         val epochInfo = EpochInfo.mk(
           remotePrePrepare.message.blockMetadata.epochNumber,
           remotePrePrepare.message.blockMetadata.blockNumber,
-          DefaultEpochLength,
+          testEpochLength,
         )
 
         // Mock a PrePrepare received from another node; should call pipeToSelf to store PrePrepare
@@ -1702,7 +1700,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
       parentModuleRef: ModuleRef[Consensus.Message[E]] = fakeIgnoringModule[Consensus.Message[E]],
       cryptoProvider: CryptoProvider[E] = new FailingCryptoProvider[E],
       leader: BftNodeId = myId,
-      epochLength: EpochLength = DefaultEpochLength,
+      epochLength: EpochLength = testEpochLength,
       latestCompletedEpochLastCommits: Seq[SignedMessage[Commit]] = GenesisEpoch.lastBlockCommits,
       otherNodes: Set[BftNodeId] = Set.empty,
       storeMessages: Boolean = false,
@@ -1712,7 +1710,6 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
       epochInfo: EpochInfo = GenesisEpoch.info.next(
         epochLength,
         Genesis.GenesisTopologyActivationTime,
-        Genesis.GenesisPreviousEpochMaxBftTime,
       )
   ): IssSegmentModule[E] = {
     implicit val metricsContext: MetricsContext = MetricsContext.Empty
@@ -1762,6 +1759,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
 }
 
 private object IssSegmentModuleTest {
+  private val testEpochLength = EpochLength(10L)
   private val defaultBufferSize = 5
   private val myId = BftNodeId("self")
   private val otherIds: IndexedSeq[BftNodeId] = (1 to 3).map { index =>

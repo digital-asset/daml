@@ -46,7 +46,7 @@ class SyncEphemeralStateFactoryTest
   )(sc: SequencerCounter, timestamp: CantonTimestamp): OrdinarySerializedEvent =
     OrdinarySequencedEvent(
       SignedContent(
-        SequencerTestUtils.mockDeliver(sc.v, timestamp, synchronizerId),
+        SequencerTestUtils.mockDeliver(sc.v, timestamp, synchronizerId = synchronizerId),
         SymbolicCrypto.emptySignature,
         None,
         testedProtocolVersion,

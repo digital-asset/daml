@@ -13,7 +13,6 @@ import com.digitalasset.canton.data.{
   ReassignmentSubmitterMetadata,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.EngineController
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetectionHelpers.mkActivenessResult
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidationError.{
   ContractDataMismatch,
@@ -26,6 +25,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentVal
   SubmitterMustBeStakeholder,
 }
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
+import com.digitalasset.canton.participant.protocol.{ContractAuthenticator, EngineController}
 import com.digitalasset.canton.participant.store.ReassignmentStore.UnknownReassignmentId
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
@@ -190,7 +190,6 @@ class AssignmentValidationTest
           Target(cryptoSnapshot),
           unassignmentDataE = Left(UnknownReassignmentId(reassignmentId)),
           activenessF = activenessF,
-          engineController,
         )(mkParsedRequest(assignmentRequest))
         .futureValueUS
         .value
@@ -208,7 +207,6 @@ class AssignmentValidationTest
             Target(cryptoSnapshot),
             unassignmentDataE = Right(reassignmentData),
             activenessF = activenessF,
-            engineController,
           )(mkParsedRequest(assignmentRequest))
           .futureValueUS
           .value
@@ -233,7 +231,6 @@ class AssignmentValidationTest
           Target(cryptoSnapshot),
           unassignmentDataE = Right(reassignmentData),
           activenessF = activenessF,
-          engineController,
         )(mkParsedRequest(assignmentRequest))
         .value
 
@@ -259,7 +256,6 @@ class AssignmentValidationTest
           Target(cryptoSnapshot),
           unassignmentDataE = Right(reassignmentData),
           activenessF = activenessF,
-          engineController,
         )(mkParsedRequest(assignmentTreeWrongCounter))
         .value
         .futureValueUS
@@ -292,7 +288,6 @@ class AssignmentValidationTest
             Target(cryptoSnapshot),
             unassignmentDataE = Right(reassignmentData),
             activenessF = activenessF,
-            engineController,
           )(mkParsedRequest(assignmentRequest))
           .value
           .futureValueUS
@@ -330,7 +325,6 @@ class AssignmentValidationTest
             Target(cryptoSnapshot),
             unassignmentDataE = Right(reassignmentData),
             activenessF = activenessF,
-            engineController,
           )(mkParsedRequest(assignmentTree))
           .value
           .futureValueUS
@@ -382,7 +376,6 @@ class AssignmentValidationTest
             Target(cryptoSnapshot),
             unassignmentDataE = Right(reassignmentData),
             activenessF = activenessF,
-            engineController,
           )(mkParsedRequest(assignmentRequest))
           .value
           .futureValueUS
@@ -404,11 +397,8 @@ class AssignmentValidationTest
       awaitTimestampOverride: Option[Future[Unit]],
       participantId: ParticipantId,
   ): AssignmentValidation = {
-    val damle = DAMLeTestInstance(
-      submittingParticipant,
-      Set(signatory),
-      Set(signatory, observer),
-    )(loggerFactory)
+
+    val contractAuthenticator = ContractAuthenticator(new SymbolicPureCrypto())
 
     new AssignmentValidation(
       synchronizerId,
@@ -421,8 +411,8 @@ class AssignmentValidationTest
         Some(awaitTimestampOverride),
         loggerFactory,
       ),
-      engine = damle,
       loggerFactory = loggerFactory,
+      contractAuthenticator = contractAuthenticator,
     )
   }
 

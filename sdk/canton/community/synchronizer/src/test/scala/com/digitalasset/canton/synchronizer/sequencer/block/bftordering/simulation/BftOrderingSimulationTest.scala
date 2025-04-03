@@ -13,9 +13,9 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.AvailabilityModuleConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.memory.SimulationAvailabilityStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.memory.SimulationEpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.network.data.memory.SimulationP2PEndpointsStore
@@ -26,12 +26,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.net
   PlainTextP2PEndpoint,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.SimulationBlockSubscription
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
-  BftNodeId,
-  BlockNumber,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.SequencerSnapshotAdditionalInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Mempool
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.{
@@ -43,6 +39,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulati
   BftOrderingVerifier,
   IssClient,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.SequencerSnapshotOnboardingManager.BftOnboardingData
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.SimulationTopologyHelpers.{
   generateNodeOnboardingDelay,
   onboardingTime,
@@ -96,9 +93,6 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
 
   private implicit val metricsContext: MetricsContext = MetricsContext.Empty
   private val noopMetrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
-
-  private val initialApplicationHeight =
-    BlockNumber.First // TODO(#17281): Change for restarts/crashes
 
   private lazy val initialIndexRange = 0 until numberOfInitialNodes
   private lazy val initialOnboardingTimes =
@@ -255,6 +249,15 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
               }
             val allTopologyInitializers =
               initialTopologyInitializers ++ newlyOnboardedTopologyInitializers
+            val model =
+              new BftOrderingVerifier(
+                sendQueue,
+                allNodesToStores.view.mapValues(stores => stores.outputStore).toMap,
+                allNodesToOnboardingTimes,
+                initialNodesToStores.keys.toSeq,
+                simSettings,
+                loggerFactory,
+              )
             val onboardingManager = new SequencerSnapshotOnboardingManager(
               newlyOnboardedNodesToOnboardingTimes,
               initialNodesToStores.keys.toSeq,
@@ -262,6 +265,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
                 Simulation.endpointToNode(endpoint) -> endpoint
               }.toMap,
               allNodesToStores,
+              model,
               simSettings,
             )
             val simulation =
@@ -273,23 +277,21 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
                 timeouts,
                 loggerFactory,
               )
-            val model =
-              new BftOrderingVerifier(
-                sendQueue,
-                allNodesToStores.view.mapValues(stores => stores.outputStore).toMap,
-                allNodesToOnboardingTimes,
-                initialNodesToStores.keys.toSeq,
-                simSettings,
-                loggerFactory,
-              )
             Some(SimulationTestStage(simulation, model, onboardingManager))
 
           case Some(stage) => // Subsequent stages
+            val newModel =
+              stage.model.newStage(
+                simSettings,
+                newlyOnboardedNodesToOnboardingTimes,
+                newlyOnboardedNodesToStores.view.mapValues(_.outputStore).toMap,
+              )
             val newOnboardingManager = stage.onboardingManager.newStage(
               newlyOnboardedNodesToOnboardingTimes,
               (alreadyOnboardedEndpoints ++ newlyOnboardedEndpoints).map { endpoint =>
                 Simulation.endpointToNode(endpoint) -> endpoint
               }.toMap,
+              newModel,
               simSettings,
             )
             Some(
@@ -299,11 +301,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
                   newOnboardingManager,
                   newlyOnboardedTopologyInitializers,
                 ),
-                stage.model.newStage(
-                  simSettings,
-                  newlyOnboardedNodesToOnboardingTimes,
-                  newlyOnboardedNodesToStores.view.mapValues(_.outputStore).toMap,
-                ),
+                newModel,
                 newOnboardingManager,
               )
             )
@@ -334,9 +332,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
       availabilityRandom: Random,
       simSettings: SimulationSettings,
       initializeImmediately: Boolean,
-  ): SimulationInitializer[Option[
-    SequencerSnapshotAdditionalInfo
-  ], BftOrderingServiceReceiveRequest, Mempool.Message, Unit] = {
+  ): SimulationInitializerT = {
 
     val logger = loggerFactory.append("endpoint", s"$endpoint")
 
@@ -349,28 +345,33 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
       )
 
     SimulationInitializer(
-      (sequencerSnapshotAdditionalInfo: Option[SequencerSnapshotAdditionalInfo]) => {
-        // Forces always querying for an up-to-date topology, so that we simulate correctly topology changes.
-        val requestInspector: RequestInspector =
-          (_: OrderingRequest, _: ProtocolVersion, _: TracedLogger, _: TraceContext) => true
+      {
+        case BftOnboardingData(
+              initialApplicationHeight,
+              sequencerSnapshotAdditionalInfo,
+            ) => {
+          // Forces always querying for an up-to-date topology, so that we simulate correctly topology changes.
+          val requestInspector: RequestInspector =
+            (_: OrderingRequest, _: ProtocolVersion, _: TracedLogger, _: TraceContext) => true
 
-        new BftOrderingModuleSystemInitializer[SimulationEnv](
-          testedProtocolVersion,
-          thisNode,
-          BftBlockOrdererConfig(),
-          initialApplicationHeight,
-          IssConsensusModule.DefaultEpochLength,
-          stores,
-          orderingTopologyProvider,
-          new SimulationBlockSubscription(thisNode, sendQueue),
-          sequencerSnapshotAdditionalInfo,
-          clock,
-          availabilityRandom,
-          noopMetrics,
-          logger,
-          timeouts,
-          requestInspector,
-        )
+          new BftOrderingModuleSystemInitializer[SimulationEnv](
+            testedProtocolVersion,
+            thisNode,
+            BftBlockOrdererConfig(),
+            initialApplicationHeight,
+            DefaultEpochLength,
+            stores,
+            orderingTopologyProvider,
+            new SimulationBlockSubscription(thisNode, sendQueue),
+            sequencerSnapshotAdditionalInfo,
+            clock,
+            availabilityRandom,
+            noopMetrics,
+            logger,
+            timeouts,
+            requestInspector,
+          )
+        }
       },
       IssClient.initializer(simSettings, thisNode, logger, timeouts),
       initializeImmediately,
@@ -382,9 +383,15 @@ object BftOrderingSimulationTest {
 
   val SimulationStartTime: CantonTimestamp = CantonTimestamp.Epoch
 
-  private type SimulationT = Simulation[Option[
-    SequencerSnapshotAdditionalInfo
-  ], BftOrderingServiceReceiveRequest, Mempool.Message, Unit]
+  private type ApplyBft[F[_, _, _, _]] = F[
+    BftOnboardingData,
+    BftOrderingServiceReceiveRequest,
+    Mempool.Message,
+    Unit,
+  ]
+
+  private type SimulationInitializerT = ApplyBft[SimulationInitializer]
+  private type SimulationT = ApplyBft[Simulation]
 
   final case class SimulationTestStageSettings(simulationSettings: SimulationSettings)
 

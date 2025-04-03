@@ -52,7 +52,6 @@ final case class DisseminationProgress(
 
 object DisseminationProgress {
 
-  // TODO(#24403): test this method
   def reviewReadyForOrdering(
       batchMetadata: DisseminatedBatchMetadata,
       orderingTopology: OrderingTopology,

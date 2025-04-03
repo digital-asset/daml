@@ -37,7 +37,7 @@ trait HasReassignmentCommandsHelpers {
       participantOverride: Option[LocalParticipantReference] = None,
   )(implicit
       env: TestConsoleEnvironment
-  ): (ReassignmentEvent[proto.reassignment.UnassignedEvent], Completion) = {
+  ): (SingleReassignmentEvent[proto.reassignment.UnassignedEvent], Completion) = {
     import env.*
 
     val participant = participantOverride.getOrElse(participant1)
@@ -76,7 +76,7 @@ trait HasReassignmentCommandsHelpers {
     updates.headOption.value match {
 
       case UpdateService.UnassignedWrapper(reassignment, unassignedEvent) =>
-        (ReassignmentEvent(reassignment, unassignedEvent), unassignmentCompletion)
+        (SingleReassignmentEvent(reassignment, unassignedEvent), unassignmentCompletion)
 
       case other => throw new RuntimeException(s"Expected a reassignment event but got $other")
     }
@@ -120,7 +120,7 @@ trait HasReassignmentCommandsHelpers {
       participantOverride: Option[LocalParticipantReference] = None,
   )(implicit
       env: TestConsoleEnvironment
-  ): (ReassignmentEvent[proto.reassignment.AssignedEvent], Completion) = {
+  ): (SingleReassignmentEvent[proto.reassignment.AssignedEvent], Completion) = {
     import env.*
 
     val participant = participantOverride.getOrElse(participant1)
@@ -157,7 +157,7 @@ trait HasReassignmentCommandsHelpers {
     val assignmentCompletion = completions.headOption.value
     updates.headOption.value match {
       case UpdateService.AssignedWrapper(reassignment, assignedEvent) =>
-        (ReassignmentEvent(reassignment, assignedEvent), assignmentCompletion)
+        (SingleReassignmentEvent(reassignment, assignedEvent), assignmentCompletion)
       case other =>
         throw new RuntimeException(s"Expected a reassignment event but got $other")
     }
@@ -198,7 +198,7 @@ trait HasReassignmentCommandsHelpers {
   }
 
   protected def submitReassignment(
-      cmd: proto.reassignment_command.ReassignmentCommand,
+      cmd: proto.reassignment_commands.ReassignmentCommands,
       participantOverride: Option[LocalParticipantReference] = None,
   )(implicit
       env: TestConsoleEnvironment
@@ -215,9 +215,9 @@ trait HasReassignmentCommandsHelpers {
       cid: LfContractId,
       source: SynchronizerId,
       target: SynchronizerId,
-  ): proto.reassignment_command.ReassignmentCommand.Command.UnassignCommand =
-    proto.reassignment_command.ReassignmentCommand.Command.UnassignCommand(
-      proto.reassignment_command.UnassignCommand(
+  ): proto.reassignment_commands.ReassignmentCommand.Command.UnassignCommand =
+    proto.reassignment_commands.ReassignmentCommand.Command.UnassignCommand(
+      proto.reassignment_commands.UnassignCommand(
         contractId = cid.coid,
         source = source.toProtoPrimitive,
         target = target.toProtoPrimitive,
@@ -228,9 +228,9 @@ trait HasReassignmentCommandsHelpers {
       source: SynchronizerId,
       target: SynchronizerId,
       unassignmentId: String,
-  ): proto.reassignment_command.ReassignmentCommand.Command.AssignCommand =
-    proto.reassignment_command.ReassignmentCommand.Command.AssignCommand(
-      proto.reassignment_command.AssignCommand(
+  ): proto.reassignment_commands.ReassignmentCommand.Command.AssignCommand =
+    proto.reassignment_commands.ReassignmentCommand.Command.AssignCommand(
+      proto.reassignment_commands.AssignCommand(
         unassignId = unassignmentId,
         source = source.toProtoPrimitive,
         target = target.toProtoPrimitive,
@@ -238,19 +238,19 @@ trait HasReassignmentCommandsHelpers {
     )
 
   protected def getReassignmentCommand(
-      cmd: proto.reassignment_command.ReassignmentCommand.Command,
+      cmd: proto.reassignment_commands.ReassignmentCommand.Command,
       userId: LedgerUserId = HasCommandRunnersHelpers.userId,
       submissionId: Option[LedgerSubmissionId] = HasCommandRunnersHelpers.submissionId,
       commandId: LedgerCommandId = HasCommandRunnersHelpers.commandId,
       workflowId: Option[LfWorkflowId] = None,
       submittingParty: PartyId,
-  ): proto.reassignment_command.ReassignmentCommand =
-    proto.reassignment_command.ReassignmentCommand(
+  ): proto.reassignment_commands.ReassignmentCommands =
+    proto.reassignment_commands.ReassignmentCommands(
       workflowId = workflowId.getOrElse(""), // this field won't affect the reassignment command
       userId = userId,
       commandId = commandId,
       submitter = submittingParty.toLf,
-      command = cmd,
+      commands = Seq(proto.reassignment_commands.ReassignmentCommand(cmd)),
       submissionId = submissionId.getOrElse(""),
     )
 
@@ -263,7 +263,14 @@ trait HasReassignmentCommandsHelpers {
 
 private[integration] object HasReassignmentCommandsHelpers {
   // To make testing a bit easier and keep track of the inner type of the event.
-  final case class ReassignmentEvent[E](reassignment: proto.reassignment.Reassignment, event: E) {
-    assert(event == reassignment.event.value)
+  final case class SingleReassignmentEvent[E](
+      reassignment: proto.reassignment.Reassignment,
+      event: E,
+  ) {
+    val eventValues = reassignment.events.map(_.event.value)
+    assert(
+      eventValues == Seq(event),
+      s"reassignment had events $eventValues but we expected a single $event",
+    )
   }
 }

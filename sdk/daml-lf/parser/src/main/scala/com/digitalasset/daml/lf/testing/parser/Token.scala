@@ -65,6 +65,7 @@ private[parser] object Token {
   case object `view_interface` extends Token
   case object `choice_controller` extends Token
   case object `choice_observer` extends Token
+  case object `fail_with_status` extends Token
 
   final case class Id(s: String) extends Token
   final case class ContractId(s: String) extends Token

@@ -42,7 +42,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.mutable
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Random, Success}
 
 /** A state transfer behavior for [[IssConsensusModule]]. There are 2 types of state transfer:
   * onboarding (for new nodes) and catch-up (for lagging-behind nodes). These two types work
@@ -84,6 +84,7 @@ final class StateTransferBehavior[E <: Env[E]](
     clock: Clock,
     metrics: BftOrderingMetrics,
     segmentModuleRefFactory: SegmentModuleRefFactory[E],
+    random: Random,
     override val dependencies: ConsensusModuleDependencies[E],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
@@ -102,6 +103,7 @@ final class StateTransferBehavior[E <: Env[E]](
       dependencies,
       epochLength,
       epochStore,
+      random,
       loggerFactory,
     )
   )
@@ -160,7 +162,6 @@ final class StateTransferBehavior[E <: Env[E]](
             newEpochNumber,
             newMembership,
             newCryptoProvider: CryptoProvider[E],
-            previousEpochMaxBftTime,
             lastBlockFromPreviousEpochMode,
           ) =>
         val currentEpochInfo = epochState.epoch.info
@@ -177,7 +178,6 @@ final class StateTransferBehavior[E <: Env[E]](
               currentEpochInfo.next(
                 epochLength,
                 newMembership.orderingTopology.activationTime,
-                previousEpochMaxBftTime,
               )
             storeEpochs(
               currentEpochInfo,
@@ -366,6 +366,7 @@ final class StateTransferBehavior[E <: Env[E]](
         previousEpochsCommitCerts = Map.empty,
         loggerFactory,
       ),
+      random,
       dependencies,
       loggerFactory,
       timeouts,

@@ -59,9 +59,9 @@ message SignatureDelegation {
   // considered valid.
   int64 validity_period_from_inclusive = 3;
 
-  // Duration in seconds indicating how long the session key remains valid, inclusive.
+  // Duration in seconds indicating how long the session key remains valid.
   // The validity period starts from `validity_period_from_inclusive` above.
-  uint32 validity_period_duration_inclusive = 4;
+  uint32 validity_period_duration_seconds = 4;
 
   // The format of the signature
   SignatureFormat format = 5;

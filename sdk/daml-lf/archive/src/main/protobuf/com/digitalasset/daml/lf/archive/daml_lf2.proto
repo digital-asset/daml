@@ -182,10 +182,10 @@ enum BuiltinType {
   UPDATE = 17;
   // Builtin type for FailureCategory
   FAILURE_CATEGORY = 18;
-
   // Builtin type 'TTextMap`
-  // *Available in versions >= 2.dev*
-  TEXTMAP = 1001;
+  TEXTMAP = 19;
+
+  // We use fields above 1000 for dev features
   // Builtin type 'TBigNumeric'
   // *Available in versions >= 2.dev*
   BIGNUMERIC = 1002;
@@ -346,24 +346,24 @@ enum BuiltinFunction {
   GENMAP_VALUES = 57;
   GENMAP_SIZE = 58;
 
+  TEXTMAP_EMPTY = 60;
+  TEXTMAP_INSERT = 61;
+  TEXTMAP_LOOKUP = 62;
+  TEXTMAP_DELETE = 63;
+  TEXTMAP_TO_LIST = 64;
+  TEXTMAP_SIZE = 65;
+
   ANY_EXCEPTION_MESSAGE = 59;
 
-  KECCAK256_TEXT = 60;
-  SECP256K1_BOOL = 61;
-  HEX_TO_TEXT = 62;
-  TEXT_TO_HEX = 63;
+  KECCAK256_TEXT = 66;
+  SECP256K1_BOOL = 67;
+  HEX_TO_TEXT = 68;
+  TEXT_TO_HEX = 69;
 
   // Next id is 64.
 
   /* Dev Builtins */
-
-
-  TEXTMAP_EMPTY = 1001;                // *Available in versions >= 2.dev*
-  TEXTMAP_INSERT = 1002;               // *Available in versions >= 2.dev*
-  TEXTMAP_LOOKUP = 1003;               // *Available in versions >= 2.dev*
-  TEXTMAP_DELETE = 1004;               // *Available in versions >= 2.dev*
-  TEXTMAP_TO_LIST = 1005;              // *Available in versions >= 2.dev*
-  TEXTMAP_SIZE = 1006;                 // *Available in versions >= 2.dev*
+  // We use fields above 1000 for dev features
 
   SCALE_BIGNUMERIC = 2001;             // *Available in versions >= 2.dev*
   PRECISION_BIGNUMERIC = 2002;         // *Available in versions >= 2.dev*

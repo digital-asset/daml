@@ -8,7 +8,7 @@ import cats.implicits.catsSyntaxEitherId
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.base.error.CantonRpcError
+import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Crypto, Fingerprint}
@@ -125,7 +125,7 @@ class GrpcTopologyManagerReadService(
 
   private def collectStores(
       storeO: Option[grpc.TopologyStoreId]
-  ): EitherT[FutureUnlessShutdown, CantonRpcError, Seq[
+  ): EitherT[FutureUnlessShutdown, RpcError, Seq[
     topology.store.TopologyStore[topology.store.TopologyStoreId]
   ]] =
     storeO match {
@@ -138,11 +138,11 @@ class GrpcTopologyManagerReadService(
       storeO: Option[grpc.TopologyStoreId]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonRpcError, topology.store.TopologyStore[
+  ): EitherT[FutureUnlessShutdown, RpcError, topology.store.TopologyStore[
     topology.store.TopologyStoreId
   ]] = {
     val synchronizerStores
-        : Either[CantonRpcError, topology.store.TopologyStore[topology.store.TopologyStoreId]] =
+        : Either[RpcError, topology.store.TopologyStore[topology.store.TopologyStoreId]] =
       storeO match {
         case Some(store) =>
           val targetStoreInternal = store.toInternal
@@ -198,7 +198,7 @@ class GrpcTopologyManagerReadService(
       filterString: String,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonRpcError, Seq[
+  ): EitherT[FutureUnlessShutdown, RpcError, Seq[
     (TransactionSearchResult, TopologyMapping)
   ]] = {
     val (idFilter, namespaceFilter) = UniqueIdentifier.splitFilter(filterString)
@@ -222,7 +222,7 @@ class GrpcTopologyManagerReadService(
       namespaceFilter: Option[String],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonRpcError, Seq[
+  ): EitherT[FutureUnlessShutdown, RpcError, Seq[
     (TransactionSearchResult, TopologyMapping)
   ]] = {
 
@@ -712,7 +712,7 @@ class GrpcTopologyManagerReadService(
       filterNamespace: String,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonRpcError, GenericStoredTopologyTransactions] =
+  ): EitherT[FutureUnlessShutdown, RpcError, GenericStoredTopologyTransactions] =
     for {
       stores <- collectStores(baseQuery.store)
       results <- EitherT.right(
@@ -728,7 +728,7 @@ class GrpcTopologyManagerReadService(
               namespaceFilter = Some(filterNamespace),
             )
         }
-      ): EitherT[FutureUnlessShutdown, CantonRpcError, Seq[GenericStoredTopologyTransactions]]
+      ): EitherT[FutureUnlessShutdown, RpcError, Seq[GenericStoredTopologyTransactions]]
     } yield {
       val res = results.foldLeft(StoredTopologyTransactions.empty) { case (acc, elem) =>
         StoredTopologyTransactions(
@@ -763,7 +763,7 @@ class GrpcTopologyManagerReadService(
   ): Future[Unit] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
-    val res: EitherT[FutureUnlessShutdown, CantonRpcError, Unit] =
+    val res: EitherT[FutureUnlessShutdown, RpcError, Unit] =
       for {
         _ <- member match {
           case _: ParticipantId =>
@@ -772,7 +772,7 @@ class GrpcTopologyManagerReadService(
                 .required("filter_synchronizer_store", filterSynchronizerStore)
             )
 
-          case _ => EitherT.rightT[FutureUnlessShutdown, CantonRpcError](())
+          case _ => EitherT.rightT[FutureUnlessShutdown, RpcError](())
         }
         topologyStoreO <- wrapErrUS(
           filterSynchronizerStore.traverse(
@@ -786,7 +786,7 @@ class GrpcTopologyManagerReadService(
         )
 
         sequencedTimestamp <- timestampO match {
-          case Some(value) => EitherT.rightT[FutureUnlessShutdown, CantonRpcError](value)
+          case Some(value) => EitherT.rightT[FutureUnlessShutdown, RpcError](value)
           case None =>
             val sequencedTimeF = synchronizerTopologyStore
               .maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
@@ -803,7 +803,7 @@ class GrpcTopologyManagerReadService(
             EitherT(sequencedTimeF)
         }
 
-        topologySnapshot <- EitherT.right[CantonRpcError](
+        topologySnapshot <- EitherT.right[RpcError](
           synchronizerTopologyStore.findEssentialStateAtSequencedTime(
             SequencedTime(sequencedTimestamp),
             includeRejected = false,

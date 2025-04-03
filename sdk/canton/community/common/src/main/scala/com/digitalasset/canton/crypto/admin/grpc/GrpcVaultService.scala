@@ -8,13 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.base.error.{
-  CantonRpcError,
-  ErrorCategory,
-  ErrorCode,
-  Explanation,
-  Resolution,
-}
+import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution, RpcError}
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.crypto.admin.v30
@@ -275,7 +269,7 @@ class GrpcVaultService(
         )
     }
 
-  private def getKmsPrivateApi: Either[CantonRpcError, KmsPrivateCrypto] =
+  private def getKmsPrivateApi: Either[RpcError, KmsPrivateCrypto] =
     crypto.privateCrypto match {
       case kmsCrypto: KmsPrivateCrypto =>
         Right(kmsCrypto)
@@ -638,7 +632,7 @@ class GrpcVaultService(
   }.failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
 }
 
-sealed trait GrpcVaultServiceError extends CantonRpcError with Product with Serializable
+sealed trait GrpcVaultServiceError extends RpcError with Product with Serializable
 
 object GrpcVaultServiceError extends CantonErrorGroups.CommandErrorGroup {
 

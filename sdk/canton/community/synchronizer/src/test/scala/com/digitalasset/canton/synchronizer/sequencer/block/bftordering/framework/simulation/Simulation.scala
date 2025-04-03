@@ -22,6 +22,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.RunningFuture
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.OnboardingManager
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.OnboardingManager.ReasonForProvide.{
+  ProvideForInit,
+  ProvideForRestart,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   Module,
   ModuleName,
@@ -227,7 +231,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
   ): BftNodeId = {
     val node = endpointToNode(endpoint)
     val initializer = topology.laterOnboardedEndpointsWithInitializers(endpoint)
-    val onboardingData = onboardingManager.provide(node)
+    val onboardingData = onboardingManager.provide(ProvideForInit, node)
     val machine = machineInitializer.initialize(onboardingData, initializer)
     topology = topology.copy(activeSequencersToMachines =
       topology.activeSequencersToMachines.updated(node, machine)
@@ -439,7 +443,7 @@ final case class Machine[OnboardingDataT, SystemNetworkMessageT](
     val system = new SimulationModuleSystem(nodeCollector, loggerFactory)
     logger.info("Initializing modules again to simulate restart")
     val _ = init
-      .systemInitializerFactory(onboardingManager.provide(node))
+      .systemInitializerFactory(onboardingManager.provide(ProvideForRestart, node))
       .initialize(system, simulationP2PNetworkManager)
   }
 

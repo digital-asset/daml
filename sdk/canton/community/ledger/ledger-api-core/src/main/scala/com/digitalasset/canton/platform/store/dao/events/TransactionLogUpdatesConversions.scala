@@ -7,6 +7,7 @@ import com.daml.ledger.api.v2.event as apiEvent
 import com.daml.ledger.api.v2.reassignment.{
   AssignedEvent as ApiAssignedEvent,
   Reassignment as ApiReassignment,
+  ReassignmentEvent as ApiReassignmentEvent,
   UnassignedEvent as ApiUnassignedEvent,
 }
 import com.daml.ledger.api.v2.state_service.ParticipantPermission as ApiParticipantPermission
@@ -775,14 +776,16 @@ private[events] object TransactionLogUpdatesConversions {
           createdEvent = createdEvent,
           createdWitnesses = _.flatEventWitnesses,
         ).map(createdEvent =>
-          ApiReassignment.Event.AssignedEvent(
-            ApiAssignedEvent(
-              source = info.sourceSynchronizer.unwrap.toProtoPrimitive,
-              target = info.targetSynchronizer.unwrap.toProtoPrimitive,
-              unassignId = info.unassignId.toMicros.toString,
-              submitter = info.submitter.getOrElse(""),
-              reassignmentCounter = info.reassignmentCounter,
-              createdEvent = Some(createdEvent),
+          ApiReassignmentEvent(
+            ApiReassignmentEvent.Event.Assigned(
+              ApiAssignedEvent(
+                source = info.sourceSynchronizer.unwrap.toProtoPrimitive,
+                target = info.targetSynchronizer.unwrap.toProtoPrimitive,
+                unassignId = info.unassignId.toMicros.toString,
+                submitter = info.submitter.getOrElse(""),
+                reassignmentCounter = info.reassignmentCounter,
+                createdEvent = Some(createdEvent),
+              )
             )
           )
         )
@@ -790,19 +793,23 @@ private[events] object TransactionLogUpdatesConversions {
       case TransactionLogUpdate.ReassignmentAccepted.Unassigned(unassign) =>
         val stakeholders = unassign.stakeholders
         Future.successful(
-          ApiReassignment.Event.UnassignedEvent(
-            ApiUnassignedEvent(
-              source = info.sourceSynchronizer.unwrap.toProtoPrimitive,
-              target = info.targetSynchronizer.unwrap.toProtoPrimitive,
-              unassignId = info.unassignId.toMicros.toString,
-              submitter = info.submitter.getOrElse(""),
-              reassignmentCounter = info.reassignmentCounter,
-              contractId = unassign.contractId.coid,
-              templateId = Some(LfEngineToApi.toApiIdentifier(unassign.templateId)),
-              packageName = unassign.packageName,
-              assignmentExclusivity =
-                unassign.assignmentExclusivity.map(TimestampConversion.fromLf),
-              witnessParties = requestingParties.fold(stakeholders)(stakeholders.filter),
+          ApiReassignmentEvent(
+            ApiReassignmentEvent.Event.Unassigned(
+              ApiUnassignedEvent(
+                offset = reassignmentAccepted.offset.unwrap,
+                source = info.sourceSynchronizer.unwrap.toProtoPrimitive,
+                target = info.targetSynchronizer.unwrap.toProtoPrimitive,
+                unassignId = info.unassignId.toMicros.toString,
+                submitter = info.submitter.getOrElse(""),
+                reassignmentCounter = info.reassignmentCounter,
+                contractId = unassign.contractId.coid,
+                templateId = Some(LfEngineToApi.toApiIdentifier(unassign.templateId)),
+                packageName = unassign.packageName,
+                assignmentExclusivity =
+                  unassign.assignmentExclusivity.map(TimestampConversion.fromLf),
+                witnessParties = requestingParties.fold(stakeholders)(stakeholders.filter),
+                nodeId = 0,
+              )
             )
           )
         )
@@ -816,7 +823,7 @@ private[events] object TransactionLogUpdatesConversions {
           .getOrElse(""),
         workflowId = reassignmentAccepted.workflowId,
         offset = reassignmentAccepted.offset.unwrap,
-        event = event,
+        events = Seq(event),
         traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
         recordTime = Some(TimestampConversion.fromLf(reassignmentAccepted.recordTime)),
       )

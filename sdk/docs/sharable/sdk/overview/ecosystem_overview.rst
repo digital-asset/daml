@@ -2,7 +2,7 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 Canton Ecosystem Overview
-#######################
+##########################
 
 .. note::
     total random content. needs love

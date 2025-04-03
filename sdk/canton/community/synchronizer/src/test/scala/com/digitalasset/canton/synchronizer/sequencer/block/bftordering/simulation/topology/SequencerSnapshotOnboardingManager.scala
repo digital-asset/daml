@@ -8,7 +8,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  BlockNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.SequencerSnapshotAdditionalInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.SequencerNode.SnapshotMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
@@ -17,6 +20,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.OnboardingManager
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.OnboardingManager.ReasonForProvide
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.{
   AddEndpoint,
   Command,
@@ -27,8 +31,12 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SimulationSettings,
   StartMachine,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.bftordering.BftOrderingVerifier
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.data.StorageHelpers
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.SequencerSnapshotOnboardingManager.DefaultEpsilonForSchedulingCommand
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.SequencerSnapshotOnboardingManager.{
+  BftOnboardingData,
+  DefaultEpsilonForSchedulingCommand,
+}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.mutable
@@ -40,8 +48,9 @@ class SequencerSnapshotOnboardingManager(
     initialNodes: Seq[BftNodeId],
     nodeToEndpoint: Map[BftNodeId, P2PEndpoint],
     stores: Map[BftNodeId, BftOrderingStores[SimulationEnv]],
+    model: BftOrderingVerifier,
     simulationSettings: SimulationSettings,
-) extends OnboardingManager[Option[SequencerSnapshotAdditionalInfo]] {
+) extends OnboardingManager[BftOnboardingData] {
 
   implicit private val traceContext: TraceContext = TraceContext.empty
 
@@ -54,8 +63,34 @@ class SequencerSnapshotOnboardingManager(
 
   private var nodesToRetry = Seq.empty[BftNodeId]
 
-  override def provide(forNode: BftNodeId): Option[SequencerSnapshotAdditionalInfo] =
-    nodeToSequencerSnapshotAdditionalInfo.get(forNode)
+  override def provide(
+      reasonForProvide: ReasonForProvide,
+      forNode: BftNodeId,
+  ): BftOnboardingData = {
+    val snapshot = nodeToSequencerSnapshotAdditionalInfo.get(forNode)
+    BftOnboardingData(
+      model
+        .lastSequencerAcknowledgedBlock(forNode)
+        .getOrElse {
+          // if the model don't know it means this node is new so we get the block from the snapshot
+          val blockFromSnapshot =
+            snapshot
+              .flatMap {
+                // technically the block we want is somewhere later than this, but this is good enough
+                _.nodeActiveAt.get(forNode).flatMap(_.firstBlockNumberInEpoch)
+              }
+
+          blockFromSnapshot.getOrElse(
+            // If we don't have a snapshot the node is part of the genesis
+            BlockNumber(0L)
+          )
+        },
+      reasonForProvide match {
+        case ReasonForProvide.ProvideForInit => snapshot
+        case ReasonForProvide.ProvideForRestart => None
+      },
+    )
+  }
 
   override def commandsToSchedule(timestamp: CantonTimestamp): Seq[(Command, FiniteDuration)] = {
     val commandsToStartNodes: Seq[(Command, FiniteDuration)] = nodesToStart.map { sequencerId =>
@@ -97,12 +132,14 @@ class SequencerSnapshotOnboardingManager(
   def newStage(
       newlyOnboardedNodesToOnboardingTimes: Map[BftNodeId, TopologyActivationTime],
       newNodesToEndpoint: Map[BftNodeId, P2PEndpoint],
+      newModel: BftOrderingVerifier,
       simulationSettings: SimulationSettings,
   ): SequencerSnapshotOnboardingManager = new SequencerSnapshotOnboardingManager(
     newlyOnboardedNodesToOnboardingTimes,
     onboardedNodes,
     newNodesToEndpoint,
     stores,
+    newModel,
     simulationSettings,
   )
 
@@ -158,6 +195,11 @@ class SequencerSnapshotOnboardingManager(
 }
 
 object SequencerSnapshotOnboardingManager {
+  final case class BftOnboardingData(
+      initialApplicationHeight: BlockNumber,
+      snapshot: Option[SequencerSnapshotAdditionalInfo],
+  )
+
   // We make the commands take some time to go into effect, this amount is completely arbitrary
   private val DefaultEpsilonForSchedulingCommand = 1.milliseconds
 }

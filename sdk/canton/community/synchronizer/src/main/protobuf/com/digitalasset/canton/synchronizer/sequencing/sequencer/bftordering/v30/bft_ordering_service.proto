@@ -105,6 +105,21 @@ message BatchResponse {
   Batch batch = 2;
 }
 
+message OrderingBlock {
+  repeated ProofOfAvailability proofs = 1;
+}
+
+message ProofOfAvailability {
+  bytes batch_id = 1;
+  repeated AvailabilityAck acks = 2;
+  int64 epoch_number = 3;
+}
+
+message AvailabilityAck {
+  string from = 1;
+  com.digitalasset.canton.crypto.v30.Signature signature = 2;
+}
+
 message ConsensusMessage {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   BlockMetadata block_metadata = 1;
@@ -236,21 +251,6 @@ message BlockInProgress {
   bool pre_prepared = 1;
   repeated bool prepares_present = 2;
   repeated bool commits_present = 3;
-}
-
-message OrderingBlock {
-  repeated ProofOfAvailability proofs = 1;
-}
-
-message ProofOfAvailability {
-  bytes batch_id = 1;
-  repeated AvailabilityAck acks = 2;
-  int64 epoch_number = 3;
-}
-
-message AvailabilityAck {
-  string from = 1;
-  com.digitalasset.canton.crypto.v30.Signature signature = 2;
 }
 
 // State transfer

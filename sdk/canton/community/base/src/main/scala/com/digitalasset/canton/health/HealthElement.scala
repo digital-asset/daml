@@ -189,7 +189,7 @@ trait HealthElement {
   ): Unit = {
     val dur = Duration.fromNanos(System.nanoTime() - start)
     lazy val durationStr = LoggerUtil.roundDurationForHumans(dur)
-    if (dur > 1.second) logger.warn(s"Listener ${listener.name} took $durationStr to run")
+    if (dur > 3.seconds) logger.warn(s"Listener ${listener.name} took $durationStr to run")
   }
 
   private def notifyListenersInternal(

@@ -84,7 +84,7 @@ private[lf] class Runner(
       }
     }
 
-  def run(expr: SExpr.SExpr)(implicit
+  def run(expr: SExpr.SExpr, convertLegacyExceptions: Boolean = true)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
@@ -98,11 +98,12 @@ private[lf] class Runner(
           warningLog,
           profile,
           Script.DummyLoggingContext,
+          convertLegacyExceptions,
           canceled,
         )
       result <-
         remapQ(freeExpr).runF[ScriptF.Cmd, SExpr](
-          _.executeWithRunner(env, this)
+          _.executeWithRunner(env, this, convertLegacyExceptions)
             .map(Result.successful)
             .recover { case err: RuntimeException => Result.failed(err) },
           canceled,

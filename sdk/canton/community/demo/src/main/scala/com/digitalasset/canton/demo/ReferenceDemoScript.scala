@@ -9,7 +9,6 @@ import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameter
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.console.commands.SynchronizerChoice
 import com.digitalasset.canton.console.{
   ConsoleEnvironment,
   ConsoleMacros,
@@ -523,7 +522,6 @@ class ReferenceDemoScript(
                     participant6.parties
                       .enable(
                         "Processor",
-                        waitForSynchronizer = SynchronizerChoice.All,
                         synchronizeParticipants = Seq(participant5),
                       )
                   partyIdCache.put("Processor", (processorId, participant6))

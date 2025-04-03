@@ -9,11 +9,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
 
-import scala.collection.mutable
+import scala.collection.concurrent.TrieMap
 import scala.util.Try
 
 final class SimulationAvailabilityStore(
-    allKnownBatchesById: mutable.Map[BatchId, OrderingRequestBatch] = mutable.Map.empty
+    allKnownBatchesById: TrieMap[BatchId, OrderingRequestBatch] = TrieMap.empty
 ) extends GenericInMemoryAvailabilityStore[SimulationEnv](allKnownBatchesById) {
   override def createFuture[A](action: String)(x: () => Try[A]): SimulationFuture[A] =
     SimulationFuture(action)(x)

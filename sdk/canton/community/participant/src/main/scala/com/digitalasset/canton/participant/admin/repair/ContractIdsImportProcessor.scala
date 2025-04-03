@@ -267,11 +267,11 @@ object ContractIdsImportProcessor {
   ): EitherT[Future, String, (Seq[RepairContract], Map[LfContractId, LfContractId])] =
     contractIdImportMode match {
       // Accept contract IDs as they are.
-      case Accept => EitherT.rightT((contracts, Map.empty))
-      case Validation =>
+      case ContractIdImportMode.Accept => EitherT.rightT((contracts, Map.empty))
+      case ContractIdImportMode.Validation =>
         new VerifyContractIdSuffixes(protocolVersionGetter, loggerFactory)
           .process(contracts)
-      case Recomputation =>
+      case ContractIdImportMode.Recomputation =>
         new RecomputeContractIdSuffixes(protocolVersionGetter, cryptoOps, loggerFactory)
           .process(contracts)
     }

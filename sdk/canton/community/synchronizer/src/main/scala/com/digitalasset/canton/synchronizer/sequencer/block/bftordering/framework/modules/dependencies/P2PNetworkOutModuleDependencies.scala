@@ -8,6 +8,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Consensus,
   Mempool,
   Output,
+  Pruning,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   ClientP2PNetworkManager,
@@ -23,4 +24,5 @@ final case class P2PNetworkOutModuleDependencies[E <: Env[E]](
     availability: ModuleRef[Availability.Message[E]],
     consensus: ModuleRef[Consensus.Message[E]],
     output: ModuleRef[Output.Message[E]],
+    pruning: ModuleRef[Pruning.Message],
 )

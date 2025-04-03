@@ -26,13 +26,13 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{BaseTest, CommandId, LfPartyId, UserId}
+import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
-import org.scalatest.{Assertion, BeforeAndAfterAll}
 
 import java.time.Duration
 import java.util.UUID
 
-trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
+trait FinalizedResponseStoreTest {
   self: AsyncWordSpec with BaseTest =>
 
   def ts(n: Int): CantonTimestamp = CantonTimestamp.Epoch.plusSeconds(n.toLong)
@@ -129,6 +129,31 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
           result <- sut.fetch(requestId).value
         } yield result shouldBe Some(currentVersion)
       }.failOnShutdown("Unexpected shutdown.")
+      "should find the highest store record time" in {
+        val sut = mk()
+        for {
+          onEmptyStore <- sut.highestRecordTime()
+          _ <- sut.store(currentVersion)
+          rt1 <- sut.highestRecordTime()
+          _ <- sut.store(
+            currentVersion.copy(requestId = RequestId(requestId.unwrap.plusSeconds(2)))(
+              currentVersion.requestTraceContext
+            )
+          )
+          rt2 <- sut.highestRecordTime()
+          _ <- sut.store(
+            currentVersion.copy(requestId = RequestId(requestId.unwrap.plusSeconds(1)))(
+              currentVersion.requestTraceContext
+            )
+          )
+          rt3 <- sut.highestRecordTime()
+        } yield {
+          onEmptyStore shouldBe None
+          rt1 shouldBe Some(currentVersion.requestId.unwrap)
+          rt2 shouldBe Some(currentVersion.requestId.unwrap.plusSeconds(2))
+          rt3 shouldBe Some(currentVersion.requestId.unwrap.plusSeconds(2))
+        }
+      }.failOnShutdown("unexpected shutdown.")
       "should allow the same response to be stored more than once" in {
         // can happen after a crash and event replay
         val sut = mk()
@@ -143,23 +168,20 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
       val responses = (1 to 10).map { i =>
         currentVersion.copy(
           RequestId(CantonTimestamp.Epoch.plusSeconds(i.toLong)),
-          // simulate that the verdicts where issued in the reverse order: oldest request confirmed first.
-          // also causes 2 verdicts to have the same version timestamp, so we can confirm that the store
-          // returns them in the proper order
+          // simulate that the verdicts where issued in the reverse order: oldest request confirmed last.
           finalizationTime = CantonTimestamp.Epoch.plusSeconds(20 - (i.toLong / 2)),
         )(currentVersion.requestTraceContext)
       }.toList
 
-      val responsesInExpectedOrder = responses.sortBy(r => (r.version, r.requestId.unwrap))
+      val responsesInExpectedOrder = responses.sortBy(r => r.requestId.unwrap)
 
-      "sort in order of (version, request_id)" in {
+      "sort in order of request_id" in {
         val sut = mk()
         for {
           _ <- MonadUtil.sequentialTraverse_(responses)(sut.store(_))
           loadedVerdicts <- sut.readFinalizedVerdicts(
-            fromFinalizationTimeExclusive = CantonTimestamp.MinValue,
             fromRequestExclusive = CantonTimestamp.MinValue,
-            toFinalizationTimeInclusive = CantonTimestamp.MaxValue,
+            toRequestTimeInclusive = CantonTimestamp.MaxValue,
             PositiveInt.MaxValue,
           )
         } yield {
@@ -172,9 +194,8 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
         for {
           _ <- MonadUtil.sequentialTraverse_(responses)(sut.store(_))
           loadedVerdicts <- sut.readFinalizedVerdicts(
-            fromFinalizationTimeExclusive = CantonTimestamp.MinValue,
             fromRequestExclusive = CantonTimestamp.MinValue,
-            toFinalizationTimeInclusive = CantonTimestamp.MaxValue,
+            toRequestTimeInclusive = CantonTimestamp.MaxValue,
             PositiveInt.two,
           )
         } yield {
@@ -204,23 +225,20 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
               batches <- Monad[FutureUnlessShutdown].tailRecM(
                 (
                   /* resulting batches = */ Vector.empty[Seq[FinalizedResponse]],
-                  /* fromVersionExclusive = */ CantonTimestamp.MinValue,
                   /* fromRequestExclusive = */ CantonTimestamp.MinValue,
                 )
-              ) { case (acc, fromVersionExclusive, fromResultExclusive) =>
+              ) { case (acc, fromResultExclusive) =>
                 sut
                   .readFinalizedVerdicts(
-                    fromFinalizationTimeExclusive = fromVersionExclusive,
                     fromRequestExclusive = fromResultExclusive,
-                    toFinalizationTimeInclusive = CantonTimestamp.MaxValue,
+                    toRequestTimeInclusive = CantonTimestamp.MaxValue,
                     PositiveInt.tryCreate(batchSize),
                   )
                   .map { batch =>
                     batch.lastOption
                       .map { latestReceivedVerdict =>
-                        val nextFromVersionExclusive = latestReceivedVerdict.version
                         val nextFromRequestExclusive = latestReceivedVerdict.requestId.unwrap
-                        (acc :+ batch, nextFromVersionExclusive, nextFromRequestExclusive)
+                        (acc :+ batch, nextFromRequestExclusive)
                       }
                       .toLeft(acc)
                   }
@@ -246,16 +264,14 @@ trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
         val sut = mk()
         for {
           loadedVerdictsOnEmptyStore <- sut.readFinalizedVerdicts(
-            fromFinalizationTimeExclusive = CantonTimestamp.MinValue,
             fromRequestExclusive = CantonTimestamp.MinValue,
-            toFinalizationTimeInclusive = CantonTimestamp.MaxValue,
+            toRequestTimeInclusive = CantonTimestamp.MaxValue,
             PositiveInt.two,
           )
           _ <- MonadUtil.sequentialTraverse_(responses)(sut.store(_))
           loadedVerdicts <- sut.readFinalizedVerdicts(
-            fromFinalizationTimeExclusive = CantonTimestamp.MaxValue.minusSeconds(1),
             fromRequestExclusive = CantonTimestamp.MaxValue.minusSeconds(1),
-            toFinalizationTimeInclusive = CantonTimestamp.MaxValue,
+            toRequestTimeInclusive = CantonTimestamp.MaxValue,
             PositiveInt.two,
           )
 
