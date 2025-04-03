@@ -123,11 +123,11 @@ instance HasToHex Int where
 instance HasToHex Party where
   toHex p = toHex(partyToText p)
 
-instance NumericScale n => HasToHex (Numeric n) where
-  -- Numerics can be thought of as decimal string with a scale. As usage sites need to know the scale, we can
-  -- simply hex encode the string representation of the underlying numeric's decimal string. This allows `parseNumeric`
-  -- to be used to define `HasFromHex` instances.
-  toHex num = toHex(show num)
+-- Numerics can be thought of as a decimal string with a scale. As usage sites need to know the scale, we can
+-- simply hex encode the string representation of the underlying numeric's decimal string. This allows `parseNumeric`
+-- to be used to define `HasFromHex` instances.
+numericViaStringToHex : NumericScale n => Numeric n -> BytesHex
+numericViaStringToHex num = toHex(show num)
 
 class HasFromHex a where
   -- | Converts a hex encoded string into a typed data value.
@@ -152,11 +152,14 @@ instance HasFromHex (Optional Party) where
     partyFromText txt
   fromHex _ = None
 
-instance NumericScale n => HasFromHex (Optional (Numeric n)) where
-  fromHex hex | Text.isHex hex = do
-    txt <- fromHex hex
-    Text.parseNumeric txt
-  fromHex _ = None
+-- Numerics can be thought of as a decimal string with a scale. As usage sites need to know the scale, we can
+-- simply hex encode the string representation of the underlying numeric's decimal string. This allows `parseNumeric`
+-- to be used to define `HasFromHex` instances.
+numericViaStringFromHex: NumericScale n => BytesHex -> Optional (Numeric n)
+numericViaStringFromHex hex | Text.isHex hex = do
+  txt <- fromHex hex
+  Text.parseNumeric txt
+numericViaStringFromHex _ = None
 
 -- | Number of bytes present in a byte encoded string.
 byteCount: BytesHex -> Int

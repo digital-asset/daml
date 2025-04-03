@@ -57,13 +57,13 @@ main =
     alice <- allocateParty "Alice"
     Some alice === fromHex(toHex alice)
 
-    -- `HasToHex(Numeric n)` and `HasFromHex(Numeric n)`
-    toHex n3 === "302e313233"
-    toHex n7 === "302e31323334353637"
-    toHex n10 === "302e313233343536373839"
-    fromHex "302e313233" === Some n3
-    fromHex "302e31323334353637" === Some n7
-    fromHex "302e313233343536373839" === Some n10
+    -- `numericViaStringToHex` and `numericViaStringFromHex`
+    numericViaStringToHex n3 === "302e313233"
+    numericViaStringToHex n7 === "302e31323334353637"
+    numericViaStringToHex n10 === "302e313233343536373839"
+    numericViaStringFromHex "302e313233" === Some n3
+    numericViaStringFromHex "302e31323334353637" === Some n7
+    numericViaStringFromHex "302e313233343536373839" === Some n10
 
     -- byteCount
     byteCount "" === 0
