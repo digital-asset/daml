@@ -81,6 +81,7 @@ data UpdateF expr
   | UFetchF    !(Qualified TypeConName) !expr
   | UFetchInterfaceF    !(Qualified TypeConName) !expr
   | UGetTimeF
+  | ULedgerTimeLTF !expr
   | UEmbedExprF !Type !expr
   | UFetchByKeyF !(Qualified TypeConName)
   | ULookupByKeyF !(Qualified TypeConName)
@@ -114,6 +115,7 @@ projectUpdate = \case
   UFetch a b -> UFetchF a b
   UFetchInterface a b -> UFetchInterfaceF a b
   UGetTime -> UGetTimeF
+  ULedgerTimeLT a -> ULedgerTimeLTF a
   UEmbedExpr a b -> UEmbedExprF a b
   ULookupByKey a -> ULookupByKeyF a
   UFetchByKey a -> UFetchByKeyF a
@@ -132,6 +134,7 @@ embedUpdate = \case
   UFetchF a b -> UFetch a b
   UFetchInterfaceF a b -> UFetchInterface a b
   UGetTimeF -> UGetTime
+  ULedgerTimeLTF a -> ULedgerTimeLT a
   UEmbedExprF a b -> UEmbedExpr a b
   UFetchByKeyF a -> UFetchByKey a
   ULookupByKeyF a -> ULookupByKey a

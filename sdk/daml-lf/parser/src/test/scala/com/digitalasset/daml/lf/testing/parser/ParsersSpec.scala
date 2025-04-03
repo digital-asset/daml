@@ -507,6 +507,8 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
           UpdateLookupByKey(T.tycon),
         "uget_time" ->
           UpdateGetTime,
+        "ledger_time_lt e" ->
+          UpdateLedgerTimeLT(e"e"),
         "uembed_expr @tau e" ->
           UpdateEmbedExpr(t"tau", e"e"),
         "try @tau body catch err -> handler err" ->

@@ -1356,6 +1356,10 @@ private[validation] object Typing {
         typeOfFetchInterface(tpl, cid)
       case UpdateGetTime =>
         Ret(TUpdate(TTimestamp))
+      case UpdateLedgerTimeLT(time) =>
+        checkExpr(time, TTimestamp) {
+          Ret(TUpdate(TBool))
+        }
       case UpdateEmbedExpr(typ, exp) =>
         checkExpr(exp, TUpdate(typ)) {
           Ret(TUpdate(typ))

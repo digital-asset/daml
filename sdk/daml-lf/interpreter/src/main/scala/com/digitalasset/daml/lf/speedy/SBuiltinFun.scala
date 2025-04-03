@@ -1868,7 +1868,21 @@ private[lf] object SBuiltinFun {
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       checkToken(args, 0)
-      machine.needTime()
+      machine.needTime(time => Control.Value(STimestamp(time)))
+    }
+  }
+
+  /** $ledgerTimeLT: Timestamp -> Token -> Bool */
+  final case object SBULedgerTimeLT extends UpdateBuiltin(2) {
+    override protected def executeUpdate(
+        args: util.ArrayList[SValue],
+        machine: UpdateMachine,
+    ): Control[Question.Update] = {
+      checkToken(args, 1)
+
+      val time = getSTimestamp(args, 0)
+
+      machine.needTime(now => Control.Value(SBool(now < time)))
     }
   }
 

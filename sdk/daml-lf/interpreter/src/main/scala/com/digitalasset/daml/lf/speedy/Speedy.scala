@@ -220,14 +220,16 @@ private[lf] object Speedy {
     // The following needXXXX methods take care to emit question while ensuring no exceptions are
     // thrown during the question callbacks execution
 
-    final private[speedy] def needTime(): Control[Question.Update] = {
+    final private[speedy] def needTime(
+        continue: Time.Timestamp => Control[Question.Update]
+    ): Control[Question.Update] = {
       Control.Question(
         Question.Update.NeedTime { time =>
           setDependsOnTime(time)
           safelyContinue(
             NameOf.qualifiedNameOfCurrentFunc,
             "NeedTime",
-            Control.Value(SValue.STimestamp(time)),
+            continue(time),
           )
         }
       )

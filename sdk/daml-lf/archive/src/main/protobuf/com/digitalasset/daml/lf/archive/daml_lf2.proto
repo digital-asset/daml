@@ -1139,6 +1139,8 @@ message Update {
     ExerciseInterface exercise_interface = 13;
     FetchInterface fetch_interface = 14;
 
+    Expr ledger_time_lt = 15;
+
     DynamicExercise dynamic_exercise = 1001; // *Available in versions >= 2.dev*
     SoftFetch soft_fetch = 1002; // *Available in versions >= 2.dev*
     SoftExercise soft_exercise = 1003; // *Available in versions >= 2.dev*

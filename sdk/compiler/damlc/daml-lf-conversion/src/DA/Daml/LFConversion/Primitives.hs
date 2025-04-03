@@ -26,6 +26,8 @@ convertPrim _ "UAbort" (TText :-> t@(TUpdate a)) =
     pure $ ETmLam (varV1, TText) $ EUpdate (UEmbedExpr a (EBuiltinFun BEError `ETyApp` t `ETmApp` EVar varV1))
 convertPrim _ "UGetTime" (TUpdate TTimestamp) =
     pure $ EUpdate UGetTime
+convertPrim _ "ULedgerTimeLT" (TTimestamp :-> TUpdate TBool) =
+    pure $ ETmLam (varV1, TTimestamp) $ EUpdate (ULedgerTimeLT (EVar varV1))
 
 -- Comparison
 convertPrim _ "BEEqual" (a1 :-> a2 :-> TBool) | a1 == a2 =

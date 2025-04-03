@@ -154,6 +154,7 @@ freeVarsStep = \case
         UFetchF _ e -> e
         UFetchInterfaceF _ e -> e
         UGetTimeF -> mempty
+        ULedgerTimeLTF e -> e
         UEmbedExprF t e -> freeVarsInType t <> e
         UFetchByKeyF _ -> mempty
         ULookupByKeyF _ -> mempty

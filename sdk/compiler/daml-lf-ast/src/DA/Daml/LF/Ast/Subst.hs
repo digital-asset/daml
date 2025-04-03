@@ -305,6 +305,7 @@ applySubstInUpdate subst = \case
         interface
         (applySubstInExpr subst e)
     e@UGetTime -> e
+    ULedgerTimeLT e -> ULedgerTimeLT (applySubstInExpr subst e)
     UEmbedExpr t e -> UEmbedExpr
         (applySubstInType subst t)
         (applySubstInExpr subst e)

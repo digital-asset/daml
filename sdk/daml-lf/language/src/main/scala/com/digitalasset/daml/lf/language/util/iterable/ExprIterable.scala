@@ -119,6 +119,7 @@ private[lf] object ExprIterable {
       case UpdateExerciseByKey(templateId @ _, choice @ _, key, arg) =>
         Iterator(key, arg)
       case UpdateGetTime => Iterator.empty
+      case UpdateLedgerTimeLT(time) => Iterator(time)
       case UpdateFetchByKey(_) =>
         Iterator.empty
       case UpdateLookupByKey(_) =>

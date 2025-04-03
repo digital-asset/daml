@@ -19,7 +19,7 @@ import qualified Data.HashMap.Strict as HMS
 import qualified Data.List as L
 import qualified Data.Set as S
 import qualified Data.Map.Strict as Map
-import           Data.Maybe (fromMaybe)
+import           Data.Maybe (fromMaybe, fromJust)
 import qualified Data.NameMap as NM
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
@@ -721,6 +721,9 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_FetchInterfaceCid <- encodeExpr fetContractId
         pure $ P.UpdateSumFetchInterface P.Update_FetchInterface{..}
     UGetTime -> pure $ P.UpdateSumGetTime P.Unit
+    ULedgerTimeLT e -> do
+        update_LedgerTimeLt <- encodeExpr e
+        pure $ P.UpdateSumLedgerTimeLt (fromJust update_LedgerTimeLt)
     UEmbedExpr typ e -> do
         update_EmbedExprType <- encodeType typ
         update_EmbedExprBody <- encodeExpr e
