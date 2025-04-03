@@ -116,21 +116,13 @@ message RecordField {
 
 // Unique identifier of an entity.
 message Identifier {
-  // Both package_id and package_name is provided as reading from the Ledger API
-  // If provided in Ledger API requests the following rules apply:
-  //
-  // - If package_name is provided and package_id is provided referring to a package name (``#`` notation): name based package selection is preferred, and the defined package name must match.
-  // - If package_name is provided and package_id is provided referring to a package ID: ID based package selection is preferred, and the package name of the package with the package_id should match the package_name.
-  // - If package_name is provided and package_id is not provided: name based package selection is preferred.
-  // - If package_name is not provided and package_id is provided referring to a package name (``#`` notation): name based package selection is preferred.
-  // - If package_name is not provided and package_id is provided referring to a package ID: ID based package selection is preferred.
-  // - If package_name is not provided and package_id is not provided: this is illegal.
-
   // The identifier of the Daml package that contains the entity.
   // Must be a valid PackageIdString.
-  // This is always provided as reading from the Ledger API.
-  // This is not required as provided on Ledger API commands/requests.
-  // Optional
+  //
+  // This is always set when reading from the Ledger API.
+  //
+  // This can be set in a request to the Ledger API to select a specific
+  // package-id *provided* the request allows for package-id selection.
   string package_id = 1;
 
   // The dot-separated module name of the identifier.
@@ -142,9 +134,24 @@ message Identifier {
   string entity_name = 3;
 
   // Name of the package.
-  // This is always provided as reading from the Ledger API.
-  // This is not required as provided on Ledger API commands/requests.
-  // Optional
+  //
+  // This is always set on responses from the Ledger API.
+  //
+  // This can be set in a Ledger API request to select a specific package name
+  // *provided* the request allows for package-name selection.
+  //
+  // At least one of package_id or package_name must be set
+  // on a request.
+  //
+  // If both package_id and package_name are set on a request, then the name of
+  // the package with the specified package_id must match the specified
+  // package_name.
+  //
+  // Note that for backwards compatibility reasons, a package_name can
+  // also be specified in the package_id field using the ``#<package_name>``
+  // notation. In that case, the package_name must be empty or the same as the
+  // package_name specified in the package_id field. This feature is deprecated
+  // and expected to be removed in Canton 3.4.
   string package_name = 4;
 }
 
