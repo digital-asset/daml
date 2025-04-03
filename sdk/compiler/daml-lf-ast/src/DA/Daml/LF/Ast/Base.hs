@@ -762,7 +762,7 @@ data Update
     }
   -- | Retrieve effective ledger time.
   | UGetTime
-  -- | Ledger time functions
+  -- | Check whether the ledger time is strictly before an absolute time.
   | ULedgerTimeLT !Expr
   -- | See comment for 'SEmbedExpr'
   | UEmbedExpr
