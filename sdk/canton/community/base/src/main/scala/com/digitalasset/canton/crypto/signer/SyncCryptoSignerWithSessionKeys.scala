@@ -9,10 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.SessionSigningKeysConfig
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.EncryptionAlgorithmSpec.RsaOaepSha256
-import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
-import com.digitalasset.canton.crypto.SymmetricKeyScheme.Aes128Gcm
-import com.digitalasset.canton.crypto.provider.jce.{JcePrivateCrypto, JcePureCrypto}
+import com.digitalasset.canton.crypto.provider.jce.JcePrivateCrypto
 import com.digitalasset.canton.crypto.signer.SyncCryptoSignerWithSessionKeys.SessionKeyAndDelegation
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -38,41 +35,29 @@ import scala.concurrent.ExecutionContext
   * the number of signing calls and, consequently, lower the latency costs associated with such
   * external key management services.
   *
-  * @param signPrivateApiDefault
-  *   The crypto private API that is used to sign session signing keys and verify the corresponding
-  *   signature delegation with a long-term key.
+  * @param signPrivateApiWithLongTermKeys
+  *   The crypto private API used to sign session signing keys, creating a signature delegation with
+  *   a long-term key.
+  * @param signPublicApiWithLongTermKeys
+  *   The crypto public API used to directly verify messages or validate a signature delegation with
+  *   a long-term key.
+  * @param verificationParallelismLimit
+  *   The maximum number of concurrent verifications allowed.
   */
 class SyncCryptoSignerWithSessionKeys(
-    synchronizerId: SynchronizerId,
+    override protected val synchronizerId: SynchronizerId,
+    override protected val staticSynchronizerParameters: StaticSynchronizerParameters,
     member: Member,
-    staticSynchronizerParameters: StaticSynchronizerParameters,
-    signPrivateApiDefault: SigningPrivateOps,
+    signPrivateApiWithLongTermKeys: SigningPrivateOps,
+    override protected val signPublicApiWithLongTermKeys: SynchronizerCryptoPureApi,
     sessionSigningKeysConfig: SessionSigningKeysConfig,
-    supportedSigningAlgorithmSpecs: NonEmpty[Set[SigningAlgorithmSpec]],
+    override protected val verificationParallelismLimit: PositiveInt,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends SyncCryptoSigner {
 
-  /** The software-based crypto public API that is used to sign protocol messages and verify their
-    * signatures with a session signing key. Except for the signing algorithm and key
-    * specifications, all other schemes are not needed. Therefore, we use fixed schemes (i.e.
-    * placeholders) for the other crypto parameters. // TODO(#23731): Split up pure crypto into
-    * smaller modules and only use the signing module here
-    */
-  private val signPublicApiWithSessionKeys = {
-    val pureCryptoForSessionKeys = new JcePureCrypto(
-      Aes128Gcm,
-      sessionSigningKeysConfig.signingAlgorithmSpec,
-      supportedSigningAlgorithmSpecs,
-      RsaOaepSha256,
-      NonEmpty.mk(Set, RsaOaepSha256),
-      Sha256,
-      PbkdfScheme.Argon2idMode1,
-      loggerFactory,
-    )
-
-    new SynchronizerCryptoPureApi(staticSynchronizerParameters, pureCryptoForSessionKeys)
-  }
+  override protected val signingAlgorithmSpec: Option[SigningAlgorithmSpec] =
+    Some(sessionSigningKeysConfig.signingAlgorithmSpec)
 
   /** The user-configured validity period of a session signing key. */
   private val sessionKeyValidityPeriod =
@@ -93,7 +78,7 @@ class SyncCryptoSignerWithSessionKeys(
     */
   @VisibleForTesting
   private[crypto] val sessionKeyEvictionPeriod = new AtomicReference(
-    PositiveSeconds.fromConfig(sessionSigningKeysConfig.keyEvictionPeriod)
+    sessionSigningKeysConfig.keyEvictionPeriod.underlying
   )
 
   /** Caches the session signing private key and corresponding signature delegation, indexed by the
@@ -107,7 +92,7 @@ class SyncCryptoSignerWithSessionKeys(
     Scaffeine()
       // TODO(#24566): Use scheduler instead of expireAfter
       .expireAfter[Fingerprint, SessionKeyAndDelegation](
-        create = (_, _) => sessionKeyEvictionPeriod.get().toFiniteDuration,
+        create = (_, _) => sessionKeyEvictionPeriod.get(),
         update = (_, _, d) => d,
         read = (_, _, d) => d,
       )
@@ -150,7 +135,7 @@ class SyncCryptoSignerWithSessionKeys(
       )
 
       // sign the hash with the long-term key
-      signature <- signPrivateApiDefault
+      signature <- signPrivateApiWithLongTermKeys
         .sign(hash, longTermKey.fingerprint, SigningKeyUsage.ProtocolOnly)
         .leftMap[SyncCryptoError](err => SyncCryptoError.SyncCryptoSigningError(err))
       signatureDelegation <- SignatureDelegation
@@ -247,43 +232,11 @@ class SyncCryptoSignerWithSessionKeys(
     for {
       sessionKeyAndDelegation <- getOrCreateSessionKey(topologySnapshot)
       SessionKeyAndDelegation(sessionKey, delegation) = sessionKeyAndDelegation
-      signature <- signPublicApiWithSessionKeys
+      signature <- signPublicApiSoftwareBased
         .sign(hash, sessionKey, usage)
         .toEitherT[FutureUnlessShutdown]
         .leftMap[SyncCryptoError](SyncCryptoError.SyncCryptoSigningError.apply)
     } yield signature.addSignatureDelegation(delegation)
-
-  // TODO(#22362): to be implemented
-  override def verifySignature(
-      topologySnapshot: TopologySnapshot,
-      hash: Hash,
-      signer: Member,
-      signature: Signature,
-      usage: NonEmpty[Set[SigningKeyUsage]],
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
-    ???
-
-  // TODO(#22362): to be implemented
-  override def verifySignatures(
-      topologySnapshot: TopologySnapshot,
-      hash: Hash,
-      signer: Member,
-      signatures: NonEmpty[Seq[Signature]],
-      usage: NonEmpty[Set[SigningKeyUsage]],
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
-    ???
-
-  // TODO(#22362): to be implemented
-  override def verifyGroupSignatures(
-      topologySnapshot: TopologySnapshot,
-      hash: Hash,
-      signers: Seq[Member],
-      threshold: PositiveInt,
-      groupName: String,
-      signatures: NonEmpty[Seq[Signature]],
-      usage: NonEmpty[Set[SigningKeyUsage]],
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
-    ???
 
 }
 

@@ -1740,4 +1740,17 @@ object SignatureCheckError {
     )
   }
 
+  final case class InvalidSignatureDelegation(message: String) extends SignatureCheckError {
+    override protected def pretty: Pretty[InvalidSignatureDelegation] = prettyOfClass(
+      unnamedParam(_.message.unquoted)
+    )
+  }
+
+  final case class MissingDynamicSynchronizerParameters(message: String)
+      extends SignatureCheckError {
+    override protected def pretty: Pretty[MissingDynamicSynchronizerParameters] = prettyOfClass(
+      unnamedParam(_.message.unquoted)
+    )
+  }
+
 }

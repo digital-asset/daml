@@ -42,6 +42,7 @@ class StateTransferManager[E <: Env[E]](
     dependencies: ConsensusModuleDependencies[E],
     epochLength: EpochLength, // TODO(#19289) support variable epoch lengths
     epochStore: EpochStore[E],
+    random: Random,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit config: BftBlockOrdererConfig)
     extends NamedLogging {
@@ -68,11 +69,7 @@ class StateTransferManager[E <: Env[E]](
       )
     )
 
-  private val maybeNodeShuffler = new SingleUseCell[BftNodeShuffler]
-  private def nodeShuffler(abort: String => Nothing) =
-    maybeNodeShuffler.getOrElse(
-      abort("Internal inconsistency: there should be a node shuffler available")
-    )
+  private val nodeShuffler = new BftNodeShuffler(random)
 
   def inStateTransfer: Boolean = stateTransferStartEpoch.isDefined
 
@@ -142,12 +139,6 @@ class StateTransferManager[E <: Env[E]](
           "Internal inconsistency: block transfer response timeout manager should be set only once"
         )
       )
-    // Derive the random seed from the epoch number so that it's deterministic.
-    // Note that if multiple nodes are onboarded from the same epoch or come back online after a network partition,
-    //  they might use the same serving nodes around the same time.
-    maybeNodeShuffler
-      .putIfAbsent(new BftNodeShuffler(new Random(startEpoch)))
-      .foreach(_ => abort("Internal inconsistency: node shuffler should be set only once"))
   }
 
   def handleStateTransferMessage(
@@ -260,10 +251,11 @@ class StateTransferManager[E <: Env[E]](
     if (inStateTransfer) {
       // Ask a single node for an entire epoch of blocks to compromise between noise for different nodes
       //  and load balancing. Note that we're shuffling (instead of round-robin), so the same node might be chosen
-      //  multiple times in a row, resulting in uneven load balancing for certain periods. On the other hand,
-      //  the order in which nodes are chosen is less predictable.
+      //  multiple times in a row, resulting in uneven load balancing for certain periods. On the other hand, shuffling
+      //  is more straightforward code-wise. A potentially irrelevant implication is that the order in which nodes
+      //  are chosen is less predictable (e.g., by malicious nodes), and, at the same time, harder to reason about.
       val servingNode =
-        nodeShuffler(abort)
+        nodeShuffler
           .shuffle(membership.otherNodes.toSeq)
           .headOption
           .getOrElse(

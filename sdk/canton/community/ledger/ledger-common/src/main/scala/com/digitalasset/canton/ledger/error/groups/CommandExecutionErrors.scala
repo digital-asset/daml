@@ -768,7 +768,6 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       def Reject(
           cause: String,
           err: LfInterpretationError.FailureStatus,
-          trace: Option[String],
       )(implicit
           loggingContext: ContextualizedErrorLogger
       ) = ErrorCategory.fromInt(err.failureCategory) match {
@@ -782,7 +781,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
             override def context: Map[String, String] =
               // ++ on maps takes last key, we don't want users to override `error_id`, so we add this last
               // SerializableErrorCodeComponents also puts `context` first, so fields added by canton cannot be overwritten
-              super.context ++ err.metadata ++ List(("error_id", err.errorId)) ++ trace.map(("exercise_trace", _)).toList
+              super.context ++ err.metadata ++ List(("error_id", err.errorId))
           }
         case None =>
           LedgerApiErrors.InternalError.Generic(
