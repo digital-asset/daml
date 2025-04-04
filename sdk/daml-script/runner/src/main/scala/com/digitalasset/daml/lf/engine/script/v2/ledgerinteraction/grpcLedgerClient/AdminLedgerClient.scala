@@ -48,9 +48,6 @@ class AdminLedgerClient private[grpcLedgerClient] (
       token,
     )
 
-  def vetDarByHash(darHash: String): Future[Unit] =
-    packageServiceStub.vetDar(admin_participant.VetDarRequest(darHash, true)).map(_ => ())
-
   def listVettedPackages(): Future[Map[String, Seq[protocol.VettedPackages.VettedPackage]]] =
     topologyReadServiceStub
       .listVettedPackages(makeListVettedPackagesRequest())
