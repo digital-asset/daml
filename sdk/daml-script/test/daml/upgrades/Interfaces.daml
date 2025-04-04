@@ -223,7 +223,7 @@ main = tests
   , ("fetchFromInterface works as intended in the presence of upgraded packages with new interface instances", fetchFromNewInterfaceUpgrades)
   -- IDE Ledger doesn't support unvetting
   -- Can't unvet old version of package on 3x, even though v2 exists.
-  , broken ("Can fetch interface from V1 contract when V1 unvetted", fetchWithoutV1)
+  , brokenOnIDELedger ("Can fetch interface from V1 contract when V1 unvetted", fetchWithoutV1)
   ]
 
 setupAliceAndInterface : Script (Party, ContractId I)
@@ -412,6 +412,6 @@ fetchFromNewInterfaceUpgrades = test $ do
 fetchWithoutV1 : Test
 fetchWithoutV1 = test $ do
   (alice, icid) <- setupAliceAndInterface
-  withUnvettedDarOnParticipant "interfaces-1.0.0" participant0 $ do
+  withUnvettedPackageOnParticipant "interfaces" "1.0.0" participant0 $ do
     alice `submit` createAndExerciseCmd (V2.FITemplate alice None) (V2.FetchInterface icid)
   pure ()
