@@ -19,7 +19,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 8,
+  "id": 6,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -656,7 +656,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
+        "w": 12,
         "x": 0,
         "y": 13
       },
@@ -726,6 +726,117 @@
         }
       ],
       "type": "state-timeline"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$DS"
+      },
+      "description": "Wall-clock time of the ordered block being provided to the sequencer minus BFT time of the block",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 2,
+          "mappings": [
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 2
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      },
+      "hideTimeOverride": true,
+      "id": 85,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "uid": "$DS"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "histogram_quantile(0.999, sum(rate(daml_sequencer_bftordering_output_block_delay_duration_seconds{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
+          "format": "time_series",
+          "instant": false,
+          "interval": "30s",
+          "intervalFactor": 1,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Block delay",
+      "type": "timeseries"
     },
     {
       "datasource": {
@@ -1293,8 +1404,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d",
-                "value": null
+                "color": "#7eb26d"
               },
               {
                 "color": "#ef843c",
@@ -1398,8 +1508,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d",
-                "value": null
+                "color": "#7eb26d"
               },
               {
                 "color": "#ef843c",
@@ -1502,8 +1611,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d",
-                "value": null
+                "color": "#7eb26d"
               },
               {
                 "color": "#ef843c",
@@ -1607,8 +1715,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d",
-                "value": null
+                "color": "#7eb26d"
               },
               {
                 "color": "#ef843c",
@@ -1711,8 +1818,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d",
-                "value": null
+                "color": "#7eb26d"
               },
               {
                 "color": "#ef843c",
@@ -1815,8 +1921,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d",
-                "value": null
+                "color": "#7eb26d"
               },
               {
                 "color": "#ef843c",
@@ -1919,8 +2024,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d",
-                "value": null
+                "color": "#7eb26d"
               },
               {
                 "color": "#ef843c",
@@ -2023,8 +2127,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2120,8 +2223,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d",
-                "value": null
+                "color": "#7eb26d"
               },
               {
                 "color": "#ef843c",
@@ -2224,8 +2326,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               }
             ]
           },
@@ -2301,8 +2402,8 @@
       {
         "current": {
           "selected": false,
-          "text": "SEQ::sequencer1::122004a916f2b50de506b9bcbfb78514d7fbd82ba6118b7fa16cb84f573e48cce08f",
-          "value": "SEQ::sequencer1::122004a916f2b50de506b9bcbfb78514d7fbd82ba6118b7fa16cb84f573e48cce08f"
+          "text": "SEQ::sequencer1::122033c7f31c5b54efbfe27f1e9a752254f7ae2b9c63066e008867dc00812a808ca4",
+          "value": "SEQ::sequencer1::122033c7f31c5b54efbfe27f1e9a752254f7ae2b9c63066e008867dc00812a808ca4"
         },
         "datasource": {
           "type": "prometheus",
@@ -2328,7 +2429,7 @@
     ]
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-15m",
     "to": "now"
   },
   "timepicker": {
@@ -2359,6 +2460,6 @@
   "timezone": "",
   "title": "BFT ordering",
   "uid": "UJyurCTWz",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

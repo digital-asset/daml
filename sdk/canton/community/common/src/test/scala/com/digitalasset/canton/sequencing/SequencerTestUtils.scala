@@ -70,6 +70,7 @@ object SequencerTestUtils extends BaseTest {
   def mockDeliver(
       sc: Long = 0,
       timestamp: CantonTimestamp = CantonTimestamp.Epoch,
+      previousTimestamp: Option[CantonTimestamp] = None,
       synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId,
       messageId: Option[MessageId] = Some(MessageId.tryCreate("mock-deliver")),
       topologyTimestampO: Option[CantonTimestamp] = None,
@@ -78,7 +79,7 @@ object SequencerTestUtils extends BaseTest {
     val batch = Batch.empty(testedProtocolVersion)
     Deliver.create[Nothing](
       SequencerCounter(sc),
-      None, // TODO(#11834): Make sure that tests using mockDeliver are not affected by this after counters are gone
+      previousTimestamp,
       timestamp,
       synchronizerId,
       messageId,

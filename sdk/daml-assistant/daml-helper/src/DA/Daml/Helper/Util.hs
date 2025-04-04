@@ -275,16 +275,10 @@ withCantonSandbox options remainingArgs k = do
     let cantonJar = sdkPath </> "canton" </> "canton.jar"
     withTempFile $ \config -> do
         withCantonPortFile options $ \options portFile -> do
-        withTempFile $ \altPortFile -> do
-            -- The port file is written by canton before the domain is bootstrapped. Some tests
-            -- (and presumably users) rely on the port file being written as a signal that canton
-            -- is ready to receive commands. In order not to break this clients, we pretend that
-            -- the requested port file is "altPortFile". Then at the end of the bootstrap
-            -- script, we copy altPortFile to portFile.
-            let options' = options { cantonPortFileM = Just altPortFile }
+            let options' = options { cantonPortFileM = Just portFile }
             BSL.writeFile config (cantonConfig options')
             withTempFile $ \bootstrapScript -> do
-                writeFile bootstrapScript (bootstrapScriptStr altPortFile portFile)
+                writeFile bootstrapScript bootstrapScriptStr
                 let args
                         | cantonHelp options = ["--help"]
                         | otherwise = concatMap (\f -> ["-c", f]) (cantonConfigFiles options)
@@ -308,7 +302,7 @@ withCantonSandbox options remainingArgs k = do
                         k (ph, sandboxPort)
                     )
   where
-    bootstrapScriptStr altPortFile portFile =
+    bootstrapScriptStr =
         unlines
             [ "import com.digitalasset.canton.config.RequireTypes.PositiveInt"
             , "import com.digitalasset.canton.version.ProtocolVersion"
@@ -317,7 +311,6 @@ withCantonSandbox options remainingArgs k = do
             , "val synchronizerOwners = Seq(sequencer1, mediator1)"
             , "bootstrap.synchronizer(\"mysynchronizer\", Seq(sequencer1), Seq(mediator1), synchronizerOwners, PositiveInt.one, staticSynchronizerParameters)"
             , "sandbox.synchronizers.connect_local(sequencer1, \"mysynchronizer\")"
-            , "os.copy(os.Path(" <> show altPortFile <> "), os.Path(" <> show portFile <> "))"
             ]
 
 -- | Obtain a path to use as canton portfile, and give updated options.
@@ -406,9 +399,9 @@ cantonConfig CantonOptions{..} =
 
 decodeCantonPort :: String -> String -> Maybe Int
 decodeCantonPort participantName json = do
-    participants :: Map.Map String (Map.Map String Int) <- Aeson.decode (BSL8.pack json)
+    participants :: Map.Map String (Map.Map String (Maybe Int)) <- Aeson.decode (BSL8.pack json)
     ports <- Map.lookup participantName participants
-    Map.lookup "ledgerApi" ports
+    join $ Map.lookup "ledgerApi" ports
 
 decodeCantonSandboxPort :: String -> Maybe Int
 decodeCantonSandboxPort = decodeCantonPort "sandbox"

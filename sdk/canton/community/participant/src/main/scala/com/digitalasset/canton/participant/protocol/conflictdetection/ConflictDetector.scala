@@ -271,9 +271,7 @@ private[participant] class ConflictDetector(
         }
 
         for {
-          _ <- MonadUtil.sequentialTraverse_[FutureUnlessShutdown, ReassignmentId](
-            pending.reassignmentIds
-          )(checkReassignment)
+          _ <- MonadUtil.sequentialTraverse_(pending.reassignmentIds)(checkReassignment)
           _ <- sequentiallyCheckInvariant()
         } yield ActivenessResult(
           contracts = contractsResult,

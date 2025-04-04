@@ -554,8 +554,8 @@ testScriptService lfVersion getScriptService =
                     ]
                 expectScriptSuccess rs (vr "testActive") $ \r ->
                   matchRegex r "Active contracts:  #0:0\n"
-                expectScriptFailure rs (vr "unhandledOffLedger") $ \r -> matchRegex r "Unhandled exception"
-                expectScriptFailure rs (vr "unhandledOnLedger") $ \r -> matchRegex r "Unhandled exception",
+                expectScriptFailure rs (vr "unhandledOffLedger") $ \r -> matchRegex r "UNHANDLED_EXCEPTION"
+                expectScriptFailure rs (vr "unhandledOnLedger") $ \r -> matchRegex r "UNHANDLED_EXCEPTION",
               testCase "user management" $ do
                 rs <- runScripts getScriptService lfVersion
                   [ "module Test where"

@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+// TODO(#24866): Revisit test coverage for [[PackageMetadata]] and cover [[PackageMetadata.from]] as well
 class PackageMetadataSpec extends AnyWordSpec with Matchers {
 
   "PackageMetadata.combine" should {

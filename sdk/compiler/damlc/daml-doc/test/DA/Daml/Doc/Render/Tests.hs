@@ -240,18 +240,14 @@ mkExpectRst asFolder anchor name descr templates classes adts fcts = T.unlines .
 
 expectRstIndex :: T.Text
 expectRstIndex = T.unlines
-  [ ".. toctree::"
-  , "   :maxdepth: 3"
-  , "   :titlesonly:"
-  , ""
-  , "   Empty <Empty>"
-  , "   Function1 <Function1>"
-  , "   Function3 <Function3>"
-  , "   FunctionCtx <FunctionCtx>"
-  , "   MultiLineField <MultiLineField>"
-  , "   OnlyClass <OnlyClass>"
-  , "   TwoTypes <TwoTypes>"
-  , "   Typedef <Typedef>"
+  [ "* :doc:`Empty <Empty>`"
+  , "* :doc:`Function1 <Function1>`"
+  , "* :doc:`Function3 <Function3>`"
+  , "* :doc:`FunctionCtx <FunctionCtx>`"
+  , "* :doc:`MultiLineField <MultiLineField>`"
+  , "* :doc:`OnlyClass <OnlyClass>`"
+  , "* :doc:`TwoTypes <TwoTypes>`"
+  , "* :doc:`Typedef <Typedef>`"
   ]
 
 expectMarkdown :: [T.Text]

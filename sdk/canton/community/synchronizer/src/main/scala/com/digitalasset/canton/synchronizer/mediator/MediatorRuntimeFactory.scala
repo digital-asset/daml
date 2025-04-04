@@ -8,7 +8,6 @@ import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
@@ -24,7 +23,6 @@ import com.digitalasset.canton.store.{SequencedEventStore, SequencerCounterTrack
 import com.digitalasset.canton.synchronizer.mediator.service.{
   GrpcMediatorAdministrationService,
   GrpcMediatorScanService,
-  WatermarkTracker,
 }
 import com.digitalasset.canton.synchronizer.mediator.store.{
   FinalizedResponseStore,
@@ -36,7 +34,7 @@ import com.digitalasset.canton.time.admin.v30.SynchronizerTimeServiceGrpc
 import com.digitalasset.canton.time.{Clock, GrpcSynchronizerTimeService, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
-import com.digitalasset.canton.topology.processing.{SequencedTime, TopologyTransactionProcessor}
+import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.ServerServiceDefinition
@@ -76,19 +74,11 @@ final class MediatorRuntime(
       new GrpcMediatorAdministrationService(mediator, pruningScheduler, loggerFactory),
       ec,
     )
-  val watermarkTracker = new WatermarkTracker {
-    override def getWatermark(): CantonTimestamp = mediator.syncCrypto.approximateTimestamp
-
-    override def awaitWatermarkTime(minimumTimestampInclusive: CantonTimestamp)(implicit
-        traceContext: TraceContext
-    ): Option[FutureUnlessShutdown[Unit]] =
-      mediator.topologyClient.awaitSequencedTimestamp(SequencedTime(minimumTimestampInclusive))
-  }
 
   val scanService: ServerServiceDefinition = MediatorScanServiceGrpc.bindService(
     new GrpcMediatorScanService(
       mediator.state.finalizedResponseStore,
-      watermarkTracker,
+      mediator.state.recordOrderTimeAwaiter,
       batchingConfig.maxItemsInBatch,
       loggerFactory,
     ),

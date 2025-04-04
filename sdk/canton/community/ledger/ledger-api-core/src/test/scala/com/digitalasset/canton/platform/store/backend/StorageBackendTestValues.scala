@@ -203,6 +203,7 @@ private[store] object StorageBackendTestValues {
       targetSynchronizerId: String = "x::targetsynchronizer",
       traceContext: Array[Byte] = serializableTraceContext,
       recordTime: Timestamp = someTime,
+      nodeId: Int = 0,
   ): DbDto.EventAssign = {
     val updateId = updateIdFromOffset(offset)
     DbDto.EventAssign(
@@ -211,6 +212,7 @@ private[store] object StorageBackendTestValues {
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
       submitter = Option(someParty),
+      node_id = nodeId,
       contract_id = contractId.toBytes.toByteArray,
       template_id = someTemplateId.toString,
       package_name = somePackageName.toString,
@@ -247,6 +249,7 @@ private[store] object StorageBackendTestValues {
       targetSynchronizerId: String = "x::targetsynchronizer",
       traceContext: Array[Byte] = serializableTraceContext,
       recordTime: Timestamp = someTime,
+      nodeId: Int = 0,
   ): DbDto.EventUnassign = {
     val updateId = updateIdFromOffset(offset)
     DbDto.EventUnassign(
@@ -255,6 +258,7 @@ private[store] object StorageBackendTestValues {
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
       submitter = Option(someParty),
+      node_id = nodeId,
       contract_id = contractId.toBytes.toByteArray,
       template_id = someTemplateId.toString,
       package_name = somePackageName,

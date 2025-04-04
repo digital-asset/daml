@@ -500,14 +500,14 @@ object ParticipantAdminCommands {
       ): Either[String, String] = Right(response.partyReplicationId)
     }
 
-    final case class ExportAcsNew(
+    final case class ExportAcs(
         parties: Set[PartyId],
         filterSynchronizerId: Option[SynchronizerId],
         offset: Long,
-        observer: StreamObserver[v30.ExportAcsNewResponse],
+        observer: StreamObserver[v30.ExportAcsResponse],
         contractSynchronizerRenames: Map[SynchronizerId, SynchronizerId],
     ) extends GrpcAdminCommand[
-          v30.ExportAcsNewRequest,
+          v30.ExportAcsRequest,
           CancellableContext,
           CancellableContext,
         ] {
@@ -517,9 +517,9 @@ object ParticipantAdminCommands {
       override def createService(channel: ManagedChannel): PartyManagementServiceStub =
         v30.PartyManagementServiceGrpc.stub(channel)
 
-      override protected def createRequest(): Either[String, v30.ExportAcsNewRequest] =
+      override protected def createRequest(): Either[String, v30.ExportAcsRequest] =
         Right(
-          v30.ExportAcsNewRequest(
+          v30.ExportAcsRequest(
             parties.map(_.toLf).toSeq,
             filterSynchronizerId.map(_.toProtoPrimitive).getOrElse(""),
             offset,
@@ -535,65 +535,6 @@ object ParticipantAdminCommands {
 
       override protected def submitRequest(
           service: PartyManagementServiceStub,
-          request: v30.ExportAcsNewRequest,
-      ): Future[CancellableContext] = {
-        val context = Context.current().withCancellation()
-        context.run(() => service.exportAcsNew(request, observer))
-        Future.successful(context)
-      }
-
-      override protected def handleResponse(
-          response: CancellableContext
-      ): Either[String, CancellableContext] = Right(response)
-
-      override def timeoutType: GrpcAdminCommand.TimeoutType =
-        GrpcAdminCommand.DefaultUnboundedTimeout
-    }
-  }
-
-  object ParticipantRepairManagement {
-
-    final case class ExportAcs(
-        parties: Set[PartyId],
-        partiesOffboarding: Boolean,
-        filterSynchronizerId: Option[SynchronizerId],
-        timestamp: Option[Instant],
-        observer: StreamObserver[v30.ExportAcsResponse],
-        contractSynchronizerRenames: Map[SynchronizerId, (SynchronizerId, ProtocolVersion)],
-        force: Boolean,
-    ) extends GrpcAdminCommand[
-          v30.ExportAcsRequest,
-          CancellableContext,
-          CancellableContext,
-        ] {
-
-      override type Svc = ParticipantRepairServiceStub
-
-      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
-        v30.ParticipantRepairServiceGrpc.stub(channel)
-
-      override protected def createRequest(): Either[String, v30.ExportAcsRequest] =
-        Right(
-          v30.ExportAcsRequest(
-            parties.map(_.toLf).toSeq,
-            filterSynchronizerId.map(_.toProtoPrimitive).getOrElse(""),
-            timestamp.map(Timestamp.apply),
-            contractSynchronizerRenames.map {
-              case (source, (targetSynchronizerId, targetProtocolVersion)) =>
-                val targetSynchronizer = v30.ExportAcsRequest.TargetSynchronizer(
-                  synchronizerId = targetSynchronizerId.toProtoPrimitive,
-                  protocolVersion = targetProtocolVersion.toProtoPrimitive,
-                )
-
-                (source.toProtoPrimitive, targetSynchronizer)
-            },
-            force = force,
-            partiesOffboarding = partiesOffboarding,
-          )
-        )
-
-      override protected def submitRequest(
-          service: ParticipantRepairServiceStub,
           request: v30.ExportAcsRequest,
       ): Future[CancellableContext] = {
         val context = Context.current().withCancellation()
@@ -608,11 +549,124 @@ object ParticipantAdminCommands {
       override def timeoutType: GrpcAdminCommand.TimeoutType =
         GrpcAdminCommand.DefaultUnboundedTimeout
     }
+  }
+
+  object ParticipantRepairManagement {
+
+    // TODO(#24610) – Remove, replaced by ExportAcs
+    final case class ExportAcsOld(
+        parties: Set[PartyId],
+        partiesOffboarding: Boolean,
+        filterSynchronizerId: Option[SynchronizerId],
+        timestamp: Option[Instant],
+        observer: StreamObserver[v30.ExportAcsOldResponse],
+        contractSynchronizerRenames: Map[SynchronizerId, (SynchronizerId, ProtocolVersion)],
+        force: Boolean,
+    ) extends GrpcAdminCommand[
+          v30.ExportAcsOldRequest,
+          CancellableContext,
+          CancellableContext,
+        ] {
+
+      override type Svc = ParticipantRepairServiceStub
+
+      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
+        v30.ParticipantRepairServiceGrpc.stub(channel)
+
+      override protected def createRequest(): Either[String, v30.ExportAcsOldRequest] =
+        Right(
+          v30.ExportAcsOldRequest(
+            parties.map(_.toLf).toSeq,
+            filterSynchronizerId.map(_.toProtoPrimitive).getOrElse(""),
+            timestamp.map(Timestamp.apply),
+            contractSynchronizerRenames.map {
+              case (source, (targetSynchronizerId, targetProtocolVersion)) =>
+                val targetSynchronizer = v30.ExportAcsOldRequest.TargetSynchronizer(
+                  synchronizerId = targetSynchronizerId.toProtoPrimitive,
+                  protocolVersion = targetProtocolVersion.toProtoPrimitive,
+                )
+
+                (source.toProtoPrimitive, targetSynchronizer)
+            },
+            force = force,
+            partiesOffboarding = partiesOffboarding,
+          )
+        )
+
+      override protected def submitRequest(
+          service: ParticipantRepairServiceStub,
+          request: v30.ExportAcsOldRequest,
+      ): Future[CancellableContext] = {
+        val context = Context.current().withCancellation()
+        context.run(() => service.exportAcsOld(request, observer))
+        Future.successful(context)
+      }
+
+      override protected def handleResponse(
+          response: CancellableContext
+      ): Either[String, CancellableContext] = Right(response)
+
+      override def timeoutType: GrpcAdminCommand.TimeoutType =
+        GrpcAdminCommand.DefaultUnboundedTimeout
+    }
+
+    // TODO(#24610) - Remove, replaced by ImportAcs
+    final case class ImportAcsOld(
+        acsChunk: ByteString,
+        workflowIdPrefix: String,
+        allowContractIdSuffixRecomputation: Boolean,
+    ) extends GrpcAdminCommand[
+          v30.ImportAcsOldRequest,
+          v30.ImportAcsOldResponse,
+          Map[LfContractId, LfContractId],
+        ] {
+
+      override type Svc = ParticipantRepairServiceStub
+
+      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
+        v30.ParticipantRepairServiceGrpc.stub(channel)
+
+      override protected def createRequest(): Either[String, v30.ImportAcsOldRequest] =
+        Right(
+          v30.ImportAcsOldRequest(
+            acsChunk,
+            workflowIdPrefix,
+            allowContractIdSuffixRecomputation,
+          )
+        )
+
+      override protected def submitRequest(
+          service: ParticipantRepairServiceStub,
+          request: v30.ImportAcsOldRequest,
+      ): Future[v30.ImportAcsOldResponse] =
+        GrpcStreamingUtils.streamToServer(
+          service.importAcsOld,
+          (bytes: Array[Byte]) =>
+            v30.ImportAcsOldRequest(
+              ByteString.copyFrom(bytes),
+              workflowIdPrefix,
+              allowContractIdSuffixRecomputation,
+            ),
+          request.acsSnapshot,
+        )
+
+      override protected def handleResponse(
+          response: v30.ImportAcsOldResponse
+      ): Either[String, Map[LfContractId, LfContractId]] =
+        response.contractIdMapping.toSeq
+          .traverse { case (oldCid, newCid) =>
+            for {
+              oldCidParsed <- LfContractId.fromString(oldCid)
+              newCidParsed <- LfContractId.fromString(newCid)
+            } yield oldCidParsed -> newCidParsed
+          }
+          .map(_.toMap)
+    }
 
     final case class ImportAcs(
         acsChunk: ByteString,
         workflowIdPrefix: String,
-        allowContractIdSuffixRecomputation: Boolean,
+        contractIdImportMode: ContractIdImportMode,
     ) extends GrpcAdminCommand[
           v30.ImportAcsRequest,
           v30.ImportAcsResponse,
@@ -629,7 +683,7 @@ object ParticipantAdminCommands {
           v30.ImportAcsRequest(
             acsChunk,
             workflowIdPrefix,
-            allowContractIdSuffixRecomputation,
+            contractIdImportMode.toProtoV30,
           )
         )
 
@@ -643,65 +697,13 @@ object ParticipantAdminCommands {
             v30.ImportAcsRequest(
               ByteString.copyFrom(bytes),
               workflowIdPrefix,
-              allowContractIdSuffixRecomputation,
-            ),
-          request.acsSnapshot,
-        )
-
-      override protected def handleResponse(
-          response: v30.ImportAcsResponse
-      ): Either[String, Map[LfContractId, LfContractId]] =
-        response.contractIdMapping.toSeq
-          .traverse { case (oldCid, newCid) =>
-            for {
-              oldCidParsed <- LfContractId.fromString(oldCid)
-              newCidParsed <- LfContractId.fromString(newCid)
-            } yield oldCidParsed -> newCidParsed
-          }
-          .map(_.toMap)
-    }
-
-    final case class ImportAcsNew(
-        acsChunk: ByteString,
-        workflowIdPrefix: String,
-        contractIdImportMode: ContractIdImportMode,
-    ) extends GrpcAdminCommand[
-          v30.ImportAcsNewRequest,
-          v30.ImportAcsNewResponse,
-          Map[LfContractId, LfContractId],
-        ] {
-
-      override type Svc = ParticipantRepairServiceStub
-
-      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
-        v30.ParticipantRepairServiceGrpc.stub(channel)
-
-      override protected def createRequest(): Either[String, v30.ImportAcsNewRequest] =
-        Right(
-          v30.ImportAcsNewRequest(
-            acsChunk,
-            workflowIdPrefix,
-            contractIdImportMode.toProtoV30,
-          )
-        )
-
-      override protected def submitRequest(
-          service: ParticipantRepairServiceStub,
-          request: v30.ImportAcsNewRequest,
-      ): Future[v30.ImportAcsNewResponse] =
-        GrpcStreamingUtils.streamToServer(
-          service.importAcsNew,
-          (bytes: Array[Byte]) =>
-            v30.ImportAcsNewRequest(
-              ByteString.copyFrom(bytes),
-              workflowIdPrefix,
               contractIdImportMode.toProtoV30,
             ),
           request.acsSnapshot,
         )
 
       override protected def handleResponse(
-          response: v30.ImportAcsNewResponse
+          response: v30.ImportAcsResponse
       ): Either[String, Map[LfContractId, LfContractId]] =
         response.contractIdMappings.toSeq
           .traverse { case (oldCid, newCid) =>

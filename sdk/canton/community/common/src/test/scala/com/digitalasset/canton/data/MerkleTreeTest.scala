@@ -224,9 +224,9 @@ object MerkleTreeTest {
 
   }
 
-  abstract class AbstractLeaf[A <: MerkleTree[
-    _
-  ] with HasCryptographicEvidence with HasProtocolVersionedWrapper[_]](
+  abstract class AbstractLeaf[
+      A <: MerkleTree[_] with HasCryptographicEvidence with HasProtocolVersionedWrapper[_]
+  ](
       val index: Int
   ) extends MerkleTreeLeaf[A](MerkleTreeTest.hashOps)
       with HasCryptographicEvidence

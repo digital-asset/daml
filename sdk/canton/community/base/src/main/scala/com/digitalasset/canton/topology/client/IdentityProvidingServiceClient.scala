@@ -11,7 +11,12 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.HasFutureSupervision
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SigningKeyUsage.matchesRelevantUsages
-import com.digitalasset.canton.crypto.{EncryptionPublicKey, SigningKeyUsage, SigningPublicKey}
+import com.digitalasset.canton.crypto.{
+  EncryptionPublicKey,
+  PublicKey,
+  SigningKeyUsage,
+  SigningPublicKey,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -749,13 +754,15 @@ private[client] trait KeyTopologySnapshotClientLoader extends KeyTopologySnapsho
   override def encryptionKey(owner: Member)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[EncryptionPublicKey]] =
-    allKeys(owner).map(_.encryptionKeys.lastOption)
+    allKeys(owner).map(keyCollection => PublicKey.getLatestKey(keyCollection.encryptionKeys))
 
-  /** returns newest encryption public key */
+  /** returns the newest encryption public key */
   def encryptionKey(members: Seq[Member])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[Member, EncryptionPublicKey]] =
-    encryptionKeys(members).map(_.mapFilter(_.lastOption))
+    encryptionKeys(members).map(
+      _.mapFilter(keyCollection => PublicKey.getLatestKey(keyCollection))
+    )
 
   override def encryptionKeys(owner: Member)(implicit
       traceContext: TraceContext

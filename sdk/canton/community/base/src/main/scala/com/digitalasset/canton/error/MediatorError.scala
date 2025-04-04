@@ -3,7 +3,14 @@
 
 package com.digitalasset.canton.error
 
-import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.digitalasset.base.error.{
+  Alarm,
+  AlarmErrorCode,
+  ErrorCategory,
+  ErrorCode,
+  Explanation,
+  Resolution,
+}
 import com.digitalasset.canton.error.CantonErrorGroups.MediatorErrorGroup
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import org.slf4j.event.Level

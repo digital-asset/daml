@@ -296,6 +296,11 @@ final class BftP2PNetworkOut[E <: Env[E]](
       dependencies.output.asyncSend(Output.Start)
       outputStarted = true
     }
+    if (!pruningStarted) {
+      logger.debug(s"Starting pruning")
+      dependencies.pruning.asyncSend(Pruning.Start)
+      pruningStarted = true
+    }
   }
 
   private def networkSend(
@@ -392,6 +397,7 @@ private[bftordering] object BftP2PNetworkOut {
     var mempoolStarted = false
     var consensusStarted = false
     var outputStarted = false
+    var pruningStarted = false
 
     // We want to track the maximum number of contemporarily authenticated nodes,
     //  because the threshold actions will be used by protocol modules to know when

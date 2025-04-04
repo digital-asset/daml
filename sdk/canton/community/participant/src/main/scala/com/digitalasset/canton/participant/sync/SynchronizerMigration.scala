@@ -382,9 +382,9 @@ object SynchronizerMigrationError extends MigrationErrors() {
         )
         with SynchronizerMigrationError
 
-    final case class InvalidSynchronizerConfigStatus[T[X] <: ReassignmentTag[
-      X
-    ]: SameReassignmentType](
+    final case class InvalidSynchronizerConfigStatus[
+        T[X] <: ReassignmentTag[X]: SameReassignmentType
+    ](
         synchronizer: T[SynchronizerAlias],
         status: T[SynchronizerConnectionConfigStore.Status],
     )(implicit

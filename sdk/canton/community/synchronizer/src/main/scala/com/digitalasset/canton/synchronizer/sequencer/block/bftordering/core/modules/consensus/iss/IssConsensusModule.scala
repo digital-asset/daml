@@ -22,7 +22,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.{
   GenesisEpoch,
   GenesisEpochInfo,
-  GenesisPreviousEpochMaxBftTime,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.RetransmissionsManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.*
@@ -78,7 +77,7 @@ import com.google.protobuf.ByteString
 
 import scala.collection.mutable
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Random, Success}
 
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 final class IssConsensusModule[E <: Env[E]](
@@ -89,6 +88,7 @@ final class IssConsensusModule[E <: Env[E]](
     metrics: BftOrderingMetrics,
     segmentModuleRefFactory: SegmentModuleRefFactory[E],
     retransmissionsManager: RetransmissionsManager[E],
+    random: Random,
     override val dependencies: ConsensusModuleDependencies[E],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
@@ -122,6 +122,7 @@ final class IssConsensusModule[E <: Env[E]](
         dependencies,
         epochLength,
         epochStore,
+        random,
         loggerFactory,
       )
     )
@@ -171,6 +172,7 @@ final class IssConsensusModule[E <: Env[E]](
       case Consensus.Start =>
         val maybeSnapshotAdditionalInfo = initialState.sequencerSnapshotAdditionalInfo
         BootstrapDetector.detect(
+          epochLength,
           maybeSnapshotAdditionalInfo,
           activeTopologyInfo.currentMembership,
           latestCompletedEpoch,
@@ -212,14 +214,12 @@ final class IssConsensusModule[E <: Env[E]](
             newEpochNumber,
             newMembership,
             newCryptoProvider: CryptoProvider[E],
-            previousEpochMaxBftTime,
             lastBlockFromPreviousEpochMode,
           ) =>
         val currentEpochInfo = epochState.epoch.info
         val newEpochInfo = currentEpochInfo.next(
           epochLength,
           newMembership.orderingTopology.activationTime,
-          previousEpochMaxBftTime,
         )
         // Init is currently not complete for state transfer
         if (lastBlockFromPreviousEpochMode == Mode.StateTransfer.LastBlock) {
@@ -494,7 +494,6 @@ final class IssConsensusModule[E <: Env[E]](
                 newEpochNumber,
                 newMembership,
                 cryptoProvider,
-                previousEpochMaxBftTime,
                 _,
               )
             ) =>
@@ -502,7 +501,6 @@ final class IssConsensusModule[E <: Env[E]](
           val newEpochInfo = currentEpochInfo.next(
             epochLength,
             newMembership.orderingTopology.activationTime,
-            previousEpochMaxBftTime,
           )
           if (newEpochNumber != newEpochInfo.number) {
             abort(
@@ -533,7 +531,6 @@ final class IssConsensusModule[E <: Env[E]](
           EpochNumber.First,
           activeTopologyInfo.currentMembership,
           activeTopologyInfo.currentCryptoProvider,
-          GenesisPreviousEpochMaxBftTime,
           lastBlockFromPreviousEpochMode = Mode.FromConsensus,
         )
       )
@@ -745,6 +742,7 @@ final class IssConsensusModule[E <: Env[E]](
       clock,
       metrics,
       segmentModuleRefFactory,
+      random,
       dependencies,
       loggerFactory,
       timeouts,
@@ -789,8 +787,6 @@ object IssConsensusModule {
       latestCompletedEpoch: EpochStore.Epoch,
       sequencerSnapshotAdditionalInfo: Option[SequencerSnapshotAdditionalInfo],
   )
-
-  val DefaultEpochLength: EpochLength = EpochLength(10)
 
   val DefaultDatabaseReadTimeout: FiniteDuration = 10.seconds
 

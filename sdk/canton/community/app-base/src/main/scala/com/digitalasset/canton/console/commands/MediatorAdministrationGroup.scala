@@ -165,21 +165,20 @@ class MediatorScanGroup(
     with NamedLogging
     with StreamingCommandHelper {
   def verdicts(
-      fromRecordTimeOfResultExclusive: CantonTimestamp,
       fromRecordTimeOfRequestExclusive: CantonTimestamp,
       maxItems: PositiveInt,
+      timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded,
   ): Seq[Verdict] = {
     val observer = new RecordingStreamObserver[v30.Verdict](completeAfter = maxItems)
     val cmd = MediatorScanCommands.MediatorVerdicts(
-      mostRecentlyReceivedRecordTimeOfResult = Some(fromRecordTimeOfResultExclusive),
       mostRecentlyReceivedRecordTimeOfRequest = Some(fromRecordTimeOfRequestExclusive),
       observer,
     )
     mkResult(
       consoleEnvironment.run(runner.adminCommand(cmd)),
-      s"fetch mediator verdicts starting from ($fromRecordTimeOfRequestExclusive, $fromRecordTimeOfResultExclusive)",
+      s"fetch mediator verdicts starting from $fromRecordTimeOfRequestExclusive",
       observer,
-      consoleEnvironment.commandTimeouts.bounded,
+      timeout,
     )
   }
 }

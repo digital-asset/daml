@@ -43,7 +43,6 @@ object Output {
   final case class TopologyFetched[E <: Env[E]](
       lastBlockFromPreviousEpochMode: OrderedBlockForOutput.Mode,
       newEpochNumber: EpochNumber,
-      previousEpochMaxBftTime: CantonTimestamp,
       orderingTopology: OrderingTopology,
       cryptoProvider: CryptoProvider[E],
   ) extends Message[E]
@@ -51,7 +50,6 @@ object Output {
   final case class MetadataStoredForNewEpoch[E <: Env[E]](
       lastBlockFromPreviousEpochMode: OrderedBlockForOutput.Mode,
       newEpochNumber: EpochNumber,
-      previousEpochMaxBftTime: CantonTimestamp,
       orderingTopology: OrderingTopology,
       cryptoProvider: CryptoProvider[E],
   ) extends Message[E]

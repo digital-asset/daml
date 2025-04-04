@@ -7,8 +7,8 @@ import com.digitalasset.base.error.{
   BaseError,
   ContextualizedErrorLogger,
   DamlErrorWithDefiniteAnswer,
-  DamlRpcError,
   NoLogging,
+  RpcError,
 }
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.{
@@ -52,9 +52,9 @@ object RejectionGenerators {
 
   def commandExecutorError(cause: ErrorCause)(implicit
       errorLoggingContext: ContextualizedErrorLogger
-  ): DamlRpcError = {
+  ): RpcError = {
 
-    def processPackageError(err: LfError.Package.Error): DamlRpcError = err match {
+    def processPackageError(err: LfError.Package.Error): RpcError = err match {
       case e: Package.Internal => LedgerApiErrors.InternalError.PackageInternal(e)
       case Package.Validation(validationError) =>
         CommandExecutionErrors.Package.PackageValidationFailed
@@ -72,7 +72,7 @@ object RejectionGenerators {
         LedgerApiErrors.InternalError.PackageSelfConsistency(e)
     }
 
-    def processPreprocessingError(err: LfError.Preprocessing.Error): DamlRpcError = err match {
+    def processPreprocessingError(err: LfError.Preprocessing.Error): RpcError = err match {
       case e: Preprocessing.Internal => LedgerApiErrors.InternalError.Preprocessing(e)
       case Preprocessing.UnresolvedPackageName(pkgName, context) =>
         RequestValidationErrors.NotFound.Package
@@ -80,7 +80,7 @@ object RejectionGenerators {
       case e => CommandExecutionErrors.Preprocessing.PreprocessingFailed.Reject(e)
     }
 
-    def processValidationError(err: LfError.Validation.Error): DamlRpcError = err match {
+    def processValidationError(err: LfError.Validation.Error): RpcError = err match {
       // we shouldn't see such errors during submission
       case e: Validation.ReplayMismatch => LedgerApiErrors.InternalError.Validation(e)
     }
@@ -89,7 +89,7 @@ object RejectionGenerators {
         err: com.digitalasset.daml.lf.interpretation.Error,
         renderedMessage: String,
         transactionTrace: Option[String],
-    ): DamlRpcError =
+    ): RpcError =
       // detailMessage is only suitable for server side debugging but not for the user, so don't pass except on internal errors
 
       err match {
@@ -154,7 +154,7 @@ object RejectionGenerators {
             .Reject(renderedMessage, e)
         case e: LfInterpretationError.FailureStatus =>
           CommandExecutionErrors.Interpreter.FailureStatus
-            .Reject(renderedMessage, e)
+            .Reject(renderedMessage, e, transactionTrace)
         case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.ValidationFailed) =>
           CommandExecutionErrors.Interpreter.UpgradeError.ValidationFailed
             .Reject(renderedMessage, error)
@@ -176,7 +176,7 @@ object RejectionGenerators {
     def processInterpretationError(
         err: LfError.Interpretation.Error,
         detailMessage: Option[String],
-    ): DamlRpcError =
+    ): RpcError =
       err match {
         case Interpretation.Internal(location, message, _) =>
           LedgerApiErrors.InternalError.Interpretation(location, message, detailMessage)

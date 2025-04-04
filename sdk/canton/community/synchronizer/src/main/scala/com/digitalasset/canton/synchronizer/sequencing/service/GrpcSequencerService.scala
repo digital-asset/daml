@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -47,7 +48,6 @@ import com.digitalasset.canton.tracing.{
 }
 import com.digitalasset.canton.util.{EitherTUtil, RateLimiter}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{ProtoDeserializationError, SequencerCounter}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.Status
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
@@ -416,16 +416,6 @@ class GrpcSequencerService(
       Some(SerializableTraceContext(event.traceContext).toProtoV30),
     )
 
-  override def subscribe(
-      request: v30.SubscriptionRequest,
-      responseObserver: StreamObserver[v30.SubscriptionResponse],
-  ): Unit =
-    subscribeInternal[v30.SubscriptionResponse](
-      request,
-      responseObserver,
-      toVersionSubscriptionResponseV0,
-    )
-
   override def subscribeV2(
       request: v30.SubscriptionRequestV2,
       responseObserver: StreamObserver[v30.SubscriptionResponse],
@@ -435,47 +425,6 @@ class GrpcSequencerService(
       responseObserver,
       toVersionSubscriptionResponseV0,
     )
-
-  private def subscribeInternal[T](
-      request: v30.SubscriptionRequest,
-      responseObserver: StreamObserver[T],
-      toSubscriptionResponse: OrdinarySerializedEvent => T,
-  ): Unit = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    withServerCallStreamObserver(responseObserver) { observer =>
-      val result = for {
-        subscriptionRequest <- SubscriptionRequest
-          .fromProtoV30(request)
-          .left
-          .map(err => invalidRequest(err.toString))
-        SubscriptionRequest(member, offset) = subscriptionRequest
-        _ = logger.debug(s"Received subscription request from $member for offset $offset")
-        _ <- Either.cond(
-          !isClosing,
-          (),
-          Status.UNAVAILABLE.withDescription("Sequencer is being shutdown."),
-        )
-        _ <- checkSubscriptionMemberPermission(member)
-        authenticationTokenO = IdentityContextHelper.getCurrentStoredAuthenticationToken
-        _ <- subscriptionPool
-          .create(
-            () =>
-              createSubscription[T](
-                member,
-                authenticationTokenO.map(_.expireAt),
-                offset,
-                observer,
-                toSubscriptionResponse,
-              ),
-            member,
-          )
-          .leftMap { case SubscriptionPool.PoolClosed =>
-            Status.UNAVAILABLE.withDescription("Subscription pool is closed.")
-          }
-      } yield ()
-      result.fold(err => responseObserver.onError(err.asException()), identity)
-    }
-  }
 
   private def subscribeInternalV2[T](
       request: v30.SubscriptionRequestV2,
@@ -568,26 +517,6 @@ class GrpcSequencerService(
     )
 
     result.asGrpcResponse
-  }
-
-  private def createSubscription[T](
-      member: Member,
-      expireAt: Option[CantonTimestamp],
-      counter: SequencerCounter,
-      observer: ServerCallStreamObserver[T],
-      toSubscriptionResponse: OrdinarySerializedEvent => T,
-  )(implicit traceContext: TraceContext): GrpcManagedSubscription[T] = {
-
-    logger.info(s"$member subscribes from counter=$counter")
-    new GrpcManagedSubscription(
-      handler => directSequencerSubscriptionFactory.create(counter, member, handler),
-      observer,
-      member,
-      expireAt,
-      timeouts,
-      loggerFactory,
-      toSubscriptionResponse,
-    )
   }
 
   private def createSubscriptionV2[T](

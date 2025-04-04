@@ -416,11 +416,6 @@ class ProgrammableSequencer(
     }
   }
 
-  override private[sequencer] def firstSequencerCounterServeableForSequencer(implicit
-      traceContext: TraceContext
-  ) =
-    baseSequencer.firstSequencerCounterServeableForSequencer
-
   override def setTrafficPurchased(
       member: Member,
       serial: PositiveInt,
@@ -452,6 +447,15 @@ class ProgrammableSequencer(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean] =
     baseSequencer.isEnabled(member)
+
+  /** Return the last timestamp of the containing block of the provided timestamp. This is needed to
+    * determine the effective timestamp to observe in topology processing, required to produce a
+    * correct snapshot.
+    */
+  override def awaitContainingBlockLastTimestamp(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerError, CantonTimestamp] =
+    baseSequencer.awaitContainingBlockLastTimestamp(timestamp)
 }
 
 /** Utilities for using the [[ProgrammableSequencer]] from tests */

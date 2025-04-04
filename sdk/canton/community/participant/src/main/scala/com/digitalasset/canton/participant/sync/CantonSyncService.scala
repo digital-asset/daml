@@ -11,7 +11,7 @@ import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.base.error.{CantonRpcError, ContextualizedErrorLogger, DamlRpcError}
+import com.digitalasset.base.error.{ContextualizedErrorLogger, RpcError}
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -49,6 +49,7 @@ import com.digitalasset.canton.participant.admin.repair.RepairService
 import com.digitalasset.canton.participant.admin.repair.RepairService.SynchronizerLookup
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
+import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.SubmissionDuringShutdown
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmissionFailure,
@@ -79,7 +80,6 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
 import com.digitalasset.canton.participant.synchronizer.*
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
-import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.*
@@ -328,14 +328,6 @@ class CantonSyncService(
     }
   }
 
-  private val repairServiceDAMLe =
-    new DAMLe(
-      pkgId => traceContext => packageService.value.getPackage(pkgId)(traceContext),
-      engine,
-      parameters.engine.validationPhaseLogging,
-      loggerFactory,
-    )
-
   private val connectQueue = {
     val queueName = "sync-service-connect-and-repair-queue"
 
@@ -348,11 +340,13 @@ class CantonSyncService(
     )
   }
 
+  private val contractAuthenticator = ContractAuthenticator(syncCrypto.pureCrypto)
+
   val repairService: RepairService = new RepairService(
     participantId,
     syncCrypto,
     packageService.value.packageDependencyResolver,
-    repairServiceDAMLe,
+    contractAuthenticator,
     participantNodePersistentState.map(_.contractStore),
     ledgerApiIndexer.asEval(TraceContext.empty),
     aliasManager,
@@ -383,8 +377,6 @@ class CantonSyncService(
         }
 
     },
-    // Share the sync service queue with the repair service, so that repair operations cannot run concurrently with
-    // synchronizer connections.
     connectQueue,
     loggerFactory,
   )
@@ -510,7 +502,7 @@ class CantonSyncService(
 
   def pruneInternally(
       pruneUpToInclusive: Offset
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, CantonRpcError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, RpcError, Unit] =
     (for {
       _pruned <- pruningProcessor.pruneLedgerEvents(pruneUpToInclusive)
     } yield ()).transform(pruningErrorToCantonError)
@@ -1332,7 +1324,7 @@ class CantonSyncService(
       )
 
     def handleCloseDegradation(connectedSynchronizer: ConnectedSynchronizer, fatal: Boolean)(
-        err: CantonRpcError
+        err: RpcError
     ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
       if (fatal && parameters.exitOnFatalFailures) {
         FatalError.exitOnFatalError(err, logger)
@@ -1757,7 +1749,7 @@ class CantonSyncService(
       commandId: Ref.CommandId,
       submissionId: Option[SubmissionId],
       workflowId: Option[Ref.WorkflowId],
-      reassignmentCommand: ReassignmentCommand,
+      reassignmentCommands: Seq[ReassignmentCommand],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] = {
@@ -1777,14 +1769,14 @@ class CantonSyncService(
           connectedSynchronizer <- EitherT.fromOption[Future](
             readyConnectedSynchronizerById(synchronizerId),
             ifNone = RequestValidationErrors.InvalidArgument
-              .Reject(s"Synchronizer id not found: $synchronizerId"): DamlRpcError,
+              .Reject(s"Synchronizer id not found: $synchronizerId"): RpcError,
           )
           _ <- reassign(connectedSynchronizer)
             .leftMap(error =>
               RequestValidationErrors.InvalidArgument
                 .Reject(
                   error.message
-                ): DamlRpcError // TODO(i13240): Improve reassignment-submission Ledger API errors
+                ): RpcError // TODO(i13240): Improve reassignment-submission Ledger API errors
             )
             .mapK(FutureUnlessShutdown.outcomeK)
             .semiflatMap(Predef.identity)
@@ -1805,8 +1797,8 @@ class CantonSyncService(
             )
         }
 
-      reassignmentCommand match {
-        case unassign: ReassignmentCommand.Unassign =>
+      reassignmentCommands match {
+        case Seq(unassign: ReassignmentCommand.Unassign) =>
           for {
             targetProtocolVersion <- getProtocolVersion(unassign.targetSynchronizer.unwrap).map(
               Target(_)
@@ -1830,7 +1822,7 @@ class CantonSyncService(
             )
           } yield submissionResult
 
-        case assign: ReassignmentCommand.Assign =>
+        case Seq(assign: ReassignmentCommand.Assign) =>
           doReassignment(
             synchronizerId = assign.targetSynchronizer.unwrap
           )(
@@ -1845,6 +1837,15 @@ class CantonSyncService(
               ),
               reassignmentId = ReassignmentId(assign.sourceSynchronizer, assign.unassignId),
             )
+          )
+        case _ =>
+          // TODO(i14020): Handle a valid batch to be specified
+          Future.failed(
+            RequestValidationErrors.InvalidArgument
+              .Reject(
+                s"Only a single assign or unassign is currently supported, but got: $reassignmentCommands"
+              )
+              .asGrpcError
           )
       }
     }.asJava

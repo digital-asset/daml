@@ -6,14 +6,10 @@ package com.digitalasset.canton.crypto.signer
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config
-import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
-import com.digitalasset.canton.config.{PositiveDurationSeconds, SessionSigningKeysConfig}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.SessionSigningKeysConfig
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.EncryptionAlgorithmSpec.RsaOaepSha256
-import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
-import com.digitalasset.canton.crypto.SymmetricKeyScheme.Aes128Gcm
-import com.digitalasset.canton.crypto.provider.jce.{JcePrivateCrypto, JcePureCrypto}
+import com.digitalasset.canton.crypto.provider.jce.JcePrivateCrypto
 import com.digitalasset.canton.crypto.signer.SyncCryptoSignerWithSessionKeys.SessionKeyAndDelegation
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -39,41 +35,29 @@ import scala.concurrent.ExecutionContext
   * the number of signing calls and, consequently, lower the latency costs associated with such
   * external key management services.
   *
-  * @param signPrivateApiDefault
-  *   The crypto private API that is used to sign session signing keys and verify the corresponding
-  *   signature delegation with a long-term key.
+  * @param signPrivateApiWithLongTermKeys
+  *   The crypto private API used to sign session signing keys, creating a signature delegation with
+  *   a long-term key.
+  * @param signPublicApiWithLongTermKeys
+  *   The crypto public API used to directly verify messages or validate a signature delegation with
+  *   a long-term key.
+  * @param verificationParallelismLimit
+  *   The maximum number of concurrent verifications allowed.
   */
 class SyncCryptoSignerWithSessionKeys(
-    synchronizerId: SynchronizerId,
+    override protected val synchronizerId: SynchronizerId,
+    override protected val staticSynchronizerParameters: StaticSynchronizerParameters,
     member: Member,
-    staticSynchronizerParameters: StaticSynchronizerParameters,
-    signPrivateApiDefault: SigningPrivateOps,
+    signPrivateApiWithLongTermKeys: SigningPrivateOps,
+    override protected val signPublicApiWithLongTermKeys: SynchronizerCryptoPureApi,
     sessionSigningKeysConfig: SessionSigningKeysConfig,
-    supportedSigningAlgorithmSpecs: NonEmpty[Set[SigningAlgorithmSpec]],
+    override protected val verificationParallelismLimit: PositiveInt,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends SyncCryptoSigner {
 
-  /** The software-based crypto public API that is used to sign protocol messages and verify their
-    * signatures with a session signing key. Except for the signing algorithm and key
-    * specifications, all other schemes are not needed. Therefore, we use fixed schemes (i.e.
-    * placeholders) for the other crypto parameters. // TODO(#23731): Split up pure crypto into
-    * smaller modules and only use the signing module here
-    */
-  private val signPublicApiWithSessionKeys = {
-    val pureCryptoForSessionKeys = new JcePureCrypto(
-      Aes128Gcm,
-      sessionSigningKeysConfig.signingAlgorithmSpec,
-      supportedSigningAlgorithmSpecs,
-      RsaOaepSha256,
-      NonEmpty.mk(Set, RsaOaepSha256),
-      Sha256,
-      PbkdfScheme.Argon2idMode1,
-      loggerFactory,
-    )
-
-    new SynchronizerCryptoPureApi(staticSynchronizerParameters, pureCryptoForSessionKeys)
-  }
+  override protected val signingAlgorithmSpec: Option[SigningAlgorithmSpec] =
+    Some(sessionSigningKeysConfig.signingAlgorithmSpec)
 
   /** The user-configured validity period of a session signing key. */
   private val sessionKeyValidityPeriod =
@@ -82,31 +66,20 @@ class SyncCryptoSignerWithSessionKeys(
   /** The key specification for the session signing keys. */
   private val sessionKeySpec = sessionSigningKeysConfig.signingKeySpec
 
-  /** A cut-off percentage for the validity period of a session signing key. This helps define the
-    * point at which the session key stops being used (i.e. a new one is generated). For example, if
-    * we set a validity period of 5 minutes and a cutoff percentage of 70%, the key will stop being
-    * used 3.5 minutes after its creation. This is important because a participant will use this key
-    * to sign submission requests, for which the timestamp assigned by the sequencer is unknown. The
-    * sequencer and other protocol participants will use this timestamp to check the validity of the
-    * delegation. If a session signing key is created only when the old session signing key's
-    * validity period has expired, several submissions may fail the signature check because the
-    * sequencing timestamp at that time exceeds the validity period. TODO(#24537): Make
-    * cutOff/evictionTime configurable
+  /** A cut-off duration that determines when the key should stop being used to prevent signature
+    * verification failures due to unpredictable sequencing timestamps.
     */
   @VisibleForTesting
-  private[crypto] val cutOffValidityPercentage: PositiveNumeric[Double] =
-    PositiveNumeric.tryCreate(0.70)
+  private[crypto] val cutOffDuration =
+    PositiveSeconds.fromConfig(sessionSigningKeysConfig.cutOffDuration)
 
-  /** This defines how long the private session signing key remains in memory. This is distinct from
-    * the validity period in the sense that we can be asked to sign arbitrarily old timestamps, and
-    * so we want to persist the key for longer times so we can re-use it. The eviction period should
-    * be longer than [[sessionKeyValidityPeriod]] and at least as long as the majority of
-    * confirmation request decision latencies (for the mediator) or confirmation request response
-    * latencies (for participants). TODO(#24537): Make cutOff/evictionTime configurable
+  /** The duration a session signing key is retained in memory. It is defined as an AtomicReference
+    * only so it can be changed for tests.
     */
   @VisibleForTesting
-  private[crypto] val sessionKeyEvictionPeriod: AtomicReference[config.PositiveDurationSeconds] =
-    new AtomicReference[PositiveDurationSeconds](PositiveDurationSeconds.ofMinutes(10))
+  private[crypto] val sessionKeyEvictionPeriod = new AtomicReference(
+    sessionSigningKeysConfig.keyEvictionPeriod.underlying
+  )
 
   /** Caches the session signing private key and corresponding signature delegation, indexed by the
     * session key ID. The removal of entries from the cache is controlled by a separate parameter,
@@ -119,7 +92,7 @@ class SyncCryptoSignerWithSessionKeys(
     Scaffeine()
       // TODO(#24566): Use scheduler instead of expireAfter
       .expireAfter[Fingerprint, SessionKeyAndDelegation](
-        create = (_, _) => sessionKeyEvictionPeriod.get().underlying,
+        create = (_, _) => sessionKeyEvictionPeriod.get(),
         update = (_, _, d) => d,
         read = (_, _, d) => d,
       )
@@ -137,9 +110,9 @@ class SyncCryptoSignerWithSessionKeys(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, SignatureDelegation] =
     for {
-      // use lastOption to retrieve latest key (newer keys are at the end)
-      longTermKey <- existingKeys.lastOption
-        .toRight[SyncCryptoError](
+      longTermKey <- PublicKey
+        .getLatestKey(existingKeys)
+        .toRight(
           SyncCryptoError
             .KeyNotAvailable(
               member,
@@ -162,7 +135,7 @@ class SyncCryptoSignerWithSessionKeys(
       )
 
       // sign the hash with the long-term key
-      signature <- signPrivateApiDefault
+      signature <- signPrivateApiWithLongTermKeys
         .sign(hash, longTermKey.fingerprint, SigningKeyUsage.ProtocolOnly)
         .leftMap[SyncCryptoError](err => SyncCryptoError.SyncCryptoSigningError(err))
       signatureDelegation <- SignatureDelegation
@@ -218,9 +191,8 @@ class SyncCryptoSignerWithSessionKeys(
       skD.signatureDelegation.isValidAt(topologySnapshot.timestamp) &&
       // If sufficient time has passed and the cut-off threshold has been reached,
       // the current signing key is no longer used, and a different or new key must be used.
-      skD.signatureDelegation.validityPeriod
-        .computeCutOffTimestamp(cutOffValidityPercentage)
-        .exists(topologySnapshot.timestamp <= _)
+      topologySnapshot.timestamp < skD.signatureDelegation.validityPeriod
+        .computeCutOffTimestamp(cutOffDuration)
     }
 
     for {
@@ -260,43 +232,11 @@ class SyncCryptoSignerWithSessionKeys(
     for {
       sessionKeyAndDelegation <- getOrCreateSessionKey(topologySnapshot)
       SessionKeyAndDelegation(sessionKey, delegation) = sessionKeyAndDelegation
-      signature <- signPublicApiWithSessionKeys
+      signature <- signPublicApiSoftwareBased
         .sign(hash, sessionKey, usage)
         .toEitherT[FutureUnlessShutdown]
         .leftMap[SyncCryptoError](SyncCryptoError.SyncCryptoSigningError.apply)
     } yield signature.addSignatureDelegation(delegation)
-
-  // TODO(#22362): to be implemented
-  override def verifySignature(
-      topologySnapshot: TopologySnapshot,
-      hash: Hash,
-      signer: Member,
-      signature: Signature,
-      usage: NonEmpty[Set[SigningKeyUsage]],
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
-    ???
-
-  // TODO(#22362): to be implemented
-  override def verifySignatures(
-      topologySnapshot: TopologySnapshot,
-      hash: Hash,
-      signer: Member,
-      signatures: NonEmpty[Seq[Signature]],
-      usage: NonEmpty[Set[SigningKeyUsage]],
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
-    ???
-
-  // TODO(#22362): to be implemented
-  override def verifyGroupSignatures(
-      topologySnapshot: TopologySnapshot,
-      hash: Hash,
-      signers: Seq[Member],
-      threshold: PositiveInt,
-      groupName: String,
-      signatures: NonEmpty[Seq[Signature]],
-      usage: NonEmpty[Set[SigningKeyUsage]],
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
-    ???
 
 }
 

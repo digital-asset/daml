@@ -5,9 +5,9 @@ package com.digitalasset.canton.sequencing
 
 import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Hash, HashOps, HashPurpose}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.{
   ComponentHealthState,
   CompositeHealthComponent,
@@ -74,13 +74,13 @@ class SequencerAggregatorPekko(
     *
     * Must be materialized at most once.
     *
-    * @param initialCounterOrPriorEvent
-    *   The sequencer counter to start the subscription from or the prior event to validate the
-    *   subscription against. If present, the prior event's sequencer counter determines the
+    * @param initialTimestampOrPriorEvent
+    *   The timestamp (or None) to start the subscription from or the prior event to validate the
+    *   subscription against. If present, the prior event's sequencing timestamp determines the
     *   subscription start.
     */
   def aggregateFlow[E: Pretty](
-      initialCounterOrPriorEvent: Either[SequencerCounter, PossiblyIgnoredSerializedEvent]
+      initialTimestampOrPriorEvent: Either[Option[CantonTimestamp], PossiblyIgnoredSerializedEvent]
   )(implicit traceContext: TraceContext, executionContext: ExecutionContext): Flow[
     OrderedBucketMergeConfig[SequencerId, HasSequencerSubscriptionFactoryPekko[E]],
     Either[SubscriptionControl[E], OrdinarySerializedEvent],
@@ -88,12 +88,12 @@ class SequencerAggregatorPekko(
   ] = {
     val onShutdownRunner = new OnShutdownRunner.PureOnShutdownRunner(logger)
     val health = new SequencerAggregatorHealth(synchronizerId, onShutdownRunner, logger)
-    val ops = new SequencerAggregatorMergeOps(initialCounterOrPriorEvent)
+    val ops = new SequencerAggregatorMergeOps(initialTimestampOrPriorEvent)
     val hub = new OrderedBucketMergeHub[
       SequencerId,
       OrdinarySerializedEvent,
       HasSequencerSubscriptionFactoryPekko[E],
-      SequencerCounter,
+      Option[CantonTimestamp],
       HealthComponent,
     ](ops, loggerFactory, enableInvariantCheck)
     Flow
@@ -170,13 +170,13 @@ class SequencerAggregatorPekko(
     }
 
   private class SequencerAggregatorMergeOps[E: Pretty](
-      initialCounterOrPriorEvent: Either[SequencerCounter, PossiblyIgnoredSerializedEvent]
+      initialTimestampOrPriorEvent: Either[Option[CantonTimestamp], PossiblyIgnoredSerializedEvent]
   )(implicit val traceContext: TraceContext)
       extends OrderedBucketMergeHubOps[
         SequencerId,
         OrdinarySerializedEvent,
         HasSequencerSubscriptionFactoryPekko[E],
-        SequencerCounter,
+        Option[CantonTimestamp],
         HealthComponent,
       ] {
 
@@ -186,7 +186,7 @@ class SequencerAggregatorPekko(
 
     override def bucketOf(event: OrdinarySerializedEvent): Bucket =
       Bucket(
-        event.counter,
+        Some(event.timestamp),
         // keep only the content hash instead of the content itself.
         // This will allow us to eventually request only signatures from some sequencers to save bandwidth
         SignedContent.hashContent(
@@ -201,20 +201,22 @@ class SequencerAggregatorPekko(
         //  Clearly, this can be avoided with a Merkle tree!
       )
 
-    override def orderingOffset: Ordering[SequencerCounter] = Ordering[SequencerCounter]
+    override def orderingOffset: Ordering[Option[CantonTimestamp]] =
+      Ordering[Option[CantonTimestamp]]
 
-    override def offsetOfBucket(bucket: Bucket): SequencerCounter = bucket.sequencerCounter
+    override def offsetOfBucket(bucket: Bucket): Option[CantonTimestamp] =
+      bucket.sequencingTimestamp
 
-    /** The predecessor of the counter to start from */
-    override def exclusiveLowerBoundForBegin: SequencerCounter = {
-      val counterToSubscribeFrom = initialCounterOrPriorEvent match {
+    /** The predecessor timestamp to start from, should produce predecessor element for verification
+      */
+    override def initialOffset: Option[CantonTimestamp] = {
+      val timestampToSubscribeFrom = initialTimestampOrPriorEvent match {
         case Left(initial) => initial
         case Right(priorEvent) =>
           // The client requests the prior event again to check against ledger forks
-          priorEvent.counter
+          Some(priorEvent.timestamp)
       }
-      // Subtract 1 to make it exclusive
-      counterToSubscribeFrom - 1L
+      timestampToSubscribeFrom
     }
 
     override def traceContextOf(event: OrdinarySerializedEvent): TraceContext =
@@ -223,7 +225,7 @@ class SequencerAggregatorPekko(
     override type PriorElement = PossiblyIgnoredSerializedEvent
 
     override def priorElement: Option[PossiblyIgnoredSerializedEvent] =
-      initialCounterOrPriorEvent.toOption
+      initialTimestampOrPriorEvent.toOption
 
     override def toPriorElement(
         output: OrderedBucketMergeHub.OutputElement[SequencerId, OrdinarySerializedEvent]
@@ -232,7 +234,7 @@ class SequencerAggregatorPekko(
     override def makeSource(
         sequencerId: SequencerId,
         config: HasSequencerSubscriptionFactoryPekko[E],
-        exclusiveStart: SequencerCounter,
+        startFromInclusive: Option[CantonTimestamp],
         priorElement: Option[PriorElement],
     ): Source[OrdinarySerializedEvent, (KillSwitch, Future[Done], HealthComponent)] = {
       val prior = priorElement.collect { case event @ OrdinarySequencedEvent(_, _) => event }
@@ -240,7 +242,7 @@ class SequencerAggregatorPekko(
         SequencerClient.loggerFactoryWithSequencerId(loggerFactory, sequencerId)
       )
       val subscription = eventValidator
-        .validatePekko(config.subscriptionFactory.create(exclusiveStart + 1L), prior, sequencerId)
+        .validatePekko(config.subscriptionFactory.create(startFromInclusive), prior, sequencerId)
       val source = subscription.source
         .buffer(bufferSize.value, OverflowStrategy.backpressure)
         .mapConcat(_.value match {
@@ -268,14 +270,14 @@ object SequencerAggregatorPekko {
     SequencerId,
     HasSequencerSubscriptionFactoryPekko[E],
     OrdinarySerializedEvent,
-    SequencerCounter,
+    Option[CantonTimestamp],
   ]
 
   private type SubscriptionControlInternal[E] = ControlOutput[
     SequencerId,
     (HasSequencerSubscriptionFactoryPekko[E], Option[HealthComponent]),
     OrdinarySerializedEvent,
-    SequencerCounter,
+    Option[CantonTimestamp],
   ]
 
   trait HasSequencerSubscriptionFactoryPekko[E] {
@@ -283,13 +285,13 @@ object SequencerAggregatorPekko {
   }
 
   private[SequencerAggregatorPekko] final case class Bucket(
-      sequencerCounter: SequencerCounter,
+      sequencingTimestamp: Option[CantonTimestamp],
       contentHash: Hash,
       representativeProtocolVersion: RepresentativeProtocolVersion[SignedContent.type],
   ) extends PrettyPrinting {
     override protected def pretty: Pretty[Bucket] =
       prettyOfClass(
-        param("sequencer counter", _.sequencerCounter),
+        param("sequencing timestamp", _.sequencingTimestamp),
         param("content hash", _.contentHash),
       )
   }

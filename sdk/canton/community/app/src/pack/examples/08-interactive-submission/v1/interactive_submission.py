@@ -5,8 +5,11 @@
 
 # [Imports]
 import argparse
+import sys
+
 import grpc
 import uuid
+from google.protobuf.json_format import MessageToJson
 from com.daml.ledger.api.v2.interactive import interactive_submission_service_pb2_grpc
 from com.daml.ledger.api.v2.interactive import interactive_submission_service_pb2
 from com.daml.ledger.api.v2 import commands_pb2, value_pb2, completion_pb2
@@ -30,6 +33,7 @@ from com.daml.ledger.api.v2 import (
 )
 import os
 import json
+
 # [Imports End]
 
 user_id = "demo_python_app"
@@ -38,8 +42,8 @@ user_id = "demo_python_app"
 json_file_path = "canton_ports.json"
 # Load the JSON content from the file
 # Try to load the JSON file, if it doesn't exist, fallback to defaults
-default_lapi_port=0
-default_admin_port=0
+default_lapi_port = 0
+default_admin_port = 0
 try:
     with open(json_file_path, "r") as f:
         config = json.load(f)
@@ -86,6 +90,7 @@ ping_template_id = value_pb2.Identifier(
 )
 # [Defined ping template]
 
+
 # Return active contracts for a party
 def get_active_contracts(party: str):
     ledger_end_response: state_service_pb2.GetLedgerEndResponse = (
@@ -113,7 +118,9 @@ def get_active_contracts(party: str):
     return active_contracts_response
 
 
-def get_events(party: str, contract_id: str) -> event_query_service_pb2.GetEventsByContractIdResponse:
+def get_events(
+    party: str, contract_id: str
+) -> event_query_service_pb2.GetEventsByContractIdResponse:
     contract_event_response: event_query_service_pb2.GetEventsByContractIdResponse = (
         eqs_client.GetEventsByContractId(
             event_query_service_pb2.GetEventsByContractIdRequest(
@@ -201,10 +208,11 @@ def execute_and_get_contract_id(
 
     return contract_id
 
+
 def prepare_create_ping_contract(
-        initiator: str,
-        responder: str,
-        synchronizer_id: str,
+    initiator: str,
+    responder: str,
+    synchronizer_id: str,
 ) -> interactive_submission_service_pb2.PrepareSubmissionResponse:
     ping_create_command = commands_pb2.Command(
         create=commands_pb2.CreateCommand(
@@ -244,17 +252,38 @@ def prepare_create_ping_contract(
 
     return prepare_create_response
 
+
+# This function simply displays the transaction as JSON
+# Application may implement additional logic to further validate parts of the transaction and / or filter important
+# parts to show the user. Either way this is the user's chance to validate the ledger changes before signing.
+def inspect_and_validate_transaction(
+    prepared_transaction: interactive_submission_service_pb2.PreparedTransaction,
+):
+    print(MessageToJson(prepared_transaction))
+    user_input = input("Authorize transaction? (y/n): ")
+    if user_input.lower() != "y":
+        print("Transaction rejected.")
+        sys.exit(0)
+
+
 def create_ping_contract(
     initiator: str,
     initiator_private_key: EllipticCurvePrivateKey,
     initiator_fingerprint: str,
     responder: str,
     synchronizer_id: str,
+    auto_accept: bool,
 ) -> event_pb2.CreatedEvent:
-    print("Preparing create ping transaction")
     # [Call the PrepareSubmission RPC]
-    prepare_create_response = prepare_create_ping_contract(initiator, responder, synchronizer_id)
-    print("Returned transaction hash is " + prepare_create_response.prepared_transaction_hash.hex())
+    prepare_create_response = prepare_create_ping_contract(
+        initiator, responder, synchronizer_id
+    )
+    if not auto_accept:
+        inspect_and_validate_transaction(prepare_create_response.prepared_transaction)
+    print(
+        "Returned transaction hash is "
+        + prepare_create_response.prepared_transaction_hash.hex()
+    )
     prepared_create_transaction = prepare_create_response.prepared_transaction
     # [Transaction prepared]
 
@@ -295,6 +324,7 @@ def exercise_respond_choice(
     contract_id: str,
     created_event_blob: bytes,
     template_id: value_pb2.Identifier,
+    auto_accept: bool,
 ):
     # [Create the exercise command]
     ping_exercise_command = commands_pb2.Command(
@@ -332,6 +362,9 @@ def exercise_respond_choice(
     prepare_exercise_response = iss_client.PrepareSubmission(prepare_exercise_request)
     # [Prepared the exercise command]
 
+    if not auto_accept:
+        inspect_and_validate_transaction(prepare_exercise_response.prepared_transaction)
+
     prepared_exercise_transaction = prepare_exercise_response.prepared_transaction
 
     print("Submitting exercise Respond choice transaction")
@@ -354,7 +387,9 @@ def exercise_respond_choice(
     # [Exercised Respond choice and observed archived contract]
 
 
-def demo_interactive_submissions(participant_id: str, synchronizer_id: str):
+def demo_interactive_submissions(
+    participant_id: str, synchronizer_id: str, auto_accept: bool
+):
     alice_pk, alice_pub_fingerprint = onboard_external_party(
         "alice", participant_id, synchronizer_id, admin_channel
     )
@@ -368,7 +403,7 @@ def demo_interactive_submissions(participant_id: str, synchronizer_id: str):
 
     # Alice creates the ping contract
     ping_created_event = create_ping_contract(
-        alice, alice_pk, alice_pub_fingerprint, bob, synchronizer_id
+        alice, alice_pk, alice_pub_fingerprint, bob, synchronizer_id, auto_accept
     )
 
     # Bob exercises the respond choice, which archives the contract
@@ -380,6 +415,7 @@ def demo_interactive_submissions(participant_id: str, synchronizer_id: str):
         ping_created_event.contract_id,
         ping_created_event.created_event_blob,
         ping_created_event.template_id,
+        auto_accept,
     )
 
 
@@ -408,6 +444,14 @@ if __name__ == "__main__":
 
     subparsers = parser.add_subparsers(required=True, dest="subcommand")
     parser_run_demo = subparsers.add_parser("run-demo", help="Run the ping demo")
+    # This option is only used to facilitate testing of this script and should NOT
+    # be used otherwise. Transactions must always be validated before being signed.
+    parser_run_demo.add_argument(
+        "--accept-all-transactions",
+        "-a",
+        help="Accept all transactions without prompting the user explicitly",
+        action="store_true",
+    )
     parser_onboard_party = subparsers.add_parser(
         "create-party", help="Create a new external party"
     )
@@ -431,7 +475,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.subcommand == "run-demo":
-        demo_interactive_submissions(args.participant_id, args.synchronizer_id)
+        if args.accept_all_transactions:
+            print(
+                "Transactions will automatically be accepted. This is unsafe and should only be set during testing!"
+            )
+        demo_interactive_submissions(
+            args.participant_id, args.synchronizer_id, args.accept_all_transactions
+        )
     elif args.subcommand == "create-party":
         party_private_key, party_fingerprint = onboard_external_party(
             args.name, args.participant_id, args.synchronizer_id, admin_channel

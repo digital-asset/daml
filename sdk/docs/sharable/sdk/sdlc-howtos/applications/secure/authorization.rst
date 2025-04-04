@@ -226,7 +226,7 @@ Requirements for User IDs
 User IDs must be non-empty strings of at most 128 characters that are either alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:".
 
 Identity providers
-------------------
+------------------------------
 
 An identity provider configuration can be thought of as a set of participant users which:
  - Have a defined way to verify their access tokens
@@ -243,17 +243,40 @@ When authenticating as a user from a non-default identity provider configuration
 contain the ``iss`` field whose value matches the identity provider id.
 In case of the default identity provider configuration, the ``iss`` field can be empty or omitted from the access tokens.
 
-Privileged Tokens
-=================
 
-A privileged token allows the caller to gain either ``wildcard-`` or ``participant-admin-`` level access. A ``wildcard-``level access combines
-the capabilities of the ``participant-admin`` with the right to ``act-as`` and ``read-as`` any party. Privileged tokens look like and are
-parsed as any other token. They can follow both the audience-based and the scope-based format. Unlike with user tokens, the entry specified
-in the ``sub`` field is not validated or checked and need not represent a user existing in the participant's database. 
+Custom Daml Claims Access Tokens
+================================
 
-Use of privileged tokens is inactive by default and must be explicitly enabled in the Canton configuration. Unlike normal
-user tokens, privileged tokens can also be configured for the Admin APIs exposed by the participant, the sequencer, and
-the mediator nodes.
+This format represents the :ref:`rights <authorization-claims>` granted by the access token as custom claims in the JWT's payload, like so:
+
+
+.. code-block:: json
+
+   {
+      "https://daml.com/ledger-api": {
+        "ledgerId": null,
+        "participantId": "123e4567-e89b-12d3-a456-426614174000",
+        "applicationId": null,
+        "admin": true,
+        "actAs": ["Alice"],
+        "readAs": ["Bob"]
+      },
+      "exp": 1300819380
+   }
+
+where all of the fields are optional, and if present,
+
+- ``ledgerId`` and ``participantId`` restrict the validity of the token to the given ledger or participant node
+- ``applicationId`` requires requests with this token to use that application id or not set an application id at all, which should be used to distinguish requests from different applications
+- ``exp`` is the standard JWT expiration date (in seconds since EPOCH)
+- ``actAs``, ``readAs`` and (participant) ``admin`` encode the rights granted by this access token
+
+The ``public`` right is implicitly granted to any request bearing a non-expired JWT issued by a trusted issuer with matching ``ledgerId``, ``participantId`` and ``applicationId`` values.
+
+.. note:: All Daml ledgers also support a deprecated legacy format of custom Daml claims
+   access tokens whose format is equal to the above except that the custom claims
+   are present at the same level as ``exp`` in the token above,
+   instead of being nested below ``"https://daml.com/ledger-api"``.
 
 Encoding and Signature
 ======================

@@ -191,7 +191,8 @@ featureContractKeys = Feature
 featureCCTP :: Feature
 featureCCTP = Feature
     { featureName = "Daml CCTP primitives"
-    , featureVersionReq = devOnly
+    , featureVersionReq = VersionReq \case
+           V2 -> allMinorVersions
     , featureCppFlag = Just "DAML_CCTP"
     }
 

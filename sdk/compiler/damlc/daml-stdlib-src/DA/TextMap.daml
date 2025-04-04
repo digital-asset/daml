@@ -1,14 +1,6 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE CPP #-}
-
-#ifndef DAML_TEXTMAP
--- | HIDE
-module DA.TextMap where
-  
-#else
-  
 -- | TextMap - A map is an associative array data type composed of a
 -- collection of key/value pairs such that, each possible key appears
 -- at most once in the collection.
@@ -201,5 +193,3 @@ instance Foldable.Foldable TextMap where
 
 instance Traversable.Traversable TextMap where
   mapA f x = fmap fromList $ mapA (\(k, v) -> fmap (k,) $ f v) $ toList x
-
-#endif

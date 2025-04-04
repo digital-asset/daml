@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory
 
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
@@ -18,6 +19,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.tracing.TraceContext
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
 import scala.util.{Success, Try}
 
@@ -29,8 +31,8 @@ abstract class GenericInMemoryOutputMetadataStore[E <: Env[E]] extends OutputMet
 
   private val epochs: TrieMap[EpochNumber, OutputEpochMetadata] = TrieMap.empty
 
-  @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  private var lowerBound: Option[OutputMetadataStore.LowerBound] = None
+  private val lowerBound: AtomicReference[Option[OutputMetadataStore.LowerBound]] =
+    new AtomicReference(None)
 
   protected def createFuture[T](action: String)(value: () => Try[T]): E#FutureUnlessShutdownT[T]
 
@@ -141,7 +143,7 @@ abstract class GenericInMemoryOutputMetadataStore[E <: Env[E]] extends OutputMet
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Option[OutputBlockMetadata]] =
     createFuture(lastConsecutiveActionName) { () =>
-      val initialBlockNumber = lowerBound.map(_.blockNumber).getOrElse(BlockNumber.First)
+      val initialBlockNumber = lowerBound.get().map(_.blockNumber).getOrElse(BlockNumber.First)
       Success(
         blocks.keySet.toSeq.sorted.zipWithIndex
           .takeWhile { case (blockNumber, index) =>
@@ -170,10 +172,10 @@ abstract class GenericInMemoryOutputMetadataStore[E <: Env[E]] extends OutputMet
   ): E#FutureUnlessShutdownT[OutputMetadataStore.NumberOfRecords] =
     createFuture(pruneName(epochNumberExclusive)) { () =>
       val epochsToDelete = epochs.filter(_._1 < epochNumberExclusive).keys
-      epochs --= epochsToDelete
+      epochsToDelete.foreach(epochs.remove(_).discard)
 
       val blocksToDelete = blocks.filter(_._2.epochNumber < epochNumberExclusive).keys
-      blocks --= blocksToDelete
+      blocksToDelete.foreach(blocks.remove(_).discard)
 
       Success(
         OutputMetadataStore.NumberOfRecords(
@@ -187,18 +189,25 @@ abstract class GenericInMemoryOutputMetadataStore[E <: Env[E]] extends OutputMet
       epoch: EpochNumber
   )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Either[String, Unit]] =
     createFuture(saveLowerBoundName(epoch)) { () =>
-      lowerBound = {
-        firstBlockInEpoch(epoch).map(blockNumber =>
-          OutputMetadataStore.LowerBound(epoch, blockNumber.blockNumber)
-        )
-      }
-      Success(Right(()))
+      val existingLowerBound = lowerBound.get()
+      Success(for {
+        _ <- existingLowerBound
+          .map(_.epochNumber)
+          .filter(_ > epoch)
+          .map(existing => s"Cannot save lower bound $epoch earlier than existing $existing")
+          .toLeft(())
+        blockNumber <- firstBlockInEpoch(epoch).fold[Either[String, BlockNumber]](
+          Left(
+            s"Cannot save lower bound at epoch $epoch because there are no blocks saved at this epoch"
+          )
+        )(blockNumber => Right(blockNumber.blockNumber))
+      } yield lowerBound.set(Some(OutputMetadataStore.LowerBound(epoch, blockNumber))))
     }
 
   override def getLowerBound()(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Option[OutputMetadataStore.LowerBound]] =
-    createFuture(getLowerBoundActionName)(() => Success(lowerBound))
+    createFuture(getLowerBoundActionName)(() => Success(lowerBound.get()))
 
 }
 

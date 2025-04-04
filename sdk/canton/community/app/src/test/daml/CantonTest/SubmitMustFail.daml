@@ -1,0 +1,21 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module SubmitMustFail where
+
+import Daml.Script
+
+template SubmitMustFail
+  with
+    sig: Party
+    succeed: Bool
+  where
+    signatory sig
+    ensure succeed
+
+submitMustFailScript = script do
+  alice <- allocateParty "Alice"
+  submit alice do
+    createCmd $ SubmitMustFail with sig = alice; succeed = True
+  submitMustFail alice do
+    createCmd $ SubmitMustFail with sig = alice; succeed = False

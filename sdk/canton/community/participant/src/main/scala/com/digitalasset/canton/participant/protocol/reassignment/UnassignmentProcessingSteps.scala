@@ -49,7 +49,6 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.{
   Purged,
   ReassignedAway,
 }
-import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
@@ -70,11 +69,10 @@ import scala.concurrent.{ExecutionContext, Future}
 class UnassignmentProcessingSteps(
     val synchronizerId: Source[SynchronizerId],
     val participantId: ParticipantId,
-    val engine: DAMLe,
     reassignmentCoordination: ReassignmentCoordination,
     seedGenerator: SeedGenerator,
     staticSynchronizerParameters: Source[StaticSynchronizerParameters],
-    override protected val serializableContractAuthenticator: ContractAuthenticator,
+    override protected val contractAuthenticator: ContractAuthenticator,
     val protocolVersion: Source[ProtocolVersion],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -405,7 +403,7 @@ class UnassignmentProcessingSteps(
     val sourceSnapshot = Source(parsedRequest.snapshot.ipsSnapshot)
 
     val isReassigningParticipant = fullTree.isReassigningParticipant(participantId)
-    val unassignmentValidation = new UnassignmentValidation(participantId, engine)
+    val unassignmentValidation = new UnassignmentValidation(participantId, contractAuthenticator)
 
     for {
       targetTopologyO <-
@@ -420,7 +418,6 @@ class UnassignmentProcessingSteps(
         sourceSnapshot,
         targetTopologyO,
         activenessF,
-        engineController,
       )(parsedRequest)
 
       unassignmentDecisionTime <- ProcessingSteps

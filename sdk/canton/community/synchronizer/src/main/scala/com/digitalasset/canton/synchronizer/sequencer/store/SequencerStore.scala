@@ -499,6 +499,8 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
 
   private val memberCache = new SequencerMemberCache(Traced.lift(lookupMemberInternal(_)(_)))
 
+  protected def sequencerMember: Member
+
   /** Whether the sequencer store operates is used for a block sequencer or a standalone database
     * sequencer.
     */
@@ -1048,8 +1050,14 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
             counterCheckpoint =
               // Some members can be registered, but not have any events yet, so there can be no CounterCheckpoint in the snapshot
               snapshot.heads.get(memberStatus.member).map { counter =>
+                val checkpointCounter = if (memberStatus.member == sequencerMember) {
+                  // We ignore the counter for the sequencer itself as we always start from 0 in the self-subscription
+                  SequencerCounter(-1)
+                } else {
+                  counter
+                }
                 (id -> CounterCheckpoint(
-                  counter,
+                  checkpointCounter,
                   lastTs,
                   initialState.latestSequencerEventTimestamp,
                 ))
@@ -1057,7 +1065,10 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
           } yield counterCheckpoint
       })
       _ <- EitherT.right(saveCounterCheckpoints(memberCheckpoints))
-      _ <- EitherT.right(updatePrunedPreviousEventTimestamps(snapshot.previousTimestamps))
+      _ <- EitherT.right(updatePrunedPreviousEventTimestamps(snapshot.previousTimestamps.filterNot {
+        // We ignore the previous timestamp for the sequencer itself as we always start from `None` in the self-subscription
+        case (member, _) => member == sequencerMember
+      }))
       _ <- saveLowerBound(lastTs).leftMap(_.toString)
       _ <- saveWatermark(0, lastTs).leftMap(_.toString)
     } yield ()

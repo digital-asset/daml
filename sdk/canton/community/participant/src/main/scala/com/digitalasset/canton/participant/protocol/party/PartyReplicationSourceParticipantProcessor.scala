@@ -11,7 +11,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.admin.data.ActiveContract
+import com.digitalasset.canton.participant.admin.data.ActiveContractOld
 import com.digitalasset.canton.participant.store.AcsInspection
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
@@ -130,9 +130,9 @@ class PartyReplicationSourceParticipantProcessor private (
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Seq[
-    (NonEmpty[Seq[ActiveContract]], NonNegativeInt)
+    (NonEmpty[Seq[ActiveContractOld]], NonNegativeInt)
   ]] = {
-    val contracts = List.newBuilder[ActiveContract]
+    val contracts = List.newBuilder[ActiveContractOld]
     performUnlessClosingEitherUSF(
       s"Read ACS from ${newChunkToConsumerFrom.unwrap} to $newChunkToConsumeTo"
     )(
@@ -142,7 +142,7 @@ class PartyReplicationSourceParticipantProcessor private (
           Set(partyId.toLf),
           Some(TimeOfChange(activeAfter.immediateSuccessor)),
         ) { case (contract, reassignmentCounter) =>
-          contracts += ActiveContract.create(synchronizerId, contract, reassignmentCounter)(
+          contracts += ActiveContractOld.create(synchronizerId, contract, reassignmentCounter)(
             protocolVersion
           )
           Right(())
@@ -163,7 +163,7 @@ class PartyReplicationSourceParticipantProcessor private (
   }
 
   private def sendContracts(
-      indexedContractChunks: Seq[(NonEmpty[Seq[ActiveContract]], NonNegativeInt)]
+      indexedContractChunks: Seq[(NonEmpty[Seq[ActiveContractOld]], NonNegativeInt)]
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {

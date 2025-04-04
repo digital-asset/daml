@@ -29,7 +29,7 @@ message PartyReplicationSourceMessage {
     // The portion of the ACS in the chunk expressed as nonempty list
     // TODO(#24326) - Use a Ledger API representation instead.
     // Required
-    repeated com.digitalasset.canton.admin.participant.v30.ActiveContract contracts = 2;
+    repeated com.digitalasset.canton.admin.participant.v30.ActiveContractOld contracts = 2;
   }
 
   message SourceParticipantIsReady {

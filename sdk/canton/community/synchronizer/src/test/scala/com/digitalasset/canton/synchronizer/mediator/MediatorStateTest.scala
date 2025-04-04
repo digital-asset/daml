@@ -36,8 +36,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.Duration
 import java.util.UUID
-import scala.concurrent.duration.*
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Future
 
 class MediatorStateTest
     extends AsyncWordSpec
@@ -131,7 +130,8 @@ class MediatorStateTest
         timeouts,
         loggerFactory,
       )
-      Await.result(sut.add(currentVersion), 1.second)
+      sut.initialize(CantonTimestamp.MinValue).futureValueUS
+      sut.add(currentVersion).futureValueUS
       sut
     }
 

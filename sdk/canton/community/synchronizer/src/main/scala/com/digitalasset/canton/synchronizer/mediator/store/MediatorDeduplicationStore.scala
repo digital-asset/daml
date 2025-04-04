@@ -5,7 +5,6 @@ package com.digitalasset.canton.synchronizer.mediator.store
 
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -15,12 +14,11 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, Traced
 import com.digitalasset.canton.resource.{DbStorage, DbStore, MemoryStorage, Storage}
 import com.digitalasset.canton.topology.{MediatorId, Member}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.{BatchAggregatorUS, ErrorUtil}
+import com.digitalasset.canton.util.BatchAggregatorUS
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.{GetResult, SetParameter}
 
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{ConcurrentNavigableMap, ConcurrentSkipListMap}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
@@ -28,7 +26,10 @@ import scala.jdk.CollectionConverters.*
 
 import MediatorDeduplicationStore.DeduplicationData
 
-private[mediator] trait MediatorDeduplicationStore extends NamedLogging with FlagCloseable {
+private[mediator] trait MediatorDeduplicationStore
+    extends MediatorStateInitialization
+    with NamedLogging
+    with FlagCloseable {
 
   /** Stores deduplication data for a given uuid.
     */
@@ -37,48 +38,6 @@ private[mediator] trait MediatorDeduplicationStore extends NamedLogging with Fla
   /** Stores deduplication data by expiration time (for efficient pruning). */
   private val uuidByExpiration: ConcurrentNavigableMap[CantonTimestamp, NonEmpty[Set[UUID]]] =
     new ConcurrentSkipListMap()
-
-  private val initialized: AtomicReference[MediatorDeduplicationStore.State] =
-    new AtomicReference[MediatorDeduplicationStore.State](
-      MediatorDeduplicationStore.State.Uninitialized
-    )
-
-  /** Clients must call this method before any other method.
-    *
-    * @param firstEventTs
-    *   the timestamp used to subscribe to the sequencer, i.e., all data with a requestTime greater
-    *   than or equal to `firstEventTs` will be deleted so that sequencer events can be replayed
-    */
-  def initialize(firstEventTs: CantonTimestamp)(implicit
-      traceContext: TraceContext,
-      callerCloseContext: CloseContext,
-  ): FutureUnlessShutdown[Unit] = {
-    require(
-      initialized.compareAndSet(
-        MediatorDeduplicationStore.State.Uninitialized,
-        MediatorDeduplicationStore.State.Initializing,
-      ),
-      "The store most not be initialized more than once!",
-    )
-    implicit val directExecutionContext: DirectExecutionContext = DirectExecutionContext(logger)
-    doInitialize(firstEventTs).map(_ =>
-      initialized.set(MediatorDeduplicationStore.State.Initialized)
-    )
-  }
-
-  /** Populate in-memory caches and delete all data with `requestTime` greater than or equal to
-    * `deleteFromInclusive`.
-    */
-  protected def doInitialize(deleteFromInclusive: CantonTimestamp)(implicit
-      traceContext: TraceContext,
-      callerCloseContext: CloseContext,
-  ): FutureUnlessShutdown[Unit]
-
-  private def requireInitialized()(implicit traceContext: TraceContext): Unit =
-    ErrorUtil.requireState(
-      initialized.get() == MediatorDeduplicationStore.State.Initialized,
-      "The initialize method needs to be called first.",
-    )
 
   /** Yields the data stored for a given `uuid` that is not expired at `timestamp`.
     */
@@ -241,13 +200,6 @@ private[mediator] object MediatorDeduplicationStore {
     val requestTime = r.<<[CantonTimestamp]
     val expireAfter = r.<<[CantonTimestamp]
     DeduplicationData(uuid, requestTime, expireAfter)
-  }
-
-  private sealed trait State extends Product with Serializable
-  private object State {
-    case object Uninitialized extends State
-    case object Initializing extends State
-    case object Initialized extends State
   }
 }
 

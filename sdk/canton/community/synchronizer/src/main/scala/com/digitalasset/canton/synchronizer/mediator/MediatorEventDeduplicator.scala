@@ -14,10 +14,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{DynamicSynchronizerParametersWithValidity, RequestId}
 import com.digitalasset.canton.sequencing.TracedProtocolEvent
-import com.digitalasset.canton.synchronizer.mediator.store.{
-  FinalizedResponseStore,
-  MediatorDeduplicationStore,
-}
+import com.digitalasset.canton.synchronizer.mediator.store.MediatorState
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherUtil.RichEither
@@ -83,8 +80,7 @@ private[mediator] trait MediatorEventDeduplicator {
 
 private[mediator] object MediatorEventDeduplicator {
   def create(
-      store: MediatorDeduplicationStore,
-      finalizedResponseStore: FinalizedResponseStore,
+      state: MediatorState,
       verdictSender: VerdictSender,
       topologyClient: SynchronizerTopologyClient,
       protocolVersion: ProtocolVersion,
@@ -117,8 +113,7 @@ private[mediator] object MediatorEventDeduplicator {
       )
 
     new DefaultMediatorEventDeduplicator(
-      store,
-      finalizedResponseStore,
+      state,
       verdictSender,
       getDeduplicationTimeout,
       getDecisionTime,
@@ -129,8 +124,7 @@ private[mediator] object MediatorEventDeduplicator {
 }
 
 class DefaultMediatorEventDeduplicator(
-    store: MediatorDeduplicationStore,
-    finalizedResponseStore: FinalizedResponseStore,
+    state: MediatorState,
     verdictSender: VerdictSender,
     getDeduplicationTimeout: Traced[CantonTimestamp] => FutureUnlessShutdown[Duration],
     getDecisionTime: Traced[CantonTimestamp] => FutureUnlessShutdown[CantonTimestamp],
@@ -172,7 +166,7 @@ class DefaultMediatorEventDeduplicator(
       callerCloseContext: CloseContext,
   ): FutureUnlessShutdown[(Boolean, FutureUnlessShutdown[Unit])] = {
     val uuid = request.requestUuid
-    val previousUsages = store.findUuid(uuid, requestTimestamp)
+    val previousUsages = state.deduplicationStore.findUuid(uuid, requestTimestamp)
     NonEmpty.from(previousUsages) match {
       case None =>
         for {
@@ -182,7 +176,7 @@ class DefaultMediatorEventDeduplicator(
           logger.debug(
             s"Storing requestUuid=$uuid, requestTimestamp=$requestTimestamp, expireAt=$expireAt"
           )
-          val storeF = store.store(uuid, requestTimestamp, expireAt)
+          val storeF = state.deduplicationStore.store(uuid, requestTimestamp, expireAt)
           (true, storeF)
         }
       case Some(previousUsagesNE) =>
@@ -201,7 +195,7 @@ class DefaultMediatorEventDeduplicator(
           ProtocolMessage.select[RootHashMessage[SerializedRootHashMessagePayload]]
         )
         for {
-          _ <- finalizedResponseStore.store(finalizedResponse)
+          _ <- state.add(finalizedResponse)
         } yield {
           val sendF = for {
             decisionTime <- getDecisionTime(Traced(requestTimestamp))

@@ -4,88 +4,48 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.EitherT
-import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
-import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.participant.protocol.ContractAuthenticator
+import com.digitalasset.canton.protocol.Stakeholders
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, ReassignmentTag}
-import com.digitalasset.daml.lf.engine.Error as LfError
-import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 
 import scala.concurrent.ExecutionContext
 
-private[reassignment] class ReassignmentValidation(engine: DAMLe)(implicit
-    val ec: ExecutionContext
-) {
-
-  def checkMetadata(
-      reassignmentRequest: FullReassignmentViewTree,
-      getEngineAbortStatus: GetEngineAbortStatus,
-  )(implicit
-      traceContext: TraceContext
+private[reassignment] class ReassignmentValidation(contractAuthenticator: ContractAuthenticator) {
+  def checkMetadata(reassignmentRequest: FullReassignmentViewTree)(implicit
+      ec: ExecutionContext
   ): EitherT[FutureUnlessShutdown, ReassignmentValidationError, Unit] = {
-    val reassignmentRef = reassignmentRequest.reassignmentRef
 
-    val declaredContractMetadata = reassignmentRequest.contract.metadata
     val declaredViewStakeholders = reassignmentRequest.stakeholders
+    val declaredContractStakeholders = Stakeholders(reassignmentRequest.contract.metadata)
 
-    for {
-      recomputedMetadata <- engine
-        .contractMetadata(
-          reassignmentRequest.contract.contractInstance,
-          declaredContractMetadata.stakeholders,
-          getEngineAbortStatus,
-        )
-        .leftMap {
-          case DAMLe.EngineError(
-                LfError.Interpretation(
-                  e @ LfError.Interpretation.DamlException(
-                    LfInterpretationError.FailedAuthorization(_, _)
-                  ),
-                  _,
-                )
-              ) =>
-            ReassignmentValidationError.ReinterpretationError(
-              reassignmentRef,
-              reason = e.message,
-            )
-          case DAMLe.EngineError(error) => ReassignmentValidationError.MetadataNotFound(error)
-          case DAMLe.EngineAborted(reason) =>
-            ReassignmentValidationError.ReinterpretationAborted(reassignmentRef, reason)
-        }
-
-      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
-        recomputedMetadata == declaredContractMetadata,
-        ReassignmentValidationError.ContractMetadataMismatch(
-          reassignmentRef = reassignmentRef,
-          declaredContractMetadata = declaredContractMetadata,
-          expectedMetadata = recomputedMetadata,
+    EitherT.fromEither(for {
+      _ <- Either.cond(
+        declaredViewStakeholders == declaredContractStakeholders,
+        (),
+        ReassignmentValidationError.StakeholdersMismatch(
+          reassignmentRequest.reassignmentRef,
+          declaredViewStakeholders = declaredViewStakeholders,
+          expectedStakeholders = declaredContractStakeholders,
         ),
       )
-
-      // this one is validated against the recomputed the metadata, so it's the correct one.
-      declaredContractStakeholders = Stakeholders(declaredContractMetadata)
-
-      _ <- EitherTUtil
-        .condUnitET[FutureUnlessShutdown](
-          declaredViewStakeholders == declaredContractStakeholders,
-          ReassignmentValidationError.StakeholdersMismatch(
-            reassignmentRef,
-            declaredViewStakeholders = declaredViewStakeholders,
-            expectedStakeholders = declaredContractStakeholders,
-          ),
+      _ <- contractAuthenticator
+        .authenticateSerializable(reassignmentRequest.contract)
+        .leftMap(error =>
+          ReassignmentValidationError.ContractIdAuthenticationFailure(
+            reassignmentRequest.reassignmentRef,
+            error,
+            reassignmentRequest.contractId,
+          )
         )
-        .leftWiden[ReassignmentValidationError]
-    } yield ()
+    } yield ())
   }
-
 }
 
 object ReassignmentValidation {

@@ -16,7 +16,7 @@ val darPath = Option(System.getProperty("canton-examples.dar-path")).getOrElse("
 participants.all.dars.upload(darPath)
 
 val Alice = participant1.parties.enable("Alice")
-val Bob = participant2.parties.enable("Bob", waitForSynchronizer = SynchronizerChoice.All)
+val Bob = participant2.parties.enable("Bob")
 
 // setup parties and connect participants to synchronizer
 Seq(participant1, participant2).foreach(_.synchronizers.connect_local(sequencer1, alias = "lostSynchronizer"))

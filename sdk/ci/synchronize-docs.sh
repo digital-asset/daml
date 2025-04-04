@@ -23,3 +23,6 @@ fi
 
 rm -f $SHARABLE_DIR/LICENSE
 rm -f $SHARABLE_DIR/NOTICES
+
+# Make the generated files read-only
+find $SHARABLE_DIR -type f -follow -exec chmod 0444 {} +

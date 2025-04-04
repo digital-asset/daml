@@ -30,6 +30,7 @@ object NonEmptyReturningOps {
 
     def +-:(elem: A): NonEmpty[CC[A]] = un(elem +: self)
     def :-+(elem: A): NonEmpty[CC[A]] = un(self :+ elem)
+    def reverse: NonEmpty[C] = un(self.reverse)
   }
 
   implicit final class `NE Set Ops`[A](private val self: Set[A]) extends AnyVal {

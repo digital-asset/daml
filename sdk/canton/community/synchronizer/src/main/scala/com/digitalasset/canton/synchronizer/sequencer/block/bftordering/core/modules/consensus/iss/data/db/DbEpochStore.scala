@@ -83,7 +83,6 @@ class DbEpochStore(
       BlockNumber(r.nextLong()),
       EpochLength(r.nextLong()),
       TopologyActivationTime(CantonTimestamp.assertFromLong(r.nextLong())),
-      CantonTimestamp.assertFromLong(r.nextLong()),
     )
   }
 
@@ -138,8 +137,8 @@ class DbEpochStore(
       storage.update_(
         profile match {
           case _: Postgres =>
-            sqlu"""insert into ord_epochs(epoch_number, start_block_number, epoch_length, topology_ts, previous_epoch_max_ts, in_progress)
-                   values (${epoch.number}, ${epoch.startBlockNumber}, ${epoch.length}, ${epoch.topologyActivationTime.value}, ${epoch.previousEpochMaxBftTime}, true)
+            sqlu"""insert into ord_epochs(epoch_number, start_block_number, epoch_length, topology_ts, in_progress)
+                   values (${epoch.number}, ${epoch.startBlockNumber}, ${epoch.length}, ${epoch.topologyActivationTime.value}, true)
                    on conflict (epoch_number) do nothing
                 """
           case _: H2 =>
@@ -148,8 +147,8 @@ class DbEpochStore(
                      ord_epochs.epoch_number = ${epoch.number}
                    )
                    when not matched then
-                     insert (epoch_number, start_block_number, epoch_length, topology_ts, previous_epoch_max_ts, in_progress)
-                     values (${epoch.number}, ${epoch.startBlockNumber}, ${epoch.length}, ${epoch.topologyActivationTime.value}, ${epoch.previousEpochMaxBftTime}, true)
+                     insert (epoch_number, start_block_number, epoch_length, topology_ts, in_progress)
+                     values (${epoch.number}, ${epoch.startBlockNumber}, ${epoch.length}, ${epoch.topologyActivationTime.value},  true)
                 """
         },
         functionFullName,
@@ -180,14 +179,14 @@ class DbEpochStore(
         for {
           epochInfo <-
             if (!includeInProgress)
-              sql"""select epoch_number, start_block_number, epoch_length, topology_ts, previous_epoch_max_ts
+              sql"""select epoch_number, start_block_number, epoch_length, topology_ts
                     from ord_epochs
                     where in_progress = false
                     order by epoch_number desc
                     limit 1
                  """.as[EpochInfo]
             else
-              sql"""select epoch_number, start_block_number, epoch_length, topology_ts, previous_epoch_max_ts
+              sql"""select epoch_number, start_block_number, epoch_length, topology_ts
                     from ord_epochs
                     order by epoch_number desc
                     limit 1
@@ -421,7 +420,7 @@ class DbEpochStore(
     createFuture(loadEpochInfoActionName(epochNumber)) {
       storage
         .query(
-          sql"""select epoch_number, start_block_number, epoch_length, topology_ts, previous_epoch_max_ts
+          sql"""select epoch_number, start_block_number, epoch_length, topology_ts
                 from ord_epochs
                 where epoch_number = $epochNumber
                 limit 1
@@ -438,7 +437,7 @@ class DbEpochStore(
         .query(
           sql"""select
                   completed_message.message,
-                  epoch.epoch_number, epoch.start_block_number, epoch.epoch_length, epoch.topology_ts, epoch.previous_epoch_max_ts
+                  epoch.epoch_number, epoch.start_block_number, epoch.epoch_length, epoch.topology_ts
                 from
                   ord_pbft_messages_completed completed_message
                   inner join ord_epochs epoch

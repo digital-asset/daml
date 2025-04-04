@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.admin
 
 import cats.data.EitherT
-import com.digitalasset.base.error.CantonRpcError
+import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -25,7 +25,7 @@ class PackageOpsForTesting(
 
   override def hasVettedPackageEntry(packageId: PackageId)(implicit
       tc: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonRpcError, Boolean] =
+  ): EitherT[FutureUnlessShutdown, RpcError, Boolean] =
     EitherT.rightT(false)
 
   override def checkPackageUnused(packageId: PackageId)(implicit
@@ -37,7 +37,7 @@ class PackageOpsForTesting(
       mainPkg: LfPackageId,
       packages: List[LfPackageId],
       darDescriptor: PackageService.DarDescription,
-  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, CantonRpcError, Unit] =
+  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, RpcError, Unit] =
     EitherT.rightT(())
 
   override def vetPackages(

@@ -58,9 +58,7 @@ final case class KmsKeyId(str: String300) extends PrettyPrinting {
   )
 }
 
-/** Represents a KMS interface and allows symmetric encryption/decryption with keys stored in the
-  * KMS.
-  */
+/** Represents a KMS interface for various cryptographic operations with keys stored in a KMS. */
 trait Kms extends FlagCloseable with CloseableAtomicHealthComponent {
   type Config <: KmsConfig
 

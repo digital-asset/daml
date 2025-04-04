@@ -212,7 +212,6 @@ class ConnectedSynchronizer(
   private val unassignmentProcessor: UnassignmentProcessor = new UnassignmentProcessor(
     Source(synchronizerId),
     participantId,
-    damle,
     Source(staticSynchronizerParameters),
     reassignmentCoordination,
     ephemeral.inFlightSubmissionSynchronizerTracker,
@@ -231,7 +230,6 @@ class ConnectedSynchronizer(
   private val assignmentProcessor: AssignmentProcessor = new AssignmentProcessor(
     Target(synchronizerId),
     participantId,
-    damle,
     Target(staticSynchronizerParameters),
     reassignmentCoordination,
     ephemeral.inFlightSubmissionSynchronizerTracker,

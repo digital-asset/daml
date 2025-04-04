@@ -4,8 +4,9 @@
 package com.digitalasset.canton.sequencing.client
 
 import cats.syntax.either.*
-import com.digitalasset.canton.SequencerCounter
+import cats.syntax.option.*
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasRunOnClosing, OnShutdownRunner}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -14,7 +15,7 @@ import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.SequencerAggregatorPekko.HasSequencerSubscriptionFactoryPekko
 import com.digitalasset.canton.sequencing.client.ResilientSequencerSubscription.LostSequencerSubscription
 import com.digitalasset.canton.sequencing.client.transports.SequencerClientTransportPekko
-import com.digitalasset.canton.sequencing.protocol.SubscriptionRequest
+import com.digitalasset.canton.sequencing.protocol.SubscriptionRequestV2
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.{RetrySourcePolicy, WithKillSwitch}
@@ -52,21 +53,22 @@ class ResilientSequencerSubscriberPekko[E](
   import ResilientSequencerSubscriberPekko.*
 
   /** Start running the resilient sequencer subscription from the given counter */
-  def subscribeFrom(startingCounter: SequencerCounter)(implicit
+  def subscribeFrom(startingTimestamp: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
   ): SequencerSubscriptionPekko[E] = {
 
-    logger.debug(s"Starting resilient sequencer subscription from counter $startingCounter")
+    logger.debug(s"Starting resilient sequencer subscription from counter $startingTimestamp")
+    val startingTimestampString = startingTimestamp.map(_.toString).getOrElse("beginning")
     val onShutdownRunner = new OnShutdownRunner.PureOnShutdownRunner(logger)
     val sequencerId = subscriptionFactory.sequencerId
     val health = new ResilientSequencerSubscriptionHealth(
-      s"sequencer-subscription-for-$sequencerId-starting-at-$startingCounter",
+      s"sequencer-subscription-for-$sequencerId-starting-at-$startingTimestampString",
       sequencerId,
       onShutdownRunner,
       logger,
     )
     val initial =
-      RestartSourceConfig(startingCounter, retryDelayRule.initialDelay, health)(traceContext)
+      RestartSourceConfig(startingTimestamp, retryDelayRule.initialDelay, health)(traceContext)
     val source = PekkoUtil
       .restartSource("resilient-sequencer-subscription", initial, mkSource, policy)
       // Filter out retried errors
@@ -148,11 +150,11 @@ class ResilientSequencerSubscriberPekko[E](
           lastState.health.failureOccurred(error)
         }
 
-        val nextCounter = lastEmittedElement.fold(lastState.startingCounter)(
-          _.fold(_.lastSequencerCounter, _.counter)
+        val nextStartingTimestamp = lastEmittedElement.fold(lastState.startingTimestamp)(
+          _.fold(_.lastEventTimestamp, _.timestamp.some)
         )
         val newDelay = retryDelayRule.nextDelay(currentDelay, hasReceivedEvent)
-        currentDelay -> lastState.copy(startingCounter = nextCounter, delay = newDelay)
+        currentDelay -> lastState.copy(startingTimestamp = nextStartingTimestamp, delay = newDelay)
       }
     }
   }
@@ -161,12 +163,13 @@ class ResilientSequencerSubscriberPekko[E](
       config: RestartSourceConfig
   ): Source[Either[TriagedError[E], OrdinarySerializedEvent], (KillSwitch, Future[Done])] = {
     implicit val traceContext: TraceContext = config.traceContext
-    val nextCounter = config.startingCounter
-    logger.debug(s"Starting new sequencer subscription from $nextCounter")
+    val startingTimestamp = config.startingTimestamp
+    val startingTimestampString = startingTimestamp.map(_.toString).getOrElse("the beginning")
+    logger.debug(s"Starting new sequencer subscription from $startingTimestampString")
     subscriptionFactory
-      .create(nextCounter)
+      .create(startingTimestamp)
       .source
-      .statefulMap(() => TriageState(hasPreviouslyReceivedEvents = false, nextCounter))(
+      .statefulMap(() => TriageState(hasPreviouslyReceivedEvents = false, startingTimestamp))(
         triageError(config.health),
         _ => None,
       )
@@ -179,7 +182,7 @@ class ResilientSequencerSubscriberPekko[E](
       traceContext: TraceContext
   ): (TriageState, Either[TriagedError[E], OrdinarySerializedEvent]) = {
     val element = elementWithKillSwitch.value
-    val TriageState(hasPreviouslyReceivedEvents, lastSequencerCounter) = state
+    val TriageState(hasPreviouslyReceivedEvents, lastEventTimestamp) = state
     val hasReceivedEvents = hasPreviouslyReceivedEvents || element.isRight
     // Resolve to healthy when we get a new element again
     if (!hasPreviouslyReceivedEvents && element.isRight) {
@@ -187,10 +190,10 @@ class ResilientSequencerSubscriberPekko[E](
     }
     val triaged = element.leftMap { err =>
       val canRetry = subscriptionFactory.retryPolicy.retryOnError(err, hasReceivedEvents)
-      TriagedError(canRetry, hasReceivedEvents, lastSequencerCounter, err)
+      TriagedError(canRetry, hasReceivedEvents, lastEventTimestamp, err)
     }
-    val currentSequencerCounter = element.fold(_ => lastSequencerCounter, _.counter)
-    val newState = TriageState(hasReceivedEvents, currentSequencerCounter)
+    val currentStartingTimestamp = element.fold(_ => lastEventTimestamp, _.timestamp.some)
+    val newState = TriageState(hasReceivedEvents, currentStartingTimestamp)
     (newState, triaged)
   }
 }
@@ -204,26 +207,26 @@ object ResilientSequencerSubscriberPekko {
     *   starting a new subscription?
     */
   private[ResilientSequencerSubscriberPekko] final case class RestartSourceConfig(
-      startingCounter: SequencerCounter,
+      startingTimestamp: Option[CantonTimestamp],
       delay: FiniteDuration,
       health: ResilientSequencerSubscriptionHealth,
   )(val traceContext: TraceContext)
       extends PrettyPrinting {
     override protected def pretty: Pretty[RestartSourceConfig.this.type] = prettyOfClass(
-      param("starting counter", _.startingCounter)
+      param("starting timestamp", _.startingTimestamp)
     )
 
     def copy(
-        startingCounter: SequencerCounter = this.startingCounter,
+        startingTimestamp: Option[CantonTimestamp] = this.startingTimestamp,
         delay: FiniteDuration = this.delay,
         health: ResilientSequencerSubscriptionHealth = this.health,
-    ): RestartSourceConfig = RestartSourceConfig(startingCounter, delay, health)(traceContext)
+    ): RestartSourceConfig = RestartSourceConfig(startingTimestamp, delay, health)(traceContext)
   }
 
   private final case class TriagedError[+E](
       retryable: Boolean,
       hasReceivedElements: Boolean,
-      lastSequencerCounter: SequencerCounter,
+      lastEventTimestamp: Option[CantonTimestamp],
       error: E,
   )
 
@@ -245,9 +248,9 @@ object ResilientSequencerSubscriberPekko {
     new SequencerSubscriptionFactoryPekko[E] {
       override def sequencerId: SequencerId = sequencerID
 
-      override def create(startingCounter: SequencerCounter)(implicit
+      override def create(startingTimestamp: Option[CantonTimestamp])(implicit
           traceContext: TraceContext
-      ): SequencerSubscriptionPekko[E] = subscriber.subscribeFrom(startingCounter)
+      ): SequencerSubscriptionPekko[E] = subscriber.subscribeFrom(startingTimestamp)
 
       override val retryPolicy: SubscriptionErrorRetryPolicyPekko[E] =
         SubscriptionErrorRetryPolicyPekko.never
@@ -256,7 +259,7 @@ object ResilientSequencerSubscriberPekko {
 
   private final case class TriageState(
       hasPreviouslyReceivedEvents: Boolean,
-      lastSequencerCounter: SequencerCounter,
+      lastEventTimestamp: Option[CantonTimestamp],
   )
 
   private class ResilientSequencerSubscriptionHealth(
@@ -277,7 +280,7 @@ trait SequencerSubscriptionFactoryPekko[E] extends HasSequencerSubscriptionFacto
   def sequencerId: SequencerId
 
   def create(
-      startingCounter: SequencerCounter
+      startingTimestamp: Option[CantonTimestamp]
   )(implicit traceContext: TraceContext): SequencerSubscriptionPekko[E]
 
   def retryPolicy: SubscriptionErrorRetryPolicyPekko[E]
@@ -301,10 +304,10 @@ object SequencerSubscriptionFactoryPekko {
     new SequencerSubscriptionFactoryPekko[E] {
       override def sequencerId: SequencerId = sequencerID
 
-      override def create(startingCounter: SequencerCounter)(implicit
+      override def create(startingTimestamp: Option[CantonTimestamp])(implicit
           traceContext: TraceContext
       ): SequencerSubscriptionPekko[E] = {
-        val request = SubscriptionRequest(member, startingCounter, protocolVersion)
+        val request = SubscriptionRequestV2(member, startingTimestamp, protocolVersion)
         transport.subscribe(request)
       }
 

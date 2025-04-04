@@ -46,7 +46,7 @@ private[metrics] final class BftOrderingHistograms(val parent: MetricName)(impli
   private[metrics] val global = new GlobalMetrics
 
   // Private constructor to avoid being instantiated multiple times by accident
-  private[metrics] final class IngressMatrics private[BftOrderingHistograms] {
+  private[metrics] final class IngressMetrics private[BftOrderingHistograms] {
     private[metrics] val prefix = BftOrderingHistograms.this.prefix :+ "ingress"
 
     private[metrics] val requestsSize: Item = Item(
@@ -56,7 +56,7 @@ private[metrics] final class BftOrderingHistograms(val parent: MetricName)(impli
       qualification = MetricQualification.Traffic,
     )
   }
-  private[metrics] val ingress = new IngressMatrics
+  private[metrics] val ingress = new IngressMetrics
 
   // Private constructor to avoid being instantiated multiple times by accident
   private[metrics] final class ConsensusMetrics private[BftOrderingHistograms] {
@@ -95,6 +95,14 @@ private[metrics] final class BftOrderingHistograms(val parent: MetricName)(impli
       summary = "Block size (batches)",
       description = "Records the size (in batches) of blocks ordered.",
       qualification = MetricQualification.Traffic,
+    )
+
+    private[metrics] val blockDelay: Item = Item(
+      prefix :+ "block-delay",
+      summary = "Block delay",
+      description =
+        "Wall-clock time of the ordered block being provided to the sequencer minus BFT time of the block.",
+      qualification = MetricQualification.Latency,
     )
   }
   private[metrics] val output = new OutputMetrics
@@ -489,6 +497,9 @@ class BftOrderingMetrics private[metrics] (
 
     val blockSizeBatches: Histogram =
       openTelemetryMetricsFactory.histogram(histograms.output.blockSizeBatches.info)
+
+    val blockDelay: Timer =
+      openTelemetryMetricsFactory.timer(histograms.output.blockDelay.info)
   }
   val output = new OutputMetrics
 

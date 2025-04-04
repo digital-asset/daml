@@ -627,7 +627,6 @@ create or replace view debug.ord_epochs as
     start_block_number,
     epoch_length,
     debug.canton_timestamp(topology_ts) as topology_ts,
-    debug.canton_timestamp(previous_epoch_max_ts) as previous_epoch_max_ts,
     in_progress
   from ord_epochs;
 

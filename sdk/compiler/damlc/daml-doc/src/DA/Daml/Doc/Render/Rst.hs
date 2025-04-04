@@ -33,17 +33,12 @@ renderRst env = \case
     RenderDocs docText -> docTextToRst docText
     RenderAnchor anchor -> [".. _" <> unAnchor anchor <> ":"]
     RenderIndex moduleNames ->
-        [ ".. toctree::"
-        , "   :maxdepth: 3"
-        , "   :titlesonly:"
-        , ""
-        ] ++
         [ T.concat
-            [ "   "
+            [ "* :doc:`"
             , unModulename moduleName
             , " <"
             , T.pack (moduleNameToFileName moduleName)
-            , ">"
+            , ">`"
             ]
         | moduleName <- moduleNames
         ]

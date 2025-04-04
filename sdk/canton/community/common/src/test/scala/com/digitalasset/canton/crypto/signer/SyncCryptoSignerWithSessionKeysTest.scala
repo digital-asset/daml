@@ -4,25 +4,25 @@
 package com.digitalasset.canton.crypto.signer
 
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config
-import com.digitalasset.canton.config.{PositiveDurationSeconds, SessionSigningKeysConfig}
+import com.digitalasset.canton.config.SessionSigningKeysConfig
 import com.digitalasset.canton.crypto.{
   Signature,
+  SignatureDelegation,
   SignatureDelegationValidityPeriod,
   SynchronizerCryptoClient,
 }
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.DefaultTestIdentities.participant1
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
 
-class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSignerTest {
-  private lazy val validityDuration = config.PositiveDurationSeconds.ofSeconds(10)
+import scala.concurrent.duration.FiniteDuration
 
+class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSignerTest {
   override protected lazy val sessionSigningKeysConfig: SessionSigningKeysConfig =
     SessionSigningKeysConfig.default
-      .copy(keyValidityDuration = validityDuration)
+
+  private lazy val validityDuration = sessionSigningKeysConfig.keyValidityDuration
 
   private def sessionKeysCache(p: SynchronizerCryptoClient) =
     p.syncCryptoSigner
@@ -30,18 +30,27 @@ class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSig
       .sessionKeysSigningCache
       .asMap()
 
+  private def sessionKeysVerificationCache(p: SynchronizerCryptoClient) =
+    p.syncCryptoSigner.sessionKeysVerificationCache.asMap().map { case (id, (sD, _)) => (id, sD) }
+
   private def cleanUpSessionKeysCache(p: SynchronizerCryptoClient): Unit =
     p.syncCryptoSigner
       .asInstanceOf[SyncCryptoSignerWithSessionKeys]
       .sessionKeysSigningCache
       .invalidateAll()
 
-  private def cutOffValidityPercentage(p: SynchronizerCryptoClient) =
-    p.syncCryptoSigner.asInstanceOf[SyncCryptoSignerWithSessionKeys].cutOffValidityPercentage
+  private def cleanUpSessionKeysVerificationCache(p: SynchronizerCryptoClient): Unit =
+    p.syncCryptoSigner
+      .asInstanceOf[SyncCryptoSignerWithSessionKeys]
+      .sessionKeysVerificationCache
+      .invalidateAll()
+
+  private def cutOffDuration(p: SynchronizerCryptoClient) =
+    p.syncCryptoSigner.asInstanceOf[SyncCryptoSignerWithSessionKeys].cutOffDuration
 
   private def setSessionKeyEvictionPeriod(
       p: SynchronizerCryptoClient,
-      newPeriod: config.PositiveDurationSeconds,
+      newPeriod: FiniteDuration,
   ): Unit =
     p.syncCryptoSigner
       .asInstanceOf[SyncCryptoSignerWithSessionKeys]
@@ -58,7 +67,7 @@ class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSig
       p: SynchronizerCryptoClient = p1,
       periodLength: PositiveSeconds =
         PositiveSeconds.tryOfSeconds(validityDuration.underlying.toSeconds),
-  ): Assertion = {
+  ): SignatureDelegation = {
 
     val cache = sessionKeysCache(p)
     val (_, sessionKeyAndDelegation) = cache
@@ -84,12 +93,23 @@ class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSig
         topologySnapshot.timestamp,
         periodLength,
       )
+
+    sessionKeyAndDelegation.signatureDelegation
   }
 
   "A SyncCryptoSigner with session keys" must {
 
+    behave like syncCryptoSignerTest()
+
     "use correct sync crypto signer with session keys" in {
       syncCryptoSignerP1 shouldBe a[SyncCryptoSignerWithSessionKeys]
+
+      // make sure we start from a clean state
+      cleanUpSessionKeysCache(p1)
+      cleanUpSessionKeysVerificationCache(p1)
+
+      sessionKeysCache(p1) shouldBe empty
+      sessionKeysVerificationCache(p1) shouldBe empty
     }
 
     "correctly produce a signature delegation when signing a single message" in {
@@ -103,7 +123,25 @@ class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSig
         .valueOrFail("sign failed")
         .futureValueUS
 
-      checkSignatureDelegation(testSnapshot, signature)
+      val signatureDelegation = checkSignatureDelegation(testSnapshot, signature)
+
+      syncCryptoSignerP1
+        .verifySignature(
+          testSnapshot,
+          hash,
+          participant1.member,
+          signature,
+          defaultUsage,
+        )
+        .valueOrFail("verification failed")
+        .futureValueUS
+
+      val (_, sDSigningCached) = sessionKeysCache(p1).loneElement
+      val (_, sDVerificationCached) = sessionKeysVerificationCache(p1).loneElement
+
+      // make sure that nothing changed with the session key and signature delegation
+      sDSigningCached.signatureDelegation shouldBe signatureDelegation
+      sDSigningCached.signatureDelegation shouldBe sDVerificationCached
 
     }
 
@@ -113,13 +151,10 @@ class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSig
       // select a timestamp that is after the cut-off period
       val cutOffTimestamp =
         currentSessionKey.signatureDelegation.validityPeriod
-          .computeCutOffTimestamp(
-            cutOffValidityPercentage(p1)
-          )
-          .valueOrFail("fail to compute the cut-off timestamp")
+          .computeCutOffTimestamp(cutOffDuration(p1))
 
       val afterCutOffSnapshot =
-        testingTopology.topologySnapshot(timestampOfSnapshot = cutOffTimestamp.addMicros(100))
+        testingTopology.topologySnapshot(timestampOfSnapshot = cutOffTimestamp)
 
       val signature = syncCryptoSignerP1
         .sign(
@@ -178,7 +213,7 @@ class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSig
     "session signing key is removed from the cache after the eviction period" in {
       cleanUpSessionKeysCache(p1)
 
-      val newEvictionPeriod = PositiveDurationSeconds.ofSeconds(5)
+      val newEvictionPeriod = PositiveSeconds.tryOfSeconds(5).toFiniteDuration
 
       setSessionKeyEvictionPeriod(p1, newEvictionPeriod)
       sessionKeysCache(p1) shouldBe empty
@@ -194,13 +229,12 @@ class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSig
 
       checkSignatureDelegation(testSnapshot, signature)
 
-      Threading.sleep(newEvictionPeriod.duration.toMillis + 100L)
+      Threading.sleep(newEvictionPeriod.toMillis + 100L)
 
       eventually() {
         sessionKeysCache(p1).toSeq shouldBe empty
       }
     }
 
-    behave like syncCryptoSignerTest()
   }
 }

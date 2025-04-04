@@ -30,7 +30,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValid
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidationError.ContractDataMismatch
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentValidationError.{
-  ContractMetadataMismatch,
+  ContractIdAuthenticationFailure,
   NotHostedOnParticipant,
   StakeholdersMismatch,
   SubmitterMustBeStakeholder,
@@ -118,12 +118,19 @@ class AssignmentProcessingStepsTest
     UniqueIdentifier.tryFromProtoPrimitive("bothsynchronizers::participant")
   )
 
-  private lazy val contract = ExampleTransactionFactory.authenticatedSerializableContract(
-    metadata = ContractMetadata.tryCreate(
-      stakeholders = Set(party1),
-      signatories = Set(party1),
-      maybeKeyWithMaintainersVersioned = None,
+  private def testMetadata(
+      signatories: Set[LfPartyId] = Set(party1),
+      stakeholders: Set[LfPartyId] = Set(party1),
+      maybeKeyWithMaintainersVersioned: Option[LfVersioned[LfGlobalKeyWithMaintainers]] = None,
+  ): ContractMetadata =
+    ContractMetadata.tryCreate(
+      stakeholders = stakeholders,
+      signatories = signatories,
+      maybeKeyWithMaintainersVersioned = maybeKeyWithMaintainersVersioned,
     )
+
+  private lazy val contract = ExampleTransactionFactory.authenticatedSerializableContract(
+    metadata = testMetadata()
   )
 
   private lazy val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.One
@@ -163,7 +170,7 @@ class AssignmentProcessingStepsTest
       .currentSnapshotApproximation
 
   private lazy val assignmentProcessingSteps =
-    testInstance(targetSynchronizer, Set(party1), Set(party1), cryptoSnapshot, None)
+    testInstance(targetSynchronizer, cryptoSnapshot, None)
 
   private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
 
@@ -573,8 +580,8 @@ class AssignmentProcessingStepsTest
       }
     }
 
-    "fail when wrong metadata is given (stakeholders)" in {
-      def test(contractWrongStakeholders: SerializableContract) =
+    "fail when wrong metadata is given" in {
+      def test(testContract: SerializableContract) =
         for {
           deps <- statefulDependencies
           (persistentState, ephemeralState) = deps
@@ -585,7 +592,7 @@ class AssignmentProcessingStepsTest
 
           fullAssignmentTree = makeFullAssignmentTree(
             party1,
-            contractWrongStakeholders,
+            testContract,
             targetSynchronizer,
             targetMediator,
             unassignmentResult,
@@ -612,35 +619,63 @@ class AssignmentProcessingStepsTest
           val modelConformanceError =
             assignmentValidationResult.metadataResultET.value.futureValueUS
 
-          modelConformanceError.left.value shouldBe ContractMetadataMismatch(
-            fullAssignmentTree.reassignmentRef,
-            contractWrongStakeholders.metadata,
-            contract.metadata,
-          )
+          modelConformanceError.left.value match {
+            case ContractIdAuthenticationFailure(ref, reason, contractId) =>
+              ref shouldBe fullAssignmentTree.reassignmentRef
+              contractId shouldBe testContract.contractId
+              reason should startWith("Mismatching contract id suffixes")
+            case other => fail(s"Did not expect $other")
+          }
+
           assignmentValidationResult.validationErrors shouldBe Seq(
             ContractDataMismatch(reassignmentId)
           )
         }
 
+      val baseMetadata = testMetadata()
+
       // party2 is incorrectly registered as a stakeholder
       val contractWrongStakeholders: SerializableContract =
-        ExampleTransactionFactory.authenticatedSerializableContract(
-          metadata = ContractMetadata.tryCreate(
-            stakeholders = Set(party1, party2),
-            signatories = Set(party1),
-            maybeKeyWithMaintainersVersioned = None,
+        ExampleTransactionFactory
+          .authenticatedSerializableContract(
+            metadata = baseMetadata
           )
-        )
+          .focus(_.metadata)
+          .replace(
+            testMetadata(stakeholders = baseMetadata.stakeholders + party2)
+          )
 
       // party2 is incorrectly registered as a signatory
       val contractWrongSignatories: SerializableContract =
-        ExampleTransactionFactory.authenticatedSerializableContract(
-          metadata = ContractMetadata.tryCreate(
-            stakeholders = Set(party1, party2),
-            signatories = Set(party1, party2),
-            maybeKeyWithMaintainersVersioned = None,
+        ExampleTransactionFactory
+          .authenticatedSerializableContract(
+            metadata = testMetadata(stakeholders = baseMetadata.stakeholders + party2)
           )
-        )
+          .focus(_.metadata)
+          .replace(
+            testMetadata(
+              stakeholders = baseMetadata.stakeholders + party2,
+              signatories = baseMetadata.signatories + party2,
+            )
+          )
+
+      val incorrectKey = ExampleTransactionFactory.globalKeyWithMaintainers(
+        ExampleTransactionFactory.defaultGlobalKey,
+        Set(party1),
+      )
+
+      // Metadata has incorrect key
+      val contractWrongKey: SerializableContract =
+        ExampleTransactionFactory
+          .authenticatedSerializableContract(
+            metadata = testMetadata(stakeholders = baseMetadata.stakeholders + party2)
+          )
+          .focus(_.metadata)
+          .replace(
+            testMetadata(
+              maybeKeyWithMaintainersVersioned = Some(incorrectKey)
+            )
+          )
 
       for {
         _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
@@ -651,78 +686,12 @@ class AssignmentProcessingStepsTest
           test(contractWrongSignatories),
           modelConformanceError,
         )
-      } yield succeed
-    }
 
-    "fail when wrong metadata is given (contract key)" in {
-      val incorrectKey = ExampleTransactionFactory.globalKeyWithMaintainers(
-        ExampleTransactionFactory.defaultGlobalKey,
-        Set(party1),
-      )
-
-      val incorrectMetadata = ContractMetadata.tryCreate(
-        stakeholders = contract.metadata.stakeholders,
-        signatories = contract.metadata.signatories,
-        maybeKeyWithMaintainersVersioned = Some(incorrectKey),
-      )
-
-      def test(metadata: ContractMetadata) = {
-        val contract = ExampleTransactionFactory.authenticatedSerializableContract(
-          metadata = metadata
+        _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
+          test(contractWrongKey),
+          modelConformanceError,
         )
-
-        val resF = for {
-          deps <- statefulDependencies
-          (persistentState, ephemeralState) = deps
-
-          _ <- valueOrFail(persistentState.reassignmentStore.addUnassignmentData(reassignmentData))(
-            "add reassignment data failed"
-          ).failOnShutdown
-
-          fullAssignmentTree = makeFullAssignmentTree(
-            contract = contract,
-            reassigningParticipants = Set(participant),
-          )
-
-          res <- assignmentProcessingSteps
-            .constructPendingDataAndResponse(
-              mkParsedRequest(fullAssignmentTree),
-              ephemeralState.reassignmentCache,
-              FutureUnlessShutdown.pure(mkActivenessResult()),
-              engineController =
-                EngineController(participant, RequestId(CantonTimestamp.Epoch), loggerFactory),
-            )
-            .failOnShutdown
-            .value
-
-        } yield res.value
-        resF.futureValue
-      }
-
-      test(contract.metadata).confirmationResponsesF.futureValueUS.value
-        .valueOrFail("no response")
-        ._1
-        .responses should matchPattern { case Seq(ConfirmationResponse(_, LocalApprove(), _)) =>
-      }
-
-      loggerFactory.assertLoggedWarningsAndErrorsSeq(
-        {
-          val testResult = test(incorrectMetadata)
-          testResult.confirmationResponsesF.futureValueUS.value
-            .valueOrFail("no response")
-            ._1
-            .responses should matchPattern {
-            case Seq(ConfirmationResponse(_, LocalReject(_, true), _)) =>
-          }
-          testResult.pendingData.assignmentValidationResult.metadataResultET.futureValueUS.left.value shouldBe ContractMetadataMismatch(
-            ReassignmentRef(reassignmentId),
-            incorrectMetadata,
-            contract.metadata,
-          )
-
-        },
-        modelConformanceError,
-      )
+      } yield succeed
     }
 
     "fail when inconsistent stakeholders are given" in {
@@ -912,20 +881,16 @@ class AssignmentProcessingStepsTest
 
   private def testInstance(
       targetSynchronizer: Target[SynchronizerId],
-      signatories: Set[LfPartyId],
-      stakeholders: Set[LfPartyId],
       snapshotOverride: SynchronizerSnapshotSyncCryptoApi,
       awaitTimestampOverride: Option[Future[Unit]],
-  ): AssignmentProcessingSteps = {
+  ) = {
 
     val pureCrypto = new SymbolicPureCrypto
-    val damle = DAMLeTestInstance(participant, signatories, stakeholders)(loggerFactory)
     val seedGenerator = new SeedGenerator(pureCrypto)
 
     new AssignmentProcessingSteps(
       targetSynchronizer,
       participant,
-      damle,
       TestReassignmentCoordination.apply(
         Set(),
         CantonTimestamp.Epoch,

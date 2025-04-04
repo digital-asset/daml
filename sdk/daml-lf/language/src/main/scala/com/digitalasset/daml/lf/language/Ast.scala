@@ -423,6 +423,11 @@ object Ast {
   final case object FCInvalidGivenCurrentSystemStateOther
       extends FailureCategory("InvalidGivenCurrentSystemStateOther", 9)
 
+  object FailureCategory {
+    def all: Seq[FailureCategory] =
+      Seq(FCInvalidIndependentOfSystemState, FCInvalidGivenCurrentSystemStateOther)
+  }
+
   //
   // Builtin constructors
   //

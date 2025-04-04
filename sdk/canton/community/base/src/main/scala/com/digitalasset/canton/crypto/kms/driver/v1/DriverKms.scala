@@ -38,7 +38,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
-/** An internal KMS implementation based on an external KMS driver */
+/** An internal KMS implementation based on an external KMS driver. */
 class DriverKms(
     val config: KmsConfig.Driver,
     driver: api.v1.KmsDriver,

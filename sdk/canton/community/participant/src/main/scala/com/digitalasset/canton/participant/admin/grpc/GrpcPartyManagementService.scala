@@ -15,7 +15,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.mapErrNewEUS
-import com.digitalasset.canton.participant.admin.data.ActiveContractNew as ActiveContractValueClass
+import com.digitalasset.canton.participant.admin.data.ActiveContract as ActiveContractValueClass
 import com.digitalasset.canton.participant.admin.grpc.GrpcPartyManagementService.ValidExportAcsRequest
 import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow.PartyReplicationArguments
 import com.digitalasset.canton.participant.admin.party.{
@@ -105,23 +105,23 @@ class GrpcPartyManagementService(
   ): Either[String, T] =
     UniqueIdentifier.fromProtoPrimitive(rawId, field).bimap(_.toString, wrap)
 
-  override def exportAcsNew(
-      request: ExportAcsNewRequest,
-      responseObserver: StreamObserver[ExportAcsNewResponse],
+  override def exportAcs(
+      request: ExportAcsRequest,
+      responseObserver: StreamObserver[ExportAcsResponse],
   ): Unit = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     GrpcStreamingUtils.streamToClient(
       (out: OutputStream) => createAcsSnapshot(request, new GZIPOutputStream(out)),
       responseObserver,
-      byteString => ExportAcsNewResponse(byteString),
+      byteString => ExportAcsResponse(byteString),
       processingTimeout.unbounded.duration,
       chunkSizeO = None,
     )
   }
 
   private def createAcsSnapshot(
-      request: ExportAcsNewRequest,
+      request: ExportAcsRequest,
       out: OutputStream,
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val allSynchronizers: Map[SynchronizerId, SyncPersistentState] =
@@ -189,7 +189,7 @@ object GrpcPartyManagementService {
   private object ValidExportAcsRequest {
 
     def validateRequest(
-        request: ExportAcsNewRequest,
+        request: ExportAcsRequest,
         ledgerEnd: Offset,
         synchronizerIds: Set[SynchronizerId],
     )(implicit

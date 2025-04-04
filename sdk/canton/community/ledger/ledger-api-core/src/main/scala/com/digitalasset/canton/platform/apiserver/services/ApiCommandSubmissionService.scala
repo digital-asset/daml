@@ -140,7 +140,7 @@ final class ApiCommandSubmissionService(
     implicit val loggingContextWithTrace: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory, telemetry)
 
-    request.reassignmentCommand.foreach { command =>
+    request.reassignmentCommands.foreach { command =>
       telemetryContext
         .setAttribute(SpanAttribute.UserId, command.userId)
         .setAttribute(SpanAttribute.CommandId, command.commandId)
@@ -152,7 +152,7 @@ final class ApiCommandSubmissionService(
       ErrorLoggingContext.fromOption(
         logger,
         loggingContextWithTrace,
-        requestWithSubmissionId.reassignmentCommand.map(_.submissionId),
+        requestWithSubmissionId.reassignmentCommands.map(_.submissionId),
       )
     Timed
       .value(
@@ -170,7 +170,7 @@ final class ApiCommandSubmissionService(
               commandId = request.commandId,
               submissionId = Some(request.submissionId),
               workflowId = request.workflowId,
-              reassignmentCommand = request.reassignmentCommand match {
+              reassignmentCommands = request.reassignmentCommands.map {
                 case Left(assignCommand) =>
                   ReassignmentCommand.Assign(
                     sourceSynchronizer = assignCommand.sourceSynchronizerId,
@@ -200,8 +200,8 @@ final class ApiCommandSubmissionService(
   private def generateSubmissionIdIfEmpty(
       request: SubmitReassignmentRequest
   ): SubmitReassignmentRequest =
-    if (request.reassignmentCommand.exists(_.submissionId.isEmpty))
-      request.update(_.reassignmentCommand.submissionId := submissionIdGenerator.generate())
+    if (request.reassignmentCommands.exists(_.submissionId.isEmpty))
+      request.update(_.reassignmentCommands.submissionId := submissionIdGenerator.generate())
     else
       request
 

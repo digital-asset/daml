@@ -69,7 +69,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       commandId: Ref.CommandId,
       submissionId: Option[Ref.SubmissionId],
       workflowId: Option[Ref.WorkflowId],
-      reassignmentCommand: ReassignmentCommand,
+      reassignmentCommands: Seq[ReassignmentCommand],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] =
@@ -82,7 +82,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
         commandId,
         submissionId,
         workflowId,
-        reassignmentCommand,
+        reassignmentCommands,
       ),
     )
 

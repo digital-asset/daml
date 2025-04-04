@@ -8,7 +8,6 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisPreviousEpochMaxBftTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.{
   EpochStatusBuilder,
   RetransmissionsManager,
@@ -59,7 +58,6 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       BlockNumber.First,
       EpochLength(10),
       TopologyActivationTime(CantonTimestamp.Epoch),
-      GenesisPreviousEpochMaxBftTime,
     ),
     membership,
     membership,

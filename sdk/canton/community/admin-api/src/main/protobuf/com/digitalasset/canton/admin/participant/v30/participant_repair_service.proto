@@ -13,13 +13,15 @@ import "google/protobuf/timestamp.proto";
 // and should be used with caution.
 service ParticipantRepairService {
   // Export the ACS for the given parties from the participant
-  rpc ExportAcs(ExportAcsRequest) returns (stream ExportAcsResponse); // TODO(#24326) - Remove, new ExportAcs lives in the party_management_service.proto
+  // DEPRECATED: Use ExportAcs in the party_management_service.proto instead
+  rpc ExportAcsOld(ExportAcsOldRequest) returns (stream ExportAcsOldResponse); // TODO(#24610) - Remove, new ExportAcs lives in the party_management_service.proto
 
   // Import an existing export into the participant
-  rpc ImportAcs(stream ImportAcsRequest) returns (ImportAcsResponse); // TODO(#24326) - Replace with ImportAcsNew below
+  // DEPRECATED: Use ImportAcs in this proto file
+  rpc ImportAcsOld(stream ImportAcsOldRequest) returns (ImportAcsOldResponse); // TODO(#24610) - Remove, replaced with ImportAcs below
 
   // Import an existing export into the participant
-  rpc ImportAcsNew(stream ImportAcsNewRequest) returns (ImportAcsNewResponse); // TODO(#24326) - Becomes ImportAcsNew
+  rpc ImportAcs(stream ImportAcsRequest) returns (ImportAcsResponse);
 
   // Remove the given contracts from the participant
   rpc PurgeContracts(PurgeContractsRequest) returns (PurgeContractsResponse);
@@ -98,7 +100,7 @@ message MigrateSynchronizerRequest {
 
 message MigrateSynchronizerResponse {}
 
-message ExportAcsRequest {
+message ExportAcsOldRequest {
   message TargetSynchronizer {
     // The ID of the synchronizer where the contract is supposed to be assigned when the export is being imported
     string synchronizer_id = 1;
@@ -138,14 +140,14 @@ message ExportAcsRequest {
   bool parties_offboarding = 6;
 }
 
-message ExportAcsResponse {
+message ExportAcsOldResponse {
   // The raw binary of the ACS snapshot to be imported
   // This is meant to be streamed and every message should be a chunk of the snapshot
   // Required
   bytes chunk = 1;
 }
 
-message ImportAcsRequest {
+message ImportAcsOldRequest {
   // The raw binary of the ACS snapshot to be imported
   // Required
   bytes acs_snapshot = 1;
@@ -159,7 +161,7 @@ message ImportAcsRequest {
   bool allow_contract_id_suffix_recomputation = 3;
 }
 
-message ImportAcsResponse {
+message ImportAcsOldResponse {
   // Mapping from the old contract id to the new contract id
   map<string, string> contract_id_mapping = 1;
 }
@@ -177,7 +179,7 @@ enum ContractIdImportMode {
   CONTRACT_ID_IMPORT_MODE_RECOMPUTATION = 3;
 }
 
-message ImportAcsNewRequest {
+message ImportAcsRequest {
   // The raw binary of the ACS snapshot to be imported
   // The binary contents does not align on individual active contracts! It may contain bytes that are part of
   // an active contract, or include several active contracts - depending on how much data fits into the
@@ -192,7 +194,7 @@ message ImportAcsNewRequest {
   ContractIdImportMode contract_id_suffix_recomputation_mode = 3;
 }
 
-message ImportAcsNewResponse {
+message ImportAcsResponse {
   // Maps old contract IDs to newly recomputed contract IDs iff the recomputation contract ID import mode has
   // been selected, empty otherwise.
   map<string, string> contract_id_mappings = 1;

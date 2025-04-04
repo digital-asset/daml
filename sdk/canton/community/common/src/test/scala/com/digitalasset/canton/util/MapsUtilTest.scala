@@ -49,5 +49,14 @@ class MapsUtilTest extends AnyWordSpec with BaseTest {
         "2" -> Set(20, 23),
       )
     }
+
+    "transpose" in {
+      import MapsUtil.transpose
+
+      transpose(Map(1 -> Set("a"), 2 -> Set("a"))) shouldBe Map("a" -> Set(1, 2))
+      transpose(Map(1 -> Set("a", "b"))) shouldBe Map("a" -> Set(1), "b" -> Set(1))
+      transpose(Map("a" -> Set.empty[Int], "b" -> Set(1))) shouldBe Map(1 -> Set("b"))
+      transpose(Map.empty[Int, Set[String]]) shouldBe Map.empty[String, Set[Int]]
+    }
   }
 }

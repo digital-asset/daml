@@ -11,12 +11,14 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.DefaultMaxBatchesPerProposal
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.{
+  DefaultEpochLength,
+  DefaultMaxBatchesPerProposal,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.{
   Epoch,
   Segment,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisTopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
@@ -45,8 +47,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
-
-import java.time.Instant
 
 class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest {
 
@@ -539,9 +539,6 @@ object PbftMessageValidatorImplTest {
 
   private val acksWithMeOnly = Seq(createAck(myId))
 
-  private val previousEpochMaxBftTime =
-    CantonTimestamp.assertFromInstant(Instant.parse("2024-03-08T12:00:00.000Z"))
-
   private def createCommit(
       blockMetadata: BlockMetadata = aPreviousBlockInSegmentMetadata,
       from: BftNodeId = myId,
@@ -586,7 +583,6 @@ object PbftMessageValidatorImplTest {
         startBlockNumber,
         DefaultEpochLength, // ignored
         GenesisTopologyActivationTime, // ignored
-        previousEpochMaxBftTime,
       ),
       currentMembership,
       previousMembership,

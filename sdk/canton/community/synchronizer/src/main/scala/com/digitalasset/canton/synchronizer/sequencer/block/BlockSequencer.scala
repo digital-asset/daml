@@ -391,6 +391,27 @@ class BlockSequencer(
     }
   }
 
+  override def awaitContainingBlockLastTimestamp(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerError, CantonTimestamp] = {
+    val delay = 1.second
+    EitherT(
+      Pause(
+        logger,
+        this,
+        maxRetries = (timeouts.default.duration / delay).toInt,
+        delay,
+        s"$functionFullName($timestamp)",
+      ).unlessShutdown(
+        store
+          .findBlockContainingTimestamp(timestamp)
+          .map(_.lastTs)
+          .value,
+        DbExceptionRetryPolicy,
+      )
+    )
+  }
+
   override def snapshot(
       timestamp: CantonTimestamp
   )(implicit

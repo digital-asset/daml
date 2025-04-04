@@ -110,9 +110,9 @@ private[reassignment] object TestReassignmentCoordination {
             Right(overridden.map(FutureUnlessShutdown.outcomeF))
         }
 
-      override def cryptoSnapshot[T[X] <: ReassignmentTag[
-        X
-      ]: SameReassignmentType: SingletonTraverse](
+      override def cryptoSnapshot[
+          T[X] <: ReassignmentTag[X]: SameReassignmentType: SingletonTraverse
+      ](
           synchronizerId: T[SynchronizerId],
           staticSynchronizerParameters: T[StaticSynchronizerParameters],
           timestamp: CantonTimestamp,

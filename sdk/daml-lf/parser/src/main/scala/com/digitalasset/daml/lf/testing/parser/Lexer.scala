@@ -56,6 +56,7 @@ private[parser] object Lexer extends RegexParsers {
     "view_interface" -> `view_interface`,
     "choice_controller" -> `choice_controller`,
     "choice_observer" -> `choice_observer`,
+    "fail_with_status" -> `fail_with_status`,
   )
 
   val token: Parser[Token] =

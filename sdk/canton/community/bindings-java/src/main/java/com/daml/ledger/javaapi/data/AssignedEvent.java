@@ -8,7 +8,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
 
-public final class AssignedEvent {
+public final class AssignedEvent implements ReassignmentEvent {
 
   private final @NonNull String source;
 

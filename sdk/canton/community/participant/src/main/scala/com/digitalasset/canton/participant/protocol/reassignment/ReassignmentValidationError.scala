@@ -11,7 +11,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   ReassignmentProcessorError,
   SubmissionValidationError,
 }
-import com.digitalasset.canton.protocol.{ContractMetadata, LfContractId, Stakeholders}
+import com.digitalasset.canton.protocol.{LfContractId, Stakeholders}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.util.ReassignmentTag
 import com.digitalasset.daml.lf.engine
@@ -49,13 +49,13 @@ object ReassignmentValidationError {
         s"Expected $expectedStakeholders, found $declaredViewStakeholders"
   }
 
-  final case class ContractMetadataMismatch(
+  final case class ContractIdAuthenticationFailure(
       reassignmentRef: ReassignmentRef,
-      declaredContractMetadata: ContractMetadata,
-      expectedMetadata: ContractMetadata,
+      reason: String,
+      contractId: LfContractId,
   ) extends ReassignmentValidationError {
-    override def message: String = s"For `$reassignmentRef`: metadata mismatch. " +
-      s"Expected $expectedMetadata, found $declaredContractMetadata"
+    override def message: String =
+      s"For `$reassignmentRef`: contract id authentication failure for $contractId"
   }
 
   final case class NotHostedOnParticipant(

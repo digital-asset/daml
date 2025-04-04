@@ -163,7 +163,13 @@ class OutputModule[E <: Env[E]](
 
   private val blocksBeingFetched = mutable.Set[BlockNumber]()
 
-  private var epochBeingProcessed: Option[EpochNumber] = None
+  // Used to ensure ordered blocks from an epoch are processed only after the transition to that epoch
+  //  has completed, so that epoch-related transient state in this module, which is updated
+  //  during the processing of ordered blocks, remains consistent.
+  //  It is initialized as soon as the first ordered block is processed, and it is never `None` after that.
+  //  It is initialized lazily because the output module currently doesn't know the start epoch in case of
+  //  onboarding.
+  private var processingFetchedBlocksInEpoch: Option[EpochNumber] = None
 
   private val leaderSelectionPolicy = DefaultLeaderSelectionPolicy
 
@@ -348,7 +354,7 @@ class OutputModule[E <: Env[E]](
             //  the epoch metadata was stored before sending this message.
             currentEpochMetadataStored = epochCouldAlterOrderingTopology
 
-            emitRequestsOrderingStats(metrics, orderedBlockData)
+            emitRequestsOrderingStats(metrics, orderedBlockData, orderedBlockBftTime)
 
             // Since consensus will wait for the topology before starting the new epoch, and we send it only when all
             //  blocks, including the last block of the previous epoch, are fully fetched, all blocks can always be read
@@ -400,7 +406,6 @@ class OutputModule[E <: Env[E]](
           case TopologyFetched(
                 lastBlockFromPreviousEpochMode,
                 newEpochNumber,
-                previousEpochMaxBftTime,
                 orderingTopology,
                 cryptoProvider: CryptoProvider[E],
               ) =>
@@ -420,7 +425,6 @@ class OutputModule[E <: Env[E]](
                   MetadataStoredForNewEpoch(
                     lastBlockFromPreviousEpochMode,
                     newEpochNumber,
-                    previousEpochMaxBftTime,
                     orderingTopology,
                     cryptoProvider,
                   )
@@ -431,14 +435,12 @@ class OutputModule[E <: Env[E]](
                 Some(orderingTopology -> cryptoProvider),
                 lastBlockFromPreviousEpochMode,
                 epochMetadataStored = false,
-                previousEpochMaxBftTime,
               )
             }
 
           case MetadataStoredForNewEpoch(
                 lastBlockFromPreviousEpochMode,
                 newEpochNumber,
-                previousEpochMaxBftTime,
                 orderingTopology,
                 cryptoProvider: CryptoProvider[E],
               ) =>
@@ -450,7 +452,6 @@ class OutputModule[E <: Env[E]](
               Some(orderingTopology -> cryptoProvider),
               lastBlockFromPreviousEpochMode,
               epochMetadataStored = true,
-              previousEpochMaxBftTime,
             )
 
           case snapshotMessage: SequencerSnapshotMessage =>
@@ -473,7 +474,15 @@ class OutputModule[E <: Env[E]](
         case Some(completeBlockData) =>
           val blockEpochNumber =
             completeBlockData.orderedBlockForOutput.orderedBlock.metadata.epochNumber
-          blockEpochNumber <= epochBeingProcessed.getOrElse(blockEpochNumber)
+          val processingEpoch =
+            processingFetchedBlocksInEpoch match {
+              case None =>
+                processingFetchedBlocksInEpoch = Some(blockEpochNumber)
+                blockEpochNumber
+              case Some(epochNumber) =>
+                epochNumber
+            }
+          blockEpochNumber <= processingEpoch
         case _ => false
       }
 
@@ -488,11 +497,6 @@ class OutputModule[E <: Env[E]](
       val orderedBlockNumber = orderedBlock.metadata.blockNumber
       val orderedBlockEpochNumber = orderedBlock.metadata.epochNumber
       val orderedBlockBftTime = previousStoredBlock.computeBlockBftTime(orderedBlock)
-
-      epochBeingProcessed match {
-        case None => epochBeingProcessed = Some(orderedBlockEpochNumber)
-        case _ =>
-      }
 
       if (
         !currentEpochCouldAlterOrderingTopology && potentiallyAltersSequencersTopology(
@@ -647,7 +651,6 @@ class OutputModule[E <: Env[E]](
           TopologyFetched(
             lastBlockMode,
             newEpochNumber,
-            epochEndBftTime,
             orderingTopology,
             cryptoProvider,
           )
@@ -661,7 +664,6 @@ class OutputModule[E <: Env[E]](
         None,
         lastBlockMode,
         epochMetadataStored = false,
-        epochEndBftTime,
       )
     }
   }
@@ -671,7 +673,6 @@ class OutputModule[E <: Env[E]](
       newOrderingTopologyAndCryptoProvider: Option[(OrderingTopology, CryptoProvider[E])],
       lastBlockFromPreviousEpochMode: OrderedBlockForOutput.Mode,
       epochMetadataStored: Boolean,
-      previousEpochMaxBftTime: CantonTimestamp,
   )(implicit
       context: E#ActorContextT[Message[E]],
       traceContext: TraceContext,
@@ -694,7 +695,6 @@ class OutputModule[E <: Env[E]](
         newEpochNumber,
         newMembership,
         cryptoProvider,
-        previousEpochMaxBftTime,
         lastBlockFromPreviousEpochMode,
       ),
     )
@@ -704,11 +704,15 @@ class OutputModule[E <: Env[E]](
     )
 
     newEpochTopologyMessages.foreach { newEpochTopologyMessage =>
-      // It is safe to use mutable state in this block because new epoch messages are processed sequentially.
+      // It is safe to use and change epoch-related mutable state in this block because:
+      //  - New epoch messages are processed sequentially and in order.
+      //  - Ordered blocks processing, which uses and changes epoch-related mutable state:
+      //    - Also happens sequentially and in order.
+      //    - Furthermore, only blocks for the current epoch are processed.
       logger.debug(s"Setting up new epoch ${newEpochTopologyMessage.epochNumber}")
       currentEpochCouldAlterOrderingTopology = false
       currentEpochMetadataStored = epochMetadataStored
-      epochBeingProcessed = Some(newEpochTopologyMessage.epochNumber)
+      processingFetchedBlocksInEpoch = Some(newEpochTopologyMessage.epochNumber)
 
       currentEpochOrderingTopology = newEpochTopologyMessage.membership.orderingTopology
       currentEpochCryptoProvider = newEpochTopologyMessage.cryptoProvider

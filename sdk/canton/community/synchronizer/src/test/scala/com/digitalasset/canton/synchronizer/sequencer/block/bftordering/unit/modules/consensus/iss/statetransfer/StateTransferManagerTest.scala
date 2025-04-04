@@ -52,6 +52,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mod
 }
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.util.Random
+
 class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
   import StateTransferManagerTest.*
 
@@ -500,6 +502,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       dependencies,
       EpochLength(epochLength),
       epochStore,
+      new Random(4),
       loggerFactory,
     )
   }

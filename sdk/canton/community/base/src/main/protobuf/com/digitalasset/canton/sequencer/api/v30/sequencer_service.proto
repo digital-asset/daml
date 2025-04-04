@@ -75,14 +75,6 @@ service SequencerService {
   rpc SendAsync(SendAsyncRequest) returns (SendAsyncResponse);
 
   // Establishes a stream with the server to receive sequenced events from the synchronizer after the given
-  // counter. The delivered events will have a sequential counter and strictly monotonically increasing timestamp.
-  //
-  // The call fails synchronously, if the request is invalid, i.e., some field violates a documented validity condition.
-  // The call fails asynchronously, if the sequencer does not have a key to sign the event; this may occur if
-  // event.topology_timestamp refers to a time before the sequencer has been onboarded.
-  rpc Subscribe(SubscriptionRequest) returns (stream SubscriptionResponse);
-
-  // Establishes a stream with the server to receive sequenced events from the synchronizer after the given
   // counter. The delivered events will have a reference to the previous event (its timestamp)
   // and a strictly monotonically increasing timestamp.
   //

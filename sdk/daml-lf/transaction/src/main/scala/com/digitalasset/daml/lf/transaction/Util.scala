@@ -4,6 +4,8 @@
 package com.digitalasset.daml.lf
 package transaction
 
+import scala.annotation.nowarn
+
 object Util {
 
   import value.Value
@@ -24,16 +26,13 @@ object Util {
 
   // unsafe version of `normalize`
   @throws[IllegalArgumentException]
+  @nowarn(raw"msg=parameter version in method assertNormalizeValue is never used")
   def assertNormalizeValue(
       value0: Value,
       version: TransactionVersion,
   ): Value = {
 
-    import Ordering.Implicits.infixOrderingOps
-
     def handleTypeInfo[X](x: Option[X]) = None
-
-    val allowTextMap = version >= TransactionVersion.minTextMap
 
     def go(value: Value): Value =
       value match {
@@ -52,13 +51,7 @@ object Util {
         case ValueOptional(value) =>
           ValueOptional(value.map(go))
         case ValueTextMap(value) =>
-          if (allowTextMap) {
-            ValueTextMap(value.mapValue(go))
-          } else {
-            throw new IllegalArgumentException(
-              s"TextMap are not allowed in transaction version $version"
-            )
-          }
+          ValueTextMap(value.mapValue(go))
         case ValueGenMap(entries) =>
           ValueGenMap(entries.map { case (k, v) => go(k) -> go(v) })
       }

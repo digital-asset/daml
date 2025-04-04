@@ -140,6 +140,7 @@ CREATE TABLE lapi_events_assign (
     command_id varchar collate "C",
 
     submitter integer,
+    node_id integer not null,               -- event metadata
 
     -- * shared event information
     contract_id bytea not null,
@@ -368,6 +369,7 @@ CREATE TABLE lapi_events_unassign (
     command_id varchar collate "C",
 
     submitter integer,
+    node_id integer not null,               -- event metadata
 
     -- * shared event information
     contract_id bytea not null,

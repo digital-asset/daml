@@ -2867,7 +2867,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           submissionSeed = None,
           submissionTime = txMeta.submissionTime,
           usedPackages = Set.empty,
-          dependsOnTime = state.dependsOnTime,
+          timeBoundaries = state.timeBoundaries,
           nodeSeeds = state.nodeSeeds.toImmArray,
           globalKeyMapping = Map.empty,
           disclosedEvents = ImmArray.empty,
@@ -2951,7 +2951,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       keys: Map[GlobalKeyWithMaintainers, ContractId],
       nodes: HashMap[NodeId, Node] = HashMap.empty,
       roots: BackStack[NodeId] = BackStack.empty,
-      dependsOnTime: Boolean = false,
+      timeBoundaries: Time.Range = Time.Range.unconstrained,
       nodeSeeds: BackStack[(NodeId, crypto.Hash)] = BackStack.empty,
   ) {
     def commit(tr: Tx, meta: Tx.Metadata): ReinterpretState = {
@@ -2968,12 +2968,15 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           )
         case (acc, _) => acc
       }
+      val timeBoundaries: Time.Range =
+        meta.timeBoundaries intersect this.timeBoundaries
+
       ReinterpretState(
         newContracts,
         newKeys,
         nodes ++ tr.nodes,
         roots :++ tr.roots,
-        dependsOnTime || meta.dependsOnTime,
+        timeBoundaries,
         nodeSeeds :++ meta.nodeSeeds,
       )
     }

@@ -53,7 +53,6 @@ import com.digitalasset.canton.{
   BaseTest,
   HasExecutionContext,
   ProtocolVersionChecksFixtureAsyncWordSpec,
-  SequencerCounter,
 }
 import com.google.protobuf.ByteString
 import io.grpc.Status.Code.*
@@ -568,8 +567,11 @@ class GrpcSequencerServiceTest
     "return error if called with observer not capable of observing server calls" in { env =>
       val observer = new MockStreamObserver[v30.SubscriptionResponse]()
       loggerFactory.suppressWarningsAndErrors {
-        env.service.subscribe(
-          v30.SubscriptionRequest(member = "", counter = 0L),
+        env.service.subscribeV2(
+          v30.SubscriptionRequestV2(
+            member = "",
+            timestamp = Some(CantonTimestamp.Epoch.toProtoPrimitive),
+          ),
           observer,
         )
       }
@@ -581,7 +583,13 @@ class GrpcSequencerServiceTest
 
     "return error if request cannot be deserialized" in { env =>
       val observer = new MockServerStreamObserver[v30.SubscriptionResponse]()
-      env.service.subscribe(v30.SubscriptionRequest(member = "", counter = 0L), observer)
+      env.service.subscribeV2(
+        v30.SubscriptionRequestV2(
+          member = "",
+          timestamp = Some(CantonTimestamp.Epoch.toProtoPrimitive),
+        ),
+        observer,
+      )
 
       observer.items.toSeq should matchPattern {
         case Seq(StreamError(err: StatusException)) if err.getStatus.getCode == INVALID_ARGUMENT =>
@@ -591,9 +599,9 @@ class GrpcSequencerServiceTest
     "return error if pool registration fails" in { env =>
       val observer = new MockServerStreamObserver[v30.SubscriptionResponse]()
       val requestP =
-        SubscriptionRequest(
+        SubscriptionRequestV2(
           participant,
-          SequencerCounter.Genesis,
+          timestamp = None,
           testedProtocolVersion,
         ).toProtoV30
 
@@ -606,7 +614,7 @@ class GrpcSequencerServiceTest
         )
         .thenReturn(Left(PoolClosed))
 
-      env.service.subscribe(requestP, observer)
+      env.service.subscribeV2(requestP, observer)
 
       inside(observer.items.loneElement) { case StreamError(ex: StatusException) =>
         ex.getStatus.getCode shouldBe UNAVAILABLE
@@ -617,14 +625,14 @@ class GrpcSequencerServiceTest
     "return error if sending request with member that is not authenticated" in { env =>
       val observer = new MockServerStreamObserver[v30.SubscriptionResponse]()
       val requestP =
-        SubscriptionRequest(
+        SubscriptionRequestV2(
           ParticipantId("Wrong participant"),
-          SequencerCounter.Genesis,
+          timestamp = Some(CantonTimestamp.Epoch),
           testedProtocolVersion,
         ).toProtoV30
 
       loggerFactory.suppressWarningsAndErrors {
-        env.service.subscribe(requestP, observer)
+        env.service.subscribeV2(requestP, observer)
       }
 
       observer.items.toSeq should matchPattern {

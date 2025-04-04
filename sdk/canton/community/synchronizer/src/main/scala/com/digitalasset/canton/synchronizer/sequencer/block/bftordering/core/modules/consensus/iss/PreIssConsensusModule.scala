@@ -28,6 +28,8 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
+import scala.util.Random
+
 import EpochState.Epoch
 import IssConsensusModule.DefaultDatabaseReadTimeout
 
@@ -39,6 +41,7 @@ final class PreIssConsensusModule[E <: Env[E]](
     clock: Clock,
     metrics: BftOrderingMetrics,
     segmentModuleRefFactory: SegmentModuleRefFactory[E],
+    random: Random,
     override val dependencies: ConsensusModuleDependencies[E],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
@@ -76,6 +79,7 @@ final class PreIssConsensusModule[E <: Env[E]](
             previousEpochsCommitCerts,
             loggerFactory,
           ),
+          random,
           dependencies,
           loggerFactory,
           timeouts,

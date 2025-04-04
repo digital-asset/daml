@@ -23,6 +23,10 @@ object StorageHelpers {
         .resolveValue()
         .toOption
         .flatMap(_.map(_.blockNumber))
-        .getOrElse(BlockNumber(0L))
+        .getOrElse(
+          // We want to prefer stores that have a last consecutive block that is 0 over stores that don't have any
+          // consecutive block. That is why we make None map to -1L
+          BlockNumber(-1L)
+        )
     }
 }

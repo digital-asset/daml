@@ -33,6 +33,3 @@ trait RpcError {
   def asGrpcError: StatusRuntimeException
 
 }
-
-trait CantonRpcError extends RpcError
-trait DamlRpcError extends RpcError

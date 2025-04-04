@@ -10,6 +10,7 @@ import com.digitalasset.canton.integration.CommunityIntegrationTest
 import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
 import com.digitalasset.canton.integration.tests.DemoExampleIntegrationTest.referenceDemo
+import com.digitalasset.canton.integration.tests.examples.ExampleIntegrationTest
 
 object DemoExampleIntegrationTest {
   lazy val referenceDemo: BetterFile = "community" / "demo" / "src" / "pack" / "demo"

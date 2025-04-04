@@ -4,17 +4,20 @@
 package com.digitalasset.canton.synchronizer.sequencer.errors
 
 import com.digitalasset.base.error.{
+  Alarm,
+  AlarmErrorCode,
   ContextualizedErrorLogger,
   ErrorCategory,
   ErrorCode,
   Explanation,
+  LogOnCreation,
   Resolution,
 }
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.SignatureCheckError
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
-import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonBaseError, LogOnCreation}
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,

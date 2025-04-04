@@ -125,7 +125,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
   private def mkDeliverEventTc1(sc: Long, ts: CantonTimestamp): OrdinarySerializedEvent =
     mkOrdinaryEvent(
       SignedContent(
-        SequencerTestUtils.mockDeliver(sc, ts, synchronizerId),
+        SequencerTestUtils.mockDeliver(sc = sc, timestamp = ts, synchronizerId = synchronizerId),
         sign("Mock deliver signature"),
         None,
         testedProtocolVersion,
@@ -270,7 +270,11 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
         mkOrdinaryEvent(
           SignedContent(
             SequencerTestUtils
-              .mockDeliver(sc = i, CantonTimestamp.ofEpochMilli(i * 2), synchronizerId),
+              .mockDeliver(
+                sc = i,
+                timestamp = CantonTimestamp.ofEpochMilli(i * 2),
+                synchronizerId = synchronizerId,
+              ),
             sign(s"signature $i"),
             None,
             testedProtocolVersion,
@@ -306,8 +310,8 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
             SequencerTestUtils
               .mockDeliver(
                 sc = startingCounter + i,
-                CantonTimestamp.Epoch.plusMillis(i * 2),
-                synchronizerId,
+                timestamp = CantonTimestamp.Epoch.plusMillis(i * 2),
+                synchronizerId = synchronizerId,
               ),
             sign(s"signature $i"),
             None,
@@ -344,8 +348,8 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
             SequencerTestUtils
               .mockDeliver(
                 sc = startingCounter + i,
-                CantonTimestamp.Epoch.plusMillis(i * 2),
-                synchronizerId,
+                timestamp = CantonTimestamp.Epoch.plusMillis(i * 2),
+                synchronizerId = synchronizerId,
               ),
             sign(s"signature $i"),
             None,
@@ -383,8 +387,8 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
             SequencerTestUtils
               .mockDeliver(
                 sc = startingCounter + i,
-                CantonTimestamp.Epoch.plusMillis(i * delta),
-                synchronizerId,
+                timestamp = CantonTimestamp.Epoch.plusMillis(i * delta),
+                synchronizerId = synchronizerId,
               ),
             sign(s"signature $i"),
             None,
@@ -447,7 +451,8 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
       val events = (min to max).toList.map { i =>
         mkOrdinaryEvent(
           SignedContent(
-            SequencerTestUtils.mockDeliver(getSc(i), getTs(i), synchronizerId),
+            SequencerTestUtils
+              .mockDeliver(sc = getSc(i), timestamp = getTs(i), synchronizerId = synchronizerId),
             sign(s"signature $i"),
             None,
             testedProtocolVersion,
@@ -481,7 +486,11 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
         mkOrdinaryEvent(
           SignedContent(
             SequencerTestUtils
-              .mockDeliver(sc = 1000 + i, CantonTimestamp.Epoch.plusMillis(i * 2), synchronizerId),
+              .mockDeliver(
+                sc = 1000 + i,
+                timestamp = CantonTimestamp.Epoch.plusMillis(i * 2),
+                synchronizerId = synchronizerId,
+              ),
             sign(s"signature $i"),
             None,
             testedProtocolVersion,
@@ -510,7 +519,12 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
       val events = (1L to 5L).toList.map { i =>
         mkOrdinaryEvent(
           SignedContent(
-            SequencerTestUtils.mockDeliver(i, CantonTimestamp.ofEpochSecond(i), synchronizerId),
+            SequencerTestUtils
+              .mockDeliver(
+                sc = i,
+                timestamp = CantonTimestamp.ofEpochSecond(i),
+                synchronizerId = synchronizerId,
+              ),
             sign(s"signature $i"),
             None,
             testedProtocolVersion,
@@ -555,14 +569,24 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
       val firstDeliver =
         mkOrdinaryEvent(
           signDeliver(
-            SequencerTestUtils.mockDeliver(100, CantonTimestamp.Epoch, synchronizerId)
+            SequencerTestUtils
+              .mockDeliver(
+                sc = 100,
+                timestamp = CantonTimestamp.Epoch,
+                synchronizerId = synchronizerId,
+              )
           ),
           nonEmptyTraceContext1,
         )
       val secondDeliver =
         mkOrdinaryEvent(
           signDeliver(
-            SequencerTestUtils.mockDeliver(101, CantonTimestamp.ofEpochSecond(1), synchronizerId)
+            SequencerTestUtils
+              .mockDeliver(
+                sc = 101,
+                timestamp = CantonTimestamp.ofEpochSecond(1),
+                synchronizerId = synchronizerId,
+              )
           ),
           nonEmptyTraceContext2,
         )
@@ -570,9 +594,9 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
         mkOrdinaryEvent(
           signDeliver(
             SequencerTestUtils.mockDeliver(
-              103,
-              CantonTimestamp.ofEpochSecond(100000),
-              synchronizerId,
+              sc = 103,
+              timestamp = CantonTimestamp.ofEpochSecond(100000),
+              synchronizerId = synchronizerId,
             )
           )
         )
@@ -649,11 +673,35 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
       val ts4 = ts0.plusSeconds(20)
 
       val firstDeliver =
-        mkOrdinaryEvent(signDeliver(SequencerTestUtils.mockDeliver(100, ts0, synchronizerId)))
+        mkOrdinaryEvent(
+          signDeliver(
+            SequencerTestUtils.mockDeliver(
+              sc = 100,
+              timestamp = ts0,
+              synchronizerId = synchronizerId,
+            )
+          )
+        )
       val secondDeliver =
-        mkOrdinaryEvent(signDeliver(SequencerTestUtils.mockDeliver(101, ts1, synchronizerId)))
+        mkOrdinaryEvent(
+          signDeliver(
+            SequencerTestUtils.mockDeliver(
+              sc = 101,
+              timestamp = ts1,
+              synchronizerId = synchronizerId,
+            )
+          )
+        )
       val thirdDeliver =
-        mkOrdinaryEvent(signDeliver(SequencerTestUtils.mockDeliver(103, ts3, synchronizerId)))
+        mkOrdinaryEvent(
+          signDeliver(
+            SequencerTestUtils.mockDeliver(
+              sc = 103,
+              timestamp = ts3,
+              synchronizerId = synchronizerId,
+            )
+          )
+        )
       val emptyBatch = mkBatch()
       val deliver1 =
         mkOrdinaryEvent(
@@ -716,11 +764,35 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest with
       val ts4 = ts0.plusSeconds(20)
 
       val firstDeliver =
-        mkOrdinaryEvent(signDeliver(SequencerTestUtils.mockDeliver(100, ts0, synchronizerId)))
+        mkOrdinaryEvent(
+          signDeliver(
+            SequencerTestUtils.mockDeliver(
+              sc = 100,
+              timestamp = ts0,
+              synchronizerId = synchronizerId,
+            )
+          )
+        )
       val secondDeliver =
-        mkOrdinaryEvent(signDeliver(SequencerTestUtils.mockDeliver(101, ts1, synchronizerId)))
+        mkOrdinaryEvent(
+          signDeliver(
+            SequencerTestUtils.mockDeliver(
+              sc = 101,
+              timestamp = ts1,
+              synchronizerId = synchronizerId,
+            )
+          )
+        )
       val thirdDeliver =
-        mkOrdinaryEvent(signDeliver(SequencerTestUtils.mockDeliver(103, ts3, synchronizerId)))
+        mkOrdinaryEvent(
+          signDeliver(
+            SequencerTestUtils.mockDeliver(
+              sc = 103,
+              timestamp = ts3,
+              synchronizerId = synchronizerId,
+            )
+          )
+        )
       val emptyBatch = mkBatch()
       val deliver1 =
         mkOrdinaryEvent(

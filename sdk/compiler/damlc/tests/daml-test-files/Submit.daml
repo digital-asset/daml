@@ -13,7 +13,6 @@ module Submit where
 import Daml.Script
 import Daml.Script.Internal
 import DA.Assert
-import DA.Exception
 import DA.Text
 
 data View = View with
@@ -168,14 +167,14 @@ contractNotActive = script do
 
 -- InconsistentContractKey: I don't know how to trigger an InconsistentContractKey error
 
-unhandledException : Script ()
-unhandledException = script do
+failureStatusError : Script ()
+failureStatusError = script do
   alice <- allocateParty "alice"
   res <- alice `trySubmit` createCmd T2 with t2_p = alice, moreThan3 = 2
   case res of
-    Left (UnhandledException (Some (fromAnyException @PreconditionFailed -> Some pfError))) -> assert $ "Template precondition violated" `isInfixOf` pfError.message
-    Left e -> error $ "unhandledException incorrect error: " <> show e
-    Right _ -> error "unhandledException incorrectly succeeded"
+    Left (FailureStatusError fsError) -> assert $ "Template precondition violated" `isInfixOf` fsError.message
+    Left e -> error $ "failureStatusError incorrect error: " <> show e
+    Right _ -> error "failureStatusError incorrectly succeeded"
 
 -- UserError: Only throwable pre LF 1.14, which daml-script doesn't support. Consider dropping the error
 -- but keep in mind that daml-script may be usable against a ledger running older contracts, so it might be possible

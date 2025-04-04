@@ -410,10 +410,11 @@ object SynchronizerCryptoClient {
       executionContext: ExecutionContext
   ): SynchronizerCryptoClient = {
     val syncCryptoSignerWithLongTermKeys = SyncCryptoSigner.createWithLongTermKeys(
+      synchronizerId,
       staticSynchronizerParameters,
       member,
-      pureCrypto,
       crypto.privateCrypto,
+      pureCrypto,
       crypto.cryptoPrivateStore,
       verificationParallelismLimit,
       loggerFactory,
@@ -453,8 +454,8 @@ object SynchronizerCryptoClient {
       synchronizerId,
       staticSynchronizerParameters,
       member,
-      pureCrypto,
       crypto.privateCrypto,
+      pureCrypto,
       crypto.cryptoPrivateStore,
       sessionSigningKeysConfig,
       verificationParallelismLimit,

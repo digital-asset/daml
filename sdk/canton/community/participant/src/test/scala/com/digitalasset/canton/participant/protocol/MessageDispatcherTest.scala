@@ -555,9 +555,9 @@ trait MessageDispatcherTest {
         val ts = CantonTimestamp.Epoch
         val prefix = TimeProof.timeEventMessageIdPrefix
         val deliver = SequencerTestUtils.mockDeliver(
-          sc.v,
-          ts,
-          synchronizerId,
+          sc = sc.v,
+          timestamp = ts,
+          synchronizerId = synchronizerId,
           messageId = Some(MessageId.tryCreate(s"$prefix testing")),
         )
         // Check that we're calling the topology manager before we're publishing the deliver event and ticking the

@@ -14,7 +14,6 @@ import com.digitalasset.canton.participant.protocol.EngineController
 import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
 import com.digitalasset.canton.participant.store.ContractLookupAndVerification
 import com.digitalasset.canton.participant.util.DAMLe.{
-  ContractWithMetadata,
   CreateNodeEnricher,
   HasReinterpret,
   PackageResolver,
@@ -25,7 +24,7 @@ import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingCon
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{LfCommand, LfCreateCommand, LfKeyResolver, LfPartyId, LfVersioned}
+import com.digitalasset.canton.{LfCommand, LfCreateCommand, LfKeyResolver, LfPartyId}
 import com.digitalasset.daml.lf.VersionRange
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
@@ -84,7 +83,7 @@ object DAMLe {
     * validation.
     */
   type PackageResolver = PackageId => TraceContext => FutureUnlessShutdown[Option[Package]]
-  type Enricher[A] = A => TraceContext => EitherT[
+  private type Enricher[A] = A => TraceContext => EitherT[
     FutureUnlessShutdown,
     ReinterpretationError,
     A,
@@ -102,21 +101,6 @@ object DAMLe {
     override protected def pretty: Pretty[EngineAborted] = prettyOfClass(
       param("reason", _.reason.doubleQuoted)
     )
-  }
-
-  final case class ContractWithMetadata(
-      instance: LfContractInst,
-      signatories: Set[LfPartyId],
-      stakeholders: Set[LfPartyId],
-      templateId: LfTemplateId,
-      keyWithMaintainers: Option[LfGlobalKeyWithMaintainers],
-  ) {
-    def metadataWithGlobalKey: ContractMetadata =
-      ContractMetadata.tryCreate(
-        signatories,
-        stakeholders,
-        keyWithMaintainers.map(LfVersioned(instance.version, _)),
-      )
   }
 
   private val zeroSeed: LfHash =
@@ -342,64 +326,6 @@ class DAMLe(
         create <- EitherT.pure[FutureUnlessShutdown, ReinterpretationError](singleCreate)
       } yield create
     }
-
-  private def contractWithMetadata(
-      contractInstance: LfContractInst,
-      supersetOfSignatories: Set[LfPartyId],
-      getEngineAbortStatus: GetEngineAbortStatus,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReinterpretationError, ContractWithMetadata] = {
-
-    val unversionedContractInst = contractInstance.unversioned
-    val create = LfCreateCommand(unversionedContractInst.template, unversionedContractInst.arg)
-
-    for {
-      transactionWithMetadata <- reinterpret(
-        contracts = ContractLookupAndVerification.noContracts(loggerFactory),
-        submitters = supersetOfSignatories,
-        command = create,
-        ledgerTime = CantonTimestamp.Epoch,
-        submissionTime = CantonTimestamp.Epoch,
-        rootSeed = Some(DAMLe.zeroSeed),
-        packageResolution = Map.empty,
-        expectFailure = false,
-        getEngineAbortStatus = getEngineAbortStatus,
-      )
-      ReInterpretationResult(transaction, _, _, _, _) = transactionWithMetadata
-      md = transaction.nodes(transaction.roots(0)) match {
-        case nc: LfNodeCreate =>
-          ContractWithMetadata(
-            LfContractInst(
-              template = nc.templateId,
-              arg = Versioned(nc.version, nc.arg),
-              packageName = nc.packageName,
-              packageVersion = nc.packageVersion,
-            ),
-            nc.signatories,
-            nc.stakeholders,
-            nc.templateId,
-            nc.keyOpt,
-          )
-        case node => throw new RuntimeException(s"DAMLe reinterpreted a create node as $node")
-      }
-    } yield md
-  }
-
-  def contractMetadata(
-      contractInstance: LfContractInst,
-      supersetOfSignatories: Set[LfPartyId],
-      getEngineAbortStatus: GetEngineAbortStatus,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReinterpretationError, ContractMetadata] =
-    for {
-      contractAndMetadata <- contractWithMetadata(
-        contractInstance,
-        supersetOfSignatories,
-        getEngineAbortStatus,
-      )
-    } yield contractAndMetadata.metadataWithGlobalKey
 
   private[this] def handleResult[A](
       contracts: ContractLookupAndVerification,

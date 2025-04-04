@@ -6,8 +6,8 @@ package com.digitalasset.canton.platform.apiserver.services
 import com.daml.ledger.api.v2.commands.DisclosedContract
 import com.daml.ledger.api.v2.value.Identifier
 import com.digitalasset.canton.LfValue
+import com.digitalasset.canton.protocol.LfTransactionVersion
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKeyWithMaintainers,
@@ -19,8 +19,7 @@ import com.google.protobuf.ByteString
 
 object DisclosedContractCreator {
 
-  // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
-  private val testTxVersion = LanguageVersion.v2_dev
+  private val testTxVersion = LfTransactionVersion.minVersion
 
   private object api {
     val templateId: Identifier =

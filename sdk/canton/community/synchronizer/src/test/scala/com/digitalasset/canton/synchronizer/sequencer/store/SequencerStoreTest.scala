@@ -1381,7 +1381,12 @@ trait SequencerStoreTest
           )
           snapshot.previousTimestamps shouldBe expectedMemberPreviousTimestamps
 
-          snapshotFromNewStore.heads shouldBe memberCheckpoints.fmap(_.counter)
+          val expectedMemberHeads = memberCheckpoints.updated(
+            // Note that sequencer's own checkpoint is reset to start from 0
+            sequencerMember,
+            CounterCheckpoint(Counter(-1L), ts(4), Some(ts(4))),
+          )
+          snapshotFromNewStore.heads shouldBe expectedMemberHeads.fmap(_.counter)
 
           stateAfterNewEvents shouldBe Map(
             (alice, CounterCheckpoint(Counter(3L), ts(6), Some(ts(4)))),
@@ -1394,7 +1399,7 @@ trait SequencerStoreTest
             (alice, CounterCheckpoint(Counter(3L), ts(6), Some(ts(5)))),
             (bob, CounterCheckpoint(Counter(1L), ts(6), None)),
             (carole, CounterCheckpoint(Counter(-1L), ts(6), None)),
-            (sequencerMember, CounterCheckpoint(Counter(1L), ts(6), Some(ts(5)))),
+            (sequencerMember, CounterCheckpoint(Counter(0L), ts(6), Some(ts(5)))),
           )
 
           val expectedMemberPreviousTimestampsAfter = Map(

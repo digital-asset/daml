@@ -70,7 +70,7 @@ trait ReplayingSendsSequencerClientTransport extends SequencerClientTransportCom
 
   def waitForIdle(
       duration: FiniteDuration,
-      startFromCounter: SequencerCounter = SequencerCounter.Genesis,
+      startFromTimestamp: Option[CantonTimestamp] = None, // start from the beginning
   ): Future[EventsReceivedReport]
 
   /** Dump the submission related metrics into a string for periodic reporting during the replay
@@ -118,9 +118,10 @@ object ReplayingSendsSequencerClientTransport {
       elapsedDuration: FiniteDuration,
       totalEventsReceived: Int,
       finishedAtCounter: SequencerCounter,
+      finishedAtTimestamp: Option[CantonTimestamp],
   ) {
     override def toString: String =
-      s"Received $totalEventsReceived events within ${elapsedDuration.toSeconds}s"
+      s"Received $totalEventsReceived events within ${elapsedDuration.toSeconds}s, finished at counter $finishedAtCounter and timestamp $finishedAtTimestamp"
   }
 
 }
@@ -248,9 +249,9 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
 
   override def waitForIdle(
       duration: FiniteDuration,
-      startFromCounter: SequencerCounter = SequencerCounter.Genesis,
+      startFromTimestamp: Option[CantonTimestamp] = None, // start from the beginning
   ): Future[EventsReceivedReport] = {
-    val monitor = new SimpleIdlenessMonitor(startFromCounter, duration, timeouts, loggerFactory)
+    val monitor = new SimpleIdlenessMonitor(startFromTimestamp, duration, timeouts, loggerFactory)
 
     monitor.idleF transform { result =>
       monitor.close()
@@ -272,7 +273,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
   }
 
   protected def subscribe(
-      request: SubscriptionRequest,
+      request: SubscriptionRequestV2,
       handler: SerializedEventHandler[NotUsed],
   ): AutoCloseable
 
@@ -281,7 +282,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     * there are no more events being produced for the member).
     */
   private class SimpleIdlenessMonitor(
-      readFrom: SequencerCounter,
+      readFrom: Option[CantonTimestamp],
       idlenessDuration: FiniteDuration,
       override protected val timeouts: ProcessingTimeout,
       protected val loggerFactory: NamedLoggerFactory,
@@ -292,6 +293,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
         lastEventAt: Option[CantonTimestamp],
         eventCounter: Int,
         lastCounter: SequencerCounter,
+        lastSequencingTimestamp: Option[CantonTimestamp],
     )
 
     private val stateRef: AtomicReference[State] = new AtomicReference(
@@ -299,7 +301,8 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
         startedAt = CantonTimestamp.now(),
         lastEventAt = None,
         eventCounter = 0,
-        lastCounter = readFrom,
+        lastCounter = SequencerCounter.MinValue,
+        lastSequencingTimestamp = None,
       )
     )
     private val idleP = Promise[EventsReceivedReport]()
@@ -313,12 +316,16 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
 
     scheduleCheck() // kick off checks
 
-    private def updateLastDeliver(counter: SequencerCounter): Unit = {
-      val _ = stateRef.updateAndGet { case state @ State(_, _, eventCounter, _) =>
+    private def updateLastDeliver(
+        counter: SequencerCounter,
+        sequencingTimestamp: CantonTimestamp,
+    ): Unit = {
+      val _ = stateRef.updateAndGet { case state @ State(_, _, eventCounter, _, _) =>
         state.copy(
           lastEventAt = Some(CantonTimestamp.now()),
           lastCounter = counter,
           eventCounter = eventCounter + 1,
+          lastSequencingTimestamp = Some(sequencingTimestamp),
         )
       }
     }
@@ -344,6 +351,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
                 elapsedDuration.toScala,
                 totalEventsReceived = stateSnapshot.eventCounter,
                 finishedAtCounter = stateSnapshot.lastCounter,
+                finishedAtTimestamp = stateSnapshot.lastSequencingTimestamp,
               )
             )
             .discard
@@ -379,7 +387,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
       val content = event.signedEvent.content
 
       updateMetrics(content)
-      updateLastDeliver(content.counter)
+      updateLastDeliver(content.counter, content.timestamp)
 
       FutureUnlessShutdown.pure(Either.unit)
     }
@@ -387,7 +395,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     val idleF: Future[EventsReceivedReport] = idleP.future
 
     private val subscription =
-      subscribe(SubscriptionRequest(member, readFrom, protocolVersion), handle)
+      subscribe(SubscriptionRequestV2(member, readFrom, protocolVersion), handle)
 
     override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
       Seq(
@@ -455,7 +463,7 @@ class ReplayingSendsSequencerClientTransportImpl(
   ): EitherT[FutureUnlessShutdown, Status, Unit] =
     EitherT.pure(())
 
-  override def subscribe[E](request: SubscriptionRequest, handler: SerializedEventHandler[E])(
+  override def subscribe[E](request: SubscriptionRequestV2, handler: SerializedEventHandler[E])(
       implicit traceContext: TraceContext
   ): SequencerSubscription[E] = new SequencerSubscription[E] {
     override protected def loggerFactory: NamedLoggerFactory =
@@ -473,14 +481,14 @@ class ReplayingSendsSequencerClientTransportImpl(
     SubscriptionErrorRetryPolicy.never
 
   override protected def subscribe(
-      request: SubscriptionRequest,
+      request: SubscriptionRequestV2,
       handler: SerializedEventHandler[NotUsed],
   ): AutoCloseable =
     underlyingTransport.subscribe(request, handler)
 
   override type SubscriptionError = underlyingTransport.SubscriptionError
 
-  override def subscribe(request: SubscriptionRequest)(implicit
+  override def subscribe(request: SubscriptionRequestV2)(implicit
       traceContext: TraceContext
   ): SequencerSubscriptionPekko[SubscriptionError] = underlyingTransport.subscribe(request)
 
@@ -514,7 +522,7 @@ class ReplayingSendsSequencerClientTransportPekko(
     with SequencerClientTransportPekko {
 
   override protected def subscribe(
-      request: SubscriptionRequest,
+      request: SubscriptionRequestV2,
       handler: SerializedEventHandler[NotUsed],
   ): AutoCloseable = {
     val ((killSwitch, _), doneF) = subscribe(request).source

@@ -9,7 +9,7 @@ import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameter
 import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.admin.data.ActiveContract
+import com.digitalasset.canton.participant.admin.data.ActiveContractOld
 import com.digitalasset.canton.protocol.messages.HasSynchronizerId
 import com.digitalasset.canton.protocol.{
   HasSerializableContract,
@@ -324,19 +324,20 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
   @Help.Group("Active Contract Store")
   object acs extends Helpful {
 
-    @Help.Summary(
-      "Load contracts from a file"
-    )
+    @Help.Summary("Load contracts from a file. (DEPRECATED)")
     @Help.Description(
-      "Expects a file name. Returns a streaming iterator of serializable contracts."
+      """Expects a file name. Returns a streaming iterator of serializable contracts.
+        |
+        |DEPRECATION NOTICE: A future release removes this command.
+        |"""
     )
-    def import_acs_from_file(
+    def import_acs_from_file_old(
         source: String
     ): Iterator[
       (SynchronizerId, SerializableContract)
     ] = // TODO(#24728) - Remove, use import_acs and then the LAPI
-      ActiveContract.fromFile(File(source)).map {
-        case ActiveContract(synchronizerId, contract, _) =>
+      ActiveContractOld.fromFile(File(source)).map {
+        case ActiveContractOld(synchronizerId, contract, _) =>
           synchronizerId -> contract
       }
   }
@@ -370,14 +371,14 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
         synchronize: Boolean = true,
     )(implicit env: ConsoleEnvironment): Unit = {
       haltParty(sourceParticipant, partyId, synchronize)
-      sourceParticipant.repair.export_acs(
+      sourceParticipant.repair.export_acs_old(
         Set(partyId),
         partiesOffboarding = partiesOffboarding,
         targetFile,
       )
       val synchronizers =
         acs
-          .import_acs_from_file(targetFile)
+          .import_acs_from_file_old(targetFile)
           .map { case (synchronizerId, _) => synchronizerId }
           .toSet
       ensureTargetPartyToParticipantIsPermissioned(
@@ -421,7 +422,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
     )(implicit env: ConsoleEnvironment): Unit = {
       val synchronizers =
         acs
-          .import_acs_from_file(sourceFile)
+          .import_acs_from_file_old(sourceFile)
           .map { case (synchronizerId, _) => synchronizerId }
           .toSet
       ensureTargetPartyToParticipantIsPermissioned(
@@ -444,7 +445,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
         targetParticipant.synchronizers.disconnect_all()
         noTracingLogger.info(s"Participant disconnected from all synchronizers")
         noTracingLogger.info(s"Importing ACS from $sourceFile")
-        targetParticipant.repair.import_acs(sourceFile, workflowIdPrefix).discard
+        targetParticipant.repair.import_acs_old(sourceFile, workflowIdPrefix).discard
         noTracingLogger.info("ACS import finished")
       } finally {
         noTracingLogger.info(
@@ -586,7 +587,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
           (alias, items.map(_.contract.contractId))
         })
 
-    mapSynchronizerToContracts(ActiveContract.fromFile(File(sourceFile)))
+    mapSynchronizerToContracts(ActiveContractOld.fromFile(File(sourceFile)))
   }
 
 }

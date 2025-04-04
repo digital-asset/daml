@@ -19,9 +19,11 @@ package com.digitalasset.canton.version.v1;
    * and `version` is 0 (the default value for an integer). Such an empty message
    * cannot be deserialized using previous version of our parsing method.
 */
+// [start UntypedVersionedMessage]
 message UntypedVersionedMessage {
   oneof wrapper {
     bytes data = 1;
   }
   int32 version = 2;
 }
+// [end UntypedVersionedMessage]

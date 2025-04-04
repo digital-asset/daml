@@ -442,7 +442,7 @@ class Engine(val config: EngineConfig) {
               submissionSeed = None,
               submissionTime = machine.submissionTime,
               usedPackages = deps,
-              dependsOnTime = machine.getDependsOnTime,
+              timeBoundaries = machine.getTimeBoundaries,
               nodeSeeds = nodeSeeds,
               globalKeyMapping = globalKeyMapping,
               disclosedEvents = disclosedCreateEvents,

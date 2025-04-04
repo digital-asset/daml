@@ -300,7 +300,7 @@ class GrpcSequencerClientTransport(
     with SequencerClientTransport {
 
   override def subscribe[E](
-      subscriptionRequest: SubscriptionRequest,
+      subscriptionRequest: SubscriptionRequestV2,
       handler: SerializedEventHandler[E],
   )(implicit traceContext: TraceContext): SequencerSubscription[E] = {
 
@@ -317,7 +317,7 @@ class GrpcSequencerClientTransport(
       )(protocolVersion)
 
     CantonGrpcUtil.serverStreamingRequest(sequencerServiceClient, mkSubscription)(_.observer)(
-      _.subscribe(subscriptionRequest.toProtoV30, _)
+      _.subscribeV2(subscriptionRequest.toProtoV30, _)
     )
   }
 

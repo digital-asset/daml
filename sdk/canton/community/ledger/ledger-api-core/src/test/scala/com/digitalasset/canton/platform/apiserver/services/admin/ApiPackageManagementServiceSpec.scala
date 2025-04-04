@@ -189,7 +189,7 @@ object ApiPackageManagementServiceSpec {
         commandId: CommandId,
         submissionId: Option[SubmissionId],
         workflowId: Option[WorkflowId],
-        reassignmentCommand: ReassignmentCommand,
+        reassignmentCommands: Seq[ReassignmentCommand],
     )(implicit traceContext: TraceContext): CompletionStage[SubmissionResult] =
       throw new UnsupportedOperationException()
 

@@ -37,7 +37,7 @@ The first three form the :ref:`change ID <change-id>` that identifies the intend
 
 - The deduplication period specifies the period for which no earlier submissions with the same change ID should have been accepted, as witnessed by a completion event on the :ref:`command completion service <command-completion-service>`.
   If such a change has been accepted in that period, the current submission shall be rejected.
-  The period is specified either as a :ref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_duration>` or as a :ref:`deduplication offset <com.daml.ledger.api.v1.Commands.deduplication_offset>` (inclusive).
+  The period is specified either as a :ref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_period.deduplication_duration>` or as a :ref:`deduplication offset <com.daml.ledger.api.v1.Commands.deduplication_period.deduplication_offset>` (inclusive).
 
 - The :ref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>` is chosen by the application to identify a specific submission.
   It is included in the corresponding completion event so that the application can correlate specific submissions to specific completions.
@@ -50,7 +50,7 @@ The ledger may arbitrarily extend the deduplication period specified in the subm
 
 The deduplication period chosen by the ledger is the *effective deduplication period*.
 The ledger may also convert a requested deduplication duration into an effective deduplication offset or vice versa.
-The effective deduplication period is reported in the command completion event in the :ref:`deduplication duration <com.daml.ledger.api.v1.Completion.deduplication_duration>` or :ref:`deduplication offset <com.daml.ledger.api.v1.Completion.deduplication_offset>` fields.
+The effective deduplication period is reported in the command completion event in the :ref:`deduplication duration <com.daml.ledger.api.v1.Completion.deduplication_period.deduplication_duration>` or :ref:`deduplication offset <com.daml.ledger.api.v1.Completion.deduplication_period.deduplication_offset>` fields.
 
 A command submission is considered a **duplicate submission** if at least one of the following holds:
 
@@ -72,20 +72,20 @@ The outcome of command deduplication is communicated as follows:
 
 Independently of how the outcome is communicated, command deduplication generates the following outcomes of a command submission:
 
-- If there is no conflicting submission with the same :ref:`change ID <change-id>` on the Daml ledger or in-flight, the completion event and possibly the response convey the result of the submission (success or a gRPC error; Canton Error Codes explains how errors are communicated).
+- If there is no conflicting submission with the same :ref:`change ID <change-id>` on the Daml ledger or in-flight, the completion event and possibly the response convey the result of the submission (success or a gRPC error; :doc:`/canton/reference/error_codes` explains how errors are communicated).
 
-- The gRPC status code ``ALREADY_EXISTS`` with error code ID ``DUPLICATE_COMMAND`` (Canton Error Code) indicates that there is an earlier command completion for the same :ref:`change ID <change-id>` within the effective deduplication period.
+- The gRPC status code ``ALREADY_EXISTS`` with error code ID :ref:`DUPLICATE_COMMAND <error_code_DUPLICATE_COMMAND>` indicates that there is an earlier command completion for the same :ref:`change ID <change-id>` within the effective deduplication period.
 
-- The gRPC status code ``ABORTED`` with error code id ``SUBMISSION_ALREADY_IN_FLIGHT`` (Canton Error Code) indicates that another submission for the same :ref:`change ID <change-id>` was in flight when this submission was processed.
+- The gRPC status code ``ABORTED`` with error code id :ref:`SUBMISSION_ALREADY_IN_FLIGHT <error_code_SUBMISSION_ALREADY_IN_FLIGHT>` indicates that another submission for the same :ref:`change ID <change-id>` was in flight when this submission was processed.
 
-- The gRPC status code ``FAILED_PRECONDITION`` with error code id ```INVALID_DEDUPLICATION_PERIOD`` (Canton Error Code) indicates that the specified deduplication period is not supported.
+- The gRPC status code ``FAILED_PRECONDITION`` with error code id :ref:`INVALID_DEDUPLICATION_PERIOD <error_code_INVALID_DEDUPLICATION_PERIOD>` indicates that the specified deduplication period is not supported.
   The fields ``longest_duration`` or ``earliest_offset`` in the metadata specify the longest duration or earliest offset that is currently supported on the Ledger API endpoint.
   At least one of the two fields is present.
 
   Neither deduplication durations up to the :ref:`maximum deduplication duration <com.daml.ledger.api.v1.LedgerConfiguration.max_deduplication_duration>` nor deduplication offsets published within that duration SHOULD result in this error.
   Participants may accept longer periods at their discretion.
 
-- The gRPC status code ``FAILED_PRECONDITION`` with error code id ``PARTICIPANT_PRUNED_DATA_ACCESSED`` (Canton Error Code), when specifying a deduplication period represented by an offset, indicates that the specified deduplication offset has been pruned.
+- The gRPC status code ``FAILED_PRECONDITION`` with error code id :ref:`PARTICIPANT_PRUNED_DATA_ACCESSED <error_code_PARTICIPANT_PRUNED_DATA_ACCESSED>`, when specifying a deduplication period represented by an offset, indicates that the specified deduplication offset has been pruned.
   The field ``earliest_offset`` in the metadata specifies the last pruned offset.
 
 For deduplication to work as intended, all submissions for the same ledger change must be submitted via the same participant.
@@ -102,7 +102,7 @@ Command deduplication allows the application to resubmit the command until it is
 
 Some ledger changes can be executed at most once, so no command deduplication is needed for them.
 For example, if the submitted command exercises a consuming choice on a given contract ID, this command can be accepted at most once because every contract can be archived at most once.
-All duplicate submissions of such a change will be rejected with ``CONTRACT_NOT_ACTIVE`` (Canton Error Code).
+All duplicate submissions of such a change will be rejected with :ref:`CONTRACT_NOT_ACTIVE <error_code_CONTRACT_NOT_ACTIVE>`.
 
 In contrast, a :ref:`Create command <com.daml.ledger.api.v1.CreateCommand>` would create a fresh contract instance of the given :ref:`template <com.daml.ledger.api.v1.CreateCommand.template_id>` for each submission that reaches the ledger (unless other constraints such as the :ref:`template preconditions <daml-ref-preconditions>` or contract key uniqueness are violated).
 Similarly, an :ref:`Exercise command <com.daml.ledger.api.v1.ExerciseCommand>` on a non-consuming choice or an :ref:`Exercise-By-Key command <com.daml.ledger.api.v1.ExercisebyKeyCommand>` may be executed multiple times if submitted multiple times.
@@ -143,12 +143,12 @@ Under this caveat, the following strategy works for applications that use the :r
 
    - Set the :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>` to the chosen command ID from :ref:`Step 1 <dedup-bounded-step-command-id>`.
 
-   - Set the :ref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_duration>` to the bound ``B``.
+   - Set the :ref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_period.deduplication_duration>` to the bound ``B``.
 
      .. note::
         It is prudent to explicitly set the deduplication duration to the desired bound ``B``,
 	to guard against the case where a ledger configuration update shortens the maximum deduplication duration.
-	With the bound ``B``, you will be notified of such a problem via an ``INVALID_DEDUPLICATION_PERIOD`` (Canton Error Code) error
+	With the bound ``B``, you will be notified of such a problem via an :ref:`INVALID_DEDUPLICATION_PERIOD <error_code_INVALID_DEDUPLICATION_PERIOD>` error
 	if the ledger does not support deduplication durations of length ``B`` any more.
 
 	If you omitted the deduplication period, the currently valid maximum deduplication duration would be used.
@@ -210,7 +210,7 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
      * Retry from :ref:`Step 2 <dedup-bounded-step-offset>`, obtaining the completion offset ``OFF1``.
 
 
-   - * ``ALREADY_EXISTS`` / ``DUPLICATE_COMMAND`` (Canton Error Code)
+   - * ``ALREADY_EXISTS`` / :ref:`DUPLICATE_COMMAND <error_code_DUPLICATE_COMMAND>`
 
      * The change ID has already been accepted by the ledger within the reported deduplication period.
        The optional field ``completion_offset`` contains the precise offset.
@@ -218,7 +218,7 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
        Report success for the ledger change.
 
 
-   - * ``FAILED_PRECONDITION`` / ``INVALID_DEDUPLICATION_PERIOD`` (Canton Error Code)
+   - * ``FAILED_PRECONDITION`` / :ref:`INVALID_DEDUPLICATION_PERIOD <error_code_INVALID_DEDUPLICATION_PERIOD>`
 
      * The specified deduplication period is longer than what the Daml ledger supports or the ledger cannot handle the specified deduplication offset.
        ``earliest_offset`` contains the earliest deduplication offset or ``longest_duration`` contains the longest deduplication duration that can be used (at least one of the two must be provided).
@@ -231,7 +231,7 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
 	 This may lead to accepting the change twice within the originally intended deduplication period.
 
 
-   - * ``FAILED_PRECONDITION`` / ``PARTICIPANT_PRUNED_DATA_ACCESSED`` (Canton Error Code)
+   - * ``FAILED_PRECONDITION`` / :ref:`PARTICIPANT_PRUNED_DATA_ACCESSED <error_code_PARTICIPANT_PRUNED_DATA_ACCESSED>`
 
      * The specified deduplication offset has been pruned by the participant.
        ``earliest_offset`` contains the last pruned offset.
@@ -240,7 +240,7 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
         ``earliest_offset``, and use the first received :ref:`offset <com.daml.ledger.api.v1.Checkpoint.offset>` as a deduplication offset.
 
 
-   - * ``ABORTED`` / ``SUBMISSION_ALREADY_IN_FLIGHT`` (Canton Error Code)
+   - * ``ABORTED`` / :ref:`SUBMISSION_ALREADY_IN_FLIGHT <error_code_SUBMISSION_ALREADY_IN_FLIGHT>`
 
        This error occurs only as an RPC response, not inside a completion event.
 
@@ -249,11 +249,11 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
        - When you use the :ref:`Command Service <command-service>`, wait a bit and retry from :ref:`Step 3 <dedup-bounded-step-submit>`, submitting the command.
 
 	 Since the in-flight submission might still be rejected, (repeated) resubmission ensures that you (eventually) learn the outcome:
-         If an earlier submission was accepted, you will eventually receive a ``DUPLICATE_COMMAND`` (Canton Error Code) rejection.
+         If an earlier submission was accepted, you will eventually receive a :ref:`DUPLICATE_COMMAND <error_code_DUPLICATE_COMMAND>` rejection.
 	 Otherwise, you have a second chance to get the ledger change accepted on the ledger and learn the outcome.
 
 
-       - When you use the Command Completion Service, look for a completion for ``existing_submission_id`` instead of the chosen submission ID in :ref:`Step 4 <dedup-bounded-step-await>`.
+       - When you use the :ref:`Command Completion Service <command-completion-service>`, look for a completion for ``existing_submission_id`` instead of the chosen submission ID in :ref:`Step 4 <dedup-bounded-step-await>`.
 
 
    - * ``ABORTED`` / other error codes
@@ -269,7 +269,7 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
        - Otherwise, retry from :ref:`Step 2 <dedup-bounded-step-offset>`, obtaining a completion offset ``OFF1``, or give up without knowing for sure that the ledger change will not happen.
 
        For example, if the ledger change only creates a contract instance of a template, you can never be sure, as any outstanding submission might still be accepted on the ledger.
-       In particular, you must not draw any conclusions from not having received a ``SUBMISSION_ALREADY_IN_FLIGHT`` (Canton Error Code) error, because the outstanding submission may be queued somewhere and will reach the relevant processing point only later.
+       In particular, you must not draw any conclusions from not having received a :ref:`SUBMISSION_ALREADY_IN_FLIGHT <error_code_SUBMISSION_ALREADY_IN_FLIGHT>` error, because the outstanding submission may be queued somewhere and will reach the relevant processing point only later.
 
 
 Failure Scenarios
@@ -317,7 +317,7 @@ We recommend the following strategy for using deduplication offsets:
    - Use the :ref:`Command Completion Service <command-completion-service>` by asking for the :ref:`current ledger end <com.daml.ledger.api.v1.CompletionEndRequest>`.
 
      .. note::
-	Some ledger implementations reject deduplication offsets that do not identify a command completion visible to the submitting parties with the error code id ``INVALID_DEDUPLICATION_PERIOD`` (Canton Error Code).
+	Some ledger implementations reject deduplication offsets that do not identify a command completion visible to the submitting parties with the error code id :ref:`INVALID_DEDUPLICATION_PERIOD <error_code_INVALID_DEDUPLICATION_PERIOD>`.
 	In general, the ledger end need not identify a command completion that is visible to the submitting parties.
 	When running on such a ledger, use the Command Service approach described next.
 
@@ -338,7 +338,7 @@ We recommend the following strategy for using deduplication offsets:
 
    - Set the :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>` to the chosen command ID from :ref:`Step 1 <dedup-bounded-step-command-id>`.
 
-   - Set the :ref:`deduplication offset <com.daml.ledger.api.v1.Commands.deduplication_offset>` to ``OFF0``.
+   - Set the :ref:`deduplication offset <com.daml.ledger.api.v1.Commands.deduplication_period.deduplication_offset>` to ``OFF0``.
 
    - Set the :ref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>` to a fresh value, e.g., a random UUID.
 
@@ -372,7 +372,7 @@ The above strategy can fail in the following scenarios:
 
 #. No success within the supported deduplication period
 
-   When the application receives a ``INVALID_DEDUPLICATION_PERIOD`` (Canton Error Code) error, it cannot achieve exactly once execution any more within the originally intended deduplication period.
+   When the application receives a :ref:`INVALID_DEDUPLICATION_PERIOD <error_code_INVALID_DEDUPLICATION_PERIOD>` error, it cannot achieve exactly once execution any more within the originally intended deduplication period.
 
 
 #. Unacceptable changes cause infinite retries

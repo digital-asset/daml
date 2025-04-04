@@ -79,15 +79,14 @@ trait DownloadTopologyStateForInitializationServiceTest
       }
     import com.digitalasset.canton.util.MonadUtil.syntax.*
     groupedBySequencedTime
-      .sequentialTraverse_[FutureUnlessShutdown] {
-        case ((sequencedTime, effectiveTime), transactions) =>
-          store.update(
-            sequencedTime,
-            effective = EffectiveTime(effectiveTime.value),
-            removeMapping = transactions.map(tx => tx.mapping.uniqueKey -> tx.serial).toMap,
-            removeTxs = transactions.map(_.hash).toSet,
-            additions = transactions.map(stored => ValidatedTopologyTransaction(stored.transaction)),
-          )
+      .sequentialTraverse_ { case ((sequencedTime, effectiveTime), transactions) =>
+        store.update(
+          sequencedTime,
+          effective = EffectiveTime(effectiveTime.value),
+          removeMapping = transactions.map(tx => tx.mapping.uniqueKey -> tx.serial).toMap,
+          removeTxs = transactions.map(_.hash).toSet,
+          additions = transactions.map(stored => ValidatedTopologyTransaction(stored.transaction)),
+        )
       }
       .map(_ => store)
   }

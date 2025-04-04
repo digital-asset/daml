@@ -184,12 +184,12 @@ message ParticipantAuthorizationTopologyFormat {
 
 // A format specifying what updates to include and how to render them.
 message UpdateFormat {
-  // Include daml transactions in streams.
+  // Include Daml transactions in streams.
   // Optional, if unset, no transactions are emitted in the stream.
   TransactionFormat include_transactions = 1;
 
   // Include (un)assignments in the stream.
-  // The events in the result, will take shape TRANSACTION_SHAPE_ACS_DELTA.
+  // The events in the result take the shape TRANSACTION_SHAPE_ACS_DELTA.
   // Optional, if unset, no (un)assignments are emitted in the stream.
   EventFormat include_reassignments = 2;
 

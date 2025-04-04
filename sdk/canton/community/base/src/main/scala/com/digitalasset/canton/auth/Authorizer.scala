@@ -334,7 +334,6 @@ object RequiredClaim {
   final case class ActAs[Req](party: String) extends RequiredClaim[Req]
   final case class MatchIdentityProviderId[Req](override val requestStringL: Lens[Req, String])
       extends RequiredClaim[Req]
-  // TODO(i24590) consolidate these two
   final case class MatchUserId[Req](
       override val requestStringL: Lens[Req, String],
       skipUserIdValidationForAnyPartyReaders: Boolean = false,

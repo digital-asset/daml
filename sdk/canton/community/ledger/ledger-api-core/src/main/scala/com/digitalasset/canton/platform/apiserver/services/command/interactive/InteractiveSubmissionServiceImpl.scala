@@ -10,7 +10,7 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service as prot
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.timer.Delayed
 import com.digitalasset.base.error.ErrorCode.LoggedApiException
-import com.digitalasset.base.error.{ContextualizedErrorLogger, DamlRpcError}
+import com.digitalasset.base.error.{ContextualizedErrorLogger, RpcError}
 import com.digitalasset.canton.crypto.InteractiveSubmission
 import com.digitalasset.canton.crypto.InteractiveSubmission.TransactionMetadataForHashing
 import com.digitalasset.canton.data.CantonTimestamp
@@ -255,7 +255,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       loggingContext: LoggingContextWithTrace,
       errorLoggingContext: ContextualizedErrorLogger,
   ): FutureUnlessShutdown[proto.PrepareSubmissionResponse] = {
-    val result: EitherT[FutureUnlessShutdown, DamlRpcError, proto.PrepareSubmissionResponse] = for {
+    val result: EitherT[FutureUnlessShutdown, RpcError, proto.PrepareSubmissionResponse] = for {
       commandExecutionResult <- withSpan("InteractiveSubmissionService.evaluate") { _ => _ =>
         val synchronizerState = syncService.getRoutingSynchronizerState
         commandExecutor
@@ -267,7 +267,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
           )
           .leftFlatMap { errCause =>
             metrics.commands.failedCommandInterpretations.mark()
-            EitherT.right[DamlRpcError](failedOnCommandProcessing(errCause))
+            EitherT.right[RpcError](failedOnCommandProcessing(errCause))
           }
       }
 
@@ -353,7 +353,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         )
         .leftMap(err =>
           CommandExecutionErrors.InteractiveSubmissionPreparationError
-            .Reject(s"Failed to compute hash: $err"): DamlRpcError
+            .Reject(s"Failed to compute hash: $err"): RpcError
         )
 
       hashingDetails = hashTracer match {
@@ -446,7 +446,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
 
   private def protocolVersionForSynchronizerId(
       synchronizerId: SynchronizerId
-  )(implicit loggingContext: LoggingContextWithTrace): Either[DamlRpcError, ProtocolVersion] =
+  )(implicit loggingContext: LoggingContextWithTrace): Either[RpcError, ProtocolVersion] =
     syncService
       .getProtocolVersionForSynchronizer(Traced(synchronizerId))
       .toRight(
@@ -562,6 +562,11 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       packageIdMapSnapshot
         // Optionality is supported since utility packages are not in the packageIdMapSnapshot,
         // since they are not upgradable
+        // TODO(#23334): Querying for parties not hosted on the current participant is problematic
+        //               since it can be that on their hosting participants, such parties have higher-versioned packages
+        //               in their package store. In such cases, the answer on non-hosting participants can be deceiving
+        //               as they are restricted by the non-hosting participant's package store and not only by the
+        //               vetting state on the commonly-connected synchronizer
         .get(pkgId)
         .iterator
         .collect {

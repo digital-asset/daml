@@ -220,6 +220,12 @@ trait PublicKey extends CryptoKeyPairKey {
 }
 
 object PublicKey {
+
+  /** Return the latest key from a sequence of keys */
+  def getLatestKey[A <: PublicKey](availableKeys: Seq[A]): Option[A] =
+    // use lastOption to retrieve latest key (newer keys are at the end) */
+    availableKeys.lastOption
+
   def fromProtoPublicKeyV30(publicKeyP: v30.PublicKey): ParsingResult[PublicKey] =
     publicKeyP.key match {
       case v30.PublicKey.Key.Empty => Left(ProtoDeserializationError.FieldNotSet("key"))

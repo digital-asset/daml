@@ -1,0 +1,27 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module CantonTests where
+
+import AutomaticReassignmentTransactions()
+import CantonExamplesDependency()
+import CausalityTest()
+import ConflictTest()
+import DamlDebug()
+import ExceptionsTester()
+import ExplicitDisclosure()
+import FailedTransactionsDoNotDivulge()
+import Loop()
+import ManySimpleContracts()
+import NonInformeeStakeholder()
+import NonstakeholderActors()
+import ParticipantConfigScript()
+import Refs()
+import SimpleContractWithPayload()
+import SimpleTemplate()
+import StaticTimeTest()
+import SubmitMustFail()
+import Test()
+import TransientContracts()
+import WitnessCreate()
+import Universal()

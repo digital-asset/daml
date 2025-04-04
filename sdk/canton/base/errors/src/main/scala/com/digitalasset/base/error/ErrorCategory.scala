@@ -391,14 +391,16 @@ object ErrorCategory {
 
   implicit val orderingErrorType: Ordering[ErrorCategory] = Ordering.by[ErrorCategory, Int](_.rank)
 
-  /** Special error category that isn't included in [[ErrorCategory.all]] and is meant purely for overriding
-  * the error category text in the generated error code documentation.
-  * It is expected that this category is replaced by an existing category from ErrorCategory.all in the 
-  * error code implementation of [[RpcError.code]] when the actual error is instantiated. 
-  * as such, all definitions in this Error Category are errors
-  */
+  /** Special error category that isn't included in [[ErrorCategory.all]] and is meant purely for
+    * overriding the error category text in the generated error code documentation. It is expected
+    * that this category is replaced by an existing category from ErrorCategory.all in the error
+    * code implementation of [[RpcError.code]] when the actual error is instantiated. as such, all
+    * methods in this Error Category are errors
+    */
   final case class OverrideDocStringErrorCategory(overrideText: String) extends ErrorCategory {
-    private def unimplemented = throw new IllegalArgumentException("Attempted to use OverrideDocStringErrorCategory in thrown error. This should be replaced at construction")
+    private def unimplemented = throw new IllegalArgumentException(
+      "Attempted to use OverrideDocStringErrorCategory in thrown error. This should be replaced at construction"
+    )
     override def grpcCode: Option[Code] = unimplemented
     override def logLevel: Level = unimplemented
     override def retryable: Option[ErrorCategoryRetry] = unimplemented

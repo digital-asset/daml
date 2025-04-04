@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.synchronizer.mediator.service
 
+import cats.Monad
 import cats.syntax.functor.*
-import cats.{Apply, Monad}
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, ProtoDeserializationFailure}
+import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.{CantonTimestamp, TransactionView}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -15,9 +15,9 @@ import com.digitalasset.canton.mediator.admin.v30 as mediatorV30
 import com.digitalasset.canton.mediator.admin.v30.{VerdictsRequest, VerdictsResponse}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.protocol.messages.InformeeMessage
-import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.mediator.FinalizedResponse
 import com.digitalasset.canton.synchronizer.mediator.store.FinalizedResponseStore
+import com.digitalasset.canton.time.TimeAwaiter
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureUtil
 import io.grpc.Status
@@ -28,25 +28,11 @@ import scala.concurrent.ExecutionContext
 
 import GrpcMediatorScanService.*
 
-/** Interface for implementations that allow tracking a timebased watermark.
-  */
-trait WatermarkTracker {
-  def getWatermark(): CantonTimestamp
-
-  /** Returns an optional future which will complete when the watermark. has been observed
-    *
-    * If the watermark is already observed, returns None.
-    */
-  def awaitWatermarkTime(minimumTimestampInclusive: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): Option[FutureUnlessShutdown[Unit]]
-}
-
 /** The mediator scan service delivers a stream of finalized verdicts. The verdicts are sorted by
   * the finalization time, which additionally is capped by the watermark tracked via the provided
-  * watermark tracker. In case the watermark is reached and * no new verdicts are found, the stream
-  * waits to be notified by the watermark tracker when new * watermarks are encountered. In
-  * practice, the watermark tracker follows the observed sequencing * time via the topology client.
+  * time awaiter. In case the watermark is reached and no new verdicts are found, the stream waits
+  * to be notified by the time awaiter when new watermarks are encountered. In practice, the time
+  * awaiter follows the observed sequencing.
   *
   * <strong>Notice:</strong>While returning the results in order of the request time would be a more
   * natural way to consume the information, this would add significant complexity to the
@@ -62,7 +48,7 @@ trait WatermarkTracker {
   */
 class GrpcMediatorScanService(
     finalizedResponseStore: FinalizedResponseStore,
-    watermarkTracker: WatermarkTracker,
+    watermarkTracker: TimeAwaiter,
     batchSize: PositiveInt,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -80,23 +66,25 @@ class GrpcMediatorScanService(
   ): Unit = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
-    validateStartingTimestamps(request) match {
+    val startingTimestamp = request.mostRecentlyReceivedRecordTime
+      .map(CantonTimestamp.fromProtoTimestamp)
+      .getOrElse(Right(CantonTimestamp.MinValue))
+
+    startingTimestamp match {
       case Left(err) => responseObserver.onError(ProtoDeserializationFailure.Wrap(err).asGrpcError)
-      case Right((startingFinalizationTime, startingRequestTime)) =>
+      case Right(startingRequestTime) =>
         withServerCallStreamObserver(responseObserver) { observer =>
           FutureUtil.doNotAwait(
             loadBatchesAndRespond(
               QueryRange(
-                fromFinalizationTimeExclusive = startingFinalizationTime,
                 fromRequestExclusive = startingRequestTime,
-                toFinalizationTimeInclusive = watermarkTracker.getWatermark(),
+                toRequestInclusive = watermarkTracker.getCurrentKnownTime(),
               ),
               observer,
             )
               .tapOnShutdown(observer.onError(AbortedDueToShutdown.Error().asGrpcError))
               .onShutdown(()),
-            failureMessage =
-              s"verdicts starting from exclusive ($startingFinalizationTime, $startingRequestTime)",
+            failureMessage = s"verdicts starting from exclusive $startingRequestTime",
             level = Level.INFO,
           )
         }
@@ -110,22 +98,20 @@ class GrpcMediatorScanService(
       responseObserver: ServerCallStreamObserver[VerdictsResponse],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     Monad[FutureUnlessShutdown]
-      .iterateUntilM(queryRange) {
-        case QueryRange(fromFinalizationTime, fromRequestTime, toFinalizationTime) =>
-          logger.debug(
-            s"Loading verdicts between ]($fromFinalizationTime, $fromRequestTime), ($toFinalizationTime, MaxValue)]"
+      .iterateUntilM(queryRange) { case QueryRange(fromRequestTime, toRequestTime) =>
+        logger.debug(
+          s"Loading verdicts between ]$fromRequestTime, $toRequestTime]"
+        )
+        finalizedResponseStore
+          .readFinalizedVerdicts(
+            fromRequestTime,
+            toRequestTime,
+            batchSize,
           )
-          finalizedResponseStore
-            .readFinalizedVerdicts(
-              fromFinalizationTime,
-              fromRequestTime,
-              toFinalizationTime,
-              batchSize,
-            )
-            .flatMap { finalizedResponses =>
-              respondIfNonEmpty(finalizedResponses, responseObserver)
-              determineNextTimestamps(finalizedResponses, toFinalizationTime)
-            }
+          .flatMap { finalizedResponses =>
+            respondIfNonEmpty(finalizedResponses, responseObserver)
+            determineNextTimestamps(finalizedResponses, toRequestTime)
+          }
       }(_ => responseObserver.isCancelled)
       .map(_ => ())
 
@@ -141,29 +127,28 @@ class GrpcMediatorScanService(
     // and avoid loading data again and again just to discard it afterwards
 
     val mostRecentTimestamps = finalizedResponses
-      .maxByOption(r => (r.finalizationTime, r.requestId.unwrap))
-      .map(r => (r.finalizationTime, r.requestId.unwrap))
+      .maxByOption(r => r.requestId.unwrap)
+      .map(r => r.requestId.unwrap)
     // Use the timestamp from the most recent verdict loaded from the database.
     // If no verdicts were found, use currentToInclusive as the next starting point, because we know
     // that there won't be any verdicts before this timestamp
 
     mostRecentTimestamps match {
-      case Some((nextFromFinalizationTime, nextFromRequestTime)) =>
+      case Some(nextFromRequestTime) =>
         FutureUnlessShutdown.pure(
           QueryRange(
-            fromFinalizationTimeExclusive = nextFromFinalizationTime,
             fromRequestExclusive = nextFromRequestTime,
-            toFinalizationTimeInclusive = watermarkTracker.getWatermark(),
+            toRequestInclusive = watermarkTracker.getCurrentKnownTime(),
           )
         )
       case None =>
-        val newWatermark = watermarkTracker.getWatermark()
+        val newWatermark = watermarkTracker.getCurrentKnownTime()
         val possiblyWaitForNextObservedTimestamp = if (newWatermark <= currentToInclusive) {
           logger.debug(
             s"Waiting to observe a time later than the current watermark $newWatermark"
           )
           watermarkTracker
-            .awaitWatermarkTime(newWatermark.immediateSuccessor)
+            .awaitKnownTimestamp(newWatermark.immediateSuccessor)
             // if there is a race and in the meantime a sequenced time > `newWatermark` was observed, we just continue
             .getOrElse(FutureUnlessShutdown.unit)
         } else {
@@ -178,9 +163,8 @@ class GrpcMediatorScanService(
           // so that the next verdict found has at least `currentToInclusive.immediateSuccessor`.
           .map(_ =>
             QueryRange(
-              fromFinalizationTimeExclusive = currentToInclusive,
-              fromRequestExclusive = CantonTimestamp.MaxValue,
-              toFinalizationTimeInclusive = watermarkTracker.getWatermark(),
+              fromRequestExclusive = currentToInclusive,
+              toRequestInclusive = watermarkTracker.getCurrentKnownTime(),
             )
           )
     }
@@ -196,11 +180,11 @@ class GrpcMediatorScanService(
       // we're using the latest timestamp from the responses loaded from the database (even though
       // they might contain verdicts for irrelevant requests, e.g. reassignments), so that
       // we can log the full range of the time window considered
-      val timestamps = finalizedResponses.map(r => (r.finalizationTime, r.requestId.unwrap))
-      val minFinalizationTime = timestamps.headOption
-      val maxFinalizationTime = timestamps.lastOption
+      val timestamps = finalizedResponses.map(r => r.requestId.unwrap)
+      val minRequestTime = timestamps.headOption
+      val maxRequestTime = timestamps.lastOption
       logger.debug(
-        s"Responding with ${protoResponses.size} verdicts between [$minFinalizationTime, $maxFinalizationTime]"
+        s"Responding with ${protoResponses.size} verdicts between [$minRequestTime, $maxRequestTime]"
       )
       protoResponses.foreach(responseObserver.onNext)
     }
@@ -281,35 +265,9 @@ class GrpcMediatorScanService(
 object GrpcMediatorScanService {
 
   final case class QueryRange(
-      fromFinalizationTimeExclusive: CantonTimestamp,
       fromRequestExclusive: CantonTimestamp,
-      toFinalizationTimeInclusive: CantonTimestamp,
+      toRequestInclusive: CantonTimestamp,
   )
-
-  /** Either both of the starting timestamps must be provided and valid, or neither
-    */
-  def validateStartingTimestamps(
-      request: VerdictsRequest
-  ): ParsingResult[(CantonTimestamp, CantonTimestamp)] =
-    (
-      request.mostRecentlyReceivedFinalizationTime,
-      request.mostRecentlyReceivedRecordTime,
-    ) match {
-      case (Some(_), None) =>
-        Left(
-          FieldNotSet("most_recently_received_finalization_time")
-        )
-      case (None, Some(_)) =>
-        Left(
-          FieldNotSet("most_recently_received_record_time")
-        )
-      case (None, None) => Right((CantonTimestamp.MinValue, CantonTimestamp.MinValue))
-      case (Some(finalizationTimeExclusive), Some(requestTimeExclusive)) =>
-        Apply[ParsingResult].tuple2(
-          CantonTimestamp.fromProtoTimestamp(finalizationTimeExclusive),
-          CantonTimestamp.fromProtoTimestamp(requestTimeExclusive),
-        )
-    }
 
   /** Takes a list of root nodes of type A, a function to determine child nodes, and a conversion
     * function that takes the node of type A and the indices of the children in pre-order traversal

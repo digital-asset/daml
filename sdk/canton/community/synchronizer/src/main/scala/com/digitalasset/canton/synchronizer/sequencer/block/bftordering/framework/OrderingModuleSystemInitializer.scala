@@ -45,6 +45,7 @@ class OrderingModuleSystemInitializer[E <: Env[E]](moduleFactories: ModuleFactor
       availabilityRef,
       consensusRef,
       outputRef,
+      pruningRef,
     )
     val availability = moduleFactories.availability(
       mempoolRef,
@@ -98,6 +99,7 @@ object OrderingModuleSystemInitializer {
           ModuleRef[Availability.Message[E]],
           ModuleRef[Consensus.Message[E]],
           ModuleRef[Output.Message[E]],
+          ModuleRef[Pruning.Message],
       ) => P2PNetworkOut[E],
       availability: (
           ModuleRef[Mempool.Message],

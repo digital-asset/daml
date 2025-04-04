@@ -20,11 +20,9 @@ import Control.Monad.Extra hiding (fromMaybeM)
 import Data.Maybe
 import qualified Data.Text as T
 import Network.Socket.Extended (getFreePort)
-import System.Console.ANSI
 import System.FilePath
 import System.Process.Typed
 import System.IO.Extra
-import System.Info.Extra
 
 import DA.Daml.Helper.Codegen
 import DA.Daml.Helper.Ledger
@@ -141,12 +139,10 @@ runStart startOptions@StartOptions{..} =
                       ] ++ scriptOpts
                   runProcess_ procScript
         doRunInitScript
-        listenForKeyPress projectConfig darPath sandboxPort doRunInitScript
-        do
-            whenJust onStartM $ \onStart -> runProcess_ (shell onStart)
-            whenJust jsonApiPortM $ \jsonApiPort -> waitForJsonApi sandboxPh jsonApiPort
-            when shouldWaitForSignal $
-              void $ waitAnyCancel =<< mapM (async . waitExitCode) [sandboxPh]
+        whenJust onStartM $ \onStart -> runProcess_ (shell onStart)
+        whenJust jsonApiPortM $ \jsonApiPort -> waitForJsonApi sandboxPh jsonApiPort
+        when shouldWaitForSignal $
+          void $ waitAnyCancel =<< mapM (async . waitExitCode) [sandboxPh]
 
     where
         doCodegen projectConfig =
@@ -158,38 +154,3 @@ runStart startOptions@StartOptions{..} =
                 projectConfig
             whenJust mbOutputPath $ \_outputPath -> do
               runCodegen lang []
-        -- doReset (SandboxPort sandboxPort) =
-        --   runLedgerReset (sandboxLedgerFlags sandboxPort)
-        doUploadDar darPath (SandboxPort sandboxPort) =
-          runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (DryRun False) (Just darPath)
-        listenForKeyPress projectConfig darPath sandboxPort runInitScript = do
-          hSetBuffering stdin NoBuffering
-          void $
-            forkIO $
-             do
-              threadDelay 20000000
-              -- give sandbox 20 secs to startup before printing rebuild instructions
-              forever $ do
-                printRebuildInstructions
-                c <- getChar
-                when (c == 'r' || c == 'R') $ rebuild projectConfig darPath sandboxPort runInitScript
-                threadDelay 1000000
-        rebuild :: ProjectConfig -> FilePath -> SandboxPort -> IO () -> IO ()
-        rebuild projectConfig darPath sandboxPort doRunInitScript = do
-          putStrLn "Re-building and uploading package ..."
-          -- doReset sandboxPort
-          doBuild
-          doCodegen projectConfig
-          doUploadDar darPath sandboxPort
-          doRunInitScript
-          setSGR [SetColor Foreground Dull Green]
-          putStrLn "Rebuild complete."
-          setSGR [Reset]
-        printRebuildInstructions = do
-          setSGR [SetColor Foreground Vivid Yellow]
-          putStrLn reloadInstructions
-          setSGR [Reset]
-          hFlush stdout
-        reloadInstructions
-          | isWindows = "\nPress 'r' + 'Enter' to re-build and upload the package to the sandbox.\nPress 'Ctrl-C' to quit."
-          | otherwise = "\nPress 'r' to re-build and upload the package to the sandbox.\nPress 'Ctrl-C' to quit."

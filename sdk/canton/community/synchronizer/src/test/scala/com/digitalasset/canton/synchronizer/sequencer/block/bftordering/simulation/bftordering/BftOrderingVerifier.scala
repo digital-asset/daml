@@ -85,6 +85,18 @@ final class BftOrderingVerifier(
 
   override def aFutureHappened(node: BftNodeId): Unit = ()
 
+  def lastSequencerAcknowledgedBlock(node: BftNodeId): Option[BlockNumber] =
+    peanoQueues
+      .get(node)
+      .flatMap { queue =>
+        val head = queue.head.unwrap
+        if (head == 0L) {
+          None
+        } else {
+          Some(BlockNumber(head - 1L)) // head is what we are waiting for
+        }
+      }
+
   def newStage(
       simulationSettings: SimulationSettings,
       newOnboardingTimes: Map[BftNodeId, TopologyActivationTime],

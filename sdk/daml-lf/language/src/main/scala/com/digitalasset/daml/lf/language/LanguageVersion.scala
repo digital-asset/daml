@@ -97,15 +97,12 @@ object LanguageVersion {
     /** Guards in interfaces */
     val extendedInterfaces = v2_dev
 
-    /** TextMap */
-    val textMap = v2_dev
-
     /** BigNumeric */
     val bigNumeric = v2_dev
 
     val contractKeys = v2_dev
 
-    val cctp = v2_dev
+    val cctp = v2_1
 
     /** Unstable, experimental features. This should stay in x.dev forever.
       * Features implemented with this flag should be moved to a separate
@@ -138,9 +135,9 @@ object LanguageVersion {
     val choiceFuncs = v1_dev
     val choiceAuthority = v1_dev
     val natTypeErasure = v1_dev
-    val packageUpgrades = v1_dev
+    val packageUpgrades = v1_17
     val dynamicExercise = v1_dev
-    val sharedKeys = v1_dev
+    val sharedKeys = v1_17
 
     /** TYPE_REP_TYCON_NAME builtin */
     val templateTypeRepToText = v1_dev

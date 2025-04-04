@@ -760,6 +760,8 @@ object LifeCycleManager {
         .discard
       readerSemaphore.release()
     }
+
+    override def toString: String = s"LifeCycleManagerImpl(name=$name)"
   }
 
   private object LifeCycleManagerImpl {

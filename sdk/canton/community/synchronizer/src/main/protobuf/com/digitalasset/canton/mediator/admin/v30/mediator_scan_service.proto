@@ -25,12 +25,9 @@ service MediatorScanService {
 // The starting timestamps are interpreted as "exclusive", meaning the next verdict in the response is
 // the verdict with the lowest respective timestamps that are greater than the ones provided.
 message VerdictsRequest {
-  // Optional: The finalization_time of the most recently received Verdict.
-  //           If not provided, the mediator will return verdicts from the beginning.
-  optional google.protobuf.Timestamp most_recently_received_finalization_time = 1;
   // Optional: The record_time_of_request of the most recently received verdict.
   //           If not provided, the mediator will return verdicts from the beginning.
-  optional google.protobuf.Timestamp most_recently_received_record_time = 2;
+  optional google.protobuf.Timestamp most_recently_received_record_time = 1;
 }
 
 message VerdictsResponse {

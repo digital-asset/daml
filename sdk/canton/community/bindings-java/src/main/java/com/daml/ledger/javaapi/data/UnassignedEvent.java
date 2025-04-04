@@ -9,7 +9,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import java.time.Instant;
 import java.util.*;
 
-public final class UnassignedEvent {
+public final class UnassignedEvent implements ReassignmentEvent {
+
+  private final long offset;
 
   private final @NonNull String unassignId;
 
@@ -31,7 +33,10 @@ public final class UnassignedEvent {
 
   private final @NonNull List<@NonNull String> witnessParties;
 
+  private final int nodeId;
+
   public UnassignedEvent(
+      long offset,
       @NonNull String unassignId,
       @NonNull String contractId,
       @NonNull Identifier templateId,
@@ -41,7 +46,9 @@ public final class UnassignedEvent {
       @NonNull String submitter,
       long reassignmentCounter,
       @NonNull Instant assignmentExclusivity,
-      @NonNull List<@NonNull String> witnessParties) {
+      @NonNull List<@NonNull String> witnessParties,
+      int nodeId) {
+    this.offset = offset;
     this.unassignId = unassignId;
     this.contractId = contractId;
     this.templateId = templateId;
@@ -52,6 +59,11 @@ public final class UnassignedEvent {
     this.reassignmentCounter = reassignmentCounter;
     this.assignmentExclusivity = assignmentExclusivity;
     this.witnessParties = List.copyOf(witnessParties);
+    this.nodeId = nodeId;
+  }
+
+  public long getOffset() {
+    return offset;
   }
 
   @NonNull
@@ -102,12 +114,17 @@ public final class UnassignedEvent {
     return witnessParties;
   }
 
+  public int getNodeId() {
+    return nodeId;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     UnassignedEvent that = (UnassignedEvent) o;
-    return Objects.equals(unassignId, that.unassignId)
+    return Objects.equals(offset, that.offset)
+        && Objects.equals(unassignId, that.unassignId)
         && Objects.equals(contractId, that.contractId)
         && Objects.equals(packageName, that.packageName)
         && Objects.equals(templateId, that.templateId)
@@ -116,12 +133,14 @@ public final class UnassignedEvent {
         && Objects.equals(submitter, that.submitter)
         && Objects.equals(reassignmentCounter, that.reassignmentCounter)
         && Objects.equals(assignmentExclusivity, that.assignmentExclusivity)
-        && Objects.equals(witnessParties, that.witnessParties);
+        && Objects.equals(witnessParties, that.witnessParties)
+        && Objects.equals(nodeId, that.nodeId);
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(
+        offset,
         unassignId,
         contractId,
         templateId,
@@ -131,13 +150,16 @@ public final class UnassignedEvent {
         submitter,
         reassignmentCounter,
         assignmentExclusivity,
-        witnessParties);
+        witnessParties,
+        nodeId);
   }
 
   @Override
   public String toString() {
     return "UnassignedEvent{"
-        + "unassignId='"
+        + "offset="
+        + offset
+        + ", unassignId='"
         + unassignId
         + '\''
         + ", contractId='"
@@ -159,11 +181,14 @@ public final class UnassignedEvent {
         + assignmentExclusivity
         + ", witnessParties="
         + witnessParties
+        + ", nodeId="
+        + nodeId
         + '}';
   }
 
   public ReassignmentOuterClass.UnassignedEvent toProto() {
     return ReassignmentOuterClass.UnassignedEvent.newBuilder()
+        .setOffset(this.offset)
         .setUnassignId(this.unassignId)
         .setContractId(this.contractId)
         .setTemplateId(this.getTemplateId().toProto())
@@ -174,11 +199,13 @@ public final class UnassignedEvent {
         .setReassignmentCounter(this.reassignmentCounter)
         .setAssignmentExclusivity(Utils.instantToProto(this.assignmentExclusivity))
         .addAllWitnessParties(this.getWitnessParties())
+        .setNodeId(this.getNodeId())
         .build();
   }
 
   public static UnassignedEvent fromProto(ReassignmentOuterClass.UnassignedEvent unassignedEvent) {
     return new UnassignedEvent(
+        unassignedEvent.getOffset(),
         unassignedEvent.getUnassignId(),
         unassignedEvent.getContractId(),
         Identifier.fromProto(unassignedEvent.getTemplateId()),
@@ -190,6 +217,7 @@ public final class UnassignedEvent {
         Instant.ofEpochSecond(
             unassignedEvent.getAssignmentExclusivity().getSeconds(),
             unassignedEvent.getAssignmentExclusivity().getNanos()),
-        unassignedEvent.getWitnessPartiesList());
+        unassignedEvent.getWitnessPartiesList(),
+        unassignedEvent.getNodeId());
   }
 }

@@ -66,7 +66,7 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
       )
       val subscriber = createResilientSubscriber(factory)
       factory.add(Error(UnretryableError))
-      val subscription = subscriber.subscribeFrom(SequencerCounter.Genesis)
+      val subscription = subscriber.subscribeFrom(startingTimestamp = None)
       loggerFactory.assertLogs(
         subscription.source.toMat(Sink.ignore)(Keep.right).run().futureValue,
         _.warningMessage should include(
@@ -87,7 +87,7 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
       factory.add(Error(RetryableError))
       factory.add(Error(RetryableError))
       factory.add(Error(UnretryableError))
-      val subscription = subscriber.subscribeFrom(SequencerCounter.Genesis)
+      val subscription = subscriber.subscribeFrom(startingTimestamp = None)
       loggerFactory.assertLogs(
         subscription.source
           .toMat(Sink.ignore)(Keep.right)
@@ -110,7 +110,7 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
       val subscriber = createResilientSubscriber(factory)
       factory.add(Failure(RetryableExn))
       factory.add(Failure(FatalExn))
-      val subscription = subscriber.subscribeFrom(SequencerCounter.Genesis)
+      val subscription = subscriber.subscribeFrom(startingTimestamp = None)
       loggerFactory.assertLogs(
         subscription.source
           .toMat(Sink.ignore)(Keep.right)
@@ -127,32 +127,33 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
       }
     }
 
-    "restart from last received counter" in {
+    "restart from last received timestamp" in {
       val factory = TestSequencerSubscriptionFactoryPekko(
-        loggerFactory.appendUnnamedKey("case", "restart-from-counter")
+        loggerFactory.appendUnnamedKey("case", "restart-from-timestamp")
       )
       val subscriber = createResilientSubscriber(factory)
-      factory.subscribe(start =>
-        (start to (start + 10)).map(sc => Event(sc)) :+ Error(RetryableError)
-      )
-      factory.subscribe(start => (start to (start + 10)).map(sc => Event(sc)))
+      factory.subscribe(start => genEvents(start, 10) :+ Error(RetryableError))
+      factory.subscribe(start => genEvents(start, 10))
 
       val ((killSwitch, doneF), sink) =
         subscriber
-          .subscribeFrom(SequencerCounter.Genesis)
+          .subscribeFrom(startingTimestamp = None)
           .source
           .map(_.value)
           .toMat(TestSink.probe)(Keep.both)
           .run()
       sink.request(30)
-      val expectedCounters =
-        (SequencerCounter.Genesis to SequencerCounter(10)) ++
-          (SequencerCounter(10) to SequencerCounter(20))
-      expectedCounters.zipWithIndex.foreach { case (sc, i) =>
-        clue(s"Output stream element $i") {
-          sink.expectNext(Right(mkOrdinarySerializedEvent(sc)))
+      val expectedEvents = genEvents(startTimestamp = None, 10) ++ genEvents(
+        startTimestamp = Some(
+          CantonTimestamp.Epoch.addMicros(9L)
+        ), // Note that 9L event repeats due to re-subscription
+        10,
+      )
+      expectedEvents.foreach(event =>
+        clue(s"Output expecting element: $event") {
+          sink.expectNext(Right(event.asOrdinarySerializedEvent))
         }
-      }
+      )
       killSwitch.shutdown()
       doneF.futureValue
     }
@@ -177,14 +178,14 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
       val subscriber = createResilientSubscriber(factory, captureHasEvent)
 
       // provide an event then close with a recoverable error
-      factory.add(Event(SequencerCounter(1L)), Error(RetryableError))
+      factory.add(Event(timestamp = CantonTimestamp.Epoch.addMicros(1L)), Error(RetryableError))
       // don't provide an event and close immediately with a recoverable error
       factory.add(Error(RetryableError))
       // don't provide an event and close immediately
       factory.add(Complete)
 
       subscriber
-        .subscribeFrom(SequencerCounter.Genesis)
+        .subscribeFrom(startingTimestamp = None)
         .source
         .toMat(Sink.ignore)(Keep.right)
         .run()
@@ -209,7 +210,7 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
       val startTime = Deadline.now
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
         {
-          val subscription = subscriber.subscribeFrom(SequencerCounter.Genesis)
+          val subscription = subscriber.subscribeFrom(startingTimestamp = None)
           // Initially, everything looks healthy
           subscription.health.isFailed shouldBe false
 
@@ -253,12 +254,12 @@ class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
       for (_ <- 1 to retries) {
         factory.add(Error(RetryableError))
       }
-      factory.add((1 to 10).map(sc => Event(SequencerCounter(sc.toLong)))*)
+      factory.add(genEvents(startTimestamp = Some(CantonTimestamp.Epoch.addMicros(1L)), count = 9)*)
 
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
         {
           val subscription = subscriber
-            .subscribeFrom(SequencerCounter.Genesis)
+            .subscribeFrom(startingTimestamp = None)
 
           // Initially, everything looks healthy
           subscription.health.isFailed shouldBe false
@@ -301,14 +302,14 @@ class TestSequencerSubscriptionFactoryPekko(
 
   override def sequencerId: SequencerId = DefaultTestIdentities.daSequencerId
 
-  private val sources = new AtomicReference[Seq[SequencerCounter => Seq[Element]]](Seq.empty)
+  private val sources = new AtomicReference[Seq[Option[CantonTimestamp] => Seq[Element]]](Seq.empty)
 
   def add(next: Element*): Unit = subscribe(_ => next)
 
-  def subscribe(subscribe: SequencerCounter => Seq[Element]): Unit =
+  def subscribe(subscribe: Option[CantonTimestamp] => Seq[Element]): Unit =
     sources.getAndUpdate(_ :+ subscribe).discard
 
-  override def create(startingCounter: SequencerCounter)(implicit
+  override def create(startingTimestamp: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
   ): SequencerSubscriptionPekko[TestSubscriptionError] = {
     val srcs = sources.getAndUpdate(_.drop(1))
@@ -318,9 +319,9 @@ class TestSequencerSubscriptionFactoryPekko(
       )
     )
 
-    logger.debug(s"Creating SequencerSubscriptionPekko at starting counter $startingCounter")
+    logger.debug(s"Creating SequencerSubscriptionPekko at starting timestamp $startingTimestamp")
 
-    val source = Source(subscribe(startingCounter))
+    val source = Source(subscribe(startingTimestamp))
       // Add an incomplete unproductive source at the end to prevent automatic completion signals
       .concat(Source.never[Element])
       .withUniqueKillSwitchMat()(Keep.right)
@@ -362,23 +363,24 @@ object TestSequencerSubscriptionFactoryPekko {
   final case class Failure(exception: Exception) extends Element
   case object Complete extends Element
   final case class Event(
-      counter: SequencerCounter,
+      timestamp: CantonTimestamp,
       signatures: NonEmpty[Set[Signature]] = Signature.noSignatures,
   ) extends Element {
     def asOrdinarySerializedEvent: OrdinarySerializedEvent =
-      mkOrdinarySerializedEvent(counter, signatures)
+      mkOrdinarySerializedEvent(timestamp, signatures)
   }
 
   def mkOrdinarySerializedEvent(
-      counter: SequencerCounter,
+      timestamp: CantonTimestamp,
       signatures: NonEmpty[Set[Signature]] = Signature.noSignatures,
   ): OrdinarySerializedEvent = {
     val pts =
-      if (counter.unwrap == 0) None else Some(CantonTimestamp.Epoch.addMicros(counter.unwrap - 1))
+      if (timestamp == CantonTimestamp.Epoch) None else Some(timestamp.addMicros(-1L))
+    val counter = SequencerCounter(timestamp.toMicros - CantonTimestamp.Epoch.toMicros)
     val sequencedEvent = Deliver.create(
       counter,
       pts,
-      CantonTimestamp.Epoch.addMicros(counter.unwrap),
+      timestamp,
       DefaultTestIdentities.synchronizerId,
       None,
       Batch.empty(BaseTest.testedProtocolVersion),
@@ -395,6 +397,11 @@ object TestSequencerSubscriptionFactoryPekko {
       )
     OrdinarySequencedEvent(signedContent)(TraceContext.empty)
   }
+
+  def genEvents(startTimestamp: Option[CantonTimestamp], count: Long): Seq[Event] =
+    (0L until count).map(offset =>
+      Event(startTimestamp.getOrElse(CantonTimestamp.Epoch).addMicros(offset))
+    )
 
   private class TestSubscriptionErrorRetryPolicyPekko
       extends SubscriptionErrorRetryPolicyPekko[TestSubscriptionError] {

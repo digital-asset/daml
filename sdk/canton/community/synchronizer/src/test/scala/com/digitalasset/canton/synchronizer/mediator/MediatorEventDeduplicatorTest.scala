@@ -20,7 +20,9 @@ import com.digitalasset.canton.synchronizer.mediator.store.{
   InMemoryFinalizedResponseStore,
   InMemoryMediatorDeduplicationStore,
   MediatorDeduplicationStore,
+  MediatorState,
 }
+import com.digitalasset.canton.synchronizer.metrics.MediatorTestMetrics
 import com.digitalasset.canton.topology.DefaultTestIdentities.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.DelayUtil
@@ -61,9 +63,19 @@ class MediatorEventDeduplicatorTest
     val verdictSender =
       new TestVerdictSender(null, daMediator, null, testedProtocolVersion, loggerFactory)
 
-    val deduplicator = new DefaultMediatorEventDeduplicator(
-      store,
+    val state = new MediatorState(
       finalizedResponseStore,
+      store,
+      wallClock,
+      MediatorTestMetrics,
+      testedProtocolVersion,
+      timeouts,
+      loggerFactory,
+    )
+    state.initialize(CantonTimestamp.MinValue).futureValueUS
+
+    val deduplicator = new DefaultMediatorEventDeduplicator(
+      state,
       verdictSender,
       _ => FutureUnlessShutdown.outcomeF(delayed(deduplicationTimeout)),
       _ => FutureUnlessShutdown.outcomeF(delayed(decisionTime)),
@@ -377,6 +389,18 @@ class MediatorEventDeduplicatorTest
     val finalizedResponseStore: FinalizedResponseStore =
       new InMemoryFinalizedResponseStore(loggerFactory)
 
+    val state = new MediatorState(
+      finalizedResponseStore,
+      store,
+      wallClock,
+      MediatorTestMetrics,
+      testedProtocolVersion,
+      timeouts,
+      loggerFactory,
+    )
+
+    state.initialize(CantonTimestamp.MinValue).futureValueUS
+
     val verdictSender = new VerdictSender {
       override def sendResult(
           requestId: RequestId,
@@ -406,8 +430,7 @@ class MediatorEventDeduplicatorTest
     }
 
     new DefaultMediatorEventDeduplicator(
-      store,
-      finalizedResponseStore,
+      state,
       verdictSender,
       _ => FutureUnlessShutdown.pure(deduplicationTimeout),
       _ => FutureUnlessShutdown.pure(decisionTime),

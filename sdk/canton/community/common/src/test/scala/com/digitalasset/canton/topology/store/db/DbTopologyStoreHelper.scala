@@ -24,7 +24,7 @@ trait DbTopologyStoreHelper {
       storage: DbStorage
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     MonadUtil
-      .sequentialTraverse_[FutureUnlessShutdown, TopologyStore[_]](storesToCleanup)(
+      .sequentialTraverse_(storesToCleanup)(
         _.deleteAllData()
       )
       .map { _ =>

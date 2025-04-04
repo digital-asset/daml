@@ -79,11 +79,11 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
 
     "report upgrade errors when the upgrade use a older version of LF" in {
       testPackages(
-        Seq(
+        rawPaths = Seq(
           "test-common/upgrades-FailsWhenNewerPackagesUsesAnOlderLFVersion-v1.dar",
           "test-common/upgrades-FailsWhenNewerPackagesUsesAnOlderLFVersion-v2.dar",
         ),
-        Seq(
+        uploadAssertions = Seq(
           (
             "test-common/upgrades-FailsWhenNewerPackagesUsesAnOlderLFVersion-v1.dar",
             "test-common/upgrades-FailsWhenNewerPackagesUsesAnOlderLFVersion-v2.dar",

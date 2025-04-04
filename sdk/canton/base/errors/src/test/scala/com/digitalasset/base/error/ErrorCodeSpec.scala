@@ -304,7 +304,7 @@ class ErrorCodeSpec
         whenever(
           ErrorCode
             // Ensure we evaluate the test only for errors that must be truncated
-            .asGrpcStatus(err, ErrorCode.MaxErrorContentBytes * 10)(err.errorContext)
+            .asGrpcStatus(err, ErrorCode.MaxErrorContentBytes * 10)(err.logger)
             .getSerializedSize > ErrorCode.MaxErrorContentBytes
         ) {
           val protoResult = err.asGrpcStatus

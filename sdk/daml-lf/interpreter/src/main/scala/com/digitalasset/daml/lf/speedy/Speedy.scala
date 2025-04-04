@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.speedy.PartialTransaction.NodeSeeds
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.speedy.SValue.SArithmeticError
+import com.digitalasset.daml.lf.speedy.SValue.{SAnyException, SArithmeticError, SRecord, SText}
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyMapping
@@ -221,15 +221,15 @@ private[lf] object Speedy {
     // thrown during the question callbacks execution
 
     final private[speedy] def needTime(): Control[Question.Update] = {
-      setDependsOnTime()
       Control.Question(
-        Question.Update.NeedTime(time =>
+        Question.Update.NeedTime { time =>
+          setDependsOnTime(time)
           safelyContinue(
             NameOf.qualifiedNameOfCurrentFunc,
             "NeedTime",
             Control.Value(SValue.STimestamp(time)),
           )
-        )
+        }
       )
     }
 
@@ -374,8 +374,15 @@ private[lf] object Speedy {
       * producing a text message.
       */
     private[speedy] override def handleException(excep: SValue.SAny): Control[Nothing] = {
+      // Return value meaning:
+      // None: No handler or exception conversion tag, regular unhandled exception
+      // Some(Left): try-catch handler found up the stack, continue using that
+      // Some(Right): exception conversion tag found, meaning this exception was thrown during exception -> failure status
+      //   conversion, pass this information forward to unhandledException
       @tailrec
-      def unwind(ptx: PartialTransaction): Option[KTryCatchHandler] =
+      def unwind(
+          ptx: PartialTransaction
+      ): Option[Either[KTryCatchHandler, KConvertingException[Question.Update]]] =
         if (kontDepth() == 0) {
           None
         } else {
@@ -385,7 +392,7 @@ private[lf] object Speedy {
               // This may cause the transaction trace to report the error from the handler's location.
               // Ideally we should embed the trace into the exception directly.
               this.ptx = ptx.rollbackTry()
-              Some(handler)
+              Some(Left(handler))
             case _: KCloseExercise =>
               unwind(ptx.abortExercises)
             case k: KCheckChoiceGuard =>
@@ -395,26 +402,33 @@ private[lf] object Speedy {
               abort()
               k.abort()
             case KPreventException() =>
-              abort()
               None
+            case converting: KConvertingException[Question.Update] =>
+              Some(Right(converting))
             case _ =>
               unwind(ptx)
           }
         }
 
       unwind(ptx) match {
-        case Some(kh) =>
+        case Some(Left(kh)) =>
           kh.restore()
           popTempStackToBase()
           pushEnv(excep) // payload on stack where handler expects it
           Control.Expression(kh.handler)
+        case Some(Right(KConvertingException(originalExceptionId))) =>
+          unhandledException(excep, Some(originalExceptionId))
         case None =>
           unhandledException(excep)
       }
     }
 
-    /* Flag to trace usage of get_time builtins */
-    private[this] var dependsOnTime: Boolean = false
+    /** Tracks the lower and upper bounds on the ledger time for a given Daml interpretation
+      * run. At any point during interpretation, the interpretation up to then is invariant
+      * for any ledger time within these bounds.
+      */
+    private[this] var timeBoundaries: Time.Range = Time.Range.unconstrained
+
     // global contract discriminators, that are discriminators from contract created in previous transactions
 
     private[this] var numInputContracts: Int = 0
@@ -438,11 +452,11 @@ private[lf] object Speedy {
     private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
       disclosedContracts.isDefinedAt(contractId)
 
-    private[this] def setDependsOnTime(): Unit =
-      dependsOnTime = true
+    private[this] def setDependsOnTime(time: Time.Timestamp): Unit =
+      timeBoundaries = Time.Range(min = time, max = time)
 
-    def getDependsOnTime: Boolean =
-      dependsOnTime
+    def getTimeBoundaries: Time.Range =
+      timeBoundaries
 
     val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
       if (validating) { _ => SVisibleToStakeholders.Visible }
@@ -787,6 +801,7 @@ private[lf] object Speedy {
       /* Profile of the run when the packages haven been compiled with profiling enabled. */
       override val profile: Profile,
       override val iterationsBetweenInterruptions: Long,
+      override val convertLegacyExceptions: Boolean,
   )(implicit loggingContext: LoggingContext)
       extends Machine[Nothing] {
 
@@ -796,7 +811,7 @@ private[lf] object Speedy {
       throw SErrorCrash(location, "unexpected pure machine")
 
     /** Pure Machine does not handle exceptions */
-    private[speedy] override def handleException(excep: SValue.SAny): Control.Error =
+    private[speedy] override def handleException(excep: SValue.SAny): Control[Nothing] =
       unhandledException(excep)
 
     @nowarn("msg=dead code following this construct")
@@ -827,6 +842,11 @@ private[lf] object Speedy {
     /* number of iteration between cooperation interruption */
     val iterationsBetweenInterruptions: Long
 
+    /* Should Daml Exceptions be automatically converted to FailureStatus before throwing from the engine
+       Daml-script needs to disable this behaviour in 3.3, thus the flag.
+     */
+    val convertLegacyExceptions: Boolean = true
+
     private val stablePackages = StablePackages(
       compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
     )
@@ -843,9 +863,59 @@ private[lf] object Speedy {
 
     private[speedy] def handleException(excep: SValue.SAny): Control[Nothing]
 
-    protected final def unhandledException(excep: SValue.SAny): Control.Error = {
+    // Triggers conversion of exception to failure status and throws.
+    // if the computation of the exception message also throws an exception, this will be called with
+    // originalExceptionId as the original exceptionId, and we won't trigger a conversion
+    protected final def unhandledException(
+        excep: SValue.SAny,
+        originalExceptionId: Option[TypeConName] = None,
+    ): Control[Nothing] = {
       abort()
-      Control.Error(IError.UnhandledException(excep.ty, excep.value.toUnnormalizedValue))
+      if (convertLegacyExceptions) {
+        val exceptionId = excep.ty match {
+          case TTyCon(exceptionId) => exceptionId
+          case _ =>
+            throw SErrorCrash(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"Tried to convert a non-grounded exception type ${excep.ty.pretty} to Failure Status",
+            )
+        }
+
+        def buildFailureStatus(exceptionId: Identifier, message: String) =
+          Control.Error(
+            interpretation.Error.FailureStatus(
+              "UNHANDLED_EXCEPTION/" + exceptionId.qualifiedName.toString,
+              FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
+              message,
+              Map(),
+            )
+          )
+
+        originalExceptionId match {
+          case None =>
+            (exceptionId, excep) match {
+              // Arithmetic error does not need to be loaded into compiledPackages to be thrown (by arithmetic builtins)
+              // as such, we can't assume the DefRef for calculating its message or converting to failure
+              // status exists. Instead we directly pull out its message field and build a failure status immediately using that.
+              case (
+                    valueArithmeticError.tyCon,
+                    SAnyException(SRecord(_, _, ArrayList(SText(message)))),
+                  ) =>
+                buildFailureStatus(exceptionId, message)
+              case _ =>
+                pushKont(KConvertingException(exceptionId))
+                Control.Expression(
+                  compiledPackages.compiler
+                    .throwExceptionAsFailureStatusSExpr(exceptionId, excep.value)
+                )
+            }
+          case Some(originalExceptionId) =>
+            buildFailureStatus(
+              originalExceptionId,
+              s"<Failed to calculate message as ${exceptionId.qualifiedName.toString} was thrown during conversion>",
+            )
+        }
+      } else Control.Error(IError.UnhandledException(excep.ty, excep.value.toUnnormalizedValue))
     }
 
     /* The machine control is either an expression or a value. */
@@ -1462,6 +1532,7 @@ private[lf] object Speedy {
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
         profile: Profile = newProfile,
+        convertLegacyExceptions: Boolean = true,
     )(implicit loggingContext: LoggingContext): PureMachine =
       new PureMachine(
         sexpr = expr,
@@ -1470,6 +1541,7 @@ private[lf] object Speedy {
         compiledPackages = compiledPackages,
         profile = profile,
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
+        convertLegacyExceptions = convertLegacyExceptions,
       )
 
     @throws[PackageNotFound]
@@ -2068,6 +2140,16 @@ private[lf] object Speedy {
   }
 
   private[speedy] final case class KPreventException[Q]() extends Kont[Q] {
+    override def execute(v: SValue): Control.Value = {
+      Control.Value(v)
+    }
+  }
+
+  // For when converting an exception to a failure status
+  // if an exception is thrown during that conversion, we need to know to not try to convert that too,
+  // but instead give back the original exception with a replacement message
+  private[speedy] final case class KConvertingException[Q](exceptionId: TypeConName)
+      extends Kont[Q] {
     override def execute(v: SValue): Control.Value = {
       Control.Value(v)
     }

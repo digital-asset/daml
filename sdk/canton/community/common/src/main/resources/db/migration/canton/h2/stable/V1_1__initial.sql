@@ -790,8 +790,6 @@ create table ord_epochs (
     epoch_length bigint not null,
     -- Sequencing instant of the topology snapshot in force for the epoch
     topology_ts bigint not null,
-    -- the bft time of the last transaction of the last block from the previous epoch
-    previous_epoch_max_ts bigint not null,
     -- whether the epoch is in progress
     in_progress bool not null
 );

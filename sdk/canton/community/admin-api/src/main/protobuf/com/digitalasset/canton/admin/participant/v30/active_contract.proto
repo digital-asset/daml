@@ -9,8 +9,9 @@ import "com/digitalasset/canton/admin/crypto/v30/crypto.proto";
 import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 
+// TODO(#24610) – Remove; replaced by the new ActiveContract that uses LAPI active contract
 // Schema definition for the exported ACS snapshot
-message ActiveContract {
+message ActiveContractOld {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   // The ID of the synchronizer where the contract was assigned at the time of the export
@@ -43,4 +44,13 @@ message Contract {
   Metadata metadata = 3;
   google.protobuf.Timestamp ledger_create_time = 4; // in microseconds of UTC time since Unix epoch
   com.digitalasset.canton.admin.crypto.v30.Salt contract_salt = 5; // optional
+}
+
+// Schema definition for the exported active contract
+message ActiveContract {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+
+  // Opaque active contract, assumed to be the bytes of a LAPI active contract
+  // Required
+  bytes active_contract = 1;
 }

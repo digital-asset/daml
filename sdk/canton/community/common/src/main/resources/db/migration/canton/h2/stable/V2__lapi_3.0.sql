@@ -298,6 +298,7 @@ CREATE TABLE lapi_events_unassign (
     command_id VARCHAR,
 
     submitter INTEGER NOT NULL,
+    node_id integer NOT NULL,                 -- event metadata
 
     -- * shared event information
     contract_id BINARY VARYING NOT NULL,
@@ -345,6 +346,7 @@ CREATE TABLE lapi_events_assign (
     command_id VARCHAR,
 
     submitter INTEGER NOT NULL,
+    node_id integer NOT NULL,                 -- event metadata
 
     -- * shared event information
     contract_id BINARY VARYING NOT NULL,

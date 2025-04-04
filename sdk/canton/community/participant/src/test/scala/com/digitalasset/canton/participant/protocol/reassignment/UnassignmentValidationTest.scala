@@ -14,14 +14,14 @@ import com.digitalasset.canton.data.{
   UnassignmentViewTree,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.EngineController
+import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetectionHelpers.mkActivenessResult
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
   ParsedReassignmentRequest,
   ReassignmentProcessorError,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentValidationError.{
-  ContractMetadataMismatch,
+  ContractIdAuthenticationFailure,
   ReassigningParticipantsMismatch,
   StakeholdersMismatch,
   SubmitterMustBeStakeholder,
@@ -67,15 +67,23 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
   private val wrongTemplateId =
     LfTemplateId.assertFromString("unassignmentvalidatoionpackage:wrongtemplate:id")
 
-  private val metadata = ContractMetadata.tryCreate(
-    signatories = Set(signatory),
-    stakeholders = Set(signatory, observer),
-    maybeKeyWithMaintainersVersioned = None,
-  )
-  private val stakeholders: Stakeholders = Stakeholders(metadata)
+  private def testMetadata(
+      signatories: Set[LfPartyId] = Set(signatory),
+      stakeholders: Set[LfPartyId] = Set(signatory, observer),
+      maybeKeyWithMaintainersVersioned: Option[LfVersioned[LfGlobalKeyWithMaintainers]] = None,
+  ): ContractMetadata =
+    ContractMetadata.tryCreate(
+      stakeholders = stakeholders,
+      signatories = signatories,
+      maybeKeyWithMaintainersVersioned = maybeKeyWithMaintainersVersioned,
+    )
+
+  private val baseMetadata = testMetadata()
+
+  private val stakeholders: Stakeholders = Stakeholders(baseMetadata)
 
   private val contract = ExampleTransactionFactory.authenticatedSerializableContract(
-    metadata = metadata
+    metadata = baseMetadata
   )
 
   private val reassigningParticipants: Set[ParticipantId] =
@@ -113,7 +121,17 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       validation.isSuccessfulF.futureValueUS shouldBe true
     }
 
-    "fail when wrong metadata is given (stakeholders)" in {
+    "fail when wrong metadata is given" in {
+
+      def testBadMetadata(badMetadata: ContractMetadata): Unit =
+        test(badMetadata).left.value match {
+          case ContractIdAuthenticationFailure(ref, reason, contractId) =>
+            ref shouldBe ReassignmentRef(contract.contractId)
+            contractId shouldBe contract.contractId
+            reason should startWith("Mismatching contract id suffixes")
+          case other => fail(s"Did not expect $other")
+        }
+
       def test(
           metadata: ContractMetadata
       ): Either[ReassignmentValidationError, Unit] = {
@@ -121,60 +139,29 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
         performValidation(updatedContract).futureValueUS.value.metadataResultET.futureValueUS
       }
 
-      val incorrectStakeholders = ContractMetadata.tryCreate(
-        stakeholders = stakeholders.all + receiverParty2,
-        signatories = stakeholders.signatories,
-        maybeKeyWithMaintainersVersioned = None,
+      val incorrectStakeholders = testMetadata(
+        stakeholders = baseMetadata.stakeholders + receiverParty2
       )
 
-      val incorrectSignatories = ContractMetadata.tryCreate(
-        stakeholders = stakeholders.all + receiverParty2,
-        signatories = stakeholders.signatories + receiverParty2,
-        maybeKeyWithMaintainersVersioned = None,
+      val incorrectSignatories = testMetadata(
+        stakeholders = baseMetadata.stakeholders + receiverParty2,
+        signatories = baseMetadata.signatories + receiverParty2,
       )
 
-      test(contract.metadata).isRight shouldBe true
-
-      test(incorrectStakeholders).left.value shouldBe
-        ContractMetadataMismatch(
-          reassignmentRef = ReassignmentRef(contract.contractId),
-          declaredContractMetadata = incorrectStakeholders,
-          expectedMetadata = contract.metadata,
+      val incorrectKey = testMetadata(
+        maybeKeyWithMaintainersVersioned = Some(
+          ExampleTransactionFactory.globalKeyWithMaintainers(
+            ExampleTransactionFactory.defaultGlobalKey,
+            baseMetadata.signatories,
+          )
         )
-
-      test(incorrectSignatories).left.value shouldBe ContractMetadataMismatch(
-        reassignmentRef = ReassignmentRef(contract.contractId),
-        declaredContractMetadata = incorrectSignatories,
-        expectedMetadata = contract.metadata,
-      )
-    }
-
-    "fail when wrong metadata is given (contract key)" in {
-      def test(
-          metadata: ContractMetadata
-      ): Either[ReassignmentValidationError, Unit] = {
-        val updatedContract = contract.copy(metadata = metadata)
-        performValidation(updatedContract).futureValueUS.value.metadataResultET.futureValueUS
-      }
-
-      val incorrectKey = ExampleTransactionFactory.globalKeyWithMaintainers(
-        ExampleTransactionFactory.defaultGlobalKey,
-        Set(contract.metadata.stakeholders.head),
       )
 
-      val incorrectMetadata = ContractMetadata.tryCreate(
-        stakeholders = contract.metadata.stakeholders,
-        signatories = contract.metadata.signatories,
-        maybeKeyWithMaintainersVersioned = Some(incorrectKey),
-      )
+      test(testMetadata()).isRight shouldBe true
+      testBadMetadata(incorrectStakeholders)
+      testBadMetadata(incorrectSignatories)
+      testBadMetadata(incorrectKey)
 
-      test(contract.metadata).isRight shouldBe true
-
-      test(incorrectMetadata).left.value shouldBe ContractMetadataMismatch(
-        reassignmentRef = ReassignmentRef(contract.contractId),
-        declaredContractMetadata = incorrectMetadata,
-        expectedMetadata = contract.metadata,
-      )
     }
 
     "fail when inconsistent stakeholders are given" in {
@@ -350,21 +337,15 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       .value
     val parsed = mkParsedRequest(fullUnassignmentTree, recipients, Some(signature))
 
-    val damle = DAMLeTestInstance(
-      confirmingParticipant,
-      stakeholders.signatories,
-      stakeholders.all,
-    )(loggerFactory)
+    val contractAuthenticator = ContractAuthenticator(new SymbolicPureCrypto())
 
-    val unassignmentValidation = new UnassignmentValidation(confirmingParticipant, damle)
+    val unassignmentValidation =
+      new UnassignmentValidation(confirmingParticipant, contractAuthenticator)
 
-    val engineController =
-      EngineController(confirmingParticipant, RequestId(CantonTimestamp.Epoch), loggerFactory)
     unassignmentValidation.perform(
       sourceTopology = Source(identityFactory.topologySnapshot()),
       targetTopology = Some(Target(identityFactory.topologySnapshot())),
       activenessF = FutureUnlessShutdown.pure(mkActivenessResult()),
-      engineController = engineController,
     )(parsedRequest = parsed)
 
   }

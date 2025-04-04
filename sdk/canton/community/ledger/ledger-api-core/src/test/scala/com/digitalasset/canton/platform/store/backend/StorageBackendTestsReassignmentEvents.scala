@@ -263,12 +263,14 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 1L,
         contractId = hashCid("#1"),
         commandId = "command id 1",
+        nodeId = 24,
       ),
       dtoAssign(
         offset = offset(2),
         eventSequentialId = 2L,
         contractId = hashCid("#2"),
         commandId = "command id 2",
+        nodeId = 42,
       ),
     )
 
@@ -317,7 +319,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
             rawCreatedEvent = RawCreatedEvent(
               updateId = offset(1).toDecimalString,
               offset = 1,
-              nodeId = 0,
+              nodeId = 24,
               contractId = hashCid("#1"),
               templateId = someTemplateId,
               packageName = somePackageName,
@@ -355,7 +357,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
             rawCreatedEvent = RawCreatedEvent(
               updateId = offset(2).toDecimalString,
               offset = 2,
-              nodeId = 0,
+              nodeId = 42,
               contractId = hashCid("#2"),
               templateId = someTemplateId,
               packageName = somePackageName,
@@ -385,12 +387,14 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 1L,
         contractId = hashCid("#1"),
         commandId = "command id 1",
+        nodeId = 24,
       ),
       dtoUnassign(
         offset = offset(2),
         eventSequentialId = 2L,
         contractId = hashCid("#2"),
         commandId = "command id 2",
+        nodeId = 42,
       ),
     )
 
@@ -430,6 +434,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           packageName = somePackageName,
           witnessParties = Set("signatory"),
           assignmentExclusivity = Some(Time.Timestamp.assertFromLong(11111)),
+          nodeId = 24,
         ),
       ),
       Entry(
@@ -453,6 +458,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           packageName = somePackageName,
           witnessParties = Set("signatory"),
           assignmentExclusivity = Some(Time.Timestamp.assertFromLong(11111)),
+          nodeId = 42,
         ),
       ),
     )

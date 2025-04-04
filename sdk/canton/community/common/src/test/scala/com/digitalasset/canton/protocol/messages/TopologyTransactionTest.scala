@@ -5,7 +5,7 @@ package com.digitalasset.canton.protocol.messages
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.SigningKeyUsage
+import com.digitalasset.canton.crypto.{PublicKey, SigningKeyUsage}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.TestSynchronizerParameters
 import com.digitalasset.canton.serialization.HasCryptographicEvidenceTest
@@ -35,11 +35,12 @@ class TopologyTransactionTest
       )
     ).build(loggerFactory).forOwnerAndSynchronizer(sequencerId, synchronizerId)
   private val publicKey =
-    crypto.currentSnapshotApproximation.ipsSnapshot
-      .signingKeys(sequencerId, SigningKeyUsage.All)
-      .futureValueUS
-      // for this test it does not really matter what public signing key we use
-      .lastOption
+    PublicKey
+      .getLatestKey(
+        crypto.currentSnapshotApproximation.ipsSnapshot
+          .signingKeys(sequencerId, SigningKeyUsage.All)
+          .futureValueUS
+      )
       .getOrElse(sys.error("no keys"))
   private val defaultDynamicSynchronizerParameters = TestSynchronizerParameters.defaultDynamic
 

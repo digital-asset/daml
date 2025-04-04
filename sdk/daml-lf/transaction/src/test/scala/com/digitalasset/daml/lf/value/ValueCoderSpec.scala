@@ -119,7 +119,7 @@ class ValueCoderSpec
     }
 
     "do textMaps" in {
-      forAll(valueTextMapGen, transactionVersionGen(TransactionVersion.minTextMap))(testRoundTrip)
+      forAll(valueTextMapGen, transactionVersionGen())(testRoundTrip)
     }
 
     "do genMaps" in {

@@ -29,6 +29,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
   import Work.Ret
 
   private val languageVersion = LV(LV.Major.V1, minor)
+  private def prettyVersion = "Daml-LF " + languageVersion.pretty
 
   def decodePackage( // entry point
       packageId: PackageId,
@@ -52,7 +53,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         Some(decodePackageMetadata(lfPackage.getMetadata, internedStrings))
       } else {
         if (!versionIsOlderThan(Features.packageMetadata)) {
-          throw Error.Parsing(s"Package.metadata is required in Daml-LF 1.$minor")
+          throw Error.Parsing(s"Package.metadata is required in $prettyVersion")
         }
         None
       }
@@ -392,11 +393,11 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     ): DottedName =
       if (versionIsOlderThan(Features.internedDottedNames)) {
         if (actualCase != dNameCase)
-          throw Error.Parsing(s"${description}_dname is required by Daml-LF 1.$minor")
+          throw Error.Parsing(s"${description}_dname is required by $prettyVersion")
         decodeSegments(dName.getSegmentsList.asScala)
       } else {
         if (actualCase != internedDNameCase)
-          throw Error.Parsing(s"${description}_interned_dname is required by Daml-LF 1.$minor")
+          throw Error.Parsing(s"${description}_interned_dname is required by $prettyVersion")
         getInternedDottedName(internedDName)
       }
 
@@ -457,11 +458,11 @@ private[archive] class DecodeV1(minor: LV.Minor) {
     ) = {
       val str = if (versionIsOlderThan(Features.internedStrings)) {
         if (actualCase != stringCase)
-          throw Error.Parsing(s"${description}_str is required by Daml-LF 1.$minor")
+          throw Error.Parsing(s"${description}_str is required by $prettyVersion")
         string
       } else {
         if (actualCase != internedStringCase)
-          throw Error.Parsing(s"${description}_interned_str is required by Daml-LF 1.$minor")
+          throw Error.Parsing(s"${description}_interned_str is required by $prettyVersion")
         internedStrings(internedString)
       }
       toName(str)
@@ -1027,20 +1028,20 @@ private[archive] class DecodeV1(minor: LV.Minor) {
   // maxVersion excluded
   private[this] def assertUntil(maxVersion: LV, description: => String): Unit =
     if (!versionIsOlderThan(maxVersion))
-      throw Error.Parsing(s"$description is not supported by Daml-LF 1.$minor")
+      throw Error.Parsing(s"$description is not supported by $prettyVersion")
 
   // minVersion included
   private[this] def assertSince(minVersion: LV, description: => String): Unit =
     if (versionIsOlderThan(minVersion))
-      throw Error.Parsing(s"$description is not supported by Daml-LF 1.$minor")
+      throw Error.Parsing(s"$description is not supported by $prettyVersion")
 
   private def assertUndefined(i: Int, description: => String): Unit =
     if (i != 0)
-      throw Error.Parsing(s"$description is not supported by Daml-LF 1.$minor")
+      throw Error.Parsing(s"$description is not supported by $prettyVersion")
 
   private def assertUndefined(s: collection.Seq[_], description: => String): Unit =
     if (s.nonEmpty)
-      throw Error.Parsing(s"$description is not supported by Daml-LF 1.$minor")
+      throw Error.Parsing(s"$description is not supported by $prettyVersion")
 
   private def assertNonEmpty(s: collection.Seq[_], description: => String): Unit =
     if (s.isEmpty) throw Error.Parsing(s"Unexpected empty $description")

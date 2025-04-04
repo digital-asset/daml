@@ -145,7 +145,7 @@ createCantonSandbox dir sandboxOutput conf = do
     let portFile = dir </> "sandbox-portfile"
         configStr = getCantonConfig conf portFile mCerts (ledgerPort, adminPort, sequencerPublicPort, sequencerAdminPort, mediatorAdminPort)
         configPath = dir </> "canton-config.conf"
-        bootstrapStr = getCantonBootstrap conf portFile
+        bootstrapStr = getCantonBootstrap conf
         bootstrapPath = dir </> "canton-bootstrap.canton"
     BSL.writeFile configPath configStr
     writeFile bootstrapPath bootstrapStr
@@ -154,12 +154,12 @@ createCantonSandbox dir sandboxOutput conf = do
     mask $ \unmask -> do
         ph@(_,_,_,ph') <- createProcess cantonSandboxProc { std_out = UseHandle sandboxOutput }
         let waitForStart = do
-                port <- readPortFileWith (decodeCantonPort $ getParticipantName conf) ph' maxRetries (portFile <> "-bootstrapped")
+                port <- readPortFileWith (decodeCantonPort $ getParticipantName conf) ph' maxRetries portFile
                 pure (SandboxResource ph port lockedPorts)
         unmask (waitForStart `onException` cleanupProcess ph)
 
-getCantonBootstrap :: SandboxConfig -> FilePath -> String
-getCantonBootstrap conf portFile = unlines $ domainBootstrap <> (upload <$> dars conf) <> [cpPortFile]
+getCantonBootstrap :: SandboxConfig -> String
+getCantonBootstrap conf = unlines $ domainBootstrap <> (upload <$> dars conf)
   where
     domainBootstrap =
         [ "import com.digitalasset.canton.config.RequireTypes.PositiveInt"
@@ -172,9 +172,6 @@ getCantonBootstrap conf portFile = unlines $ domainBootstrap <> (upload <$> dars
         ]
     protocolVersion = if devVersionSupport conf then "ProtocolVersion.dev" else "ProtocolVersion.latest"
     upload dar = "participants.all.dars.upload(" <> show dar <> ")"
-    -- We copy out the port file after bootstrap is finished to get a true setup marker
-    -- As the normal portfile is created before the bootstrap command is run
-    cpPortFile = "os.copy(os.Path(" <> show portFile <> "), os.Path(" <> show (portFile <> "-bootstrapped") <> "))"
 
 getCantonConfig :: SandboxConfig -> FilePath -> Maybe Certs -> (Int, Int, Int, Int, Int) -> BSL.ByteString
 getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, sequencerPublicPort, sequencerAdminPort, mediatorAdminPort) =

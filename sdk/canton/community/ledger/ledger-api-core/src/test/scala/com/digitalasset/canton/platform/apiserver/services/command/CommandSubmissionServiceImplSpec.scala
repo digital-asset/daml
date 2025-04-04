@@ -27,18 +27,19 @@ import com.digitalasset.canton.platform.apiserver.execution.{
 }
 import com.digitalasset.canton.platform.apiserver.services.{ErrorCause, TimeProviderType}
 import com.digitalasset.canton.platform.apiserver.{FatContractInstanceHelper, SeedService}
+import com.digitalasset.canton.protocol.LfTransactionVersion
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.command.ApiCommands as LfCommands
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageName, PackageVersion}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageName}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
-import com.digitalasset.daml.lf.language.{LanguageVersion, LookupError, Reference}
+import com.digitalasset.daml.lf.language.{LookupError, Reference}
 import com.digitalasset.daml.lf.transaction.test.TreeTransactionBuilder.*
 import com.digitalasset.daml.lf.transaction.test.{
   TestNodeBuilder,
@@ -229,7 +230,7 @@ class CommandSubmissionServiceImplSpec
       FatContractInstanceHelper.buildFatContractInstance(
         templateId = Identifier.assertFromString("some:pkg:identifier"),
         packageName = PackageName.assertFromString("pkg-name"),
-        packageVersion = Some(PackageVersion.assertFromString("0.1.2")),
+        packageVersion = None,
         contractId = TransactionBuilder.newCid,
         argument = Value.ValueNil,
         createdAt = Timestamp.Epoch,
@@ -237,8 +238,7 @@ class CommandSubmissionServiceImplSpec
         signatories = Set(alice),
         stakeholders = Set(alice),
         keyOpt = None,
-        // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
-        version = LanguageVersion.v2_dev,
+        version = LfTransactionVersion.minVersion,
       )
 
     val disclosedContract = DisclosedContract(

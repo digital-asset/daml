@@ -8,7 +8,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
 
-public final class AssignCommand {
+public final class AssignCommand extends ReassignmentCommand {
 
   private final @NonNull String unassignId;
 

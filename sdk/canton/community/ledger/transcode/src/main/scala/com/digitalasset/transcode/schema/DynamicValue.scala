@@ -42,18 +42,18 @@ object DynamicValue {
     * labels here are not necessary, as codecs knows about field names at the time of construction.
     * We store them in order to recreate some error conditions (for instance wrong labels) and reuse
     * gRPC API error handling.
+    *
+    * We do not preserver recordId from gRPC versbose records, we do not consider them practically
+    * useful
     */
 
-  final case class Record(
-      recordId: Option[Identifier],
-      fields: IterableOnce[(Option[String], DynamicValue)],
-  ) extends Adt {
-    override def inner: Any = (recordId, fields)
+  final case class Record(fields: IterableOnce[(Option[String], DynamicValue)]) extends Adt {
+    override def inner: Any = fields
   }
 
   implicit class RecordExtension(value: DynamicValue) {
-    def record: (Option[Identifier], IterableOnce[(Option[String], DynamicValue)]) =
-      value.inner.asInstanceOf[(Option[Identifier], IterableOnce[(Option[String], DynamicValue)])]
+    def record: IterableOnce[(Option[String], DynamicValue)] =
+      value.inner.asInstanceOf[IterableOnce[(Option[String], DynamicValue)]]
   }
 
   /** ADT, Sum type. Contains constructor's ordinal index and a wrapped value. */

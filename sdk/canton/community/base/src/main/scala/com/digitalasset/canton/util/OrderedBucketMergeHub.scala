@@ -292,10 +292,10 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
     private[this] var currentThreshold: Int = 0
 
     /** Exclusive lower bound for the next offset to emit. */
-    private[this] var lowerBoundNextOffsetExclusive: Offset = ops.exclusiveLowerBoundForBegin
+    private[this] var lastEmittedOffset: Offset = ops.initialOffset
 
     /** Caches the last value that was queued for emission, if any. If so, its offset is at most
-      * [[lowerBoundNextOffsetExclusive]].
+      * [[lastEmittedOffset]].
       */
     private[this] var lastBucketQueuedForEmission: Option[OutputElement[Name, A]] = None
 
@@ -373,7 +373,7 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
 
         val newConfigAndMat =
           nextConfig.map((name, config) => (config, materializedValues.get(name)))
-        emit(out, NewConfiguration(newConfigAndMat, lowerBoundNextOffsetExclusive))
+        emit(out, NewConfiguration(newConfigAndMat, lastEmittedOffset))
 
         checkForDeadlock(DeadlockReportOption.Always, DeadlockTrigger.Reconfiguration)
 
@@ -505,9 +505,9 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
           if (source.isActive) {
             val bucket = ops.bucketOf(elem)
             val offset = ops.offsetOfBucket(bucket)
-            if (ops.orderingOffset.compare(offset, lowerBoundNextOffsetExclusive) <= 0) {
+            if (ops.orderingOffset.compare(offset, lastEmittedOffset) <= 0) {
               logger.debug(
-                show"Dropping next element from source $name with offset $offset because it is not above the lower offset bound of $lowerBoundNextOffsetExclusive"
+                show"Dropping next element from source $name with offset $offset because it is not above the lower offset bound of $lastEmittedOffset"
               )
               pullIfNotCompleted(id)
             } else {
@@ -573,7 +573,7 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
       removeFromBuckets(elems)
       val merged = elems.map { case BucketElement(_id, source, elem) => source.name -> elem }.toMap
       val output = OutputElement(merged)
-      lowerBoundNextOffsetExclusive = offset
+      lastEmittedOffset = offset
       lastBucketQueuedForEmission = Some(output)
       emit(
         out,
@@ -599,7 +599,7 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
       }
 
     /** Emit (and pull thereafter) or evict (and pull immediately) the given bucket, depending on
-      * whether its offset is above the [[lowerBoundNextOffsetExclusive]].
+      * whether its offset is above the [[lastEmittedOffset]].
       */
     private[this] def emitOrEvictBucket(
         bucket: ops.Bucket,
@@ -607,7 +607,7 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
     ): Unit = {
       import TraceContext.Implicits.Empty.*
       val offset = ops.offsetOfBucket(bucket)
-      if (ops.orderingOffset.compare(offset, lowerBoundNextOffsetExclusive) > 0) {
+      if (ops.orderingOffset.compare(offset, lastEmittedOffset) > 0) {
         emitBucket(bucket, offset, elems)
       } else {
         buckets.remove(bucket).discard[Option[NonEmpty[Seq[BucketElement[OrderedSource, A]]]]]
@@ -803,7 +803,7 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
       val newSource = ops.makeSource(
         name,
         config,
-        lowerBoundNextOffsetExclusive,
+        lastEmittedOffset,
         lastBucketQueuedForEmission.map(ops.toPriorElement).orElse(ops.priorElement),
       )
       val subsink = new SubSinkInlet[A](s"OrderedMergeHub.sink($name-$id)")
@@ -968,8 +968,8 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
           val (_, elem) = elems.head1
           val offset = ops.offsetOf(elem)
           ErrorUtil.requireState(
-            ops.orderingOffset.compare(offset, lowerBoundNextOffsetExclusive) <= 0,
-            s"[$context] Last bucket queued for emission with offset $offset must at most be the lower bound at $lowerBoundNextOffsetExclusive",
+            ops.orderingOffset.compare(offset, lastEmittedOffset) <= 0,
+            s"[$context] Last bucket queued for emission with offset $offset must at most be the lower bound at $lastEmittedOffset",
           )
         }
 
@@ -1215,7 +1215,7 @@ trait OrderedBucketMergeHubOps[Name, A, Config, Offset, +M] {
   final def offsetOf(x: A): Offset = offsetOfBucket(bucketOf(x))
 
   /** The initial offset to start from */
-  def exclusiveLowerBoundForBegin: Offset
+  def initialOffset: Offset
 
   /** The type of prior elements that is passed to [[makeSource]]. [[toPriorElement]] defines an
     * abstraction function from
@@ -1246,14 +1246,14 @@ trait OrderedBucketMergeHubOps[Name, A, Config, Offset, +M] {
   def makeSource(
       name: Name,
       config: Config,
-      exclusiveStart: Offset,
+      startFrom: Offset,
       priorElement: Option[PriorElement],
   ): Source[A, (KillSwitch, Future[Done], M)]
 }
 
 object OrderedBucketMergeHubOps {
   def apply[Name, A <: HasTraceContext, Config, Offset: Ordering, B: Pretty, M](
-      initialOffset: Offset
+      initialOffsetValue: Offset
   )(toBucket: A => B, toOffset: B => Offset)(
       mkSource: (Name, Config, Offset, Option[A]) => Source[A, (KillSwitch, Future[Done], M)]
   ): OrderedBucketMergeHubOps[Name, A, Config, Offset, M] =
@@ -1264,15 +1264,15 @@ object OrderedBucketMergeHubOps {
       override def bucketOf(x: A): Bucket = toBucket(x)
       override def orderingOffset: Ordering[Offset] = implicitly
       override def offsetOfBucket(bucket: Bucket): Offset = toOffset(bucket)
-      override def exclusiveLowerBoundForBegin: Offset = initialOffset
+      override def initialOffset: Offset = initialOffsetValue
       override def traceContextOf(x: A): TraceContext = x.traceContext
       override def makeSource(
           name: Name,
           config: Config,
-          exclusiveStart: Offset,
+          startFrom: Offset,
           priorElement: Option[PriorElement],
       ): Source[A, (KillSwitch, Future[Done], M)] =
-        mkSource(name, config, exclusiveStart, priorElement)
+        mkSource(name, config, startFrom, priorElement)
       override def priorElement: Option[A] = None
       override def toPriorElement(output: OutputElement[Name, A]): A = output.elem.head1._2
     }
