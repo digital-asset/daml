@@ -149,5 +149,6 @@ module BuiltinMod {
     ANY_EXCEPTION_MESSAGE;
   val typeRepTyconName: TypeRep -> Option Text =
     TYPE_REP_TYCON_NAME;
-
+  val failWithStatus: forall (a: *). Text -> FailureCategory -> Text -> TextMap Text -> a =
+    FAIL_WITH_STATUS;
 }

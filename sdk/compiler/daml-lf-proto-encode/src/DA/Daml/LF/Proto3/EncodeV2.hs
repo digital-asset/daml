@@ -19,7 +19,7 @@ import qualified Data.HashMap.Strict as HMS
 import qualified Data.List as L
 import qualified Data.Set as S
 import qualified Data.Map.Strict as Map
-import           Data.Maybe (fromMaybe)
+import           Data.Maybe (fromMaybe, fromJust)
 import qualified Data.NameMap as NM
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
@@ -465,6 +465,8 @@ encodeBuiltinExpr = \case
 
     BETypeRepTyConName -> builtin P.BuiltinFunctionTYPE_REP_TYCON_NAME
 
+    BEFailWithStatus -> builtin P.BuiltinFunctionFAIL_WITH_STATUS
+
     where
       builtin = pure . P.ExprSumBuiltin . P.Enumerated . Right
       lit = P.ExprSumBuiltinLit . P.BuiltinLit . Just
@@ -655,10 +657,6 @@ encodeExpr' = \case
         expr_ChoiceObserverContractExpr <- encodeExpr expr1
         expr_ChoiceObserverChoiceArgExpr <- encodeExpr expr2
         pureExpr $ P.ExprSumChoiceObserver P.Expr_ChoiceObserver{..}
-    EFailWithStatus ty failureStatus -> do
-        expr_FailWithStatusReturnType <- encodeType ty
-        expr_FailWithStatusFailureStatus <- encodeExpr failureStatus
-        pureExpr $ P.ExprSumFailWithStatus P.Expr_FailWithStatus{..}
     EExperimental name ty -> do
         let expr_ExperimentalName = encodeString name
         expr_ExperimentalType <- encodeType ty
@@ -721,6 +719,9 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_FetchInterfaceCid <- encodeExpr fetContractId
         pure $ P.UpdateSumFetchInterface P.Update_FetchInterface{..}
     UGetTime -> pure $ P.UpdateSumGetTime P.Unit
+    ULedgerTimeLT e -> do
+        update_LedgerTimeLt <- encodeExpr e
+        pure $ P.UpdateSumLedgerTimeLt (fromJust update_LedgerTimeLt)
     UEmbedExpr typ e -> do
         update_EmbedExprType <- encodeType typ
         update_EmbedExprBody <- encodeExpr e

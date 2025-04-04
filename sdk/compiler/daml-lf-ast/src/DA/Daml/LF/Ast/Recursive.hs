@@ -62,7 +62,6 @@ data ExprF expr
   | EViewInterfaceF !(Qualified TypeConName) !expr
   | EChoiceControllerF !(Qualified TypeConName) !ChoiceName !expr !expr
   | EChoiceObserverF !(Qualified TypeConName) !ChoiceName !expr !expr
-  | EFailWithStatusF !Type !expr
   | EExperimentalF !T.Text !Type
   deriving (Foldable, Functor, Traversable)
 
@@ -81,6 +80,7 @@ data UpdateF expr
   | UFetchF    !(Qualified TypeConName) !expr
   | UFetchInterfaceF    !(Qualified TypeConName) !expr
   | UGetTimeF
+  | ULedgerTimeLTF !expr
   | UEmbedExprF !Type !expr
   | UFetchByKeyF !(Qualified TypeConName)
   | ULookupByKeyF !(Qualified TypeConName)
@@ -114,6 +114,7 @@ projectUpdate = \case
   UFetch a b -> UFetchF a b
   UFetchInterface a b -> UFetchInterfaceF a b
   UGetTime -> UGetTimeF
+  ULedgerTimeLT a -> ULedgerTimeLTF a
   UEmbedExpr a b -> UEmbedExprF a b
   ULookupByKey a -> ULookupByKeyF a
   UFetchByKey a -> UFetchByKeyF a
@@ -132,6 +133,7 @@ embedUpdate = \case
   UFetchF a b -> UFetch a b
   UFetchInterfaceF a b -> UFetchInterface a b
   UGetTimeF -> UGetTime
+  ULedgerTimeLTF a -> ULedgerTimeLT a
   UEmbedExprF a b -> UEmbedExpr a b
   UFetchByKeyF a -> UFetchByKey a
   ULookupByKeyF a -> ULookupByKey a
@@ -181,7 +183,6 @@ instance Recursive Expr where
     EViewInterface a b -> EViewInterfaceF a b
     EChoiceController a b c d -> EChoiceControllerF a b c d
     EChoiceObserver a b c d -> EChoiceObserverF a b c d
-    EFailWithStatus a b -> EFailWithStatusF a b
     EExperimental a b -> EExperimentalF a b
 
 instance Corecursive Expr where
@@ -228,7 +229,6 @@ instance Corecursive Expr where
     EViewInterfaceF a b -> EViewInterface a b
     EChoiceControllerF a b c d -> EChoiceController a b c d
     EChoiceObserverF a b c d -> EChoiceObserver a b c d
-    EFailWithStatusF a b -> EFailWithStatus a b
     EExperimentalF a b -> EExperimental a b
 
 data TypeF type_

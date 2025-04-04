@@ -49,6 +49,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.mutable
+import scala.util.Random
 
 class StateTransferBehaviorTest
     extends AsyncWordSpec
@@ -435,6 +436,7 @@ class StateTransferBehaviorTest
         clock,
         metrics,
         moduleRefFactory,
+        new Random(4),
         dependencies,
         loggerFactory,
         timeouts,

@@ -356,10 +356,6 @@ private[lf] final class PhaseOne(
             Return(t.ChoiceObserverDefRef(tpl, choiceName)(contract, choiceArg))
           }
         }
-      case EFailWithStatus(_, body) =>
-        compileExp(env, body) { body =>
-          Return(SBFailWithStatus(body))
-        }
       case EExperimental(name, _) =>
         Return(SBExperimental(name))
     }
@@ -488,6 +484,8 @@ private[lf] final class PhaseOne(
             throw CompilationError(s"unexpected $bf")
 
           case BAnyExceptionMessage => SBAnyExceptionMessage
+
+          case BFailWithStatus => SBFailWithStatus
         })
     }
   }
@@ -738,6 +736,10 @@ private[lf] final class PhaseOne(
         }
       case UpdateGetTime =>
         Return(SUGetTime)
+      case UpdateLedgerTimeLT(time) =>
+        compileExp(env, time) { time =>
+          Return(SBULedgerTimeLT(time))
+        }
       case UpdateLookupByKey(templateId) =>
         Return(t.LookupByKeyDefRef(templateId)())
       case UpdateFetchByKey(templateId) =>

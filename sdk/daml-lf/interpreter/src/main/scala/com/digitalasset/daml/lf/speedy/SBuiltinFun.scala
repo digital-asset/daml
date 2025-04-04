@@ -1868,7 +1868,21 @@ private[lf] object SBuiltinFun {
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       checkToken(args, 0)
-      machine.needTime()
+      machine.needTime(time => Control.Value(STimestamp(time)))
+    }
+  }
+
+  /** $ledgerTimeLT: Timestamp -> Token -> Bool */
+  final case object SBULedgerTimeLT extends UpdateBuiltin(2) {
+    override protected def executeUpdate(
+        args: util.ArrayList[SValue],
+        machine: UpdateMachine,
+    ): Control[Question.Update] = {
+      checkToken(args, 1)
+
+      val time = getSTimestamp(args, 0)
+
+      machine.needTime(now => Control.Value(SBool(now < time)))
     }
   }
 
@@ -2101,32 +2115,25 @@ private[lf] object SBuiltinFun {
 
   }
 
-  /** $failWithStatus :: FailureStatus -> a */
-  final case object SBFailWithStatus extends SBuiltinFun(1) {
+  /** $failWithStatus :: Text -> FailureCategory (Int64) -> Text -> TextMap Text -> a */
+  final case object SBFailWithStatus extends SBuiltinFun(4) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control[Nothing] = {
-      val failureStatusIdentifier = machine.failureStatusIdentifier
-      getSRecord(args, 0) match {
-        case SRecord(
-              `failureStatusIdentifier`,
-              _,
-              ArrayList(
-                SText(errorId),
-                SInt64(categoryId),
-                SText(errorMessage),
-                smap @ SMap(false, treeMap),
-              ),
-            ) => {
-          val meta = treeMap.toMap.map {
+      val errorId = getSText(args, 0)
+      val categoryId = getSInt64(args, 1)
+      val errorMessage = getSText(args, 2)
+      val meta = getSMap(args, 3) match {
+        case smap @ SMap(true, treeMap) =>
+          treeMap.toMap.map {
             case (SText(key), SText(value)) => (key, value)
-            case _ => unexpectedType(0, "Map Text Text", smap)
+            case _ => unexpectedType(0, "TextMap Text", smap)
           }
-          Control.Error(IE.FailureStatus(errorId, categoryId.toInt, errorMessage, meta))
-        }
-        case otherwise => unexpectedType(0, "FailureStatus", otherwise)
+        case otherwise => unexpectedType(0, "TextMap Text", otherwise)
       }
+
+      Control.Error(IE.FailureStatus(errorId, categoryId.toInt, errorMessage, meta))
     }
   }
 

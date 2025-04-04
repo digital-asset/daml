@@ -359,14 +359,16 @@ private[lf] final class Compiler(
     def addDef(binding: (t.SDefinitionRef, SDefinition)): Unit = discard(builder += binding)
 
     module.exceptions.foreach { case (defName, GenDefException(message)) =>
-      val ref = t.ExceptionMessageDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
-      builder += (ref -> SDefinition(withLabelT(ref, compileExp(message))))
+      val exceptionId = Identifier(pkgId, QualifiedName(module.name, defName))
+      val ref = t.ExceptionMessageDefRef(exceptionId)
+      addDef(ref -> SDefinition(withLabelT(ref, compileExp(message))))
+      addDef(compileThrowExceptionAsFailureStatus(exceptionId))
     }
 
     module.definitions.foreach {
       case (defName, DValue(_, body)) =>
         val ref = t.LfDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
-        builder += (ref -> SDefinition(withLabelT(ref, compileExp(body))))
+        addDef(ref -> SDefinition(withLabelT(ref, compileExp(body))))
       case _ =>
     }
 
@@ -870,6 +872,37 @@ private[lf] final class Compiler(
     val env2 = env.bindExprVar(template.param, contractPos)
     SBUCreate(templateId)(env2.toSEVar(contractPos))
   }
+
+  // Since deprecation/removal of daml exceptions, keep a definition for converting from legacy exception to failure status
+  // this def calls the existing message function on the exception.
+  // Note that this cannot be called for Arithmetic exception, as this is constructed without the need for its package
+  private[this] def compileThrowExceptionAsFailureStatus(
+      exceptionId: Identifier
+  ): (t.SDefinitionRef, SDefinition) = {
+    topLevelFunction1(t.ThrowExceptionAsFailureStatusDefRef(exceptionId))((exceptionPos, env) =>
+      let(env, s.SEVal(t.ExceptionMessageDefRef(exceptionId))) { (getMessagePos, env) =>
+        let(env, s.SEApp(env.toSEVar(getMessagePos), List(env.toSEVar(exceptionPos)))) {
+          (messagePos, env) =>
+            SBFailWithStatus(
+              s.SEValue(SText("UNHANDLED_EXCEPTION/" + exceptionId.qualifiedName.toString)),
+              s.SEValue(SInt64(FCInvalidGivenCurrentSystemStateOther.cantonCategoryId.toLong)),
+              env.toSEVar(messagePos),
+              s.SEValue(SMap(true)),
+            )
+        }
+      }
+    )
+  }
+
+  // Convenience function for creating a call to the above ThrowExceptionAsFailureStatusDefRef
+  def throwExceptionAsFailureStatusSExpr(
+      exceptionId: TypeConName,
+      exceptionValue: SValue,
+  ): t.SExpr =
+    t.SELet1(
+      t.SEVal(t.ThrowExceptionAsFailureStatusDefRef(exceptionId)),
+      t.SEAppAtomic(t.SELocS(1), Array(t.SEValue(exceptionValue))),
+    )
 
   private[this] def compileCreate(
       tmplId: Identifier,

@@ -227,6 +227,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
             clock,
             metrics,
             segmentModuleRefFactory,
+            random,
             dependencies,
             loggerFactory,
             timeouts,

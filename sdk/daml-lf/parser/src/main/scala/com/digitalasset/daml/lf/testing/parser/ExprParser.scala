@@ -76,13 +76,20 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     )
   }
 
+  private[this] val failureCategories =
+    Map(
+      "INVALID_INDEPENDENT_OF_SYSTEM_STATE" -> FCInvalidIndependentOfSystemState,
+      "INVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER" -> FCInvalidGivenCurrentSystemStateOther,
+    )
+
   private lazy val literal: Parsers.Parser[BuiltinLit] =
     acceptMatch[BuiltinLit]("Number", { case Number(l) => BLInt64(l) }) |
       acceptMatch("Numeric", { case Numeric(d) => BLNumeric(d) }) |
       acceptMatch("Text", { case Text(s) => BLText(s) }) |
       acceptMatch("Timestamp", { case Timestamp(l) => BLTimestamp(l) }) |
       acceptMatch("Date", { case Date(l) => BLDate(l) }) |
-      (id ^? roundingModes) ^^ BLRoundingMode
+      (id ^? roundingModes) ^^ BLRoundingMode |
+      (id ^? failureCategories) ^^ BLFailureCategory
 
   private lazy val primCon =
     Id("True") ^^^ BCTrue |
@@ -408,6 +415,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "NUMERIC_TO_BIGNUMERIC" -> BNumericToBigNumeric,
     "BIGNUMERIC_TO_TEXT" -> BBigNumericToText,
     "TYPE_REP_TYCON_NAME" -> BTypeRepTyConName,
+    "FAIL_WITH_STATUS" -> BFailWithStatus,
   )
 
   private lazy val eCallInterface: Parser[ECallInterface] =
@@ -489,6 +497,11 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   private lazy val updateGetTime =
     Id("uget_time") ^^^ UpdateGetTime
 
+  private lazy val updateLedgerTimeLT =
+    Id("ledger_time_lt") ~> expr0 ^^ { case time =>
+      UpdateLedgerTimeLT(time)
+    }
+
   private lazy val updateEmbedExpr =
     Id("uembed_expr") ~> argTyp ~ expr0 ^^ { case t ~ e =>
       UpdateEmbedExpr(t, e)
@@ -514,6 +527,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       updateFetchByKey |
       updateLookupByKey |
       updateGetTime |
+      updateLedgerTimeLT |
       updateEmbedExpr |
       updateCatch
 

@@ -11,6 +11,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.FingerprintKeyId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.{
   HasDelayedInit,
@@ -20,6 +21,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.top
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftKeyId,
   BftNodeId,
   EpochNumber,
 }
@@ -128,31 +130,44 @@ final class AvailabilityModule[E <: Env[E]](
             handleRemoteProtocolMessage(message)
 
           case Availability.UnverifiedProtocolMessage(signedMessage) =>
-            logger.debug(s"Start to verify message from ${signedMessage.from}")
-            pipeToSelf(
-              activeCryptoProvider.verifySignedMessage(
-                signedMessage,
-                AuthenticatedMessageType.BftSignedAvailabilityMessage,
+            val from = signedMessage.from
+            val keyId = FingerprintKeyId.toBftKeyId(signedMessage.signature.signedBy)
+            if (authorized(from, keyId)) {
+              logger.debug(s"Start to verify message from '$from'")
+              pipeToSelf(
+                activeCryptoProvider.verifySignedMessage(
+                  signedMessage,
+                  AuthenticatedMessageType.BftSignedAvailabilityMessage,
+                )
+              ) {
+                case Failure(exception) =>
+                  abort(
+                    s"Can't verify signature for ${signedMessage.message} (signature ${signedMessage.signature})",
+                    exception,
+                  )
+                case Success(Left(exception)) =>
+                  // Info because it can also happen at epoch boundaries
+                  logger.info(
+                    s"Skipping message since we can't verify signature for ${signedMessage.message} (signature ${signedMessage.signature}) reason=$exception"
+                  )
+                  emitInvalidMessage(metrics, from)
+                  Availability.NoOp
+                case Success(Right(())) =>
+                  logger.debug(s"Verified message is from '$from''")
+                  signedMessage.message
+              }
+            } else {
+              logger.info(
+                s"Received a message from '$from' signed with '$keyId' " +
+                  "but it cannot be verified in the currently known " +
+                  s"dissemination topology ${activeMembership.orderingTopology.nodesTopologyInfo}, dropping it"
               )
-            ) {
-              case Failure(exception) =>
-                abort(
-                  s"Can't verify signature for ${signedMessage.message} (signature ${signedMessage.signature})",
-                  exception,
-                )
-              case Success(Left(exception)) =>
-                // Info because it can also happen at epoch boundaries
-                logger.info(
-                  s"Skipping message since we can't verify signature for ${signedMessage.message} (signature ${signedMessage.signature}) reason=$exception"
-                )
-                emitInvalidMessage(metrics, signedMessage.from)
-                Availability.NoOp
-              case Success(Right(())) =>
-                logger.debug(s"Verified message is from ${signedMessage.from}")
-                signedMessage.message
             }
         }
     }
+
+  private def authorized(from: BftNodeId, keyId: BftKeyId): Boolean =
+    activeMembership.orderingTopology.nodesTopologyInfo.get(from).exists(_.keyIds.contains(keyId))
 
   private def handleLocalProtocolMessage(
       message: Availability.LocalProtocolMessage[E]

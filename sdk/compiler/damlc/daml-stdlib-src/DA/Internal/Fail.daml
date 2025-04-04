@@ -19,7 +19,7 @@ class Action m => ActionFailWithStatus m where
 
 -- | Fail with a failure status in a pure context
 failWithStatusPure : FailureStatus -> a
-failWithStatusPure = primitive @"EFailWithStatus"
+failWithStatusPure (FailureStatus errorId category message meta) = primitive @"EFailWithStatus" errorId category message meta
 
 instance ActionFailWithStatus Update where
   failWithStatus s = pure () >>= \_ -> failWithStatusPure s

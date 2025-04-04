@@ -749,7 +749,7 @@ tests TestArgs{..} =
               , "module A where"
               , "import DA.Record"
               , "import DA.Validation"
-              , "import DA.Map"
+              , "import DA.TextMap"
               -- test typeclass export
               , "class Foo t where"
               , "  foo : Int -> t"

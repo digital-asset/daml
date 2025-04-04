@@ -11,11 +11,12 @@ module TrySubmitConcurrently where
 import DA.Action (when)
 import DA.Assert ((===))
 import DA.Either (partitionEithers)
-import DA.Exception (PreconditionFailed (..), fromAnyException, throw)
+import DA.Exception (throw)
 import DA.Foldable (mapA_, sequence_)
 import DA.NonEmpty qualified (singleton)
 import Daml.Script
 import Daml.Script.Internal (trySubmitConcurrently)
+import DA.Text (isInfixOf)
 
 --------------------------------------------------------------------------------
 
@@ -41,18 +42,18 @@ resultsMatchInputs = do
         -- If the input was zero, we expect a PreconditionFailed exception due
         -- to the ensure clause 'i /= 0'
         case submitResult of
-          Left (UnhandledException ((>>= fromAnyException) -> Some (PreconditionFailed _))) ->
+          Left (FailureStatusError fs) | "PreconditionFailed" `isInfixOf` fs.errorId ->
             pure ()
           _ ->
-            assertFail $ "Expected Left(UnhandledException(PreconditionFailed(_))) but got: " <> show submitResult
+            assertFail $ "Expected Left(FailureStatusError(PreconditionFailed)) but got: " <> show submitResult
       | input % 2 == 1 =
         -- If the input was odd, we expect an OddException due to the explicit
         -- throw in the body of 'choice C'
         case submitResult of
-          Left (UnhandledException ((>>= fromAnyException) -> Some (OddException j))) | input == j ->
+          Left (FailureStatusError fs) | ("OddException: " <> show input) `isInfixOf` fs.message ->
             pure ()
           _ ->
-            assertFail $ "Expected Left(UnhandledException(OddException(input))) but got: " <> show submitResult
+            assertFail $ "Expected Left(FailureStatusError(OddException: input)) but got: " <> show submitResult
       | otherwise =
         -- Otherwise we expect to obtain a successful result equal to the input.
         case submitResult of
@@ -76,7 +77,10 @@ template Tpl
           throw OddException with i
         pure i
 
-exception OddException with i : Int
+exception OddException with
+    i : Int
+  where
+    message "OddException: " <> show i
 
 --------------------------------------------------------------------------------
 

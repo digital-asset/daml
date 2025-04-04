@@ -101,7 +101,7 @@ import org.slf4j.event.Level.ERROR
 
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Try
+import scala.util.{Random, Try}
 
 class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecutionContext {
 
@@ -969,6 +969,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             loggerFactory,
           )
         ),
+        new Random(4),
         dependencies,
         loggerFactory,
         timeouts,

@@ -15,7 +15,6 @@ import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult.{SResultError, SResultFinal}
 import com.digitalasset.daml.lf.speedy.SValue.{SContractId, SParty, SUnit}
 import com.digitalasset.daml.lf.speedy.SpeedyTestLib.typeAndCompile
-import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.testing.parser
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
@@ -25,7 +24,6 @@ import com.digitalasset.daml.lf.transaction.{
   Versioned,
 }
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ValueRecord, ValueText}
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -146,35 +144,40 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
      exception E2 = { message \(e: M:E2) -> throw @Text @M:E1 (M:E1 {}) } ; //throw from the message function
      val unhandled4 : Update Int64 = upure @Int64 (throw @Int64 @M:E2 (M:E2 {})) ;
 
+     record @serializable E3 = { } ;
+     exception E3 = { 
+       message \(e: M:E3) -> FAIL_WITH_STATUS @Text "E3_failure_status" INVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER "something went wrong" (TEXTMAP_EMPTY @Text)
+     } ; //throw failure status from the message function
+     val unhandled5 : Update Int64 = upure @Int64 (throw @Int64 @M:E3 (M:E3 {})) ;
+
      val divZero : Update Int64 = upure @Int64 (DIV_INT64 1 0) ;
    }
   """)
 
-    val List((t1, e1), (t2, e2)) =
-      List("M:E1", "M:E2")
-        .map(id => data.Ref.Identifier.assertFromString(s"$defaultPackageId:$id"))
-        .map(tyCon => TTyCon(tyCon) -> ValueRecord(Some(tyCon), data.ImmArray.Empty))
-    val divZeroE =
-      ValueRecord(
-        Some(StablePackages(majorLanguageVersion).ArithmeticError),
-        data.ImmArray(
-          Some(data.Ref.Name.assertFromString("message")) ->
-            ValueText("ArithmeticError while evaluating (DIV_INT64 1 0).")
-        ),
-      )
+    val e1 = IE.FailureStatus("UNHANDLED_EXCEPTION/M:E1", 9, "E1", Map())
+    val e2 = IE.FailureStatus(
+      "UNHANDLED_EXCEPTION/M:E2",
+      9,
+      "<Failed to calculate message as M:E1 was thrown during conversion>",
+      Map(),
+    )
+    val e3 = IE.FailureStatus("E3_failure_status", 9, "something went wrong", Map())
 
     val testCases = Table[String, SError](
       ("expression", "expected"),
-      ("M:unhandled1", SErrorDamlException(IE.UnhandledException(t1, e1))),
-      ("M:unhandled2", SErrorDamlException(IE.UnhandledException(t1, e1))),
-      ("M:unhandled3", SErrorDamlException(IE.UnhandledException(t1, e1))),
-      ("M:unhandled4", SErrorDamlException(IE.UnhandledException(t2, e2))),
+      ("M:unhandled1", SErrorDamlException(e1)),
+      ("M:unhandled2", SErrorDamlException(e1)),
+      ("M:unhandled3", SErrorDamlException(e1)),
+      ("M:unhandled4", SErrorDamlException(e2)),
+      ("M:unhandled5", SErrorDamlException(e3)),
       (
         "M:divZero",
         SErrorDamlException(
-          IE.UnhandledException(
-            TTyCon(StablePackages(majorLanguageVersion).ArithmeticError),
-            divZeroE,
+          IE.FailureStatus(
+            "UNHANDLED_EXCEPTION/DA.Exception.ArithmeticError:ArithmeticError",
+            9,
+            "ArithmeticError while evaluating (DIV_INT64 1 0).",
+            Map(),
           )
         ),
       ),
@@ -705,7 +708,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
           }
         else if (description.contains("cannot be caught"))
           inside(res) { case SResultError(SErrorDamlException(err)) =>
-            err shouldBe a[IE.UnhandledException]
+            err shouldBe a[IE.FailureStatus]
           }
         else
           sys.error("the description should contains \"can be caught\" or \"cannot be caught\"")
@@ -1369,10 +1372,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
                   } {
                     case Left(
                           SError.SErrorDamlException(
-                            IE.UnhandledException(
-                              _,
-                              Value.ValueRecord(_, ImmArray((_, Value.ValueText(msg)))),
-                            )
+                            IE.FailureStatus(_, _, msg, _)
                           )
                         ) =>
                       msg shouldBe templateName

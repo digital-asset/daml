@@ -494,7 +494,10 @@ object SubmitError {
     }
   }
 
-  final case class FailureStatusError(failureStatus: IE.FailureStatus) extends SubmitError {
+  final case class FailureStatusError(
+      failureStatus: IE.FailureStatus,
+      exerciseTrace: Option[String],
+  ) extends SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "FailureStatusError",
@@ -507,7 +510,7 @@ object SubmitError {
             ("message", SText(failureStatus.errorMessage)),
             (
               "meta",
-              SMap(false, failureStatus.metadata.map { case (k, v) => (SText(k), SText(v)) }),
+              SMap(true, failureStatus.metadata.map { case (k, v) => (SText(k), SText(v)) }),
             ),
           ),
         ),
