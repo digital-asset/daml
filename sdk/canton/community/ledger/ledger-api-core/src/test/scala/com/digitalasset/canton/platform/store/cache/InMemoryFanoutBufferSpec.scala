@@ -6,8 +6,10 @@ package com.digitalasset.canton.platform.store.cache
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.ledger.participant.state.ReassignmentInfo
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.BufferSlice.LastBufferChunkSuffix
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.{
   BufferSlice,
@@ -15,7 +17,8 @@ import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.{
 }
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.canton.util.ReassignmentTag
+import com.digitalasset.daml.lf.data.{Ref, Time}
 import org.scalatest.Succeeded
 import org.scalatest.compatible.Assertion
 import org.scalatest.matchers.should.Matchers
@@ -43,10 +46,10 @@ class InMemoryFanoutBufferSpec
 
   inside(offsets) { case Seq(offset1, offset2, offset3, offset4, offset5) =>
     val txAccepted1 = txAccepted(1L, offset1)
-    val txAccepted2 = txAccepted(2L, offset2)
+    val reassignmentAccepted2 = reassignmentAccepted(2L, offset2)
     val txAccepted3 = txAccepted(3L, offset3)
-    val txAccepted4 = txAccepted(4L, offset4)
-    val bufferValues = Seq(txAccepted1, txAccepted2, txAccepted3, txAccepted4)
+    val topologyTxAccepted4 = topologyTxAccepted(4L, offset4)
+    val bufferValues = Seq(txAccepted1, reassignmentAccepted2, txAccepted3, topologyTxAccepted4)
     val txAccepted5 = txAccepted(5L, offset5)
     val bufferElements = offsets.zip(bufferValues)
     val LastOffset = offset4
@@ -65,7 +68,7 @@ class InMemoryFanoutBufferSpec
             )
 
             // Assert that all the entries are visible by lookup
-            verifyLookupPresent(buffer, txAccepted2, txAccepted3, txAccepted4)
+            verifyLookupPresent(buffer, reassignmentAccepted2, txAccepted3, topologyTxAccepted4)
 
             buffer.push(txAccepted5)
             // Assert data structure sizes respect their limits after pushing a new element
@@ -80,7 +83,7 @@ class InMemoryFanoutBufferSpec
             // Assert that the new entry is visible by lookup
             verifyLookupPresent(buffer, txAccepted5)
             // Assert oldest entry is evicted
-            verifyLookupAbsent(buffer, txAccepted2)
+            verifyLookupAbsent(buffer, reassignmentAccepted2)
           }
         }
 
@@ -95,7 +98,7 @@ class InMemoryFanoutBufferSpec
         "element with equal offset added" should {
           "throw" in withBuffer(3) { buffer =>
             intercept[UnorderedException[Int]] {
-              buffer.push(txAccepted4)
+              buffer.push(topologyTxAccepted4)
             }.getMessage shouldBe s"Elements appended to the buffer should have strictly increasing offsets: $offset4 vs $offset4"
           }
         }
@@ -126,7 +129,13 @@ class InMemoryFanoutBufferSpec
           4
         ) { buffer =>
           // Assert that all the entries are visible by lookup
-          verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
+          verifyLookupPresent(
+            buffer,
+            txAccepted1,
+            reassignmentAccepted2,
+            txAccepted3,
+            topologyTxAccepted4,
+          )
 
           // Enqueue a rejected transaction
           buffer.push(txRejected(5L, offset5))
@@ -136,9 +145,9 @@ class InMemoryFanoutBufferSpec
 
           // Assert that the buffer does not include the rejected transaction
           buffer._lookupMap should contain theSameElementsAs Map(
-            txAccepted2.updateId -> txAccepted2,
+            reassignmentAccepted2.updateId -> reassignmentAccepted2,
             txAccepted3.updateId -> txAccepted3,
-            txAccepted4.updateId -> txAccepted4,
+            topologyTxAccepted4.updateId -> topologyTxAccepted4,
           )
         }
       }
@@ -292,7 +301,13 @@ class InMemoryFanoutBufferSpec
       "prune" when {
         "element found" should {
           "prune inclusive" in withBuffer() { buffer =>
-            verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
+            verifyLookupPresent(
+              buffer,
+              txAccepted1,
+              reassignmentAccepted2,
+              txAccepted3,
+              topologyTxAccepted4,
+            )
 
             buffer.prune(offset3)
 
@@ -304,16 +319,22 @@ class InMemoryFanoutBufferSpec
             verifyLookupAbsent(
               buffer,
               txAccepted1,
-              txAccepted2,
+              reassignmentAccepted2,
               txAccepted3,
             )
-            verifyLookupPresent(buffer, txAccepted4)
+            verifyLookupPresent(buffer, topologyTxAccepted4)
           }
         }
 
         "element not present" should {
           "prune inclusive" in withBuffer() { buffer =>
-            verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
+            verifyLookupPresent(
+              buffer,
+              txAccepted1,
+              reassignmentAccepted2,
+              txAccepted3,
+              topologyTxAccepted4,
+            )
 
             buffer.prune(offset(6))
             buffer.slice(firstOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
@@ -323,16 +344,22 @@ class InMemoryFanoutBufferSpec
             verifyLookupAbsent(
               buffer,
               txAccepted1,
-              txAccepted2,
+              reassignmentAccepted2,
               txAccepted3,
             )
-            verifyLookupPresent(buffer, txAccepted4)
+            verifyLookupPresent(buffer, topologyTxAccepted4)
           }
         }
 
         "element before series" should {
           "not prune" in withBuffer() { buffer =>
-            verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
+            verifyLookupPresent(
+              buffer,
+              txAccepted1,
+              reassignmentAccepted2,
+              txAccepted3,
+              topologyTxAccepted4,
+            )
 
             buffer.prune(offset(1))
             buffer.slice(firstOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
@@ -340,13 +367,25 @@ class InMemoryFanoutBufferSpec
               bufferElements.drop(1),
             )
 
-            verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
+            verifyLookupPresent(
+              buffer,
+              txAccepted1,
+              reassignmentAccepted2,
+              txAccepted3,
+              topologyTxAccepted4,
+            )
           }
         }
 
         "element after series" should {
           "prune all" in withBuffer() { buffer =>
-            verifyLookupPresent(buffer, txAccepted1, txAccepted2, txAccepted3, txAccepted4)
+            verifyLookupPresent(
+              buffer,
+              txAccepted1,
+              reassignmentAccepted2,
+              txAccepted3,
+              topologyTxAccepted4,
+            )
 
             buffer.prune(offset5)
             buffer.slice(firstOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
@@ -357,9 +396,9 @@ class InMemoryFanoutBufferSpec
             verifyLookupAbsent(
               buffer,
               txAccepted1,
-              txAccepted2,
+              reassignmentAccepted2,
               txAccepted3,
-              txAccepted4,
+              topologyTxAccepted4,
             )
           }
         }
@@ -367,11 +406,11 @@ class InMemoryFanoutBufferSpec
         "one element in buffer" should {
           "prune all" in withBuffer(
             1,
-            Vector(offset(1) -> txAccepted2.copy(offset = offset(1))),
+            Vector(offset(1) -> reassignmentAccepted2.copy(offset = offset(1))),
           ) { buffer =>
             verifyLookupPresent(
               buffer,
-              txAccepted2.copy(offset = offset(1)),
+              reassignmentAccepted2.copy(offset = offset(1)),
             )
 
             buffer.prune(offset(1))
@@ -380,14 +419,19 @@ class InMemoryFanoutBufferSpec
               Vector.empty,
             )
 
-            verifyLookupAbsent(buffer, txAccepted2)
+            verifyLookupAbsent(buffer, reassignmentAccepted2)
           }
         }
       }
 
       "flush" should {
         "remove all entries from the buffer" in withBuffer(3) { buffer =>
-          verifyLookupPresent(buffer, txAccepted2, txAccepted3, txAccepted4)
+          verifyLookupPresent(
+            buffer,
+            reassignmentAccepted2,
+            txAccepted3,
+            topologyTxAccepted4,
+          )
 
           buffer.slice(firstOffset, LastOffset, IdentityFilter) shouldBe LastBufferChunkSuffix(
             bufferedStartExclusive = offset2,
@@ -404,9 +448,9 @@ class InMemoryFanoutBufferSpec
           )
           verifyLookupAbsent(
             buffer,
-            txAccepted2,
+            reassignmentAccepted2,
             txAccepted3,
-            txAccepted4,
+            topologyTxAccepted4,
           )
         }
       }
@@ -521,26 +565,67 @@ class InMemoryFanoutBufferSpec
       ),
     )
 
+  private def reassignmentAccepted(idx: Long, offset: Offset) =
+    TransactionLogUpdate.ReassignmentAccepted(
+      updateId = s"reassignment-$idx",
+      workflowId = s"workflow-$idx",
+      offset = offset,
+      completionStreamResponse = None,
+      commandId = "",
+      recordTime = Time.Timestamp.Epoch,
+      reassignmentInfo = ReassignmentInfo(
+        sourceSynchronizer = ReassignmentTag.Source(someSynchronizerId),
+        targetSynchronizer = ReassignmentTag.Target(someSynchronizerId),
+        submitter = None,
+        reassignmentCounter = 1,
+        unassignId = CantonTimestamp.assertFromLong(1L),
+        isReassigningParticipant = false,
+      ),
+      reassignment = mock[TransactionLogUpdate.ReassignmentAccepted.Reassignment],
+    )
+
+  private def topologyTxAccepted(idx: Long, offset: Offset) =
+    TransactionLogUpdate.TopologyTransactionEffective(
+      updateId = s"topology-tx-$idx",
+      offset = offset,
+      effectiveTime = Time.Timestamp.Epoch,
+      synchronizerId = someSynchronizerId.toProtoPrimitive,
+      events = Vector.empty,
+    )
+
   private def verifyLookupPresent(
       buffer: InMemoryFanoutBuffer,
-      txs: TransactionLogUpdate.TransactionAccepted*
+      txs: TransactionLogUpdate*
   ): Assertion =
     txs.foldLeft(succeed) {
       case (Succeeded, tx) =>
-        buffer.lookup(tx.updateId) shouldBe Some(tx)
-        buffer.lookup(tx.offset) shouldBe Some(tx)
+        buffer.lookup(
+          LookupKey.UpdateId(Ref.TransactionId.assertFromString(getUpdateId(tx)))
+        ) shouldBe Some(tx)
+        buffer.lookup(LookupKey.Offset(tx.offset)) shouldBe Some(tx)
       case (failed, _) => failed
     }
 
   private def verifyLookupAbsent(
       buffer: InMemoryFanoutBuffer,
-      txs: TransactionLogUpdate.TransactionAccepted*
+      txs: TransactionLogUpdate*
   ): Assertion =
     txs.foldLeft(succeed) {
       case (Succeeded, tx) =>
-        buffer.lookup(tx.updateId) shouldBe None
-        buffer.lookup(tx.offset) shouldBe None
+        buffer.lookup(
+          LookupKey.UpdateId(Ref.TransactionId.assertFromString(getUpdateId(tx)))
+        ) shouldBe None
+        buffer.lookup(LookupKey.Offset(tx.offset)) shouldBe None
       case (failed, _) => failed
     }
+
+  private def getUpdateId(tx: TransactionLogUpdate): String = tx match {
+    case txAccepted: TransactionLogUpdate.TransactionAccepted => txAccepted.updateId
+    case _: TransactionLogUpdate.TransactionRejected =>
+      throw new RuntimeException("did not expect a TransactionRejected")
+    case reassignment: TransactionLogUpdate.ReassignmentAccepted => reassignment.updateId
+    case topologyTransaction: TransactionLogUpdate.TopologyTransactionEffective =>
+      topologyTransaction.updateId
+  }
 
 }

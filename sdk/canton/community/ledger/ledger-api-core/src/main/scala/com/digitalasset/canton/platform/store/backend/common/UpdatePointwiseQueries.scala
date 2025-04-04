@@ -7,30 +7,25 @@ import anorm.RowParser
 import com.digitalasset.canton.data
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.Party
-import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
-  Entry,
-  RawFlatEvent,
-  RawTreeEvent,
-}
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{Entry, RawTreeEvent}
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
   CompositeSql,
   SqlStringInterpolation,
 }
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
-import com.digitalasset.canton.platform.store.backend.common.TransactionPointwiseQueries.LookupKey
+import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.interning.StringInterning
 
 import java.sql.Connection
 
-class TransactionPointwiseQueries(
+class UpdatePointwiseQueries(
     ledgerEndCache: LedgerEndCache,
     stringInterning: StringInterning,
 ) {
   import EventStorageBackendTemplate.*
 
-  /** Fetches a matching event sequential id range unless it's within the pruning offset.
-    */
+  /** Fetches a matching event sequential id range. */
   def fetchIdsFromTransactionMeta(
       lookupKey: LookupKey
   )(connection: Connection): Option[(Long, Long)] = {
@@ -63,29 +58,7 @@ class TransactionPointwiseQueries(
     }
   }
 
-  def fetchFlatTransactionEvents(
-      firstEventSequentialId: Long,
-      lastEventSequentialId: Long,
-      requestingParties: Option[Set[Party]],
-  )(connection: Connection): Vector[Entry[RawFlatEvent]] =
-    fetchEventsForTransactionPointWiseLookup(
-      firstEventSequentialId = firstEventSequentialId,
-      lastEventSequentialId = lastEventSequentialId,
-      witnessesColumn = "flat_event_witnesses",
-      tables = List(
-        SelectTable(
-          tableName = "lapi_events_create",
-          selectColumns = selectColumnsForFlatTransactionsCreate,
-        ),
-        SelectTable(
-          tableName = "lapi_events_consuming_exercise",
-          selectColumns = selectColumnsForFlatTransactionsExercise,
-        ),
-      ),
-      requestingParties = requestingParties,
-      filteringRowParser = rawAcsDeltaEventParser(_, stringInterning),
-    )(connection)
-
+  // TODO(#23504) remove when transaction trees legacy endpoints are removed
   def fetchTreeTransactionEvents(
       firstEventSequentialId: Long,
       lastEventSequentialId: Long,
@@ -180,7 +153,7 @@ class TransactionPointwiseQueries(
 
 }
 
-object TransactionPointwiseQueries {
+object UpdatePointwiseQueries {
   sealed trait LookupKey
   object LookupKey {
     final case class UpdateId(updateId: data.UpdateId) extends LookupKey

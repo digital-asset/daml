@@ -3,11 +3,10 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.daml.ledger.api.v2.reassignment.{Reassignment, ReassignmentEvent}
-import com.daml.ledger.api.v2.trace_context.TraceContext as DamlTraceContext
+import com.daml.ledger.api.v2.reassignment.Reassignment
 import com.daml.metrics.{DatabaseMetrics, Timed}
+import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -33,7 +32,6 @@ import com.digitalasset.canton.platform.store.utils.{
   ConcurrencyLimiter,
   QueueBasedConcurrencyLimiter,
 }
-import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
@@ -60,6 +58,8 @@ class ReassignmentStreamReader(
   private val paginatingAsyncStream = new PaginatingAsyncStream(loggerFactory)
 
   private val dbMetrics = metrics.index.db
+
+  private val directEC = DirectExecutionContext(logger)
 
   def streamReassignments(reassignmentStreamQueryParams: ReassignmentStreamQueryParams)(implicit
       loggingContext: LoggingContextWithTrace
@@ -194,25 +194,7 @@ class ReassignmentStreamReader(
       rawUnassignEntries: Seq[Entry[RawUnassignEvent]]
   ): Future[Option[Reassignment]] =
     Timed.future(
-      future = Future {
-        rawUnassignEntries.headOption map { first =>
-          Reassignment(
-            updateId = first.updateId,
-            commandId = first.commandId.getOrElse(""),
-            workflowId = first.workflowId.getOrElse(""),
-            offset = first.offset,
-            events = rawUnassignEntries.map(entry =>
-              ReassignmentEvent(
-                ReassignmentEvent.Event.Unassigned(
-                  UpdateReader.toUnassignedEvent(first.offset, entry.event)
-                )
-              )
-            ),
-            recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
-            traceContext = first.traceContext.map(DamlTraceContext.parseFrom),
-          )
-        }
-      },
+      future = Future.successful(UpdateReader.toApiUnassigned(rawUnassignEntries)),
       timer = dbMetrics.reassignmentStream.translationTimer,
     )
 
@@ -220,35 +202,11 @@ class ReassignmentStreamReader(
       rawAssignEntries: Seq[Entry[RawAssignEvent]]
   )(implicit lc: LoggingContextWithTrace): Future[Option[Reassignment]] =
     Timed.future(
-      future = Future.delegate(
-        MonadUtil
-          .sequentialTraverse(rawAssignEntries) { rawAssignEntry =>
-            lfValueTranslation
-              .deserializeRaw(
-                eventProjectionProperties,
-                rawAssignEntry.event.rawCreatedEvent,
-              )
-          }
-          .map(createdEvents =>
-            rawAssignEntries.headOption.map(first =>
-              Reassignment(
-                updateId = first.updateId,
-                commandId = first.commandId.getOrElse(""),
-                workflowId = first.workflowId.getOrElse(""),
-                offset = first.offset,
-                events = rawAssignEntries.zip(createdEvents).map { case (entry, created) =>
-                  ReassignmentEvent(
-                    ReassignmentEvent.Event.Assigned(
-                      UpdateReader.toAssignedEvent(entry.event, created)
-                    )
-                  )
-                },
-                recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
-                traceContext = first.traceContext.map(DamlTraceContext.parseFrom),
-              )
-            )
-          )
-      ),
+      future = Future.delegate {
+        implicit val executionContext: ExecutionContext =
+          directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
+        UpdateReader.toApiAssigned(eventProjectionProperties, lfValueTranslation)(rawAssignEntries)
+      },
       timer = dbMetrics.reassignmentStream.translationTimer,
     )
 

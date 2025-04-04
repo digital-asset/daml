@@ -18,7 +18,6 @@ import com.daml.ledger.api.v2.transaction.{
   TreeEvent,
 }
 import com.daml.ledger.api.v2.update_service.{
-  GetTransactionResponse,
   GetTransactionTreeResponse,
   GetUpdateTreesResponse,
   GetUpdatesResponse,
@@ -45,7 +44,7 @@ object EventsTable {
         .collectFirst { case Some(tc) => tc }
         .map(DamlTraceContext.parseFrom)
 
-    private def transaction(events: Seq[Entry[Event]]): Option[ApiTransaction] =
+    def toTransaction(events: Seq[Entry[Event]]): Option[ApiTransaction] =
       events.headOption.flatMap { first =>
         val flatEvents =
           TransactionConversion.removeTransient(events.iterator.map(_.event).toVector)
@@ -73,7 +72,7 @@ object EventsTable {
     def toGetTransactionsResponse(
         events: Seq[Entry[Event]]
     ): List[(Long, GetUpdatesResponse)] =
-      transaction(events).toList.map(tx =>
+      toTransaction(events).toList.map(tx =>
         tx.offset -> GetUpdatesResponse(GetUpdatesResponse.Update.Transaction(tx))
           .withPrecomputedSerializedSize()
       )
@@ -121,11 +120,6 @@ object EventsTable {
             recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
           )
       }
-
-    def toGetTransactionResponse(
-        events: Seq[Entry[Event]]
-    ): Option[GetTransactionResponse] =
-      transaction(events).map(tx => GetTransactionResponse(Some(tx)))
 
     private def treeOf(
         events: Seq[Entry[TreeEvent]]

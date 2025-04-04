@@ -45,15 +45,15 @@ class BufferedTransactionPointwiseReaderSpec extends AsyncFlatSpec with MockitoS
   private val bufferedTransaction2 = tx(bufferedUpdateId2, bufferedOffset2)
 
   private val inMemoryFanout = mock[InMemoryFanoutBuffer]
-  when(inMemoryFanout.lookup(bufferedUpdateId1)).thenReturn(Some(bufferedTransaction1))
-  when(inMemoryFanout.lookup(bufferedUpdateId2)).thenReturn(Some(bufferedTransaction2))
-  when(inMemoryFanout.lookup(notBufferedUpdateId)).thenReturn(None)
-  when(inMemoryFanout.lookup(unknownUpdateId)).thenReturn(None)
+  when(inMemoryFanout.lookupTransaction(bufferedUpdateId1)).thenReturn(Some(bufferedTransaction1))
+  when(inMemoryFanout.lookupTransaction(bufferedUpdateId2)).thenReturn(Some(bufferedTransaction2))
+  when(inMemoryFanout.lookupTransaction(notBufferedUpdateId)).thenReturn(None)
+  when(inMemoryFanout.lookupTransaction(unknownUpdateId)).thenReturn(None)
 
-  when(inMemoryFanout.lookup(bufferedOffset1)).thenReturn(Some(bufferedTransaction1))
-  when(inMemoryFanout.lookup(bufferedOffset2)).thenReturn(Some(bufferedTransaction2))
-  when(inMemoryFanout.lookup(notBufferedOffset)).thenReturn(None)
-  when(inMemoryFanout.lookup(unknownOffset)).thenReturn(None)
+  when(inMemoryFanout.lookupTransaction(bufferedOffset1)).thenReturn(Some(bufferedTransaction1))
+  when(inMemoryFanout.lookupTransaction(bufferedOffset2)).thenReturn(Some(bufferedTransaction2))
+  when(inMemoryFanout.lookupTransaction(notBufferedOffset)).thenReturn(None)
+  when(inMemoryFanout.lookupTransaction(unknownOffset)).thenReturn(None)
 
   private val toApiResponse = mock[ToApiResponse[Set[Party], String]]
   when(toApiResponse.apply(bufferedTransaction1, requestingParties, loggingContext))
@@ -77,7 +77,7 @@ class BufferedTransactionPointwiseReaderSpec extends AsyncFlatSpec with MockitoS
   private val bufferedTransactionByIdReader =
     new BufferedTransactionPointwiseReader[(String, Set[Party]), String](
       fetchFromPersistence = fetchFromPersistenceById,
-      fetchFromBuffer = queryParam => inMemoryFanout.lookup(queryParam._1),
+      fetchFromBuffer = queryParam => inMemoryFanout.lookupTransaction(queryParam._1),
       toApiResponse = (tx, queryParam, lc) => toApiResponse(tx, queryParam._2, lc),
     )
 
@@ -97,7 +97,7 @@ class BufferedTransactionPointwiseReaderSpec extends AsyncFlatSpec with MockitoS
   private val bufferedTransactionByOffsetReader =
     new BufferedTransactionPointwiseReader[(Offset, Set[Party]), String](
       fetchFromPersistence = fetchFromPersistenceByOffset,
-      fetchFromBuffer = queryParam => inMemoryFanout.lookup(queryParam._1),
+      fetchFromBuffer = queryParam => inMemoryFanout.lookupTransaction(queryParam._1),
       toApiResponse = (tx, queryParam, lc) => toApiResponse(tx, queryParam._2, lc),
     )
 

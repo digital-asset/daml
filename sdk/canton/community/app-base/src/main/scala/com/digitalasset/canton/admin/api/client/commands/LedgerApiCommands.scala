@@ -145,6 +145,9 @@ import com.daml.ledger.api.v2.update_service.{
   GetTransactionByIdRequest,
   GetTransactionByOffsetRequest,
   GetTransactionTreeResponse,
+  GetUpdateByIdRequest,
+  GetUpdateByOffsetRequest,
+  GetUpdateResponse,
   GetUpdateTreesResponse,
   GetUpdatesRequest,
   GetUpdatesResponse,
@@ -1014,12 +1017,7 @@ object LedgerApiCommands {
 
       def synchronizerId: String
     }
-    object UpdateWrapper {
-      def isUnassignedWrapper(wrapper: UpdateWrapper): Boolean = wrapper match {
-        case UnassignedWrapper(_, _) => true
-        case _ => false
-      }
-    }
+
     final case class TransactionTreeWrapper(transactionTree: TransactionTree)
         extends UpdateTreeWrapper {
       override def updateId: String = transactionTree.updateId
@@ -1224,6 +1222,41 @@ object LedgerApiCommands {
         )
     }
 
+    final case class GetUpdateById(id: String, updateFormat: UpdateFormat)(implicit
+        ec: ExecutionContext
+    ) extends BaseCommand[GetUpdateByIdRequest, Option[GetUpdateResponse], Option[UpdateWrapper]]
+        with PrettyPrinting {
+      override protected def createRequest(): Either[String, GetUpdateByIdRequest] = Right {
+        GetUpdateByIdRequest(
+          updateId = id,
+          updateFormat = Some(updateFormat),
+        )
+      }
+
+      override protected def submitRequest(
+          service: UpdateServiceStub,
+          request: GetUpdateByIdRequest,
+      ): Future[Option[GetUpdateResponse]] =
+        // The Ledger API will throw an error if it can't find an update by ID.
+        // However, as Canton is distributed, an update ID might show up later, so we don't treat this as
+        // an error and change it to a None
+        service.getUpdateById(request).map(Some(_)).recover {
+          case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND =>
+            None
+        }
+
+      override protected def handleResponse(
+          response: Option[GetUpdateResponse]
+      ): Either[String, Option[UpdateWrapper]] =
+        Right(extractUpdate(response))
+
+      override protected def pretty: Pretty[GetUpdateById] =
+        prettyOfClass(
+          param("id", _.id.unquoted),
+          param("updateFormat", _.updateFormat.toString.unquoted),
+        )
+    }
+
     final case class GetTransactionByOffset(parties: Set[LfPartyId], offset: Long)(implicit
         ec: ExecutionContext
     ) extends BaseCommand[GetTransactionByOffsetRequest, GetTransactionTreeResponse, Option[
@@ -1243,8 +1276,8 @@ object LedgerApiCommands {
           service: UpdateServiceStub,
           request: GetTransactionByOffsetRequest,
       ): Future[GetTransactionTreeResponse] =
-        // The Ledger API will throw an error if it can't find a transaction by ID.
-        // However, as Canton is distributed, a transaction ID might show up later, so we don't treat this as
+        // The Ledger API will throw an error if it can't find a transaction by offset.
+        // However, as Canton is distributed, a transaction offset might show up later, so we don't treat this as
         // an error and change it to a None
         service.getTransactionTreeByOffset(request).recover {
           case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND =>
@@ -1261,6 +1294,52 @@ object LedgerApiCommands {
           param("offset", _.offset),
           param("parties", _.parties),
         )
+    }
+
+    final case class GetUpdateByOffset(offset: Long, updateFormat: UpdateFormat)(implicit
+        ec: ExecutionContext
+    ) extends BaseCommand[GetUpdateByOffsetRequest, Option[GetUpdateResponse], Option[
+          UpdateWrapper
+        ]]
+        with PrettyPrinting {
+      override protected def createRequest(): Either[String, GetUpdateByOffsetRequest] = Right {
+        GetUpdateByOffsetRequest(
+          offset = offset,
+          updateFormat = Some(updateFormat),
+        )
+      }
+
+      override protected def submitRequest(
+          service: UpdateServiceStub,
+          request: GetUpdateByOffsetRequest,
+      ): Future[Option[GetUpdateResponse]] =
+        // The Ledger API will throw an error if it can't find an update by ID.
+        // However, as Canton is distributed, an update ID might show up later, so we don't treat this as
+        // an error and change it to a None
+        service.getUpdateByOffset(request).map(Some(_)).recover {
+          case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND =>
+            None
+        }
+
+      override protected def handleResponse(
+          response: Option[GetUpdateResponse]
+      ): Either[String, Option[UpdateWrapper]] =
+        Right(extractUpdate(response))
+
+      override protected def pretty: Pretty[GetUpdateByOffset] =
+        prettyOfClass(
+          param("offset", _.offset),
+          param("updateFormat", _.updateFormat.toString.unquoted),
+        )
+    }
+
+    private def extractUpdate(response: Option[GetUpdateResponse]): Option[UpdateWrapper] = {
+      val updateO = response.map(_.update)
+      updateO
+        .flatMap(_.transaction)
+        .map[UpdateWrapper](TransactionWrapper.apply)
+        .orElse(updateO.flatMap(_.reassignment).map(ReassignmentWrapper(_)))
+        .orElse(updateO.flatMap(_.topologyTransaction).map(TopologyTransactionWrapper(_)))
     }
 
   }

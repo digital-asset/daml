@@ -9,6 +9,7 @@ import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionResponse,
   GetTransactionTreeResponse,
+  GetUpdateResponse,
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
@@ -20,6 +21,7 @@ import com.digitalasset.canton.ledger.participant.state.index.*
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Party, UserId}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -101,6 +103,15 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
     Timed.future(
       metrics.services.index.getTransactionTreeByOffset,
       delegate.getTransactionTreeByOffset(offset, requestingParties),
+    )
+
+  def getUpdateBy(
+      lookupKey: LookupKey,
+      updateFormat: UpdateFormat,
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetUpdateResponse]] =
+    Timed.future(
+      metrics.services.index.getUpdateByOffset,
+      delegate.getUpdateBy(lookupKey, updateFormat),
     )
 
   override def getActiveContracts(

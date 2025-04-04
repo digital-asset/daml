@@ -358,7 +358,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
       timeouts,
       simulationModel.disseminationProtocolState,
       simulationModel.mainOutputFetchProtocolState,
-    )
+    )()
     val consensusDependencies = ConsensusModuleDependencies(
       availabilityRef,
       outputRef,

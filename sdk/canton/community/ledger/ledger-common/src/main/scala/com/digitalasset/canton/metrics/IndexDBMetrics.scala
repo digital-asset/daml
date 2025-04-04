@@ -58,9 +58,10 @@ final class IndexDBMetrics private[metrics] (
     override val inventory: IndexDBHistograms,
     override val openTelemetryMetricsFactory: LabeledMetricsFactory,
 ) extends MainIndexDBMetrics(inventory, openTelemetryMetricsFactory)
-    with TransactionStreamsDbMetrics
+    with UpdateStreamsDbMetrics
+    with UpdatePointwiseDbMetrics
 
-trait TransactionStreamsDbMetrics {
+trait UpdateStreamsDbMetrics {
   self: DatabaseMetricsFactory =>
 
   val inventory: TransactionStreamsDbHistograms
@@ -69,7 +70,7 @@ trait TransactionStreamsDbMetrics {
   private implicit val metricsContext: MetricsContext = MetricsContext.Empty
 
   // Private constructor to avoid being instantiated multiple times by accident
-  final class UpdatesAcsDeltaStreamMetrics private[TransactionStreamsDbMetrics] {
+  final class UpdatesAcsDeltaStreamMetrics private[UpdateStreamsDbMetrics] {
     val fetchEventCreateIdsStakeholder: DatabaseMetrics = createDbMetrics(
       "fetch_event_create_ids_stakeholder"
     )
@@ -88,7 +89,7 @@ trait TransactionStreamsDbMetrics {
   val updatesAcsDeltaStream: UpdatesAcsDeltaStreamMetrics = new UpdatesAcsDeltaStreamMetrics
 
   // Private constructor to avoid being instantiated multiple times by accident
-  final class UpdatesLedgerEffectsStreamMetrics private[TransactionStreamsDbMetrics] {
+  final class UpdatesLedgerEffectsStreamMetrics private[UpdateStreamsDbMetrics] {
 
     val fetchEventCreateIdsStakeholder: DatabaseMetrics = createDbMetrics(
       "fetch_event_create_ids_stakeholder"
@@ -122,7 +123,7 @@ trait TransactionStreamsDbMetrics {
     new UpdatesLedgerEffectsStreamMetrics
 
   // Private constructor to avoid being instantiated multiple times by accident
-  final class ReassignmentStreamMetrics private[TransactionStreamsDbMetrics] {
+  final class ReassignmentStreamMetrics private[UpdateStreamsDbMetrics] {
 
     val fetchEventAssignIdsStakeholder: DatabaseMetrics = createDbMetrics(
       "fetch_event_assign_ids_stakeholder"
@@ -143,7 +144,7 @@ trait TransactionStreamsDbMetrics {
   val reassignmentStream: ReassignmentStreamMetrics = new ReassignmentStreamMetrics
 
   // Private constructor to avoid being instantiated multiple times by accident
-  final class TopologyTransactionsStreamMetrics private[TransactionStreamsDbMetrics] {
+  final class TopologyTransactionsStreamMetrics private[UpdateStreamsDbMetrics] {
     val fetchTopologyPartyEventIds: DatabaseMetrics =
       createDbMetrics("fetch_topology_party_event_ids")
 
@@ -153,6 +154,71 @@ trait TransactionStreamsDbMetrics {
 
   val topologyTransactionsStream: TopologyTransactionsStreamMetrics =
     new TopologyTransactionsStreamMetrics
+}
+
+trait UpdatePointwiseDbMetrics {
+  self: DatabaseMetricsFactory =>
+
+  val inventory: TransactionStreamsDbHistograms
+  val openTelemetryMetricsFactory: LabeledMetricsFactory
+
+  private implicit val metricsContext: MetricsContext = MetricsContext.Empty
+
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class UpdatesAcsDeltaPointwiseMetrics private[UpdatePointwiseDbMetrics] {
+    val fetchEventCreatePayloads: DatabaseMetrics = createDbMetrics("fetch_event_create_payloads")
+    val fetchEventConsumingPayloads: DatabaseMetrics = createDbMetrics(
+      "fetch_event_consuming_payloads"
+    )
+
+    val translationTimer: Timer =
+      openTelemetryMetricsFactory.timer(inventory.flatTxStreamTranslationTimer.info)
+  }
+
+  val updatesAcsDeltaPointwise: UpdatesAcsDeltaPointwiseMetrics =
+    new UpdatesAcsDeltaPointwiseMetrics
+
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class UpdatesLedgerEffectsPointwiseMetrics private[UpdatePointwiseDbMetrics] {
+
+    val fetchEventCreatePayloads: DatabaseMetrics = createDbMetrics("fetch_event_create_payloads")
+    val fetchEventConsumingPayloads: DatabaseMetrics = createDbMetrics(
+      "fetch_event_consuming_payloads"
+    )
+    val fetchEventNonConsumingPayloads: DatabaseMetrics = createDbMetrics(
+      "fetch_event_non_consuming_payloads"
+    )
+
+    val translationTimer: Timer =
+      openTelemetryMetricsFactory.timer(inventory.treeTxStreamTranslationTimer.info)
+  }
+
+  val updatesLedgerEffectsPointwise: UpdatesLedgerEffectsPointwiseMetrics =
+    new UpdatesLedgerEffectsPointwiseMetrics
+
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class ReassignmentPointwiseMetrics private[UpdatePointwiseDbMetrics] {
+
+    val fetchEventAssignPayloads: DatabaseMetrics = createDbMetrics("fetch_event_assign_payloads")
+    val fetchEventUnassignPayloads: DatabaseMetrics = createDbMetrics(
+      "fetch_event_unassign_payloads"
+    )
+
+    val translationTimer: Timer =
+      openTelemetryMetricsFactory.timer(inventory.reassignmentStreamTranslationTimer.info)
+
+  }
+
+  val reassignmentPointwise: ReassignmentPointwiseMetrics = new ReassignmentPointwiseMetrics
+
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class TopologyTransactionsPointwiseMetrics private[UpdatePointwiseDbMetrics] {
+    val fetchTopologyPartyEventPayloads: DatabaseMetrics =
+      createDbMetrics("fetch_topology_party_event_payloads")
+  }
+
+  val topologyTransactionsPointwise: TopologyTransactionsPointwiseMetrics =
+    new TopologyTransactionsPointwiseMetrics
 }
 
 final class BatchLoaderMetricsInventory(parent: MetricName)(implicit
@@ -375,9 +441,10 @@ class MainIndexDBMetrics(
     "lookup_contract_by_key"
   )
 
-  val lookupPointwiseTransaction: DatabaseMetrics = createDbMetrics(
-    "lookup_pointwise_transaction"
+  val lookupPointwiseUpdateFetchEventIds: DatabaseMetrics = createDbMetrics(
+    "fetch_event_ids"
   )
+
   val lookupTransactionTreeById: DatabaseMetrics = createDbMetrics(
     "lookup_transaction_tree_by_id"
   )

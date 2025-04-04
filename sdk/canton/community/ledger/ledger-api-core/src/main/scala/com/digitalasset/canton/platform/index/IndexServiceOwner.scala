@@ -85,7 +85,7 @@ final class IndexServiceOwner(
 
       bufferedTransactionsReader = BufferedUpdateReader(
         delegate = ledgerDao.updateReader,
-        transactionsBuffer = inMemoryState.inMemoryFanoutBuffer,
+        updatesBuffer = inMemoryState.inMemoryFanoutBuffer,
         lfValueTranslation = lfValueTranslation,
         metrics = metrics,
         eventProcessingParallelism = config.bufferedEventsProcessingParallelism,

@@ -88,6 +88,35 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
     }
 
     @Explanation(
+      "The update does not exist or the update format specified filters it out."
+    )
+    @Resolution(
+      "Check the update id or offset and verify that the requested update is not being filtered out by the update format."
+    )
+    object Update
+        extends ErrorCode(
+          id = "UPDATE_NOT_FOUND",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+
+      final case class RejectWithTxId(updateId: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(cause = "Update not found, or not visible.") {
+        override def resources: Seq[(ErrorResource, String)] = Seq(
+          (ErrorResource.UpdateId, updateId)
+        )
+      }
+
+      final case class RejectWithOffset(offset: Long)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(cause = "Update not found, or not visible.") {
+        override def resources: Seq[(ErrorResource, String)] = Seq(
+          (ErrorResource.Offset, offset.toString)
+        )
+      }
+    }
+
+    @Explanation(
       "The queried template or interface ids do not exist."
     )
     @Resolution(

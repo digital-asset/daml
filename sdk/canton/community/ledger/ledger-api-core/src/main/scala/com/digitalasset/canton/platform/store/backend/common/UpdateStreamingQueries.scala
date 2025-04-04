@@ -4,11 +4,6 @@
 package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.long
-import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
-  Entry,
-  RawFlatEvent,
-  RawTreeEvent,
-}
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
 import com.digitalasset.canton.platform.store.interning.StringInterning
@@ -37,11 +32,9 @@ object EventPayloadSourceForUpdatesLedgerEffects {
   object NonConsuming extends EventPayloadSourceForUpdatesLedgerEffects
 }
 
-class TransactionStreamingQueries(
-    queryStrategy: QueryStrategy,
-    stringInterning: StringInterning,
+class UpdateStreamingQueries(
+    stringInterning: StringInterning
 ) {
-  import EventStorageBackendTemplate.*
 
   def fetchEventIds(target: EventIdSource)(
       stakeholderO: Option[Party],
@@ -61,7 +54,7 @@ class TransactionStreamingQueries(
         connection
       )
     case EventIdSource.ConsumingNonStakeholder =>
-      TransactionStreamingQueries.fetchEventIds(
+      UpdateStreamingQueries.fetchEventIds(
         tableName = "lapi_pe_consuming_id_filter_non_stakeholder_informee",
         witnessO = stakeholderO,
         templateIdO = templateIdO,
@@ -81,7 +74,7 @@ class TransactionStreamingQueries(
         connection
       )
     case EventIdSource.CreateNonStakeholder =>
-      TransactionStreamingQueries.fetchEventIds(
+      UpdateStreamingQueries.fetchEventIds(
         tableName = "lapi_pe_create_id_filter_non_stakeholder_informee",
         witnessO = stakeholderO,
         templateIdO = templateIdO,
@@ -91,7 +84,7 @@ class TransactionStreamingQueries(
         stringInterning = stringInterning,
       )(connection)
     case EventIdSource.NonConsumingInformee =>
-      TransactionStreamingQueries.fetchEventIds(
+      UpdateStreamingQueries.fetchEventIds(
         tableName = "lapi_pe_non_consuming_id_filter_informee",
         witnessO = stakeholderO,
         templateIdO = templateIdO,
@@ -102,58 +95,6 @@ class TransactionStreamingQueries(
       )(connection)
   }
 
-  def fetchEventPayloadsAcsDelta(target: EventPayloadSourceForUpdatesAcsDelta)(
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Option[Set[Ref.Party]],
-  )(connection: Connection): Vector[Entry[RawFlatEvent]] =
-    target match {
-      case EventPayloadSourceForUpdatesAcsDelta.Consuming =>
-        fetchAcsDeltaEvents(
-          tableName = "lapi_events_consuming_exercise",
-          selectColumns = selectColumnsForFlatTransactionsExercise,
-          eventSequentialIds = eventSequentialIds,
-          allFilterParties = allFilterParties,
-        )(connection)
-      case EventPayloadSourceForUpdatesAcsDelta.Create =>
-        fetchAcsDeltaEvents(
-          tableName = "lapi_events_create",
-          selectColumns = selectColumnsForFlatTransactionsCreate,
-          eventSequentialIds = eventSequentialIds,
-          allFilterParties = allFilterParties,
-        )(connection)
-    }
-
-  def fetchEventPayloadsLedgerEffects(target: EventPayloadSourceForUpdatesLedgerEffects)(
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Option[Set[Ref.Party]],
-  )(connection: Connection): Vector[Entry[RawTreeEvent]] =
-    target match {
-      case EventPayloadSourceForUpdatesLedgerEffects.Consuming =>
-        fetchLedgerEffectsEvents(
-          tableName = "lapi_events_consuming_exercise",
-          selectColumns =
-            s"$selectColumnsForTransactionTreeExercise, ${QueryStrategy.constBooleanSelect(true)} as exercise_consuming",
-          eventSequentialIds = eventSequentialIds,
-          allFilterParties = allFilterParties,
-        )(connection)
-      case EventPayloadSourceForUpdatesLedgerEffects.Create =>
-        fetchLedgerEffectsEvents(
-          tableName = "lapi_events_create",
-          selectColumns =
-            s"$selectColumnsForTransactionTreeCreate, ${QueryStrategy.constBooleanSelect(false)} as exercise_consuming",
-          eventSequentialIds = eventSequentialIds,
-          allFilterParties = allFilterParties,
-        )(connection)
-      case EventPayloadSourceForUpdatesLedgerEffects.NonConsuming =>
-        fetchLedgerEffectsEvents(
-          tableName = "lapi_events_non_consuming_exercise",
-          selectColumns =
-            s"$selectColumnsForTransactionTreeExercise, ${QueryStrategy.constBooleanSelect(false)} as exercise_consuming",
-          eventSequentialIds = eventSequentialIds,
-          allFilterParties = allFilterParties,
-        )(connection)
-    }
-
   def fetchIdsOfCreateEventsForStakeholder(
       stakeholderO: Option[Ref.Party],
       templateIdO: Option[Ref.Identifier],
@@ -161,7 +102,7 @@ class TransactionStreamingQueries(
       endInclusive: Long,
       limit: Int,
   )(connection: Connection): Vector[Long] =
-    TransactionStreamingQueries.fetchEventIds(
+    UpdateStreamingQueries.fetchEventIds(
       tableName = "lapi_pe_create_id_filter_stakeholder",
       witnessO = stakeholderO,
       templateIdO = templateIdO,
@@ -178,7 +119,7 @@ class TransactionStreamingQueries(
       endInclusive: Long,
       limit: Int,
   )(connection: Connection): Vector[Long] =
-    TransactionStreamingQueries.fetchEventIds(
+    UpdateStreamingQueries.fetchEventIds(
       tableName = "lapi_pe_consuming_id_filter_stakeholder",
       witnessO = stakeholder,
       templateIdO = templateIdO,
@@ -188,67 +129,9 @@ class TransactionStreamingQueries(
       stringInterning = stringInterning,
     )(connection)
 
-  private def fetchAcsDeltaEvents(
-      tableName: String,
-      selectColumns: String,
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Option[Set[Ref.Party]],
-  )(connection: Connection): Vector[Entry[RawFlatEvent]] = {
-    val internedAllParties: Option[Set[Int]] = allFilterParties
-      .map(
-        _.iterator
-          .map(stringInterning.party.tryInternalize)
-          .flatMap(_.iterator)
-          .toSet
-      )
-    SQL"""
-        SELECT
-          #$selectColumns,
-          flat_event_witnesses as event_witnesses,
-          command_id
-        FROM
-          #$tableName
-        WHERE
-          event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
-        ORDER BY
-          event_sequential_id
-      """
-      .withFetchSize(Some(eventSequentialIds.size))
-      .asVectorOf(rawAcsDeltaEventParser(internedAllParties, stringInterning))(connection)
-  }
-
-  private def fetchLedgerEffectsEvents(
-      tableName: String,
-      selectColumns: String,
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Option[Set[Ref.Party]],
-  )(connection: Connection): Vector[Entry[RawTreeEvent]] = {
-    val internedAllParties: Option[Set[Int]] = allFilterParties
-      .map(
-        _.iterator
-          .map(stringInterning.party.tryInternalize)
-          .flatMap(_.iterator)
-          .toSet
-      )
-    SQL"""
-        SELECT
-          #$selectColumns,
-          tree_event_witnesses as event_witnesses,
-          command_id
-        FROM
-          #$tableName
-        WHERE
-          event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
-        ORDER BY
-          event_sequential_id
-      """
-      .withFetchSize(Some(eventSequentialIds.size))
-      .asVectorOf(rawTreeEventParser(internedAllParties, stringInterning))(connection)
-  }
-
 }
 
-object TransactionStreamingQueries {
+object UpdateStreamingQueries {
 
   // TODO(i22416): Rename the arguments of this function, as witnessO and templateIdO are inadequate for party topology events.
   /** @param tableName
