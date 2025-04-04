@@ -13,10 +13,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray}
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.engine.script.test.DarUtil.Dar
-import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.{
-  AdminLedgerClient,
-  IdentityServiceClient,
-}
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
 import com.digitalasset.daml.lf.value.Value
@@ -93,33 +90,15 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
           // Connection
           clients <- scriptClients(provideAdminPorts = true)
           adminClients <- traverseSequential(ledgerPorts) { portInfo =>
-            for {
-              participantId <- {
-                val identityServiceClient = IdentityServiceClient
-                  .singleHost(
-                    "localhost",
-                    portInfo.adminPort.value,
-                    None,
-                    LedgerClientChannelConfiguration.InsecureDefaults,
-                  )
-                val future = identityServiceClient.getId()
-                val _ = future.onComplete(_ => identityServiceClient.close())
-                future
-              }
-            } yield (
-              portInfo.ledgerPort.value,
-              AdminLedgerClient.singleHost(
+            AdminLedgerClient
+              .singleHostWithUnknownParticipantId(
                 "localhost",
                 portInfo.adminPort.value,
                 None,
                 LedgerClientChannelConfiguration.InsecureDefaults,
-                participantId.getOrElse(
-                  throw new IllegalStateException("unexpected uninitialized participant")
-                ),
-              ),
-            )
+              )
+              .map(portInfo.ledgerPort.value -> _)
           }
-
           _ <- traverseSequential(adminClients) { case (ledgerPort, adminClient) =>
             Future.traverse(deps.reverse) { dep =>
               Thread.sleep(500)

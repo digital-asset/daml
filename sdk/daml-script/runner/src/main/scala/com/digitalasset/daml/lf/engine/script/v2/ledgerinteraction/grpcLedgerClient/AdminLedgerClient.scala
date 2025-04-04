@@ -224,6 +224,35 @@ object AdminLedgerClient {
   private[grpcLedgerClient] def stub[A <: AbstractStub[A]](stub: A, token: Option[String]): A =
     token.fold(stub)(AuthCallCredentials.authorizingStub(stub, _))
 
+  /** Retrieves the identifier of the participant hosted at hostIp:port and calls [[singleHost]]
+    * with the result.
+    */
+  def singleHostWithUnknownParticipantId(
+      hostIp: String,
+      port: Int,
+      token: Option[String] = None,
+      channelConfig: LedgerClientChannelConfiguration,
+  )(implicit ec: ExecutionContext): Future[AdminLedgerClient] = {
+    for {
+      participantId <- {
+        val identityServiceClient = IdentityServiceClient
+          .singleHost(hostIp, port, token, channelConfig)
+        val future = identityServiceClient.getId()
+        val _ = future.onComplete(_ => identityServiceClient.close())
+        future
+      }
+    } yield AdminLedgerClient
+      .singleHost(
+        hostIp,
+        port,
+        token,
+        channelConfig,
+        participantId.getOrElse(
+          throw new IllegalStateException("unexpected uninitialized participant")
+        ),
+      )
+  }
+
   /** A convenient shortcut to build a [[AdminLedgerClient]], use [[fromBuilder]] for a more
     * flexible alternative.
     */

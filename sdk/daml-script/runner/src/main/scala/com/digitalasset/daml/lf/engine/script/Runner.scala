@@ -26,10 +26,7 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
   IdeLedgerClient,
   ScriptLedgerClient,
 }
-import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.{
-  AdminLedgerClient,
-  IdentityServiceClient,
-}
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.language.LanguageVersionRangeOps._
@@ -289,26 +286,14 @@ object Runner {
         namedLoggerFactory,
       )
       maybeAdminLedgerClient <- params.adminPort
-        .traverse(adminPort => {
-          for {
-            participantId <- {
-              val identityServiceClient = IdentityServiceClient
-                .singleHost(params.host, adminPort, clientConfig.token, clientChannelConfig)
-              val future = identityServiceClient.getId()
-              val _ = future.onComplete(_ => identityServiceClient.close())
-              future
-            }
-          } yield AdminLedgerClient
-            .singleHost(
-              params.host,
-              adminPort,
-              clientConfig.token,
-              clientChannelConfig,
-              participantId.getOrElse(
-                throw new IllegalStateException("unexpected uninitialized participant")
-              ),
-            )
-        })
+        .traverse(adminPort =>
+          AdminLedgerClient.singleHostWithUnknownParticipantId(
+            params.host,
+            adminPort,
+            clientConfig.token,
+            clientChannelConfig,
+          )
+        )
     } yield GrpcLedgerClient(ledgerClient, userId, maybeAdminLedgerClient)
   }
   // We might want to have one config per participant at some point but for now this should be sufficient.
