@@ -6,6 +6,10 @@
 DA.Date
 =======
 
+This module provides a set of functions to manipulate Date values\.
+The bounds for Date are 0001\-01\-01T00\:00\:00\.000000Z and
+9999\-12\-31T23\:59\:59\.999999Z\.
+
 Data Types
 ----------
 
