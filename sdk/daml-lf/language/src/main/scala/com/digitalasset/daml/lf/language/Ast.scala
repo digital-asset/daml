@@ -166,12 +166,6 @@ object Ast {
       choiceArgExpr: Expr,
   ) extends Expr
 
-  /** Fail with grpc status and ErrorInfoDetail metadata */
-  final case class EFailWithStatus(
-      returnType: Type,
-      failureStatus: Expr,
-  ) extends Expr
-
   // We use this type to reduce depth of pattern matching
   sealed abstract class ExprInterface extends Expr
 
@@ -574,6 +568,9 @@ object Ast {
 
   // TypeRep
   final case object BTypeRepTyConName extends BuiltinFunction // : TypeRep → Optional Text
+
+  final case object BFailWithStatus
+      extends BuiltinFunction // : ∀a. Text → FailureCategory → Text → TextMap Text → a
 
   final case class EExperimental(name: String, typ: Type) extends Expr
 

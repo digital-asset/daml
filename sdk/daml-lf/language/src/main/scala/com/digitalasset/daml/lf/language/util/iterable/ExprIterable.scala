@@ -87,8 +87,6 @@ private[lf] object ExprIterable {
         Iterator(contract, choiceArg)
       case EChoiceObserver(tpl @ _, choiceName @ _, contract, choiceArg) =>
         Iterator(contract, choiceArg)
-      case EFailWithStatus(_, value) =>
-        Iterator(value)
     }
   }
 

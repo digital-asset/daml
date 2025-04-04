@@ -62,7 +62,6 @@ data ExprF expr
   | EViewInterfaceF !(Qualified TypeConName) !expr
   | EChoiceControllerF !(Qualified TypeConName) !ChoiceName !expr !expr
   | EChoiceObserverF !(Qualified TypeConName) !ChoiceName !expr !expr
-  | EFailWithStatusF !Type !expr
   | EExperimentalF !T.Text !Type
   deriving (Foldable, Functor, Traversable)
 
@@ -184,7 +183,6 @@ instance Recursive Expr where
     EViewInterface a b -> EViewInterfaceF a b
     EChoiceController a b c d -> EChoiceControllerF a b c d
     EChoiceObserver a b c d -> EChoiceObserverF a b c d
-    EFailWithStatus a b -> EFailWithStatusF a b
     EExperimental a b -> EExperimentalF a b
 
 instance Corecursive Expr where
@@ -231,7 +229,6 @@ instance Corecursive Expr where
     EViewInterfaceF a b -> EViewInterface a b
     EChoiceControllerF a b c d -> EChoiceController a b c d
     EChoiceObserverF a b c d -> EChoiceObserver a b c d
-    EFailWithStatusF a b -> EFailWithStatus a b
     EExperimentalF a b -> EExperimental a b
 
 data TypeF type_

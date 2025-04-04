@@ -1197,7 +1197,7 @@ object ScriptF {
               SRecord(
                 _,
                 _,
-                ArrayList(SText(errorId), SInt64(categoryId), SText(message), SMap(false, treeMap)),
+                ArrayList(SText(errorId), SInt64(categoryId), SText(message), SMap(true, treeMap)),
               )
             ),
           ) =>

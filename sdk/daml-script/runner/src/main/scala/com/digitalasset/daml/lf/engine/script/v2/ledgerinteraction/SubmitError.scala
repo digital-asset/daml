@@ -510,7 +510,7 @@ object SubmitError {
             ("message", SText(failureStatus.errorMessage)),
             (
               "meta",
-              SMap(false, failureStatus.metadata.map { case (k, v) => (SText(k), SText(v)) }),
+              SMap(true, failureStatus.metadata.map { case (k, v) => (SText(k), SText(v)) }),
             ),
           ),
         ),

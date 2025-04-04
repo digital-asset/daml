@@ -243,6 +243,7 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
         "COERCE_CONTRACT_ID" -> BCoerceContractId,
         "ANY_EXCEPTION_MESSAGE" -> BAnyExceptionMessage,
         "TYPE_REP_TYCON_NAME" -> BTypeRepTyConName,
+        "FAIL_WITH_STATUS" -> BFailWithStatus,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltin) =>

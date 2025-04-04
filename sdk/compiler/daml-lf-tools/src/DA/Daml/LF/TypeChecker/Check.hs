@@ -300,6 +300,8 @@ typeOfBuiltin = \case
 
   BETypeRepTyConName -> pure (TTypeRep :-> TOptional TText)
 
+  BEFailWithStatus -> pure $ TForall (alpha, KStar) $ TText :-> TFailureCategory :-> TText :-> TTextMap TText :-> tAlpha
+
   where
     tBinop typ = typ :-> typ :-> typ
 
@@ -783,10 +785,6 @@ typeOf' = \case
     checkExpr contract (TCon tpl)
     checkExpr choiceArg (chcArgType choice)
     pure (TList TParty)
-  EFailWithStatus ty bodyExpr -> do
-    checkType ty KStar
-    checkExpr bodyExpr TFailureStatus
-    pure ty
   EExperimental name ty -> do
     checkFeature featureExperimental
     checkExperimentalType name ty

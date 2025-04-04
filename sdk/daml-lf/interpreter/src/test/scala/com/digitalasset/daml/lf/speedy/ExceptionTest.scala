@@ -52,11 +52,6 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
     s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
   }
 
-  private val failureStatusTyCon: String = {
-    import stablePackages.FailureStatus
-    s"'${FailureStatus.packageId}':${FailureStatus.qualifiedName}"
-  }
-
   private def applyToParty(pkgs: CompiledPackages, e: Expr, p: Party): SExpr = {
     val se = pkgs.compiler.unsafeCompile(e)
     SEApp(se, Array(SParty(p)))
@@ -151,12 +146,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
 
      record @serializable E3 = { } ;
      exception E3 = { 
-       message \(e: M:E3) -> fail_with_status @Text ($failureStatusTyCon {
-         errorId = "E3_failure_status",
-         category = INVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER,
-         message = "something went wrong",
-         meta = GENMAP_EMPTY @Text @Text
-       })
+       message \(e: M:E3) -> FAIL_WITH_STATUS @Text "E3_failure_status" INVALID_GIVEN_CURRENT_SYSTEM_STATE_OTHER "something went wrong" (TEXTMAP_EMPTY @Text)
      } ; //throw failure status from the message function
      val unhandled5 : Update Int64 = upure @Int64 (throw @Int64 @M:E3 (M:E3 {})) ;
 

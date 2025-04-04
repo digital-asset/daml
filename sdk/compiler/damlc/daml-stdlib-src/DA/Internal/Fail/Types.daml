@@ -7,7 +7,7 @@
 module DA.Internal.Fail.Types (FailureCategory(..), FailureStatus(..)) where
 
 import GHC.Types (Text)
-import DA.Internal.LF (Map)
+import DA.Internal.LF (TextMap)
 
 data FailureStatus = FailureStatus with
     errorId : Text
@@ -20,7 +20,7 @@ data FailureStatus = FailureStatus with
       -- ^ Category of the failure, which determines how clients are expected to handle the error.
     message : Text
       -- ^ Developer-facing error message, which should be in English.
-    meta : Map Text Text
+    meta : TextMap Text
       -- ^ Machine-readable metadata about the error in a key-value format.
       -- Use this to provide extra context to clients for errors.
       --

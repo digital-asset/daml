@@ -302,6 +302,11 @@ private[validation] object Typing {
       BAnyExceptionMessage -> (TAnyException ->: TText),
       // TypeRep functions
       BTypeRepTyConName -> (TTypeRep ->: TOptional(TText)),
+      // Failure Status
+      BFailWithStatus -> TForall(
+        alpha.name -> KStar,
+        TText ->: TFailureCategory ->: TText ->: TTextMap(TText) ->: alpha,
+      ),
     )
   }
 
@@ -422,9 +427,6 @@ private[validation] object Typing {
 
     private[lf] def TTuple2(t1: Type, t2: Type) =
       TApp(TApp(TTyCon(stablePackages.Tuple2), t1), t2)
-
-    private[lf] val TFailureStatus =
-      TTyCon(stablePackages.FailureStatus)
 
     private[lf] def kindOf(typ: Type): Kind = { // testing entry point
       // must *NOT* be used for sub-types
@@ -1532,11 +1534,6 @@ private[validation] object Typing {
         typeOfChoiceControllerOrObserver(ty, ch, expr1, expr2)
       case EChoiceObserver(ty, ch, expr1, expr2) =>
         typeOfChoiceControllerOrObserver(ty, ch, expr1, expr2)
-      case EFailWithStatus(returnTyp, body) =>
-        checkType(returnTyp, KStar)
-        checkExpr(body, TFailureStatus) {
-          Ret(returnTyp)
-        }
       case expr: ExprInterface =>
         typOfExprInterface(expr)
       case EExperimental(_, typ) =>

@@ -107,9 +107,6 @@ private[lf] object TypeIterable {
         Iterator(TTyCon(tpl)) ++
           iterator(contract) ++
           iterator(choiceArg)
-      case EFailWithStatus(retType, value) =>
-        Iterator(retType) ++
-          iterator(value)
       case EVar(_) | EVal(_) | EBuiltinFun(_) | EBuiltinCon(_) | EBuiltinLit(_) | EApp(_, _) |
           ECase(_, _) | ELocation(_, _) | EStructCon(_) | EStructProj(_, _) | EStructUpd(_, _, _) |
           ETyAbs(_, _) | EExperimental(_, _) =>

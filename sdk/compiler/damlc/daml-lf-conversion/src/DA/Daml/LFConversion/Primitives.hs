@@ -490,8 +490,8 @@ convertPrim _ "EChoiceObserver"
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
 convertPrim _ "EFailWithStatus"
-    (TFailureStatus :-> retTy) =
-    pure $ ETmLam (mkVar "x", TFailureStatus) (EFailWithStatus retTy (EVar (mkVar "x")))
+    (TText :-> TFailureCategory :-> TText :-> TTextMap TText :-> retTy) =
+    pure $ EBuiltinFun BEFailWithStatus `ETyApp` retTy
 
 convertPrim (isDevVersion->True) (L.stripPrefix "$" -> Just builtin) typ =
     pure $
