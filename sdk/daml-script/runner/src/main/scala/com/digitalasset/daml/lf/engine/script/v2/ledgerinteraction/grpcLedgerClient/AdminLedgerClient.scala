@@ -14,11 +14,12 @@ import com.digitalasset.canton.topology.admin.v30.ForceFlag
 import com.digitalasset.canton.topology.admin.{v30 => admin_topology}
 import com.digitalasset.canton.protocol.{v30 => protocol}
 import com.digitalasset.daml.lf.data.Ref.{PackageName, PackageVersion}
+import com.google.protobuf.ByteString
 import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
 
-import java.io.Closeable
+import java.io.{Closeable, File, FileInputStream}
 import scala.concurrent.{ExecutionContext, Future}
 
 class AdminLedgerClient private[grpcLedgerClient] (
@@ -192,6 +193,28 @@ class AdminLedgerClient private[grpcLedgerClient] (
             "Warning: AdminLedgerClient.listDars gave the maximum number of results, some may have been truncated."
           )
         res.dars.map(_.main)
+      }
+
+  def uploadDar(file: File): Future[Either[String, String]] =
+    packageServiceStub
+      .uploadDar(
+        admin_participant.UploadDarRequest(
+          dars = Seq(
+            admin_participant.UploadDarRequest.UploadDarData(
+              ByteString.readFrom(new FileInputStream(file)),
+              description = Some(file.getName),
+              expectedMainPackageId = None, // empty string is the default expected_main_package_id
+            )
+          ),
+          vetAllPackages = true,
+          synchronizeVetting = true,
+        )
+      )
+      .map { response =>
+        import admin_participant.UploadDarResponse
+        response match {
+          case UploadDarResponse(hash) => Right(hash.head)
+        }
       }
 
   override def close(): Unit = GrpcChannel.close(channel)

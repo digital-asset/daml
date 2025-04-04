@@ -13,8 +13,10 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray}
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.engine.script.test.DarUtil.Dar
-import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.IdentityServiceClient
-import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.test.TestingAdminLedgerClient
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.{
+  AdminLedgerClient,
+  IdentityServiceClient,
+}
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
 import com.digitalasset.daml.lf.value.Value
@@ -106,7 +108,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
               }
             } yield (
               portInfo.ledgerPort.value,
-              TestingAdminLedgerClient.singleHost(
+              AdminLedgerClient.singleHost(
                 "localhost",
                 portInfo.adminPort.value,
                 None,
@@ -174,7 +176,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
     Value.ValueEnum(None, Name.assertFromString("IdeLedger"))
 
   private def assertDepsVetted(
-      client: TestingAdminLedgerClient,
+      client: AdminLedgerClient,
       deps: Seq[Dar],
   ): Future[Unit] = {
     client
