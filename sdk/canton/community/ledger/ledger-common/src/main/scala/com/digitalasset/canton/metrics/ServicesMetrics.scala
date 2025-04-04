@@ -75,15 +75,20 @@ private[metrics] final class ServicesHistograms(val prefix: MetricName)(implicit
 
   private[metrics] val listLfPackages: Item = extend("list_lf_packages", baseInfo)
   private[metrics] val getLfArchive: Item = extend("get_lf_archive", baseInfo)
-  private[metrics] val packageEntries: Item = extend("package_entries", baseInfo)
   private[metrics] val currentLedgerEnd: Item = extend("current_ledger_end", baseInfo)
   private[metrics] val latestPrunedOffsets: Item = extend("latest_pruned_offsets", baseInfo)
   private[metrics] val getCompletions: Item = extend("get_completions", baseInfo)
   private[metrics] val transactions: Item = extend("transactions", baseInfo)
   private[metrics] val transactionTrees: Item = extend("transaction_trees", baseInfo)
+  private[metrics] val getUpdateByOffset: Item = extend("get_update_by_offset", baseInfo)
+  private[metrics] val getUpdateById: Item = extend("get_update_by_id", baseInfo)
+  // TODO(#23504) remove when corresponding grpc method has been removed
   private[metrics] val getTransactionById: Item = extend("get_transaction_by_id", baseInfo)
+  // TODO(#23504) remove when corresponding grpc method has been removed
   private[metrics] val getTransactionTreeById: Item = extend("get_transaction_tree_by_id", baseInfo)
+  // TODO(#23504) remove when corresponding grpc method has been removed
   private[metrics] val getTransactionByOffset: Item = extend("get_transaction_by_offset", baseInfo)
+  // TODO(#23504) remove when corresponding grpc method has been removed
   private[metrics] val getTransactionTreeByOffset: Item =
     extend("get_transaction_tree_by_offset", baseInfo)
   private[metrics] val getActiveContracts: Item = extend("get_active_contracts", baseInfo)
@@ -201,14 +206,22 @@ final class ServicesMetrics private[metrics] (
     val getCompletions: Timer = openTelemetryMetricsFactory.timer(inventory.getCompletions.info)
     val transactions: Timer = openTelemetryMetricsFactory.timer(inventory.transactions.info)
     val transactionTrees: Timer = openTelemetryMetricsFactory.timer(inventory.transactionTrees.info)
+    // TODO(#23504) remove when corresponding grpc method has been removed
     val getTransactionById: Timer =
       openTelemetryMetricsFactory.timer(inventory.getTransactionById.info)
+    // TODO(#23504) remove when corresponding grpc method has been removed
     val getTransactionTreeById: Timer =
       openTelemetryMetricsFactory.timer(inventory.getTransactionTreeById.info)
+    // TODO(#23504) remove when corresponding grpc method has been removed
     val getTransactionByOffset: Timer =
       openTelemetryMetricsFactory.timer(inventory.getTransactionByOffset.info)
+    // TODO(#23504) remove when corresponding grpc method has been removed
     val getTransactionTreeByOffset: Timer =
       openTelemetryMetricsFactory.timer(inventory.getTransactionTreeByOffset.info)
+    val getUpdateByOffset: Timer =
+      openTelemetryMetricsFactory.timer(inventory.getUpdateByOffset.info)
+    val getUpdateById: Timer =
+      openTelemetryMetricsFactory.timer(inventory.getUpdateById.info)
     val getActiveContracts: Timer =
       openTelemetryMetricsFactory.timer(inventory.getActiveContracts.info)
     val lookupActiveContract: Timer =

@@ -9,6 +9,7 @@ import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionResponse,
   GetTransactionTreeResponse,
+  GetUpdateResponse,
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
@@ -43,6 +44,7 @@ import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.pekkostreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.digitalasset.canton.pekkostreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.canton.platform.index.IndexServiceImpl.*
+import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.cache.OffsetCheckpoint
 import com.digitalasset.canton.platform.store.dao.{
   EventProjectionProperties,
@@ -423,6 +425,32 @@ private[index] class IndexServiceImpl(
           internalTransactionFormatO match {
             case Some(internalTransactionFormat) =>
               updatesReader.lookupTransactionByOffset(offset, internalTransactionFormat)
+            case None => Future.successful(None)
+          }
+        },
+      )
+  }
+
+  override def getUpdateBy(
+      lookupKey: LookupKey,
+      updateFormat: UpdateFormat,
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetUpdateResponse]] = {
+    val currentPackageMetadata = getPackageMetadataSnapshot(implicitly)
+    checkUnknownIdentifiers(updateFormat, currentPackageMetadata).left
+      .map(_.asGrpcError)
+      .fold(
+        Future.failed,
+        _ => {
+          // even though memoization is not needed here, we are re-using the function
+          val internalUpdateFormatO = memoizedInternalUpdateFormat(
+            getPackageMetadataSnapshot = getPackageMetadataSnapshot,
+            updateFormat = updateFormat,
+            alwaysPopulateArguments = false,
+          ).apply()
+
+          internalUpdateFormatO match {
+            case Some(internalUpdateFormat) =>
+              updatesReader.lookupUpdateBy(lookupKey, internalUpdateFormat)
             case None => Future.successful(None)
           }
         },

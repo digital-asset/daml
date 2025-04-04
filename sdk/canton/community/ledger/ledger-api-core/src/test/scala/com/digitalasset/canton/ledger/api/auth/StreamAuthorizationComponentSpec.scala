@@ -287,6 +287,14 @@ class StreamAuthorizationComponentSpec
           request: GetTransactionByIdRequest
       ): Future[GetTransactionResponse] = notSupported
 
+      override def getUpdateByOffset(
+          request: GetUpdateByOffsetRequest
+      ): Future[GetUpdateResponse] = notSupported
+
+      override def getUpdateById(
+          request: GetUpdateByIdRequest
+      ): Future[GetUpdateResponse] = notSupported
+
     }
     val grpcServerPort = UniquePortGenerator.next
     val authorizedTransactionServiceOwner =

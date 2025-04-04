@@ -327,11 +327,12 @@ class UpdatesStreamReader(
         queryRange = queryRange,
         ids = idsCreate,
         fetchEvents = (ids, connection) =>
-          eventStorageBackend.transactionStreamingQueries
-            .fetchEventPayloadsAcsDelta(target = EventPayloadSourceForUpdatesAcsDelta.Create)(
-              eventSequentialIds = ids,
-              allFilterParties = txFilteringConstraints.allFilterParties,
-            )(connection),
+          eventStorageBackend.fetchEventPayloadsAcsDelta(target =
+            EventPayloadSourceForUpdatesAcsDelta.Create
+          )(
+            eventSequentialIds = ids,
+            requestingParties = txFilteringConstraints.allFilterParties,
+          )(connection),
         maxParallelPayloadQueries = maxParallelPayloadCreateQueries,
         dbMetric = dbMetrics.updatesAcsDeltaStream.fetchEventCreatePayloads,
         payloadQueriesLimiter = payloadQueriesLimiter,
@@ -341,10 +342,10 @@ class UpdatesStreamReader(
         queryRange = queryRange,
         ids = idsConsuming,
         fetchEvents = (ids, connection) =>
-          eventStorageBackend.transactionStreamingQueries
+          eventStorageBackend
             .fetchEventPayloadsAcsDelta(target = EventPayloadSourceForUpdatesAcsDelta.Consuming)(
               eventSequentialIds = ids,
-              allFilterParties = txFilteringConstraints.allFilterParties,
+              requestingParties = txFilteringConstraints.allFilterParties,
             )(connection),
         maxParallelPayloadQueries = maxParallelPayloadConsumingQueries,
         dbMetric = dbMetrics.updatesAcsDeltaStream.fetchEventConsumingPayloads,
@@ -454,11 +455,11 @@ class UpdatesStreamReader(
     def fetchEventPayloadsLedgerEffects(
         target: EventPayloadSourceForUpdatesLedgerEffects
     )(ids: Iterable[Long], connection: Connection): Vector[Entry[RawTreeEvent]] =
-      eventStorageBackend.transactionStreamingQueries.fetchEventPayloadsLedgerEffects(
+      eventStorageBackend.fetchEventPayloadsLedgerEffects(
         target = target
       )(
         eventSequentialIds = ids,
-        allFilterParties = txFilteringConstraints.allFilterParties,
+        requestingParties = txFilteringConstraints.allFilterParties,
       )(connection)
 
     val payloadsCreate = fetchPayloads(
@@ -534,7 +535,7 @@ class UpdatesStreamReader(
         maxParallelIdQueriesLimiter.execute {
           globalIdQueriesLimiter.execute {
             dbDispatcher.executeSql(metric) { connection =>
-              eventStorageBackend.transactionStreamingQueries.fetchEventIds(
+              eventStorageBackend.updateStreamingQueries.fetchEventIds(
                 target = target
               )(
                 stakeholderO = filter.party,

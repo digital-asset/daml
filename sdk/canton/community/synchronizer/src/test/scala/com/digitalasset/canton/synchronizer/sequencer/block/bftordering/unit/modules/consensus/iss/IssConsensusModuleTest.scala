@@ -4,13 +4,18 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss
 
 import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.HasExecutionContext
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.DefaultEpochLength
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.{
+  BftBlockOrdererConfig,
+  FingerprintKeyId,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.{
   Block,
@@ -40,6 +45,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.top
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftKeyId,
   BftNodeId,
   BlockNumber,
   EpochLength,
@@ -69,12 +75,14 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
   Membership,
+  MessageAuthorizer,
   OrderingTopology,
   OrderingTopologyInfo,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.ConsensusMessage.{
   CompleteEpochStored,
+  PbftUnverifiedNetworkMessage,
   PbftVerifiedNetworkMessage,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.{
@@ -91,19 +99,22 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.*
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.protobuf.ByteString
 import org.mockito.Mockito
 import org.scalatest.TryValues
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.wordspec.AsyncWordSpec
+import org.slf4j.event.Level
 import org.slf4j.event.Level.ERROR
 
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Random, Try}
 
-class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecutionContext {
+class IssConsensusModuleTest
+    extends AsyncWordSpec
+    with BftSequencerBaseTest
+    with HasExecutionContext {
 
   import IssConsensusModuleTest.*
 
@@ -841,6 +852,47 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
           }
         }
       }
+
+      "drop remote PBFT messages" when {
+        "unauthorized" in {
+          val mockMessageAuthorizer = mock[MessageAuthorizer]
+          when(mockMessageAuthorizer.isAuthorized(any[BftNodeId], any[BftKeyId])) thenReturn false
+          val (context, consensus) =
+            createIssConsensusModule(customMessageAuthorizer = Some(mockMessageAuthorizer))
+          implicit val ctx: ContextType = context
+
+          val underlyingMessage = mock[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
+          when(underlyingMessage.blockMetadata).thenReturn(
+            BlockMetadata(
+              EpochNumber.First,
+              BlockNumber.First,
+            )
+          )
+          val unauthorizedNodeId = BftNodeId("unauthorized")
+          when(underlyingMessage.from) thenReturn unauthorizedNodeId
+          when(underlyingMessage.viewNumber).thenReturn(ViewNumber.First)
+          val signedMessage = underlyingMessage.fakeSign
+
+          consensus.receive(Consensus.Start)
+
+          assertLogs(
+            consensus.receive(PbftUnverifiedNetworkMessage(signedMessage)),
+            (logEntry: LogEntry) => {
+              logEntry.level shouldBe Level.WARN
+              logEntry.message should include(
+                "it is unauthorized in the current ordering topology"
+              )
+            },
+          )
+
+          verify(mockMessageAuthorizer).isAuthorized(
+            unauthorizedNodeId,
+            FingerprintKeyId.toBftKeyId(signedMessage.signature.signedBy),
+          )
+
+          context.runPipedMessages() shouldBe empty
+        }
+      }
     }
   }
 
@@ -898,6 +950,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
       newEpochTopology: Option[NewEpochTopology[ProgrammableUnitTestEnv]] = None,
       completedBlocks: Seq[EpochStore.Block] = Seq.empty,
       resolveAwaits: Boolean = false,
+      customMessageAuthorizer: Option[MessageAuthorizer] = None,
   ): (ContextType, IssConsensusModule[ProgrammableUnitTestEnv]) = {
     implicit val context: ContextType = new ProgrammableUnitTestContext(resolveAwaits)
 
@@ -978,6 +1031,9 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
           new DefaultCatchupDetector(topologyInfo.currentMembership, loggerFactory)
         ),
         newEpochTopology = newEpochTopology,
+        messageAuthorizer = customMessageAuthorizer.getOrElse(
+          topologyInfo.currentMembership.orderingTopology
+        ),
       )
   }
 }

@@ -1200,6 +1200,51 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       }).map(lapi.update_service.GetUpdatesResponse(_))
   }
 
+  object GetUpdateResponse
+      extends ProtocolConverter[lapi.update_service.GetUpdateResponse, JsGetUpdatesResponse] {
+    def toJson(obj: lapi.update_service.GetUpdateResponse)(implicit
+        token: Option[String],
+        contextualizedErrorLogger: ContextualizedErrorLogger,
+    ): Future[JsGetUpdateResponse] =
+      ((obj.update match {
+        case lapi.update_service.GetUpdateResponse.Update.Empty =>
+          illegalValue(lapi.update_service.GetUpdateResponse.Update.Empty.toString())
+        case lapi.update_service.GetUpdateResponse.Update.Transaction(value) =>
+          Transaction.toJson(value).map(JsUpdate.Transaction.apply)
+        case lapi.update_service.GetUpdateResponse.Update.Reassignment(value) =>
+          Reassignment.toJson(value).map(JsUpdate.Reassignment.apply)
+        case lapi.update_service.GetUpdateResponse.Update.TopologyTransaction(value) =>
+          TopologyTransaction.toJson(value).map(JsUpdate.TopologyTransaction.apply)
+      }): Future[JsUpdate.Update]).map(update => JsGetUpdateResponse(update))
+
+    def fromJson(obj: JsGetUpdateResponse)(implicit
+        token: Option[String],
+        contextualizedErrorLogger: ContextualizedErrorLogger,
+    ): Future[lapi.update_service.GetUpdateResponse] =
+      (obj.update match {
+        case JsUpdate.Reassignment(value) =>
+          Reassignment
+            .fromJson(value)
+            .map(
+              lapi.update_service.GetUpdateResponse.Update.Reassignment.apply
+            )
+        case JsUpdate.Transaction(value) =>
+          Transaction.fromJson(value).map { tr =>
+            lapi.update_service.GetUpdateResponse.Update.Transaction(tr)
+          }
+        case JsUpdate.TopologyTransaction(value) =>
+          TopologyTransaction
+            .fromJson(value)
+            .map(lapi.update_service.GetUpdateResponse.Update.TopologyTransaction.apply)
+        case JsUpdate.OffsetCheckpoint(_) =>
+          Future.failed(
+            new RuntimeException(
+              "The unexpected happened! A pointwise query should not have returned an OffsetCheckpoint update."
+            )
+          )
+      }).map(lapi.update_service.GetUpdateResponse(_))
+  }
+
   object GetUpdateTreesResponse
       extends ProtocolConverter[
         lapi.update_service.GetUpdateTreesResponse,

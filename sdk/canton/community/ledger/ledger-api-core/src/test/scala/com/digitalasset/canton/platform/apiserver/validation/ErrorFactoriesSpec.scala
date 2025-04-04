@@ -323,6 +323,29 @@ class ErrorFactoriesSpec
       )
     }
 
+    "return an updateNotFound error" in {
+      val msg =
+        s"UPDATE_NOT_FOUND(11,$truncatedCorrelationId): Update not found, or not visible."
+      assertError(
+        RequestValidationErrors.NotFound.Update
+          .RejectWithTxId("uId")(contextualizedErrorLogger)
+      )(
+        code = Code.NOT_FOUND,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail(
+            "UPDATE_NOT_FOUND",
+            Map("category" -> "11", "definite_answer" -> "false", "test" -> getClass.getSimpleName),
+          ),
+          expectedCorrelationIdRequestInfo,
+          ErrorDetails.ResourceInfoDetail(typ = "UPDATE_ID", name = "uId"),
+        ),
+        logLevel = Level.INFO,
+        logMessage = msg,
+        logErrorContextRegEx = expectedLocationRegex,
+      )
+    }
+
     "return the DuplicateCommandException" in {
       val msg =
         s"DUPLICATE_COMMAND(10,$truncatedCorrelationId): A command with the given command id has already been successfully processed"
