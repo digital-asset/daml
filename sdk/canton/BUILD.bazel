@@ -486,8 +486,12 @@ proto_jars(
     name = "community_base_proto",
     srcs = glob(
         ["community/base/src/main/protobuf/**/*.proto"],
+        # @scalapb//:scalapb_proto, which is required by proto_jars, defines a competing package.proto for the
+        # google.rpc package. Even though the two files agree, this is rejected by scalapb. Thus we exclude
+        # the one defined by the canton repo.
         exclude = ["community/base/src/main/protobuf/google/rpc/package.proto"],
     ),
+    # The code of canton assumes that these protos are generated with the flat_package option.
     flat_package = True,
     grpc = True,
     java_deps = [
