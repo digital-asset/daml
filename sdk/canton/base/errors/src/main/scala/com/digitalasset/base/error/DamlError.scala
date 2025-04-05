@@ -12,13 +12,15 @@ abstract class ContextualizedDamlError(
     extraContext: Map[String, Any] = Map(),
 )(implicit
     override val code: ErrorCode,
-    val logger: ContextualizedErrorLogger,
+    val logger: BaseErrorLogger,
 ) extends BaseError
     with RpcError
     with LogOnCreation {
 
   // Automatically log the error on generation
   override def logOnCreation: Boolean = true
+
+  def logError(): Unit = logWithContext()(logger)
 
   def asGrpcStatus: Status =
     ErrorCode.asGrpcStatus(this)(logger)
@@ -44,7 +46,7 @@ class DamlErrorWithDefiniteAnswer(
     extraContext: Map[String, Any] = Map(),
 )(implicit
     override val code: ErrorCode,
-    loggingContext: ContextualizedErrorLogger,
+    loggingContext: BaseErrorLogger,
 ) extends ContextualizedDamlError(
       cause = cause,
       throwableO = throwableO,

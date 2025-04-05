@@ -5,11 +5,11 @@ package com.digitalasset.canton.platform.apiserver.services.tracking
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
-import com.digitalasset.base.error.{ContextualizedErrorLogger, ErrorsAssertions}
+import com.digitalasset.base.error.ErrorsAssertions
 import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors
 import com.digitalasset.canton.ledger.error.{CommonErrors, LedgerApiErrors}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.LedgerErrorLoggingContext
+import com.digitalasset.canton.logging.{ContextualizedErrorLogger, LedgerErrorLoggingContext}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker.{
   SubmissionKey,

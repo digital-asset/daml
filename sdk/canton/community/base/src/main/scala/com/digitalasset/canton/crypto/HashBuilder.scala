@@ -126,7 +126,7 @@ class HashBuilderFromMessageDigest private[crypto] (algorithm: HashAlgorithm, pu
     this
   }
 
-  def addByte(byte: Byte, context: => String): this.type = {
+  def addByte(byte: Byte, context: Byte => String): this.type = {
     md.update(byte)
     this
   }
@@ -164,8 +164,8 @@ private[canton] class PrimitiveHashBuilder(purpose: HashPurpose, hashTracer: Has
     super.addPurpose
   }
 
-  override def addByte(byte: Byte, context: => String): this.type = {
-    hashTracer.traceByte(byte, context)
+  override def addByte(byte: Byte, context: Byte => String): this.type = {
+    hashTracer.traceByte(byte, context(byte))
     super.addByte(byte, context)
   }
 
@@ -187,7 +187,7 @@ private[canton] class PrimitiveHashBuilder(purpose: HashPurpose, hashTracer: Has
   }
 
   final def addBool(b: Boolean): this.type =
-    addByte(if (b) 1.toByte else 0.toByte, s"${b.toString} (bool)")
+    addByte(if (b) 1.toByte else 0.toByte, _ => s"${b.toString} (bool)")
 
   final def addNumeric(v: data.Numeric): this.type =
     add(ByteString.copyFromUtf8(data.Numeric.toString(v)), s"${data.Numeric.toString(v)} (numeric)")
@@ -205,8 +205,8 @@ private[canton] class PrimitiveHashBuilder(purpose: HashPurpose, hashTracer: Has
 
   final def addOptional[S](opt: Option[S], hashS: this.type => S => this.type): this.type =
     opt match {
-      case None => addByte(0.toByte, "None")
-      case Some(value) => hashS(addByte(1.toByte, "Some"))(value)
+      case None => addByte(0.toByte, _ => "None")
+      case Some(value) => hashS(addByte(1.toByte, _ => "Some"))(value)
     }
 
   def addContext(context: => String): this.type =

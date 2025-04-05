@@ -20,7 +20,7 @@ object ErrorGenerator {
         cause,
         throwableO,
         contextMap,
-      )(errorCode, new NoLogging(loggingProperties, correlationId, traceId))
+      )(errorCode, new NoBaseLogging(loggingProperties, correlationId, traceId))
 
   private final case class TestErrorCode(override val id: String, errorCategory: ErrorCategory)
       extends ErrorCode(id, errorCategory)(ErrorClass.root()) {}

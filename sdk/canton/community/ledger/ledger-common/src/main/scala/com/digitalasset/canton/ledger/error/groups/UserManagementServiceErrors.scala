@@ -5,7 +5,6 @@ package com.digitalasset.canton.ledger.error.groups
 
 import com.digitalasset.base.error.{
   ContextualizedDamlError,
-  ContextualizedErrorLogger,
   DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorCode,
@@ -14,6 +13,7 @@ import com.digitalasset.base.error.{
   Resolution,
 }
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.AdminServicesErrorGroup.UserManagementServiceErrorGroup
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 
 object UserManagementServiceErrors extends UserManagementServiceErrorGroup {
 

@@ -5,12 +5,11 @@ package com.digitalasset.canton.participant.store.memory
 
 import cats.implicits.catsSyntaxSemigroup
 import com.daml.timer.FutureCheck.*
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTimeout}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.error.{CommonErrors, PackageServiceErrors}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{ContextualizedErrorLogger, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata

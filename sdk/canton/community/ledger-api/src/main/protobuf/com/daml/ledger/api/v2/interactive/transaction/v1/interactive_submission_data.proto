@@ -25,6 +25,8 @@ message Fetch {
   repeated string signatories = 5;
   repeated string stakeholders = 6;
   repeated string acting_parties = 7;
+  // Optional
+  Identifier interface_id = 8;
 }
 
 // Exercise node

@@ -10,7 +10,6 @@ import com.digitalasset.base.error.utils.ErrorDetails
 import com.digitalasset.base.error.{
   BaseError,
   ContextualizedDamlError,
-  ContextualizedErrorLogger,
   ErrorCategory,
   ErrorClass,
   ErrorCode,
@@ -20,7 +19,7 @@ import com.digitalasset.canton.grpc.sampleservice.HelloServiceReferenceImplement
 import com.digitalasset.canton.ledger.api.grpc.StreamingServiceLifecycleManagement
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.resources.TestResourceContext
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{ContextualizedErrorLogger, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, protobuf}
 import io.grpc.*

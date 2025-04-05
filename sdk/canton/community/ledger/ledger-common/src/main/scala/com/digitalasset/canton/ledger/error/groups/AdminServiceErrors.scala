@@ -4,7 +4,6 @@
 package com.digitalasset.canton.ledger.error.groups
 
 import com.digitalasset.base.error.{
-  ContextualizedErrorLogger,
   DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorCode,
@@ -12,6 +11,7 @@ import com.digitalasset.base.error.{
   Resolution,
 }
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.AdminServicesErrorGroup
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 
 @Explanation("Errors raised by Ledger API admin services.")
 object AdminServiceErrors extends AdminServicesErrorGroup {

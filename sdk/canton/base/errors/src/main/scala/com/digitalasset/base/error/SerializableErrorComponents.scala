@@ -33,7 +33,7 @@ object SerializableErrorCodeComponents {
 
   def apply(
       errorCode: ErrorCode,
-      loggingContext: ContextualizedErrorLogger,
+      loggingContext: BaseErrorLogger,
       rawTraceId: Option[String],
       rawCorrelationId: Option[String],
       // Next parameters are by-name to avoid unnecessary computation if the error is security sensitive
@@ -68,7 +68,7 @@ object SerializableErrorCodeComponents {
   private[error] def validateTraceIdAndCorrelationId(
       rawTraceId: Option[String],
       rawCorrelationId: Option[String],
-  )(implicit loggingContext: ContextualizedErrorLogger) = {
+  )(implicit loggingContext: BaseErrorLogger) = {
     val traceId = rawTraceId.map(tId =>
       truncateString(
         tId,
@@ -105,7 +105,7 @@ private[error] final case class SecuritySensitiveErrorCodeComponents(
     grpcStatusCode: Option[Code],
     traceId: Option[String],
     correlationId: Option[String],
-)(logger: ContextualizedErrorLogger)
+)(logger: BaseErrorLogger)
     extends SerializableErrorCodeComponents {
 
   override def toStatusProto(maxSizeBytes: Int): com.google.rpc.Status =
@@ -140,7 +140,7 @@ private[error] final case class NonSecuritySensitiveErrorCodeComponents(
     errorResources: Seq[(ErrorResource, String)],
     contextMap: Map[String, String],
     retryableInfo: Option[FiniteDuration],
-)(loggingContext: ContextualizedErrorLogger)
+)(loggingContext: BaseErrorLogger)
     extends SerializableErrorCodeComponents {
 
   /** Truncates and serializes the self-service error components into a [[com.google.rpc.Status]].

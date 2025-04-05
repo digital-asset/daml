@@ -12,11 +12,15 @@ import com.daml.ledger.api.v2.interactive.{
   interactive_submission_service as iss,
 }
 import com.daml.ledger.api.v2.value as lapiValue
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.TransactionData
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{
+  ContextualizedErrorLogger,
+  LoggingContextWithTrace,
+  NamedLoggerFactory,
+  NamedLogging,
+}
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionCodec.*
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
@@ -147,7 +151,7 @@ final class PreparedTransactionEncoder(
       .withFieldConst(_.lfVersion, languageVersion.transformInto[String])
       .buildTransformer
 
-    private implicit def exerciseTransformer(implicit
+    private[interactive] implicit def exerciseTransformer(implicit
         languageVersion: LanguageVersion
     ): PartialTransformer[lf.transaction.Node.Exercise, isdv1.Exercise] = Transformer
       .definePartial[lf.transaction.Node.Exercise, isdv1.Exercise]
@@ -159,7 +163,7 @@ final class PreparedTransactionEncoder(
       .withFieldConst(_.lfVersion, languageVersion.transformInto[String])
       .buildTransformer
 
-    private implicit def fetchTransformer(implicit
+    private[interactive] implicit def fetchTransformer(implicit
         languageVersion: LanguageVersion
     ): PartialTransformer[lf.transaction.Node.Fetch, isdv1.Fetch] = Transformer
       .definePartial[lf.transaction.Node.Fetch, isdv1.Fetch]

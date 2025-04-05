@@ -5,13 +5,13 @@ package com.digitalasset.base.error.utils
 
 import com.digitalasset.base.error.{
   BaseError,
-  ContextualizedErrorLogger,
+  BaseErrorLogger,
   DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorClass,
   ErrorCode,
   ErrorResource,
-  NoLogging,
+  NoBaseLogging,
 }
 import com.google.protobuf.any.Any
 import com.google.protobuf.any.Any.toJavaProto
@@ -52,7 +52,7 @@ class DecodedCantonErrorSpec
     }
 
   it should "fallback to the original cause if error message format is not recognized" in {
-    implicit val contextErrorLogger: ContextualizedErrorLogger = NoLogging
+    implicit val contextErrorLogger: BaseErrorLogger = NoBaseLogging
 
     val nonStandardMessage = "!!!Some non-standard message"
     val error = BenignError.Reject("nvm").rpcStatus().copy(message = nonStandardMessage)
@@ -141,7 +141,8 @@ class DecodedCantonErrorSpec
       correlationId: Option[String],
       traceId: Option[String],
   ) = {
-    implicit val contextErrorLogger: NoLogging = new NoLogging(propertyMap, correlationId, traceId)
+    implicit val contextErrorLogger: NoBaseLogging =
+      new NoBaseLogging(propertyMap, correlationId, traceId)
     implicit val errorCode: ErrorCode =
       new ErrorCode("SOME_ERROR_CODE_ID", errorCategory)(ErrorClass(List.empty)) {}
     {

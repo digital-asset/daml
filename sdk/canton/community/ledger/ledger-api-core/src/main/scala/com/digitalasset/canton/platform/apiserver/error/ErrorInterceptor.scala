@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.error
 
-import com.digitalasset.base.error.{BaseError, NoLogging}
+import com.digitalasset.base.error.BaseError
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.logging.*

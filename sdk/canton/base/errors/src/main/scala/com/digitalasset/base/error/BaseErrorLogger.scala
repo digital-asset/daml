@@ -3,20 +3,25 @@
 
 package com.digitalasset.base.error
 
-object NoLogging extends NoLogging(properties = Map.empty, correlationId = None, traceId = None) {}
+trait BaseErrorLogger {
+  def logError(err: BaseError, extra: Map[String, String]): Unit
+  def correlationId: Option[String]
+  def traceId: Option[String]
+  def properties: Map[String, String]
 
-class NoLogging(
+  // Error construction warnings/errors
+  def warn(message: String): Unit
+  def error(message: String, throwable: Throwable): Unit
+}
+object NoBaseLogging
+    extends NoBaseLogging(properties = Map.empty, correlationId = None, traceId = None) {}
+
+class NoBaseLogging(
     val properties: Map[String, String],
     val correlationId: Option[String],
     val traceId: Option[String] = None,
-) extends ContextualizedErrorLogger {
+) extends BaseErrorLogger {
   override def logError(err: BaseError, extra: Map[String, String]): Unit = ()
-  override def info(message: String): Unit = ()
-  override def info(message: String, throwable: Throwable): Unit = ()
   override def warn(message: String): Unit = ()
-  override def warn(message: String, throwable: Throwable): Unit = ()
-  override def error(message: String): Unit = ()
   override def error(message: String, throwable: Throwable): Unit = ()
-
-  override def withContext[A](context: Map[String, String])(body: => A): A = body
 }

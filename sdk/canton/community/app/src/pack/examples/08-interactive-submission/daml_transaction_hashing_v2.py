@@ -4,12 +4,19 @@
 # Implements the transaction hashing specification defined in the README.md at https://github.com/digital-asset/canton/blob/main/community/ledger-api/src/release-line-3.2/protobuf/com/daml/ledger/api/v2/interactive/README.md
 
 import com.daml.ledger.api.v2.interactive.interactive_submission_service_pb2 as interactive_submission_service_pb2
-from google.protobuf.json_format import MessageToJson
-import argparse
 import hashlib
 import struct
-import base64
 
+# Hash purpose reserved for prepared transaction
+PREPARED_TRANSACTION_HASH_PURPOSE=b"\x00\x00\x00\x30"
+# Version of the hashing scheme implemented in this file as a byte
+# Used in the encoding
+HASHING_SCHEME_VERSION_V2 = interactive_submission_service_pb2.HashingSchemeVersion.HASHING_SCHEME_VERSION_V2
+# Byte version for the encoding (\x02)
+HASHING_SCHEME_VERSION = HASHING_SCHEME_VERSION_V2.to_bytes(length = 1, byteorder='big', signed=False)
+# Version of the protobuf encoding the transaction nodes
+# See DamlTransaction.Node.versioned_node in the interactive_submission_service.proto file
+NODE_ENCODING_VERSION=b"\x01"
 
 def encode_bool(value):
     return b"\x01" if value else b"\x00"
@@ -81,7 +88,12 @@ def encode_prepared_transaction(
 ):
     transaction_hash = hash_transaction(prepared_transaction.transaction, nodes_dict)
     metadata_hash = hash_metadata(prepared_transaction.metadata)
-    return sha256(b"\x00\x00\x00\x30" + transaction_hash + metadata_hash)
+    return sha256(
+        PREPARED_TRANSACTION_HASH_PURPOSE
+        + HASHING_SCHEME_VERSION
+        + transaction_hash
+        + metadata_hash
+    )
 
 
 def hash_transaction(
@@ -90,7 +102,7 @@ def hash_transaction(
     encoded_transaction = encode_transaction(
         transaction, nodes_dict, transaction.node_seeds
     )
-    return sha256(b"\x00\x00\x00\x30" + encoded_transaction)
+    return sha256(PREPARED_TRANSACTION_HASH_PURPOSE + encoded_transaction)
 
 
 def encode_transaction(
@@ -149,16 +161,15 @@ def encode_node_v1(
         return encode_rollback_node(node.rollback, node_id, nodes_dict, node_seeds)
     raise ValueError("Unsupported node type")
 
-
 def encode_create_node(
     create,
     node_id,
     node_seeds: [interactive_submission_service_pb2.DamlTransaction.NodeSeed],
 ):
     return (
-        b"\x01"
+        NODE_ENCODING_VERSION
         + encode_string(create.lf_version)
-        + b"\x00"
+        + b"\x00" # Create node tag
         + encode_optional(find_seed(node_id, node_seeds), encode_hash)
         + encode_hex_string(create.contract_id)
         + encode_string(create.package_name)
@@ -176,9 +187,9 @@ def encode_exercise_node(
     node_seeds: [interactive_submission_service_pb2.DamlTransaction.NodeSeed],
 ):
     return (
-        b"\x01"
+        NODE_ENCODING_VERSION
         + encode_string(exercise.lf_version)
-        + b"\x01"
+        + b"\x01" # Exercise node tag
         + encode_hash(find_seed(node_id, node_seeds))
         + encode_hex_string(exercise.contract_id)
         + encode_string(exercise.package_name)
@@ -202,14 +213,17 @@ def encode_exercise_node(
 
 def encode_fetch_node(fetch, node_id):
     return (
-        b"\x01"
+        NODE_ENCODING_VERSION
         + encode_string(fetch.lf_version)
-        + b"\x02"
+        + b"\x02" # Fetch node tag
         + encode_hex_string(fetch.contract_id)
         + encode_string(fetch.package_name)
         + encode_identifier(fetch.template_id)
         + encode_repeated(fetch.signatories, encode_string)
         + encode_repeated(fetch.stakeholders, encode_string)
+        + encode_proto_optional(
+            fetch, "interface_id", fetch.interface_id, encode_identifier
+        )
         + encode_repeated(fetch.acting_parties, encode_string)
     )
 
@@ -221,15 +235,15 @@ def encode_rollback_node(
     node_seeds: [interactive_submission_service_pb2.DamlTransaction.NodeSeed],
 ):
     return (
-        b"\x01"
-        + b"\x03"
+        NODE_ENCODING_VERSION
+        + b"\x03" # Rollback node tag
         + encode_repeated(rollback.children, encode_node_id(nodes_dict, node_seeds))
     )
 
 
 def hash_metadata(metadata):
     encoded_metadata = encode_metadata(metadata)
-    return sha256(b"\x00\x00\x00\x30" + encoded_metadata)
+    return sha256(PREPARED_TRANSACTION_HASH_PURPOSE + encoded_metadata)
 
 
 def encode_metadata(metadata):
@@ -332,50 +346,3 @@ def create_nodes_dict(prepared_transaction):
         nodes_dict[node.node_id] = node
     return nodes_dict
 
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Transaction utility",
-        epilog="""
-        Examples:
-          python transaction_util.py --decode transaction.bin
-          python transaction_util.py --decode --base64 <base64 encoded prepared transaction>
-          python transaction_util.py --hash transaction.bin
-          python transaction_util.py --hash --base64 <base64 encoded prepared transaction>
-        """,
-    )
-    parser.add_argument(
-        "--decode",
-        "-d",
-        help="Decode Transaction and print in JSON format",
-        action="store_true",
-    )
-    parser.add_argument("--hash", help="Hash Transaction", action="store_true")
-    parser.add_argument(
-        "--base64",
-        "-b",
-        help="Expect the input as a base64 encoded string instead of a file",
-        action="store_true",
-    )
-    parser.add_argument("input")
-
-    args = parser.parse_args()
-
-    input_arg = args.input
-
-    prepared_transaction = interactive_submission_service_pb2.PreparedTransaction()
-    if args.base64:
-        prepared_transaction.ParseFromString(base64.b64decode(input_arg))
-    else:
-        with open(input_arg, "rb") as f:
-            prepared_transaction.ParseFromString(f.read())
-
-    if args.decode:
-        print(MessageToJson(prepared_transaction))
-    elif args.hash:
-        encoded_hash = encode_prepared_transaction(
-            prepared_transaction, create_nodes_dict(prepared_transaction)
-        )
-        print(encoded_hash.hex())
-    else:
-        parser.print_help()

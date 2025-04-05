@@ -4,7 +4,7 @@
 package com.digitalasset.base.error.utils
 
 import com.digitalasset.base.error.ErrorCategory.BackgroundProcessDegradationWarning
-import com.digitalasset.base.error.{ErrorClass, ErrorCode, NoLogging}
+import com.digitalasset.base.error.{ErrorClass, ErrorCode, NoBaseLogging}
 import com.google.protobuf
 import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -14,7 +14,7 @@ import scala.concurrent.duration.*
 
 class ErrorDetailsSpec extends AnyFlatSpec with Matchers {
 
-  private val errorLogger = NoLogging
+  private val errorLogger = NoBaseLogging
 
   behavior of classOf[ErrorDetails.type].getName
 

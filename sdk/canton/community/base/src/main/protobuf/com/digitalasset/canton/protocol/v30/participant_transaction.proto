@@ -241,7 +241,8 @@ message ExternalAuthorization {
   // The hashing scheme version used when building the hash
   enum HashingSchemeVersion {
     HASHING_SCHEME_VERSION_UNSPECIFIED = 0;
-    HASHING_SCHEME_VERSION_V1 = 1;
+    reserved 1; // Hashing Scheme V1 - unsupported
+    HASHING_SCHEME_VERSION_V2 = 2;
   }
 
   repeated ExternalPartyAuthorization authentications = 1;

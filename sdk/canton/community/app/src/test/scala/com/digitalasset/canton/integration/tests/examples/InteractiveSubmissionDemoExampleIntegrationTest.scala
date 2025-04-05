@@ -8,7 +8,7 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.Prepare
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.InteractiveSubmission
 import com.digitalasset.canton.integration.plugins.UseH2
-import com.digitalasset.canton.integration.tests.examples.ExampleIntegrationTest.interactiveSubmissionV1Folder
+import com.digitalasset.canton.integration.tests.examples.ExampleIntegrationTest.interactiveSubmissionFolder
 import com.digitalasset.canton.integration.{CommunityIntegrationTest, ConfigTransform}
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.TransactionData
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -26,7 +26,7 @@ import scala.sys.process.Process
 
 sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
     extends ExampleIntegrationTest(
-      interactiveSubmissionV1Folder / "interactive-submission.conf"
+      interactiveSubmissionFolder / "interactive-submission.conf"
     )
     with CommunityIntegrationTest
     with ScalaCheckPropertyChecks {
@@ -39,7 +39,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
 
   private val encoder = new PreparedTransactionEncoder(loggerFactory)
   private val portsFiles =
-    (interactiveSubmissionV1Folder / "canton_ports.json").deleteOnExit()
+    (interactiveSubmissionFolder / "canton_ports.json").deleteOnExit()
   override protected def additionalConfigTransform: Seq[ConfigTransform] = Seq(
     _.focus(_.parameters.portsFile).replace(Option(portsFiles.pathAsString))
   )
@@ -80,7 +80,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
 
   override def beforeAll(): Unit = {
     runAndAssertCommandSuccess(
-      Process(Seq("./setup.sh"), cwd = interactiveSubmissionV1Folder.toJava),
+      Process(Seq("./setup.sh"), cwd = interactiveSubmissionFolder.toJava),
       processLogger,
     )
     super.beforeAll()
@@ -92,15 +92,15 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
     List(
       File("participant_id"),
       File("synchronizer_id"),
-      interactiveSubmissionV1Folder / "com",
-      interactiveSubmissionV1Folder / "google",
-      interactiveSubmissionV1Folder / "scalapb",
+      interactiveSubmissionFolder / "com",
+      interactiveSubmissionFolder / "google",
+      interactiveSubmissionFolder / "scalapb",
     ).foreach(_.delete(swallowIOExceptions = true))
   }
 
   private def setupTest(implicit env: FixtureParam): Unit = {
     import env.environment
-    runScript(interactiveSubmissionV1Folder / "bootstrap.canton")(environment)
+    runScript(interactiveSubmissionFolder / "bootstrap.canton")(environment)
     environment.writePortsFile()
   }
 
@@ -112,7 +112,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
       Process(
         Seq(
           "python",
-          (interactiveSubmissionV1Folder / "interactive_submission.py").pathAsString,
+          (interactiveSubmissionFolder / "interactive_submission.py").pathAsString,
           "--synchronizer-id",
           sequencer1.synchronizer_id.toProtoPrimitive,
           "--participant-id",
@@ -120,7 +120,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
           "run-demo",
           "-a", // Automatically accept all transactions (by default the script stops to ask users to explicitly confirm)
         ),
-        cwd = interactiveSubmissionV1Folder.toJava,
+        cwd = interactiveSubmissionFolder.toJava,
       ),
       processLogger,
     )
@@ -134,15 +134,15 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
     Process(
       Seq(
         "python",
-        "transaction_util.py",
+        "daml_transaction_util.py",
         "--hash",
         tempFile.pathAsString,
       ),
-      cwd = interactiveSubmissionV1Folder.toJava,
+      cwd = interactiveSubmissionFolder.toJava,
     ).!!.stripLineEnd
   }
 
-  def buildV1Hash(
+  def buildV2Hash(
       preparedTransactionData: TransactionData,
       transactionUUID: UUID,
       mediatorGroup: PositiveInt,
@@ -150,7 +150,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
       hashTracer: HashTracer,
   ) =
     InteractiveSubmission.computeVersionedHash(
-      HashingSchemeVersion.V1,
+      HashingSchemeVersion.V2,
       preparedTransactionData.transaction,
       InteractiveSubmission.TransactionMetadataForHashing.create(
         preparedTransactionData.submitterInfo.actAs.toSet,
@@ -182,7 +182,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
           mediatorGroup: PositiveInt,
       ) =>
         val hashTracer = HashTracer.StringHashTracer(traceSubNodes = true)
-        val expectedHash = buildV1Hash(
+        val expectedHash = buildV2Hash(
           preparedTransactionData,
           transactionUUID,
           mediatorGroup,
@@ -224,7 +224,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
           participant1.config.adminApi.address + ":" + participant1.config.adminApi.port.unwrap.toString,
           sequencer1.synchronizer_id.toProtoPrimitive,
         ),
-        cwd = interactiveSubmissionV1Folder.toJava,
+        cwd = interactiveSubmissionFolder.toJava,
       ),
       processLogger,
     )
@@ -232,7 +232,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
 
   "do error handling in bash" in { implicit env =>
     import env.*
-    runScript(interactiveSubmissionV1Folder / "bootstrap.canton")(environment)
+    runScript(interactiveSubmissionFolder / "bootstrap.canton")(environment)
 
     env.environment.writePortsFile()
 
@@ -243,7 +243,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
           participant1.config.adminApi.address + ":" + participant1.config.adminApi.port.unwrap.toString,
           "invalid_Store",
         ),
-        cwd = interactiveSubmissionV1Folder.toJava,
+        cwd = interactiveSubmissionFolder.toJava,
       ),
       processLogger,
       "Invalid unique identifier `invalid_Store` with missing namespace",
@@ -258,12 +258,12 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
       Process(
         Seq(
           "python",
-          (interactiveSubmissionV1Folder / "interactive_topology_example.py").pathAsString,
+          (interactiveSubmissionFolder / "interactive_topology_example.py").pathAsString,
           "--synchronizer-id",
           sequencer1.synchronizer_id.toProtoPrimitive,
           "run-demo",
         ),
-        cwd = interactiveSubmissionV1Folder.toJava,
+        cwd = interactiveSubmissionFolder.toJava,
       ),
       processLogger,
     )
@@ -276,12 +276,12 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
       Process(
         Seq(
           "python",
-          (interactiveSubmissionV1Folder / "interactive_topology_example.py").pathAsString,
+          (interactiveSubmissionFolder / "interactive_topology_example.py").pathAsString,
           "--synchronizer-id",
           "invalid_Store",
           "run-demo",
         ),
-        cwd = interactiveSubmissionV1Folder.toJava,
+        cwd = interactiveSubmissionFolder.toJava,
       ),
       mkProcessLogger(logErrors = false),
       "Invalid unique identifier `invalid_Store` with missing namespace",

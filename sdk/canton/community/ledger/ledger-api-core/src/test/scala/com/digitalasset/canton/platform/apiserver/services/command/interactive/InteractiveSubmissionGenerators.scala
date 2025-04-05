@@ -63,7 +63,6 @@ object InteractiveSubmissionGenerators {
           version = LanguageVersion.v2_1,
           keyOpt = None,
           byKey = false,
-          interfaceId = None,
         )
         .asInstanceOf[N]
     case node => node

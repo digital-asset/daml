@@ -16,7 +16,6 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionRequest,
   PrepareSubmissionRequest,
 }
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator.{
@@ -25,6 +24,7 @@ import com.digitalasset.canton.ledger.api.validation.CommandsValidator.{
 }
 import com.digitalasset.canton.ledger.api.{CommandId, Commands}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.daml.lf.command.*
 import com.digitalasset.daml.lf.data.*

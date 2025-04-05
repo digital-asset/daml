@@ -15,7 +15,7 @@ import com.daml.ledger.api.v2.update_service.{
 }
 import com.daml.metrics.InstrumentedGraph.*
 import com.daml.tracing.{Event, SpanAttribute, Spans}
-import com.digitalasset.base.error.{ContextualizedErrorLogger, DamlErrorWithDefiniteAnswer}
+import com.digitalasset.base.error.DamlErrorWithDefiniteAnswer
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.Offset
@@ -34,6 +34,7 @@ import com.digitalasset.canton.ledger.participant.state.index.*
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
+  ContextualizedErrorLogger,
   ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,

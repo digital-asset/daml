@@ -18,7 +18,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import hashes
-from transaction_util import create_nodes_dict, encode_prepared_transaction
+from daml_transaction_hashing_v2 import create_nodes_dict, encode_prepared_transaction, HASHING_SCHEME_VERSION_V2
 from com.daml.ledger.api.v2 import (
     command_completion_service_pb2,
     command_completion_service_pb2_grpc,
@@ -168,7 +168,7 @@ def execute_and_get_contract_id(
                 )
             ]
         ),
-        hashing_scheme_version=interactive_submission_service_pb2.HashingSchemeVersion.HASHING_SCHEME_VERSION_V1,
+        hashing_scheme_version=HASHING_SCHEME_VERSION_V2,
         submission_id=str(uuid.uuid4()),
     )
 

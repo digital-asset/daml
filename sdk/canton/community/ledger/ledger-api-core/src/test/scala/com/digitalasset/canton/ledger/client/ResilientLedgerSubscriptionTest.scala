@@ -5,11 +5,10 @@ package com.digitalasset.canton.ledger.client
 
 import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.javaapi.data.Party
-import com.digitalasset.base.error.NoLogging
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.client.ResilientLedgerSubscriptionTest.SubscriptionState
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.ParticipantPrunedDataAccessed
-import com.digitalasset.canton.logging.LogEntry
+import com.digitalasset.canton.logging.{LogEntry, NoLogging}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.{Status, StatusRuntimeException}
 import org.apache.pekko.NotUsed

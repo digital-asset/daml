@@ -3,14 +3,13 @@
 
 package com.digitalasset.base.error.samples
 
-import com.digitalasset.base.error.{ContextualizedDamlError, NoLogging}
+import com.digitalasset.base.error.{BaseErrorLogger, ContextualizedDamlError, NoBaseLogging}
 
 import scala.concurrent.duration.*
 
 object DummmyServer {
 
   import com.digitalasset.base.error.{
-    ContextualizedErrorLogger,
     ErrorCategory,
     ErrorCategoryRetry,
     ErrorClass,
@@ -23,7 +22,7 @@ object DummmyServer {
         ErrorClass.root()
       ) {
 
-    implicit val errorLogger: ContextualizedErrorLogger = new NoLogging(
+    implicit val errorLogger: BaseErrorLogger = new NoBaseLogging(
       correlationId = Some("full-correlation-id-123456790"),
       properties = Map.empty,
     )

@@ -278,14 +278,14 @@ class ValueHashTest extends BaseTest with AnyWordSpecLike with HashUtilsTest {
     "encode record value" in {
       assertEncode(
         Value.ValueRecord(
-          Some(defRef("module", "name")), // identifier is NOT part of the hash
+          Some(defRef("module", "name")),
           ImmArray(
             (
-              Some(Ref.Name.assertFromString("field1")), // fields are NOT part of the hash
+              Some(Ref.Name.assertFromString("field1")),
               Value.ValueTrue,
             ),
             (
-              Some(Ref.Name.assertFromString("field2")), // fields are NOT part of the hash
+              Some(Ref.Name.assertFromString("field2")),
               Value.ValueText("hello"),
             ),
           ),

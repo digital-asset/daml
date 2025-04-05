@@ -24,19 +24,19 @@ trait BaseAlarm extends BaseError {
     super.context ++ BaseError.extractContext(this)
 
   /** Report the alarm to the logger. */
-  def report()(implicit logger: ContextualizedErrorLogger): Unit = logWithContext()
+  def report()(implicit logger: BaseErrorLogger): Unit = logWithContext()
 
   /** Reports the alarm to the logger.
     *
     * @return
     *   this alarm
     */
-  def reported()(implicit logger: ContextualizedErrorLogger): this.type = {
+  def reported()(implicit logger: BaseErrorLogger): this.type = {
     report()
     this
   }
 
-  def asGrpcError(implicit logger: ContextualizedErrorLogger): StatusRuntimeException =
+  def asGrpcError(implicit logger: BaseErrorLogger): StatusRuntimeException =
     ErrorCode.asGrpcError(this)(logger)
 }
 

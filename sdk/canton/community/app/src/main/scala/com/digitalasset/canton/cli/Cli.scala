@@ -58,6 +58,7 @@ final case class Cli(
     bootstrapScriptPath: Option[File] = None,
     manualStart: Boolean = false,
     exitAfterBootstrap: Boolean = false,
+    dars: Seq[String] = Seq.empty,
 ) {
 
   /** sets the properties our logback.xml is looking for */
@@ -409,6 +410,10 @@ object Cli {
             .action((_, cli) =>
               cli ++ ("canton.parameters.clock.type" -> "sim-clock") ++ ("canton.participants.sandbox.testing-time.type" -> "monotonic-time")
             ),
+          opt[Seq[File]]("dar")
+            .text("DAR file to upload to sandbox")
+            .unbounded()
+            .action((dars, cli) => cli.copy(dars = cli.dars ++ dars.map(_.getPath))),
         )
 
       checkConfig(cli =>
@@ -427,6 +432,12 @@ object Cli {
           )
         } else success
       )
+      checkConfig { cli =>
+        val badFiles = cli.dars.filter(fileName => !new File(fileName).exists())
+        if (badFiles.nonEmpty)
+          failure("Missing DAR file(s):" ++ badFiles.mkString("\n  ", "\n  ", ""))
+        else success
+      }
 
       override def showUsageOnError: Option[Boolean] = Some(true)
 

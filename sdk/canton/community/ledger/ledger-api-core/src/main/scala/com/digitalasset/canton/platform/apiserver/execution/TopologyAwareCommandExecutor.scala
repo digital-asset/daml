@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.apiserver.execution
 import cats.data.EitherT
 import cats.implicits.catsSyntaxParallelTraverse1
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.api.Commands
@@ -14,7 +13,12 @@ import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.canton.ledger.participant.state.{RoutingSynchronizerState, SyncService}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{
+  ContextualizedErrorLogger,
+  LoggingContextWithTrace,
+  NamedLoggerFactory,
+  NamedLogging,
+}
 import com.digitalasset.canton.platform.apiserver.execution.TopologyAwareCommandExecutor.{
   OrderablePackageId,
   Pass1ContinuationResult,

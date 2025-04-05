@@ -8,7 +8,6 @@ import com.daml.ledger.api.v2.commands.{
   DisclosedContract as ProtoDisclosedContract,
 }
 import com.daml.ledger.api.v2.value.Identifier as ProtoIdentifier
-import com.digitalasset.base.error.{ContextualizedErrorLogger, NoLogging}
 import com.digitalasset.canton.BaseTest.testedProtocolVersion
 import com.digitalasset.canton.LfValue
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
@@ -19,6 +18,7 @@ import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsT
   lf,
   validateDisclosedContracts,
 }
+import com.digitalasset.canton.logging.{ContextualizedErrorLogger, NoLogging}
 import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.AuthenticateFatContractInstance
 import com.digitalasset.canton.protocol.{DriverContractMetadata, LfTransactionVersion}
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}

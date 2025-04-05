@@ -7,9 +7,9 @@ import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForTransactionRequest,
   SubmitAndWaitRequest,
 }
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.api.messages.command.submission
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 import io.grpc.StatusRuntimeException
 
 import java.time.{Duration, Instant}

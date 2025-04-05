@@ -45,8 +45,8 @@ object ExampleIntegrationTest {
   lazy val referenceConfiguration: File = "community" / "app" / "src" / "pack" / "config"
   lazy val composabilityConfiguration: File = examplesPath / "05-composability"
   lazy val repairConfiguration: File = examplesPath / "07-repair"
-  lazy val interactiveSubmissionV1Folder: File =
-    examplesPath / "08-interactive-submission/v1"
+  lazy val interactiveSubmissionFolder: File =
+    examplesPath / "08-interactive-submission"
   lazy val advancedConfTestEnv: File =
     "community" / "app" / "src" / "test" / "resources" / "advancedConfDef.env"
 

@@ -1752,12 +1752,13 @@ abstract class EventStorageBackendTemplate(
       .withFetchSize(Some(eventSequentialIds.size))
       .asVectorOf(partyToParticipantEventParser(stringInterning))(connection)
 
-  override def topologyEventPublishedOnRecordTime(
+  override def topologyEventOffsetPublishedOnRecordTime(
       synchronizerId: SynchronizerId,
       recordTime: CantonTimestamp,
-  )(connection: Connection): Boolean =
-    stringInterning.synchronizerId.tryInternalize(synchronizerId) match {
-      case Some(synchronizerInternedId) =>
+  )(connection: Connection): Option[Offset] =
+    stringInterning.synchronizerId
+      .tryInternalize(synchronizerId)
+      .flatMap(synchronizerInternedId =>
         SQL"""
           SELECT event_offset
           FROM lapi_events_party_to_participant
@@ -1768,11 +1769,8 @@ abstract class EventStorageBackendTemplate(
           """
           .asVectorOf(offset("event_offset"))(connection)
           .headOption
-          .exists(offset => Option(offset) <= ledgerEndCache().map(_.lastOffset))
-
-      case None =>
-        false
-    }
+          .filter(offset => Option(offset) <= ledgerEndCache().map(_.lastOffset))
+      )
 
   private def fetchAcsDeltaEvents(
       tableName: String,

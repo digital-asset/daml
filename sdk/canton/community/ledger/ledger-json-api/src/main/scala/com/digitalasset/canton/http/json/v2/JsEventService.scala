@@ -44,7 +44,6 @@ class JsEventService(
   ): TracedInput[event_query_service.GetEventsByContractIdRequest] => Future[
     Either[JsCantonError, JsGetEventsByContractIdResponse]
   ] = req => {
-    implicit val token = callerContext.token()
     implicit val tc = req.traceContext
     eventServiceClient(callerContext.token())(req.traceContext)
       .getEventsByContractId(req.in)

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.ledger.error.groups
 
 import com.digitalasset.base.error.{
-  ContextualizedErrorLogger,
   DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorCategoryRetry,
@@ -16,6 +15,7 @@ import com.digitalasset.base.error.{
 }
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.CommandExecutionErrorGroup
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId}
 import com.digitalasset.daml.lf.engine.Error as LfError
@@ -782,7 +782,9 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
             override def context: Map[String, String] =
               // ++ on maps takes last key, we don't want users to override `error_id`, so we add this last
               // SerializableErrorCodeComponents also puts `context` first, so fields added by canton cannot be overwritten
-              super.context ++ err.metadata ++ List(("error_id", err.errorId)) ++ trace.map(("exercise_trace", _)).toList
+              super.context ++ err.metadata ++ List(("error_id", err.errorId)) ++ trace
+                .map(("exercise_trace", _))
+                .toList
           }
         case None =>
           LedgerApiErrors.InternalError.Generic(

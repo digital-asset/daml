@@ -5,7 +5,6 @@ package com.digitalasset.canton.ledger.error
 
 import com.digitalasset.base.error.ErrorCode.LoggedApiException
 import com.digitalasset.base.error.{
-  ContextualizedErrorLogger,
   DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorCode,
@@ -14,6 +13,7 @@ import com.digitalasset.base.error.{
   Resolution,
 }
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.IndexErrorGroup
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 
 @Explanation("Errors raised by the Participant Index persistence layer.")
 object IndexErrors extends IndexErrorGroup {

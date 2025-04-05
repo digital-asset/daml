@@ -419,7 +419,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
           },
           logEntry => {
             logEntry.errorMessage should (include(
-              "Interpretation error: Error: Unhandled Daml exception:"
+              "UNHANDLED_EXCEPTION"
             ) and include(
               "Template precondition violated: PartyReplicationProposal"
             ))

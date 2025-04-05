@@ -14,7 +14,6 @@ import com.daml.ledger.api.v2.interactive.{
   interactive_submission_service as iss,
 }
 import com.daml.ledger.api.v2.value as lapiValue
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.{
   ExecuteRequest,
   TransactionData,
@@ -24,7 +23,12 @@ import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo.ExternallySignedSubmission
 import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, Update}
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{
+  ContextualizedErrorLogger,
+  LoggingContextWithTrace,
+  NamedLoggerFactory,
+  NamedLogging,
+}
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionCodec.*
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionDecoder.DeserializationResult
 import com.digitalasset.canton.protocol.{LfNode, LfNodeId}
@@ -225,7 +229,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
       .withFieldConst(_.packageVersion, None)
       .buildTransformer
 
-    private implicit def fetchTransformer(implicit
+    private[interactive] implicit def fetchTransformer(implicit
         contextualizedErrorLogger: ContextualizedErrorLogger
     ): PartialTransformer[isdv1.Fetch, lf.transaction.Node.Fetch] = Transformer
       .definePartial[isdv1.Fetch, lf.transaction.Node.Fetch]
@@ -234,10 +238,9 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
       // Not supported in V1
       .withFieldConst(_.keyOpt, None)
       .withFieldConst(_.byKey, false)
-      .withFieldConst(_.interfaceId, None)
       .buildTransformer
 
-    private implicit def exerciseTransformer(implicit
+    private[interactive] implicit def exerciseTransformer(implicit
         contextualizedErrorLogger: ContextualizedErrorLogger
     ): PartialTransformer[isdv1.Exercise, lf.transaction.Node.Exercise] =
       Transformer

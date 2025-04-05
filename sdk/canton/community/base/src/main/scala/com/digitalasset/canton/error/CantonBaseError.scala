@@ -6,15 +6,13 @@ package com.digitalasset.canton.error
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.{
   BaseError,
-  ContextualizedErrorLogger,
   ErrorCategory,
   ErrorCode,
   ErrorResource,
   LogOnCreation,
-  NoLogging,
   RpcError,
 }
-import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.logging.{ContextualizedErrorLogger, ErrorLoggingContext, NoLogging}
 import com.google.rpc.Status
 import com.google.rpc.error_details.ErrorInfo
 import io.grpc.StatusRuntimeException
@@ -117,7 +115,8 @@ trait ContextualizedCantonError extends CantonBaseError with RpcError with LogOn
     */
   def loggingContext: ErrorLoggingContext
 
-  override def logger: ContextualizedErrorLogger = loggingContext
+  def logger: ContextualizedErrorLogger = loggingContext
+  def logError(): Unit = logWithContext()(logger)
 
   /** Flag to control if an error should be logged at creation Generally, we do want to log upon
     * creation, except in the case of "nested" or combined errors, where we just nest the error but
