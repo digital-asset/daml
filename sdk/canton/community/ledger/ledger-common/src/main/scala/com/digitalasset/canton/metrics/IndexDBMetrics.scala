@@ -407,8 +407,8 @@ class MainIndexDBMetrics(
   val getParticipantId: DatabaseMetrics = createDbMetrics("get_participant_id")
   val getLedgerEnd: DatabaseMetrics = createDbMetrics("get_ledger_end")
   val getCleanSynchronizerIndex: DatabaseMetrics = createDbMetrics("get_clean_synchronizer_index")
-  val getTopologyEventPublishedOnRecordTime: DatabaseMetrics = createDbMetrics(
-    "get_topology_event_published_on_record_time"
+  val getTopologyEventOffsetPublishedOnRecordTime: DatabaseMetrics = createDbMetrics(
+    "get_topology_event_offset_published_on_record_time"
   )
   val getPostProcessingEnd: DatabaseMetrics = createDbMetrics("get_post_processing_end")
   val initializeLedgerParameters: DatabaseMetrics = createDbMetrics(

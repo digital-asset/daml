@@ -4,13 +4,7 @@
 package com.digitalasset.canton.platform.apiserver.validation
 
 import com.digitalasset.base.error.utils.ErrorDetails
-import com.digitalasset.base.error.{
-  BaseError,
-  ContextualizedErrorLogger,
-  ErrorCode,
-  ErrorsAssertions,
-  RpcError,
-}
+import com.digitalasset.base.error.{BaseError, ErrorCode, ErrorsAssertions, RpcError}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.auth.AuthorizationChecksErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
@@ -20,7 +14,11 @@ import com.digitalasset.canton.ledger.error.groups.{
   RequestValidationErrors,
 }
 import com.digitalasset.canton.ledger.error.{CommonErrors, IndexErrors, LedgerApiErrors}
-import com.digitalasset.canton.logging.{LedgerErrorLoggingContext, SuppressionRule}
+import com.digitalasset.canton.logging.{
+  ContextualizedErrorLogger,
+  LedgerErrorLoggingContext,
+  SuppressionRule,
+}
 import com.digitalasset.daml.lf.data.Ref
 import com.google.rpc.*
 import io.grpc.Status.Code

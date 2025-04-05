@@ -10,11 +10,11 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateByOffsetRequest,
   GetUpdatesRequest,
 }
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.UpdateId
 import com.digitalasset.canton.ledger.api.messages.update
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 import io.grpc.StatusRuntimeException
 
 object UpdateServiceRequestValidator {

@@ -14,7 +14,7 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   SinglePartySignatures,
 }
 import com.daml.ledger.api.v2.reassignment_commands.ReassignmentCommand
-import com.digitalasset.base.error.{ContextualizedErrorLogger, RpcError}
+import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.crypto.{
   Fingerprint,
   Signature,
@@ -27,10 +27,11 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidField
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 import com.digitalasset.canton.topology.{PartyId as TopologyPartyId, SynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.HashingSchemeVersion
-import com.digitalasset.canton.version.HashingSchemeVersion.V1
+import com.digitalasset.canton.version.HashingSchemeVersion.V2
 import com.digitalasset.daml.lf.data.Time
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.*
@@ -217,7 +218,7 @@ class SubmitRequestValidator(
   private def validateHashingSchemeVersion(protoVersion: iss.HashingSchemeVersion)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[RpcError, HashingSchemeVersion] = protoVersion match {
-    case iss.HashingSchemeVersion.HASHING_SCHEME_VERSION_V1 => Right(V1)
+    case iss.HashingSchemeVersion.HASHING_SCHEME_VERSION_V2 => Right(V2)
     case iss.HashingSchemeVersion.HASHING_SCHEME_VERSION_UNSPECIFIED =>
       Left(
         RequestValidationErrors.InvalidField

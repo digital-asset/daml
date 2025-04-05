@@ -4,7 +4,7 @@
 package com.digitalasset.base.error.utils
 
 import com.digitalasset.base.error.{
-  ContextualizedErrorLogger,
+  BaseErrorLogger,
   DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorClass,
@@ -23,7 +23,7 @@ case object BenignError
     ) {
 
   final case class Reject(serviceName: String)(implicit
-      loggingContext: ContextualizedErrorLogger
+      loggingContext: BaseErrorLogger
   ) extends DamlErrorWithDefiniteAnswer(
         cause = s"Benign problem in $serviceName.",
         extraContext = Map("service_name" -> serviceName),

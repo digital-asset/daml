@@ -14,7 +14,6 @@ import com.daml.ledger.api.v2.update_service.{
   GetTransactionTreeResponse,
 }
 import com.daml.tracing.Telemetry
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.config
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
@@ -25,6 +24,7 @@ import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{
+  ContextualizedErrorLogger,
   LedgerErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,

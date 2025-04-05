@@ -180,7 +180,6 @@ class HttpService(
 
           v2Routes = V2Routes(
             ledgerClient,
-            packageService,
             metadataServiceEnabled = startSettings.damlDefinitionsServiceEnabled,
             packageSyncService,
             mat.executionContext,

@@ -49,6 +49,7 @@ object TransactionHash {
       hashTracer,
       enforceNodeSeedForCreateNodes = true,
     ).addPurpose
+      .addHashingSchemeVersion(HashingSchemeVersion.V2)
       .addHash(
         TransactionHash
           .tryHashTransactionV1(versionedTransaction, nodeSeeds, hashTracer.subNodeTracer),
