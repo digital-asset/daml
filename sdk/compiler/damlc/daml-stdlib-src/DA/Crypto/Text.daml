@@ -47,7 +47,6 @@ type PublicKeyHex = Text
 -- | A DER formatted SECP256K1 signature
 type SignatureHex = Text
 
--- | HIDE
 hexByteToInt : Text -> Int
 hexByteToInt "0" = 0
 hexByteToInt "1" = 1
@@ -99,36 +98,27 @@ class HasToHex a where
 instance HasToHex Text where
   toHex = primitive @"BEEncodeHex"
 
--- | HIDE
-int16ToHexByte: Int -> BytesHex
-int16ToHexByte n | 0 <= n && n <= 9 = show n
-int16ToHexByte 10 = "a"
-int16ToHexByte 11 = "b"
-int16ToHexByte 12 = "c"
-int16ToHexByte 13 = "d"
-int16ToHexByte 14 = "e"
-int16ToHexByte 15 = "f"
-int16ToHexByte n = error $ "Int16 should be in range [0, 16): " <> show n
+uint16ToHexByte: Int -> BytesHex
+uint16ToHexByte n | 0 <= n && n <= 9 = show n
+uint16ToHexByte 10 = "a"
+uint16ToHexByte 11 = "b"
+uint16ToHexByte 12 = "c"
+uint16ToHexByte 13 = "d"
+uint16ToHexByte 14 = "e"
+uint16ToHexByte 15 = "f"
+uint16ToHexByte n = error $ "UInt16 should be in range [0, 16): " <> show n
 
--- | HIDE
-int256ToHexByte: Int -> BytesHex
-int256ToHexByte n | 0 <= n && n <= 9 = "0" <> show n
-int256ToHexByte 10 = "0a"
-int256ToHexByte 11 = "0b"
-int256ToHexByte 12 = "0c"
-int256ToHexByte 13 = "0d"
-int256ToHexByte 14 = "0e"
-int256ToHexByte 15 = "0f"
-int256ToHexByte n | n < 256 = (int16ToHexByte(n / 16)) <> (int16ToHexByte(n % 16))
-int256ToHexByte n = error $ "Int256 should be in range [0, 256): " <> show n
+uint256ToHexByte: Int -> BytesHex
+uint256ToHexByte n | 0 <= n && n < 256 = (uint16ToHexByte(n / 16)) <> (uint16ToHexByte(n % 16))
+uint256ToHexByte n = error $ "UInt256 should be in range [0, 256): " <> show n
 
--- | HIDE
-intToHexByteList: Int -> [BytesHex]
-intToHexByteList n | n < 256 = [int256ToHexByte n]
-intToHexByteList n = int256ToHexByte(n % 256) :: intToHexByteList(n / 256)
+uintToHexByteList: Int -> [BytesHex]
+uintToHexByteList n | n < 0 = error $ "UInt should be positive: " <> show n
+uintToHexByteList n | 0 <= n && n < 256 = [uint256ToHexByte n]
+uintToHexByteList n = uint256ToHexByte(n % 256) :: uintToHexByteList(n / 256)
 
 instance HasToHex Int where
-  toHex n = Text.implode(reverse(intToHexByteList n))
+  toHex n = Text.implode(reverse(uintToHexByteList n))
 
 instance HasToHex Party where
   toHex p = toHex(partyToText p)
@@ -177,12 +167,10 @@ byteCount "" = 0
 byteCount hex | Text.isHex hex = (Text.length hex) / 2
 byteCount arg = error $ "Expected a hex encoded string but argument was: " <> arg
 
--- | HIDE
 constList: Int -> a -> [a]
 constList 0 _ = []
 constList n x = x :: (constList (n - 1) x)
 
--- | HIDE
 byteRepeat: Int -> BytesHex -> BytesHex
 byteRepeat len byte | Text.isHex byte && byteCount byte == 1 && len >= 0 = Text.implode(constList len byte)
 byteRepeat _ arg | not (Text.isHex arg) = error $ "Expected a hex encoded string but argument was: " <> arg
