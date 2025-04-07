@@ -670,12 +670,15 @@ buildLfPackageGraph' BuildLfPackageGraphMetaArgs {..} BuildLfPackageGraphArgs {.
     -- See case 2. in comment for buildLfPackageGraph
     (depGraph, vertexToNode, keyToVertex) =
         graphFromEdges
-          [ (node, key, deps <> etc)
+          [ (node', key, deps')
           | v <- vertices depGraph0
           , let (node, key, deps) = vertexToNode0 v
-          , let etc = case node of
-                  MkDataDependencyPackageNode {} -> depsWithoutDataDeps
-                  _ -> []
+          , let (node', deps') = case node of
+                  MkDataDependencyPackageNode node =
+                    ( MkDataDependencyPackageNode $ node {referencesPkgs = snd3 . vertexToNode0 <$> reachable depGraph0 key}
+                    , deps <> depsWithoutDataDeps
+                    )
+                  _ -> (node, deps)
           ]
 
     depsWithoutDataDeps =
@@ -693,14 +696,15 @@ buildLfPackageGraph' BuildLfPackageGraphMetaArgs {..} BuildLfPackageGraphArgs {.
           -- the project we're building has multiple data-dependencies from older
           -- SDKs, each of which bring a copy of daml-prim and daml-stdlib.
           nubSortOn (\(_,pid,_) -> pid) $
-            [ (node, pid, referencesPkgs)
+            [ (node, pid, pkgRefs)
             | (isDataDep, decodedDalfWithPath) <- fmap (False,) deps <> fmap (True,) dataDeps
             , let
                 dalf = getDecodedDalfPath decodedDalfWithPath
                 unitId = getDecodedDalfUnitId decodedDalfWithPath
                 dalfPackage = getDecodedDalfPkg decodedDalfWithPath
                 pid = getDalfPkgId dalfPackage
-                referencesPkgs = getDalfPkgRefs dalfPackage
+                pkgRefs = getDalfPkgRefs dalfPackage
+                referencesPkgs = []
                 node
                   | pid `elem` builtinDeps = MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode {..}
                   | pid `elem` stablePkgs = MkStableDependencyPackageNode
