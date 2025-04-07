@@ -374,14 +374,13 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         }
       }
 
-      // PackageNotFound error for when the engine cannot find any package with the given package name
       @Explanation(
         """This error occurs if the Daml engine interpreter cannot resolve a package name to any vetted package. This
           |can be caused by a commmand using an explicit disclosure produced by a package that hasn't been vetted yet
           |by the participant or by a command that uses a contract whose creation package has been force-unvetted."""
       )
       @Resolution("Ensure the command doesn't use a package that has not been yet vetted or has been unvetted.")
-      object PackageNotFound
+      object UnresolvedPackageName
         extends ErrorCode(
           id = "UNRESOLVED_PACKAGE_NAME",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,

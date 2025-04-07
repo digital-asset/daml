@@ -117,10 +117,10 @@ object SubmitError {
       )
   }
 
-  final case class PackageNotFound(packageName: PackageName) extends SubmitError {
+  final case class UnresolvedPackageName(packageName: PackageName) extends SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
-        "PackageNotFound",
+        "UnresolvedPackageName",
         ("packageName", SText(packageName)),
       )
   }

@@ -27,7 +27,7 @@ object Error {
 
   final case class ContractNotFound(cid: Value.ContractId) extends Error
 
-  final case class PackageNotFound(packageName: Ref.PackageName) extends Error
+  final case class UnresolvedPackageName(packageName: Ref.PackageName) extends Error
 
   /** Template pre-condition (ensure) evaluated to false and the transaction
     * was aborted. Note that the compiler will throw instead of returning False

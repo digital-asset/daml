@@ -114,11 +114,11 @@ Data Types
          - `AnyContractKey <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_
          -
 
-  .. _constr-daml-script-internal-questions-submit-error-packagenotfound-27004:
+  .. _constr-daml-script-internal-questions-submit-error-unresolvedpackagename-661:
 
-  `PackageNotFound <constr-daml-script-internal-questions-submit-error-packagenotfound-27004_>`_
+  `UnresolvedPackageName <constr-daml-script-internal-questions-submit-error-unresolvedpackagename-661_>`_
 
-    No package with given package name could be found
+    No vetted package with given package name could be found
 
     .. list-table::
        :widths: 15 10 30

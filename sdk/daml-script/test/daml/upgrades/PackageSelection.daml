@@ -135,8 +135,8 @@ exercisingInterfaceWithMissingInstanceFails = test $ do
   withUnvettedPackage "interface-instance" "1.0.0" $ do
     res <- a `trySubmit` exerciseCmd clientId ExerciseInterfaceChoice with iid = iid
     case res of
-          Left (PackageNotFound "interface-instance") -> pure ()
-          Right _ -> assertFail $ "Expected PackageNotFound but got success"
+          Left (UnresolvedPackageName "interface-instance") -> pure ()
+          Right _ -> assertFail $ "Expected UnresolvedPackageName but got success"
 
 fetchingInterfaceWithMissingImplementationFails : Test
 fetchingInterfaceWithMissingImplementationFails = test $ do
@@ -147,5 +147,5 @@ fetchingInterfaceWithMissingImplementationFails = test $ do
   withUnvettedPackage "interface-instance" "1.0.0" $ do
     res <- a `trySubmit` exerciseCmd clientId ExerciseInterfaceChoice with iid = iid
     case res of
-      Left (PackageNotFound "interface-instance") -> pure ()
-      Right _ -> assertFail $ "Expected PackageNotFound but got success"
+      Left (UnresolvedPackageName "interface-instance") -> pure ()
+      Right _ -> assertFail $ "Expected UnresolvedPackageName but got success"

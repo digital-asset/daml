@@ -1334,7 +1334,7 @@ private[lf] object SBuiltinFun {
       k: PackageId => Control[Q]
   ): Control[Q] = {
     machine.packageResolution.get(pkgName) match {
-      case None => Control.Error(IE.PackageNotFound(pkgName))
+      case None => Control.Error(IE.UnresolvedPackageName(pkgName))
       case Some(pkgId) => k(pkgId)
     }
   }

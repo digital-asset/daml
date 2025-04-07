@@ -96,7 +96,7 @@ object GrpcErrorParser {
         }
       case "UNRESOLVED_PACKAGE_NAME" =>
         caseErr { case Seq((ErrorResource.PackageName, pkgName)) =>
-          SubmitError.PackageNotFound(PackageName.assertFromString(pkgName))
+          SubmitError.UnresolvedPackageName(PackageName.assertFromString(pkgName))
         }
       case "CONTRACT_KEY_NOT_FOUND" =>
         caseErr {
