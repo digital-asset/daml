@@ -30,7 +30,7 @@ import qualified Data.NameMap as NM
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text.Extended as T
-import Data.Tuple.Extra (fst3)
+import Data.Tuple.Extra (fst3, snd3)
 import Development.IDE.Core.Rules (transitivePkgDeps, useE, usesE, useNoFileE)
 import Development.IDE.Core.Service (runActionSync)
 import Development.IDE.GHC.Util (hscEnv)
@@ -674,8 +674,8 @@ buildLfPackageGraph' BuildLfPackageGraphMetaArgs {..} BuildLfPackageGraphArgs {.
           | v <- vertices depGraph0
           , let (node, key, deps) = vertexToNode0 v
           , let (node', deps') = case node of
-                  MkDataDependencyPackageNode node =
-                    ( MkDataDependencyPackageNode $ node {referencesPkgs = snd3 . vertexToNode0 <$> reachable depGraph0 key}
+                  MkDataDependencyPackageNode node ->
+                    ( MkDataDependencyPackageNode $ node {referencesPkgs = snd3 . vertexToNode0 <$> filter (/= v) (reachable depGraph0 v)}
                     , deps <> depsWithoutDataDeps
                     )
                   _ -> (node, deps)
