@@ -594,11 +594,8 @@ private[lf] object SBuiltinFun {
       } catch {
         case _: IllegalArgumentException =>
           Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(
-                IE.Dev.CCTP.MalformedByteEncoding(getSText(args, 0), "can not parse hex string")
-              ),
+            IE.CCTP(
+              IE.CCTP.MalformedByteEncoding(getSText(args, 0), "can not parse hex string")
             )
           )
       }
@@ -616,42 +613,33 @@ private[lf] object SBuiltinFun {
             .fromString(getSText(args, 0))
             .left
             .map(_ =>
-              IE.Dev(
-                NameOf.qualifiedNameOfCurrentFunc,
-                IE.Dev.CCTP(
-                  IE.Dev.CCTP.MalformedByteEncoding(
-                    getSText(args, 0),
-                    cause = "can not parse signature hex string",
-                  )
-                ),
+              IE.CCTP(
+                IE.CCTP.MalformedByteEncoding(
+                  getSText(args, 0),
+                  cause = "can not parse signature hex string",
+                )
               )
             )
           message <- Ref.HexString
             .fromString(getSText(args, 1))
             .left
             .map(_ =>
-              IE.Dev(
-                NameOf.qualifiedNameOfCurrentFunc,
-                IE.Dev.CCTP(
-                  IE.Dev.CCTP.MalformedByteEncoding(
-                    getSText(args, 1),
-                    cause = "can not parse message hex string",
-                  )
-                ),
+              IE.CCTP(
+                IE.CCTP.MalformedByteEncoding(
+                  getSText(args, 1),
+                  cause = "can not parse message hex string",
+                )
               )
             )
           derEncodedPublicKey <- Ref.HexString
             .fromString(getSText(args, 2))
             .left
             .map(_ =>
-              IE.Dev(
-                NameOf.qualifiedNameOfCurrentFunc,
-                IE.Dev.CCTP(
-                  IE.Dev.CCTP.MalformedByteEncoding(
-                    getSText(args, 2),
-                    cause = "can not parse DER encoded public key hex string",
-                  )
-                ),
+              IE.CCTP(
+                IE.CCTP.MalformedByteEncoding(
+                  getSText(args, 2),
+                  cause = "can not parse DER encoded public key hex string",
+                )
               )
             )
           publicKey = extractPublicKey(derEncodedPublicKey)
@@ -667,23 +655,20 @@ private[lf] object SBuiltinFun {
           crash("BouncyCastle provider fails to support SECP256K1")
         case exn: InvalidKeyException =>
           Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(IE.Dev.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)),
+            IE.CCTP(
+              IE.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)
             )
           )
         case exn: InvalidKeySpecException =>
           Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(IE.Dev.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)),
+            IE.CCTP(
+              IE.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)
             )
           )
         case exn: SignatureException =>
           Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(IE.Dev.CCTP.MalformedSignature(getSText(args, 0), exn.getMessage)),
+            IE.CCTP(
+              IE.CCTP.MalformedSignature(getSText(args, 0), exn.getMessage)
             )
           )
       }
@@ -711,14 +696,11 @@ private[lf] object SBuiltinFun {
       } catch {
         case _: IllegalArgumentException =>
           Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(
-                IE.Dev.CCTP.MalformedByteEncoding(
-                  getSText(args, 0),
-                  cause = "can not parse hex string argument",
-                )
-              ),
+            IE.CCTP(
+              IE.CCTP.MalformedByteEncoding(
+                getSText(args, 0),
+                cause = "can not parse hex string argument",
+              )
             )
           )
       }

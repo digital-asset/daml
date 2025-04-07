@@ -1804,10 +1804,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           inside(eval(e"""KECCAK256_TEXT "$input"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.Dev(
-                      _,
-                      interpretation.Error.Dev
-                        .CCTP(interpretation.Error.Dev.CCTP.MalformedByteEncoding(value, reason)),
+                    interpretation.Error.CCTP(
+                      interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
                     )
                   )
                 ) =>
@@ -1855,10 +1853,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           inside(eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.Dev(
-                      _,
-                      interpretation.Error.Dev
-                        .CCTP(interpretation.Error.Dev.CCTP.MalformedByteEncoding(value, reason)),
+                    interpretation.Error.CCTP(
+                      interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
                     )
                   )
                 ) =>
@@ -1898,12 +1894,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.Dev(
-                      _,
-                      interpretation.Error.Dev
-                        .CCTP(
-                          interpretation.Error.Dev.CCTP.MalformedKey(`invalidPublicKey`, reason)
-                        ),
+                    interpretation.Error.CCTP(
+                      interpretation.Error.CCTP.MalformedKey(`invalidPublicKey`, reason)
                     )
                   )
                 ) =>
@@ -1920,10 +1912,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.Dev(
-                      _,
-                      interpretation.Error.Dev
-                        .CCTP(interpretation.Error.Dev.CCTP.MalformedByteEncoding(value, reason)),
+                    interpretation.Error.CCTP(
+                      interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
                     )
                   )
                 ) =>
@@ -1951,13 +1941,9 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.Dev(
-                      _,
-                      interpretation.Error.Dev
-                        .CCTP(
-                          interpretation.Error.Dev.CCTP
-                            .MalformedSignature(`invalidSignature`, reason)
-                        ),
+                    interpretation.Error.CCTP(
+                      interpretation.Error.CCTP
+                        .MalformedSignature(`invalidSignature`, reason)
                     )
                   )
                 ) =>
@@ -1973,10 +1959,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
               case Left(
                     SError.SErrorDamlException(
-                      interpretation.Error.Dev(
-                        _,
-                        interpretation.Error.Dev
-                          .CCTP(interpretation.Error.Dev.CCTP.MalformedByteEncoding(value, reason)),
+                      interpretation.Error.CCTP(
+                        interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
                       )
                     )
                   ) =>
@@ -2036,10 +2020,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           inside(eval(e"""HEX_TO_TEXT "$input"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.Dev(
-                      _,
-                      interpretation.Error.Dev
-                        .CCTP(interpretation.Error.Dev.CCTP.MalformedByteEncoding(value, reason)),
+                    interpretation.Error.CCTP(
+                      interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
                     )
                   )
                 ) =>

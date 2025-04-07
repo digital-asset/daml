@@ -182,24 +182,24 @@ object Error {
 
   }
 
+  sealed case class CCTP(error: CCTP.Error) extends Error
+
+  object CCTP {
+    sealed abstract class Error extends Serializable with Product
+
+    final case class MalformedByteEncoding(value: String, cause: String) extends Error
+
+    final case class MalformedKey(key: String, cause: String) extends Error
+
+    final case class MalformedSignature(signature: String, cause: String) extends Error
+  }
+
   // Error that can be thrown by dev or PoC feature only
   final case class Dev(location: String, error: Dev.Error) extends Error
 
   object Dev {
 
     sealed abstract class Error extends Serializable with Product
-
-    sealed case class CCTP(error: CCTP.Error) extends Error
-
-    object CCTP {
-      sealed abstract class Error extends Serializable with Product
-
-      final case class MalformedByteEncoding(value: String, cause: String) extends Error
-
-      final case class MalformedKey(key: String, cause: String) extends Error
-
-      final case class MalformedSignature(signature: String, cause: String) extends Error
-    }
 
     sealed case class Conformance(
         provided: Node.Create,

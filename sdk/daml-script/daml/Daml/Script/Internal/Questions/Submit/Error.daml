@@ -7,6 +7,7 @@ module Daml.Script.Internal.Questions.Submit.Error
   , isNotActive
   , SubmitError (..)
   , UpgradeErrorType (..)
+  , CryptoErrorType (..)
   ) where
 
 import Daml.Script.Internal.Questions.Util
@@ -29,6 +30,15 @@ data UpgradeErrorType
         fieldIndex : Int
   | DowngradeFailed with
         expectedType : Text
+
+data CryptoErrorType
+  = MalformedByteEncoding with
+        value : Text
+    | MalformedKey with
+        keyValue : Text
+    | MalformedSignature with
+        signatureValue : Text
+    deriving Show
 
 -- | Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
 data DevErrorType
@@ -148,6 +158,10 @@ data SubmitError
       errorMessage : Text
   | FailureStatusError with
       failureStatus : FailureStatus
+  | -- | Crypto exceptions
+    CryptoError with
+      cryptoErrorType : CryptoErrorType
+      cryptoErrorMessage : Text
   | -- | Development feature exceptions
     DevError with -- We just give the error's simple class name and the prettied message it generates. Scripts doesn't need anything more right now.
       devErrorType : DevErrorType
@@ -194,6 +208,7 @@ instance Show SubmitError where
     LocalVerdictLockedKeys _ -> "Attempted to use locked contract keys"
     UpgradeError ty msg -> "UpgradeError: " <> show ty <> "\n with message \"" <> msg <> "\""
     FailureStatusError failureStatus -> "Failed with Status: " <> show failureStatus
+    CryptoError ty msg -> "CryptoError: " <> show ty <> "\n with message \"" <> msg <> "\""
     DevError ty msg -> "DevError of type " <> show ty <> " and message \"" <> msg <> "\""
     UnknownError msg -> "Unknown error: " <> msg
     TruncatedError ty msg -> "TruncatedError of type " <> ty <> " and message \"" <> msg <> "\""
