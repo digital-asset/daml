@@ -34,9 +34,6 @@ trait TestNodeBuilder {
 
   val defaultPackageName: Ref.PackageName =
     Ref.PackageName.assertFromString("-default-package-name-")
-  val defaultPackageVersion: Option[Ref.PackageVersion] = Some(
-    Ref.PackageVersion.assertFromString("1.0.0")
-  )
 
   def create(
       id: ContractId,
@@ -47,7 +44,6 @@ trait TestNodeBuilder {
       key: CreateKey = CreateKey.NoKey,
       // TODO https://github.com/digital-asset/daml/issues/17995
       packageName: PackageName = defaultPackageName,
-      packageVersion: Option[Ref.PackageVersion] = defaultPackageVersion,
       version: CreateTransactionVersion = CreateTransactionVersion.StableMax,
   ): Node.Create = {
 
@@ -72,13 +68,9 @@ trait TestNodeBuilder {
 
     val maintainers: Set[Party] = keyOpt.fold(Set.empty[Party])(_.maintainers)
 
-    import Ordering.Implicits._
-
     Node.Create(
       coid = id,
       packageName = packageName,
-      packageVersion =
-        packageVersion.filter(_ => transactionVersion >= TransactionVersion.minPackageVersion),
       templateId = templateId,
       arg = argument,
       signatories = signatories ++ maintainers,

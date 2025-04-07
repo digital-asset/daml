@@ -572,7 +572,6 @@ final class StoreBackedCommandInterpreter(
           disclosedContract.version,
           ContractInstance(
             packageName = disclosedContract.packageName,
-            packageVersion = disclosedContract.packageVersion,
             template = disclosedContract.templateId,
             arg = disclosedContract.createArg,
           ),

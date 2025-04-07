@@ -71,7 +71,6 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
             contract.version,
             ContractInstance(
               contract.packageName,
-              contract.packageVersion,
               contract.templateId,
               contract.createArg,
             ),

@@ -51,7 +51,7 @@ case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
       1
     } else {
       val archives = for { dar <- dars; archive <- dar.all.toSeq } yield {
-        logger.debug(s"Package with ID ${archive._1} and metadata ${archive._2.pkgNameVersion}")
+        logger.debug(s"Package with ID ${archive._1} and metadata ${archive._2.metadata}")
         archive
       }
 

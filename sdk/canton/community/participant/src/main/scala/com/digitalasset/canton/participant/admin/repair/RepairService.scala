@@ -1294,7 +1294,6 @@ object RepairService {
         lfContractInst = LfContractInst(
           packageName = packageName,
           template = template,
-          packageVersion = packageVersion,
           arg = argsVersionedValue,
         )
 
@@ -1346,7 +1345,7 @@ object RepairService {
             (
               LfEngineToApi.toApiIdentifier(contractInstance.unversioned.template),
               contractInstance.unversioned.packageName,
-              contractInstance.unversioned.packageVersion,
+              None,
               record,
               signatories,
               stakeholders -- signatories,

@@ -540,7 +540,6 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
       TransactionVersion.StableVersions.max,
       Value.ContractInstance(
         pkg.pkgName,
-        pkg.pkgVersion,
         T,
         Value.ValueRecord(
           None,

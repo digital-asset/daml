@@ -222,7 +222,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
       .withFieldComputedPartial(_.version, _.lfVersion.transformIntoPartial[LanguageVersion])
       // Fields not supported in V1
       .withFieldConst(_.keyOpt, None)
-      .withFieldConst(_.packageVersion, None)
       .buildTransformer
 
     private implicit def fetchTransformer(implicit

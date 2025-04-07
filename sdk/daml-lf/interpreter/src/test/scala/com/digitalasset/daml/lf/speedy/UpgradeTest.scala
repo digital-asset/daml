@@ -319,10 +319,9 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     pkg1.pkgName
   }
 
-  val pkg1Ver = pkg1.pkgVersion
-  val pkg2Ver = pkg2.pkgVersion
-  val pkg3Ver = pkg3.pkgVersion
-  val unknownPkgVer = None
+  val pkg1Ver = pkg1.metadata.version
+  val pkg2Ver = pkg2.metadata.version
+  val pkg3Ver = pkg3.metadata.version
 
   private lazy val pkgs =
     PureCompiledPackages.assertBuild(
@@ -412,7 +411,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       Speedy.ContractInfo(
         version = VDev,
         packageName = pkgName,
-        packageVersion = unknownPkgVer,
         templateId = templateId,
         value = contractSValue,
         signatories = Set.empty,
@@ -475,7 +473,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       inside(
         go(
           e"'-pkg3-':M:do_fetch",
-          ContractInstance(pkgName, pkg2Ver, i"'-pkg2-':M:T", v_missingField),
+          ContractInstance(pkgName, i"'-pkg2-':M:T", v_missingField),
         )
       ) { case Right((sv, v, _)) =>
         sv shouldBe sv_extendedWithNone
@@ -490,7 +488,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       inside(
         go(
           e"'-pkg1-':M:do_fetch",
-          ContractInstance(pkgName, unknownPkgVer, i"'-pkg1-':M:T", v_missingField),
+          ContractInstance(pkgName, i"'-pkg1-':M:T", v_missingField),
         )
       ) { case Left(SError.SErrorCrash(_, reason)) =>
         reason should include(
@@ -512,17 +510,16 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val positiveTestCases = Table("tyCon", i"'-pkg2-':M1:T", i"'-pkg2-':M2:T")
       go(
         e"'-pkg3-':M:do_fetch",
-        ContractInstance(pkgName, pkg2Ver, negativeTestCase, v),
+        ContractInstance(pkgName, negativeTestCase, v),
       ) shouldBe a[
         Right[_, _]
       ]
 
       forEvery(positiveTestCases) { tyCon =>
-        inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, unknownPkgVer, tyCon, v))) {
-          case Left(e) =>
-            // TODO(https://github.com/DACH-NY/canton/issues/23879): do better than a crash once we typecheck values
-            //    on import.
-            e shouldBe a[SError.SErrorCrash]
+        inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, tyCon, v))) { case Left(e) =>
+          // TODO(https://github.com/DACH-NY/canton/issues/23879): do better than a crash once we typecheck values
+          //    on import.
+          e shouldBe a[SError.SErrorCrash]
         }
       }
     }
@@ -533,7 +530,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     "correct fields" in {
 
       val res =
-        go(e"'-pkg1-':M:do_fetch", ContractInstance(pkgName, pkg2Ver, i"'-pkg2-':M:T", v1_base))
+        go(e"'-pkg1-':M:do_fetch", ContractInstance(pkgName, i"'-pkg2-':M:T", v1_base))
 
       inside(res) { case Right((_, v, _)) =>
         v shouldBe v1_base
@@ -554,7 +551,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val res =
         go(
           e"'-pkg1-':M:do_fetch",
-          ContractInstance(pkgName, unknownPkgVer, i"'-pkg1-':M:T", v1_extraText),
+          ContractInstance(pkgName, i"'-pkg1-':M:T", v1_extraText),
         )
 
       inside(res) { case Left(SError.SErrorCrash(_, reason)) =>
@@ -576,7 +573,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
       val res = go(
         e"'-pkg2-':M:do_fetch",
-        ContractInstance(pkgName, pkg3Ver, i"'-pkg3-':M:T", v1_extraSome),
+        ContractInstance(pkgName, i"'-pkg3-':M:T", v1_extraSome),
       )
 
       inside(res) { case Left(SError.SErrorDamlException(IE.Upgrade(e))) =>
@@ -597,7 +594,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val res =
         go(
           e"'-pkg1-':M:do_fetch",
-          ContractInstance(pkgName, unknownPkgVer, i"'-pkg3-':M:T", v1_extraNone),
+          ContractInstance(pkgName, i"'-pkg3-':M:T", v1_extraNone),
         )
 
       inside(res) { case Right((_, v, _)) =>
@@ -616,7 +613,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       inside(
         go(
           e"'-variant-v2-':M:do_fetch",
-          ContractInstance(pkgName, pkg1Ver, i"'-variant-v1-':M:T", v1Arg),
+          ContractInstance(pkgName, i"'-variant-v1-':M:T", v1Arg),
         )
       ) { case Left(SError.SErrorDamlException(IE.Upgrade(e))) =>
         e shouldBe IE.Upgrade.DowngradeFailed(t"'-variant-v2-':M:D", tag)
@@ -632,7 +629,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       )
 
       inside(
-        go(e"'-enum-v2-':M:do_fetch", ContractInstance(pkgName, pkg1Ver, i"'-enum-v1-':M:T", v1Arg))
+        go(e"'-enum-v2-':M:do_fetch", ContractInstance(pkgName, i"'-enum-v1-':M:T", v1Arg))
       ) { case Left(SError.SErrorDamlException(IE.Upgrade(e))) =>
         e shouldBe IE.Upgrade.DowngradeFailed(t"'-enum-v2-':M:D", black)
       }
@@ -649,7 +646,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                  x2: Unit <- '-pkg3-':M:do_fetch cid
                in upure @Unit ()
           """,
-        ContractInstance(pkgName, pkg1Ver, i"'-pkg1-':M:T", v1_base),
+        ContractInstance(pkgName, i"'-pkg1-':M:T", v1_base),
       )
       res shouldBe a[Right[_, _]]
     }
@@ -735,7 +732,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                  x2: Unit <- '-pkg3-':M:do_fetch cid
                in upure @Unit ()
           """,
-        ContractInstance(pkgName, pkg1Ver, i"'-pkg1-':M:T", v1_base),
+        ContractInstance(pkgName, i"'-pkg1-':M:T", v1_base),
       )
       res shouldBe a[Right[_, _]]
     }
