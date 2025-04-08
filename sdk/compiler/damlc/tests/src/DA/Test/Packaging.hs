@@ -48,11 +48,12 @@ data Tools = Tools -- and places
 
 tests :: SdkVersioned => Tools -> TestTree
 tests Tools{damlc} = testGroup "Packaging" $
-    [ testCaseSteps "five layer-deep expression-only dependency tree" $ \_ -> withTempDir $ \tmpDir -> do
+    [ testCaseSteps "Five layer-deep expression-only dependency tree" $ \step -> withTempDir $ \tmpDir -> do
         let project :: Integer -> String
             project i = tmpDir </> ("layer" <> show i)
         let mkAndAssertLayer :: Integer -> [String] -> IO ()
             mkAndAssertLayer i lines = do
+              step $ "Generating source for layer" <> show i
               createDirectoryIfMissing True (project i)
               writeFile (project i </> "daml.yaml") $ unlines
                   [ "sdk-version: " <> sdkVersion
@@ -69,10 +70,13 @@ tests Tools{damlc} = testGroup "Packaging" $
                   ]
 
               writeFile (project i </> ("Layer" <> show i <> ".daml")) $ unlines $ ("module Layer" <> show i <> " where") : lines
+
+              step $ "Building DAR for layer" <> show i
               buildProject (project i)
 
               output <- inspectDar (project i) (".daml/dist/layer" <> show i <> "-1.0.0.dar")
-              forM_ [1..i-1] $ \depI ->
+              forM_ [1..i-1] $ \depI -> do
+                step $ "Checking that DAR for layer" <> show i <> " depends on DALF for layer" <> show depI
                 assertInfixOf ("\nlayer" <> show depI) output
 
         mkAndAssertLayer 1
