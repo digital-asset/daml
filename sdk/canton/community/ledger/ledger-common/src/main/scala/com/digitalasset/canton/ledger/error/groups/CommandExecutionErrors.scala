@@ -888,10 +888,10 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     @Explanation("Errors that occur when using cyptography primitives")
     object CryptoError extends ErrorGroup {
       @Explanation(
-        "An optional contract field with a value of Some may not be dropped during downgrading"
+        "Hex string is malformed"
       )
       @Resolution(
-        "There is data that is newer than the implementation using it, and thus is not compatible. Ensure new data (i.e. those with additional fields as `Some`) is only used with new/compatible choices"
+        "Ensure string is non-empty, of even length and only contains hex characters (i.e. matches [0-9a-fA-F]+)"
       )
       object MalformedByteEncoding
         extends ErrorCode(
@@ -913,10 +913,10 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         }
       }
       @Explanation(
-        "TODO"
+        "Public key hex encoding is malformed"
       )
       @Resolution(
-        "TODO"
+        "Ensure public key is a DER encoded Secp256k1 public key"
       )
       object MalformedKey
         extends ErrorCode(
@@ -939,10 +939,10 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         }
       }
       @Explanation(
-        "TODO"
+        "Signature hex encoding is malformed"
       )
       @Resolution(
-        "TODO"
+        "Ensure signature is a DER encoded Keccak256 digest"
       )
       object MalformedSignature
         extends ErrorCode(
