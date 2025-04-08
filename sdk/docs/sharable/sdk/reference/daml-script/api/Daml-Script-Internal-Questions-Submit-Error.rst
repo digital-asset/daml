@@ -114,6 +114,23 @@ Data Types
          - `AnyContractKey <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_
          -
 
+  .. _constr-daml-script-internal-questions-submit-error-unresolvedpackagename-661:
+
+  `UnresolvedPackageName <constr-daml-script-internal-questions-submit-error-unresolvedpackagename-661_>`_
+
+    No vetted package with given package name could be found
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - packageName
+         - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+
   .. _constr-daml-script-internal-questions-submit-error-authorizationerror-69757:
 
   `AuthorizationError <constr-daml-script-internal-questions-submit-error-authorizationerror-69757_>`_
@@ -563,6 +580,8 @@ Data Types
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"localVerdictLockedKeys\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ \[`AnyContractKey <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_\]
 
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"packageName\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"requiredInterfaceId\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `TemplateTypeRep <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"requiringInterfaceId\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `TemplateTypeRep <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
@@ -624,6 +643,8 @@ Data Types
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"localVerdictLockedContracts\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ \[:ref:`AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399>`\]
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"localVerdictLockedKeys\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ \[`AnyContractKey <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_\]
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"packageName\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"requiredInterfaceId\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `TemplateTypeRep <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
 

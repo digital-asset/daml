@@ -126,6 +126,11 @@ final class Conversions(
                 //     archived or what not are turned into more specific
                 //     errors so we never produce ContractNotFound
                 builder.setCrash(s"contract ${cid.coid} not found")
+              case UnresolvedPackageName(packageName) =>
+                builder.setUnresolvedPackageName(
+                  proto.ScriptError.UnresolvedPackageName.newBuilder
+                    .setPackageName(packageName)
+                )
               case TemplatePreconditionViolated(tid, optLoc, arg) =>
                 val uepvBuilder = proto.ScriptError.TemplatePreconditionViolated.newBuilder
                 optLoc.map(convertLocation).foreach(uepvBuilder.setLocation)

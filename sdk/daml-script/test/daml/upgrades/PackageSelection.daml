@@ -5,6 +5,9 @@ module PackageSelection (main) where
 
 import UpgradeTestLib
 import qualified V1.PackageSelection as V1
+import V1.Interface
+import V1.InterfaceInstance
+import V1.Client
 
 {- PACKAGE
 name: package-selection
@@ -26,6 +29,8 @@ contents: |
 main : TestTree
 main = tests
   [ brokenOnIDELedger ("Chooses the v1 contract if v2 is unvetted and package id is omitted.", packageSelectionChoosesVettedPackages)
+  , brokenOnIDELedger ("Fails when exercising an interface choice on a contract whose creation package is missing", exercisingInterfaceWithMissingInstanceFails)
+  , brokenOnIDELedger ("Fails when trying to fetch a contract by interface whose creation package is missing", fetchingInterfaceWithMissingImplementationFails)
   ]
 
 packageSelectionChoosesVettedPackages : Test
@@ -39,3 +44,108 @@ packageSelectionChoosesVettedPackages = test $
       Right cid -> pure ()
       _ -> assertFail $ "Expected success but got " <> show res
 
+{- PACKAGE
+name: interface-def
+versions: 1
+-}
+
+{- MODULE
+package: interface-def
+contents: |
+  module Interface where
+
+  data IV = IV {}
+
+  interface I where
+    viewtype IV
+
+    iChoice : Text
+    nonconsuming choice IChoice : Text
+      with
+        ctl : Party
+      controller ctl
+      do
+        pure $ iChoice this
+-}
+
+{- PACKAGE
+name: interface-instance
+versions: 1
+depends: interface-def-1.0.0
+-}
+
+{- MODULE
+package: interface-instance
+contents: |
+  module InterfaceInstance where
+
+  import Interface
+
+  template InterfaceInstance with
+      party : Party
+    where
+    signatory party
+
+    interface instance I for InterfaceInstance where
+      view = IV {}
+      iChoice = "V1"
+-}
+
+{- PACKAGE
+name: client
+versions: 1
+depends: interface-def-1.0.0
+-}
+
+{- MODULE
+package: client
+contents: |
+  module Client where
+
+  import Interface
+
+  template Client
+    with
+      party: Party
+    where
+      signatory party
+
+      nonconsuming choice ExerciseInterfaceChoice : Text
+        with
+          iid: ContractId I
+        controller party
+        do
+          exercise iid IChoice with ctl = party
+
+      nonconsuming choice FetchInterface : IV
+        with
+          iid: ContractId I
+        controller party
+          do
+            i <- fetch iid
+            pure (view i)
+-}
+
+exercisingInterfaceWithMissingInstanceFails : Test
+exercisingInterfaceWithMissingInstanceFails = test $ do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd InterfaceInstance with party = a
+  let iid = toInterfaceContractId @I cid
+  clientId <- a `submit` createCmd Client with party = a
+  withUnvettedPackage "interface-instance" "1.0.0" $ do
+    res <- a `trySubmit` exerciseCmd clientId ExerciseInterfaceChoice with iid = iid
+    case res of
+          Left (UnresolvedPackageName "interface-instance") -> pure ()
+          Right _ -> assertFail $ "Expected UnresolvedPackageName but got success"
+
+fetchingInterfaceWithMissingImplementationFails : Test
+fetchingInterfaceWithMissingImplementationFails = test $ do
+  a <- allocatePartyOn "alice" participant0
+  cid <- a `submit` createCmd InterfaceInstance with party = a
+  let iid = toInterfaceContractId @I cid
+  clientId <- a `submit` createCmd Client with party = a
+  withUnvettedPackage "interface-instance" "1.0.0" $ do
+    res <- a `trySubmit` exerciseCmd clientId ExerciseInterfaceChoice with iid = iid
+    case res of
+      Left (UnresolvedPackageName "interface-instance") -> pure ()
+      Right _ -> assertFail $ "Expected UnresolvedPackageName but got success"
