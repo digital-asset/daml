@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 import io.grpc.StatusRuntimeException
 
 object ParticipantOffsetValidator {

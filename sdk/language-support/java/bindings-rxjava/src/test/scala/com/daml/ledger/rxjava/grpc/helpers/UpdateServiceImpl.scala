@@ -31,6 +31,8 @@ final class UpdateServiceImpl(ledgerContent: Observable[LedgerItem])
   val lastTransactionTreeByIdRequest = new AtomicReference[GetTransactionByIdRequest]()
   val lastTransactionByOffsetRequest = new AtomicReference[GetTransactionByOffsetRequest]()
   val lastTransactionByIdRequest = new AtomicReference[GetTransactionByIdRequest]()
+  val lastUpdateByOffset = new AtomicReference[GetUpdateByOffsetRequest]()
+  val lastUpdateById = new AtomicReference[GetUpdateByIdRequest]()
 
   override def getUpdates(
       request: GetUpdatesRequest,
@@ -100,6 +102,20 @@ final class UpdateServiceImpl(ledgerContent: Observable[LedgerItem])
     lastTransactionByIdRequest.set(request)
     Future.successful(
       new GetTransactionResponse(None)
+    ) // just a mock, not intended for consumption
+  }
+
+  override def getUpdateByOffset(request: GetUpdateByOffsetRequest): Future[GetUpdateResponse] = {
+    lastUpdateByOffset.set(request)
+    Future.successful(
+      new GetUpdateResponse(GetUpdateResponse.Update.Empty)
+    ) // just a mock, not intended for consumption
+  }
+
+  override def getUpdateById(request: GetUpdateByIdRequest): Future[GetUpdateResponse] = {
+    lastUpdateById.set(request)
+    Future.successful(
+      new GetUpdateResponse(GetUpdateResponse.Update.Empty)
     ) // just a mock, not intended for consumption
   }
 }

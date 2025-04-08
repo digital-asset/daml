@@ -94,6 +94,10 @@ object GrpcErrorParser {
               None,
             )
         }
+      case "UNRESOLVED_PACKAGE_NAME" =>
+        caseErr { case Seq((ErrorResource.PackageName, pkgName)) =>
+          SubmitError.UnresolvedPackageName(PackageName.assertFromString(pkgName))
+        }
       case "CONTRACT_KEY_NOT_FOUND" =>
         caseErr {
           case Seq(
@@ -329,19 +333,29 @@ object GrpcErrorParser {
         // Fields added automatically by canton, and not by the user
         // Removed in GrpcLedgerClient to be consistent with IDELedgerClient, which will not add these fields
         val cantonFields =
-          Seq("commands", "definite_answer", "tid", "category", "participant", "error_id")
+          Seq(
+            "commands",
+            "definite_answer",
+            "tid",
+            "category",
+            "participant",
+            "error_id",
+            "exercise_trace",
+          )
         val oStatus =
           for {
             errorInfo <- oErrorInfoDetail
             errorId <- errorInfo.metadata.get("error_id")
             category <- errorInfo.metadata.get("category").map(_.toInt)
             metadata = errorInfo.metadata.toMap.removedAll(cantonFields)
+            trace = errorInfo.metadata.get("exercise_trace")
             // Drop prefix so we give back the exact message in the throwing daml code
             messageWithoutPrefix <- "^.+?error category \\d+\\): (.*)$".r
               .findFirstMatchIn(message)
               .map(_.group(1))
           } yield SubmitError.FailureStatusError(
-            IE.FailureStatus(errorId, category, messageWithoutPrefix, metadata)
+            IE.FailureStatus(errorId, category, messageWithoutPrefix, metadata),
+            trace,
           )
         oStatus.getOrElse(new SubmitError.TruncatedError("FailureStatusError", message))
       }

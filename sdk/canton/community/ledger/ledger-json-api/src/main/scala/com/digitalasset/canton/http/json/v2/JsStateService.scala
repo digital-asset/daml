@@ -110,7 +110,6 @@ class JsStateService(
     NotUsed,
   ] =
     req => {
-      implicit val token = caller.token()
       implicit val tc = req.traceContext
       prepareSingleWsStream(
         stateServiceClient(caller.token())(TraceContext.empty).getActiveContracts,
@@ -260,4 +259,5 @@ object JsStateServiceCodecs {
 
   implicit val participantPermissionSchema: Schema[state_service.ParticipantPermission] =
     Schema.oneOfWrapped
+
 }

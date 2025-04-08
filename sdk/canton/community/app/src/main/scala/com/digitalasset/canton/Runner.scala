@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton
 
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands
 import com.digitalasset.canton.console.{HeadlessConsole, InteractiveConsole}
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.environment.Environment
@@ -13,7 +14,7 @@ import java.io.{File, OutputStream, StringWriter}
 import scala.io.Source
 import scala.util.control.NonFatal
 
-/** Result for exposing the process exit code. All logging is expected to take place inside of the
+/** Result for exposing the process exit code. All logging is expected to take place inside the
   * runner.
   */
 trait Runner extends NamedLogging {
@@ -25,11 +26,30 @@ class ServerRunner(
     bootstrapScript: Option[CantonScript] = None,
     override val loggerFactory: NamedLoggerFactory,
     exitAfterBootstrap: Boolean = false,
+    dars: Seq[String] = Seq.empty,
 ) extends Runner
     with NoTracing {
 
   def run(environment: Environment): Unit =
     try {
+      // TODO(#24954): Convert to using declarative api, when it becomes available
+      def uploadDar(darPath: String): Unit = {
+        val consoleEnvironment = environment.createConsole()
+        consoleEnvironment.participants.local
+          .flatMap(_.underlying)
+          .foreach(p =>
+            consoleEnvironment.run {
+              consoleEnvironment.grpcLedgerCommandRunner
+                .runCommand(
+                  "upload-dar",
+                  LedgerApiCommands.PackageManagementService.UploadDarFile(darPath),
+                  p.config.clientLedgerApi,
+                  Some(p.adminToken.secret),
+                )
+            }
+          )
+      }
+
       def start(): Unit =
         environment
           .startAll() match {
@@ -49,6 +69,7 @@ class ServerRunner(
         }
 
       bootstrapScript.fold(start())(startWithBootstrap)
+      dars.foreach(uploadDar)
       if (exitAfterBootstrap) sys.exit(0)
     } catch {
       case ex: Throwable =>
@@ -61,13 +82,14 @@ class ServerRunner(
 class ConsoleInteractiveRunner(
     noTty: Boolean = false,
     bootstrapScript: Option[CantonScript],
+    postScriptCallback: => Unit,
     override val loggerFactory: NamedLoggerFactory,
 ) extends Runner {
   def run(environment: Environment): Unit = {
     val success =
       try {
         val consoleEnvironment = environment.createConsole()
-        InteractiveConsole(consoleEnvironment, noTty, bootstrapScript, logger)
+        InteractiveConsole(consoleEnvironment, noTty, bootstrapScript, logger, postScriptCallback)
       } catch {
         case NonFatal(_) => false
       }

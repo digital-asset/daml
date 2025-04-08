@@ -165,7 +165,7 @@ class ACSReader(
           globalIdQueriesLimiter.execute(
             dispatcher.executeSql(metrics.index.db.getActiveContractIdsForCreated) { connection =>
               val ids =
-                eventStorageBackend.transactionStreamingQueries
+                eventStorageBackend.updateStreamingQueries
                   .fetchIdsOfCreateEventsForStakeholder(
                     stakeholderO = filter.party,
                     templateIdO = filter.templateId,
@@ -335,7 +335,7 @@ class ACSReader(
               )(connection)
             )
             logger.debug(
-              s"assignEventBatch returned ${ids.size}/${result.size} ${ids.lastOption
+              s"unassignEventBatch returned ${ids.size}/${result.size} ${ids.lastOption
                   .map(last => s"until $last")
                   .getOrElse("")}"
             )
@@ -390,11 +390,12 @@ class ACSReader(
             .executeSql(metrics.index.db.updatesAcsDeltaStream.fetchEventCreatePayloads) {
               implicit connection =>
                 val result = withValidatedActiveAt(
-                  eventStorageBackend.transactionStreamingQueries
-                    .fetchEventPayloadsAcsDelta(EventPayloadSourceForUpdatesAcsDelta.Create)(
-                      eventSequentialIds = ids,
-                      allFilterParties = allFilterParties,
-                    )(connection)
+                  eventStorageBackend.fetchEventPayloadsAcsDelta(
+                    EventPayloadSourceForUpdatesAcsDelta.Create
+                  )(
+                    eventSequentialIds = ids,
+                    requestingParties = allFilterParties,
+                  )(connection)
                 )
                 logger.debug(
                   s"fetchEventPayloads for Create returned ${ids.size}/${result.size} ${ids.lastOption
@@ -672,7 +673,9 @@ class ACSReader(
             contractEntry = GetActiveContractsResponse.ContractEntry.IncompleteUnassigned(
               IncompleteUnassigned(
                 createdEvent = Some(createdEvent),
-                unassignedEvent = Some(UpdateReader.toUnassignedEvent(rawUnassignEntry.event)),
+                unassignedEvent = Some(
+                  UpdateReader.toUnassignedEvent(rawUnassignEntry.offset, rawUnassignEntry.event)
+                ),
               )
             ),
           )

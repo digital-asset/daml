@@ -109,14 +109,14 @@ class LedgerApiStore(
       parameterStorageBackend.ledgerEnd
     )
 
-  def topologyEventPublishedOnRecordTime(
+  def topologyEventOffsetPublishedOnRecordTime(
       synchronizerId: SynchronizerId,
       recordTime: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): Future[Boolean] =
-    executeSql(metrics.index.db.getTopologyEventPublishedOnRecordTime)(
-      eventStorageBackend.topologyEventPublishedOnRecordTime(synchronizerId, recordTime)
+  ): Future[Option[Offset]] =
+    executeSql(metrics.index.db.getTopologyEventOffsetPublishedOnRecordTime)(
+      eventStorageBackend.topologyEventOffsetPublishedOnRecordTime(synchronizerId, recordTime)
     )
 
   def firstSynchronizerOffsetAfterOrAt(

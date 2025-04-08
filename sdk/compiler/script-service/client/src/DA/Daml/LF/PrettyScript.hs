@@ -278,6 +278,22 @@ prettyScriptErrorError lvl (Just err) =  do
     ScriptErrorErrorCrash reason -> pure $ text "CRASH:" <-> ltext reason
     ScriptErrorErrorUserError reason -> pure $ text "Aborted: " <-> ltext reason
     ScriptErrorErrorUnhandledException exc -> pure $ text "Unhandled exception: " <-> prettyValue' lvl True 0 world exc
+    ScriptErrorErrorFailureStatusError ScriptError_FailureStatusError{..} ->
+      pure $ vcat $
+        [ "Failed with status:"
+            <-> ltext scriptError_FailureStatusErrorErrorId
+            <> ":"
+            <-> ltext scriptError_FailureStatusErrorMessage
+        ] ++ concat
+        [ [ "Including the following metadata:"
+          , nest 2 $
+              vcat $ flip mapV scriptError_FailureStatusErrorMetadata $ \ScriptError_FailureStatusError_MetadataEntry{..} ->
+                label_ (TL.unpack scriptError_FailureStatusError_MetadataEntryKey <> ":") $ ltext scriptError_FailureStatusError_MetadataEntryValue
+          ]
+        | not $ null scriptError_FailureStatusErrorMetadata
+        ] ++
+        [ "Using Canton Error Category" <-> ltext scriptError_FailureStatusErrorCategoryName
+        ]
     ScriptErrorErrorTemplatePrecondViolated ScriptError_TemplatePreconditionViolated{..} -> do
       pure $
         "Template precondition violated in:"
@@ -318,6 +334,11 @@ prettyScriptErrorError lvl (Just err) =  do
           $ prettyMay "<missing key>"
               (prettyValue' lvl False 0 world)
               scriptError_CreateEmptyContractKeyMaintainersKey
+        ]
+    ScriptErrorErrorUnresolvedPackageName ScriptError_UnresolvedPackageName{..} ->
+      pure $ vcat
+        [ "Cound not find any vetted package with given package name."
+        , label_ "Package name:" $ ltext scriptError_UnresolvedPackageNamePackageName
         ]
     ScriptErrorErrorFetchEmptyContractKeyMaintainers ScriptError_FetchEmptyContractKeyMaintainers{..} ->
       pure $ vcat

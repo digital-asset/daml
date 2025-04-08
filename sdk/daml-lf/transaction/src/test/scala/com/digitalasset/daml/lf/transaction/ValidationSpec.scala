@@ -5,14 +5,7 @@ package com.digitalasset.daml.lf
 package transaction
 
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{
-  Party,
-  Identifier,
-  PackageName,
-  PackageVersion,
-  TypeConName,
-  ChoiceName,
-}
+import com.digitalasset.daml.lf.data.Ref.{Party, Identifier, PackageName, TypeConName, ChoiceName}
 import com.digitalasset.daml.lf.value.{Value => V}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -35,8 +28,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   // every tweak under test is hit by at least one pre-tweaked node.
   //
   // The testcases are organised so failure is detected and reported for a named tweak.
-
-  import Ordering.Implicits._
 
   private class Tweak[X](val run: X => List[X])
 
@@ -63,7 +54,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val samBool2 = false
 
   private val somePkgName = PackageName.assertFromString("-default-package-name-")
-  private val somePkgVer = Some(PackageVersion.assertFromString("1.0.0"))
 
   private val samContractId1 = V.ContractId.V1(crypto.Hash.hashPrivateKey("cid1"))
   private val samContractId2 = V.ContractId.V1(crypto.Hash.hashPrivateKey("cid2"))
@@ -103,7 +93,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     } yield Node.Create(
       coid = samContractId1,
       packageName = somePkgName,
-      packageVersion = somePkgVer.filter(_ => version >= TransactionVersion.minPackageVersion),
       templateId = samTemplateId1,
       arg = samValue1,
       signatories = samParties1,
@@ -285,11 +274,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       tweakOptKeyMaintainers.run(nc.keyOpt).map { x => nc.copy(keyOpt = x) }
     }
   private val tweakCreateVersion = Tweak.single[Node] { case nc: Node.Create =>
-    val version = changeVersion(nc.version)
-    val pkgVer = nc.packageVersion
-      .orElse(somePkgVer)
-      .filter(_ => version >= TransactionVersion.minPackageVersion)
-    nc.copy(version = version, packageVersion = pkgVer)
+    nc.copy(version = changeVersion(nc.version))
   }
 
   private val sigCreateTweaks =

@@ -16,7 +16,7 @@ import scala.concurrent.Future
   * Note: This AuthService is meant to be used for testing purposes only.
   */
 final class AuthServiceStatic(claims: PartialFunction[String, ClaimSet]) extends AuthService {
-  override def decodeMetadata(headers: Metadata)(implicit
+  override def decodeMetadata(headers: Metadata, serviceName: String)(implicit
       traceContext: TraceContext
   ): Future[ClaimSet] = {
     if (headers.containsKey(AUTHORIZATION_KEY)) {

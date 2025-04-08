@@ -5,7 +5,6 @@ package com.digitalasset.canton.ledger.error
 
 import com.digitalasset.base.error.{
   ContextualizedDamlError,
-  ContextualizedErrorLogger,
   ErrorCategory,
   ErrorCode,
   ErrorGroup,
@@ -13,6 +12,7 @@ import com.digitalasset.base.error.{
   Resolution,
 }
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 import com.digitalasset.daml.lf.archive.Error as LfArchiveError
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Error

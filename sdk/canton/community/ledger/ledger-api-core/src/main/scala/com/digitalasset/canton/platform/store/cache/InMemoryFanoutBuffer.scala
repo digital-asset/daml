@@ -8,6 +8,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.*
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.tracing.TraceContext
@@ -21,9 +22,9 @@ import scala.concurrent.blocking
   * This buffer stores the last ingested `maxBufferSize` accepted and rejected submission updates as
   * [[com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate]] and allows bypassing
   * IndexDB persistence fetches for recent updates for:
-  *   - flat and transaction tree streams
+  *   - update streams
   *   - command completion streams
-  *   - by-event-id and by-transaction-id flat and transaction tree lookups
+  *   - by-offset and by-update-id update lookups
   *
   * @param maxBufferSize
   *   The maximum buffer size.
@@ -42,7 +43,7 @@ class InMemoryFanoutBuffer(
   @volatile private[cache] var _bufferLog =
     Vector.empty[(Offset, TransactionLogUpdate)]
   @volatile private[cache] var _lookupMap =
-    Map.empty[UpdateId, TransactionLogUpdate.TransactionAccepted]
+    Map.empty[UpdateId, TransactionLogUpdate]
 
   private val bufferMetrics = metrics.services.index.inMemoryFanoutBuffer
   private val pushTimer = bufferMetrics.push
@@ -123,13 +124,41 @@ class InMemoryFanoutBuffer(
   }
 
   /** Lookup the accepted transaction update by transaction id. */
-  def lookup(
+  def lookupTransaction(
       updateId: UpdateId
   ): Option[TransactionLogUpdate.TransactionAccepted] =
-    _lookupMap.get(updateId)
+    _lookupMap.get(updateId).collect { case tx: TransactionLogUpdate.TransactionAccepted => tx }
 
-  /** Lookup the accepted transaction update by transaction offset. */
+  /** Lookup the accepted transaction log update by the lookup key. */
   def lookup(
+      lookupKey: LookupKey
+  ): Option[TransactionLogUpdate] = lookupKey match {
+    case LookupKey.UpdateId(updateId) => lookup(updateId)
+    case LookupKey.Offset(offset) => lookup(offset)
+  }
+
+  /** Lookup the accepted transaction log update by update id. */
+  private def lookup(
+      updateId: UpdateId
+  ): Option[TransactionLogUpdate] = _lookupMap.get(updateId)
+
+  /** Lookup the accepted transaction log update by update offset. */
+  private def lookup(
+      offset: Offset
+  ): Option[TransactionLogUpdate] = {
+    val vectorSnapshot = _bufferLog
+
+    val searchResult = vectorSnapshot.view.map(_._1).search(offset)
+
+    searchResult match {
+      case Found(idx) => Some(vectorSnapshot(idx)._2)
+      case _ => None
+    }
+  }
+
+  // TODO(#23504) remove
+  /** Lookup the accepted transaction update by transaction offset. */
+  def lookupTransaction(
       offset: Offset
   ): Option[TransactionLogUpdate.TransactionAccepted] = {
     val vectorSnapshot = _bufferLog
@@ -193,8 +222,8 @@ class InMemoryFanoutBuffer(
 
   private def dropOldest(dropCount: Int): Unit = blocking(synchronized {
     val (evicted, remainingBufferLog) = _bufferLog.splitAt(dropCount)
-    val lookupKeysToEvict =
-      evicted.view.map(_._2).flatMap(extractEntryFromMap).map(_._2.updateId)
+    val lookupKeysToEvict: View[UpdateId] =
+      evicted.view.map(_._2).flatMap(extractEntryFromMap).map(_._1)
 
     _bufferLog = remainingBufferLog
     _lookupMap = _lookupMap -- lookupKeysToEvict
@@ -202,12 +231,17 @@ class InMemoryFanoutBuffer(
 
   private def extractEntryFromMap(
       transactionLogUpdate: TransactionLogUpdate
-  ): Option[(UpdateId, TransactionLogUpdate.TransactionAccepted)] =
+  ): Option[(UpdateId, TransactionLogUpdate)] =
     transactionLogUpdate match {
       case txAccepted: TransactionLogUpdate.TransactionAccepted =>
         Some(txAccepted.updateId -> txAccepted)
-      case _ => None
+      case reassignment: TransactionLogUpdate.ReassignmentAccepted =>
+        Some(reassignment.updateId -> reassignment)
+      case topologyTx: TransactionLogUpdate.TopologyTransactionEffective =>
+        Some(topologyTx.updateId -> topologyTx)
+      case _: TransactionLogUpdate.TransactionRejected => None
     }
+
 }
 
 private[platform] object InMemoryFanoutBuffer {

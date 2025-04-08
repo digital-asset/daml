@@ -45,7 +45,7 @@ class UniqueKeyViolationException(message: String) extends RuntimeException(mess
 
 class InMemorySequencerStore(
     protocolVersion: ProtocolVersion,
-    sequencerMember: Member,
+    override val sequencerMember: Member,
     override val blockSequencerMode: Boolean,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit

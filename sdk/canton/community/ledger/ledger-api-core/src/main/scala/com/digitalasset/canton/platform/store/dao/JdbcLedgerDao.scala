@@ -366,11 +366,38 @@ private class JdbcLedgerDao(
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
+  private val reassignmentPointwiseReader = new ReassignmentPointwiseReader(
+    dbDispatcher = dbDispatcher,
+    eventStorageBackend = readStorageBackend.eventStorageBackend,
+    metrics = metrics,
+    lfValueTranslation = translation,
+    loggerFactory = loggerFactory,
+  )(queryExecutionContext)
+
+  private val topologyTransactionPointwiseReader = new TopologyTransactionPointwiseReader(
+    dbDispatcher = dbDispatcher,
+    eventStorageBackend = readStorageBackend.eventStorageBackend,
+    metrics = metrics,
+    lfValueTranslation = translation,
+    loggerFactory = loggerFactory,
+  )(queryExecutionContext)
+
   private val transactionPointwiseReader = new TransactionPointwiseReader(
     dbDispatcher = dbDispatcher,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     metrics = metrics,
     lfValueTranslation = translation,
+    loggerFactory = loggerFactory,
+  )(queryExecutionContext)
+
+  private val updatePointwiseReader = new UpdatePointwiseReader(
+    dbDispatcher = dbDispatcher,
+    eventStorageBackend = readStorageBackend.eventStorageBackend,
+    parameterStorageBackend = parameterStorageBackend,
+    metrics = metrics,
+    transactionPointwiseReader = transactionPointwiseReader,
+    reassignmentPointwiseReader = reassignmentPointwiseReader,
+    topologyTransactionPointwiseReader = topologyTransactionPointwiseReader,
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
@@ -389,8 +416,8 @@ private class JdbcLedgerDao(
       eventStorageBackend = readStorageBackend.eventStorageBackend,
       metrics = metrics,
       updatesStreamReader = updatesStreamReader,
+      updatePointwiseReader = updatePointwiseReader,
       treeTransactionsStreamReader = treeTransactionsStreamReader,
-      transactionPointwiseReader = transactionPointwiseReader,
       treeTransactionPointwiseReader = treeTransactionPointwiseReader,
       acsReader = acsReader,
     )(queryExecutionContext)

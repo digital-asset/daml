@@ -4,6 +4,8 @@
 package com.digitalasset.canton.protocol
 
 import com.digitalasset.base.error.{
+  AlarmErrorCode,
+  BaseAlarm,
   ErrorCategory,
   ErrorClass,
   ErrorCode,
@@ -13,7 +15,8 @@ import com.digitalasset.base.error.{
   Resolution,
 }
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LocalRejectionGroup
-import com.digitalasset.canton.error.{AlarmErrorCode, BaseAlarm, TransactionError}
+import com.digitalasset.canton.error.TransactionError
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.{LocalReject, TransactionRejection}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -48,6 +51,11 @@ sealed trait LocalRejectError
     with Serializable {
 
   override def reason(): Status = rpcStatusWithoutLoggingContext()
+
+  override def logRejection(extra: Map[String, String] = Map())(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Unit =
+    contextualizedErrorLogger.logError(this, extra)
 
   def toLocalReject(protocolVersion: ProtocolVersion): LocalReject =
     LocalReject.create(reason(), isMalformed = false, protocolVersion)
@@ -140,7 +148,7 @@ object LocalRejectError extends LocalRejectionGroup {
           extends LocalRejectErrorImpl(
             _causePrefix = s"Rejected transaction is referring to locked contracts ",
             _resourcesType = Some(ErrorResource.ContractId),
-          )
+          ) {}
     }
 
     @Explanation(

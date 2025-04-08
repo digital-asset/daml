@@ -19,9 +19,7 @@ module DA.Internal.LF
 
   , Time
 
-#ifdef DAML_TEXTMAP
   , TextMap
-#endif
 
   , Map
 
@@ -97,6 +95,7 @@ partyFromText : Text -> Optional Party
 partyFromText = primitive @"BETextToParty"
 
 -- | The `Date` type represents a date, for example `date 2007 Apr 5`.
+-- The bounds for Date are 0001-01-01 and 9999-12-31.
 data Date =
   Date Opaque
 instance Show Date where show = primitive @"BEToText"
@@ -105,18 +104,18 @@ instance Ord Date where (<=) = primitive @"BELessEq"
 
 -- | The `Time` type represents a specific datetime in UTC,
 -- for example `time (date 2007 Apr 5) 14 30 05`.
+-- The bounds for Time are 0001-01-01T00:00:00.000000Z and
+-- 9999-12-31T23:59:59.999999Z.
 data Time =
   Time Opaque
 instance Show Time where show = primitive @"BEToText"
 instance Eq Time where (==) = primitive @"BEEqual"
 instance Ord Time where (<=) = primitive @"BELessEq"
 
-#ifdef DAML_TEXTMAP
 -- | The `TextMap a` type represents an associative array from keys of type
 -- `Text` to values of type `a`.
 data TextMap a =
   TextMap Opaque
-#endif
 
 -- | The `Map a b` type represents an associative array from keys of type `a`
 -- to values of type `b`. It uses the built-in equality for keys. Import

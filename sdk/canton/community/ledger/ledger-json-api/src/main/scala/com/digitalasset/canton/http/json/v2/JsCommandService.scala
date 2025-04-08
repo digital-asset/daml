@@ -16,7 +16,7 @@ import com.daml.ledger.api.v2.{
   command_submission_service,
   commands,
   completion,
-  reassignment_command,
+  reassignment_commands,
 }
 import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput, v2Endpoint}
@@ -120,7 +120,6 @@ class JsCommandService(
   def submitAndWait(callerContext: CallerContext): TracedInput[JsCommands] => Future[
     Either[JsCantonError, SubmitAndWaitResponse]
   ] = req => {
-    implicit val token: Option[String] = callerContext.token()
     implicit val tc: TraceContext = req.traceContext
     for {
       commands <- protocolConverters.Commands.fromJson(req.in)
@@ -137,7 +136,6 @@ class JsCommandService(
   ): TracedInput[JsCommands] => Future[
     Either[JsCantonError, JsSubmitAndWaitForTransactionTreeResponse]
   ] = req => {
-    implicit val token: Option[String] = callerContext.token()
     implicit val tc: TraceContext = req.traceContext
     for {
 
@@ -156,7 +154,6 @@ class JsCommandService(
   ): TracedInput[JsSubmitAndWaitForTransactionRequest] => Future[
     Either[JsCantonError, JsSubmitAndWaitForTransactionResponse]
   ] = req => {
-    implicit val token: Option[String] = callerContext.token()
     implicit val tc: TraceContext = req.traceContext
     for {
       submitAndWaitRequest <- protocolConverters.SubmitAndWaitForTransactionRequest.fromJson(req.in)
@@ -170,7 +167,6 @@ class JsCommandService(
   private def submitAsync(callerContext: CallerContext): TracedInput[JsCommands] => Future[
     Either[JsCantonError, command_submission_service.SubmitResponse]
   ] = req => {
-    implicit val token: Option[String] = callerContext.token()
     implicit val tc: TraceContext = req.traceContext
     for {
       commands <- protocolConverters.Commands.fromJson(req.in)
@@ -358,21 +354,24 @@ object JsCommandServiceCodecs {
   implicit val commandCompletionRW: Codec[command_completion_service.CompletionStreamRequest] =
     deriveCodec
 
-  implicit val reassignmentCommandRW: Codec[reassignment_command.ReassignmentCommand] = deriveCodec
-
-  implicit val reassignmentCommandCommandRW
-      : Codec[reassignment_command.ReassignmentCommand.Command] = deriveCodec
-
-  implicit val reassignmentUnassignCommandRW: Codec[reassignment_command.UnassignCommand] =
+  implicit val reassignmentCommandsRW: Codec[reassignment_commands.ReassignmentCommands] =
     deriveCodec
 
-  implicit val reassignmentAssignCommandRW: Codec[reassignment_command.AssignCommand] = deriveCodec
+  implicit val reassignmentCommandRW: Codec[reassignment_commands.ReassignmentCommand] = deriveCodec
+
+  implicit val reassignmentCommandCommandRW
+      : Codec[reassignment_commands.ReassignmentCommand.Command] = deriveCodec
+
+  implicit val reassignmentUnassignCommandRW: Codec[reassignment_commands.UnassignCommand] =
+    deriveCodec
+
+  implicit val reassignmentAssignCommandRW: Codec[reassignment_commands.AssignCommand] = deriveCodec
 
   implicit val reassignmentCommandUnassignCommandRW
-      : Codec[reassignment_command.ReassignmentCommand.Command.UnassignCommand] = deriveCodec
+      : Codec[reassignment_commands.ReassignmentCommand.Command.UnassignCommand] = deriveCodec
 
   implicit val reassignmentCommandAssignCommandRW
-      : Codec[reassignment_command.ReassignmentCommand.Command.AssignCommand] = deriveCodec
+      : Codec[reassignment_commands.ReassignmentCommand.Command.AssignCommand] = deriveCodec
 
   implicit val submitReassignmentRequestRW: Codec[
     command_submission_service.SubmitReassignmentRequest
@@ -403,7 +402,7 @@ object JsCommandServiceCodecs {
 
   // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
   implicit val reassignmentCommandCommandSchema
-      : Schema[reassignment_command.ReassignmentCommand.Command] = Schema.oneOfWrapped
+      : Schema[reassignment_commands.ReassignmentCommand.Command] = Schema.oneOfWrapped
 
   implicit val deduplicationPeriodSchema: Schema[DeduplicationPeriod] =
     Schema.oneOfWrapped

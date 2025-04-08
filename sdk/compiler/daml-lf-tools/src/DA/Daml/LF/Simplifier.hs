@@ -160,6 +160,7 @@ safetyStep = \case
       BETextToCodePoints -> Safe 1
       BECoerceContractId -> Safe 1
       BETypeRepTyConName -> Safe 1
+      BEFailWithStatus -> Safe 3 -- expects 4, 3-safe
 
   ERecConF _ fs -> minimum (Safe 0 : map snd fs)
   ERecProjF _ _ s -> s <> Safe 0
@@ -203,7 +204,6 @@ safetyStep = \case
   EViewInterfaceF _ _ -> Unsafe
   EChoiceControllerF _ _ s1 s2 -> s1 <> s2 <> Safe 0
   EChoiceObserverF _ _ s1 s2 -> s1 <> s2 <> Safe 0
-  EFailWithStatusF _ _ -> Unsafe
   EExperimentalF _ _ -> Unsafe
 
 isTypeClassDictionary :: DefValue -> Bool

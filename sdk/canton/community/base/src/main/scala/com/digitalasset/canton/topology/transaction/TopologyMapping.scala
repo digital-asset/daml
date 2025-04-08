@@ -1109,13 +1109,16 @@ object PartyHostingLimits {
 
 /** Represents a package with an optional validity period. No start or end means that the validity
   * of the package is unbounded. The validity period is expected to be compared to the ledger
-  * effective time of Daml transactions.
+  * effective time (LET) of Daml transactions.
   * @param packageId
   *   the hash of the package
   * @param validFrom
-  *   optional exclusive start of the validity period
+  *   optional inclusive start of the validity period in LET
   * @param validUntil
-  *   optional inclusive end of the validity period
+  *   optional exclusive end of the validity period in LET
+  *
+  * Note that as validFrom and validUntil are in ledger effective time, the boundaries have
+  * different semantics from topology transaction validity boundaries.
   */
 final case class VettedPackage(
     packageId: LfPackageId,
@@ -1123,7 +1126,7 @@ final case class VettedPackage(
     validUntil: Option[CantonTimestamp],
 ) extends PrettyPrinting {
 
-  def validAt(ts: CantonTimestamp): Boolean = validFrom.forall(_ < ts) && validUntil.forall(_ >= ts)
+  def validAt(ts: CantonTimestamp): Boolean = validFrom.forall(_ <= ts) && validUntil.forall(_ > ts)
 
   def toProtoV30: v30.VettedPackages.VettedPackage = v30.VettedPackages.VettedPackage(
     packageId,

@@ -166,7 +166,7 @@ class TransactionsTreeStreamReader(
           maxParallelIdQueriesLimiter.execute {
             globalIdQueriesLimiter.execute {
               dbDispatcher.executeSql(metric) { connection =>
-                eventStorageBackend.transactionStreamingQueries.fetchEventIds(
+                eventStorageBackend.updateStreamingQueries.fetchEventIds(
                   target = target
                 )(
                   stakeholderO = filterParty,
@@ -204,11 +204,11 @@ class TransactionsTreeStreamReader(
                     s"Transactions request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} is beyond ledger end offset ${ledgerEndOffset
                         .fold(0L)(_.unwrap)}",
                 ) {
-                  eventStorageBackend.transactionStreamingQueries.fetchEventPayloadsLedgerEffects(
+                  eventStorageBackend.fetchEventPayloadsLedgerEffects(
                     target = target
                   )(
                     eventSequentialIds = ids,
-                    allFilterParties = requestingParties,
+                    requestingParties = requestingParties,
                   )(connection)
                 }
               }

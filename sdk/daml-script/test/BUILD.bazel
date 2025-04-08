@@ -27,7 +27,7 @@ load(
         srcs =
             glob(["**/*.daml"]) + [
                 "//daml-script/daml:daml-script-{}.dar".format(target),
-                "//docs:source/sdk/component-howtos/ledger_interaction/daml-script/template-root/src/ScriptExample.daml",
+                "//docs:source/sdk/component-howtos/ledger-interaction/daml-script/template-root/src/ScriptExample.daml",
                 "//compiler/damlc/tests:divulgence-daml-test-files",
             ],
         outs = ["script-test-v{}.dar".format(name)],
@@ -41,7 +41,7 @@ load(
       cp -L $(location :daml/TestExceptions.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestInterfaces.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestFailWithStatus.daml) $$TMP_DIR/daml
-      cp -L $(location //docs:source/sdk/component-howtos/ledger_interaction/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
+      cp -L $(location //docs:source/sdk/component-howtos/ledger-interaction/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
       cp -L $(locations //compiler/damlc/tests:divulgence-daml-test-files) $$TMP_DIR/daml
       cat << EOF >> $$TMP_DIR/daml/ScriptExample.daml
 initializeFixed : Script ()
@@ -136,7 +136,7 @@ genrule(
     srcs =
         glob(["**/*.daml"]) + [
             "//daml-script/daml:daml-script-{}.dar".format(LF_DEFAULT_DEV_VERSION),
-            "//docs:source/sdk/component-howtos/ledger_interaction/daml-script/template-root/src/ScriptExample.daml",
+            "//docs:source/sdk/component-howtos/ledger-interaction/daml-script/template-root/src/ScriptExample.daml",
         ],
     outs = ["script-test-no-ledger.dar"],
     cmd = """
@@ -220,8 +220,6 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_netty",
-        "@maven//:io_grpc_grpc_stub",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
@@ -334,8 +332,10 @@ da_scala_test(
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_base_proto_scala",
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-logging",
+        "//canton:ledger_api_proto_scala",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",

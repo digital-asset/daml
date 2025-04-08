@@ -43,6 +43,8 @@ class AuthorizationInterceptor(
     implicit val errorLoggingContext: ErrorLoggingContext =
       ErrorLoggingContext(logger, loggingContextWithTrace)
 
+    val serviceName = call.getMethodDescriptor.getServiceName
+
     // The method interceptCall() must return a Listener.
     // The target listener is created by calling `Contexts.interceptCall()`.
     // However, this is only done after we have asynchronously received the claims.
@@ -53,7 +55,7 @@ class AuthorizationInterceptor(
         new ServerCall.Listener[Nothing]() {}
       }
 
-      headerToClaims(headers)
+      headerToClaims(headers, serviceName)
         .transform {
           case Failure(f) => Failure(f)
           case Success(claimSet) => statelessAuthorizer(claimSet)
@@ -84,12 +86,13 @@ class AuthorizationInterceptor(
   private val deny = Future.successful(ClaimSet.Unauthenticated: ClaimSet)
 
   def headerToClaims(
-      headers: Metadata
+      headers: Metadata,
+      serviceName: String,
   )(implicit loggingContextWithTrace: LoggingContextWithTrace): Future[ClaimSet] =
     authServices
       .foldLeft(deny) { case (acc, elem) =>
         acc.flatMap {
-          case ClaimSet.Unauthenticated => elem.decodeMetadata(headers)
+          case ClaimSet.Unauthenticated => elem.decodeMetadata(headers, serviceName)
           case authenticated => Future.successful(authenticated)
         }
       }

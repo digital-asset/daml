@@ -4,12 +4,19 @@
 package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.ledger.api.v2.event.{CreatedEvent, Event}
-import com.daml.ledger.api.v2.reassignment.{AssignedEvent, UnassignedEvent}
+import com.daml.ledger.api.v2.reassignment.{
+  AssignedEvent,
+  Reassignment,
+  ReassignmentEvent,
+  UnassignedEvent,
+}
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
+import com.daml.ledger.api.v2.trace_context.TraceContext as DamlTraceContext
 import com.daml.ledger.api.v2.transaction.TreeEvent
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionResponse,
   GetTransactionTreeResponse,
+  GetUpdateResponse,
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
@@ -24,12 +31,13 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawArchivedEvent,
   RawAssignEvent,
   RawCreatedEvent,
+  RawEvent,
   RawExercisedEvent,
   RawFlatEvent,
   RawTreeEvent,
   RawUnassignEvent,
 }
-import com.digitalasset.canton.platform.store.backend.common.TransactionPointwiseQueries.LookupKey
+import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.dao.{
   DbDispatcher,
   EventProjectionProperties,
@@ -41,6 +49,7 @@ import com.digitalasset.canton.platform.{
   Party,
   TemplatePartiesFilter,
 }
+import com.digitalasset.canton.util.MonadUtil
 import io.opentelemetry.api.trace.Span
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.{Done, NotUsed}
@@ -50,6 +59,8 @@ import scala.util.{Failure, Success}
 
 /** @param updatesStreamReader
   *   Knows how to stream updates
+  * @param updatePointwiseReader
+  *   Knows how to fetch an update by its id or its offset
   * @param treeTransactionsStreamReader
   *   Knows how to stream tree transactions
   * @param transactionPointwiseReader
@@ -69,8 +80,8 @@ import scala.util.{Failure, Success}
   */
 private[dao] final class UpdateReader(
     updatesStreamReader: UpdatesStreamReader,
+    updatePointwiseReader: UpdatePointwiseReader,
     treeTransactionsStreamReader: TransactionsTreeStreamReader,
-    transactionPointwiseReader: TransactionPointwiseReader,
     treeTransactionPointwiseReader: TransactionTreePointwiseReader,
     dispatcher: DbDispatcher,
     queryValidRange: QueryValidRange,
@@ -106,18 +117,41 @@ private[dao] final class UpdateReader(
       updateId: data.UpdateId,
       internalTransactionFormat: InternalTransactionFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
-    transactionPointwiseReader.lookupTransactionBy(
-      lookupKey = LookupKey.UpdateId(updateId),
-      internalTransactionFormat = internalTransactionFormat,
-    )
+    updatePointwiseReader
+      .lookupUpdateBy(
+        lookupKey = LookupKey.UpdateId(updateId),
+        internalUpdateFormat = InternalUpdateFormat(
+          includeTransactions = Some(internalTransactionFormat),
+          includeReassignments = None,
+          includeTopologyEvents = None,
+        ),
+      )
+      .map(_.flatMap(_.update.transaction))
+      .map(_.map(tx => GetTransactionResponse(transaction = Some(tx))))
 
   override def lookupTransactionByOffset(
       offset: data.Offset,
       internalTransactionFormat: InternalTransactionFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
-    transactionPointwiseReader.lookupTransactionBy(
-      lookupKey = LookupKey.Offset(offset),
-      internalTransactionFormat = internalTransactionFormat,
+    updatePointwiseReader
+      .lookupUpdateBy(
+        lookupKey = LookupKey.Offset(offset),
+        internalUpdateFormat = InternalUpdateFormat(
+          includeTransactions = Some(internalTransactionFormat),
+          includeReassignments = None,
+          includeTopologyEvents = None,
+        ),
+      )
+      .map(_.flatMap(_.update.transaction))
+      .map(_.map(tx => GetTransactionResponse(transaction = Some(tx))))
+
+  override def lookupUpdateBy(
+      lookupKey: LookupKey,
+      internalUpdateFormat: InternalUpdateFormat,
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetUpdateResponse]] =
+    updatePointwiseReader.lookupUpdateBy(
+      lookupKey = lookupKey,
+      internalUpdateFormat = internalUpdateFormat,
     )
 
   override def lookupTransactionTreeById(
@@ -289,8 +323,9 @@ private[dao] object UpdateReader {
       .fold(Vector.empty[A])(_ :+ _)
       .concatSubstreams
 
-  def toUnassignedEvent(rawUnassignEvent: RawUnassignEvent): UnassignedEvent =
+  def toUnassignedEvent(offset: Long, rawUnassignEvent: RawUnassignEvent): UnassignedEvent =
     UnassignedEvent(
+      offset = offset,
       unassignId = rawUnassignEvent.unassignId,
       contractId = rawUnassignEvent.contractId.coid,
       templateId = Some(LfEngineToApi.toApiIdentifier(rawUnassignEvent.templateId)),
@@ -302,7 +337,29 @@ private[dao] object UpdateReader {
       assignmentExclusivity =
         rawUnassignEvent.assignmentExclusivity.map(TimestampConversion.fromLf),
       witnessParties = rawUnassignEvent.witnessParties.toSeq,
+      nodeId = rawUnassignEvent.nodeId,
     )
+
+  def toApiUnassigned(
+      rawUnassignEntries: Seq[Entry[RawUnassignEvent]]
+  ): Option[Reassignment] =
+    rawUnassignEntries.headOption map { first =>
+      Reassignment(
+        updateId = first.updateId,
+        commandId = first.commandId.getOrElse(""),
+        workflowId = first.workflowId.getOrElse(""),
+        offset = first.offset,
+        events = rawUnassignEntries.map(entry =>
+          ReassignmentEvent(
+            ReassignmentEvent.Event.Unassigned(
+              UpdateReader.toUnassignedEvent(first.offset, entry.event)
+            )
+          )
+        ),
+        recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
+        traceContext = first.traceContext.map(DamlTraceContext.parseFrom),
+      )
+    }
 
   def toAssignedEvent(
       rawAssignEvent: RawAssignEvent,
@@ -316,6 +373,40 @@ private[dao] object UpdateReader {
       reassignmentCounter = rawAssignEvent.reassignmentCounter,
       createdEvent = Some(createdEvent),
     )
+
+  def toApiAssigned(
+      eventProjectionProperties: EventProjectionProperties,
+      lfValueTranslation: LfValueTranslation,
+  )(
+      rawAssignEntries: Seq[Entry[RawAssignEvent]]
+  )(implicit lc: LoggingContextWithTrace, ec: ExecutionContext): Future[Option[Reassignment]] =
+    MonadUtil
+      .sequentialTraverse(rawAssignEntries) { rawAssignEntry =>
+        lfValueTranslation
+          .deserializeRaw(
+            eventProjectionProperties,
+            rawAssignEntry.event.rawCreatedEvent,
+          )
+      }
+      .map(createdEvents =>
+        rawAssignEntries.headOption.map(first =>
+          Reassignment(
+            updateId = first.updateId,
+            commandId = first.commandId.getOrElse(""),
+            workflowId = first.workflowId.getOrElse(""),
+            offset = first.offset,
+            events = rawAssignEntries.zip(createdEvents).map { case (entry, created) =>
+              ReassignmentEvent(
+                ReassignmentEvent.Event.Assigned(
+                  UpdateReader.toAssignedEvent(entry.event, created)
+                )
+              )
+            },
+            recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
+            traceContext = first.traceContext.map(DamlTraceContext.parseFrom),
+          )
+        )
+      )
 
   def deserializeRawFlatEvent(
       eventProjectionProperties: EventProjectionProperties,
@@ -399,4 +490,30 @@ private[dao] object UpdateReader {
           )
         )
   }
+
+  def filterRawEvents[T <: RawEvent](templatePartiesFilter: TemplatePartiesFilter)(
+      rawEvents: Seq[Entry[T]]
+  ): Seq[Entry[T]] = {
+    val templateWildcardPartiesO = templatePartiesFilter.templateWildcardParties
+    val templateSpecifiedPartiesMap = templatePartiesFilter.relation.map {
+      case (identifier, partiesO) => (identifier, partiesO.map(_.map(_.toString)))
+    }
+
+    templateWildcardPartiesO match {
+      // the filter allows all parties for all templates (wildcard)
+      case None => rawEvents
+      case Some(templateWildcardParties) =>
+        val templateWildcardPartiesStrings: Set[String] = templateWildcardParties.toSet[String]
+        rawEvents.filter(entry =>
+          // at least one of the witnesses exist in the template wildcard filter
+          entry.event.witnessParties.exists(templateWildcardPartiesStrings) ||
+            (templateSpecifiedPartiesMap.get(entry.event.templateId) match {
+              // the event's template id was not found in the filters
+              case None => false
+              case Some(partiesO) => partiesO.fold(true)(entry.event.witnessParties.exists)
+            })
+        )
+    }
+  }
+
 }

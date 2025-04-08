@@ -300,6 +300,8 @@ typeOfBuiltin = \case
 
   BETypeRepTyConName -> pure (TTypeRep :-> TOptional TText)
 
+  BEFailWithStatus -> pure $ TForall (alpha, KStar) $ TText :-> TFailureCategory :-> TText :-> TTextMap TText :-> tAlpha
+
   where
     tBinop typ = typ :-> typ :-> typ
 
@@ -647,6 +649,9 @@ typeOfUpdate = \case
   UFetch tpl cid -> checkFetch tpl cid $> TUpdate (TCon tpl)
   UFetchInterface tpl cid -> checkFetchInterface tpl cid $> TUpdate (TCon tpl)
   UGetTime -> pure (TUpdate TTimestamp)
+  ULedgerTimeLT e -> do
+    checkExpr e TTimestamp
+    return (TUpdate TBool)
   UEmbedExpr typ e -> do
     checkExpr e (TUpdate typ)
     return (TUpdate typ)
@@ -780,10 +785,6 @@ typeOf' = \case
     checkExpr contract (TCon tpl)
     checkExpr choiceArg (chcArgType choice)
     pure (TList TParty)
-  EFailWithStatus ty bodyExpr -> do
-    checkType ty KStar
-    checkExpr bodyExpr TFailureStatus
-    pure ty
   EExperimental name ty -> do
     checkFeature featureExperimental
     checkExperimentalType name ty

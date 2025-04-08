@@ -1168,14 +1168,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             }
           }
 
-        case PLF.Expr.SumCase.FAIL_WITH_STATUS =>
-          val eFailWithStatus = lfExpr.getFailWithStatus
-          decodeType(eFailWithStatus.getReturnType) { returnType =>
-            decodeExpr(eFailWithStatus.getFailureStatus, definition) { failureStatus =>
-              Ret(EFailWithStatus(returnType, failureStatus))
-            }
-          }
-
         case PLF.Expr.SumCase.EXPERIMENTAL =>
           assertSince(LV.Features.unstable, "Expr.experimental")
           val experimental = lfExpr.getExperimental
@@ -1339,6 +1331,12 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
         case PLF.Update.SumCase.GET_TIME =>
           Ret(UpdateGetTime)
+
+        case PLF.Update.SumCase.LEDGER_TIME_LT =>
+          val expr = lfUpdate.getLedgerTimeLt
+          decodeExpr(expr, definition) { time =>
+            Ret(UpdateLedgerTimeLT(time))
+          }
 
         case PLF.Update.SumCase.FETCH =>
           val fetch = lfUpdate.getFetch
@@ -1539,7 +1537,7 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(CONTRACT_ID, BTContractId),
       BuiltinTypeInfo(DATE, BTDate),
       BuiltinTypeInfo(OPTIONAL, BTOptional),
-      BuiltinTypeInfo(TEXTMAP, BTTextMap, minVersion = LV.Features.textMap),
+      BuiltinTypeInfo(TEXTMAP, BTTextMap),
       BuiltinTypeInfo(GENMAP, BTGenMap),
       BuiltinTypeInfo(ARROW, BTArrow),
       BuiltinTypeInfo(NUMERIC, BTNumeric),
@@ -1588,12 +1586,12 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(NUMERIC_TO_INT64, BNumericToInt64),
       BuiltinFunctionInfo(FOLDL, BFoldl),
       BuiltinFunctionInfo(FOLDR, BFoldr),
-      BuiltinFunctionInfo(TEXTMAP_EMPTY, BTextMapEmpty, minVersion = LV.Features.textMap),
-      BuiltinFunctionInfo(TEXTMAP_INSERT, BTextMapInsert, minVersion = LV.Features.textMap),
-      BuiltinFunctionInfo(TEXTMAP_LOOKUP, BTextMapLookup, minVersion = LV.Features.textMap),
-      BuiltinFunctionInfo(TEXTMAP_DELETE, BTextMapDelete, minVersion = LV.Features.textMap),
-      BuiltinFunctionInfo(TEXTMAP_TO_LIST, BTextMapToList, minVersion = LV.Features.textMap),
-      BuiltinFunctionInfo(TEXTMAP_SIZE, BTextMapSize, minVersion = LV.Features.textMap),
+      BuiltinFunctionInfo(TEXTMAP_EMPTY, BTextMapEmpty),
+      BuiltinFunctionInfo(TEXTMAP_INSERT, BTextMapInsert),
+      BuiltinFunctionInfo(TEXTMAP_LOOKUP, BTextMapLookup),
+      BuiltinFunctionInfo(TEXTMAP_DELETE, BTextMapDelete),
+      BuiltinFunctionInfo(TEXTMAP_TO_LIST, BTextMapToList),
+      BuiltinFunctionInfo(TEXTMAP_SIZE, BTextMapSize),
       BuiltinFunctionInfo(GENMAP_EMPTY, BGenMapEmpty),
       BuiltinFunctionInfo(GENMAP_INSERT, BGenMapInsert),
       BuiltinFunctionInfo(GENMAP_LOOKUP, BGenMapLookup),
@@ -1645,6 +1643,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(BIGNUMERIC_TO_TEXT, BBigNumericToText, minVersion = bigNumeric),
       BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage, minVersion = exceptions),
       BuiltinFunctionInfo(TYPE_REP_TYCON_NAME, BTypeRepTyConName, minVersion = unstable),
+      BuiltinFunctionInfo(FAIL_WITH_STATUS, BFailWithStatus),
     )
   }
 

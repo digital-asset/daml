@@ -364,7 +364,7 @@ abstract class AbstractFuncIT
             )
           ).map(_.toString)
         } yield {
-          exception should include("Unhandled Daml exception")
+          exception should include("UNHANDLED_EXCEPTION")
           exception should include("GeneralError")
           exception should include("expected exception")
         }
@@ -382,7 +382,7 @@ abstract class AbstractFuncIT
             )
           ).map(_.toString)
         } yield {
-          exception should include("Unhandled Daml exception")
+          exception should include("UNHANDLED_EXCEPTION")
           exception should include("GeneralError")
           exception should include("expected exception")
         }
@@ -400,7 +400,7 @@ abstract class AbstractFuncIT
             )
           ).map(_.toString)
         } yield {
-          exception should include("Unhandled Daml exception")
+          exception should include("UNHANDLED_EXCEPTION")
           exception should include("GeneralError")
           exception should include("expected exception")
         }

@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.mediator.service
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.digitalasset.base.error.CantonRpcError
+import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -35,7 +35,7 @@ class GrpcMediatorInitializationService(
       requestP: v30.InitializeMediatorRequest
   ): Future[v30.InitializeMediatorResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val res: EitherT[Future, CantonRpcError, v30.InitializeMediatorResponse] = for {
+    val res: EitherT[Future, RpcError, v30.InitializeMediatorResponse] = for {
       request <- EitherT.fromEither[Future](
         InitializeMediatorRequest
           .fromProtoV30(requestP)
@@ -46,7 +46,7 @@ class GrpcMediatorInitializationService(
         .leftMap(FailedToInitialiseSynchronizerNode.Failure(_))
         .onShutdown(Left(FailedToInitialiseSynchronizerNode.Shutdown())): EitherT[
         Future,
-        CantonRpcError,
+        RpcError,
         InitializeMediatorResponse,
       ]
     } yield result.toProtoV30

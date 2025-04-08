@@ -199,4 +199,15 @@ object Time {
     }
   }
 
+  case class Range(min: Timestamp, max: Timestamp) {
+    assert(min <= max)
+
+    def intersect(that: Range): Range =
+      Range(min max that.min, max min that.max)
+  }
+
+  object Range {
+    val unconstrained = Range(min = Time.Timestamp.MinValue, max = Time.Timestamp.MaxValue)
+  }
+
 }

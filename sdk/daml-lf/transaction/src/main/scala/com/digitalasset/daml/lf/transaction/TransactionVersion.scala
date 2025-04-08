@@ -58,8 +58,6 @@ object TransactionVersion {
 
   private[lf] val minContractKeys = LanguageVersion.Features.contractKeys
 
-  private[lf] val minTextMap = LanguageVersion.Features.textMap
-
   private[lf] val minChoiceAuthorizers = LanguageVersion.Features.choiceAuthority
 
   private[lf] val minPackageVersion = LanguageVersion.Features.persistedPackageVersion

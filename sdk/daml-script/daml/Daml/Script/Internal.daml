@@ -13,16 +13,15 @@ module Daml.Script.Internal
 
   , -- Packages
     PackageName (..)
-  , vetPackages
-  , unvetPackages
   , listVettedPackages
   , listAllPackages
-  , vetDar
-  , vetDarOnParticipant
-  , unsafeVetDarOnParticipant
-  , unvetDar
-  , unvetDarOnParticipant
-  , unsafeUnvetDarOnParticipant
+  , unsafeVetPackages
+  , vetPackages
+  , vetPackagesOnParticipant
+  , unsafeUnvetPackages
+  , unvetPackages
+  , unvetPackagesOnParticipant
+
 
   , -- Concurrent submit
     concurrently

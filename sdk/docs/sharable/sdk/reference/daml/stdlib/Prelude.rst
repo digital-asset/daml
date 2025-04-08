@@ -240,6 +240,8 @@ Typeclasses
 
   **instance** `Ord <class-ghc-classes-ord-6395_>`_ k \=\> `Semigroup <class-da-internal-prelude-semigroup-78998_>`_ (`Map <type-da-internal-lf-map-90052_>`_ k v)
 
+  **instance** `Semigroup <class-da-internal-prelude-semigroup-78998_>`_ (`TextMap <type-da-internal-lf-textmap-11691_>`_ b)
+
   **instance** `Semigroup <class-da-internal-prelude-semigroup-78998_>`_ :ref:`All <type-da-monoid-types-all-38142>`
 
   **instance** `Semigroup <class-da-internal-prelude-semigroup-78998_>`_ :ref:`Any <type-da-monoid-types-any-3989>`
@@ -288,6 +290,8 @@ Typeclasses
     For example using ``mconcat`` on a list of strings would concatenate all strings to one lone string\.
 
   **instance** `Ord <class-ghc-classes-ord-6395_>`_ k \=\> `Monoid <class-da-internal-prelude-monoid-6742_>`_ (`Map <type-da-internal-lf-map-90052_>`_ k v)
+
+  **instance** `Monoid <class-da-internal-prelude-monoid-6742_>`_ (`TextMap <type-da-internal-lf-textmap-11691_>`_ b)
 
   **instance** `Monoid <class-da-internal-prelude-monoid-6742_>`_ :ref:`All <type-da-monoid-types-all-38142>`
 
@@ -1482,6 +1486,7 @@ Data Types
 **data** `Date <type-da-internal-lf-date-32253_>`_
 
   The ``Date`` type represents a date, for example ``date 2007 Apr 5``\.
+  The bounds for Date are 0001\-01\-01 and 9999\-12\-31\.
 
   **instance** `Eq <class-ghc-classes-eq-22713_>`_ `Date <type-da-internal-lf-date-32253_>`_
 
@@ -1543,16 +1548,43 @@ Data Types
 
   **instance** `Show <class-ghc-show-show-65360_>`_ `Party <type-da-internal-lf-party-57932_>`_
 
+.. _type-da-internal-lf-textmap-11691:
+
+**data** `TextMap <type-da-internal-lf-textmap-11691_>`_ a
+
+  The ``TextMap a`` type represents an associative array from keys of type
+  ``Text`` to values of type ``a``\.
+
+  **instance** :ref:`Foldable <class-da-foldable-foldable-25994>` `TextMap <type-da-internal-lf-textmap-11691_>`_
+
+  **instance** `Monoid <class-da-internal-prelude-monoid-6742_>`_ (`TextMap <type-da-internal-lf-textmap-11691_>`_ b)
+
+  **instance** `Semigroup <class-da-internal-prelude-semigroup-78998_>`_ (`TextMap <type-da-internal-lf-textmap-11691_>`_ b)
+
+  **instance** :ref:`Traversable <class-da-traversable-traversable-18144>` `TextMap <type-da-internal-lf-textmap-11691_>`_
+
+  **instance** `Functor <class-ghc-base-functor-31205_>`_ `TextMap <type-da-internal-lf-textmap-11691_>`_
+
+  **instance** `Eq <class-ghc-classes-eq-22713_>`_ a \=\> `Eq <class-ghc-classes-eq-22713_>`_ (`TextMap <type-da-internal-lf-textmap-11691_>`_ a)
+
+  **instance** `Ord <class-ghc-classes-ord-6395_>`_ a \=\> `Ord <class-ghc-classes-ord-6395_>`_ (`TextMap <type-da-internal-lf-textmap-11691_>`_ a)
+
+  **instance** `Show <class-ghc-show-show-65360_>`_ a \=\> `Show <class-ghc-show-show-65360_>`_ (`TextMap <type-da-internal-lf-textmap-11691_>`_ a)
+
 .. _type-da-internal-lf-time-63886:
 
 **data** `Time <type-da-internal-lf-time-63886_>`_
 
   The ``Time`` type represents a specific datetime in UTC,
   for example ``time (date 2007 Apr 5) 14 30 05``\.
+  The bounds for Time are 0001\-01\-01T00\:00\:00\.000000Z and
+  9999\-12\-31T23\:59\:59\.999999Z\.
 
   **instance** `Eq <class-ghc-classes-eq-22713_>`_ `Time <type-da-internal-lf-time-63886_>`_
 
   **instance** `Ord <class-ghc-classes-ord-6395_>`_ `Time <type-da-internal-lf-time-63886_>`_
+
+  **instance** `Bounded <class-ghc-enum-bounded-34379_>`_ `Time <type-da-internal-lf-time-63886_>`_
 
   **instance** `Show <class-ghc-show-show-65360_>`_ `Time <type-da-internal-lf-time-63886_>`_
 

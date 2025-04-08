@@ -236,15 +236,6 @@ pattern Tuple2TCon = (Qualified
     (TypeConName ["Tuple2"])
   )
 
-pattern TFailureStatus :: Type
-pattern TFailureStatus = TCon (Qualified
-  -- We cannot look up these stable IDs using stablePackageByModuleName because
-  -- it would introduce a cyclic dependency with StablePackages.
-    (ImportedPackageId (PackageId "765e60a9b6a45dde59f48a97b8a12b4c91c981503ca9410a4c195fb4065cca11"))
-    (ModuleName ["DA", "Internal", "Fail", "Types"])
-    (TypeConName ["FailureStatus"])
-  )
-
 pattern TConApp :: Qualified TypeConName -> [Type] -> Type
 pattern TConApp tcon targs <- (view (leftSpine _TApp) -> (TCon tcon, targs))
   where

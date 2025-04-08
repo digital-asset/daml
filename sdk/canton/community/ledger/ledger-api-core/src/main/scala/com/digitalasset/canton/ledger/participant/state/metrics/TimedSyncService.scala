@@ -6,7 +6,6 @@ package com.digitalasset.canton.ledger.participant.state.metrics
 import cats.data.EitherT
 import com.daml.metrics.Timed
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.error.{TransactionError, TransactionRoutingError}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
@@ -16,6 +15,7 @@ import com.digitalasset.canton.ledger.participant.state.SyncService.{
   ConnectedSynchronizerResponse,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.{LfContractId, LfSubmittedTransaction}
@@ -69,7 +69,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       commandId: Ref.CommandId,
       submissionId: Option[Ref.SubmissionId],
       workflowId: Option[Ref.WorkflowId],
-      reassignmentCommand: ReassignmentCommand,
+      reassignmentCommands: Seq[ReassignmentCommand],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] =
@@ -82,7 +82,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
         commandId,
         submissionId,
         workflowId,
-        reassignmentCommand,
+        reassignmentCommands,
       ),
     )
 

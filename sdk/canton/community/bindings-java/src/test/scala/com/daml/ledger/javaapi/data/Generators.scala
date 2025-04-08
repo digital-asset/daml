@@ -1034,6 +1034,19 @@ object Generators {
       .build()
   }
 
+  def reassignmentEventGen: Gen[v2.ReassignmentOuterClass.ReassignmentEvent] = {
+    import v2.ReassignmentOuterClass.ReassignmentEvent
+    for {
+      event <- Gen.oneOf(
+        unassignedEventGen.map(e => (b: ReassignmentEvent.Builder) => b.setUnassigned(e)),
+        assignedEventGen.map(e => (b: ReassignmentEvent.Builder) => b.setAssigned(e)),
+      )
+    } yield ReassignmentEvent
+      .newBuilder()
+      .pipe(event)
+      .build()
+  }
+
   def reassignmentGen: Gen[v2.ReassignmentOuterClass.Reassignment] = {
     import v2.ReassignmentOuterClass.Reassignment
     for {
@@ -1041,12 +1054,7 @@ object Generators {
       commandId <- Arbitrary.arbString.arbitrary
       workflowId <- Arbitrary.arbString.arbitrary
       offset <- Arbitrary.arbLong.arbitrary
-      event <- Gen.oneOf(
-        unassignedEventGen.map(unassigned =>
-          (b: Reassignment.Builder) => b.setUnassignedEvent(unassigned)
-        ),
-        assignedEventGen.map(assigned => (b: Reassignment.Builder) => b.setAssignedEvent(assigned)),
-      )
+      events <- Gen.listOf(reassignmentEventGen)
       traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
       recordTime <- instantGen
     } yield Reassignment
@@ -1055,7 +1063,7 @@ object Generators {
       .setCommandId(commandId)
       .setWorkflowId(workflowId)
       .setOffset(offset)
-      .pipe(event)
+      .addAllEvents(events.asJava)
       .setTraceContext(traceContext)
       .setRecordTime(Utils.instantToProto(recordTime))
       .build()
@@ -1073,6 +1081,30 @@ object Generators {
       .newBuilder()
       .setOffset(offset)
       .addAllRequestingParties(requestingParties.asJava)
+      .build()
+  }
+
+  def getUpdateByOffsetRequestGen: Gen[v2.UpdateServiceOuterClass.GetUpdateByOffsetRequest] = {
+    import v2.UpdateServiceOuterClass.GetUpdateByOffsetRequest as Request
+    for {
+      offset <- Arbitrary.arbLong.arbitrary
+      updateFormat <- updateFormatGen
+    } yield Request
+      .newBuilder()
+      .setOffset(offset)
+      .setUpdateFormat(updateFormat)
+      .build()
+  }
+
+  def getUpdateByIdRequestGen: Gen[v2.UpdateServiceOuterClass.GetUpdateByIdRequest] = {
+    import v2.UpdateServiceOuterClass.GetUpdateByIdRequest as Request
+    for {
+      updateId <- Arbitrary.arbString.arbitrary.suchThat(_.nonEmpty)
+      updateFormat <- updateFormatGen
+    } yield Request
+      .newBuilder()
+      .setUpdateId(updateId)
+      .setUpdateFormat(updateFormat)
       .build()
   }
 
@@ -1149,6 +1181,24 @@ object Generators {
         ),
         offsetCheckpointGen.map(checkpoint =>
           (b: Response.Builder) => b.setOffsetCheckpoint(checkpoint)
+        ),
+        topologyTransactionGen.map(topologyTransaction =>
+          (b: Response.Builder) => b.setTopologyTransaction(topologyTransaction)
+        ),
+      )
+    } yield Response
+      .newBuilder()
+      .pipe(update)
+      .build()
+  }
+
+  def getUpdateResponseGen: Gen[v2.UpdateServiceOuterClass.GetUpdateResponse] = {
+    import v2.UpdateServiceOuterClass.GetUpdateResponse as Response
+    for {
+      update <- Gen.oneOf(
+        transactionGen.map(transaction => (b: Response.Builder) => b.setTransaction(transaction)),
+        reassignmentGen.map(reassingment =>
+          (b: Response.Builder) => b.setReassignment(reassingment)
         ),
         topologyTransactionGen.map(topologyTransaction =>
           (b: Response.Builder) => b.setTopologyTransaction(topologyTransaction)
@@ -1292,57 +1342,61 @@ object Generators {
       .build()
   }
 
-  val unassignCommandGen: Gen[v2.ReassignmentCommandOuterClass.UnassignCommand] = {
-    import v2.ReassignmentCommandOuterClass.UnassignCommand
+  val unassignCommandGen: Gen[v2.ReassignmentCommandOuterClass.ReassignmentCommand] = {
+    import v2.ReassignmentCommandOuterClass.{UnassignCommand, ReassignmentCommand}
     for {
       contractId <- Arbitrary.arbString.arbitrary
       source <- Arbitrary.arbString.arbitrary
       target <- Arbitrary.arbString.arbitrary
-    } yield UnassignCommand
+    } yield ReassignmentCommand
       .newBuilder()
-      .setContractId(contractId)
-      .setSource(source)
-      .setTarget(target)
+      .setUnassignCommand(
+        UnassignCommand
+          .newBuilder()
+          .setContractId(contractId)
+          .setSource(source)
+          .setTarget(target)
+      )
       .build()
   }
 
-  val assignCommandGen: Gen[v2.ReassignmentCommandOuterClass.AssignCommand] = {
-    import v2.ReassignmentCommandOuterClass.AssignCommand
+  val assignCommandGen: Gen[v2.ReassignmentCommandOuterClass.ReassignmentCommand] = {
+    import v2.ReassignmentCommandOuterClass.{AssignCommand, ReassignmentCommand}
     for {
       unassignId <- Arbitrary.arbString.arbitrary
       source <- Arbitrary.arbString.arbitrary
       target <- Arbitrary.arbString.arbitrary
-    } yield AssignCommand
+    } yield ReassignmentCommand
       .newBuilder()
-      .setUnassignId(unassignId)
-      .setSource(source)
-      .setTarget(target)
+      .setAssignCommand(
+        AssignCommand
+          .newBuilder()
+          .setUnassignId(unassignId)
+          .setSource(source)
+          .setTarget(target)
+      )
       .build()
   }
 
-  val reassignmentCommandGen: Gen[v2.ReassignmentCommandOuterClass.ReassignmentCommand] = {
-    import v2.ReassignmentCommandOuterClass.ReassignmentCommand
+  val reassignmentCommandGen: Gen[v2.ReassignmentCommandOuterClass.ReassignmentCommand] =
+    Gen.oneOf(unassignCommandGen, assignCommandGen)
+
+  val reassignmentCommandsGen: Gen[v2.ReassignmentCommandOuterClass.ReassignmentCommands] = {
+    import v2.ReassignmentCommandOuterClass.ReassignmentCommands
     for {
       workflowId <- Arbitrary.arbString.arbitrary
       userId <- Arbitrary.arbString.arbitrary
       commandId <- Arbitrary.arbString.arbitrary
       submitter <- Arbitrary.arbString.arbitrary
-      command <- Gen.oneOf(
-        unassignCommandGen.map(unassign =>
-          (b: ReassignmentCommand.Builder) => b.setUnassignCommand(unassign)
-        ),
-        assignCommandGen.map(assign =>
-          (b: ReassignmentCommand.Builder) => b.setAssignCommand(assign)
-        ),
-      )
+      commands <- Gen.listOf(reassignmentCommandGen)
       submissionId <- Arbitrary.arbString.arbitrary
-    } yield ReassignmentCommand
+    } yield ReassignmentCommands
       .newBuilder()
       .setWorkflowId(workflowId)
       .setUserId(userId)
       .setCommandId(commandId)
       .setSubmitter(submitter)
-      .pipe(command)
+      .addAllCommands(commands.asJava)
       .setSubmissionId(submissionId)
       .build()
   }
@@ -1423,4 +1477,41 @@ object Generators {
       .setEventFormat(eventFormat)
       .setTransactionShape(transactionShape)
       .build()
+
+  val topologyFormatGen: Gen[TransactionFilterOuterClass.TopologyFormat] =
+    for {
+      partiesList <- Gen.listOf(Arbitrary.arbString.arbitrary)
+      parties = partiesList.toSet
+      partiesO <- Gen.option(parties)
+      participantAuthorizationTopologyFormat =
+        TransactionFilterOuterClass.ParticipantAuthorizationTopologyFormat
+          .newBuilder()
+          .addAllParties(partiesO.fold(List.empty[String].asJava)(_.toList.asJava))
+          .build()
+      participantAuthorizationTopologyFormatO <- Gen.option(participantAuthorizationTopologyFormat)
+    } yield {
+      val builder = TransactionFilterOuterClass.TopologyFormat.newBuilder()
+
+      participantAuthorizationTopologyFormatO
+        .map(builder.setIncludeParticipantAuthorizationEvents)
+
+      builder.build()
+    }
+
+  val updateFormatGen: Gen[TransactionFilterOuterClass.UpdateFormat] =
+    for {
+      transactionFormatO <- Gen.option(transactionFormatGen)
+      reassignmentFormatO <- Gen.option(eventFormatGen)
+      topologyFormatO <- Gen.option(topologyFormatGen)
+    } yield {
+      val builder = TransactionFilterOuterClass.UpdateFormat
+        .newBuilder()
+
+      transactionFormatO.map(builder.setIncludeTransactions)
+      reassignmentFormatO.map(builder.setIncludeReassignments)
+      topologyFormatO.map(builder.setIncludeTopologyEvents)
+
+      builder.build()
+    }
+
 }

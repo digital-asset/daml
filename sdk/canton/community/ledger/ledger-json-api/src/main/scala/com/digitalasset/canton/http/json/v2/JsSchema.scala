@@ -7,7 +7,7 @@ import com.daml.ledger.api.v2.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v2.trace_context.TraceContext
 import com.daml.ledger.api.v2.{offset_checkpoint, reassignment, transaction_filter}
 import com.digitalasset.base.error.utils.DecodedCantonError
-import com.digitalasset.base.error.{DamlErrorWithDefiniteAnswer, DamlRpcError}
+import com.digitalasset.base.error.{DamlErrorWithDefiniteAnswer, RpcError}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsEvent.{CreatedEvent, ExercisedEvent}
 import com.google.protobuf
@@ -189,7 +189,7 @@ object JsSchema {
     import DirectScalaPbRwImplicits.*
     implicit val rw: Codec[JsCantonError] = deriveCodec
 
-    def fromErrorCode(damlError: DamlRpcError): JsCantonError = JsCantonError(
+    def fromErrorCode(damlError: RpcError): JsCantonError = JsCantonError(
       code = damlError.code.id,
       cause = damlError.cause,
       correlationId = damlError.correlationId,
@@ -331,6 +331,10 @@ object JsSchema {
 
     @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
     implicit val jsTreeEventSchema: Schema[JsTreeEvent.TreeEvent] =
+      Schema.oneOfWrapped
+
+    implicit val identifierFilterSchema
+        : Schema[transaction_filter.CumulativeFilter.IdentifierFilter] =
       Schema.oneOfWrapped
 
     implicit val valueSchema: Schema[com.google.protobuf.struct.Value] = Schema.any

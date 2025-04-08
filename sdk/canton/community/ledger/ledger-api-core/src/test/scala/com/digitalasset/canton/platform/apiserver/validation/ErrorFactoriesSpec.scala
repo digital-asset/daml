@@ -4,13 +4,7 @@
 package com.digitalasset.canton.platform.apiserver.validation
 
 import com.digitalasset.base.error.utils.ErrorDetails
-import com.digitalasset.base.error.{
-  BaseError,
-  ContextualizedErrorLogger,
-  DamlRpcError,
-  ErrorCode,
-  ErrorsAssertions,
-}
+import com.digitalasset.base.error.{BaseError, ErrorCode, ErrorsAssertions, RpcError}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.auth.AuthorizationChecksErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
@@ -20,7 +14,11 @@ import com.digitalasset.canton.ledger.error.groups.{
   RequestValidationErrors,
 }
 import com.digitalasset.canton.ledger.error.{CommonErrors, IndexErrors, LedgerApiErrors}
-import com.digitalasset.canton.logging.{LedgerErrorLoggingContext, SuppressionRule}
+import com.digitalasset.canton.logging.{
+  ContextualizedErrorLogger,
+  LedgerErrorLoggingContext,
+  SuppressionRule,
+}
 import com.digitalasset.daml.lf.data.Ref
 import com.google.rpc.*
 import io.grpc.Status.Code
@@ -316,6 +314,29 @@ class ErrorFactoriesSpec
           ),
           expectedCorrelationIdRequestInfo,
           ErrorDetails.ResourceInfoDetail(typ = "TRANSACTION_ID", name = "tId"),
+        ),
+        logLevel = Level.INFO,
+        logMessage = msg,
+        logErrorContextRegEx = expectedLocationRegex,
+      )
+    }
+
+    "return an updateNotFound error" in {
+      val msg =
+        s"UPDATE_NOT_FOUND(11,$truncatedCorrelationId): Update not found, or not visible."
+      assertError(
+        RequestValidationErrors.NotFound.Update
+          .RejectWithTxId("uId")(contextualizedErrorLogger)
+      )(
+        code = Code.NOT_FOUND,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail(
+            "UPDATE_NOT_FOUND",
+            Map("category" -> "11", "definite_answer" -> "false", "test" -> getClass.getSimpleName),
+          ),
+          expectedCorrelationIdRequestInfo,
+          ErrorDetails.ResourceInfoDetail(typ = "UPDATE_ID", name = "uId"),
         ),
         logLevel = Level.INFO,
         logMessage = msg,
@@ -685,7 +706,7 @@ class ErrorFactoriesSpec
   }
 
   private def assertError(
-      error: => DamlRpcError
+      error: => RpcError
   )(
       code: Code,
       message: String,

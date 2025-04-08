@@ -10,7 +10,6 @@ import com.digitalasset.daml.lf.value.Value
 import Value._
 import com.digitalasset.daml.lf.ledger._
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.interpretation.Error.Dev.CCTP
 import com.digitalasset.daml.lf.script.IdeLedger.{Disclosure, TransactionId}
 import com.digitalasset.daml.lf.script._
 import com.digitalasset.daml.lf.transaction.{
@@ -110,6 +109,8 @@ private[lf] object Pretty {
           text("The provided shared key is") & prettyValue(true)(key)
       case ContractNotFound(cid) =>
         text("Update failed due to a unknown contract") & prettyContractId(cid)
+      case UnresolvedPackageName(packageName) =>
+        text("Update failed due to a failed package name resolution:") & text(packageName)
       case NonComparableValues =>
         text("functions are not comparable")
       case ContractIdComparability(globalCid) =>
@@ -157,6 +158,18 @@ private[lf] object Pretty {
           case Upgrade.DowngradeFailed(expectedType, actualValue) =>
             text("Attempt to downgrade ") & prettyValue(false)(actualValue) /
               text(s" to the variant or enum constructor type ${expectedType.pretty}")
+        }
+      case CCTP(error) =>
+        error match {
+          case CCTP.MalformedByteEncoding(value, cause) =>
+            text("Invalid byte encoding format for") & text(value) & text(":") /
+              text(cause)
+          case CCTP.MalformedSignature(signature, cause) =>
+            text("Malformed signature for") & text(signature) & text(":") /
+              text(cause)
+          case CCTP.MalformedKey(key, cause) =>
+            text("Malformed public key for") & text(key) & text(":") /
+              text(cause)
         }
       case Dev(_, error) =>
         error match {
@@ -240,18 +253,6 @@ private[lf] object Pretty {
               ) & prettyTypeConName(
                 actual
               )
-          case Dev.CCTP(error) =>
-            error match {
-              case CCTP.MalformedByteEncoding(value, cause) =>
-                text("Invalid byte encoding format for") & text(value) & text(":") /
-                  text(cause)
-              case CCTP.MalformedSignature(signature, cause) =>
-                text("Malformed signature for") & text(signature) & text(":") /
-                  text(cause)
-              case CCTP.MalformedKey(key, cause) =>
-                text("Malformed public key for") & text(key) & text(":") /
-                  text(cause)
-            }
         }
     }
   }
@@ -620,6 +621,7 @@ private[lf] object Pretty {
             case SBUCreate(id) => text(s"$$create($id)")
             case SBFetchTemplate(templateId) => text(s"$$fetchAny($templateId)")
             case SBUGetTime => text("$getTime")
+            case SBULedgerTimeLT => text("$ledgerTimeLT")
             case _ => str(x)
           }
         case SEAppAtomicGeneral(fun, args) =>

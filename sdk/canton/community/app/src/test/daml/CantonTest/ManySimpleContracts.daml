@@ -1,0 +1,29 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module ManySimpleContracts where
+
+import DA.Foldable(mapA_)
+
+template Creator
+  with
+    sig: Party
+    obs: Party
+  where
+    signatory sig
+    observer obs
+
+    choice Spawn: ()
+      with
+        count: Int
+      controller sig
+        do
+          mapA_ (\_ -> create TwoParty with sig, obs) [1..count]
+
+template TwoParty
+  with
+    sig: Party
+    obs: Party
+  where
+    signatory sig
+    observer obs

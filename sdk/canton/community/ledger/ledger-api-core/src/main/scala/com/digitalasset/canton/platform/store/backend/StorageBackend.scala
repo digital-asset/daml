@@ -21,7 +21,9 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
   RawActiveContract,
   RawAssignEvent,
+  RawFlatEvent,
   RawParticipantAuthorization,
+  RawTreeEvent,
   RawUnassignEvent,
   SynchronizerOffset,
   UnassignProperties,
@@ -29,9 +31,11 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd
 import com.digitalasset.canton.platform.store.backend.common.{
+  EventPayloadSourceForUpdatesAcsDelta,
+  EventPayloadSourceForUpdatesLedgerEffects,
   EventReaderQueries,
-  TransactionPointwiseQueries,
-  TransactionStreamingQueries,
+  UpdatePointwiseQueries,
+  UpdateStreamingQueries,
 }
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.KeyState
@@ -39,6 +43,7 @@ import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageVersion
 import com.digitalasset.daml.lf.data.Time.Timestamp
 
@@ -296,8 +301,8 @@ object ContractStorageBackend {
 
 trait EventStorageBackend {
 
-  def transactionPointwiseQueries: TransactionPointwiseQueries
-  def transactionStreamingQueries: TransactionStreamingQueries
+  def updatePointwiseQueries: UpdatePointwiseQueries
+  def updateStreamingQueries: UpdateStreamingQueries
   def eventReaderQueries: EventReaderQueries
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related
@@ -405,10 +410,21 @@ trait EventStorageBackend {
       eventSequentialIds: Iterable[Long]
   )(connection: Connection): Vector[RawParticipantAuthorization]
 
-  def topologyEventPublishedOnRecordTime(
+  def topologyEventOffsetPublishedOnRecordTime(
       synchronizerId: SynchronizerId,
       recordTime: CantonTimestamp,
-  )(connection: Connection): Boolean
+  )(connection: Connection): Option[Offset]
+
+  def fetchEventPayloadsAcsDelta(target: EventPayloadSourceForUpdatesAcsDelta)(
+      eventSequentialIds: Iterable[Long],
+      requestingParties: Option[Set[Party]],
+  )(connection: Connection): Vector[Entry[RawFlatEvent]]
+
+  def fetchEventPayloadsLedgerEffects(target: EventPayloadSourceForUpdatesLedgerEffects)(
+      eventSequentialIds: Iterable[Long],
+      requestingParties: Option[Set[Ref.Party]],
+  )(connection: Connection): Vector[Entry[RawTreeEvent]]
+
 }
 
 object EventStorageBackend {
@@ -429,10 +445,12 @@ object EventStorageBackend {
     def templateId: Identifier
     def witnessParties: Set[String]
   }
-  // TODO(#23504) keep only RawEvent or RawAcsDeltaEvent
+  // TODO(#23504) rename to RawAcsDeltaEvent?
   sealed trait RawFlatEvent extends RawEvent
-  // TODO(#23504) keep only RawEvent or RawLedgerEffectsEvent
+  // TODO(#23504) rename to RawLedgerEffectsEvent?
   sealed trait RawTreeEvent extends RawEvent
+
+  sealed trait RawReassignmentEvent extends RawEvent
 
   final case class RawCreatedEvent(
       updateId: String,
@@ -503,7 +521,8 @@ object EventStorageBackend {
       packageName: PackageName,
       witnessParties: Set[String],
       assignmentExclusivity: Option[Timestamp],
-  )
+      nodeId: Int,
+  ) extends RawReassignmentEvent
 
   final case class RawAssignEvent(
       sourceSynchronizerId: String,
@@ -512,7 +531,10 @@ object EventStorageBackend {
       submitter: Option[String],
       reassignmentCounter: Long,
       rawCreatedEvent: RawCreatedEvent,
-  )
+  ) extends RawReassignmentEvent {
+    override def templateId: Identifier = rawCreatedEvent.templateId
+    override def witnessParties: Set[String] = rawCreatedEvent.witnessParties
+  }
 
   final case class SynchronizerOffset(
       offset: Offset,

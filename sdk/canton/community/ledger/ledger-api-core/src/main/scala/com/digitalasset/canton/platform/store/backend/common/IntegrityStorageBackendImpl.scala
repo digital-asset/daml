@@ -82,9 +82,9 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
        |UNION ALL
        |SELECT event_offset, node_id FROM lapi_events_non_consuming_exercise
        |UNION ALL
-       |SELECT event_offset, 0 FROM lapi_events_unassign
+       |SELECT event_offset, node_id FROM lapi_events_unassign
        |UNION ALL
-       |SELECT event_offset, 0 FROM lapi_events_assign
+       |SELECT event_offset, node_id FROM lapi_events_assign
        |""".stripMargin
 
   private val SqlDuplicateOffsets = SQL"""

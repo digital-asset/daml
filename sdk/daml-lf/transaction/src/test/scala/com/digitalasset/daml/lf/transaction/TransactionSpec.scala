@@ -1117,7 +1117,6 @@ object TransactionSpec {
     Node.Create(
       coid = createCid,
       packageName = Ref.PackageName.assertFromString("PkgName"),
-      packageVersion = None,
       templateId = Ref.Identifier.assertFromString("-dummyPkg-:DummyModule:dummyName"),
       arg = V.ValueContractId(cid("#dummyCid")),
       signatories = signatories,

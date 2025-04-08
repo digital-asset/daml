@@ -19,13 +19,13 @@ Data Types
 
   `RoundingUp <constr-da-numeric-roundingup-99831_>`_
 
-    Round away from zero37\.
+    Round away from zero\.
 
   .. _constr-da-numeric-roundingdown-63242:
 
   `RoundingDown <constr-da-numeric-roundingdown-63242_>`_
 
-    Round towards zero37\.
+    Round towards zero\.
 
   .. _constr-da-numeric-roundingceiling-67218:
 
@@ -44,14 +44,14 @@ Data Types
   `RoundingHalfUp <constr-da-numeric-roundinghalfup-22532_>`_
 
     Round towards the nearest neighbor unless both neighbors
-    are equidistant, in which case round away from zero37\.
+    are equidistant, in which case round away from zero\.
 
   .. _constr-da-numeric-roundinghalfdown-91305:
 
   `RoundingHalfDown <constr-da-numeric-roundinghalfdown-91305_>`_
 
     Round towards the nearest neighbor unless both neighbors
-    are equidistant, in which case round towards zero37\.
+    are equidistant, in which case round towards zero\.
 
   .. _constr-da-numeric-roundinghalfeven-70729:
 
@@ -119,6 +119,13 @@ Functions
   \: :ref:`NumericScale <class-ghc-classes-numericscale-83720>` n \=\> :ref:`Numeric <type-ghc-types-numeric-891>` n
 
   The number pi\.
+
+.. _function-da-numeric-epsilon-3092:
+
+`epsilon <function-da-numeric-epsilon-3092_>`_
+  \: :ref:`NumericScale <class-ghc-classes-numericscale-83720>` n \=\> :ref:`Numeric <type-ghc-types-numeric-891>` n
+
+  The minimum strictly positive value that can be represented by a numeric of scale ``n``\.
 
 .. _function-da-numeric-roundnumeric-41344:
 

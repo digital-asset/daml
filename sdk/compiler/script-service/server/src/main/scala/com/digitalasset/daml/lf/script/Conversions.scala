@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package script
 
 import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref}
-import com.digitalasset.daml.lf.language.Ast.PackageMetadata
+import com.digitalasset.daml.lf.language.Ast.{FailureCategory, PackageMetadata}
 import com.digitalasset.daml.lf.script.api.{v1 => proto}
 import com.digitalasset.daml.lf.speedy.{SError, SValue, TraceLog, Warning, WarningLog}
 import com.digitalasset.daml.lf.transaction.{
@@ -126,6 +126,11 @@ final class Conversions(
                 //     archived or what not are turned into more specific
                 //     errors so we never produce ContractNotFound
                 builder.setCrash(s"contract ${cid.coid} not found")
+              case UnresolvedPackageName(packageName) =>
+                builder.setUnresolvedPackageName(
+                  proto.ScriptError.UnresolvedPackageName.newBuilder
+                    .setPackageName(packageName)
+                )
               case TemplatePreconditionViolated(tid, optLoc, arg) =>
                 val uepvBuilder = proto.ScriptError.TemplatePreconditionViolated.newBuilder
                 optLoc.map(convertLocation).foreach(uepvBuilder.setLocation)
@@ -225,8 +230,27 @@ final class Conversions(
                 builder.setComparableValueError(proto.Empty.newBuilder)
               case ValueNesting(_) =>
                 builder.setValueExceedsMaxNesting(proto.Empty.newBuilder)
-              case FailureStatus(errorId, _, _, _) =>
+              case FailureStatus(errorId, categoryId, message, metadata) =>
                 builder.setCrash(s"Failure status: $errorId")
+                builder.setFailureStatusError(
+                  proto.ScriptError.FailureStatusError.newBuilder
+                    .setErrorId(errorId)
+                    .setCategoryName(
+                      FailureCategory.all
+                        .find(cat => cat.cantonCategoryId == categoryId)
+                        .fold(s"UnknownCategoryID $categoryId")(_.toString)
+                    )
+                    .setMessage(message)
+                    .addAllMetadata(
+                      metadata.toList.map { case (k, v) =>
+                        proto.ScriptError.FailureStatusError.MetadataEntry.newBuilder
+                          .setKey(k)
+                          .setValue(v)
+                          .build
+                      }.asJava
+                    )
+                    .build
+                )
               case Dev(_, devError) if devMode =>
                 devError match {
                   case Dev.Conformance(_, _, _) =>
@@ -254,14 +278,13 @@ final class Conversions(
                         .setExpected(convertIdentifier(expected))
                         .addAllAccepted(accepted.map(convertIdentifier(_)).asJava)
                     )
-                  case _: Dev.CCTP =>
-                    // TODO: https://github.com/DACH-NY/canton-network-utilities/issues/3017: add structured error reporting to daml-script
-                    proto.ScriptError.CCTPError.newBuilder.setMessage(
-                      speedy.Pretty.prettyDamlException(interpretationError).render(80)
-                    )
                 }
               case _: Upgrade =>
                 proto.ScriptError.UpgradeError.newBuilder.setMessage(
+                  speedy.Pretty.prettyDamlException(interpretationError).render(80)
+                )
+              case _: CCTP =>
+                proto.ScriptError.CCTPError.newBuilder.setMessage(
                   speedy.Pretty.prettyDamlException(interpretationError).render(80)
                 )
               case err @ Dev(_, _) =>

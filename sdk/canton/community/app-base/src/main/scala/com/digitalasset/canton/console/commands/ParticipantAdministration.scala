@@ -84,6 +84,7 @@ sealed trait SynchronizerChoice
 object SynchronizerChoice {
   object All extends SynchronizerChoice
   final case class Only(aliases: Seq[SynchronizerAlias]) extends SynchronizerChoice
+  val None: Only = Only(Seq())
 }
 
 private[console] object ParticipantCommands {

@@ -50,7 +50,7 @@ In addition to the record fields, exceptions also need to define a
    :start-after: -- BEGIN_EXCEPTION
    :end-before: -- END_EXCEPTION
 
-Throw Exceptions¡
+Throw Exceptions
 ................
 
 There are two ways to throw exceptions:

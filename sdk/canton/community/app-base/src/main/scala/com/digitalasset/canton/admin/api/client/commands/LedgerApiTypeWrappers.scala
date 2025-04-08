@@ -12,13 +12,9 @@ import com.daml.ledger.api.v2.state_service.{
   IncompleteAssigned,
   IncompleteUnassigned,
 }
-import com.daml.ledger.api.v2.value.{Record, RecordField, Value}
+import com.daml.ledger.api.v2.value.{RecordField, Value}
 import com.digitalasset.canton.admin.api.client.data.TemplateId
-import com.digitalasset.canton.crypto.Salt
-import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.{LfPackageName, LfPackageVersion}
-import com.digitalasset.daml.lf.data.Time
 import com.google.protobuf.timestamp.Timestamp
 
 /** Wrapper class to make scalapb LedgerApi classes more convenient to access
@@ -145,21 +141,4 @@ object LedgerApiTypeWrappers {
 
     field.value.map(_.sum).toList.flatMap(extract)
   }
-
-  /** Holder of "core" contract defining fields (particularly those relevant for importing
-    * contracts)
-    */
-  final case class ContractData(
-      templateId: TemplateId,
-      packageName: LfPackageName,
-      packageVersion: Option[LfPackageVersion],
-      createArguments: Record,
-      // track signatories and observers for use as auth validation by daml engine
-      signatories: Set[String],
-      observers: Set[String],
-      inheritedContractId: LfContractId,
-      contractSalt: Salt,
-      ledgerCreateTime: Option[Time.Timestamp],
-  )
-
 }

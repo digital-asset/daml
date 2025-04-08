@@ -48,7 +48,6 @@ import com.digitalasset.canton.participant.protocol.{
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore.ReassignmentStoreError
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
-import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.Verdict.{
@@ -85,9 +84,7 @@ trait ReassignmentProcessingSteps[
 
   val synchronizerId: ReassignmentTag[SynchronizerId]
 
-  protected def engine: DAMLe
-
-  protected def serializableContractAuthenticator: ContractAuthenticator
+  protected def contractAuthenticator: ContractAuthenticator
 
   protected implicit def ec: ExecutionContext
 
@@ -153,7 +150,7 @@ trait ReassignmentProcessingSteps[
       traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, Unit] =
     EitherT.fromEither(
-      serializableContractAuthenticator
+      contractAuthenticator
         .authenticateSerializable(parsedRequest.fullViewTree.contract)
         .leftMap[ReassignmentProcessorError](ContractError.apply)
     )
@@ -320,7 +317,7 @@ trait ReassignmentProcessingSteps[
       )
     )
 
-    rejectionReason.logWithContext(Map("requestId" -> pendingReassignment.requestId.toString))
+    rejectionReason.logRejection(Map("requestId" -> pendingReassignment.requestId.toString))
     val rejection = Update.CommandRejected.FinalReason(rejectionReason.reason())
     val updateO = completionInfoO.map(info =>
       Update.SequencedCommandRejected(

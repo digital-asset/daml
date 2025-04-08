@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.synchronizer.mediator
 
-import com.daml.nonempty.NonEmpty
+import cats.syntax.alternative.*
+import cats.syntax.foldable.*
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
-import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
@@ -20,10 +20,12 @@ import com.digitalasset.canton.synchronizer.mediator.store.{
   InMemoryFinalizedResponseStore,
   InMemoryMediatorDeduplicationStore,
   MediatorDeduplicationStore,
+  MediatorState,
 }
+import com.digitalasset.canton.synchronizer.metrics.MediatorTestMetrics
 import com.digitalasset.canton.topology.DefaultTestIdentities.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.DelayUtil
+import com.digitalasset.canton.util.{DelayUtil, MonadUtil}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{BaseTestWordSpec, HasExecutionContext}
 import org.scalatest.Assertion
@@ -42,8 +44,6 @@ class MediatorEventDeduplicatorTest
     with HasExecutionContext
     with HasTestCloseContext {
 
-  private val requestTime: CantonTimestamp = CantonTimestamp.Epoch
-  private val requestTime2: CantonTimestamp = requestTime.plusSeconds(1)
   private val deduplicationTimeout: Duration = Duration.ofSeconds(10)
   private val decisionTime: CantonTimestamp = CantonTimestamp.ofEpochSecond(100)
 
@@ -61,9 +61,19 @@ class MediatorEventDeduplicatorTest
     val verdictSender =
       new TestVerdictSender(null, daMediator, null, testedProtocolVersion, loggerFactory)
 
-    val deduplicator = new DefaultMediatorEventDeduplicator(
-      store,
+    val state = new MediatorState(
       finalizedResponseStore,
+      store,
+      wallClock,
+      MediatorTestMetrics,
+      testedProtocolVersion,
+      timeouts,
+      loggerFactory,
+    )
+    state.initialize(CantonTimestamp.MinValue).futureValueUS
+
+    val deduplicator = new DefaultMediatorEventDeduplicator(
+      state,
       verdictSender,
       _ => FutureUnlessShutdown.outcomeF(delayed(deduplicationTimeout)),
       _ => FutureUnlessShutdown.outcomeF(delayed(decisionTime)),
@@ -78,6 +88,8 @@ class MediatorEventDeduplicatorTest
     DelayUtil.delay(duration.millis).map(_ => value)
   }
 
+  private def ts(i: Int): CantonTimestamp = CantonTimestamp.Epoch.plusSeconds(i.toLong)
+
   private lazy val uuids: Seq[UUID] = List(
     "51f3ffff-9248-453b-807b-91dd7ed23298",
     "c0175d4a-def2-481e-a979-ae9d335b5d35",
@@ -87,15 +99,35 @@ class MediatorEventDeduplicatorTest
   private lazy val request: Seq[OpenEnvelope[MediatorConfirmationRequest]] =
     uuids.map(mkMediatorRequest)
 
-  private def requests(is: Int*): Seq[OpenEnvelope[MediatorConfirmationRequest]] = is.map(request)
+  private def deduplicateRequests(
+      deduplicator: MediatorEventDeduplicator,
+      startingTimestamp: CantonTimestamp = CantonTimestamp.Epoch,
+  )(is: Int*): (Seq[Boolean], FutureUnlessShutdown[Unit]) = {
+    val (isUnique, storeFs) =
+      MonadUtil
+        .sequentialTraverse(requests(startingTimestamp, is*))(
+          (deduplicator.rejectDuplicate _).tupled
+        )
+        .futureValueUS
+        .separate
+    (isUnique, storeFs.sequence_)
+  }
 
-  private def deduplicationData(iAndTime: (Int, CantonTimestamp)*): Set[DeduplicationData] =
+  private def requests(
+      startingTime: CantonTimestamp,
+      is: Int*
+  ): Seq[(CantonTimestamp, MediatorConfirmationRequest, Seq[DefaultOpenEnvelope])] =
+    is.map(idx =>
+      (startingTime.plusSeconds(idx.toLong), request(idx).protocolMessage, Seq(request(idx)))
+    )
+
+  private def deduplicationDataWithTs(iAndTime: (Int, CantonTimestamp)*): Set[DeduplicationData] =
     iAndTime.map { case (i, requestTime) =>
       DeduplicationData(uuids(i), requestTime, requestTime plus deduplicationTimeout)
     }.toSet
 
-  private def deduplicationData(requestTime: CantonTimestamp, is: Int*): Set[DeduplicationData] =
-    deduplicationData(is.map(_ -> requestTime)*)
+  private def deduplicationData(is: Int*): Set[DeduplicationData] =
+    deduplicationDataWithTs(is.map(i => i -> ts(i))*)
 
   private def mkMediatorRequest(uuid: UUID): OpenEnvelope[MediatorConfirmationRequest] = {
     import Pretty.*
@@ -112,19 +144,10 @@ class MediatorEventDeduplicatorTest
   private def mkDefaultOpenEnvelope[A <: ProtocolMessage](protocolMessage: A): OpenEnvelope[A] =
     OpenEnvelope(protocolMessage, Recipients.cc(daMediator))(testedProtocolVersion)
 
-  private lazy val response: DefaultOpenEnvelope = {
-    val message = SignedProtocolMessage(
-      mock[TypedSignedProtocolMessageContent[ConfirmationResponses]],
-      NonEmpty(Seq, SymbolicCrypto.emptySignature),
-      testedProtocolVersion,
-    )
-    mkDefaultOpenEnvelope(message)
-  }
-
   private def assertNextSentVerdict(
       verdictSender: TestVerdictSender,
-      requestTime: CantonTimestamp = this.requestTime,
-      expireAfter: CantonTimestamp = this.requestTime.plus(deduplicationTimeout),
+      requestTime: CantonTimestamp = ts(0),
+      expireAfter: CantonTimestamp = ts(0).plus(deduplicationTimeout),
   )(envelopes: OpenEnvelope[MediatorConfirmationRequest]*): Assertion = {
     val rejects = envelopes.map { envelope =>
       val request = envelope.protocolMessage
@@ -152,60 +175,22 @@ class MediatorEventDeduplicatorTest
     "accept events with unique uuids" in {
       val (deduplicator, verdictSender, store) = mkDeduplicator()
 
-      val (uniqueEvents, storeF) =
-        deduplicator.rejectDuplicates(requestTime, requests(0, 1, 2)).futureValueUS
-      uniqueEvents shouldBe requests(0, 1, 2)
+      val (isUnique, storeF) = deduplicateRequests(deduplicator)(0, 1, 2)
+      isUnique shouldBe Seq(true, true, true)
 
-      store.allData() shouldBe deduplicationData(requestTime, 0, 1, 2)
-
-      storeF.futureValueUS
-      verdictSender.sentResults shouldBe empty
-    }
-
-    "accept non-requests" in {
-      val (deduplicator, verdictSender, store) = mkDeduplicator()
-
-      val envelopes = Seq(response)
-
-      val (uniqueEvents, storeF) =
-        deduplicator.rejectDuplicates(requestTime, envelopes).futureValueUS
-      uniqueEvents shouldBe envelopes
-
-      store.allData() shouldBe empty
+      store.allData() shouldBe deduplicationData(0, 1, 2)
 
       storeF.futureValueUS
       verdictSender.sentResults shouldBe empty
     }
 
-    "reject duplicates in same batch" in {
-      val (deduplicator, verdictSender, store) = mkDeduplicator()
-
-      val (uniqueEvents, storeF) = loggerFactory.assertLogs(
-        deduplicator.rejectDuplicates(requestTime, requests(0, 1, 0)).futureValueUS,
-        entry => {
-          entry.shouldBeCantonErrorCode(MediatorError.MalformedMessage)
-          entry.warningMessage should include(
-            s"The request uuid (${uuids(0)}) must not be used until ${requestTime.plus(deduplicationTimeout)}."
-          )
-        },
-      )
-      uniqueEvents shouldBe requests(0, 1)
-
-      store.allData() shouldBe deduplicationData(requestTime, 0, 1)
-
-      storeF.futureValueUS
-      assertNextSentVerdict(verdictSender)(request(0))
-      verdictSender.sentResults shouldBe empty
-    }
-
-    "reject duplicates across batches" in {
+    "reject duplicates across submissions" in {
       val (deduplicator, verdictSender, store) = mkDeduplicator()
 
       // populate the store
-      val (uniqueEvents, storeF1) =
-        deduplicator.rejectDuplicates(requestTime, requests(0, 1)).futureValueUS
-      uniqueEvents shouldBe requests(0, 1)
-      store.allData() shouldBe deduplicationData(requestTime, 0, 1)
+      val (isUnique, storeF1) = deduplicateRequests(deduplicator)(0, 1)
+      isUnique shouldBe Seq(true, true)
+      store.allData() shouldBe deduplicationData(0, 1)
 
       storeF1.futureValueUS
       verdictSender.sentResults shouldBe empty
@@ -213,93 +198,49 @@ class MediatorEventDeduplicatorTest
       // submit same event with same requestTime
       // This should not occur in production, as the sequencer creates unique timestamps and
       // the deduplication state is cleaned up during initialization.
-      val (uniqueEvents2, storeF2) = loggerFactory.assertLogs(
-        deduplicator.rejectDuplicates(requestTime, requests(0)).futureValueUS,
+      val (isUnique2, storeF2) = loggerFactory.assertLogs(
+        deduplicateRequests(deduplicator)(0),
         _.shouldBeCantonErrorCode(MediatorError.MalformedMessage),
       )
-      uniqueEvents2 shouldBe Seq.empty
+      isUnique2 shouldBe Seq(false)
 
-      store.allData() shouldBe deduplicationData(requestTime, 0, 1)
+      store.allData() shouldBe deduplicationData(0, 1)
 
       storeF2.futureValueUS
       assertNextSentVerdict(verdictSender)(request(0))
       verdictSender.sentResults shouldBe empty
 
       // submit same event with increased requestTime
-      val (uniqueEvents3, storeF3) = loggerFactory.assertLogs(
-        deduplicator.rejectDuplicates(requestTime2, requests(0)).futureValueUS,
+      val (isUnique3, storeF3) = loggerFactory.assertLogs(
+        deduplicateRequests(deduplicator, ts(2))(0),
         _.shouldBeCantonErrorCode(MediatorError.MalformedMessage),
       )
-      uniqueEvents3 shouldBe Seq.empty
+      isUnique3 shouldBe Seq(false)
 
-      store.allData() shouldBe deduplicationData(requestTime, 0, 1)
+      store.allData() shouldBe deduplicationData(0, 1)
 
       storeF3.futureValueUS
-      assertNextSentVerdict(verdictSender, requestTime2)(request(0))
-      verdictSender.sentResults shouldBe empty
-    }
-
-    "filter out duplicate requests" in {
-      val (deduplicator, verdictSender, store) = mkDeduplicator()
-
-      val (uniqueEvents, storeF1) =
-        deduplicator.rejectDuplicates(requestTime, requests(0, 1)).futureValueUS
-      uniqueEvents shouldBe requests(0, 1)
-      store.allData() shouldBe deduplicationData(requestTime, 0, 1)
-
-      storeF1.futureValueUS
-      verdictSender.sentResults shouldBe empty
-
-      val (uniqueEvents2, storeF2) = loggerFactory.assertLogs(
-        deduplicator
-          .rejectDuplicates(
-            requestTime2,
-            Seq(
-              response,
-              request(0),
-              request(2),
-              request(0),
-              response,
-              request(1),
-            ),
-          )
-          .futureValueUS,
-        _.shouldBeCantonErrorCode(MediatorError.MalformedMessage),
-        _.shouldBeCantonErrorCode(MediatorError.MalformedMessage),
-        _.shouldBeCantonErrorCode(MediatorError.MalformedMessage),
-      )
-      uniqueEvents2 shouldBe Seq(response, request(2), response)
-      store
-        .allData() shouldBe deduplicationData(0 -> requestTime, 1 -> requestTime, 2 -> requestTime2)
-
-      storeF2.futureValueUS
-
-      assertNextSentVerdict(verdictSender, requestTime2)(request(0), request(0), request(1))
+      assertNextSentVerdict(verdictSender, ts(2))(request(0))
       verdictSender.sentResults shouldBe empty
     }
 
     "allow for reusing uuids after expiration time" in {
       val (deduplicator, verdictSender, store) = mkDeduplicator()
 
-      val (uniqueEvents, storeF1) =
-        deduplicator.rejectDuplicates(requestTime, requests(0, 1)).futureValueUS
-      uniqueEvents shouldBe requests(0, 1)
-      store.allData() shouldBe deduplicationData(requestTime, 0, 1)
+      val (uniqueEvents, storeF1) = deduplicateRequests(deduplicator)(0, 1)
+      uniqueEvents shouldBe Seq(true, true)
+      store.allData() shouldBe deduplicationData(0, 1)
 
       storeF1.futureValueUS
       verdictSender.sentResults shouldBe empty
 
-      val expireAfter = requestTime.plus(deduplicationTimeout).immediateSuccessor
-      val (uniqueEvents2, storeF2) = deduplicator
-        .rejectDuplicates(
-          expireAfter,
-          requests(0),
-        )
-        .futureValueUS
-      uniqueEvents2 shouldBe requests(0)
-      store.allData() shouldBe deduplicationData(
-        0 -> requestTime,
-        1 -> requestTime,
+      val expireAfter = ts(0).plus(deduplicationTimeout).immediateSuccessor
+      val (isUnique2, storeF2) = deduplicateRequests(deduplicator, expireAfter)(0)
+      isUnique2 shouldBe Seq(true)
+
+      store.allData() shouldBe deduplicationDataWithTs(
+        0 -> ts(0),
+        1 -> ts(1),
         0 -> expireAfter,
       )
 
@@ -311,35 +252,36 @@ class MediatorEventDeduplicatorTest
       val (deduplicator, verdictSender, store) = mkDeduplicator()
 
       forAll(request.indices) { i =>
-        val (uniqueEvents1, storeF1) =
-          deduplicator.rejectDuplicates(requestTime, requests(i)).futureValueUS
-        val (uniqueEvents2, storeF2) = loggerFactory.suppressWarningsAndErrors(
-          deduplicator.rejectDuplicates(requestTime2, requests(i)).futureValueUS
+        val (isUnique1, storeF1) = deduplicateRequests(deduplicator)(i)
+        val requestTime = ts(request.size + 1)
+        val (isUnique2, storeF2) = loggerFactory.suppressWarningsAndErrors(
+          deduplicateRequests(deduplicator, requestTime)(i)
         )
 
-        uniqueEvents1 shouldBe requests(i)
-        uniqueEvents2 shouldBe empty
+        isUnique1 shouldBe Seq(true)
+        isUnique2 shouldBe Seq(false)
 
-        store.findUuid(uuids(i), requestTime) shouldBe deduplicationData(requestTime, i)
+        store.findUuid(uuids(i), ts(i)) shouldBe deduplicationData(i)
 
         storeF1.futureValueUS
         storeF2.futureValueUS
-        assertNextSentVerdict(verdictSender, requestTime = requestTime2)(request(i))
+        assertNextSentVerdict(verdictSender, requestTime = requestTime.plusSeconds(i.toLong))(
+          request(i)
+        )
       }
     }
 
     "correctly propagate completion of asynchronous actions" in {
       val deduplicator = mkHangingDeduplicator()
 
-      val (uniqueEvents1, storeF1) =
-        deduplicator.rejectDuplicates(requestTime, requests(0)).futureValueUS
+      val (isUnique1, storeF1) = deduplicateRequests(deduplicator)(0)
 
-      val (uniqueEvents2, storeF2) = loggerFactory.suppressWarningsAndErrors(
-        deduplicator.rejectDuplicates(requestTime, requests(0)).futureValueUS
+      val (isUnique2, storeF2) = loggerFactory.suppressWarningsAndErrors(
+        deduplicateRequests(deduplicator)(0)
       )
 
-      uniqueEvents1 shouldBe requests(0)
-      uniqueEvents2 shouldBe empty
+      isUnique1 shouldBe Seq(true)
+      isUnique2 shouldBe Seq(false)
 
       always(durationOfSuccess = 1.second) {
         storeF1 should not be Symbol("completed")
@@ -377,6 +319,18 @@ class MediatorEventDeduplicatorTest
     val finalizedResponseStore: FinalizedResponseStore =
       new InMemoryFinalizedResponseStore(loggerFactory)
 
+    val state = new MediatorState(
+      finalizedResponseStore,
+      store,
+      wallClock,
+      MediatorTestMetrics,
+      testedProtocolVersion,
+      timeouts,
+      loggerFactory,
+    )
+
+    state.initialize(CantonTimestamp.MinValue).futureValueUS
+
     val verdictSender = new VerdictSender {
       override def sendResult(
           requestId: RequestId,
@@ -406,8 +360,7 @@ class MediatorEventDeduplicatorTest
     }
 
     new DefaultMediatorEventDeduplicator(
-      store,
-      finalizedResponseStore,
+      state,
       verdictSender,
       _ => FutureUnlessShutdown.pure(deduplicationTimeout),
       _ => FutureUnlessShutdown.pure(decisionTime),

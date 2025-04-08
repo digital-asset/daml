@@ -12,9 +12,8 @@ import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.block.BlockFormat.OrderedRequest
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStoreReader
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisPreviousEpochMaxBftTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.memory.GenericInMemoryEpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule.{
   DefaultRequestInspector,
@@ -697,7 +696,6 @@ class OutputModuleTest
             piped3 should contain only Output.TopologyFetched(
               lastBlockMode,
               EpochNumber(1L), // Epoch number
-              anotherTimestamp,
               newOrderingTopology,
               newCryptoProvider,
             )
@@ -723,7 +721,6 @@ class OutputModuleTest
                       Output.MetadataStoredForNewEpoch(
                         `lastBlockMode`,
                         1L, // Epoch number
-                        _,
                         `newOrderingTopology`,
                         _, // A fake crypto provider instance
                       )
@@ -746,7 +743,6 @@ class OutputModuleTest
                 secondEpochNumber,
                 Membership(BftNodeId("node1"), newOrderingTopology, Seq.empty),
                 any[CryptoProvider[ProgrammableUnitTestEnv]],
-                GenesisPreviousEpochMaxBftTime,
                 lastBlockMode,
               )
             )
@@ -785,7 +781,6 @@ class OutputModuleTest
           TopologyFetched(
             aBlockMode,
             secondEpochNumber,
-            GenesisPreviousEpochMaxBftTime,
             anOrderingTopology,
             aCryptoProvider,
           )
@@ -796,7 +791,6 @@ class OutputModuleTest
             secondEpochNumber,
             aNewMembership,
             aCryptoProvider,
-            GenesisPreviousEpochMaxBftTime,
             aBlockMode,
           )
         )
@@ -805,7 +799,6 @@ class OutputModuleTest
           TopologyFetched(
             aBlockMode,
             EpochNumber.First,
-            GenesisPreviousEpochMaxBftTime,
             anOrderingTopology,
             aCryptoProvider,
           )
@@ -819,7 +812,6 @@ class OutputModuleTest
               EpochNumber.First,
               aNewMembership,
               aCryptoProvider,
-              GenesisPreviousEpochMaxBftTime,
               aBlockMode,
             )
           )
@@ -830,7 +822,6 @@ class OutputModuleTest
               secondEpochNumber,
               aNewMembership,
               aCryptoProvider,
-              GenesisPreviousEpochMaxBftTime,
               aBlockMode,
             )
           )
@@ -858,27 +849,32 @@ class OutputModuleTest
             EpochNumber.First,
             mode = OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
           )
+        val blockNumber2 = BlockNumber(BlockNumber.First + 1L)
         val blockData2 =
           completeBlockData(
-            BlockNumber(BlockNumber.First + 1L),
+            blockNumber2,
             anotherTimestamp,
             epochNumber = EpochNumber(EpochNumber.First + 1L),
             mode = OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
           )
 
         output.receive(Output.Start)
+        // We insert blocks out of order to ensure that processing fetched blocks doesn't cross epoch
+        //  boundaries even when multiple blocks from multiple epochs are next in the peano queue.
+        output.receive(Output.BlockDataFetched(blockData2))
         output.receive(Output.BlockDataFetched(blockData1))
 
         val piped1 = context.runPipedMessages()
-        piped1 should contain only Output.BlockDataStored(
-          blockData1,
-          BlockNumber.First,
-          aTimestamp,
-          epochCouldAlterOrderingTopology = true,
-        )
-        piped1.foreach(output.receive) // Store first block's metadata
 
-        output.receive(Output.BlockDataFetched(blockData2))
+        // Only the block in the first epoch will be polled from the completed blocks queue
+        piped1 should contain only
+          Output.BlockDataStored(
+            blockData1,
+            BlockNumber.First,
+            aTimestamp,
+            epochCouldAlterOrderingTopology = true,
+          )
+        piped1.foreach(output.receive) // Store blocks' metadata
 
         // Only the first block has now been output to the subscription after its metadata has been stored
         context.runPipedMessages() shouldBe empty
@@ -920,7 +916,6 @@ class OutputModuleTest
             secondEpochNumber,
             Membership.forTesting(BftNodeId("node1")),
             any[CryptoProvider[ProgrammableUnitTestEnv]],
-            GenesisPreviousEpochMaxBftTime,
             OrderedBlockForOutput.Mode.FromConsensus,
           )
         )
@@ -971,7 +966,6 @@ class OutputModuleTest
             BlockNumber.First,
             DefaultEpochLength,
             topologyActivationTime,
-            GenesisPreviousEpochMaxBftTime,
           )
         )
         .apply()

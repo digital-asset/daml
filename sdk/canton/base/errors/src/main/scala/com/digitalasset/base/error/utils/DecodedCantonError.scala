@@ -16,7 +16,7 @@ import com.digitalasset.base.error.{
   ErrorCodeMsg,
   ErrorResource,
   Grouping,
-  NoLogging,
+  NoBaseLogging,
 }
 import com.google.protobuf.any
 import com.google.rpc.error_details.{ErrorInfo, RequestInfo, ResourceInfo, RetryInfo}
@@ -47,7 +47,7 @@ final case class DecodedCantonError(
     override val definiteAnswerO: Option[Boolean] = None,
 ) extends BaseError {
   def toRpcStatusWithForwardedRequestId: RpcStatus = super.rpcStatus()(
-    new NoLogging(properties = Map.empty, correlationId = correlationId, traceId = traceId)
+    new NoBaseLogging(properties = Map.empty, correlationId = correlationId, traceId = traceId)
   )
 
   def retryIn: Option[FiniteDuration] = code.category.retryable.map(_.duration)
@@ -111,8 +111,6 @@ object DecodedCantonError {
       )
       traceId = errorInfo.metadata.get("tid")
       cause = extractCause(status)
-      // The RequestInfo.requestId is set primarily to the ContextualizedErrorLogger.correlationId
-      // with the ContextualizedErrorLogger.traceId as a fallback.
       correlationId = requestInfoO.collect {
         case requestInfo if !traceId.contains(requestInfo.requestId) => requestInfo.requestId
       }

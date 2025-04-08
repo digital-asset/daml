@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.admin.grpc
 
 import cats.data.EitherT
 import cats.implicits.*
-import com.digitalasset.base.error.CantonRpcError
+import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -32,7 +32,7 @@ class GrpcTrafficControlService(
     val result = for {
       synchronizerId <- EitherT
         .fromEither[Future]
-        .apply[CantonRpcError, SynchronizerId](
+        .apply[RpcError, SynchronizerId](
           SynchronizerId
             .fromProtoPrimitive(request.synchronizerId, "synchronizer_id")
             .leftMap(ProtoDeserializationFailure.Wrap(_))
@@ -45,7 +45,7 @@ class GrpcTrafficControlService(
             .leftMap(_.toCantonRpcError)
         )
 
-      trafficState <- EitherT.right[CantonRpcError](
+      trafficState <- EitherT.right[RpcError](
         connectedSynchronizer.getTrafficControlState
       )
     } yield {

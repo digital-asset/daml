@@ -4,14 +4,19 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss
 
 import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.HasExecutionContext
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.DefaultEpochLength
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.{
+  BftBlockOrdererConfig,
+  FingerprintKeyId,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.*
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.{
   Block,
   EpochInProgress,
@@ -20,7 +25,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   GenesisEpoch,
   GenesisEpochInfo,
   GenesisEpochNumber,
-  GenesisPreviousEpochMaxBftTime,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.memory.GenericInMemoryEpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.{
@@ -41,6 +45,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.top
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftKeyId,
   BftNodeId,
   BlockNumber,
   EpochLength,
@@ -70,12 +75,14 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
   Membership,
+  MessageAuthorizer,
   OrderingTopology,
   OrderingTopologyInfo,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.ConsensusMessage.{
   CompleteEpochStored,
+  PbftUnverifiedNetworkMessage,
   PbftVerifiedNetworkMessage,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.{
@@ -92,19 +99,22 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.*
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.protobuf.ByteString
 import org.mockito.Mockito
 import org.scalatest.TryValues
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.wordspec.AsyncWordSpec
+import org.slf4j.event.Level
 import org.slf4j.event.Level.ERROR
 
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Try
+import scala.util.{Random, Try}
 
-class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecutionContext {
+class IssConsensusModuleTest
+    extends AsyncWordSpec
+    with BftSequencerBaseTest
+    with HasExecutionContext {
 
   import IssConsensusModuleTest.*
 
@@ -143,7 +153,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             BlockNumber.First,
             epochLength,
             TopologyActivationTime(aTimestamp),
-            GenesisPreviousEpochMaxBftTime,
           ),
           Seq.empty,
         )
@@ -170,7 +179,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             EpochNumber(2L),
             aMembership,
             failingCryptoProvider,
-            aTimestamp,
             Mode.FromConsensus,
           )
         )
@@ -193,7 +201,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
               BlockNumber.First,
               epochLength,
               latestTopologyActivationTime,
-              aTimestamp,
             ),
             Seq.empty,
           )
@@ -227,14 +234,13 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                 allIds,
               ),
               failingCryptoProvider,
-              GenesisPreviousEpochMaxBftTime,
               Mode.FromConsensus,
             )
           )
 
           verify(epochStore, expectedStartEpochCalls).startEpoch(
             latestCompletedEpochFromStore.info
-              .next(epochLength, nextTopologyActivationTime, GenesisPreviousEpochMaxBftTime)
+              .next(epochLength, nextTopologyActivationTime)
           )
           succeed
         }
@@ -248,11 +254,10 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         val cryptoProvider = failingCryptoProvider[ProgrammableUnitTestEnv]
 
         val aTopologyActivationTime = Genesis.GenesisTopologyActivationTime
-        val aPreviousEpochMaxBftTime = Genesis.GenesisPreviousEpochMaxBftTime
         val aStartEpoch =
-          GenesisEpoch.info.next(epochLength, aTopologyActivationTime, aPreviousEpochMaxBftTime)
+          GenesisEpoch.info.next(epochLength, aTopologyActivationTime)
         val newEpochInfo =
-          aStartEpoch.next(epochLength, aTopologyActivationTime, aPreviousEpochMaxBftTime)
+          aStartEpoch.next(epochLength, aTopologyActivationTime)
         val membership =
           Membership(
             myId,
@@ -265,7 +270,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             aStartEpoch.startBlockNumber,
             aStartEpoch.length,
             aTopologyActivationTime,
-            GenesisPreviousEpochMaxBftTime,
           ),
           Seq.empty,
         )
@@ -320,7 +324,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             newEpochInfo.number,
             membership,
             cryptoProvider,
-            GenesisPreviousEpochMaxBftTime,
             Mode.FromConsensus,
           )
         )
@@ -351,7 +354,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             BlockNumber.First,
             epochLength,
             aTopologyActivationTime,
-            GenesisPreviousEpochMaxBftTime,
           ),
           Seq.empty,
         )
@@ -361,7 +363,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         when(epochStore.latestEpoch(includeInProgress = true)).thenReturn(() =>
           EpochStore.Epoch(
             latestCompletedEpochFromStore.info
-              .next(epochLength, aTopologyActivationTime, GenesisPreviousEpochMaxBftTime),
+              .next(epochLength, aTopologyActivationTime),
             Seq.empty,
           )
         )
@@ -369,7 +371,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
           latestCompletedEpochFromStore.info.next(
             epochLength,
             aTopologyActivationTime,
-            GenesisPreviousEpochMaxBftTime,
           )
         when(epochStore.loadEpochProgress(activeStartingEpochInfo)).thenReturn(() =>
           EpochStore.EpochInProgress(
@@ -389,7 +390,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             EpochNumber(1L),
             aMembership,
             failingCryptoProvider,
-            GenesisPreviousEpochMaxBftTime,
             Mode.FromConsensus,
           )
         )
@@ -406,7 +406,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             BlockNumber.First,
             epochLength,
             TopologyActivationTime(aTimestamp),
-            GenesisPreviousEpochMaxBftTime,
           ),
           Seq.empty,
         )
@@ -439,7 +438,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                 EpochNumber(1L),
                 aMembership,
                 failingCryptoProvider,
-                GenesisPreviousEpochMaxBftTime,
                 Mode.FromConsensus,
               )
             ),
@@ -468,7 +466,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
               BlockNumber.First,
               epochLength,
               latestTopologyActivationTime,
-              GenesisPreviousEpochMaxBftTime,
             ),
             Seq.empty,
           )
@@ -499,7 +496,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                     nodes,
                   ),
                   failingCryptoProvider,
-                  GenesisPreviousEpochMaxBftTime,
                   Mode.FromConsensus,
                 )
               ),
@@ -511,7 +507,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
 
           verify(epochStore, expectedStartEpochCalls).startEpoch(
             latestCompletedEpochFromStore.info
-              .next(epochLength, nextTopologyActivationTime, GenesisPreviousEpochMaxBftTime)
+              .next(epochLength, nextTopologyActivationTime)
           )
           succeed
         }
@@ -553,7 +549,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                   membership,
                   _,
                   _,
-                  _,
                 )
               )
               if epochNumber == EpochNumber.First && membership.orderingTopology == anOrderingTopology =>
@@ -585,7 +580,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                 BlockNumber.First,
                 EpochLength(0),
                 TopologyActivationTime(aTimestamp),
-                GenesisPreviousEpochMaxBftTime,
               ),
               lastBlockCommits = Seq.empty,
             )
@@ -677,7 +671,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
           EpochNumber.First,
           aMembership,
           failingCryptoProvider,
-          GenesisPreviousEpochMaxBftTime,
           Mode.FromConsensus,
         )
         val selfSentMessages = context.extractSelfMessages()
@@ -686,7 +679,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                 Consensus.NewEpochTopology(
                   epochNumber,
                   membership,
-                  _,
                   _,
                   _,
                 )
@@ -750,7 +742,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         val aStartEpoch = GenesisEpoch.info.next(
           epochLength,
           Genesis.GenesisTopologyActivationTime,
-          Genesis.GenesisPreviousEpochMaxBftTime,
         )
         val aStartEpochNumber = aStartEpoch.number
 
@@ -861,6 +852,47 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
           }
         }
       }
+
+      "drop remote PBFT messages" when {
+        "unauthorized" in {
+          val mockMessageAuthorizer = mock[MessageAuthorizer]
+          when(mockMessageAuthorizer.isAuthorized(any[BftNodeId], any[BftKeyId])) thenReturn false
+          val (context, consensus) =
+            createIssConsensusModule(customMessageAuthorizer = Some(mockMessageAuthorizer))
+          implicit val ctx: ContextType = context
+
+          val underlyingMessage = mock[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
+          when(underlyingMessage.blockMetadata).thenReturn(
+            BlockMetadata(
+              EpochNumber.First,
+              BlockNumber.First,
+            )
+          )
+          val unauthorizedNodeId = BftNodeId("unauthorized")
+          when(underlyingMessage.from) thenReturn unauthorizedNodeId
+          when(underlyingMessage.viewNumber).thenReturn(ViewNumber.First)
+          val signedMessage = underlyingMessage.fakeSign
+
+          consensus.receive(Consensus.Start)
+
+          assertLogs(
+            consensus.receive(PbftUnverifiedNetworkMessage(signedMessage)),
+            (logEntry: LogEntry) => {
+              logEntry.level shouldBe Level.WARN
+              logEntry.message should include(
+                "it is unauthorized in the current ordering topology"
+              )
+            },
+          )
+
+          verify(mockMessageAuthorizer).isAuthorized(
+            unauthorizedNodeId,
+            FingerprintKeyId.toBftKeyId(signedMessage.signature.signedBy),
+          )
+
+          context.runPipedMessages() shouldBe empty
+        }
+      }
     }
   }
 
@@ -918,6 +950,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
       newEpochTopology: Option[NewEpochTopology[ProgrammableUnitTestEnv]] = None,
       completedBlocks: Seq[EpochStore.Block] = Seq.empty,
       resolveAwaits: Boolean = false,
+      customMessageAuthorizer: Option[MessageAuthorizer] = None,
   ): (ContextType, IssConsensusModule[ProgrammableUnitTestEnv]) = {
     implicit val context: ContextType = new ProgrammableUnitTestContext(resolveAwaits)
 
@@ -989,6 +1022,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             loggerFactory,
           )
         ),
+        new Random(4),
         dependencies,
         loggerFactory,
         timeouts,
@@ -997,6 +1031,9 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
           new DefaultCatchupDetector(topologyInfo.currentMembership, loggerFactory)
         ),
         newEpochTopology = newEpochTopology,
+        messageAuthorizer = customMessageAuthorizer.getOrElse(
+          topologyInfo.currentMembership.orderingTopology
+        ),
       )
   }
 }

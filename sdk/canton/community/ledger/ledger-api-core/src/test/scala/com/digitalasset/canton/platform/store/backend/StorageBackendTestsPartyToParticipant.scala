@@ -134,12 +134,12 @@ private[backend] trait StorageBackendTestsPartyToParticipant
       .map(sanitize) should contain theSameElementsAs multipleDtos.map(toRaw).map(sanitize)
   }
 
-  behavior of "topologyEventPublishedOnRecordTime"
+  behavior of "topologyEventOffsetPublishedOnRecordTime"
 
   private val synchronizerId1 = SynchronizerId.tryFromString("x::synchronizer1")
   private val synchronizerId2 = SynchronizerId.tryFromString("x::synchronizer2")
 
-  it should "be true if there is one" in {
+  it should "be the offset if there is one" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(
       ingest(
@@ -173,11 +173,14 @@ private[backend] trait StorageBackendTestsPartyToParticipant
     backend.stringInterningSupport.synchronizerId.internalize(synchronizerId2)
     executeSql(
       backend.event
-        .topologyEventPublishedOnRecordTime(synchronizerId1, CantonTimestamp.ofEpochMicro(1505))
-    ) shouldBe true
+        .topologyEventOffsetPublishedOnRecordTime(
+          synchronizerId1,
+          CantonTimestamp.ofEpochMicro(1505),
+        )
+    ) shouldBe Some(offset(2))
   }
 
-  it should "be false if there is none" in {
+  it should "be no offset (None) if there is none" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(
       ingest(
@@ -203,11 +206,14 @@ private[backend] trait StorageBackendTestsPartyToParticipant
     )
     executeSql(
       backend.event
-        .topologyEventPublishedOnRecordTime(synchronizerId1, CantonTimestamp.ofEpochMilli(1505))
-    ) shouldBe false
+        .topologyEventOffsetPublishedOnRecordTime(
+          synchronizerId1,
+          CantonTimestamp.ofEpochMilli(1505),
+        )
+    ) shouldBe None
   }
 
-  it should "be false if it is on a different synchronizer" in {
+  it should "be no offset (None) if it is on a different synchronizer" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(
       ingest(
@@ -239,11 +245,14 @@ private[backend] trait StorageBackendTestsPartyToParticipant
     )
     executeSql(
       backend.event
-        .topologyEventPublishedOnRecordTime(synchronizerId1, CantonTimestamp.ofEpochMilli(1505))
-    ) shouldBe false
+        .topologyEventOffsetPublishedOnRecordTime(
+          synchronizerId1,
+          CantonTimestamp.ofEpochMilli(1505),
+        )
+    ) shouldBe None
   }
 
-  it should "be false if it is after the ledger end" in {
+  it should "be no offset (None) if it is after the ledger end" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(
       ingest(
@@ -275,7 +284,10 @@ private[backend] trait StorageBackendTestsPartyToParticipant
     )
     executeSql(
       backend.event
-        .topologyEventPublishedOnRecordTime(synchronizerId1, CantonTimestamp.ofEpochMilli(1505))
-    ) shouldBe false
+        .topologyEventOffsetPublishedOnRecordTime(
+          synchronizerId1,
+          CantonTimestamp.ofEpochMilli(1505),
+        )
+    ) shouldBe None
   }
 }

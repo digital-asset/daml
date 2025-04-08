@@ -23,14 +23,13 @@ import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValid
 }
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.validation.AuthenticationValidator
-import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingSteps}
+import com.digitalasset.canton.participant.protocol.{ContractAuthenticator, ProcessingSteps}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ReassignmentStore.{
   AssignmentStartingBeforeUnassignment,
   ReassignmentCompleted,
   UnknownReassignmentId,
 }
-import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -44,7 +43,7 @@ private[reassignment] class AssignmentValidation(
     staticSynchronizerParameters: Target[StaticSynchronizerParameters],
     participantId: ParticipantId,
     reassignmentCoordination: ReassignmentCoordination,
-    engine: DAMLe,
+    contractAuthenticator: ContractAuthenticator,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends NamedLogging {
@@ -58,7 +57,6 @@ private[reassignment] class AssignmentValidation(
       targetCrypto: Target[SynchronizerSnapshotSyncCryptoApi],
       unassignmentDataE: Either[ReassignmentStore.ReassignmentLookupError, UnassignmentData],
       activenessF: FutureUnlessShutdown[ActivenessResult],
-      engineController: EngineController,
   )(parsedRequest: ParsedReassignmentRequest[FullAssignmentTree])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, AssignmentValidationResult] = {
@@ -74,7 +72,6 @@ private[reassignment] class AssignmentValidation(
         performValidation(
           targetCrypto,
           activenessF,
-          engineController,
         )(parsedRequest)
       )
 
@@ -129,7 +126,6 @@ private[reassignment] class AssignmentValidation(
   private def performValidation(
       targetCrypto: Target[SynchronizerSnapshotSyncCryptoApi],
       activenessF: FutureUnlessShutdown[ActivenessResult],
-      engineController: EngineController,
   )(parsedRequest: ParsedReassignmentRequest[FullAssignmentTree])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[AssignmentValidationResult.ValidationResult] = {
@@ -138,14 +134,8 @@ private[reassignment] class AssignmentValidation(
     val reassignmentId = assignmentRequest.unassignmentResultEvent.reassignmentId
     val targetSnapshot = targetCrypto.map(_.ipsSnapshot)
 
-    // We perform the stakeholders check asynchronously so that we can complete the pending request
-    // in the Phase37Synchronizer without waiting for it, thereby allowing us to concurrently receive a
-    // mediator verdict.
-    val stakeholdersCheckResultET = new ReassignmentValidation(engine)
-      .checkMetadata(
-        assignmentRequest,
-        getEngineAbortStatus = () => engineController.abortStatus,
-      )
+    val stakeholdersCheckResultET =
+      new ReassignmentValidation(contractAuthenticator).checkMetadata(assignmentRequest)
 
     for {
       activenessResult <- activenessF

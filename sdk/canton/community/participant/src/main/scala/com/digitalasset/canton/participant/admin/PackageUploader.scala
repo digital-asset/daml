@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.admin
 
 import cats.data.EitherT
 import cats.implicits.{catsSyntaxParallelTraverse1, toBifunctorOps, toTraverseOps}
-import com.digitalasset.base.error.{ContextualizedErrorLogger, DamlRpcError}
+import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -17,16 +17,20 @@ import com.digitalasset.canton.lifecycle.{
   LifeCycle,
   UnlessShutdown,
 }
-import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{
+  ContextualizedErrorLogger,
+  LoggingContextWithTrace,
+  NamedLoggerFactory,
+  NamedLogging,
+}
 import com.digitalasset.canton.participant.admin.PackageService.{
   Dar,
   DarDescription,
   DarMainPackageId,
   catchUpstreamErrors,
 }
-import com.digitalasset.canton.participant.store.PackageInfo
 import com.digitalasset.canton.participant.store.memory.MutablePackageMetadataView
+import com.digitalasset.canton.participant.store.{DamlPackageStore, PackageInfo}
 import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.Clock
@@ -45,11 +49,12 @@ import scala.util.{Failure, Success, Try}
 
 class PackageUploader(
     clock: Clock,
+    packageStore: DamlPackageStore,
     engine: Engine,
     enableUpgradeValidation: Boolean,
     futureSupervisor: FutureSupervisor,
-    packageDependencyResolver: PackageDependencyResolver,
     packageMetadataView: MutablePackageMetadataView,
+    packageUpgradeValidator: PackageUpgradeValidator,
     exitOnFatalFailures: Boolean,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -63,21 +68,13 @@ class PackageUploader(
     loggerFactory,
     crashOnFailure = exitOnFatalFailures,
   )
-  private val packagesDarsStore = packageDependencyResolver.damlPackageStore
-  private val packageUpgradeValidator = new PackageUpgradeValidator(
-    getPackageMap = implicit loggingContextWithTrace =>
-      packageMetadataView.getSnapshot.packageIdVersionMap,
-    getLfArchive = loggingContextWithTrace =>
-      pkgId => packagesDarsStore.getPackage(pkgId)(loggingContextWithTrace.traceContext),
-    loggerFactory = loggerFactory,
-  )
 
   def validateDar(
       payload: ByteString,
       darName: String,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DamlRpcError, DarMainPackageId] =
+  ): EitherT[FutureUnlessShutdown, RpcError, DarMainPackageId] =
     performUnlessClosingEitherUSF("validate DAR") {
       val stream = new ZipInputStream(payload.newInput())
       for {
@@ -104,7 +101,7 @@ class PackageUploader(
       expectedMainPackageId: Option[LfPackageId],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DamlRpcError, (LfPackageId, List[LfPackageId])] =
+  ): EitherT[FutureUnlessShutdown, RpcError, (LfPackageId, List[LfPackageId])] =
     performUnlessClosingEitherUSF("upload DAR") {
 
       for {
@@ -123,7 +120,7 @@ class PackageUploader(
         foundMainPackageId = mainPackage._2._1
         _ <- expectedMainPackageId.traverse(expected =>
           EitherT.cond[FutureUnlessShutdown](
-            mainPackage._2._1 == expected,
+            foundMainPackageId == expected,
             (),
             PackageServiceErrors.Reading.MainPackageInDarDoesNotMatchExpected
               .Reject(foundMainPackageId, expected),
@@ -142,7 +139,7 @@ class PackageUploader(
           ),
           description = "store DAR",
         )
-      } yield (mainPackage._2._1, dependencies.map(_._2._1))
+      } yield (foundMainPackageId, dependencies.map(_._2._1))
     }
 
   // This stage must be run sequentially to exclude the possibility
@@ -156,7 +153,7 @@ class PackageUploader(
       submissionId: LedgerSubmissionId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DamlRpcError, DarMainPackageId] = {
+  ): EitherT[FutureUnlessShutdown, RpcError, DarMainPackageId] = {
     val allPackages = mainPackage +: dependencies
     def persist(
         dar: Dar,
@@ -164,29 +161,23 @@ class PackageUploader(
         uploadedAt: CantonTimestamp,
     ): FutureUnlessShutdown[Unit] =
       for {
-        _ <- packagesDarsStore.append(
-          pkgs = packages,
-          uploadedAt = uploadedAt,
-          dar = dar,
-        )
+        _ <- packageStore.append(packages, uploadedAt, dar)
         _ = logger.debug(
           s"Managed to upload one or more archives for submissionId $submissionId"
         )
         _ = allPackages.foreach { case (_, (pkgId, pkg)) =>
-          if (pkg.supportsUpgrades(pkgId)) {
-            packageMetadataView.update(PackageMetadata.from(pkgId, pkg))
-          }
+          packageMetadataView.update(PackageMetadata.from(pkgId, pkg))
         }
       } yield ()
 
     val uploadTime = clock.monotonicTime()
     val mainPackageId = DarMainPackageId.tryCreate(mainPackage._2._1)
     val persistedDescription =
-      description.getOrElse(String255.tryCreate(s"DAR_$mainPackageId"))
+      description.getOrElse(String255.tryCreate(s"DAR_${mainPackageId.value}"))
 
     def parseMetadata(
         pkg: (DamlLf.Archive, (LfPackageId, Ast.Package))
-    ): Either[DamlRpcError, PackageInfo] = {
+    ): Either[RpcError, PackageInfo] = {
       val (_, (packageId, ast)) = pkg
       PackageInfo
         .fromPackageMetadata(ast.metadata)
@@ -207,26 +198,17 @@ class PackageUploader(
       toUpload <- EitherT.fromEither[FutureUnlessShutdown](
         allPackages.traverse(x => parseMetadata(x).map(_ -> x._1))
       )
-      _ <- EitherT.right[DamlRpcError](
-        handleUploadResult(persist(darDescriptor, toUpload, uploadTime), submissionId)
+      _ <- EitherT.right[RpcError](
+        handlePersistResult(persist(darDescriptor, toUpload, uploadTime), submissionId)
       )
     } yield mainPackageId
   }
 
-  private def handleUploadResult(
+  private def handlePersistResult(
       res: FutureUnlessShutdown[Unit],
       submissionId: LedgerSubmissionId,
   )(implicit tc: TraceContext): FutureUnlessShutdown[Unit] =
     res.transformWith {
-      case Success(UnlessShutdown.Outcome(_)) => FutureUnlessShutdown.unit
-      case Success(UnlessShutdown.AbortedDueToShutdown) =>
-        // Possibly LedgerSyncEvent.PublicPackageUpload was not emitted but
-        // the packages and DARs were already stored in the packagesDarsStore.
-        // There is nothing we can do about it since the node is shutting down.
-        // However, this situation is acceptable since the user can
-        // retry uploading the DARs (DAR uploads are idempotent).
-        logger.info("Aborting DAR upload due to shutdown.")
-        FutureUnlessShutdown.abortedDueToShutdown
       case Failure(e) =>
         logger.warn(
           s"Failed to upload one or more archives in submissionId $submissionId",
@@ -235,36 +217,40 @@ class PackageUploader(
         // If JDBC insertion call failed, we don't know whether the DB was updated or not
         // hence ensure the package metadata view stays in sync by re-initializing it from the DB.
         packageMetadataView.refreshState.transformWith(_ => FutureUnlessShutdown.failed(e))
+      case success: Success[UnlessShutdown[Unit]] => FutureUnlessShutdown.lift(success.value)
     }
 
   private def validatePackages(
       packages: List[(LfPackageId, Ast.Package)]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DamlRpcError, Unit] =
+  ): EitherT[FutureUnlessShutdown, RpcError, Unit] =
     for {
       _ <- EitherT.fromEither[FutureUnlessShutdown](
         engine
           .validatePackages(packages.toMap)
           .leftMap(
-            PackageServiceErrors.Validation.handleLfEnginePackageError(_): DamlRpcError
+            PackageServiceErrors.Validation.handleLfEnginePackageError(_): RpcError
           )
       )
       _ <-
         if (enableUpgradeValidation) {
+          val packageMetadataSnapshot = packageMetadataView.getSnapshot
           packageUpgradeValidator
-            .validateUpgrade(packages)(LoggingContextWithTrace(loggerFactory))
+            .validateUpgrade(packages, packageMetadataSnapshot)(
+              LoggingContextWithTrace(loggerFactory)
+            )
         } else {
           logger.info(
             s"Skipping upgrade validation for packages ${packages.map(_._1).sorted.mkString(", ")}"
           )
-          EitherT.pure[FutureUnlessShutdown, DamlRpcError](())
+          EitherT.pure[FutureUnlessShutdown, RpcError](())
         }
     } yield ()
 
   private def readDarFromPayload(darPayload: ByteString, description: Option[String])(implicit
       errorLogger: ContextualizedErrorLogger
-  ): EitherT[FutureUnlessShutdown, DamlRpcError, LfDar[DamlLf.Archive]] = {
+  ): EitherT[FutureUnlessShutdown, RpcError, LfDar[DamlLf.Archive]] = {
     val zipInputStream = new ZipInputStream(darPayload.newInput())
     catchUpstreamErrors(
       DarParser.readArchive(description.getOrElse("unknown-file-name"), zipInputStream)
@@ -275,8 +261,40 @@ class PackageUploader(
 }
 
 object PackageUploader {
+  def apply(
+      clock: Clock,
+      engine: Engine,
+      enableUpgradeValidation: Boolean,
+      futureSupervisor: FutureSupervisor,
+      packageDependencyResolver: PackageDependencyResolver,
+      packageMetadataView: MutablePackageMetadataView,
+      exitOnFatalFailures: Boolean,
+      timeouts: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit executionContext: ExecutionContext): PackageUploader = {
+
+    val packageStore = packageDependencyResolver.damlPackageStore
+    val packageUpgradeValidator = new PackageUpgradeValidator(
+      getLfArchive = loggingContextWithTrace =>
+        pkgId => packageStore.getPackage(pkgId)(loggingContextWithTrace.traceContext),
+      loggerFactory = loggerFactory,
+    )
+    new PackageUploader(
+      clock,
+      packageStore,
+      engine,
+      enableUpgradeValidation,
+      futureSupervisor,
+      packageMetadataView,
+      packageUpgradeValidator,
+      exitOnFatalFailures,
+      timeouts,
+      loggerFactory,
+    )
+  }
+
   implicit class ErrorValidations[E, R](result: Either[E, R]) {
-    def handleError(toSelfServiceErrorCode: E => DamlRpcError): Try[R] =
+    def handleError(toSelfServiceErrorCode: E => RpcError): Try[R] =
       result.left.map { err =>
         toSelfServiceErrorCode(err).asGrpcError
       }.toTry

@@ -1,0 +1,61 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Coins where
+
+template CoinsFactoryProposal
+  with
+    svc: Party
+    futureOwner: Party
+  where
+    signatory svc
+    observer futureOwner
+
+    choice CreateFactory : ContractId CoinsFactory
+      controller futureOwner
+      do create CoinsFactory with svc, futureOwner
+
+template CoinsFactory
+  with
+    svc: Party
+    futureOwner: Party
+  where
+    signatory svc
+    signatory futureOwner
+
+    nonconsuming choice CreateCoin : ContractId Coin
+      with amount: Decimal
+      controller futureOwner
+      do create Coin with svc, owner=futureOwner, amount, observers=[]
+
+template Coin
+  with
+    svc: Party
+    owner: Party
+    amount: Decimal
+    observers: [Party]
+  where
+    signatory svc, owner
+    observer observers
+
+    choice AddObserver: ContractId Coin
+      with newObserver: Party
+      controller owner
+      do create this with observers = newObserver :: observers
+
+    choice ProposeTransfer: ContractId CoinTransferProposal
+      with futureOwner: Party
+      controller owner
+      do create CoinTransferProposal with coin=this, futureOwner
+
+template CoinTransferProposal
+  with
+    futureOwner: Party
+    coin: Coin
+  where
+    signatory coin.svc, coin.owner
+    observer futureOwner
+
+    choice AcceptCoinTransfer: ContractId Coin
+      controller futureOwner
+      do create coin with owner=futureOwner, observers=[]

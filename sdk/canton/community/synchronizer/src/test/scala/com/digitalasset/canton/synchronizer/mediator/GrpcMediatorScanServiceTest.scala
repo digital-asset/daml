@@ -17,10 +17,7 @@ import com.digitalasset.canton.mediator.admin.v30.VerdictsResponse
 import com.digitalasset.canton.protocol.messages.InformeeMessage
 import com.digitalasset.canton.protocol.{GeneratorsProtocol, RequestId}
 import com.digitalasset.canton.synchronizer.mediator.MediatorVerdict.MediatorApprove
-import com.digitalasset.canton.synchronizer.mediator.service.{
-  GrpcMediatorScanService,
-  WatermarkTracker,
-}
+import com.digitalasset.canton.synchronizer.mediator.service.GrpcMediatorScanService
 import com.digitalasset.canton.synchronizer.mediator.store.InMemoryFinalizedResponseStore
 import com.digitalasset.canton.synchronizer.service.RecordStreamObserverItems
 import com.digitalasset.canton.time.TimeAwaiter
@@ -71,19 +68,13 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
 
   class Fixture(val batchSize: Int = 5) {
     val finalizedResponseStore = new InMemoryFinalizedResponseStore(loggerFactory)
+
     @volatile var latestKnownWatermark: CantonTimestamp = CantonTimestamp.MinValue
     val timeAwaiter = new TimeAwaiter(() => latestKnownWatermark, timeouts, loggerFactory)
-    val watermarkTracker = new WatermarkTracker {
-      override def getWatermark(): CantonTimestamp = latestKnownWatermark
 
-      override def awaitWatermarkTime(minimumTimestampInclusive: CantonTimestamp)(implicit
-          traceContext: TraceContext
-      ): Option[FutureUnlessShutdown[Unit]] =
-        timeAwaiter.awaitKnownTimestamp(minimumTimestampInclusive)
-    }
     val scanService = new GrpcMediatorScanService(
       finalizedResponseStore,
-      watermarkTracker,
+      timeAwaiter,
       batchSize = PositiveInt.tryCreate(batchSize),
       loggerFactory = loggerFactory,
     )
@@ -93,7 +84,6 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
     })
 
     def requestVerdictsFrom(
-        fromResultExclusive: CantonTimestamp,
         fromRequestExclusive: CantonTimestamp,
         numExpected: Int,
     ): (
@@ -133,8 +123,7 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
       }
       scanService.verdicts(
         v30.VerdictsRequest(
-          mostRecentlyReceivedFinalizationTime = Some(fromResultExclusive.toProtoTimestamp),
-          mostRecentlyReceivedRecordTime = Some(fromRequestExclusive.toProtoTimestamp),
+          mostRecentlyReceivedRecordTime = Some(fromRequestExclusive.toProtoTimestamp)
         ),
         observer,
       )
@@ -142,9 +131,9 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
     }
 
     def observeWatermark(watermark: CantonTimestamp): Unit = {
-      latestKnownWatermark = watermark.max(latestKnownWatermark)
       logger.info(s"observing $watermark")
-      timeAwaiter.notifyAwaitedFutures(latestKnownWatermark)
+      latestKnownWatermark = watermark
+      timeAwaiter.notifyAwaitedFutures(watermark)
     }
   }
 
@@ -162,7 +151,6 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
       for {
         _ <- MonadUtil.sequentialTraverse_(responses)(finalizedResponseStore.store(_))
         (observer, future) = requestVerdictsFrom(
-          fromResultExclusive = CantonTimestamp.MinValue,
           fromRequestExclusive = CantonTimestamp.MinValue,
           numExpected = responses.size,
         )
@@ -175,12 +163,12 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
       } yield {
         val timestamps1 = observer.values
           .flatMap(_.verdict)
-          .map(r => (r.finalizationTime.value, r.recordTime.value))
+          .map(r => r.recordTime.value)
         timestamps1 should have size responses.size.toLong
         timestamps1 shouldBe sorted
 
         timestamps1 should contain theSameElementsInOrderAs responses
-          .map(r => (r.version.toProtoTimestamp, r.requestId.unwrap.toProtoTimestamp))
+          .map(r => r.requestId.unwrap.toProtoTimestamp)
           .sorted
       }
     }.failOnShutdown("Unexpected shutdown.")
@@ -190,14 +178,17 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
       import f.*
 
       val responses =
-        (1 to 10).map(i =>
-          mkResponse(Epoch.plusSeconds(i.toLong), Epoch.plusSeconds(Random.nextLong(10) + i))
-        )
+        (1 to 10)
+          .map(i =>
+            mkResponse(Epoch.plusSeconds(i.toLong), Epoch.plusSeconds(Random.nextLong(10) + i))
+          )
+          // sort the responses by version aka finalization time to simulate storing
+          // the responses in finalization time order
+          .sortBy(_.version)
 
       for {
         _ <- MonadUtil.sequentialTraverse_(responses)(finalizedResponseStore.store(_))
         (observer1, future1) = requestVerdictsFrom(
-          fromResultExclusive = CantonTimestamp.MinValue,
           fromRequestExclusive = CantonTimestamp.MinValue,
           numExpected = responses.size / 2,
         )
@@ -209,16 +200,12 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
         _ <- FutureUnlessShutdown.outcomeF(future1)
 
         lastVerdict = observer1.values.last.verdict.value
-        nextFromResult = CantonTimestamp
-          .fromProtoTimestamp(lastVerdict.finalizationTime.value)
-          .value
         nextFromRequest = CantonTimestamp
           .fromProtoTimestamp(lastVerdict.recordTime.value)
           .value
 
         // resume subscription from the last observed verdict
         (observer2, future2) = requestVerdictsFrom(
-          fromResultExclusive = nextFromResult,
           fromRequestExclusive = nextFromRequest,
           numExpected = responses.size - observer1.values.size,
         )
@@ -226,19 +213,19 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
       } yield {
         val timestamps1 = observer1.values
           .flatMap(_.verdict)
-          .map(r => (r.finalizationTime.value, r.recordTime.value))
+          .map(r => r.recordTime.value)
         timestamps1 should have size responses.size.toLong / 2
         timestamps1 shouldBe sorted
 
         val timestamps2 = observer2.values
           .flatMap(_.verdict)
-          .map(r => (r.finalizationTime.value, r.recordTime.value))
+          .map(r => r.recordTime.value)
         timestamps2 should have size responses.size.toLong - timestamps1.size.toLong
         timestamps2 shouldBe sorted
 
         timestamps1 ++ timestamps2 shouldBe sorted
         timestamps1 ++ timestamps2 should contain theSameElementsInOrderAs responses
-          .map(r => (r.version.toProtoTimestamp, r.requestId.unwrap.toProtoTimestamp))
+          .map(r => r.requestId.unwrap.toProtoTimestamp)
           .sorted
       }
     }.failOnShutdown("Unexpected shutdown.")
@@ -253,27 +240,26 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
       for {
         _ <- MonadUtil.sequentialTraverse_(responses)(finalizedResponseStore.store(_))
         (observer, future) = requestVerdictsFrom(
-          fromResultExclusive = CantonTimestamp.MinValue,
           fromRequestExclusive = CantonTimestamp.MinValue,
           numExpected = responses.size,
         )
         _ = observer.values should have size 0
 
         // notify the GrpcMediatorScanService of a new watermark, so it starts emitting verdicts
-        _ = observeWatermark(CantonTimestamp.Epoch.plusSeconds(10 + 4))
+        _ = observeWatermark(CantonTimestamp.Epoch.plusSeconds(4))
 
         _ <- eventuallyAsync() {
           observer.values should have size 4L
         }
 
         // notify the GrpcMediatorScanService of a new watermark, so it continues emitting verdicts
-        _ = observeWatermark(CantonTimestamp.Epoch.plusSeconds(10 + 7))
+        _ = observeWatermark(CantonTimestamp.Epoch.plusSeconds(4 + 3))
         _ <- eventuallyAsync() {
           observer.values should have size 7L
         }
 
         // notify the GrpcMediatorScanService of a new watermark, so it continues emitting verdicts
-        _ = observeWatermark(CantonTimestamp.Epoch.plusSeconds(10 + 10))
+        _ = observeWatermark(CantonTimestamp.Epoch.plusSeconds(4 + 3 + 3))
         _ <- eventuallyAsync() {
           observer.values should have size 10L
         }
@@ -283,10 +269,10 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
       } yield {
         val receivedTimestamps = observer.values
           .flatMap(_.verdict)
-          .map(r => (r.finalizationTime.value, r.recordTime.value))
+          .map(r => r.recordTime.value)
 
         receivedTimestamps should contain theSameElementsInOrderAs responses
-          .map(r => (r.version.toProtoTimestamp, r.requestId.unwrap.toProtoTimestamp))
+          .map(r => r.requestId.unwrap.toProtoTimestamp)
         receivedTimestamps shouldBe sorted
 
       }
@@ -304,7 +290,6 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
       for {
         _ <- MonadUtil.sequentialTraverse_(responses)(finalizedResponseStore.store(_))
         (_, future1) = requestVerdictsFrom(
-          fromResultExclusive = CantonTimestamp.MinValue,
           fromRequestExclusive = CantonTimestamp.MinValue,
           numExpected = 5,
         )
@@ -314,16 +299,12 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
         verdicts1 <- FutureUnlessShutdown.outcomeF(future1)
 
         lastVerdict = verdicts1.last.verdict.value
-        nextFromResult = CantonTimestamp
-          .fromProtoTimestamp(lastVerdict.finalizationTime.value)
-          .value
         nextFromRequest = CantonTimestamp
           .fromProtoTimestamp(lastVerdict.recordTime.value)
           .value
 
         // resume subscription from the last observed verdict
         (_, future2) = requestVerdictsFrom(
-          fromResultExclusive = nextFromResult,
           fromRequestExclusive = nextFromRequest,
           numExpected = 5,
         )
@@ -331,19 +312,19 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
       } yield {
         val timestamps1 = verdicts1
           .flatMap(_.verdict)
-          .map(r => (r.finalizationTime.value, r.recordTime.value))
+          .map(r => r.recordTime.value)
         timestamps1 should have size 5
         timestamps1 shouldBe sorted
 
         val timestamps2 = verdicts2
           .flatMap(_.verdict)
-          .map(r => (r.finalizationTime.value, r.recordTime.value))
+          .map(r => r.recordTime.value)
         timestamps2 should have size responses.size.toLong - timestamps1.size.toLong
         timestamps2 shouldBe sorted
 
         timestamps1 ++ timestamps2 shouldBe sorted
         timestamps1 ++ timestamps2 should contain theSameElementsInOrderAs responses
-          .map(r => (r.version.toProtoTimestamp, r.requestId.unwrap.toProtoTimestamp))
+          .map(r => r.requestId.unwrap.toProtoTimestamp)
           .sorted
       }
     }.failOnShutdown("Unexpected shutdown.")

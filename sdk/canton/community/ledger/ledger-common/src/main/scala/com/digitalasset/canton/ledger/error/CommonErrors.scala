@@ -4,7 +4,6 @@
 package com.digitalasset.canton.ledger.error
 
 import com.digitalasset.base.error.{
-  ContextualizedErrorLogger,
   DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorCode,
@@ -12,6 +11,7 @@ import com.digitalasset.base.error.{
   Resolution,
 }
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.CommonErrorGroup
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 
 import scala.concurrent.duration.Duration
 

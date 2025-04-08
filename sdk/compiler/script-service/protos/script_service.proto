@@ -197,6 +197,10 @@ message ScriptError {
       Value key = 2;
   }
 
+  message UnresolvedPackageName {
+    string package_name = 1;
+  }
+
   message ContractNotActive {
     ContractRef contract_ref = 1;
     NodeId consumed_by = 2; // optional. A contract whose create was rolled back will not have this set.
@@ -290,6 +294,17 @@ message ScriptError {
     string package_id = 3;
   }
 
+  message FailureStatusError {
+    message MetadataEntry {
+      string key = 1;
+      string value = 2;
+    }
+    string error_id = 1;
+    string category_name = 2;
+    string message = 3;
+    repeated MetadataEntry metadata = 4;
+  }
+
   // The state of the ledger at the time of the error
   repeated ScriptStep script_steps = 1;
   repeated Node nodes = 2;
@@ -341,6 +356,7 @@ message ScriptError {
     ContractNotActive update_local_contract_not_active = 15;
     CreateEmptyContractKeyMaintainers create_empty_contract_key_maintainers = 16;
     FetchEmptyContractKeyMaintainers fetch_empty_contract_key_maintainers = 17;
+    UnresolvedPackageName unresolved_package_name = 46;
 
     // Errors related to script interpretation
     ContractNotEffective script_contract_not_effective = 18;
@@ -366,7 +382,8 @@ message ScriptError {
     Empty cancelledByRequest = 41;
     LookupError lookup_error = 43;
     UpgradeError upgrade_error = 44;
-    // next is 45;
+    FailureStatusError failure_status_error = 45;
+    // next is 47;
   }
 }
 

@@ -9,5 +9,7 @@ package google.rpc;
 
 option (scalapb.options) = {
   scope: PACKAGE
+  flat_package: false
   java_conversions: true
 };
+

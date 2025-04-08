@@ -57,11 +57,14 @@ private[mediator] trait FinalizedResponseStore extends AutoCloseable {
     * toFinalizationTimeInclusive returning up to batchSize number of verdicts.
     */
   def readFinalizedVerdicts(
-      fromFinalizationTimeExclusive: CantonTimestamp,
       fromRequestExclusive: CantonTimestamp,
-      toFinalizationTimeInclusive: CantonTimestamp,
+      toRequestTimeInclusive: CantonTimestamp,
       batchSize: PositiveInt,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[FinalizedResponse]]
+
+  def highestRecordTime()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]]
 
   /** Remove all responses up to and including the provided timestamp. */
   def prune(
@@ -142,24 +145,25 @@ private[mediator] class InMemoryFinalizedResponseStore(
     )
 
   override def readFinalizedVerdicts(
-      fromFinalizationTimeExclusive: CantonTimestamp,
       fromRequestExclusive: CantonTimestamp,
-      toFinalizationTimeInclusive: CantonTimestamp,
+      toRequestTimeInclusive: CantonTimestamp,
       batchSize: PositiveInt,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[FinalizedResponse]] = {
     val responses = finalizedRequests.values.toSeq
       .filter(r =>
-        (
-          r.finalizationTime,
-          r.requestId.unwrap,
-        ) > (fromFinalizationTimeExclusive, fromRequestExclusive) &&
-          r.finalizationTime <= toFinalizationTimeInclusive
+        r.requestId.unwrap > fromRequestExclusive &&
+          r.requestId.unwrap <= toRequestTimeInclusive
       )
-      .sortBy(r => (r.finalizationTime, r.requestId))
+      .sortBy(r => r.requestId)
       .take(batchSize.value)
 
     FutureUnlessShutdown.pure(responses)
   }
+
+  override def highestRecordTime()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    FutureUnlessShutdown.pure(finalizedRequests.keys.maxOption)
 
   override def prune(
       timestamp: CantonTimestamp
@@ -321,10 +325,22 @@ private[mediator] class DbFinalizedResponseStore(
         )(traceContext, closeContext)
     }
 
+  override def highestRecordTime()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    storage
+      .query(
+        sql"""
+            select max(request_id)
+            from med_response_aggregations
+           """.as[Option[CantonTimestamp]].headOption,
+        operationName = "fetch highest record time",
+      )
+      .map(_.flatten)
+
   override def readFinalizedVerdicts(
-      fromFinalizationTimeExclusive: CantonTimestamp,
       fromRequestExclusive: CantonTimestamp,
-      toFinalizationTimeInclusive: CantonTimestamp,
+      toRequestTimeInclusive: CantonTimestamp,
       batchSize: PositiveInt,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[FinalizedResponse]] =
     storage
@@ -332,8 +348,8 @@ private[mediator] class DbFinalizedResponseStore(
         sql"""
               select request_id, mediator_confirmation_request, finalization_time, verdict, request_trace_context
               from med_response_aggregations
-              where (finalization_time, request_id) > ($fromFinalizationTimeExclusive, $fromRequestExclusive) and finalization_time <= $toFinalizationTimeInclusive
-              order by finalization_time, request_id
+              where request_id > $fromRequestExclusive and request_id <= $toRequestTimeInclusive
+              order by request_id
               limit $batchSize
            """
           .as[
@@ -360,7 +376,7 @@ private[mediator] class DbFinalizedResponseStore(
             }
           },
         operationName =
-          s"${this.getClass}: fetch responses with ($fromFinalizationTimeExclusive, $fromRequestExclusive) < (finalizationTime, request_id) <= ($toFinalizationTimeInclusive, MaxValue)",
+          s"${this.getClass}: fetch responses with $fromRequestExclusive < request_id <= $toRequestTimeInclusive",
       )
 
   override def prune(

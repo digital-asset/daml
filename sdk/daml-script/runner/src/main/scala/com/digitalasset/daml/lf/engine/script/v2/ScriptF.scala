@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.speedy.SBuiltinFun.{SBToAny, SBVariantCon}
+import com.digitalasset.daml.lf.speedy.SBuiltinFun.{SBThrow, SBToAny, SBVariantCon}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.{ArrayList, SError, SValue}
@@ -50,7 +50,11 @@ object ScriptF {
   )
 
   sealed trait Cmd {
-    private[lf] def executeWithRunner(env: Env, @annotation.unused runner: v2.Runner)(implicit
+    private[lf] def executeWithRunner(
+        env: Env,
+        @annotation.unused runner: v2.Runner,
+        @annotation.unused convertLegacyExceptions: Boolean,
+    )(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -125,45 +129,43 @@ object ScriptF {
     override def execute(
         env: Env
     )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
-      Future.failed(
-        free.InterpretationError(
-          SError
-            .SErrorDamlException(IE.UnhandledException(exc.ty, exc.value.toUnnormalizedValue))
-        )
-      )
+      Future.successful(SBThrow(SEValue(exc)))
   }
 
   final case class Catch(act: SValue) extends Cmd {
-    override def executeWithRunner(env: Env, runner: v2.Runner)(implicit
+    override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
+        implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
-      runner.run(SEAppAtomic(SEValue(act), Array(SEValue(SUnit)))).transformWith {
-        case Success(v) =>
-          Future.successful(SEAppAtomic(right, Array(SEValue(v))))
-        case Failure(
-              free.InterpretationError(
-                SError.SErrorDamlException(IE.UnhandledException(typ, value))
-              )
-            ) =>
-          env.translateValue(typ, value) match {
-            case Right(sVal) =>
-              Future.successful(
-                SELet1(
-                  SEAppAtomic(SEBuiltinFun(SBToAny(typ)), Array(SEValue(sVal))),
-                  SEAppAtomic(left, Array(SELocS(1))),
+      runner
+        .run(SEAppAtomic(SEValue(act), Array(SEValue(SUnit))), convertLegacyExceptions = false)
+        .transformWith {
+          case Success(v) =>
+            Future.successful(SEAppAtomic(right, Array(SEValue(v))))
+          case Failure(
+                free.InterpretationError(
+                  SError.SErrorDamlException(IE.UnhandledException(typ, value))
                 )
-              )
-            // This shouldn't ever happen, as these can only come from our engine
-            case Left(err) =>
-              Future.failed(
-                new RuntimeException(s"Daml-script thrown error couldn't be translated: $err")
-              )
-          }
+              ) =>
+            env.translateValue(typ, value) match {
+              case Right(sVal) =>
+                Future.successful(
+                  SELet1(
+                    SEAppAtomic(SEBuiltinFun(SBToAny(typ)), Array(SEValue(sVal))),
+                    SEAppAtomic(left, Array(SELocS(1))),
+                  )
+                )
+              // This shouldn't ever happen, as these can only come from our engine
+              case Left(err) =>
+                Future.failed(
+                  new RuntimeException(s"Daml-script thrown error couldn't be translated: $err")
+                )
+            }
 
-        case Failure(e) => Future.failed(e)
-      }
+          case Failure(e) => Future.failed(e)
+        }
 
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
@@ -740,7 +742,8 @@ object ScriptF {
   }
 
   final case class VetPackages(
-      packages: List[ScriptLedgerClient.ReadablePackageId]
+      packages: List[ScriptLedgerClient.ReadablePackageId],
+      participant: Option[Participant],
   ) extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
@@ -748,13 +751,14 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getParticipant(None))
+        client <- Converter.toFuture(env.clients.getParticipant(participant))
         _ <- client.vetPackages(packages)
       } yield SEValue(SUnit)
   }
 
   final case class UnvetPackages(
-      packages: List[ScriptLedgerClient.ReadablePackageId]
+      packages: List[ScriptLedgerClient.ReadablePackageId],
+      participant: Option[Participant],
   ) extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
@@ -762,7 +766,7 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- Converter.toFuture(env.clients.getParticipant(None))
+        client <- Converter.toFuture(env.clients.getParticipant(participant))
         _ <- client.unvetPackages(packages)
       } yield SEValue(SUnit)
   }
@@ -795,43 +799,14 @@ object ScriptF {
       )
   }
 
-  final case class VetDar(
-      darName: String,
-      participant: Option[Participant],
-  ) extends Cmd {
-    override def execute(env: Env)(implicit
-        ec: ExecutionContext,
-        mat: Materializer,
-        esf: ExecutionSequencerFactory,
-    ): Future[SExpr] =
-      for {
-        client <- Converter.toFuture(env.clients.getParticipant(participant))
-        _ <- client.vetDar(darName)
-      } yield SEValue(SUnit)
-  }
-
-  final case class UnvetDar(
-      darName: String,
-      participant: Option[Participant],
-  ) extends Cmd {
-    override def execute(env: Env)(implicit
-        ec: ExecutionContext,
-        mat: Materializer,
-        esf: ExecutionSequencerFactory,
-    ): Future[SExpr] =
-      for {
-        client <- Converter.toFuture(env.clients.getParticipant(participant))
-        _ <- client.unvetDar(darName)
-      } yield SEValue(SUnit)
-  }
-
   final case class TryCommands(act: SValue) extends Cmd {
-    override def executeWithRunner(env: Env, runner: v2.Runner)(implicit
+    override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
+        implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
-      runner.run(SEValue(act)).transformWith {
+      runner.run(SEValue(act), convertLegacyExceptions).transformWith {
         case Success(v) =>
           Future.successful(SEAppAtomic(right, Array(SEValue(v))))
         case Failure(
@@ -1148,9 +1123,10 @@ object ScriptF {
       case _ => Left(s"Expected ListUserRights payload but got $v")
     }
 
-  private def parseChangePackages(
-      v: SValue
-  ): Either[String, List[ScriptLedgerClient.ReadablePackageId]] = {
+  private def parseChangePackages[A](
+      v: SValue,
+      wrap: (List[ScriptLedgerClient.ReadablePackageId], Option[Participant]) => A,
+  ): Either[String, A] = {
     def toReadablePackageId(s: SValue): Either[String, ScriptLedgerClient.ReadablePackageId] =
       s match {
         case SRecord(_, _, ArrayList(SText(name), SText(version))) =>
@@ -1161,23 +1137,14 @@ object ScriptF {
         case _ => Left(s"Expected PackageName but got $s")
       }
     v match {
-      case SRecord(_, _, ArrayList(packages)) =>
-        Converter.toList(packages, toReadablePackageId)
-      case _ => Left(s"Expected Packages payload but got $v")
+      case SRecord(_, _, ArrayList(packages, participant)) =>
+        for {
+          packageIds <- Converter.toList(packages, toReadablePackageId)
+          participant <- Converter.toParticipantName(participant)
+        } yield wrap(packageIds, participant)
+      case _ => Left(s"Expected (Vet|Unvet)Packages payload but got $v")
     }
   }
-
-  private def parseDarVettingChange[A](
-      v: SValue,
-      wrap: (String, Option[Participant]) => A,
-  ): Either[String, A] =
-    v match {
-      case SRecord(_, _, ArrayList(SText(name), participant)) =>
-        for {
-          participant <- Converter.toParticipantName(participant)
-        } yield wrap(name, participant)
-      case _ => Left(s"Expected VetDar payload but got $v")
-    }
 
   private def parseTryCommands(v: SValue): Either[String, TryCommands] =
     v match {
@@ -1194,7 +1161,7 @@ object ScriptF {
               SRecord(
                 _,
                 _,
-                ArrayList(SText(errorId), SInt64(categoryId), SText(message), SMap(false, treeMap)),
+                ArrayList(SText(errorId), SInt64(categoryId), SText(message), SMap(true, treeMap)),
               )
             ),
           ) =>
@@ -1239,12 +1206,10 @@ object ScriptF {
       case ("GrantUserRights", 1) => parseGrantUserRights(v)
       case ("RevokeUserRights", 1) => parseRevokeUserRights(v)
       case ("ListUserRights", 1) => parseListUserRights(v)
-      case ("VetPackages", 1) => parseChangePackages(v).map(VetPackages)
-      case ("UnvetPackages", 1) => parseChangePackages(v).map(UnvetPackages)
+      case ("VetPackages", 1) => parseChangePackages(v, VetPackages)
+      case ("UnvetPackages", 1) => parseChangePackages(v, UnvetPackages)
       case ("ListVettedPackages", 1) => parseEmpty(ListVettedPackages())(v)
       case ("ListAllPackages", 1) => parseEmpty(ListAllPackages())(v)
-      case ("VetDar", 1) => parseDarVettingChange(v, VetDar)
-      case ("UnvetDar", 1) => parseDarVettingChange(v, UnvetDar)
       case ("TryCommands", 1) => parseTryCommands(v)
       case ("FailWithStatus", 1) => parseFailWithStatus(v)
       case _ => Left(s"Unknown command $commandName - Version $version")

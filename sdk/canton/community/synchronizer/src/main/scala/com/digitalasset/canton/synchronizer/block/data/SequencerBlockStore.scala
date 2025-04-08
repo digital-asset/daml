@@ -49,6 +49,11 @@ trait SequencerBlockStore extends AutoCloseable {
     */
   def readHead(implicit traceContext: TraceContext): FutureUnlessShutdown[BlockEphemeralState]
 
+  /** The block information for the block that contains the requested timestamp. */
+  def findBlockContainingTimestamp(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SequencerError, BlockInfo]
+
   /** The state at the end of the block that contains the given timestamp. This will typically be
     * used to inform other sequencer nodes being initialized of the initial state they should use
     * based on the timestamp they provide which is typically the timestamp of their signing key.

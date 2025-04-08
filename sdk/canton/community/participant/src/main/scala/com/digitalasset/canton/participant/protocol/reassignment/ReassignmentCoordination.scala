@@ -185,9 +185,9 @@ class ReassignmentCoordination(
     * `synchronizer` has not progressed far enough such that it can compute the snapshot. Use
     * [[awaitTimestamp]] to ensure progression to `timestamp`.
     */
-  private[reassignment] def cryptoSnapshot[T[X] <: ReassignmentTag[
-    X
-  ]: SameReassignmentType: SingletonTraverse](
+  private[reassignment] def cryptoSnapshot[
+      T[X] <: ReassignmentTag[X]: SameReassignmentType: SingletonTraverse
+  ](
       synchronizerId: T[SynchronizerId],
       staticSynchronizerParameters: T[StaticSynchronizerParameters],
       timestamp: CantonTimestamp,

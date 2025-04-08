@@ -32,7 +32,7 @@ final case class OrderingTopology(
     sequencingParameters: SequencingParameters,
     activationTime: TopologyActivationTime,
     areTherePendingCantonTopologyChanges: Boolean,
-) {
+) extends MessageAuthorizer {
 
   lazy val size: Int = nodesTopologyInfo.size
 
@@ -51,6 +51,9 @@ final case class OrderingTopology(
 
   def hasStrongQuorum(validVotes: Int): Boolean =
     isStrongQuorumReached(nodes.size, validVotes)
+
+  override def isAuthorized(from: BftNodeId, keyId: BftKeyId): Boolean =
+    nodesTopologyInfo.get(from).exists(_.keyIds.contains(keyId))
 }
 
 object OrderingTopology {

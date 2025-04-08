@@ -47,6 +47,7 @@ import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.{MonadUtil, PekkoUtil, SingleUseCell}
 import com.google.common.annotations.VisibleForTesting
 import io.circe.Encoder
+import io.circe.generic.semiauto.deriveEncoder
 import org.apache.pekko.actor.ActorSystem
 import org.slf4j.bridge.SLF4JBridgeHandler
 
@@ -305,23 +306,24 @@ class Environment(
     * first error will prevent further nodes from being started. If an error is returned previously
     * started nodes will not be stopped.
     */
-  def startAndReconnect(): Either[StartupError, Unit] =
+  def startAndReconnect(runner: => Unit = ()): Either[StartupError, Unit] =
     withNewTraceContext { implicit traceContext =>
       if (config.parameters.manualStart) {
         logger.info("Manual start requested.")
-        Either.unit
+        Right(runner)
       } else {
         logger.info("Automatically starting all instances")
         val startup = for {
           _ <- startAll()
           _ <- reconnectParticipants
-        } yield writePortsFile()
+        } yield {
+          logger.info("Successfully started all nodes")
+          runner
+          writePortsFile()
+        } // write ports after the runner has completed
         // log results
         startup
-          .bimap(
-            error => logger.error(s"Failed to start ${error.name}: ${error.message}"),
-            _ => logger.info("Successfully started all nodes"),
-          )
+          .leftMap(error => logger.error(s"Failed to start ${error.name}: ${error.message}"))
           .discard
         startup
       }
@@ -331,19 +333,20 @@ class Environment(
   private[canton] def writePortsFile()(implicit
       traceContext: TraceContext
   ): Unit = {
-    final case class ParticipantApis(ledgerApi: Int, adminApi: Int)
+    final case class ParticipantApis(ledgerApi: Int, adminApi: Int, jsonApi: Option[Int])
     config.parameters.portsFile.foreach { portsFile =>
       val items = participants.running.map { node =>
         (
           node.name.unwrap,
-          ParticipantApis(node.config.ledgerApi.port.unwrap, node.config.adminApi.port.unwrap),
+          ParticipantApis(
+            ledgerApi = node.config.ledgerApi.port.unwrap,
+            adminApi = node.config.adminApi.port.unwrap,
+            jsonApi = node.config.httpLedgerApi.flatMap(_.server.port),
+          ),
         )
       }.toMap
       import io.circe.syntax.*
-      implicit val encoder: Encoder[ParticipantApis] =
-        Encoder.forProduct2("ledgerApi", "adminApi") { apis =>
-          (apis.ledgerApi, apis.adminApi)
-        }
+      implicit val encoder: Encoder[ParticipantApis] = deriveEncoder
       val out = items.asJson.spaces2
       try {
         better.files.File(portsFile).overwrite(out)

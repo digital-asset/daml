@@ -215,7 +215,6 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
     newVersion,
     Value.ContractInstance(
       implementsPkg.pkgName,
-      implementsPkg.pkgVersion,
       implementsTemplateId,
       Value.ValueRecord(
         None,

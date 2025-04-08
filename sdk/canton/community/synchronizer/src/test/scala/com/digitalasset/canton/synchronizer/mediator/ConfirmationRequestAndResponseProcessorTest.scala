@@ -248,6 +248,7 @@ class ConfirmationRequestAndResponseProcessorTest
       timeouts,
       loggerFactory,
     )
+    mediatorState.initialize(CantonTimestamp.MinValue).futureValueUS
     val processor = new ConfirmationRequestAndResponseProcessor(
       synchronizerId,
       mediatorId,

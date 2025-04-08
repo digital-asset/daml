@@ -72,12 +72,12 @@ class ErrorCodeSpec
     "create a minimal grpc status and exception" - {
 
       "when correlation-id and trace-id are not set" in {
-        testMinimalGrpcStatus(NoLogging)
+        testMinimalGrpcStatus(NoBaseLogging)
       }
 
       "when only correlation-id is set" in {
         testMinimalGrpcStatus(
-          new NoLogging(
+          new NoBaseLogging(
             properties = Map.empty,
             correlationId = Some("123correlationId"),
           )
@@ -86,7 +86,7 @@ class ErrorCodeSpec
 
       "when only trace-id is set" in {
         testMinimalGrpcStatus(
-          new NoLogging(
+          new NoBaseLogging(
             properties = Map.empty,
             // correlationId should be the traceId when not set
             correlationId = Some("123traceId"),
@@ -97,7 +97,7 @@ class ErrorCodeSpec
 
       "when correlation-id and trace-id are set" in {
         testMinimalGrpcStatus(
-          new NoLogging(
+          new NoBaseLogging(
             properties = Map.empty,
             correlationId = Some("123correlationId"),
             traceId = Some("123traceId"),
@@ -135,7 +135,7 @@ class ErrorCodeSpec
           Some(new RuntimeException("runtimeException123"))
       }
 
-      val errorLoggerBig: ContextualizedErrorLogger = new NoLogging(
+      val errorLoggerBig: BaseErrorLogger = new NoBaseLogging(
         correlationId = Some("123correlationId"),
         properties = Map(
           "loggingEntryKey" -> "loggingEntryValue"
@@ -240,7 +240,7 @@ class ErrorCodeSpec
 
         override def definiteAnswerO: Option[Boolean] = Some(false)
       }
-      val errorLoggerOversized: ContextualizedErrorLogger = new NoLogging(
+      val errorLoggerOversized: BaseErrorLogger = new NoBaseLogging(
         correlationId = Some("123correlationId"),
         properties = Map(
           "loggingEntryKey" -> "loggingEntryValue",
@@ -304,7 +304,7 @@ class ErrorCodeSpec
         whenever(
           ErrorCode
             // Ensure we evaluate the test only for errors that must be truncated
-            .asGrpcStatus(err, ErrorCode.MaxErrorContentBytes * 10)(err.errorContext)
+            .asGrpcStatus(err, ErrorCode.MaxErrorContentBytes * 10)(err.logger)
             .getSerializedSize > ErrorCode.MaxErrorContentBytes
         ) {
           val protoResult = err.asGrpcStatus
@@ -340,7 +340,7 @@ class ErrorCodeSpec
     }
   }
 
-  def testMinimalGrpcStatus(errorLoggerSmall: ContextualizedErrorLogger): Unit = {
+  def testMinimalGrpcStatus(errorLoggerSmall: BaseErrorLogger): Unit = {
     class FooErrorMinimal(override val code: ErrorCode) extends BaseError {
       override val cause: String = "cause123"
     }

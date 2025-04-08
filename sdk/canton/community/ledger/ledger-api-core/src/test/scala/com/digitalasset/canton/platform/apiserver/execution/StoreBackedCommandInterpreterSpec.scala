@@ -114,7 +114,7 @@ class StoreBackedCommandInterpreterSpec
     submissionSeed = None,
     submissionTime = Time.Timestamp.now(),
     usedPackages = Set.empty,
-    dependsOnTime = false,
+    timeBoundaries = Time.Range.unconstrained,
     nodeSeeds = ImmArray.Empty,
     globalKeyMapping = Map.empty,
     disclosedEvents = ImmArray.empty,
@@ -266,8 +266,7 @@ class StoreBackedCommandInterpreterSpec
     val stakeholderContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "03")
     val stakeholderContract = ContractState.Active(
       contractInstance = Versioned(
-        // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
-        LfTransactionVersion.maxVersion,
+        LfTransactionVersion.minVersion,
         ContractInstance(packageName = packageName, template = identifier, arg = Value.ValueTrue),
       ),
       ledgerEffectiveTime = Timestamp.now(),

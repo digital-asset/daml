@@ -25,7 +25,6 @@ import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.ValueArithmeticError
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -1512,19 +1511,20 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         ),
       )
 
-      val valueArithmeticError = new ValueArithmeticError(stablePackages)
-
       forAll(cases) { (builtin, args, name) =>
         inside(eval(SEAppAtomicSaturatedBuiltin(builtin, args.map(SEValue(_)).toArray))) {
           case Left(
                 SError.SErrorDamlException(
-                  IE.UnhandledException(
-                    valueArithmeticError.typ,
-                    valueArithmeticError(msg),
+                  IE.FailureStatus(
+                    errorId,
+                    _,
+                    msg,
+                    _,
                   )
                 )
               ) =>
             msg shouldBe s"ArithmeticError while evaluating ($name ${args.iterator.map(lit2string).mkString(" ")})."
+            errorId shouldBe "UNHANDLED_EXCEPTION/DA.Exception.ArithmeticError:ArithmeticError"
         }
       }
     }
@@ -1631,7 +1631,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val contractInfo = ContractInfo(
           version = txVersion,
           packageName = pkg.pkgName,
-          packageVersion = pkg.pkgVersion,
           templateId = templateId,
           value = disclosedContract.argument,
           signatories = Set(alice),
@@ -1660,7 +1659,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
                 version = txVersion,
                 Value.ContractInstance(
                   packageName = pkg.pkgName,
-                  packageVersion = pkg.pkgVersion,
                   template = templateId,
                   arg = disclosedContract.argument.toUnnormalizedValue,
                 ),
@@ -1686,7 +1684,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val contractInfo = ContractInfo(
           version = txVersion,
           packageName = pkg.pkgName,
-          packageVersion = pkg.pkgVersion,
           templateId = templateId,
           value = disclosedContract.argument,
           signatories = Set(alice),
@@ -1717,7 +1714,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
                   template = templateId,
                   arg = disclosedContract.argument.toUnnormalizedValue,
                   packageName = pkg.pkgName,
-                  packageVersion = pkg.pkgVersion,
                 ),
               )
             ),
@@ -1755,10 +1751,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       } {
         case Left(
               SError.SErrorDamlException(
-                IE.UnhandledException(
-                  _,
-                  Value.ValueRecord(_, ImmArray((_, Value.ValueText(msg)))),
-                )
+                IE.FailureStatus(_, _, msg, _)
               )
             ) =>
           msg shouldBe "failed precondition"
@@ -1807,10 +1800,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           inside(eval(e"""KECCAK256_TEXT "$input"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.Dev(
-                      _,
-                      interpretation.Error.Dev
-                        .CCTP(interpretation.Error.Dev.CCTP.MalformedByteEncoding(value, reason)),
+                    interpretation.Error.CCTP(
+                      interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
                     )
                   )
                 ) =>
@@ -1858,10 +1849,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           inside(eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.Dev(
-                      _,
-                      interpretation.Error.Dev
-                        .CCTP(interpretation.Error.Dev.CCTP.MalformedByteEncoding(value, reason)),
+                    interpretation.Error.CCTP(
+                      interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
                     )
                   )
                 ) =>
@@ -1901,12 +1890,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.Dev(
-                      _,
-                      interpretation.Error.Dev
-                        .CCTP(
-                          interpretation.Error.Dev.CCTP.MalformedKey(`invalidPublicKey`, reason)
-                        ),
+                    interpretation.Error.CCTP(
+                      interpretation.Error.CCTP.MalformedKey(`invalidPublicKey`, reason)
                     )
                   )
                 ) =>
@@ -1923,10 +1908,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.Dev(
-                      _,
-                      interpretation.Error.Dev
-                        .CCTP(interpretation.Error.Dev.CCTP.MalformedByteEncoding(value, reason)),
+                    interpretation.Error.CCTP(
+                      interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
                     )
                   )
                 ) =>
@@ -1954,13 +1937,9 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.Dev(
-                      _,
-                      interpretation.Error.Dev
-                        .CCTP(
-                          interpretation.Error.Dev.CCTP
-                            .MalformedSignature(`invalidSignature`, reason)
-                        ),
+                    interpretation.Error.CCTP(
+                      interpretation.Error.CCTP
+                        .MalformedSignature(`invalidSignature`, reason)
                     )
                   )
                 ) =>
@@ -1976,10 +1955,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
               case Left(
                     SError.SErrorDamlException(
-                      interpretation.Error.Dev(
-                        _,
-                        interpretation.Error.Dev
-                          .CCTP(interpretation.Error.Dev.CCTP.MalformedByteEncoding(value, reason)),
+                      interpretation.Error.CCTP(
+                        interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
                       )
                     )
                   ) =>
@@ -2039,10 +2016,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           inside(eval(e"""HEX_TO_TEXT "$input"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.Dev(
-                      _,
-                      interpretation.Error.Dev
-                        .CCTP(interpretation.Error.Dev.CCTP.MalformedByteEncoding(value, reason)),
+                    interpretation.Error.CCTP(
+                      interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
                     )
                   )
                 ) =>
@@ -2359,7 +2334,6 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         Node.Create(
           coid = contractId,
           packageName = pkg.pkgName,
-          packageVersion = pkg.pkgVersion,
           templateId = templateId,
           arg = sarg.toNormalizedValue(txVersion),
           signatories = Set(maintainer),

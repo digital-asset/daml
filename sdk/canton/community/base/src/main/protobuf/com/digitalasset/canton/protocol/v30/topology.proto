@@ -38,6 +38,7 @@ message Enums {
   }
 }
 
+// [start NamespaceDelegation definition]
 // namespace delegation (equivalent to X509v3 CA root or intermediate CAs)
 // if is_root_delegation==false, the target key may sign all mappings requiring a signature
 // for the namespace except other NamespaceDelegation mappings.
@@ -55,6 +56,7 @@ message NamespaceDelegation {
   // a root delegation is also allowed to issue other NamespaceDelegations.
   bool is_root_delegation = 3;
 }
+// [end NamespaceDelegation definition]
 
 // a decentralized namespace definition that creates a new namespace supported by the
 // the original owners
@@ -303,6 +305,7 @@ message PurgeTopologyTransaction {
   repeated TopologyMapping mappings = 2;
 }
 
+// [docs-entry-start: topology mapping]
 message TopologyMapping {
   oneof mapping {
     NamespaceDelegation namespace_delegation = 1;
@@ -328,6 +331,7 @@ message TopologyMapping {
   }
   reserved 10; // was authority_of, but cannot be reserved inside the oneof
 }
+// [docs-entry-end: topology mapping]
 
 message TopologyTransaction {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
@@ -346,7 +350,6 @@ message TopologyTransaction {
 // Used in SignedTopologyTransaction to bundle together multiple transaction hashes
 // Allows submitters to only sign a single combined hash to authorize multiple transactions at once
 // The combined hash is computed from the transaction hashes
-// TODO(i24259): document hashing algorithm
 message MultiTransactionSignatures {
   // List of topology transaction hashes.
   // Required

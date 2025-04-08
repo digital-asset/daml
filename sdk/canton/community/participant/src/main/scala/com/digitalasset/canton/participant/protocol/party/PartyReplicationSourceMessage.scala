@@ -7,7 +7,7 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.participant.admin.data.ActiveContract
+import com.digitalasset.canton.participant.admin.data.ActiveContractOld
 import com.digitalasset.canton.participant.admin.party.v30
 import com.digitalasset.canton.participant.protocol.party.PartyReplicationSourceMessage.DataOrStatus
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -49,7 +49,7 @@ object PartyReplicationSourceMessage extends VersioningCompanion[PartyReplicatio
       case v30.PartyReplicationSourceMessage.DataOrStatus.AcsChunk(chunkP) =>
         for {
           chunkCounter <- ProtoConverter.parseNonNegativeInt("chunk_counter", chunkP.chunkCounter)
-          contracts <- chunkP.contracts.toList.traverse(ActiveContract.fromProtoV30)
+          contracts <- chunkP.contracts.toList.traverse(ActiveContractOld.fromProtoV30)
           nonEmptyContracts <- NonEmpty
             .from(contracts)
             .toRight(
@@ -71,8 +71,10 @@ object PartyReplicationSourceMessage extends VersioningCompanion[PartyReplicatio
     def toProtoV30: v30.PartyReplicationSourceMessage.DataOrStatus
   }
 
-  final case class AcsChunk(chunkCounter: NonNegativeInt, contracts: NonEmpty[Seq[ActiveContract]])
-      extends DataOrStatus {
+  final case class AcsChunk(
+      chunkCounter: NonNegativeInt,
+      contracts: NonEmpty[Seq[ActiveContractOld]],
+  ) extends DataOrStatus {
     override def toProtoV30: v30.PartyReplicationSourceMessage.DataOrStatus =
       v30.PartyReplicationSourceMessage.DataOrStatus.AcsChunk(
         v30.PartyReplicationSourceMessage

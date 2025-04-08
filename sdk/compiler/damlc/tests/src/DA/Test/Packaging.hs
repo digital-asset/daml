@@ -48,7 +48,67 @@ data Tools = Tools -- and places
 
 tests :: SdkVersioned => Tools -> TestTree
 tests Tools{damlc} = testGroup "Packaging" $
-    [ testCaseSteps "Build package with dependency" $ \step -> withTempDir $ \tmpDir -> do
+    [ testCaseSteps "Five layer-deep expression-only dependency tree" $ \step -> withTempDir $ \tmpDir -> do
+        -- This test is for https://github.com/digital-asset/daml/issues/20939
+        let project :: Integer -> String
+            project i = tmpDir </> ("layer" <> show i)
+        let mkAndAssertLayer :: Integer -> [String] -> IO ()
+            mkAndAssertLayer i lines = do
+              step $ "Generating source for layer" <> show i
+              createDirectoryIfMissing True (project i)
+              writeFile (project i </> "daml.yaml") $ unlines
+                  [ "sdk-version: " <> sdkVersion
+                  , "name: layer" <> show i
+                  , "version: 1.0.0"
+                  , "source: Layer" <> show i <> ".daml"
+                  , "dependencies:"
+                  , "  - daml-prim"
+                  , "  - daml-stdlib"
+                  , "data-dependencies:"
+                  , if i <= 1
+                      then ""
+                      else "  - ../layer" <> show (i - 1) <> "/.daml/dist/layer" <> show (i - 1) <> "-1.0.0.dar"
+                  ]
+
+              writeFile (project i </> ("Layer" <> show i <> ".daml")) $ unlines $ ("module Layer" <> show i <> " where") : lines
+
+              step $ "Building DAR for layer" <> show i
+              buildProject (project i)
+
+              output <- inspectDar (project i) (".daml/dist/layer" <> show i <> "-1.0.0.dar")
+              forM_ [1..i-1] $ \depI -> do
+                step $ "Checking that DAR for layer" <> show i <> " depends on DALF for layer" <> show depI
+                assertInfixOf ("\nlayer" <> show depI) output
+
+        mkAndAssertLayer 1
+            [ "layer1 : Text -> Text"
+            , "layer1 t = \"layer1 \" <> t"
+            ]
+
+        mkAndAssertLayer 2
+            [ "import Layer1"
+            , "layer2 : Text -> Text"
+            , "layer2 t = \"layer2 \" <> layer1 t"
+            ]
+
+        mkAndAssertLayer 3
+            [ "import Layer2"
+            , "layer3 : Text -> Text"
+            , "layer3 t = \"layer3 \" <> layer2 t"
+            ]
+
+        mkAndAssertLayer 4
+            [ "import Layer3"
+            , "layer4 : Text -> Text"
+            , "layer4 t = \"layer4 \" <> layer3 t"
+            ]
+
+        mkAndAssertLayer 5
+            [ "import Layer4"
+            , "layer5 : Text -> Text"
+            , "layer5 t = \"layer5 \" <> layer4 t"
+            ]
+    , testCaseSteps "Build package with dependency" $ \step -> withTempDir $ \tmpDir -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
         let aDar = projectA </> ".daml" </> "dist" </> "a-1.0.dar"
@@ -1113,6 +1173,8 @@ tests Tools{damlc} = testGroup "Packaging" $
       buildProject' :: FilePath -> FilePath -> IO ()
       buildProject' damlc dir = withCurrentDirectory dir $ callProcessSilent damlc ["build"]
       buildProject = buildProject' damlc
+
+      inspectDar dir file = withCurrentDirectory dir $ callProcessForStdout damlc ["inspect-dar", file]
 
       buildProjectError :: FilePath -> String -> String -> IO ()
       buildProjectError dir expectedOut expectedErr = withCurrentDirectory dir $ do

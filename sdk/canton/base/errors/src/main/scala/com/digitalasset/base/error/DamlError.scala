@@ -12,25 +12,28 @@ abstract class ContextualizedDamlError(
     extraContext: Map[String, Any] = Map(),
 )(implicit
     override val code: ErrorCode,
-    val errorContext: ContextualizedErrorLogger,
+    val logger: BaseErrorLogger,
 ) extends BaseError
-    with DamlRpcError {
-
-  def asGrpcStatus: Status =
-    ErrorCode.asGrpcStatus(this)(errorContext)
-
-  def asGrpcError: StatusRuntimeException =
-    ErrorCode.asGrpcError(this)(errorContext)
+    with RpcError
+    with LogOnCreation {
 
   // Automatically log the error on generation
-  errorContext.logError(this, Map())
+  override def logOnCreation: Boolean = true
+
+  def logError(): Unit = logWithContext()(logger)
+
+  def asGrpcStatus: Status =
+    ErrorCode.asGrpcStatus(this)(logger)
+
+  def asGrpcError: StatusRuntimeException =
+    ErrorCode.asGrpcError(this)(logger)
 
   override def context: Map[String, String] =
     super.context ++ extraContext.view.mapValues(_.toString)
 
-  def correlationId: Option[String] = errorContext.correlationId
+  def correlationId: Option[String] = logger.correlationId
 
-  def traceId: Option[String] = errorContext.traceId
+  def traceId: Option[String] = logger.traceId
 }
 
 /** @param definiteAnswer
@@ -43,7 +46,7 @@ class DamlErrorWithDefiniteAnswer(
     extraContext: Map[String, Any] = Map(),
 )(implicit
     override val code: ErrorCode,
-    loggingContext: ContextualizedErrorLogger,
+    loggingContext: BaseErrorLogger,
 ) extends ContextualizedDamlError(
       cause = cause,
       throwableO = throwableO,

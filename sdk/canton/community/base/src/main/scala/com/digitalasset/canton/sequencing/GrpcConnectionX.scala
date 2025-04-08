@@ -30,6 +30,7 @@ import io.grpc.stub.AbstractStub
 
 import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicReference
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContextExecutor, Future, blocking}
 
 /** Connection specialized for gRPC transport.
@@ -49,6 +50,8 @@ final case class GrpcConnectionX(
     associatedHasRunOnClosing = this,
     logger = logger,
   )
+
+  private[sequencing] def channel: Option[GrpcManagedChannel] = channelRef.get
 
   override def name: String = s"connection-${config.name}"
 
@@ -100,6 +103,7 @@ final case class GrpcConnectionX(
       stubFactory: Channel => Svc,
       logPolicy: CantonGrpcUtil.GrpcLogPolicy = CantonGrpcUtil.DefaultGrpcLogPolicy,
       retryPolicy: GrpcError => Boolean,
+      timeout: Duration = timeouts.network.unwrap,
   )(
       send: Svc => Future[Res]
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, ConnectionXError, Res] =
@@ -114,7 +118,7 @@ final case class GrpcConnectionX(
           .sendGrpcRequest(client, s"server-${config.name}")(
             send = send,
             requestDescription = requestDescription,
-            timeout = timeouts.network.unwrap,
+            timeout = timeout,
             logger = logger,
             logPolicy = logPolicy,
             retryPolicy = retryPolicy,

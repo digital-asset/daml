@@ -18,7 +18,7 @@ import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcUSExtended
-import com.digitalasset.canton.participant.admin.data.ActiveContract
+import com.digitalasset.canton.participant.admin.data.ActiveContractOld
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.{
   InFlightCount,
   SyncStateInspectionError,
@@ -296,7 +296,11 @@ final class SyncStateInspection(
                   skipCleanTocCheck = skipCleanTimestampCheck,
                 ) { case (contract, reassignmentCounter) =>
                   val activeContract =
-                    ActiveContract.create(synchronizerIdForExport, contract, reassignmentCounter)(
+                    ActiveContractOld.create(
+                      synchronizerIdForExport,
+                      contract,
+                      reassignmentCounter,
+                    )(
                       protocolVersion
                     )
 

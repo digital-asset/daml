@@ -5,8 +5,8 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mo
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.BootstrapDetector
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Epoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.{
   EpochStore,
@@ -66,7 +66,6 @@ class BootstrapDetectorTest extends AnyWordSpec with BftSequencerBaseTest {
               BlockNumber(70L),
               EpochLength(10L),
               Genesis.GenesisTopologyActivationTime,
-              Genesis.GenesisPreviousEpochMaxBftTime,
             ),
             lastBlockCommits = Seq.empty,
           ),
@@ -83,13 +82,13 @@ class BootstrapDetectorTest extends AnyWordSpec with BftSequencerBaseTest {
               BlockNumber(15000L),
               DefaultEpochLength,
               topologyActivationTime = TopologyActivationTime(CantonTimestamp.MinValue),
-              Genesis.GenesisPreviousEpochMaxBftTime,
             )
           ),
         ),
       )
     ) { (snapshotAdditionalInfo, membership, latestCompletedEpoch, expectedShouldStateTransfer) =>
       BootstrapDetector.detect(
+        DefaultEpochLength,
         snapshotAdditionalInfo,
         membership,
         latestCompletedEpoch,
@@ -100,6 +99,7 @@ class BootstrapDetectorTest extends AnyWordSpec with BftSequencerBaseTest {
   "fail on missing start epoch number" in {
     a[RuntimeException] shouldBe thrownBy(
       BootstrapDetector.detect(
+        DefaultEpochLength,
         Some(SequencerSnapshotAdditionalInfo(Map.empty /* boom! */ )),
         aMembershipWith2Nodes,
         Genesis.GenesisEpoch,

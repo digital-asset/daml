@@ -7,7 +7,7 @@ package transaction
 
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{Party, Identifier, PackageName, PackageVersion}
+import com.digitalasset.daml.lf.data.Ref.{Party, Identifier, PackageName}
 import com.digitalasset.daml.lf.transaction.{TransactionOuterClass => proto}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -178,8 +178,6 @@ class TransactionCoderSpec
         Node.Create(
           coid = absCid("#test-cid"),
           packageName = dummyPackageName,
-          packageVersion =
-            dummyPackageVersion.filter(_ => version >= TransactionVersion.minPackageVersion),
           templateId = Identifier.assertFromString("pkg-id:Test:Name"),
           arg = Value.ValueParty(Party.assertFromString("francesco")),
           signatories = Set(Party.assertFromString("alice")),
@@ -738,21 +736,16 @@ class TransactionCoderSpec
   }
 
   private[this] val dummyPackageName = PackageName.assertFromString("package-name")
-  private[this] val dummyPackageVersion = Some(PackageVersion.assertFromString("1.0.0"))
 
   private[this] def normalizeCreate(
       create: Node.Create
   ): Node.Create = {
-    val pkgVer =
-      if (create.version < TransactionVersion.minPackageVersion) None
-      else create.packageVersion.orElse(dummyPackageVersion)
     val maintainers = create.keyOpt.fold(Set.empty[Party])(_.maintainers)
     val signatories0 = create.signatories ++ maintainers
     val signatories =
       if (signatories0.isEmpty) Set(Party.assertFromString("alice")) else signatories0
     val stakeholders = signatories ++ create.stakeholders
     create.copy(
-      packageVersion = pkgVer,
       signatories = signatories0,
       stakeholders = stakeholders,
       arg = normalize(create.arg, create.version),

@@ -138,7 +138,7 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
     *
     * @param priorTimestamp
     *   The timestamp of the event prior to where the event processing starts. If [[scala.None$]],
-    *   the subscription starts at the [[initialCounterLowerBound]].
+    *   the subscription starts at the beginning.
     * @param cleanPreheadTsO
     *   The timestamp of the clean prehead sequencer counter, if known.
     * @param eventHandler
@@ -172,9 +172,6 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
   def downloadTopologyStateForInit()(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, GenericStoredTopologyTransactions]
-
-  /** The sequencer counter at which the first subscription starts */
-  protected def initialCounterLowerBound: SequencerCounter
 
   def protocolVersion: ProtocolVersion
 }
@@ -223,7 +220,6 @@ abstract class SequencerClientImpl(
     exitOnTimeout: Boolean,
     val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
-    override protected val initialCounterLowerBound: SequencerCounter,
 )(implicit executionContext: ExecutionContext, tracer: Tracer)
     extends SequencerClient
     with FlagCloseableAsync
@@ -806,7 +802,6 @@ class RichSequencerClientImpl(
     exitOnTimeout: Boolean,
     loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
-    initialCounterLowerBound: SequencerCounter,
 )(implicit executionContext: ExecutionContext, tracer: Tracer)
     extends SequencerClientImpl(
       synchronizerId,
@@ -829,7 +824,6 @@ class RichSequencerClientImpl(
       exitOnTimeout,
       loggerFactory,
       futureSupervisor,
-      initialCounterLowerBound,
     )
     with RichSequencerClient
     with FlagCloseableAsync
@@ -954,11 +948,12 @@ class RichSequencerClientImpl(
 
       } yield {
         val preSubscriptionEvent = replayEvents.lastOption.orElse(initialPriorEventO)
-        // previously seen counter takes precedence over the lower bound
-        val firstCounter = preSubscriptionEvent.fold(initialCounterLowerBound)(_.counter + 1)
+        val monotonicityCheckerPreviousTimestamp = preSubscriptionEvent.map(_.timestamp)
+        logger.debug(
+          s"Monotonicity checker initialized with timestamp $monotonicityCheckerPreviousTimestamp"
+        )
         val monotonicityChecker = new SequencedEventMonotonicityChecker(
-          firstCounter,
-          preSubscriptionEvent.fold(CantonTimestamp.MinValue)(_.timestamp),
+          monotonicityCheckerPreviousTimestamp,
           loggerFactory,
         )
         val eventHandler = monotonicityChecker.handler(
@@ -966,6 +961,7 @@ class RichSequencerClientImpl(
             timeTracker.wrapHandler(throttledEventHandler)
           )
         )
+
         sequencerTransports.sequencerToTransportMap.foreach {
           case (sequencerAlias, sequencerTransport) =>
             createSubscription(
@@ -1010,12 +1006,13 @@ class RichSequencerClientImpl(
   ): ResilientSequencerSubscription[SequencerClientSubscriptionError] = {
     val loggerFactoryWithSequencerAlias =
       SequencerClient.loggerFactoryWithSequencerAlias(loggerFactory, sequencerAlias)
-    // previously seen counter takes precedence over the lower bound
-    val nextCounter = preSubscriptionEvent.fold(initialCounterLowerBound)(_.counter)
+    val startingTimestamp = preSubscriptionEvent.map(_.timestamp)
+    val startingTimestampString = startingTimestamp
+      .map(timestamp => s"the timestamp $timestamp")
+      .getOrElse("the beginning")
     val eventValidator = eventValidatorFactory.create(loggerFactoryWithSequencerAlias)
     logger.info(
-      s"Starting subscription for alias=$sequencerAlias, id=$sequencerId at timestamp ${preSubscriptionEvent
-          .map(_.timestamp)}; next counter $nextCounter"
+      s"Starting subscription for alias=$sequencerAlias, id=$sequencerId at timestamp $startingTimestampString"
     )
 
     val eventDelay: DelaySequencedEvent = {
@@ -1051,7 +1048,7 @@ class RichSequencerClientImpl(
       member,
       sequencersTransportState.transport(sequencerId),
       subscriptionHandler.handleEvent,
-      nextCounter,
+      startingTimestamp,
       config.initialConnectionRetryDelay.underlying,
       config.warnDisconnectDelay.underlying,
       config.maxConnectionRetryDelay.underlying,
@@ -1484,7 +1481,6 @@ class SequencerClientImplPekko[E: Pretty](
     exitOnTimeout: Boolean,
     loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
-    initialCounterLowerBound: SequencerCounter,
 )(implicit executionContext: ExecutionContext, tracer: Tracer, materializer: Materializer)
     extends SequencerClientImpl(
       synchronizerId,
@@ -1507,7 +1503,6 @@ class SequencerClientImplPekko[E: Pretty](
       exitOnTimeout,
       loggerFactory,
       futureSupervisor,
-      initialCounterLowerBound,
     ) {
 
   import SequencerClientImplPekko.*
@@ -1579,15 +1574,26 @@ class SequencerClientImplPekko[E: Pretty](
           .foreach(event => timeTracker.subscriptionResumesAfter(event.timestamp))
         _ <- throttledEventHandler.subscriptionStartsAt(subscriptionStartsAt, timeTracker)
       } yield {
-        val preSubscriptionEvent = replayEvents.lastOption.orElse(initialPriorEventO)
-        // previously seen counter takes precedence over the lower bound
-        val firstCounter = preSubscriptionEvent.fold(initialCounterLowerBound)(_.counter)
-        val initialCounterOrPriorEvent = preSubscriptionEvent.toRight(firstCounter)
-        lazy val subscriptionStartLogMessage = initialCounterOrPriorEvent match {
-          case Left(counter) =>
-            s"Subscription starts without prior event at counter $counter"
+        val preSubscriptionEvent = replayEvents.lastOption
+          .map { event =>
+            logger.debug(s"Using the last replay event for pre-subscription: $event")
+            event
+          }
+          .orElse {
+            logger.debug(
+              s"Using the initial prior event for pre-subscription: $initialPriorEventO"
+            )
+            initialPriorEventO
+          }
+        val startingTimestamp = preSubscriptionEvent.map(_.timestamp)
+        val initialTimestampOrPriorEvent = preSubscriptionEvent.toRight(startingTimestamp)
+        lazy val subscriptionStartLogMessage = initialTimestampOrPriorEvent match {
+          case Left(timestampO) =>
+            val timestampString =
+              timestampO.map(timestamp => s"the timestamp $timestamp").getOrElse("the beginning")
+            s"Subscription starts without prior event at $timestampString"
           case Right(event) =>
-            s"Subscription starts at prior event at ${event.timestamp} with counter ${event.counter}"
+            s"Subscription starts at prior event at ${event.timestamp}"
         }
         logger.debug(subscriptionStartLogMessage)
 
@@ -1637,22 +1643,23 @@ class SequencerClientImplPekko[E: Pretty](
           .concat(Source.never)
           .viaMat(KillSwitches.single)(Keep.right)
 
+        val monotonicityCheckerPreviousTimestamp = preSubscriptionEvent.map(_.timestamp)
+        logger.debug(
+          s"Monotonicity checker initialized with timestamp $monotonicityCheckerPreviousTimestamp"
+        )
         val monotonicityChecker = new SequencedEventMonotonicityChecker(
-          firstCounter,
-          preSubscriptionEvent.fold(CantonTimestamp.MinValue)(_.timestamp),
+          previousEventTimestamp = monotonicityCheckerPreviousTimestamp,
           loggerFactory,
         )
         val storeSequencedEvent =
           StoreSequencedEvent(sequencedEventStore, synchronizerId, loggerFactory)
 
-        val aggregatorFlow = aggregator.aggregateFlow(initialCounterOrPriorEvent)
+        val aggregatorFlow = aggregator.aggregateFlow(initialTimestampOrPriorEvent)
         val subscriptionSource = configSource
           .viaMat(aggregatorFlow)(Keep.both)
           .injectKillSwitch { case (killSwitch, _) => killSwitch }
           .via(monotonicityChecker.flow)
           .map(_.value)
-          // Drop the first event if it's a resubscription because we don't want to pass it to the application handler any more
-          .via(dropPriorEvent(preSubscriptionEvent.isDefined))
           .via(batchFlow)
           .mapAsync(parallelism = 1) { controlOrEvent =>
             controlOrEvent.traverse(tracedEvents =>
@@ -1775,10 +1782,6 @@ class SequencerClientImplPekko[E: Pretty](
       "Sequencer subscription failed",
     )
   }
-
-  private def dropPriorEvent[A, B](doDrop: Boolean): Flow[Either[A, B], Either[A, B], NotUsed] =
-    if (doDrop) Flow[Either[A, B]].dropIf(1)(_.isRight)
-    else Flow[Either[A, B]]
 
   private def batchFlow[A, B <: HasTraceContext](implicit
       traceContext: TraceContext
