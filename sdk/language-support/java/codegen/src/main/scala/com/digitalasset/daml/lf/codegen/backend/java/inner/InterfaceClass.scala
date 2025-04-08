@@ -33,6 +33,7 @@ object InterfaceClass extends StrictLogging {
         .classBuilder(interfaceName)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
         .addFields(generateTemplateIdFields(packageId, packageMetadata.name, interfaceId).asJava)
+        .addFields(generateInterfaceIdFields(packageId, packageMetadata.name, interfaceId).asJava)
         .addField(ClassGenUtils.generatePackageIdField(packageId))
         .addField(ClassGenUtils.generatePackageNameField(packageMetadata.name))
         .addField(ClassGenUtils.generatePackageVersionField(packageMetadata.version))
@@ -161,6 +162,18 @@ object InterfaceClass extends StrictLogging {
       name: QualifiedName,
   ): Seq[FieldSpec] =
     ClassGenUtils.generateTemplateIdFields(
+      pkgId = packageId,
+      pkgName = pkgName,
+      moduleName = name.module.toString,
+      name = name.name.toString,
+    )
+
+  private def generateInterfaceIdFields(
+      packageId: PackageId,
+      pkgName: PackageName,
+      name: QualifiedName,
+  ): Seq[FieldSpec] =
+    ClassGenUtils.generateInterfaceIdFields(
       pkgId = packageId,
       pkgName = pkgName,
       moduleName = name.module.toString,
