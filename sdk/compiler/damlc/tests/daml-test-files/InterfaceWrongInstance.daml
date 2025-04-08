@@ -1,0 +1,26 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @ERROR range=25:5-26:20; The template of this interface instance does not match the enclosing template declaration
+
+module InterfaceWrongInstance where
+
+import Daml.Trigger
+
+interface I where
+  viewtype ()
+
+template S
+  with
+    sig: Party
+  where
+    signatory sig
+
+template T
+  with
+    sig: Party
+  where
+    signatory sig
+
+    interface instance I for S where
+      viewType = ()
