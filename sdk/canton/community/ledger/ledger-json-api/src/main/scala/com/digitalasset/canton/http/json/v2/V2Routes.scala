@@ -4,15 +4,12 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.jwt.Jwt
+import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.DamlDefinitionsView
-import com.digitalasset.canton.http.util.Logging.instanceUUIDLogCtx
-import com.digitalasset.canton.http.{PackageService, WebsocketConfig}
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.client.services.version.VersionClient
 import com.digitalasset.canton.ledger.participant.state.PackageSyncService
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.daml.lf.data.Ref.IdString
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.stream.Materializer
 import sttp.tapir.server.pekkohttp.PekkoHttpServerInterpreter
@@ -58,7 +55,6 @@ class V2Routes(
 object V2Routes {
   def apply(
       ledgerClient: LedgerClient,
-      packageService: PackageService,
       metadataServiceEnabled: Boolean,
       packageSyncService: PackageSyncService,
       executionContext: ExecutionContext,
@@ -70,18 +66,9 @@ object V2Routes {
   ): V2Routes = {
     implicit val ec: ExecutionContext = executionContext
 
-    def fetchSignatures(token: Option[String]) = for {
-      _ <- instanceUUIDLogCtx { implicit lc =>
-        packageService.reload(
-          Jwt(token.getOrElse(""))
-        )
-      }
-    } yield packageService.packageStore
-      .map { case (k, v) =>
-        (IdString.PackageId.assertFromString(k), v.pack)
-      }
-
-    val schemaProcessors = new SchemaProcessors(fetchSignatures)
+    val schemaProcessors = new SchemaProcessors(
+      packageSyncService.getPackageMetadataSnapshot(_).packages
+    )
     val protocolConverters = new ProtocolConverters(schemaProcessors)
     val commandService =
       new JsCommandService(ledgerClient, protocolConverters, loggerFactory)

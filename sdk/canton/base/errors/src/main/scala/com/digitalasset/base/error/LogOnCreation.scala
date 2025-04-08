@@ -5,17 +5,9 @@ package com.digitalasset.base.error
 
 /** Trait to log on creation */
 trait LogOnCreation {
-
-  self: BaseError =>
-
-  implicit def logger: ContextualizedErrorLogger
-
   def logOnCreation: Boolean = true
-
-  def logError(): Unit = logWithContext()(logger)
-
+  def logError(): Unit
   if (logOnCreation) {
     logError()
   }
-
 }

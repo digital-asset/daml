@@ -29,7 +29,7 @@ class MetadataHashV1Test extends BaseTest with AnyWordSpecLike with Matchers wit
       ) shouldBe metadataHash
 
       hashTracer.result shouldBe """'00000030' # Hash Purpose
-                                   |'01' # 01 (Node Encoding Version)
+                                   |'01' # 01 (Metadata Encoding Version)
                                    |# Act As Parties
                                    |'00000002' # 2 (int)
                                    |'00000005' # 5 (int)

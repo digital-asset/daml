@@ -401,8 +401,7 @@ class SynchronizerConnectivityReferenceIntegrationTestPostgres
   )
 }
 
-// TODO(#16761): Disabled because the BFT sequencer is not crash tolerant yet
-abstract class SynchronizerConnectivityBftOrderingIntegrationTestPostgres
+class SynchronizerConnectivityBftOrderingIntegrationTestPostgres
     extends SynchronizerConnectivityIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(

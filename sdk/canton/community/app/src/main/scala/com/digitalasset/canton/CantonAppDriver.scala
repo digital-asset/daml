@@ -218,7 +218,12 @@ abstract class CantonAppDriver extends App with NamedLogging with NoTracing {
   val environment = environmentFactory.create(cantonConfig, loggerFactory)
   val runner: Runner = cliOptions.command match {
     case Some(Command.Sandbox) =>
-      new ServerRunner(bootstrapScript, loggerFactory, cliOptions.exitAfterBootstrap)
+      new ServerRunner(
+        bootstrapScript,
+        loggerFactory,
+        cliOptions.exitAfterBootstrap,
+        cliOptions.dars,
+      )
     case Some(Command.Daemon) => new ServerRunner(bootstrapScript, loggerFactory)
     case Some(Command.RunScript(script)) => ConsoleScriptRunner(script, loggerFactory)
     case Some(Command.Generate(target)) =>

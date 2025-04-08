@@ -410,10 +410,10 @@ trait EventStorageBackend {
       eventSequentialIds: Iterable[Long]
   )(connection: Connection): Vector[RawParticipantAuthorization]
 
-  def topologyEventPublishedOnRecordTime(
+  def topologyEventOffsetPublishedOnRecordTime(
       synchronizerId: SynchronizerId,
       recordTime: CantonTimestamp,
-  )(connection: Connection): Boolean
+  )(connection: Connection): Option[Offset]
 
   def fetchEventPayloadsAcsDelta(target: EventPayloadSourceForUpdatesAcsDelta)(
       eventSequentialIds: Iterable[Long],
