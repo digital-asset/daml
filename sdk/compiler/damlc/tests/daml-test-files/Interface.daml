@@ -80,6 +80,29 @@ template Asset
         [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism.
         pure ()
 
+template Asset2
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory issuer, owner
+    implements Token where
+      view = EmptyInterfaceView
+      getOwner = owner
+      getAmount = amount
+      setAmount x = toInterface @Token (this with amount = x)
+
+      splitImpl splitAmount = do
+        error "n/a"
+
+      transferImpl newOwner = do
+         error "n/a"
+
+      noopImpl nothing = do
+        error "n/a"
+
+
 main = script do
   p <- allocateParty "Alice"
   cidAsset1 <- p `submit` do

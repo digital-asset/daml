@@ -484,6 +484,164 @@ instance DA.Internal.Desugar.HasToInterface Asset Token where
 instance DA.Internal.Desugar.HasFromInterface Asset Token where
   fromInterface = GHC.Types.primitive @"EFromInterface"
   unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+data GHC.Types.DamlTemplate => Asset2
+  = Asset2 {issuer : Party, owner : Party, amount : Int}
+  deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
+instance DA.Internal.Record.GetField "issuer" Asset2 Party where
+  getField = DA.Internal.Record.getFieldPrim @"issuer" @Asset2 @Party
+instance DA.Internal.Record.SetField "issuer" Asset2 Party where
+  setField = DA.Internal.Record.setFieldPrim @"issuer" @Asset2 @Party
+instance DA.Internal.Record.GetField "owner" Asset2 Party where
+  getField = DA.Internal.Record.getFieldPrim @"owner" @Asset2 @Party
+instance DA.Internal.Record.SetField "owner" Asset2 Party where
+  setField = DA.Internal.Record.setFieldPrim @"owner" @Asset2 @Party
+instance DA.Internal.Record.GetField "amount" Asset2 Int where
+  getField = DA.Internal.Record.getFieldPrim @"amount" @Asset2 @Int
+instance DA.Internal.Record.SetField "amount" Asset2 Int where
+  setField = DA.Internal.Record.setFieldPrim @"amount" @Asset2 @Int
+instance DA.Internal.Desugar.HasSignatory Asset2 where
+  signatory this@Asset2 {..}
+    = DA.Internal.Desugar.concat
+        [DA.Internal.Desugar.toParties (owner),
+         DA.Internal.Desugar.toParties (issuer)]
+    where
+        _ = this
+instance DA.Internal.Desugar.HasObserver Asset2 where
+  observer this@Asset2 {..}
+    = []
+    where
+        _ = this
+instance DA.Internal.Desugar.HasEnsure Asset2 where
+  ensure this@Asset2 {..}
+    = DA.Internal.Desugar.True
+    where
+        _ = this
+instance DA.Internal.Desugar.HasArchive Asset2 where
+  archive cid
+    = DA.Internal.Desugar.exercise cid DA.Internal.Desugar.Archive
+    where
+        _ = cid
+instance DA.Internal.Desugar.HasCreate Asset2 where
+  create = GHC.Types.primitive @"UCreate"
+instance DA.Internal.Desugar.HasFetch Asset2 where
+  fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasToAnyTemplate Asset2 where
+  _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
+instance DA.Internal.Desugar.HasFromAnyTemplate Asset2 where
+  _fromAnyTemplate = GHC.Types.primitive @"EFromAnyTemplate"
+instance DA.Internal.Desugar.HasTemplateTypeRep Asset2 where
+  _templateTypeRep = GHC.Types.primitive @"ETemplateTypeRep"
+instance DA.Internal.Desugar.HasIsInterfaceType Asset2 where
+  _isInterfaceType _ = DA.Internal.Desugar.False
+instance DA.Internal.Desugar.HasExercise Asset2 DA.Internal.Desugar.Archive (()) where
+  exercise = GHC.Types.primitive @"UExercise"
+instance DA.Internal.Desugar.HasToAnyChoice Asset2 DA.Internal.Desugar.Archive (()) where
+  _toAnyChoice = GHC.Types.primitive @"EToAnyChoice"
+instance DA.Internal.Desugar.HasFromAnyChoice Asset2 DA.Internal.Desugar.Archive (()) where
+  _fromAnyChoice = GHC.Types.primitive @"EFromAnyChoice"
+instance DA.Internal.Desugar.HasChoiceController Asset2 DA.Internal.Desugar.Archive where
+  _choiceController = GHC.Types.primitive @"EChoiceController"
+instance DA.Internal.Desugar.HasChoiceObserver Asset2 DA.Internal.Desugar.Archive where
+  _choiceObserver = GHC.Types.primitive @"EChoiceObserver"
+_choice$_Asset2$Archive :
+  (DA.Internal.Desugar.Consuming Asset2,
+   Asset2
+   -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party],
+   DA.Internal.Desugar.Optional (Asset2
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.Optional (Asset2
+                                 -> DA.Internal.Desugar.Archive -> [DA.Internal.Desugar.Party]),
+   DA.Internal.Desugar.ContractId Asset2
+   -> Asset2
+      -> DA.Internal.Desugar.Archive -> DA.Internal.Desugar.Update (()))
+_choice$_Asset2$Archive
+  = (DA.Internal.Desugar.Consuming, 
+     \ this _ -> DA.Internal.Desugar.signatory this, 
+     DA.Internal.Desugar.None, DA.Internal.Desugar.None, 
+     \ _ _ _ -> pure ())
+_interface_instance$_Asset2_Token_Asset2 :
+  DA.Internal.Desugar.InterfaceInstance Asset2 Token Asset2
+_interface_instance$_Asset2_Token_Asset2
+  = DA.Internal.Desugar.mkInterfaceInstance @Asset2 @Token @Asset2
+_method$_Asset2_Token_Asset2_getOwner :
+  DA.Internal.Desugar.Method Asset2 Token Asset2 "getOwner"
+_method$_Asset2_Token_Asset2_getOwner
+  = DA.Internal.Desugar.mkMethod
+      @Asset2
+      @Token
+      @Asset2
+      @"getOwner"
+      \ this@Asset2 {..}
+        -> let _ = this in let $getOwner = owner in $getOwner
+_method$_Asset2_Token_Asset2_getAmount :
+  DA.Internal.Desugar.Method Asset2 Token Asset2 "getAmount"
+_method$_Asset2_Token_Asset2_getAmount
+  = DA.Internal.Desugar.mkMethod
+      @Asset2
+      @Token
+      @Asset2
+      @"getAmount"
+      \ this@Asset2 {..}
+        -> let _ = this in let $getAmount = amount in $getAmount
+_method$_Asset2_Token_Asset2_setAmount :
+  DA.Internal.Desugar.Method Asset2 Token Asset2 "setAmount"
+_method$_Asset2_Token_Asset2_setAmount
+  = DA.Internal.Desugar.mkMethod
+      @Asset2
+      @Token
+      @Asset2
+      @"setAmount"
+      \ this@Asset2 {..}
+        -> let _ = this in
+           let $setAmount x = toInterface @Token (this {amount = x})
+           in $setAmount
+_method$_Asset2_Token_Asset2_splitImpl :
+  DA.Internal.Desugar.Method Asset2 Token Asset2 "splitImpl"
+_method$_Asset2_Token_Asset2_splitImpl
+  = DA.Internal.Desugar.mkMethod
+      @Asset2
+      @Token
+      @Asset2
+      @"splitImpl"
+      \ this@Asset2 {..}
+        -> let _ = this in
+           let $splitImpl splitAmount = do error "n/a" in $splitImpl
+_method$_Asset2_Token_Asset2_transferImpl :
+  DA.Internal.Desugar.Method Asset2 Token Asset2 "transferImpl"
+_method$_Asset2_Token_Asset2_transferImpl
+  = DA.Internal.Desugar.mkMethod
+      @Asset2
+      @Token
+      @Asset2
+      @"transferImpl"
+      \ this@Asset2 {..}
+        -> let _ = this in
+           let $transferImpl newOwner = do error "n/a" in $transferImpl
+_method$_Asset2_Token_Asset2_noopImpl :
+  DA.Internal.Desugar.Method Asset2 Token Asset2 "noopImpl"
+_method$_Asset2_Token_Asset2_noopImpl
+  = DA.Internal.Desugar.mkMethod
+      @Asset2
+      @Token
+      @Asset2
+      @"noopImpl"
+      \ this@Asset2 {..}
+        -> let _ = this in
+           let $noopImpl nothing = do error "n/a" in $noopImpl
+_view$_Asset2_Token_Asset2 :
+  DA.Internal.Desugar.InterfaceView Asset2 Token Asset2
+_view$_Asset2_Token_Asset2
+  = DA.Internal.Desugar.mkInterfaceView
+      @Asset2
+      @Token
+      @Asset2
+      \ this@Asset2 {..}
+        -> let _ = this in let $view = EmptyInterfaceView in $view
+instance DA.Internal.Desugar.HasToInterface Asset2 Token where
+  _toInterface = GHC.Types.primitive @"EToInterface"
+instance DA.Internal.Desugar.HasFromInterface Asset2 Token where
+  fromInterface = GHC.Types.primitive @"EFromInterface"
+  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
 main
   = script
       do p <- allocateParty "Alice"
