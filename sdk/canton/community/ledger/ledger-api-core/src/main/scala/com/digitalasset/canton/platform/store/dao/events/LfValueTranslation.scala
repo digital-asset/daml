@@ -370,7 +370,6 @@ final class LfValueTranslation(
           coid = rawCreatedEvent.contractId,
           templateId = rawCreatedEvent.templateId,
           packageName = rawCreatedEvent.packageName,
-          packageVersion = rawCreatedEvent.packageVersion,
           arg = createArgument.unversioned,
           signatories = signatories,
           stakeholders = signatories ++ observers,

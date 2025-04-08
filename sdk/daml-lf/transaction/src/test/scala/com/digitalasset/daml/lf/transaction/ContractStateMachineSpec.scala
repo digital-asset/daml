@@ -48,7 +48,6 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   val templateId: Ref.TypeConName = "Template:Id"
   val choiceId: Ref.ChoiceName = "Choice"
   val pkgName: Ref.PackageName = Ref.PackageName.assertFromString("package-name")
-  val pkgVer: Option[Ref.PackageVersion] = Some(Ref.PackageVersion.assertFromString("1.0.0"))
   val txVersion: TransactionVersion = TransactionVersion.maxVersion
   val unit: Value = Value.ValueUnit
 
@@ -87,7 +86,6 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     Node.Create(
       coid = contractId,
       packageName = pkgName,
-      packageVersion = pkgVer,
       templateId = templateId,
       arg = unit,
       signatories = aliceS,

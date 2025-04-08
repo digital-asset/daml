@@ -151,7 +151,6 @@ object Value {
   // Prefer to use transaction.FatContractInstance
   final case class ContractInstance(
       packageName: Ref.PackageName,
-      packageVersion: Option[Ref.PackageVersion] = None,
       template: Identifier,
       arg: Value,
   ) extends CidContainer[ContractInstance] {
@@ -170,21 +169,19 @@ object Value {
   object VersionedContractInstance {
     def apply(
         packageName: Ref.PackageName,
-        packageVersion: Option[Ref.PackageVersion],
         template: Identifier,
         arg: VersionedValue,
     ): VersionedContractInstance =
-      arg.map(ContractInstance(packageName, packageVersion, template, _))
+      arg.map(ContractInstance(packageName, template, _))
 
     @deprecated("use the version with 3 argument", since = "2.9.0")
     def apply(
         version: transaction.TransactionVersion,
         packageName: Ref.PackageName,
-        packageVersion: Option[Ref.PackageVersion],
         template: Identifier,
         arg: Value,
     ): VersionedContractInstance =
-      transaction.Versioned(version, ContractInstance(packageName, packageVersion, template, arg))
+      transaction.Versioned(version, ContractInstance(packageName, template, arg))
   }
 
   type NodeIdx = Int

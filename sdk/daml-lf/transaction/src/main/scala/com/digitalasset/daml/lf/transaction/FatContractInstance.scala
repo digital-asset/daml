@@ -15,7 +15,6 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
   val version: TransactionVersion
   val contractId: Value.ContractId
   val packageName: Ref.PackageName
-  val packageVersion: Option[Ref.PackageVersion]
   val templateId: Ref.TypeConName
   val createArg: Value
   val signatories: TreeSet[Ref.Party]
@@ -35,7 +34,6 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
   def toCreateNode = Node.Create(
     coid = contractId,
     packageName = packageName,
-    packageVersion = packageVersion,
     templateId = templateId,
     arg = createArg,
     signatories = signatories,
@@ -49,7 +47,6 @@ private[lf] final case class FatContractInstanceImpl(
     version: TransactionVersion,
     contractId: Value.ContractId,
     packageName: Ref.PackageName,
-    packageVersion: Option[Ref.PackageVersion],
     templateId: Ref.TypeConName,
     createArg: Value,
     signatories: TreeSet[Ref.Party],
@@ -95,7 +92,6 @@ object FatContractInstance {
       version = create.version,
       contractId = create.coid,
       packageName = create.packageName,
-      packageVersion = create.packageVersion,
       templateId = create.templateId,
       createArg = create.arg,
       signatories = TreeSet.from(create.signatories),

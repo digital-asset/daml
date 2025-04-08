@@ -1168,7 +1168,7 @@ private[lf] object SBuiltinFun {
         allowCatchingContractInfoErrors = false,
       ) { contract =>
         val templateVersion = machine.tmplId2TxVersion(templateId)
-        val (pkgName, _) = machine.tmplId2PackageNameVersion(templateId)
+        val pkgName = machine.tmplId2PackageName(templateId)
         val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
         val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
         val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
@@ -1506,8 +1506,8 @@ private[lf] object SBuiltinFun {
     if (dstTplId == srcTplId) {
       k(Some(srcArg))
     } else if (dstTplId.qualifiedName == srcTplId.qualifiedName) {
-      val (srcPkgName, _) = machine.tmplId2PackageNameVersion(dstTplId)
-      val (dstPkgName, _) = machine.tmplId2PackageNameVersion(srcTplId)
+      val srcPkgName = machine.tmplId2PackageName(dstTplId)
+      val dstPkgName = machine.tmplId2PackageName(srcTplId)
       if (srcPkgName == dstPkgName) {
         // This isn't ideal as its a large uncached computation in a non Update primative.
         // Ideally this would run in Update, and not iterate the value twice
@@ -1695,7 +1695,7 @@ private[lf] object SBuiltinFun {
         machine: UpdateMachine,
     ): Control[Nothing] = {
       val keyVersion = machine.tmplId2TxVersion(templateId)
-      val (pkgName, _) = machine.tmplId2PackageNameVersion(templateId)
+      val pkgName = machine.tmplId2PackageName(templateId)
       val cachedKey =
         extractKey(NameOf.qualifiedNameOfCurrentFunc, keyVersion, pkgName, templateId, args.get(0))
       val mbCoid = args.get(1) match {
@@ -1775,7 +1775,7 @@ private[lf] object SBuiltinFun {
 
       val keyValue = args.get(0)
       val version = machine.tmplId2TxVersion(templateId)
-      val (pkgName, _) = machine.tmplId2PackageNameVersion(templateId)
+      val pkgName = machine.tmplId2PackageName(templateId)
       val cachedKey =
         extractKey(NameOf.qualifiedNameOfCurrentFunc, version, pkgName, templateId, keyValue)
       if (cachedKey.maintainers.isEmpty) {
@@ -2175,7 +2175,7 @@ private[lf] object SBuiltinFun {
       val contractInfoStruct = args.get(0)
       val contractInfo = extractContractInfo(
         machine.tmplId2TxVersion,
-        machine.tmplId2PackageNameVersion,
+        machine.tmplId2PackageName,
         contractInfoStruct,
       )
       val recomputed = contractInfo.toCreateNode(contract.contractId)
@@ -2332,7 +2332,7 @@ private[lf] object SBuiltinFun {
 
   private def extractContractInfo(
       tmplId2TxVersion: TypeConName => TransactionVersion,
-      tmplId2PackageNameVersion: TypeConName => (PackageName, Option[PackageVersion]),
+      tmplId2PackageName: TypeConName => PackageName,
       contractInfoStruct: SValue,
   ): ContractInfo = {
     contractInfoStruct match {
@@ -2346,7 +2346,7 @@ private[lf] object SBuiltinFun {
             )
         }
         val version = tmplId2TxVersion(templateId)
-        val (pkgName, pkgVer) = tmplId2PackageNameVersion(templateId)
+        val pkgName = tmplId2PackageName(templateId)
         val mbKey = vals.get(contractInfoStructKeyIdx) match {
           case SOptional(mbKey) =>
             mbKey.map(
@@ -2361,7 +2361,6 @@ private[lf] object SBuiltinFun {
         ContractInfo(
           version = version,
           packageName = pkgName,
-          packageVersion = pkgVer,
           templateId = templateId,
           value = vals.get(contractInfoStructArgIdx),
           signatories = extractParties(
@@ -2575,7 +2574,7 @@ private[lf] object SBuiltinFun {
       contractInfoStruct =>
         val contract = extractContractInfo(
           machine.tmplId2TxVersion,
-          machine.tmplId2PackageNameVersion,
+          machine.tmplId2PackageName,
           contractInfoStruct,
         )
         f(contract)

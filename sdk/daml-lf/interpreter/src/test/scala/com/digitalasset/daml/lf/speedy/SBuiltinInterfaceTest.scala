@@ -148,7 +148,7 @@ class SBuiltinInterfaceUpgradeImplementationTest extends AnyFreeSpec with Matche
     val contracts = Map[Value.ContractId, Value.VersionedContractInstance](
       cid -> Versioned(
         TransactionVersion.StableVersions.max,
-        ContractInstance(implemPkgName, Some(implemPkgVersion(contractVersion)), tplId, tplPayload),
+        ContractInstance(implemPkgName, tplId, tplPayload),
       )
     )
 
@@ -292,7 +292,7 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
   val contracts = Map[Value.ContractId, Value.VersionedContractInstance](
     cid -> Versioned(
       TransactionVersion.StableVersions.max,
-      ContractInstance(implemPkgName, Some(implemPkgVersion(1)), tplV1Id, tplV1Payload),
+      ContractInstance(implemPkgName, tplV1Id, tplV1Payload),
     )
   )
 
@@ -407,7 +407,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(basePkg.pkgName, basePkg.pkgVersion, tplId, tplPayload),
+                ContractInstance(basePkg.pkgName, tplId, tplPayload),
               )
             ),
             getPkg = PartialFunction.empty,
@@ -434,7 +434,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(basePkg.pkgName, basePkg.pkgVersion, tplId, tplPayload),
+                ContractInstance(basePkg.pkgName, tplId, tplPayload),
               )
             ),
             getPkg = PartialFunction.empty,
@@ -460,7 +460,6 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
                 TransactionVersion.StableVersions.max,
                 ContractInstance(
                   packageName = basePkg.pkgName,
-                  packageVersion = basePkg.pkgVersion,
                   template = iouId,
                   arg = iouPayload,
                 ),
@@ -482,7 +481,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(extraPkg.pkgName, extraPkg.pkgVersion, extraIouId, iouPayload),
+                ContractInstance(extraPkg.pkgName, extraIouId, iouPayload),
               )
             ),
             getPkg = PartialFunction.empty,
@@ -501,7 +500,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             getContract = Map(
               cid -> Versioned(
                 TransactionVersion.StableVersions.max,
-                ContractInstance(extraPkg.pkgName, extraPkg.pkgVersion, extraIouId, iouPayload),
+                ContractInstance(extraPkg.pkgName, extraIouId, iouPayload),
               )
             ),
             getPkg = { case `extraPkgId` =>

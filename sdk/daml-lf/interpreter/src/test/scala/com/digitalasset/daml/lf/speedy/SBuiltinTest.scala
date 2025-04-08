@@ -1631,7 +1631,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val contractInfo = ContractInfo(
           version = txVersion,
           packageName = pkg.pkgName,
-          packageVersion = pkg.pkgVersion,
           templateId = templateId,
           value = disclosedContract.argument,
           signatories = Set(alice),
@@ -1660,7 +1659,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
                 version = txVersion,
                 Value.ContractInstance(
                   packageName = pkg.pkgName,
-                  packageVersion = pkg.pkgVersion,
                   template = templateId,
                   arg = disclosedContract.argument.toUnnormalizedValue,
                 ),
@@ -1686,7 +1684,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val contractInfo = ContractInfo(
           version = txVersion,
           packageName = pkg.pkgName,
-          packageVersion = pkg.pkgVersion,
           templateId = templateId,
           value = disclosedContract.argument,
           signatories = Set(alice),
@@ -1717,7 +1714,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
                   template = templateId,
                   arg = disclosedContract.argument.toUnnormalizedValue,
                   packageName = pkg.pkgName,
-                  packageVersion = pkg.pkgVersion,
                 ),
               )
             ),
@@ -2356,7 +2352,6 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         Node.Create(
           coid = contractId,
           packageName = pkg.pkgName,
-          packageVersion = pkg.pkgVersion,
           templateId = templateId,
           arg = sarg.toNormalizedValue(txVersion),
           signatories = Set(maintainer),
