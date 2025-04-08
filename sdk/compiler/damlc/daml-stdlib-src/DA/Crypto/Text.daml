@@ -72,9 +72,10 @@ hexByteToInt "C" = 12
 hexByteToInt "D" = 13
 hexByteToInt "E" = 14
 hexByteToInt "F" = 15
-hexByteToInt hexChars | Text.length hexChars == 2 && isHex hexChars = (hexByteToInt (Text.substring 1 1 hexChars)) + 16 * (hexByteToInt (Text.substring 0 1 hexChars))
-hexByteToInt hexChars | not (isHex hexChars) = error $ "Argument is not a hex string: " <> hexChars
-hexByteToInt hexChars = error $ "Hex string should have length <= 2: " <> hexChars
+hexByteToInt hexChars
+  | not (isHex hexChars) = error $ "Argument is not a hex string: " <> hexChars
+  | Text.length hexChars /= 2 = error $ "Hex string should have length <= 2: " <> hexChars
+  | otherwise = (hexByteToInt (Text.substring 1 1 hexChars)) + 16 * (hexByteToInt (Text.substring 0 1 hexChars))
 
 -- | `isHex` is `True` if `t` is not empty and consists only of
 -- hex or hexadecimal characters.
@@ -135,23 +136,23 @@ instance HasToHex Party where
 -- simply hex encode the string representation of the underlying numeric's decimal string. This allows `parseNumeric`
 -- to be used to define `HasFromHex` instances.
 numericViaStringToHex : NumericScale n => Numeric n -> BytesHex
-numericViaStringToHex num = toHex(show num)
+numericViaStringToHex num = toHex (show num)
 
 class HasFromHex a where
   -- | Converts a hex encoded string into a typed data value.
   fromHex: BytesHex -> a
 
 instance HasFromHex (Optional Text) where
-  fromHex hex | isHex hex = Some(primitive @"BEDecodeHex" (Text.asciiToLower hex))
+  fromHex hex | isHex hex = Some (primitive @"BEDecodeHex" (Text.asciiToLower hex))
   fromHex _ = None
 
 instance HasFromHex (Optional Int) where
   fromHex "" = Some 0
-  fromHex hex | isHex hex && Text.length hex == 2 = Some(hexByteToInt hex)
+  fromHex hex | isHex hex && Text.length hex == 2 = Some (hexByteToInt hex)
   fromHex hex | isHex hex = do
-    right <- fromHex(Text.substring ((Text.length hex) - 2) 2 hex)
-    left <- fromHex(Text.substring 0 ((Text.length hex) - 2) hex)
-    Some(left * 256 + right)
+    right <- fromHex (Text.substring ((Text.length hex) - 2) 2 hex)
+    left <- fromHex (Text.substring 0 ((Text.length hex) - 2) hex)
+    Some (left * 256 + right)
   fromHex _ = None
 
 instance HasFromHex (Optional Party) where
@@ -178,7 +179,7 @@ byteRepeat len byte
   | not (isHex byte)    = error $ "Expected a hex encoded string but argument was: " <> byte
   | byteCount byte /= 1 = error $ "Expected a byte value but hex encoded string was: " <> byte
   | len < 0             = error $ "Expected a positive length but argument was: " <> show len
-  | otherwise           = Text.implode(replicateList len byte)
+  | otherwise           = Text.implode (replicateList len byte)
 
 -- | Minimum Bytes32 hex value
 minBytes32Hex: BytesHex
@@ -233,15 +234,15 @@ isUInt256Hex arg = error $ "Expected a hex encoded string but argument was: " <>
 packHexBytes: BytesHex -> Int -> Optional BytesHex
 packHexBytes hex pad | isHex hex && 0 <= pad =
   if byteCount hex <= pad
-    then Some((byteRepeat (pad - byteCount hex) "00") <> hex)
-    else Some(Text.drop ((pad - byteCount hex) * 2) hex)
+    then Some ((byteRepeat (pad - byteCount hex) "00") <> hex)
+    else Some (Text.drop ((pad - byteCount hex) * 2) hex)
 packHexBytes _ _ = None
 
 -- | Extract the byte string starting at startByte up to, but excluding, endByte. Byte indexing starts at 1.
 sliceHexBytes: BytesHex -> Int -> Int -> Either Text BytesHex
 sliceHexBytes hex startByte endByte
-  | not (isHex hex) =  Left("Expected a hex encoded string but argument was: " <> hex)
-  | startByte < 1 =  Left("Expected start byte to be >= 1, was: " <> show startByte)
-  | startByte > endByte =  Left("Expected end byte to be >= " <> show(startByte) <> " was: " <> show(endByte))
-  | endByte > (byteCount hex) + 1 = Left("Expected end byte to be <= " <> show((byteCount hex) + 1) <> " was: " <> show(endByte))
-  | otherwise = Right(Text.substring ((startByte - 1) * 2) ((endByte - startByte) * 2) hex)
+  | not (isHex hex) =  Left ("Expected a hex encoded string but argument was: " <> hex)
+  | startByte < 1 =  Left ("Expected start byte to be >= 1, was: " <> show startByte)
+  | startByte > endByte =  Left ("Expected end byte to be >= " <> show startByte <> " was: " <> show endByte)
+  | endByte > (byteCount hex) + 1 = Left ("Expected end byte to be <= " <> show ((byteCount hex) + 1) <> " was: " <> show endByte)
+  | otherwise = Right (Text.substring ((startByte - 1) * 2) ((endByte - startByte) * 2) hex)
