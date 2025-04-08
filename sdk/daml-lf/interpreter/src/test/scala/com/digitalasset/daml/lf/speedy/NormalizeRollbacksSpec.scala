@@ -296,7 +296,6 @@ object NormalizeRollbackSpec {
     Node.Create(
       coid = toCid("dummyCid"),
       packageName = Ref.PackageName.assertFromString("-pkgName-"),
-      packageVersion = None,
       templateId = Ref.Identifier.assertFromString("-dummyPkg-:DummyModule:dummyName"),
       arg = V.ValueInt64(n),
       signatories = Set.empty,

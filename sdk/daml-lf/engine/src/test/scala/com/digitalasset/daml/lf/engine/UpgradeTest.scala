@@ -1745,7 +1745,6 @@ object UpgradeTest {
     val clientContract: VersionedContractInstance = assertAsVersionedContract(
       ContractInstance(
         clientPkg.pkgName,
-        Some(clientPkg.metadata.version),
         clientTplId,
         ValueRecord(
           Some(clientTplId),
@@ -1767,7 +1766,6 @@ object UpgradeTest {
     val globalContract: VersionedContractInstance = assertAsVersionedContract(
       ContractInstance(
         templateDefsV1Pkg.pkgName,
-        Some(templateDefsV1Pkg.metadata.version),
         v1TplId,
         globalContractArg,
       )
@@ -1808,7 +1806,6 @@ object UpgradeTest {
       version = languageVersion,
       contractId = globalContractId,
       packageName = templateDefsPkgName,
-      packageVersion = None,
       templateId = v1TplId,
       createArg = normalize(globalContractArg, Ast.TTyCon(v1TplId)),
       signatories = immutable.TreeSet(alice),

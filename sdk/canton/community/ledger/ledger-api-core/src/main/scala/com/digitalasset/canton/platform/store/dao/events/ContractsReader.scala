@@ -188,7 +188,6 @@ private[dao] object ContractsReader {
     )
     Contract(
       packageName = PackageName.assertFromString(packageName),
-      packageVersion = packageVersion.map(PackageVersion.assertFromString),
       template = Identifier.assertFromString(templateId),
       arg = deserialized,
     )

@@ -118,7 +118,6 @@ private class NodeBuilderV1(
     case Node.Create(
           coid,
           packageName,
-          packageVersion,
           templateId,
           arg,
           _agreementText @ _,
@@ -127,7 +126,6 @@ private class NodeBuilderV1(
           keyOpt,
           version,
         ) =>
-      if (packageVersion.isDefined) notSupported("packageVersion in Create node") // 2.dev feature
       if (keyOpt.isDefined) notSupported("keyOpt in Create node") // 2.dev feature
       addContext("Create Node")
         .withContext("Node Version")(_.add(TransactionVersion.toProtoValue(version)))

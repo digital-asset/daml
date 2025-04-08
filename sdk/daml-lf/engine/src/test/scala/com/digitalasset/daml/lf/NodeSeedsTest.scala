@@ -52,7 +52,6 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
       transaction.TransactionVersion.VDev,
       Value.ContractInstance(
         mainPkg.pkgName,
-        mainPkg.pkgVersion,
         requestTmplId,
         Value.ValueRecord(
           None,
@@ -69,7 +68,6 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
     transaction.TransactionVersion.VDev,
     Value.ContractInstance(
       mainPkg.pkgName,
-      mainPkg.pkgVersion,
       roleTmplId,
       Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(operator))),
     ),

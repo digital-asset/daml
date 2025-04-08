@@ -179,7 +179,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           Node.Create(
             coid = cid,
             packageName = basicTestsPkg.pkgName,
-            packageVersion = basicTestsPkg.pkgVersion,
             templateId = templateId,
             arg = ValueRecord(
               Some(templateId),
@@ -242,7 +241,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           Node.Create(
             coid = cid,
             packageName = basicTestsPkg.pkgName,
-            packageVersion = basicTestsPkg.pkgVersion,
             templateId = templateId,
             arg = ValueRecord(
               Some(templateId),
@@ -1426,7 +1424,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       assertAsVersionedContract(
         ContractInstance(
           packageName = basicTestsPkg.pkgName,
-          packageVersion = basicTestsPkg.pkgVersion,
           template = TypeConName(basicTestsPkgId, tid),
           arg = ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs),
         )
@@ -1570,7 +1567,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       assertAsVersionedContract(
         ContractInstance(
           packageName = basicTestsPkg.pkgName,
-          packageVersion = basicTestsPkg.pkgVersion,
           template = TypeConName(basicTestsPkgId, fetchedStrTid),
           arg = ValueRecord(
             Some(Identifier(basicTestsPkgId, fetchedStrTid)),
@@ -1619,7 +1615,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       assertAsVersionedContract(
         ContractInstance(
           packageName = basicTestsPkg.pkgName,
-          packageVersion = basicTestsPkg.pkgVersion,
           template = TypeConName(basicTestsPkgId, lookerUpTemplate),
           arg =
             ValueRecord(Some(lookerUpTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
@@ -1967,7 +1962,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val fetcherInst = assertAsVersionedContract(
         ContractInstance(
           packageName = basicTestsPkg.pkgName,
-          packageVersion = basicTestsPkg.pkgVersion,
           template = TypeConName(basicTestsPkgId, fetcherTemplate),
           arg = ValueRecord(Some(fetcherTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
         )
@@ -2037,7 +2031,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val fetcherInst = assertAsVersionedContract(
       ContractInstance(
         packageName = basicTestsPkg.pkgName,
-        packageVersion = basicTestsPkg.pkgVersion,
         template = fetcherId,
         arg = ValueRecord(
           None,
@@ -2218,7 +2211,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       cid -> assertAsVersionedContract(
         ContractInstance(
           packageName = exceptionsPkg.pkgName,
-          packageVersion = exceptionsPkg.pkgVersion,
           template = TypeConName(exceptionsPkgId, "Exceptions:K"),
           arg = ValueRecord(
             None,
@@ -2370,7 +2362,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       cid -> assertAsVersionedContract(
         ContractInstance(
           packageName = exceptionsPkg.pkgName,
-          packageVersion = exceptionsPkg.pkgVersion,
           template = TypeConName(exceptionsPkgId, "Exceptions:K"),
           arg = ValueRecord(
             None,
@@ -2450,7 +2441,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       cid -> assertAsVersionedContract(
         ContractInstance(
           packageName = exceptionsPkg.pkgName,
-          packageVersion = exceptionsPkg.pkgVersion,
           template = TypeConName(exceptionsPkgId, "Exceptions:K"),
           arg = ValueRecord(
             None,
@@ -2679,7 +2669,6 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     assertAsVersionedContract(
       ContractInstance(
         packageName = basicTestsPkg.pkgName,
-        packageVersion = basicTestsPkg.pkgVersion,
         template = TypeConName(basicTestsPkgId, withKeyTemplate),
         arg = ValueRecord(
           Some(BasicTests_WithKey),
@@ -2697,7 +2686,6 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         assertAsVersionedContract(
           ContractInstance(
             packageName = basicTestsPkg.pkgName,
-            packageVersion = basicTestsPkg.pkgVersion,
             template = TypeConName(basicTestsPkgId, "BasicTests:Simple"),
             arg = ValueRecord(
               Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
@@ -2709,7 +2697,6 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         assertAsVersionedContract(
           ContractInstance(
             packageName = basicTestsPkg.pkgName,
-            packageVersion = basicTestsPkg.pkgVersion,
             template = TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
             arg = ValueRecord(
               Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
@@ -2996,7 +2983,6 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         Node.Create(
           coid = coid,
           packageName = pkg.pkgName,
-          packageVersion = pkg.pkgVersion,
           templateId = templateId,
           arg = arg.toNormalizedValue(version),
           signatories = Set(signatory),

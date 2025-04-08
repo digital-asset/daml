@@ -78,7 +78,6 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
       cid1 -> assertAsVersionedContract(
         ContractInstance(
           interfacesPkg.pkgName,
-          interfacesPkg.pkgVersion,
           idT1,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
         )
@@ -86,7 +85,6 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
       cid2 -> assertAsVersionedContract(
         ContractInstance(
           interfacesPkg.pkgName,
-          interfacesPkg.pkgVersion,
           idT2,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
         )

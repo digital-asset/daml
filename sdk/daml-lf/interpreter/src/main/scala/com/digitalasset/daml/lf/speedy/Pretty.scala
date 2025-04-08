@@ -109,6 +109,8 @@ private[lf] object Pretty {
           text("The provided shared key is") & prettyValue(true)(key)
       case ContractNotFound(cid) =>
         text("Update failed due to a unknown contract") & prettyContractId(cid)
+      case UnresolvedPackageName(packageName) =>
+        text("Update failed due to a failed package name resolution:") & text(packageName)
       case NonComparableValues =>
         text("functions are not comparable")
       case ContractIdComparability(globalCid) =>

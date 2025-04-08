@@ -627,7 +627,6 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
       version = TransactionVersion.StableVersions.max,
       contractId = contractId,
       packageName = pkgName,
-      packageVersion = pkg.pkgVersion,
       templateId = templateId,
       createArg = Value.ValueRecord(
         if (withNormalization) None else Some(templateId),

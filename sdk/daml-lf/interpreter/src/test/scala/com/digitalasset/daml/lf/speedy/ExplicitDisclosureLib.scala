@@ -126,7 +126,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       owner: Party,
       maintainer: Party,
       packageName: Ref.PackageName = pkg.pkgName,
-      packageVersion: Option[Ref.PackageVersion] = pkg.pkgVersion,
       templateId: Ref.Identifier = houseTemplateId,
       withKey: Boolean = true,
       label: String = testKeyName,
@@ -148,7 +147,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
     Speedy.ContractInfo(
       version = TransactionVersion.maxVersion,
       packageName = packageName,
-      packageVersion = packageVersion,
       templateId = templateId,
       value = SValue.SRecord(
         templateId,
@@ -164,13 +162,11 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   def buildDisclosedCaveContract(
       owner: Party,
       packageName: Ref.PackageName = pkg.pkgName,
-      packageVersion: Option[Ref.PackageVersion] = pkg.pkgVersion,
       templateId: Ref.Identifier = caveTemplateId,
   ): Speedy.ContractInfo = {
     Speedy.ContractInfo(
       version = TransactionVersion.maxVersion,
       packageName = packageName,
-      packageVersion = packageVersion,
       templateId = templateId,
       value = SValue.SRecord(
         templateId,
@@ -213,7 +209,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       owner: Party,
       maintainer: Party,
       packageName: Ref.PackageName = pkg.pkgName,
-      packageVersion: Option[Ref.PackageVersion] = pkg.pkgVersion,
       templateId: Ref.Identifier = houseTemplateId,
   ): Versioned[ContractInstance] = {
     val contractFields = templateId match {
@@ -238,7 +233,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       TransactionVersion.minVersion,
       Value.ContractInstance(
         packageName = packageName,
-        packageVersion = packageVersion,
         template = templateId,
         arg = Value.ValueRecord(None, contractFields),
       ),
@@ -249,7 +243,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       signatory: Party,
       maintainer: Party,
       packageName: Ref.PackageName = pkg.pkgName,
-      packageVersion: Option[Ref.PackageVersion] = pkg.pkgVersion,
       templateId: Ref.Identifier = houseTemplateId,
       withKey: Boolean = true,
       label: String = testKeyName,
@@ -277,7 +270,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
     ContractInfo(
       version = TransactionVersion.minVersion,
       packageName = packageName,
-      packageVersion = packageVersion,
       templateId = templateId,
       value = contract,
       signatories = Set(signatory),

@@ -130,7 +130,6 @@ private[lf] object Speedy {
   final case class ContractInfo(
       version: TxVersion,
       packageName: Ref.PackageName,
-      packageVersion: Option[Ref.PackageVersion],
       templateId: Ref.TypeConName,
       value: SValue,
       signatories: Set[Party],
@@ -146,7 +145,6 @@ private[lf] object Speedy {
       Node.Create(
         coid = coid,
         packageName = packageName,
-        packageVersion = packageVersion,
         templateId = templateId,
         arg = arg,
         signatories = signatories,
@@ -347,7 +345,6 @@ private[lf] object Speedy {
               f(
                 V.ContractInstance(
                   contractInfo.packageName,
-                  contractInfo.packageVersion,
                   contractInfo.templateId,
                   contractInfo.value.toUnnormalizedValue,
                 )
@@ -965,10 +962,8 @@ private[lf] object Speedy {
     final def tmplId2TxVersion(tmplId: TypeConName): TxVersion =
       Machine.tmplId2TxVersion(compiledPackages.pkgInterface, tmplId)
 
-    final def tmplId2PackageNameVersion(
-        tmplId: TypeConName
-    ): (PackageName, Option[PackageVersion]) =
-      Machine.tmplId2PackageNameVersion(compiledPackages.pkgInterface, tmplId)
+    final def tmplId2PackageName(tmplId: TypeConName): PackageName =
+      Machine.tmplId2PackageName(compiledPackages.pkgInterface, tmplId)
 
     private[lf] def abort(): Unit = {
       // We make sure the interpretation cannot be resumed
@@ -1576,21 +1571,23 @@ private[lf] object Speedy {
     def tmplId2TxVersion(pkgInterface: PackageInterface, tmplId: TypeConName): TxVersion =
       pkgInterface.packageLanguageVersion(tmplId.packageId)
 
-    def tmplId2PackageNameVersion(
+    def tmplId2PackageName(
         pkgInterface: PackageInterface,
         tmplId: TypeConName,
-    ): (PackageName, Option[PackageVersion]) =
-      pkgInterface.signatures(tmplId.packageId).pkgNameVersion
+    ): PackageName =
+      pkgInterface.signatures(tmplId.packageId).pkgName
 
     private[lf] def globalKey(
         pkgInterface: PackageInterface,
         templateId: Ref.Identifier,
         contractKey: SValue,
-    ): Option[GlobalKey] = {
-      val packageTxVersion = tmplId2TxVersion(pkgInterface, templateId)
-      val (pkgName, _) = tmplId2PackageNameVersion(pkgInterface, templateId)
-      globalKey(packageTxVersion, pkgName, templateId, contractKey)
-    }
+    ): Option[GlobalKey] =
+      globalKey(
+        packageTxVersion = tmplId2TxVersion(pkgInterface, templateId),
+        pkgName = tmplId2PackageName(pkgInterface, templateId),
+        templateId = templateId,
+        keyValue = contractKey,
+      )
 
     private[lf] def globalKey(
         packageTxVersion: TxVersion,

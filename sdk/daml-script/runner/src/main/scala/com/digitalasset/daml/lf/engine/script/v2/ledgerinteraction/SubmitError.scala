@@ -117,6 +117,14 @@ object SubmitError {
       )
   }
 
+  final case class UnresolvedPackageName(packageName: PackageName) extends SubmitError {
+    override def toDamlSubmitError(env: Env): SValue =
+      SubmitErrorConverters(env).damlScriptError(
+        "UnresolvedPackageName",
+        ("packageName", SText(packageName)),
+      )
+  }
+
   object ContractNotFound {
 
     sealed abstract class AdditionalInfo {
