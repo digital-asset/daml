@@ -6,6 +6,7 @@
 module HexString where
 
 import DA.Assert ((===))
+import DA.Exception (GeneralError (..))
 import DA.Optional (fromSome)
 import DA.Crypto.Text
 import Daml.Script
@@ -30,6 +31,19 @@ main =
     Some (toHex 256) === packHexBytes "0100" 8
     Some (toHex 257) === packHexBytes "0101" 8
     Some (toHex 3735928559) === packHexBytes "deadbeef" 8
+    _ <-
+      try do
+        let _ = toHex (-1) in undefined
+      catch
+        GeneralError actualMsg ->
+          actualMsg === "UInt should be positive: -1"
+    _ <-
+      try do
+        let _ = toHex (minBound @Int) in undefined
+      catch
+        GeneralError actualMsg ->
+          actualMsg === "UInt should be positive: -9223372036854775808"
+    toHex (maxBound @Int) === "7fffffffffffffff"
     fromHex "" === Some 0
     fromHex "00" === Some 0
     fromHex "01" === Some 1
