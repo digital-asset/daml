@@ -3,6 +3,7 @@
 
 -- @ WARN -Werror=upgrade-interfaces
 -- @ WARN -Werror=upgrade-interfaces
+-- @ WARN -Werror=upgrade-interfaces
 {-# LANGUAGE ApplicativeDo #-}
 
 module Interface where
@@ -80,18 +81,16 @@ template Asset
         [1] === [1] -- make sure `mkMethod` calls are properly erased in the presence of polymorphism.
         pure ()
 
-template Asset2
+template T
   with
-    issuer : Party
-    owner : Party
-    amount : Int
+    sig : Party
   where
-    signatory issuer, owner
+    signatory sig
     implements Token where
       view = EmptyInterfaceView
-      getOwner = owner
-      getAmount = amount
-      setAmount x = toInterface @Token (this with amount = x)
+      getOwner = error "n/a"
+      getAmount = error "n/a"
+      setAmount x = error "n/a"
 
       splitImpl splitAmount = do
         error "n/a"
