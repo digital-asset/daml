@@ -22,14 +22,14 @@ n10 = 0.12345_67890
 main =
   script do
     -- `HasToHex Int` and `HasFromHex Int`
-    toHex 0 === "00"
-    toHex 1 === "01"
-    toHex 15 === "0f"
-    toHex 16 === "10"
-    toHex 255 === "ff"
-    toHex 256 === "0100"
-    toHex 257 === "0101"
-    toHex 3735928559 === "deadbeef"
+    Some (toHex 0) === packHexBytes "00" 8
+    Some (toHex 1) === packHexBytes "01" 8
+    Some (toHex 15) === packHexBytes "0f" 8
+    Some (toHex 16) === packHexBytes "10" 8
+    Some (toHex 255) === packHexBytes "ff" 8
+    Some (toHex 256) === packHexBytes "0100" 8
+    Some (toHex 257) === packHexBytes "0101" 8
+    Some (toHex 3735928559) === packHexBytes "deadbeef" 8
     fromHex "" === Some 0
     fromHex "00" === Some 0
     fromHex "01" === Some 1
@@ -85,58 +85,64 @@ main =
     sliceHexBytes "DeadBeef" 2 5 === Right "adBeef"
     sliceHexBytes "DeadBeef" 3 5 === Right "Beef"
     sliceHexBytes "DeadBeef" 0 2 === Left "Expected start byte to be >= 1, was: 0"
-    sliceHexBytes "DeadBeef" 3 6 === Left "Expected end byte to be >= 3 and <= 5 was: 6"
-    sliceHexBytes "DeadBeef" 3 2 === Left "Expected end byte to be >= 3 and <= 5 was: 2"
+    sliceHexBytes "DeadBeef" 3 6 === Left "Expected end byte to be <= 5 was: 6"
+    sliceHexBytes "DeadBeef" 3 2 === Left "Expected end byte to be >= 3 was: 2"
 
     -- isBytes32Hex, isUInt32Hex, isUInt64Hex, isUInt256Hex
     isBytes32Hex(fromSome(packHexBytes "00" 32)) === True
     isBytes32Hex(fromSome(packHexBytes "DeadBeef" 32)) === True
     isBytes32Hex(fromSome(packHexBytes "00" 31)) === False
     isBytes32Hex(fromSome(packHexBytes "00" 33)) === False
-    isBytes32Hex(minBytes32Hex) === True
-    isBytes32Hex(maxBytes32Hex) === True
-    isBytes32Hex(minUInt32Hex) === False
-    isBytes32Hex(maxUInt32Hex) === False
-    isBytes32Hex(minUInt64Hex) === False
-    isBytes32Hex(maxUInt64Hex) === False
-    isBytes32Hex(minUInt256Hex) === False
-    isBytes32Hex(maxUInt256Hex) === False
+    isBytes32Hex minBytes32Hex === True
+    isBytes32Hex maxBytes32Hex === True
+    isBytes32Hex minUInt32Hex === False
+    isBytes32Hex maxUInt32Hex === False
+    isBytes32Hex minUInt64Hex === False
+    isBytes32Hex maxUInt64Hex === False
+    isBytes32Hex minUInt256Hex === True
+    isBytes32Hex maxUInt256Hex === True
 
-    isUInt32Hex(fromSome(packHexBytes "00" 5)) === True
-    isUInt32Hex(fromSome(packHexBytes "000001" 5)) === True
-    isUInt32Hex(fromSome(packHexBytes "00" 4)) === False
-    isUInt32Hex(fromSome(packHexBytes "00" 6)) === False
-    isUInt32Hex(minBytes32Hex) === False
-    isUInt32Hex(maxBytes32Hex) === False
-    isUInt32Hex(minUInt32Hex) === True
-    isUInt32Hex(maxUInt32Hex) === True
-    isUInt32Hex(minUInt64Hex) === False
-    isUInt32Hex(maxUInt64Hex) === False
-    isUInt32Hex(minUInt256Hex) === False
-    isUInt32Hex(maxUInt256Hex) === False
+    isUInt32Hex(fromSome(packHexBytes "00" 4)) === True
+    isUInt32Hex(fromSome(packHexBytes "000001" 4)) === True
+    isUInt32Hex(fromSome(packHexBytes "00" 5)) === False
+    isUInt32Hex(fromSome(packHexBytes "00" 3)) === False
+    isUInt32Hex(fromSome(packHexBytes "00" 8)) === False
+    isUInt32Hex(fromSome(packHexBytes "00" 32)) === False
+    isUInt32Hex minBytes32Hex === False
+    isUInt32Hex maxBytes32Hex === False
+    isUInt32Hex minUInt32Hex === True
+    isUInt32Hex maxUInt32Hex === True
+    isUInt32Hex minUInt64Hex === False
+    isUInt32Hex maxUInt64Hex === False
+    isUInt32Hex minUInt256Hex === False
+    isUInt32Hex maxUInt256Hex === False
 
-    isUInt64Hex(fromSome(packHexBytes "00" 6)) === True
-    isUInt64Hex(fromSome(packHexBytes "00" 5)) === False
+    isUInt64Hex(fromSome(packHexBytes "00" 8)) === True
+    isUInt64Hex(fromSome(packHexBytes "00" 4)) === False
     isUInt64Hex(fromSome(packHexBytes "00" 7)) === False
-    isUInt64Hex(minBytes32Hex) === False
-    isUInt64Hex(maxBytes32Hex) === False
-    isUInt64Hex(minUInt32Hex) === False
-    isUInt64Hex(maxUInt32Hex) === False
-    isUInt64Hex(minUInt64Hex) === True
-    isUInt64Hex(maxUInt64Hex) === True
-    isUInt64Hex(minUInt256Hex) === False
-    isUInt64Hex(maxUInt256Hex) === False
+    isUInt64Hex(fromSome(packHexBytes "00" 9)) === False
+    isUInt64Hex(fromSome(packHexBytes "00" 32)) === False
+    isUInt64Hex minBytes32Hex === False
+    isUInt64Hex maxBytes32Hex === False
+    isUInt64Hex minUInt32Hex === False
+    isUInt64Hex maxUInt32Hex === False
+    isUInt64Hex minUInt64Hex === True
+    isUInt64Hex maxUInt64Hex === True
+    isUInt64Hex minUInt256Hex === False
+    isUInt64Hex maxUInt256Hex === False
 
-    isUInt256Hex(fromSome(packHexBytes "00" 8)) === True
-    isUInt256Hex(fromSome(packHexBytes "00" 7)) === False
-    isUInt256Hex(fromSome(packHexBytes "00" 9)) === False
-    isUInt256Hex(minBytes32Hex) === False
-    isUInt256Hex(maxBytes32Hex) === False
-    isUInt256Hex(minUInt32Hex) === False
-    isUInt256Hex(maxUInt32Hex) === False
-    isUInt256Hex(minUInt64Hex) === False
-    isUInt256Hex(maxUInt64Hex) === False
-    isUInt256Hex(minUInt256Hex) === True
-    isUInt256Hex(maxUInt256Hex) === True
+    isUInt256Hex(fromSome(packHexBytes "00" 32)) === True
+    isUInt256Hex(fromSome(packHexBytes "00" 8)) === False
+    isUInt256Hex(fromSome(packHexBytes "00" 4)) === False
+    isUInt256Hex(fromSome(packHexBytes "00" 33)) === False
+    isUInt256Hex(fromSome(packHexBytes "00" 31)) === False
+    isUInt256Hex minBytes32Hex === True
+    isUInt256Hex maxBytes32Hex === True
+    isUInt256Hex minUInt32Hex === False
+    isUInt256Hex maxUInt32Hex === False
+    isUInt256Hex minUInt64Hex === False
+    isUInt256Hex maxUInt64Hex === False
+    isUInt256Hex minUInt256Hex === True
+    isUInt256Hex maxUInt256Hex === True
 
     pure ()

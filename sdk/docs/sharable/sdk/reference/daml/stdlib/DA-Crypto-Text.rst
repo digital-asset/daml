@@ -71,6 +71,14 @@ Data Types
 Functions
 ---------
 
+.. _function-da-crypto-text-ishex-17968:
+
+`isHex <function-da-crypto-text-ishex-17968_>`_
+  \: :ref:`Text <type-ghc-types-text-51952>` \-\> :ref:`Bool <type-ghc-types-bool-66265>`
+
+  ``isHex`` is ``True`` if ``t`` is not empty and consists only of
+  hex or hexadecimal characters\.
+
 .. _function-da-crypto-text-keccak256-57106:
 
 `keccak256 <function-da-crypto-text-keccak256-57106_>`_
