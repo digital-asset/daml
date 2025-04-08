@@ -176,6 +176,18 @@ object UpgradeTest {
                   to upure @Text "InterfaceChoice was called";
             };
 
+            interface (this : AdditionalIface) = {
+              viewtype Mod:MyView;
+
+              method additionalInterfaceChoiceControllers : List Party;
+              method additionalInterfaceChoiceObservers : List Party;
+
+              choice @nonConsuming AdditionalInterfaceChoice (self) (u: Unit): Text
+                  , controllers (call_method @Mod:AdditionalIface additionalInterfaceChoiceControllers this)
+                  , observers (call_method @Mod:AdditionalIface additionalInterfaceChoiceObservers this)
+                  to upure @Text "AdditionalInterfaceChoice was called";
+            };
+
             record @serializable Ex = { message: Text } ;
             exception Ex = {
               message \(e: Mod:Ex) -> Mod:Ex {message} e
@@ -230,6 +242,7 @@ object UpgradeTest {
       s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
     def v1InterfaceChoiceObservers: String = "Nil @Party"
     def v1View: String = s"'$commonDefsPkgId':Mod:MyView { value = 0 }"
+    def v1AdditionalInstances: String = ""
 
     def v2AdditionalDefinitions: String = v1AdditionalDefinitions
     def v2ChoiceArgTypeDef: String = v1ChoiceArgTypeDef
@@ -244,6 +257,14 @@ object UpgradeTest {
     def v2InterfaceChoiceObservers: String = v1InterfaceChoiceObservers
     def v2Maintainers: String = v1Maintainers
     def v2View: String = v1View
+    def v2AdditionalInstances: String =
+      s"""
+         |  implements '$commonDefsPkgId':Mod:AdditionalIface {
+         |    view = $v2View;
+         |    method additionalInterfaceChoiceControllers = $v2InterfaceChoiceControllers;
+         |    method additionalInterfaceChoiceObservers = $v2InterfaceChoiceObservers;
+         |  };
+         |""".stripMargin
 
     // Used for creating contracts in choice bodies
     def additionalCreateArgsLf(v1PkgId: PackageId): String = ""
@@ -277,6 +298,7 @@ object UpgradeTest {
         interfaceChoiceControllers: String,
         interfaceChoiceObservers: String,
         view: String,
+        additionalInstances: String,
     ): String =
       s"""
          |  $additionalDefinitions
@@ -313,6 +335,8 @@ object UpgradeTest {
          |      method interfaceChoiceObservers = $interfaceChoiceObservers;
          |    };
          |
+         |    $additionalInstances
+         |
          |    key @Mod:${templateName}Key ($key) ($maintainers);
          |  };""".stripMargin
 
@@ -330,6 +354,7 @@ object UpgradeTest {
       v1InterfaceChoiceControllers,
       v1InterfaceChoiceObservers,
       v1View,
+      v1AdditionalInstances,
     )
 
     def v2TemplateDefinition: String = templateDefinition(
@@ -346,6 +371,7 @@ object UpgradeTest {
       v2InterfaceChoiceControllers,
       v2InterfaceChoiceObservers,
       v2View,
+      v2AdditionalInstances,
     )
 
     def clientChoices(
@@ -357,6 +383,7 @@ object UpgradeTest {
       val v1TplQualifiedName = s"'$v1PkgId':Mod:$templateName"
       val v2TplQualifiedName = s"'$v2PkgId':Mod:$templateName"
       val ifaceQualifiedName = s"'$commonDefsPkgId':Mod:Iface"
+      val additionalIfaceQualifiedName = s"'$commonDefsPkgId':Mod:AdditionalIface"
       val v2KeyTypeQualifiedName = s"'$v2PkgId':Mod:${templateName}Key"
       val v2ChoiceArgTypeQualifiedName = s"'$v2PkgId':Mod:${templateName}ChoiceArgType"
 
@@ -416,6 +443,49 @@ object UpgradeTest {
          |    , observers (Nil @Party)
          |    to try @Text
          |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseNoCatchGlobal${templateName} self cid
+         |         in upure @Text "no exception was caught"
+         |       catch
+         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+         |
+         |  choice @nonConsuming ExerciseAcquiredInterfaceNoCatchLocal${templateName} (self) (u: Unit): Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to ubind cid: ContractId $v1TplQualifiedName <- $createV1ContractExpr
+         |       in exercise_interface
+         |            @$additionalIfaceQualifiedName
+         |            AdditionalInterfaceChoice
+         |            (COERCE_CONTRACT_ID @$v1TplQualifiedName @$additionalIfaceQualifiedName cid)
+         |            ();
+         |
+         |  choice @nonConsuming ExerciseAcquiredInterfaceAttemptCatchLocal${templateName} (self) (u: Unit): Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to try @Text
+         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseAcquiredInterfaceNoCatchLocal${templateName} self ()
+         |         in upure @Text "no exception was caught"
+         |       catch
+         |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+         |
+         |  choice @nonConsuming ExerciseAcquiredInterfaceNoCatchGlobal${templateName}
+         |        (self)
+         |        (cid: ContractId $v1TplQualifiedName)
+         |        : Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to exercise_interface
+         |         @$additionalIfaceQualifiedName
+         |         AdditionalInterfaceChoice
+         |         (COERCE_CONTRACT_ID @$v1TplQualifiedName @$additionalIfaceQualifiedName cid)
+         |         ();
+         |
+         |  choice @nonConsuming ExerciseAcquiredInterfaceAttemptCatchGlobal${templateName}
+         |        (self)
+         |        (cid: ContractId $v1TplQualifiedName)
+         |        : Text
+         |    , controllers (Cons @Party [Mod:Client {p} this] (Nil @Party))
+         |    , observers (Nil @Party)
+         |    to try @Text
+         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseAcquiredInterfaceNoCatchGlobal${templateName} self cid
          |         in upure @Text "no exception was caught"
          |       catch
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
@@ -1683,6 +1753,7 @@ object UpgradeTest {
   case object Exercise extends Operation("Exercise")
   case object ExerciseByKey extends Operation("ExerciseByKey")
   case object ExerciseInterface extends Operation("ExerciseInterface")
+  case object ExerciseAcquiredInterface extends Operation("ExerciseAcquiredInterface")
   case object Fetch extends Operation("Fetch")
   case object FetchByKey extends Operation("FetchByKey")
   case object FetchInterface extends Operation("FetchInterface")
@@ -1693,6 +1764,7 @@ object UpgradeTest {
       Exercise,
       ExerciseByKey,
       ExerciseInterface,
+      ExerciseAcquiredInterface,
       Fetch,
       FetchByKey,
       FetchInterface,
@@ -1735,6 +1807,7 @@ object UpgradeTest {
 
     val clientTplId: Identifier = Identifier(clientPkgId, "Mod:Client")
     val ifaceId: Identifier = Identifier(commonDefsPkgId, "Mod:Iface")
+    val additionalIfaceId: Identifier = Identifier(commonDefsPkgId, "Mod:AdditionalIface")
     val tplQualifiedName: QualifiedName = s"Mod:$templateName"
     val tplRef: TypeConRef = TypeConRef.assertFromString(s"#$templateDefsPkgName:Mod:$templateName")
     val v1TplId: Identifier = Identifier(templateDefsV1PkgId, tplQualifiedName)
@@ -1838,7 +1911,7 @@ object UpgradeTest {
       (testCase, operation, catchBehavior, entryPoint, contractOrigin) match {
         case (_, Fetch | FetchInterface | FetchByKey | LookupByKey, _, Command, _) =>
           None // There are no fetch* or lookupByKey commands
-        case (_, Exercise | ExerciseInterface, _, Command, Local) =>
+        case (_, Exercise | ExerciseInterface | ExerciseAcquiredInterface, _, Command, Local) =>
           None // Local contracts cannot be exercised by commands, except by key
         case (
               AdditionalFieldInChoiceArgRecordField | AdditionalConstructorInChoiceArgVariantField |
@@ -1855,7 +1928,7 @@ object UpgradeTest {
               _,
               _,
             )
-            if entryPoint == ChoiceBody || operation == FetchInterface || operation == ExerciseInterface =>
+            if entryPoint == ChoiceBody || operation == FetchInterface || operation == ExerciseInterface || operation == ExerciseAcquiredInterface =>
           None // *ChoiceArg* test cases only make sense for non-interface exercise commands
         case (
               ThrowingInterfaceChoiceControllers | ThrowingInterfaceChoiceObservers,
@@ -1864,7 +1937,7 @@ object UpgradeTest {
               _,
               _,
             ) =>
-          None // ThrowingInterfaceChoice* test cases only makes sense for ExerciseInterface
+          None // ThrowingInterfaceChoice* test cases only makes sense for ExerciseInterface or ExerciseAcquiredInterface
         case (
               InvalidKeyDowngradeAdditionalField,
               ExerciseByKey | FetchByKey | LookupByKey,
@@ -1893,6 +1966,17 @@ object UpgradeTest {
                 ifaceId,
                 globalContractId,
                 ChoiceName.assertFromString("InterfaceChoice"),
+                ValueUnit,
+              )
+            )
+          )
+        case (_, ExerciseAcquiredInterface, _, Command, Global | Disclosed) =>
+          Some(
+            ImmArray(
+              ApiCommand.Exercise(
+                additionalIfaceId,
+                globalContractId,
+                ChoiceName.assertFromString("AdditionalInterfaceChoice"),
                 ValueUnit,
               )
             )
@@ -1933,7 +2017,7 @@ object UpgradeTest {
                   s"${operation.name}${catchBehavior.name}Global${templateName}"
                 ),
                 operation match {
-                  case Fetch | FetchInterface | Exercise | ExerciseInterface =>
+                  case Fetch | FetchInterface | Exercise | ExerciseInterface | ExerciseAcquiredInterface =>
                     ValueContractId(globalContractId)
                   case FetchByKey | LookupByKey | ExerciseByKey =>
                     globalContractv2Key
