@@ -5,7 +5,8 @@
 -- @ WARN -Werror=upgrade-interfaces
 {-# LANGUAGE ApplicativeDo #-}
 
-module Interface where
+-- identical to the module Interface but uses implements syntax
+module InterfaceImplements where
 
 import Daml.Script
 import DA.Assert ((===))
@@ -60,7 +61,7 @@ template Asset
     amount : Int
   where
     signatory issuer, owner
-    interface instance Token for Asset where
+    implements Token where
       view = EmptyInterfaceView
       getOwner = owner
       getAmount = amount

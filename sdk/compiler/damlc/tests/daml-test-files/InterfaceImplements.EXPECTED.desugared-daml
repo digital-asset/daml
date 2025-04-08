@@ -1,4 +1,4 @@
-module Interface where
+module InterfaceImplements where
 import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
