@@ -106,7 +106,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
     ): OptionT[FutureUnlessShutdown, Set[LfPartyId]] =
       localVerdict match {
         case malformed: LocalReject if malformed.isMalformed =>
-          malformed.logWithContext(
+          malformed.logRejection(
             Map("requestId" -> requestId.toString, "reportedBy" -> show"$sender")
           )
           val hostedConfirmingPartiesF =
@@ -181,7 +181,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
             // We treat this as a rejection for all parties hosted by the participant.
             localVerdict match {
               case malformed @ LocalReject(_, true) =>
-                malformed.logWithContext(
+                malformed.logRejection(
                   Map("requestId" -> requestId.toString, "reportedBy" -> show"$sender")
                 )
               case other =>

@@ -76,7 +76,6 @@ allocate_party() {
   curl_check "http://$participant:7575/v2/parties" "application/json" \
     --data-raw '{
       "partyIdHint": "'$partyIdHint'",
-      "displayName" : "'$partyIdHint'",
       "identityProviderId": ""
     }' | jq -r .partyDetails.party
 }

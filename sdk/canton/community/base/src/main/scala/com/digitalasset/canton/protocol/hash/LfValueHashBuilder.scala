@@ -62,7 +62,8 @@ private[hash] class LfValueBuilder(purpose: HashPurpose, hashTracer: HashTracer)
   final def addIdentifier(id: Ref.Identifier): this.type =
     add(id.packageId).addQualifiedName(id.qualifiedName)
 
-  def addTypeTag(typeTag: TypeTag): this.type = addByte(typeTag.tag, s"${typeTag.name} Type Tag")
+  def addTypeTag(typeTag: TypeTag): this.type =
+    addByte(typeTag.tag, _ => s"${typeTag.name} Type Tag")
 
   def addTypedValue(value: Value): this.type =
     value match {
@@ -87,9 +88,9 @@ private[hash] class LfValueBuilder(purpose: HashPurpose, hashTracer: HashTracer)
       case Value.ValueOptional(opt) =>
         opt match {
           case Some(value) =>
-            addTypeTag(OptionalTag).addByte(1.toByte, "Some").addTypedValue(value)
+            addTypeTag(OptionalTag).addByte(1.toByte, _ => "Some").addTypedValue(value)
           case None =>
-            addTypeTag(OptionalTag).addByte(0.toByte, "None")
+            addTypeTag(OptionalTag).addByte(0.toByte, _ => "None")
         }
       case Value.ValueList(xs) =>
         addTypeTag(ListTag).iterateOver(xs.toImmArray)(_ addTypedValue _)

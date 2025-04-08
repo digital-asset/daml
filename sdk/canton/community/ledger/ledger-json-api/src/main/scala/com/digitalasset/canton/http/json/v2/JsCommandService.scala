@@ -120,7 +120,6 @@ class JsCommandService(
   def submitAndWait(callerContext: CallerContext): TracedInput[JsCommands] => Future[
     Either[JsCantonError, SubmitAndWaitResponse]
   ] = req => {
-    implicit val token: Option[String] = callerContext.token()
     implicit val tc: TraceContext = req.traceContext
     for {
       commands <- protocolConverters.Commands.fromJson(req.in)
@@ -137,7 +136,6 @@ class JsCommandService(
   ): TracedInput[JsCommands] => Future[
     Either[JsCantonError, JsSubmitAndWaitForTransactionTreeResponse]
   ] = req => {
-    implicit val token: Option[String] = callerContext.token()
     implicit val tc: TraceContext = req.traceContext
     for {
 
@@ -156,7 +154,6 @@ class JsCommandService(
   ): TracedInput[JsSubmitAndWaitForTransactionRequest] => Future[
     Either[JsCantonError, JsSubmitAndWaitForTransactionResponse]
   ] = req => {
-    implicit val token: Option[String] = callerContext.token()
     implicit val tc: TraceContext = req.traceContext
     for {
       submitAndWaitRequest <- protocolConverters.SubmitAndWaitForTransactionRequest.fromJson(req.in)
@@ -170,7 +167,6 @@ class JsCommandService(
   private def submitAsync(callerContext: CallerContext): TracedInput[JsCommands] => Future[
     Either[JsCantonError, command_submission_service.SubmitResponse]
   ] = req => {
-    implicit val token: Option[String] = callerContext.token()
     implicit val tc: TraceContext = req.traceContext
     for {
       commands <- protocolConverters.Commands.fromJson(req.in)

@@ -1,11 +1,11 @@
 {
   "enumDefs": {
-    "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:SomeEnum": {
+    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:SomeEnum": {
       "constructor": ["One", "Two"]
     }
   },
   "interfaceDefs": {
-    "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:MyInterface": {
+    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyInterface": {
       "choices": {
         "Archive": {
           "argType": {
@@ -25,7 +25,7 @@
           "argType": {
             "Record": {
               "params": [],
-              "tyCon": "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:MyChoice"
+              "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyChoice"
             }
           },
           "consuming": true,
@@ -35,7 +35,7 @@
                 "ContractId": {
                   "typeId": {
                     "Interface": {
-                      "tycon": "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:MyInterface"
+                      "tycon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyInterface"
                     }
                   }
                 }
@@ -52,7 +52,7 @@
           "argType": {
             "Record": {
               "params": [],
-              "tyCon": "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:MyNonConsumingChoice"
+              "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyNonConsumingChoice"
             }
           },
           "consuming": false,
@@ -66,13 +66,13 @@
       "viewType": {
         "Record": {
           "params": [],
-          "tyCon": "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:MyInterfaceViewType"
+          "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyInterfaceViewType"
         }
       }
     }
   },
   "recordDefs": {
-    "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:AnotherRecord": {
+    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:AnotherRecord": {
       "fields": {
         "someText": {
           "Text": {
@@ -82,7 +82,7 @@
       },
       "params": []
     },
-    "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:MyChoice": {
+    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyChoice": {
       "fields": {
         "argument1": {
           "Bool": {
@@ -97,7 +97,7 @@
       },
       "params": []
     },
-    "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:MyInterfaceViewType": {
+    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyInterfaceViewType": {
       "fields": {
         "name": {
           "Text": {
@@ -112,7 +112,7 @@
       },
       "params": []
     },
-    "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:MyList.MyCons": {
+    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyList.MyCons": {
       "fields": {
         "head": {
           "Var": {
@@ -126,19 +126,19 @@
                 "name": "t"
               }
             }],
-            "tyCon": "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:MyList"
+            "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyList"
           }
         }
       },
       "params": ["t"]
     },
-    "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:MyNonConsumingChoice": {
+    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyNonConsumingChoice": {
       "fields": {
 
       },
       "params": []
     },
-    "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:SomeParamRecord": {
+    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:SomeParamRecord": {
       "fields": {
         "foo": {
           "Var": {
@@ -148,7 +148,7 @@
       },
       "params": ["a"]
     },
-    "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:SourceTemplate_Args_RetRecord": {
+    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:SourceTemplate_Args_RetRecord": {
       "fields": {
         "choiceArg": {
           "Record": {
@@ -157,13 +157,13 @@
 
               }
             }],
-            "tyCon": "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:SomeParamRecord"
+            "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:SomeParamRecord"
           }
         }
       },
       "params": []
     },
-    "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:TemplateBar": {
+    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:TemplateBar": {
       "fields": {
         "anotherParty": {
           "Party": {
@@ -174,7 +174,7 @@
           "ContractId": {
             "typeId": {
               "Template": {
-                "tycon": "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:TemplateFoo"
+                "tycon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:TemplateFoo"
               }
             }
           }
@@ -186,13 +186,13 @@
 
               }
             }],
-            "tyCon": "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:SomeParamRecord"
+            "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:SomeParamRecord"
           }
         }
       },
       "params": []
     },
-    "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:TemplateFoo": {
+    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:TemplateFoo": {
       "fields": {
         "someOptionalRecField": {
           "Optional": {
@@ -203,7 +203,7 @@
 
                   }
                 }],
-                "tyCon": "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:MyList"
+                "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyList"
               }
             }
           }
@@ -216,7 +216,7 @@
         "someRecordField": {
           "Variant": {
             "params": [],
-            "tyCon": "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:SomeVariant"
+            "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:SomeVariant"
           }
         },
         "someRecordTyped": {
@@ -224,16 +224,16 @@
             "params": [{
               "Variant": {
                 "params": [],
-                "tyCon": "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:SomeVariant"
+                "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:SomeVariant"
               }
             }],
-            "tyCon": "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:SomeParamRecord"
+            "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:SomeParamRecord"
           }
         }
       },
       "params": []
     },
-    "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:TemplateFoo_NoArgs_RetUnit": {
+    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:TemplateFoo_NoArgs_RetUnit": {
       "fields": {
 
       },
@@ -241,7 +241,7 @@
     }
   },
   "templateDefs": {
-    "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:TemplateBar": {
+    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:TemplateBar": {
       "choices": {
         "Archive": {
           "argType": {
@@ -258,7 +258,7 @@
           }
         }
       },
-      "implements": ["ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:MyInterface"],
+      "implements": ["81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyInterface"],
       "key": {
         "Record": {
           "params": [{
@@ -272,14 +272,14 @@
 
                 }
               }],
-              "tyCon": "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:SomeParamRecord"
+              "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:SomeParamRecord"
             }
           }],
           "tyCon": "5aee9b21b8e9a4c4975b5f4c4198e6e6e8469df49e2010820e792f393db870f4:DA.Types:Tuple2"
         }
       }
     },
-    "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:TemplateFoo": {
+    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:TemplateFoo": {
       "choices": {
         "Archive": {
           "argType": {
@@ -299,14 +299,14 @@
           "argType": {
             "Record": {
               "params": [],
-              "tyCon": "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:SourceTemplate_Args_RetRecord"
+              "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:SourceTemplate_Args_RetRecord"
             }
           },
           "consuming": true,
           "returnType": {
             "Record": {
               "params": [],
-              "tyCon": "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:AnotherRecord"
+              "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:AnotherRecord"
             }
           }
         },
@@ -314,7 +314,7 @@
           "argType": {
             "Record": {
               "params": [],
-              "tyCon": "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:TemplateFoo_NoArgs_RetUnit"
+              "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:TemplateFoo_NoArgs_RetUnit"
             }
           },
           "consuming": false,
@@ -334,7 +334,7 @@
     }
   },
   "variantDefs": {
-    "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:MyList": {
+    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyList": {
       "constructor": {
         "MyCons": {
           "Record": {
@@ -343,7 +343,7 @@
                 "name": "t"
               }
             }],
-            "tyCon": "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:MyList.MyCons"
+            "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyList.MyCons"
           }
         },
         "Nil": {
@@ -354,7 +354,7 @@
       },
       "params": ["t"]
     },
-    "ba3888e94fdcee43dba02363074b0a20f9ec2ad2da9d0bed3a22291ad0856eed:ExternalDep:SomeVariant": {
+    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:SomeVariant": {
       "constructor": {
         "SomeEnum": {
           "Unit": {

@@ -1435,6 +1435,7 @@ scala_library(
         ":community_participant",
         ":community_synchronizer",
         ":community_util-logging",
+        ":ledger_api_proto_scala",
         "//daml-lf/data",
         "//libs-scala/nonempty",
         "@maven//:ch_qos_logback_logback_classic",

@@ -557,10 +557,30 @@ components:
     IdentifierFilter:
       title: IdentifierFilter
       oneOf:
-      - $ref: '#/components/schemas/Empty2'
-      - $ref: '#/components/schemas/InterfaceFilter'
-      - $ref: '#/components/schemas/TemplateFilter'
-      - $ref: '#/components/schemas/WildcardFilter'
+      - type: object
+        required:
+        - Empty
+        properties:
+          Empty:
+            $ref: '#/components/schemas/Empty2'
+      - type: object
+        required:
+        - InterfaceFilter
+        properties:
+          InterfaceFilter:
+            $ref: '#/components/schemas/InterfaceFilter'
+      - type: object
+        required:
+        - TemplateFilter
+        properties:
+          TemplateFilter:
+            $ref: '#/components/schemas/TemplateFilter'
+      - type: object
+        required:
+        - WildcardFilter
+        properties:
+          WildcardFilter:
+            $ref: '#/components/schemas/WildcardFilter'
     Empty2:
       title: Empty
       type: object
@@ -1006,7 +1026,8 @@ components:
           $ref: '#/components/schemas/CreatedEvent'
           description: |-
             Required
-            The offset of the emitted event refers to the offset of this assignment, while the node_id is always set to 0.
+            The offset of this event refers to the offset of the assignment,
+            while the node_id is the index of within the batch.
     JsIncompleteUnassigned:
       title: JsIncompleteUnassigned
       type: object
@@ -1040,6 +1061,8 @@ components:
       - submitter
       - reassignmentCounter
       - packageName
+      - offset
+      - nodeId
       properties:
         unassignId:
           description: |-
@@ -1105,6 +1128,22 @@ components:
             The package name of the contract.
             Required
           type: string
+        offset:
+          description: |-
+            The offset of origin.
+            Offsets are managed by the participant nodes.
+            Reassignments can thus NOT be assumed to have the same offsets on different participant nodes.
+            Required, it is a valid absolute offset (positive integer)
+          type: integer
+          format: int64
+        nodeId:
+          description: |-
+            The position of this event in the originating reassignment.
+            Node ids are not necessarily equal across participants,
+            as these may see different projections/parts of reassignments.
+            Required, must be valid node ID (non-negative integer)
+          type: integer
+          format: int32
     GetUpdatesRequest:
       title: GetUpdatesRequest
       type: object
@@ -1316,7 +1355,6 @@ components:
       - commandId
       - workflowId
       - offset
-      - event
       - recordTime
       properties:
         updateId:
@@ -1343,8 +1381,11 @@ components:
             Required, must be a valid absolute offset (positive integer).
           type: integer
           format: int64
-        event:
-          $ref: '#/components/schemas/JsReassignmentEvent'
+        events:
+          description: The collection of reassignment events. Required.
+          type: array
+          items:
+            $ref: '#/components/schemas/JsReassignmentEvent'
         traceContext:
           $ref: '#/components/schemas/TraceContext'
           description: |-

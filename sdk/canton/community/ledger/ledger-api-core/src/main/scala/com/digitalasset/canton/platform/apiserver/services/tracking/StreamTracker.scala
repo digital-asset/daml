@@ -5,13 +5,12 @@ package com.digitalasset.canton.platform.apiserver.services.tracking
 
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.api.MetricHandle
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{ContextualizedErrorLogger, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
 import io.grpc.StatusRuntimeException

@@ -146,7 +146,7 @@ object ErrorCode {
   val MaxErrorContentBytes = 4096
 
   def asGrpcError(err: BaseError)(implicit
-      loggingContext: ContextualizedErrorLogger
+      loggingContext: BaseErrorLogger
   ): StatusRuntimeException = {
     val status = asGrpcStatus(err)(loggingContext)
     // Builder methods for metadata are not exposed, so going route via creating an exception
@@ -160,11 +160,11 @@ object ErrorCode {
     }
   }
 
-  def asGrpcStatus(err: BaseError)(implicit loggingContext: ContextualizedErrorLogger): Status =
+  def asGrpcStatus(err: BaseError)(implicit loggingContext: BaseErrorLogger): Status =
     asGrpcStatus(err, MaxErrorContentBytes)
 
   private[error] def asGrpcStatus(err: BaseError, maxSerializedErrorSize: Int)(implicit
-      loggingContext: ContextualizedErrorLogger
+      loggingContext: BaseErrorLogger
   ): Status =
     try
       SerializableErrorCodeComponents(

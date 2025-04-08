@@ -99,6 +99,7 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
 
       override def poke()(implicit traceContext: TraceContext): Unit = {
         val state = health.getState
+        logger.debug(s"Poked with state $state")
 
         state match {
           case SequencerConnectionXState.Started =>

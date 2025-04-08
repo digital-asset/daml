@@ -4,7 +4,6 @@
 package com.digitalasset.canton.auth
 
 import com.digitalasset.base.error.{
-  ContextualizedErrorLogger,
   DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorCategoryRetry,
@@ -13,6 +12,7 @@ import com.digitalasset.base.error.{
   Resolution,
 }
 import com.digitalasset.canton.error.CantonErrorGroups
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 
 import scala.concurrent.duration.*
 

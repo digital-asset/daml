@@ -99,7 +99,6 @@ class JsUpdateService(
   ): TracedInput[(Long, List[String])] => Future[
     Either[JsCantonError, JsGetTransactionTreeResponse]
   ] = { req =>
-    implicit val token: Option[String] = caller.token()
     implicit val tc: TraceContext = req.traceContext
     updateServiceClient(caller.token())(req.traceContext)
       .getTransactionTreeByOffset(
@@ -119,7 +118,6 @@ class JsUpdateService(
     Either[JsCantonError, JsGetTransactionResponse]
   ] =
     req => {
-      implicit val token = caller.token()
       implicit val tc = req.traceContext
       updateServiceClient(caller.token())(req.traceContext)
         .getTransactionByOffset(req.in)
@@ -133,7 +131,6 @@ class JsUpdateService(
     Either[JsCantonError, JsGetUpdateResponse]
   ] =
     req => {
-      implicit val token = caller.token()
       implicit val tc = req.traceContext
       updateServiceClient(caller.token())(req.traceContext)
         .getUpdateByOffset(req.in)
@@ -147,7 +144,6 @@ class JsUpdateService(
     Either[JsCantonError, JsGetUpdateResponse]
   ] =
     req => {
-      implicit val token = caller.token()
       implicit val tc = req.traceContext
       updateServiceClient(caller.token())(req.traceContext)
         .getUpdateById(req.in)
@@ -160,7 +156,6 @@ class JsUpdateService(
   ): TracedInput[update_service.GetTransactionByIdRequest] => Future[
     Either[JsCantonError, JsGetTransactionResponse]
   ] = { req =>
-    implicit val token = caller.token()
     implicit val tc = req.traceContext
     updateServiceClient(caller.token())(req.traceContext)
       .getTransactionById(req.in)
@@ -174,7 +169,6 @@ class JsUpdateService(
     Either[JsCantonError, JsGetTransactionTreeResponse]
   ] =
     req => {
-      implicit val token = caller.token()
       implicit val tc = req.traceContext
       updateServiceClient(caller.token())(req.traceContext)
         .getTransactionTreeById(
@@ -194,7 +188,6 @@ class JsUpdateService(
       caller: CallerContext
   ): TracedInput[Unit] => Flow[update_service.GetUpdatesRequest, JsGetUpdatesResponse, NotUsed] =
     req => {
-      implicit val token = caller.token()
       implicit val tc = req.traceContext
       prepareSingleWsStream(
         updateServiceClient(caller.token())(TraceContext.empty).getUpdates,
@@ -210,7 +203,6 @@ class JsUpdateService(
     NotUsed,
   ] =
     wsReq => {
-      implicit val token: Option[String] = caller.token()
       implicit val tc: TraceContext = wsReq.traceContext
       prepareSingleWsStream(
         updateServiceClient(caller.token()).getUpdateTrees,

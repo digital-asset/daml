@@ -108,11 +108,14 @@ message PrepareSubmissionRequest {
   repeated PrefetchContractKey prefetch_contract_keys = 15;
 }
 
+// [docs-entry-start: HashingSchemeVersion]
 // The hashing scheme version used when building the hash of the PreparedTransaction
 enum HashingSchemeVersion {
   HASHING_SCHEME_VERSION_UNSPECIFIED = 0;
-  HASHING_SCHEME_VERSION_V1 = 1;
+  reserved 1; // Hashing Scheme V1 - unsupported
+  HASHING_SCHEME_VERSION_V2 = 2;
 }
+// [docs-entry-end: HashingSchemeVersion]
 
 message PrepareSubmissionResponse {
   // The interpreted transaction, it represents the ledger changes necessary to execute the commands specified in the request.
@@ -326,6 +329,7 @@ message DamlTransaction {
 
   // A transaction may contain nodes with different versions.
   // Each node must be hashed using the hashing algorithm corresponding to its specific version.
+  // [docs-entry-start: DamlTransaction.Node]
   message Node {
     string node_id = 1;
 
@@ -336,6 +340,7 @@ message DamlTransaction {
       interactive.transaction.v1.Node v1 = 1000;
     }
   }
+  // [docs-entry-end: DamlTransaction.Node]
 
   // Transaction version, will be >= max(nodes version)
   string version = 1;

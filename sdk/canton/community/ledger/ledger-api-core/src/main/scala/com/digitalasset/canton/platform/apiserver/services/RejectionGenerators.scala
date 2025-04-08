@@ -3,19 +3,14 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.digitalasset.base.error.{
-  BaseError,
-  ContextualizedErrorLogger,
-  DamlErrorWithDefiniteAnswer,
-  NoLogging,
-  RpcError,
-}
+import com.digitalasset.base.error.{BaseError, DamlErrorWithDefiniteAnswer, RpcError}
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.{
   CommandExecutionErrors,
   ConsistencyErrors,
   RequestValidationErrors,
 }
+import com.digitalasset.canton.logging.{ContextualizedErrorLogger, NoLogging}
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SynchronizerId

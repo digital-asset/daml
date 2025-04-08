@@ -169,6 +169,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
 
           override def poke()(implicit traceContext: TraceContext): Unit = {
             val state = connection.health.getState
+            logger.debug(s"Poked with state $state")
 
             state match {
               case SequencerConnectionXState.Validated => processValidatedConnection(connection)

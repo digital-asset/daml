@@ -4,7 +4,7 @@
 package com.digitalasset.base.error.utils
 
 import com.digitalasset.base.error.{
-  ContextualizedErrorLogger,
+  BaseErrorLogger,
   DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorClass,
@@ -23,7 +23,7 @@ case object SevereError
       message: String,
       override val throwableO: Option[Throwable] = None,
   )(implicit
-      loggingContext: ContextualizedErrorLogger
+      loggingContext: BaseErrorLogger
   ) extends DamlErrorWithDefiniteAnswer(
         cause = message,
         extraContext = Map("throwableO" -> throwableO.toString),

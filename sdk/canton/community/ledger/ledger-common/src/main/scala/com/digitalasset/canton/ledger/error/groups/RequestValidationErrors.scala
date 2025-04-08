@@ -5,7 +5,6 @@ package com.digitalasset.canton.ledger.error.groups
 
 import com.digitalasset.base.error.{
   ContextualizedDamlError,
-  ContextualizedErrorLogger,
   DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorCode,
@@ -19,6 +18,7 @@ import com.digitalasset.canton.ledger.error.LedgerApiErrors.{
   LatestOffsetMetadataKey,
 }
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.RequestValidationErrorGroup
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.{LookupError, Reference}
 

@@ -7,7 +7,6 @@ import com.digitalasset.canton.crypto.{Hash, HashPurpose}
 import com.digitalasset.canton.protocol.LfHash
 import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.protocol.hash.TransactionHash.NodeHashingError
-import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -40,7 +39,7 @@ object TransactionMetadataHashBuilder {
       hashTracer,
       enforceNodeSeedForCreateNodes = false,
     ).addPurpose
-      .addHashVersion(HashingSchemeVersion.V1)
+      .addMetadataEncodingVersion(1)
       .withContext("Act As Parties")(
         _.iterateOver(metadata.actAs.iterator, metadata.actAs.size)(_ add _)
       )
