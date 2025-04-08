@@ -278,14 +278,13 @@ final class Conversions(
                         .setExpected(convertIdentifier(expected))
                         .addAllAccepted(accepted.map(convertIdentifier(_)).asJava)
                     )
-                  case _: Dev.CCTP =>
-                    // TODO: https://github.com/DACH-NY/canton-network-utilities/issues/3017: add structured error reporting to daml-script
-                    proto.ScriptError.CCTPError.newBuilder.setMessage(
-                      speedy.Pretty.prettyDamlException(interpretationError).render(80)
-                    )
                 }
               case _: Upgrade =>
                 proto.ScriptError.UpgradeError.newBuilder.setMessage(
+                  speedy.Pretty.prettyDamlException(interpretationError).render(80)
+                )
+              case _: CCTP =>
+                proto.ScriptError.CCTPError.newBuilder.setMessage(
                   speedy.Pretty.prettyDamlException(interpretationError).render(80)
                 )
               case err @ Dev(_, _) =>

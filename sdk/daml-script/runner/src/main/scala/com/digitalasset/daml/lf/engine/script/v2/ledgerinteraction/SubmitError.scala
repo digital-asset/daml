@@ -525,6 +525,63 @@ object SubmitError {
       )
   }
 
+  object CryptoError {
+    final case class MalformedByteEncoding(value: String, message: String) extends SubmitError {
+      override def toDamlSubmitError(env: Env): SValue = {
+        val errorType =
+          damlScriptCryptoErrorType(env, "MalformedByteEncoding", 0, "value" -> SText(value))
+
+        SubmitErrorConverters(env).damlScriptError(
+          "CryptoError",
+          ("cryptoErrorType", errorType),
+          ("cryptoErrorMessage", SText(message)),
+        )
+      }
+    }
+
+    final case class MalformedKey(key: String, message: String) extends SubmitError {
+      override def toDamlSubmitError(env: Env): SValue = {
+        val errorType = damlScriptCryptoErrorType(env, "MalformedKey", 1, "keyValue" -> SText(key))
+
+        SubmitErrorConverters(env).damlScriptError(
+          "CryptoError",
+          ("cryptoErrorType", errorType),
+          ("cryptoErrorMessage", SText(message)),
+        )
+      }
+    }
+
+    final case class MalformedSignature(signature: String, message: String) extends SubmitError {
+      override def toDamlSubmitError(env: Env): SValue = {
+        val errorType = damlScriptCryptoErrorType(
+          env,
+          "MalformedSignature",
+          2,
+          "signatureValue" -> SText(signature),
+        )
+
+        SubmitErrorConverters(env).damlScriptError(
+          "CryptoError",
+          ("cryptoErrorType", errorType),
+          ("cryptoErrorMessage", SText(message)),
+        )
+      }
+    }
+
+    private def damlScriptCryptoErrorType(
+        env: Env,
+        variantName: String,
+        rank: Int,
+        fields: (String, SValue)*
+    ): SVariant =
+      SubmitErrorConverters(env).damlScriptVariant(
+        "Daml.Script.Internal.Questions.Submit.Error.CryptoErrorType",
+        variantName,
+        rank,
+        fields: _*
+      )
+  }
+
   final case class DevError(errorType: String, message: String) extends SubmitError {
     // This code needs to be kept in sync with daml-script#Error.daml
     override def toDamlSubmitError(env: Env): SValue = {

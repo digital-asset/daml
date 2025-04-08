@@ -907,6 +907,87 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       }
     }
 
+    @Explanation("Errors that occur when using cyptography primitives")
+    object CryptoError extends ErrorGroup {
+      @Explanation(
+        "An optional contract field with a value of Some may not be dropped during downgrading"
+      )
+      @Resolution(
+        "There is data that is newer than the implementation using it, and thus is not compatible. Ensure new data (i.e. those with additional fields as `Some`) is only used with new/compatible choices"
+      )
+      object MalformedByteEncoding
+        extends ErrorCode(
+          id = "INTERPRETATION_CRYPTO_ERROR_MALFORMED_BYTE_ENCODING",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+        final case class Reject(
+          override val cause: String,
+          err: LfInterpretationError.CCTP.MalformedByteEncoding,
+        )(implicit
+          loggingContext: ContextualizedErrorLogger
+        ) extends DamlErrorWithDefiniteAnswer(
+          cause = cause
+        ) {
+          override def resources: Seq[(ErrorResource, String)] =
+            Seq(
+              (ErrorResource.CryptoValue, err.value)
+            )
+        }
+      }
+      @Explanation(
+        "TODO"
+      )
+      @Resolution(
+        "TODO"
+      )
+      object MalformedKey
+        extends ErrorCode(
+          id = "INTERPRETATION_CRYPTO_ERROR_MALFORMED_KEY",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+        final case class Reject(
+                                 override val cause: String,
+                                 err: LfInterpretationError.CCTP.MalformedKey,
+                               )(implicit
+                                 loggingContext: ContextualizedErrorLogger
+                               ) extends DamlErrorWithDefiniteAnswer(
+          cause = cause
+        ) {
+          override def resources: Seq[(ErrorResource, String)] = {
+            Seq(
+              (ErrorResource.CryptoValue, err.key)
+            )
+          }
+        }
+      }
+      @Explanation(
+        "TODO"
+      )
+      @Resolution(
+        "TODO"
+      )
+      object MalformedSignature
+        extends ErrorCode(
+          id = "INTERPRETATION_CRYPTO_ERROR_MALFORMED_SIGNATURE",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+        final case class Reject(
+                                 override val cause: String,
+                                 err: LfInterpretationError.CCTP.MalformedSignature,
+                               )(implicit
+                                 loggingContext: ContextualizedErrorLogger
+                               ) extends DamlErrorWithDefiniteAnswer(
+          cause = cause
+        ) {
+          override def resources: Seq[(ErrorResource, String)] = {
+            Seq(
+              (ErrorResource.CryptoValue, err.signature)
+            )
+          }
+        }
+      }
+    }
+
     @Explanation(
       """This error is a catch-all for errors thrown by in-development features, and should never be thrown in production."""
     )

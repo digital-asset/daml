@@ -41,6 +41,73 @@ Data Types
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"readAs\" `ContractNotFoundAdditionalInfo <type-daml-script-internal-questions-submit-error-contractnotfoundadditionalinfo-6199_>`_ \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
 
+.. _type-daml-script-internal-questions-submit-error-cryptoerrortype-71749:
+
+**data** `CryptoErrorType <type-daml-script-internal-questions-submit-error-cryptoerrortype-71749_>`_
+
+  .. _constr-daml-script-internal-questions-submit-error-malformedbyteencoding-79193:
+
+  `MalformedByteEncoding <constr-daml-script-internal-questions-submit-error-malformedbyteencoding-79193_>`_
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - value
+         - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+
+  .. _constr-daml-script-internal-questions-submit-error-malformedkey-58536:
+
+  `MalformedKey <constr-daml-script-internal-questions-submit-error-malformedkey-58536_>`_
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - keyValue
+         - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+
+  .. _constr-daml-script-internal-questions-submit-error-malformedsignature-13573:
+
+  `MalformedSignature <constr-daml-script-internal-questions-submit-error-malformedsignature-13573_>`_
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - signatureValue
+         - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+
+  **instance** `Show <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360>`_ `CryptoErrorType <type-daml-script-internal-questions-submit-error-cryptoerrortype-71749_>`_
+
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"cryptoErrorType\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `CryptoErrorType <type-daml-script-internal-questions-submit-error-cryptoerrortype-71749_>`_
+
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"keyValue\" `CryptoErrorType <type-daml-script-internal-questions-submit-error-cryptoerrortype-71749_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"signatureValue\" `CryptoErrorType <type-daml-script-internal-questions-submit-error-cryptoerrortype-71749_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"value\" `CryptoErrorType <type-daml-script-internal-questions-submit-error-cryptoerrortype-71749_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"cryptoErrorType\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `CryptoErrorType <type-daml-script-internal-questions-submit-error-cryptoerrortype-71749_>`_
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"keyValue\" `CryptoErrorType <type-daml-script-internal-questions-submit-error-cryptoerrortype-71749_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"signatureValue\" `CryptoErrorType <type-daml-script-internal-questions-submit-error-cryptoerrortype-71749_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"value\" `CryptoErrorType <type-daml-script-internal-questions-submit-error-cryptoerrortype-71749_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+
 .. _type-daml-script-internal-questions-submit-error-deverrortype-71788:
 
 **data** `DevErrorType <type-daml-script-internal-questions-submit-error-deverrortype-71788_>`_
@@ -472,6 +539,26 @@ Data Types
          - `FailureStatus <https://docs.daml.com/daml/stdlib/DA-Fail.html#type-da-internal-fail-types-failurestatus-69615>`_
          -
 
+  .. _constr-daml-script-internal-questions-submit-error-cryptoerror-24426:
+
+  `CryptoError <constr-daml-script-internal-questions-submit-error-cryptoerror-24426_>`_
+
+    Crypto exceptions
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - cryptoErrorType
+         - `CryptoErrorType <type-daml-script-internal-questions-submit-error-cryptoerrortype-71749_>`_
+         -
+       * - cryptoErrorMessage
+         - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+
   .. _constr-daml-script-internal-questions-submit-error-deverror-73533:
 
   `DevError <constr-daml-script-internal-questions-submit-error-deverror-73533_>`_
@@ -546,6 +633,10 @@ Data Types
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"contractKey\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `AnyContractKey <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_
 
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"cryptoErrorMessage\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"cryptoErrorType\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `CryptoErrorType <type-daml-script-internal-questions-submit-error-cryptoerrortype-71749_>`_
+
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"devErrorMessage\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"devErrorType\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `DevErrorType <type-daml-script-internal-questions-submit-error-deverrortype-71788_>`_
@@ -609,6 +700,10 @@ Data Types
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"contractId\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ :ref:`AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399>`
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"contractKey\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `AnyContractKey <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"cryptoErrorMessage\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"cryptoErrorType\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `CryptoErrorType <type-daml-script-internal-questions-submit-error-cryptoerrortype-71749_>`_
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"devErrorMessage\" `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
 

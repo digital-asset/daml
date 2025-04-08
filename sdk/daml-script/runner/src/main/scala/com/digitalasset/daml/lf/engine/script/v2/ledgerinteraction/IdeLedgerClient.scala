@@ -377,6 +377,21 @@ class IdeLedgerClient(
           innerError.expectedType.pretty,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
+      case e @ CCTP(innerError: CCTP.MalformedByteEncoding) =>
+        SubmitError.CryptoError.MalformedByteEncoding(
+          innerError.value,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
+      case e @ CCTP(innerError: CCTP.MalformedKey) =>
+        SubmitError.CryptoError.MalformedKey(
+          innerError.key,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
+      case e @ CCTP(innerError: CCTP.MalformedSignature) =>
+        SubmitError.CryptoError.MalformedSignature(
+          innerError.signature,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
       case e @ Dev(_, innerError) =>
         SubmitError.DevError(
           innerError.getClass.getSimpleName,
