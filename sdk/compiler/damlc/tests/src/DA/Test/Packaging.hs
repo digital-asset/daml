@@ -49,6 +49,7 @@ data Tools = Tools -- and places
 tests :: SdkVersioned => Tools -> TestTree
 tests Tools{damlc} = testGroup "Packaging" $
     [ testCaseSteps "Five layer-deep expression-only dependency tree" $ \step -> withTempDir $ \tmpDir -> do
+        -- This test is for https://github.com/digital-asset/daml/issues/20939
         let project :: Integer -> String
             project i = tmpDir </> ("layer" <> show i)
         let mkAndAssertLayer :: Integer -> [String] -> IO ()
