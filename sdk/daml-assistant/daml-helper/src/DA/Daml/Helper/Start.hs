@@ -20,6 +20,7 @@ import Control.Monad.Extra hiding (fromMaybeM)
 import Data.Maybe
 import qualified Data.Text as T
 import Network.Socket.Extended (getFreePort)
+import System.Console.ANSI
 import System.FilePath
 import System.Process.Typed
 import System.IO.Extra
@@ -78,7 +79,7 @@ withSandbox StartOptions{..} darPath sandboxArgs kont =
 
 waitForJsonApi :: Process () () () -> JsonApiPort -> IO ()
 waitForJsonApi sandboxPh (JsonApiPort jsonApiPort) = do
-        putStrLn "Waiting for JSON API to start: "
+        putStrLn "Waiting for JSON API to start."
         waitForHttpServer 240 (unsafeProcessHandle sandboxPh) (putStr "." *> threadDelay 500000)
             ("http://localhost:" <> show jsonApiPort <> "/readyz") []
 
@@ -141,6 +142,7 @@ runStart startOptions@StartOptions{..} =
         doRunInitScript
         whenJust onStartM $ \onStart -> runProcess_ (shell onStart)
         whenJust jsonApiPortM $ \jsonApiPort -> waitForJsonApi sandboxPh jsonApiPort
+        printReadyInstructions
         when shouldWaitForSignal $
           void $ waitAnyCancel =<< mapM (async . waitExitCode) [sandboxPh]
 
@@ -154,3 +156,8 @@ runStart startOptions@StartOptions{..} =
                 projectConfig
             whenJust mbOutputPath $ \_outputPath -> do
               runCodegen lang []
+        printReadyInstructions = do
+          setSGR [SetColor Foreground Vivid Yellow]
+          putStrLn "The Canton sandbox and JSON API are ready to use."
+          setSGR [Reset]
+          hFlush stdout
