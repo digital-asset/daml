@@ -8,6 +8,8 @@
 -- | Functions for working with Crypto builtins.
 -- For example, as used to implement CCTP functionality.
 module DA.Crypto.Text
+  -- TODO: https://github.com/digital-asset/daml/issues/20955: enable once we have support for warnings in daml-script
+  -- {-# WARNING "DA.Crypto.Text is an alpha feature. It can change without notice." #-}
   (keccak256
   , secp256k1
   , HasToHex(..)
@@ -82,20 +84,24 @@ hexByteToInt hexChars
 isHex : Text -> Bool
 isHex = Text.isPred (\t -> t >= "0" && t <= "9" || t >= "a" && t <= "f" || t >= "A" && t <= "F")
 
+-- | Validate that the byte encoded string is BytesHex
+isBytesHex : Text -> Bool
+isBytesHex hex = Text.length hex % 2 == 0 && isHex hex
+
 -- TODO: https://github.com/DACH-NY/canton-network-utilities/issues/2922: fully parse DER hex encoded formats
 isDEREncoded : Text -> Bool
-isDEREncoded msg = isHex msg && Text.substring 0 2 msg == "30" && Text.length msg == 2 * (2 + (hexByteToInt (Text.substring 2 2 msg)))
+isDEREncoded msg = isBytesHex msg && Text.substring 0 2 msg == "30" && Text.length msg == 2 * (2 + (hexByteToInt (Text.substring 2 2 msg)))
 
 -- | Computes the KECCAK256 hash of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
 -- form. The hex encoding uses lowercase letters.
 keccak256 : BytesHex -> BytesHex
-keccak256 msg | isHex msg = primitive @"BEKecCak256Text" (Text.asciiToLower msg)
+keccak256 msg | isBytesHex msg = primitive @"BEKecCak256Text" (Text.asciiToLower msg)
 keccak256 msg = error $ "Message argument is not a hex string: " <> msg
 
 -- | Validate the SECP256K1 signature given a hex encoded message and a hex encoded DER formatted public key.
 secp256k1 : SignatureHex -> BytesHex -> PublicKeyHex -> Bool
 secp256k1 sig msg pk
-  | not (isHex msg) = error $ "Message argument is not a hex string: " <> msg
+  | not (isBytesHex msg) = error $ "Message argument is not a hex string: " <> msg
   | not (isDEREncoded sig) = error $ "Signature argument is not a DER encoded hex string: " <> sig
   | not (isDEREncoded pk) = error $ "Public key argument is not a DER encoded hex string: " <> pk
   | otherwise = primitive @"BESecp256k1Bool" (Text.asciiToLower sig) (Text.asciiToLower msg) (Text.asciiToLower pk)
@@ -143,17 +149,34 @@ class HasFromHex a where
   fromHex: BytesHex -> a
 
 instance HasFromHex (Optional Text) where
-  fromHex hex | isHex hex = Some (primitive @"BEDecodeHex" (Text.asciiToLower hex))
+  fromHex hex | isBytesHex hex = Some (primitive @"BEDecodeHex" (Text.asciiToLower hex))
   fromHex _ = None
+
+-- TODO: https://github.com/digital-asset/daml/issues/20954: refactor to use safe arithmetic Int operations
+calculateOptIntFromIntArgs: Int -> Int -> Optional Int
+calculateOptIntFromIntArgs leftInt rightInt =
+ let left: Numeric 0 = intToNumeric leftInt
+     right: Numeric 0 = intToNumeric rightInt
+     result: Numeric 0 = (left * (256.0: Numeric 0)) + right
+ in
+   if intToNumeric (minBound @Int) <= result && result <= intToNumeric (maxBound @Int)
+     then
+       Some (round result)
+     else
+       None
 
 instance HasFromHex (Optional Int) where
   fromHex "" = Some 0
-  fromHex hex | isHex hex && Text.length hex == 2 = Some (hexByteToInt hex)
-  fromHex hex | isHex hex = do
-    right <- fromHex (Text.substring ((Text.length hex) - 2) 2 hex)
-    left <- fromHex (Text.substring 0 ((Text.length hex) - 2) hex)
-    Some (left * 256 + right)
-  fromHex _ = None
+  fromHex hex
+    | not (isBytesHex hex) = None
+    | otherwise =
+        if Text.length hex == 2
+          then
+            Some (hexByteToInt hex)
+          else do
+            right <- fromHex (Text.substring ((Text.length hex) - 2) 2 hex)
+            left <- fromHex (Text.substring 0 ((Text.length hex) - 2) hex)
+            calculateOptIntFromIntArgs left right
 
 instance HasFromHex (Optional Party) where
   fromHex hex = fromHex hex >>= partyFromText
@@ -167,7 +190,7 @@ numericViaStringFromHex hex = fromHex hex >>= Text.parseNumeric
 -- | Number of bytes present in a byte encoded string.
 byteCount: BytesHex -> Int
 byteCount "" = 0
-byteCount hex | isHex hex = (Text.length hex) / 2
+byteCount hex | isBytesHex hex = (Text.length hex) / 2
 byteCount arg = error $ "Expected a hex encoded string but argument was: " <> arg
 
 replicateList: Int -> a -> [a]
@@ -176,7 +199,7 @@ replicateList n x = x :: (replicateList (n - 1) x)
 
 byteRepeat: Int -> BytesHex -> BytesHex
 byteRepeat len byte
-  | not (isHex byte)    = error $ "Expected a hex encoded string but argument was: " <> byte
+  | not (isBytesHex byte)    = error $ "Expected a hex encoded string but argument was: " <> byte
   | byteCount byte /= 1 = error $ "Expected a byte value but hex encoded string was: " <> byte
   | len < 0             = error $ "Expected a positive length but argument was: " <> show len
   | otherwise           = Text.implode (replicateList len byte)
@@ -190,7 +213,7 @@ maxBytes32Hex = byteRepeat 32 "ff"
 
 -- | Validate that the byte encoded string is Bytes32Hex
 isBytes32Hex: BytesHex -> Bool
-isBytes32Hex hex | isHex hex = byteCount hex == 32
+isBytes32Hex hex | isBytesHex hex = byteCount hex == 32
 isBytes32Hex arg = error $ "Expected a hex encoded string but argument was: " <> arg
 
 -- | Minimum UInt32 hex value
@@ -202,7 +225,7 @@ maxUInt32Hex = byteRepeat 4 "ff"
 
 -- | Validate that the byte encoded string is UInt32Hex
 isUInt32Hex: BytesHex -> Bool
-isUInt32Hex hex | isHex hex = byteCount hex == 4
+isUInt32Hex hex | isBytesHex hex = byteCount hex == 4
 isUInt32Hex arg = error $ "Expected a hex encoded string but argument was: " <> arg
 
 -- | Minimum UInt64 hex value
@@ -214,7 +237,7 @@ maxUInt64Hex = byteRepeat 8 "ff"
 
 -- | Validate that the byte encoded string is UInt64Hex
 isUInt64Hex: BytesHex -> Bool
-isUInt64Hex hex | isHex hex = byteCount hex == 8
+isUInt64Hex hex | isBytesHex hex = byteCount hex == 8
 isUInt64Hex arg = error $ "Expected a hex encoded string but argument was: " <> arg
 
 -- | Minimum UInt256 hex value
@@ -226,23 +249,23 @@ maxUInt256Hex = byteRepeat 32 "ff"
 
 -- | Validate that the byte encoded string is UInt256Hex
 isUInt256Hex: BytesHex -> Bool
-isUInt256Hex hex | isHex hex = byteCount hex == 32
+isUInt256Hex hex | isBytesHex hex = byteCount hex == 32
 isUInt256Hex arg = error $ "Expected a hex encoded string but argument was: " <> arg
 
 -- | Pack a byte encoded string to a given byte count size. If the byte string is shorter than the pad
 -- size, then prefix with 00 byte strings. If the byte string is larger, then truncate the byte string.
 packHexBytes: BytesHex -> Int -> Optional BytesHex
-packHexBytes hex pad | isHex hex && 0 <= pad =
+packHexBytes hex pad | isBytesHex hex && 0 <= pad =
   if byteCount hex <= pad
     then Some ((byteRepeat (pad - byteCount hex) "00") <> hex)
-    else Some (Text.drop ((pad - byteCount hex) * 2) hex)
+    else Some (Text.drop ((byteCount hex - pad) * 2) hex)
 packHexBytes _ _ = None
 
 -- | Extract the byte string starting at startByte up to, but excluding, endByte. Byte indexing starts at 1.
 sliceHexBytes: BytesHex -> Int -> Int -> Either Text BytesHex
 sliceHexBytes hex startByte endByte
-  | not (isHex hex) =  Left ("Expected a hex encoded string but argument was: " <> hex)
+  | not (isBytesHex hex) =  Left ("Expected a hex encoded string but argument was: " <> hex)
   | startByte < 1 =  Left ("Expected start byte to be >= 1, was: " <> show startByte)
-  | startByte > endByte =  Left ("Expected end byte to be >= " <> show startByte <> " was: " <> show endByte)
-  | endByte > (byteCount hex) + 1 = Left ("Expected end byte to be <= " <> show ((byteCount hex) + 1) <> " was: " <> show endByte)
+  | startByte > endByte =  Left ("Expected end byte to be >= " <> show startByte <> ", was: " <> show endByte)
+  | endByte > (byteCount hex) + 1 = Left ("Expected end byte to be <= " <> show ((byteCount hex) + 1) <> ", was: " <> show endByte)
   | otherwise = Right (Text.substring ((startByte - 1) * 2) ((endByte - startByte) * 2) hex)
