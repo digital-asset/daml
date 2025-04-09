@@ -172,6 +172,8 @@ abstract class EncodeSpec(languageVersion: LanguageVersion)
              lookup_by_key @Mod:Person party;
            val aGetTime: Update Timestamp =
              uget_time;
+           val aLedgerTimeLT: Timestamp -> Update Bool = \(time: Timestamp) ->
+             ledger_time_lt time;
            val anEmbedExpr: forall (a: *). Update a -> Update a = /\ (a: *). \ (x: Update a) ->
              uembed_expr @a x;
            val isZero: Int64 -> Bool = EQUAL @Int64 0;
