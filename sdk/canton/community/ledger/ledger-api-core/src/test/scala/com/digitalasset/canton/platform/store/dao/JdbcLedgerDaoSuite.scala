@@ -27,7 +27,6 @@ import java.util.UUID
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import scala.concurrent.Future
 import scala.language.implicitConversions
-import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.util.chaining.*
 
 private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionValues {
@@ -214,15 +213,12 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       key: Option[GlobalKeyWithMaintainers] = None,
       templateId: Identifier = someTemplateId,
       contractArgument: LfValue = someContractArgument,
-      // PackageVersion is populated only for LF version > 2.1
-      packageVersion: Option[Ref.PackageVersion] = None,
       transactionVersion: LanguageVersion = LanguageVersion.v2_1,
   ): Node.Create =
     Node.Create(
       coid = absCid,
       templateId = templateId,
       packageName = somePackageName,
-      packageVersion = packageVersion,
       arg = contractArgument,
       signatories = signatories,
       stakeholders = stakeholders,
@@ -671,7 +667,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
             .assertBuild(someTemplateId, someContractKey(party, key), Set(party), somePackageName)
         ),
         version = txVersion,
-        packageVersion = Option.when(txVersion > LanguageVersion.v2_1)(somePackageVersion),
       )
     )
     nextOffset() ->

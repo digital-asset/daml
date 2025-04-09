@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.ledger.api.v2.event_query_service.{Archived, Created, GetEventsByContractIdResponse}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors
+import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,
@@ -102,11 +102,8 @@ private[dao] sealed class EventsReader(
         case Some(result) => Future.successful(result)
         case None =>
           Future.failed(
-            ConsistencyErrors.ContractNotFound
-              .Reject(
-                "No events found for contract ID, or all events were filtered out by the specified event_format",
-                contractId,
-              )
+            RequestValidationErrors.NotFound.ContractEvents
+              .Reject(contractId)
               .asGrpcError
           )
       }

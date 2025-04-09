@@ -7,8 +7,7 @@ import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRespons
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
-import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
-import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.*
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.{
   ParticipantMetering,
@@ -548,18 +547,11 @@ object EventStorageBackend {
       updateId: String,
       partyId: String,
       participantId: String,
-      participant_permission: AuthorizationLevel,
+      authorizationEvent: AuthorizationEvent,
       recordTime: Timestamp,
       synchronizerId: String,
       traceContext: Option[Array[Byte]],
   )
-
-  def intToAuthorizationLevel(n: Int): AuthorizationLevel = n match {
-    case 0 => Revoked
-    case 1 => Submission
-    case 2 => Confirmation
-    case 3 => Observation
-  }
 
   final case class UnassignProperties(
       contractId: ContractId,

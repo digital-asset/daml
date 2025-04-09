@@ -70,7 +70,6 @@ class StoreBackedCommandInterpreterSpec
     LfNode.Create(
       coid = contractId,
       packageName = packageName,
-      packageVersion = None,
       templateId = identifier,
       arg = ValueTrue,
       signatories = Set(Ref.Party.assertFromString("unexpectedSig")),

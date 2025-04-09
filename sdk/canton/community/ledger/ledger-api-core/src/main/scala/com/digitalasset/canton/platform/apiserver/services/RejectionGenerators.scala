@@ -91,15 +91,15 @@ object RejectionGenerators {
         case LfInterpretationError.ContractNotFound(cid) =>
           ConsistencyErrors.ContractNotFound
             .Reject(renderedMessage, cid)
-        case LfInterpretationError.UnresolvedPackageName(packageName) =>
-          CommandExecutionErrors.Interpreter.LookupErrors.UnresolvedPackageName
-            .Reject(renderedMessage, packageName)
         case LfInterpretationError.ContractKeyNotFound(key) =>
           CommandExecutionErrors.Interpreter.LookupErrors.ContractKeyNotFound
             .Reject(renderedMessage, key)
         case _: LfInterpretationError.FailedAuthorization =>
           CommandExecutionErrors.Interpreter.AuthorizationError
             .Reject(renderedMessage)
+        case LfInterpretationError.UnresolvedPackageName(packageName) =>
+          CommandExecutionErrors.Interpreter.LookupErrors.UnresolvedPackageName
+            .Reject(renderedMessage, packageName)
         case e: LfInterpretationError.ContractNotActive =>
           CommandExecutionErrors.Interpreter.ContractNotActive
             .Reject(renderedMessage, e)
@@ -165,21 +165,6 @@ object RejectionGenerators {
               error: LfInterpretationError.Upgrade.DowngradeFailed
             ) =>
           CommandExecutionErrors.Interpreter.UpgradeError.DowngradeFailed
-            .Reject(renderedMessage, error)
-        case LfInterpretationError.CCTP(
-              error: LfInterpretationError.CCTP.MalformedByteEncoding
-            ) =>
-          CommandExecutionErrors.Interpreter.CryptoError.MalformedByteEncoding
-            .Reject(renderedMessage, error)
-        case LfInterpretationError.CCTP(
-              error: LfInterpretationError.CCTP.MalformedKey
-            ) =>
-          CommandExecutionErrors.Interpreter.CryptoError.MalformedKey
-            .Reject(renderedMessage, error)
-        case LfInterpretationError.CCTP(
-              error: LfInterpretationError.CCTP.MalformedSignature
-            ) =>
-          CommandExecutionErrors.Interpreter.CryptoError.MalformedSignature
             .Reject(renderedMessage, error)
         case LfInterpretationError.Dev(_, err) =>
           CommandExecutionErrors.Interpreter.InterpretationDevError

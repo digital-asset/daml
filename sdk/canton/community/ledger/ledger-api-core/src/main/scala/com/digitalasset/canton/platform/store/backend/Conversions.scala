@@ -5,7 +5,22 @@ package com.digitalasset.canton.platform.store.backend
 
 import anorm.*
 import anorm.Column.nonNull
+import anorm.SqlParser.int
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.{
+  Added,
+  ChangedTo,
+  Revoked,
+}
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.{
+  Confirmation,
+  Observation,
+  Submission,
+}
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
+  AuthorizationEvent,
+  AuthorizationLevel,
+}
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -153,4 +168,60 @@ private[backend] object Conversions {
       .?
       .map(_.getOrElse(TraceContext.empty))
   }
+
+  // AuthorizationEvent
+
+  private lazy val authorizationLevelToIntMapping: Map[AuthorizationLevel, Int] = Map(
+    Submission -> 0,
+    Confirmation -> 1,
+    Observation -> 2,
+  )
+
+  private def authorizationLevel(n: Int): AuthorizationLevel =
+    authorizationLevelToIntMapping
+      .map(_.swap)
+      .getOrElse(
+        n,
+        throw new RuntimeException(
+          s"Integer $n was not expected as an authorization level serialized value."
+        ),
+      )
+
+  def participantPermissionInt(authorizationEvent: AuthorizationEvent): Int =
+    authorizationEvent match {
+      case active: AuthorizationEvent.ActiveAuthorization =>
+        authorizationLevelToIntMapping.getOrElse(
+          active.level,
+          throw new RuntimeException(
+            s"Unexpectedly level ${active.level} could not be serialized."
+          ),
+        )
+      case Revoked => 0 // we do not care about the permission level if the mapping is revoked
+    }
+
+  def authorizationEventInt(state: AuthorizationEvent): Int = state match {
+    case Added(_) => 0
+    case ChangedTo(_) => 1
+    case Revoked => 2
+  }
+
+  def authorizationEvent(t: Int, l: Int): AuthorizationEvent = t match {
+    case 0 => Added(authorizationLevel(l))
+    case 1 => ChangedTo(authorizationLevel(l))
+    case 2 => Revoked
+    case other =>
+      throw new RuntimeException(
+        s"Integer $other was not expected as an authorization event serialized value."
+      )
+  }
+
+  def authorizationEventParser(
+      authorizationLevelColumnName: String,
+      authorizationEventTypeColumnName: String,
+  ): RowParser[AuthorizationEvent] =
+    int(authorizationLevelColumnName) ~
+      int(authorizationEventTypeColumnName) map { case level ~ eventType =>
+        authorizationEvent(eventType, level)
+      }
+
 }

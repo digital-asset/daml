@@ -42,7 +42,7 @@ service EventQueryService {
   // Get the create and the consuming exercise event for the contract with the provided ID.
   // No events will be returned for contracts that have been pruned because they
   // have already been archived before the latest pruning offset.
-  // If the contract cannot be found for the request, or all the contract-events are filtered, a CONTRACT_NOT_FOUND error will be raised.
+  // If the contract cannot be found for the request, or all the contract-events are filtered, a CONTRACT_EVENTS_NOT_FOUND error will be raised.
   rpc GetEventsByContractId(GetEventsByContractIdRequest) returns (GetEventsByContractIdResponse);
 }
 

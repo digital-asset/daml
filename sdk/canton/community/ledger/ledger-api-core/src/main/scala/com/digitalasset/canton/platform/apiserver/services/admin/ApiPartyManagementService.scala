@@ -43,6 +43,7 @@ import com.digitalasset.canton.ledger.localstore.api.{
   PartyRecordUpdate,
 }
 import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent
 import com.digitalasset.canton.ledger.participant.state.index.*
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.*
@@ -738,7 +739,11 @@ private[apiserver] object ApiPartyManagementService {
 
     def forParticipant(participantId: Ref.ParticipantId) = new CreateSubmissionId() {
       override def apply(partyIdHint: String): PartyAllocation.TrackerKey =
-        PartyAllocation.TrackerKey.of(partyIdHint, participantId, AuthorizationLevel.Submission)
+        PartyAllocation.TrackerKey.of(
+          partyIdHint,
+          participantId,
+          AuthorizationEvent.Added(AuthorizationLevel.Submission),
+        )
     }
 
     def fixedForTests(const: String) = new CreateSubmissionId() {

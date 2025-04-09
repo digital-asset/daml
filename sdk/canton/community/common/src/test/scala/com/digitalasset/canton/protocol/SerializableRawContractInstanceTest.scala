@@ -78,7 +78,6 @@ class SerializableRawContractInstanceTest
           LfContractInst(
             packageName = ExampleTransactionFactory.packageName,
             template = ExampleTransactionFactory.templateId,
-            packageVersion = None,
             arg = Versioned(transactionVersion, arg),
           )
         )(ByteString.EMPTY)

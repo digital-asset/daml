@@ -230,7 +230,6 @@ class CommandSubmissionServiceImplSpec
       FatContractInstanceHelper.buildFatContractInstance(
         templateId = Identifier.assertFromString("some:pkg:identifier"),
         packageName = PackageName.assertFromString("pkg-name"),
-        packageVersion = None,
         contractId = TransactionBuilder.newCid,
         argument = Value.ValueNil,
         createdAt = Timestamp.Epoch,

@@ -215,15 +215,26 @@ object Update {
       final case object Confirmation extends AuthorizationLevel
 
       final case object Observation extends AuthorizationLevel
-      final case object Revoked extends AuthorizationLevel
     }
+
+    sealed trait AuthorizationEvent
+    object AuthorizationEvent {
+      sealed trait ActiveAuthorization extends AuthorizationEvent {
+        def level: AuthorizationLevel
+      }
+
+      final case class Added(level: AuthorizationLevel) extends ActiveAuthorization
+      final case class ChangedTo(level: AuthorizationLevel) extends ActiveAuthorization
+      final case object Revoked extends AuthorizationEvent
+    }
+
     sealed trait TopologyEvent
 
     object TopologyEvent {
       final case class PartyToParticipantAuthorization(
           party: Ref.Party,
           participant: Ref.ParticipantId,
-          level: AuthorizationLevel,
+          authorizationEvent: AuthorizationEvent,
       ) extends TopologyEvent
     }
     implicit val `TopologyTransactionEffective to LoggingValue`

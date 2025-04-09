@@ -6,9 +6,9 @@ package com.daml.ledger.javaapi.data;
 import com.daml.ledger.api.v2.TopologyTransactionOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-import java.util.*;
+import java.util.Objects;
 
-public final class ParticipantAuthorizationChanged implements TopologyEvent {
+public final class ParticipantAuthorizationAdded implements TopologyEvent {
 
   private final @NonNull String partyId;
 
@@ -16,7 +16,7 @@ public final class ParticipantAuthorizationChanged implements TopologyEvent {
 
   private final @NonNull ParticipantPermission permission;
 
-  public ParticipantAuthorizationChanged(
+  public ParticipantAuthorizationAdded(
       @NonNull String partyId,
       @NonNull String participantId,
       @NonNull ParticipantPermission permission) {
@@ -45,7 +45,7 @@ public final class ParticipantAuthorizationChanged implements TopologyEvent {
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-    ParticipantAuthorizationChanged that = (ParticipantAuthorizationChanged) o;
+    ParticipantAuthorizationAdded that = (ParticipantAuthorizationAdded) o;
     return Objects.equals(partyId, that.partyId)
         && Objects.equals(participantId, that.participantId)
         && Objects.equals(permission, that.permission);
@@ -58,7 +58,7 @@ public final class ParticipantAuthorizationChanged implements TopologyEvent {
 
   @Override
   public String toString() {
-    return "ParticipantAuthorizationChanged{"
+    return "ParticipantAuthorizationAdded{"
         + "partyId="
         + partyId
         + ", participantId='"
@@ -68,19 +68,19 @@ public final class ParticipantAuthorizationChanged implements TopologyEvent {
         + '}';
   }
 
-  public TopologyTransactionOuterClass.@NonNull ParticipantAuthorizationChanged toProto() {
-    return TopologyTransactionOuterClass.ParticipantAuthorizationChanged.newBuilder()
+  public TopologyTransactionOuterClass.@NonNull ParticipantAuthorizationAdded toProto() {
+    return TopologyTransactionOuterClass.ParticipantAuthorizationAdded.newBuilder()
         .setPartyId(this.getPartyId())
         .setParticipantId(this.getParticipantId())
         .setParticipantPermission(this.getPermission().toProto())
         .build();
   }
 
-  public static ParticipantAuthorizationChanged fromProto(
-      TopologyTransactionOuterClass.ParticipantAuthorizationChanged changedEvent) {
-    return new ParticipantAuthorizationChanged(
-        changedEvent.getPartyId(),
-        changedEvent.getParticipantId(),
-        ParticipantPermission.fromProto(changedEvent.getParticipantPermission()));
+  public static ParticipantAuthorizationAdded fromProto(
+      TopologyTransactionOuterClass.ParticipantAuthorizationAdded addedEvent) {
+    return new ParticipantAuthorizationAdded(
+        addedEvent.getPartyId(),
+        addedEvent.getParticipantId(),
+        ParticipantPermission.fromProto(addedEvent.getParticipantPermission()));
   }
 }

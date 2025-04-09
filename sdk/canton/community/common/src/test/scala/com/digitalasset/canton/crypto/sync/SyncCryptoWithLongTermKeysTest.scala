@@ -1,23 +1,24 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.crypto.signer
+package com.digitalasset.canton.crypto.sync
 
 import com.digitalasset.canton.config.SessionSigningKeysConfig
+import com.digitalasset.canton.crypto.signer.SyncCryptoSignerWithLongTermKeys
 import com.digitalasset.canton.topology.DefaultTestIdentities.participant1
 import com.digitalasset.canton.topology.TestingTopology
 import org.scalatest.wordspec.AnyWordSpec
 
-class SyncCryptoSignerWithLongTermKeysTest extends AnyWordSpec with SyncCryptoSignerTest {
+class SyncCryptoWithLongTermKeysTest extends AnyWordSpec with SyncCryptoTest {
   // we explicitly disable any use of session signing keys
   override protected lazy val sessionSigningKeysConfig: SessionSigningKeysConfig =
     SessionSigningKeysConfig.disabled
 
-  "A long-term key SyncCryptoSigner" must {
+  "A SyncCrypto with long-term keys" must {
 
     behave like syncCryptoSignerTest()
 
-    "use correct sync crypto signer with long term keys" in {
+    "use correct sync crypto with long term keys" in {
       syncCryptoSignerP1 shouldBe a[SyncCryptoSignerWithLongTermKeys]
     }
 
@@ -41,7 +42,7 @@ class SyncCryptoSignerWithLongTermKeysTest extends AnyWordSpec with SyncCryptoSi
 
       signature.signatureDelegation should not be empty
 
-      syncCryptoSignerP1
+      syncCryptoVerifierP1
         .verifySignature(
           testSnapshot,
           hash,

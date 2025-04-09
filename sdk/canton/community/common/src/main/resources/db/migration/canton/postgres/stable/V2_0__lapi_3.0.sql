@@ -409,6 +409,7 @@ CREATE TABLE lapi_events_party_to_participant (
     party_id integer not null,
     participant_id varchar collate "C" not null,
     participant_permission integer not null,
+    participant_authorization_event integer not null,
     synchronizer_id integer not null,
     record_time bigint not null,
     trace_context bytea
