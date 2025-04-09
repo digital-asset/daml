@@ -1,0 +1,198 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SUPPORTS-LF-FEATURE DAML_CCTP
+
+module HexString where
+
+import DA.Assert ((===))
+import DA.Exception (GeneralError (..))
+import DA.Optional (fromSome)
+import DA.Crypto.Text
+import Daml.Script
+
+n3: Numeric 3
+n3 = 0.123
+
+n7: Numeric 7
+n7 = 0.12345_67
+
+n10: Numeric 10
+n10 = 0.12345_67890
+
+main =
+  script do
+    -- `HasToHex Int` and `HasFromHex Int`
+    Some (toHex 0) === packHexBytes "00" 8
+    Some (toHex 1) === packHexBytes "01" 8
+    Some (toHex 15) === packHexBytes "0f" 8
+    Some (toHex 16) === packHexBytes "10" 8
+    Some (toHex 255) === packHexBytes "ff" 8
+    Some (toHex 256) === packHexBytes "0100" 8
+    Some (toHex 257) === packHexBytes "0101" 8
+    Some (toHex 3735928559) === packHexBytes "deadbeef" 8
+    _ <-
+      try do
+        let _ = toHex (-1) in undefined
+      catch
+        GeneralError actualMsg ->
+          actualMsg === "UInt should be positive: -1"
+    _ <-
+      try do
+        let _ = toHex (minBound @Int) in undefined
+      catch
+        GeneralError actualMsg ->
+          actualMsg === "UInt should be positive: -9223372036854775808"
+    toHex (maxBound @Int) === "7fffffffffffffff"
+    fromHex "" === Some 0
+    fromHex "00" === Some 0
+    fromHex "01" === Some 1
+    fromHex "0a" === Some 10
+    fromHex "0F" === Some 15
+    fromHex "10" === Some 16
+    fromHex "Ff" === Some 255
+    fromHex "0100" === Some 256
+    fromHex "0101" === Some 257
+    fromHex "DeadBeef" === Some 3735928559
+    fromHex "0" === (None: Optional Int)
+    fromHex "010" === (None: Optional Int)
+    fromHex "Hello World!" === (None: Optional Int)
+    fromHex "8000000000000000" === (None: Optional Int)
+    fromHex "ffffffffffffffff" === (None: Optional Int)
+
+    -- `HasToHex Text` and `HasFromHex Text`
+    toHex "" === ""
+    toHex " " === "20"
+    toHex "a" === "61"
+    toHex "Hello World!" === "48656c6c6f20576f726c6421"
+    toHex "DeadBeef" === "4465616442656566"
+    fromHex "" === (None: Optional Text)
+    fromHex "20" === Some " "
+    fromHex "61" === Some "a"
+    fromHex "48656c6c6f20576f726c6421" === Some "Hello World!"
+    fromHex "4465616442656566" === Some "DeadBeef"
+    fromHex "0" === (None: Optional Text)
+    fromHex "010" === (None: Optional Text)
+    fromHex "Hello World!" === (None: Optional Text)
+
+    -- `HasToHex Party` and `HasFromHex Party`
+    alice <- allocateParty "Alice"
+    Some alice === fromHex(toHex alice)
+    fromHex "alice" === (None: Optional Party)
+
+    -- `numericViaStringToHex` and `numericViaStringFromHex`
+    numericViaStringToHex n3 === "302e313233"
+    numericViaStringToHex n7 === "302e31323334353637"
+    numericViaStringToHex n10 === "302e313233343536373839"
+    numericViaStringFromHex "302e313233" === Some n3
+    numericViaStringFromHex "302e31323334353637" === Some n7
+    numericViaStringFromHex "302e313233343536373839" === Some n10
+    numericViaStringFromHex "" === (None: Optional (Numeric 3))
+    numericViaStringFromHex "Hello World!" === (None: Optional (Numeric 3))
+    numericViaStringFromHex "302e31323334353637" === (None: Optional (Numeric 3))
+    numericViaStringFromHex "302e313233343536373839" === (None: Optional (Numeric 3))
+    numericViaStringFromHex "302e313233343536373839" === (None: Optional (Numeric 7))
+
+    -- byteCount
+    byteCount "" === 0
+    byteCount "00" === 1
+    byteCount "0000" === 2
+    byteCount "000000" === 3
+    _ <-
+      try do
+        let _ = byteCount "0" in undefined
+      catch
+        GeneralError actualMsg ->
+          actualMsg === "Expected a hex encoded string but argument was: 0"
+    _ <-
+      try do
+        let _ = byteCount "Hello World!" in undefined
+      catch
+        GeneralError actualMsg ->
+          actualMsg === "Expected a hex encoded string but argument was: Hello World!"
+
+    -- packHexBytes
+    packHexBytes "01" 1 === Some "01"
+    packHexBytes "01" 2 === Some "0001"
+    packHexBytes "01" 3 === Some "000001"
+    packHexBytes "0102" 3 === Some "000102"
+    packHexBytes "0102030405060708" 4 === Some "05060708"
+    packHexBytes "0102030405060708" 7 === Some "02030405060708"
+    packHexBytes "0102030405060708" 8 === Some "0102030405060708"
+    packHexBytes "0102030405060708" 1 === Some "08"
+    packHexBytes "0102030405060708" 0 === Some ""
+    packHexBytes "01" (-1) === None
+    packHexBytes "1" 1 === None
+    packHexBytes "Hello World!" 5 === None
+
+    -- sliceHexBytes
+    sliceHexBytes "12" 1 2 === Right "12"
+    sliceHexBytes "DeadBeef" 2 3 === Right "ad"
+    sliceHexBytes "DeadBeef" 3 4 === Right "Be"
+    sliceHexBytes "DeadBeef" 2 4 === Right "adBe"
+    sliceHexBytes "DeadBeef" 2 5 === Right "adBeef"
+    sliceHexBytes "DeadBeef" 3 5 === Right "Beef"
+    sliceHexBytes "DeadBeef" 0 2 === Left "Expected start byte to be >= 1, was: 0"
+    sliceHexBytes "DeadBeef" 3 6 === Left "Expected end byte to be <= 5, was: 6"
+    sliceHexBytes "DeadBeef" 3 2 === Left "Expected end byte to be >= 3, was: 2"
+    sliceHexBytes "DeadBeef" (-1) 2 === Left "Expected start byte to be >= 1, was: -1"
+    sliceHexBytes "DeadBeef" 1 (-1) === Left "Expected end byte to be >= 1, was: -1"
+
+    -- isBytes32Hex, isUInt32Hex, isUInt64Hex, isUInt256Hex
+    isBytes32Hex(fromSome(packHexBytes "00" 32)) === True
+    isBytes32Hex(fromSome(packHexBytes "DeadBeef" 32)) === True
+    isBytes32Hex(fromSome(packHexBytes "00" 31)) === False
+    isBytes32Hex(fromSome(packHexBytes "00" 33)) === False
+    isBytes32Hex minBytes32Hex === True
+    isBytes32Hex maxBytes32Hex === True
+    isBytes32Hex minUInt32Hex === False
+    isBytes32Hex maxUInt32Hex === False
+    isBytes32Hex minUInt64Hex === False
+    isBytes32Hex maxUInt64Hex === False
+    isBytes32Hex minUInt256Hex === True
+    isBytes32Hex maxUInt256Hex === True
+
+    isUInt32Hex(fromSome(packHexBytes "00" 4)) === True
+    isUInt32Hex(fromSome(packHexBytes "000001" 4)) === True
+    isUInt32Hex(fromSome(packHexBytes "00" 5)) === False
+    isUInt32Hex(fromSome(packHexBytes "00" 3)) === False
+    isUInt32Hex(fromSome(packHexBytes "00" 8)) === False
+    isUInt32Hex(fromSome(packHexBytes "00" 32)) === False
+    isUInt32Hex minBytes32Hex === False
+    isUInt32Hex maxBytes32Hex === False
+    isUInt32Hex minUInt32Hex === True
+    isUInt32Hex maxUInt32Hex === True
+    isUInt32Hex minUInt64Hex === False
+    isUInt32Hex maxUInt64Hex === False
+    isUInt32Hex minUInt256Hex === False
+    isUInt32Hex maxUInt256Hex === False
+
+    isUInt64Hex(fromSome(packHexBytes "00" 8)) === True
+    isUInt64Hex(fromSome(packHexBytes "00" 4)) === False
+    isUInt64Hex(fromSome(packHexBytes "00" 7)) === False
+    isUInt64Hex(fromSome(packHexBytes "00" 9)) === False
+    isUInt64Hex(fromSome(packHexBytes "00" 32)) === False
+    isUInt64Hex minBytes32Hex === False
+    isUInt64Hex maxBytes32Hex === False
+    isUInt64Hex minUInt32Hex === False
+    isUInt64Hex maxUInt32Hex === False
+    isUInt64Hex minUInt64Hex === True
+    isUInt64Hex maxUInt64Hex === True
+    isUInt64Hex minUInt256Hex === False
+    isUInt64Hex maxUInt256Hex === False
+
+    isUInt256Hex(fromSome(packHexBytes "00" 32)) === True
+    isUInt256Hex(fromSome(packHexBytes "00" 8)) === False
+    isUInt256Hex(fromSome(packHexBytes "00" 4)) === False
+    isUInt256Hex(fromSome(packHexBytes "00" 33)) === False
+    isUInt256Hex(fromSome(packHexBytes "00" 31)) === False
+    isUInt256Hex minBytes32Hex === True
+    isUInt256Hex maxBytes32Hex === True
+    isUInt256Hex minUInt32Hex === False
+    isUInt256Hex maxUInt32Hex === False
+    isUInt256Hex minUInt64Hex === False
+    isUInt256Hex maxUInt64Hex === False
+    isUInt256Hex minUInt256Hex === True
+    isUInt256Hex maxUInt256Hex === True
+
+    pure ()
