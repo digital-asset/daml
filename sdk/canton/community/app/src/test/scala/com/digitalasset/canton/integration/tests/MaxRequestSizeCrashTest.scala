@@ -4,6 +4,7 @@
 package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.base.error.utils.DecodedCantonError
+import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -181,6 +182,7 @@ class MaxRequestSizeCrashReferenceIntegrationTestPostgres extends MaxRequestSize
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
+@UnstableTest // TODO(#24987)
 class MaxRequestSizeCrashBftOrderingIntegrationTestPostgres extends MaxRequestSizeCrashTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(new UseBftSequencer(loggerFactory))

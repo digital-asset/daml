@@ -4,7 +4,10 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.digitalasset.canton.platform.apiserver.services.VersionFile
+import com.softwaremill.quicklens.*
+import sttp.apispec
 import sttp.apispec.asyncapi.AsyncAPI
+import sttp.apispec.openapi.OpenAPI
 import sttp.apispec.{Schema, SchemaLike, asyncapi, openapi}
 import sttp.tapir.docs.asyncapi.AsyncAPIInterpreter
 import sttp.tapir.docs.openapi.OpenAPIDocsInterpreter
@@ -109,11 +112,13 @@ object ApiDocsGenerator {
       .getOrElse((componentName, componentSchema))
 
   def createDocs(lapiVersion: String, endpointDescriptions: Seq[AnyEndpoint]): ApiDocs = {
-    val openApiDocs: openapi.OpenAPI = OpenAPIDocsInterpreter().toOpenAPI(
-      endpointDescriptions,
-      "JSON Ledger API HTTP endpoints",
-      lapiVersion,
-    )
+    val openApiDocs: openapi.OpenAPI = OpenAPIDocsInterpreter()
+      .toOpenAPI(
+        endpointDescriptions,
+        "JSON Ledger API HTTP endpoints",
+        lapiVersion,
+      )
+      .openapi("3.0.3")
 
     val proto = new ProtoParser().readProto()
     val supplementedOpenApi = supplyProtoDocs(openApiDocs, proto)
@@ -127,7 +132,9 @@ object ApiDocsGenerator {
     val supplementedAsyncApi = supplyProtoDocs(asyncApiDocs, proto)
     import sttp.apispec.asyncapi.circe.yaml.*
 
-    val openApiYaml: String = supplementedOpenApi.toYaml
+    val fixed3_0_3Api: OpenAPI = OpenAPI3_0_3Fix.fixTupleDefinition(supplementedOpenApi)
+
+    val openApiYaml: String = fixed3_0_3Api.toYaml3_0_3
     val asyncApiYaml: String = supplementedAsyncApi.toYaml
 
     ApiDocs(openApiYaml, asyncApiYaml)
@@ -158,4 +165,20 @@ object GenerateJSONApiDocs extends App {
     docsTargetDir.resolve("asyncapi.yaml"),
     staticDocs.asyncApi.getBytes(StandardCharsets.UTF_8),
   )
+}
+
+object OpenAPI3_0_3Fix {
+  def fixTupleDefinition(existingDefinition: OpenAPI): OpenAPI = existingDefinition
+    .modify(_.components.each.schemas.at("Tuple2_String_String"))
+    .using {
+      case schema: Schema =>
+        schema.copy(
+          prefixItems = None,
+          items = Some(sttp.apispec.Schema(`type` = Some(List(apispec.SchemaType.String)))),
+          minItems = Some(2),
+          maxItems = Some(2),
+        )
+      case other => other
+    }
+
 }

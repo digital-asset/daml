@@ -4,7 +4,7 @@
 package com.digitalasset.canton.sequencing
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.connection.v30
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc.ApiInfoServiceStub
 import com.digitalasset.canton.connection.v30.GetApiInfoResponse
@@ -19,6 +19,7 @@ import com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.SequencerS
 import com.digitalasset.canton.sequencing.ConnectionX.ConnectionXConfig
 import com.digitalasset.canton.sequencing.InternalSequencerConnectionX.ConnectionAttributes
 import com.digitalasset.canton.sequencing.SequencerConnectionXPool.SequencerConnectionXPoolConfig
+import com.digitalasset.canton.sequencing.SequencerSubscriptionPool.SequencerSubscriptionPoolConfig
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth
 import com.digitalasset.canton.topology.{
@@ -228,6 +229,52 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
 
     ResourceUtil.withResource(pool)(f(_, connectionFactory.createdConnections, listener))
   }
+
+  protected def mkSubscriptionPoolConfig(
+      trustThreshold: PositiveInt,
+      reserve: NonNegativeInt,
+  ): SequencerSubscriptionPoolConfig =
+    SequencerSubscriptionPoolConfig(trustThreshold, reserve)
+
+  protected def withSubscriptionPool[V](
+      trustThreshold: PositiveInt,
+      livenessMargin: NonNegativeInt,
+      connectionPool: SequencerConnectionXPool,
+  )(f: (SequencerSubscriptionPool, TestHealthListener) => V): V = {
+    val config = mkSubscriptionPoolConfig(trustThreshold, livenessMargin)
+
+    val subscriptionPool = SequencerSubscriptionPoolFactory.create(
+      initialConfig = config,
+      pool = connectionPool,
+      clock = wallClock,
+      timeouts = timeouts,
+      loggerFactory = loggerFactory,
+    )
+
+    val listener = new TestHealthListener(subscriptionPool.health)
+    subscriptionPool.health.registerOnHealthChange(listener)
+
+    ResourceUtil.withResource(subscriptionPool)(f(_, listener))
+  }
+
+  protected def withConnectionAndSubscriptionPools[V](
+      nbConnections: PositiveInt,
+      trustThreshold: PositiveInt,
+      attributesForConnection: Int => ConnectionAttributes,
+      expectedSynchronizerIdO: Option[SynchronizerId] = None,
+      livenessMargin: NonNegativeInt,
+  )(f: (SequencerConnectionXPool, SequencerSubscriptionPool, TestHealthListener) => V): V =
+    withConnectionPool(
+      nbConnections,
+      trustThreshold,
+      attributesForConnection,
+      expectedSynchronizerIdO,
+    ) { case (connectionPool, _createdConnections, _connectionPoolListener) =>
+      withSubscriptionPool(trustThreshold, livenessMargin, connectionPool) {
+        (subscriptionPool, subscriptionPoolListener) =>
+          f(connectionPool, subscriptionPool, subscriptionPoolListener)
+      }
+    }
 
   protected class TestInternalSequencerConnectionXFactory(
       attributesForConnection: Int => ConnectionAttributes
