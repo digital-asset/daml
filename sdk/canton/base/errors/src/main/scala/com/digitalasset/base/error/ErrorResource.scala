@@ -37,6 +37,7 @@ object ErrorResource {
   lazy val Offset: ErrorResource = ErrorResource("OFFSET")
   lazy val ExpectedType: ErrorResource = ErrorResource("EXPECTED_TYPE")
   lazy val FieldIndex: ErrorResource = ErrorResource("FIELD_INDEX")
+  lazy val CryptoValue: ErrorResource = ErrorResource("CRYPTO_VALUE")
 
   lazy val all: Seq[ErrorResource] = Seq(
     CommandId,
@@ -56,6 +57,7 @@ object ErrorResource {
     InterfaceId,
     Offset,
     PackageName,
+    CryptoValue,
     Parties,
     Party,
     SynchronizerAlias,

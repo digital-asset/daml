@@ -166,6 +166,21 @@ object RejectionGenerators {
             ) =>
           CommandExecutionErrors.Interpreter.UpgradeError.DowngradeFailed
             .Reject(renderedMessage, error)
+        case LfInterpretationError.CCTP(
+        error: LfInterpretationError.CCTP.MalformedByteEncoding
+        ) =>
+          CommandExecutionErrors.Interpreter.CryptoError.MalformedByteEncoding
+            .Reject(renderedMessage, error)
+        case LfInterpretationError.CCTP(
+        error: LfInterpretationError.CCTP.MalformedKey
+        ) =>
+          CommandExecutionErrors.Interpreter.CryptoError.MalformedKey
+            .Reject(renderedMessage, error)
+        case LfInterpretationError.CCTP(
+        error: LfInterpretationError.CCTP.MalformedSignature
+        ) =>
+          CommandExecutionErrors.Interpreter.CryptoError.MalformedSignature
+            .Reject(renderedMessage, error)
         case LfInterpretationError.Dev(_, err) =>
           CommandExecutionErrors.Interpreter.InterpretationDevError
             .Reject(renderedMessage, err)
