@@ -14,7 +14,6 @@ Scripts compiled with `daml3-script` before this time are still compatible.
 * :doc:`Daml.Script.Internal.LowLevel <Daml-Script-Internal-LowLevel>`
 * :doc:`Daml.Script.Internal.Questions <Daml-Script-Internal-Questions>`
 * :doc:`Daml.Script.Internal.Questions.Commands <Daml-Script-Internal-Questions-Commands>`
-* :doc:`Daml.Script.Internal.Questions.Crypto <Daml-Script-Internal-Questions-Crypto>`
 * :doc:`Daml.Script.Internal.Questions.Crypto.Text <Daml-Script-Internal-Questions-Crypto-Text>`
 * :doc:`Daml.Script.Internal.Questions.Exceptions <Daml-Script-Internal-Questions-Exceptions>`
 * :doc:`Daml.Script.Internal.Questions.Packages <Daml-Script-Internal-Questions-Packages>`
