@@ -4395,6 +4395,30 @@ ContractId functions
 
   [*Available in versions >= 1.11*]
 
+Cryptography functions
+~~~~~~~~~~~~~~~~~~~~~~
+
+In the following, we assume that all hex encoded strings are non-empty and use lower case hexadecimal notation.
+
+* ``TEXT_TO_HEX : 'Text' → 'Text'``
+
+   Given ASCII text, returns the hex string of the hex encoded ASCII text.
+
+* ``HEX_TO_TEXT : 'Text' → 'Text'``
+
+   Given a hex encoded string, returns the ASCII decoded text.
+
+* ``SECP256K1_BOOL : 'Text' → 'Text' → 'Text' → 'Bool'``
+
+   Given a hex string encoding a DER formatted Secp256k1 public key, a hex string encoded message
+   and a hex string encoded signature, return ``True`` when we are able to validate that
+   the message has been signed by the public key with the given signature. Otherwise, return ``False``.
+
+* ``KECCAK256_TEXT : 'Text' → 'Text'``
+
+   Given a hex string encoding a message, return the messages Keccak-256 digest as a hex
+   encoded string.
+
 List functions
 ~~~~~~~~~~~~~~
 
